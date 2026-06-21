@@ -6,7 +6,7 @@
   <br>
   <img src="img/sbos-subtitle.png" alt="Sovereign Business Operating System" width="700">
   <br><br>
-  <em>"Crecemos junto a ti"</em>
+  <strong>"Crecemos junto a ti"</strong>
   <br>
   <sub>"Growing with you"</sub>
 </p>
