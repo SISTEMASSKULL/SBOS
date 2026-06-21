@@ -3,7 +3,7 @@ description: >-
   SBOS es el sistema operativo inteligente que unifica, gobierna y asegura
   los doce dominios de autenticación y control empresarial. Infraestructura
   soberana para Iberoamérica. Blockchain anchoring, BitMask Dual, Zero Trust.
-url: https://sistemasskull.github.io/SBOS
+url: https://sistemasskull.github.io
 baseurl: /SBOS
 google_analytics:
 show_downloads: false
