@@ -10,5 +10,4 @@ show_downloads: false
 github:
   repository_url: https://github.com/SISTEMASSKULL/SBOS
 plugins:
-  - jekyll-sitemap
   - jekyll-seo-tag
