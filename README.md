@@ -4,7 +4,7 @@
   <br><br>
   <img src="img/sbos-wordmark.svg" alt="SBOS" width="700">
   <br>
-  <img src="img/sbos-subtitle.svg" alt="Sovereign Business Operating System" width="700">
+  <img src="img/sbos-subtitle.png" alt="Sovereign Business Operating System" width="700">
   <br><br>
   <em>"Crecemos junto a ti"</em>
   <br>
