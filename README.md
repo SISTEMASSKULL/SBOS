@@ -2,6 +2,8 @@
   <br>
   <a href="https://github.com/SISTEMASSKULL">← SKULL</a>
   <br><br>
+  <img src="img/skull-isotipo.svg" alt="SKULL" width="80">
+  <br><br>
   <img src="img/sbos-wordmark.svg" alt="SBOS" width="700">
   <br>
   <img src="img/sbos-subtitle.png" alt="Sovereign Business Operating System" width="700">
