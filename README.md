@@ -2,7 +2,7 @@
   <br>
   <a href="https://github.com/SISTEMASSKULL">← SKULL</a>
   <br><br>
-  <strong>S B O S</strong>
+  <img src="img/sbos-wordmark.svg" alt="SBOS" width="400">
   <br>
   Sovereign Business Operating System
   <br><br>
