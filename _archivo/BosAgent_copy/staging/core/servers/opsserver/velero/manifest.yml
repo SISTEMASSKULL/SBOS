@@ -1,0 +1,42 @@
+# manifest.yml — Ficha velero (SBOS-005 §opsserver)
+# SBOS-049 §4 · Order 395 · Deployment
+identity:
+  id: velero
+  name: Velero K8s DR
+  version: "1.14"
+  category: 1
+  criticality: true
+  server: opsserver
+  description: "K8s disaster recovery snapshots to MinIO"
+
+workload:
+  type: Deployment
+  namespace: sbos-ops
+  replicas: 1
+  service_account: velero-sa
+
+order:
+  execution_order: 395
+  timeout_minutes: 15
+
+requirements:
+  dependencies:
+    - minio
+  cpu_request: "200m"
+  cpu_limit: "1000m"
+  memory_request: "256Mi"
+  memory_limit: "512Mi"
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+health:
+  check_command: "velero version"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

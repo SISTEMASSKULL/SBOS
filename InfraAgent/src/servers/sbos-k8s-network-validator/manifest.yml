@@ -1,0 +1,37 @@
+# sbos-k8s-network-validator — Ficha 04
+# Validación de conectividad de red, DNS, y verificación de políticas
+# Tipo 1 (bash) — ejecuta verificaciones, no modifica estado
+# P14: diagnosis_first — solo observa, no altera
+
+version: "1.0.0"
+categoria: 1
+tipo: bash
+orden: 4
+criticidad: true
+tiempo_estimado: 120
+
+dependencias:
+  - sbos-bootstrap-os
+  - sbos-bootstrap-k8s
+  - sbos-bootstrap-platform
+
+servidor_logico: hostserver
+namespace_k8s: kube-system
+
+descripcion: |
+  Valida la conectividad de red del cluster K8s: DNS interno, resolución
+  de servicios, comunicación entre pods en distintos namespaces, verificación
+  de NetworkPolicy default-deny sin romper tráfico esencial, y validación
+  de que el CNI (Calico) está enrutando correctamente.
+
+post_install: []
+
+rollback: null
+
+signals:
+  - __SBOS__STEP_START__
+  - __SBOS__STEP_OK__
+  - __SBOS__STEP_FAIL__
+  - __SBOS__STEP_SKIP__
+  - __SBOS__ROLLBACK_START__
+  - __SBOS__CLEANUP_DONE__

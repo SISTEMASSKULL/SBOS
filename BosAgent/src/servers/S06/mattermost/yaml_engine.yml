@@ -1,0 +1,114 @@
+# yaml_engine.yml — mattermost
+# Iteración 1: Mattermost 10.6.0 Team Edition, OIDC contra Keycloak, DB PostgreSQL
+#   - 5 canales de auditoría pre-creados (#compliance, #seguridad, #auth-alerts, #operaciones, #admin)
+#   - 5 incoming webhooks (uno por canal) — URLs guardadas en Vault
+#   - IDEMPOTENTE: verifica deployment + API ping + canales antes de reinstalar
+# Iteración 2: Plugin SBOS-Context para ctx_id en posts, compliance export, eDiscovery
+
+namespace: sbos-collab
+image: "mattermost/mattermost-team-edition:10.6.0"
+replicas: 1
+
+database:
+  host: postgresql.sbos-data.svc.cluster.local
+  port: 5432
+  name: mattermost_db
+  user: postgres
+  driver: postgres
+
+oidc:
+  enabled: true
+  issuer: "https://keycloak.sbos-security.svc.cluster.local:8080/realms/sbos"
+  client_id: "mattermost"
+  client_secret_vault_path: "secret/bauth/collab/mattermost/oidc-client-secret"
+  button_text: "Login con Keycloak"
+  discovery_endpoint: "/.well-known/openid-configuration"
+
+service:
+  api_port: 8065
+  ssl_port: 8067
+  cluster_ip: 9064
+  type: ClusterIP
+
+# 5 canales de auditoría — creados automáticamente al instalar
+audit_channels:
+  - name: "compliance"
+    display_name: "Compliance"
+    purpose: "D3 Financiero: alertas de límites, SoD, transacciones rechazadas, reportes SIN"
+    type: "P"  # privado
+  - name: "seguridad"
+    display_name: "Seguridad"
+    purpose: "D2 Físico: accesos denegados, puertas forzadas, alarmas, rondas de guardia"
+    type: "P"
+  - name: "auth-alerts"
+    display_name: "Auth Alerts"
+    purpose: "Autenticación: bloqueos, step-up, MFA resets, brute force, password screening"
+    type: "P"
+  - name: "operaciones"
+    display_name: "Operaciones"
+    purpose: "D4 Temporal: fuera de horario, delegaciones expiradas, cierres de gestión"
+    type: "P"
+  - name: "admin"
+    display_name: "Admin"
+    purpose: "SysAdmin: SU break-glass, rotación llaves, backups, sync KC+Tryton fallido"
+    type: "P"
+
+# Webhooks para Novu — creados automáticamente
+webhooks:
+  bot_username: "SBOS Security Bot"
+  bot_icon_url: "https://assets.sbos.local/bot-security.png"
+  channels:
+    - channel: "compliance"
+      description: "Alertas D3 Financiero — bAuth/Novu"
+    - channel: "seguridad"
+      description: "Alertas D2 Físico — bAuth/Novu"
+    - channel: "auth-alerts"
+      description: "Alertas de Autenticación — bAuth/Novu"
+    - channel: "operaciones"
+      description: "Alertas D4 Temporal — bAuth/Novu"
+    - channel: "admin"
+      description: "Alertas de Administración — bAuth/Novu"
+
+probes:
+  liveness:
+    http_get:
+      path: /api/v4/system/ping
+      port: 8065
+    initial_delay_seconds: 30
+    period_seconds: 15
+    failure_threshold: 3
+  readiness:
+    http_get:
+      path: /api/v4/system/ping
+      port: 8065
+    initial_delay_seconds: 15
+    period_seconds: 10
+    failure_threshold: 3
+  startup:
+    http_get:
+      path: /api/v4/system/ping
+      port: 8065
+    initial_delay_seconds: 10
+    period_seconds: 10
+    failure_threshold: 30
+
+resources:
+  requests:
+    cpu: "200m"
+    memory: "512Mi"
+  limits:
+    cpu: "2000m"
+    memory: "2Gi"
+
+# Asignación de miembros a canales por rol bAuth
+channel_membership:
+  compliance:
+    roles: ["ROL-JEFE-*", "ROL-CONTADOR-*", "ROL-AUDITOR-*"]
+  seguridad:
+    roles: ["ROL-JEFE-SEGURIDAD", "ROL-PORTERO", "ROL-OPERADOR-CCTV"]
+  auth-alerts:
+    roles: ["SYS-*", "ROL-ADMIN-*"]
+  operaciones:
+    roles: ["ROL-GERENTE-*", "ROL-JEFE-*", "ROL-SUPERVISOR-*"]
+  admin:
+    roles: ["SYS-SUPERUSUARIO", "SYS-PLATAFORMA-SEGURIDAD", "SYS-PLATAFORMA-SRE"]

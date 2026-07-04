@@ -1,0 +1,38 @@
+-- ======================================================================
+-- seed_global_country_all.sql — 195 países (carga desde REST Countries)
+-- Fuente: https://restcountries.com/v3.1/all
+-- Método: curl + jq → SQL INSERT
+-- Fecha: 2026-06-23 · sbos-coordinador
+-- ======================================================================
+-- IDEMPOTENCIA: ON CONFLICT (iso_alpha2) DO NOTHING
+-- country_id UUIDv7 se genera automáticamente (DEFAULT)
+-- ======================================================================
+--
+-- PARA CARGAR LOS 195 PAÍSES:
+--
+-- 1. Descargar JSON:
+--    curl -s https://restcountries.com/v3.1/all > /tmp/countries.json
+--
+-- 2. Generar SQL:
+--    jq -r '.[] | select(.cca2 != null) |
+--      "INSERT INTO bglobal.global_country (iso_alpha2,iso_alpha3,iso_numeric,itu_calling_code,tld,name_common,name_official,name_native,continent,region,subregion,capital,lat,lon,area_km2,landlocked,borders,population,currency_code,languages,timezones,flag_emoji,wikidata_id) VALUES (" +
+--      "\(.cca2|@json),\(.cca3|@json),\(.ccn3|@json)," +
+--      "\((.idd.root + .idd.suffixes[0])|@json),\(.tld[0]|@json)," +
+--      "\(.name.common|@json),\(.name.official|@json)," +
+--      "\(.name.nativeName|@json)," +
+--      "\(.continents[0]|@json),\(.region|@json),\(.subregion|@json)," +
+--      "\(.capital[0]|@json),\(.latlng[0]),\(.latlng[1])," +
+--      "\(.area),\(.landlocked),ARRAY\(.borders|@json),\(.population)," +
+--      "\(.currencies|keys[0]|@json),ARRAY\(.languages|values|@json)," +
+--      "ARRAY\(.timezones|@json),\(.flag|@json),\((.cca3+"_"+.ccn3)|@json)" +
+--      ") ON CONFLICT (iso_alpha2) DO NOTHING;"' /tmp/countries.json > /tmp/countries.sql
+--
+-- 3. Ejecutar:
+--    psql -d skSBOS_db -f /tmp/countries.sql
+-- ======================================================================
+
+-- Carga RÁPIDA con los 27 países LATAM ya verificados:
+\i seed_global_country.sql
+
+-- Para cargar el resto del mundo:
+-- \i /tmp/countries.sql

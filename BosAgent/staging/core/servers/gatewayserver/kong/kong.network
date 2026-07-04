@@ -1,0 +1,32 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kong-netpol
+  namespace: sbos-gateway
+spec:
+  podSelector:
+    matchLabels:
+      app: kong
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              sbos-role: ingress
+        - namespaceSelector:
+            matchLabels:
+              sbos-role: internal
+      ports:
+        - protocol: TCP
+          port: 8000
+        - protocol: TCP
+          port: 8443
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: sbos-installer
+      ports:
+        - protocol: TCP
+          port: 8001

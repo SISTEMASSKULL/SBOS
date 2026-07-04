@@ -1,0 +1,51 @@
+# yaml_engine.yml — redis
+# Iteración 1: hacer que arranque (standalone + 3 DBs + persistencia AOF+RDB)
+
+namespace: sbos-data
+image: "redis:8.6.2-alpine"
+replicas: 1
+
+storage:
+  pv_name: sbos-redis-pv
+  pvc_name: sbos-redis-pvc
+  capacity: 10Gi
+  storage_class: local-path
+
+service:
+  name: redis
+  port: 6379
+  cluster_ip_port: 8120
+
+config:
+  maxmemory: "512mb"
+  maxmemory-policy: "allkeys-lru"
+  save: "900 1 300 10 60 10000"
+  appendonly: "yes"
+  appendfilename: "appendonly.aof"
+  databases: 16
+  loglevel: "notice"
+  protected-mode: "no"
+
+databases:
+  0: "cache — caché de sesiones, tokens, respuestas frecuentes"
+  1: "ctx_id — Context Registry (SBOS-049)"
+  2: "streams — bkernel:index_queue, biedata:events, bos:audit"
+
+streams:
+  - name: "bkernel:index_queue"
+    description: "Cola de indexación para bSearch"
+    db: 2
+  - name: "biedata:events"
+    description: "Eventos de integración de biedata"
+    db: 2
+  - name: "bos:audit"
+    description: "Eventos de auditoría de bos"
+    db: 2
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "256Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"

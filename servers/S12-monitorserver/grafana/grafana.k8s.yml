@@ -1,0 +1,117 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: sbos-monitor
+spec:
+  type: ClusterIP
+  selector:
+    app: grafana
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: sbos-monitor
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      serviceAccountName: grafana-sa
+      securityContext:
+        fsGroup: 472
+      containers:
+        - name: grafana
+          image: docker.io/grafana/grafana:11.5
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: GF_DATABASE_TYPE
+              value: postgres
+            - name: GF_DATABASE_HOST
+              value: postgresql.sbos-data
+            - name: GF_DATABASE_NAME
+              value: grafana_db
+            - name: GF_DATABASE_USER
+              value: grafana
+            - name: GF_DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-secret
+                  key: db-password
+            - name: GF_AUTH_GENERIC_OAUTH_ENABLED
+              value: "true"
+            - name: GF_AUTH_GENERIC_OAUTH_AUTH_URL
+              value: "https://auth.${CLIENT_DOMAIN}/realms/skbos/protocol/openid-connect/auth"
+            - name: GF_AUTH_GENERIC_OAUTH_TOKEN_URL
+              value: "https://auth.${CLIENT_DOMAIN}/realms/skbos/protocol/openid-connect/token"
+            - name: GF_AUTH_GENERIC_OAUTH_API_URL
+              value: "https://auth.${CLIENT_DOMAIN}/realms/skbos/protocol/openid-connect/userinfo"
+            - name: GF_AUTH_GENERIC_OAUTH_CLIENT_ID
+              value: grafana
+            - name: GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-secret
+                  key: oidc-client-secret
+            - name: GF_SERVER_ROOT_URL
+              value: "https://status.sksistemas.com"
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/grafana
+            - name: datasources
+              mountPath: /etc/grafana/provisioning/datasources
+              readOnly: true
+            - name: dashboards
+              mountPath: /etc/grafana/provisioning/dashboards
+              readOnly: true
+            - name: config
+              mountPath: /etc/grafana/grafana.ini
+              subPath: grafana.ini
+              readOnly: true
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: grafana-data
+        - name: datasources
+          configMap:
+            name: grafana-datasources
+        - name: dashboards
+          configMap:
+            name: grafana-dashboards
+        - name: config
+          configMap:
+            name: grafana-config

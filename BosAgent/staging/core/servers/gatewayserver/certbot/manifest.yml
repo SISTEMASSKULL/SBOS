@@ -1,0 +1,42 @@
+# manifest.yml — Ficha certbot (SBOS-005 §gatewayserver)
+# SBOS-049 §4 · Order 142 · Deployment
+identity:
+  id: certbot
+  name: Certbot
+  version: "5.6.0"
+  category: 1
+  criticality: true
+  server: gatewayserver
+  description: "Let's Encrypt certificate renewal, DNS-01 challenge"
+
+workload:
+  type: Deployment
+  namespace: sbos-gateway
+  replicas: 1
+  service_account: certbot-sa
+
+order:
+  execution_order: 142
+  timeout_minutes: 15
+
+requirements:
+  dependencies:
+    - nginx-web
+  cpu_request: "100m"
+  cpu_limit: "500m"
+  memory_request: "128Mi"
+  memory_limit: "256Mi"
+
+
+deployment:
+  strategy: Recreate
+
+governance:
+
+
+health:
+  check_command: "certbot --version"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

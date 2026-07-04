@@ -1,0 +1,57 @@
+# yaml_engine.yml — keycloak
+# Iteración 1: start-dev → Deployment 1 réplica, DB PostgreSQL keycloak_db
+# Iteración 2 (futura): start optimizado, TLS Vault PKI, SPIs SKULL
+# Iteración 3 (futura): 2+ réplicas, Infinispan session sharing, rolling update sin pérdida sesiones
+
+namespace: sbos-security
+image: "quay.io/keycloak/keycloak:26.6.2"
+replicas: 1
+
+database:
+  vendor: postgres
+  host: postgresql.sbos-data.svc.cluster.local
+  port: 5432
+  name: keycloak_db
+  schema: public
+  secret: keycloak-db-credentials
+
+service:
+  http_port: 8080
+  management_port: 9000
+  cluster_ip_port: 8200
+
+mode: start-dev
+
+admin:
+  username_secret: keycloak-admin
+  key_user: KEYCLOAK_ADMIN
+  key_pass: KEYCLOAK_ADMIN_PASSWORD
+
+jvm_opts: "-Xms256m -Xmx512m"
+
+health_enabled: true
+metrics_enabled: true
+
+features:
+  - token-exchange
+  - admin-fine-grained-authz
+
+resources:
+  requests:
+    cpu: "300m"
+    memory: "512Mi"
+  limits:
+    cpu: "2"
+    memory: "1Gi"
+
+realms:
+  - name: master
+    description: "Realm administrador del sistema SBOS"
+
+oidc_clients:
+  - name: kong
+    protocol: openid-connect
+    access_type: confidential
+  - name: sbos-ui
+    protocol: openid-connect
+    access_type: public

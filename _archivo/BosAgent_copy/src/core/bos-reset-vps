@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+# bos-reset-vps — Limpieza total para volver a instalar SBOS desde cero.
+# Elimina: daemon bos, K8s completo, estado, logs, datos y puertos residuales.
+# Restaura: contraseña root = 12345678ubuntu
+# Uso: bos-reset-vps [--full]   (--full también elimina kubeadm/kubelet/kubectl)
+set -euo pipefail
+
+FULL=0
+[[ "${1:-}" == "--full" ]] && FULL=1
+
+echo '========================================'
+echo ' RESET VPS — preparando instalación limpia'
+echo '========================================'
+
+# ── 1. Detener daemon bos ──────────────────────────────────────────────────
+echo '[1/7] Deteniendo daemon bos...'
+# Usar patrón exacto para no matar bosctl ni bos-reset-vps
+pkill -fx '/usr/local/bin/bos' 2>/dev/null || true
+if [[ -f /run/bos/bos.pid ]]; then
+    kill "$(cat /run/bos/bos.pid)" 2>/dev/null || true
+fi
+sleep 2
+pkill -9 -fx '/usr/local/bin/bos' 2>/dev/null || true
+rm -f /run/bos/bos.sock /run/bos/bos.pid 2>/dev/null || true
+
+# ── 2. Liberar puertos K8s residuales ────────────────────────────────────
+echo '[2/7] Liberando puertos K8s residuales (6443, 2379, 2380, 10250)...'
+for _port in 6443 2379 2380 10250 10257 10259; do
+    _pid=$(fuser "${_port}/tcp" 2>/dev/null | tr -s ' ' '\n' | grep -E '^[0-9]+$' | head -1 || true)
+    if [[ -n "$_pid" ]]; then
+        echo "  Puerto ${_port} ocupado por PID ${_pid} — terminando"
+        kill -9 "$_pid" 2>/dev/null || true
+    fi
+done
+
+# ── 3. Reset K8s ──────────────────────────────────────────────────────────
+echo '[3/7] Eliminando cluster K8s...'
+if command -v k3s-uninstall.sh > /dev/null 2>&1; then
+    k3s-uninstall.sh 2>/dev/null || true
+fi
+if command -v kubeadm > /dev/null 2>&1; then
+    kubeadm reset --force 2>/dev/null || true
+fi
+
+# Eliminar manifiestos estáticos del control plane
+rm -f /etc/kubernetes/manifests/kube-apiserver.yaml \
+      /etc/kubernetes/manifests/etcd.yaml \
+      /etc/kubernetes/manifests/kube-controller-manager.yaml \
+      /etc/kubernetes/manifests/kube-scheduler.yaml 2>/dev/null || true
+
+# Limpiar configuraciones K8s
+rm -rf /etc/kubernetes /var/lib/kubelet /var/lib/etcd 2>/dev/null || true
+rm -rf /root/.kube /etc/bos/.kube 2>/dev/null || true
+rm -rf /etc/cni /opt/cni /etc/k3s 2>/dev/null || true
+
+# Limpieza de interfaces de red K8s residuales
+ip link delete cni0      2>/dev/null || true
+ip link delete flannel.1 2>/dev/null || true
+ip link delete calico    2>/dev/null || true
+
+# Detener kubelet si sigue corriendo
+systemctl stop kubelet 2>/dev/null || true
+
+# ── 4. Eliminar estado BOS ────────────────────────────────────────────────
+echo '[4/7] Eliminando estado BOS...'
+rm -f /etc/bos/.sbos_state.json 2>/dev/null || true
+rm -rf /var/log/bos/fichas/ 2>/dev/null || true
+mkdir -p /var/log/bos/fichas
+truncate -s 0 /var/log/bos/bos.log 2>/dev/null || true
+
+# ── 5. Eliminar datos de aplicaciones ────────────────────────────────────
+echo '[5/7] Eliminando datos de aplicaciones (/data)...'
+rm -rf /data 2>/dev/null || true
+
+# ── 6. Opciones --full: desinstalar kubeadm/kubelet/kubectl ──────────────
+if [[ "$FULL" -eq 1 ]]; then
+    echo '[6/7] --full: desinstalando kubeadm, kubelet, kubectl, containerd...'
+    apt-get purge -y kubeadm kubelet kubectl containerd.io containerd 2>/dev/null || true
+    apt-get autoremove -y 2>/dev/null || true
+    rm -rf /var/lib/containerd /etc/containerd 2>/dev/null || true
+else
+    echo '[6/7] Reiniciando containerd (usar --full para desinstalar todo)...'
+    systemctl restart containerd 2>/dev/null || true
+fi
+
+# ── 7. Restaurar contraseña root ─────────────────────────────────────────
+echo '[7/7] Restaurando contraseña root...'
+echo 'root:12345678ubuntu' | chpasswd
+
+echo '========================================'
+echo ' Reset completo. VPS lista para instalar'
+echo ' Ejecutar: bosctl setup'
+echo '========================================'

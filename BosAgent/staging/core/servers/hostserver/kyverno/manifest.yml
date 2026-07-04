@@ -1,0 +1,43 @@
+# manifest.yml — Ficha kyverno (SBOS-005 §hostserver)
+# SBOS-049 §4 · Order 155 · Deployment
+identity:
+  id: kyverno
+  name: Kyverno Policy Engine
+  version: "1.12"
+  category: 1
+  criticality: true
+  server: hostserver
+  description: "K8s policy engine: deny-by-default, image verification, mutation"
+
+workload:
+  type: Deployment
+  namespace: sbos-installer
+  replicas: 1
+  service_account: kyverno-sa
+
+order:
+  execution_order: 155
+  timeout_minutes: 15
+
+requirements:
+  dependencies:
+    - network-validator
+  cpu_request: "200m"
+  cpu_limit: "1000m"
+  memory_request: "256Mi"
+  memory_limit: "1Gi"
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+  auto_install: false
+
+
+health:
+  check_command: "kubectl get policies -A"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

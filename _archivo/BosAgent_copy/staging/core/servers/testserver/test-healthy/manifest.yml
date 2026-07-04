@@ -1,0 +1,14 @@
+identity:
+  id: test-healthy
+  name: Test Healthy Ficha
+  version: "1.0"
+  category: 0
+  criticality: false
+  server: testserver
+  description: "Ficha de prueba — siempre saludable"
+
+health:
+  check_command: "/bin/true"
+  check_interval_seconds: 30
+  check_timeout_seconds: 5
+  consecutive_failures_threshold: 2

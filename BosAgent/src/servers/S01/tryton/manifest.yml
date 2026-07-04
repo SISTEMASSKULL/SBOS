@@ -1,0 +1,51 @@
+identity:
+  id: tryton
+  server: S01
+  version: "7.4"
+  category: 1
+  criticality: true
+  description: "Tryton ERP — Contabilidad, inventario, ventas. MDM hub via bKernel CDC."
+
+workload:
+  type: statefulset
+  runtime: docker
+  namespace: sbos-erp
+  replicas: 1
+
+order:
+  execution_order: 170
+
+requirements:
+  dependencies:
+    - postgresql
+    - keycloak
+
+governance:
+  auto_install: false
+  requires_approval: false
+  category_label: "aplicacion-erp"
+
+meta:
+  backend: k8s
+  idempotent: true
+  estimated_minutes: 10
+  rollback_support: true
+
+ports:
+  - name: http
+    port: 8000
+    protocol: TCP
+
+health:
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get statefulset tryton -n sbos-erp -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
+  expected_output: "1"
+  timeout_seconds: 30
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/tryton.log
+
+versions:
+  tryton: "7.4"
+  postgresql: "18.4"

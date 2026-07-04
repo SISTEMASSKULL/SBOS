@@ -1,0 +1,40 @@
+# yaml_engine.yml — sbos-bootstrap-monitoring
+# Observabilidad base del cluster K8s: node-exporter + kube-state-metrics.
+# Iteración 1: hacer que arranque (métricas básicas disponibles para prometheus).
+# Las fichas prometheus y grafana de S12 usarán estos endpoints.
+
+namespace: sbos-monitoring
+
+components:
+  prometheus_node_exporter:
+    version: "1.8.2"
+    image: "prom/node-exporter:v1.8.2"
+    port: 9100
+    type: DaemonSet
+    tolerations:
+      - operator: Exists
+    volumes:
+      - name: proc
+        hostPath: /proc
+      - name: sys
+        hostPath: /sys
+      - name: root
+        hostPath: /
+
+  kube_state_metrics:
+    version: "2.13.0"
+    image: "registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.13.0"
+    port: 8080
+    metrics_port: 8081
+    type: Deployment
+    replicas: 1
+
+rbac:
+  create: true
+  cluster_role: sbos-monitoring-reader
+  service_account: sbos-monitoring
+
+network_policy:
+  allow_prometheus_scrape:
+    from_namespace: sbos-monitoring
+    ports: [9100, 8080, 8081]

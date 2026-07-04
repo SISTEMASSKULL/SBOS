@@ -1,0 +1,69 @@
+identity:
+  id: nginx
+  server: S02
+  version: 1.28.0
+  category: 1
+  criticality: true
+  description: >
+    Nginx 1.28.0 — NGINX Ingress en HOST S02 (§8.4 del Proyecto Master).
+    Rol único: recibir tráfico externo en :80/:443 y delegar TODO a Kong.
+    Kong es quien resuelve dominios (Domain Resolver), crea dctx_id (CTX Resolver),
+    valida JWT+ctx_id e inyecta headers X-SBOS-*. Nginx NO rutea subdominios
+    ni bypasea Kong. En Iteración 2: TLS Certbot + ModSecurity WAF.
+
+workload:
+  type: bash
+  runtime: bash
+
+order:
+  execution_order: 170
+
+requirements:
+  os: "Ubuntu 26.04 LTS"
+  dependencies:
+    - kong
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "ingress"
+
+meta:
+  backend: bash
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: true
+
+ports:
+  - port: 80
+    protocol: TCP
+    description: "HTTP — entrada principal (Iteración 2 redirigirá a 443)"
+    host: true
+    external: true
+  - port: 443
+    protocol: TCP
+    description: "HTTPS — TLS Certbot (Iteración 2)"
+    host: true
+    external: true
+  - port: 9113
+    protocol: TCP
+    description: "Prometheus metrics — nginx-exporter vía stub_status (localhost only)"
+    host: true
+    external: false
+
+health:
+  type: command
+  command: "systemctl is-active nginx && curl -sf http://localhost/health"
+  timeout_seconds: 5
+
+audit:
+  ctx_id_required: false
+  log_path: /var/log/bos/fichas/nginx.log
+  note: >
+    nginx no genera ctx_id. El ctx_id viaja en el header X-Ctx-Id desde
+    Kong hacia los servicios upstream. nginx lo registra en el log de acceso
+    para trazabilidad pero no lo valida — eso es trabajo de Kong.
+
+versions:
+  package: "nginx=1.28.0-*"
+  namespace: null

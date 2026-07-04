@@ -1,0 +1,102 @@
+# yaml_engine.yml — sbos-bootstrap-k8s
+# Mapeo declarativo nombre_tarea → función_bash + timeout + exit_code esperado
+
+phases:
+  pre_install:
+    - task: verificar_k8s_128
+      function: verify_k8s_version_128
+      timeout: 10
+      on_fail: ABORT
+      description: "Verificar K8s >= 1.28 antes de kubeadm init"
+
+    - task: verificar_crio_activo
+      function: verify_crio_active
+      timeout: 10
+      on_fail: ABORT
+      description: "CRI-O debe estar corriendo antes de init"
+
+    - task: verificar_swap_off
+      function: verify_swap_disabled
+      timeout: 5
+      on_fail: ABORT
+      description: "Swap debe estar deshabilitado — K8s lo requiere"
+
+    - task: verificar_red
+      function: verify_network_prereqs
+      timeout: 15
+      on_fail: ABORT
+      description: "Verificar conectividad, DNS, puertos necesarios libres"
+
+  install:
+    - task: kubeadm_init
+      function: run_kubeadm_init
+      timeout: 300
+      on_fail: ABORT
+      description: "kubeadm init --kubernetes-version=1.28 --cri-socket unix:///var/run/crio/crio.sock"
+
+    - task: copiar_kubeconfig
+      function: copy_kubeconfig_to_user
+      timeout: 10
+      on_fail: ABORT
+      description: "Copiar admin.conf a ~/.kube/config con permisos 600"
+
+    - task: instalar_calico
+      function: install_calico_ebpf
+      timeout: 180
+      on_fail: ABORT
+      description: "Instalar Calico CNI con eBPF mode, NetworkPolicy engine"
+
+    - task: instalar_metallb
+      function: install_metallb_l2
+      timeout: 120
+      on_fail: ABORT
+      description: "Instalar MetalLB en modo L2 para LoadBalancer services"
+
+    - task: instalar_nginx_ingress
+      function: install_nginx_ingress
+      timeout: 120
+      on_fail: CONTINUE
+      description: "Instalar NGINX Ingress Controller"
+
+    - task: instalar_cert_manager
+      function: install_cert_manager
+      timeout: 120
+      on_fail: CONTINUE
+      description: "Instalar cert-manager para automatización TLS"
+
+    - task: instalar_metrics_server
+      function: install_metrics_server
+      timeout: 90
+      on_fail: CONTINUE
+      description: "Instalar metrics-server para HPA y kubectl top"
+
+  post_install:
+    - task: verificar_nodo_ready
+      function: verify_node_ready
+      timeout: 120
+      on_fail: ABORT
+      description: "Esperar que el nodo aparezca Ready (máx 2 min)"
+
+    - task: verificar_pods_sistema
+      function: verify_system_pods
+      timeout: 180
+      on_fail: ABORT
+      description: "Verificar todos los pods de kube-system Running"
+
+    - task: verificar_calico_pods
+      function: verify_calico_pods
+      timeout: 120
+      on_fail: ABORT
+      description: "Verificar pods Calico (calico-node, calico-kube-controllers)"
+
+    - task: verificar_metallb
+      function: verify_metallb_pods
+      timeout: 60
+      on_fail: ABORT
+      description: "Verificar pods MetalLB Running"
+
+    - task: verificar_coredns
+      function: verify_coredns
+      timeout: 60
+      on_fail: ABORT
+      description: "Verificar CoreDNS responde (nslookup test)"

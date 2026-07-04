@@ -1,0 +1,58 @@
+identity:
+  id: vault
+  server: S02
+  version: 2.0.1
+  category: 1
+  criticality: true
+  description: "HashiCorp Vault 2.0.1 — gestor de secretos soberano. AppRole sbos-pods, PKI engine, KV v2. Fuente de verdad para credenciales de todo el stack SBOS."
+
+workload:
+  type: StatefulSet
+  runtime: kubernetes
+
+order:
+  execution_order: 130
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-k8s
+    - sbos-bootstrap-cni
+    - sbos-bootstrap-storage
+    - postgresql
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "seguridad-critica"
+
+meta:
+  backend: helm
+  idempotent: false
+  estimated_minutes: 10
+  rollback_support: false
+
+ports:
+  - port: 8200
+    protocol: TCP
+    description: "Vault API + UI"
+    cluster_ip: 8170
+    internal_only: true
+  - port: 8201
+    protocol: TCP
+    description: "Vault cluster (Raft)"
+    internal_only: true
+
+health:
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get pod vault-0 -n sbos-security --no-headers 2>/dev/null | grep -c Running"
+  expected_output: "1"
+  timeout_seconds: 30
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/vault.log
+
+versions:
+  image: "hashicorp/vault:2.0.1"
+  pv_name: sbos-vault-pv
+  namespace: sbos-security

@@ -1,0 +1,30 @@
+# yaml_engine.yml — sbos-security
+# Security scan parameters (R16: parametrizable, sin hardcode)
+
+scan:
+  checks:
+    ubuntu: true
+    kubernetes: true
+    bosctl_rbac: true
+
+  severity_thresholds:
+    report_critical: true
+    report_high: true
+    report_medium: true
+    report_low: false
+
+  cis_benchmarks:
+    source: embedded  # static data compiled into bosctl binary
+    version: "1.9+"
+    standards:
+      - CIS Kubernetes Benchmark
+      - NIST SP 800-190
+      - IEC 62443-4-2
+
+rbac:
+  verify_readonly_blocked: true
+  config_path: /etc/bos/rbac/roles.json
+
+audit:
+  log_path: /var/log/bos/audit.log
+  default_lines: 50

@@ -1,0 +1,43 @@
+# manifest.yml — Ficha pgbackrest (SBOS-005 §dataserver)
+# SBOS-049 §4 · Order 108 · Deployment
+identity:
+  id: pgbackrest
+  name: pgBackRest
+  version: "2.52"
+  category: 1
+  criticality: true
+  server: dataserver
+  description: "PITR backup from standby replica"
+
+workload:
+  type: Deployment
+  namespace: sbos-data
+  replicas: 1
+  service_account: pgbackrest-sa
+
+order:
+  execution_order: 108
+  timeout_minutes: 15
+
+requirements:
+  dependencies:
+    - postgresql
+  cpu_request: "100m"
+  cpu_limit: "500m"
+  memory_request: "128Mi"
+  memory_limit: "256Mi"
+
+
+deployment:
+  strategy: Recreate
+
+governance:
+backup_enabled: true
+  backup_schedule: "0 2 * * *"
+
+health:
+  check_command: "pgbackrest version"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

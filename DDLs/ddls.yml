@@ -1,0 +1,176 @@
+# =============================================================================
+# DOCTRINA DE DDLs Y SEEDS DEL PROYECTO SBOS
+# Única fuente de verdad de CÓMO se nombra, organiza y carga la base de datos.
+# Todo agente desarrollador la respeta A RAJATABLA. El Bibliotecario la custodia
+# y RECHAZA cualquier DDL o seed que la incumpla.
+#
+# Nace para terminar el desorden de "cada agente nombra como se le ocurre":
+# nombres inconsistentes, versiones que se multiplican (_v2, _v6, _final), y
+# dominios mezclados (bauth con bglobal y bcalendar dentro del mismo archivo).
+#
+# Base normativa (estándares internacionales):
+#   - Flyway naming: <prefijo>_<version>__<descripcion>  (doble guion bajo)
+#   - Migraciones inmutables en producción (nunca editar una ya aplicada)
+#   - Microservices.io: schema-per-service (una BD, un schema por servicio)
+# =============================================================================
+version: 2
+proyecto: SBOS
+nivel: proyecto          # ORQUESTA — 3 niveles de scope: fábrica | proyecto | microservicio
+root: true               # AISLADO: no hereda de otros proyectos ni comparte con ellos (como EditorConfig root=true)
+base_de_datos: SBOS_db
+motor: "PostgreSQL 18+"
+
+# ── REGLA DURA #1 — UNA SOLA BASE DE DATOS ──────────────────────────────────
+# Todo el entorno SBOS vive en UNA base de datos: SBOS_db. Cada microservicio
+# crea su propio SCHEMA dentro de ella. PROHIBIDO crear una base de datos por
+# microservicio. Con 100+ aplicaciones, una BD por servicio sería inmanejable
+# (100+ backups, 100+ pools, queries cross-service imposibles). El schema es la
+# frontera de propiedad; la base es única. NO hay discusión sobre este punto.
+base_de_datos_unica:
+  regla: "SBOS_db es la única base. Un schema por microservicio. Cero BD por servicio."
+  escalado: "El cómputo (réplicas de app) escala en K8s sin afectar a esto. Las
+             LECTURAS escalan con réplicas de PostgreSQL (HA). Si un schema se
+             vuelve cuello de botella de ESCRITURA, se extrae a su propia
+             instancia — el schema ya es la frontera limpia (reversible).
+             Mitigaciones: PgBouncer, particionado nativo PG18, RLS por tenant."
+
+# ── REGLA DURA #2 — CICLO DE VIDA: DESARROLLO vs PRODUCCIÓN ──────────────────
+# El ciclo de vida de cada servicio gobierna CÓMO se cambia su DDL.
+ciclo_de_vida:
+  desarrollo:
+    descripcion: "El servicio aún NO está certificado por el Operador."
+    regla_de_cambio: "Se CORRIGE la MISMA DDL in situ. Un objeto = un archivo,
+                      se edita ahí mismo."
+    prohibido: "ALTER TABLE para corregir el esquema. Los ALTER dispersan la
+                estructura y perjudican el análisis. La corrección va dentro del
+                CREATE TABLE original. La DDL queda siempre consolidada y legible."
+  produccion:
+    descripcion: "El servicio YA fue certificado / aplicado en producción."
+    regla_de_cambio: "La DDL se CONGELA (inmutable). Todo cambio posterior es una
+                      migración incremental NUEVA (ALTER), con nuevo número de
+                      orden. NUNCA se edita la DDL congelada (estándar Flyway)."
+  # Estado actual de cada servicio (hoy TODO el proyecto está en desarrollo).
+  estado_por_servicio:
+    bglobal: desarrollo
+    bos: desarrollo
+    bauth: desarrollo
+    bcalendar: desarrollo
+
+# ── PRINCIPIOS (irrenunciables) ─────────────────────────────────────────────
+principios:
+  idempotencia: "Toda DDL y todo seed son idempotentes. DDL: CREATE ... IF NOT
+                 EXISTS, cero DROP en carga normal. Seeds: ON CONFLICT o refresh
+                 por TRUNCATE+recarga. Cargar dos veces = mismo resultado, sin error."
+  autonomia: "Ninguna DDL ni seed llama a otra (sin \\i / \\ir). El ORQUESTADOR
+              (inicializar_sbos_db.sh) es el único que decide qué se carga y en qué orden."
+  orden_por_dependencias: "Schemas → tablas → índices/FK → funciones/RLS → seeds.
+                           Entre servicios: el orden lo fija orden_de_servicios.
+                           Dentro de un servicio: el número local NN."
+  un_solo_lugar: "Ningún agente crea DDLs/seeds sueltos donde quiera. Todo entra
+                  por esta estructura. Fin del desorden."
+  aprobacion_humana: "Todo cambio de DDL o seed (crear, modificar, aplicar,
+                      commitear) requiere aprobación explícita del humano."
+
+# ── REGLA DURA #3 — CONVENCIÓN DE NOMBRES ───────────────────────────────────
+convencion_de_nombres:
+  formato_migracion: "<servicio>_<NN>__<descripcion>.sql"
+  formato_seed:      "<servicio>_<NN>__<tabla>.sql"
+  componentes:
+    servicio: "El microservicio/schema, tal cual: bglobal bos bauth bcalendar btax…
+               Se toma del schema REAL (INSERT INTO <schema>.<tabla>), no de un
+               prefijo inventado. Ej.: geo_timezone es bglobal; geo_trust_tier es bauth."
+    NN: "Orden LOCAL dentro del servicio (2 dígitos: 01, 02…). Solo ordena
+         dependencias internas. Empieza en 01 en cada servicio, independiente. Si
+         un servicio supera 99 archivos, usa 3 dígitos — sin afectar a los demás."
+    separador: "__ (doble guion bajo) separa el prefijo del objeto. Idiomático Flyway."
+    objeto: "Nombre de la tabla (seed) o descripción corta en snake_case (migración)."
+  ejemplos:
+    - "bos_01__control_plane.sql            (migración — schema bos)"
+    - "bglobal_01__global_country.sql       (seed — schema bglobal)"
+    - "bauth_16__ath_config_d1.sql          (seed — schema bauth)"
+    - "bcalendar_01__cal_calendar.sql       (seed — schema bcalendar)"
+    - "btax_01__factura_sin.sql             (futuro — sin reservar nada)"
+  casos_especiales:
+    nucleo_unido: "sbos_00__esquema_base.sql — ÚNICO archivo multi-schema (los 3
+                   schemas core juntos por FK circulares, ver seccion nucleo_unido).
+                   Prefijo 'sbos' = core del proyecto; 00 = se carga primero."
+    referencias: "<servicio>_00__referencia.sql — PUNTERO de lectura, NO crea nada
+                  (solo comentarios). Dice dónde están declaradas las tablas de ese
+                  servicio dentro de sbos_00, con columnas, índices y ejemplos."
+    catalogos_framework: "bauth_fw_NN__<fuente>.sql — los 16 catálogos de normas
+                          (NIST, ISO, OAuth, FIDO2…) que alimentan bauth.framework_raw."
+
+# ── REGLA DURA #4 — LA VERSIÓN VIVE EN GIT, NO EN EL NOMBRE ──────────────────
+# El problema que esto ataca: los agentes crean una versión por cada cambio
+# mínimo y se llenan de archivos que se confunden entre sí.
+versionado:
+  regla_de_oro: "Un objeto lógico = un archivo único y estable. La historia de
+                 cambios la lleva Git (git log / git diff), NUNCA el nombre."
+  en_desarrollo: "Si el objeto ya tiene archivo, se EDITA ese archivo. No se crea otro."
+  prohibido_en_el_nombre:
+    - "_v2  _v3  _v6  (cualquier _vN)"
+    - "_final  _fix  _new  _old  _clean  _copy"
+    - "_corregido  _bueno  _def  _bak  _temp  _tmp  _prueba  _test"
+  consecuencia: "El Bibliotecario rechaza cualquier archivo con estos sufijos."
+
+# ── SERVICIOS (schemas) y ORDEN entre ellos ─────────────────────────────────
+# El orden de carga ENTRE servicios vive AQUÍ (un solo lugar), no en el nombre.
+# inicializar_sbos_db.sh carga los servicios en este orden; dentro de cada uno, por su NN.
+servicios:
+  bglobal:   "Catálogos globales ISO 4217/639/3166, timezone, menús (global_ geo_timezone menu_)"
+  bos:       "BOS IAM Installer — Control Plane (+ bos_privilege, bos_blockchain)"
+  bauth:     "Núcleo de identidad (idn_ ath_ ses_ fin_ aud_ sec_ geo_trust cfg_ privilege_ org_ framework_)"
+  bcalendar: "Calendario fiscal multi-nivel (cal_)"
+orden_de_servicios: [bglobal, bos, bauth, bcalendar]
+# Futuros: bkernel, biedata, bsearch, bnexus, bnotify, btax… se agregan aquí.
+
+# ── NÚCLEO UNIDO — la única excepción a "un archivo por servicio" ────────────
+# No es desorden: es una necesidad técnica verificada contra la BD real.
+nucleo_unido:
+  archivo: "migrations/sbos_00__esquema_base.sql"
+  contiene: "Los 3 schemas core (bglobal, bcalendar, bauth) — 179 tablas al ejecutarse."
+  por_que_no_se_separa: "Tienen CLAVES FORÁNEAS CIRCULARES entre sí:
+      bcalendar.cal_* y bglobal.menu_* → bauth.idn_tenant ; bauth.* → bglobal.global_country.
+      No existe orden 'un schema completo, luego el siguiente' que satisfaga el ciclo.
+      Separarlo produjo 60 errores en BD auxiliar. El orden entrelazado del archivo
+      unido SÍ resuelve las FK. Por eso se mantiene UNIDO e INTACTO — no se toca."
+  legibilidad: "Para saber qué hay dentro sin abrirlo: los punteros de lectura
+                bglobal_00__referencia.sql y bcalendar_00__referencia.sql listan sus
+                tablas, líneas, columnas, índices y ejemplos (solo comentarios)."
+  regla: "NO se separa. Tablas bauth nuevas SIN FK circular con bglobal/bcalendar
+          SÍ pueden ir en un bauth_NN__ aparte (como bauth_20/30)."
+
+# ── ESTRUCTURA DE DIRECTORIOS (plana — sin subcarpetas por schema) ──────────
+# Decisión del humano: entrar a una carpeta por cada schema es confuso. El
+# servicio va en el NOMBRE del archivo, no en la ruta.
+estructura:
+  raiz: "inicializar_sbos_db.sh (orquestador único) + ddls.yml (esta doctrina) + README.md"
+  migrations/: "DDLs de estructura: sbos_00__esquema_base.sql (núcleo unido) +
+                bos_01, bauth_10/20/30 (complementos) + <servicio>_00__referencia.sql
+                (punteros de lectura, no crean nada)."
+  seeds/:      "Todos los seeds (datos), planos: <servicio>_NN__<tabla>.sql y los
+                catálogos bauth_fw_NN__<fuente>.sql. Sin subcarpetas."
+  resources/:  "Herramientas que NO se cargan en la BD: JSON de extracción para
+                emergencias y scripts de despliegue (deploy_production.sh)."
+  db_backup.tar.gz: "Respaldo original comprimido (169 archivos). Resguardo histórico."
+  _obsoletos/: "Archivos superados (main.sql, versiones sueltas, orquestadores viejos,
+                tablas duplicadas). No se borran; se conservan para trazabilidad."
+
+# ── PUNTO DE ENTRADA ────────────────────────────────────────────────────────
+punto_de_entrada:
+  orquestador: "inicializar_sbos_db.sh"
+  invocacion: "SBOS_DSN=\"postgresql://user@host:5432/SBOS_db\" ./inicializar_sbos_db.sh"
+  fases: "1) DDLs (migrations, orden de dependencia)  2) catálogos de normas
+          3) seeds (cada uno independiente, en orden). Idempotente en las 3."
+
+# ── REGLAS PARA AGENTES DESARROLLADORES ─────────────────────────────────────
+reglas_agentes:
+  - "Ninguna DDL/seed fuera de esta estructura. Nada de archivos sueltos 'donde sea'."
+  - "El nombre lleva SIEMPRE el servicio real (schema) y el orden local NN."
+  - "PROHIBIDO versionar en el nombre (_v2, _final, _clean…). La versión es Git."
+  - "En desarrollo se corrige la MISMA DDL; CERO ALTER TABLE. En producción se congela."
+  - "Idempotencia obligatoria: IF NOT EXISTS (DDL), ON CONFLICT / refresh (seed)."
+  - "Autonomía: ninguna DDL/seed llama a otra. El orden lo pone inicializar_sbos_db.sh."
+  - "Una sola base de datos (SBOS_db); tu microservicio = un schema dentro de ella."
+  - "Cambio de DDL/seed → aprobación del humano ANTES de aplicar/commitear."
+  - "El Bibliotecario custodia esta doctrina; el Revisor audita la idempotencia."

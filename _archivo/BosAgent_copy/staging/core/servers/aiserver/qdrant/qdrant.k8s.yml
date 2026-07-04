@@ -1,0 +1,71 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qdrant
+  namespace: sbos-ai
+spec:
+  clusterIP: None
+  selector:
+    app: qdrant
+  ports:
+    - name: http
+      port: 6333
+      targetPort: 6333
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: qdrant
+  namespace: sbos-ai
+spec:
+  serviceName: qdrant
+  replicas: 1
+  selector:
+    matchLabels:
+      app: qdrant
+  template:
+    metadata:
+      labels:
+        app: qdrant
+    spec:
+      serviceAccountName: qdrant-sa
+      containers:
+        - name: qdrant
+          image: docker.io/qdrant/qdrant:v1.11
+          ports:
+            - containerPort: 6333
+              name: http
+
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/qdrant
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 2000m
+              memory: 2Gi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 6333
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 6333
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: sbos-fast
+        resources:
+          requests:
+            storage: 100Gi

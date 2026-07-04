@@ -1,0 +1,5 @@
+# /etc/sudoers.d/bosagent — permisos de poder para el panel de control SBOS
+# Instalado por: bosctl bootstrap (Capa 0)
+# El usuario bosagent puede apagar y reiniciar el servidor sin contraseña.
+# Necesario para que el ctrl panel (bos-console.service) ejecute estas acciones.
+bosagent ALL=(ALL) NOPASSWD: /usr/bin/systemctl poweroff, /usr/bin/systemctl reboot

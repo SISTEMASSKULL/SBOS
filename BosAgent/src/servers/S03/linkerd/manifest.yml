@@ -1,0 +1,53 @@
+identity:
+  id: linkerd
+  server: S03
+  version: 2.16.0
+  category: 1
+  criticality: true
+  description: "Linkerd 2.16.0 — service mesh con mTLS automático. Sidecar injection, ServiceProfile por servicio, zero-config mTLS entre todos los pods del cluster."
+
+workload:
+  type: Deployment
+  runtime: kubernetes
+
+order:
+  execution_order: 190
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-k8s
+    - sbos-bootstrap-cni
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "infraestructura-critica"
+
+meta:
+  backend: helm
+  idempotent: true
+  estimated_minutes: 8
+  rollback_support: true
+
+ports:
+  - port: 4191
+    protocol: TCP
+    description: "Linkerd proxy metrics"
+    internal_only: true
+  - port: 9990
+    protocol: TCP
+    description: "Linkerd proxy admin"
+    internal_only: true
+
+health:
+  type: command
+  command: ["linkerd", "version"]
+  timeout_seconds: 10
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/linkerd.log
+
+versions:
+  image: "cr.l5d.io/linkerd/controller:stable-2.16.0"
+  namespace: linkerd

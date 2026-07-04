@@ -1,0 +1,45 @@
+# manifest.yml — Ficha freepbx (SBOS-005 §commsserver)
+# SBOS-049 §4 · Order 338 · StatefulSet
+identity:
+  id: freepbx
+  name: FreePBX + Asterisk
+  version: "17"
+  category: 1
+  criticality: false
+  server: commsserver
+  description: "PBX/VoIP. criticality: false"
+
+workload:
+  type: StatefulSet
+  namespace: sbos-comms
+  replicas: 1
+  service_account: freepbx-sa
+
+order:
+  execution_order: 338
+  timeout_minutes: 20
+
+requirements:
+  dependencies:
+    - mysql
+    - oauth2-proxy
+  cpu_request: "500m"
+  cpu_limit: "2000m"
+  memory_request: "512Mi"
+  memory_limit: "1Gi"
+pvc_size: "30Gi"
+  pvc_storage_class: "sbos-fast"
+
+deployment:
+  strategy: Recreate
+
+governance:
+
+
+health:
+  check_command: "asterisk -rx 'core show version'"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+degraded_allowed: true
+  degraded_reason: "OAuth2-Proxy may be unavailable"

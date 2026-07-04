@@ -1,0 +1,54 @@
+identity:
+  id: grafana
+  server: S12
+  version: 12.0.1
+  category: 1
+  criticality: true
+  description: "Grafana 12.0.1 — visualización. OAuth2 Keycloak, dashboards SBOS precargados, datasources Prometheus+PostgreSQL+Loki."
+
+workload:
+  type: Deployment
+  runtime: kubernetes
+
+order:
+  execution_order: 215
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-storage
+    - prometheus
+    - keycloak
+    - vault
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "observabilidad"
+
+meta:
+  backend: helm
+  idempotent: true
+  estimated_minutes: 6
+  rollback_support: true
+
+ports:
+  - port: 3000
+    protocol: TCP
+    description: "Grafana UI"
+    cluster_ip: 3000
+    internal_only: true
+
+health:
+  type: http
+  path: /api/health
+  port: 3000
+  timeout_seconds: 10
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/grafana.log
+
+versions:
+  image: "grafana/grafana:12.0.1"
+  pv_name: sbos-grafana-pv
+  namespace: sbos-monitoring

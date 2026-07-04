@@ -1,0 +1,102 @@
+# ============================================================
+# BIEDATA BOX — notify-external
+# Despacha notificaciones del sistema a destinos externos
+# Disparada por Redis Stream: biedata:notify:{tenant}
+# ============================================================
+# Cubre: facturas emitidas, errores críticos, tareas vencidas,
+# alertas de módulos, advertencias de procesos batch.
+# NO es para MFA — eso es la caja mfa-push.
+# ============================================================
+
+box_id:       "notify-external"
+version:      "1.0.0"
+trigger:      redis_stream
+stream:       "biedata:notify:{tenant}"
+consumer_group: "biedata-notify-ext"
+timeout_ms:   10000
+retry:
+  max:        3
+  backoff_ms: 2000
+  strategy:   exponential
+
+secrets_from_vault:
+  - key: TELEGRAM_BOT_TOKEN
+    path: "secret/tenants/{tenant}/sbos-notifier/telegram-bot-token"
+  - key: TWILIO_ACCOUNT_SID
+    path: "secret/tenants/{tenant}/sbos-notifier/twilio-account-sid"
+  - key: TWILIO_AUTH_TOKEN
+    path: "secret/tenants/{tenant}/sbos-notifier/twilio-auth-token"
+  - key: SMTP_HOST
+    path: "secret/tenants/{tenant}/sbos-notifier/smtp-credentials"
+
+# Payload esperado del stream:
+# {
+#   "ctx_id":        "ctx-abc-123",
+#   "type":          "factura-emitida",   tipo del evento
+#   "severity":      "info",              info|warning|critical
+#   "source_module": "tryton",
+#   "recipient_id":  "usr_456",           user_id interno
+#   "channels":      ["telegram","email"], destinos a usar
+#   "template_vars": {                     variables para el template
+#     "invoice_number": "FAC-2026-001",
+#     "amount":         "1500.00",
+#     "currency":       "BOB",
+#     "partner_name":   "Juan Pérez"
+#   }
+# }
+
+# La caja resuelve el template desde notifier_db.notification_templates
+# y el chat_id/email desde notifier_db.notification_channels
+
+destinations:
+  telegram:
+    url:    "https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    method: POST
+    resolve_recipient: true   # busca chat_id en notification_channels
+    body: |
+      {
+        "chat_id": "{resolved_chat_id}",
+        "text":    "{rendered_template}",
+        "parse_mode": "Markdown"
+      }
+
+  whatsapp:
+    # Twilio WhatsApp API
+    url:    "https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Messages.json"
+    method: POST
+    auth:   basic
+    user:   "{TWILIO_ACCOUNT_SID}"
+    pass:   "{TWILIO_AUTH_TOKEN}"
+    resolve_recipient: true   # busca número en notification_channels
+    body: |
+      To=whatsapp:{resolved_phone}&
+      From=whatsapp:{TWILIO_WHATSAPP_NUMBER}&
+      Body={rendered_template}
+
+  email:
+    type:   smtp
+    resolve_recipient: true   # busca email en notification_channels
+    from:   "notificaciones@{tenant}.sksistemas.com"
+    subject: "{template_subject}"
+    body:    "{rendered_template}"
+    format:  text
+
+on_success:
+  - log_json:
+      level:   info
+      msg:     "notification_sent"
+      fields:  [ctx_id, type, channels, recipient_id, source_module]
+  - pg_insert:
+      db:    notifier_db
+      table: notification_events
+      data:  "{full_payload}"
+
+on_failure:
+  - log_json:
+      level:   error
+      msg:     "notification_failed"
+      fields:  [ctx_id, type, channel, error, retry_count]
+  - pg_insert:
+      db:    notifier_db
+      table: notification_events
+      data:  "{full_payload_with_error}"

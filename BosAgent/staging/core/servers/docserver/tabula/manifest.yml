@@ -1,0 +1,42 @@
+# manifest.yml — Ficha tabula (SBOS-005 §docserver)
+# SBOS-049 §4 · Order 300 · Deployment
+identity:
+  id: tabula
+  name: Tabula
+  version: "1.0"
+  category: 1
+  criticality: false
+  server: docserver
+  description: "PDF tables to CSV/XLSX"
+
+workload:
+  type: Deployment
+  namespace: sbos-docs
+  replicas: 1
+  service_account: tabula-sa
+
+order:
+  execution_order: 300
+  timeout_minutes: 10
+
+requirements:
+  dependencies:
+    - paperless-ngx
+  cpu_request: "100m"
+  cpu_limit: "500m"
+  memory_request: "128Mi"
+  memory_limit: "256Mi"
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+health:
+  check_command: "curl -sf http://localhost:8080/health"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

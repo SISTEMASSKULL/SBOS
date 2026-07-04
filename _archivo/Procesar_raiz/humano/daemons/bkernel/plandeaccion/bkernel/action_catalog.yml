@@ -1,0 +1,99 @@
+# action_catalog.yml — Catálogo de acciones biaos para bkernel
+# Acciones automatizables por el agente IA durante el desarrollo de bkernel
+# Versión: 1.0 · 2026-06-19
+
+version: 1
+project: bkernel
+agent: bkernel-dev
+
+actions:
+  # ── G0: Esqueleto y CI ──────────────────────────────────
+  - id: bk-g0-build
+    name: "Build completo del proyecto"
+    command: "cargo build --release 2>&1"
+    expected: "exit 0"
+    timeout: 300
+
+  - id: bk-g0-test
+    name: "Suite de tests completa"
+    command: "cargo test 2>&1"
+    expected: "test result: ok"
+    timeout: 300
+
+  - id: bk-g0-clippy
+    name: "Análisis estático Clippy"
+    command: "cargo clippy -- -D warnings 2>&1"
+    expected: "exit 0"
+    timeout: 120
+
+  - id: bk-g0-musl-build
+    name: "Build MUSL estático"
+    command: "RUSTFLAGS='-C target-feature=+crt-static' cargo build --release --target x86_64-unknown-linux-musl 2>&1"
+    expected: "exit 0"
+    timeout: 300
+
+  - id: bk-g0-binary-check
+    name: "Verificar binario estático + tamaño"
+    command: "file target/x86_64-unknown-linux-musl/release/bkernel-daemon && ls -lh target/x86_64-unknown-linux-musl/release/bkernel-daemon"
+    expected: "statically linked"
+    timeout: 10
+
+  # ── G1: CDC ─────────────────────────────────────────────
+  - id: bk-g1-cdc-test
+    name: "Tests de integración CDC (requiere PG fixture)"
+    command: "cargo test --features integration -- cdc:: 2>&1"
+    expected: "test result: ok"
+    timeout: 120
+
+  - id: bk-g1-checkpoint-test
+    name: "Test de resiliencia checkpoint (kill -9 x20)"
+    command: "cargo test --features integration -- state::checkpoint:: 2>&1"
+    expected: "test result: ok"
+    timeout: 300
+
+  # ── G2: Pipeline ────────────────────────────────────────
+  - id: bk-g2-cesql-test
+    name: "Suite de gramática CESQL"
+    command: "cargo test -- engine::cesql:: 2>&1"
+    expected: "test result: ok"
+    timeout: 60
+
+  # ── Verificación de puertos ─────────────────────────────
+  - id: bk-port-scan
+    name: "Escaneo de puertos — solo :9460 y :9461"
+    command: "ss -tlnp | grep bkernel-daemon"
+    expected: "9460|9461"
+    timeout: 10
+
+  # ── Conexión VPS ────────────────────────────────────────
+  - id: bk-vps-pods
+    name: "Verificar pods del stack en VPS"
+    command: "sshpass -p '12345678ubuntu' ssh -o StrictHostKeyChecking=no root@13.140.128.230 'KUBECONFIG=/etc/bos/.kube/config kubectl get pods -A | grep -v kube-system'"
+    expected: ""
+    timeout: 15
+
+  - id: bk-vps-pg-tables
+    name: "Verificar tablas en bkernel_db"
+    command: "sshpass -p '12345678ubuntu' ssh -o StrictHostKeyChecking=no root@13.140.128.230 \"KUBECONFIG=/etc/bos/.kube/config kubectl exec -n sbos-data postgresql-0 -- psql -U postgres -d bkernel_db -c '\\dt bkernel.*'\""
+    expected: ""
+    timeout: 15
+
+  # ── DDL ─────────────────────────────────────────────────
+  - id: bk-ddl-apply
+    name: "Aplicar DDL bkernel_db"
+    command: "sshpass -p '12345678ubuntu' ssh root@13.140.128.230 \"KUBECONFIG=/etc/bos/.kube/config kubectl exec -i -n sbos-data postgresql-0 -- psql -U postgres -d bkernel_db\" < migrations/001_init.sql"
+    expected: "CREATE TABLE|CREATE SCHEMA"
+    timeout: 30
+
+  # ── Métricas ────────────────────────────────────────────
+  - id: bk-metrics-check
+    name: "Verificar endpoint de métricas"
+    command: "curl -s http://localhost:9460/metrics | head -20"
+    expected: "bkernel_"
+    timeout: 10
+
+  - id: bk-health-check
+    name: "Verificar health endpoint"
+    command: "curl -s http://localhost:9461/health"
+    expected: "ok|healthy"
+    timeout: 10

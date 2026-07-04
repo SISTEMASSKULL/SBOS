@@ -1,0 +1,78 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: alloy
+  namespace: sbos-monitor
+spec:
+  selector:
+    matchLabels:
+      app: alloy
+  template:
+    metadata:
+      labels:
+        app: alloy
+    spec:
+      serviceAccountName: alloy-sa
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+        - name: alloy
+          image: docker.io/grafana/alloy:v1.7.0
+          args:
+            - "run"
+            - "--storage.path=/var/lib/alloy/data"
+            - "/etc/alloy/config.alloy"
+          ports:
+            - containerPort: 12345
+              name: http-metrics
+          volumeMounts:
+            - name: config
+              mountPath: /etc/alloy
+              readOnly: true
+            - name: varlog
+              mountPath: /var/log
+              readOnly: true
+            - name: journal
+              mountPath: /var/log/journal
+              readOnly: true
+            - name: data
+              mountPath: /var/lib/alloy/data
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 12345
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 12345
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          securityContext:
+            privileged: false
+            allowPrivilegeEscalation: false
+      volumes:
+        - name: config
+          configMap:
+            name: alloy-config
+        - name: varlog
+          hostPath:
+            path: /var/log
+            type: Directory
+        - name: journal
+          hostPath:
+            path: /var/log/journal
+            type: DirectoryOrCreate
+        - name: data
+          hostPath:
+            path: /var/lib/alloy/data
+            type: DirectoryOrCreate

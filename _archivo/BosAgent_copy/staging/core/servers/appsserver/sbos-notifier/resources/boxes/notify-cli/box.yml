@@ -1,0 +1,72 @@
+# ============================================================
+# BIEDATA BOX — notify-cli
+# Despacha alertas a terminal/CLI y topics ntfy para admins
+# Disparada por Redis Stream: biedata:notify:cli:{tenant}
+# ============================================================
+# Cubre:
+#   - Alertas en terminal del servidor (admins conectados)
+#   - Subscripción CLI: ntfy subscribe → log en tiempo real
+#   - Notificaciones desktop Linux/Windows/macOS vía ntfy
+#   - Salida a logs estructurados para Grafana Loki
+# ============================================================
+
+box_id:       "notify-cli"
+version:      "1.0.0"
+trigger:      redis_stream
+stream:       "biedata:notify:cli:{tenant}"
+consumer_group: "biedata-notify-cli"
+timeout_ms:   3000
+retry:
+  max:        1     # CLI es best-effort — no bloquear por esto
+  backoff_ms: 500
+
+# Payload esperado del stream:
+# {
+#   "ctx_id":        "ctx-abc-123",
+#   "type":          "alerta-sistema",
+#   "severity":      "critical",       info|warning|critical
+#   "source_module": "bkernel",
+#   "message":       "Backup fallido en S03",
+#   "topic":         "admin-alerts",   topic ntfy destino
+#   "priority":      "urgent"          min|low|default|high|urgent
+# }
+
+destinations:
+  ntfy_internal:
+    # Bus interno — sin salida al exterior
+    url:    "http://localhost:28204/{tenant}-{topic}"
+    method: POST
+    headers:
+      Title:    "[{severity}] {source_module}"
+      Priority: "{priority}"
+      Tags:     "{severity_tag}"   # info→info, warning→warning, critical→rotating_light
+      X-SBOS-CtxId: "{ctx_id}"
+    body: "{message}"
+
+  # Ejemplo de suscripción desde CLI (no enviado por la caja, solo documentado):
+  # ntfy subscribe http://localhost:28204/{tenant}-admin-alerts
+  # curl -s http://localhost:28204/{tenant}-admin-alerts/json
+  # bosctl notify subscribe --topic=admin-alerts --tenant={tenant}
+
+severity_to_priority:
+  info:     "default"
+  warning:  "high"
+  critical: "urgent"
+
+severity_to_tag:
+  info:     "information_source"
+  warning:  "warning"
+  critical: "rotating_light"
+
+on_success:
+  - log_json:
+      level:  info
+      msg:    "cli_notification_sent"
+      fields: [ctx_id, type, severity, source_module, topic]
+
+on_failure:
+  - log_json:
+      level:  warn
+      msg:    "cli_notification_failed"
+      fields: [ctx_id, error]
+  # CLI es best-effort — no aborta el proceso por fallo aquí

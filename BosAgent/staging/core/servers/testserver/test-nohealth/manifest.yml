@@ -1,0 +1,8 @@
+identity:
+  id: test-nohealth
+  name: Test No Health Ficha
+  version: "1.0"
+  category: 0
+  criticality: false
+  server: testserver
+  description: "Ficha de prueba — sin health check"

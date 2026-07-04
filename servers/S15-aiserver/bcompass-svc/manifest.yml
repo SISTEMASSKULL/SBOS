@@ -1,0 +1,44 @@
+# manifest.yml — Ficha bcompass-svc (SBOS-005 §aiserver)
+# SBOS-049 §4 · Order 430 · Deployment
+identity:
+  id: bcompass-svc
+  name: bCompass Service
+  version: "1.0"
+  category: 1
+  criticality: false
+  server: aiserver
+  description: "Route Engine + HITL (MIT SKULL)"
+
+workload:
+  type: Deployment
+  namespace: sbos-ai
+  replicas: 1
+  service_account: bcompass-svc-sa
+
+order:
+  execution_order: 430
+  timeout_minutes: 15
+
+requirements:
+  dependencies:
+    - postgresql
+    - keycloak
+    - ollama
+  cpu_request: "200m"
+  cpu_limit: "1000m"
+  memory_request: "256Mi"
+  memory_limit: "512Mi"
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+health:
+  check_command: "curl -sf http://localhost:8080/health"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

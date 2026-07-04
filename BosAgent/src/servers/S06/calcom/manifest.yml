@@ -1,0 +1,59 @@
+identity:
+  id: "calcom"
+  name: "Cal.com Calendar"
+  version: "6.1.0"
+  server: "S06"
+  namespace: "sbos-collab"
+  criticality: true
+
+workload:
+  type: "kubernetes"
+  state: "prod"
+
+order:
+  execution_order: 175
+
+parameters:
+  CALCOM_OIDC_ISSUER: "https://auth.sbos.local/realms/tenant-{id}"
+  CALCOM_OIDC_CLIENT_ID: "calcom"
+  CALCOM_NOVU_WEBHOOK_URL: "http://novu.sbos-notifier:28202/v1/trigger"
+
+requirements:
+  ram_mb: 1024
+  cpu_cores: 2
+  disk_gb: 20
+  dependencies:
+    - postgresql
+    - keycloak
+    - vault
+    - kong
+
+deployment:
+  namespace: "sbos-collab"
+  node_selector: "tipo=appserver"
+  k8s_manifest: "calcom.k8s.yml"
+  workload_type: "Deployment"
+  network_policy: "calcom.network"
+
+governance:
+  category: 2
+  backup_required: true
+  backup_schedule: "0 3 * * *"
+
+health:
+  check_command: "curl -sf http://localhost:9061/api/health"
+  check_via: "kubectl_exec"
+  pod_selector: "app=calcom"
+  interval_seconds: 30
+  failure_threshold: 3
+
+integrations:
+  provides_to:
+    - "novu"
+    - "mattermost"
+
+bsearch_config:
+  enabled: false
+
+compatibility:
+  min_iam_installer_version: "1.0.0"

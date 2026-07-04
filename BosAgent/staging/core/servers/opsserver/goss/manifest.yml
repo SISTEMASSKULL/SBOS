@@ -1,0 +1,43 @@
+# manifest.yml — Ficha goss (SBOS-005 §opsserver)
+# SBOS-049 §4 · Order 398 · Deployment
+identity:
+  id: goss
+  name: Goss Validator
+  version: "0.4"
+  category: 1
+  criticality: false
+  server: opsserver
+  description: "Backup integrity validation"
+
+workload:
+  type: Deployment
+  namespace: sbos-ops
+  replicas: 1
+  service_account: goss-sa
+
+order:
+  execution_order: 398
+  timeout_minutes: 10
+
+requirements:
+  dependencies:
+    - bareos
+    - velero
+  cpu_request: "50m"
+  cpu_limit: "200m"
+  memory_request: "64Mi"
+  memory_limit: "128Mi"
+
+
+deployment:
+  strategy: Recreate
+
+governance:
+
+
+health:
+  check_command: "goss --version"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

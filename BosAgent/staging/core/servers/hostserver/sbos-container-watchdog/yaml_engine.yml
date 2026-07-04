@@ -1,0 +1,46 @@
+# yaml_engine.yml — SBOS Container Watchdog lifecycle phases
+# SBOS-049 §4.4 · Order 20 · Host · Critical
+# Monitorea procesos core dentro del contenedor sbos-greenfield
+# R16 Zero hardcoding
+
+pre_install:
+  - name: "verify_bos_binary"
+    command: "test -x /usr/local/bin/bos || echo 'WARN: bos binary not found'"
+    timeout_seconds: 10
+
+install:
+  - name: "enable_bos_service"
+    command: "systemctl enable bos"
+    timeout_seconds: 30
+  - name: "start_bos_service"
+    command: "systemctl start bos"
+    timeout_seconds: 60
+  - name: "verify_bos_active"
+    command: "systemctl is-active bos"
+    timeout_seconds: 30
+
+post_install:
+  - name: "verify_bos_health"
+    command: "bosctl health 2>/dev/null || echo 'WARN: bosctl health check failed'"
+    timeout_seconds: 30
+
+update:
+  - name: "restart_bos"
+    command: "systemctl restart bos"
+    timeout_seconds: 60
+
+repair:
+  - name: "restart_bos"
+    command: "systemctl restart bos"
+    timeout_seconds: 60
+  - name: "verify_active"
+    command: "systemctl is-active bos"
+    timeout_seconds: 30
+
+uninstall:
+  - name: "stop_bos"
+    command: "systemctl stop bos"
+    timeout_seconds: 30
+  - name: "disable_bos"
+    command: "systemctl disable bos"
+    timeout_seconds: 10

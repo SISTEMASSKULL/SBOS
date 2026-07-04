@@ -1,0 +1,43 @@
+# manifest.yml — Ficha qdrant (SBOS-005 §aiserver)
+# SBOS-049 §4 · Order 418 · StatefulSet
+identity:
+  id: qdrant
+  name: Qdrant Vector DB
+  version: "1.11"
+  category: 1
+  criticality: false
+  server: aiserver
+  description: "Vector DB for RAG embeddings"
+
+workload:
+  type: StatefulSet
+  namespace: sbos-ai
+  replicas: 1
+  service_account: qdrant-sa
+
+order:
+  execution_order: 418
+  timeout_minutes: 15
+
+requirements:
+  dependencies:
+
+  cpu_request: "500m"
+  cpu_limit: "2000m"
+  memory_request: "1Gi"
+  memory_limit: "2Gi"
+pvc_size: "100Gi"
+  pvc_storage_class: "sbos-fast"
+
+deployment:
+  strategy: Recreate
+
+governance:
+
+
+health:
+  check_command: "curl -sf http://localhost:6333/health"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

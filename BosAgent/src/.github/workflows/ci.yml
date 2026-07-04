@@ -1,0 +1,233 @@
+# ============================================================
+# SBOS / BosAgent — Pipeline CI/CD
+# Autor: Ivan Jorge Villanueva Mollinedo — Sistemas SKULL
+# Co-Autor (IA): Claude Sonnet 4.6 — Anthropic
+#
+# Archivo: .github/workflows/ci.yml
+#
+# Triggers:
+#   - push a cualquier rama: ejecuta todos los checks
+#   - workflow_dispatch: ejecución manual desde GitHub
+#
+# El equipo hace commit directo a main. El pipeline actúa
+# como red de seguridad post-commit. Si algo falla, el
+# commit queda marcado con ❌ en el historial de GitHub
+# y el desarrollador recibe notificación inmediata.
+#
+# Para migrar a PR-based workflow en el futuro:
+#   on: push → on: [push, pull_request]
+#   Activar "Branch protection rules" en Settings → Branches
+#   Ver docs/ci/F0.5-activacion-branch-protection.md
+# ============================================================
+
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build & Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go 1.25
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Build
+        run: go build ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Format check
+        run: |
+          UNFORMATTED=$(gofmt -l .)
+          if [ -n "$UNFORMATTED" ]; then
+            echo "❌ Los siguientes archivos necesitan gofmt:"
+            echo "$UNFORMATTED"
+            echo ""
+            echo "Fix: gofmt -w ."
+            exit 1
+          fi
+          echo "✅ Formato correcto"
+
+  race:
+    name: Race Detection (HARD GATE)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go 1.25
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Race detection
+        env:
+          GORACE: "halt_on_error=1 log_path=/tmp/race_log"
+        run: |
+          # ./internal/... contiene toda la lógica — las races activas están aquí.
+          # Los cmd/ son entry points sin tests unitarios (no generan coverprofile válido).
+          go test -race -count=10 -timeout=5m -coverprofile=coverage.out ./internal/...
+          echo "✅ Zero data races detectadas"
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            coverage.out
+            /tmp/race_log.*
+          retention-days: 7
+
+  coverage:
+    name: Coverage (Warning Only)
+    runs-on: ubuntu-latest
+    needs: race
+    if: always()
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go 1.25
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Download coverage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-report
+        continue-on-error: true
+
+      - name: Coverage gate (WARNING — no bloquea hasta Fase 8)
+        continue-on-error: true
+        run: |
+          if [ ! -f coverage.out ]; then
+            echo "⚠️  No hay coverage.out disponible (posiblemente race falló)"
+            exit 0
+          fi
+
+          THRESHOLD=60
+
+          echo "## 📊 Reporte de Cobertura" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          go tool cover -func=coverage.out | tee -a $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+          TOTAL=$(go tool cover -func=coverage.out | grep '^total:' | awk '{print $3}' | tr -d '%')
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Total: ${TOTAL}% (threshold: ${THRESHOLD}%)**" >> $GITHUB_STEP_SUMMARY
+
+          TOTAL_INT=${TOTAL%.*}
+          if [ "$TOTAL_INT" -lt "$THRESHOLD" ]; then
+            echo "⚠️  WARNING: Cobertura ${TOTAL}% bajo threshold ${THRESHOLD}% — no bloquea (corregir en Fase 8)"
+          else
+            echo "✅ Cobertura ${TOTAL}% OK"
+          fi
+
+  summary:
+    name: Pipeline Status
+    runs-on: ubuntu-latest
+    needs: [build, race, coverage]
+    if: always()
+    timeout-minutes: 2
+
+    steps:
+      - name: Check results
+        run: |
+          BUILD="${{ needs.build.result }}"
+          RACE="${{ needs.race.result }}"
+          COVERAGE="${{ needs.coverage.result }}"
+
+          echo "## Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Resultado |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|-----------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Build & Lint | $BUILD |" >> $GITHUB_STEP_SUMMARY
+          echo "| Race Detection | $RACE |" >> $GITHUB_STEP_SUMMARY
+          echo "| Coverage (warning) | $COVERAGE |" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$BUILD" != "success" ] || [ "$RACE" != "success" ]; then
+            echo "❌ Pipeline FALLÓ — build: $BUILD, race: $RACE"
+            exit 1
+          fi
+
+          echo "✅ Pipeline OK"
+
+  # ──────────────────────────────────────────────────────────
+  # JOB 5: deploy-staging — Solo en pushes a main
+  # Propósito: compilar, desplegar y verificar en staging
+  # automáticamente cuando build y race pasan.
+  #
+  # Corre en el self-hosted runner de 13.140.128.230.
+  # Instalar con: docs/staging-runner-setup.sh
+  # ──────────────────────────────────────────────────────────
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: [self-hosted, linux, staging]
+    needs: [build, race]
+    if: |
+      github.ref == 'refs/heads/main' &&
+      needs.build.result == 'success' &&
+      needs.race.result == 'success'
+    environment: staging
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build bos binaries
+        run: |
+          /usr/local/go/bin/go build -o /tmp/bos-staging ./cmd/bos/
+          /usr/local/go/bin/go build -o /tmp/bosctl ./cmd/bosctl/
+          echo "✅ Binarios compilados"
+
+      - name: Deploy
+        run: |
+          sudo cp /tmp/bos-staging /usr/local/bin/bos-staging
+          sudo cp /tmp/bosctl /usr/local/bin/bosctl
+          sudo chown root:root /usr/local/bin/bos-staging /usr/local/bin/bosctl
+          sudo chmod 755 /usr/local/bin/bos-staging /usr/local/bin/bosctl
+          sudo systemctl restart bos-staging.service
+          sleep 5
+          sudo systemctl is-active bos-staging.service && echo "✅ bos-staging activo"
+
+      - name: Verify bootstrap
+        env:
+          BOS_ENV: ${{ vars.BOS_ENV }}
+        run: |
+          if [ -f /usr/local/bin/bosctl ]; then
+            /usr/local/bin/bosctl bootstrap verify --full
+            echo "✅ Staging verificado"
+          else
+            echo "⚠️  bosctl no instalado aún — verificación diferida a F1.x"
+          fi

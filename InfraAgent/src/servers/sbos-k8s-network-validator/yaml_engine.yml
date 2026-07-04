@@ -1,0 +1,58 @@
+# yaml_engine.yml — sbos-k8s-network-validator
+
+phases:
+  pre_install:
+    - task: verificar_kubectl
+      function: verify_kubectl_access
+      timeout: 10
+      on_fail: ABORT
+
+  install:
+    - task: validar_coredns
+      function: validate_coredns_resolution
+      timeout: 30
+      on_fail: ABORT
+      description: "Validar resolución DNS de CoreDNS (kubernetes.default.svc)"
+
+    - task: validar_calico_routing
+      function: validate_calico_routing
+      timeout: 60
+      on_fail: ABORT
+      description: "Validar enrutamiento Calico entre pods"
+
+    - task: validar_networkpolicy
+      function: validate_networkpolicy_enforcement
+      timeout: 60
+      on_fail: ABORT
+      description: "Validar que NetworkPolicy default-deny bloquea tráfico no permitido"
+
+    - task: validar_service_reachability
+      function: validate_service_reachability
+      timeout: 60
+      on_fail: ABORT
+      description: "Validar accesibilidad de kube-apiserver y servicios core"
+
+    - task: validar_pod_communication
+      function: validate_cross_namespace_comms
+      timeout: 60
+      on_fail: ABORT
+      description: "Validar comunicación entre pods en namespaces SBOS"
+
+    - task: validar_dns_external
+      function: validate_external_dns
+      timeout: 30
+      on_fail: CONTINUE
+      description: "Validar resolución DNS externa"
+
+    - task: validar_nodeport
+      function: validate_nodeport_access
+      timeout: 30
+      on_fail: CONTINUE
+      description: "Validar accesibilidad de NodePort services"
+
+  post_install:
+    - task: reporte_validacion
+      function: generate_validation_report
+      timeout: 15
+      on_fail: CONTINUE
+      description: "Generar reporte de validación de red"

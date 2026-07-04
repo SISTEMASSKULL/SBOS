@@ -1,0 +1,6 @@
+# bauth — Cargo configuration
+# B0.T03: MUSL static build solo para release
+
+# SOLO aplicar crt-static en release (proc-macros necesitan ser dinámicos)
+[target.x86_64-unknown-linux-musl]
+linker = "x86_64-linux-musl-gcc"

@@ -1,0 +1,35 @@
+# Grafana — Prometheus datasource
+# Stack: S12 monitorserver · Observabilidad-SBOS
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://localhost:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: "30s"
+      queryTimeout: "60s"
+      httpMethod: "POST"
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: tempo
+    version: 1
+    uid: prometheus
+
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://localhost:3100
+    editable: false
+    jsonData:
+      maxLines: 1000
+      derivedFields:
+        - name: trace_id
+          matcherRegex: "trace_id=(\\w+)"
+          url: "$${__value.raw}"
+          datasourceUid: tempo
+    version: 1
+    uid: loki

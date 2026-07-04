@@ -1,0 +1,18 @@
+// Package screens — {{.Group}}.go: pantalla {{.Name}} (generado por bosctl dev new-screen).
+// Ver POLICY.md §6 para el procedimiento completo de 7 pasos.
+package screens
+
+import tuimodel "bos/internal/tui/model"
+
+// Render{{.Name}} renderiza Screen{{.Name}}: TODO completar descripción.
+// Función pura: recibe Model, devuelve string, no modifica estado.
+func Render{{.Name}}(m tuimodel.Model) string {
+	return assembleScreen(m, build{{.Name}}Body(m))
+}
+
+// build{{.Name}}Body construye el cuerpo de la pantalla {{.Name}}.
+// TODO: implementar con assembleScreen/Mode/summaryRow/estilos de styles/.
+func build{{.Name}}Body(m tuimodel.Model) string {
+	_ = m // TODO: usar campos del modelo
+	return "Pantalla {{.Name}} en construcción."
+}

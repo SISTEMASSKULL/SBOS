@@ -1,0 +1,43 @@
+# manifest.yml — Ficha rabbitmq-erp (SBOS-005 §erpserver)
+# SBOS-049 §4 · Order 175 · StatefulSet
+identity:
+  id: rabbitmq-erp
+  name: RabbitMQ ERP
+  version: "3.13"
+  category: 1
+  criticality: true
+  server: erpserver
+  description: "AMQP broker: decoupling Tryton <-> Saleor/Airflow"
+
+workload:
+  type: StatefulSet
+  namespace: sbos-erp
+  replicas: 1
+  service_account: rabbitmq-erp-sa
+
+order:
+  execution_order: 175
+  timeout_minutes: 15
+
+requirements:
+  dependencies:
+    - postgresql
+  cpu_request: "200m"
+  cpu_limit: "1000m"
+  memory_request: "512Mi"
+  memory_limit: "1Gi"
+pvc_size: "20Gi"
+  pvc_storage_class: "sbos-fast"
+
+deployment:
+  strategy: Recreate
+
+governance:
+
+
+health:
+  check_command: "rabbitmqctl status"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

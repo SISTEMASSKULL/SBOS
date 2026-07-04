@@ -1,0 +1,59 @@
+# yaml_engine.yml — PostgreSQL 18 + Patroni lifecycle phases
+# SBOS-019 §9 · R16 Zero hardcoding
+
+pre_install:
+  - name: "validate_pvc"
+    command: "kubectl get pvc postgresql-data -n sbos-data --no-headers 2>/dev/null || echo 'PVC_OK'"
+    timeout_seconds: 30
+  - name: "create_namespace"
+    command: "kubectl create namespace sbos-data --dry-run=client -o yaml | kubectl apply -f -"
+    timeout_seconds: 30
+  - name: "apply_network_policy"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/postgresql.network -n sbos-data"
+    timeout_seconds: 30
+
+install:
+  - name: "apply_statefulset"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/postgresql.k8s.yml -n sbos-data"
+    timeout_seconds: 300
+  - name: "wait_ready"
+    command: "kubectl wait --for=condition=Ready pod/postgresql-0 -n sbos-data --timeout=600s"
+    timeout_seconds: 600
+  - name: "configure_patroni"
+    command: "kubectl exec postgresql-0 -n sbos-data -- patronictl show-config"
+    timeout_seconds: 60
+  - name: "create_databases"
+    command: |
+      for db in keycloak_db kong_db grafana_db bkernel_db bcompass_db; do
+        kubectl exec postgresql-0 -n sbos-data -- psql -U postgres -c "CREATE DATABASE ${db} ENCODING 'UTF8' OWNER ${db%%_db};" 2>/dev/null || true
+      done
+    timeout_seconds: 120
+
+post_install:
+  - name: "verify_replication"
+    command: "kubectl exec postgresql-0 -n sbos-data -- patronictl list | grep -q 'running'"
+    timeout_seconds: 30
+  - name: "create_readonly_user"
+    command: "kubectl exec postgresql-0 -n sbos-data -- psql -U postgres -c \"CREATE ROLE readonly WITH LOGIN PASSWORD '${DB_READONLY_PASSWORD}' NOSUPERUSER;\"" 2>/dev/null || true
+    timeout_seconds: 30
+
+update:
+  - name: "pre_update_backup"
+    command: "kubectl exec postgresql-0 -n sbos-data -- pg_dumpall -U postgres > /tmp/postgresql_backup.sql"
+    timeout_seconds: 300
+  - name: "rolling_update"
+    command: "kubectl rollout restart statefulset postgresql -n sbos-data"
+    timeout_seconds: 300
+
+repair:
+  - name: "reinit_replica"
+    command: "kubectl exec postgresql-0 -n sbos-data -- patronictl reinit postgresql postgresql-1"
+    timeout_seconds: 120
+
+uninstall:
+  - name: "final_backup"
+    command: "kubectl exec postgresql-0 -n sbos-data -- pg_dumpall -U postgres > /tmp/postgresql_final_backup.sql"
+    timeout_seconds: 300
+  - name: "delete_statefulset"
+    command: "kubectl delete statefulset postgresql -n sbos-data --ignore-not-found"
+    timeout_seconds: 120

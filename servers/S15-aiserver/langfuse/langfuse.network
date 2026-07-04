@@ -1,0 +1,21 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: langfuse-netpol
+  namespace: sbos-ai
+spec:
+  podSelector:
+    matchLabels:
+      app: langfuse
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              sbos-role: internal
+
+      ports:
+        - protocol: TCP
+          port: 3000

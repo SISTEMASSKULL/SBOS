@@ -1,0 +1,58 @@
+identity:
+  id: keycloak
+  server: S03
+  version: 26.6.2
+  category: 1
+  criticality: true
+  description: "Keycloak 26.6.2 — proveedor de identidad OIDC/OAuth2. Realm master, 5 SPIs SKULL, fuente de autenticación de todo el ecosistema SBOS."
+
+workload:
+  type: Deployment
+  runtime: kubernetes
+
+order:
+  execution_order: 140
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-k8s
+    - sbos-bootstrap-cni
+    - postgresql
+    - vault
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "seguridad-critica"
+
+meta:
+  backend: helm
+  idempotent: true
+  estimated_minutes: 12
+  rollback_support: true
+
+ports:
+  - port: 8080
+    protocol: TCP
+    description: "Keycloak HTTP (Iteración 1: sin TLS)"
+    cluster_ip: 8200
+    internal_only: true
+  - port: 9000
+    protocol: TCP
+    description: "Keycloak management (health)"
+    internal_only: true
+
+health:
+  type: http
+  path: /health/ready
+  port: 9000
+  timeout_seconds: 15
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/keycloak.log
+
+versions:
+  image: "quay.io/keycloak/keycloak:26.6.2"
+  namespace: sbos-security
+  db: keycloak_db

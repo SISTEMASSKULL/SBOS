@@ -1,0 +1,52 @@
+# manifest.yml — Ficha alloy (SBOS-005 §S12)
+# SBOS-049 §4 · Order 215 · DaemonSet
+# Recolecta logs: journald (systemd daemons) + archivos de agente → Loki
+identity:
+  id: alloy
+  name: Grafana Alloy
+  version: "1.7.0"
+  category: 1
+  criticality: false
+  server: monitorserver
+  description: "Log collector — journald + archivos → Loki, reemplaza Promtail"
+
+workload:
+  type: DaemonSet
+  namespace: sbos-monitor
+  replicas: 1
+  service_account: alloy-sa
+
+order:
+  execution_order: 215
+  timeout_minutes: 15
+
+requirements:
+  dependencies:
+    - loki
+  cpu_request: "100m"
+  cpu_limit: "500m"
+  memory_request: "256Mi"
+  memory_limit: "512Mi"
+  pvc_size: ""
+  pvc_storage_class: ""
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+  backup_enabled: false
+  backup_schedule: ""
+
+health:
+  check_command: "curl -sf http://localhost:12345/health"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+  degraded_allowed: true
+  degraded_reason: "Loki puede no estar disponible hasta que su ficha se construya"
+
+integrations:
+  loki:
+    url: "http://loki.sbos-monitor:3100"
+  exporters:
+    self_metrics: true

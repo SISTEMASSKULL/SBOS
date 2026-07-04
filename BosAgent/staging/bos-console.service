@@ -1,0 +1,26 @@
+[Unit]
+Description=SBOS Console — Panel de Control en TTY1
+Documentation=https://docs.sbos.internal/bos-console
+After=bos.service network-online.target
+Requires=bos.service
+
+[Service]
+Type=simple
+ExecStart=/opt/bos/bin/bosctl setup
+Restart=always
+RestartSec=2
+StandardInput=tty
+StandardOutput=tty
+StandardError=journal
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+UtmpIdentifier=bos0
+UtmpMode=user
+User=bosagent
+Group=bosagent
+WorkingDirectory=/etc/bos
+
+[Install]
+WantedBy=multi-user.target

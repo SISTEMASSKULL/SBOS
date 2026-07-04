@@ -1,0 +1,85 @@
+# F9.8 — ClusterRole bosagent: least privilege para el Operator Soberano
+# (BOS-REPAIR-02 §RBAC, CIS Kubernetes Benchmark 4.1.1, ADR-006).
+#
+# El daemon bos NO usa cluster-admin: este rol enumera exactamente los verbos
+# que el Operator necesita (cordon/drain/scale/restart/rollout) y nada más.
+# Los secrets de tenants quedan fuera — el bos llega a secretos vía Vault.
+#
+# Aplicar:    kubectl apply -f bosagent-clusterrole.yaml
+# Verificar:  kubectl auth can-i --list --as=system:serviceaccount:sbos-system:bosagent
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sbos-system
+  labels:
+    app.kubernetes.io/part-of: sbos
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: bosagent
+  namespace: sbos-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: bosagent
+  labels:
+    app.kubernetes.io/part-of: sbos
+rules:
+  # Observación del cluster (sagas de consulta bos.query.*)
+  - apiGroups: [""]
+    resources: ["nodes", "pods", "namespaces", "events", "services"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "daemonsets", "replicasets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch"]
+
+  # Gobierno de nodos: cordon/uncordon (patch de spec.unschedulable)
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["patch", "update"]
+
+  # Drain: evicción controlada de pods
+  - apiGroups: [""]
+    resources: ["pods/eviction"]
+    verbs: ["create"]
+
+  # Reinicio controlado vía saga (delete pod → ReplicaSet recrea)
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["delete"]
+
+  # Escalado y rollouts de workloads SBOS (los namespaces sbos-* los
+  # acota Kyverno en F10 — el enforcement por nombre vive en la saga)
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "deployments/scale", "statefulsets/scale"]
+    verbs: ["patch", "update"]
+
+  # Bootstrap: creación de namespaces sbos-*
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["create"]
+
+  # Logs de pods para diagnóstico (bos.query.repair Thread 6)
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: bosagent
+  labels:
+    app.kubernetes.io/part-of: sbos
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: bosagent
+subjects:
+  - kind: ServiceAccount
+    name: bosagent
+    namespace: sbos-system

@@ -1,0 +1,84 @@
+identity:
+  id: kong
+  server: S02
+  version: 3.9.0
+  category: 1
+  criticality: true
+  description: "Kong 3.9.x LTS — API Gateway soberano. Punto único de entrada. JWT validation, rate limiting, plugin Lua SBOS-Context para ctx_id. DB mode PostgreSQL kong_db. Status API en :8007 (Kong 3.x separado de Admin :8001)."
+
+workload:
+  type: Deployment
+  runtime: kubernetes
+
+order:
+  execution_order: 160
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-k8s
+    - sbos-bootstrap-cni
+    - postgresql
+    - keycloak
+    - vault
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "gateway-critico"
+
+meta:
+  backend: manifest
+  idempotent: true
+  estimated_minutes: 10
+  rollback_support: true
+  idempotency_checks:
+    - check: deployment_exists
+      value: "kong"
+      description: "Si el Deployment kong existe en sbos-gateway, saltar creacion."
+    - check: admin_api_responds
+      value: "http://127.0.0.1:8001/status"
+      description: "Si Admin API responde con database.reachable=true, skip total."
+    - check: proxy_responds
+      value: "http://<cluster-ip>:8000"
+      description: "Si el proxy HTTP acepta conexiones, gateway operativo."
+
+ports:
+  - port: 8000
+    protocol: TCP
+    description: "Kong proxy HTTP"
+    cluster_ip: 8160
+    internal_only: true
+  - port: 8443
+    protocol: TCP
+    description: "Kong proxy HTTPS"
+    cluster_ip: 8161
+    internal_only: true
+  - port: 8001
+    protocol: TCP
+    description: "Kong Admin API (restringida a sbos-system, sbos-gateway, sbos-security)"
+    internal_only: true
+  - port: 8007
+    protocol: TCP
+    description: "Kong Status API (health checks — /status, /status/ready). Kong 3.x dedicado."
+    internal_only: true
+
+health:
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config exec deploy/kong -n sbos-gateway -- kong health 2>/dev/null | grep -c healthy"
+  expected_output: "1"
+  timeout_seconds: 30
+  note: "Las probes de K8s usan :8007/status y :8007/status/ready SIN host (usan pod IP)."
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/kong.log
+
+versions:
+  image: "kong:3.9.0"
+  namespace: sbos-gateway
+  db: kong_db
+  db_user: kong
+  status_port: 8007
+  admin_port: 8001
+  proxy_http_port: 8000
+  proxy_https_port: 8443

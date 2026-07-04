@@ -1,0 +1,17 @@
+# Saga declarativa: reparación de ficha con verificación (F10.4).
+# Diagnóstico → reparación → verificación de salud. La reparación de ficha
+# tiene su propia compensación interna (rollback del installer ADR-021);
+# aquí el paso de verificación cierra el ciclo ITIL (post-check).
+# Producción: /etc/bos/ai/sagas/repair-ficha.yml
+nombre: repair-ficha
+pasos:
+  - id: diagnostico
+    metodo: bos.query.repair
+
+  - id: reparar
+    metodo: bos.ficha.repair
+    depende_de: [diagnostico]
+
+  - id: verificar
+    metodo: bos.health.check
+    depende_de: [reparar]

@@ -1,0 +1,94 @@
+# ================================================================
+# bauth.service — systemd unit para bAuth v2.0
+# Instalar: sudo cp bauth.service /etc/systemd/system/
+#           sudo systemctl daemon-reload
+#           sudo systemctl enable --now bauth
+#
+# DOC-SBOS-001 N3 · BAUTH-180 · ADR-001
+# ================================================================
+
+[Unit]
+Description=SBOS bAuth — Identity Core v2.0
+Documentation=https://github.com/SISTEMASSKULL/bos-install
+After=network-online.target postgresql.service redis.service
+Wants=network-online.target postgresql.service redis.service
+Requires=postgresql.service
+
+[Service]
+Type=notify
+NotifyAccess=main
+
+# ── Usuario y grupo ───────────────────────────────────────
+User=bauth
+Group=bosagent
+SupplementaryGroups=systemd-journal
+
+# ── Binario ────────────────────────────────────────────────
+ExecStart=/usr/local/bin/bauth
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStop=/bin/kill -TERM $MAINPID
+
+# ── Restart ────────────────────────────────────────────────
+Restart=on-failure
+RestartSec=5s
+RestartPreventExitStatus=SIGKILL
+
+# ── Watchdog ───────────────────────────────────────────────
+WatchdogSec=30s
+
+# ── Timeouts ───────────────────────────────────────────────
+TimeoutStartSec=30s
+TimeoutStopSec=10s
+
+# ── Sandbox / Hardening ────────────────────────────────────
+# File system
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/run/bos
+ReadOnlyPaths=/etc/bos/bauth.toml
+
+# Network
+PrivateNetwork=false
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+# Capabilities
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+
+# System calls
+SystemCallFilter=@system-service @network-io
+SystemCallArchitectures=native
+SystemCallErrorNumber=EPERM
+
+# Memory
+MemoryDenyWriteExecute=true
+LockPersonality=true
+
+# Device access
+PrivateDevices=true
+ProtectClock=true
+ProtectKernelLogs=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+
+# IPC
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RemoveIPC=true
+
+# ── Logging ────────────────────────────────────────────────
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=bauth
+
+# ── Límites ────────────────────────────────────────────────
+LimitNOFILE=65536
+LimitNPROC=512
+LimitCORE=0
+
+[Install]
+WantedBy=multi-user.target

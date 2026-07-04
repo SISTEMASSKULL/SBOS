@@ -1,0 +1,157 @@
+# Alertmanager — Observabilidad-SBOS
+# Stack: S12 monitorserver · Referencia: SBOS-032-OPERATIONS §4
+#
+# Routing:
+#   CRITICAL → 24/7, <15min, Wazuh CEF + Slack #sbos-alerts-critical
+#   HIGH     → laboral, <1h, Slack #sbos-alerts-high
+#   MEDIUM   → <4h, Slack #sbos-alerts-all
+#
+# Inhibition:
+#   PostgreSQLDown suprime KeycloakDown, bKernelDown (dependientes)
+#   bKernelDown suprime bKernelDLQBacklog, bKernelThroughputDegraded
+
+global:
+  resolve_timeout: 5m
+  smtp_require_tls: false
+
+# ─────────────────────────────────────────────
+# Templates — mensajes CEF para Wazuh
+# ─────────────────────────────────────────────
+templates:
+  - /etc/alertmanager/templates/cef.tmpl
+
+# ─────────────────────────────────────────────
+# Route tree
+# ─────────────────────────────────────────────
+route:
+  receiver: sbos-alerts-all
+  group_by:
+    - alertname
+    - severity
+    - component
+  group_wait: 10s
+  group_interval: 30s
+  repeat_interval: 4h
+
+  routes:
+    # ── CRITICAL: 24/7, Wazuh CEF + Slack ──
+    - match:
+        severity: critical
+      receiver: sbos-alerts-critical
+      group_wait: 5s
+      group_interval: 15s
+      repeat_interval: 15m
+      continue: true
+
+    # ── HIGH: laboral, Slack ──
+    - match:
+        severity: high
+      receiver: sbos-alerts-high
+      group_interval: 1m
+      repeat_interval: 1h
+
+    # ── MEDIUM: Slack ──
+    - match:
+        severity: medium
+      receiver: sbos-alerts-all
+      group_interval: 5m
+      repeat_interval: 4h
+
+# ─────────────────────────────────────────────
+# Inhibition — suprimir síntomas de causa raíz
+# ─────────────────────────────────────────────
+inhibit_rules:
+  - source_match:
+      alertname: PostgreSQLDown
+      severity: critical
+    target_match:
+      alertname: KeycloakDown
+
+  - source_match:
+      alertname: PostgreSQLDown
+      severity: critical
+    target_match:
+      alertname: bKernelDown
+
+  - source_match:
+      alertname: bKernelDown
+      severity: critical
+    target_match:
+      alertname: bKernelDLQBacklog
+
+  - source_match:
+      alertname: bKernelDown
+      severity: critical
+    target_match:
+      alertname: bKernelThroughputDegraded
+
+  - source_match:
+      alertname: PostgreSQLDown
+      severity: critical
+    target_match:
+      alertname: ErrorBudgetBurnCritical
+
+  - source_match:
+      severity: critical
+    target_match_re:
+      alertname: ErrorBudgetBurnHigh
+
+# ─────────────────────────────────────────────
+# Receivers
+# ─────────────────────────────────────────────
+receivers:
+  # CRITICAL: Wazuh CEF via syslog + Slack
+  - name: sbos-alerts-critical
+    slack_configs:
+      - api_url: "${SLACK_WEBHOOK_URL}"
+        channel: "#sbos-alerts-critical"
+        username: "Alertmanager SBOS"
+        icon_emoji: ":red_circle:"
+        title: '[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .CommonLabels.alertname }}'
+        text: |
+          *Severity:* {{ .CommonLabels.severity }}
+          *Component:* {{ .CommonLabels.component }}
+          *Runbook:* {{ .CommonAnnotations.runbook }}
+          {{ .CommonAnnotations.description }}
+          *Action:* {{ .CommonAnnotations.action }}
+        send_resolved: true
+        actions:
+          - type: button
+            text: "Runbook"
+            url: "{{ .CommonAnnotations.runbook_url }}"
+          - type: button
+            text: "Grafana"
+            url: "https://grafana.sbos.internal/d/sbos-operacional"
+    syslog_configs:
+      - priority: crit
+        facility: local0
+        message: |
+          CEF:0|SKULL|SBOS|1.0|{{ .CommonLabels.alertname }}|{{ .CommonLabels.alertname }}|{{ .CommonLabels.severity }}|msg={{ .CommonAnnotations.description }}
+
+  # HIGH: Slack laboral
+  - name: sbos-alerts-high
+    slack_configs:
+      - api_url: "${SLACK_WEBHOOK_URL}"
+        channel: "#sbos-alerts-high"
+        username: "Alertmanager SBOS"
+        icon_emoji: ":warning:"
+        title: '[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}'
+        text: |
+          *Severity:* {{ .CommonLabels.severity }}
+          *Component:* {{ .CommonLabels.component }}
+          {{ .CommonAnnotations.description }}
+        send_resolved: true
+
+  # MEDIUM: Slack observabilidad general
+  - name: sbos-alerts-all
+    slack_configs:
+      - api_url: "${SLACK_WEBHOOK_URL}"
+        channel: "#sbos-alerts-all"
+        username: "Alertmanager SBOS"
+        icon_emoji: ":information_source:"
+        title: '[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}'
+        text: |
+          *Severity:* {{ .CommonLabels.severity }}
+          *Component:* {{ .CommonLabels.component }}
+          {{ .CommonAnnotations.description }}
+        send_resolved: true

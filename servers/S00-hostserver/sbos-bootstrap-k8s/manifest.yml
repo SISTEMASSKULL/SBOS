@@ -1,0 +1,43 @@
+# manifest.yml — Ficha sbos-bootstrap-k8s (SBOS-005 §hostserver)
+# SBOS-049 §4 · Order 5 · Deployment
+identity:
+  id: sbos-bootstrap-k8s
+  name: SBOS Bootstrap K8s
+  version: "1.0"
+  category: 1
+  criticality: true
+  server: hostserver
+  description: "kubeadm init + Calico CNI + CRI-O runtime"
+
+workload:
+  type: Deployment
+  namespace: sbos-installer
+  replicas: 1
+  service_account: sbos-bootstrap-k8s-sa
+
+order:
+  execution_order: 5
+  timeout_minutes: 30
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-os
+  cpu_request: "100m"
+  cpu_limit: "500m"
+  memory_request: "128Mi"
+  memory_limit: "256Mi"
+
+
+deployment:
+  strategy: Recreate
+
+governance:
+  auto_install: true
+
+
+health:
+  check_command: "kubectl version --client"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

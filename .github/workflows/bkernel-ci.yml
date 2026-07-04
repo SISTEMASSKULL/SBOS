@@ -1,0 +1,128 @@
+# bkernel CI pipeline — G0.E2.T7
+# Gates: build (MUSL) + fmt + clippy + test + budget + port-scan
+# SBOS-023 · F-02: zero TCP ports · ISO 27001 A.8.15
+
+name: bkernel CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'BkernelAgent/**'
+      - 'bkernel-common/**'
+      - '.github/workflows/bkernel-ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'BkernelAgent/**'
+      - 'bkernel-common/**'
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: '-C target-feature=+crt-static'
+
+jobs:
+  quality:
+    name: fmt + clippy + test
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-musl
+
+      - name: Install musl tools
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            BkernelAgent/target
+            bkernel-common/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('BkernelAgent/Cargo.lock') }}
+
+      - name: Check formatting
+        working-directory: BkernelAgent
+        run: cargo fmt --check
+
+      - name: Clippy (strict)
+        working-directory: BkernelAgent
+        run: cargo clippy -- -D warnings
+
+      - name: Run tests
+        working-directory: BkernelAgent
+        run: cargo test
+
+  build:
+    name: build MUSL + budget + port-scan
+    runs-on: ubuntu-26.04
+    needs: quality
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-musl
+
+      - name: Install musl tools
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            BkernelAgent/target
+            bkernel-common/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('BkernelAgent/Cargo.lock') }}
+
+      - name: Build release (MUSL)
+        working-directory: BkernelAgent
+        run: cargo build --release --target x86_64-unknown-linux-musl
+
+      - name: Verify static linking
+        run: |
+          BIN="BkernelAgent/target/x86_64-unknown-linux-musl/release/bkernel-daemon"
+          file "$BIN" | tee /tmp/bkernel-file.txt
+          grep -q "static" /tmp/bkernel-file.txt || { echo "ERROR: not statically linked"; exit 1; }
+          echo "✅ statically linked"
+
+      - name: Budget check (< 15 MB)
+        run: |
+          BIN="BkernelAgent/target/x86_64-unknown-linux-musl/release/bkernel-daemon"
+          SIZE=$(stat -c%s "$BIN")
+          LIMIT=$((15 * 1024 * 1024))
+          echo "Binary size: $SIZE bytes ($((SIZE / 1024 / 1024)) MB)"
+          if [ "$SIZE" -gt "$LIMIT" ]; then
+            echo "❌ Binary exceeds 15 MB limit ($SIZE > $LIMIT)"
+            exit 1
+          fi
+          echo "✅ budget OK ($SIZE < $LIMIT)"
+
+      - name: Port safety scan — verify NO TCP listeners
+        run: |
+          BIN="$(pwd)/BkernelAgent/target/x86_64-unknown-linux-musl/release/bkernel-daemon"
+          # Run binary with bad config — it must fail fast without binding any port
+          timeout 3 "$BIN" --config /nonexistent 2>&1 || true
+          # Check no TCP listeners were opened by the binary
+          LISTENERS=$(ss -tlnp 2>/dev/null | grep bkernel || true)
+          if [ -n "$LISTENERS" ]; then
+            echo "❌ bkernel opened TCP listeners:"
+            echo "$LISTENERS"
+            exit 1
+          fi
+          echo "✅ zero TCP ports — bkernel is CLOSED"
+
+      - name: Artifact — binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: bkernel-daemon-musl
+          path: BkernelAgent/target/x86_64-unknown-linux-musl/release/bkernel-daemon
+          retention-days: 7

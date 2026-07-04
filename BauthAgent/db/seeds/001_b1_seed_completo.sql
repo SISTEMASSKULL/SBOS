@@ -1,0 +1,8 @@
+-- ============================================================
+-- SBOS bAuth — Seed Maestro B1 · 526 registros · 6 apps · 33 grupos · 180 átomos · 307 políticas
+-- VPS: vmi3346550 · PostgreSQL 18.4 · bauth_db
+-- Fecha: 2026-06-21
+-- 
+-- Ejecutar: psql -U postgres -d bauth_db -f 001_b1_seed_completo.sql
+-- Verificar: SELECT count(*) FROM bos_privilege.bos_atom_catalog;
+-- ============================================================

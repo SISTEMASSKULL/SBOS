@@ -1,0 +1,103 @@
+identity:
+  id: mattermost
+  server: S06
+  version: 10.6.0
+  category: 2
+  criticality: true
+  description: "Mattermost 10.6.0 — Chat empresarial open-source (MIT/AGPL) + 5º canal de notificación bAuth. OIDC contra Keycloak. 5 canales de auditoría por tenant (#compliance, #seguridad, #auth-alerts, #operaciones, #admin). Incoming webhooks para Novu/bAuth. PostgreSQL nativo."
+
+workload:
+  type: Deployment
+  runtime: kubernetes
+
+order:
+  execution_order: 177
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-k8s
+    - sbos-bootstrap-cni
+    - postgresql
+    - keycloak
+    - vault
+    - kong
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "colaboracion-critica"
+
+meta:
+  backend: manifest
+  idempotent: true
+  estimated_minutes: 12
+  rollback_support: true
+  idempotency_checks:
+    - check: deployment_exists
+      value: "mattermost"
+      description: "Si el Deployment mattermost existe en sbos-collab, skip creación."
+    - check: api_responds
+      value: "http://localhost:8065/api/v4/system/ping"
+      description: "Si /api/v4/system/ping responde 200, el servidor está vivo."
+    - check: audit_channels_exist
+      value: "5 canales de auditoría creados"
+      description: "Verifica que #compliance, #seguridad, #auth-alerts, #operaciones, #admin existen."
+
+ports:
+  - port: 8065
+    protocol: TCP
+    description: "Mattermost API + WebSocket + UI"
+    cluster_ip: 9064
+    internal_only: true
+  - port: 8067
+    protocol: TCP
+    description: "Mattermost SSL (TLS terminado en Kong)"
+    cluster_ip: 9065
+    internal_only: true
+
+health:
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config exec deploy/mattermost -n sbos-collab -- curl -sf http://localhost:8065/api/v4/system/ping 2>/dev/null | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get(\"status\",\"FAIL\"))'"
+  expected_output: "OK"
+  timeout_seconds: 15
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/mattermost.log
+
+versions:
+  image: "mattermost/mattermost-team-edition:10.6.0"
+  namespace: sbos-collab
+  db_name: mattermost_db
+  db_user: postgres
+
+audit_channels:
+  - name: compliance
+    domain: FINANCIAL
+    description: "D3 Financiero: límites excedidos, SoD, tx rechazadas, reportes SIN"
+    webhook_vault_path: "secret/bauth/collab/mattermost/{tenant_id}/compliance_hook_url"
+  - name: seguridad
+    domain: PHYSICAL
+    description: "D2 Físico: accesos denegados, puertas forzadas, alarmas OSDP, CCTV"
+    webhook_vault_path: "secret/bauth/collab/mattermost/{tenant_id}/seguridad_hook_url"
+  - name: auth-alerts
+    domain: AUTH
+    description: "Autenticación: bloqueos, step-up, MFA resets, brute force"
+    webhook_vault_path: "secret/bauth/collab/mattermost/{tenant_id}/auth_hook_url"
+  - name: operaciones
+    domain: TEMPORAL
+    description: "D4 Temporal: fuera de horario, delegaciones expiradas, cierres gestión"
+    webhook_vault_path: "secret/bauth/collab/mattermost/{tenant_id}/operaciones_hook_url"
+  - name: admin
+    domain: ADMIN
+    description: "SysAdmin: SU break-glass, rotación llaves, backups, sync fallido"
+    webhook_vault_path: "secret/bauth/collab/mattermost/{tenant_id}/admin_hook_url"
+
+integrations:
+  provides_to:
+    - "novu"
+    - "calcom"
+  consumes_from:
+    - "keycloak"
+    - "postgresql"
+    - "vault"

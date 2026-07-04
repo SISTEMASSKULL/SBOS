@@ -1,0 +1,60 @@
+# yaml_engine.yml — Keycloak 26.x lifecycle phases
+# SBOS-019 §9 · Order 130 · StatefulSet
+# R16 Zero hardcoding
+
+pre_install:
+  - name: "validate_pvc"
+    command: "kubectl get pvc keycloak-data -n sbos-identity --no-headers 2>/dev/null || echo 'PVC_OK'"
+    timeout_seconds: 30
+  - name: "create_namespace"
+    command: "kubectl create namespace sbos-identity --dry-run=client -o yaml | kubectl apply -f -"
+    timeout_seconds: 30
+  - name: "apply_network_policy"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/keycloak.network -n sbos-identity"
+    timeout_seconds: 30
+
+install:
+  - name: "apply_statefulset"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/keycloak.k8s.yml -n sbos-identity"
+    timeout_seconds: 300
+  - name: "wait_ready_0"
+    command: "kubectl wait --for=condition=Ready pod/keycloak-0 -n sbos-identity --timeout=600s"
+    timeout_seconds: 600
+  - name: "wait_ready_1"
+    command: "kubectl wait --for=condition=Ready pod/keycloak-1 -n sbos-identity --timeout=600s"
+    timeout_seconds: 600
+  - name: "configure_realm"
+    command: "kubectl exec keycloak-0 -n sbos-identity -- /opt/keycloak/bin/kcadm.sh update realms/skbos -f /tmp/realm-config.json 2>/dev/null || true"
+    timeout_seconds: 120
+
+post_install:
+  - name: "verify_clustering"
+    command: "kubectl exec keycloak-0 -n sbos-identity -- /opt/keycloak/bin/kcadm.sh get serverinfo --fields system-info | grep -q 'cluster'"
+    timeout_seconds: 30
+  - name: "verify_oidc_clients"
+    command: "kubectl exec keycloak-0 -n sbos-identity -- /opt/keycloak/bin/kcadm.sh get clients -r skbos --fields clientId | grep -qE 'grafana|kong|core-ui'"
+    timeout_seconds: 60
+
+update:
+  - name: "pre_update_backup"
+    command: "kubectl exec keycloak-0 -n sbos-identity -- pg_dumpall -U keycloak -h postgresql.sbos-data > /tmp/keycloak_backup.sql"
+    timeout_seconds: 300
+  - name: "rolling_update"
+    command: "kubectl rollout restart statefulset keycloak -n sbos-identity"
+    timeout_seconds: 300
+
+repair:
+  - name: "reinit_cluster_member"
+    command: "kubectl delete pod keycloak-1 -n sbos-identity --ignore-not-found"
+    timeout_seconds: 120
+
+uninstall:
+  - name: "final_backup"
+    command: "kubectl exec keycloak-0 -n sbos-identity -- pg_dumpall -U keycloak -h postgresql.sbos-data > /tmp/keycloak_final_backup.sql"
+    timeout_seconds: 300
+  - name: "delete_statefulset"
+    command: "kubectl delete statefulset keycloak -n sbos-identity --ignore-not-found"
+    timeout_seconds: 120
+  - name: "delete_pvc"
+    command: "kubectl delete pvc keycloak-data -n sbos-identity --ignore-not-found"
+    timeout_seconds: 60

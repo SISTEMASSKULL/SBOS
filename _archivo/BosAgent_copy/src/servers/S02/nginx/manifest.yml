@@ -1,0 +1,55 @@
+identity:
+  id: nginx
+  server: S02
+  version: 1.28.0
+  category: 1
+  criticality: true
+  description: "Nginx 1.28.0 — servidor web en HOST. Entrada principal SBOS. Página de bienvenida, reverse proxy con subdominios (admin/api/monitor), hardening headers. NO es pod K8s — corre en el host S02 vía systemd."
+
+workload:
+  type: bash
+  runtime: bash
+
+order:
+  execution_order: 170
+
+requirements:
+  os: "Ubuntu 26.04 LTS"
+  dependencies:
+    - kong
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "gateway-critico"
+
+meta:
+  backend: bash
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: true
+
+ports:
+  - port: 80
+    protocol: TCP
+    description: "HTTP — entrada principal. Redirige a HTTPS (Iteración 2)"
+    host: true
+    external: true
+  - port: 443
+    protocol: TCP
+    description: "HTTPS — TLS Let's Encrypt (Iteración 2 con certbot)"
+    host: true
+    external: true
+
+health:
+  type: command
+  command: "systemctl is-active nginx && curl -sf http://localhost/health"
+  timeout_seconds: 5
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/nginx.log
+
+versions:
+  package: "nginx=1.28.0-*"
+  namespace: null

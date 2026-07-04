@@ -1,0 +1,47 @@
+# manifest.yml — Ficha gitlab (SBOS-005 §opsserver)
+# SBOS-049 §4 · Order 380 · StatefulSet
+identity:
+  id: gitlab
+  name: GitLab CE
+  version: "17.8"
+  category: 1
+  criticality: false
+  server: opsserver
+  description: "SCM + CI/CD + Container Registry"
+
+workload:
+  type: StatefulSet
+  namespace: sbos-ops
+  replicas: 1
+  service_account: gitlab-sa
+
+order:
+  execution_order: 380
+  timeout_minutes: 30
+
+requirements:
+  dependencies:
+    - postgresql
+    - redis
+    - keycloak
+    - minio
+  cpu_request: "2000m"
+  cpu_limit: "4000m"
+  memory_request: "4Gi"
+  memory_limit: "8Gi"
+pvc_size: "200Gi"
+  pvc_storage_class: "sbos-fast"
+
+deployment:
+  strategy: Recreate
+
+governance:
+backup_enabled: true
+  backup_schedule: "0 2 * * *"
+
+health:
+  check_command: "curl -sf http://localhost:80/-/health"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

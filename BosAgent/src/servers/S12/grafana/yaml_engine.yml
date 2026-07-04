@@ -1,0 +1,59 @@
+# yaml_engine.yml — grafana
+# Iteración 1: Grafana standalone, datasource Prometheus, admin local
+# Iteración 2 (futura): OAuth2 Keycloak, datasource PostgreSQL+Loki
+
+namespace: sbos-monitoring
+image: "grafana/grafana:12.0.1"
+replicas: 1
+
+storage:
+  pv_name: sbos-grafana-pv
+  pvc_name: sbos-grafana-pvc
+  capacity: 5Gi
+  storage_class: local-path
+
+service:
+  port: 3000
+  cluster_ip_port: 9300
+
+admin:
+  user_secret: grafana-admin
+  key_user: GF_SECURITY_ADMIN_USER
+  key_pass: GF_SECURITY_ADMIN_PASSWORD
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    url: "http://prometheus:9090"
+    default: true
+    access: proxy
+  - name: Alertmanager
+    type: alertmanager
+    url: "http://alertmanager:9093"
+    access: proxy
+
+dashboards_provisioning:
+  enabled: true
+  path: /etc/grafana/provisioning/dashboards
+  dashboards:
+    - sbos-cluster-overview
+    - sbos-daemons
+    - sbos-bootstrap-status
+
+auth:
+  anonymous_enabled: false
+  oauth_keycloak:
+    enabled: false
+    note: "Iteración 2 — requiere Keycloak configurado con client grafana"
+
+smtp:
+  enabled: false
+  note: "Iteración 2 — routing via bnotify"
+
+resources:
+  requests:
+    cpu: "200m"
+    memory: "256Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"

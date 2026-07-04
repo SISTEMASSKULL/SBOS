@@ -1,0 +1,43 @@
+# manifest.yml — Ficha pg-partman (SBOS-005 §dataserver)
+# SBOS-049 §4 · Order 114 · Deployment
+identity:
+  id: pg-partman
+  name: pg_partman
+  version: "5.1"
+  category: 1
+  criticality: false
+  server: dataserver
+  description: "Automatic time-based partitioning"
+
+workload:
+  type: Deployment
+  namespace: sbos-data
+  replicas: 1
+  service_account: pg-partman-sa
+
+order:
+  execution_order: 114
+  timeout_minutes: 10
+
+requirements:
+  dependencies:
+    - postgresql
+    - timescaledb
+  cpu_request: "100m"
+  cpu_limit: "500m"
+  memory_request: "128Mi"
+  memory_limit: "256Mi"
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+health:
+  check_command: "psql -h localhost -c 'SELECT pg_partman_version()'"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

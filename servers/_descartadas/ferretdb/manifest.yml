@@ -1,0 +1,53 @@
+identity:
+  id: "ferretdb"
+  name: "FerretDB 2.0"
+  version: "2.0.0"
+  server: "S06"
+  namespace: "sbos-notifier"
+  criticality: true
+
+workload:
+  type: "kubernetes"
+  state: "prod"
+
+order:
+  execution_order: 174
+
+parameters:
+  FERRETDB_POSTGRESQL_URL: "postgres://postgres@postgresql.sbos-data:5432/notifier_db"
+
+requirements:
+  ram_mb: 512
+  cpu_cores: 1
+  disk_gb: 20
+  dependencies:
+    - postgresql
+
+deployment:
+  namespace: "sbos-notifier"
+  node_selector: "tipo=appserver"
+  k8s_manifest: "ferretdb.k8s.yml"
+  workload_type: "Deployment"
+  network_policy: "ferretdb.network"
+
+governance:
+  category: 1
+  backup_required: false
+  backup_schedule: ""
+
+health:
+  check_command: "curl -sf http://localhost:27017/"
+  check_via: "kubectl_exec"
+  pod_selector: "app=ferretdb"
+  interval_seconds: 30
+  failure_threshold: 2
+
+integrations:
+  provides_to:
+    - "novu"
+
+bsearch_config:
+  enabled: false
+
+compatibility:
+  min_iam_installer_version: "1.0.0"

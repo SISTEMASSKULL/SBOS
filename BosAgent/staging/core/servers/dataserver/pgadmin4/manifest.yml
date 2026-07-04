@@ -1,0 +1,45 @@
+# manifest.yml — Ficha pgadmin4 (SBOS-005 §dataserver)
+# SBOS-049 §4 · Order 130 · Deployment
+identity:
+  id: pgadmin4
+  name: pgAdmin 4
+  version: "8.10"
+  category: 1
+  criticality: false
+  server: dataserver
+  description: "PostgreSQL admin UI with OAuth2-Proxy"
+
+workload:
+  type: Deployment
+  namespace: sbos-data
+  replicas: 1
+  service_account: pgadmin4-sa
+
+order:
+  execution_order: 130
+  timeout_minutes: 10
+
+requirements:
+  dependencies:
+    - postgresql
+    - oauth2-proxy
+  cpu_request: "200m"
+  cpu_limit: "1000m"
+  memory_request: "256Mi"
+  memory_limit: "512Mi"
+pvc_size: "10Gi"
+  pvc_storage_class: "sbos-fast"
+
+deployment:
+  strategy: Recreate
+
+governance:
+
+
+health:
+  check_command: "curl -sf http://localhost:80/health"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+degraded_allowed: true
+  degraded_reason: "OAuth2-Proxy may be unavailable"

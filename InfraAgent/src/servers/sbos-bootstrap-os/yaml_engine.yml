@@ -1,0 +1,102 @@
+# yaml_engine.yml — sbos-bootstrap-os
+# Mapeo declarativo nombre_tarea → función_bash + timeout + exit_code esperado
+
+phases:
+  pre_install:
+    - task: verificar_ubuntu_26_04
+      function: check_ubuntu_2604
+      timeout: 10
+      on_fail: ABORT
+      description: "Verificar Ubuntu 26.04 LTS"
+
+    - task: verificar_k8s_version
+      function: check_k8s_version_min
+      timeout: 10
+      on_fail: ABORT
+      description: "Verificar K8s >= 1.28 antes de proceder"
+
+    - task: verificar_root
+      function: check_root_or_sudo
+      timeout: 5
+      on_fail: ABORT
+      description: "Verificar privilegios administrativos"
+
+  install:
+    - task: hardening_ssh
+      function: harden_ssh_config
+      timeout: 30
+      on_fail: ABORT
+      description: "Hardening SSH: disable root login, key-only auth, port 22"
+
+    - task: hardening_kernel
+      function: set_kernel_params
+      timeout: 30
+      on_fail: ABORT
+      description: "Kernel params: bridge-nf-call-iptables, ip_forward, overlay, br_netfilter"
+
+    - task: hardening_limits
+      function: set_system_limits
+      timeout: 15
+      on_fail: CONTINUE
+      description: "Limites de sistema: nofile 1048576, nproc ilimitado"
+
+    - task: install_crio
+      function: install_cri_o
+      timeout: 120
+      on_fail: ABORT
+      description: "Instalar CRI-O 1.28+ como container runtime (Docker VETADO)"
+
+    - task: install_k8s_packages
+      function: install_kubeadm_kubelet_kubectl
+      timeout: 120
+      on_fail: ABORT
+      description: "Instalar kubeadm, kubelet, kubectl 1.28+ via apt"
+
+    - task: hold_k8s_packages
+      function: apt_mark_hold_k8s
+      timeout: 15
+      on_fail: CONTINUE
+      description: "Evitar actualización automática de paquetes K8s"
+
+    - task: enable_kubelet
+      function: systemctl_enable_kubelet
+      timeout: 15
+      on_fail: ABORT
+      description: "Habilitar y arrancar kubelet via systemd"
+
+    - task: install_fail2ban
+      function: install_configure_fail2ban
+      timeout: 60
+      on_fail: CONTINUE
+      description: "Instalar fail2ban con jail SSH"
+
+    - task: configure_firewall
+      function: configure_ufw_k8s_ports
+      timeout: 30
+      on_fail: CONTINUE
+      description: "Configurar UFW: puertos K8s (6443, 2379-2380, 10250-10255)"
+
+  post_install:
+    - task: verificar_crio
+      function: verify_crio_running
+      timeout: 15
+      on_fail: ABORT
+      description: "Verificar que CRI-O está activo y responde"
+
+    - task: verificar_kubelet
+      function: verify_kubelet_active
+      timeout: 15
+      on_fail: ABORT
+      description: "Verificar que kubelet está corriendo"
+
+    - task: verificar_modulos_kernel
+      function: verify_kernel_modules
+      timeout: 10
+      on_fail: ABORT
+      description: "Verificar br_netfilter y overlay cargados"
+
+    - task: verificar_k8s_version_final
+      function: verify_k8s_128_plus
+      timeout: 10
+      on_fail: ABORT
+      description: "Verificar kubectl version --short >= 1.28"

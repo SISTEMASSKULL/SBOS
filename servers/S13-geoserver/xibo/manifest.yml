@@ -1,0 +1,43 @@
+# manifest.yml — Ficha xibo (SBOS-005 §geoserver)
+# SBOS-049 §4 · Order 370 · Deployment
+identity:
+  id: xibo
+  name: Xibo CMS
+  version: "4.1"
+  category: 1
+  criticality: false
+  server: geoserver
+  description: "Digital signage. criticality: false"
+
+workload:
+  type: Deployment
+  namespace: sbos-geo
+  replicas: 1
+  service_account: xibo-sa
+
+order:
+  execution_order: 370
+  timeout_minutes: 10
+
+requirements:
+  dependencies:
+    - postgresql
+    - keycloak
+  cpu_request: "200m"
+  cpu_limit: "1000m"
+  memory_request: "256Mi"
+  memory_limit: "512Mi"
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+health:
+  check_command: "curl -sf http://localhost:8080/health"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

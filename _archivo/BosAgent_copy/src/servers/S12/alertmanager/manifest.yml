@@ -1,0 +1,52 @@
+identity:
+  id: alertmanager
+  server: S12
+  version: 0.28.1
+  category: 1
+  criticality: true
+  description: "Alertmanager 0.28.1 — enrutamiento de alertas. Reglas SBOS (WAL lag, Vault sealed, DLQ depth, pod down). Routing hacia bnotify (Push MFA)."
+
+workload:
+  type: Deployment
+  runtime: kubernetes
+
+order:
+  execution_order: 205
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-k8s
+    - sbos-bootstrap-cni
+    - prometheus
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "observabilidad"
+
+meta:
+  backend: helm
+  idempotent: true
+  estimated_minutes: 3
+  rollback_support: true
+
+ports:
+  - port: 9093
+    protocol: TCP
+    description: "Alertmanager API + UI"
+    cluster_ip: 9093
+    internal_only: true
+
+health:
+  type: http
+  path: /-/ready
+  port: 9093
+  timeout_seconds: 10
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/alertmanager.log
+
+versions:
+  image: "prom/alertmanager:v0.28.1"
+  namespace: sbos-monitoring

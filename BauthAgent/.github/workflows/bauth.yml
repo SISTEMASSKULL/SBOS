@@ -1,0 +1,137 @@
+# ================================================================
+# bauth — CI Pipeline (B0.T08)
+# SBOS Identity Core v3.0 · BitMask Dual
+#
+# 5 jobs paralelos:
+#   1. build-musl  — compilación estática MUSL release
+#   2. test        — tests unitarios
+#   3. fmt         — formato rustfmt
+#   4. clippy      — linter con advertencias
+#   5. audit       — cargo-audit (dependencias vulnerables)
+#
+# Estándares: ECO-007 · DOC-SBOS-001 N3
+# ================================================================
+
+name: bAuth CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'BauthAgent/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'BauthAgent/**'
+
+defaults:
+  run:
+    working-directory: BauthAgent
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # ── 1. Build MUSL estático ──────────────────────────────────
+  build-musl:
+    name: Build (MUSL static)
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-musl
+      - name: Instalar musl-tools
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            BauthAgent/target/
+          key: ${{ runner.os }}-cargo-musl-${{ hashFiles('BauthAgent/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-musl-
+      - name: Build release MUSL
+        run: cargo build --release --target x86_64-unknown-linux-musl
+      - name: Verificar tamaño < 15MB
+        run: |
+          SIZE=$(stat -c%s target/x86_64-unknown-linux-musl/release/bauth)
+          echo "Binario: $SIZE bytes"
+          if [ "$SIZE" -gt 15728640 ]; then echo "ERROR: excede 15MB"; exit 1; fi
+      - name: Subir binario (artefacto)
+        uses: actions/upload-artifact@v4
+        with:
+          name: bauth-musl
+          path: BauthAgent/target/x86_64-unknown-linux-musl/release/bauth
+
+  # ── 2. Tests unitarios ──────────────────────────────────────
+  test:
+    name: Tests
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            BauthAgent/target/
+          key: ${{ runner.os }}-cargo-test-${{ hashFiles('BauthAgent/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-test-
+      - name: Ejecutar tests
+        run: cargo test -- --nocapture
+
+  # ── 3. Formato ──────────────────────────────────────────────
+  fmt:
+    name: Formato (rustfmt)
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Verificar formato
+        run: cargo fmt -- --check
+
+  # ── 4. Linter ───────────────────────────────────────────────
+  clippy:
+    name: Linter (clippy)
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            BauthAgent/target/
+          key: ${{ runner.os }}-cargo-clippy-${{ hashFiles('BauthAgent/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-clippy-
+      - name: Ejecutar clippy
+        run: cargo clippy -- -D warnings
+
+  # ── 5. Auditoría de dependencias ────────────────────────────
+  audit:
+    name: Auditoría (cargo-audit)
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar cargo-audit
+        run: cargo install cargo-audit --locked
+      - name: Ejecutar auditoría
+        run: cargo audit

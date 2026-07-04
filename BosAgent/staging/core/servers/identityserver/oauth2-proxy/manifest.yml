@@ -1,0 +1,42 @@
+# manifest.yml — Ficha oauth2-proxy (SBOS-005 §identityserver)
+# SBOS-049 §4 · Order 135 · Deployment
+identity:
+  id: oauth2-proxy
+  name: OAuth2-Proxy
+  version: "7.6"
+  category: 1
+  criticality: true
+  server: identityserver
+  description: "Auth proxy for apps without native OIDC"
+
+workload:
+  type: Deployment
+  namespace: sbos-identity
+  replicas: 1
+  service_account: oauth2-proxy-sa
+
+order:
+  execution_order: 135
+  timeout_minutes: 10
+
+requirements:
+  dependencies:
+    - keycloak
+  cpu_request: "100m"
+  cpu_limit: "500m"
+  memory_request: "128Mi"
+  memory_limit: "256Mi"
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+health:
+  check_command: "curl -sf http://localhost:4180/ping"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

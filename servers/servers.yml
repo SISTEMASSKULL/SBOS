@@ -1,0 +1,188 @@
+# =============================================================================
+# DOCTRINA DE SERVIDORES LÓGICOS Y FICHAS DEL PROYECTO SBOS
+# Única fuente de verdad de CÓMO se organiza, nombra y documenta cada ficha.
+# Carpeta HERMANA de DDLs/. Todo agente la respeta A RAJATABLA. El Bibliotecario
+# la custodia y RECHAZA cualquier ficha que la incumpla.
+#
+# Nace para corregir tres males encadenados detectados en el proyecto:
+#   1. RÉPLICAS sin fuente única — 313 manifests para ~112 apps reales (3× duplicación).
+#      La misma ficha vive en BosAgent Y InfraAgent con nombres distintos
+#      (sbos-bootstrap-hard vs sbos-bootstrap-hardening).
+#   2. UBICACIÓN y NOMBRES arbitrarios — tryton en S01 (dataserver) cuando es S04
+#      (erpserver); mattermost duplicado en S06 y S10; cada daemon nombra a su gusto.
+#   3. PROPÓSITO perdido — nadie sabe por qué existe cada ficha ni qué hacen sus
+#      scripts. La documentación se replicó "por aquí y por allá" hasta degradarse.
+#
+# Base normativa: SBOS-016-Servers (topología), SBOS-019-FICHAS (anatomía),
+# SBOS-050-PORT-CATALOG (puertos), SBOS-007-DEPLOY §13.
+# =============================================================================
+version: 1
+proyecto: SBOS
+nivel: proyecto          # ORQUESTA — 3 niveles de scope: fábrica | proyecto | microservicio
+root: true               # AISLADO: no hereda de otros proyectos ni comparte con ellos (como EditorConfig root=true)
+estado: "PROPUESTA — pendiente de completar el catálogo con documentación del humano"
+
+# ── REGLA DURA #1 — FUENTE ÚNICA, CERO RÉPLICAS ─────────────────────────────
+fuente_unica:
+  ubicacion: "SBOS/servers/  (hermana de SBOS/DDLs/)"
+  regla: "Es el ÚNICO lugar donde vive una ficha. PROHIBIDO copiarla a BosAgent,
+          InfraAgent, BauthAgent o cualquier agente. Un agente que necesite una
+          ficha la LEE de aquí; no la duplica. Las copias actuales se archivan."
+  motivo: "La duplicación es la causa raíz: nadie sabe cuál es la canónica ni cuál
+           está actualizada. Una ficha = un lugar = una verdad."
+  publico_no_privado: "servers/ es ESPACIO PÚBLICO del proyecto: TODOS los daemons
+                       comparten esta carpeta y respetan la MISMA norma. NO es la
+                       carpeta privada de cada daemon donde cada uno hace lo que
+                       quiere. Cada daemon organiza SUS fichas aquí, bajo la doctrina común."
+
+# ── REGLA DURA #1b — RATIFICAR LO EXISTENTE, NO MOVER (trabajo incremental) ──
+ratificar_no_mover:
+  regla: "Lo que YA está bien determinado (Vault, S00, las fichas que un daemon ya
+          ubicó) NO se mueve: se RATIFICA en su lugar. Este trabajo NORMA y COMPLETA
+          —agrega lo que falta— pero NO reubica ni destruye lo que ya existe."
+  reorganizacion: "La reorganización fina de cada ficha la hará SU daemon poco a poco,
+                   bajo esta doctrina. El Bibliotecario no decide por ellos dónde va
+                   cada app; solo garantiza que todos sigan la misma norma en servers/."
+
+# ── REGLA DURA #2 — ESTRUCTURA = TOPOLOGÍA FÍSICA (unidad de migración) ──────
+# Cada carpeta de servidor lógico es la UNIDAD DE MIGRACIÓN HORIZONTAL: el día que
+# el sistema crezca, servers/S01-dataserver/ se lleva ENTERO a un VPS dedicado.
+# No es organización estética — es la frontera de despliegue. Cada servidor es
+# AUTÓNOMO: sus fichas + recursos migran como bloque.
+estructura:
+  carpeta_servidor: "servers/<ID>-<nombre>/   ej: servers/S01-dataserver/"
+  motivo_id_y_nombre: "El ID (S01) da orden y marca la unidad de migración; el
+                       nombre (dataserver) la hace legible. Fiel a SBOS-016."
+  ficha: "servers/<ID>-<nombre>/<app>/   ej: servers/S01-dataserver/postgresql/"
+
+# ── REGLA DURA #3 — UBICACIÓN POR FUNCIÓN, NO POR CONSUMIDOR ─────────────────
+# Una ficha vive en el servidor de SU función, NO donde está la app que la consume.
+# Que una app necesite un servicio NO lo ata al servidor de esa app.
+ubicacion_por_funcion:
+  bases_de_datos: "Toda BASE DE DATOS de uso general (PostgreSQL, MySQL, Redis, MongoDB)
+                   vive en S01-dataserver y es de USO GENERAL: cualquier app la consume
+                   por red. Ej.: Rocket.Chat (S10) usa MongoDB, pero MongoDB vive en S01
+                   — NO se co-ubica con Rocket.Chat ni es su base privada."
+  secretos: "Vault (secretos, PKI) vive en S02-gatewayserver (borde/seguridad), NUNCA en
+             dataserver. dataserver es EXCLUSIVO de bases de datos y almacenamiento."
+  motores_especializados: "Los motores con servidor propio por función se quedan ahí:
+                           Elasticsearch/Solr → búsqueda (S09/S08), Qdrant → IA (S15),
+                           RabbitMQ → broker. No son 'BD de uso general'."
+  regla: "Antes de ubicar una ficha pregunta '¿cuál es su función?', no '¿quién la usa?'."
+
+# ── LOS 15 SERVIDORES LÓGICOS + EL HOST (SBOS-016) ──────────────────────────
+# S00-hostserver es la RAÍZ (el host): bootstrap + daemons soberanos. NO es un
+# servidor de apps. La doc SBOS-016 lo llama "S-HOST"; aquí lo normalizamos a S00
+# para alinearlo con S01–S15 (formato SNN; S00 = se prepara primero). El
+# k8s-network-validator es una FICHA dentro de S00, no un servidor aparte.
+# Los servidores de apps son S01–S15. nº = apps declaradas; (!) = la doc da el
+# número pero NO nombra todas: el catálogo se completa con la doc del humano.
+servidores_logicos:
+  S00-hostserver:      { criticidad: MAXIMA, namespace: "(host, fuera de K8s)", fichas: "sbos-bootstrap-* + k8s-network-validator + sbos-nginx-web · daemons bKernel/biedata/bCompass" }
+  S01-dataserver:      { criticidad: MAXIMA, namespace: sbos-data,     apps_num: 13, "(!)": "solo nombra PostgreSQL, Patroni, Redis, MinIO" }
+  S02-gatewayserver:   { criticidad: MAXIMA, namespace: sbos-gateway,  apps_num: 7,  "(!)": "NGINX, Certbot, ModSecurity, Kong, Vault" }
+  S03-identityserver:  { criticidad: MAXIMA, namespace: sbos-identity, apps_num: 8,  "(!)": "Keycloak, Wazuh, Linkerd" }
+  S04-erpserver:       { criticidad: MAXIMA, namespace: sbos-erp,      apps_num: 5,  "(!)": "Tryton + Bolivia PUCT/SIN" }
+  S05-devserver:       { criticidad: ALTA,   namespace: sbos-apps,     apps_num: 7,  apps: "SmartTax, SmartReport, SmartRates, SmartORC, SmartVaultFlow, SmartPortfolio, SmartPay" }
+  S06-appsserver:      { criticidad: ALTA,   namespace: sbos-apps,     apps_num: 13, "(!)": "Saleor, Directus, OrangeHRM, Taiga, EspoCRM, Wiki.js, Zammad" }
+  S07-reportserver:    { criticidad: ALTA,   namespace: sbos-apps,     apps_num: 7,  "(!)": "JasperSoft, Superset, Airflow, OpenMetadata" }
+  S08-docserver:       { criticidad: ALTA,   namespace: sbos-docs,     apps_num: 7,  apps: "Paperless-NGX, Tesseract, Tabula, Kimios, DocuSeal" }
+  S09-searchserver:    { criticidad: ALTA,   namespace: sbos-search,   apps_num: 2,  apps: "Elasticsearch, RabbitMQ" }
+  S10-commsserver:     { criticidad: ALTA,   namespace: sbos-comms,    apps_num: 10, "(!)": "Postfix, Dovecot, FreePBX, Rocket.Chat, Mattermost, ClamAV" }
+  S11-vdiserver:       { criticidad: ALTA,   namespace: sbos-vdi,      apps_num: 5,  apps: "Fedora KDE, Nextcloud, OnlyOffice, sbos-vdi-config" }
+  S12-monitorserver:   { criticidad: MAXIMA, namespace: sbos-monitor,  apps_num: 10, "(!)": "Prometheus, Grafana, Loki, Tempo, Zabbix, Alertmanager" }
+  S13-geoserver:       { criticidad: MEDIA,  namespace: sbos-geo,      apps_num: 5,  apps: "Traccar, Fleetbase, Xibo, Novo SGA, CardMesh" }
+  S14-opsserver:       { criticidad: ALTA,   namespace: sbos-ops,      apps_num: 7,  apps: "GitLab, Bareos, Velero, pgBackRest" }
+  S15-aiserver:        { criticidad: NINGUNA, namespace: "(opcional)", apps_num: 6,  apps: "Ollama, Qdrant, Open WebUI, Embedding Worker, Langfuse, Flowise" }
+orden_de_carga: "Lo resuelve el MOTOR (bos) por el DAG de dependencias (depends_on
+                 del manifest), NO una lista manual. execution_order es la pista."
+
+# ── ORGANIZACIÓN DE LOS PODS VIVOS (agrupar sin recrear) ────────────────────
+# Hoy los pods corren sin agrupación lógica. Investigado (kubernetes.io): SÍ se
+# pueden agrupar por servidor lógico sin recrearlos, con 3 mecanismos nativos.
+organizacion_pods_vivos:
+  estado_actual: "Nodo único (solo control-plane). Namespaces agrupan PARCIAL y con
+                  nombres inconsistentes: 'sbos-comm' (debe sbos-comms), 'sbos-monitoring'
+                  (debe sbos-monitor). Los pods NO llevan label de servidor lógico."
+  mecanismo_1_label: "Label ESTÁNDAR de K8s: app.kubernetes.io/part-of=<servidor>
+                      (ej. =dataserver). Agrupa los pods lógicamente. Se aplica a pods
+                      VIVOS con 'kubectl label' — inmediato, NO recrea ni reinicia el pod."
+  mecanismo_2_namespace: "Un namespace por servidor lógico (sbos-<servidor>). Normalizar
+                          los actuales y crear los faltantes (sbos-docs, sbos-search…)."
+  mecanismo_3_nodo: "Crecimiento horizontal (1 servidor = 1 nodo): etiquetar el nodo con
+                     tipo=<servidor> y usar nodeSelector/nodeAffinity (SBOS-016 §1).
+                     Hoy nodo único; se deja declarado en manifest.deployment.node_selector."
+  enlace_con_ficha: "El manifest.yml declara server: y namespace:. Al desplegar, el pod
+                     hereda app.kubernetes.io/part-of=<server>. Así los pods vivos quedan
+                     agrupados por la MISMA lógica que las fichas — una sola verdad."
+  norma: "Normas: labels recomendados app.kubernetes.io/* (kubernetes.io/docs/concepts/
+          overview/working-with-objects/common-labels). Toda ficha K8s DEBE emitir el
+          label part-of=<servidor> en sus pods."
+
+# ── REGLA DURA #3 — ANATOMÍA CANÓNICA DE FICHA (SBOS-019 §7) ─────────────────
+anatomia_ficha:
+  ruta: "servers/<ID>-<nombre>/<app>/"
+  archivos:
+    manifest.yml:    "Identidad, deps, servidor, namespace, puerto, governance, health. OBLIGATORIO."
+    yaml_engine.yml: "Fases declarativas (pre_install, install, post_install). Intención, no lógica."
+    task_catalog.sh: "Funciones Bash ESPECÍFICAS de la app (ver contrato_scripts). OBLIGATORIO si tiene lógica propia."
+    "<app>.k8s.yml": "Manifest K8s (Deployment/StatefulSet)."
+    "<app>.network": "NetworkPolicy."
+    "<app>.volume":  "PVC."
+    "resources/":    "Artefactos: sql/ config/ keycloak/ kong/ vault/ migrations/ data/"
+    PROPOSITO.md:    "Bitácora de propósito. OBLIGATORIO (ver regla #4)."
+
+# ── REGLA DURA #4 — PROPÓSITO OBLIGATORIO (recupera el sentido perdido) ──────
+proposito_obligatorio:
+  archivo: "PROPOSITO.md en cada ficha"
+  motivo: "Todo el proyecto debe conocer las fichas sin abrir su código. Ataca
+           directamente el mal #3: el propósito perdido."
+  campos_minimos:
+    - "QUÉ es: una línea."
+    - "POR QUÉ existe: qué problema resuelve, por qué el SBOS la necesita."
+    - "PARA QUÉ sirve: qué provee y a quién (integrations.provides_to)."
+    - "QUIÉN la declara/usa: el daemon/agente responsable (bos, bauth, bkernel…)."
+    - "DEPENDENCIAS: de qué otras fichas depende y por qué."
+    - "SERVIDOR y MOTIVO: en qué servidor lógico vive y por qué ese y no otro."
+  regla: "Sin PROPOSITO.md, el Bibliotecario RECHAZA la ficha. No es opcional."
+
+# ── REGLA DURA #5 — MOTOR ≠ FICHA (normar los scripts, el mal más grave) ────
+# Jerarquía de conocimiento SBOS-019 §8: el problema es que se mezclaron.
+contrato_scripts:
+  nivel_1_motor: "UNIVERSAL. Funciones SIN nombre de app (instalar, resolver deps,
+                  observar, reparar genérico). Vive SOLO en bos (el IAM Installer).
+                  Ningún daemon lo replica. Es el motor de instalación y observación."
+  nivel_2_task_catalog: "ESPECÍFICO. task_catalog.sh de cada ficha: funciones CON
+                         nombre de app (<app>_install, <app>_verify, <app>_health,
+                         <app>_repair, <app>_remove). Contrato cerrado — nada ad-hoc."
+  regla_de_oro: "Función que menciona una app concreta → va en SU task_catalog.sh.
+                 NUNCA en un catálogo global. Función universal → va en el motor (bos)."
+  rechazo: "El Bibliotecario rechaza task_catalog.sh que reimplemente el motor o
+            invente funciones fuera del contrato <app>_<verbo>."
+
+# ── CONVENCIÓN DE NOMBRES DE FICHA ──────────────────────────────────────────
+convencion_de_nombres:
+  ficha: "<app> en minúsculas-con-guiones, nombre real del producto (postgresql,
+          keycloak, rocket-chat). Del catálogo, no inventado por el daemon."
+  prohibido: "Nombres arbitrarios o duplicados con variantes (sbos-bootstrap-hard
+              vs -hardening). Una app = un nombre canónico = una ficha."
+  la_version: "En el manifest (identity.version), NUNCA en el nombre de la carpeta."
+
+# ── ESTADO ACTUAL vs OBJETIVO ───────────────────────────────────────────────
+estado:
+  existentes: "~112 apps declaradas; fichas reales dispersas (BosAgent 32 organizadas,
+               InfraAgent 11 sueltas, BauthAgent 2, staging). 313 manifests con réplicas."
+  objetivo: "Consolidar en servers/ por servidor lógico, nombres canónicos, PROPOSITO.md
+             en cada una, catálogo completo de los 16 servidores."
+  pendiente_humano: "La doc da los números pero no nombra todas las apps (marcadas (!)
+                     arriba). El humano pasa la documentación completa para el catálogo."
+
+# ── REGLAS PARA AGENTES ─────────────────────────────────────────────────────
+reglas_agentes:
+  - "Ninguna ficha fuera de servers/. Nada de copias en tu agente."
+  - "Toda ficha lleva manifest.yml + PROPOSITO.md. Sin propósito, se rechaza."
+  - "El nombre de la ficha es el canónico del catálogo, no el que se te ocurra."
+  - "La ficha vive en el servidor lógico que le corresponde (SBOS-016), no donde sea."
+  - "task_catalog.sh solo funciones <app>_<verbo>. El motor es de bos, no lo copies."
+  - "Cambio de ficha → aprobación del humano ANTES de aplicar/commitear."
+  - "El Bibliotecario custodia servers/; cada daemon declara, bos ejecuta."

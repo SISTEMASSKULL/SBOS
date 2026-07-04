@@ -1,0 +1,33 @@
+phases:
+  pre_install:
+    tasks:
+      - task: "check_node_resources"
+        params: { ram_mb_required: 512, disk_gb_required: 20 }
+      - task: "create_k8s_namespace"
+        params: { namespace: "sbos-notifier" }
+      - task: "apply_network_policy"
+        params: { namespace: "sbos-notifier", policy: "ferretdb.network" }
+  post_install:
+    tasks:
+      - task: "wait_pod_ready"
+        params: { namespace: "sbos-notifier", pod_selector: "app=ferretdb", timeout_seconds: 90 }
+      - task: "pg_verify_database"
+        params: { database: "notifier_db" }
+  update:
+    tasks:
+      - task: "rollout_restart"
+        params: { namespace: "sbos-notifier", resource: "Deployment/ferretdb" }
+  repair:
+    diagnosis_first: true
+    tasks:
+      - task: "check_pod_status"
+        params: { namespace: "sbos-notifier", pod_selector: "app=ferretdb" }
+      - task: "rollout_restart"
+        params: { namespace: "sbos-notifier", resource: "Deployment/ferretdb" }
+        on_failure: "abort"
+  uninstall:
+    require_confirmation: "DESINSTALAR-FERRETDB"
+    governance_category: 2
+    tasks:
+      - task: "take_backup_snapshot"
+        params: { backup_name: "pre-uninstall-ferretdb" }

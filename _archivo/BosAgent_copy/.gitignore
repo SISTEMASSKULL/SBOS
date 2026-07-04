@@ -1,0 +1,9 @@
+# Rust build artifacts
+src/bkernel/target/
+
+# Go binaries (compiled, not source)
+src/cmd/bos/bos
+src/cmd/bosctl/bosctl
+
+# Bootstrap env — contiene credenciales, NUNCA versionar
+**/bos-bootstrap.env

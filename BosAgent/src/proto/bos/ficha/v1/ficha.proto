@@ -1,0 +1,463 @@
+// Ficha Service — Contrato gRPC del motor de fichas del BOS.
+// SBOS_Proyecto_Master.md §12, §16 · ADR-019/020 · SBOS-050 P9.
+//
+// Cada ficha SBOS es la unidad atómica de despliegue (§16.1):
+//   manifest.yml + yaml_engine.yml + task_catalog.sh + resources/
+//
+// Transporte: Unix socket /run/bos/bos-grpc.sock (cumple P9: sin TCP entre daemons).
+// Observadores (TUI, biedata, audit) se suscriben vía server-streaming Watch.
+// Comandos y consultas: gRPC unary → expuestos también como JSON-RPC (ADR-020).
+//
+// Convención de nombres (§12.4): {dominio}.{subdominio}.{Accion}
+//   ✅ bos.ficha.Install
+//   ✅ bos.ficha.Watch
+//   ❌ bos.ficha.Create (sin Create/Update — Accion semántica)
+
+syntax = "proto3";
+
+package bos.ficha.v1;
+
+option go_package = "bos/proto/bos/ficha/v1;fichav1";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+
+// ── RequestContext — obligatorio en todo request (§12.2) ─────────────
+// CAMPO 1 en todos los request messages. Sin excepción.
+
+message RequestContext {
+  string ctx_id         = 1;  // obligatorio — UUID v4 del Context Plane (SBOS-049)
+  string tenant_id      = 2;  // obligatorio — tenant dueño de la operación
+  string correlation_id = 3;  // UUID del request original (W3C Trace Context)
+  string user_id        = 4;  // obligatorio — usuario que ejecuta la operación
+  string empresa_id     = 5;  // opcional — empresa en el árbol organizacional
+  string sucursal_id    = 6;  // opcional — sucursal
+  string pos_id         = 7;  // opcional — punto de servicio
+  string bitmask        = 8;  // "0x00000000008C87FF" — BitMask 64-bit (bAuth)
+}
+
+// ── Ficha — representación canónica de una ficha ────────────────────
+
+message Ficha {
+  string id                = 1;
+  string version           = 2;   // semver MAJOR.MINOR.PATCH
+  string state             = 3;   // uno de los 18 estados ADR-021
+  string server            = 4;   // S01-S15 o S-HOST
+  int32  category          = 5;   // 1=core, 2=app, 3=optional
+  bool   criticality       = 6;   // true si el stack no puede operar sin ella
+  string health_status     = 7;   // "healthy", "degraded", "down", "unknown"
+  string workload_type     = 8;   // Deployment, StatefulSet, DaemonSet, bash
+  int32  execution_order   = 9;   // orden en DAG topológico
+  repeated string dependencies    = 10;  // deps de instalación
+  repeated string runtime_deps    = 11;  // deps en runtime (no bloquean install)
+  bool   auto_install      = 12;  // instalar automáticamente en bootstrap
+  repeated Port ports      = 13;  // puertos expuestos
+  google.protobuf.Timestamp installed_at = 14;
+  google.protobuf.Timestamp updated_at   = 15;
+  string description       = 16; // descripción humana
+  string backend           = 17; // helm, bash, apt, pip, go, rust
+  bool   idempotent        = 18; // ¿install 2 veces = mismo resultado?
+  int32  estimated_minutes = 19; // tiempo estimado de instalación
+  string category_label    = 20; // "datos-criticos", "seguridad-critica", etc.
+  bool   requires_approval = 21; // requiere HITL antes de operar
+  bool   rollback_support  = 22; // soporta rollback a versión anterior
+}
+
+message Port {
+  int32  port          = 1;
+  string protocol      = 2; // TCP, UDP
+  string description   = 3;
+  int32  cluster_ip    = 4; // puerto ClusterIP derivado
+  bool   internal_only = 5; // solo accesible dentro del cluster
+}
+
+// ── Saga (operación del ciclo de vida) ──────────────────────────────
+
+enum SagaCommand {
+  SAGA_COMMAND_UNSPECIFIED = 0;
+  SAGA_COMMAND_INSTALL     = 1;
+  SAGA_COMMAND_UPDATE      = 2;
+  SAGA_COMMAND_REPAIR      = 3;
+  SAGA_COMMAND_REMOVE      = 4;
+  SAGA_COMMAND_PROBE       = 5;
+  SAGA_COMMAND_PAUSE       = 6;
+  SAGA_COMMAND_RESUME      = 7;
+  SAGA_COMMAND_SCALE       = 8;
+}
+
+message SagaStep {
+  string name      = 1; // nombre del paso (ej: "pre_install")
+  string ficha_id  = 2;
+  string status    = 3; // "running", "ok", "fail", "skip", "incomplete"
+  string output    = 4; // output del script
+  string error     = 5; // mensaje de error si status=fail
+}
+
+message SagaOutcome {
+  string ficha_id               = 1;
+  SagaCommand command           = 2;
+  bool   success                = 3;
+  int32  exit_code              = 4;
+  google.protobuf.Duration duration = 5;
+  int32  step_count             = 6;
+  repeated SagaStep steps       = 7;
+  repeated SagaStep failed_steps = 8;
+}
+
+// ── Operaciones (unary gRPC) ────────────────────────────────────────
+
+message InstallRequest {
+  RequestContext ctx = 1;  // CAMPO 1 obligatorio
+  string ficha_id    = 2;
+  string version     = 3;  // opcional — "latest" si vacío
+}
+
+message InstallResponse {
+  SagaOutcome outcome = 1;
+}
+
+message UpdateRequest {
+  RequestContext ctx = 1;
+  string ficha_id    = 2;
+  string version     = 3;  // obligatorio — a qué versión actualizar
+}
+
+message UpdateResponse {
+  SagaOutcome outcome = 1;
+}
+
+message RepairRequest {
+  RequestContext ctx = 1;
+  string ficha_id    = 2;
+}
+
+message RepairResponse {
+  SagaOutcome outcome = 1;
+}
+
+message RemoveRequest {
+  RequestContext ctx = 1;
+  string ficha_id    = 2;
+}
+
+message RemoveResponse {
+  SagaOutcome outcome = 1;
+}
+
+message ProbeRequest {
+  RequestContext ctx = 1;
+  string ficha_id    = 2;
+}
+
+message ProbeResponse {
+  SagaOutcome outcome = 1;
+}
+
+message PauseRequest {
+  RequestContext ctx = 1;
+  string ficha_id    = 2;
+}
+
+message PauseResponse {
+  string ficha_id   = 1;
+  string prev_state = 2;  // estado antes de pausar
+  bool   success    = 3;
+}
+
+message ResumeRequest {
+  RequestContext ctx = 1;
+  string ficha_id    = 2;
+}
+
+message ResumeResponse {
+  string ficha_id   = 1;
+  string new_state  = 2;  // estado restaurado
+  bool   success    = 3;
+}
+
+message ScaleRequest {
+  RequestContext ctx = 1;
+  string ficha_id    = 2;
+  int32  replicas    = 3;
+}
+
+message ScaleResponse {
+  string ficha_id         = 1;
+  int32  prev_replicas    = 2;
+  int32  new_replicas     = 3;
+  google.protobuf.Duration duration = 4;
+  bool   success          = 5;
+}
+
+// ── Consultas ───────────────────────────────────────────────────────
+
+message StatusRequest {
+  RequestContext ctx = 1;
+  string ficha_id    = 2;  // vacío = todas
+}
+
+message StatusResponse {
+  oneof result {
+    Ficha single         = 1;  // ficha_id especificado
+    FichaList all        = 2;  // ficha_id vacío
+  }
+}
+
+message FichaList {
+  repeated Ficha fichas = 1;
+  int32 total           = 2;
+}
+
+message ListRequest {
+  RequestContext ctx = 1;
+}
+
+message ListResponse {
+  repeated Ficha fichas = 1;
+  int32 total           = 2;
+}
+
+message DescribeRequest {
+  RequestContext ctx = 1;
+  string ficha_id    = 2;
+}
+
+message DescribeResponse {
+  Ficha ficha                    = 1;
+  map<string, string> versions   = 2;  // version-specific (image, namespace, db)
+  repeated string auto_capabilities = 3; // SSO, ctx_id, mTLS, métricas, Vault
+}
+
+message PlanRequest {
+  RequestContext ctx = 1;
+}
+
+message PlanResponse {
+  repeated string order          = 1;  // orden topológico total
+  repeated Wave waves            = 2;  // oleadas paralelizables
+  int32  total                   = 3;
+  bool   has_cycles              = 4;
+}
+
+message Wave {
+  int32  level  = 1;  // profundidad (0 = sin deps)
+  repeated string ficha_ids = 2;
+}
+
+message DiffRequest {
+  RequestContext ctx = 1;
+  string ficha_id    = 2;
+}
+
+message DiffResult {
+  string ficha_id     = 1;
+  bool   has_drift    = 2;
+  repeated DriftItem items = 3;
+}
+
+message DriftItem {
+  string path      = 1;  // ruta del recurso con drift
+  string declared  = 2;  // hash declarado (manifest)
+  string actual    = 3;  // hash real (sistema)
+}
+
+message DiffResponse {
+  oneof result {
+    DiffResult single   = 1;
+    DiffSummary summary = 2;  // ficha_id vacío = resumen de todas
+  }
+}
+
+message DiffSummary {
+  int32 total_fichas    = 1;
+  int32 drifted_fichas  = 2;
+  int32 ok_fichas       = 3;
+  repeated DiffResult drifts = 4;
+}
+
+message ValidateRequest {
+  RequestContext ctx = 1;
+  string ficha_id    = 2;  // vacío = validar todas las fichas descubiertas
+}
+
+message ValidationResult {
+  string ficha_id               = 1;
+  bool   valid                  = 2;
+  repeated ValidationError errors = 3;
+}
+
+message ValidationError {
+  string field   = 1;  // campo que falló (ej: "identity.id")
+  string message = 2;  // descripción del error
+  string value   = 3;  // valor recibido
+}
+
+message ValidateResponse {
+  repeated ValidationResult results = 1;
+  int32 total_fichas                = 2;
+  int32 valid_fichas                = 3;
+}
+
+message RescanRequest {
+  RequestContext ctx = 1;
+}
+
+message RescanResponse {
+  int32 discovered       = 1;  // fichas nuevas encontradas
+  int32 total            = 2;  // total después del rescan
+  repeated string added  = 3; // IDs de fichas nuevas
+}
+
+// ── Control interno ─────────────────────────────────────────────────
+
+message ResetStateRequest {
+  RequestContext ctx = 1;
+  string ficha_id    = 2;
+  string target_state = 3;  // estado destino (debe estar en ValidTransitions)
+  string reason       = 4;  // causa (ej: "compensación de saga install")
+}
+
+message ResetStateResponse {
+  string ficha_id    = 1;
+  string prev_state  = 2;
+  string new_state   = 3;
+  bool   success     = 4;
+}
+
+// ── Streaming de logs ───────────────────────────────────────────────
+
+message GetLogsRequest {
+  RequestContext ctx = 1;
+  string ficha_id    = 2;  // obligatorio — qué ficha seguir
+  int32  tail_lines  = 3;  // últimas N líneas al conectar (default: 50)
+  bool   follow      = 4;  // true = seguir emitiendo (tail -f)
+}
+
+message LogLine {
+  string ficha_id   = 1;
+  string level      = 2;  // DEBUG, INFO, WARN, ERROR
+  string message    = 3;  // contenido de la línea
+  google.protobuf.Timestamp timestamp = 4;
+  int64  line_number = 5; // número de línea en el archivo
+}
+
+// ── Streaming de eventos (server-streaming) ─────────────────────────
+// Observadores (TUI, biedata, audit, bnotify) se suscriben a este stream.
+// gRPC AIP 136 — Server Streaming.
+
+message WatchRequest {
+  RequestContext ctx  = 1;
+  string ficha_id     = 2;  // vacío = todas las fichas
+  repeated FichaEventType event_types = 3; // vacío = todos los tipos
+}
+
+enum FichaEventType {
+  FICHA_EVENT_TYPE_UNSPECIFIED = 0;
+  FICHA_EVENT_TYPE_STATE_CHANGED  = 1;  // cambio de estado (18 estados ADR-021)
+  FICHA_EVENT_TYPE_SAGA_STARTED   = 2;  // saga iniciada
+  FICHA_EVENT_TYPE_SAGA_STEP      = 3;  // paso de saga completado/fallido
+  FICHA_EVENT_TYPE_SAGA_COMPLETED = 4;  // saga terminada (ok o fail)
+  FICHA_EVENT_TYPE_HEALTH_CHANGED  = 5; // cambio de health_status
+  FICHA_EVENT_TYPE_DRIFT_DETECTED  = 6; // drift detectado
+  FICHA_EVENT_TYPE_HEARTBEAT       = 7; // latido periódico (cada 30s)
+}
+
+message FichaEvent {
+  string event_id                = 1;  // UUID único del evento
+  FichaEventType type            = 2;
+  string ficha_id                = 3;
+  google.protobuf.Timestamp timestamp = 4;
+  RequestContext ctx             = 5;  // contexto al momento del evento
+
+  // Payload según type (solo el campo relevante es no-nil)
+  oneof payload {
+    StateChangedPayload   state_changed   = 10;
+    SagaStartedPayload    saga_started    = 11;
+    SagaStepPayload       saga_step       = 12;
+    SagaCompletedPayload  saga_completed  = 13;
+    HealthChangedPayload  health_changed  = 14;
+    DriftDetectedPayload  drift_detected  = 15;
+    HeartbeatPayload      heartbeat       = 16;
+  }
+}
+
+message StateChangedPayload {
+  string prev_state = 1;
+  string new_state  = 2;
+  string reason     = 3;  // causa de la transición
+}
+
+message SagaStartedPayload {
+  SagaCommand command    = 1;
+  int32  total_steps     = 2;
+  string saga_id         = 3;
+}
+
+message SagaStepPayload {
+  string saga_id  = 1;
+  SagaStep step   = 2;
+  int32  step_num = 3;  // número de paso (1-based)
+}
+
+message SagaCompletedPayload {
+  string saga_id = 1;
+  bool   success = 2;
+  int32  exit_code = 3;
+  google.protobuf.Duration duration = 4;
+}
+
+message HealthChangedPayload {
+  string prev_health = 1;
+  string new_health  = 2;
+  string detail      = 3;
+}
+
+message DriftDetectedPayload {
+  repeated DriftItem items = 1;
+}
+
+message HeartbeatPayload {
+  string daemon_version = 1;
+  int64  uptime_seconds = 2;
+  int64  memory_mb      = 3;
+}
+
+// ── Servicio gRPC ───────────────────────────────────────────────────
+
+service FichaService {
+  // Operaciones del ciclo de vida (unary)
+  rpc Install(InstallRequest) returns (InstallResponse);
+  rpc Update(UpdateRequest) returns (UpdateResponse);
+  rpc Repair(RepairRequest) returns (RepairResponse);
+  rpc Remove(RemoveRequest) returns (RemoveResponse);
+  rpc Probe(ProbeRequest) returns (ProbeResponse);
+  rpc Pause(PauseRequest) returns (PauseResponse);
+  rpc Resume(ResumeRequest) returns (ResumeResponse);
+  rpc Scale(ScaleRequest) returns (ScaleResponse);
+
+  // Control interno (unary)
+  // ResetState fuerza una transición de estado — usado por sagas en compensación.
+  // No expuesto en CLI. Solo JSON-RPC interno y sagas.
+  rpc ResetState(ResetStateRequest) returns (ResetStateResponse);
+
+  // Consultas (unary)
+  rpc Status(StatusRequest) returns (StatusResponse);
+  rpc List(ListRequest) returns (ListResponse);
+  rpc Describe(DescribeRequest) returns (DescribeResponse);
+  rpc Plan(PlanRequest) returns (PlanResponse);
+  rpc Diff(DiffRequest) returns (DiffResponse);
+  rpc Validate(ValidateRequest) returns (ValidateResponse);
+  rpc Rescan(RescanRequest) returns (RescanResponse);
+
+  // Streaming de eventos (server-streaming)
+  // Watch emite eventos de estado/saga/health/drift en tiempo real.
+  // Observadores (TUI, biedata, audit) se suscriben y reciben mientras la
+  // conexión esté abierta. gRPC AIP 136.
+  rpc Watch(WatchRequest) returns (stream FichaEvent);
+
+  // Streaming de logs (server-streaming)
+  // GetLogs transmite líneas del archivo de log de una ficha en tiempo real.
+  // Equivalente gRPC de: tail -f /var/log/bos/fichas/<name>.log
+  // DTC-08: logs legibles sin TUI, accesibles vía gRPC y bosctl.
+  rpc GetLogs(GetLogsRequest) returns (stream LogLine);
+}

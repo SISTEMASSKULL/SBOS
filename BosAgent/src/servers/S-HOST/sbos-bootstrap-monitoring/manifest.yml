@@ -1,0 +1,55 @@
+identity:
+  id: sbos-bootstrap-monitoring
+  server: S-HOST
+  version: 1.0.0
+  category: 1
+  criticality: true
+  description: "Monitoring Bootstrap — prometheus-node-exporter + kube-state-metrics como base de observabilidad del cluster"
+
+workload:
+  type: bash
+  runtime: bash
+
+order:
+  execution_order: 35
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-k8s
+    - sbos-bootstrap-cni
+    - sbos-bootstrap-storage
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "infraestructura-critica"
+
+meta:
+  backend: bash
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: true
+
+ports:
+  - port: 9100
+    protocol: TCP
+    description: "prometheus-node-exporter métricas del host"
+    internal_only: true
+  - port: 8080
+    protocol: TCP
+    description: "kube-state-metrics"
+    internal_only: true
+
+health:
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get pods -n sbos-monitoring --no-headers 2>/dev/null | grep -c Running"
+  expected_min: "1"
+  timeout_seconds: 15
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/sbos-bootstrap-monitoring.log
+
+versions:
+  node_exporter: "1.8.2"
+  kube_state_metrics: "2.13.0"

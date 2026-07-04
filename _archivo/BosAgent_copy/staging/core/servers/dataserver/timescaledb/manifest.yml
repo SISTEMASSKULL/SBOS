@@ -1,0 +1,42 @@
+# manifest.yml — Ficha timescaledb (SBOS-005 §dataserver)
+# SBOS-049 §4 · Order 112 · Deployment
+identity:
+  id: timescaledb
+  name: TimescaleDB
+  version: "2.16"
+  category: 1
+  criticality: false
+  server: dataserver
+  description: "Time-series extension for metrics, IoT"
+
+workload:
+  type: Deployment
+  namespace: sbos-data
+  replicas: 1
+  service_account: timescaledb-sa
+
+order:
+  execution_order: 112
+  timeout_minutes: 15
+
+requirements:
+  dependencies:
+    - postgresql
+  cpu_request: "200m"
+  cpu_limit: "1000m"
+  memory_request: "256Mi"
+  memory_limit: "512Mi"
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+health:
+  check_command: "pg_isready -h localhost -p 5432"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

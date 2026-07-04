@@ -1,0 +1,38 @@
+# sbos-bootstrap-platform — Ficha 03
+# Plataforma K8s: 15 namespaces, RBAC, etcd encryption, NetworkPolicy
+# Tipo 2 (kubernetes) — aplica manifests K8s declarativos
+# P1: único punto de kubectl apply para la plataforma base
+
+version: "1.0.0"
+categoria: 1
+tipo: kubernetes
+orden: 3
+criticidad: true
+tiempo_estimado: 300
+
+dependencias:
+  - sbos-bootstrap-os
+  - sbos-bootstrap-k8s
+
+servidor_logico: hostserver
+namespace_k8s: kube-system
+
+descripcion: |
+  Configura la plataforma K8s base: 15 namespaces SBOS con ResourceQuotas
+  y LimitRanges, RBAC con roles de administración, encriptación etcd KMS v2,
+  NetworkPolicy default-deny en cada namespace, y políticas PodSecurity admission.
+
+post_install:
+  - verificar_namespaces
+  - verificar_etcd_encryption
+  - verificar_networkpolicy
+
+rollback: desinstalar_platform_namespaces
+
+signals:
+  - __SBOS__STEP_START__
+  - __SBOS__STEP_OK__
+  - __SBOS__STEP_FAIL__
+  - __SBOS__STEP_SKIP__
+  - __SBOS__ROLLBACK_START__
+  - __SBOS__CLEANUP_DONE__

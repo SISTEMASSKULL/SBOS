@@ -1,0 +1,6 @@
+bo.skull.sbos.keycloak.spi.SkbosGuardAuthenticator$Factory
+bo.skull.sbos.keycloak.spi.SkbosGeoContextAuthenticator$Factory
+bo.skull.sbos.keycloak.spi.SkbosFinancialPeriodAuthenticator$Factory
+bo.skull.sbos.keycloak.spi.SkbosRoleValidityAuthenticator$Factory
+bo.skull.sbos.keycloak.spi.SkbosStepUpCondition$Factory
+bo.skull.sbos.keycloak.spi.SkbosContextSessionBinder$Factory

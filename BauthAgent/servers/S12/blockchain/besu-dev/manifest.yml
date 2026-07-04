@@ -1,0 +1,53 @@
+# ============================================================
+# besu-dev/manifest.yml — Ficha Besu Dev Mode (probada en VPS)
+#
+# Parámetros validados 2026-06-22 en VPS staging:
+#   Imagen: hyperledger/besu:24.12.0 (descargada y funcionando)
+#   RPC: eth_blockNumber responde OK, chainId=0x539 (1337)
+#   RAM: ~800MB en modo dev
+#
+# Producción (QBFT): usar besu-validator/manifest.yml
+# ============================================================
+ficha: besu-dev
+version: "1.0.0"
+servidor: S12
+tipo: podman-container
+proposito: "Nodo Besu Ethereum en modo desarrollo para testing de Variante B"
+
+imagen:
+  nombre: hyperledger/besu
+  tag: 24.12.0
+  registry: docker.io
+
+recursos:
+  cpu: "1000m"
+  memoria: "1Gi"
+  disco: "5Gi"
+
+red:
+  puertos:
+    - 8545  # RPC HTTP
+    - 8546  # RPC WebSocket
+
+config:
+  network: dev
+  data_path: /tmp/besu-dev
+  host_allowlist: "*"
+  rpc_http_enabled: true
+  rpc_http_api: "ETH,NET,WEB3,ADMIN,DEBUG"
+  rpc_http_cors_origins: "all"
+  rpc_ws_enabled: true
+  rpc_ws_api: "ETH,NET,WEB3"
+
+# Parámetros validados (2026-06-22):
+#   eth_blockNumber: 0x0 (génesis, sin transacciones)
+#   eth_chainId: 0x539 (1337, Besu dev mode)
+#   eth_accounts: [] (sin cuentas pre-definidas)
+#   RAM real: ~800MB en idle
+#   Tiempo de arranque: ~10s hasta RPC disponible
+
+# NOTAS:
+#   - Modo dev NO es para producción (sin consenso, sin persistencia real)
+#   - Para producción usar besu-validator (QBFT 4 nodos, StatefulSet K8s)
+#   - La clave del nodo dev es generada automáticamente por Besu
+#   - Los contratos deployados en dev mode se pierden al reiniciar

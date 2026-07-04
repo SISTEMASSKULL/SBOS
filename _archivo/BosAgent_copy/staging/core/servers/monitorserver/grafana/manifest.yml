@@ -1,0 +1,66 @@
+# manifest.yml — Ficha grafana (SBOS-035 Ficha 15)
+# SBOS-019 §9 · Order 210 · Deployment
+# Note: depends on prometheus (order 200) — not built yet.
+# Ficha operates in degraded mode until prometheus is available.
+identity:
+  id: grafana
+  name: Grafana OSS
+  version: "11.5"
+  category: 1
+  criticality: false
+  server: monitorserver
+  description: "Observabilidad — dashboards, PostgreSQL backend, OIDC auth"
+
+workload:
+  type: Deployment
+  namespace: sbos-monitor
+  replicas: 1
+  service_account: grafana-sa
+
+order:
+  execution_order: 210
+  timeout_minutes: 15
+
+requirements:
+  dependencies:
+    - postgresql
+    - prometheus
+  cpu_request: "200m"
+  cpu_limit: "1000m"
+  memory_request: "512Mi"
+  memory_limit: "1Gi"
+  pvc_size: "10Gi"
+  pvc_storage_class: "sbos-fast"
+
+deployment:
+  strategy: Recreate
+
+governance:
+  auto_install: false
+  backup_enabled: true
+  backup_schedule: "0 4 * * *"
+
+health:
+  check_command: "curl -sf http://localhost:3000/api/health"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+  degraded_allowed: true
+  degraded_reason: "Prometheus datasource may be unavailable until prometheus ficha is built"
+
+integrations:
+  database:
+    name: grafana_db
+    host_from: postgresql
+  oidc:
+    provider: keycloak
+    realm: skbos
+  datasources:
+    - name: prometheus
+      url: "http://prometheus.sbos-monitor:9090"
+      default: true
+      optional: true
+  dashboards:
+    - kubernetes-cluster
+    - postgresql
+    - sbos-operacional

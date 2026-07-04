@@ -1,0 +1,21 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cypht-netpol
+  namespace: sbos-comms
+spec:
+  podSelector:
+    matchLabels:
+      app: cypht
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              sbos-role: internal
+
+      ports:
+        - protocol: TCP
+          port: 80

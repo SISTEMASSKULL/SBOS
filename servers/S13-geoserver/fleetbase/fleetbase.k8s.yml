@@ -1,0 +1,61 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fleetbase
+  namespace: sbos-geo
+spec:
+  type: ClusterIP
+  selector:
+    app: fleetbase
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fleetbase
+  namespace: sbos-geo
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: fleetbase
+  template:
+    metadata:
+      labels:
+        app: fleetbase
+    spec:
+      serviceAccountName: fleetbase-sa
+      containers:
+        - name: fleetbase
+          image: docker.io/fleetbase/fleetbase:0.4
+          ports:
+            - containerPort: 8080
+              name: http
+
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+

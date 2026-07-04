@@ -1,0 +1,60 @@
+identity:
+  id: redis
+  server: S01
+  version: 8.6.2
+  category: 1
+  criticality: true
+  description: "Redis 8.6.2 — caché, streams de bKernel, Context Registry. 3 DBs: cache(0), ctx_id(1), streams(2)."
+
+workload:
+  type: StatefulSet
+  runtime: kubernetes
+
+order:
+  execution_order: 110
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-k8s
+    - sbos-bootstrap-cni
+    - sbos-bootstrap-storage
+    - vault
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "datos-criticos"
+
+meta:
+  backend: helm
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: true
+
+ports:
+  - port: 6379
+    protocol: TCP
+    description: "Redis nativo"
+    cluster_ip: 8120
+    internal_only: true
+
+health:
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config exec -n sbos-data redis-0 -- redis-cli ping"
+  expected_output: "PONG"
+  timeout_seconds: 10
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/redis.log
+
+versions:
+  redis: "8.6.2"
+  image: "redis:8.6.2-alpine"
+  pv_name: sbos-redis-pv
+  namespace: sbos-data
+
+databases:
+  0: cache
+  1: ctx_id
+  2: streams

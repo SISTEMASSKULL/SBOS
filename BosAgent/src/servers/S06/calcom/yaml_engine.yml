@@ -1,0 +1,51 @@
+phases:
+  pre_install:
+    tasks:
+      - task: "check_node_resources"
+        params: { ram_mb_required: 1024, disk_gb_required: 20 }
+      - task: "create_k8s_namespace"
+        params: { namespace: "sbos-collab" }
+      - task: "vault_read_secret"
+        params: { secret_path: "secret/bauth/collab/calcom", key: "oidc-client-secret", env_var: "CALCOM_OIDC_CLIENT_SECRET" }
+      - task: "apply_network_policy"
+        params: { namespace: "sbos-collab", policy: "calcom.network" }
+  post_install:
+    tasks:
+      - task: "wait_pod_ready"
+        params: { namespace: "sbos-collab", pod_selector: "app=calcom", timeout_seconds: 120 }
+      - task: "pg_create_database"
+        params: { database: "calcom_db", owner_secret: "secret/sbos/calcom/db" }
+      - task: "pg_run_migrations"
+        params: { database: "calcom_db", migrations_path: "resources/sql/" }
+      - task: "keycloak_register_client"
+        params:
+          realm: "tenant-{id}"
+          client_id: "calcom"
+          protocol: "openid-connect"
+          redirect_uris: ["https://calcom.sbos.local/api/auth/callback/keycloak"]
+          secret_path: "secret/bauth/collab/calcom"
+          resources_path: "resources/keycloak/"
+  update:
+    tasks:
+      - task: "reconcile_file"
+        update_strategy: "rolling"
+        drift_check: true
+        params: { source: "resources/config/calcom.env", target: "/etc/calcom/.env" }
+      - task: "rollout_restart"
+        params: { namespace: "sbos-collab", resource: "Deployment/calcom" }
+  repair:
+    diagnosis_first: true
+    tasks:
+      - task: "check_pod_status"
+        params: { namespace: "sbos-collab", pod_selector: "app=calcom" }
+      - task: "rollout_restart"
+        params: { namespace: "sbos-collab", resource: "Deployment/calcom" }
+        on_failure: "abort"
+  uninstall:
+    require_confirmation: "DESINSTALAR-CALCOM"
+    governance_category: 2
+    tasks:
+      - task: "take_backup_snapshot"
+        params: { backup_name: "pre-uninstall-calcom" }
+      - task: "keycloak_remove_client"
+        params: { realm: "tenant-{id}", client_id: "calcom" }

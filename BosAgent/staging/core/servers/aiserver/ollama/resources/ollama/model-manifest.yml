@@ -1,0 +1,21 @@
+# Ollama Model Manifest — SKULL Operator
+# Fuente: SBOS-INSTALACION-FORMULARIO.md §9
+# GPU: NO · Embeddings: nomic-embed-text
+
+models:
+  - name: deepseek4-pro
+    source: registry.ollama.ai/library/deepseek4-pro:latest
+    quantization: q4_K_M
+    keep_alive: 24h
+
+  - name: nomic-embed-text
+    source: registry.ollama.ai/library/nomic-embed-text:latest
+    purpose: embeddings
+    keep_alive: 24h
+
+runtime:
+  gpu: false
+  num_threads: 4
+  max_loaded_models: 2
+  host: "0.0.0.0"
+  port: 11434

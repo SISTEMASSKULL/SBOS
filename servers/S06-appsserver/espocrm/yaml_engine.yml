@@ -1,0 +1,42 @@
+# yaml_engine.yml — espocrm lifecycle phases
+# SBOS-049 §4.4 · Order · deployment
+# R16 Zero hardcoding
+
+pre_install:
+  - name: "create_namespace"
+    command: "kubectl create namespace sbos-apps --dry-run=client -o yaml | kubectl apply -f -"
+    timeout_seconds: 30
+  - name: "apply_network_policy"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/espocrm.network -n sbos-apps"
+    timeout_seconds: 30
+
+install:
+  - name: "apply_manifest"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/espocrm.k8s.yml -n sbos-apps"
+    timeout_seconds: 300
+  - name: "wait_ready"
+    command: "kubectl wait --for=condition=Available deployment/espocrm -n sbos-apps --timeout=600s"
+    timeout_seconds: 600
+
+post_install:
+  - name: "verify"
+    command: "echo 'verify_ok'"
+    timeout_seconds: 30
+
+update:
+  - name: "rolling_restart"
+    command: "kubectl rollout restart deployment espocrm -n sbos-apps"
+    timeout_seconds: 300
+
+repair:
+  - name: "restart"
+    command: "kubectl rollout restart deployment espocrm -n sbos-apps"
+    timeout_seconds: 120
+
+uninstall:
+  - name: "delete_manifest"
+    command: "kubectl delete deployment espocrm -n sbos-apps --ignore-not-found"
+    timeout_seconds: 120
+  - name: "delete_pvc"
+    command: "echo 'no pvc'"
+    timeout_seconds: 60

@@ -1,0 +1,125 @@
+# guacamole.k8s.yml — Apache Guacamole VDI Gateway (BOS-REPAIR-09 §5)
+# guacd (daemon de protocolo) + guacamole (webapp Tomcat) en un solo pod.
+# El estado vive en guacamole_db (PostgreSQL); el pod es stateless.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: guacamole-sa
+  namespace: sbos-vdi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: guacamole
+  namespace: sbos-vdi
+  labels:
+    app: guacamole
+    app.kubernetes.io/part-of: sbos-vdi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: guacamole
+  strategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: guacamole
+    spec:
+      serviceAccountName: guacamole-sa
+      containers:
+        # guacd — motor de protocolos (VNC/RDP). Solo localhost del pod.
+        - name: guacd
+          image: guacamole/guacd:1.5.5
+          ports:
+            - containerPort: 4822
+              name: guacd
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+        # guacamole — webapp HTML5 (Tomcat). Expuesta por Kong.
+        - name: guacamole
+          image: guacamole/guacamole:1.5.5
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: GUACD_HOSTNAME
+              value: "localhost"
+            - name: POSTGRESQL_HOSTNAME
+              value: "postgresql.sbos-data.svc.cluster.local"
+            - name: POSTGRESQL_DATABASE
+              value: "guacamole_db"
+            - name: POSTGRESQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: guacamole-db
+                  key: username
+            - name: POSTGRESQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: guacamole-db
+                  key: password
+            # SSO OIDC vía Keycloak del tenant (extensión openid)
+            - name: OPENID_AUTHORIZATION_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: guacamole-oidc
+                  key: authorization_endpoint
+            - name: OPENID_JWKS_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: guacamole-oidc
+                  key: jwks_endpoint
+            - name: OPENID_ISSUER
+              valueFrom:
+                configMapKeyRef:
+                  name: guacamole-oidc
+                  key: issuer
+            - name: OPENID_CLIENT_ID
+              value: "guacamole"
+            - name: OPENID_REDIRECT_URI
+              valueFrom:
+                configMapKeyRef:
+                  name: guacamole-oidc
+                  key: redirect_uri
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          readinessProbe:
+            httpGet:
+              path: /guacamole/api/languages
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /guacamole/api/languages
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: guacamole
+  namespace: sbos-vdi
+  labels:
+    app: guacamole
+spec:
+  selector:
+    app: guacamole
+  ports:
+    - port: 8080
+      targetPort: 8080
+      name: http
+  type: ClusterIP

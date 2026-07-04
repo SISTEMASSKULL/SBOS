@@ -1,0 +1,61 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postfix
+  namespace: sbos-comms
+spec:
+  type: ClusterIP
+  selector:
+    app: postfix
+  ports:
+    - name: http
+      port: 25
+      targetPort: 25
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postfix
+  namespace: sbos-comms
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: postfix
+  template:
+    metadata:
+      labels:
+        app: postfix
+    spec:
+      serviceAccountName: postfix-sa
+      containers:
+        - name: postfix
+          image: docker.io/library/postfix:3.9
+          ports:
+            - containerPort: 25
+              name: http
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 25
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 25
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+

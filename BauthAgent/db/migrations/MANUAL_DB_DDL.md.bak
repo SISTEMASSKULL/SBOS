@@ -1,0 +1,1207 @@
+# MANUAL_DB_DDL.md — Manual de Base de Datos skSBOS_db
+
+**Versión:** 1.0 · **Fecha:** 2026-06-23 · **Autor:** sbos-coordinador
+**Propósito:** Documentar estándares aplicados y guía de llenado de cada campo para
+facilitar el desarrollo de interfaces, APIs y validaciones.
+
+---
+
+## 1. ESTÁNDARES INTERNACIONALES APLICADOS
+
+| # | Estándar | Aplica a | Tablas |
+|---|----------|----------|--------|
+| 1 | **RFC 9562** (UUID v7) | PK de toda tabla | Todas |
+| 2 | **BCP 47 / RFC 5646** | Language tags | global_language, idn_tenant_languages |
+| 3 | **ISO 639-1:2002** | Códigos de idioma 2 letras | global_language |
+| 4 | **ISO 639-2:1998** | Códigos de idioma 3 letras (B/T) | global_language |
+| 5 | **ISO 639-3:2007** | Códigos de idioma comprehensivos | global_language |
+| 6 | **ISO 15924** | Códigos de escritura (scripts) | global_language |
+| 7 | **ISO 4217:2015** | Códigos de moneda | global_currency, idn_tenant_currencies |
+| 8 | **ISO 3166-1:2020** | Códigos de país alpha-2/3, numérico | global_country |
+| 9 | **UN M.49** | Regiones y subregiones ONU | global_country |
+| 10 | **ITU-T E.164** | Códigos telefónicos internacionales | global_country |
+| 11 | **IANA TZ Database** | Zonas horarias (zone.tab) | geo_timezone |
+| 12 | **ISO 6709** | Coordenadas geográficas | geo_timezone, global_country |
+| 13 | **Unicode CLDR 46** | Nombres localizados, direcciones de escritura | global_language, geo_timezone |
+| 14 | **ISO 27001:2022 A.8.2** | Control de acceso privilegiado | idn_tenant, idn_tenant_verification |
+| 15 | **ISO 27001:2022 A.8.15** | Trazabilidad (created_at, updated_at) | Todas |
+| 16 | **NIST 800-63A** | Identity proofing IAL1-3 | idn_tenant_verification |
+| 17 | **NIST 800-53 AC-3** | Access enforcement | idn_tenant_currencies, idn_tenant_languages |
+| 18 | **NIST 800-207 ZTA** | Zero Trust Architecture | idn_tenant |
+| 19 | **GDPR Art.7, Art.17** | Consentimiento, derecho al olvido | idn_tenant |
+| 20 | **PCI DSS 4.0 Req 7.2, 11.3** | Control de acceso, rate limiting | idn_tenant |
+| 21 | **SBOS-049** | Context Plane (ctx_id) | Todas Nivel 1+ |
+| 22 | **SBOS-050** | Port Catalog, P9 (sin HTTP entre daemons) | Infraestructura |
+| 23 | **Ley 2492 Bolivia** | Retención datos fiscales 7 años (2555 días) | idn_tenant |
+| 24 | **Linked Open Data (Wikidata)** | Q-ID para grafos de conocimiento | global_language, global_country |
+| 25 | **Ethnologue / Glottolog** | Familias lingüísticas | global_language |
+
+---
+
+## 2. REGLAS DE DISEÑO APLICADAS
+
+| # | Regla | Descripción |
+|---|-------|-------------|
+| R1 | **UUIDv7 PK obligatorio** | Toda tabla usa `UUID PRIMARY KEY DEFAULT uuidv7()`. Claves naturales → UNIQUE, nunca PK. |
+| R2 | **Columnas en inglés** | Cero mezcla español/inglés. Nombres descriptivos, snake_case. |
+| R3 | **ENUM types** | Valores controlados via CREATE TYPE. Cero CHECK IN hardcodeado. |
+| R4 | **COMMENT ON en todo** | Tabla, cada columna, índices relevantes. Con referencia al estándar [entre corchetes]. |
+| R5 | **Timestamps** | `created_at` + `updated_at` en toda tabla. |
+| R6 | **ctx_id** | Obligatorio en tablas Nivel 1+. DEFAULT 'system' para bootstrap. |
+| R7 | **Cero ALTER TABLE** | Todo en CREATE TABLE. Sin migraciones acumulativas. |
+| R8 | **Cero INSERTs en DDL** | Datos en seeds. DDL solo estructura. |
+| R9 | **3 formas normales** | 1FN (atómicos), 2FN (dependencia de PK completa), 3FN (sin transitivas). |
+| R10 | **Índices skip scan** | PostgreSQL 18: leading column baja cardinalidad, trailing alta. |
+| R11 | **GIN sobre JSONB** | Para campos multi-lenguaje consultables. |
+
+---
+
+## 3. CATÁLOGO DE TABLAS
+
+### 3.1 — bglobal.global_language (003)
+**Propósito:** Catálogo canónico de idiomas del mundo. Fuente de verdad para todo el ecosistema.
+**Estándares:** BCP 47, ISO 639-1/2/3, ISO 15924, IANA Subtag Registry, CLDR 46.
+
+| # | Columna | Tipo | Obligatorio | Significado | Cómo se obtiene | Ejemplo |
+|---|---------|------|-------------|-------------|-----------------|---------|
+| 1 | `language_id` | UUID | Sí (PK) | Identificador interno UUIDv7 | Automático: `DEFAULT uuidv7()` | `019ef51f-fc83-71a1-...` |
+| 2 | `locale` | TEXT | Sí (UNIQUE) | BCP 47 language tag. Identificador IANA del idioma | IANA Language Subtag Registry. Formato: `language[-script][-region]` | `es-BO`, `en-US`, `zh-Hans-CN` |
+| 3 | `iso_639_1` | CHAR(2) | No | Código ISO 639-1 de 2 letras. 184 códigos | ISO 639-1:2002. NULL = idioma sin código (solo 639-3) | `es`, `en`, `zh` |
+| 4 | `iso_639_2t` | CHAR(3) | No | Código ISO 639-2 TERMINOLOGY (preferido para apps) | ISO 639-2:1998. Variante T | `spa`, `eng`, `zho` |
+| 5 | `iso_639_2b` | CHAR(3) | No | Código ISO 639-2 BIBLIOGRAPHIC (catalogación) | ISO 639-2:1998. Variante B. NULL = mismo que T | `ger` (deu), `fre` (fra) |
+| 6 | `iso_639_3` | CHAR(3) | No | Código ISO 639-3 comprehensivo. 8368+ códigos | Ethnologue / SIL International | `spa`, `eng`, `zho` |
+| 7 | `scope` | ENUM | Sí | Ámbito: individual (idioma), macrolanguage (agrupa), special (mul/und), collection (familia) | ISO 639-3 §4.2. Crítico: `zh` = macrolanguage, `cmn` = individual | `individual` |
+| 8 | `language_type` | ENUM | Sí | Tipo: living, extinct, ancient, constructed, historic | Ethnologue | `living` |
+| 9 | `family` | TEXT | No | Familia lingüística | Ethnologue / Glottolog | `Indo-European`, `Quechuan` |
+| 10 | `name` | JSONB | Sí | Nombres del idioma en múltiples locales. Clave `native` obligatoria | CLDR 46 + Wikidata. Estructura: `{"es":"...","en":"...","native":"..."}` | `{"es":"Español","en":"Spanish","native":"Español"}` |
+| 11 | `direction` | ENUM | Sí | Dirección de escritura: ltr, rtl, ttb | CLDR | `ltr` |
+| 12 | `fallback_locale` | TEXT | No | Cadena de degradación si falta traducción. Ej: `cmn→zh→en→und` | CLDR fallback chain | `zh` (para cmn) |
+| 13 | `suppress_script` | CHAR(4) | No | Script a NO mostrar con este idioma (es implícito) | IANA Registry `Suppress-Script` | `Latn` (para en) |
+| 14 | `preferred_value` | TEXT | No | Tag de reemplazo si está deprecated | IANA Registry `Preferred-Value` | `he` (para iw) |
+| 15 | `deprecated` | BOOLEAN | Sí | true = este locale está deprecado por IANA | IANA Registry | `false` |
+| 16 | `wikidata_id` | TEXT | No | Q-ID de Wikidata para linked open data | Wikidata.org | `Q1321` (Español) |
+| 17 | `iana_registry_date` | DATE | No | Fecha de la versión del registry IANA usada | IANA announcements | `2026-06-23` |
+| 18 | `is_active` | BOOLEAN | Sí | true = activo en SBOS (ofrecido en UI). DEFAULT false | Administrador SBOS. Solo es+en activos por defecto | `true` |
+| 19 | `created_at` | TIMESTAMPTZ | Sí | Fecha de creación del registro | Automático | `2026-06-23T15:00:00Z` |
+| 20 | `updated_at` | TIMESTAMPTZ | Sí | Fecha de última modificación | Automático | `2026-06-23T15:00:00Z` |
+
+---
+
+### 3.2 — bglobal.global_currency (002)
+**Propósito:** Catálogo canónico de monedas ISO 4217.
+**Estándares:** ISO 4217:2015, SIX Interbank Clearing.
+
+| # | Columna | Tipo | Obligatorio | Significado | Cómo se obtiene | Ejemplo |
+|---|---------|------|-------------|-------------|-----------------|---------|
+| 1 | `currency_id` | UUID | Sí (PK) | Identificador interno UUIDv7 | Automático | `019ef51f-...` |
+| 2 | `currency_code` | CHAR(3) | Sí (UNIQUE) | Código alfabético ISO 4217 | SIX Interbank Clearing / ISO 4217 | `BOB`, `USD`, `EUR` |
+| 3 | `iso_numeric` | SMALLINT | Sí (UNIQUE) | Código numérico ISO 4217 de 3 dígitos. Negativo = cripto sin asignación | ISO 4217. Cripto: valores negativos (-1, -2...) | `068` |
+| 4 | `name` | JSONB | Sí | Nombres en múltiples idiomas. `singular` y `plural` | CLDR + bancos centrales | `{"es":{"singular":"Boliviano","plural":"Bolivianos"}}` |
+| 5 | `symbol` | TEXT | Sí | Símbolo local de la moneda | ISO 4217 / CLDR | `Bs.`, `$`, `€` |
+| 6 | `symbol_intl` | TEXT | No | Símbolo internacional (generalmente = currency_code) | ISO 4217 | `BOB`, `USD` |
+| 7 | `decimal_places` | SMALLINT | Sí | Cantidad de decimales estándar. 2 (la mayoría), 0 (JPY), 3 (BHD), 8 (BTC) | ISO 4217 | `2` |
+| 8 | `minor_unit_name` | TEXT | No | Nombre de la unidad fraccionaria | ISO 4217 | `centavo`, `cent`, `satoshi` |
+| 9 | `introduced_at` | DATE | No | Fecha de introducción de la moneda. NULL = antes del registro ISO (1978) | ISO 4217 / bancos centrales | `1987-01-01` |
+| 10 | `withdrawn_at` | DATE | No | Fecha de retiro. NULL = moneda activa | ISO 4217 | `2002-02-28` |
+| 11 | `issuer_country` | CHAR(2) | Sí | Código ISO 3166-1 alpha-2 del país emisor. `XX` = cripto/desconocido | ISO 3166-1 | `BO` |
+| 12 | `country_id` | UUID | No | FK a global_country. País principal que usa esta moneda | JOIN con global_country | UUID de Bolivia |
+| 13 | `is_active` | BOOLEAN | Sí | true = moneda en circulación | ISO 4217 / bancos centrales | `true` |
+| 14 | `is_cryptocurrency` | BOOLEAN | Sí | true = criptomoneda (sin banco central) | Clasificación SBOS | `false` |
+| 15 | `exchange_rate_api` | TEXT | No | URL de API del banco central para tasa de cambio oficial | Banco central de cada país | `https://www.bcb.gob.bo/` |
+| 16 | `created_at` | TIMESTAMPTZ | Sí | Fecha de creación | Automático | — |
+| 17 | `updated_at` | TIMESTAMPTZ | Sí | Fecha de modificación | Automático | — |
+
+---
+
+### 3.3 — bglobal.global_country (004)
+**Propósito:** Catálogo canónico de países. Fuente de verdad geográfica del ecosistema.
+**Estándares:** ISO 3166-1, UN M.49, ITU-T E.164, IANA TZ, CLDR.
+
+| # | Columna | Tipo | Obligatorio | Significado | Cómo se obtiene | Ejemplo |
+|---|---------|------|-------------|-------------|-----------------|---------|
+| 1 | `country_id` | UUID | Sí (PK) | Identificador interno UUIDv7 | Automático | — |
+| 2 | `iso_alpha2` | CHAR(2) | Sí (UNIQUE) | Código ISO 3166-1 alpha-2. Clave natural principal | ISO 3166-1:2020 | `BO`, `US` |
+| 3 | `iso_alpha3` | CHAR(3) | Sí (UNIQUE) | Código alpha-3 | ISO 3166-1:2020 | `BOL`, `USA` |
+| 4 | `iso_numeric` | SMALLINT | Sí (UNIQUE) | Código numérico de 3 dígitos | ISO 3166-1:2020 | `068` |
+| 5 | `un_m49` | SMALLINT | No (UNIQUE) | Código de región ONU para estadísticas | UN M.49 | `068` |
+| 6 | `itu_calling_code` | TEXT | Sí | Código telefónico internacional | ITU-T E.164 | `+591` |
+| 7 | `tld` | TEXT | Sí | Dominio de nivel superior (ccTLD) | IANA | `.bo` |
+| 8 | `icao_code` | CHAR(2) | No | Código de aeropuerto/autoridad de aviación | ICAO | `SL` |
+| 9 | `name_common` | TEXT | Sí | Nombre común en inglés | CLDR / REST Countries | `Bolivia` |
+| 10 | `name_official` | TEXT | Sí | Nombre oficial completo | ONU / gobierno | `Plurinational State of Bolivia` |
+| 11 | `name_native` | JSONB | Sí | Nombres en 80+ locales. Clave = BCP 47 locale | CLDR / Wikidata | `{"es":"Bolivia","qu":"Puliwya"}` |
+| 12 | `demonym` | TEXT | No | Gentilicio en inglés | CLDR | `Bolivian` |
+| 13 | `demonym_native` | JSONB | No | Gentilicios multi-lenguaje | CLDR | `{"es":"boliviano/a"}` |
+| 14 | `continent` | TEXT | Sí | Continente | UN M.49 | `South America` |
+| 15 | `region` | TEXT | Sí | Región ONU | UN M.49 | `Americas` |
+| 16 | `subregion` | TEXT | No | Subregión ONU | UN M.49 | `South America` |
+| 17 | `capital` | TEXT | No | Capital administrativa | CLDR | `La Paz` |
+| 18 | `capital_coords` | POINT | No | Coordenadas (lat, lon) de la capital | OSM / REST Countries | `(-19.04,-65.26)` |
+| 19 | `lat` | NUMERIC(8,5) | No | Latitud del centroide del país | REST Countries / OSM | `-16.29` |
+| 20 | `lon` | NUMERIC(8,5) | No | Longitud del centroide | REST Countries / OSM | `-63.59` |
+| 21 | `area_km2` | BIGINT | No | Área en kilómetros cuadrados | REST Countries | `1098581` |
+| 22 | `landlocked` | BOOLEAN | Sí | Sin salida al mar | Geografía | `true` |
+| 23 | `borders` | CHAR(2)[] | No | Array de alpha-2 de países fronterizos | REST Countries | `{AR,BR,CL,PE,PY}` |
+| 24 | `population` | BIGINT | No | Población estimada | ONU / censo | `12079472` |
+| 25 | `population_year` | SMALLINT | No | Año de la estimación de población | ONU | `2023` |
+| 26 | `currency_code` | CHAR(3) | No | Código de moneda principal | ISO 4217 | `BOB` |
+| 27 | `gini_coefficient` | NUMERIC(4,1) | No | Coeficiente de Gini (desigualdad) | Banco Mundial | `43.6` |
+| 28 | `languages` | TEXT[] | No | Array de idiomas oficiales (BCP 47) | CLDR / gobierno | `{es,qu,ay}` |
+| 29 | `timezones` | TEXT[] | Sí | Array de zonas horarias IANA | IANA TZ Database | `{America/La_Paz}` |
+| 30 | `flag_emoji` | TEXT | No | Emoji de la bandera | Unicode CLDR | `🇧🇴` |
+| 31 | `flag_svg_url` | TEXT | No | URL al SVG de la bandera | REST Countries | — |
+| 32 | `independence_status` | TEXT | No | Estatus político: sovereign, dependent, disputed | ONU | `sovereign` |
+| 33 | `wikidata_id` | TEXT | No | Q-ID de Wikidata | Wikidata | `Q750` |
+| 34 | `active` | BOOLEAN | Sí | País activo en el ecosistema | Administrador | `true` |
+| 35 | `created_at` | TIMESTAMPTZ | Sí | Fecha de creación | Automático | — |
+| 36 | `updated_at` | TIMESTAMPTZ | Sí | Fecha de modificación | Automático | — |
+
+---
+
+### 3.4 — bglobal.geo_timezone (005)
+**Propósito:** Catálogo de zonas horarias IANA. 319 zonas. Solo `America/La_Paz` activa por defecto.
+**Estándares:** IANA TZ Database (zone.tab), ISO 6709, CLDR.
+
+| # | Columna | Tipo | Obligatorio | Significado | Cómo se obtiene | Ejemplo |
+|---|---------|------|-------------|-------------|-----------------|---------|
+| 1 | `timezone_uuid` | UUID | Sí (PK) | Identificador interno UUIDv7 | Automático | — |
+| 2 | `timezone_id` | TEXT | Sí (UNIQUE) | Identificador IANA. Formato: `Area/Location` | IANA zone.tab | `America/La_Paz` |
+| 3 | `name` | JSONB | Sí | Nombres multi-lenguaje | CLDR | `{"es":"Bolivia (La Paz)","en":"Bolivia Time"}` |
+| 4 | `country_code` | CHAR(2) | Sí | Código ISO 3166-1 alpha-2. zone.tab col 1 | IANA zone.tab | `BO` |
+| 5 | `principal_city` | TEXT | No | Ciudad principal de la zona | IANA zone.tab (implícito en el nombre) | `La Paz` |
+| 6 | `coordinates` | POINT | No | Coordenadas (lat, lon) ISO 6709. zone.tab col 2 | IANA zone.tab | `(-16.50,-68.15)` |
+| 7 | `utc_offset` | TEXT | Sí | Offset UTC estándar en formato display | IANA | `-04:00` |
+| 8 | `utc_offset_min` | SMALLINT | Sí | Offset UTC en minutos (para aritmética) | IANA | `-240` |
+| 9 | `observes_dst` | BOOLEAN | Sí | true = observa horario de verano | IANA zone.tab + DST rules | `false` |
+| 10 | `dst_offset` | TEXT | No | Offset UTC durante DST | IANA DST rules. NULL = sin DST | `-03:00` |
+| 11 | `dst_offset_min` | SMALLINT | No | Offset DST en minutos | IANA. NULL = sin DST | `-180` |
+| 12 | `comments` | TEXT | No | Comentarios IANA. zone.tab col 4 | IANA zone.tab | — |
+| 13 | `is_active` | BOOLEAN | Sí | true = disponible en UI. Solo La Paz activa | Administrador SBOS | `false` |
+| 14 | `created_at` | TIMESTAMPTZ | Sí | Fecha de creación | Automático | — |
+| 15 | `updated_at` | TIMESTAMPTZ | Sí | Fecha de modificación | Automático | — |
+
+---
+
+### 3.5 — bauth.idn_tenant (001)
+**Propósito:** Entidad raíz del sistema multi-tenant. Define identidad, aislamiento, seguridad y ciclo de vida.
+**Estándares:** ISO 27001 A.8.2, NIST 800-53 AC-2/AC-3, NIST 800-207 ZTA, GDPR, PCI DSS, SBOS-049.
+
+| # | Columna | Tipo | Obligatorio | Significado | Cómo se obtiene | Ejemplo |
+|---|---------|------|-------------|-------------|-----------------|---------|
+| 1 | `tenant_id` | UUID | Sí (PK) | Identificador interno UUIDv7 | Automático | — |
+| 2 | `tenant_slug` | TEXT | Sí (UNIQUE) | Identificador público para URLs/APIs. Lowercase, sin espacios, guiones permitidos | Elegido por el operador al crear el tenant | `skull`, `acme` |
+| 3 | `tenant_name` | TEXT | Sí | Nombre descriptivo visible en UI y reportes | Elegido por el operador | `SKULL S.A.` |
+| 4 | `tenant_type` | ENUM | Sí | Clasificación de seguridad: STANDARD, REGULATED, HIGH_SENSITIVITY | Determinado por compliance: datos sensibles, regulaciones aplicables | `STANDARD` |
+| 5 | `status` | ENUM | Sí | Ciclo de vida: PENDING_VERIFICATION→ACTIVE→SUSPENDED→...→PURGED | Administrador SBOS. Cambia según verificación KYC | `PENDING_VERIFICATION` |
+| 6 | `provisioning_status` | ENUM | Sí | Bootstrap tracking: PENDING→INFRA→SCHEMA→IDP→COMPLETED (o FAILED) | BOS (IAM Installer). Automático | `PENDING` |
+| 7 | `verified_at` | TIMESTAMPTZ | No | Fecha de verificación KYC completada | Sistema: cuando todos los pasos en idn_tenant_verification están PASSED | `2026-06-23T...` |
+| 8 | `verified_by` | UUID | No | UUID del administrador SBOS que verificó este tenant | FK lógica a idn_usuario | — |
+| 9 | `suspended_at` | TIMESTAMPTZ | No | Fecha de suspensión. NULL = activo. Cuando se establece, todos los accesos se revocan | Administrador SBOS | — |
+| 10 | `deleted_at` | TIMESTAMPTZ | No | Soft-delete timestamp. NULL = activo. Inicia grace period de 30 días | Administrador SBOS | — |
+| 11 | `purge_after` | TIMESTAMPTZ | No | Fecha de purga definitiva. Default: deleted_at + 30 días | Automático: `now() + INTERVAL '30 days'` | — |
+| 12 | `legal_name` | TEXT | No | Razón social legal del operador. Requerido para facturación SIN | Documento de constitución / FUNDEMPRESA | `SKULL Tecnologías S.A.` |
+| 13 | `tax_id` | TEXT | No | NIT (Bolivia) / Tax ID. Formato: XXXXXXXXX | SIN Bolivia / autoridad fiscal | `123456789` |
+| 14 | `registration_number` | TEXT | No | Número de registro de comercio | FUNDEMPRESA (Bolivia) | — |
+| 15 | `country` | TEXT | Sí | Código ISO 3166-1 alpha-2 del país de operación principal | Operador. Default: `BO` | `BO` |
+| 16 | `jurisdiction` | TEXT | No | Jurisdicción legal aplicable. Determina leyes de protección de datos | Definido por ubicación del operador | `Ley 164 Bolivia` |
+| 17 | `legal_representative` | TEXT | No | Nombre del representante legal | Documento de constitución | — |
+| 18 | `legal_contact_email` | TEXT | Condicional | Email del representante legal. Requerido si admin_contact_id es NULL (CHECK) | Operador | `legal@skull.bo` |
+| 19 | `data_retention_days` | INTEGER | Sí | Días de retención de datos. Default: 2555 (7 años, Ley 2492 Bolivia) | Ley fiscal del país del operador | `2555` |
+| 20 | `terms_accepted_at` | TIMESTAMPTZ | No | Fecha de aceptación de términos de servicio (GDPR Art.7) | Sistema: cuando el operador acepta los términos | — |
+| 21 | `terms_version` | TEXT | No | Versión de los términos aceptados. Para re-consentimiento | Sistema | `v2.1` |
+| 22 | `realm_kc` | TEXT | Sí (UNIQUE) | Nombre del realm en Keycloak. Formato: `tenant-{slug}` | BOS: generado automáticamente | `tenant-skull` |
+| 23 | `realm_kc_ext` | TEXT | Sí (UNIQUE) | Realm externo para usuarios N0 (clientes, visitantes) | BOS: `tenant-{slug}-ext` | `tenant-skull-ext` |
+| 24 | `namespace_k8s` | TEXT | Sí (UNIQUE) | Namespace en Kubernetes para pods del tenant | BOS: generado automáticamente | `sbos-skull` |
+| 25 | `database_name` | TEXT | No | BD dedicada si isolation_level=DB_PER_TENANT | BOS. NULL si comparte BD | — |
+| 26 | `database_schema` | TEXT | No | Schema dedicado si isolation_level=SCHEMA_PER_TENANT | BOS | — |
+| 27 | `vault_path` | TEXT | No | Ruta en Vault para secretos del tenant | BOS: `secret/tenants/{slug}/` | `secret/tenants/skull/` |
+| 28 | `kong_consumer_id` | TEXT | No | ID del consumidor en Kong API Gateway | Kong: generado al crear consumer | — |
+| 29 | `domain` | TEXT | No | FQDN del tenant | BOS: `{slug}.sbos.skull.bo` | `skull.sbos.skull.bo` |
+| 30 | `isolation_level` | ENUM | Sí | Nivel de aislamiento de datos: ROW_LEVEL, SCHEMA_PER_TENANT, DB_PER_TENANT | Arquitecto SBOS según requerimientos de seguridad | `SCHEMA_PER_TENANT` |
+| 31 | `mfa_required` | BOOLEAN | Sí | MFA obligatorio para todos los usuarios del tenant (NIST 800-63B-4) | Política de seguridad del tenant | `false` |
+| 32 | `password_policy` | TEXT | Sí | Política de contraseñas: `length(N)_argon2id_tN_mN` | NIST 800-63B-4. Default: 12 chars, Argon2id | `length(12)_argon2id_t3_m64` |
+| 33 | `session_ttl_max` | INTEGER | Sí | Tiempo máximo de sesión en segundos. Default: 28800 (8h). Máx: 86400 (24h) | NIST 800-63B-4 §7 | `28800` |
+| 34 | `token_ttl_seconds` | INTEGER | Sí | TTL del access token JWT. Default: 3600 (1h) | OAuth 2.0 RFC 6749 | `3600` |
+| 35 | `rate_limit_rps` | INTEGER | Sí | Rate limit en requests/segundo. SU: ilimitado, SYS:1000, BIZ:100, EXT:10 | PCI DSS 4.0 Req 11.3. Según tier del tenant | `100` |
+| 36 | `allowed_ip_ranges` | TEXT[] | No | Array de CIDR ranges autorizados. NULL = sin restricción | Zero Trust: definir siempre en producción | `{10.0.1.0/24}` |
+| 37 | `plan_tier` | ENUM | Sí | Plan de suscripción: BASIC (≤50 usuarios), PRO (ilimitado), ENTERPRISE (dedicado) | Comercial | `BASIC` |
+| 38 | `subscription_status` | ENUM | Sí | TRIAL→ACTIVE→PAST_DUE→CANCELLED. TRIAL expira en 30 días | Sistema de facturación | `TRIAL` |
+| 39 | `audit_level` | ENUM | Sí | Nivel de auditoría: basic (solo seguridad), full (todas las operaciones) | ISO 27001 A.8.15. Política del tenant | `basic` |
+| 40 | `notification_channels` | TEXT[] | No | Canales de notificación: email, sms, whatsapp, push, chat | Preferencia del operador | `{email}` |
+| 41 | `admin_contact_id` | UUID | No | UUID del administrador delegado del tenant. FK lógica a idn_usuario | Designado por el operador | — |
+| 42 | `metadata` | JSONB | No | Metadatos extensibles sin modificar schema | Cualquier dato adicional del tenant | `{}` |
+| 43 | `tags` | TEXT[] | No | Array de tags para agrupación/filtrado | Administrador SBOS | `{latam,banca}` |
+| 44 | `created_at` | TIMESTAMPTZ | Sí | Fecha de creación | Automático | — |
+| 45 | `updated_at` | TIMESTAMPTZ | Sí | Fecha de modificación | Automático | — |
+
+---
+
+### 3.6 — bauth.idn_tenant_currencies (006)
+**Propósito:** Monedas habilitadas por tenant + tasas de cambio. Puente entre idn_tenant y global_currency.
+**Estándares:** ISO 4217, NIST 800-53 AC-3.
+
+| # | Columna | Tipo | Obligatorio | Significado | Cómo se obtiene | Ejemplo |
+|---|---------|------|-------------|-------------|-----------------|---------|
+| 1 | `currency_config_id` | UUID | Sí (PK) | Identificador interno UUIDv7 | Automático | — |
+| 2 | `tenant_id` | UUID | Sí (FK) | Tenant dueño de esta configuración | FK → idn_tenant(tenant_id) | UUID del tenant |
+| 3 | `currency_code` | CHAR(3) | Sí (FK) | Moneda habilitada. DEBE existir en global_currency | JOIN con global_currency. FK → global_currency(currency_code) | `BOB` |
+| 4 | `is_default` | BOOLEAN | Sí | true = moneda funcional del tenant. Solo una por tenant | Elegido por el operador | `true` |
+| 5 | `exchange_rate` | DECIMAL(18,8) | No | Tasa de cambio respecto a la moneda default | API de banco central (BCB, ECB, Reuters). NULL = sin tasa | `1.0` |
+| 6 | `exchange_source` | TEXT | No | Fuente de la tasa: BCB, ECB, REUTERS, MANUAL, CUSTOM | Banco central o proveedor de tasas | `BCB` |
+| 7 | `exchange_updated_at` | TIMESTAMPTZ | No | Última actualización de la tasa | Sistema: al sincronizar con API | — |
+| 8 | `is_active` | BOOLEAN | Sí | true = moneda ofrecida en UI del tenant | Operador del tenant | `true` |
+| 9 | `ctx_id` | TEXT | Sí | Contexto operativo (SBOS-049) | Sistema. DEFAULT: `system` | — |
+| 10 | `created_at` | TIMESTAMPTZ | Sí | Fecha de creación | Automático | — |
+| 11 | `updated_at` | TIMESTAMPTZ | Sí | Fecha de modificación | Automático | — |
+
+---
+
+### 3.7 — bauth.idn_tenant_languages (007)
+**Propósito:** Idiomas habilitados por tenant + configuración de traducción. Puente entre idn_tenant y global_language.
+**Estándares:** BCP 47, ISO 639, CLDR, NIST 800-53 AC-3.
+
+| # | Columna | Tipo | Obligatorio | Significado | Cómo se obtiene | Ejemplo |
+|---|---------|------|-------------|-------------|-----------------|---------|
+| 1 | `language_config_id` | UUID | Sí (PK) | Identificador interno UUIDv7 | Automático | — |
+| 2 | `tenant_id` | UUID | Sí (FK) | Tenant dueño de esta configuración | FK → idn_tenant(tenant_id) | UUID del tenant |
+| 3 | `locale` | TEXT | Sí (FK) | Idioma habilitado. DEBE existir en global_language | JOIN con global_language. FK → global_language(locale) | `es-BO` |
+| 4 | `is_default` | BOOLEAN | Sí | true = idioma por defecto para UI y notificaciones | Elegido por el operador | `true` |
+| 5 | `translation_provider` | TEXT | No | Proveedor: sbos_i18n (interno), external_api (Google, DeepL), custom_file (.po/.ftl) | Arquitecto SBOS. Default: `sbos_i18n` | `sbos_i18n` |
+| 6 | `translation_status` | ENUM | Sí | Estado: COMPLETE (100%), PARTIAL, MACHINE_TRANSLATED, NOT_TRANSLATED | Sistema de traducción. Default: `COMPLETE` | `COMPLETE` |
+| 7 | `is_active` | BOOLEAN | Sí | true = idioma ofrecido en UI del tenant | Operador del tenant | `true` |
+| 8 | `ctx_id` | TEXT | Sí | Contexto operativo (SBOS-049) | Sistema. DEFAULT: `system` | — |
+| 9 | `created_at` | TIMESTAMPTZ | Sí | Fecha de creación | Automático | — |
+| 10 | `updated_at` | TIMESTAMPTZ | Sí | Fecha de modificación | Automático | — |
+
+---
+
+### 3.8 — bauth.idn_tenant_verification (009)
+**Propósito:** Verificación KYC/IAL del tenant. 5 pasos secuenciales requeridos para activación.
+**Estándares:** NIST SP 800-63A (IAL1-3), ISO 27001 A.8.2.
+
+| # | Columna | Tipo | Obligatorio | Significado | Cómo se obtiene | Ejemplo |
+|---|---------|------|-------------|-------------|-----------------|---------|
+| 1 | `verification_id` | UUID | Sí (PK) | Identificador interno UUIDv7 | Automático | — |
+| 2 | `tenant_id` | UUID | Sí (FK) | Tenant sujeto a verificación | FK → idn_tenant(tenant_id). ON DELETE CASCADE | UUID del tenant |
+| 3 | `step` | ENUM | Sí | Paso del proceso KYC. 5 valores fijos | Flujo de onboarding. Secuencial: IDENTITY→LEGAL→TECH→SECURITY→FINAL | `IDENTITY_CHECK` |
+| 4 | `status` | ENUM | Sí | PENDING (sin iniciar)→IN_PROGRESS→PASSED→FAILED | Oficial de cumplimiento. Default: `PENDING` | `PASSED` |
+| 5 | `verified_by` | UUID | No | UUID del oficial que ejecutó este paso | FK lógica a idn_usuario. NULL = pendiente | UUID del oficial |
+| 6 | `verified_at` | TIMESTAMPTZ | No | Fecha de completitud del paso | Sistema: cuando status cambia a PASSED o FAILED | — |
+| 7 | `comments` | TEXT | No | Notas del verificador. Evidencia narrativa | Oficial de cumplimiento | `Documento de identidad verificado contra SEGIP` |
+| 8 | `evidence` | JSONB | No | Documentos de evidencia: `{doc_type, file_hash, storage_path, uploaded_at}` | Sistema de archivos / MinIO | `{"doc_type":"NIT","file_hash":"sha256:abc..."}` |
+| 9 | `ctx_id` | TEXT | Sí | Contexto operativo (SBOS-049) | Sistema | — |
+| 10 | `created_at` | TIMESTAMPTZ | Sí | Fecha de creación del registro | Automático | — |
+| 11 | `updated_at` | TIMESTAMPTZ | Sí | Fecha de modificación | Automático | — |
+
+---
+
+## 4. GLOSARIO DE VALORES ENUM
+
+### 4.1 — tenant_status_enum
+| Valor | Significado | Cuándo se usa |
+|-------|-------------|---------------|
+| `PENDING_VERIFICATION` | Tenant creado, esperando verificación KYC | Estado inicial al crear tenant |
+| `ACTIVE` | Tenant activo y operativo | Todos los pasos de verificación PASSED |
+| `SUSPENDED` | Accesos revocados temporalmente | Incumplimiento de pago, orden administrativa |
+| `MAINTENANCE` | En mantenimiento programado | Actualización de infraestructura |
+| `SOFT_DELETED` | Marcado como eliminado, 30 días de grace | Operador solicita baja |
+| `TERMINATED` | Contrato finalizado | Después del grace period, antes de purga |
+| `PURGED` | Datos eliminados definitivamente | Después de TERMINATED, irreversible |
+
+### 4.2 — verification_step_enum
+| Valor | Significado | Qué se verifica |
+|-------|-------------|-----------------|
+| `IDENTITY_CHECK` | Verificación de identidad | Documentos del representante legal (CI, pasaporte) |
+| `LEGAL_CHECK` | Verificación legal | Registro de comercio, NIT, constitución de empresa |
+| `TECHNICAL_SETUP` | Infraestructura aprovisionada | Realm KC, namespace K8s, BD, Vault creados |
+| `SECURITY_REVIEW` | Revisión de seguridad | Políticas de contraseña, MFA, IP ranges, auditoría |
+| `FINAL_APPROVAL` | Aprobación final | Oficial de cumplimiento aprueba la activación |
+
+### 4.3 — verification_status_enum
+| Valor | Significado |
+|-------|-------------|
+| `PENDING` | Sin iniciar |
+| `IN_PROGRESS` | En revisión por el oficial |
+| `PASSED` | Aprobado |
+| `FAILED` | Rechazado (requiere corrección del operador) |
+
+---
+
+## 5. FUENTES DE DATOS POR TIPO DE CAMPO
+
+| Tipo de dato | Fuente primaria | Fuente secundaria | Frecuencia de actualización |
+|-------------|----------------|-------------------|---------------------------|
+| **Idiomas** | IANA Language Subtag Registry | Ethnologue, CLDR 46, Wikidata | Semestral (IANA updates) |
+| **Monedas** | ISO 4217 (SIX Interbank) | Bancos centrales, CLDR | Trimestral (ISO amendments) |
+| **Países** | ISO 3166-1:2020 | UN M.49, IANA, REST Countries API | Anual (ISO updates) |
+| **Zonas horarias** | IANA TZ Database (zone.tab) | CLDR | Trimestral (DST changes) |
+| **Tenant** | Operador (manual via wizard) | BOS (provisioning automático) | On-demand |
+| **Verificación KYC** | Oficial de cumplimiento (manual) | Sistema (marcas de tiempo) | On-demand |
+| **Tasas de cambio** | APIs de bancos centrales | Reuters, OpenExchangeRates | Diaria |
+| **Configuración tenant** | Operador (manual via wizard) | Sistema (herencia en cascada) | On-demand |
+
+---
+
+## 3.9 — bauth.idn_tenant_config (010) · Línea 1145
+**Propósito:** Configuración regional y preferencias del tenant. Relación 1:1 con idn_tenant. Raíz de jerarquía de herencia (tenant → empresa → sucursal → POS). NULL = heredar del padre.
+**Estándares:** BCP 47, ISO 4217, IANA TZ, ISO 8601, ISO 27001 A.8.15.
+
+| # | Columna | Tipo | Obligatorio | Significado | Cómo se obtiene | Ejemplo |
+|---|---------|------|-------------|-------------|-----------------|---------|
+| 1 | `config_id` | UUID | Sí (PK) | Identificador interno UUIDv7 | Automático | — |
+| 2 | `tenant_id` | UUID | Sí (UNIQUE FK) | Tenant dueño. Relación 1:1 | FK → idn_tenant(tenant_id) | UUID del tenant |
+| 3 | `locale_default` | JSONB | Sí | **Snapshot** del locale por defecto. Obtenido de `global_language` vía `idn_tenant_languages.is_default=true`. Desnormalizado para acceso rápido | Sistema: copia el registro de global_language al marcar is_default | `{"locale":"es-BO","iso_639_1":"es","name":{"es":"Español (Bolivia)"}}` |
+| 4 | `supported_locales` | JSONB | No | **Snapshot** de locales habilitados. Obtenido de `global_language` vía `idn_tenant_languages` (is_active=true). Array ordenado por preferencia | Sistema: copia de global_language cada vez que se habilita/deshabilita un idioma | `[{"locale":"es-BO","name":{...}},{"locale":"en-US","name":{...}}]` |
+| 5 | `fallback_locales` | JSONB | No | **Snapshot** de locales de respaldo. Subconjunto de supported_locales para CLDR fallback | Sistema: selección del operador desde supported_locales | `[{"locale":"es"},{"locale":"en"}]` |
+| 6 | `date_format` | TEXT | Sí | Formato de fecha ISO 8601 | Operador. Default Bolivia: `DD/MM/YYYY` | `DD/MM/YYYY` |
+| 7 | `time_format` | TEXT | Sí | Formato de hora: 24h o 12h | Operador. Default: `HH:mm:ss` | `HH:mm:ss` |
+| 8 | `number_format` | TEXT | Sí | Formato de número según CLDR | Operador. Default Bolivia: `1.234,56` | `1.234,56` |
+| 9 | `first_day_of_week` | INTEGER | Sí | 1=lunes (LATAM/Europa), 7=domingo (EE.UU.) | CLDR. Default Bolivia: 1 | `1` |
+| 10 | `timezone_default` | JSONB | Sí | **Snapshot** de la zona horaria por defecto. Obtenido de `geo_timezone` activas | Sistema: copia de geo_timezone al seleccionar | `{"timezone_id":"America/La_Paz","utc_offset":"-04:00","name":{"es":"Bolivia (La Paz)"}}` |
+| 11 | `supported_timezones` | JSONB | No | **Snapshot** de zonas horarias de interés. Obtenido de `geo_timezone` (is_active=true) | Sistema: copia de geo_timezone activas | `[{"timezone_id":"America/La_Paz","utc_offset":"-04:00"},...]` |
+| 12 | `currency_default` | JSONB | Sí | **Snapshot** de la moneda por defecto. Obtenido de `global_currency` vía `idn_tenant_currencies.is_default=true` | Sistema: copia de global_currency al marcar is_default | `{"currency_code":"BOB","symbol":"Bs.","decimal_places":2,"name":{...}}` |
+| 13 | `multicurrency` | BOOLEAN | Sí | true = tenant opera con múltiples monedas | Operador. Default: false | `false` |
+| 14 | `multifiscal_enabled` | BOOLEAN | Sí | true = múltiples años fiscales abiertos simultáneamente | Operador. Default: true | `true` |
+| 15 | `max_open_fiscal_years` | INTEGER | No | Máximo de gestiones fiscales abiertas | Operador. Default: 3 | `3` |
+| 16 | `fiscal_year_start_month` | INTEGER | Sí | Mes de inicio del año fiscal. 1=Enero | Operador. Default Bolivia: 1 | `1` |
+| 17 | `fiscal_year_start_day` | INTEGER | Sí | Día de inicio del año fiscal | Operador. Default: 1 | `1` |
+| 18 | `first_fiscal_year` | INTEGER | No | Primer año fiscal de operaciones | Operador. NULL = sin definir | `2026` |
+| 19 | `theme_default` | TEXT | Sí | Tema visual: light, dark, system, high_contrast | Operador. Default: `light` | `light` |
+| 20 | `supported_themes` | TEXT[] | No | Array de temas habilitados | Operador. Default: light, dark | `{light,dark}` |
+| 21 | `logo_url` | TEXT | No | URL del logo del tenant | Operador. NULL = logo del sistema | `https://cdn.skull.bo/logo.png` |
+| 22 | `favicon_url` | TEXT | No | URL del favicon | Operador. NULL = favicon del sistema | — |
+| 23 | `primary_color` | TEXT | No | Color primario en hex. Define botones y acentos | Operador. Default: `#1a73e8` | `#1a73e8` |
+| 24 | `secondary_color` | TEXT | No | Color secundario en hex | Operador. Default: `#34a853` | `#34a853` |
+| 25 | `font_family` | TEXT | No | Familia tipográfica CSS | Operador. Default: Inter | `Inter, system-ui, sans-serif` |
+| 26 | `notification_locale` | TEXT | Sí | Idioma de notificaciones (puede diferir de UI) | Operador. Default: `es-BO` | `es-BO` |
+| 27 | `email_footer_template` | TEXT | No | Plantilla HTML de footer para emails | Operador. NULL = plantilla del sistema | — |
+| 28 | `metadata` | JSONB | No | Metadatos extensibles | Cualquier dato adicional | `{}` |
+| 29 | `ctx_id` | TEXT | Sí | Contexto operativo (SBOS-049) | Sistema. DEFAULT: `system` | — |
+| 30 | `created_at` | TIMESTAMPTZ | Sí | Fecha de creación | Automático | — |
+| 31 | `updated_at` | TIMESTAMPTZ | Sí | Fecha de modificación | Automático | — |
+
+---
+
+## 3.10 — bauth.idn_tenant_domain (011) · Línea 1330
+**Propósito:** Configuración completa de dominio por tenant: DNS, SSL, NGINX, K8s HPA, seguridad, correo, contactos administrativos. 17 columnas fijas de identidad + 10 JSONB extensibles para configuraciones técnicas.
+**⚠️ Crítica:** Sin esta tabla, un tenant no puede exponer servicios al exterior. Cada FQDN requiere un registro aquí.
+**Referencia:** RFC 952 (DNS), RFC 8446/8555 (TLS/ACME), RFC 5321/7208/6376/7489 (correo).
+
+| # | Columna | Tipo | Obligatorio | Significado | Cómo se obtiene | Ejemplo |
+|---|---------|------|-------------|-------------|-----------------|---------|
+| 1 | `domain_id` | UUID | Sí (PK) | UUIDv7 interno | Automático | — |
+| 2 | `tenant_id` | UUID | Sí (FK) | Tenant dueño del dominio | FK → idn_tenant. ON DELETE CASCADE | UUID del tenant |
+| 3 | `fqdn` | TEXT | Sí (UNIQUE) | Fully Qualified Domain Name. RFC 952 | Elegido por el operador. Validar formato DNS | `admin.skull.sbos.bo` |
+| 4 | `subdomain` | TEXT | No | Subdominio. NULL = dominio raíz | Operador: admin, api, pos, portal, mail | `admin` |
+| 5 | `domain_type` | ENUM | Sí | WEB, API, POS, ADMIN, PORTAL, STATIC, MAIL | Define tipo de servicio expuesto y políticas asociadas | `ADMIN` |
+| 6 | `is_primary` | BOOLEAN | Sí | Dominio canónico del tenant. Solo uno por tenant | Sistema: el primero creado suele ser primary | `true` |
+| 7 | `is_custom` | BOOLEAN | Sí | true = BYOD (dominio propio del cliente). Requiere verificación DNS TXT | Operador. Default false | `false` |
+| 8 | `dns_config` | JSONB | No | Config DNS: {provider, record_type, target, verified_at, status, records[]} | Proveedor DNS (Cloudflare, Route53). El sistema verifica resolución | `{"provider":"cloudflare","record_type":"CNAME","target":"ingress.sbos.bo"}` |
+| 9 | `ssl_config` | JSONB | No | Config TLS: {provider, cert_secret, expires_at, acme_challenge, status, subject_cn, sans[]} | cert-manager + Let's Encrypt. cert_secret = nombre del Secret K8s | `{"provider":"letsencrypt","acme_challenge":"DNS-01","sans":["*.skull.sbos.bo"]}` |
+| 10 | `nginx_config` | JSONB | No | Config NGINX Ingress: proxy timeouts, buffers, body size, annotations extra | Arquitecto SBOS. Defaults cubren 90% de casos | `{"proxy_body_size_mb":100,"proxy_read_timeout_s":600}` |
+| 11 | `k8s_hpa_config` | JSONB | No | Config autoescalado: {enabled, min/max_replicas, cpu/mem targets y limits, stabilization} | Arquitecto SBOS. Default: 2-20 pods, CPU 70%, mem 80% | `{"min_replicas":2,"max_replicas":10,"cpu_target_pct":70}` |
+| 12 | `health_config` | JSONB | No | Config health checks K8s: {health_path, readiness_path, liveness_path, initial_delay_s, period_s} | Arquitecto SBOS. Paths estándar: /healthz, /ready, /live | `{"health_path":"/healthz","initial_delay_s":10}` |
+| 13 | `security_config` | JSONB | No | Config seguridad: {force_ssl, hsts_enabled, hsts_max_age_s, csp_policy, cors_origins[], waf_enabled, rate_limit_rps, allowed_ips[], ip_filter_mode} | Política de seguridad del tenant. HSTS default 1 año | `{"force_ssl":true,"hsts_enabled":true,"cors_origins":["https://skull.sbos.bo"]}` |
+| 14 | `redirect_config` | JSONB | No | Redirecciones: {canonical_domain, www_redirect, custom_redirects[{from,to,code}], cookie_domain} | Operador. SEO: canonical domain concentra todas las variantes | `{"www_redirect":true,"cookie_domain":".skull.sbos.bo"}` |
+| 15 | `email_config` | JSONB | No | Config correo completa: MX, SPF, DKIM, DMARC, SMTP, IMAP. Ver BAUTH-AUDIT-CHANNELS-CONFIG.md | Administrador de sistemas. SPF/DKIM validables vía DNS | `{"smtp_host":"smtp.gmail.com","smtp_port":587,"smtp_encryption":"TLS"}` |
+| 16 | `contacts` | JSONB | No | Contactos ICANN WHOIS: {admin_id, technical_id, security_id, billing_id, notes}. FKs lógicas a idn_usuario | Designados por el operador. RFC 2142 roles | `{"admin_id":"uuid","technical_id":"uuid","security_id":"uuid"}` |
+| 17 | `deploy_status` | ENUM | No | PENDING, DEPLOYING, DEPLOYED, FAILED, ROLLED_BACK | Sistema: actualizado por el pipeline de despliegue | `DEPLOYED` |
+| 18 | `health_status` | ENUM | No | PENDING, HEALTHY, DEGRADED, UNHEALTHY, UNKNOWN | Sistema: actualizado por health checker cada 30s | `HEALTHY` |
+| 19 | `last_deployed_at` | TIMESTAMPTZ | No | Último despliegue exitoso | Sistema: timestamp del pipeline | — |
+| 20 | `last_health_check_at` | TIMESTAMPTZ | No | Último health check | Sistema: cada 30s | — |
+| 21-23 | `ctx_id, created_at, updated_at` | — | Sí | Trazabilidad estándar | Automático | — |
+
+---
+
+## 3.11 — bauth.idn_tenant_network (012) · Línea 1478
+**Propósito:** Redes y rangos CIDR autorizados por tenant. Zero Trust + geolocalización de IPs para políticas de acceso.
+**Referencia:** RFC 4632 (CIDR), RFC 1918 (IPs privadas).
+
+| # | Columna | Tipo | Obligatorio | Significado | Cómo se obtiene | Ejemplo |
+|---|---------|------|-------------|-------------|-----------------|---------|
+| 1 | `network_id` | UUID | Sí (PK) | UUIDv7 interno | Automático | — |
+| 2 | `tenant_id` | UUID | Sí (FK) | Tenant dueño de la red | FK → idn_tenant | UUID del tenant |
+| 3 | `name` | TEXT | Sí | Nombre descriptivo de la red | Operador: Red Principal La Paz, VPN Corporativa | `Red Principal La Paz` |
+| 4 | `network_type` | ENUM | Sí | LAN (red interna), WAN (conexión externa), VPN (túnel seguro), DMZ (zona desmilitarizada), GUEST (visitantes), MANAGEMENT (administración) | Arquitecto de red. Define políticas de seguridad | `LAN` |
+| 5 | `cidr` | CIDR | Sí | Rango CIDR de la red. Índice GIST para búsqueda espacial | Administrador de red: 10.0.1.0/24 | `10.0.1.0/24` |
+| 6 | `gateway` | INET | No | IP del gateway de la red. NULL si no tiene salida | Administrador de red | `10.0.1.1` |
+| 7 | `dns_servers` | INET[] | No | Array de IPs de servidores DNS usados por esta red | Administrador de red: {10.0.1.53, 8.8.8.8} | `{10.0.1.53,8.8.8.8}` |
+| 8 | `vlan_id` | INTEGER | No | VLAN ID (802.1Q). 1-4094. NULL = sin VLAN | Administrador de red. Usado para segmentación | `100` |
+| 9 | `is_active` | BOOLEAN | Sí | true = red operativa. false = deshabilitada | Administrador | `true` |
+| 10 | `metadata` | JSONB | No | Metadatos extra: ubicación física, velocidad, ISP | Administrador de red | `{}` |
+| 11-13 | `ctx_id, created_at, updated_at` | — | Sí | Trazabilidad estándar | Automático | — |
+
+---
+
+## 3.12 — bcalendar.cal_fiscal_year (013) · Línea 1538
+**Propósito:** Gestión multigestión: años fiscales con 12 períodos contables mensuales. Bolivia SIN requiere cierre anual pero permite correcciones (NC/ND) en gestiones ya cerradas.
+**⚠️ Sin esta tabla no hay registro de transacciones fiscales.** Cada factura emitida se asocia a un año fiscal.
+**Referencia:** SIN Bolivia, NIC 1 (IAS 1), NIC 8 (IAS 8), IAS 10.
+
+| # | Columna | Tipo | Obligatorio | Significado | Cómo se obtiene | Ejemplo |
+|---|---------|------|-------------|-------------|-----------------|---------|
+| 1 | `fiscal_year_id` | UUID | Sí (PK) | UUIDv7 interno | Automático | — |
+| 2 | `tenant_id` | UUID | Sí (FK) | Tenant dueño del año fiscal | FK → idn_tenant. ON DELETE CASCADE | UUID del tenant |
+| 3 | `company_id` | UUID | No | Empresa específica. NULL = año fiscal global del tenant | FK lógica a idn_empresa | UUID de empresa |
+| 4 | `fiscal_year` | INTEGER | Sí | Año fiscal. NIC 1: puede diferir del año calendario | Operador. En Bolivia: coincide con año calendario | `2026` |
+| 5 | `name` | TEXT | Sí | Nombre descriptivo para UI y reportes | Operador. Ej: "Gestión 2026", "FY2026" | `Gestión 2026` |
+| 6 | `status` | ENUM | Sí | OPEN (operando) → CLOSED (cierre SIN) → CLOSED_WITH_ADJUSTMENTS (NC/ND) → ARCHIVED (8 años, solo lectura) | SIN Bolivia. Solo 1 gestión OPEN por tenant/company a la vez | `OPEN` |
+| 7 | `start_date` | DATE | Sí | Primer día del año fiscal. IAS 10 | Operador. Bolivia: 1 de enero | `2026-01-01` |
+| 8 | `end_date` | DATE | No | Último día. NULL mientras esté ABIERTA | Sistema: se establece al cerrar | `2026-12-31` |
+| 9 | `closed_by` | UUID | No | Usuario que ejecutó el cierre contable | FK lógica a idn_usuario. NULL mientras abierta | UUID de contador |
+| 10 | `closed_at` | TIMESTAMPTZ | No | Timestamp exacto del cierre | Sistema: automático al ejecutar cierre | `2027-03-15T18:00:00-04:00` |
+| 11 | `periods` | JSONB | Sí | 12 meses con nombre en español y estado individual. Cada mes cierra independientemente | Predefinido por el sistema. Se actualiza al cerrar cada mes | `[{"month":1,"name":"Enero","status":"OPEN"}]` |
+| 12 | `is_current` | BOOLEAN | No | true = año fiscal activo para nuevas transacciones. Solo UNO por tenant/company | Sistema: automático al crear nueva gestión | `true` |
+| 13 | `allows_prior_adjustments` | BOOLEAN | No | true = permite NC/ND en gestiones ya cerradas. NIC 8 | Política contable del tenant. Default true | `true` |
+| 14 | `max_adjustment_months_back` | INTEGER | No | Límite de meses hacia atrás para ajustes retroactivos. NIC 8 | Política contable. Default 12 meses | `12` |
+| 15 | `ctx_id` | TEXT | Sí | Contexto operativo SBOS-049 | Sistema | — |
+| 16 | `created_at` | TIMESTAMPTZ | Sí | Creación | Automático | — |
+| 17 | `updated_at` | TIMESTAMPTZ | Sí | Última modificación | Automático | — |
+
+---
+
+## 3.11 — bauth.idn_calendar_assignment (014) · Línea 1632
+**Propósito:** Tabla puente que asigna calendarios a entidades bauth (tenant, empresa, sucursal, usuario). Soporta herencia jerárquica y RBAC (OWNER/EDITOR/VIEWER).
+**⚠️ Crítica:** Sin esta tabla, ningún tenant puede usar calendarios. Es el punto de acoplamiento entre bcalendar y bauth.
+
+| # | Columna | Tipo | Obligatorio | Significado | Cómo se obtiene | Ejemplo |
+|---|---------|------|-------------|-------------|-----------------|---------|
+| 1 | `assignment_id` | UUID | Sí (PK) | UUIDv7 interno | Automático | — |
+| 2 | `calendar_id` | UUID | Sí (FK) | Calendario asignado | FK → cal_calendar | — |
+| 3 | `owner_type` | ENUM | Sí | TENANT, COMPANY, BRANCH, USER | Tipo de entidad dueña | `TENANT` |
+| 4 | `owner_id` | UUID | Sí | UUID de la entidad dueña | tenant_id / company_id / sucursal_id / user_id | — |
+| 5 | `role` | ENUM | Sí | OWNER (gestiona), EDITOR (modifica eventos), VIEWER (solo lectura) | Asignado por admin | `VIEWER` |
+| 6 | `is_inherited` | BOOLEAN | Sí | true = heredado del nivel superior | Sistema. false = asignación directa | `false` |
+| 7 | `ctx_id` | TEXT | Sí | Contexto operativo | Sistema | — |
+| 8 | `created_at` | TIMESTAMPTZ | Sí | Creación | Automático | — |
+| 9 | `updated_at` | TIMESTAMPTZ | Sí | Modificación | Automático | — |
+
+**Herencia:**
+```
+TENANT asigna cal_fiscal_2026 → OWNER, is_inherited=false
+  └─ COMPANY A hereda → VIEWER, is_inherited=true
+       └─ BRANCH A1 hereda → VIEWER, is_inherited=true
+            └─ USER juan → EDITOR (puede modificar eventos dentro de su sucursal)
+```
+
+---
+
+## 3.12 — bcalendar.cal_calendar (015) · Línea 1664
+**Propósito:** Colección de calendarios (RFC 4791 VCALENDAR). Un tenant puede tener N calendarios de diferentes tipos.
+**⚠️ Seed requerido:** 6 calendarios del sistema por tenant al crearse (Work, Fiscal, Process, Compliance, Holidays, Maintenance).
+
+| # | Columna | Tipo | Obligatorio | Significado | Cómo se obtiene | Ejemplo |
+|---|---------|------|-------------|-------------|-----------------|---------|
+| 1 | `calendar_id` | UUID | Sí (PK) | UUIDv7 interno. FK referenciada por idn_calendar_assignment y cal_event | Automático | — |
+| 2 | `tenant_id` | UUID | Sí (FK) | Tenant dueño | FK → idn_tenant | — |
+| 3 | `name` | TEXT | Sí | Nombre del calendario. UNIQUE por tenant | Operador/sistema | `Fiscal 2026` |
+| 4 | `calendar_type` | ENUM | Sí | WORK, FISCAL, PROCESS, COMPLIANCE, HOLIDAY, MAINTENANCE | Define comportamiento | `FISCAL` |
+| 5 | `description` | TEXT | No | Descripción | Operador | `Calendario fiscal Bolivia SIN` |
+| 6 | `color` | TEXT | No | Color en UI | Operador. Default: `#1a73e8` | `#1a73e8` |
+| 7 | `timezone` | TEXT | Sí | Zona horaria IANA. Las ocurrencias se expanden en esta TZ | Default: `America/La_Paz` | `America/La_Paz` |
+| 8 | `is_system` | BOOLEAN | Sí | true = calendario predefinido por SBOS (no se puede borrar) | Sistema | `true` |
+| 9 | `is_active` | BOOLEAN | Sí | true = activo | Administrador | `true` |
+| 10 | `metadata` | JSONB | No | Metadatos extensibles | — | `{}` |
+| 11 | `ctx_id` | TEXT | Sí | Contexto operativo | Sistema | — |
+
+---
+
+## 3.13 — bcalendar.cal_event (016) · Línea 1695
+**Propósito:** Evento maestro con recurrencia RFC 5545 (VEVENT). rrule TEXT sin expandir. Una serie completa = 1 registro.
+**⚠️ Motor:** rrule_plpgsql expande las ocurrencias on-demand. Sin esta tabla no hay notificaciones programadas.
+
+| # | Columna | Tipo | Obligatorio | Significado | Cómo se obtiene | Ejemplo |
+|---|---------|------|-------------|-------------|-----------------|---------|
+| 1 | `event_id` | UUID | Sí (PK) | UUIDv7 interno | Automático | — |
+| 2 | `calendar_id` | UUID | Sí (FK) | Calendario al que pertenece | FK → cal_calendar | — |
+| 3 | `title` | TEXT | Sí | Título del evento | Usuario/sistema | `Cierre fiscal SIN` |
+| 4 | `description` | TEXT | No | Descripción | Usuario/sistema | `Presentar DJ al SIN antes de las 23:59` |
+| 5 | `dtstart` | TIMESTAMPTZ | Sí | Fecha/hora de inicio (RFC 5545 DTSTART) | Usuario/sistema | `2026-12-31T08:00:00-04:00` |
+| 6 | `dtend` | TIMESTAMPTZ | No | Fecha/hora de fin (DTEND). NULL si is_all_day=true | Usuario/sistema | `2026-12-31T18:00:00-04:00` |
+| 7 | `duration_minutes` | INTEGER | No | Duración en minutos. Alternativa a dtend | Usuario/sistema | `60` |
+| 8 | `is_all_day` | BOOLEAN | Sí | true = evento de día completo | Usuario. Default: false | `false` |
+| 9 | `rrule` | TEXT | No | Regla de recurrencia RFC 5545. NULL = evento único | RFC 5545 §3.8.5 | `FREQ=WEEKLY;BYDAY=MO,WE,FR` |
+| 10 | `exdate` | TIMESTAMPTZ[] | No | Fechas excluidas de la recurrencia (EXDATE) | RFC 5545 §3.8.5.1 | `{2026-12-25,2027-01-01}` |
+| 11 | `until_date` | TIMESTAMPTZ | No | Fecha hasta la cual repetir (UNTIL) | RFC 5545 | `2027-12-31T23:59:59Z` |
+| 12 | `count_occurrences` | INTEGER | No | Número de ocurrencias (COUNT) | RFC 5545 | `52` |
+| 13 | `location` | TEXT | No | Ubicación física o URL | Usuario | `Sala de reuniones A / https://meet.sbos.bo/xyz` |
+| 14 | `status` | TEXT | Sí | CONFIRMED, TENTATIVE, CANCELLED | RFC 5545. Default: CONFIRMED | `CONFIRMED` |
+| 15 | `priority` | INTEGER | No | 0=sin prioridad, 1=alta, 9=baja | RFC 5545. Default: 0 | `0` |
+| 16 | `ctx_id` | TEXT | Sí | Contexto operativo | Sistema | — |
+| 17 | `created_by` | UUID | No | Usuario que creó el evento | FK lógica a idn_usuario | — |
+| 18 | `created_at` | TIMESTAMPTZ | Sí | Creación | Automático | — |
+| 19 | `updated_at` | TIMESTAMPTZ | Sí | Modificación | Automático | — |
+
+---
+
+## 3.14 — bcalendar.cal_alarm (017) · Línea 1732
+**Propósito:** Disparador de notificación (RFC 5545 VALARM). Define CUÁNDO (segundos antes del evento) y CÓMO (canal de entrega). **Sin cal_alarm no hay notificación.** Es el puente entre el calendario y Novu.
+
+| # | Columna | Tipo | Obligatorio | Significado | Cómo se obtiene | Ejemplo |
+|---|---------|------|-------------|-------------|-----------------|---------|
+| 1 | `alarm_id` | UUID | Sí (PK) | UUIDv7 interno | Automático | — |
+| 2 | `event_id` | UUID | Sí (FK) | Evento al que pertenece | FK → cal_event. ON DELETE CASCADE | — |
+| 3 | `trigger_seconds` | INTEGER | Sí | Segundos antes del dtstart. Negativo = antes | RFC 5545. Default: -900 (15 min) | `-900`, `-86400` |
+| 4 | `channel` | ENUM | Sí | Canal de entrega: EMAIL, SMS, WHATSAPP, PUSH, CHAT, UI | Configurado en el evento | `CHAT` |
+| 5 | `template_ref` | TEXT | No | Referencia al template de notificación en Novu | Sistema de templates | `audit_alert_financiero` |
+| 6 | `recipient_id` | UUID | No | Usuario destinatario. NULL = broadcast al canal | FK lógica a idn_usuario | — |
+| 7 | `is_active` | BOOLEAN | Sí | true = alarma activa | Sistema. Default: true | `true` |
+| 8 | `last_triggered_at` | TIMESTAMPTZ | No | Última vez que disparó. NULL = nunca | Sistema | — |
+| 9 | `next_trigger_at` | TIMESTAMPTZ | No | Próxima vez que debe disparar. Índice para polling | Calculado por rrule_plpgsql | `2026-06-24T13:45:00-04:00` |
+| 10 | `ctx_id` | TEXT | Sí | Contexto operativo | Sistema | — |
+| 11 | `created_at` | TIMESTAMPTZ | Sí | Creación | Automático | — |
+| 12 | `updated_at` | TIMESTAMPTZ | Sí | Modificación | Automático | — |
+
+**⚠️ Operación crítica:** Un cron job (pg_cron o bKron) consulta cada minuto:
+```sql
+SELECT * FROM bcalendar.cal_alarm
+WHERE is_active = true AND next_trigger_at <= NOW();
+```
+Las alarmas encontradas se envían a Novu vía JSON-RPC 2.0 sobre Unix socket `/run/bos/bos.sock`.
+
+---
+
+## 3.15 — bcalendar.cal_notification_log (018) · Línea 1763
+**Propósito:** Registro WORM inmutable de cada notificación enviada. ISO 27001 A.8.15. Solo INSERT permitido (REVOKE UPDATE/DELETE). ctx_id obligatorio.
+
+| # | Columna | Tipo | Obligatorio | Significado | Cómo se obtiene | Ejemplo |
+|---|---------|------|-------------|-------------|-----------------|---------|
+| 1 | `notification_id` | UUID | Sí (PK) | UUIDv7 interno | Automático | — |
+| 2 | `alarm_id` | UUID | Sí | Alarma que disparó | FK a cal_alarm | — |
+| 3 | `event_id` | UUID | Sí | Evento asociado | FK a cal_event | — |
+| 4 | `channel` | ENUM | Sí | Canal por el que se envió | EMAIL, SMS, WHATSAPP, PUSH, CHAT, UI | `CHAT` |
+| 5 | `recipient_id` | UUID | No | Destinatario | FK lógica a idn_usuario | — |
+| 6 | `template_used` | TEXT | No | Template usado | Sistema | `audit_alert_financiero` |
+| 7 | `outcome` | TEXT | Sí | Resultado: SENT, FAILED, BOUNCED, DELIVERED | Sistema. Default: SENT | `SENT` |
+| 8 | `error_message` | TEXT | No | Mensaje de error si outcome=FAILED | Sistema | `Connection refused` |
+| 9 | `sent_at` | TIMESTAMPTZ | Sí | Timestamp de envío | Automático: DEFAULT now() | — |
+| 10 | `ctx_id` | TEXT | Sí | Contexto operativo. Crítico para trazabilidad | Sistema. NOT NULL, sin DEFAULT | — |
+
+**⚠️ WORM:** `REVOKE UPDATE, DELETE ON bcalendar.cal_notification_log FROM PUBLIC;`
+
+---
+
+## 3.16 — bcalendar.cal_holiday (019) · Línea 1791
+**Propósito:** Feriados fijos y móviles por país/región/tenant. Los feriados afectan el cómputo de días hábiles para plazos legales y cierres SIN.
+
+| # | Columna | Tipo | Obligatorio | Significado | Cómo se obtiene | Ejemplo |
+|---|---------|------|-------------|-------------|-----------------|---------|
+| 1 | `holiday_id` | UUID | Sí (PK) | UUIDv7 | Automático | — |
+| 2 | `tenant_id` | UUID | Sí (FK) | Tenant | FK → idn_tenant | — |
+| 3 | `name` | TEXT | Sí | Nombre del feriado | Calendario oficial | `Navidad` |
+| 4 | `holiday_date` | DATE | Sí | Fecha del feriado | Calendario oficial | `2026-12-25` |
+| 5 | `is_recurring` | BOOLEAN | Sí | true = se repite cada año | Default: true | `true` |
+| 6 | `country_code` | CHAR(2) | Sí | País. Default: BO | ISO 3166-1 | `BO` |
+| 7 | `region` | TEXT | No | Región/departamento. NULL = nacional | Calendario regional | `La Paz` |
+| 8 | `description` | TEXT | No | Descripción | — | `Feriado nacional por Navidad` |
+| 9 | `ctx_id` | TEXT | Sí | Contexto operativo | Sistema | — |
+
+---
+
+## 3.17 — bcalendar.cal_schedule (020) · Línea 1817
+**Propósito:** Horarios de trabajo y turnos (RFC 7953 VAVAILABILITY). Heredable vía idn_calendar_assignment. Reemplaza `bos_schedule`.
+
+| # | Columna | Tipo | Obligatorio | Significado | Cómo se obtiene | Ejemplo |
+|---|---------|------|-------------|-------------|-----------------|---------|
+| 1 | `schedule_id` | UUID | Sí (PK) | UUIDv7 | Automático | — |
+| 2 | `tenant_id` | UUID | Sí (FK) | Tenant | FK → idn_tenant | — |
+| 3 | `name` | TEXT | Sí | Nombre | Operador | `Horario oficina La Paz` |
+| 4 | `days_of_week` | INTEGER[] | Sí | Días laborables: 1=lunes...7=domingo | Default: {1,2,3,4,5} | `{1,2,3,4,5}` |
+| 5 | `start_time` | TIME | Sí | Hora de inicio | Default: 08:00 | `08:00` |
+| 6 | `end_time` | TIME | Sí | Hora de fin | Default: 18:00 | `18:00` |
+| 7 | `schedule_type` | TEXT | Sí | REGULAR, SHIFT, FLEXIBLE | Operador. Default: REGULAR | `REGULAR` |
+| 8 | `shifts` | JSONB | No | Turnos si schedule_type=SHIFT | Operador | `[{"name":"mañana","start":"06:00","end":"14:00"},...]` |
+| 9 | `access_outside_schedule` | TEXT | Sí | BLOCKED, PERMITTED, REQUIRES_APPROVAL, READ_ONLY | Política de seguridad. Default: BLOCKED | `BLOCKED` |
+| 10 | `is_default` | BOOLEAN | Sí | true = horario por defecto del tenant | Sistema | `false` |
+| 11 | `ctx_id` | TEXT | Sí | Contexto operativo | Sistema | — |
+
+---
+
+## 4. SUBSISTEMA DE CALENDARIO — FLUJO COMPLETO
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│         CÓMO SE PROGRAMA Y ENTREGA UNA NOTIFICACIÓN             │
+│                                                                 │
+│  1. CREAR EVENTO (cal_event)                                    │
+│     INSERT con rrule=NULL (único) o rrule='FREQ=WEEKLY;...'    │
+│                                                                 │
+│  2. ASIGNAR ALARMA (cal_alarm)                                  │
+│     trigger_seconds=-900 (15 min antes)                         │
+│     channel=CHAT → Mattermost                                   │
+│                                                                 │
+│  3. CRON JOB CONSULTA ALARMAS PENDIENTES                        │
+│     SELECT * FROM cal_alarm                                     │
+│     WHERE is_active=true AND next_trigger_at <= NOW()           │
+│                                                                 │
+│  4. bauth → Novu (JSON-RPC 2.0)                                 │
+│     { "method": "bnotify.trigger", "params": {...} }            │
+│                                                                 │
+│  5. Novu workflow (5 pasos secuenciales)                        │
+│     EMAIL → SMS → WHATSAPP → PUSH → CHAT                       │
+│                                                                 │
+│  6. CHAT → Mattermost incoming webhook                          │
+│     POST /hooks/{webhook_id} → mensaje en canal                 │
+│                                                                 │
+│  7. REGISTRO WORM (cal_notification_log)                        │
+│     INSERT con ctx_id. REVOKE UPDATE/DELETE.                    │
+│                                                                 │
+│  8. RECALCULAR next_trigger_at (cal_alarm)                      │
+│     UPDATE cal_alarm SET next_trigger_at = rrule_plpgsql(...)   │
+└─────────────────────────────────────────────────────────────────┘
+
+
+---
+
+## 4. DOMINIO FÍSICO (D2) — Prefijo fis_
+
+**Referencia:** `BAUTH-DDL-DOMINIO-FISICO.md` v1.0 · Schema: `bauth` · Prefijo: `fis_`
+**Estándares:** IEC 60839-11-5 (OSDP v2.2.2) · BS 5979 · NIST SP 800-53 PE · ONVIF · MQTT 5.0
+**Patrón:** Closure Table (adjacency list + precomputación de caminos)
+
+### 4.1 — bauth.fis_location (021) · Línea 1866
+**Propósito:** Tabla ÚNICA de jerarquía física para el dominio D2. Reemplaza 5 tablas heredadas. Cada nodo (sitio, edificio, piso, área, puerta, dispositivo) es una fila con `parent_id` apuntando a su contenedor. Las consultas jerárquicas usan `fis_location_closure` (1 JOIN en vez de 6).
+**⚠️ Closure Table:** No hacer JOINs recursivos. Usar `fis_location_closure` para cualquier consulta de ancestros/descendientes.
+**Referencia:** IEC 60839-11-5, BS 5979:2007, NIST SP 800-53 PE.
+
+| # | Columna | Tipo | Obligatorio | Significado | Cómo se obtiene | Ejemplo |
+|---|---------|------|-------------|-------------|-----------------|---------|
+| 1 | `location_id` | UUID | Sí (PK) | UUIDv7 del nodo en la jerarquía | Automático | `019ef51f-...` |
+| 2 | `parent_id` | UUID | No (FK) | Nodo contenedor. NULL = raíz (SITE). Self-reference | FK → fis_location(location_id). Al crear un edificio, su parent_id es el UUID del sitio | UUID del sitio padre |
+| 3 | `tenant_id` | UUID | Sí (FK) | Tenant dueño de toda la jerarquía | FK → idn_tenant. ON DELETE CASCADE borra toda la jerarquía | UUID del tenant |
+| 4 | `location_type` | ENUM | Sí | Nivel jerárquico: SITE, BUILDING, FLOOR, WING, AREA, DOOR, DEVICE | Define el rol del nodo. DOOR y DEVICE son hojas. Cambiar el tipo requiere reconstruir la closure | `AREA` |
+| 5 | `name` | TEXT | Sí | Nombre descriptivo para UI y reportes | Operador de seguridad. Ej: "Bóveda Principal", "Torre Administrativa" | `Bóveda Principal` |
+| 6 | `code` | TEXT | Sí | Código único por tenant para APIs y referencias. UNIQUE(tenant_id, code) | Operador. Formato: `{sigla}-{tipo}-{num}`. Sin espacios | `boveda-01` |
+| 7 | `coordinates` | POINT | No | Coordenadas (lat, lon) ISO 6709. Centro del sitio/edificio | GPS / Google Maps. Índice GIST para búsquedas espaciales | `(-16.500,-68.150)` |
+| 8 | `address` | TEXT | No | Dirección postal física. Solo para SITE y BUILDING | Operador. Ej: "Av. Arce #1234, La Paz" | `Av. Arce #1234, La Paz` |
+| 9 | `country_code` | CHAR(2) | Sí | País ISO 3166-1 alpha-2. Default BO | ISO 3166-1. Heredable: un hijo sin country_code hereda del padre | `BO` |
+| 10 | `security_zone` | INTEGER | Sí | BS 5979 Zone 0-5. Zone 0 = pública sin control. Zone 5 = bóveda/data center | Política de seguridad. Heredable: NULL en hijo = hereda del padre. Un hijo puede ser MÁS restrictivo, nunca menos | `5` |
+| 11 | `perimeter_type` | ENUM | No | Tipo de perímetro físico. Solo para SITE. FENCE (cerco), WALL (muro), VEHICLE_BARRIER (barrera vehicular), NONE | Inspección física del sitio | `WALL` |
+| 12 | `perimeter_lighting` | BOOLEAN | No | ¿El perímetro tiene iluminación de seguridad? Solo SITE | Inspección física. Requerido para Zone ≥ 3 | `true` |
+| 13 | `geo_fence_radius_m` | INTEGER | No | Radio en metros para validar presencia. Si el usuario está fuera del geo-fence, se deniega acceso físico | Configuración de seguridad. Default 100m | `100` |
+| 14 | `is_active` | BOOLEAN | Sí | false = nodo y todos sus hijos deshabilitados | Administrador. Desactivar un SITE desactiva todo debajo | `true` |
+| 15 | `properties` | JSONB | No | Campos específicos del nivel jerárquico. Ej: BUILDING → {"building_class":"CLASS_A","floors_count":5}. FLOOR → {"floor_number":3}. DOOR → {"door_type":"VAULT","direction":"ENTRY"} | Operador. Extensible sin ALTER TABLE. Ver tabla de properties por tipo en BAUTH-DDL-DOMINIO-FISICO.md §4.5 | `{"building_class":"CLASS_A","floors_count":5}` |
+| 16 | `metadata` | JSONB | No | Metadatos adicionales no estructurados | Cualquier dato extra | `{}` |
+| 17-19 | `ctx_id, created_at, updated_at` | — | Sí | Trazabilidad estándar | Automático | — |
+
+### 4.2 — bauth.fis_location_closure (022) · Línea 1916
+**Propósito:** Closure table del dominio físico. Precomputa TODOS los pares ancestro→descendiente con profundidad. Mantenida automáticamente por trigger `trg_fis_location_closure`. **Nunca insertar manualmente.**
+**⚠️ Sin esta tabla, cada consulta jerárquica requiere un CTE recursivo (lento). Con ella, 1 JOIN (<1ms).**
+
+| # | Columna | Tipo | Obligatorio | Significado | Cómo se obtiene |
+|---|---------|------|-------------|-------------|-----------------|
+| 1 | `ancestor_id` | UUID | Sí (PK, FK) | Nodo ancestro en el camino | Trigger: INSERT/UPDATE en fis_location |
+| 2 | `descendant_id` | UUID | Sí (PK, FK) | Nodo descendiente. Siempre incluye self (ancestor=descendant, depth=0) | Trigger |
+| 3 | `depth` | INTEGER | Sí | 0=self, 1=hijo directo, 2=nieto, 3=bisnieto... | Trigger: depth=0 para self, +1 por cada nivel |
+
+### 4.3 — bauth.fis_area_config (023) · Línea 1960
+**Propósito:** Reglas de seguridad específicas para áreas (location_type=AREA). Relación 1:1 con fis_location. Solo se crea para nodos tipo AREA.
+**⚠️ Las reglas aquí definidas son evaluadas por el DomainEvaluator D2 en tiempo real al solicitar acceso.**
+
+| # | Columna | Tipo | Obligatorio | Significado | Cómo se obtiene | Ejemplo |
+|---|---------|------|-------------|-------------|-----------------|---------|
+| 1 | `config_id` | UUID | Sí (PK) | UUIDv7 | Automático | — |
+| 2 | `location_id` | UUID | Sí (FK UNIQUE) | Área asociada. UNIQUE = 1:1 | FK → fis_location WHERE location_type=AREA | UUID de fis_location |
+| 3 | `requires_escort` | BOOLEAN | Sí | Visitantes o personal sin autorización deben ser escoltados por alguien con acceso | Política de seguridad. Default false. Bóvedas y data centers: true | `false` |
+| 4 | `requires_two_person` | BOOLEAN | Sí | Mínimo 2 personas autenticadas simultáneamente para abrir (four-eyes principle físico) | Política de seguridad. Bóvedas y salas de armas: true | `true` |
+| 5 | `requires_mantrap` | BOOLEAN | Sí | Esclusa de seguridad: puerta A cierra antes de abrir puerta B. Previene tailgating | Infraestructura física. Data centers y bóvedas: true | `true` |
+| 6 | `requires_anti_tailgating` | BOOLEAN | Sí | Sensor que detecta si más de 1 persona pasó con 1 credencial. Alarma si detecta | Infraestructura física. Cámaras + sensores de peso/presencia | `true` |
+| 7 | `max_occupancy` | INTEGER | No | Máximo de personas simultáneas en el área. NULL = sin límite | Normativa de seguridad/bomberos. Data center: típicamente 2-4 | `4` |
+| 8 | `camera_required` | BOOLEAN | Sí | ¿Esta área debe tener cobertura CCTV 24/7? | Política de seguridad. Zone ≥ 3 debe tener CCTV | `true` |
+| 9 | `allowed_schedules` | UUID[] | No | Array de UUIDs de cal_schedule. Define cuándo se puede acceder | Administrador de seguridad. NULL = 24/7. Fuera de horario → step-up MFA | `{uuid_schedule_1, uuid_schedule_2}` |
+| 10 | `metadata` | JSONB | No | Reglas adicionales específicas del tenant | — | `{}` |
+| 11-14 | `ctx_id, created_at, updated_at` | — | Sí | Trazabilidad estándar | Automático | — |
+
+### 4.4 — bauth.fis_device (024) · Línea 1989
+**Propósito:** Catálogo de dispositivos físicos: lectores, chapas, cámaras, sensores. 15 tipos estandarizados. Cada dispositivo se vincula 1:1 con un nodo fis_location de tipo DEVICE.
+**⚠️ auth_level define cuántos factores requiere el dispositivo. OSDP Secure Channel AES-128 para lectores biométricos.**
+**Referencia:** IEC 60839-11-5 (OSDP), ONVIF Profile S/G, MQTT 5.0.
+
+| # | Columna | Tipo | Obligatorio | Significado | Cómo se obtiene | Ejemplo |
+|---|---------|------|-------------|-------------|-----------------|---------|
+| 1 | `device_id` | UUID | Sí (PK) | UUIDv7 del dispositivo | Automático | — |
+| 2 | `location_id` | UUID | Sí (FK UNIQUE) | Nodo fis_location asociado. UNIQUE = 1 dispositivo por ubicación | FK → fis_location. location_type debe ser DEVICE | UUID del nodo DEVICE |
+| 3 | `tenant_id` | UUID | Sí (FK) | Tenant dueño | FK → idn_tenant | — |
+| 4 | `device_type` | ENUM | Sí | 15 tipos: CARD_READER, PIN_KEYPAD, BIOMETRIC_READER, MAGNETIC_LOCK, ELECTRIC_STRIKE, DOOR_CONTACT, MOTION_SENSOR, IP_CAMERA, PTZ_CAMERA, INTERCOM, REX_BUTTON, ALARM_SIREN, GLASS_BREAK, SMOKE_DETECTOR, POS_TERMINAL | Fabricante/etiqueta del dispositivo. Define qué comandos acepta | `BIOMETRIC_READER` |
+| 5 | `protocol` | ENUM | Sí | Protocolo de comunicación: OSDP (lectores, chapas), WIEGAND (legacy), ONVIF (cámaras), MQTT (sensores IoT), MODBUS (actuadores), SIP (intercoms), TCPIP (POS) | Fabricante. OSDP reemplaza Wiegand por seguridad | `OSDP` |
+| 6 | `ip_address` | INET | No | Dirección IP asignada. NULL si es analógico (dry contact) | DHCP o asignación estática. Usado por NEXUS para conectar | `10.0.3.50` |
+| 7 | `mac_address` | MACADDR | No | Dirección MAC del dispositivo. Útil para inventory y VLAN assignment | Etiqueta del fabricante / ARP table | `aa:bb:cc:dd:ee:ff` |
+| 8 | `serial_number` | TEXT | No | Número de serie del fabricante. Para garantía y trazabilidad | Etiqueta física del dispositivo | `SN-2026-12345` |
+| 9 | `firmware_version` | TEXT | No | Versión de firmware instalada. Crítico para seguridad (vulnerabilidades) | Comando de status del dispositivo vía OSDP/ONVIF | `2.2.2` |
+| 10 | `auth_level` | INTEGER | Sí | Nivel de autenticación requerido: 1=solo tarjeta, 2=tarjeta+PIN, 3=biométrico (huella/rostro), 4=doble factor físico (biométrico+PIN) | Política de seguridad del área. Zone 4-5 requiere nivel ≥3 | `3` |
+| 11 | `is_online` | BOOLEAN | Sí | true = dispositivo responde a heartbeat. Se actualiza cada 30s | NEXUS monitorea. False >90s → alerta MATTERMOST #seguridad | `true` |
+| 12 | `last_seen_at` | TIMESTAMPTZ | No | Timestamp del último heartbeat exitoso | NEXUS actualiza cada 30s | `2026-06-23T15:30:00-04:00` |
+| 13 | `pos_logical_id` | UUID | No | Vinculación con terminal POS (D3 Financiero). Solo para POS_TERMINAL | FK lógica a idn_pos. NULL para dispositivos no-POS | UUID del POS |
+| 14 | `status` | ENUM | Sí | ACTIVE (operando), INACTIVE (apagado), ALARM (intrusión/puerta forzada), FAULT (mal funcionamiento), MAINTENANCE (en reparación), OFFLINE (sin conexión) | NEXUS actualiza según eventos. ALARM dispara notificación inmediata | `ACTIVE` |
+| 15 | `metadata` | JSONB | No | Configuración adicional específica del fabricante | — | `{}` |
+| 16-18 | `ctx_id, created_at, updated_at` | — | Sí | Trazabilidad | Automático | — |
+
+### 4.5 — bauth.fis_controller (025) · Línea 2028
+**Propósito:** Controlador hardware (ACU — Access Control Unit). El cerebro que ejecuta comandos OSDP sobre los dispositivos. 1 controlador gestiona N puertas vía RS-485 multi-drop.
+**⚠️ Si el controlador está OFFLINE, las puertas asociadas pasan a modo degradado (FAIL-SECURE: cerradas, o FAIL-SAFE: abiertas según configuración).**
+
+| # | Columna | Tipo | Obligatorio | Significado | Cómo se obtiene | Ejemplo |
+|---|---------|------|-------------|-------------|-----------------|---------|
+| 1 | `controller_id` | UUID | Sí (PK) | UUIDv7 | Automático | — |
+| 2 | `site_location_id` | UUID | Sí (FK) | Sitio físico donde está instalado el controlador | FK → fis_location WHERE location_type=SITE | UUID del SITE |
+| 3 | `tenant_id` | UUID | Sí (FK) | Tenant | FK → idn_tenant | — |
+| 4 | `name` | TEXT | Sí | Nombre descriptivo | Administrador: "Controller Bóveda 01", "Panel Edificio A" | `Controller Bóveda 01` |
+| 5 | `model` | TEXT | No | Modelo del fabricante. Determina capacidades (ports_count, protocolos) | Fabricante: Mercury LP4502, HID Aero, Bosch AMC2 | `Mercury LP4502` |
+| 6 | `ip_address` | INET | No | IP estática del controlador en la red de seguridad | Administrador de red. Debe estar en la VLAN de seguridad | `10.0.3.100` |
+| 7 | `firmware_version` | TEXT | No | Versión de firmware. Crítico: actualizaciones de seguridad OSDP | Fabricante. Verificar contra CVE database | `3.1.0` |
+| 8 | `ports_count` | INTEGER | Sí | Número de puertos OSDP. Default 4. Cada puerto soporta multi-drop (varios dispositivos en cadena) | Fabricante. Típico: 2-4 puertos | `4` |
+| 9 | `is_online` | BOOLEAN | Sí | true = heartbeat recibido en los últimos 90s | NEXUS monitorea. False → todas las puertas del controlador en modo degradado | `true` |
+| 10 | `last_heartbeat` | TIMESTAMPTZ | No | Último heartbeat recibido. Si >90s sin respuesta → alerta | NEXUS actualiza | `2026-06-23T15:30:00-04:00` |
+| 11 | `metadata` | JSONB | No | Configuración adicional | — | `{}` |
+| 12-14 | `ctx_id, created_at, updated_at` | — | Sí | Trazabilidad | Automático | — |
+
+### 4.6 — bauth.fis_access_zone (026) · Línea 2059
+**Propósito:** Zona de acceso lógica (Access Zone). Agrupa puertas con reglas de seguridad comunes. Los Employee Groups (EG) se mapean a Access Zones (AZ) para simplificar la administración de permisos (paper Sathishkumar et al. 2016: O(m·n) → O(g·z)).
+**⚠️ Una puerta pertenece a EXACTAMENTE una zona. Las zonas son disjuntas.**
+
+| # | Columna | Tipo | Obligatorio | Significado | Cómo se obtiene | Ejemplo |
+|---|---------|------|-------------|-------------|-----------------|---------|
+| 1 | `zone_id` | UUID | Sí (PK) | UUIDv7 | Automático | — |
+| 2 | `tenant_id` | UUID | Sí (FK) | Tenant | FK → idn_tenant | — |
+| 3 | `name` | TEXT | Sí | Nombre de la zona. UNIQUE por tenant | Administrador de seguridad. Ej: "Zona Administrativa", "Zona Bóveda", "Zona Pública" | `Zona Bóveda` |
+| 4 | `description` | TEXT | No | Descripción de qué áreas/puertas cubre y qué reglas aplican | Administrador de seguridad | `Puertas de bóveda principal y bóveda de respaldo. Nivel 3 mínimo` |
+| 5 | `schedule_id` | UUID | No | Horario en que esta zona es accesible. NULL = 24/7 | FK a cal_schedule. Fuera de horario → step-up MFA automático | UUID de cal_schedule |
+| 6-8 | `ctx_id, created_at, updated_at` | — | Sí | Trazabilidad | Automático | — |
+
+### 4.7 — bauth.fis_zone_member (027) · Línea 2081
+**Propósito:** Puente que asigna puertas/áreas a zonas de acceso. UNIQUE(zone_id, location_id) garantiza que una puerta pertenece a una sola zona (conjuntos disjuntos).
+**⚠️ Insertar aquí es lo que hace efectiva una política de acceso sobre una puerta.**
+
+| # | Columna | Tipo | Obligatorio | Significado | Cómo se obtiene |
+|---|---------|------|-------------|-------------|-----------------|
+| 1 | `zone_member_id` | UUID | Sí (PK) | UUIDv7 | Automático |
+| 2 | `zone_id` | UUID | Sí (FK) | Zona de acceso | FK → fis_access_zone. ON DELETE CASCADE |
+| 3 | `location_id` | UUID | Sí (FK) | Puerta o área asignada | FK → fis_location WHERE location_type IN (DOOR, AREA). ON DELETE CASCADE |
+| 4-5 | `ctx_id, created_at` | — | Sí | Trazabilidad | Automático |
+| | **UNIQUE** | — | — | (zone_id, location_id) — una puerta en una sola zona | Constraint |
+
+
+---
+
+---
+
+## 5. DOMINIO FINANCIERO (D3) — Prefijo fin_
+
+**Referencia:** `BAUTH-DDL-DOMINIO-FINANCIERO.md` v1.0 · Schema: `bauth` · Prefijo: `fin_`
+**Estándares:** ISO 20022 · Double-Entry · NIST 800-53 AC-5 (SoD) · COSO · SOX §302/§404
+**Diseño:** JSONB para configuraciones variables + jerarquía para cadena de aprobación de N niveles.
+
+### 5.1 — bauth.fin_transaction_type (028)
+**Propósito:** Catálogo de tipos de transacción financiera. `controls JSONB` define qué requiere cada tipo (dual control, evidencia, notificación SIN).
+
+| # | Columna | Tipo | Obligatorio | Significado | Cómo se obtiene | Ejemplo |
+|---|---------|------|-------------|-------------|-----------------|---------|
+| 1 | `type_id` | UUID | Sí (PK) | UUIDv7 | Automático | — |
+| 2 | `tenant_id` | UUID | Sí (FK) | Tenant | FK → idn_tenant | — |
+| 3 | `code` | TEXT | Sí | Código único: FAC_EMITIR, PAGO_APROBAR | Operador. UNIQUE(tenant, code) | `FAC_EMITIR` |
+| 4 | `name` | TEXT | Sí | Nombre descriptivo | Operador | `Emitir Factura` |
+| 5 | `category` | ENUM | Sí | VENTAS, COMPRAS, PAGOS, COBROS, NOMINA, INVENTARIO, TRIBUTARIO, BANCARIO, ACTIVOS_FIJOS, IMPORTACION, EXPORTACION | Clasificación contable | `VENTAS` |
+| 6 | `risk_level` | ENUM | Sí | BAJO, MEDIO, ALTO, CRITICO | Política de riesgo. Define controles requeridos | `ALTO` |
+| 7 | `controls` | JSONB | No | `{"requires_dual_control":true,"requires_evidence":true,"notifies_sin":true}` | Política de control. Extensible sin ALTER TABLE | `{"requires_dual_control":true}` |
+| 8-9 | `is_active` | BOOLEAN | Sí | true = en uso | Administrador | `true` |
+| 10-12 | `ctx_id, created_at, updated_at` | — | Sí | Trazabilidad | Automático | — |
+
+### 5.2 — bauth.fin_limit (029)
+**Propósito:** Límites financieros. `limits_config JSONB` reemplaza columnas hardcodeadas (daily, weekly...). Nuevo período = nueva clave JSONB.
+
+| # | Columna | Tipo | Significado | Ejemplo |
+|---|---------|------|-------------|---------|
+| 1 | `limit_id` | UUID PK | UUIDv7 | — |
+| 2-5 | `tenant_id, company_id, role_id, transaction_type_id` | FKs | Alcance del límite | — |
+| 6 | `currency_code` | CHAR(3) | Moneda. Default BOB | `BOB` |
+| 7 | `limits_config` | JSONB | **Períodos ilimitados:** `{"per_operation":50000,"daily":500000,"quarterly":3000000}` | Extensible |
+| 8 | `accumulators` | JSONB | Contadores actuales: `{"daily":12500,"last_reset_daily":"2026-06-23"}` | Auto-reset |
+| 9 | `exceed_action` | ENUM | BLOCK, REQUIRE_APPROVAL, REQUIRE_DUAL_CONTROL, NOTIFY | `BLOCK` |
+| 10-11 | `exceed_approver_1, exceed_approver_2` | UUID | Aprobadores cuando se excede el límite | — |
+
+### 5.3 — bauth.fin_approval_chain + fin_approval_level (030)
+**Propósito:** Cadena de aprobación jerárquica de N niveles. Reemplaza los 3 niveles hardcodeados de `bos_financial_decision_matrix`.
+
+**fin_approval_chain:** Define la cadena (tenant, tipo transacción, moneda).
+**fin_approval_level:** Cada nivel con role_id, max_amount, level_order secuencial.
+
+| Tabla | Columna clave | Significado |
+|-------|-------------|-------------|
+| chain | `sla_hours` | Tiempo máximo de respuesta antes de escalar |
+| chain | `auto_escalate` | Si true, escala automática al siguiente nivel |
+| level | `level_order` | 1, 2, 3... N. Secuencia de aprobación |
+| level | `max_amount` | Monto máximo de este nivel. NULL = último nivel sin límite |
+
+### 5.4 — bauth.fin_approval (031) · Hash-chain SHA-256
+**Propósito:** Registro inmutable de aprobaciones. `prev_hash → entry_hash` encadena criptográficamente. PCI DSS 10.3.2.
+
+| # | Columna | Significado |
+|---|---------|-------------|
+| 7 | `current_level` | Nivel actual en la cadena (1,2...N) |
+| 10-11 | `prev_hash, entry_hash` | Hash-chain SHA-256. Integridad de secuencia |
+| 12 | `ctx_id` | Obligatorio. Trazabilidad W3C |
+
+### 5.5 — bauth.fin_document_operation (032) · Hash-chain
+**Propósito:** Operaciones sobre documentos fiscales SIN Bolivia. `operation_data JSONB` extensible.
+
+### 5.6 — bauth.fin_role_permission (033) · JSONB
+**Propósito:** Permisos financieros por rol. `permissions JSONB` reemplaza 3 booleanos hardcodeados.
+
+| Columna | Ejemplo |
+|---------|---------|
+| `permissions` | `{"can_initiate":true,"can_approve":false,"can_view":true,"can_void":false,"can_export_sin":true}` |
+
+**SoD:** `can_initiate=true AND can_approve=true` para el mismo tipo → violación de segregación de deberes.
+
+
+---
+
+*Documento actualizado 2026-06-23. 33 tablas documentadas (bauth: 22, bglobal: 4, bcalendar: 7).*
+
+---
+
+## 6. BIBLIOTECA UNIFICADA DE POLÍTICAS Y CONFIGURACIONES
+
+### 6.1 — Visión General
+
+**Ubicación en DDL:** `DDL_skSBOS_db.sql` línea 5418 → `\ir DDL_framework_unified.sql` (165 líneas).
+**Tablas:** `bauth.framework_raw` (línea 16), `bauth.cfg_policy_library` (línea 27),
+`bauth.cfg_key_translation` (línea 106). **Funciones:** `bauth.jsonb_explode()` (línea 201),
+`bauth.translate_keys_en_es()` (línea 219).
+
+La biblioteca unificada `bauth.cfg_policy_library` es el repositorio central de **todas** las
+políticas, configuraciones y métodos de autenticación del ecosistema SBOS. Actúa como
+**fuente única de verdad** (Single Source of Truth) para:
+
+- **Políticas de autenticación** — reglas que gobiernan el comportamiento del sistema
+- **Configuraciones** — parámetros y valores por defecto para cada dominio
+- **Métodos de autenticación** — catálogo de mecanismos disponibles (FIDO2, TOTP, etc.)
+- **Estándares** — normas internacionales aplicables (NIST, ISO, PCI, SOC 2)
+- **Guías industriales** — mejores prácticas de Okta, Google, Microsoft, AWS
+
+**Métricas:** 9,142 nodos · 16 fuentes · 13 dominios (D1-D12 + SEC) · 29 columnas de clasificación.
+
+### 6.2 — Arquitectura de Descomposición (CTE Recursivo)
+
+La biblioteca se construye mediante un **CTE recursivo** que descompone documentos JSON
+jerárquicos en nodos atómicos clasificables:
+
+```
+Fuente JSON (framework_raw)
+  │
+  ├── FASE 1: Carga — 16 fuentes en bauth.framework_raw
+  │     ├── authenticationFramework (127 KB, 36 secciones)
+  │     ├── policiesAuthenticationFramework (29 KB, 14 secciones)
+  │     ├── nist_sp_800_63b_rev4 (password + MFA + passkeys)
+  │     ├── fido2_ctap_2.2 (CTAP 2.2 + WebAuthn L3 + passkeys)
+  │     ├── nist_pqc_2025 (FIPS 203/204/205 + HQC)
+  │     ├── oauth_2_1 (PKCE mandatory + removed flows)
+  │     ├── zero_trust_nsa_2026 (NSA ZIGs + AI ZT)
+  │     ├── iso_27001_2022 (A.5.16-A.8.5)
+  │     ├── industry_enterprise (Okta + Google + Microsoft)
+  │     ├── pci_dss_4_0_financial (Req 7 + Req 8 + SoD)
+  │     ├── time_based_access_d4 (TBAC + JIT + schedules)
+  │     ├── geo_location_d6 (geo-fence + GDPR + OFAC)
+  │     ├── delegation_authority_d10 (break-glass + JIT + SoD)
+  │     ├── cis_kubernetes_1_8 (RBAC + Pod Security + Network)
+  │     ├── aws_iam_best_practices (SCPs + RCPs + ABAC)
+  │     └── soc2_type_ii (CC6 + Type II evidence)
+  │
+  ├── FASE 2: CTE Recursivo — bauth.jsonb_explode()
+  │     Descompone objetos (jsonb_each) y arrays (jsonb_array_elements)
+  │     en un solo recorrido depth-first hasta profundidad 15
+  │
+  ├── FASE 3: Clasificación automática
+  │     ├── node_type: section → group → policy → config (estructural)
+  │     ├── semantic_type: policy | configuration | method | standard | guideline
+  │     ├── domain_map: D1-D12 + SEC (13 dominios de soberanía)
+  │     ├── enforcement: mandatory | recommended | optional
+  │     ├── risk_level: critical | high | medium | low
+  │     ├── assurance_level: AAL1 | AAL2 | AAL3 (NIST 800-63B)
+  │     ├── auth_factor: knowledge | possession | inherence | context | multi
+  │     └── compliance_ref: IDs de controles específicos
+  │
+  └── FASE 4: Traducción — bauth.translate_keys_en_es()
+        Traducción recursiva de claves JSON inglés→español
+        con descomposición camelCase/snake_case. 95.1% cobertura.
+```
+
+### 6.3 — Estructura de la Tabla `cfg_policy_library`
+
+| Columna | Tipo | Descripción |
+|---------|------|-------------|
+| `section_id` | serial PK | Identificador autoincremental |
+| `section_name` | text NOT NULL | Nombre de la clave JSON en este nivel |
+| `parent_path` | text | Ruta del padre (NULL = raíz). FK autoreferencial → `(json_path, source)` |
+| `json_path` | text NOT NULL UNIQUE | Ruta completa en el JSON fuente. Identificador único global |
+| `depth` | integer NOT NULL | Nivel de profundidad (1 = sección raíz) |
+| `order_index` | integer NOT NULL | Orden dentro del padre (preserva orden del JSON original) |
+| `array_index` | bigint | Posición en array (> 0 si el padre es un array) |
+| `node_type` | text NOT NULL | `section` \| `group` \| `policy` \| `config` (estructura JSON) |
+| `semantic_type` | text | `policy` \| `configuration` \| `method` \| `standard` \| `guideline` \| `group` |
+| `domain_map` | text[] | Array de dominios: `{D1}`, `{D3,D9}`, `{SEC}` |
+| `source` | text NOT NULL | Fuente original (16 fuentes) |
+| `standard_ref` | text | Referencia a la norma (ej: "NIST SP 800-63B-4 §5.1.1.2") |
+| `industry_source` | text | Origen industrial (Okta, Google, Microsoft, AWS) |
+| `compliance_ref` | text[] | IDs de controles: `{"PCI DSS 4.0 Req 7.2.4","ISO 27001 A.8.5"}` |
+| `content` | jsonb NOT NULL | JSONB original del framework |
+| `content_en` | jsonb NOT NULL | Contenido en inglés |
+| `content_es` | jsonb NOT NULL | Contenido en español (claves traducidas, valores preservados) |
+| `help_text` | jsonb | Array de guías explicativas (documentación) |
+| `description` | text | Descripción corta en español |
+| `enforcement` | text | `mandatory` \| `recommended` \| `optional` |
+| `risk_level` | text | `critical` \| `high` \| `medium` \| `low` |
+| `lifecycle` | text | `active` \| `deprecated` \| `draft` \| `proposed` \| `superseded` \| `retired` |
+| `applicability` | text[] | `{workforce,customer,admin,service_account,device,api,partner,contractor,guest,all}` |
+| `assurance_level` | text | `AAL1` \| `AAL2` \| `AAL3` (NIST 800-63B) |
+| `auth_factor` | text | `knowledge` \| `possession` \| `inherence` \| `context` \| `multi` |
+| `phishing_resistant` | boolean | ¿Resiste phishing? (NIST Rev 4: obligatorio AAL2+) |
+| `mfa_required` | boolean | ¿Requiere múltiples factores? |
+| `session_timeout` | integer | Timeout de sesión en minutos |
+| `created_at` | timestamptz | Fecha de creación |
+
+**Índices:** 15 índices incluyendo PK, UNIQUE global en `json_path`, UNIQUE en
+`(section_name, COALESCE(parent_path, ''), source)`, GIN en `domain_map`, y 7 índices
+de filtrado para `semantic_type`, `enforcement`, `risk_level`, `assurance_level`,
+`lifecycle`, `mfa_required`, `phishing_resistant`.
+
+**FK:** `(parent_path, source) → (json_path, source)` — autoreferencial, garantiza
+integridad del árbol jerárquico.
+
+### 6.4 — Tablas de Soporte
+
+| Tabla | Propósito |
+|-------|-----------|
+| `bauth.framework_raw` | Almacena los documentos JSON fuente para alimentar el CTE. 16 registros, uno por fuente. |
+| `bauth.cfg_key_translation` | Mapeo de 222 claves inglés→español para traducción recursiva. |
+| `bauth.jsonb_explode(node jsonb)` | Función PL/pgSQL: descompone objetos y arrays en filas (key, value, ordinality). |
+| `bauth.translate_keys_en_es(node jsonb)` | Función PL/pgSQL: traducción recursiva JSONB con descomposición camelCase/snake_case. |
+
+### 6.5 — Consultas Frecuentes
+
+```sql
+-- Todas las políticas de un dominio
+SELECT json_path, content_en, enforcement, risk_level
+FROM bauth.cfg_policy_library
+WHERE domain_map @> '{D9}' AND semantic_type = 'policy' AND depth = 1;
+
+-- Configuraciones mandatorias para AAL2+
+SELECT json_path, content_en, assurance_level
+FROM bauth.cfg_policy_library
+WHERE enforcement = 'mandatory' AND assurance_level IN ('AAL2','AAL3');
+
+-- Métodos de autenticación phishing-resistant
+SELECT section_name, content_en
+FROM bauth.cfg_policy_library
+WHERE semantic_type = 'method' AND phishing_resistant = true;
+
+-- Árbol jerárquico de una sección
+WITH RECURSIVE tree AS (
+  SELECT * FROM bauth.cfg_policy_library
+  WHERE json_path = 'authenticationFramework.authenticationCore'
+  UNION ALL
+  SELECT c.* FROM bauth.cfg_policy_library c
+  JOIN tree p ON c.parent_path = p.json_path AND c.source = p.source
+)
+SELECT repeat('  ', depth-1) || section_name AS arbol, node_type, content_en
+FROM tree ORDER BY depth, order_index;
+
+-- Mapa de cumplimiento: qué controles cubre cada fuente
+SELECT source, unnest(compliance_ref) AS control
+FROM bauth.cfg_policy_library
+WHERE depth = 1 AND compliance_ref IS NOT NULL
+ORDER BY source;
+
+-- Reconstruir JSON original desde los nodos hoja (para auditoría)
+-- El json_path permite navegar al archivo fuente exacto y validar integridad
+SELECT json_path, content_en, content_es
+FROM bauth.cfg_policy_library
+WHERE json_path = 'authenticationFramework.authenticationCore.sanctumEnhanced';
+```
+
+---
+
+## 7. SISTEMA DE SEEDS
+
+### 7.1 — Arquitectura de Seeds
+
+**Ubicación:** `migrations/seeds/` (71 archivos `.sql`).
+**Script maestro:** `seeds/run_all_seeds.sql` (135 líneas, referenciado desde
+`DDL_framework_unified.sql` línea 260).
+**Ejecución automática:** el framework ejecuta los seeds al finalizar la carga de la biblioteca.
+
+Los seeds son scripts SQL idempotentes que pueblan las tablas del sistema con datos
+iniciales de producción. Cada seed sigue un patrón estricto:
+
+```
+TRUNCATE TABLE {tabla} RESTART IDENTITY CASCADE;
+REINDEX TABLE {tabla};
+INSERT INTO {tabla} (...) VALUES (...);
+```
+
+**Principios de diseño:**
+- **Idempotencia**: TRUNCATE garantiza que ejecutar N veces produce el mismo resultado.
+- **Autonomía**: cada seed puede ejecutarse independientemente.
+- **Orden**: `run_all_seeds.sql` ejecuta los 71 seeds en 10 fases con dependencias resueltas.
+- **Generación desde biblioteca**: los seeds de roles y configuraciones por dominio se
+  generan automáticamente desde `cfg_policy_library`.
+
+### 7.2 — Catálogo de Seeds (71 seeds en 10 fases)
+
+| Fase | Seeds | Contenido |
+|:---:|-------|-----------|
+| **0** | 3 | `global_country` (196 países ISO 3166-1), `global_language` (125 idiomas ISO 639), `geo_timezone` (319 zonas IANA) |
+| **1** | 6 | `privilege_domain` (12 dominios), `privilege_verb` (50 verbos), `privilege_application` (12 apps), `privilege_group` (48 grupos), `privilege_atom` (5,808 átomos), `privilege_atom_policy` (2 políticas base) |
+| **2** | 4 | `idn_tenant` (tenant skull bootstrap), `idn_tier_policy` (9 tiers SU..VISITANTE), `log_zone` (29 zonas), `geo_trust_tier` (3 niveles) |
+| **3** | 14 | `ath_method` (32 métodos), `ath_federation_protocol` (16 protocolos), `ath_config_d1..d12` (12 dominios de configs) |
+| **4** | 12 | `ath_policy_d1..d12` (políticas por dominio, 4-12 por dominio) |
+| **5** | 2 | `ath_auth_flow` (8 flujos), `ath_step_up_rule` (8 reglas RFC 9470) |
+| **6** | 6 | `fin_transaction_type` (20 tipos), `fin_sod_rule` (matriz SoD), `cal_calendar` (4 colecciones), `cal_schedule` (horarios), `cal_holiday_complete` (37 feriados Bolivia 2026) |
+| **7** | 14 | `idn_role_template` (31 roles base), `idn_role_template_data` (JSONB 15 secciones), `idn_role_d1..d12` (roles por dominio) |
+| **8** | 2 | `menu_context` (57 contextos — todos los ENUMs DDL), `menu_item` (105 ítems: 48 jerárquicos + 41 contextuales) |
+| **9** | 4 | `org_empresa` (SKULL bootstrap), `org_sucursal`, `mobile_app_config` (5 plataformas), `zone_application_map` (zonas→apps) |
+| **10** | 4 | `ath_credential_policy` (8 tipos), `idn_user_template`, `aud_compliance_map`, `idn_user_template_data` (15 secciones JSONB) |
+
+### 7.3 — Dependencias entre Seeds
+
+```
+FASE 0 (global) ─────────────────────────────────────────────────────────────────────┐
+FASE 1 (privilege) ─── depende de FASE 0 ────────────────────────────────────────────┤
+FASE 2 (tenant) ────── depende de FASE 1 ────────────────────────────────────────────┤
+FASE 3 (auth catálogos) ─── independiente ───────────────────────────────────────────┤
+FASE 4 (auth policies) ──── independiente ───────────────────────────────────────────┤
+FASE 5 (auth flows) ─────── depende de FASE 3 (ath_method) ──────────────────────────┤
+FASE 6 (fin/cal/geo) ────── independiente ───────────────────────────────────────────┤
+FASE 7 (roles) ──────────── depende de FASE 2, FASE 6 ───────────────────────────────┤
+FASE 8 (menús) ──────────── depende de FASE 2 (tenant) ──────────────────────────────┤
+FASE 9 (org/apps) ───────── depende de FASE 1, FASE 2 ───────────────────────────────┤
+FASE 10 (framework) ─────── depende de TODAS las fases anteriores ───────────────────┘
+```
+
+### 7.4 — Seeds desde la Biblioteca (Generación Automática)
+
+Los seeds de dominio (`idn_role_d1..d12` y `ath_config_d1..d12`) se generan
+automáticamente desde `bauth.cfg_policy_library` usando filtros de dominio:
+
+```sql
+-- Ejemplo: seed_idn_role_d1.sql
+INSERT INTO bauth.idn_role_d1 (role_code, role_name, config, description)
+SELECT 'D1_' || upper(regexp_replace(section_name, '[^a-zA-Z0-9]', '_', 'g')),
+       jsonb_build_object('es', section_name, 'en', section_name),
+       content_en,
+       COALESCE(description, 'Política de ' || section_name || ' — Dominio D1')
+FROM bauth.cfg_policy_library
+WHERE domain_map @> ARRAY['D1']
+  AND jsonb_typeof(content_en) = 'object'
+  AND depth <= 3
+LIMIT 15;
+```
+
+Esto garantiza que los seeds **siempre reflejen el estado actual de la biblioteca**.
+Si se agregan nuevas fuentes o políticas a `framework_raw` y se regenera la biblioteca,
+los seeds se regeneran automáticamente con `LIMIT 15` registros más relevantes.
+
+### 7.5 — Ejecución en Producción
+
+```bash
+# Un solo comando. El DDL ejecuta el framework, el framework ejecuta los seeds.
+psql -U postgres -d skSBOS_db -f DDL_skSBOS_db.sql
+```
+
+**Cadena de ejecución (con números de línea):**
+```
+DDL_skSBOS_db.sql (línea 1-5418)
+  ├── L1-L5415: Schemas + 179 tablas + ENUMs + COMMENTs validados
+  └── L5418: \ir DDL_framework_unified.sql (165 líneas)
+        ├── L16:   CREATE TABLE bauth.framework_raw
+        ├── L27:   CREATE TABLE bauth.cfg_policy_library (29 columnas)
+        ├── L73-75: CREATE UNIQUE INDEXes (json_path, section+parent+source)
+        ├── L77-89: CREATE INDEXes (7 índices de filtrado)
+        ├── L94:   ALTER TABLE ADD CONSTRAINT fk_cfg_library_parent (FK autoreferencial)
+        ├── L106:  CREATE TABLE bauth.cfg_key_translation (222 claves EN→ES)
+        ├── L201:  CREATE FUNCTION bauth.jsonb_explode() — descomposición CTE
+        ├── L219:  CREATE FUNCTION bauth.translate_keys_en_es() — traducción recursiva
+        ├── L115-230: FASE 2-3 — Carga 16 fuentes → CTE → 9,142 nodos
+        ├── L232-248: FASE 4-5 — Traducción + Clasificación automática
+        └── L260: \ir seeds/run_all_seeds.sql (135 líneas, 71 seeds en 10 fases)
+```
+
+**Verificación de idempotencia:**
+```bash
+# Ejecutar 2 veces. Ambas deben producir 0 ERRORes.
+psql -d skSBOS_db -f DDL_skSBOS_db.sql 2>&1 | grep -c ERROR  # → 0
+psql -d skSBOS_db -f DDL_skSBOS_db.sql 2>&1 | grep -c ERROR  # → 0
+```
+
+---
+
+## 8. FLUJO COMPLETO DE DESPLIEGUE
+
+### 8.1 — Diagrama de Componentes
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                     ENTRADA ÚNICA                                   │
+│              psql -f DDL_skSBOS_db.sql                              │
+└──────────────────────────────┬──────────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ FASE A: ESTRUCTURA (DDL)                                            │
+│ • 179 tablas en schemas bauth, bglobal, bcalendar, bos              │
+│ • 34 ENUM types para validación                                     │
+│ • 15 índices + 14 CHECKs + 1 FK en cfg_policy_library              │
+│ • 2 funciones PL/pgSQL (jsonb_explode, translate_keys_en_es)       │
+│ • 747+ COMMENT ON COLUMN con referencias [ISO/NIST/RFC]            │
+└──────────────────────────────┬──────────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ FASE B: BIBLIOTECA (framework_unified)                              │
+│ • 16 fuentes cargadas en framework_raw (todo SQL, sin archivos)    │
+│ • CTE recursivo: 9,142 nodos en cfg_policy_library                 │
+│ • Clasificación: node_type + semantic_type + domain_map +          │
+│   enforcement + risk_level + assurance_level + compliance_ref      │
+│ • Traducción EN→ES: 95.1% cobertura, 2,208 objetos traducidos     │
+│ • Documentación: help_text en 9,142 nodos                          │
+└──────────────────────────────┬──────────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ FASE C: SEEDS (71 seeds, 10 fases)                                  │
+│ • Catálogos globales: 196 países, 125 idiomas, 319 zonas horarias  │
+│ • Privilegios: 5,808 átomos, 50 verbos, 12 dominios                │
+│ • Auth: 32 métodos, 16 protocolos, 8 flujos, ~90 políticas         │
+│ • Roles: 31 roles base + 12×15 roles por dominio                   │
+│ • Usuarios: template con 15 secciones SCIM 2.0                     │
+│ • Calendario: Bolivia 2026 (37 feriados)                           │
+│ • Menús: 57 contextos + 105 ítems (todos los ENUMs DDL)           │
+│ • Cumplimiento: 8 políticas de credenciales + compliance map       │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### 8.2 — Validación de Integridad
+
+```sql
+-- Verificar que la biblioteca se pobló correctamente
+SELECT source, count(*) FROM bauth.cfg_policy_library GROUP BY source;
+-- Debe mostrar 16 fuentes con 9,142 nodos totales
+
+-- Verificar que no hay huérfanos en el árbol
+SELECT count(*) FROM bauth.cfg_policy_library c
+WHERE c.parent_path IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM bauth.cfg_policy_library p
+                  WHERE p.json_path = c.parent_path AND p.source = c.source);
+-- Debe retornar 0
+
+-- Verificar seeds ejecutados
+SELECT 'Roles' AS tipo, count(*) FROM bauth.idn_role_template
+UNION ALL SELECT 'Políticas D1', count(*) FROM bauth.ath_policy_d1
+UNION ALL SELECT 'Métodos auth', count(*) FROM bauth.ath_method
+UNION ALL SELECT 'Menús', count(*) FROM bglobal.menu_item
+UNION ALL SELECT 'Feriados', count(*) FROM bcalendar.cal_holiday;
+```
+
+---
+
+*Documento actualizado 2026-06-25. 179 tablas + 2 funciones documentadas. Framework unificado (16 fuentes, 9,142 nodos). 71 seeds idempotentes en 10 fases.*

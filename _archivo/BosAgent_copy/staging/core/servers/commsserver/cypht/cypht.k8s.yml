@@ -1,0 +1,61 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cypht
+  namespace: sbos-comms
+spec:
+  type: ClusterIP
+  selector:
+    app: cypht
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cypht
+  namespace: sbos-comms
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: cypht
+  template:
+    metadata:
+      labels:
+        app: cypht
+    spec:
+      serviceAccountName: cypht-sa
+      containers:
+        - name: cypht
+          image: docker.io/cypht/cypht:1.5
+          ports:
+            - containerPort: 80
+              name: http
+
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+

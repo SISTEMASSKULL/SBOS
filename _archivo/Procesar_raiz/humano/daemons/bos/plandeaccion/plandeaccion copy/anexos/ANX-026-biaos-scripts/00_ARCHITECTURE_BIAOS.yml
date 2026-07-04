@@ -1,0 +1,348 @@
+# Autor: Ivan Jorge Villanueva Mollinedo — Sistemas SKULL
+# Co-Autor (IA): Claude Sonnet 4.6 — Anthropic
+# ============================================================================
+# 00_ARCHITECTURE_BIAOS.yml — Registro Declarativo del Motor de Intenciones
+# Proyecto: SBOS — Sistema Operativo Empresarial Soberano
+# Agente: biaos (agente IA soberano del OS)
+#
+# ANÁLOGO a 00_ARCHITECTURE_SBOS.yml pero para intenciones en lenguaje natural.
+#
+# La unidad de trabajo aquí NO es un servicio Kubernetes.
+# La unidad de trabajo es una INTENCIÓN DEL OPERADOR.
+# Una "ficha biaos" = un conjunto de pasos que resuelve una petición en NL.
+#
+# Diferencia fundamental con 00_ARCHITECTURE_SBOS.yml:
+#   SBOS:  la entrada es un comando explícito (install, repair, update)
+#   BIAOS: la entrada es lenguaje natural ("el sistema está lento")
+#          → classify → match semántico → enrich → hitl → execute → verify
+#
+# Parseable por 00_INTENT_ENGINE_BIAOS.sh via yq.
+# BI-P3: NUNCA nombra un servicio concreto — todos los handlers son genéricos.
+# ============================================================================
+
+version: "1.0.0"
+
+# ── Principios del Motor de Intenciones (BI-P1 .. BI-P12) ────────────────
+
+principios:
+
+  BI-P1:
+    nombre: "dominio OS exclusivo"
+    descripcion: "biaos NUNCA responde sobre negocio. Solo sobre Ubuntu, K8s y fichas de infra."
+    activo: true
+    enforce: "biaos_check_domain"
+    violacion: "CRÍTICO — responder sobre negocio viola la separación de agentes"
+
+  BI-P2:
+    nombre: "diagnóstico primero"
+    descripcion: "Toda acción de escritura requiere diagnóstico previo (query) con evidencia real"
+    activo: true
+    enforce: "biaos_check_diagnose_first"
+    violacion: "ALTO — proponer repair sin evidencia puede empeorar el estado"
+
+  BI-P3:
+    nombre: "sin nombres de servicios concretos en el Core"
+    descripcion: "Los scripts del Core biaos no nombran apps concretas (nextcloud, redis, etc.)"
+    activo: true
+    enforce: "biaos_check_no_concrete_names"
+    violacion: "MEDIO — nombrar apps concretas rompe la genericidad del motor"
+
+  BI-P4:
+    nombre: "HITL obligatorio para escritura"
+    descripcion: "Toda acción de categoria 2 o 3 requiere confirmación explícita del operador"
+    activo: true
+    enforce: "biaos_check_hitl_required"
+    violacion: "CRÍTICO — ejecutar acciones sin confirmación humana viola el diseño"
+
+  BI-P5:
+    nombre: "audit log antes de ejecutar"
+    descripcion: "Toda acción se registra en audit log ANTES de ejecutarse (ISO 27001 A.8.15)"
+    activo: true
+    enforce: "biaos_check_audit_before_execute"
+    violacion: "CRÍTICO — ejecutar sin audit log impide trazabilidad de seguridad"
+
+  BI-P6:
+    nombre: "compensación declarada"
+    descripcion: "Toda acción de cat-2/3 con efecto destructivo declara su compensación"
+    activo: true
+    enforce: "biaos_check_compensation"
+    violacion: "ALTO — acción sin compensación deja estado inconsistente en fallos"
+
+  BI-P7:
+    nombre: "Absorb/Execute/Release de intenciones"
+    descripcion: "Absorb catálogo de acción → Execute → Release contexto de la petición"
+    activo: true
+    enforce: "biaos_check_absorb_execute_release"
+    violacion: "MEDIO — no liberar contexto causa polución entre peticiones"
+
+  BI-P8:
+    nombre: "match semántico, no nombre exacto"
+    descripcion: "El dispatch nunca usa nombres literales — siempre similitud coseno"
+    activo: true
+    enforce: "biaos_check_semantic_match"
+    violacion: "MEDIO — match literal hace el agente frágil ante variaciones de lenguaje"
+
+  BI-P9:
+    nombre: "sin alucinación de comandos"
+    descripcion: "El agente NUNCA genera un comando. Solo elige del catálogo cerrado."
+    activo: true
+    enforce: "biaos_check_no_hallucination"
+    violacion: "CRÍTICO — un comando inventado puede destruir infraestructura"
+
+  BI-P10:
+    nombre: "idempotencia del ciclo"
+    descripcion: "Ejecutar la misma intención dos veces produce el mismo resultado observable"
+    activo: true
+    enforce: "biaos_check_idempotency"
+    violacion: "MEDIO — ciclos no idempotentes duplican efectos"
+
+  BI-P11:
+    nombre: "traceparent W3C propagado"
+    descripcion: "Toda llamada RPC propaga el traceparent del ctx_id del operador"
+    activo: true
+    enforce: "biaos_check_traceparent"
+    violacion: "ALTO — sin traceparent no hay trazabilidad de auditoría ISO 27001"
+
+  BI-P12:
+    nombre: "timeout explícito por fase"
+    descripcion: "Toda fase del ciclo de intención tiene timeout declarado"
+    activo: true
+    enforce: "biaos_check_timeouts"
+    violacion: "BAJO — fase sin timeout puede colgar el ciclo indefinidamente"
+
+# ── Lifecycle del Ciclo de Intención ─────────────────────────────────────
+#
+# Análogo a lifecycle.install/repair/remove de 00_ARCHITECTURE_SBOS.yml
+# pero el ciclo aquí es de RESOLUCIÓN DE INTENCIÓN, no de gestión de servicio.
+
+lifecycle:
+
+  # Ciclo completo de una petición de LECTURA (categoria 1)
+  # Sin HITL — el agente ReAct lo ejecuta directamente
+  intent_read:
+    - classify        # determinar que es lectura
+    - match           # encontrar la acción más similar en el catálogo
+    - execute_read    # llamar el rpc_method de la acción
+    - format_response # formatear la respuesta para el operador
+    timeout_sec: 30
+
+  # Ciclo completo de una petición de ESCRITURA (categoria 2)
+  # HITL simple — una confirmación del operador
+  intent_write:
+    - classify        # determinar que es escritura
+    - diagnose        # ejecutar diagnóstico previo (BI-P2)
+    - match           # encontrar la acción más similar
+    - enrich          # enriquecer con LLM: riesgo contextual + parámetros sugeridos
+    - hitl_present    # presentar opciones al operador
+    - hitl_confirm    # esperar confirmación (una confirmación)
+    - audit_pre       # registrar en audit log ANTES de ejecutar (BI-P5)
+    - execute_write   # ejecutar la saga o rpc_method
+    - verify          # verificar el resultado con probe/query
+    - audit_post      # registrar resultado en audit log
+    - format_response # informar al operador del resultado
+    timeout_sec: 600
+
+  # Ciclo completo de una acción DESTRUCTIVA (categoria 3)
+  # HITL doble — dos confirmaciones explícitas
+  intent_destructive:
+    - classify
+    - diagnose
+    - match
+    - enrich
+    - hitl_present
+    - hitl_confirm_1  # primera confirmación
+    - hitl_confirm_2  # segunda confirmación (frase exacta requerida)
+    - audit_pre
+    - execute_destructive
+    - verify
+    - audit_post
+    - format_response
+    timeout_sec: 1200
+
+  # Compensación — ejecuta en orden inverso si execute falla
+  compensacion:
+    - audit_compensation  # registrar inicio de compensación
+    - execute_compensation # ejecutar el método de compensación declarado
+    - verify_compensation  # verificar que el estado volvió al anterior
+    - audit_compensation_ok
+    timeout_sec: 300
+
+  # Fases del ciclo — análogo a lifecycle.phases de 00_ARCHITECTURE_SBOS.yml
+  phases:
+    classify:
+      name: "classify"
+      handler: "biaos_classify_intent"
+      timeout_sec: 2
+      exit_code: 1     # 1 = no se pudo clasificar → derivar a bCompass
+
+    diagnose:
+      name: "diagnose"
+      handler: "biaos_run_diagnosis"
+      timeout_sec: 10
+      exit_code: 2     # 2 = diagnóstico falló → no continuar sin evidencia
+
+    match:
+      name: "match"
+      handler: "biaos_match_action"
+      timeout_sec: 5
+      exit_code: 1     # 1 = ninguna acción con score suficiente
+
+    enrich:
+      name: "enrich"
+      handler: "biaos_enrich_with_llm"
+      timeout_sec: 15
+      exit_code: 0     # no bloquea — si falla, continúa con descripción base
+
+    hitl_present:
+      name: "hitl_present"
+      handler: "biaos_present_options"
+      timeout_sec: 5
+      exit_code: 1
+
+    hitl_confirm:
+      name: "hitl_confirm"
+      handler: "biaos_wait_confirmation"
+      timeout_sec: 300  # 5 minutos para que el operador responda
+      exit_code: 4      # 4 = operador canceló → abort limpio
+
+    hitl_confirm_1:
+      name: "hitl_confirm_1"
+      handler: "biaos_wait_confirmation_first"
+      timeout_sec: 300
+      exit_code: 4
+
+    hitl_confirm_2:
+      name: "hitl_confirm_2"
+      handler: "biaos_wait_confirmation_second"
+      timeout_sec: 300
+      exit_code: 4      # AMBAS deben pasar — cualquiera que falle aborta
+
+    audit_pre:
+      name: "audit_pre"
+      handler: "biaos_audit_before_execute"
+      timeout_sec: 3
+      exit_code: 3      # 3 = audit log inaccesible → bloquear ejecución
+
+    execute_read:
+      name: "execute_read"
+      handler: "biaos_execute_read_action"
+      timeout_sec: 30
+      exit_code: 3
+
+    execute_write:
+      name: "execute_write"
+      handler: "biaos_execute_write_action"
+      timeout_sec: 600
+      exit_code: 3      # 3 = fallo → disparar compensación
+
+    execute_destructive:
+      name: "execute_destructive"
+      handler: "biaos_execute_destructive_action"
+      timeout_sec: 1200
+      exit_code: 3
+
+    execute_compensation:
+      name: "execute_compensation"
+      handler: "biaos_execute_compensation"
+      timeout_sec: 300
+      exit_code: 0      # best-effort — no bloquea aunque falle
+
+    verify:
+      name: "verify"
+      handler: "biaos_verify_result"
+      timeout_sec: 60
+      exit_code: 0      # no bloquea — el resultado se reporta aunque verify falle
+
+    format_response:
+      name: "format_response"
+      handler: "biaos_format_response"
+      timeout_sec: 5
+      exit_code: 0
+
+    audit_post:
+      name: "audit_post"
+      handler: "biaos_audit_after_execute"
+      timeout_sec: 3
+      exit_code: 0      # best-effort — nunca bloquea el resultado al operador
+
+# ── Registro de Acciones (fichas biaos) ──────────────────────────────────
+#
+# Análogo a fichas: en 00_ARCHITECTURE_SBOS.yml
+# pero aquí cada "ficha" es una ACCIÓN NOMBRADA, no un servicio K8s.
+# El registro declara existencia y categoría — el contenido está en action_catalog.yml
+
+acciones:
+
+  # Categoría 1 — Lectura (sin HITL, sin compensación)
+  query_system:       { categoria: 1, requiere_hitl: false }
+  query_repair:       { categoria: 1, requiere_hitl: false }
+  query_vdi:          { categoria: 1, requiere_hitl: false }
+  query_node:         { categoria: 1, requiere_hitl: false }
+  query_context:      { categoria: 1, requiere_hitl: false }
+  query_tenant:       { categoria: 1, requiere_hitl: false }
+  health_check:       { categoria: 1, requiere_hitl: false }
+  ficha_probe:        { categoria: 1, requiere_hitl: false }
+  bootstrap_verify:   { categoria: 1, requiere_hitl: false }
+  state_read:         { categoria: 1, requiere_hitl: false }
+  ctx_stats:          { categoria: 1, requiere_hitl: false }
+  ctx_list:           { categoria: 1, requiere_hitl: false }
+  release_check:      { categoria: 1, requiere_hitl: false }
+
+  # Categoría 2 — Escritura (HITL simple, con compensación declarada)
+  repair_ficha:       { categoria: 2, requiere_hitl: true,  compensacion: "ninguna_saga_interna" }
+  scale_deployment:   { categoria: 2, requiere_hitl: true,  compensacion: "rollout_undo" }
+  ficha_pause:        { categoria: 2, requiere_hitl: true,  compensacion: "ficha_resume" }
+  pod_restart:        { categoria: 2, requiere_hitl: true,  compensacion: "replicaset_garantiza" }
+  ctx_invalidate:     { categoria: 2, requiere_hitl: true,  compensacion: "ninguna_es_seguridad" }
+  rollout_undo:       { categoria: 2, requiere_hitl: true,  compensacion: "ninguna_es_compensacion" }
+  release_apply:      { categoria: 2, requiere_hitl: true,  compensacion: "rollout_undo" }
+
+  # Categoría 3 — Destructivas (HITL doble, rol admin)
+  node_cordon:                { categoria: 3, requiere_hitl: true, hitl_doble: true, compensacion: "node_uncordon" }
+  node_drain:                 { categoria: 3, requiere_hitl: true, hitl_doble: true, compensacion: "node_uncordon" }
+  node_maintain:              { categoria: 3, requiere_hitl: true, hitl_doble: true, compensacion: "node_uncordon" }
+  tenant_suspend:             { categoria: 3, requiere_hitl: true, hitl_doble: true, compensacion: "ninguna_manual" }
+  rollout_restart_namespace:  { categoria: 3, requiere_hitl: true, hitl_doble: true, compensacion: "ninguna" }
+
+# ── Señales del Protocolo biaos ───────────────────────────────────────────
+#
+# Análogo a signals: en 00_ARCHITECTURE_SBOS.yml
+# Mapea señal → función handler en 00_INTENT_CATALOG_BIAOS.sh
+# __BIAOS__* son DIFERENTES a __SBOS__* — no mezclar
+
+signals:
+  # Clasificación
+  "intent_classify":        "biaos_classify_intent"
+  "intent_domain_check":    "biaos_check_domain"
+
+  # Match semántico
+  "intent_match":           "biaos_match_action"
+  "intent_enrich":          "biaos_enrich_with_llm"
+
+  # Diagnóstico previo (BI-P2)
+  "intent_diagnose":        "biaos_run_diagnosis"
+
+  # HITL
+  "intent_hitl_present":    "biaos_present_options"
+  "intent_hitl_confirm":    "biaos_wait_confirmation"
+  "intent_hitl_confirm_1":  "biaos_wait_confirmation_first"
+  "intent_hitl_confirm_2":  "biaos_wait_confirmation_second"
+
+  # Ejecución por categoría
+  "intent_exec_read":       "biaos_execute_read_action"
+  "intent_exec_write":      "biaos_execute_write_action"
+  "intent_exec_destructive":"biaos_execute_destructive_action"
+  "intent_exec_compensate": "biaos_execute_compensation"
+
+  # Verificación
+  "intent_verify":          "biaos_verify_result"
+
+  # Audit (BI-P5 — antes y después)
+  "intent_audit_pre":       "biaos_audit_before_execute"
+  "intent_audit_post":      "biaos_audit_after_execute"
+  "intent_audit_compensate":"biaos_audit_compensation"
+
+  # Formato de respuesta
+  "intent_format":          "biaos_format_response"
+  "intent_format_error":    "biaos_format_error_response"
+  "intent_derive_compass":  "biaos_derive_to_bcompass"

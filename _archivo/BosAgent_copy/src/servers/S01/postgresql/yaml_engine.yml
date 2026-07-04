@@ -1,0 +1,66 @@
+# yaml_engine.yml — postgresql
+# Iteración 1: hacer que arranque (StatefulSet + WAL logical + 10 DBs)
+# Iteración 2 (futura): TLS Vault PKI, scram-sha-256, NetworkPolicy
+# Iteración 3 (futura): Patroni HA 3 nodos, pgBackRest PITR
+
+namespace: sbos-data
+image: "postgres:18.4-alpine"
+replicas: 1
+
+storage:
+  pv_name: sbos-postgres-pv
+  pvc_name: sbos-postgres-pvc
+  capacity: 100Gi
+  storage_class: sbos-local
+
+service:
+  name: postgresql
+  port: 5432
+  cluster_ip_port: 8100
+
+config:
+  max_connections: 200
+  shared_buffers: "256MB"
+  wal_level: logical
+  max_wal_senders: 10
+  max_replication_slots: 10
+  wal_keep_size: "1GB"
+
+replication_slot:
+  name: bkernel_slot
+  plugin: pgoutput
+
+databases:
+  - name: keycloak_db
+    owner: keycloak
+  - name: kong_db
+    owner: kong
+  - name: vault_db
+    owner: vault
+  - name: bkernel_db
+    owner: bkernel
+  - name: biedata_db
+    owner: biedata
+  - name: bsearch_db
+    owner: bsearch
+  - name: bauth_db
+    owner: bauth
+  - name: tryton_db
+    owner: tryton
+  - name: grafana_db
+    owner: grafana
+  - name: notifier_db
+    owner: notifier
+
+extensions:
+  - uuid-ossp
+  - pg_stat_statements
+  - pgcrypto
+
+resources:
+  requests:
+    cpu: "250m"
+    memory: "512Mi"
+  limits:
+    cpu: "2"
+    memory: "2Gi"

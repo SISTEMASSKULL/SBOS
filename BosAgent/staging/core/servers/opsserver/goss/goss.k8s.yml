@@ -1,0 +1,61 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: goss
+  namespace: sbos-ops
+spec:
+  type: ClusterIP
+  selector:
+    app: goss
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: goss
+  namespace: sbos-ops
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: goss
+  template:
+    metadata:
+      labels:
+        app: goss
+    spec:
+      serviceAccountName: goss-sa
+      containers:
+        - name: goss
+          image: docker.io/aelsabbahy/goss:0.4
+          ports:
+            - containerPort: 8080
+              name: http
+
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+

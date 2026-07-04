@@ -1,0 +1,71 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nextcloud
+  namespace: sbos-vdi
+spec:
+  clusterIP: None
+  selector:
+    app: nextcloud
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: nextcloud
+  namespace: sbos-vdi
+spec:
+  serviceName: nextcloud
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nextcloud
+  template:
+    metadata:
+      labels:
+        app: nextcloud
+    spec:
+      serviceAccountName: nextcloud-sa
+      containers:
+        - name: nextcloud
+          image: docker.io/nextcloud:29.0-fpm
+          ports:
+            - containerPort: 80
+              name: http
+
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/nextcloud
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 2000m
+              memory: 2Gi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: sbos-fast
+        resources:
+          requests:
+            storage: 200Gi

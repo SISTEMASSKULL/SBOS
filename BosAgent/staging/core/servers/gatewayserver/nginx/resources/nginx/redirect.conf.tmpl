@@ -1,0 +1,24 @@
+# resources/nginx/redirect.conf.tmpl
+# HTTP → HTTPS redirect para todos los virtual hosts.
+# Incluido en el server block port 80.
+
+server {
+    listen 80;
+    server_name *.${CLIENT_DOMAIN} ${CLIENT_DOMAIN};
+
+    # Let's Encrypt ACME challenge (sin redirect)
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    # Health check interno
+    location /health {
+        return 200 "OK\n";
+        add_header Content-Type text/plain;
+    }
+
+    # Todo lo demás → HTTPS
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}

@@ -1,0 +1,71 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch
+  namespace: sbos-search
+spec:
+  clusterIP: None
+  selector:
+    app: elasticsearch
+  ports:
+    - name: http
+      port: 9200
+      targetPort: 9200
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: elasticsearch
+  namespace: sbos-search
+spec:
+  serviceName: elasticsearch
+  replicas: 1
+  selector:
+    matchLabels:
+      app: elasticsearch
+  template:
+    metadata:
+      labels:
+        app: elasticsearch
+    spec:
+      serviceAccountName: elasticsearch-sa
+      containers:
+        - name: elasticsearch
+          image: docker.io/elastic/elasticsearch:8.16.0
+          ports:
+            - containerPort: 9200
+              name: http
+
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/elasticsearch
+          resources:
+            requests:
+              cpu: 1000m
+              memory: 2Gi
+            limits:
+              cpu: 4000m
+              memory: 4Gi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 9200
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 9200
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: sbos-fast
+        resources:
+          requests:
+            storage: 200Gi

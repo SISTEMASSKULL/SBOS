@@ -1,0 +1,48 @@
+# Containerfile — bos-agent staging image
+# Ubuntu 26.04 LTS base, bos binary, core scripts
+# Runs on sbos-staging network (10.89.0.0/16)
+
+FROM docker.io/library/ubuntu:26.04
+
+# Install runtime dependencies only (no build toolchains)
+RUN apt-get update -qq && \
+    apt-get install -y -qq --no-install-recommends \
+        ca-certificates \
+        curl \
+        bash \
+        && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Create bos directory structure
+RUN mkdir -p /etc/bos /etc/bos/core /etc/bos/blibs/servers /run/bos /opt/bos/bin && \
+    groupadd -r bos && useradd -r -g bos -d /etc/bos -s /sbin/nologin bos && \
+    chown -R bos:bos /etc/bos /run/bos /opt/bos
+
+# Copy bos binary and bosctl
+COPY bos /opt/bos/bin/bos
+RUN chmod 755 /opt/bos/bin/bos
+COPY bosctl /opt/bos/bin/bosctl
+RUN chmod 755 /opt/bos/bin/bosctl
+
+# Copy core scripts (read-only)
+COPY core/ /etc/bos/core/
+RUN chown -R root:root /etc/bos/core && chmod -R 755 /etc/bos/core
+
+# Copy default configs
+COPY bos.toml /etc/bos/bos.toml
+RUN chmod 644 /etc/bos/bos.toml
+COPY bos-install.toml /etc/bos/bos-install.toml.default
+RUN chmod 644 /etc/bos/bos-install.toml.default
+
+# Copy cleanup script
+COPY 00_CLEANUP_SBOS.sh /etc/bos/core/00_CLEANUP_SBOS.sh
+RUN chmod 755 /etc/bos/core/00_CLEANUP_SBOS.sh
+
+# Expose bos API port (9443 per V6 SBOS-018-DAEMON-BOS)
+EXPOSE 9443
+
+# Create empty state file
+RUN touch /etc/bos/.sbos_state.json && chown bos:bos /etc/bos/.sbos_state.json && chmod 600 /etc/bos/.sbos_state.json
+
+USER bos
+ENTRYPOINT ["/opt/bos/bin/bos"]
+CMD ["--config", "/etc/bos/bos.toml"]

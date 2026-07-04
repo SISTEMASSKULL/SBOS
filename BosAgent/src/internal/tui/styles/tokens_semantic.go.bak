@@ -1,0 +1,152 @@
+// Package styles — tokens_semantic.go: W3C Design Tokens Nivel 2.
+//
+// Tokens semánticos: mapean primitivos a ROLES de interfaz con nombre significativo.
+// Construidos sobre tokens_primitive.go; usados por tokens_component.go e icons.go.
+//
+// REGLA: Código de pantallas NUNCA referencia primitivos directamente — solo semánticos.
+// Si necesitas un color nuevo, agrega aquí primero; si el primitivo no existe, agrégalo
+// en tokens_primitive.go.
+package styles
+
+import "github.com/charmbracelet/lipgloss"
+
+var (
+	// ════════════════════════════════════════════════════════════════════════════
+	// PALETA BASE — Colores de propósito general del sistema
+	// ════════════════════════════════════════════════════════════════════════════
+
+	// Colores de acento (identidad SBOS)
+	ColorGreen  = lipgloss.Color(PrimGreen500)  // verde principal
+	ColorCyan   = lipgloss.Color(PrimCyan500)   // cian identidad
+	ColorBlue   = lipgloss.Color(PrimBlue500)   // azul secciones
+	ColorIndigo = lipgloss.Color(PrimIndigo500) // índigo acentos secundarios
+	ColorPurple = lipgloss.Color(PrimPurple500) // púrpura IA / experimental
+
+	// Colores de estado semántico — apuntan al sistema de estado independiente (tokens_state.go).
+	// NUNCA referenciar PrimXxx aquí: los colores de estado son un grupo separado por estándar.
+	ColorSuccess  = ColorStateOKFg    // éxito, OK, instalado, confirmado
+	ColorWarning  = ColorStateWarnFg  // advertencia, atención, degradado
+	ColorError    = ColorStateErrFg   // error, fallo, inválido
+	ColorInfo     = ColorStateInfoFg  // informativo, dato del sistema
+	ColorPending  = ColorStateIdleFg  // en progreso, esperando, encolado
+	ColorCritical = ColorStateCritFg  // acción destructiva, shutdown, irreversible
+
+	// Aliases de color históricos (compatibilidad con código anterior)
+	ColorYellow = lipgloss.Color(PrimAmber500) // era PrimYellow500="#f59e0b" = PrimAmber500 ✓
+	ColorRed    = lipgloss.Color(PrimRed500)
+	ColorDim    = lipgloss.Color(PrimGray500)
+
+	// Tonos neutros
+	ColorBlack = lipgloss.Color(PrimSlate900) // fondo más profundo — preserve visual original
+	ColorWhite = lipgloss.Color(PrimSlate100) // blanco suave — preserve visual original
+	ColorSlate = lipgloss.Color(PrimSlate700) // bordes, divisores
+	ColorMuted = lipgloss.Color(PrimSlate600) // texto tenue, timestamps
+
+	// Fondos estructurales (capas de profundidad)
+	ColorBg1 = lipgloss.Color(PrimSlate900)  // fondo base (mismo que ColorBlack)
+	ColorBg2 = lipgloss.Color(PrimNavy900)   // fondo nivel 2 — paneles, topbar
+	ColorBg3 = lipgloss.Color(PrimSlate800)  // fondo nivel 3 — divisores, secciones
+
+	// ════════════════════════════════════════════════════════════════════════════
+	// ESTRUCTURA DE PANTALLA — Componentes del layout principal
+	// ════════════════════════════════════════════════════════════════════════════
+
+	ColorTopBarBg     = lipgloss.Color(PrimGreen900) // TopBar fondo — verde oscuro identidad
+	ColorSubtitle     = lipgloss.Color(PrimSlate400) // subtítulos, labels tenues
+	ColorHelpBorder   = lipgloss.Color(PrimNavyHelp) // borde lateral HelpBox
+	ColorMenuActiveBg = lipgloss.Color(PrimNavy800)  // fondo opción de menú activa
+
+	// ════════════════════════════════════════════════════════════════════════════
+	// ESTADOS DEL SISTEMA — TopBar dinámico según contexto
+	// ════════════════════════════════════════════════════════════════════════════
+
+	ColorRestartBg  = lipgloss.Color(PrimAmberBg)  // TopBar modo reinicio — fondo
+	ColorRestartFg  = lipgloss.Color(PrimAmber200) // TopBar modo reinicio — texto
+	ColorCriticalBg = lipgloss.Color(PrimRedBg)    // TopBar shutdown crítico — fondo
+	ColorCriticalFg = lipgloss.Color(PrimRed300)   // TopBar shutdown crítico — texto
+	ColorGoodbyeBg  = lipgloss.Color(PrimGreenBg)  // TopBar goodbye — fondo (verde casi negro)
+	ColorGoodbyeFg  = lipgloss.Color(PrimGreen800) // TopBar goodbye — texto
+	ColorBosActivo  = lipgloss.Color(PrimGreen300) // indicador "bos activo" en dashboard
+
+	// Botones de poder del dashboard (BottomBar)
+	ColorBtnRestartFg  = lipgloss.Color(PrimSky100)  // botón Reiniciar — texto (cian muy claro)
+	ColorBtnRestartBg  = lipgloss.Color(PrimBlueRow) // botón Reiniciar — fondo (navy azul)
+	ColorBtnShutdownFg = lipgloss.Color(PrimRed100)  // botón Apagar — texto (rojo muy claro)
+	ColorBtnShutdownBg = lipgloss.Color(PrimRedRow)  // botón Apagar — fondo (rojo oscuro)
+
+	// ════════════════════════════════════════════════════════════════════════════
+	// PANTALLA DE INSTALACIÓN — S05, banners, log viewer
+	// ════════════════════════════════════════════════════════════════════════════
+
+	ColorOKBannerFg  = lipgloss.Color(PrimGreen200)  // banner éxito — texto (verde claro)
+	ColorOKBannerBg  = lipgloss.Color(PrimGreenDeep) // banner éxito — fondo oscuro custom
+	ColorHeader      = lipgloss.Color(PrimSlate200)  // encabezados de sección
+	ColorErrorBorder = lipgloss.Color(PrimRed900)    // panel error — borde
+	ColorErrorBg     = lipgloss.Color(PrimRedBg)     // panel error — fondo custom
+	ColorLogFilter   = lipgloss.Color(PrimSky400)    // etiqueta filtro "Todos" en log
+	ColorDebugText   = lipgloss.Color(PrimSlate500)  // texto categoría DEBUG (muted)
+
+	// ════════════════════════════════════════════════════════════════════════════
+	// TABLAS DE DATOS — Estilos para filas con estado
+	// ════════════════════════════════════════════════════════════════════════════
+
+	ColorTableSelFg = lipgloss.Color(PrimBlue100)  // fila seleccionada — texto (azul claro)
+	ColorTableSelBg = lipgloss.Color(PrimBlueRow)  // fila seleccionada — fondo custom
+	ColorTableErrFg = lipgloss.Color(PrimRed50)    // fila de error — texto (rojo muy claro)
+	ColorTableErrBg = lipgloss.Color(PrimRedRow)   // fila de error — fondo custom
+
+	// ════════════════════════════════════════════════════════════════════════════
+	// TIPOGRAFÍA ESPECIAL — Títulos de marca y sección
+	// ════════════════════════════════════════════════════════════════════════════
+
+	ColorProductTitle = lipgloss.Color(PrimGreen400) // título producto en splash (verde vivo)
+	ColorSectionTitle = lipgloss.Color(PrimBlue500)  // título de sección en wizard
+	ColorPureWhite    = lipgloss.Color(PrimWhite)    // blanco puro — cabeceras de tabla
+
+	// ════════════════════════════════════════════════════════════════════════════
+	// AUTH / FORMULARIOS — Pantallas P12 y P13
+	// ════════════════════════════════════════════════════════════════════════════
+
+	ColorAuthBorder       = lipgloss.Color(PrimIndigo700) // borde formulario de login (identidad de marca, no estado)
+	ColorAuthBorderActive = lipgloss.Color(PrimCyan500)   // borde campo activo (identidad de marca, no estado)
+	ColorAuthError        = ColorStateErrFg               // error de autenticación — usa sistema de estado
+	ColorStepUpBg         = ColorStateCritBg              // fondo step-up — acción destructiva → sistema estado Critical
+	ColorStepUpBorder     = ColorStateCritBorder          // borde step-up — sistema estado Critical
+
+	// ════════════════════════════════════════════════════════════════════════════
+	// NOTIFICACIONES / INLINE FEEDBACK — Mensajes dentro de pantallas
+	// ════════════════════════════════════════════════════════════════════════════
+
+	// Notificaciones inline — también usan el sistema de estado independiente.
+	ColorNotifySuccess = ColorStateOKFg              // notificación de éxito
+	ColorNotifyWarn    = ColorStateWarnFg            // notificación de advertencia
+	ColorNotifyError   = ColorStateErrFg             // notificación de error
+	ColorNotifyInfo    = ColorStateInfoFg            // notificación informativa
+	ColorNotifyBg      = lipgloss.Color(PrimSlate800) // fondo de barra — sí es primitiva: es estructural, no de estado
+
+	// ════════════════════════════════════════════════════════════════════════════
+	// SISTEMA ABYSS — Tokens semánticos del theme Abyss (mutables por ApplyTheme)
+	// Compatibles con todos los themes: defaults = valores obsidian equivalentes.
+	// ════════════════════════════════════════════════════════════════════════════
+
+	// Capas de superficie (jerarquía de profundidad)
+	ColorBgBase     = lipgloss.Color(PrimSlate900)  // fondo base del terminal
+	ColorBgSurface  = lipgloss.Color(PrimNavy900)   // paneles, bloques, listas
+	ColorBgElevated = lipgloss.Color(PrimSlate800)  // bordes, separadores, secciones
+
+	// Bordes
+	ColorBorder       = lipgloss.Color(PrimSlate800) // borde principal
+	ColorBorderSubtle = lipgloss.Color(PrimSlate700) // borde suave / input
+
+	// Acento extendido (escala completa para badges, sparklines, etc.)
+	ColorAccentSubtle = lipgloss.Color(PrimCyan900)  // fondo badge / selección sutil
+	ColorAccentBorder = lipgloss.Color(PrimCyan800)  // borde badge activo
+	ColorAccentDim    = lipgloss.Color(PrimCyan700)  // sparkline nivel medio
+	ColorAccentBright = lipgloss.Color(PrimCyan300)  // texto en badge oscuro
+	ColorAccentText   = lipgloss.Color(PrimCyan400)  // texto sobre fondo accent
+
+	// Escala de texto (todos los roles de tipografía)
+	ColorTextPrimary   = lipgloss.Color(PrimSlate100) // texto primario (= ColorWhite)
+	ColorTextSecondary = lipgloss.Color(PrimSlate400) // texto secundario (= ColorSubtitle)
+	ColorTextDisabled  = lipgloss.Color(PrimSlate600) // texto deshabilitado (= ColorMuted +1 tono)
+)

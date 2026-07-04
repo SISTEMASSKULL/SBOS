@@ -1,0 +1,43 @@
+# manifest.yml — Ficha espocrm (SBOS-005 §appsserver)
+# SBOS-049 §4 · Order 240 · Deployment
+identity:
+  id: espocrm
+  name: EspoCRM
+  version: "8.4"
+  category: 1
+  criticality: false
+  server: appsserver
+  description: "CRM: pipeline, leads, accounts"
+
+workload:
+  type: Deployment
+  namespace: sbos-apps
+  replicas: 1
+  service_account: espocrm-sa
+
+order:
+  execution_order: 240
+  timeout_minutes: 10
+
+requirements:
+  dependencies:
+    - postgresql
+    - keycloak
+  cpu_request: "200m"
+  cpu_limit: "1000m"
+  memory_request: "256Mi"
+  memory_limit: "512Mi"
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+health:
+  check_command: "curl -sf http://localhost:8080/health"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

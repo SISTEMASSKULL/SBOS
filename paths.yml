@@ -1,0 +1,77 @@
+# =============================================================================
+# MAPA INTERNO DEL PROYECTO SBOS — rutas canónicas y catálogo de hermanos.
+# NIVEL: proyecto (2). La fábrica solo sabe que SBOS existe y dónde (su índice);
+# el INTERIOR de SBOS se declara AQUÍ, no en la fábrica (aislamiento de universos).
+#
+# Sirve al Bibliotecario para la RESOLUCIÓN POR RUTA:
+#   - dónde ESCRIBE el agente = su propia ruta (soberano)
+#   - a quién CONSULTA = los hermanos de este catálogo, en modo SOLO LECTURA
+#     (se lee su contrato: PROPOSITO.md, manifest.yml, JSON-RPC — nunca su código interno)
+# Un proyecto distinto (otro `paths.yml`) jamás aparece aquí — universos aislados.
+# =============================================================================
+nivel: proyecto
+proyecto: SBOS
+root: true               # AISLADO: no hereda de otros proyectos ni comparte con ellos
+
+# ── Estructura interna de SBOS (override/confirmación de la plantilla de fábrica) ─
+estructura:
+  claude_md:     "CLAUDE.md"
+  claude_skills: ".claude/skills"
+  context:       "context"
+  ddls:          "DDLs"
+  servers:       "servers"
+  backups:       "backups"
+  config:        "config"
+  scripts:       "scripts"
+
+# ── Recursos compartidos del proyecto — shared kernel (uso general) ───────────
+# LECTURA libre para TODO agente (referencia común de SBOS). Todo CAMBIO se CONSULTA
+# CON EL HUMANO antes de aplicar/commitear (quien propone no aprueba); el Bibliotecario
+# custodia (rol code owner). Ver fábrica ORQUESTA-051 §7 + SBOS/CLAUDE.md.
+recursos_proyecto:
+  servers: "servers"       # catálogo de fichas por servidor lógico — índice: servers/servers.yml
+  ddls:    "DDLs"          # esquema de la BD única SBOS_db — índice: DDLs/ddls.yml
+  context: "context"       # documentación conceptual (BOS_V8, IAM_Enterprise_Stack) — fuente de verdad
+
+# ── CATÁLOGO DE MICROSERVICIOS (hermanos) — para consulta intra-proyecto ──────
+# nombre → { dir, rol }. `dir` es relativo a la raíz del proyecto. `rol` orienta
+# QUÉ contrato consultar en cada hermano. Un agente resuelve aquí la ruta de un
+# hermano para LEER su contrato; su ruta de trabajo/escritura no cambia.
+microservicios:
+  BosAgent:
+    dir: "BosAgent"
+    rol: "IAM Installer — Control Plane, motor de fichas, Context Plane (ctx_id)"
+  BauthAgent:
+    dir: "BauthAgent"
+    rol: "Identity Control Plane — bAuth, BitMask 64-bit, tokens, firma digital"
+  BkernelAgent:
+    dir: "BkernelAgent"
+    rol: "Data Kernel — Listener CDC (WAL pgoutput) + Fanout a Redis Streams"
+  BiedataAgent:
+    dir: "BiedataAgent"
+    rol: "Data Gateway — Orquestador JSON-RPC 2.0 (aduana soberana)"
+  BintelligenceAgent:
+    dir: "BintelligenceAgent"
+    rol: "bSearch — Motor de búsqueda soberano (PostgreSQL 18 nativo, wss://)"
+  BnexusAgent:
+    dir: "BnexusAgent"
+    rol: "Nexus — Proxy de hardware universal (bhnexus mTLS + banexus edge)"
+  BnotifyAgent:
+    dir: "BnotifyAgent"
+    rol: "bnotify — Notificaciones universales (push MFA, alertas)"
+  BcmsAgent:
+    dir: "BcmsAgent"
+    rol: "bcms — Gestión de contenido del ecosistema (CMS)"
+  BpayAgent:
+    dir: "BpayAgent"
+    rol: "bpay — SmartPay — procesamiento de pagos y transacciones (QR, Tigo Money)"
+  BrateAgent:
+    dir: "BrateAgent"
+    rol: "brate — SmartRates — motor de tarifas y precios"
+  BtaxAgent:
+    dir: "BtaxAgent"
+    rol: "btax — SmartTax — facturación fiscal (SIN Bolivia, cumplimiento tributario LATAM)"
+  # nuevos microservicios se registran aquí
+  # Nota: hay microservicios adicionales en el árbol /opt/skull/…/desarrollo/sbos/
+  # (BcmsAgent, BpayAgent, BrateAgent, BtaxAgent, InfraAgent). Pendiente unificar
+  # los dos árboles de SBOS en un solo root (ver sesión 3-niveles).

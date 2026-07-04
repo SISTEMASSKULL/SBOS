@@ -1,0 +1,53 @@
+# manifest.yml — Ficha node-exporter (SBOS-005 §S12)
+# SBOS-049 §4 · Order 203 · DaemonSet
+# Expone métricas del nodo Ubuntu (CPU, memoria, disco, red) para Prometheus
+identity:
+  id: node-exporter
+  name: Node Exporter
+  version: "1.8.0"
+  category: 1
+  criticality: false
+  server: monitorserver
+  description: "Host metrics exporter — CPU/mem/disk/network → Prometheus"
+
+workload:
+  type: DaemonSet
+  namespace: sbos-monitor
+  replicas: 1
+  service_account: node-exporter-sa
+
+order:
+  execution_order: 203
+  timeout_minutes: 10
+
+requirements:
+  dependencies:
+    - prometheus
+  cpu_request: "50m"
+  cpu_limit: "150m"
+  memory_request: "64Mi"
+  memory_limit: "128Mi"
+  pvc_size: ""
+  pvc_storage_class: ""
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+  backup_enabled: false
+  backup_schedule: ""
+
+health:
+  check_command: "curl -sf http://localhost:9100/metrics"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+  degraded_allowed: true
+  degraded_reason: "Prometheus puede no estar disponible hasta que su ficha se construya"
+
+integrations:
+  prometheus:
+    scrape_port: 9100
+    scrape_path: "/metrics"
+  exporters:
+    self_metrics: true

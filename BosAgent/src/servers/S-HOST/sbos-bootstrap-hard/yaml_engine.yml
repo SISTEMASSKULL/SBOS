@@ -1,0 +1,86 @@
+# yaml_engine.yml — sbos-bootstrap-hard
+# Nivel 6 del DAG — último paso del bootstrap.
+# Se ejecuta DESPUÉS de que todas las fichas de aplicación estén instaladas.
+# Iteración 1: UFW + sysctl hardening + Calico default-deny-all + Kyverno enforce
+
+ufw:
+  enabled: true
+  default_incoming: deny
+  default_outgoing: allow
+  default_forward: deny
+  rules:
+    # SSH solo desde redes de gestión
+    - port: 22
+      proto: tcp
+      action: allow
+      comment: "SSH administración"
+    # HTTP/HTTPS hacia exterior (nginx/kong)
+    - port: 80
+      proto: tcp
+      action: allow
+      comment: "HTTP -> redirect HTTPS"
+    - port: 443
+      proto: tcp
+      action: allow
+      comment: "HTTPS externo"
+    # K8s API (solo local/gestión)
+    - port: 6443
+      proto: tcp
+      action: allow
+      src: "127.0.0.1"
+      comment: "kube-apiserver local"
+    # Flannel/Calico VXLAN entre nodos
+    - port: 4789
+      proto: udp
+      action: allow
+      comment: "Calico VXLAN"
+
+sysctl_hardening:
+  # Protección de kernel
+  kernel.randomize_va_space: "2"
+  kernel.kptr_restrict: "2"
+  kernel.dmesg_restrict: "1"
+  kernel.perf_event_paranoid: "3"
+  # Red — desactivar funciones no usadas
+  net.ipv4.conf.all.accept_redirects: "0"
+  net.ipv4.conf.default.accept_redirects: "0"
+  net.ipv4.conf.all.send_redirects: "0"
+  net.ipv6.conf.all.accept_redirects: "0"
+  net.ipv4.conf.all.accept_source_route: "0"
+  net.ipv4.icmp_echo_ignore_broadcasts: "1"
+  net.ipv4.icmp_ignore_bogus_error_responses: "1"
+  net.ipv4.tcp_syncookies: "1"
+  # Desactivar IPv6 si no se necesita
+  net.ipv6.conf.all.disable_ipv6: "0"
+  # Protección de archivos
+  fs.protected_hardlinks: "1"
+  fs.protected_symlinks: "1"
+
+calico_hardening:
+  # default-deny-all en TODOS los namespaces después del bootstrap
+  apply_to_all_namespaces: true
+  allow_dns: true
+  allow_kube_system_ingress: true
+
+kyverno_policies:
+  mode: enforce
+  policies:
+    require_probes:
+      enabled: true
+      resources: [Deployment, StatefulSet, DaemonSet]
+    forbid_host_port:
+      enabled: true
+      exceptions: [prometheus-node-exporter, alloy]
+    require_resource_limits:
+      enabled: true
+    require_network_policy:
+      enabled: true
+      namespaces: [sbos-system, sbos-data, sbos-security, sbos-gateway]
+    forbid_privileged:
+      enabled: true
+      exceptions: [alloy]
+
+audit_logging:
+  enabled: true
+  path: /var/log/bos/audit/
+  retention_days: 90

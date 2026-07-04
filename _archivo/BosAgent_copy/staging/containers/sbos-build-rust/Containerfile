@@ -1,0 +1,26 @@
+# Containerfile — Rust 1.85+ builder for bkernel-agent
+# SBOS-023 · SBOS-024 · SBOS-019 §5
+#
+# Build: podman build -t sbos-build-rust .
+# Usage: podman run --rm -v /opt/skull/orquestador/proyectos/desarrollo/sbos/BosAgent:/workspace -w /workspace/src/bkernel sbos-build-rust cargo build --release
+
+FROM docker.io/library/rust:1.86-slim-bookworm
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    pkg-config \
+    libssl-dev \
+    musl-tools \
+    && rm -rf /var/lib/apt/lists/*
+
+# MUSL target for static binaries + clippy for quality gates
+RUN rustup target add x86_64-unknown-linux-musl && \
+    rustup component add clippy rustfmt
+
+# Cargo tools
+RUN cargo install cargo-audit cargo-deny --locked 2>/dev/null || true
+
+WORKDIR /workspace
+
+LABEL sbos.component="bkernel-agent"
+LABEL sbos.phase="build"
+LABEL sbos.toolchain="rust-1.86"

@@ -1,0 +1,54 @@
+identity:
+  id: kyverno
+  server: S03
+  version: 1.13.0
+  category: 1
+  criticality: true
+  description: "Kyverno 1.13.0 — admission control para políticas de seguridad SBOS. Require probes, forbid hostPort, verify OCI signature, require NetworkPolicy. Modo audit → enforce en Iteración 2."
+
+workload:
+  type: Deployment
+  runtime: kubernetes
+
+order:
+  execution_order: 200
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-k8s
+    - sbos-bootstrap-cni
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "infraestructura-critica"
+
+meta:
+  backend: helm
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: true
+
+ports:
+  - port: 9443
+    protocol: TCP
+    description: "Kyverno webhook"
+    internal_only: true
+  - port: 8000
+    protocol: TCP
+    description: "Kyverno metrics"
+    internal_only: true
+
+health:
+  type: http
+  path: /health/liveness
+  port: 9443
+  timeout_seconds: 10
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/kyverno.log
+
+versions:
+  image: "ghcr.io/kyverno/kyverno:v1.13.0"
+  namespace: kyverno

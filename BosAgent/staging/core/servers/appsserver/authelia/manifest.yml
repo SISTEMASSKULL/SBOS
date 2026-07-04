@@ -1,0 +1,44 @@
+# manifest.yml — Ficha authelia (SBOS-005 §appsserver)
+# SBOS-049 §4 · Order 270 · Deployment
+identity:
+  id: authelia
+  name: Authelia
+  version: "4.38"
+  category: 1
+  criticality: true
+  server: appsserver
+  description: "Complementary MFA, SSO forward-auth for NGINX"
+
+workload:
+  type: Deployment
+  namespace: sbos-apps
+  replicas: 1
+  service_account: authelia-sa
+
+order:
+  execution_order: 270
+  timeout_minutes: 10
+
+requirements:
+  dependencies:
+    - postgresql
+    - keycloak
+    - redis
+  cpu_request: "100m"
+  cpu_limit: "500m"
+  memory_request: "128Mi"
+  memory_limit: "256Mi"
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+health:
+  check_command: "curl -sf http://localhost:9091/api/health"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

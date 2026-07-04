@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.log
+target/
+node_modules/
+*.tar.gz
+*.tmp
+.DS_Store

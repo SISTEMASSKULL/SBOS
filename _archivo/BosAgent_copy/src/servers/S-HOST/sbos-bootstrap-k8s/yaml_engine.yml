@@ -1,0 +1,39 @@
+# yaml_engine.yml — sbos-bootstrap-k8s
+# Instala el plano de control de Kubernetes y la CNI Calico.
+# Iteración 1: hacer que arranque (kubeadm init + Calico básico).
+
+kubernetes:
+  version: "1.32"
+  pod_cidr: "192.168.0.0/16"
+  service_cidr: "10.96.0.0/12"
+  control_plane_endpoint: ""
+  cri_socket: "unix:///run/containerd/containerd.sock"
+  kubeconfig_dest: /etc/bos/.kube/config
+
+calico:
+  version: "3.32.0"
+  manifest_url: "https://raw.githubusercontent.com/projectcalico/calico/v3.32.0/manifests/calico.yaml"
+  ipv4pool_cidr: "192.168.0.0/16"
+  ipv4pool_ipip_mode: "Always"
+
+namespaces:
+  - sbos-system
+  - sbos-data
+  - sbos-security
+  - sbos-gateway
+  - sbos-monitoring
+
+storage_class:
+  name: sbos-local
+  provisioner: kubernetes.io/no-provisioner
+  reclaim_policy: Retain
+  volume_binding_mode: WaitForFirstConsumer
+
+# Paquetes APT requeridos antes de kubeadm
+apt_packages:
+  kubernetes:
+    - kubelet=1.32.*
+    - kubeadm=1.32.*
+    - kubectl=1.32.*
+  apt_repo: "https://pkgs.k8s.io/core:/stable:/v1.32/deb/"
+  apt_keyring: "/etc/apt/keyrings/kubernetes-apt-keyring.gpg"

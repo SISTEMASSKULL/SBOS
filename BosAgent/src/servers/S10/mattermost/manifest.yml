@@ -1,0 +1,64 @@
+identity:
+  id: mattermost
+  server: S10
+  version: 9.11.0
+  category: 2
+  criticality: false
+  description: "Mattermost Team Edition 9.11 — Chat empresarial SBOS. Canales por daemon, webhooks para bnotify, OIDC via Keycloak."
+
+workload:
+  type: Deployment
+  runtime: kubernetes
+
+order:
+  execution_order: 172
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-k8s
+    - postgresql
+    - keycloak
+    - kong
+
+governance:
+  auto_install: false
+  requires_approval: true
+  category_label: "comunicacion"
+
+meta:
+  backend: task_catalog
+  idempotent: true
+  estimated_minutes: 8
+  rollback_support: true
+  init_script: init_channels.sh
+  webhook_output: /etc/bos/mattermost-webhooks.json
+
+ports:
+  - port: 8065
+    protocol: TCP
+    description: "Mattermost HTTP API + WebSocket"
+    cluster_ip: 8465
+    internal_only: false
+
+health:
+  type: http
+  path: /api/v4/system/ping
+  port: 8065
+  timeout_seconds: 30
+
+integrations:
+  provides_to:
+    - bnotify
+    - alertmanager
+    - grafana
+  consumes_from:
+    - keycloak
+    - postgresql
+
+audit:
+  ctx_id_required: false
+
+versions:
+  image: "mattermost/mattermost-team-edition:9.11"
+  namespace: sbos-comm
+  db: mattermost_db

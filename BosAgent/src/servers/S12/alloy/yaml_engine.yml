@@ -1,0 +1,85 @@
+# yaml_engine.yml — alloy (Grafana Alloy)
+# Iteración 1: recolección de logs de pods K8s + extracción ctx_id
+# Iteración 2 (futura): envío a Loki, pipelines de métricas custom
+
+namespace: sbos-monitoring
+image: "grafana/alloy:v1.8.3"
+type: DaemonSet
+
+service:
+  port: 12345
+  cluster_ip_port: 12345
+
+pipelines:
+  logs_kubernetes:
+    enabled: true
+    source: kubernetes_pods
+    label_selectors:
+      - "sbos-managed=true"
+    ctx_id_extraction:
+      enabled: true
+      field: "traceparent"
+      pattern: "ctx_id=([^ ]+)"
+
+  metrics_forward:
+    enabled: true
+    target: "http://prometheus:9090/api/v1/write"
+
+loki:
+  enabled: false
+  url: "http://loki:3100/loki/api/v1/push"
+  note: "Iteración 2 — requiere ficha loki en S12"
+
+config_alloy: |
+  logging {
+    level  = "warn"
+    format = "logfmt"
+  }
+
+  discovery.kubernetes "pods" {
+    role = "pod"
+  }
+
+  discovery.relabel "sbos_pods" {
+    targets = discovery.kubernetes.pods.targets
+    rule {
+      source_labels = ["__meta_kubernetes_pod_label_sbos_managed"]
+      regex         = "true"
+      action        = "keep"
+    }
+    rule {
+      source_labels = ["__meta_kubernetes_namespace"]
+      target_label  = "namespace"
+    }
+    rule {
+      source_labels = ["__meta_kubernetes_pod_name"]
+      target_label  = "pod"
+    }
+    rule {
+      source_labels = ["__meta_kubernetes_pod_container_name"]
+      target_label  = "container"
+    }
+  }
+
+  loki.source.kubernetes "sbos_logs" {
+    targets    = discovery.relabel.sbos_pods.output
+    forward_to = [loki.process.ctx_id.receiver]
+  }
+
+  loki.process "ctx_id" {
+    stage.regex {
+      expression = "ctx_id=(?P<ctx_id>[a-f0-9\\-]+)"
+    }
+    stage.labels {
+      values = { ctx_id = "" }
+    }
+    forward_to = []
+  }
+
+resources:
+  requests:
+    cpu: "50m"
+    memory: "128Mi"
+  limits:
+    cpu: "200m"
+    memory: "256Mi"

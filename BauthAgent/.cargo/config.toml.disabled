@@ -1,0 +1,10 @@
+# bauth — Cargo configuration
+# B0.T03: MUSL static build
+
+[target.x86_64-unknown-linux-musl]
+# En producción, musl-gcc DEBE estar instalado:
+#   sudo apt install musl-tools
+linker = "x86_64-linux-musl-gcc"
+
+[build]
+rustflags = ["-C", "target-feature=+crt-static"]

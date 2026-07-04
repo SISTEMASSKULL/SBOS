@@ -1,0 +1,367 @@
+# ============================================================================
+# 00_ARCHITECTURE_SBOS.yml — Global Declarative Registry
+# Project: SBOS — Sovereign Business Operating System
+# Agent: bos-agent (order 5, P1)
+#
+# This file is the SINGLE SOURCE OF TRUTH for:
+#   - SBOS principles (P1-P14) and their enforcement
+#   - Task → bash function dispatch mapping
+#   - Lifecycle phase definitions for install/update/repair/remove
+#   - Ficha registry with categories and dependencies
+#   - Signal protocol constants
+#
+# Parsed by 00_YAML_ENGINE_SBOS.sh via yq.
+# P3: NEVER names any concrete application — all entries are generic.
+# ============================================================================
+
+version: "1.0.0"
+
+# ── SBOS Principles (P1-P14) ─────────────────────────────────────
+# Each principle maps to a validation function in 00_TASK_CATALOG_SBOS.sh
+principios:
+  P1:
+    nombre: "sbos_k8s_core único"
+    descripcion: "sbos_k8s_core() is the ONLY kubectl apply in the system"
+    activo: true
+    enforce: "yaml_enforce_p1"
+    violacion: "CRITICAL — cualquier otro kubectl apply es una violación de P1"
+
+  P2:
+    nombre: "pre_install ABORT"
+    descripcion: "pre_install failure → ABORT immediately, no partial state"
+    activo: true
+    enforce: "check_pre_install_abort"
+    violacion: "CRITICAL — continuar tras fallo de pre_install corrompe el estado"
+
+  P3:
+    nombre: "sin nombres de apps"
+    descripcion: "NEVER names any concrete application in Core scripts"
+    activo: true
+    enforce: "check_no_concrete_names"
+    violacion: "HIGH — nombrar apps concretas rompe la genericidad del Core"
+
+  P4:
+    nombre: "Core no crece"
+    descripcion: "Core SP-01 is frozen — features go in servers/<ficha>/"
+    activo: true
+    enforce: "check_core_frozen"
+    violacion: "MEDIUM — añadir funciones al Core sin decisión arquitectónica"
+
+  P5:
+    nombre: "pull-only releases"
+    descripcion: "bos agent pulls releases, never receives pushes"
+    activo: true
+    enforce: "check_pull_only"
+    violacion: "HIGH — permitir push externo es riesgo de seguridad"
+
+  P6:
+    nombre: "auto-rollback"
+    descripcion: "Every saga has a compensation chain on failure"
+    activo: true
+    enforce: "check_compensation_chain"
+    violacion: "HIGH — operación sin compensación deja estado inconsistente"
+
+  P7:
+    nombre: "Absorber/Ejecutar/Liberar"
+    descripcion: "Absorb ficha task_catalog → Execute → Release functions"
+    activo: true
+    enforce: "check_absorb_execute_release"
+    violacion: "MEDIUM — no liberar funciones causa polución cross-ficha"
+
+  P8:
+    nombre: "STATE_MANAGER único escritor"
+    descripcion: "STATE_MANAGER is the sole writer of .sbos_state.json"
+    activo: true
+    enforce: "check_state_manager_sole"
+    violacion: "CRITICAL — escritura concurrente corrompe el estado"
+
+  P9:
+    nombre: "idempotencia"
+    descripcion: "install sobre ficha instalada = no-op con OK"
+    activo: true
+    enforce: "check_idempotency"
+    violacion: "MEDIUM — re-ejecución no idempotente puede romper estado"
+
+  P10:
+    nombre: "--dry-run previo"
+    descripcion: "Every kubectl apply is preceded by --dry-run validation"
+    activo: true
+    enforce: "check_dry_run_prior"
+    violacion: "HIGH — aplicar sin dry-run puede romper el cluster"
+
+  P11:
+    nombre: "diagnosis_first"
+    descripcion: "Repair MUST run diagnosis before acting (P14 alias)"
+    activo: true
+    enforce: "yaml_enforce_p14"
+    violacion: "HIGH — reparar sin diagnosticar puede empeorar el estado"
+
+  P12:
+    nombre: "compensación"
+    descripcion: "Saga pattern: cada paso tiene rollback definido"
+    activo: true
+    enforce: "check_saga_compensation"
+    violacion: "MEDIUM — saga sin compensación definida"
+
+  P13:
+    nombre: "timeouts"
+    descripcion: "Toda operación tiene timeout explícito"
+    activo: true
+    enforce: "check_timeouts"
+    violacion: "LOW — operación sin timeout puede colgar el daemon"
+
+  P14:
+    nombre: "verificación post-op"
+    descripcion: "Toda operación termina con verificación de health"
+    activo: true
+    enforce: "verify_ficha_health"
+    violacion: "MEDIUM — no verificar tras operación deja estado invisible"
+
+  P15:
+    nombre: "Podman rootful exclusivo"
+    descripcion: "SBOS opera exclusivamente sobre Podman rootful (sudo podman). Rootless no está soportado en ningún entorno."
+    activo: true
+    enforce: "check_podman_rootful"
+    violacion: "CRITICAL — rootless no tiene acceso a cgroups v2, overlay estándar, sysctls del kernel ni iptables/nftables reales"
+    adr: "ADR-027"
+    fecha: "2026-05-14"
+    razon_tecnica: "K8s anidado dentro del contenedor requiere acceso completo a cgroups v2, overlay sin userxattr, sysctls del kernel y módulos del sistema — capacidades que solo Podman rootful provee."
+
+  P16:
+    nombre: "formalización inmediata de correcciones"
+    descripcion: "Cada error, dependencia faltante, workaround o corrección descubierta durante pruebas debe formalizarse INMEDIATAMENTE en todos los documentos del proyecto (Containerfile, scripts core, fichas afectadas, arquitectura, SKDATA) antes de continuar con el siguiente paso."
+    activo: true
+    enforce: "check_formalizacion_correcciones"
+    violacion: "CRITICAL — una corrección no formalizada genera instalaciones futuras no reproducibles y degrada la calidad profesional del instalador"
+    fecha: "2026-05-14"
+    alcance: "Containerfile, 00_MASTER_INSTALL_SBOS.sh, 00_TASK_CATALOG_SBOS.sh, 00_ARCHITECTURE_SBOS.yml, fichas afectadas, SKDATA"
+    flujo: "descubrir → resolver → formalizar → continuar"
+
+  P17:
+    nombre: "sin workarounds sin investigación previa"
+    descripcion: "Ningún problema puede evadirse con un workaround sin antes intentar resolverlo correctamente. El único caso aceptable para postponer es cuando fuentes externas (documentación oficial, comunidad, issues) confirman que no tiene solución en el entorno actual. En ese caso se documenta la limitación con fuentes y se busca alternativa arquitectural."
+    activo: true
+    enforce: "check_no_workaround_sin_investigacion"
+    violacion: "CRITICAL — un workaround no documentado se convierte en deuda técnica invisible que se acumula y degrada el sistema"
+    fecha: "2026-05-14"
+    regla: "investigar → resolver → formalizar. Si no tiene solución → documentar con fuentes + mejora-continua + alternativa arquitectural."
+	  P18:
+	    nombre: "instalación adaptativa al entorno"
+	    descripcion: "El instalador detecta automáticamente si corre dentro de un contenedor (Podman/Docker) o en un host físico/VM de producción, y ajusta la configuración de componentes en consecuencia. Calico CNI usa bpfEnabled=false + iptables en contenedor (sin /sys/fs/bpf), bpfEnabled=true + eBPF en producción."
+	    activo: true
+	    enforce: "check_environment_adaptive"
+	    violacion: "HIGH — no adaptar la configuración al entorno causa fallos predecibles y requiere intervención manual"
+	    adr: "ADR-028"
+	    fecha: "2026-05-14"
+	    deteccion: "/run/.containerenv (Podman), systemd-detect-virt --container (fallback)"
+	    regla: "detectar → adaptar → instalar. Nunca asumir el entorno de ejecución."
+
+
+# ── Lifecycle Phase Definitions ──────────────────────────────────
+
+lifecycle:
+  # Install saga: 6 phases
+  install:
+    - validate
+    - dependencies
+    - pre_install
+    - install
+    - post_install
+    - verify
+
+  # Update saga: 4 phases
+  update:
+    - backup
+    - validate
+    - update
+    - verify
+
+  # Repair saga: 3 phases (P14 enforced by yaml_enforce_p14)
+  repair:
+    - diagnosis
+    - repair
+    - verify
+
+  # Remove saga: 3 phases
+  remove:
+    - governance_check
+    - dependents_check
+    - uninstall
+
+  # Compensation chains (reverse execution on failure)
+  install_compensacion:
+    - uninstall
+    - cleanup
+
+  update_compensacion:
+    - restore_backup
+
+  # Phase handler mapping
+  phases:
+    validate:
+      name: "validate"
+      handler: "validate"
+      timeout_sec: 300
+      exit_code: 1
+
+    dependencies:
+      name: "dependencies"
+      handler: "dependencies"
+      timeout_sec: 120
+      exit_code: 1
+
+    pre_install:
+      name: "pre_install"
+      handler: "pre_install"
+      timeout_sec: 600
+      exit_code: 2
+
+    install:
+      name: "install"
+      handler: "install"
+      timeout_sec: 1800
+      exit_code: 3
+
+    post_install:
+      name: "post_install"
+      handler: "post_install"
+      timeout_sec: 300
+      exit_code: 3
+
+    verify:
+      name: "verify"
+      handler: "verify"
+      timeout_sec: 120
+      exit_code: 3
+
+    backup:
+      name: "backup"
+      handler: "backup"
+      timeout_sec: 600
+      exit_code: 3
+
+    update:
+      name: "update"
+      handler: "update"
+      timeout_sec: 900
+      exit_code: 3
+
+    diagnosis:
+      name: "diagnosis"
+      handler: "diagnosis"
+      timeout_sec: 300
+      exit_code: 3
+
+    repair:
+      name: "repair"
+      handler: "repair"
+      timeout_sec: 1200
+      exit_code: 3
+
+    governance_check:
+      name: "governance_check"
+      handler: "governance"
+      timeout_sec: 60
+      exit_code: 4
+
+    dependents_check:
+      name: "dependents_check"
+      handler: "dependents"
+      timeout_sec: 60
+      exit_code: 1
+
+    uninstall:
+      name: "uninstall"
+      handler: "uninstall"
+      timeout_sec: 600
+      exit_code: 3
+
+    cleanup:
+      name: "cleanup"
+      handler: "cleanup"
+      timeout_sec: 120
+      exit_code: 3
+
+    restore_backup:
+      name: "restore_backup"
+      handler: "restore_backup"
+      timeout_sec: 600
+      exit_code: 3
+
+# ── Ficha Registry ───────────────────────────────────────────────
+# Category 1: Low governance — single approval, auto-installable
+# Category 2: Medium governance — peer review required
+# Category 3: High governance — dual approval required for uninstall
+
+fichas:
+  # Example entry — real fichas registered by ficha authors
+  # bos_core:
+  #   categoria: 1
+  #   descripcion: "SBOS IAM Installer Core"
+  #   dependencias: []
+  #   categoria_uninstall: 1
+
+# ── Signal → Handler Dispatch Map ────────────────────────────────
+# Maps protocol signal names to bash functions.
+# Used by yaml_dispatch() in 00_YAML_ENGINE_SBOS.sh.
+# P3: All handlers are generic — no concrete app names.
+
+signals:
+  # Validation group
+  "check_root": "check_root_user"
+  "check_podman_rootful": "check_podman_rootful"
+  "check_formalizacion_correcciones": "check_formalizacion_correcciones"
+  "check_no_workaround_sin_investigacion": "check_no_workaround_sin_investigacion"
+  "check_environment_adaptive": "check_environment_adaptive"
+  "detect_environment": "detect_environment"
+  "check_system_requirements": "check_system_requirements"
+  "check_k8s_cluster": "check_k8s_cluster_ready"
+  "check_node_resources": "check_node_resources"
+  "validate_ficha_contract": "validate_ficha_contract"
+  "check_dependencies": "check_dependencies"
+  "check_no_dependents": "check_no_dependents"
+  "check_governance_uninstall": "check_governance_uninstall"
+
+  # K8s generics group (ALL routed through P1: sbos_k8s_core)
+  "k8s_apply": "yaml_enforce_p1"
+  "k8s_create_namespace": "create_k8s_namespace"
+  "k8s_create_secret": "create_k8s_secret"
+  "k8s_apply_configmap": "apply_configmap"
+  "k8s_create_pvc": "create_pvc"
+  "k8s_delete_pvc": "delete_pvc"
+  "k8s_delete_manifest": "delete_k8s_manifest"
+  "k8s_apply_network_policy": "apply_network_policy"
+  "k8s_exec_in_pod": "exec_command_in_pod"
+  "k8s_copy_to_pod": "copy_file_to_pod"
+
+  # Wait/Verify group
+  "wait_pod_ready": "wait_pod_ready"
+  "wait_pod_healthy": "wait_pod_healthy"
+  "verify_pod_running": "verify_pod_running"
+  "verify_service_responds": "verify_service_responds"
+  "wait_http_endpoint": "wait_http_endpoint_ready"
+  "verify_port_in_pod": "verify_port_in_pod"
+
+  # Filesystem group
+  "fs_create_dirs": "create_directories"
+  "fs_apply_permissions": "apply_permissions"
+  "fs_backup_dir": "backup_directory"
+  "fs_restore_dir": "restore_directory"
+
+  # Lifecycle group
+  "lifecycle_rollout_restart": "rollout_restart"
+  "lifecycle_scale": "scale_deployment"
+  "lifecycle_backup_snapshot": "take_backup_snapshot"
+  "lifecycle_restore_snapshot": "restore_backup_snapshot"
+
+  # Generic ficha operations
+  "ficha_pre_install": "pre_install_generic"
+  "ficha_install": "install_generic"
+  "ficha_post_install": "post_install_generic"
+  "ficha_update": "update_generic"
+  "ficha_repair": "repair_generic"
+  "ficha_diagnosis": "diagnosis_generic"
+  "ficha_uninstall": "uninstall_generic"
+  "ficha_health": "verify_ficha_health"
+  "ficha_backup": "backup_ficha_resources"
+  "ficha_restore": "restore_ficha_resources"

@@ -1,0 +1,106 @@
+# ============================================================
+# BIEDATA BOX — mfa-push
+# Despacha el challenge Push MFA al celular del usuario
+# Disparada por Redis Stream: mfa:challenges:{tenant}
+# ============================================================
+# Esta caja es la ÚNICA autorizada a enviar mensajes
+# de autenticación al exterior. El mensaje lleva un
+# challenge_token firmado por Vault (TTL 60s).
+# El destinatario presiona SÍ o NO — esa respuesta
+# vuelve al servidor vía Kong → /api/mfa/confirm
+# ============================================================
+
+box_id:       "mfa-push"
+version:      "1.0.0"
+trigger:      redis_stream
+stream:       "mfa:challenges:{tenant}"
+consumer_group: "biedata-mfa-push"
+timeout_ms:   5000        # 5s — MFA es tiempo real
+retry:
+  max:        2           # solo 2 reintentos — expira en 60s
+  backoff_ms: 1000
+
+secrets_from_vault:
+  - key: TELEGRAM_BOT_TOKEN
+    path: "secret/tenants/{tenant}/sbos-notifier/telegram-bot-token"
+  - key: MFA_SIGNING_KEY
+    path: "secret/tenants/{tenant}/sbos-notifier/mfa-challenge-signing-key"
+
+# Payload esperado del stream:
+# {
+#   "challenge_token": "eyJ...",   JWT firmado, TTL 60s
+#   "user_id":         "usr_123",
+#   "ctx_id":          "ctx-abc",
+#   "geo":             "La Paz, Bolivia",
+#   "device_info":     "Chrome 124 / Ubuntu",
+#   "channel":         "telegram",   telegram | whatsapp | ntfy
+#   "chat_id":         "987654321",  para Telegram
+#   "expires_at":      "2026-05-30T14:01:00Z"
+# }
+
+# Mensaje enviado al celular:
+# 🔐 Intento de acceso a SBOS
+# 📍 Desde: La Paz, Bolivia
+# 💻 Chrome 124 / Ubuntu
+# 🕐 14:00:00
+#
+# ¿Eres tú quien intenta ingresar?
+#
+# ✅ SÍ, SOY YO     →  POST /api/mfa/confirm/{token}?action=confirm
+# ❌ NO FUI YO      →  POST /api/mfa/confirm/{token}?action=deny
+
+destinations:
+  telegram:
+    url:    "https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    method: POST
+    body: |
+      {
+        "chat_id": "{chat_id}",
+        "text": "🔐 *Intento de acceso a SBOS*\n📍 Desde: {geo}\n💻 {device_info}\n\n¿Eres tú quien intenta ingresar?",
+        "parse_mode": "Markdown",
+        "reply_markup": {
+          "inline_keyboard": [[
+            {"text": "✅ SÍ, SOY YO", "url": "https://{tenant}.sksistemas.com/api/mfa/confirm/{challenge_token}?action=confirm"},
+            {"text": "❌ NO FUI YO",  "url": "https://{tenant}.sksistemas.com/api/mfa/confirm/{challenge_token}?action=deny"}
+          ]]
+        }
+      }
+
+  ntfy:
+    # Alternativa si el usuario no tiene Telegram — usa la app ntfy
+    url:    "http://localhost:28204/{tenant}-mfa-push"
+    method: POST
+    headers:
+      Title:    "Intento de acceso SBOS"
+      Priority: "urgent"
+      Tags:     "lock"
+      Actions:  >
+        http, ✅ SÍ SOY YO,
+        https://{tenant}.sksistemas.com/api/mfa/confirm/{challenge_token}?action=confirm,
+        method=POST;
+        http, ❌ NO FUI YO,
+        https://{tenant}.sksistemas.com/api/mfa/confirm/{challenge_token}?action=deny,
+        method=POST
+    body: "Intento desde {geo} — {device_info}"
+
+on_success:
+  - log_json:
+      level:   info
+      msg:     "mfa_challenge_sent"
+      fields:  [ctx_id, user_id, channel, challenge_token]
+  - pg_update:
+      db:      notifier_db
+      table:   notification_events
+      set:     "status='sent', sent_at=NOW()"
+      where:   "ctx_id='{ctx_id}'"
+
+on_failure:
+  - log_json:
+      level:   error
+      msg:     "mfa_challenge_failed"
+      fields:  [ctx_id, user_id, channel, error]
+  - pg_update:
+      db:      notifier_db
+      table:   mfa_challenges
+      set:     "status='failed'"
+      where:   "challenge_token='{challenge_token}'"

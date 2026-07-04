@@ -1,0 +1,21 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: vaultwarden-netpol
+  namespace: sbos-apps
+spec:
+  podSelector:
+    matchLabels:
+      app: vaultwarden
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              sbos-role: internal
+
+      ports:
+        - protocol: TCP
+          port: 8080

@@ -1,0 +1,77 @@
+# yaml_engine.yml — sbos-bootstrap-platform
+
+phases:
+  pre_install:
+    - task: verificar_kubectl
+      function: verify_kubectl_access
+      timeout: 10
+      on_fail: ABORT
+      description: "Verificar acceso kubectl al cluster"
+
+    - task: verificar_cluster
+      function: verify_cluster_accessible
+      timeout: 10
+      on_fail: ABORT
+      description: "Verificar cluster K8s operativo"
+
+  install:
+    - task: crear_namespaces
+      function: create_sbos_namespaces
+      timeout: 120
+      on_fail: ABORT
+      description: "Crear 15 namespaces SBOS con labels PodSecurity"
+
+    - task: aplicar_resource_quotas
+      function: apply_resource_quotas
+      timeout: 60
+      on_fail: CONTINUE
+      description: "Aplicar ResourceQuotas a todos los namespaces"
+
+    - task: aplicar_limit_ranges
+      function: apply_limit_ranges
+      timeout: 60
+      on_fail: CONTINUE
+      description: "Aplicar LimitRanges a todos los namespaces"
+
+    - task: configurar_rbac
+      function: setup_rbac_admin
+      timeout: 60
+      on_fail: ABORT
+      description: "Crear ClusterRole sbos-admin + admin RBAC por namespace"
+
+    - task: habilitar_etcd_encryption
+      function: enable_etcd_encryption
+      timeout: 60
+      on_fail: ABORT
+      description: "Configurar EncryptionConfiguration KMS v2 en kube-apiserver"
+
+    - task: aplicar_network_policies
+      function: apply_default_deny_policies
+      timeout: 120
+      on_fail: ABORT
+      description: "NetworkPolicy default-deny en todos los namespaces SBOS"
+
+    - task: configurar_pod_security
+      function: configure_pod_security_admission
+      timeout: 60
+      on_fail: CONTINUE
+      description: "Configurar PodSecurity admission labels en namespaces"
+
+  post_install:
+    - task: verificar_namespaces
+      function: verify_all_namespaces
+      timeout: 30
+      on_fail: ABORT
+      description: "Verificar 15 namespaces creados con labels correctos"
+
+    - task: verificar_networkpolicy
+      function: verify_network_policies
+      timeout: 30
+      on_fail: ABORT
+      description: "Verificar NetworkPolicies aplicadas"
+
+    - task: verificar_rbac
+      function: verify_rbac
+      timeout: 15
+      on_fail: ABORT
+      description: "Verificar ClusterRoleBinding sbos-admin"

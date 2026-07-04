@@ -1,0 +1,59 @@
+name: Build bAuthDEV Windows
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: BauthAgent/src/bAuthDEV
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.4'
+          channel: 'stable'
+
+      - name: Instalar dependencias
+        run: flutter pub get
+
+      - name: Compilar release Windows
+        run: flutter build windows --release
+
+      - name: Crear ZIP portable
+        run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath bAuthDEV-windows-x64.zip
+
+      - name: Subir artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: bAuthDEV-windows-x64
+          path: BauthAgent/src/bAuthDEV/bAuthDEV-windows-x64.zip
+
+      - name: Crear Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "bAuthDEV ${{ github.ref_name }}"
+          body: |
+            ## bAuthDEV — RPC Tester para Desarrolladores SBOS
+
+            **Descargar, descomprimir, ejecutar. Sin dependencias.**
+
+            ### Instalacion
+            1. Descargar `bAuthDEV-windows-x64.zip`
+            2. Descomprimir en cualquier carpeta
+            3. Ejecutar `bauth_dev.exe`
+
+            La app se conecta automaticamente a `13.140.128.230:9450`
+
+            ### Actualizar
+            Descomprimir el ZIP sobre la instalacion anterior.
+          files: BauthAgent/src/bAuthDEV/bAuthDEV-windows-x64.zip
+          draft: false
+          prerelease: true

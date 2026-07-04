@@ -1,0 +1,51 @@
+# manifest.yml — Ficha alertmanager (SBOS-035 §2)
+# SBOS-049 §4 · Order 205 · StatefulSet
+# Routing: CRITICAL→Wazuh CEF+Slack 24/7, HIGH→Slack laboral, MEDIUM→Slack
+identity:
+  id: alertmanager
+  name: Alertmanager
+  version: "0.28.0"
+  category: 1
+  criticality: true
+  server: monitorserver
+  description: "Gestión de alertas — routing, silencing, inhibition, Wazuh CEF forwarding"
+
+workload:
+  type: StatefulSet
+  namespace: sbos-monitor
+  replicas: 1
+  service_account: alertmanager-sa
+
+order:
+  execution_order: 205
+  timeout_minutes: 15
+
+requirements:
+  dependencies:
+    - prometheus
+  cpu_request: "100m"
+  cpu_limit: "500m"
+  memory_request: "256Mi"
+  memory_limit: "512Mi"
+  pvc_size: "10Gi"
+  pvc_storage_class: "sbos-fast"
+
+deployment:
+  strategy: Recreate
+
+governance:
+  backup_enabled: false
+  backup_schedule: ""
+
+health:
+  check_command: "curl -sf http://localhost:9093/-/healthy"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+
+integrations:
+  receivers:
+    slack_critical: "#sbos-alerts-critical"
+    slack_high: "#sbos-alerts-high"
+    slack_medium: "#sbos-alerts-all"
+    wazuh_cef: "syslog:wazuh-manager:514"

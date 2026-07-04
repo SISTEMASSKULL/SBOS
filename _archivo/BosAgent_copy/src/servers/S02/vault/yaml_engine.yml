@@ -1,0 +1,112 @@
+# yaml_engine.yml — vault
+# Iteración 1: Vault 2.0.1 nodo único, Raft storage, inicialización manual
+# Iteración 2: PKI engine (Root + Intermediate CA), 12 roles, auto-TLS, audit log, KV migration
+# Iteración 3 (futura): HA Raft 3 nodos, auto-unseal Transit, Vault Agent sidecars, dynamic credentials
+
+namespace: sbos-security
+image: "hashicorp/vault:2.0.1"
+replicas: 1
+
+storage:
+  pv_name: sbos-vault-pv
+  pvc_name: sbos-vault-pvc
+  capacity: 5Gi
+  storage_class: sbos-local
+  raft_path: /vault/data
+
+service:
+  name: vault
+  api_port: 8200
+  cluster_port: 8201
+  cluster_ip_port: 8170
+
+config:
+  ui: true
+  log_level: warn
+  default_lease_ttl: "768h"
+  max_lease_ttl: "8760h"
+
+tls:
+  enabled: true
+  provider: vault-pki
+  secret_name: vault-tls
+  cert_path: /vault/certs/tls.crt
+  key_path: /vault/certs/tls.key
+  ca_path: /vault/certs/ca.crt
+
+storage_backend:
+  type: raft
+  path: /vault/data
+  node_id: vault-0
+
+auth_methods:
+  - type: approle
+    path: approle
+    description: "AppRole para daemons SBOS"
+
+secret_engines:
+  - type: kv
+    version: 2
+    path: sbos
+    description: "Secretos del ecosistema SBOS"
+  - type: pki
+    path: pki
+    description: "PKI Root CA — TTL 10 años, RSA 4096"
+  - type: pki
+    path: pki_int
+    description: "PKI Intermediate CA — TTL 5 años, RSA 4096, emite certificados a servicios"
+
+pki_roles:
+  - postgresql
+  - redis
+  - minio
+  - vault
+  - keycloak
+  - kong
+  - oauth2-proxy
+  - sbos-notifier
+  - prometheus
+  - grafana
+  - alertmanager
+  - alloy
+
+audit:
+  enabled: true
+  type: file
+  path: /vault/logs/audit.log
+
+approles:
+  - name: sbos-pods
+    secret_id_ttl: "0"
+    token_ttl: "1h"
+    token_max_ttl: "4h"
+    policies: [sbos-read-write]
+
+policies:
+  sbos-read-write:
+    path: "sbos/*"
+    capabilities: [create, read, update, delete, list]
+
+bootstrap_secrets:
+  sbos/postgresql/keycloak: keycloak_bootstrap
+  sbos/postgresql/kong: kong_bootstrap
+  sbos/postgresql/vault: vault_bootstrap
+  sbos/postgresql/bkernel: bkernel_bootstrap
+  sbos/postgresql/biedata: biedata_bootstrap
+  sbos/postgresql/bsearch: bsearch_bootstrap
+  sbos/postgresql/bauth: bauth_bootstrap
+  sbos/postgresql/tryton: tryton_bootstrap
+  sbos/postgresql/grafana: grafana_bootstrap
+  sbos/postgresql/notifier: notifier_bootstrap
+  sbos/redis/password: sbos_redis_bootstrap
+  sbos/minio/admin: sbos_minio_admin_bootstrap
+  sbos/keycloak/admin: sbos_kc_bootstrap_pass
+  sbos/grafana/admin: sbos_grafana_bootstrap
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "256Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"

@@ -1,0 +1,48 @@
+# yaml_engine.yml — Alertmanager 0.28 lifecycle phases
+# SBOS-049 §4.4 · Order 205 · StatefulSet
+# R16 Zero hardcoding
+
+pre_install:
+  - name: "validate_pvc"
+    command: "kubectl get pvc alertmanager-data -n sbos-monitor --no-headers 2>/dev/null || echo 'PVC_OK'"
+    timeout_seconds: 30
+  - name: "create_namespace"
+    command: "kubectl create namespace sbos-monitor --dry-run=client -o yaml | kubectl apply -f -"
+    timeout_seconds: 30
+  - name: "apply_network_policy"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/alertmanager.network -n sbos-monitor"
+    timeout_seconds: 30
+
+install:
+  - name: "apply_statefulset"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/alertmanager.k8s.yml -n sbos-monitor"
+    timeout_seconds: 300
+  - name: "wait_ready"
+    command: "kubectl wait --for=condition=Ready pod/alertmanager-0 -n sbos-monitor --timeout=600s"
+    timeout_seconds: 600
+  - name: "verify_healthy"
+    command: "kubectl exec alertmanager-0 -n sbos-monitor -- wget -q -O- http://localhost:9093/-/healthy"
+    timeout_seconds: 30
+
+post_install:
+  - name: "verify_status"
+    command: "kubectl exec alertmanager-0 -n sbos-monitor -- wget -q -O- http://localhost:9093/api/v2/status | grep -q 'uptime' || true"
+    timeout_seconds: 30
+
+update:
+  - name: "rolling_restart"
+    command: "kubectl rollout restart statefulset alertmanager -n sbos-monitor"
+    timeout_seconds: 300
+
+repair:
+  - name: "restart_statefulset"
+    command: "kubectl rollout restart statefulset alertmanager -n sbos-monitor"
+    timeout_seconds: 120
+
+uninstall:
+  - name: "delete_statefulset"
+    command: "kubectl delete statefulset alertmanager -n sbos-monitor --ignore-not-found"
+    timeout_seconds: 120
+  - name: "delete_pvc"
+    command: "kubectl delete pvc alertmanager-data -n sbos-monitor --ignore-not-found"
+    timeout_seconds: 60

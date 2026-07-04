@@ -1,0 +1,46 @@
+# yaml_engine.yml — nginx (HOST S02, NO pod K8s)
+# Iteración 1: nginx en host vía systemd, página bienvenida, reverse proxy subdominios
+# Iteración 2 (futura): TLS Let's Encrypt (certbot host), ModSecurity WAF, HSTS
+# Iteración 3 (futura): nginx plus, rate limiting, caching, multi-tenant dinámico
+
+runtime: host
+package: nginx
+version: "1.28.0"
+
+paths:
+  config: /etc/nginx
+  webroot: /var/www/html
+  log: /var/log/nginx
+
+upstreams:
+  kong: "http://127.0.0.1:8000"
+  core_ui: "http://127.0.0.1:3000"
+  grafana: "http://127.0.0.1:3000"
+  keycloak: "http://127.0.0.1:8080"
+
+subdominios:
+  admin: core_ui
+  api: kong
+  monitor: grafana
+  identity: keycloak
+
+hardening:
+  headers:
+    x_frame_options: DENY
+    x_content_type_options: nosniff
+    referrer_policy: strict-origin-when-cross-origin
+    x_xss_protection: "1; mode=block"
+    content_security_policy: "default-src 'self'"
+    hsts: "max-age=31536000; includeSubDomains"
+    permissions_policy: "geolocation=(), microphone=(), camera=()"
+  server_tokens: false
+  client_max_body_size: 50m
+
+php:
+  enabled: false
+  motivo: "El stack SBOS es Go/Rust/Python. El contenido dinámico va por Kong → daemons."
+
+systemd:
+  service: nginx
+  enabled: true
+  state: started

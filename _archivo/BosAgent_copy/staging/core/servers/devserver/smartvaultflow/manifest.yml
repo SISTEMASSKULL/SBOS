@@ -1,0 +1,43 @@
+# manifest.yml — Ficha smartvaultflow (SBOS-005 §devserver)
+# SBOS-049 §4 · Order 188 · Deployment
+identity:
+  id: smartvaultflow
+  name: SmartVaultFlow
+  version: "1.0"
+  category: 1
+  criticality: false
+  server: devserver
+  description: "Document vault + workflow (MIT SKULL)"
+
+workload:
+  type: Deployment
+  namespace: sbos-apps
+  replicas: 1
+  service_account: smartvaultflow-sa
+
+order:
+  execution_order: 188
+  timeout_minutes: 10
+
+requirements:
+  dependencies:
+    - postgresql
+    - minio
+  cpu_request: "200m"
+  cpu_limit: "1000m"
+  memory_request: "256Mi"
+  memory_limit: "512Mi"
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+health:
+  check_command: "curl -sf http://localhost:8080/health"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

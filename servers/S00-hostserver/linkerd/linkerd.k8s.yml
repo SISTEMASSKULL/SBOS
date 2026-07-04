@@ -1,0 +1,67 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: linkerd-sa
+  namespace: sbos-installer
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: linkerd
+  namespace: sbos-installer
+spec:
+  selector:
+    matchLabels:
+      app: linkerd
+  template:
+    metadata:
+      labels:
+        app: linkerd
+    spec:
+      serviceAccountName: linkerd-sa
+      volumes:
+        - name: linkerd-identity
+          emptyDir: {}
+      containers:
+        - name: linkerd
+          image: cr.l5d.io/linkerd/proxy:edge-26.5.1
+          env:
+            - name: LINKERD2_PROXY_IDENTITY_TRUST_ANCHORS
+              valueFrom:
+                configMapKeyRef:
+                  name: linkerd-identity-trust-roots
+                  key: ca-bundle.crt
+            - name: LINKERD2_PROXY_IDENTITY_DIR
+              value: /tmp/linkerd-identity
+            - name: LINKERD2_PROXY_IDENTITY_TOKEN_FILE
+              value: /var/run/secrets/kubernetes.io/serviceaccount/token
+            - name: LINKERD2_PROXY_IDENTITY_SVC_ADDR
+              value: linkerd-identity.linkerd.svc.cluster.local.:8080
+            - name: LINKERD2_PROXY_IDENTITY_LOCAL_NAME
+              value: linkerd-sa.sbos-installer.serviceaccount.identity.linkerd.cluster.local
+            - name: LINKERD2_PROXY_IDENTITY_SVC_NAME
+              value: linkerd-identity.linkerd.serviceaccount.identity.linkerd.cluster.local
+            - name: LINKERD2_PROXY_DESTINATION_SVC_ADDR
+              value: linkerd-dst.linkerd.svc.cluster.local.:8086
+            - name: LINKERD2_PROXY_DESTINATION_SVC_NAME
+              value: linkerd-dst.linkerd.serviceaccount.identity.linkerd.cluster.local
+            - name: LINKERD2_PROXY_POLICY_SVC_ADDR
+              value: linkerd-policy.linkerd.svc.cluster.local.:8090
+            - name: LINKERD2_PROXY_POLICY_SVC_NAME
+              value: linkerd-policy.linkerd.serviceaccount.identity.linkerd.cluster.local
+            - name: LINKERD2_PROXY_POLICY_WORKLOAD
+              value: linkerd.sbos-installer
+          volumeMounts:
+            - name: linkerd-identity
+              mountPath: /tmp/linkerd-identity
+          ports:
+            - containerPort: 4143
+              name: http
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi

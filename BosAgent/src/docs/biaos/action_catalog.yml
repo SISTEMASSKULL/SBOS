@@ -1,0 +1,156 @@
+# F10.0/F10.3 — Catálogo ICAP de biaos (BOS-REPAIR-10 §4.2, Plan Maestro F10.0)
+# Cada acción referencia un método RPC QUE EXISTE en el rpcRegistry del bos
+# (F6 sagas de consulta + F9 Operator Soberano). El agente ReAct solo puede
+# proponer acciones de este catálogo — NUNCA genera comandos libres.
+#
+# riesgo: bajo = sin HITL · medio/alto = confirmación explícita (F10.6)
+# Producción: /etc/bos/ai/action_catalog.yml (copia de este archivo).
+version: "1.0"
+acciones:
+  # ── TIPO A — consulta (lectura, sin HITL) ─────────────────────────────
+  - id: query_system_status
+    descripcion: "Estado completo del servidor: Ubuntu, K8s, fichas, contexto y certificación"
+    metodo_rpc: bos.query.system
+    parametros: []
+    riesgo: bajo
+    confirmacion_requerida: false
+    contextos_relevantes: [diagnostico, salud, estado]
+
+  - id: diagnose_ficha
+    descripcion: "Pre-diagnóstico de una ficha: causa probable, impacto, recomendación"
+    metodo_rpc: bos.query.repair
+    parametros: [ficha_id, tenant_id]
+    riesgo: bajo
+    confirmacion_requerida: false
+    contextos_relevantes: [DEGRADADA, ERROR_FISICO, ERROR_LOGICO, falla, crash]
+
+  - id: vdi_status
+    descripcion: "Estado del VDI Layer: Nextcloud, Guacamole, pool Fedora con semáforo"
+    metodo_rpc: bos.query.vdi
+    parametros: [tenant_id]
+    riesgo: bajo
+    confirmacion_requerida: false
+    contextos_relevantes: [vdi, escritorio, nextcloud, guacamole]
+
+  - id: tenant_snapshot
+    descripcion: "Snapshot completo de un tenant: identidad, infraestructura, sesiones"
+    metodo_rpc: bos.query.tenant
+    parametros: [tenant_id]
+    riesgo: bajo
+    confirmacion_requerida: false
+    contextos_relevantes: [tenant, empresa, auditoria]
+
+  - id: check_node
+    descripcion: "Diagnóstico de un nodo antes de mantenimiento: pods, impacto de drain"
+    metodo_rpc: bos.query.node
+    parametros: [node]
+    riesgo: bajo
+    confirmacion_requerida: false
+    contextos_relevantes: [nodo, mantenimiento, drain]
+
+  - id: context_plane_status
+    descripcion: "Context Plane: sesiones, anomalías, TTLs por tenant"
+    metodo_rpc: bos.query.context
+    parametros: [tenant_id]
+    riesgo: bajo
+    confirmacion_requerida: false
+    contextos_relevantes: [ctx_id, sesiones, contexto]
+
+  - id: ficha_describe
+    descripcion: "Manifest completo de una ficha: dependencias, scaling, SLOs"
+    metodo_rpc: bos.ficha.describe
+    parametros: [ficha_id]
+    riesgo: bajo
+    confirmacion_requerida: false
+    contextos_relevantes: [manifest, politica, slo]
+
+  - id: node_list
+    descripcion: "Listar los nodos del cluster con estado Ready y schedulable"
+    metodo_rpc: bos.k8s.node.list
+    parametros: []
+    riesgo: bajo
+    confirmacion_requerida: false
+    contextos_relevantes: [nodos, cluster]
+
+  - id: health_check
+    descripcion: "Health check global o de una ficha"
+    metodo_rpc: bos.health.check
+    parametros: [ficha_id]
+    riesgo: bajo
+    confirmacion_requerida: false
+    contextos_relevantes: [salud, health]
+
+  # ── TIPO B — acción (escritura, HITL según riesgo) ────────────────────
+  - id: repair_ficha
+    descripcion: "Reparar una ficha degradada o en error (saga con compensación)"
+    metodo_rpc: bos.ficha.repair
+    parametros: [ficha_id]
+    riesgo: medio
+    confirmacion_requerida: true
+    contextos_relevantes: [DEGRADADA, reparar, fix]
+    compensacion: null
+
+  - id: restart_pod
+    descripcion: "Reinicio controlado de un pod (el ReplicaSet crea el reemplazo)"
+    metodo_rpc: bos.k8s.pod.restart
+    parametros: [namespace, pod]
+    riesgo: medio
+    confirmacion_requerida: true
+    contextos_relevantes: [CrashLoopBackOff, reiniciar, pod]
+    compensacion: null
+
+  - id: cordon_nodo
+    descripcion: "Aislar un nodo K8s para mantenimiento (no acepta pods nuevos)"
+    metodo_rpc: bos.k8s.node.cordon
+    parametros: [node]
+    riesgo: alto
+    confirmacion_requerida: true
+    contextos_relevantes: [mantenimiento, aislar]
+    compensacion: bos.k8s.node.uncordon
+    advertencia: "El nodo no aceptará pods nuevos hasta uncordon"
+
+  - id: uncordon_nodo
+    descripcion: "Liberar un nodo tras mantenimiento"
+    metodo_rpc: bos.k8s.node.uncordon
+    parametros: [node]
+    riesgo: medio
+    confirmacion_requerida: true
+    contextos_relevantes: [liberar, uncordon]
+    compensacion: null
+
+  - id: drain_nodo
+    descripcion: "Evacuar pods de un nodo (dry-run salvo orden explícita)"
+    metodo_rpc: bos.k8s.node.drain
+    parametros: [node, dry_run]
+    riesgo: alto
+    confirmacion_requerida: true
+    contextos_relevantes: [evacuar, drain, mantenimiento]
+    compensacion: bos.k8s.node.uncordon
+    advertencia: "En single-node un drain real deja el cluster sin capacidad"
+
+  - id: scale_ficha
+    descripcion: "Escalar réplicas de un deployment (validado contra la política del manifest)"
+    metodo_rpc: bos.k8s.scale
+    parametros: [namespace, deployment, replicas, ficha_id]
+    riesgo: alto
+    confirmacion_requerida: true
+    contextos_relevantes: [escalar, replicas, carga]
+    compensacion: bos.k8s.scale
+
+  - id: rollout_undo
+    descripcion: "Revertir un deployment a la revisión anterior"
+    metodo_rpc: bos.k8s.rollout.undo
+    parametros: [namespace, deployment]
+    riesgo: alto
+    confirmacion_requerida: true
+    contextos_relevantes: [rollback, revertir]
+    compensacion: null
+
+  - id: maintenance_nodo
+    descripcion: "Saga de mantenimiento completa: cordon→drain→uncordon garantizado"
+    metodo_rpc: bos.maintenance.start
+    parametros: [node, dry_run_drain]
+    riesgo: alto
+    confirmacion_requerida: true
+    contextos_relevantes: [mantenimiento, parche, kernel]
+    compensacion: bos.k8s.node.uncordon

@@ -1,0 +1,44 @@
+# yaml_engine.yml — kong
+# Iteración 1: Kong 3.9.x DB-mode (PostgreSQL kong_db) + migrations + Admin API restringida
+# Iteración 2 (futura): TLS Vault PKI, plugin Lua SBOS-Context, JWT Keycloak, rate limiting
+# Iteración 3 (futura): multi-réplica, Ingress Controller, observabilidad completa
+
+namespace: sbos-gateway
+image: "kong:3.9.0"
+replicas: 1
+
+database:
+  host: postgresql.sbos-data.svc.cluster.local
+  port: 5432
+  name: kong_db
+  user: postgres
+  secret: kong-db-credentials
+
+service:
+  proxy_http: 8000
+  proxy_https: 8443
+  admin_api: 8001
+  cluster_ip_proxy: 8160
+
+mode: traditional
+
+admin_api:
+  listen: "127.0.0.1:8001"
+  restricted: true
+  allowed_namespaces: [sbos-system, sbos-gateway]
+
+plugins_enabled:
+  - bundled
+  - jwt
+  - rate-limiting
+  - request-transformer
+  - response-transformer
+  - correlation-id
+
+resources:
+  requests:
+    cpu: "200m"
+    memory: "256Mi"
+  limits:
+    cpu: "1"
+    memory: "512Mi"

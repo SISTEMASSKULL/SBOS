@@ -1,0 +1,107 @@
+# SKULL-OPERATOR-CONFIG — Configuración base del operador SKULL
+# Fuente: SBOS-INSTALACION-FORMULARIO.md §1-3
+# Fecha: 2026-05-14
+# Uso: Este archivo alimenta Vault y los ConfigMaps base del cluster.
+# NO es un secret — las credenciales van en Vault.
+
+operator:
+  name: "Sistemas SKULL"
+  country: "Bolivia"
+  timezone: "America/La_Paz"
+  currency: ["BOB", "USD"]
+  language: "es_BO"
+
+domain:
+  primary: "sksistemas.com"
+  subdomains:  # 31 funcionales — bos-install.toml [dns.subdomains]
+    auth: "auth"
+    api: "api"
+    gateway: "gateway"
+    core: "core"
+    web: "web"
+    b2b: "b2b"
+    vault: "vault"
+    secrets: "secrets"
+    security: "security"
+    data: "data"
+    bus: "bus"
+    queues: "queues"
+    pipeline: "pipeline"
+    devops: "devops"
+    sync: "sync"
+    connect: "connect"
+    reports: "reports"
+    documents: "documents"
+    insights: "insights"
+    find: "find"
+    flows: "flows"
+    projects: "projects"
+    track: "track"
+    fleet: "fleet"
+    cards: "cards"
+    screens: "screens"
+    desktop: "desktop"
+    mail: "mail"
+    sign: "sign"
+    status: "status"
+    support: "support"
+  dns_provider: "GLOBAL HOSTING"
+  dns_api_access: false
+  letsencrypt_email: "admin@sksistemas.com"
+
+multi_tenancy:
+  model: "namespace-per-tenant"
+  current_tenants: 1  # SKULL como tenant raíz
+  namespace_pattern: "sbos-{tenant}-{server}"
+
+erp:
+  chart_of_accounts: "Bolivia"
+  modules: "account,sale,purchase,stock,account_invoice,account_payment,sale_invoice,party,company,product,hr,payroll"
+  functional_currency: "BOB"
+  companies: 2
+
+mail:
+  domain: "mail.sksistemas.com"
+  server: "stalwart"  # AGPLv3 — reemplaza postfix + dovecot + spamassassin
+  relay_external: false  # sksistemas.com en Global Hosting con PTR configurado
+  dkim: true  # Claves generadas por Stalwart, registro TXT manual en GLOBAL HOSTING
+  initial_mailboxes: ["admin", "info", "ventas", "sbos"]
+  quota_per_mailbox: "5GB"
+
+health_system:
+  enabled: true
+  country: "Bolivia"
+  pharmacopoeia: "Bolivia"
+  payroll_currency: "BOB"
+
+backup:
+  retention_days: 90
+  frequency: "daily"
+  time: "02:00"
+  external_dest: "SFTP"
+  k8s_backups: true
+  k8s_schedules: "críticos"
+
+communications:
+  platform: "both"  # RocketChat + Mattermost
+  initial_channels: ["admin", "info"]
+  sso_integration: "keycloak"
+
+ai:
+  enabled: true
+  models: ["deepseek4-pro"]
+  gpu: false
+  embeddings: true
+  embedding_model: "nomic-embed-text"
+
+telephony:
+  enabled: true
+  sip_provider: ""  # Pendiente
+  trunks: []         # Pendiente
+  extensions: []     # Pendiente
+
+observability:
+  alert_email: "grafana@sksistemas.com"
+  slack_webhook: "https://hooks.sksistemas.com/services/"
+  metrics_retention_days: 90
+  slo_target: "99.9%"

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SBOS — WebAuthn Demo · bAuth Identity Core v3.0</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: system-ui, sans-serif; background:#0f172a; color:#e2e8f0; display:flex; justify-content:center; align-items:center; min-height:100vh; }
+.container { max-width:480px; width:100%; padding:2rem; }
+.card { background:#1e293b; border-radius:12px; padding:2rem; box-shadow:0 4px 24px rgba(0,0,0,.4); }
+h1 { font-size:1.5rem; margin-bottom:.5rem; color:#38bdf8; }
+h2 { font-size:1rem; color:#94a3b8; margin-bottom:1.5rem; }
+.input { width:100%; padding:.75rem; margin-bottom:1rem; border:1px solid #334155; border-radius:8px; background:#0f172a; color:#e2e8f0; font-size:1rem; }
+.btn { width:100%; padding:.75rem; border:none; border-radius:8px; font-size:1rem; cursor:pointer; font-weight:600; margin-bottom:.5rem; }
+.btn-primary { background:#38bdf8; color:#0f172a; }
+.btn-primary:hover { background:#7dd3fc; }
+.btn-secondary { background:#334155; color:#e2e8f0; }
+.btn-secondary:hover { background:#475569; }
+.status { margin-top:1rem; padding:.75rem; border-radius:8px; font-size:.875rem; }
+.status-success { background:#064e3b; color:#6ee7b7; border:1px solid #065f46; }
+.status-error { background:#7f1d1d; color:#fca5a5; border:1px solid #991b1b; }
+.status-info { background:#1e3a5f; color:#93c5fd; border:1px solid #1e40af; }
+.result { margin-top:.5rem; font-family:monospace; font-size:.75rem; word-break:break-all; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="card">
+    <h1>SBOS WebAuthn Demo</h1>
+    <h2>bAuth Identity Core v3.0 · Passkey Registration & Authentication</h2>
+
+    <input type="text" id="userId" class="input" placeholder="User ID (UUID)" value="user-demo-001">
+    <input type="text" id="username" class="input" placeholder="Username" value="demo-user">
+
+    <button onclick="doRegister()" class="btn btn-primary" id="btnRegister">
+      🔑 Register Passkey
+    </button>
+    <button onclick="doAuthenticate()" class="btn btn-secondary" id="btnAuth">
+      🔓 Authenticate with Passkey
+    </button>
+
+    <div id="status"></div>
+    <div id="result" class="result"></div>
+  </div>
+</div>
+
+<script src="webauthn.js"></script>
+<script>
+const client = new SBOSWebAuthn({
+    rpcUrl: '/rpc',
+    rpId: window.location.hostname,
+});
+
+function status(msg, type) {
+    const el = document.getElementById('status');
+    el.innerHTML = msg;
+    el.className = `status status-${type}`;
+}
+
+async function doRegister() {
+    try {
+        status('Checking WebAuthn support...', 'info');
+        if (!SBOSWebAuthn.isSupported()) {
+            status('WebAuthn not supported in this browser', 'error');
+            return;
+        }
+
+        const userId = document.getElementById('userId').value;
+        const username = document.getElementById('username').value;
+
+        status('Registering passkey... Touch your security key or use biometric', 'info');
+        const result = await client.register(userId, username);
+
+        status(`Passkey registered! ID: ${result.credentialId.substring(0,20)}...`, 'success');
+        document.getElementById('result').innerHTML = JSON.stringify(result, null, 2);
+    } catch (e) {
+        status(`Registration failed: ${e.message}`, 'error');
+        console.error(e);
+    }
+}
+
+async function doAuthenticate() {
+    try {
+        status('Authenticating... Touch your security key or use biometric', 'info');
+        const result = await client.authenticate();
+
+        status(`Authenticated! Verified: ${result.userVerified}`, 'success');
+        document.getElementById('result').innerHTML = JSON.stringify(result, null, 2);
+    } catch (e) {
+        status(`Authentication failed: ${e.message}`, 'error');
+        console.error(e);
+    }
+}
+
+// Check support on load
+(async () => {
+    if (!SBOSWebAuthn.isSupported()) {
+        status('⚠️ WebAuthn not supported in this browser. Use Chrome, Edge, or Safari.', 'error');
+        document.getElementById('btnRegister').disabled = true;
+        document.getElementById('btnAuth').disabled = true;
+    } else {
+        const platform = await SBOSWebAuthn.isPlatformAuthAvailable();
+        status(platform ? '✅ Platform authenticator available (TouchID/Windows Hello)' : 'ℹ️ Platform authenticator not available. Use roaming key (YubiKey).', 'info');
+    }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,187 @@
+# ============================================================
+# SBOS FICHA MANIFEST
+# sbos-notifier · v1.0.0 · SKULL · Mayo 2026
+# ============================================================
+# Ficha de notificaciones universales del SBOS.
+# Cubre: Push MFA, alertas de sistema, notificaciones a
+# clientes, mensajes CLI, web push en tiempo real.
+# No implementa autenticación propia — delega a Keycloak.
+# Las salidas externas van exclusivamente por cajas biedata.
+# ============================================================
+
+identity:
+  id:           "sbos-notifier"
+  version:      "1.0.0"
+  description:  "Sistema de notificaciones universales del SBOS. Push MFA, alertas de sistema, notificaciones a clientes finales y mensajes CLI."
+  criticality:  true        # crítico — MFA depende de esta ficha
+  license:      "Apache-2.0"
+  author:       "SKULL"
+  sbos_version: ">=2.0"
+
+workload:
+  type:       kubernetes
+  namespace:  "sbos-{tenant}"
+  server:     "S06"         # appserver — aplicaciones de negocio
+  runtime:    podman        # OCI — Docker vetado (SBOS-004-RULES S8)
+
+# ------------------------------------------------------------
+# Dependencias — bos garantiza orden topológico en el DAG
+# ------------------------------------------------------------
+depends_on:
+  - postgresql              # BD principal notifier_db
+  - redis                   # DB2 streams + DB1 context registry
+  - keycloak                # SSO emisor (servicio interno)
+  - kong                    # API gateway — inyecta X-SBOS-CtxId
+  - vault                   # Secretos: tokens Telegram, Twilio, SMTP
+  - bkernel                 # Fuente de eventos vía WAL → Redis Stream
+  - biedata                 # Cajas de salida al exterior
+  - ntfy                    # Bus interno pub/sub (sub-ficha incluida)
+
+# ------------------------------------------------------------
+# Puertos — rango SKULL Custom 28100-28999 (SBOS-050)
+# Bloque asignado: 28200-28209
+#   T=0 HTTP app        28200
+#   T=1 HTTPS app       28201
+#   T=2 métricas        28202   ← Prometheus scrape
+#   T=3 health/ready    28203   ← K8s probes
+#   T=4 ntfy interno    28204   ← bus pub/sub interno
+#   T=5 ntfy WebSocket  28205   ← frontend Vue / Flutter
+# ------------------------------------------------------------
+ports:
+  http:       28200
+  https:      28201
+  metrics:    28202   # expone /metrics — Prometheus
+  health:     28203   # expone /health y /ready — K8s probes
+  ntfy:       28204   # ntfy HTTP API interna
+  ntfy_ws:    28205   # ntfy WebSocket — Vue / Flutter / CLI
+
+# ------------------------------------------------------------
+# Base de datos — PostgreSQL obligatorio (ADR-005)
+# Nunca accede a la BD de otra ficha
+# ------------------------------------------------------------
+database:
+  name:   "notifier_db"
+  engine: postgresql
+  owner:  "sbos-notifier"
+  tables:
+    - notification_events     # registro de cada notificación emitida
+    - notification_channels   # configuración de canales por tenant/user
+    - mfa_challenges          # challenges de Push MFA (TTL Redis + audit PG)
+    - notification_templates  # plantillas por tipo de evento
+
+# ------------------------------------------------------------
+# Keycloak — solo para el servicio emisor interno
+# Los destinatarios externos (Telegram, WhatsApp, email)
+# NO necesitan autenticación — son canales de salida
+# ------------------------------------------------------------
+keycloak:
+  client_id:   "sbos-notifier"
+  realm:       "{tenant}"
+  grant_type:  client_credentials   # servicio interno, no usuario
+  scopes:
+    - notify:send
+    - mfa:challenge
+
+# ------------------------------------------------------------
+# Vault — todos los secretos con TTL corto
+# Ninguna credencial en texto claro (SBOS-004-RULES P14)
+# ------------------------------------------------------------
+vault:
+  paths:
+    - "secret/tenants/{realm}/sbos-notifier/telegram-bot-token"
+    - "secret/tenants/{realm}/sbos-notifier/twilio-account-sid"
+    - "secret/tenants/{realm}/sbos-notifier/twilio-auth-token"
+    - "secret/tenants/{realm}/sbos-notifier/smtp-credentials"
+    - "secret/tenants/{realm}/sbos-notifier/mfa-challenge-signing-key"
+    - "secret/tenants/{realm}/sbos-notifier/ntfy-admin-token"
+  ttl: "1h"
+  renewable: true
+
+# ------------------------------------------------------------
+# Redis — DB asignada para esta ficha
+# NO usar DB0/DB1/DB2 reservadas para daemons soberanos
+# ------------------------------------------------------------
+redis:
+  db: 3                     # DB3 — notifier streams y cache de canales
+  streams:
+    consume:
+      - "biedata:notify:*"  # eventos de bKernel → biedata → notifier
+      - "mfa:challenges:*"  # challenges Push MFA
+    publish:
+      - "notify:sent:*"     # confirmaciones de envío
+
+# ------------------------------------------------------------
+# Cajas biedata — salidas externas autorizadas
+# biedata es el único daemon con salida HTTP exterior
+# Esta ficha NO llama a Telegram/Twilio/SMTP directamente
+# ------------------------------------------------------------
+biedata_boxes:
+  - id:      "mfa-push"
+    path:    "boxes/mfa-push/"
+    trigger: "redis_stream"
+    stream:  "mfa:challenges:{tenant}"
+    desc:    "Envía challenge Push MFA al celular del usuario"
+
+  - id:      "notify-external"
+    path:    "boxes/notify-external/"
+    trigger: "redis_stream"
+    stream:  "biedata:notify:{tenant}"
+    desc:    "Despacha notificaciones a Telegram, WhatsApp, Email"
+
+  - id:      "notify-cli"
+    path:    "boxes/notify-cli/"
+    trigger: "redis_stream"
+    stream:  "biedata:notify:cli:{tenant}"
+    desc:    "Publica en topics ntfy para consumo CLI y terminal"
+
+# ------------------------------------------------------------
+# bKernel — reglas de eventos que disparan notificaciones
+# Declaradas en /etc/bos/blibs/bkernel/rules/notifier/
+# bKernel detecta cambios en el WAL y publica en Redis Stream
+# ------------------------------------------------------------
+bkernel_rules:
+  - id:      "factura-emitida"
+    table:   "tryton_db.account_invoice"
+    event:   "UPDATE"
+    filter:  "state = 'posted'"
+    action:  "publish_stream"
+    stream:  "biedata:notify:{tenant}"
+    payload: "invoice_id, partner_id, amount, currency"
+
+  - id:      "error-importacion"
+    table:   "notifier_db.notification_events"
+    event:   "INSERT"
+    filter:  "type = 'error' AND severity = 'critical'"
+    action:  "publish_stream"
+    stream:  "biedata:notify:{tenant}"
+    payload: "event_id, message, ctx_id, source_module"
+
+  - id:      "tarea-pendiente-vencida"
+    table:   "bcompass_db.compass_tasks"
+    event:   "UPDATE"
+    filter:  "due_date < NOW() AND status = 'pending'"
+    action:  "publish_stream"
+    stream:  "biedata:notify:{tenant}"
+    payload: "task_id, assigned_to, title, due_date"
+
+  - id:      "mfa-challenge-creado"
+    table:   "notifier_db.mfa_challenges"
+    event:   "INSERT"
+    action:  "publish_stream"
+    stream:  "mfa:challenges:{tenant}"
+    payload: "challenge_token, user_id, ctx_id, expires_at, geo"
+
+# ------------------------------------------------------------
+# Feature flags
+# ------------------------------------------------------------
+feature_flags:
+  status:              "beta"
+  push_mfa:            true
+  telegram:            true
+  whatsapp:            true
+  email:               true
+  desktop_linux:       true
+  desktop_windows:     true
+  desktop_macos:       true
+  cli_terminal:        true
+  web_push_websocket:  true

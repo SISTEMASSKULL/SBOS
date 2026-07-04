@@ -1,0 +1,71 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dovecot
+  namespace: sbos-comms
+spec:
+  clusterIP: None
+  selector:
+    app: dovecot
+  ports:
+    - name: http
+      port: 143
+      targetPort: 143
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: dovecot
+  namespace: sbos-comms
+spec:
+  serviceName: dovecot
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dovecot
+  template:
+    metadata:
+      labels:
+        app: dovecot
+    spec:
+      serviceAccountName: dovecot-sa
+      containers:
+        - name: dovecot
+          image: docker.io/dovecot/dovecot:2.4
+          ports:
+            - containerPort: 143
+              name: http
+
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/dovecot
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 143
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 143
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: sbos-fast
+        resources:
+          requests:
+            storage: 50Gi

@@ -1,0 +1,14 @@
+identity:
+  id: ollama
+  name: Ollama LLM Runtime
+  version: "0.5"
+  category: 1
+  criticality: false
+  server: testserver
+  description: "Real manifest copy for integration testing"
+
+health:
+  check_command: "curl -sf http://localhost:11434/api/tags"
+  check_interval_seconds: 30
+  check_timeout_seconds: 5
+  consecutive_failures_threshold: 3

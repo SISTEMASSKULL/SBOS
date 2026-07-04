@@ -1,0 +1,44 @@
+identity:
+  id: sbos-bootstrap-os
+  server: S-HOST
+  version: 1.0.0
+  category: 1
+  criticality: true
+  description: "OS Bootstrap — módulos kernel, sysctl, estructura /data/, herramientas base Ubuntu 26.04"
+
+workload:
+  type: bash
+  runtime: bash
+
+order:
+  execution_order: 10
+
+requirements:
+  os: "Ubuntu 26.04 LTS"
+  kernel_min: "7.0.0"
+  ram_min_mb: 4096
+  disk_min_gb: 50
+  cpu_min: 2
+  dependencies: []
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "infraestructura-critica"
+
+meta:
+  backend: bash
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: partial
+
+ports: []
+
+health:
+  type: command
+  command: "test -f /etc/sysctl.d/99-sbos-k8s.conf && test -d /data/postgres && test -d /data/redis && echo HEALTHY"
+  timeout_seconds: 10
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/sbos-bootstrap-os.log

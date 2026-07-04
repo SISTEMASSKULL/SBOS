@@ -1,0 +1,48 @@
+identity:
+  id: sbos-bootstrap-hard
+  server: S-HOST
+  version: 1.0.0
+  category: 1
+  criticality: true
+  description: "CIS Hardening Bootstrap — UFW deny-all, Calico default-deny enforcement, Kyverno enforce mode, CIS Ubuntu 26.04 + K8s Benchmarks."
+
+workload:
+  type: bash
+  runtime: bash
+
+order:
+  execution_order: 250
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-cni
+    - sbos-bootstrap-k8s
+    - sbos-bootstrap-monitoring
+    - prometheus
+    - grafana
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "seguridad-critica"
+
+meta:
+  backend: bash
+  idempotent: true
+  estimated_minutes: 8
+  rollback_support: false
+
+ports: []
+
+health:
+  type: command
+  command: "ufw status | grep -q 'Status: active' && echo HEALTHY"
+  timeout_seconds: 10
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/sbos-bootstrap-hard.log
+
+cis_benchmarks:
+  ubuntu: "CIS Ubuntu Linux 26.04 LTS Benchmark v1.0"
+  kubernetes: "CIS Kubernetes Benchmark v1.10"

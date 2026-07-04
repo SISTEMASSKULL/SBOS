@@ -1,0 +1,42 @@
+# manifest.yml — Ficha postfix (SBOS-005 §commsserver)
+# SBOS-049 §4 · Order 320 · Deployment
+identity:
+  id: postfix
+  name: Postfix MTA
+  version: "3.9"
+  category: 1
+  criticality: true
+  server: commsserver
+  description: "SMTP: SPF, DKIM, DMARC"
+
+workload:
+  type: Deployment
+  namespace: sbos-comms
+  replicas: 1
+  service_account: postfix-sa
+
+order:
+  execution_order: 320
+  timeout_minutes: 15
+
+requirements:
+  dependencies:
+
+  cpu_request: "100m"
+  cpu_limit: "500m"
+  memory_request: "128Mi"
+  memory_limit: "256Mi"
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+health:
+  check_command: "postfix status"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

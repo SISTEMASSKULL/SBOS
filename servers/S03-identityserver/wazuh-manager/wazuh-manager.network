@@ -1,0 +1,21 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: wazuh-manager-netpol
+  namespace: sbos-identity
+spec:
+  podSelector:
+    matchLabels:
+      app: wazuh-manager
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              sbos-role: internal
+
+      ports:
+        - protocol: TCP
+          port: 55000

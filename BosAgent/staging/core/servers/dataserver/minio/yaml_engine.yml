@@ -1,0 +1,51 @@
+# yaml_engine.yml — MinIO lifecycle phases
+# SBOS-019 §9
+
+pre_install:
+  - name: "create_namespace"
+    command: "kubectl create namespace sbos-data --dry-run=client -o yaml | kubectl apply -f -"
+    timeout_seconds: 30
+  - name: "apply_network_policy"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/minio.network -n sbos-data"
+    timeout_seconds: 30
+
+install:
+  - name: "apply_statefulset"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/minio.k8s.yml -n sbos-data"
+    timeout_seconds: 120
+  - name: "wait_ready"
+    command: "kubectl wait --for=condition=Ready pod/minio-0 -n sbos-data --timeout=120s"
+    timeout_seconds: 120
+  - name: "create_buckets"
+    command: |
+      mc alias set local http://localhost:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD} 2>/dev/null
+      mc mb local/backups --ignore-existing 2>/dev/null
+      mc mb local/uploads --ignore-existing 2>/dev/null
+      mc mb local/archives --ignore-existing 2>/dev/null
+      mc policy set private local/backups 2>/dev/null
+      mc policy set public-read local/uploads 2>/dev/null
+      mc policy set private local/archives 2>/dev/null
+    timeout_seconds: 60
+
+post_install:
+  - name: "verify_health"
+    command: "curl -sf http://localhost:9000/minio/health/live"
+    timeout_seconds: 30
+
+update:
+  - name: "rolling_restart"
+    command: "kubectl rollout restart statefulset minio -n sbos-data"
+    timeout_seconds: 120
+
+repair:
+  - name: "restart_pod"
+    command: "kubectl delete pod minio-0 -n sbos-data --ignore-not-found"
+    timeout_seconds: 60
+
+uninstall:
+  - name: "delete_statefulset"
+    command: "kubectl delete statefulset minio -n sbos-data --ignore-not-found"
+    timeout_seconds: 60
+  - name: "delete_pvc"
+    command: "kubectl delete pvc minio-data -n sbos-data --ignore-not-found"
+    timeout_seconds: 60

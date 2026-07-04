@@ -1,0 +1,61 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fedora-kde
+  namespace: sbos-vdi
+spec:
+  type: ClusterIP
+  selector:
+    app: fedora-kde
+  ports:
+    - name: http
+      port: 5900
+      targetPort: 5900
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fedora-kde
+  namespace: sbos-vdi
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: fedora-kde
+  template:
+    metadata:
+      labels:
+        app: fedora-kde
+    spec:
+      serviceAccountName: fedora-kde-sa
+      containers:
+        - name: fedora-kde
+          image: docker.io/fedora/kde:43
+          ports:
+            - containerPort: 5900
+              name: http
+
+          resources:
+            requests:
+              cpu: 1000m
+              memory: 2Gi
+            limits:
+              cpu: 4000m
+              memory: 4Gi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5900
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5900
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+

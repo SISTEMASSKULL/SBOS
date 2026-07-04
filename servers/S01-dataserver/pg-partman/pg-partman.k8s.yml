@@ -1,0 +1,61 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pg-partman
+  namespace: sbos-data
+spec:
+  type: ClusterIP
+  selector:
+    app: pg-partman
+  ports:
+    - name: http
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pg-partman
+  namespace: sbos-data
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: pg-partman
+  template:
+    metadata:
+      labels:
+        app: pg-partman
+    spec:
+      serviceAccountName: pg-partman-sa
+      containers:
+        - name: pg-partman
+          image: docker.io/library/postgres:17
+          ports:
+            - containerPort: 5432
+              name: http
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5432
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5432
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+

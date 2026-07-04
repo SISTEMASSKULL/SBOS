@@ -1,0 +1,43 @@
+# manifest.yml — Ficha kimios (SBOS-005 §docserver)
+# SBOS-049 §4 · Order 305 · Deployment
+identity:
+  id: kimios
+  name: Kimios DMS
+  version: "1.3"
+  category: 1
+  criticality: false
+  server: docserver
+  description: "Document BPM with workflows"
+
+workload:
+  type: Deployment
+  namespace: sbos-docs
+  replicas: 1
+  service_account: kimios-sa
+
+order:
+  execution_order: 305
+  timeout_minutes: 15
+
+requirements:
+  dependencies:
+    - postgresql
+    - keycloak
+  cpu_request: "500m"
+  cpu_limit: "2000m"
+  memory_request: "512Mi"
+  memory_limit: "1Gi"
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+health:
+  check_command: "curl -sf http://localhost:8080/health"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

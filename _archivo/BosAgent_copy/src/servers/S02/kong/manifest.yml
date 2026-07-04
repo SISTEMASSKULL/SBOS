@@ -1,0 +1,64 @@
+identity:
+  id: kong
+  server: S02
+  version: 3.9.0
+  category: 1
+  criticality: true
+  description: "Kong 3.9.x LTS — API Gateway soberano. Punto único de entrada. JWT validation, rate limiting, plugin Lua SBOS-Context para ctx_id."
+
+workload:
+  type: Deployment
+  runtime: kubernetes
+
+order:
+  execution_order: 160
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-k8s
+    - sbos-bootstrap-cni
+    - postgresql
+    - keycloak
+    - vault
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "gateway-critico"
+
+meta:
+  backend: helm
+  idempotent: true
+  estimated_minutes: 10
+  rollback_support: true
+
+ports:
+  - port: 8000
+    protocol: TCP
+    description: "Kong proxy HTTP"
+    cluster_ip: 8160
+    internal_only: true
+  - port: 8443
+    protocol: TCP
+    description: "Kong proxy HTTPS"
+    cluster_ip: 8161
+    internal_only: true
+  - port: 8001
+    protocol: TCP
+    description: "Kong Admin API (restringida a sbos-system)"
+    internal_only: true
+
+health:
+  type: http
+  path: /status
+  port: 8001
+  timeout_seconds: 10
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/kong.log
+
+versions:
+  image: "kong:3.9.0"
+  namespace: sbos-gateway
+  db: kong_db

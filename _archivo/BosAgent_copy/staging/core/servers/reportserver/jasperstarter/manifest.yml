@@ -1,0 +1,42 @@
+# manifest.yml — Ficha jasperstarter (SBOS-005 §reportserver)
+# SBOS-049 §4 · Order 282 · Deployment
+identity:
+  id: jasperstarter
+  name: JasperStarter
+  version: "3.6"
+  category: 1
+  criticality: false
+  server: reportserver
+  description: "Batch mass report generation"
+
+workload:
+  type: Deployment
+  namespace: sbos-apps
+  replicas: 1
+  service_account: jasperstarter-sa
+
+order:
+  execution_order: 282
+  timeout_minutes: 10
+
+requirements:
+  dependencies:
+    - jaspersoft
+  cpu_request: "100m"
+  cpu_limit: "500m"
+  memory_request: "128Mi"
+  memory_limit: "256Mi"
+
+
+deployment:
+  strategy: Recreate
+
+governance:
+
+
+health:
+  check_command: "java -jar jasperstarter.jar --version"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

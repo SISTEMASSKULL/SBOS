@@ -1,0 +1,22 @@
+# Saga declarativa: mantenimiento de nodo (BOS-REPAIR-10 §3.2, F10.4).
+# La compensación de cada paso garantiza la reversibilidad: pase lo que
+# pase, el nodo termina uncordonado (la lección del incidente F9.0).
+# Producción: /etc/bos/ai/sagas/node-maintain.yml
+nombre: node-maintain
+pasos:
+  - id: cordon
+    metodo: bos.k8s.node.cordon
+    compensacion: bos.k8s.node.uncordon
+
+  - id: drain
+    metodo: bos.k8s.node.drain
+    compensacion: bos.k8s.node.uncordon
+    depende_de: [cordon]
+
+  - id: verificar
+    metodo: bos.query.node
+    depende_de: [drain]
+
+  - id: uncordon
+    metodo: bos.k8s.node.uncordon
+    depende_de: [verificar]

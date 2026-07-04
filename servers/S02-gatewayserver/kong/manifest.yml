@@ -1,0 +1,61 @@
+# manifest.yml — Ficha kong (SBOS-035 Ficha 11)
+# SBOS-019 §9 · Order 145 · Deployment
+identity:
+  id: kong
+  name: Kong Gateway OSS
+  version: "3.9"
+  category: 1
+  criticality: true
+  server: gatewayserver
+  description: "API Gateway con PostgreSQL backend y OIDC plugin"
+
+workload:
+  type: Deployment
+  namespace: sbos-gateway
+  replicas: 2
+  service_account: kong-sa
+
+order:
+  execution_order: 145
+  timeout_minutes: 15
+
+requirements:
+  dependencies:
+    - postgresql
+    - keycloak
+  cpu_request: "500m"
+  cpu_limit: "2000m"
+  memory_request: "1Gi"
+  memory_limit: "2Gi"
+
+deployment:
+  strategy: RollingUpdate
+  max_surge: 1
+  max_unavailable: 0
+
+governance:
+  auto_install: false
+  backup_enabled: false
+  audit_log: true
+
+health:
+  check_command: "curl -sf http://localhost:8001/status"
+  check_interval_seconds: 15
+  check_timeout_seconds: 5
+  consecutive_failures_threshold: 3
+
+integrations:
+  database:
+    name: kong_db
+    host_from: postgresql
+  oidc:
+    provider: keycloak
+    realm: skbos
+  proxy:
+    ports:
+      - 8000   # HTTP
+      - 8443   # HTTPS
+  admin:
+    port: 8001
+    accessible_from:
+      - sbos-installer

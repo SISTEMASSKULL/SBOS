@@ -1,0 +1,43 @@
+# manifest.yml — Ficha sbos-bootstrap-os (SBOS-005 §hostserver)
+# SBOS-049 §4 · Order 1 · Deployment
+identity:
+  id: sbos-bootstrap-os
+  name: SBOS Bootstrap OS
+  version: "1.0"
+  category: 1
+  criticality: true
+  server: hostserver
+  description: "Hardening Ubuntu + CRI-O + kernel tuning"
+
+workload:
+  type: Deployment
+  namespace: sbos-installer
+  replicas: 1
+  service_account: sbos-bootstrap-os-sa
+
+order:
+  execution_order: 1
+  timeout_minutes: 30
+
+requirements:
+  dependencies:
+
+  cpu_request: "100m"
+  cpu_limit: "500m"
+  memory_request: "128Mi"
+  memory_limit: "256Mi"
+
+
+deployment:
+  strategy: Recreate
+
+governance:
+  auto_install: true
+
+
+health:
+  check_command: "test -f /etc/sbos/.bootstrapped"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

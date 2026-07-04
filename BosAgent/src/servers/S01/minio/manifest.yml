@@ -1,0 +1,65 @@
+identity:
+  id: minio
+  server: S01
+  version: RELEASE.2025-05-24T17-08-30Z
+  category: 1
+  criticality: true
+  description: "MinIO — almacenamiento de objetos compatible S3. Backups SBOS, assets, archivos de apps."
+
+workload:
+  type: StatefulSet
+  runtime: kubernetes
+
+order:
+  execution_order: 120
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-k8s
+    - sbos-bootstrap-cni
+    - sbos-bootstrap-storage
+    - vault
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "datos-criticos"
+
+meta:
+  backend: helm
+  idempotent: true
+  estimated_minutes: 6
+  rollback_support: true
+
+ports:
+  - port: 9000
+    protocol: TCP
+    description: "MinIO API S3"
+    cluster_ip: 8130
+    internal_only: true
+  - port: 9001
+    protocol: TCP
+    description: "MinIO Console UI"
+    cluster_ip: 8131
+    internal_only: true
+
+health:
+  type: http
+  path: /minio/health/live
+  port: 9000
+  timeout_seconds: 10
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/minio.log
+
+versions:
+  image: "minio/minio:RELEASE.2025-05-24T17-08-30Z"
+  mc_image: "minio/mc:latest"
+  pv_name: sbos-minio-pv
+  namespace: sbos-data
+
+buckets:
+  - sbos-backups
+  - sbos-assets
+  - sbos-documents

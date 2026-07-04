@@ -1,0 +1,51 @@
+# bos.toml — SBOS IAM Installer runtime configuration
+# Architecture-fixed values only. Installation parameters come from bos-install.toml.
+# Schema: SBOS-018 §23 + R16 Zero Hardcoding.
+#
+# Resolution order: env var > bos-install.toml > bos.toml > built-in defaults
+
+# REQUISITO ARQUITECTURAL IRRENUNCIABLE — ADR-027:
+# SBOS opera exclusivamente sobre Podman rootful (sudo podman).
+# Rootless no está soportado en ningún entorno (staging, producción, futuro).
+# Razón técnica: acceso completo a cgroups v2, overlay estándar, sysctls,
+# iptables/nftables reales y métricas del kernel — esenciales para K8s anidado.
+[runtime]
+container_engine = "podman"
+container_mode = "rootful"        # rootless NO soportado — ver ADR-027
+min_version = "5.0.0"
+
+[daemon]
+log_level = "debug"
+
+[state]
+lock_timeout_seconds = 5
+
+[health]
+check_interval_seconds = 60
+consecutive_failures_threshold = 3
+
+[reconcile]
+interval_seconds = 300
+drift_check = true
+
+[sagas]
+install_timeout_minutes = 30
+update_timeout_minutes = 15
+repair_timeout_minutes = 10
+uninstall_timeout_minutes = 10
+deploy_timeout_minutes = 120
+
+[growth]
+cpu_threshold_percent = 80
+ram_threshold_percent = 85
+disk_threshold_percent = 75
+evaluation_window_minutes = 30
+
+[watchdog]
+interval_seconds = 30
+disk_threshold_percent = 85
+memory_threshold_percent = 90
+k8s_node_check = true
+k8s_pod_check = true
+bos_ficha_check = true
+auto_repair = false

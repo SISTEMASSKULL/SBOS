@@ -1,0 +1,51 @@
+phases:
+  pre_install:
+    tasks:
+      - task: "check_node_resources"
+        params: { ram_mb_required: 2048, disk_gb_required: 40 }
+      - task: "create_k8s_namespace"
+        params: { namespace: "sbos-notifier" }
+      - task: "vault_read_secret"
+        params: { secret_path: "secret/bauth/collab/novu", key: "jwt-secret", env_var: "NOVU_JWT_SECRET" }
+      - task: "pg_create_database"
+        params: { database: "notifier_db", owner_secret: "secret/sbos/novu/db" }
+      - task: "apply_network_policy"
+        params: { namespace: "sbos-notifier", policy: "novu.network" }
+  post_install:
+    tasks:
+      - task: "wait_pod_ready"
+        params: { namespace: "sbos-notifier", pod_selector: "app=novu-api", timeout_seconds: 180 }
+      - task: "novu_bootstrap_organization"
+        params: { organization_name: "SBOS", environment: "Production" }
+      - task: "novu_configure_channels"
+        params:
+          email: { provider: "smtp", host: "postfix.sbos-collab", port: 587 }
+          sms: { provider: "twilio" }
+          whatsapp: { provider: "meta-whatsapp" }
+          push: { provider: "fcm" }
+      - task: "novu_create_webhook_endpoint"
+        params: { source: "calcom", url: "/v1/trigger/calcom-event" }
+      - task: "novu_create_webhook_endpoint"
+        params: { source: "mattermost", url: "/v1/trigger/mattermost-event" }
+  update:
+    tasks:
+      - task: "reconcile_file"
+        update_strategy: "rolling"
+        drift_check: true
+        params: { source: "resources/config/novu.env", target: "/etc/novu/.env" }
+      - task: "rollout_restart"
+        params: { namespace: "sbos-notifier", resource: "Deployment/novu-api" }
+  repair:
+    diagnosis_first: true
+    tasks:
+      - task: "check_pod_status"
+        params: { namespace: "sbos-notifier", pod_selector: "app=novu-api" }
+      - task: "rollout_restart"
+        params: { namespace: "sbos-notifier", resource: "Deployment/novu-api" }
+        on_failure: "abort"
+  uninstall:
+    require_confirmation: "DESINSTALAR-NOVU"
+    governance_category: 2
+    tasks:
+      - task: "take_backup_snapshot"
+        params: { backup_name: "pre-uninstall-novu" }

@@ -1,0 +1,110 @@
+# seed-skull.yml — Seed file para el tenant "skull"
+# F10.C.1 — Diseño del esquema YAML para bosctl deploy
+# Alineado con SBOS-051-TENANT-SPEC v2.0: Modelo A (Enterprise Tenant) + Modelo B (Technical Domain)
+# Schema version: 2.0 (2026-06-17)
+
+# ═══ MODELO A — Tenant Empresarial (Capa Legal/Negocio) ═══
+# Gobernado por: bos (Control Plane soberano). Almacenado en bkernel_db.enterprise_tenants.
+# Referencias: ISO 17442 (LEI), ISO 20275 (ELF), NIT (SIN), Matrícula de Comercio (FUNDEMPRESA)
+enterprise_tenant:
+  legal_name: "SKULL Sistemas S.R.L."
+  trading_name: "SKULL"
+  entity_legal_form_code: SRL
+  jurisdiction_of_registration: "La Paz, Bolivia"
+  registration_number: "00123456"           # Matrícula de Comercio (FUNDEMPRESA)
+  tax_identifier: "1234567890"              # NIT (SIN)
+  registered_address: "Av. Arce 1234, La Paz"
+  entity_status: ACTIVA
+  registration_date: "2024-01-15"
+
+# ═══ MODELO B — Dominio Técnico (Capa de Plataforma) ═══
+# Gobernado por: bos (bosctl deploy). Cardinalidad 1:N con Modelo A.
+# Referencias: ISO/IEC 17788, NSA/CISA K8s Hardening, CIS Benchmark v8
+
+# ── PASO 1: Identity (Keycloak Realm + SPIs) ──────────────────────────
+identity:
+  realm: skull
+  display_name: "SKULL — Sovereign Business OS"
+  sso_session_max: 12h
+  access_token_lifespan: 15m
+  spis:
+    - BosRolTemplate
+    - FinancialDomain
+    - PhysicalDomain
+    - LogicalDomain
+    - TemporalContext
+
+# ── PASO 2: Infrastructure (Ficha sbos-namespace) ─────────────────────
+# Se ejecuta: DOMAIN_ID=skull-prod bosctl ficha install sbos-namespace
+# Crea namespace sbos-skull-prod + NetworkPolicy + ResourceQuota + LimitRange
+# §5.8 TENANT-SPEC: tenancy_trust_model + isolation_mechanism obligatorios
+infrastructure:
+  domain_id: skull-prod
+  domain_type: production
+  ficha: sbos-namespace
+  network_policy: default-deny
+  tenancy_trust_model: hard
+  isolation_mechanism: namespace_rbac
+
+# ── PASO 3: Databases (PostgreSQL 18.4, 9 BDs) ────────────────────────
+databases:
+  engine: postgresql
+  version: "18.4"
+  cluster_ip: "8100"
+  databases:
+    - name: keycloak_db
+      owner: keycloak
+    - name: bkernel_db
+      owner: bkernel
+    - name: bauth_db
+      owner: bauth
+    - name: tryton_db
+      owner: tryton
+    - name: minio_meta
+      owner: minio
+    - name: bsearch_catalog
+      owner: bsearch
+    - name: bcompass_db
+      owner: bcompass
+    - name: bnotify_db
+      owner: bnotify
+    - name: audit_db
+      owner: audit
+
+# ── PASO 4: Vault (Secret Paths + AppRole por ficha) ──────────────────
+vault:
+  version: "2.0.1"
+  engine: kv-v2
+  base_path: secret/tenants/skull
+  approle_ttl: 24h
+  shamir_keys: 3
+  shamir_threshold: 5
+
+# ── PASO 5: Redis (Context Registry DB1, TTL sync KC) ─────────────────
+redis:
+  version: "8.6.2"
+  db0: streams_cache      # Redis Streams + cache general
+  db1: context_registry    # Context Registry (TTL = sesión KC)
+  db2: rate_limiting      # Rate Limiting
+  persistence: AOF
+
+# ── PASO 6: DDL Context Plane ─────────────────────────────────────────
+context_plane:
+  auto_migrate: true       # bos.AutoMigrate() al arrancar
+  tables:
+    - registered_devices
+    - context_sessions
+  indexes:
+    - idx_ctx_tenant
+
+# ── PASO 7: Fichas del tenant (instalación en orden DAG) ──────────────
+fichas:
+  - sbos-bkernel           # bKernel CDC daemon (daemon soberano)
+  - kong                   # API gateway
+
+# ── Usuarios iniciales ────────────────────────────────────────────────
+users:
+  - username: admin
+    email: admin@skull.sbos.app
+    roles: [realm-admin, bos-operator]
+    temporary_password: true

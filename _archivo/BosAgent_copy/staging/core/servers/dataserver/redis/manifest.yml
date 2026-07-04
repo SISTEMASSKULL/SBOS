@@ -1,0 +1,50 @@
+# manifest.yml — Ficha 06: Redis
+# SBOS-019 §9 · Order 110 · StatefulSet
+identity:
+  id: redis
+  name: Redis
+  version: "7.4"
+  category: 1
+  criticality: false
+  server: dataserver
+  description: "Redis para caché, colas de tareas y sesiones"
+
+workload:
+  type: StatefulSet
+  namespace: sbos-data
+  replicas: 1
+  service_account: redis-sa
+
+order:
+  execution_order: 110
+  timeout_minutes: 15
+
+requirements:
+  dependencies:
+    - network-validator
+  cpu_request: "500m"
+  cpu_limit: "2000m"
+  memory_request: "2Gi"
+  memory_limit: "4Gi"
+  pvc_size: "50Gi"
+  pvc_storage_class: "sbos-fast"
+
+deployment:
+  strategy: Recreate
+
+governance:
+  auto_install: false
+  backup_enabled: true
+  backup_schedule: "0 3 * * *"
+
+health:
+  check_command: "redis-cli ping"
+  check_interval_seconds: 30
+  check_timeout_seconds: 5
+  consecutive_failures_threshold: 3
+
+integrations:
+  consumers:
+    - bkernel-agent
+    - bnexus-agent
+    - bos-agent

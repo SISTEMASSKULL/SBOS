@@ -1,0 +1,60 @@
+identity:
+  id: "novu"
+  name: "Novu Notifications"
+  version: "3.15.0"
+  server: "S06"
+  namespace: "sbos-notifier"
+  criticality: true
+
+workload:
+  type: "kubernetes"
+  state: "prod"
+
+order:
+  execution_order: 176
+
+parameters:
+  NOVU_JWT_SECRET_PATH: "secret/bauth/collab/novu"
+  NOVU_MONGO_URL: "mongodb://ferretdb.sbos-notifier:27017/novu"
+  NOVU_REDIS_URL: "redis://redis.sbos-data:6379/3"
+
+requirements:
+  ram_mb: 2048
+  cpu_cores: 2
+  disk_gb: 40
+  dependencies:
+    - postgresql
+    - redis
+    - ferretdb
+    - keycloak
+    - vault
+
+deployment:
+  namespace: "sbos-notifier"
+  node_selector: "tipo=appserver"
+  k8s_manifest: "novu.k8s.yml"
+  workload_type: "Deployment"
+  network_policy: "novu.network"
+
+governance:
+  category: 2
+  backup_required: true
+  backup_schedule: "0 3 * * *"
+
+health:
+  check_command: "curl -sf http://localhost:28200/v1/health-check"
+  check_via: "kubectl_exec"
+  pod_selector: "app=novu-api"
+  interval_seconds: 30
+  failure_threshold: 3
+
+integrations:
+  provides_to:
+    - "calcom"
+    - "mattermost"
+
+bsearch_config:
+  enabled: false
+
+compatibility:
+  min_iam_installer_version: "1.0.0"

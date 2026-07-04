@@ -1,0 +1,57 @@
+identity:
+  id: postgresql
+  server: S01
+  version: 18.4.0
+  category: 1
+  criticality: true
+  description: "PostgreSQL 18.4 — motor de BD relacional. WAL logical (pgoutput) para bKernel CDC. 10 bases de datos SBOS."
+
+workload:
+  type: StatefulSet
+  runtime: kubernetes
+
+order:
+  execution_order: 100
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-k8s
+    - sbos-bootstrap-cni
+    - sbos-bootstrap-storage
+    # vault NO es dependencia de instalación — PG se instala con credenciales bootstrap.
+    # Vault se instala DESPUÉS y rota las credenciales. La dependencia es runtime, no install.
+  runtime_dependencies:
+    - vault
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "datos-criticos"
+
+meta:
+  backend: helm
+  idempotent: true
+  estimated_minutes: 8
+  rollback_support: true
+
+ports:
+  - port: 5432
+    protocol: TCP
+    description: "PostgreSQL nativo"
+    cluster_ip: 8100
+    internal_only: true
+
+health:
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config exec -n sbos-data postgresql-0 -- pg_isready -U postgres"
+  timeout_seconds: 10
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/postgresql.log
+
+versions:
+  postgresql: "18.4"
+  image: "postgres:18.4-alpine"
+  pv_name: sbos-postgres-pv
+  namespace: sbos-data

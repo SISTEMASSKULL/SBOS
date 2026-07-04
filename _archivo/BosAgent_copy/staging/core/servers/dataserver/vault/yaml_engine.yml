@@ -1,0 +1,64 @@
+# yaml_engine.yml — HashiCorp Vault lifecycle phases
+# SBOS-019 §9
+
+pre_install:
+  - name: "create_namespace"
+    command: "kubectl create namespace sbos-security --dry-run=client -o yaml | kubectl apply -f -"
+    timeout_seconds: 30
+  - name: "apply_network_policy"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/vault.network -n sbos-security"
+    timeout_seconds: 30
+  - name: "create_vault_db"
+    command: "kubectl exec postgresql-0 -n sbos-data -- psql -U postgres -c \"CREATE DATABASE vault_db OWNER vault;\"" 2>/dev/null || true
+    timeout_seconds: 30
+
+install:
+  - name: "apply_statefulset"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/vault.k8s.yml -n sbos-security"
+    timeout_seconds: 120
+  - name: "wait_ready"
+    command: "kubectl wait --for=condition=Ready pod/vault-0 -n sbos-security --timeout=120s"
+    timeout_seconds: 120
+  - name: "init_vault"
+    command: |
+      kubectl exec vault-0 -n sbos-security -- vault operator init \
+        -key-shares=5 -key-threshold=3 -format=json > /tmp/vault-init.json
+      chmod 600 /tmp/vault-init.json
+    timeout_seconds: 60
+
+post_install:
+  - name: "unseal_vault"
+    command: |
+      keys=$(jq -r '.unseal_keys_b64[0:3][]' /tmp/vault-init.json)
+      for key in $keys; do
+        kubectl exec vault-0 -n sbos-security -- vault operator unseal "$key"
+      done
+    timeout_seconds: 60
+  - name: "enable_pki"
+    command: |
+      root_token=$(jq -r '.root_token' /tmp/vault-init.json)
+      kubectl exec vault-0 -n sbos-security -- vault login "$root_token" > /dev/null
+      kubectl exec vault-0 -n sbos-security -- vault secrets enable pki 2>/dev/null || true
+      kubectl exec vault-0 -n sbos-security -- vault secrets enable -version=2 kv 2>/dev/null || true
+    timeout_seconds: 60
+
+update:
+  - name: "rolling_restart"
+    command: "kubectl rollout restart statefulset vault -n sbos-security"
+    timeout_seconds: 120
+
+repair:
+  - name: "restart_pod"
+    command: "kubectl delete pod vault-0 -n sbos-security --ignore-not-found"
+    timeout_seconds: 60
+
+uninstall:
+  - name: "seal_vault"
+    command: "kubectl exec vault-0 -n sbos-security -- vault operator seal" 2>/dev/null || true
+    timeout_seconds: 30
+  - name: "delete_statefulset"
+    command: "kubectl delete statefulset vault -n sbos-security --ignore-not-found"
+    timeout_seconds: 60
+  - name: "delete_pvc"
+    command: "kubectl delete pvc vault-data -n sbos-security --ignore-not-found"
+    timeout_seconds: 60

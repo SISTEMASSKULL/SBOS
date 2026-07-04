@@ -1,0 +1,48 @@
+# yaml_engine.yml — Stalwart lifecycle phases
+# SBOS-049 §4.4 · Orden 160 · StatefulSet
+# Reemplaza postfix + dovecot + spamassassin
+
+pre_install:
+  - name: "create_namespace"
+    command: "kubectl create namespace sbos-comms --dry-run=client -o yaml | kubectl apply -f -"
+    timeout_seconds: 30
+  - name: "apply_network_policy"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/stalwart.network -n sbos-comms"
+    timeout_seconds: 30
+
+install:
+  - name: "apply_statefulset"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/stalwart.k8s.yml -n sbos-comms"
+    timeout_seconds: 300
+  - name: "wait_ready"
+    command: "kubectl wait --for=condition=Ready pod/stalwart-0 -n sbos-comms --timeout=600s"
+    timeout_seconds: 650
+
+post_install:
+  - name: "verify_health"
+    command: "kubectl exec -n sbos-comms stalwart-0 -- curl -sf http://localhost:8080/health"
+    timeout_seconds: 30
+  - name: "verify_ports"
+    command: "kubectl exec -n sbos-comms stalwart-0 -- ss -tlnp | grep -E ':(25|587|143|993|4190)'"
+    timeout_seconds: 30
+
+update:
+  - name: "apply_updated"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/stalwart.k8s.yml -n sbos-comms"
+    timeout_seconds: 300
+  - name: "rolling_restart"
+    command: "kubectl rollout restart statefulset stalwart -n sbos-comms"
+    timeout_seconds: 300
+
+repair:
+  - name: "restart"
+    command: "kubectl rollout restart statefulset stalwart -n sbos-comms"
+    timeout_seconds: 120
+
+uninstall:
+  - name: "delete_statefulset"
+    command: "kubectl delete statefulset stalwart -n sbos-comms --ignore-not-found"
+    timeout_seconds: 120
+  - name: "delete_pvc"
+    command: "kubectl delete pvc stalwart-data -n sbos-comms --ignore-not-found"
+    timeout_seconds: 60

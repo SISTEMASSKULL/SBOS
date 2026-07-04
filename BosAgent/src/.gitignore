@@ -1,0 +1,7 @@
+_snapshots/*/cmd/
+_snapshots/*/internal/
+_snapshots/*/_bosagent_root/
+
+# Binarios compilados (solo en raíz del módulo)
+/bosctl
+/bos

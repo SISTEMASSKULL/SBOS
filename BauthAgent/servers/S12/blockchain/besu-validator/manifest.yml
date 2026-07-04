@@ -1,0 +1,112 @@
+# ============================================================
+# besu-validator/manifest.yml — Ficha Besu QBFT (PROBADA)
+#
+# Configuración validada 2026-06-22 en VPS staging (13.140.128.230):
+#   ✅ Besu 24.12.0 corriendo con QBFT
+#   ✅ Bloques cada 2 segundos
+#   ✅ RPC HTTP :8545 funcional (ETH,NET,WEB3,ADMIN,DEBUG,TXPOOL,QBFT)
+#   ✅ contrato SettlementEngine.sol desplegado y verificado
+#   ✅ RAM: ~600MB en idle
+#   ✅ Idempotente: genesis determinístico + claves en Vault
+#
+# Modo producción: 4 validadores QBFT (3f+1, f=1)
+# Modo dev: 1 validador (misma config, count=1)
+# ============================================================
+ficha: besu-validator
+version: "1.0.0"
+servidor: S12
+tipo: statefulset
+proposito: "Red Besu QBFT para liquidaciones on-chain D12 Variante B"
+
+imagen:
+  nombre: hyperledger/besu
+  tag: 24.12.0
+  registry: docker.io
+
+recursos:
+  cpu: "2000m"
+  memoria: "2Gi"
+  almacenamiento: "50Gi"       # PersistentVolume con Retain policy
+  storage_class: bos-blockchain
+
+red:
+  puertos:
+    - 8545   # RPC HTTP (daemons internos)
+    - 8546   # RPC WebSocket
+    - 30303  # P2P (entre validadores)
+  network_policy: "solo-nodos-S12"
+
+config:
+  # ─── Parámetros validados en VPS ───
+  genesis_file: /etc/besu/genesis.json
+  data_path: /data
+  host_allowlist: "*"
+  rpc_http_enabled: true
+  rpc_http_api: "ETH,NET,WEB3,ADMIN,DEBUG,TXPOOL,QBFT"
+  rpc_http_cors_origins: "all"
+
+  # ─── QBFT Consensus ───
+  consenso: qbft
+  blockperiodseconds: 2
+  epochlength: 30000
+  requesttimeoutseconds: 4
+  chain_id: 1337
+
+  # ─── Validadores ───
+  validadores: 4                # 4 en prod, 1 en dev
+  fault_tolerance: 1            # f=1 (hasta 1 validador puede fallar)
+
+  # ─── Mining ───
+  miner_enabled: true
+  miner_coinbase: "0xD2Fe542a74c9A7C45d52FcBB62F6b61032F4420A"
+
+  # ─── Gas ───
+  gas_limit: "0x1fffffffffffff"
+  zero_base_fee: true
+
+# ─── Claves (Vault + HSM) ───
+claves:
+  proveedor: vault
+  path: pki/keys/besu-validator-{i}
+  formato: pkcs11
+  hsm: softHSM2              # dev · YubiHSM 2 FIPS (prod)
+  rotacion_dias: 180
+  transicion_dias: 7
+
+# ─── Idempotencia ───
+idempotencia:
+  genesis_deterministico: true
+  claves_persistentes: true     # Vault — sobreviven reinicios
+  datos_persistentes: true      # PersistentVolume Retain
+  contrato_deploy: "ON CONFLICT DO NOTHING"
+  cuentas_registro: "registerAccount revierte si ya existe"
+
+# ─── Health Check ───
+health_check:
+  readiness:
+    endpoint: /liveness
+    initial_delay: 10s
+    period: 5s
+  liveness:
+    endpoint: /liveness
+    period: 10s
+  metrica_bloques:
+    comando: "curl -s localhost:8545 -d '{\"jsonrpc\":\"2.0\",\"method\":\"eth_blockNumber\",\"id\":1}'"
+    esperado: "bloque > 0"
+
+# ─── Métricas Prometheus ───
+metrics:
+  puerto: 9545
+  metricas:
+    - besu_blockchain_height
+    - besu_qbft_validators_active
+    - besu_block_time_seconds
+    - besu_peer_count
+    - besu_gas_used
+
+# ─── NOTAS ───
+# 1. Genesis se genera UNA vez con: besu operator generate-blockchain-config
+# 2. Claves de validador NUNCA salen del HSM (PKCS#11)
+# 3. El validador 0 es el bootnode para los demás
+# 4. NetworkPolicy: solo permitir tráfico entre validadores S12 + bAuth RPC
+# 5. Backup diario de /data a MinIO (S01)

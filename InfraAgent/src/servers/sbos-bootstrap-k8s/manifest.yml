@@ -1,0 +1,41 @@
+# sbos-bootstrap-k8s — Ficha 02
+# Inicialización del cluster Kubernetes: kubeadm init, Calico, MetalLB, nginx-ingress
+# Tipo 1 (bash) — ejecuta kubeadm init en el host
+# K8s 1.28+ mínimo absoluto — no negociable
+
+version: "1.0.0"
+categoria: 1
+tipo: bash
+orden: 2
+criticidad: true
+tiempo_estimado: 480
+
+dependencias:
+  - sbos-bootstrap-os
+
+servidor_logico: hostserver
+namespace_k8s: kube-system
+
+descripcion: |
+  Inicializa el cluster Kubernetes con kubeadm init --kubernetes-version=1.28,
+  instala Calico eBPF como CNI, MetalLB en modo L2, cert-manager y nginx-ingress.
+  K8s 1.28+ es el mínimo absoluto (SBOS-004-K8S).
+
+post_install:
+  - verificar_nodos_ready
+  - verificar_pods_sistema
+
+rollback: kubeadm_reset
+
+signals:
+  - __SBOS__STEP_START__
+  - __SBOS__STEP_OK__
+  - __SBOS__STEP_FAIL__
+  - __SBOS__STEP_SKIP__
+  - __SBOS__ROLLBACK_START__
+  - __SBOS__CLEANUP_DONE__
+
+k8s_min_version: "1.28"
+calico_version: "3.27.0"
+metallb_version: "0.13.12"
+cert_manager_version: "1.14.0"

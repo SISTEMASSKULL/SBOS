@@ -1,0 +1,54 @@
+# Containerfile — SBOS K8s Staging Node
+# Ubuntu 26.04 + systemd + kubeadm + containerd
+# Ejecuta un cluster K8s single-node dentro del contenedor
+# Red: sbos-staging (10.89.1.0/24)
+#
+# REQUISITO ARQUITECTURAL IRRENUNCIABLE — ADR-027:
+# Este contenedor requiere Podman ROOTFUL (sudo podman).
+# Rootless NO está soportado — no se puede ejecutar K8s anidado
+# sin acceso real a cgroups v2, overlay estándar y sysctls del kernel.
+# Verificación: cat /proc/1/uid_map debe mostrar "0 0 4294967295"
+
+FROM ubuntu:26.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Instalar systemd y dependencias base + herramientas Bash engine
+RUN apt-get update -qq && \
+    apt-get install -y -qq \
+      systemd systemd-sysv \
+      curl gnupg ca-certificates \
+      iptables kmod \
+      iproute2 net-tools \
+      tzdata jq \
+    && apt-get clean
+
+# Agregar repositorio Kubernetes v1.32
+RUN curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.32/deb/Release.key | \
+      gpg --dearmor --batch --yes -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg && \
+    echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /" \
+      > /etc/apt/sources.list.d/kubernetes.list
+
+# Instalar containerd + kubeadm + kubelet + kubectl
+RUN apt-get update -qq && \
+    apt-get install -y -qq containerd kubeadm kubelet kubectl && \
+    apt-get clean
+
+# Configurar containerd para rootful: systemd cgroup driver + overlay estándar
+# No se usa userxattr (innecesario en rootful, añade overhead)
+RUN mkdir -p /etc/containerd && \
+    containerd config default > /etc/containerd/config.toml && \
+    sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml && \
+    sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
+
+# sysctl K8s
+RUN echo "net.bridge.bridge-nf-call-iptables = 1" > /etc/sysctl.d/99-k8s.conf && \
+    echo "net.ipv4.ip_forward = 1" >> /etc/sysctl.d/99-k8s.conf && \
+    echo "net.bridge.bridge-nf-call-ip6tables = 1" >> /etc/sysctl.d/99-k8s.conf
+
+# Instalar yq (YAML processor) — requerido por 00_YAML_ENGINE_SBOS.sh
+RUN curl -sSLo /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 && \
+    chmod +x /usr/local/bin/yq
+
+# systemd como PID 1
+CMD ["/sbin/init"]

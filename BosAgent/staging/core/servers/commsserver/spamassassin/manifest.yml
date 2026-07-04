@@ -1,0 +1,42 @@
+# manifest.yml — Ficha spamassassin (SBOS-005 §commsserver)
+# SBOS-049 §4 · Order 332 · Deployment
+identity:
+  id: spamassassin
+  name: SpamAssassin
+  version: "4.0"
+  category: 1
+  criticality: false
+  server: commsserver
+  description: "Bayesian anti-spam filter"
+
+workload:
+  type: Deployment
+  namespace: sbos-comms
+  replicas: 1
+  service_account: spamassassin-sa
+
+order:
+  execution_order: 332
+  timeout_minutes: 10
+
+requirements:
+  dependencies:
+    - postfix
+  cpu_request: "200m"
+  cpu_limit: "1000m"
+  memory_request: "256Mi"
+  memory_limit: "512Mi"
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+health:
+  check_command: "spamassassin --version"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

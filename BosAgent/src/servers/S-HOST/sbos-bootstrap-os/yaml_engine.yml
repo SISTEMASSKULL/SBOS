@@ -1,0 +1,83 @@
+# yaml_engine.yml — sbos-bootstrap-os
+# Esta ficha opera en el nivel OS (no K8s). No despliega recursos Kubernetes.
+# Define la configuración declarativa del sistema operativo.
+
+os:
+  ubuntu_version: "26.04"
+  codename: "plucky"
+
+kernel_modules:
+  - br_netfilter
+  - overlay
+  - ip_tables
+  - ip6_tables
+  - nf_conntrack
+  - nf_nat
+  - xt_MASQUERADE
+  - xt_conntrack
+
+sysctl:
+  net.bridge.bridge-nf-call-iptables: "1"
+  net.bridge.bridge-nf-call-ip6tables: "1"
+  net.ipv4.ip_forward: "1"
+  net.ipv6.conf.all.forwarding: "1"
+  fs.inotify.max_user_watches: "524288"
+  fs.inotify.max_user_instances: "512"
+  vm.max_map_count: "262144"
+  kernel.panic: "10"
+  kernel.panic_on_oops: "1"
+
+packages_required:
+  - curl
+  - gnupg
+  - apt-transport-https
+  - ca-certificates
+  - jq
+  - socat
+  - conntrack
+  - ipset
+  - iptables
+  - nftables
+  - lsof
+  - net-tools
+  - iproute2
+  - tcpdump
+
+packages_k8s_runtime:
+  - containerd.io
+
+data_directories:
+  - path: /data
+    mode: "0755"
+    owner: root
+  - path: /data/postgres
+    mode: "0700"
+    owner: "999"
+    comment: "UID 999 = postgres en contenedor"
+  - path: /data/redis
+    mode: "0700"
+    owner: "999"
+  - path: /data/vault
+    mode: "0700"
+    owner: "100"
+    comment: "UID 100 = vault en contenedor"
+  - path: /data/keycloak
+    mode: "0755"
+    owner: root
+  - path: /data/minio
+    mode: "0755"
+    owner: root
+  - path: /data/prometheus
+    mode: "0755"
+    owner: "65534"
+    comment: "UID 65534 = nobody/prometheus"
+  - path: /data/grafana
+    mode: "0755"
+    owner: "472"
+    comment: "UID 472 = grafana en contenedor"
+
+containerd:
+  config_path: /etc/containerd/config.toml
+  cgroup_driver: systemd
+  sandbox_image: "registry.k8s.io/pause:3.9"
+  systemd_cgroup: true

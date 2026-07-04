@@ -1,0 +1,45 @@
+# manifest.yml — Ficha cypht (SBOS-005 §commsserver)
+# SBOS-049 §4 · Order 328 · Deployment
+identity:
+  id: cypht
+  name: Cypht Webmail
+  version: "1.5"
+  category: 1
+  criticality: false
+  server: commsserver
+  description: "Multi-account webmail with OAuth2-Proxy"
+
+workload:
+  type: Deployment
+  namespace: sbos-comms
+  replicas: 1
+  service_account: cypht-sa
+
+order:
+  execution_order: 328
+  timeout_minutes: 10
+
+requirements:
+  dependencies:
+    - postfix
+    - dovecot
+    - oauth2-proxy
+  cpu_request: "200m"
+  cpu_limit: "1000m"
+  memory_request: "256Mi"
+  memory_limit: "512Mi"
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+health:
+  check_command: "curl -sf http://localhost:80"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+degraded_allowed: true
+  degraded_reason: "OAuth2-Proxy may be unavailable"

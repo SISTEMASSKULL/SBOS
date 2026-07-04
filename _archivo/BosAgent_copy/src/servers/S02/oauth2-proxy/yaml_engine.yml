@@ -1,0 +1,61 @@
+# yaml_engine.yml — oauth2-proxy
+# Iteración 1: Deployment mínimo funcional, OIDC contra Keycloak, cookie sessions
+# Iteración 2 (futura): Redis session store, TLS interno, cookie secure
+# Iteración 3 (futura): 2+ réplicas, Redis sentinel, rolling update sin pérdida sesiones
+
+namespace: sbos-security
+image: "quay.io/oauth2-proxy/oauth2-proxy:v7.8.0"
+replicas: 1
+
+oidc:
+  provider: oidc
+  issuer_url: "http://keycloak.sbos-security.svc.cluster.local:8080/realms/master"
+  client_id: oauth2-proxy
+  client_secret_key: OAUTH2_PROXY_CLIENT_SECRET
+  oidc_groups_claim: groups
+  scope: "openid email profile"
+
+cookie:
+  secret_source: random
+  domain: ".sksistemas.com"
+  secure: false
+  expire: 1h
+  refresh: 15m
+
+session:
+  type: cookie
+
+upstream:
+  type: static
+  default: "http://kong.sbos-gateway.svc.cluster.local:8000"
+  static_code: 200
+
+headers:
+  inject:
+    - X-Forwarded-User
+    - X-Forwarded-Email
+    - X-Forwarded-Groups
+    - X-Forwarded-Preferred-Username
+
+ports:
+  http: 4180
+  metrics: 44180
+
+resources:
+  requests:
+    cpu: "50m"
+    memory: "64Mi"
+  limits:
+    cpu: "200m"
+    memory: "128Mi"
+
+auth:
+  email_domains: "*"
+  skip_provider_button: false
+  set_authorization_header: true
+  set_xauthrequest: true
+  reverse_proxy: true
+
+metrics:
+  enabled: true
+  port: 44180

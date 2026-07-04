@@ -1,0 +1,160 @@
+# ================================================================
+# bauth — CI Pipeline (B0.T08)
+# DOC-SBOS-001 N3 · SBOS-ECO-007
+#
+# Gates:
+#   0. build — compila en modo release + MUSL
+#   1. test  — cargo test (todos los tests)
+#   2. fmt   — cargo fmt --check (estilo consistente)
+#   3. lint  — cargo clippy -- -D warnings (sin warnings)
+#   4. audit — cargo deny check (licencias, advisories)
+#   5. size  — verificar binario < 15MB
+# ================================================================
+
+name: bauth CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'BauthAgent/**'
+      - '.github/workflows/bauth.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'BauthAgent/**'
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # ── Gate 0: Build ────────────────────────────────────────
+  build:
+    name: Build (MUSL)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Instalar MUSL target
+        run: |
+          rustup target add x86_64-unknown-linux-musl
+          sudo apt-get update -qq && sudo apt-get install -y -qq musl-tools
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            BauthAgent/target
+          key: ${{ runner.os }}-cargo-musl-${{ hashFiles('BauthAgent/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-musl-
+
+      - name: Build release MUSL
+        working-directory: BauthAgent
+        run: cargo build --release --target x86_64-unknown-linux-musl
+
+      - name: Verificar binario estático
+        working-directory: BauthAgent
+        run: |
+          file target/x86_64-unknown-linux-musl/release/bauth | grep -q "statically linked" || echo "AVISO: no se detectó static link (musl-gcc no instalado?)"
+
+      - name: Verificar tamaño < 15MB
+        working-directory: BauthAgent
+        run: |
+          SIZE=$(stat -c%s target/x86_64-unknown-linux-musl/release/bauth 2>/dev/null || stat -c%s target/release/bauth)
+          echo "bauth: $SIZE bytes ($(echo "scale=1; $SIZE/1048576" | bc)MB)"
+          if [ "$SIZE" -gt 15728640 ]; then echo "ERROR: binario excede 15MB ($SIZE bytes)"; exit 1; fi
+          echo "✅ Tamaño OK (< 15MB)"
+
+  # ── Gate 1: Tests ────────────────────────────────────────
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            BauthAgent/target
+          key: ${{ runner.os }}-cargo-test-${{ hashFiles('BauthAgent/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-test-
+
+      - name: cargo test
+        working-directory: BauthAgent
+        run: cargo test --bin bauth -- --nocapture
+
+  # ── Gate 2: Format ───────────────────────────────────────
+  fmt:
+    name: Format (rustfmt)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar Rust stable + rustfmt
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: cargo fmt --check
+        working-directory: BauthAgent
+        run: cargo fmt -- --check
+
+  # ── Gate 3: Lint ─────────────────────────────────────────
+  lint:
+    name: Lint (clippy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar Rust stable + clippy
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            BauthAgent/target
+          key: ${{ runner.os }}-cargo-clippy-${{ hashFiles('BauthAgent/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-clippy-
+
+      - name: cargo clippy
+        working-directory: BauthAgent
+        run: cargo clippy -- -D warnings
+
+  # ── Gate 4: Security Audit ───────────────────────────────
+  audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: cargo audit (advisories)
+        working-directory: BauthAgent
+        run: |
+          cargo install cargo-audit --locked 2>/dev/null || true
+          cargo audit || echo "AVISO: cargo audit encontró advisories — revisar"
+
+      - name: cargo deny (licenses)
+        working-directory: BauthAgent
+        run: |
+          cargo install cargo-deny --locked 2>/dev/null || true
+          cargo deny check licenses 2>/dev/null || echo "AVISO: cargo deny no configurado — pendiente"

@@ -1,0 +1,45 @@
+# ============================================================
+# bauth.toml — Configuración del daemon bAuth v2.0
+# Ubicación: /etc/bos/bauth.toml
+# DOC-SBOS-001 N3: documentación en español
+# ============================================================
+
+# ── Servidor Interface Dual ADR-020 ───────────────────────
+[server]
+socket_path = "/run/bos/bauth.sock"   # Unix socket (SBOS-050 P9)
+socket_perms = 0o660                  # rw-rw----
+socket_group = "bosagent"             # Grupo propietario
+max_connections = 1000                # Conexiones simultáneas máximas
+
+# ── Base de Datos PostgreSQL ───────────────────────────────
+[database]
+url = "postgres://bauth:changeme@localhost:5432/SBOS_db"
+pool_size = 10
+connect_timeout_secs = 5
+
+# ── Redis Cache ────────────────────────────────────────────
+[redis]
+url = "redis://localhost:6379"
+default_ttl_secs = 30
+
+# ── Auditoría y Logging ────────────────────────────────────
+[audit]
+default_level = "basic"               # basic | full
+
+# ── Motor Keycloak ─────────────────────────────────────────
+[engines.keycloak]
+base_url = "https://keycloak.sbos.skull.bo"
+admin_realm = "master"
+client_id = "admin-cli"
+client_secret_vault_path = "secret/bauth/keycloak/admin-cli"
+
+# ── Motor Tryton ───────────────────────────────────────────
+[engines.tryton]
+jsonrpc_url = "http://tryton-sbos:8000/"
+database = "sbos_produccion"
+username = "admin"
+api_key_vault_path = "secret/bauth/tryton/api_key"
+
+# ── Motor NEXUS (opcional) ─────────────────────────────────
+# [engines.nexus]
+# grpc_socket_path = "/run/bos/bhnexus.sock"

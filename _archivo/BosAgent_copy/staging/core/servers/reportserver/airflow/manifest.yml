@@ -1,0 +1,45 @@
+# manifest.yml — Ficha airflow (SBOS-005 §reportserver)
+# SBOS-049 §4 · Order 288 · Deployment
+identity:
+  id: airflow
+  name: Apache Airflow
+  version: "2.10"
+  category: 1
+  criticality: false
+  server: reportserver
+  description: "ETL DAGs, syncs, pipelines"
+
+workload:
+  type: Deployment
+  namespace: sbos-apps
+  replicas: 1
+  service_account: airflow-sa
+
+order:
+  execution_order: 288
+  timeout_minutes: 20
+
+requirements:
+  dependencies:
+    - postgresql
+    - redis
+    - keycloak
+  cpu_request: "500m"
+  cpu_limit: "2000m"
+  memory_request: "1Gi"
+  memory_limit: "2Gi"
+pvc_size: "20Gi"
+  pvc_storage_class: "sbos-fast"
+
+deployment:
+  strategy: Recreate
+
+governance:
+
+
+health:
+  check_command: "curl -sf http://localhost:8080/health"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

@@ -1,0 +1,97 @@
+identity:
+  id: besu-qbft
+  server: S02
+  version: 24.12.0
+  category: 1
+  criticality: true
+  description: "Hyperledger Besu 24.12.0 — Red blockchain soberana QBFT (Proof of Authority) 1 validador. SettlementEngine.sol + AuditAnchor.sol. RPC :8545, WS :8546, P2P :30303. Chain ID 1337. Consumido por bAuth D12."
+
+workload:
+  type: pod  # StatefulSet en producción, pod simple en staging
+  runtime: podman  # podman en VPS, K8s en producción
+
+order:
+  execution_order: 135
+
+requirements:
+  dependencies:
+    - postgresql
+    - vault
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "blockchain-critica"
+
+meta:
+  backend: manifest
+  idempotent: true
+  estimated_minutes: 8
+  rollback_support: true
+  idempotency_checks:
+    - check: genesis_hash
+      value: "0x38a9e927b658596494bb56cfbb81f191cd8b612e383df56741b0a672b6d5d92d"
+      description: "SHA3-256 del genesis.json. Si coincide, la red ya existe → skip deploy."
+    - check: validator_address
+      value: "0x3caea8b153a7e5522630ad8ab59e8194d6f3cc92"
+      description: "Dirección del validador QBFT. Si existe y responde, skip completo."
+    - check: chain_id_rpc
+      value: "1337"
+      description: "eth_chainId vía JSON-RPC. Si responde 1337, la red está viva."
+    - check: block_height_min
+      value: 1
+      description: "eth_blockNumber > 0. Si produce bloques, saltar instalación."
+
+ports:
+  - port: 8545
+    protocol: TCP
+    description: "Besu JSON-RPC HTTP — ETH,NET,WEB3,ADMIN,DEBUG,TXPOOL,QBFT"
+    cluster_ip: 8350
+    internal_only: false
+  - port: 8546
+    protocol: TCP
+    description: "Besu WebSocket RPC — ETH,NET,WEB3,QBFT"
+    cluster_ip: 8351
+    internal_only: true
+  - port: 30303
+    protocol: TCP
+    description: "Besu P2P discovery devp2p"
+    cluster_ip: 8352
+    internal_only: true
+
+health:
+  type: http
+  endpoint: "/liveness"
+  port: 8545
+  expected_code: 200
+  timeout_seconds: 15
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/besu-qbft.log
+
+versions:
+  image: "docker.io/hyperledger/besu:24.12.0"
+  image_sha: "6cac022d679e4a256ae5ab2164a12c471f90c53636e21df2779922c09e1adb5a"
+  java: "openjdk-java-21"
+  consensus: qbft
+  chain_id: 1337
+  block_time_seconds: 2
+  epoch_length: 30000
+  request_timeout_seconds: 4
+  gas_limit: "0x1fffffffffffff"
+  zero_base_fee: true
+  active_fork: "London"
+  validator_address: "0x3caea8b153a7e5522630ad8ab59e8194d6f3cc92"
+  validator_enode: "enode://985a62843edaae583275b49d63a92580bb11df77959d2d3a936818aeff3ac8ce5d3cacf18aa631372c05e2d79b2da8b5ddd084ede66f750b0ae40bcad5633336@127.0.0.1:30303"
+  genesis_hash: "0x38a9e927b658596494bb56cfbb81f191cd8b612e383df56741b0a672b6d5d92d"
+
+contracts:
+  settlement_engine:
+    solc_version: "0.8.26"
+    bytecode_bytes: 15771
+    gas_deploy: 1748777
+    address_staging: "0x4B89c313aad8584F9CE8825633A95e0d23bcE310"
+  audit_anchor:
+    solc_version: "0.8.26"
+    address_staging: ""

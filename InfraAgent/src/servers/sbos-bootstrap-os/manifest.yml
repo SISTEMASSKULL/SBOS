@@ -1,0 +1,34 @@
+# sbos-bootstrap-os — Ficha 01
+# Bootstrap del sistema operativo: hardening, CRI-O, kubeadm, kernel
+# Tipo 1 (bash) — opera directamente sobre el host Ubuntu 26.04
+
+version: "1.0.0"
+categoria: 1
+tipo: bash
+orden: 1
+criticidad: true
+tiempo_estimado: 300
+
+dependencias: []
+
+servidor_logico: hostserver
+namespace_k8s: kube-system
+
+descripcion: |
+  Primera ficha del bootstrap SBOS. Prepara el sistema operativo Ubuntu 26.04:
+  hardening SSH, parámetros de kernel para K8s (cgroup v2 obligatorio — systemd 259),
+  instalación de CRI-O 1.28+, kubeadm/kubelet/kubectl 1.28+, fail2ban,
+  y verificación de versión mínima K8s.
+
+post_install:
+  - verificar_version_k8s
+
+rollback: desinstalar_paquetes_k8s
+
+signals:
+  - __SBOS__STEP_START__
+  - __SBOS__STEP_OK__
+  - __SBOS__STEP_FAIL__
+  - __SBOS__STEP_SKIP__
+  - __SBOS__ROLLBACK_START__
+  - __SBOS__CLEANUP_DONE__

@@ -1,0 +1,74 @@
+identity:
+  id: bos-preflight
+  server: S-HOST
+  version: 1.0.0
+  category: 0
+  criticality: true
+  description: "Preflight de BOS — usuario bosagent, directorios, paquetes del SO y cgroup v2"
+
+workload:
+  type: bash
+  runtime: bash
+
+order:
+  execution_order: 1
+
+requirements:
+  os: "Ubuntu 26.04 LTS"
+  os_strict: true             # solo 26.04 — 22.04 y 24.04 no aceptados
+  kernel_min: "6.8.0"         # kubeadm 1.32+ requiere ≥6.8
+  ram_min_mb: 16384           # 16 GB — K8s+PG+Redis+KC+Vault+Kong+daemons
+  ram_recommended_mb: 32768
+  disk_min_gb: 165            # Ubuntu(15)+K8s(45)+PG(40)+logs(20)+buffer(45)
+  disk_recommended_gb: 300
+  cpu_min: 8                  # K8s(2)+PG(2)+KC(2)+Kong(2)+daemons(2)
+  cpu_recommended: 16
+  ports_required:             # verificar disponibilidad antes de instalar
+    - 9440                    # BOS REST
+    - 9441                    # BOS WebSocket
+    - 9442                    # BOS Prometheus
+    - 9443                    # BOS Context API (crítico — Kong)
+    - 5432                    # PostgreSQL
+    - 6379                    # Redis
+    - 8080                    # Keycloak HTTP
+    - 8200                    # Vault
+    - 8000                    # Kong proxy HTTP
+    - 8443                    # Kong proxy HTTPS
+    - 6443                    # K8s API Server (kubeadm)
+  dependencies: []
+
+# Paquetes del sistema que BOS necesita para operar.
+# Agregar aquí nuevas dependencias — no recompilar el binario.
+system_packages:
+  - curl
+  - unzip
+  - jq
+  - openssl
+  - ca-certificates
+  - gnupg
+  - apt-transport-https
+  - libpam-cgfs
+  - python3
+  - wget
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "infraestructura-critica"
+
+meta:
+  backend: bash
+  idempotent: true
+  estimated_minutes: 2
+  rollback_support: partial
+
+ports: []
+
+health:
+  type: command
+  command: "id bosagent &>/dev/null && test -d /etc/bos && test -d /etc/sbos && test -d /run/bos && echo HEALTHY"
+  timeout_seconds: 10
+
+audit:
+  ctx_id_required: false
+  log_path: /var/log/bos/fichas/bos-preflight.log

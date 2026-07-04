@@ -1,0 +1,49 @@
+# yaml_engine.yml — sbos-repair
+# Multi-layer repair parameters (R16: parametrizable, sin hardcode)
+
+repair:
+  phases:
+    - name: ubuntu-os
+      order: 1
+      timeout_minutes: 5
+      commands:
+        dpkg_audit: "dpkg --audit"
+        apt_fix_broken: "apt-get --fix-broken install -y"
+        systemctl_reset: "systemctl reset-failed"
+      restart_services:
+        - containerd
+        - kubelet
+        - systemd-journald
+
+    - name: k8s-node
+      order: 2
+      timeout_minutes: 5
+      cordon: true
+      drain_grace_period: 30
+      drain_timeout: 120
+      restart_kubelet: true
+      uncordon: true
+      force: true
+
+    - name: bos-fichas
+      order: 3
+      timeout_minutes: 4
+      reconcile: true
+      repair_saga: true
+      max_retries_per_ficha: 2
+
+    - name: verify
+      order: 4
+      timeout_minutes: 1
+
+  thresholds:
+    max_total_timeout_minutes: 15
+    post_repair_wait_seconds: 5
+
+  dry_run:
+    supported: true
+    enabled_by_default: false
+
+  audit:
+    log_path: /var/log/bos/repair.log
+    signal_prefix: "__SBOS__"

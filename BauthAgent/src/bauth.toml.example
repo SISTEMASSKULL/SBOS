@@ -1,0 +1,102 @@
+# ============================================================
+# BAUTH CONFIGURATION — SKULL · SBOS
+# Version: 1.0.0
+# NUNCA almacenar secretos en texto plano en este archivo.
+# ============================================================
+
+[metadata]
+version             = "1.0.0"
+environment         = "production"       # production|staging|development
+log_level           = "info"             # debug|info|warn|error
+log_format          = "json"
+
+# ── KEYCLOAK ────────────────────────────────────────────────
+[keycloak]
+url                        = "https://auth.sbos.internal"
+realm                      = "master"
+client_id                  = "bauth-admin"
+client_secret_source       = "vault"     # vault|env|file
+vault_path                 = "secret/bauth/keycloak"
+vault_field                = "client_secret"
+token_refresh_interval_s   = 240         # 4 minutos (< 5 min KC default)
+admin_api_timeout_ms       = 5000
+admin_api_retry_count      = 3
+admin_api_retry_backoff_ms = [100, 500, 1000]
+
+# ── TRYTON ──────────────────────────────────────────────────
+[tryton]
+url         = "http://tryton.sbos.internal:8000"
+db          = "tryton_db"
+user        = "admin"
+pool_size   = 10
+timeout_ms  = 3000
+
+# ── POSTGRESQL ──────────────────────────────────────────────
+[postgres]
+dsn            = "postgres://bauth:${BAUTH_PG_PASSWORD}@localhost:5432/bauth_db?sslmode=require"
+max_conns      = 20
+min_conns      = 5
+conn_timeout_s = 10
+
+# ── REDIS ───────────────────────────────────────────────────
+[redis]
+enabled           = true                # false = modo in-memory (solo desarrollo)
+addr              = "localhost:6379"
+password_source   = "vault"
+vault_path        = "secret/bauth/redis"
+db                = 0
+cache_ttl_seconds = 30
+max_entries       = 10000
+tls_enabled       = true
+
+# ── UNIX SOCKET (bhnexus) ────────────────────────────────────
+[socket]
+path               = "/run/bos/bauth.sock"
+permissions        = "0660"
+owner_group        = "bos"
+request_timeout_ms = 1000
+max_connections    = 100
+
+# ── RECONCILE LOOP ───────────────────────────────────────────
+[reconcile]
+global_interval_seconds = 60
+min_interval_seconds    = 30
+drift_auto_correct      = true
+drift_alert_severity    = "HIGH"
+
+# ── VAULT ────────────────────────────────────────────────────
+[vault]
+enabled     = true
+addr        = "https://vault.sbos.internal:8200"
+auth_method = "kubernetes"
+role        = "bauth"
+mount_path  = "secret"
+timeout_ms  = 2000
+
+# ── WAZUH / ALERTAS ──────────────────────────────────────────
+[alerts]
+mechanism   = "syslog"
+syslog_addr = "wazuh-manager.sbos.internal:514"
+syslog_proto = "tcp"
+log_file    = "/var/log/bos/bauth-alerts.log"
+
+# ── ASSUME TENANT CONTEXT ─────────────────────────────────────
+[superuser]
+admin_uuid          = ""
+context_ttl_min     = 15              # TTL minimo (minutos)
+context_ttl_max     = 240             # TTL maximo (minutos)
+context_ttl_default = 60
+break_glass_uuid    = ""
+
+# ── REALM CONFIG (override del global) ───────────────────────
+[[realm_config]]
+realm_id              = "empresa-acme"
+kc_realm              = "empresa-acme"
+sync_interval_seconds = 45
+drift_auto_correct    = true
+
+[[realm_config]]
+realm_id              = "empresa-beta"
+kc_realm              = "empresa-beta"
+sync_interval_seconds = 120
+drift_auto_correct    = false

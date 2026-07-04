@@ -1,0 +1,137 @@
+{
+  "updated_at": "2026-05-12T16:39:17.910856",
+  "agents": {
+    "Compositor-SBOS": {
+      "estado": "operativo",
+      "pge_cycles": 0,
+      "pge_approved": 0,
+      "pge_rejected": 0,
+      "pge_escalated": false,
+      "ci_gate_passed": false,
+      "ci_gate_issues": [],
+      "last_pge_result": null,
+      "built_at": null,
+      "artifacts_dir": ""
+    },
+    "Bibliotecario-SBOS": {
+      "estado": "operativo",
+      "pge_cycles": 0,
+      "pge_approved": 0,
+      "pge_rejected": 0,
+      "pge_escalated": false,
+      "ci_gate_passed": false,
+      "ci_gate_issues": [],
+      "last_pge_result": null,
+      "built_at": null,
+      "artifacts_dir": ""
+    },
+    "Orquesta-Core-SBOS": {
+      "estado": "operativo",
+      "pge_cycles": 0,
+      "pge_approved": 0,
+      "pge_rejected": 0,
+      "pge_escalated": false,
+      "ci_gate_passed": false,
+      "ci_gate_issues": [],
+      "last_pge_result": null,
+      "built_at": null,
+      "artifacts_dir": ""
+    },
+    "Biblioteca-SBOS": {
+      "estado": "operativo",
+      "pge_cycles": 0,
+      "pge_approved": 0,
+      "pge_rejected": 0,
+      "pge_escalated": false,
+      "ci_gate_passed": false,
+      "ci_gate_issues": [],
+      "last_pge_result": null,
+      "built_at": null,
+      "artifacts_dir": ""
+    },
+    "bos-agent": {
+      "estado": "en-construccion",
+      "pge_cycles": 0,
+      "pge_approved": 0,
+      "pge_rejected": 0,
+      "pge_escalated": false,
+      "ci_gate_passed": false,
+      "ci_gate_issues": [],
+      "last_pge_result": null,
+      "built_at": null,
+      "artifacts_dir": ""
+    },
+    "infra-agent": {
+      "estado": "en-construccion",
+      "pge_cycles": 0,
+      "pge_approved": 0,
+      "pge_rejected": 0,
+      "pge_escalated": false,
+      "ci_gate_passed": false,
+      "ci_gate_issues": [],
+      "last_pge_result": null,
+      "built_at": null,
+      "artifacts_dir": ""
+    },
+    "bkernel-agent": {
+      "estado": "en-construccion",
+      "pge_cycles": 0,
+      "pge_approved": 0,
+      "pge_rejected": 0,
+      "pge_escalated": false,
+      "ci_gate_passed": false,
+      "ci_gate_issues": [],
+      "last_pge_result": null,
+      "built_at": null,
+      "artifacts_dir": ""
+    },
+    "bauth-agent": {
+      "estado": "en-construccion",
+      "pge_cycles": 0,
+      "pge_approved": 0,
+      "pge_rejected": 0,
+      "pge_escalated": false,
+      "ci_gate_passed": false,
+      "ci_gate_issues": [],
+      "last_pge_result": null,
+      "built_at": null,
+      "artifacts_dir": ""
+    },
+    "Observabilidad-SBOS": {
+      "estado": "operativo",
+      "pge_cycles": 0,
+      "pge_approved": 0,
+      "pge_rejected": 0,
+      "pge_escalated": false,
+      "ci_gate_passed": false,
+      "ci_gate_issues": [],
+      "last_pge_result": null,
+      "built_at": null,
+      "artifacts_dir": ""
+    },
+    "bintelligence-agent": {
+      "estado": "en-construccion",
+      "pge_cycles": 0,
+      "pge_approved": 0,
+      "pge_rejected": 0,
+      "pge_escalated": false,
+      "ci_gate_passed": false,
+      "ci_gate_issues": [],
+      "last_pge_result": null,
+      "built_at": null,
+      "artifacts_dir": ""
+    },
+    "bnexus-agent": {
+      "estado": "en-construccion",
+      "pge_cycles": 0,
+      "pge_approved": 0,
+      "pge_rejected": 0,
+      "pge_escalated": false,
+      "ci_gate_passed": false,
+      "ci_gate_issues": [],
+      "last_pge_result": null,
+      "built_at": null,
+      "artifacts_dir": ""
+    }
+  }
+}

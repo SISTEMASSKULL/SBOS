@@ -1,0 +1,114 @@
+# seed_identity.yml — Identity seed data for SBOS bootstrap
+# Purpose: Initial Keycloak realms, admin roles, and root templates
+# Used by: Orquesta-Core-SBOS bootstrap pipeline
+# Version: 1.0.0 — 2026-05-12
+
+realms:
+  - id: "skull-master"
+    name: "SKULL Master Realm"
+    display_name: "SKULL — Sovereign Business Operating System"
+    enabled: true
+    admin_username: "skull-admin"
+    admin_email: "admin@sistemasskull.com"
+    brute_force_detection: true
+    password_policy: "length(12), upperCase(1), lowerCase(1), digits(1), specialChars(1), hashIterations(27500)"
+
+clients:
+  - client_id: "tryton"
+    name: "Tryton ERP"
+    protocol: "openid-connect"
+    public_client: false
+    redirect_uris:
+      - "https://erp.sistemasskull.com/*"
+    default_scopes:
+      - "openid"
+      - "profile"
+      - "email"
+      - "bos_roles"
+      - "bos_bitmask"
+
+  - client_id: "saleor"
+    name: "Saleor Commerce"
+    protocol: "openid-connect"
+    public_client: false
+    redirect_uris:
+      - "https://shop.sistemasskull.com/*"
+
+  - client_id: "sbos-admin"
+    name: "SBOS Admin Console"
+    protocol: "openid-connect"
+    public_client: true
+    redirect_uris:
+      - "https://admin.sistemasskull.com/*"
+      - "http://localhost:3000/*"
+
+  - client_id: "kong"
+    name: "Kong API Gateway"
+    protocol: "openid-connect"
+    public_client: false
+    bearer_only: true
+
+initial_roles:
+  - id: "ADMIN_SKULL"
+    name: "SKULL Super Administrator"
+    description: "Full system access — ARB member only"
+    parent_id: null
+    auth_framework:
+      required_methods: ["password", "webauthn"]
+      temporal_control:
+        allowed_days: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]
+        shift_start: "00:00"
+        shift_end: "23:59"
+        timezone: "America/La_Paz"
+      geospatial_control:
+        allowed_networks: ["10.0.0.0/8", "172.16.0.0/12"]
+        require_vpn: true
+      session:
+        max_duration_seconds: 43200
+        inactivity_timeout_seconds: 1800
+        concurrent_sessions_allowed: false
+      validity_period: null
+    tryton_privileges:
+      model_access: "full"
+      menu_access: "all"
+      field_access: "all"
+      button_access: "all"
+      record_rules: "none"
+    privilege_mask: "0xFFFFFFFFFFFFFFFF"
+
+  - id: "OPERADOR_SBOS"
+    name: "SBOS Operator"
+    description: "Daily operations — install, update, repair Cat.1-2"
+    parent_id: null
+    auth_framework:
+      required_methods: ["password", "otp"]
+      temporal_control:
+        allowed_days: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"]
+        shift_start: "08:00"
+        shift_end: "18:00"
+        timezone: "America/La_Paz"
+      session:
+        max_duration_seconds: 28800
+        inactivity_timeout_seconds: 900
+    privilege_mask: "0x00000000000001FF"
+
+initial_users:
+  - username: "ivan.villanueva"
+    email: "ivan@sistemasskull.com"
+    first_name: "Ivan"
+    last_name: "Villanueva"
+    roles: ["ADMIN_SKULL"]
+    attributes:
+      timezone: "America/La_Paz"
+      locale: "es_BO"
+    required_actions: ["CONFIGURE_TOTP", "UPDATE_PASSWORD"]
+
+  - username: "juan.perez"
+    email: "juan@sistemasskull.com"
+    first_name: "Juan"
+    last_name: "Perez"
+    roles: ["OPERADOR_SBOS"]
+    attributes:
+      timezone: "America/La_Paz"
+      locale: "es_BO"
+    required_actions: ["CONFIGURE_TOTP", "UPDATE_PASSWORD"]

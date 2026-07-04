@@ -1,0 +1,44 @@
+# yaml_engine.yml — minio
+# Iteración 1: standalone MinIO + 3 buckets base
+
+namespace: sbos-data
+image: "minio/minio:RELEASE.2025-05-24T17-08-30Z"
+mc_image: "minio/mc:RELEASE.2025-05-14T01-36-59Z"
+replicas: 1
+
+storage:
+  pv_name: sbos-minio-pv
+  pvc_name: sbos-minio-pvc
+  capacity: 100Gi
+  storage_class: local-path
+  data_path: /data
+
+service:
+  api_port: 9000
+  console_port: 9001
+  cluster_ip_api: 8130
+  cluster_ip_console: 8131
+
+credentials:
+  root_user_secret: minio-credentials
+  key_access: MINIO_ROOT_USER
+  key_secret: MINIO_ROOT_PASSWORD
+
+buckets:
+  - name: sbos-backups
+    description: "Backups PostgreSQL, Redis, configuraciones"
+    versioning: true
+  - name: sbos-assets
+    description: "Assets estáticos de las aplicaciones SBOS"
+    versioning: false
+  - name: sbos-documents
+    description: "Documentos de negocio (facturas, contratos)"
+    versioning: true
+
+resources:
+  requests:
+    cpu: "200m"
+    memory: "512Mi"
+  limits:
+    cpu: "1"
+    memory: "1Gi"

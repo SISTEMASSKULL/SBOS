@@ -1,0 +1,45 @@
+identity:
+  id: sbos-bootstrap-cni
+  server: S-HOST
+  version: 1.0.0
+  category: 1
+  criticality: true
+  description: "CNI Bootstrap — Calico completo: NetworkPolicies default-deny, IP pools, pod-to-pod comunicación verificada"
+
+workload:
+  type: bash
+  runtime: bash
+
+order:
+  execution_order: 25
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-k8s
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "infraestructura-critica"
+
+meta:
+  backend: bash
+  idempotent: true
+  estimated_minutes: 8
+  rollback_support: partial
+
+ports: []
+
+health:
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get pods -n kube-system -l k8s-app=calico-node --no-headers 2>/dev/null | grep -c Running"
+  expected_min: "1"
+  timeout_seconds: 15
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/sbos-bootstrap-cni.log
+
+versions:
+  calico: "3.32.0"
+  calicoctl: "3.32.0"

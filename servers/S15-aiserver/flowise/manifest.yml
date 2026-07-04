@@ -1,0 +1,43 @@
+# manifest.yml — Ficha flowise (SBOS-005 §aiserver)
+# SBOS-049 §4 · Order 428 · Deployment
+identity:
+  id: flowise
+  name: Flowise AI Builder
+  version: "2.1"
+  category: 1
+  criticality: false
+  server: aiserver
+  description: "Visual AI agent builder, low-code"
+
+workload:
+  type: Deployment
+  namespace: sbos-ai
+  replicas: 1
+  service_account: flowise-sa
+
+order:
+  execution_order: 428
+  timeout_minutes: 15
+
+requirements:
+  dependencies:
+    - postgresql
+    - keycloak
+  cpu_request: "200m"
+  cpu_limit: "1000m"
+  memory_request: "256Mi"
+  memory_limit: "512Mi"
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+health:
+  check_command: "curl -sf http://localhost:3000/health"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

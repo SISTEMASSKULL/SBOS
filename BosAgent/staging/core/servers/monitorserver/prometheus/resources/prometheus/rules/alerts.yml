@@ -1,0 +1,184 @@
+# Alert Rules — Observabilidad-SBOS
+# Referencia: SBOS-032-OPERATIONS §4 + manifest observabilidad-sbos.yml
+#
+# Severidades:
+#   CRITICAL → 24/7, respuesta < 15min, canal #sbos-alerts-critical
+#   HIGH     → laboral, respuesta < 1h, canal #sbos-alerts-high
+#   MEDIUM   → respuesta < 4h, canal #sbos-alerts-all
+
+groups:
+  # ─────────────────────────────────────────
+  # CRITICAL — respuesta < 15 min, 24/7
+  # ─────────────────────────────────────────
+  - name: sbos_critical
+    rules:
+      - alert: PostgreSQLDown
+        expr: up{job="postgresql"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          component: postgresql
+          tier: infrastructure
+          runbook: RK-001
+        annotations:
+          summary: "PostgreSQL no responde en {{ $labels.instance }}"
+          description: "up=0 por >30s. Impacto: todos los agentes de dominio pierden persistencia."
+          action: "kubectl get pods -l app=postgresql → pg_isready → PV/PVC → recursos nodo"
+
+      - alert: KeycloakDown
+        expr: up{job="keycloak"} == 0
+        for: 60s
+        labels:
+          severity: critical
+          component: keycloak
+          tier: platform
+          runbook: RK-002
+        annotations:
+          summary: "Keycloak no responde en {{ $labels.instance }}"
+          description: "up=0 por >60s. Impacto: autenticación SSO detenida para todos los usuarios."
+
+      - alert: bKernelDown
+        expr: up{job="bkernel"} == 0
+        for: 60s
+        labels:
+          severity: critical
+          component: bkernel
+          tier: sovereign
+          runbook: RK-003
+        annotations:
+          summary: "bKernel caído en {{ $labels.instance }}"
+          description: "up=0 por >60s. Impacto: procesamiento de eventos WAL detenido. DLQ puede estar acumulando."
+
+      - alert: WALReplicationLagCritical
+        expr: slo:bkernel_wal_lag_p99_ms > 30000
+        for: 60s
+        labels:
+          severity: critical
+          component: bkernel
+          runbook: RK-004
+        annotations:
+          summary: "Lag WAL bKernel >30s en {{ $labels.instance }}"
+          description: "WAL lag P99: {{ $value }}ms. Impacto: desincronización de identidad y permisos."
+
+      - alert: TLSCertificateExpiringSoon
+        expr: probe_ssl_earliest_cert_expiry - time() < 604800
+        for: 5m
+        labels:
+          severity: critical
+          component: security
+          runbook: RK-006
+        annotations:
+          summary: "Certificado TLS expira en <7 días"
+          description: "Expira en {{ $value | humanizeDuration }}. Renovar inmediatamente con cert-manager o sbos-cert-rotation."
+
+      - alert: VaultSealed
+        expr: vault_core_unsealed == 0
+        for: 30s
+        labels:
+          severity: critical
+          component: vault
+          runbook: RK-010
+        annotations:
+          summary: "HashiCorp Vault sellado en {{ $labels.instance }}"
+          description: "Vault sellado. Secrets dinámicos inaccesibles. Requiere unseal manual urgente."
+
+      - alert: ErrorBudgetBurnCritical
+        expr: slo:system_burn_rate_1h > 14.4
+        for: 5m
+        labels:
+          severity: critical
+          component: sre
+        annotations:
+          summary: "Error budget del sistema quemándose a {{ $value }}x"
+          description: "Burn rate >14.4x por >5min. Se consumirá todo el error budget en ~3h si no se corrige."
+
+  # ─────────────────────────────────────────
+  # HIGH — respuesta < 1h, horario laboral
+  # ─────────────────────────────────────────
+  - name: sbos_high
+    rules:
+      - alert: DiskUsageHigh
+        expr: (1 - node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 > 85
+        for: 5m
+        labels:
+          severity: high
+          component: infrastructure
+          runbook: RK-005
+        annotations:
+          summary: "Disco >85% en {{ $labels.instance }}"
+          description: "Uso: {{ $value | humanize }}% en {{ $labels.mountpoint }}."
+
+      - alert: PodCrashLoopBackOff
+        expr: kube_pod_container_status_waiting_reason{reason="CrashLoopBackOff"} == 1
+        for: 5m
+        labels:
+          severity: high
+          component: kubernetes
+        annotations:
+          summary: "CrashLoopBackOff en {{ $labels.pod }}"
+          description: "Pod {{ $labels.pod }} en CrashLoopBackOff >5min. Revisar logs con kubectl logs."
+
+      - alert: bSearchLatencyHigh
+        expr: histogram_quantile(0.95, rate(bsearch_query_duration_seconds_bucket[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: high
+          component: bsearch
+        annotations:
+          summary: "bSearch latencia P95 >500ms"
+          description: "Latencia P95: {{ $value }}s."
+
+      - alert: bKernelDLQBacklog
+        expr: slo:bkernel_dlq_count >= 5
+        for: 10m
+        labels:
+          severity: high
+          component: bkernel
+        annotations:
+          summary: "DLQ bKernel acumulando: {{ $value }} eventos"
+          description: "DLQ >= 5 eventos por >10min. Revisar con XLEN + XRANGE y procesar manualmente si es necesario."
+
+      - alert: ErrorBudgetBurnHigh
+        expr: slo:system_burn_rate_6h > 5
+        for: 10m
+        labels:
+          severity: high
+          component: sre
+        annotations:
+          summary: "Error budget quemándose a {{ $value }}x (ventana 6h)"
+          description: "Burn rate >5x en 6h. Requiere revisión antes del siguiente ciclo."
+
+  # ─────────────────────────────────────────
+  # MEDIUM — respuesta < 4h
+  # ─────────────────────────────────────────
+  - name: sbos_medium
+    rules:
+      - alert: MemoryUsageHigh
+        expr: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 > 90
+        for: 10m
+        labels:
+          severity: medium
+          component: infrastructure
+        annotations:
+          summary: "RAM >90% en {{ $labels.instance }}"
+          description: "Memoria disponible: {{ $value | humanize }}% del total."
+
+      - alert: bKernelThroughputDegraded
+        expr: slo:bkernel_throughput_ok == 0
+        for: 15m
+        labels:
+          severity: medium
+          component: bkernel
+        annotations:
+          summary: "bKernel throughput <1000 ev/min"
+          description: "Tasa actual: {{ $value }} ev/min. Degradación de rendimiento."
+
+      - alert: AgentHealthDegraded
+        expr: up{job=~"bos-agent|bauth-agent|bintelligence-agent|bhnexus"} == 0
+        for: 5m
+        labels:
+          severity: medium
+          component: sovereign
+        annotations:
+          summary: "{{ $labels.job }} sin respuesta >5min"
+          description: "Agente {{ $labels.daemon }} no responde en health check. Revisar systemctl status + journalctl."

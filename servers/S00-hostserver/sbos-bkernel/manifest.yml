@@ -1,0 +1,55 @@
+identity:
+  id: sbos-bkernel
+  server: S-HOST
+  version: 1.0.0
+  category: 1
+  criticality: true
+  description: "bKernel CDC Daemon — Motor de Datos Soberano. Escucha WAL PostgreSQL, normaliza eventos, publica intenciones en Redis Streams. CERO puertos TCP (F-02)."
+
+workload:
+  type: systemd
+  runtime: rust-musl
+  binary: /usr/local/bin/bkernel-daemon
+  config: /etc/bos/blibs/bkernel/bkernel.toml
+
+order:
+  execution_order: 70
+
+requirements:
+  dependencies:
+    - postgresql
+    - redis
+    - vault
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "daemon-soberano"
+
+meta:
+  backend: systemd
+  idempotent: true
+  estimated_minutes: 2
+  rollback_support: true
+
+# bkernel is CLOSED — zero TCP ports (F-02)
+# Health is via systemd watchdog + sd_notify
+ports: []
+
+health:
+  type: command
+  command: "systemctl is-active bkernel 2>/dev/null || echo inactive"
+  expected_output: "active"
+  timeout_seconds: 10
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/sbos-bkernel.log
+
+# bkernel se ejecuta en el HOST (systemd), no en K8s
+# Superficie de ataque: CERO — sin puerto, sin API
+versions:
+  rust: "1.96"
+  postgresql: "18.4"
+  redis: "8.6"
+  systemd: "255"

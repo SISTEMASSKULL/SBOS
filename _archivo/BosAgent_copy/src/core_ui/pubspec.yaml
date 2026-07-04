@@ -1,0 +1,21 @@
+name: sbos_core_ui
+description: "SBOS Core UI — Panel de administracion soberano. Flutter multi-dispositivo. JSON-RPC 2.0 sobre WebSocket (ADR-020)."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  web_socket_channel: ^2.4.0
+  provider: ^6.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true

@@ -1,0 +1,69 @@
+# bos-install.toml — SBOS Installation Parameters
+# Schema: SBOS-035 §1.1 + SBOS-018 §23a
+# R16 Zero Hardcoding: this file IS the parameter layer.
+# Do NOT version in git. Provide at first boot via operator or API.
+#
+# Values here parameterize the bos-agent daemon for a specific client.
+# Architecture-fixed values live in bos.toml (runtime config).
+#
+# REQUISITO: Podman rootful exclusivo (ADR-027).
+# El operador DEBE verificar: cat /proc/1/uid_map → "0 0 4294967295"
+# Si el primer número no es 0, el entorno no es rootful → ABORTAR.
+
+org_name = "SKULL SISTEMAS"
+client_domain = "skull.sksistemas.com"
+server_ip = "144.91.76.130"
+release_server_url = "https://release.skull.sistemasskull.com"
+channel = "testing"
+http_port = 9443
+bos_path = "/opt/bos"
+core_path = "/opt/bos/core"
+etc_path = "/etc/bos"
+run_path = "/run/bos"
+log_path = "/var/log/bos"
+state_file = "/etc/bos/.sbos_state.json"
+servers_path = "/etc/bos/blibs/servers"
+kubeconfig_path = "/etc/bos/.kube/config"
+unix_socket = "/run/bos/bos.sock"
+bos_user = "bosagent"
+bos_group = "bosagent"
+memory_max = "4G"
+cpu_quota = 200000
+cpu_period = 100000
+io_weight = 500
+
+[dns]
+base_domain = "skull.sksistemas.com"
+
+[dns.subdomains]
+auth = "auth"
+api = "api"
+gateway = "gateway"
+core = "core"
+web = "web"
+b2b = "b2b"
+vault = "vault"
+secrets = "secrets"
+security = "security"
+data = "data"
+bus = "bus"
+queues = "queues"
+pipeline = "pipeline"
+devops = "devops"
+sync = "sync"
+connect = "connect"
+reports = "reports"
+documents = "documents"
+insights = "insights"
+find = "find"
+flows = "flows"
+projects = "projects"
+track = "track"
+fleet = "fleet"
+cards = "cards"
+screens = "screens"
+desktop = "desktop"
+mail = "mail"
+sign = "sign"
+status = "status"
+support = "support"

@@ -1,0 +1,16 @@
+engine:
+  version: "1.0"
+  ficha_id: bos-preflight
+  steps:
+    - id: pre_install_checks
+      description: "Verificar OS y privilegios"
+    - id: instalar_paquetes_sistema
+      description: "Instalar dependencias apt declaradas en manifest.yml"
+    - id: crear_usuario_bosagent
+      description: "Crear usuario y grupo bosagent (sistema, sin login)"
+    - id: crear_directorios
+      description: "Crear /etc/bos /etc/sbos /run/bos /var/log/bos /opt/bos/bin"
+    - id: configurar_cgroup_v2
+      description: "Delegar cgroup v2 para bosagent"
+    - id: configurar_sudoers
+      description: "Instalar /etc/sudoers.d/bosagent con permisos mínimos"

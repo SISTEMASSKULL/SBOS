@@ -1,0 +1,43 @@
+# manifest.yml — Ficha cert-rotation (SBOS-005 §hostserver)
+# SBOS-049 §4 · Order 320 · Deployment
+identity:
+  id: cert-rotation
+  name: Certificate Rotation
+  version: "1.0"
+  category: 1
+  criticality: true
+  server: hostserver
+  description: "TLS cert renewal every 90 days via Let's Encrypt + Vault"
+
+workload:
+  type: Deployment
+  namespace: sbos-installer
+  replicas: 1
+  service_account: cert-rotation-sa
+
+order:
+  execution_order: 320
+  timeout_minutes: 30
+
+requirements:
+  dependencies:
+    - vault
+    - certbot
+  cpu_request: "100m"
+  cpu_limit: "500m"
+  memory_request: "128Mi"
+  memory_limit: "256Mi"
+
+
+deployment:
+  strategy: Recreate
+
+governance:
+
+
+health:
+  check_command: "kubectl get certificates -A"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

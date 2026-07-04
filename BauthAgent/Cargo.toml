@@ -1,0 +1,104 @@
+# bauth — SBOS Identity Core v3.0 · BitMask Dual
+# ADR-001: Rust 1.85+ (MUSL, LTO, tokio) + Java 21 (8 SPIs Keycloak)
+# DOC-SBOS-001 N3: Documentación obligatoria en español
+# SSOT: SBOS-MANUAL-SISTEMA-PRIVILEGIOS-v1.0.md · BAUTH-CATALOGO-ROLES-EMPRESARIALES.md v2.1
+#       SBOS-MANUAL-BAUTH-COMPONENT-ROLES.md v1.7 · SBOS-MANUAL-BAUTH-D12-BLOCKCHAIN-WALLET-CONTROL.md v2.1
+#       SBOS-BAUTH-EVALUACION-INTEGRAL-v2.2.md
+# Modelo BitMask Dual: AtomBitMask (64-bit label) + RolBitMask (N-bit one-hot). SAM-128 ELIMINADO.
+
+[package]
+name = "bauth"
+version = "3.0.0"
+edition = "2021"
+description = "Motor de Identidad Soberano del SBOS — BitMask Dual + 12 Dominios D1-D12 + D12 Blockchain"
+authors = ["SKULL <sistemas@skull.com.bo>"]
+license = "UNLICENSED"
+rust-version = "1.85"
+
+[profile.release]
+opt-level = "z"              # Optimizar tamaño para MUSL
+lto = true                    # Link-Time Optimization
+codegen-units = 1             # Mejor optimización
+panic = "abort"               # Sin unwind para binario mínimo
+strip = true                  # Eliminar símbolos
+
+[profile.dev]
+opt-level = 1                 # Compilación rápida con optimización básica
+
+[dependencies]
+# === Async Runtime ===
+tokio = { version = "1.45", features = ["full"] }
+tokio-util = "0.7"
+
+# === Serialización y Configuración ===
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+toml = "0.8"
+
+# === Base de Datos ===
+sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres", "json", "uuid", "chrono"] }
+# H-019: Redis pendiente de activacion. BitMask cache (30s TTL) requiere Redis.
+# Descomentar cuando redis esté operativo: redis = { version = "0.28", features = ["tokio-comp", "connection-manager"] }
+
+# === HTTP Client (HIBP screening) ===
+reqwest = { version = "0.12", features = ["rustls-tls", "json"], default-features = false }
+
+# === gRPC (ADR-020: daemon-to-daemon) ===
+# Implementación manual: JSON-RPC 2.0 sobre Unix socket cubre el mismo caso de uso.
+# tonic/prost pospuesto hasta resolver conflictos de dependencias con uuid/tonic-build.
+
+# === Criptografía (RustCrypto — auditado, FIPS 140-2 compatible) ===
+argon2 = "0.5"                  # Password hashing (Argon2id, NIST SP 800-63B)
+sha1 = "0.10"                   # SHA-1 — WebSocket handshake (RFC 6455)
+sha2 = "0.10"                   # SHA-256/512 (NIST FIPS 180-4)
+sha3 = "0.10"                   # SHA-3/Keccak-256 para Merkle tree D12 (FIPS 202)
+hex = "0.4"                     # Hex encoding para BitMask
+base64 = "0.22"                 # RolBitMask serialization
+data-encoding = "2.6"            # Base32 para TOTP enrollment (RFC 6238)
+ed25519-dalek = "2"             # EdDSA Ed25519 — firmas criptográficas (FIPS 186-5, RFC 8032)
+aes-gcm = "0.10"                # AES-256-GCM — cifrado autenticado (FIPS 197, NIST SP 800-38D)
+hkdf = "0.12"                   # HMAC-based Key Derivation (NIST SP 800-56C, RFC 5869)
+zeroize = "1"                   # Zeroización segura de secretos en memoria (NIST SP 800-57)
+rand = "0.8"                    # CSPRNG — generación de claves (NIST SP 800-90A)
+ring = "0.17"                   # BoringSSL auditado — TLS, X25519, constant-time ops
+regex = "1"                     # Patrones en validacion rules
+scrutiny = "0.1"
+
+# === BitMask Dual ===
+bitvec = { version = "1", features = ["serde"] }  # Rol BitMask: vector de N bits one-hot
+
+# === Logging y Observabilidad ===
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# === Utilidades ===
+uuid = { version = "1", features = ["v4", "v7", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = "2"
+async-trait = "0.1"
+cfg-if = "1"
+libc = "0.2"
+# H-020: ethers pendiente. Requerido por blockchain/settlement.rs (D12 liquidacion).
+# Descomentar cuando se implemente D12 liquidacion: ethers = { version = "2.0.14", features = ["rustls"] }
+
+[dev-dependencies]
+tokio-test = "0.4"
+tempfile = "3.14"
+
+[[bin]]
+name = "bauth"
+path = "src/main.rs"
+
+[[bin]]
+name = "bauthctl"
+path = "src/bin/bauthctl.rs"
+
+[[bin]]
+name = "verify_policies"
+path = "src/bin/verify_policies.rs"
+
+[[bin]]
+name = "bos_verify"
+path = "src/bin/bos_verify.rs"
+
