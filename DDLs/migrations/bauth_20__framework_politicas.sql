@@ -297,8 +297,9 @@ COMMENT ON FUNCTION bauth.translate_keys_en_es(jsonb) IS 'Recorre JSONB recursiv
 
 -- ═══════════════════════════════════════════════════════════════
 -- FASE 2: Carga automática de fuentes en framework_raw (TODO SQL, sin archivos)
+-- NOTA: datos cargados por bauth_fw_01..16 (INSERT ON CONFLICT DO NOTHING)
+--       Este bloque NO trunca — el proceso es idempotente.
 -- ═══════════════════════════════════════════════════════════════
-TRUNCATE TABLE bauth.framework_raw RESTART IDENTITY CASCADE;
 
 -- Fuentes originales (SQL autocontenido)
 
@@ -308,8 +309,9 @@ TRUNCATE TABLE bauth.framework_raw RESTART IDENTITY CASCADE;
 
 -- ═══════════════════════════════════════════════════════════════
 -- FASE 3: Poblar cfg_policy_library desde framework_raw (CTE)
+-- NOTA: ON CONFLICT DO NOTHING → idempotente, no re-procesa si ya existe.
+--       Para forzar recarga completa: TRUNCATE bauth.cfg_policy_library CASCADE; (manual)
 -- ═══════════════════════════════════════════════════════════════
-TRUNCATE TABLE bauth.cfg_policy_library RESTART IDENTITY CASCADE;
 
 WITH RECURSIVE tree AS (
   SELECT kv.key AS section_name, NULL::text AS parent_path, kv.value AS node,
@@ -330,7 +332,8 @@ WITH RECURSIVE tree AS (
 )
 INSERT INTO bauth.cfg_policy_library (section_name, parent_path, node_type, depth, array_index, json_path, source, content, content_en, content_es)
 SELECT section_name, parent_path, node_type, depth, array_index, json_path, src, node, node, node
-FROM tree;
+FROM tree
+ON CONFLICT (json_path) DO NOTHING;
 
 -- ═══════════════════════════════════════════════════════════════
 -- FASE 4: Traducción y documentación automática
@@ -351,57 +354,108 @@ UPDATE bauth.cfg_policy_library SET help_text = jsonb_build_array(
 -- FASE 5: Clasificación automática por fuente y dominio
 -- ═══════════════════════════════════════════════════════════════
 -- 5.1 domain_map por fuente
+-- NOTA: source_names en BD son camelCase (authenticationFramework, policiesAuthenticationFramework)
 UPDATE bauth.cfg_policy_library SET domain_map = CASE source
-  WHEN 'authentication_framework' THEN CASE
+  -- Framework principal — clasificación por section_name (nivel 2)
+  WHEN 'authenticationFramework' THEN CASE
     WHEN section_name IN ('accessControl','adaptiveAccessControl') THEN ARRAY['D1']
-    WHEN section_name IN ('advancedBiometrics','behavioralAuthentication','webSocketAccessControl') THEN ARRAY['D5']
-    WHEN section_name IN ('quantumResistantSecurity','quantumSafeSecurity','secretsManagement','cryptographyServices') THEN ARRAY['SEC']
-    WHEN section_name IN ('networkSecurity','zeroTrustInfrastructure','containerSecurity','microservicesSecurity','apiSecurity','applicationApiSecurity') THEN ARRAY['D7']
-    WHEN section_name IN ('contextualAuthentication','advancedSessionManagement','contextualSecurity','systemResilience','incidentResponse') THEN ARRAY['D8']
+    WHEN section_name IN ('advancedBiometrics') THEN ARRAY['D5']
+    WHEN section_name IN ('iotEdgeSecurity','endpointDeviceSecurity') THEN ARRAY['D2','D7']
+    WHEN section_name IN ('networkSecurity','zeroTrustInfrastructure','containerSecurity',
+         'microservicesSecurity','apiSecurity','applicationApiSecurity','webSocketAccessControl') THEN ARRAY['D7']
+    WHEN section_name IN ('contextualAuthentication','advancedSessionManagement','contextualSecurity',
+         'systemResilience','incidentResponse','behavioralAuthentication') THEN ARRAY['D8']
     WHEN section_name IN ('authenticationCore','identityFederation','federatedAuthentication') THEN ARRAY['D9']
-    WHEN section_name IN ('auditingSystem','securityMonitoring','dataProtection','dataPrivacySecurity','dataProtectionSystem','mlAnomalyDetection','aiSecurity','aiSecurityEngine') THEN ARRAY['D11']
+    WHEN section_name IN ('auditingSystem','securityMonitoring','dataProtection','dataPrivacySecurity',
+         'dataProtectionSystem','mlAnomalyDetection','aiSecurity','aiSecurityEngine') THEN ARRAY['D11']
     WHEN section_name IN ('blockchainSecurity') THEN ARRAY['D12']
+    WHEN section_name IN ('quantumResistantSecurity','quantumSafeSecurity','cryptographyServices',
+         'secretsManagement','quantumAuthenticationSystem','metadata') THEN ARRAY['SEC']
     ELSE ARRAY['D9']
   END
-  WHEN 'policies_framework' THEN CASE
-    WHEN section_name IN ('identity_access_policies') THEN ARRAY['D1','D12']
+  -- Políticas por dominio — clasificación por section_name (nivel 2)
+  WHEN 'policiesAuthenticationFramework' THEN CASE
+    WHEN section_name IN ('identity_access_policies','advanced_identity_management') THEN ARRAY['D1','D9']
     WHEN section_name IN ('physical_logical_authentication') THEN ARRAY['D2']
-    WHEN section_name IN ('modern_authentication_policies','edge_authentication_policies','next_generation_protections') THEN ARRAY['D5']
-    WHEN section_name IN ('security_privacy_policies','integrations_and_apis') THEN ARRAY['D7','D9']
+    WHEN section_name IN ('modern_authentication_policies') THEN ARRAY['D9']
+    WHEN section_name IN ('next_generation_protections','security_privacy_policies',
+         'integrations_and_apis') THEN ARRAY['D7','D9']
+    WHEN section_name IN ('edge_authentication_policies') THEN ARRAY['D2','D7']
     WHEN section_name IN ('emergency_management') THEN ARRAY['D8']
-    WHEN section_name IN ('advanced_identity_management') THEN ARRAY['D1','D9']
     WHEN section_name IN ('ml_monitoring','adaptive_learning','compliance_regulation') THEN ARRAY['D11']
     WHEN section_name IN ('blockchain_audit') THEN ARRAY['D12']
     WHEN section_name IN ('quantum_resistant_authentication') THEN ARRAY['SEC']
     ELSE ARRAY['D11']
   END
-  WHEN 'nist_sp_800_63b_rev4' THEN ARRAY['D9','D5','D8']
-  WHEN 'fido2_ctap_2.2' THEN ARRAY['D5','D7']
-  WHEN 'nist_pqc_2025' THEN ARRAY['SEC']
-  WHEN 'oauth_2_1' THEN ARRAY['D7','D9']
-  WHEN 'zero_trust_nsa_2026' THEN ARRAY['D7','D1','D2']
-  WHEN 'iso_27001_2022' THEN ARRAY['D11','D9']
-  WHEN 'industry_enterprise' THEN ARRAY['D5','D9','D7']
-  WHEN 'pci_dss_4_0_financial' THEN ARRAY['D3']
-  WHEN 'time_based_access_d4' THEN ARRAY['D4']
-  WHEN 'geo_location_d6' THEN ARRAY['D6']
+  -- Fuentes por nombre fijo (snake_case — nombres reales en BD)
+  WHEN 'nist_sp_800_63b_rev4'   THEN ARRAY['D9']            -- credenciales/passwords (no biométrico)
+  WHEN 'fido2_ctap_2.2'         THEN ARRAY['D7','D9']       -- protocolo red + autenticación (no biométrico)
+  WHEN 'nist_pqc_2025'          THEN ARRAY['SEC']
+  WHEN 'oauth_2_1'              THEN ARRAY['D7','D9']
+  WHEN 'zero_trust_nsa_2026'    THEN ARRAY['D7','D1','D2']
+  WHEN 'iso_27001_2022'         THEN ARRAY['D11','D9']
+  WHEN 'industry_enterprise'    THEN ARRAY['D9','D7']       -- prácticas enterprise (no biométrico)
+  WHEN 'pci_dss_4_0_financial'  THEN ARRAY['D3']
+  WHEN 'time_based_access_d4'   THEN ARRAY['D4']
+  WHEN 'geo_location_d6'        THEN ARRAY['D6']
   WHEN 'delegation_authority_d10' THEN ARRAY['D10']
-  WHEN 'cis_kubernetes_1_8' THEN ARRAY['D7']
+  WHEN 'cis_kubernetes_1_8'     THEN ARRAY['D7']
   WHEN 'aws_iam_best_practices' THEN ARRAY['D7','D9']
-  WHEN 'soc2_type_ii' THEN ARRAY['D11']
+  WHEN 'soc2_type_ii'           THEN ARRAY['D11']
   ELSE ARRAY['SEC']
 END WHERE domain_map IS NULL AND depth = 1;
+
+-- 5.1b domain_map para los dos frameworks camelCase (secciones en depth=2, no depth=1)
+-- authenticationFramework y policiesAuthenticationFramework tienen JSON wrapeado un nivel extra:
+--   { "authenticationFramework": { "advancedBiometrics": {...} } }  → depth=2 es la sección real
+UPDATE bauth.cfg_policy_library SET domain_map = CASE
+  WHEN section_name IN ('accessControl','adaptiveAccessControl')              THEN ARRAY['D1']
+  WHEN section_name IN ('advancedBiometrics')                                 THEN ARRAY['D5']
+  WHEN section_name IN ('iotEdgeSecurity','endpointDeviceSecurity')           THEN ARRAY['D2','D7']
+  WHEN section_name IN ('networkSecurity','zeroTrustInfrastructure','containerSecurity',
+       'microservicesSecurity','apiSecurity','applicationApiSecurity',
+       'webSocketAccessControl')                                               THEN ARRAY['D7']
+  WHEN section_name IN ('contextualAuthentication','advancedSessionManagement',
+       'contextualSecurity','systemResilience','incidentResponse',
+       'behavioralAuthentication')                                             THEN ARRAY['D8']
+  WHEN section_name IN ('authenticationCore','identityFederation',
+       'federatedAuthentication')                                              THEN ARRAY['D9']
+  WHEN section_name IN ('auditingSystem','securityMonitoring','dataProtection',
+       'dataPrivacySecurity','dataProtectionSystem','mlAnomalyDetection',
+       'aiSecurity','aiSecurityEngine')                                        THEN ARRAY['D11']
+  WHEN section_name IN ('blockchainSecurity')                                 THEN ARRAY['D12']
+  WHEN section_name IN ('quantumResistantSecurity','quantumSafeSecurity',
+       'cryptographyServices','secretsManagement','quantumAuthenticationSystem',
+       'metadata')                                                             THEN ARRAY['SEC']
+  ELSE ARRAY['D9']
+END WHERE source = 'authenticationFramework' AND depth = 2 AND domain_map IS NULL;
+
+UPDATE bauth.cfg_policy_library SET domain_map = CASE
+  WHEN section_name IN ('identity_access_policies','advanced_identity_management') THEN ARRAY['D1','D9']
+  WHEN section_name IN ('physical_logical_authentication')                         THEN ARRAY['D2']
+  WHEN section_name IN ('modern_authentication_policies')                          THEN ARRAY['D9']
+  WHEN section_name IN ('next_generation_protections','security_privacy_policies',
+       'integrations_and_apis')                                                    THEN ARRAY['D7','D9']
+  WHEN section_name IN ('edge_authentication_policies')                            THEN ARRAY['D2','D7']
+  WHEN section_name IN ('emergency_management')                                    THEN ARRAY['D8']
+  WHEN section_name IN ('ml_monitoring','adaptive_learning','compliance_regulation') THEN ARRAY['D11']
+  WHEN section_name IN ('blockchain_audit')                                        THEN ARRAY['D12']
+  WHEN section_name IN ('quantum_resistant_authentication')                        THEN ARRAY['SEC']
+  ELSE ARRAY['D11']
+END WHERE source = 'policiesAuthenticationFramework' AND depth = 2 AND domain_map IS NULL;
 
 -- 5.2 semantic_type por fuente
 UPDATE bauth.cfg_policy_library SET semantic_type = CASE
   WHEN source IN ('nist_sp_800_63b_rev4','nist_pqc_2025','iso_27001_2022','soc2_type_ii','zero_trust_nsa_2026') THEN 'standard'
-  WHEN source = 'policies_framework' THEN 'policy'
+  WHEN source = 'policiesAuthenticationFramework' THEN 'policy'
   WHEN source IN ('industry_enterprise','aws_iam_best_practices','cis_kubernetes_1_8') THEN 'guideline'
   WHEN source IN ('fido2_ctap_2.2','oauth_2_1') THEN 'method'
   WHEN source IN ('pci_dss_4_0_financial','time_based_access_d4','geo_location_d6','delegation_authority_d10') THEN 'policy'
-  WHEN source = 'authentication_framework' THEN CASE
-    WHEN section_name IN ('authenticationCore','advancedSessionManagement','secretsManagement','containerSecurity','cryptographyServices','dataProtectionSystem') THEN 'configuration'
-    WHEN section_name IN ('advancedBiometrics','behavioralAuthentication','webSocketAccessControl','contextualAuthentication','federatedAuthentication','quantumAuthenticationSystem','identityFederation') THEN 'method'
+  WHEN source = 'authenticationFramework' THEN CASE
+    WHEN section_name IN ('authenticationCore','advancedSessionManagement','secretsManagement',
+         'containerSecurity','cryptographyServices','dataProtectionSystem') THEN 'configuration'
+    WHEN section_name IN ('advancedBiometrics','behavioralAuthentication','webSocketAccessControl',
+         'contextualAuthentication','federatedAuthentication','quantumAuthenticationSystem','identityFederation') THEN 'method'
     ELSE 'policy'
   END
   ELSE 'policy'
