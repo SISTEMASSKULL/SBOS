@@ -84,13 +84,172 @@ Herencia jerárquica modelada como partial order. `parent_id` señala el rol sen
 
 AC-2 exige identificar tipos de cuenta: individual, compartida, de grupo, de sistema, de emergencia, de servicio. `type_id` implementa este campo.
 
-> **Solución implementada:**
-> - Se creó `bauth.idn_role_type` — catálogo normativo (10 tipos: INDIVIDUAL, EXTERNAL, GUEST, GROUP, SYSTEM, SERVICE, M2M, EMERGENCY, TEMPORARY, DEVELOPER) alineado con NIST SP 800-53 Rev5 AC-2 · ISO 24760-2:2025 · oneM2M TS 0001 · PAM NHI.
-> - Se migró `type_id` de TEXT sin FK a `uuid NOT NULL FK → bauth.idn_role_type(id) ON DELETE RESTRICT`.
-> - Se reforzó `role_type` con `NOT NULL + CHECK (13 valores)`.
-> - Distribución final: INDIVIDUAL=334, EXTERNAL=162, M2M=29, SYSTEM=19, GUEST=4 (total 548 roles, 0 NULLs, 0 FK rotas).
-> - Semilla `bauth_47a__idn_role_type.sql` (catálogo) + `bauth_48__idn_role_template.sql` (subqueries al catálogo) — idempotentes.
-> - **Arquitectura dual:** `role_type` (operativo, legible por humanos) + `type_id` (normativo, FK al catálogo AC-2).
+**Motivo del gap:** `type_id` era `text` sin FK, sin catálogo, con valores arbitrarios de negocio (`'TYPE-GERENCIA-MEDIA'`, `'TYPE-SISTEMA'`, etc.) que no correspondían a ninguna taxonomía normativa. Ni la norma NIST AC-2 ni los estándares de la industria (Keycloak, Entra ID, SailPoint) usan etiquetas de nivel jerárquico como tipo de cuenta. El campo no era verificable ni auditable.
+
+#### Investigación previa — estándares de la industria
+
+| Fuente | Tipos canónicos |
+|---|---|
+| **NIST SP 800-53 Rev5 AC-2(a)** | individual, shared, group, system, guest/anonymous, emergency, developer, temporary, service |
+| **ISO 24760-2:2025** | human entity, non-human entity, external party |
+| **oneM2M TS 0001** | SYS, BIZ, EXT, M2M (ya usados en `role_type`) |
+| **PAM NHI** (BeyondTrust/CyberArk 2025) | Non-Human Identity — ratio 80:1 vs humanos |
+| **Microsoft Entra ID** | Member, Guest, Service Principal, Managed Identity |
+| **Keycloak 26.6.2** | realm-user, service-account, bot |
+| **SailPoint IdentityNow** | Standard, Service, Privileged, Bot |
+
+**Conclusión:** los 10 tipos de NIST AC-2 Rev5 son el denominador común de todos los estándares. La industria PAM añade NHI como agrupación de M2M + SERVICE.
+
+#### Diseño aprobado — arquitectura dual de campos
+
+Se decidió **preservar ambos campos** con responsabilidades distintas:
+
+| Campo | Tipo | Rol | Taxonomía |
+|---|---|---|---|
+| `role_type` | `text NOT NULL CHECK` | Operativo — clasificación legible por humanos y operadores | Negocio SBOS (13 valores: GERENCIAL, TECNICO_PROFESIONAL, OPERATIVO, EXTERNO, MAQUINA, SISTEMA…) |
+| `type_id` | `uuid NOT NULL FK` | Normativo — alineado con auditoría AC-2 | NIST SP 800-53 Rev5 AC-2 · ISO 24760-2:2025 |
+
+#### Solución — Bloque A: catálogo `bauth.idn_role_type`
+
+Archivo: `DDLs/seeds/bauth_47a__idn_role_type.sql` (se ejecuta antes de bauth_48 por orden alfabético)
+
+```sql
+CREATE TABLE IF NOT EXISTS bauth.idn_role_type (
+    id                  uuid        NOT NULL DEFAULT uuidv7(),
+    codigo              text        NOT NULL,   -- clave natural estable
+    nombre_es           text        NOT NULL,
+    nombre_en           text        NOT NULL,
+    descripcion_es      text        NOT NULL,
+    norma_ref           text        NOT NULL,   -- cita normativa exacta
+    es_humano           boolean     NOT NULL,
+    es_externo          boolean     NOT NULL DEFAULT false,
+    riesgo_elevado      boolean     NOT NULL DEFAULT false,
+    requiere_expiracion boolean     NOT NULL DEFAULT false,
+    activo              boolean     NOT NULL DEFAULT true,
+    ctx_id              text        NOT NULL DEFAULT 'bootstrap',
+    created_at          timestamptz NOT NULL DEFAULT now(),
+    updated_at          timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT pk_idn_role_type        PRIMARY KEY (id),
+    CONSTRAINT uq_idn_role_type_codigo UNIQUE (codigo)
+);
+```
+
+10 tipos insertados con `ON CONFLICT (codigo) DO UPDATE`:
+
+| codigo | nombre_es | es_humano | riesgo_elevado | requiere_expiracion |
+|---|---|---|---|---|
+| INDIVIDUAL | Usuario Individual Interno | true | false | false |
+| EXTERNAL | Identidad Externa | true | false | false |
+| GUEST | Visitante / Acceso Limitado | true | true | true |
+| GROUP | Cuenta Compartida / Grupal | false | true | false |
+| SYSTEM | Proceso de Sistema / Daemon | false | false | false |
+| SERVICE | Cuenta de Servicio / Integración | false | false | false |
+| M2M | Máquina a Máquina / NHI | false | false | false |
+| EMERGENCY | Break-Glass / Emergencia | true | true | true |
+| TEMPORARY | Acceso Temporal con Expiración | true | true | true |
+| DEVELOPER | Cuenta de Desarrollo / Debug | true | false | false |
+
+#### Solución — Bloque B: migración `type_id` TEXT → UUID FK
+
+```sql
+-- 1. Columna temporal sin restricciones
+ALTER TABLE bauth.idn_role_template ADD COLUMN type_id_new uuid;
+
+-- 2. Mapeo de valores TEXT → UUID del catálogo
+UPDATE bauth.idn_role_template t
+SET type_id_new = rt.id
+FROM (VALUES
+    ('TYPE-OPERATIVO',        'INDIVIDUAL'),
+    ('TYPE-PROFESIONAL',      'INDIVIDUAL'),
+    ('TYPE-GERENCIA-MEDIA',   'INDIVIDUAL'),
+    ('TYPE-TECNICO',          'INDIVIDUAL'),
+    ('TYPE-SUPERVISION',      'INDIVIDUAL'),
+    ('TYPE-GERENCIA',         'INDIVIDUAL'),
+    ('TYPE-DIRECCION',        'INDIVIDUAL'),
+    ('TYPE-EXTERNO-CLIENTE',  'EXTERNAL'),
+    ('TYPE-EXTERNO-PROVEEDOR','EXTERNAL'),
+    ('TYPE-EXTERNO-VISITANTE','GUEST'),
+    ('TYPE-M2M',              'M2M'),
+    ('TYPE-SISTEMA',          'SYSTEM')
+) AS m(old_val, codigo)
+JOIN bauth.idn_role_type rt ON rt.codigo = m.codigo
+WHERE t.type_id = m.old_val;
+
+-- 3. Verificar 0 NULLs antes de agregar NOT NULL
+-- Resultado: 0 nulos → se procedió
+SELECT COUNT(*) FROM bauth.idn_role_template WHERE type_id_new IS NULL;
+
+-- 4. Agregar NOT NULL + FK
+ALTER TABLE bauth.idn_role_template
+    ALTER COLUMN type_id_new SET NOT NULL,
+    ADD CONSTRAINT fk_idn_role_template_type_id
+        FOREIGN KEY (type_id_new) REFERENCES bauth.idn_role_type(id) ON DELETE RESTRICT;
+
+-- 5. Reemplazar columna
+ALTER TABLE bauth.idn_role_template DROP COLUMN type_id;
+ALTER TABLE bauth.idn_role_template RENAME COLUMN type_id_new TO type_id;
+```
+
+#### Solución — Bloque C: refuerzo de `role_type`
+
+```sql
+UPDATE bauth.idn_role_template SET role_type = 'OPERATIVO'  WHERE role_type IS NULL;
+ALTER TABLE bauth.idn_role_template ALTER COLUMN role_type SET NOT NULL;
+ALTER TABLE bauth.idn_role_template ADD CONSTRAINT chk_idn_role_template_role_type
+    CHECK (role_type IN (
+        'GERENCIAL','TECNICO_PROFESIONAL','OPERATIVO','SUPERVISOR',
+        'EJECUTIVO','DIRECTIVO','EXTERNO','MAQUINA','SISTEMA',
+        'VISITANTE','ESPECIAL','COLABORADOR','ADMINISTRADOR'
+    ));
+```
+
+#### Solución — Bloque D: seed idempotente con subquery al catálogo
+
+`bauth_48__idn_role_template.sql` — cada fila usa subquery en lugar de TEXT literal:
+
+```sql
+-- Antes (inválido con FK UUID):
+(uuidv7(), 'ROL-ACTUARIO', 'TYPE-GERENCIA-MEDIA', 'BIZ_N3', ...)
+
+-- Después (subquery resuelta en tiempo de ejecución):
+(uuidv7(), 'ROL-ACTUARIO', (SELECT id FROM bauth.idn_role_type WHERE codigo = 'INDIVIDUAL'), 'BIZ_N3', ...)
+```
+
+Mapeo aplicado a los 548 roles (Python, reemplazo de `'TYPE-X'` con comilla simple — no toca JSONB con doble comilla):
+
+| Valor TEXT anterior | codigo catálogo | Cantidad |
+|---|---|---|
+| `'TYPE-OPERATIVO'` | INDIVIDUAL | 104 |
+| `'TYPE-PROFESIONAL'` | INDIVIDUAL | 86 |
+| `'TYPE-GERENCIA-MEDIA'` | INDIVIDUAL | 66 |
+| `'TYPE-TECNICO'` | INDIVIDUAL | 51 |
+| `'TYPE-SUPERVISION'` | INDIVIDUAL | 15 |
+| `'TYPE-GERENCIA'` | INDIVIDUAL | 11 |
+| `'TYPE-DIRECCION'` | INDIVIDUAL | 1 |
+| `'TYPE-EXTERNO-CLIENTE'` | EXTERNAL | 119 |
+| `'TYPE-EXTERNO-PROVEEDOR'` | EXTERNAL | 43 |
+| `'TYPE-EXTERNO-VISITANTE'` | GUEST | 4 |
+| `'TYPE-M2M'` | M2M | 29 |
+| `'TYPE-SISTEMA'` | SYSTEM | 19 |
+| **Total** | | **548** |
+
+#### Verificación en VPS (commit `412b4ab`)
+
+```
+tipos_en_catalogo = 10
+tipo       | cantidad
+-----------+---------
+INDIVIDUAL |      334
+EXTERNAL   |      162
+M2M        |       29
+SYSTEM     |       19
+GUEST      |        4
+
+nulls_type_id = 0
+fk_rotas      = 0
+```
+
+**Idempotencia verificada:** segunda ejecución retorna `INSERT 0 548` (upsert) sin errores.
 
 ---
 
