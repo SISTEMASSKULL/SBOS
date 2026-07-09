@@ -1,0 +1,626 @@
+# Autor: Ivan Jorge Villanueva Mollinedo — Sistemas SKULL
+# Co-Autor (IA): Claude Sonnet 4.6 — Anthropic
+# /etc/bos/ai/action_catalog.yml
+# ICAP Engine — Catálogo de Acciones de biaos
+#
+# Equivalente a 00_ARCHITECTURE_SBOS.yml pero para acciones IA.
+# INMUTABLE en runtime. Modificar requiere acceso de administrador + reinicio bos.
+# Cada entrada es validada y testeada antes de agregarse.
+#
+# Referencia arquitectónica: biaos-proyecto-ia-robusta.md §Parte 3
+# Referencia de implementación: BOS-REPAIR-10 §4.2
+# Paper base: Agent-S (arXiv 2503.15520, 2025) — búsqueda coseno sobre catálogo
+#
+# Versión: 1.0
+# Fecha: Junio 2026
+# Átomo del plan: F10.0
+
+metadata:
+  version: "1.0"
+  dominio: "os"
+  # GUARDIA DE DOMINIO — biaos NUNCA responde sobre negocio.
+  # Si la consulta no aplica a ninguna acción de este catálogo → derivar a bCompass.
+  dominios_prohibidos: ["negocio", "ventas", "facturación", "empleados", "inventario"]
+  modelos_prohibidos: ["Tryton", "OrangeHRM", "Saleor", "biedata"]
+
+# ═══════════════════════════════════════════════════════════════════════
+# CATEGORÍA 1 — ACCIONES DE LECTURA
+# Sin HITL. El agente ReAct las ejecuta libremente.
+# Nunca modifican estado. Fuente de diagnóstico segura.
+# ═══════════════════════════════════════════════════════════════════════
+
+acciones:
+
+  # ── Consultas de estado general ────────────────────────────────────────
+
+  query_system:
+    id: query_system
+    name: "Consultar estado completo del sistema"
+    description: "Estado de todas las fichas instaladas, pods K8s, daemons soberanos, Ubuntu y métricas de recursos"
+    categoria: 1
+    rpc_method: "bos.query.system"
+    saga_id: null
+    requiere_hitl: false
+    required_role: "readonly"
+    params_requeridos: []
+    params_opcionales: ["tenant_id"]
+    aliases:
+      - "qué fichas están caídas"
+      - "dame los contenedores con falla"
+      - "qué está mal en el sistema"
+      - "estado general del cluster"
+      - "pods con problemas"
+      - "servicios degradados"
+      - "cómo está el sistema"
+      - "el sistema está bien"
+      - "todo OK"
+    embedding_texto: >
+      estado sistema salud health fichas pods kubernetes ubuntu
+      lento error degradado problema fallo general revisar
+      cómo está todo bien mal funcionando caído
+
+  query_repair:
+    id: query_repair
+    name: "Diagnóstico de reparación"
+    description: "Diagnóstico profundo: fichas degradadas, causa probable, última reparación, logs relevantes. Fuente primaria antes de proponer cualquier acción de escritura."
+    categoria: 1
+    rpc_method: "bos.query.repair"
+    saga_id: null
+    requiere_hitl: false
+    required_role: "readonly"
+    params_requeridos: []
+    params_opcionales: ["ficha_id"]
+    aliases:
+      - "por qué está fallando X"
+      - "qué causa el error"
+      - "diagnosticar X"
+      - "qué tiene X"
+      - "investiga X"
+      - "cuál es el problema"
+    embedding_texto: >
+      diagnosticar investigar por qué falla causa error crash
+      diagnose pod log específico ficha kubernetes bos
+      qué pasó por qué se cayó está roto crasheando
+
+  query_vdi:
+    id: query_vdi
+    name: "Estado del VDI Layer"
+    description: "Estado de pods Fedora Lógico, sesiones activas, Nextcloud, Guacamole, home mounts y semáforo VDI del tenant"
+    categoria: 1
+    rpc_method: "bos.query.vdi"
+    saga_id: null
+    requiere_hitl: false
+    required_role: "readonly"
+    params_requeridos: ["tenant_id"]
+    params_opcionales: []
+    aliases:
+      - "el escritorio no abre"
+      - "el VDI está caído"
+      - "los usuarios no pueden entrar"
+      - "Fedora no carga"
+      - "la sesión remota falla"
+      - "guacamole no funciona"
+      - "nextcloud no disponible"
+    embedding_texto: >
+      vdi virtual desktop escritorio fedora guacamole nextcloud
+      sesión usuario acceso remoto navegador home carpeta
+      escritorio remoto no abre no carga falla sesión
+
+  query_node:
+    id: query_node
+    name: "Estado de recursos de nodos K8s"
+    description: "CPU, memoria, disco, pods por nodo y estado de readiness de cada nodo del cluster"
+    categoria: 1
+    rpc_method: "bos.query.node"
+    saga_id: null
+    requiere_hitl: false
+    required_role: "readonly"
+    params_requeridos: []
+    params_opcionales: ["node_name"]
+    aliases:
+      - "el servidor está pesado"
+      - "cuánta memoria queda"
+      - "el disco está lleno"
+      - "el CPU al máximo"
+      - "recursos del nodo"
+      - "capacidad del servidor"
+    embedding_texto: >
+      nodo node recurso cpu memoria disco capacidad
+      host servidor hardware estado kubernetes
+      lleno pesado saturado lento sin espacio
+
+  query_context:
+    id: query_context
+    name: "Estado del Context Plane"
+    description: "Contextos activos (dctx_id/ctx_id), BitMasks, TTLs restantes, latencia p99. Verifica criterio C-13."
+    categoria: 1
+    rpc_method: "bos.query.context"
+    saga_id: null
+    requiere_hitl: false
+    required_role: "readonly"
+    params_requeridos: []
+    params_opcionales: ["tenant_id"]
+    aliases:
+      - "los usuarios no pueden autenticarse"
+      - "el login no funciona"
+      - "el contexto no se crea"
+      - "sesiones expiradas"
+      - "C-13 falla"
+    embedding_texto: >
+      contexto context dctx_id ctx_id sesión autenticación login
+      usuario bitmas TTL expirado keycloak token acceso
+
+  query_tenant:
+    id: query_tenant
+    name: "Estado de tenants activos"
+    description: "Lista de tenants activos, sus contextos, fichas asignadas y estado de cada tenant"
+    categoria: 1
+    rpc_method: "bos.query.tenant"
+    saga_id: null
+    requiere_hitl: false
+    required_role: "readonly"
+    params_requeridos: []
+    params_opcionales: ["tenant_id"]
+    aliases:
+      - "qué tenants están activos"
+      - "estado de skull"
+      - "tenants del sistema"
+    embedding_texto: >
+      tenant empresa organización activo estado lista
+      skull cliente inquilino multi-tenant
+
+  # ── Consultas de salud y bootstrap ──────────────────────────────────────
+
+  health_check:
+    id: health_check
+    name: "Verificar salud de infraestructura"
+    description: "Health check de servicios críticos: PostgreSQL, Redis, Vault, Keycloak, Kong"
+    categoria: 1
+    rpc_method: "bos.health.check"
+    saga_id: null
+    requiere_hitl: false
+    required_role: "readonly"
+    params_requeridos: []
+    params_opcionales: []
+    aliases:
+      - "están bien los servicios base"
+      - "la base de datos responde"
+      - "vault OK"
+      - "keycloak OK"
+      - "redis OK"
+    embedding_texto: >
+      health check salud postgresql redis vault keycloak kong
+      servicios base infraestructura funcionando responde ping
+
+  ficha_probe:
+    id: ficha_probe
+    name: "Probe de salud de una ficha específica"
+    description: "Ejecuta el health probe definido en manifest.yml de la ficha y retorna healthy: true/false"
+    categoria: 1
+    rpc_method: "bos.health.ficha.probe"
+    saga_id: null
+    requiere_hitl: false
+    required_role: "readonly"
+    params_requeridos: ["ficha_id"]
+    params_opcionales: []
+    aliases:
+      - "está sana X"
+      - "responde X"
+      - "X está viva"
+      - "verificar X"
+    embedding_texto: >
+      probe health ficha sana responde viva verificar
+      endpoint respuesta OK servicio activo
+
+  bootstrap_verify:
+    id: bootstrap_verify
+    name: "Verificar criterios de certificación del sistema"
+    description: "Ejecuta los criterios C-01..C-14. Muestra cuáles pasan y cuáles fallan con detalle."
+    categoria: 1
+    rpc_method: "bos.bootstrap.verify"
+    saga_id: null
+    requiere_hitl: false
+    required_role: "readonly"
+    params_requeridos: []
+    params_opcionales: ["criterio"]
+    aliases:
+      - "verificar la instalación"
+      - "el sistema está certificado"
+      - "C-14 pasa"
+      - "todos los criterios OK"
+    embedding_texto: >
+      bootstrap verify criterio C-01 C-14 certificación
+      instalación completa verificada OK todos los checks
+
+  state_read:
+    id: state_read
+    name: "Leer estado de fichas"
+    description: "Lee el archivo .sbos_state.json: estado de cada ficha (INSTALADA, DEGRADADA, etc.), hashes SHA-256, timestamps de última transición"
+    categoria: 1
+    rpc_method: "bos.state.read"
+    saga_id: null
+    requiere_hitl: false
+    required_role: "readonly"
+    params_requeridos: []
+    params_opcionales: []
+    aliases:
+      - "qué fichas están instaladas"
+      - "estado de las fichas"
+      - "qué está degradado"
+      - "lista de servicios"
+    embedding_texto: >
+      estado fichas instaladas degradadas lista servicios
+      state read status fichas sistema INSTALADA DEGRADADA
+
+  ctx_stats:
+    id: ctx_stats
+    name: "Estadísticas del Context Plane"
+    description: "Métricas del Context Plane: contextos activos/expirados, latencia p99, TTLs. Verifica SLO p99 < 2s."
+    categoria: 1
+    rpc_method: "bos.ctx.stats"
+    saga_id: null
+    requiere_hitl: false
+    required_role: "readonly"
+    params_requeridos: []
+    params_opcionales: ["tenant_id"]
+    aliases:
+      - "métricas del context plane"
+      - "latencia de contextos"
+      - "cuántos contextos activos"
+    embedding_texto: >
+      métricas context plane estadísticas latencia p99
+      contextos activos expirados TTL SLO
+
+  ctx_list:
+    id: ctx_list
+    name: "Listar contextos activos"
+    description: "Lista todos los DeviceContext y SessionContext activos con sus TTLs restantes y BitMasks"
+    categoria: 1
+    rpc_method: "bos.ctx.list"
+    saga_id: null
+    requiere_hitl: false
+    required_role: "readonly"
+    params_requeridos: []
+    params_opcionales: ["tenant_id"]
+    aliases:
+      - "listar sesiones"
+      - "qué usuarios están conectados"
+      - "sesiones activas"
+    embedding_texto: >
+      listar sesiones usuarios conectados activos dctx ctx
+      lista contextos dispositivos registrados
+
+  release_check:
+    id: release_check
+    name: "Verificar actualizaciones disponibles"
+    description: "Consulta el servidor de releases para ver si hay versiones nuevas disponibles para las fichas instaladas"
+    categoria: 1
+    rpc_method: "bos.release.check"
+    saga_id: null
+    requiere_hitl: false
+    required_role: "readonly"
+    params_requeridos: []
+    params_opcionales: ["ficha_id"]
+    aliases:
+      - "hay actualizaciones"
+      - "versiones nuevas"
+      - "está actualizado"
+      - "qué versión corre"
+    embedding_texto: >
+      actualizaciones versiones nuevas disponibles release
+      update check latest versión actual disponible
+
+# ═══════════════════════════════════════════════════════════════════════
+# CATEGORÍA 2 — ACCIONES DE ESCRITURA
+# HITL simple: una confirmación del operador.
+# Afectan un servicio o componente específico.
+# Tienen compensación en caso de fallo.
+# ═══════════════════════════════════════════════════════════════════════
+
+  repair_ficha:
+    id: repair_ficha
+    name: "Reparar una ficha degradada"
+    description: "Ejecuta la saga completa de reparación: diagnosis → repair → verify. Incluye compensación automática si falla."
+    categoria: 2
+    saga_id: "repair-ficha"
+    rpc_method: null
+    requiere_hitl: true
+    hitl_doble: false
+    required_role: "operator"
+    params_requeridos: ["ficha_id"]
+    params_opcionales: []
+    riesgo: "Interrupción del servicio ~2-5 minutos. Los usuarios conectados pueden perder su sesión temporalmente."
+    compensacion: null  # la saga tiene compensación interna: rollback a DEGRADADA
+    aliases:
+      - "repara X"
+      - "reinicia X"
+      - "arregla X"
+      - "X está roto"
+      - "fix X"
+      - "X no funciona"
+    embedding_texto: >
+      reparar reiniciar recuperar ficha degradada falla repair
+      restart fix pod kubernetes bos service arreglar
+      se cayó no responde está roto crasheando
+
+  scale_deployment:
+    id: scale_deployment
+    name: "Escalar réplicas o recursos de una ficha"
+    description: "Ajusta réplicas y/o CPU/memoria de una ficha con decisión coordinada HPA+VPA. Previene el death spiral."
+    categoria: 2
+    saga_id: null
+    rpc_method: "bos.ficha.scale"
+    requiere_hitl: true
+    hitl_doble: false
+    required_role: "operator"
+    params_requeridos: ["ficha_id"]
+    params_opcionales: ["replicas", "memory_limit", "cpu_limit"]
+    riesgo: "Redistribución de pods, posible downtime breve (~30s). Escalar a 0 hace el servicio completamente inaccesible."
+    compensacion: "bos.k8s.rollout.undo"
+    aliases:
+      - "escala X"
+      - "X está saturado"
+      - "más réplicas para X"
+      - "aumenta recursos de X"
+      - "X se queda sin memoria"
+      - "X lento por carga"
+    embedding_texto: >
+      escalar recursos memoria cpu réplicas aumentar crecer
+      scale up down deployment kubernetes ajustar capacidad
+      saturado sin recursos lento por carga más instancias
+
+  ficha_pause:
+    id: ficha_pause
+    name: "Pausar una ficha"
+    description: "Transiciona la ficha al estado PAUSADA. El servicio queda suspendido sin generar alertas. Útil para mantenimiento manual."
+    categoria: 2
+    saga_id: null
+    rpc_method: "bos.ficha.pause"
+    requiere_hitl: true
+    hitl_doble: false
+    required_role: "operator"
+    params_requeridos: ["ficha_id"]
+    params_opcionales: []
+    riesgo: "El servicio queda completamente inaccesible mientras está PAUSADA. No se generan alertas automáticas."
+    compensacion: "bos.ficha.resume"
+    aliases:
+      - "pausa X"
+      - "suspende X"
+      - "detén X"
+      - "deja X en mantenimiento"
+    embedding_texto: >
+      pausar suspender detener pausa mantenimiento manual
+      ficha pause suspend stop halt mantenimiento programado
+
+  pod_restart:
+    id: pod_restart
+    name: "Reiniciar un pod específico"
+    description: "Elimina el pod específico — el ReplicaSet crea uno nuevo automáticamente. Más granular que reparar la ficha completa."
+    categoria: 2
+    saga_id: null
+    rpc_method: "bos.k8s.pod.restart"
+    requiere_hitl: true
+    hitl_doble: false
+    required_role: "operator"
+    params_requeridos: ["namespace", "pod_name"]
+    params_opcionales: []
+    riesgo: "El pod específico queda inaccesible ~30-60 segundos hasta que el nuevo esté Running y Ready."
+    compensacion: null  # el ReplicaSet garantiza que un pod nuevo se crea
+    aliases:
+      - "reinicia el pod X"
+      - "mata el pod X"
+      - "borra el pod X"
+      - "ese pod está colgado"
+    embedding_texto: >
+      pod reiniciar matar eliminar borrar restart kill delete
+      pod específico colgado hung zombie unresponsive
+
+  ctx_invalidate:
+    id: ctx_invalidate
+    name: "Invalidar un contexto de usuario"
+    description: "Invalida un ctx_id o dctx_id específico. El usuario deberá re-autenticarse. Útil cuando se detecta sesión comprometida."
+    categoria: 2
+    saga_id: null
+    rpc_method: "bos.ctx.invalidate"
+    requiere_hitl: true
+    hitl_doble: false
+    required_role: "operator"
+    params_requeridos: ["ctx_id"]
+    params_opcionales: []
+    riesgo: "El usuario pierde su sesión activa inmediatamente. Deberá hacer login de nuevo."
+    compensacion: null  # la invalidación es permanente por diseño de seguridad
+    aliases:
+      - "cierra la sesión de X"
+      - "expira el token de X"
+      - "saca a X del sistema"
+      - "sesión comprometida"
+    embedding_texto: >
+      invalidar cerrar sesión expirar token logout forzar
+      usuario acceso revocar comprometida sospechosa
+
+  rollout_undo:
+    id: rollout_undo
+    name: "Revertir último rollout de una ficha"
+    description: "Hace rollback al deployment anterior de la ficha. Útil cuando una actualización reciente causó problemas."
+    categoria: 2
+    saga_id: null
+    rpc_method: "bos.k8s.rollout.undo"
+    requiere_hitl: true
+    hitl_doble: false
+    required_role: "operator"
+    params_requeridos: ["ficha_id"]
+    params_opcionales: []
+    riesgo: "Downtime ~2 minutos mientras los pods del deployment anterior se recrean. La versión nueva quedará inactiva."
+    compensacion: null  # el rollback es la compensación misma
+    aliases:
+      - "revierte X"
+      - "rollback de X"
+      - "la actualización de X rompió algo"
+      - "vuelve a la versión anterior de X"
+      - "deshace el update de X"
+    embedding_texto: >
+      revertir rollback volver atrás versión anterior deshacer
+      update rompió actualizacion mala regresa estado anterior
+
+  release_apply:
+    id: release_apply
+    name: "Aplicar actualización a una ficha"
+    description: "Actualiza una ficha a la versión disponible en el servidor de releases. Incluye rollback automático si falla la verificación."
+    categoria: 2
+    saga_id: "upgrade-ficha"
+    rpc_method: null
+    requiere_hitl: true
+    hitl_doble: false
+    required_role: "operator"
+    params_requeridos: ["ficha_id"]
+    params_opcionales: ["version"]
+    riesgo: "Downtime ~5-10 minutos. Si la verificación post-update falla, rollback automático a la versión anterior."
+    compensacion: "bos.k8s.rollout.undo"
+    aliases:
+      - "actualiza X"
+      - "instala la nueva versión de X"
+      - "aplica el parche de X"
+      - "upgrade X"
+    embedding_texto: >
+      actualizar upgrade versión nueva update parche aplicar
+      upgrade ficha version kubernetes deploy instalar
+
+# ═══════════════════════════════════════════════════════════════════════
+# CATEGORÍA 3 — ACCIONES DESTRUCTIVAS
+# HITL doble: dos confirmaciones explícitas del operador.
+# Afectan múltiples servicios, nodos, o tenants completos.
+# Solo rol admin.
+# ═══════════════════════════════════════════════════════════════════════
+
+  node_cordon:
+    id: node_cordon
+    name: "Aislar nodo para mantenimiento (cordon)"
+    description: "Marca el nodo como no-schedulable. Los pods existentes siguen corriendo pero no se programan nuevos pods. Primer paso del mantenimiento de nodo."
+    categoria: 3
+    saga_id: null
+    rpc_method: "bos.k8s.node.cordon"
+    requiere_hitl: true
+    hitl_doble: true
+    required_role: "admin"
+    params_requeridos: ["node_name"]
+    params_opcionales: []
+    riesgo: "El nodo deja de recibir nuevos pods. En clusters de un solo nodo, las fichas que fallen no se pueden recuperar automáticamente hasta uncordon."
+    compensacion: "bos.k8s.node.uncordon"
+    aliases:
+      - "aísla el nodo"
+      - "saca el nodo del servicio"
+      - "preparar nodo para mantenimiento"
+      - "cordon del nodo"
+    embedding_texto: >
+      aislar nodo cordon mantenimiento no-schedulable sacar
+      node maintenance preparar servidor actualización
+
+  node_drain:
+    id: node_drain
+    name: "Drenar nodo (evacuar pods)"
+    description: "Migra todos los pods del nodo a otros nodos del cluster. Requisito previo para mantenimiento de hardware o SO del servidor."
+    categoria: 3
+    saga_id: null
+    rpc_method: "bos.k8s.node.drain"
+    requiere_hitl: true
+    hitl_doble: true
+    required_role: "admin"
+    params_requeridos: ["node_name"]
+    params_opcionales: ["ignore_daemonsets", "delete_emptydir"]
+    riesgo: "CRÍTICO: En cluster de un solo nodo, TODOS los servicios quedan inaccesibles hasta uncordon. En multi-nodo, interrupción breve por migración de cada pod (~30s por servicio). Requiere cordon previo."
+    compensacion: "bos.k8s.node.uncordon"
+    aliases:
+      - "drena el nodo"
+      - "vacía el nodo"
+      - "migra los pods del nodo"
+      - "evacúa el nodo"
+    embedding_texto: >
+      drenar nodo drain vaciar migrar pods evacuar
+      mantenimiento servidor hardware actualización OS kernel
+
+  node_maintain:
+    id: node_maintain
+    name: "Saga completa de mantenimiento de nodo"
+    description: "Ejecuta la saga completa: cordon → drain → operación de mantenimiento → uncordon. La compensación garantiza que uncordon siempre se ejecuta aunque el proceso falle."
+    categoria: 3
+    saga_id: "node-maintain"
+    rpc_method: null
+    requiere_hitl: true
+    hitl_doble: true
+    required_role: "admin"
+    params_requeridos: ["node_name", "op"]
+    params_opcionales: []
+    riesgo: "Migración de todos los pods del nodo, ~10-15 minutos. En cluster de un solo nodo: downtime total de servicios durante el mantenimiento."
+    compensacion: "bos.k8s.node.uncordon"  # garantizado por SagaEngine aunque crashee el daemon
+    aliases:
+      - "mantenimiento del servidor"
+      - "actualizar el nodo"
+      - "parchar el servidor"
+      - "maintenance window"
+      - "ventana de mantenimiento"
+    embedding_texto: >
+      mantenimiento nodo maintenance node cordon drain
+      actualizar parche nodo host servidor kubernetes
+      ventana mantenimiento programado actualización completa
+
+  tenant_suspend:
+    id: tenant_suspend
+    name: "Suspender acceso de un tenant completo"
+    description: "Invalida TODOS los contextos (dctx_id y ctx_id) de un tenant. Todos los usuarios del tenant pierden acceso inmediatamente."
+    categoria: 3
+    saga_id: "tenant-suspend"
+    rpc_method: null
+    requiere_hitl: true
+    hitl_doble: true
+    required_role: "admin"
+    params_requeridos: ["tenant_id"]
+    params_opcionales: []
+    riesgo: "TODOS los usuarios del tenant pierden acceso inmediatamente. Los documentos y datos permanecen intactos pero inaccesibles. Reversión requiere ctx_id.restore manual."
+    compensacion: null  # la suspensión de tenant es intencional — no tiene compensación automática
+    aliases:
+      - "suspende el acceso de skull"
+      - "bloquea el tenant"
+      - "corta el acceso a todos los usuarios de X"
+      - "emergencia de seguridad"
+    embedding_texto: >
+      suspender tenant empresa todos usuarios bloquear
+      suspend tenant disable lock all users emergencia seguridad
+
+  rollout_restart_namespace:
+    id: rollout_restart_namespace
+    name: "Reiniciar todos los pods de un namespace"
+    description: "Rollout restart de todos los deployments de un namespace completo. Útil cuando hay contaminación de estado en múltiples pods."
+    categoria: 3
+    saga_id: null
+    rpc_method: "bos.k8s.rollout.restart.namespace"
+    requiere_hitl: true
+    hitl_doble: true
+    required_role: "admin"
+    params_requeridos: ["namespace"]
+    params_opcionales: []
+    riesgo: "ALTO: todos los servicios del namespace se reinician simultáneamente. Interrupción total del namespace durante 1-3 minutos. Todos los usuarios pierden sesión. No usar en horario laboral sin aviso previo."
+    compensacion: null
+    params_enum:
+      namespace: ["sbos-erp", "sbos-auth", "sbos-data", "sbos-apps", "sbos-monitoring"]
+    aliases:
+      - "reinicia todo el namespace X"
+      - "recarga todos los servicios de X"
+      - "fresh start del namespace"
+      - "limpiar el namespace"
+    embedding_texto: >
+      reiniciar namespace todos los pods fresh start limpiar
+      namespace completo restart todos los servicios sbos
+
+# ═══════════════════════════════════════════════════════════════════════
+# POLÍTICA DE GUARDIA DE DOMINIO
+# biaos NUNCA actúa sobre estos módulos aunque estén en el sistema.
+# Si el operador lo pide: "Esa consulta corresponde a bCompass."
+# ═══════════════════════════════════════════════════════════════════════
+
+guardia_dominio:
+  modulos_bloqueados:
+    - "biedata.*"    # datos empresariales — dominio de bCompass
+    - "tryton.*"     # ERP — dominio de bCompass
+    - "saleor.*"     # e-commerce — dominio de bCompass
+    - "bcompass.*"   # el agente de negocio — biaos no se solapa
+  mensaje_derivacion: "Esa consulta corresponde a bCompass. Contacta al agente de negocio."

@@ -1,0 +1,278 @@
+# Autor: Ivan Jorge Villanueva Mollinedo — Sistemas SKULL
+# Co-Autor (IA): Claude Sonnet 4.6 — Anthropic
+# ============================================================
+# SBOS / BosAgent — Pipeline CI/CD
+# Archivo: .github/workflows/ci.yml
+#
+# Triggers:
+#   - push a main: ejecuta todos los checks, bloquea si fallan
+#   - push a cualquier rama: ejecuta todos los checks
+#
+# Por qué NO usamos Pull Requests como gate:
+#   El equipo hace commit directo a main. El pipeline actúa
+#   como red de seguridad post-commit. Si algo falla, el
+#   commit queda marcado con ❌ en el historial de GitHub
+#   y el desarrollador recibe email inmediato.
+#
+# Para migrar a PR-based workflow en el futuro, cambiar:
+#   on: push → on: [push, pull_request]
+#   y activar "Branch protection rules" en Settings → Branches
+# ============================================================
+
+name: CI
+
+on:
+  push:
+    branches: ["**"]   # Todas las ramas — no hay PR workflow todavía
+  workflow_dispatch:   # Permite ejecutar manualmente desde la UI de GitHub
+
+# Cancela runs anteriores del mismo branch si se hace push nuevo.
+# Evita desperdiciar minutos de runner en commits viejos.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Permisos mínimos necesarios — principio de least privilege
+permissions:
+  contents: read
+
+jobs:
+  # ──────────────────────────────────────────────────────────
+  # JOB 1: build — Compilación y análisis estático
+  # Propósito: detectar errores de compilación y problemas
+  # de formato ANTES de correr los tests (más rápido el feedback)
+  # ──────────────────────────────────────────────────────────
+  build:
+    name: Build & Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10   # Si tarda más de 10min, algo está mal
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # setup-go v5 incluye caché automático de GOCACHE y GOMODCACHE
+      # usando go.sum como cache key. Acelera runs posteriores ~60%.
+      - name: Set up Go 1.25
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true   # Caché automático — default en v5
+
+      # PASO 1: Compilación
+      # Por qué: si el código no compila, los tests no tienen sentido.
+      # go build ./... compila todos los paquetes del módulo.
+      - name: Build
+        run: go build ./...
+
+      # PASO 2: Vet — análisis estático del compilador oficial
+      # Por qué: detecta bugs comunes que el compilador no rechaza
+      # (printf con args incorrectos, unreachable code, etc.)
+      - name: Vet
+        run: go vet ./...
+
+      # PASO 3: Formato — gofmt es no-negociable en Go
+      # Por qué: código mal formateado en un proyecto Go es señal
+      # de que el desarrollador no está usando las herramientas.
+      # Retorna lista de archivos con problemas; wc -l cuenta cuántos.
+      # Si hay aunque sea 1 archivo, el step falla.
+      - name: Format check
+        run: |
+          UNFORMATTED=$(gofmt -l .)
+          if [ -n "$UNFORMATTED" ]; then
+            echo "❌ Los siguientes archivos necesitan gofmt:"
+            echo "$UNFORMATTED"
+            echo ""
+            echo "Fix: gofmt -w ."
+            exit 1
+          fi
+          echo "✅ Formato correcto"
+
+  # ──────────────────────────────────────────────────────────
+  # JOB 2: race — El más crítico para SBOS
+  # Propósito: detectar DATA RACES con halt_on_error=1
+  #
+  # ESTO ES EL CORAZÓN DEL PIPELINE.
+  # La race condition P6/P14 que corrompió estado en producción
+  # se hubiera detectado aquí, en cada push, automáticamente.
+  #
+  # Por qué un job separado de "test":
+  #   - go test -race es 2-20x más lento que sin -race
+  #   - Si race falla, queremos el log separado y claro
+  #   - Es el único check que es HARD GATE incondicional
+  # ──────────────────────────────────────────────────────────
+  race:
+    name: Race Detection (HARD GATE)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20   # -count=10 con race puede tardar
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go 1.25
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      # PASO CRÍTICO: Race detection con halt_on_error=1
+      #
+      # GORACE="halt_on_error=1": en cuanto TSan detecta el PRIMER
+      # data race, el proceso termina con exit code != 0, lo que
+      # falla el step inmediatamente. Sin esto, Go imprime el reporte
+      # pero continúa ejecutando (y potencialmente ocultando más races).
+      #
+      # -race: activa ThreadSanitizer (TSan) en el runtime de Go
+      # -count=10: ejecuta cada test 10 veces (reproduce races intermitentes)
+      # -timeout=5m: timeout global — evita infinite loops como el incidente
+      #              del daemon que requirió pkill -9 -f claude
+      # -coverprofile: genera cobertura junto con race (un solo paso)
+      #
+      # Por qué -count=10 y no -count=1:
+      #   Las races son no-deterministas. Una race que ocurre 1/10 veces
+      #   pasaría desapercibida con -count=1. El plan de 98 átomos
+      #   especifica -count=10 precisamente por esto.
+      - name: Race detection
+        env:
+          GORACE: "halt_on_error=1 log_path=/tmp/race_log"
+        run: |
+          go test -race -count=10 -timeout=5m -coverprofile=coverage.out ./...
+          echo "✅ Zero data races detectadas"
+
+      # Sube el coverage.out como artifact para que el job de coverage
+      # lo pueda consumir sin re-correr los tests
+      - name: Upload coverage artifact
+        if: always()   # Subir incluso si race falló (para debug)
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            coverage.out
+            /tmp/race_log.*
+          retention-days: 7
+
+  # ──────────────────────────────────────────────────────────
+  # JOB 3: coverage — WARNING, no hard gate
+  # Propósito: reportar cobertura y advertir si < 60%,
+  # pero NO bloquear el pipeline.
+  #
+  # Decisión de diseño (documentada):
+  #   La cobertura < 60% es WARNING hasta que todos los
+  #   98 átomos del plan tengan tests. Convertirlo en hard
+  #   gate ahora generaría falsos positivos en paquetes que
+  #   aún no tienen tests escritos, lo que llevaría al equipo
+  #   a ignorar el pipeline completo.
+  #   Cambiar a hard gate: quitar "continue-on-error: true"
+  #   del step "Coverage gate".
+  # ──────────────────────────────────────────────────────────
+  coverage:
+    name: Coverage (Warning Only)
+    runs-on: ubuntu-latest
+    needs: race   # Espera a que race termine (usa su coverage.out)
+    if: always()  # Ejecuta aunque race haya fallado
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go 1.25
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      # Descarga el coverage.out generado por el job race
+      - name: Download coverage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-report
+        continue-on-error: true   # Si race falló y no hay artifact, no crashear aquí
+
+      # Calcula cobertura por paquete y total.
+      # continue-on-error: true → es WARNING, no bloquea el pipeline.
+      # El script imprime el resultado en el log y genera un
+      # GitHub Step Summary visible en la UI de Actions.
+      - name: Coverage gate (WARNING)
+        continue-on-error: true   # ← QUITAR ESTO para convertir en hard gate
+        run: |
+          if [ ! -f coverage.out ]; then
+            echo "⚠️  No hay coverage.out disponible (posiblemente race falló)"
+            exit 0
+          fi
+
+          THRESHOLD=60
+
+          echo "## 📊 Reporte de Cobertura" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          go tool cover -func=coverage.out | tee -a $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+          # Extrae el porcentaje total
+          TOTAL=$(go tool cover -func=coverage.out | grep '^total:' | awk '{print $3}' | tr -d '%')
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Total: ${TOTAL}% (threshold: ${THRESHOLD}%)**" >> $GITHUB_STEP_SUMMARY
+
+          # Cobertura por paquete de internal/ — los más críticos
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Paquetes bajo threshold" >> $GITHUB_STEP_SUMMARY
+
+          BELOW=0
+          while IFS= read -r line; do
+            PKG=$(echo "$line" | awk '{print $1}')
+            PCT=$(echo "$line" | awk '{print $3}' | tr -d '%')
+            if (( $(echo "$PCT < $THRESHOLD" | bc -l) )); then
+              echo "- ⚠️  \`$PKG\`: ${PCT}%" >> $GITHUB_STEP_SUMMARY
+              BELOW=$((BELOW + 1))
+            fi
+          done < <(go tool cover -func=coverage.out | grep -v '^total:')
+
+          if (( $(echo "$TOTAL < $THRESHOLD" | bc -l) )); then
+            echo ""
+            echo "⚠️  WARNING: Cobertura total ${TOTAL}% está bajo el threshold ${THRESHOLD}%"
+            echo "   Esto es una advertencia, no bloquea el pipeline."
+            echo "   Para convertir en hard gate: quitar 'continue-on-error: true'"
+            # exit 1  ← descomentar cuando sea hard gate
+          else
+            echo "✅ Cobertura total: ${TOTAL}% (sobre threshold ${THRESHOLD}%)"
+          fi
+
+  # ──────────────────────────────────────────────────────────
+  # JOB 4: summary — Estado final del pipeline
+  # Propósito: dar un único punto de verdad sobre si el commit
+  # está "verde" o "rojo". Útil cuando se active branch protection.
+  # ──────────────────────────────────────────────────────────
+  summary:
+    name: Pipeline Status
+    runs-on: ubuntu-latest
+    needs: [build, race, coverage]
+    if: always()
+    timeout-minutes: 2
+
+    steps:
+      - name: Check results
+        run: |
+          BUILD="${{ needs.build.result }}"
+          RACE="${{ needs.race.result }}"
+          COVERAGE="${{ needs.coverage.result }}"
+
+          echo "## Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Resultado |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|-----------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Build & Lint | $BUILD |" >> $GITHUB_STEP_SUMMARY
+          echo "| Race Detection | $RACE |" >> $GITHUB_STEP_SUMMARY
+          echo "| Coverage (warning) | $COVERAGE |" >> $GITHUB_STEP_SUMMARY
+
+          # Solo build y race son hard gates
+          if [ "$BUILD" != "success" ] || [ "$RACE" != "success" ]; then
+            echo ""
+            echo "❌ Pipeline FALLÓ — build: $BUILD, race: $RACE"
+            exit 1
+          fi
+
+          echo ""
+          echo "✅ Pipeline OK"
