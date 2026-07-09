@@ -80,10 +80,17 @@ Herencia jerárquica modelada como partial order. `parent_id` señala el rol sen
 
 ---
 
-**G-B01-03** · campo `type_id` · norma NIST SP 800-53 AC-2(a) · estado **⚠ Hardcoded**
+**G-B01-03** · campo `type_id` · norma NIST SP 800-53 AC-2(a) · estado **✅ RESUELTO** — 2026-07-10
+
 AC-2 exige identificar tipos de cuenta: individual, compartida, de grupo, de sistema, de emergencia, de servicio. `type_id` implementa este campo.
 
-> ⏳ **PENDIENTE** — resolver en siguiente iteración
+> **Solución implementada:**
+> - Se creó `bauth.idn_role_type` — catálogo normativo (10 tipos: INDIVIDUAL, EXTERNAL, GUEST, GROUP, SYSTEM, SERVICE, M2M, EMERGENCY, TEMPORARY, DEVELOPER) alineado con NIST SP 800-53 Rev5 AC-2 · ISO 24760-2:2025 · oneM2M TS 0001 · PAM NHI.
+> - Se migró `type_id` de TEXT sin FK a `uuid NOT NULL FK → bauth.idn_role_type(id) ON DELETE RESTRICT`.
+> - Se reforzó `role_type` con `NOT NULL + CHECK (13 valores)`.
+> - Distribución final: INDIVIDUAL=334, EXTERNAL=162, M2M=29, SYSTEM=19, GUEST=4 (total 548 roles, 0 NULLs, 0 FK rotas).
+> - Semilla `bauth_47a__idn_role_type.sql` (catálogo) + `bauth_48__idn_role_template.sql` (subqueries al catálogo) — idempotentes.
+> - **Arquitectura dual:** `role_type` (operativo, legible por humanos) + `type_id` (normativo, FK al catálogo AC-2).
 
 ---
 
