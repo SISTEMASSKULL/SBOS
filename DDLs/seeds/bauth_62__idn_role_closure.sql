@@ -1,12 +1,13 @@
 -- ============================================================================
 -- bauth_62__idn_role_closure.sql — Cierre transitivo DAG de herencia RBAC
--- IDEMPOTENTE: DELETE total + INSERT directo + WITH RECURSIVE para transitivo
--- Prerequisito: bauth_48 debe haber corrido primero (roles + parent_id wiring)
--- Fuente: BAUTH-CADENAS-JERARQUIA.md v1.2 · 22 sectores CAEB · 164 aristas
--- Convención: ancestro_id hereda de descendiente_id (Padre ← Hijo en DAG)
+-- IDEMPOTENTE: DELETE total + INSERT derivado del árbol parent_id + WITH RECURSIVE
+-- Prerequisito: bauth_48 debe haber corrido primero (roles + parent_id wiring completo)
+-- Convención: ancestro_id = padre en árbol · descendiente_id = hijo en árbol
+-- Árbol: raíz única ROL-SYS-SUPERUSUARIO · 548 nodos · 547 aristas directas
 -- ============================================================================
--- La closure es DATOS DERIVADOS del DAG parent_id.
+-- La closure es DATOS DERIVADOS del árbol parent_id en idn_role_template.
 -- DELETE + rebuild es safe: no hay datos que no se puedan reconstruir.
+-- G-B01-04: hierarchy_level se recalcula aquí desde el árbol real.
 -- ============================================================================
 
 SET lock_timeout = '10s';
@@ -15,237 +16,89 @@ BEGIN;
 -- ═══ Limpiar closure anterior (datos derivados, reconstruibles) ═══
 DELETE FROM bauth.idn_role_closure;
 
--- ═══ PASE 1: Aristas directas (profundidad=1) ═══
--- 164 aristas únicas de 22 sectores CAEB · duplicadas resueltas por ON CONFLICT
+-- ═══ PASE 1: Aristas directas derivadas del árbol parent_id ═══
+-- Lee TODOS los vínculos padre→hijo directamente de idn_role_template.parent_id.
+-- No hardcodeamos pares: el árbol es la única fuente de verdad.
+-- Resultado esperado: 547 aristas (548 roles − 1 raíz sin parent_id)
 INSERT INTO bauth.idn_role_closure (closure_id, ancestro_id, descendiente_id, profundidad, ctx_id)
-SELECT gen_random_uuid(), p.id, h.id, 1, 'seed'
-FROM (VALUES
-  -- §A Agricultura
-  ('ROL-ADMIN-ESTANCIA','ROL-CAPATAZ'),
-  ('ROL-ADMIN-ESTANCIA','ROL-VETERINARIO'),
-  ('ROL-CAPATAZ','ROL-PEON-RURAL'),
-  ('ROL-CAPATAZ','ROL-TRACTORISTA'),
-  ('ROL-CAPATAZ','ROL-ENCARGADO-RIEGO'),
-  ('ROL-PEON-RURAL','ROL-EXT-COMPRADOR-AGRO'),
-  ('ROL-ENCARGADO-RIEGO','ROL-EXT-CONSUMIDOR-AGRO'),
-  ('ROL-VETERINARIO','ROL-EXT-VETERINARIO-VISITANTE'),
-  -- §B Minería
-  ('ROL-GERENTE-GENERAL','ROL-JEFE-PRODUCCION'),
-  ('ROL-GERENTE-GENERAL','ROL-INGENIERO-PLANTA'),
-  ('ROL-JEFE-PRODUCCION','ROL-SUPERVISOR-PLANTA'),
-  ('ROL-JEFE-PRODUCCION','ROL-TECNICO-MANTENIMIENTO'),
-  ('ROL-JEFE-PRODUCCION','ROL-CONTROL-CALIDAD'),
-  ('ROL-JEFE-PRODUCCION','ROL-SEGURIDAD-HIGIENE'),
-  ('ROL-SUPERVISOR-PLANTA','ROL-OPERARIO-PRODUCCION'),
-  ('ROL-SUPERVISOR-PLANTA','ROL-OPERARIO-EMBALAJE'),
-  -- §C Industria
-  ('ROL-GERENTE-GENERAL','ROL-JEFE-LOGISTICA'),
-  ('ROL-GERENTE-GENERAL','ROL-JEFE-COMPRAS'),
-  ('ROL-GERENTE-GENERAL','ROL-JEFE-INVENTARIOS'),
-  ('ROL-OPERARIO-PRODUCCION','ROL-EXT-CLIENTE-MINORISTA-IND'),
-  ('ROL-JEFE-LOGISTICA','ROL-DESPACHADOR-CHOFER'),
-  ('ROL-DESPACHADOR-CHOFER','ROL-EXT-CLIENTE-MAYORISTA-IND'),
-  ('ROL-JEFE-COMPRAS','ROL-EXT-PROVEEDOR-MP'),
-  ('ROL-JEFE-INVENTARIOS','ROL-SUPERVISOR-ALMACENES'),
-  ('ROL-SUPERVISOR-ALMACENES','ROL-ENCARGADO-ALMACEN-MP'),
-  ('ROL-SUPERVISOR-ALMACENES','ROL-ENCARGADO-ALMACEN-PT'),
-  ('ROL-INGENIERO-PLANTA','ROL-EXT-DISENADOR-IND'),
-  -- §D Electricidad
-  ('ROL-GERENTE-GENERAL','ROL-JEFE-IT'),
-  ('ROL-JEFE-IT','ROL-SYSADMIN'),
-  ('ROL-SYSADMIN','ROL-EXT-USUARIO-RESIDENCIAL'),
-  ('ROL-JEFE-IT','ROL-EXT-USUARIO-INDUSTRIAL'),
-  ('ROL-GERENTE-GENERAL','ROL-TECNICO-MANTENIMIENTO'),
-  ('ROL-TECNICO-MANTENIMIENTO','ROL-EXT-GENERADOR-INDEP'),
-  ('ROL-GERENTE-GENERAL','ROL-PLANIFICADOR-PRODUCCION'),
-  -- §E Agua
-  ('ROL-GERENTE-GENERAL','ROL-SYSADMIN'),
-  ('ROL-SYSADMIN','ROL-EXT-USUARIO-AGUA'),
-  ('ROL-SYSADMIN','ROL-EXT-USUARIO-AGUA-IND'),
-  ('ROL-GERENTE-GENERAL','ROL-EXT-GENERADOR-RESIDUOS'),
-  ('ROL-GERENTE-GENERAL','ROL-EXT-SOLICITANTE-AMBIENTAL'),
-  -- §F Construcción
-  ('ROL-JEFE-PRODUCCION','ROL-MAESTRO-OBRA'),
-  ('ROL-MAESTRO-OBRA','ROL-ALBANIL'),
-  ('ROL-ALBANIL','ROL-EXT-PROPIETARIO-OBRA'),
-  ('ROL-MAESTRO-OBRA','ROL-PEON-OBRA'),
-  ('ROL-MAESTRO-OBRA','ROL-ELECTRICISTA'),
-  ('ROL-MAESTRO-OBRA','ROL-PLOMERO'),
-  ('ROL-GERENTE-GENERAL','ROL-INGENIERO-CIVIL'),
-  ('ROL-INGENIERO-CIVIL','ROL-EXT-FISCALIZADOR-OBRA'),
-  ('ROL-GERENTE-GENERAL','ROL-CONTADOR'),
-  -- §G Comercio
-  ('ROL-GERENTE-GENERAL','ROL-JEFE-LOCAL'),
-  ('ROL-JEFE-LOCAL','ROL-SUPERVISOR-TIENDA'),
-  ('ROL-SUPERVISOR-TIENDA','ROL-CAJERO'),
-  ('ROL-CAJERO','ROL-EXT-CLIENTE-MINORISTA'),
-  ('ROL-SUPERVISOR-TIENDA','ROL-VENDEDOR'),
-  ('ROL-VENDEDOR','ROL-EXT-CLIENTE-TIENDA'),
-  ('ROL-JEFE-LOCAL','ROL-JEFE-INVENTARIOS'),
-  ('ROL-JEFE-INVENTARIOS','ROL-SUPERVISOR-ALMACENES'),
-  ('ROL-SUPERVISOR-ALMACENES','ROL-ENCARGADO-DEPOSITO'),
-  ('ROL-SUPERVISOR-ALMACENES','ROL-RECEPTOR-MERCADERIA'),
-  ('ROL-RECEPTOR-MERCADERIA','ROL-EXT-PROVEEDOR-NACIONAL'),
-  ('ROL-SUPERVISOR-ALMACENES','ROL-ENCARGADO-DESPACHO'),
-  ('ROL-ENCARGADO-DESPACHO','ROL-FLETERO'),
-  ('ROL-FLETERO','ROL-EXT-CLIENTE-DELIVERY'),
-  ('ROL-JEFE-LOCAL','ROL-SUPERVISOR-FACT-COBRANZA'),
-  ('ROL-SUPERVISOR-FACT-COBRANZA','ROL-ENCARGADO-FACTURACION'),
-  ('ROL-ENCARGADO-FACTURACION','ROL-EXT-CLIENTE-MAYORISTA'),
-  ('ROL-JEFE-LOCAL','ROL-JEFE-CONTABILIDAD'),
-  ('ROL-JEFE-CONTABILIDAD','ROL-CONTADOR'),
-  ('ROL-CONTADOR','ROL-ASISTENTE-CONTABLE'),
-  ('ROL-CONTADOR','ROL-CONTADOR-COSTOS'),
-  ('ROL-CONTADOR','ROL-CONTADOR-IMPOSITIVO'),
-  ('ROL-JEFE-CONTABILIDAD','ROL-ANALISTA-CXP'),
-  ('ROL-JEFE-CONTABILIDAD','ROL-ANALISTA-CXC-CONTABLE'),
-  ('ROL-JEFE-CONTABILIDAD','ROL-CONCILIADOR-BANCARIO'),
-  ('ROL-JEFE-CONTABILIDAD','ROL-ENCARGADO-ACTIVOS-FIJOS'),
-  ('ROL-JEFE-CONTABILIDAD','ROL-ENCARGADO-PRESUPUESTO'),
-  ('ROL-JEFE-CONTABILIDAD','ROL-TESORERO-PAGOS'),
-  ('ROL-TESORERO-PAGOS','ROL-ASISTENTE-TESORERIA'),
-  ('ROL-JEFE-CONTABILIDAD','ROL-ENCARGADO-NOMINA'),
-  ('ROL-JEFE-CONTABILIDAD','ROL-REVISOR-ESTADOS-FINANCIEROS'),
-  ('ROL-JEFE-CONTABILIDAD','ROL-ANALISTA-CONTROL-INTERNO'),
-  ('ROL-JEFE-CONTABILIDAD','ROL-AUDITOR-EXTERNO-CONTABLE'),
-  ('ROL-JEFE-CONTABILIDAD','ROL-ENCARGADO-CIERRE'),
-  ('ROL-GERENTE-GENERAL','ROL-JEFE-FACTURACION-CREDITO'),
-  ('ROL-GERENTE-GENERAL','ROL-JEFE-RRHH'),
-  ('ROL-SUPERVISOR-FACT-COBRANZA','ROL-OPERADOR-FACT-RECURRENTE'),
-  ('ROL-SUPERVISOR-FACT-COBRANZA','ROL-ENCARGADO-REPORTES-IVA'),
-  ('ROL-SUPERVISOR-FACT-COBRANZA','ROL-ENCARGADO-RETENCIONES-PERCEPCIONES'),
-  ('ROL-JEFE-INVENTARIOS','ROL-ANALISTA-MERMAS'),
-  ('ROL-JEFE-INVENTARIOS','ROL-AUDITOR-INVENTARIO'),
-  ('ROL-JEFE-INVENTARIOS','ROL-PLANIFICADOR-DEMANDA'),
-  -- §H Transporte
-  ('ROL-JEFE-LOGISTICA','ROL-DESPACHADOR-FLOTA'),
-  ('ROL-DESPACHADOR-FLOTA','ROL-CHOFER-CAMION'),
-  ('ROL-CHOFER-CAMION','ROL-EXT-REMITENTE-CARGA'),
-  ('ROL-DESPACHADOR-FLOTA','ROL-CHOFER-TAXI'),
-  ('ROL-CHOFER-TAXI','ROL-EXT-PASAJERO-BUS'),
-  ('ROL-JEFE-LOGISTICA','ROL-COORD-DISTRIBUCION'),
-  ('ROL-COORD-DISTRIBUCION','ROL-EXT-CLIENTE-COURIER'),
-  -- §I Hotelería
-  ('ROL-GERENTE-HOTEL','ROL-CHEF'),
-  ('ROL-CHEF','ROL-COCINERO'),
-  ('ROL-CHEF','ROL-BARTENDER'),
-  ('ROL-BARTENDER','ROL-EXT-COMENSAL'),
-  ('ROL-GERENTE-HOTEL','ROL-RECEPCION-HOTEL'),
-  ('ROL-RECEPCION-HOTEL','ROL-EXT-HUESPED'),
-  ('ROL-GERENTE-HOTEL','ROL-MESERO'),
-  ('ROL-MESERO','ROL-EXT-CLIENTE-EVENTOS'),
-  -- §J Información y Comunicaciones
-  ('ROL-JEFE-IT','ROL-DESARROLLADOR'),
-  ('ROL-DESARROLLADOR','ROL-EXT-CLIENTE-SAAS'),
-  ('ROL-JEFE-IT','ROL-SOPORTE-TECNICO'),
-  ('ROL-SOPORTE-TECNICO','ROL-EXT-USUARIO-PLATAFORMA'),
-  ('ROL-GERENTE-GENERAL','ROL-ANALISTA-DATOS'),
-  ('ROL-SYSADMIN','ROL-EXT-SUSCRIPTOR-TELECOM'),
-  -- §K Financieras y Seguros
-  ('ROL-GERENTE-BANCO','ROL-SUPERVISOR-BANCO'),
-  ('ROL-SUPERVISOR-BANCO','ROL-CAJERO-BANCO'),
-  ('ROL-CAJERO-BANCO','ROL-EXT-CUENTAHABIENTE'),
-  ('ROL-SUPERVISOR-BANCO','ROL-EJECUTIVO-CUENTA'),
-  ('ROL-EJECUTIVO-CUENTA','ROL-EXT-AHORRISTA'),
-  ('ROL-SUPERVISOR-BANCO','ROL-OFICIAL-CREDITOS'),
-  ('ROL-OFICIAL-CREDITOS','ROL-EXT-DEUDOR'),
-  ('ROL-GERENTE-BANCO','ROL-ANALISTA-RIESGOS'),
-  ('ROL-GERENTE-BANCO','ROL-OFICIAL-CUMPLIMIENTO'),
-  ('ROL-GERENTE-BANCO','ROL-CONTADOR'),
-  -- §L Inmobiliarias
-  ('ROL-GERENTE-GENERAL','ROL-ADMINISTRATIVO'),
-  ('ROL-ADMINISTRATIVO','ROL-EXT-INQUILINO'),
-  ('ROL-ADMINISTRATIVO','ROL-EXT-COMPRADOR-INMUEBLE-L'),
-  -- §M Profesionales
-  ('ROL-GERENTE-GENERAL','ROL-CONTADOR'),
-  ('ROL-CONTADOR','ROL-ASISTENTE-CONTABLE'),
-  ('ROL-ASISTENTE-CONTABLE','ROL-EXT-CLIENTE-CONTABLE'),
-  ('ROL-GERENTE-GENERAL','ROL-INGENIERO-CIVIL'),
-  ('ROL-INGENIERO-CIVIL','ROL-EXT-CLIENTE-ARQUITECTO'),
-  ('ROL-GERENTE-GENERAL','ROL-ANALISTA-DATOS'),
-  -- §N Servicios Administrativos
-  ('ROL-GERENTE-GENERAL','ROL-JEFE-RRHH'),
-  ('ROL-JEFE-RRHH','ROL-ANALISTA-RRHH'),
-  ('ROL-ANALISTA-RRHH','ROL-EXT-POSTULANTE-EMPLEO'),
-  ('ROL-GERENTE-GENERAL','ROL-JEFE-SEGURIDAD'),
-  ('ROL-JEFE-SEGURIDAD','ROL-PORTERO'),
-  ('ROL-PORTERO','ROL-EXT-CLIENTE-SEGURIDAD'),
-  ('ROL-GERENTE-GENERAL','ROL-ENCARGADO-LIMPIEZA'),
-  ('ROL-ENCARGADO-LIMPIEZA','ROL-EXT-CLIENTE-LIMPIEZA'),
-  -- §O Administración Pública
-  ('ROL-GERENTE-GENERAL','ROL-JEFE-RRHH'),
-  ('ROL-GERENTE-GENERAL','ROL-JEFE-IT'),
-  ('ROL-JEFE-IT','ROL-SYSADMIN'),
-  ('ROL-GERENTE-GENERAL','ROL-CONTADOR'),
-  ('ROL-CONTADOR','ROL-CONTADOR-TRIBUTARIO'),
-  ('ROL-GERENTE-GENERAL','ROL-ADMINISTRATIVO'),
-  ('ROL-ADMINISTRATIVO','ROL-EXT-CIUDADANO'),
-  ('ROL-GERENTE-GENERAL','ROL-PORTERO'),
-  ('ROL-PORTERO','ROL-EXT-POSTULANTE-LICITACION'),
-  -- §P Educación
-  ('ROL-DIRECTOR-COLEGIO','ROL-CONTADOR'),
-  ('ROL-DIRECTOR-COLEGIO','ROL-SECRETARIO-ACADEMICO'),
-  ('ROL-SECRETARIO-ACADEMICO','ROL-DOCENTE'),
-  ('ROL-DOCENTE','ROL-AUXILIAR-DOCENTE'),
-  ('ROL-AUXILIAR-DOCENTE','ROL-EXT-ALUMNO-UNIVERSITARIO'),
-  ('ROL-DOCENTE','ROL-EXT-TUTOR-EDUCATIVO'),
-  ('ROL-EXT-TUTOR-EDUCATIVO','ROL-EXT-ALUMNO-PRIMARIA'),
-  ('ROL-EXT-TUTOR-EDUCATIVO','ROL-EXT-ALUMNO-SECUNDARIA'),
-  ('ROL-EXT-TUTOR-EDUCATIVO','ROL-EXT-ALUMNO-INICIAL'),
-  -- §Q Salud
-  ('ROL-DIRECTOR-COLEGIO','ROL-ADMIN-CLINICA'),
-  ('ROL-ADMIN-CLINICA','ROL-MEDICO-GENERAL'),
-  ('ROL-MEDICO-GENERAL','ROL-ENFERMERO'),
-  ('ROL-ENFERMERO','ROL-AUXILIAR-ENFERMERIA'),
-  ('ROL-AUXILIAR-ENFERMERIA','ROL-EXT-PACIENTE-AMBULATORIO'),
-  ('ROL-ENFERMERO','ROL-EXT-PACIENTE-HOSPITALIZADO'),
-  ('ROL-ADMIN-CLINICA','ROL-JEFE-FARMACIA'),
-  ('ROL-JEFE-FARMACIA','ROL-FARMACEUTICO'),
-  ('ROL-FARMACEUTICO','ROL-EXT-CLIENTE-FARMACIA-Q'),
-  -- §R Arte y Entretenimiento
-  ('ROL-GERENTE-GENERAL','ROL-ADMINISTRATIVO'),
-  ('ROL-ADMINISTRATIVO','ROL-EXT-ESPECTADOR'),
-  ('ROL-ADMINISTRATIVO','ROL-EXT-VISITANTE-MUSEO'),
-  -- §S Otras Actividades
-  ('ROL-GERENTE-GENERAL','ROL-ADMINISTRATIVO'),
-  -- §T Hogares como Empleadores
-  ('ROL-EXT-EMPLEADOR-DOMESTICO','ROL-EXT-TRABAJADOR-HOGAR'),
-  -- §U Organizaciones Extraterritoriales
-  ('ROL-GERENTE-GENERAL','ROL-ADMINISTRATIVO'),
-  ('ROL-ADMINISTRATIVO','ROL-EXT-DIPLOMATICO'),
-  ('ROL-ADMINISTRATIVO','ROL-EXT-BENEFICIARIO-COOPERACION'),
-  ('ROL-ADMINISTRATIVO','ROL-EXT-SOLICITANTE-VISA'),
-  -- §V Visitantes transversales (todos los sectores)
-  ('ROL-PORTERO','ROL-EXT-VISITANTE'),
-  ('ROL-PORTERO','ROL-EXT-VISITANTE-PROVEEDOR'),
-  ('ROL-PORTERO','ROL-EXT-VISITANTE-AUDITOR'),
-  ('ROL-PORTERO','ROL-EXT-VISITANTE-VIP')
-) AS e(padre_rn, hijo_rn)
-JOIN bauth.idn_role_template p ON p.role_name = e.padre_rn
-JOIN bauth.idn_role_template h ON h.role_name = e.hijo_rn
+SELECT
+    gen_random_uuid(),
+    parent_id,          -- padre = ancestro
+    id,                 -- hijo  = descendiente
+    1,
+    'seed'
+FROM bauth.idn_role_template
+WHERE parent_id IS NOT NULL
 ON CONFLICT (ancestro_id, descendiente_id) DO NOTHING;
 
 -- ═══ PASE 2: Cierre transitivo vía WITH RECURSIVE ═══
+-- Propaga las aristas directas hacia todos los ancestros alcanzables.
+-- Esto genera las rutas abuelo→nieto, bisabuelo→bisnieto, etc.
 INSERT INTO bauth.idn_role_closure (closure_id, ancestro_id, descendiente_id, profundidad, ctx_id)
 WITH RECURSIVE tc(anc, desc_, prof) AS (
-  SELECT ancestro_id, descendiente_id, profundidad
-  FROM bauth.idn_role_closure
-  WHERE ctx_id = 'seed'
-  UNION ALL
-  SELECT t.anc, c.descendiente_id, t.prof + c.profundidad
-  FROM tc t
-  JOIN bauth.idn_role_closure c ON t.desc_ = c.ancestro_id
+    -- Base: todas las aristas directas ya insertadas
+    SELECT ancestro_id, descendiente_id, profundidad
+    FROM   bauth.idn_role_closure
+    WHERE  ctx_id = 'seed'
+    UNION ALL
+    -- Paso: extender cada camino un nivel más abajo
+    SELECT t.anc, c.descendiente_id, t.prof + c.profundidad
+    FROM   tc t
+    JOIN   bauth.idn_role_closure c ON t.desc_ = c.ancestro_id
+    WHERE  c.ctx_id = 'seed'
 )
-SELECT gen_random_uuid(), anc, desc_, MIN(prof), 'seed-transitivo'
+SELECT
+    gen_random_uuid(),
+    anc,
+    desc_,
+    MIN(prof),
+    'seed-transitivo'
 FROM tc
-WHERE (anc, desc_) NOT IN (SELECT ancestro_id, descendiente_id FROM bauth.idn_role_closure)
+WHERE (anc, desc_) NOT IN (
+    SELECT ancestro_id, descendiente_id FROM bauth.idn_role_closure
+)
 GROUP BY anc, desc_
 ON CONFLICT (ancestro_id, descendiente_id) DO NOTHING;
 
+-- ═══ PASE 3: Recalcular hierarchy_level desde el árbol real ═══
+-- hierarchy_level = profundidad del nodo en el árbol padre-hijo.
+-- Raíz (ROL-SYS-SUPERUSUARIO) = nivel 0.
+-- Resuelve G-B01-04: antes era un campo con valor fijo incorrecto.
+WITH RECURSIVE profundidad(id, nivel) AS (
+    -- Raíz: nodos sin parent_id
+    SELECT id, 0
+    FROM   bauth.idn_role_template
+    WHERE  parent_id IS NULL
+    UNION ALL
+    -- Hijos: nivel del padre + 1
+    SELECT c.id, d.nivel + 1
+    FROM   bauth.idn_role_template c
+    JOIN   profundidad d ON c.parent_id = d.id
+)
+UPDATE bauth.idn_role_template t
+SET    hierarchy_level = d.nivel
+FROM   profundidad d
+WHERE  t.id = d.id;
+
 COMMIT;
 
--- Verificación
-SELECT 'aristas directas'    AS check, COUNT(*)::text FROM bauth.idn_role_closure WHERE profundidad = 1;
-SELECT 'closure total'       AS check, COUNT(*)::text FROM bauth.idn_role_closure;
-SELECT 'max profundidad'     AS check, MAX(profundidad)::text FROM bauth.idn_role_closure;
-SELECT 'roles con ancestros' AS check, COUNT(DISTINCT descendiente_id)::text FROM bauth.idn_role_closure;
+-- ═══ Verificación post-ejecución ═══
+SELECT 'aristas directas'       AS metrica, COUNT(*)::text AS valor
+FROM   bauth.idn_role_closure WHERE profundidad = 1;
+
+SELECT 'closure total'          AS metrica, COUNT(*)::text AS valor
+FROM   bauth.idn_role_closure;
+
+SELECT 'max profundidad'        AS metrica, MAX(profundidad)::text AS valor
+FROM   bauth.idn_role_closure;
+
+SELECT 'roles con ancestros'    AS metrica, COUNT(DISTINCT descendiente_id)::text AS valor
+FROM   bauth.idn_role_closure;
+
+SELECT 'raices sueltas (debe=1)' AS metrica, COUNT(*)::text AS valor
+FROM   bauth.idn_role_template WHERE parent_id IS NULL;
+
+SELECT 'distribucion por nivel' AS metrica, hierarchy_level::text || ' → ' || COUNT(*)::text AS valor
+FROM   bauth.idn_role_template
+GROUP  BY hierarchy_level
+ORDER  BY hierarchy_level;

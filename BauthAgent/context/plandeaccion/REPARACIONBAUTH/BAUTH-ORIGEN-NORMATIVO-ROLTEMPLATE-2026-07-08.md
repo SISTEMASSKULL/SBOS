@@ -253,10 +253,54 @@ fk_rotas      = 0
 
 ---
 
-**G-B01-04** · campo `hierarchy_level` · norma ANSI INCITS 359-2012 §3.3 RBAC1 · estado **⚠ Hardcoded**
-Nivel en el DAG de herencia. Nivel 1 = C-Level (senior), nivel 5 = operativo estándar (junior). Los roles senior heredan de los junior.
+**G-B01-04** · campo `hierarchy_level` · norma ANSI INCITS 359-2012 §3.3 RBAC1 · estado **✅ RESUELTO** — 2026-07-10
+Profundidad del nodo en el árbol padre-hijo (`id → parent_id`). No es una clasificación empresarial — es un entero que refleja cuántos saltos hay desde la raíz hasta el nodo.
 
-> ⏳ **PENDIENTE** — resolver en siguiente iteración
+> **✅ RESOLUCIÓN G-B01-04 — 2026-07-10**
+>
+> **Corrección conceptual:** `hierarchy_level` NO es una etiqueta empresarial (C-Level, Gerencial, etc.). Es la **profundidad real del nodo en el árbol `parent_id`**, derivada automáticamente del DAG, no asignada manualmente.
+>
+> **Norma:** ANSI INCITS 359-2012 §3.3 RBAC1 define herencia de roles mediante relación transitiva. El nivel en la jerarquía es una propiedad del grafo, no del rol.
+>
+> **Solución implementada:** `bauth_62__idn_role_closure.sql` — Pase 3 (WITH RECURSIVE):
+>
+> ```sql
+> WITH RECURSIVE profundidad(id, nivel) AS (
+>     -- Raíz: nodos sin parent_id
+>     SELECT id, 0
+>     FROM   bauth.idn_role_template
+>     WHERE  parent_id IS NULL
+>     UNION ALL
+>     -- Hijos: nivel del padre + 1
+>     SELECT c.id, d.nivel + 1
+>     FROM   bauth.idn_role_template c
+>     JOIN   profundidad d ON c.parent_id = d.id
+> )
+> UPDATE bauth.idn_role_template t
+> SET    hierarchy_level = d.nivel
+> FROM   profundidad d
+> WHERE  t.id = d.id;
+> ```
+>
+> **Características:**
+> - Idempotente: se ejecuta en cada rebuild del closure (`bauth_62`)
+> - Raíz única: ROL-SYS-SUPERUSUARIO = nivel 0
+> - Automático: ningún dato hardcodeado — el nivel se deriva del árbol real
+>
+> **Evidencia VPS (2026-07-10) — `UPDATE 548` confirmado:**
+>
+> | Nivel | Roles | Descripción |
+> |-------|-------|-------------|
+> | 0 | 1 | Raíz — ROL-SYS-SUPERUSUARIO |
+> | 1 | 34 | Directivos y daemons M2M directos |
+> | 2 | 152 | Mandos altos y jefaturas |
+> | 3 | 168 | Mandos medios y coordinadores |
+> | 4 | 144 | Profesionales y analistas |
+> | 5 | 40 | Operativos calificados |
+> | 6 | 8 | Operativos de base |
+> | 7 | 1 | Hoja más profunda del árbol |
+>
+> **Árbol completo:** 547 aristas directas · 1126 aristas transitivas · 1673 total en closure · profundidad máxima 7 · raíces sueltas = 1 (solo ROL-SYS-SUPERUSUARIO).
 
 ---
 
