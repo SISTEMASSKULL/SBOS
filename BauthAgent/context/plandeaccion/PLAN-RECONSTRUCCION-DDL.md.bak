@@ -1,0 +1,1863 @@
+# PLAN DE RECONSTRUCCIÓN — DDL Profesional bAuth
+
+**Versión:** 1.0.0 · **Fecha:** 2026-06-22 · **Autor:** sbos-coordinador  
+**Propósito:** Reconstruir la DDL de bAuth con solo instrucciones CREATE, seeds separados,
+idempotencia total, y cumplimiento de estándares internacionales.
+
+---
+
+## 0. Principios Rectores
+
+| # | Principio | Descripción |
+|---|-----------|-------------|
+| P1 | **DDL solo CREATEs** | Sin ALTER TABLE, sin INSERTs, sin valores hardcodeados |
+| P2 | **Seeds independientes** | Datos de población en archivos `.sql` separados, idempotentes |
+| P3 | **Orden topológico** | Tablas creadas en orden de dependencia (padres antes que hijas) |
+| P4 | **Base de datos de prueba** | `bauth_test` — nunca tocar `bauth_db` de producción |
+| P5 | **Iteración hasta 0 errores** | DROP + CREATE + SEED → corregir → repetir |
+| P6 | **Idempotencia post-implementación** | Segundas ejecuciones = solo NOTICEs, 0 ERRORes |
+
+---
+
+## 1. Estado Actual de la Base de Datos (VPS Producción)
+
+### 1.1 Schemas por Propósito
+
+| Schema | Tablas | Propósito |
+|--------|--------|-----------|
+| **bauth** | 76 | Núcleo de identidad: tenants, usuarios, roles, sesiones, framework auth, finanzas, dispositivos, seguridad, auditoría |
+| **bos_privilege** | 7 | Motor de privilegios: átomos, políticas, dominios, verbos, roles base |
+| **bos_blockchain** | 2 | Blockchain D12: Merkle batch, cuentas on-chain |
+
+### 1.2 Agrupación de Tablas por Propósito (Schema bauth)
+
+| Grupo | Tablas | Propósito |
+|-------|--------|-----------|
+| **Tenant/Empresa** | tenant, tenant_config, tenant_verification, tenant_domain, tenant_network, tenant_currency, tenant_language, tenant_gestion, empresa, sucursal, pos_logico, pais, ciudad, moneda, idioma, timezone | Jerarquía organizacional y geografía |
+| **Roles** | rol_template, rol_template_history, tier_policy, sod_conflict_matrix, rol_closure | Sistema de roles y herencia DAG |
+| **Usuarios** | user_template, user_consent, user_role_assignment, recovery_method, recovery_challenge | Identidad digital de actores |
+| **Autenticación** | auth_method, auth_policy, auth_config, mfa_enrollments, password_history, biometric_templates, credential_policy, credential_rotation_log, auth_method_enrollment_log, token_delivery_log | Framework de autenticación |
+| **Autorización** | permiso_logico, zona_logica, zone_application_map, domain_config, global_config | Control de acceso |
+| **Sesiones** | context_sessions, context_switches | Context Plane (SBOS-049) |
+| **Finanzas** | financial_limit, financial_decision_matrix, financial_approval, financial_document_operation, financial_role_permission, financial_tipo_transaccion | Dominio financiero (D3) |
+| **Físico** | sitio_fisico, edificio, piso, area_fisica, dispositivo_fisico | Dominio físico (D2) |
+| **Seguridad** | authenticator_binding, authenticator_revocation, login_attempt, password_screening_log, superuser_contexts, key_inventory, key_recovery_log, key_rotation_log, backup_log, device_registry, vdi_profiles | Seguridad avanzada |
+| **Sync** | sync_log, delegation_log | Sincronización KC+Tryton, delegaciones |
+| **Framework** | compliance_map, crypto_algorithm, federation_protocol, saga_catalog, saga_step, saga_execution, framework_version | Framework declarativo |
+| **Auditoría** | audit_events, access_reviews, ghost_accounts, policy_audit, policy_history, schedule | Auditoría y cumplimiento |
+
+### 1.3 Schema bos_privilege
+
+| Tabla | Propósito |
+|-------|-----------|
+| bos_domain | 12 dominios de soberanía |
+| bos_verb | Vocabulario global de verbos |
+| bos_application | Aplicaciones registradas |
+| bos_group | Grupos funcionales por app |
+| bos_atom_catalog | Catálogo de átomos (acciones indivisibles) |
+| bos_atom_policy | Políticas por átomo |
+| bos_atom_audit | Auditoría WORM de evaluaciones |
+| bos_role | Roles base por tenant |
+| bos_role_atom | Asignación rol↔átomo |
+
+### 1.4 Schema bos_blockchain
+
+| Tabla | Propósito |
+|-------|-----------|
+| bos_merkle_batch | Lotes Merkle para anclaje |
+| bos_merkle_leaf | Hojas del árbol Merkle |
+| bos_blockchain_anchor_log | Histórico de anclajes |
+| bos_anchor_reconciliation_log | Verificación cross-chain |
+| bos_onchain_account | Cuentas on-chain |
+| bos_onchain_settlement | Liquidaciones on-chain |
+| bos_reconciliation_log | Reconciliación on-chain↔DB |
+
+---
+
+## 2. Arquitectura de Schemas y Prefijos
+
+### 2.0 Base de Datos y Convención de Nombres
+
+| Elemento | Nombre | Regla |
+|----------|--------|-------|
+| **Base de datos** | `skSBOS_db` | Nombre canónico del proyecto |
+| **Convención schemas** | `b` + `Mayúscula` + `minúsculas` | Ej: `bAuth`, `bGlobal`, `bKernel` |
+| **Excepción** | `bos` | El dominio BOS gobierna todo, conserva su nombre |
+
+### 2.1 Principio Rector
+
+> **Cada daemon del SBOS tiene su propio schema con formato `bXxxx`. Las tablas dentro se agrupan por bounded context (DDD) mediante prefijos de 3 letras.**
+
+### 2.2 Schemas del Ecosistema
+
+| Schema | Daemon | Propósito | Prefijos |
+|--------|--------|-----------|----------|
+| **bAuth** | bAuth | Núcleo de identidad y Context Plane | idn_, ath_, ses_, fin_, aud_, sec_, geo_, cfg_, blk_ |
+| **bos** | BosAgent | Motor de privilegios (átomos, políticas, reglas). Gobierna todo. | privilege_ |
+| **bGlobal** | — | Configuración global compartida entre daemons | global_ |
+| **bKernel** | bKernel | Data Kernel CDC (futuro) | — |
+| **bSearch** | bSearch | Motor de búsqueda (futuro) | — |
+| **bNexus** | bhnexus | Nexus Host (futuro) | — |
+| **bNotif** | bnotify | Notificaciones (futuro) | — |
+
+### 2.3 Prefijos del Schema bauth
+
+| Prefijo | Dominio | Tablas | Significado |
+|---------|---------|--------|-------------|
+| **idn_** | Identidad | 35 | Identity & Organization |
+| **ath_** | Autenticación | 15 | Authentication |
+| **ses_** | Sesiones | 2 | Session (Context Plane) |
+| **fin_** | Financiero | 6 | Financial |
+| **aud_** | Auditoría | 7 | Audit & Compliance |
+| **sec_** | Seguridad | 9 | Security & Physical |
+| **geo_** | Geografía | 5 | Geography |
+| **cfg_** | Configuración | 4 | Configuration |
+| **blk_** | Blockchain | 7 | Blockchain (D12) |
+
+### 2.4 Prefijos del Schema bos
+
+| Prefijo | Dominio | Tablas | Significado |
+|---------|---------|--------|-------------|
+| **privilege_** | Privilegios | 9 | Motor de átomos, políticas, verbos, dominios |
+
+### 2.5 Tabla de Clasificación para Revisión
+
+**Instrucción:** Revisar cada tabla y en la columna "Corrección" indicar el schema y prefijo correctos. Ejemplos de correcciones esperadas:
+- Tablas de geografía (`geo_*`) → probablemente van en `bGlobal`, no en `bAuth`
+- Tablas de configuración regional (`idn_tenant_config`, `idn_tenant_currency`, etc.) → revisar si van en `bGlobal`
+- Tablas de blockchain (`blk_*`) → confirmar si van en `bAuth` o schema propio
+
+| # | Schema Actual | Tabla Actual | Schema Propuesto | Tabla Propuesta | Propósito | Corrección (llenar) |
+|---|--------------|-------------|-----------------|-----------------|-----------|---------------------|
+| 1 | bauth | bos_tenant | bAuth | idn_tenant | Entidad raíz del sistema multi-tenant | bAuth.idn_tenant |
+| 2 | bauth | bos_tenant_config | bAuth | idn_tenant_config | Configuración regional: locale, timezone, moneda, idiomas soportados | bAuth.idn_tenant_config |
+| 3 | bauth | bos_tenant_verification | bAuth | idn_tenant_verification | Verificación KYC del tenant | bAuth.idn_tenant_verification |
+| 4 | bauth | bos_tenant_domain | bAuth | idn_tenant_domain | Dominios FQDN por tenant | bAuth.idn_tenant_domain |
+| 5 | bauth | bos_tenant_network | bAuth | idn_tenant_network | Redes y CIDRs autorizadas por tenant | bAuth.idn_tenant_network |
+| 6 | bauth | bos_tenant_currency | bAuth | idn_tenant_currency | Monedas habilitadas por tenant | bGlobal.global_tenant_currency |
+| 7 | bauth | bos_tenant_language | bAuth | idn_tenant_language | Idiomas habilitados por tenant | bGlobal.global_tenant_language |
+| 8 | bauth | bos_tenant_gestion | bAuth | idn_tenant_gestion | Períodos de gestión contable por tenant | bAuth.idn_tenant_gestion |
+| 9 | bauth | bos_empresa | bAuth | idn_empresa | Empresa dentro del tenant | bAuth.idn_empresa |
+| 10 | bauth | bos_sucursal | bAuth | idn_sucursal | Sucursal de la empresa | bAuth.idn_sucursal |
+| 11 | bauth | bos_pos_logico | bAuth | idn_pos | Terminal lógico (POS, caja registradora) | bAuth.idn_pos |
+| 12 | bauth | bos_user_template | bAuth | idn_usuario | Identidad digital del usuario (SCIM 2.0) | bAuth.idn_usuario |
+| 13 | bauth | bos_user_consent | bAuth | idn_user_consent | Consentimientos GDPR del usuario (Art.7) | bAuth.idn_user_consent |
+| 14 | bauth | bos_user_role_assignment | bAuth | idn_user_role | Asignación usuario↔rol con vigencia | bAuth.idn_user_role |
+| 15 | bauth | bos_rol_template | bAuth | idn_rol | Plantilla de rol (fuente de verdad del sistema) | bAuth.idn_rol |
+| 16 | bauth | bos_rol_template_history | bAuth | idn_role_history | Historial WORM SHA-256 de cambios al rol | bAuth.idn_role_history |
+| 17 | bauth | bos_tier_policy | bAuth | idn_tier | Políticas NIST 800-63B-4 por tier (3NF) | bAuth.idn_tier |
+| 18 | bauth | bos_sod_conflict_matrix | bAuth | idn_sod | Matriz de Separación de Deberes (NIST AC-5) | bAuth.idn_sod |
+| 19 | bauth | bos_rol_closure | bAuth | idn_role_closure | Closure table DAG de herencia H-RBAC | bAuth.idn_role_closure |
+| 20 | bauth | bos_delegation_log | bAuth | idn_delegation | Delegaciones temporales de roles | bAuth.idn_delegation |
+| 21 | bauth | bos_recovery_method | bAuth | idn_recovery | Métodos de recuperación de cuenta (NIST §4) | bAuth.idn_recovery |
+| 22 | bauth | bos_recovery_challenge | bAuth | idn_recovery_challenge | Desafíos de recuperación hasheados (OWASP V2.5) | bAuth.idn_recovery_challenge |
+| 23 | bauth | bos_permiso_logico | bAuth | idn_permiso | Permiso granular: zona lógica × verbo × rol | bAuth.idn_permiso |
+| 24 | bauth | bos_zona_logica | bAuth | idn_zona | Zona de negocio lógica (ZRB) | bAuth.idn_zona |
+| 25 | bauth | bos_zone_application_map | bAuth | idn_zona_app | Mapeo zona lógica ↔ aplicación | bAuth.idn_zona_app |
+| 26 | bauth | bos_domain_config | bAuth | idn_domain_config | Activación/desactivación de dominios por tenant | bGlobal.global_domain_config |
+| 27 | bauth | bos_global_config | bAuth | idn_global_config | Parámetros globales del sistema (NIST CM-6) | bGlobal.global_config |
+| 28 | bauth | bos_framework_version | bAuth | idn_framework_version | Versionado semántico de frameworks SSOT | bGlobal.global_framework_version |
+| 29 | bauth | bos_schedule | bAuth | idn_schedule | Horarios y turnos laborales | bAuth.idn_schedule |
+| 30 | bauth | bos_gestion_calendario | bAuth | idn_calendar | Calendario de gestión contable por empresa | bAuth.idn_calendar |
+| 31 | bauth | bos_vdi_profiles | bAuth | idn_vdi | Perfiles de escritorio virtual persistente | bAuth.idn_vdi |
+| 32 | bauth | bos_ghost_accounts | bAuth | idn_ghost_account | Detección de cuentas abandonadas (ISACA) | bAuth.idn_ghost_account |
+| 33 | bauth | bos_access_reviews | bAuth | idn_access_review | Campañas de recertificación de accesos (SOC 2) | bAuth.idn_access_review |
+| 34 | bauth | bos_auth_method | bAuth | ath_method | Catálogo de 23 métodos de autenticación | bAuth.ath_method |
+| 35 | bauth | bos_auth_policy | bAuth | ath_policy | Políticas de autenticación por tier (31 activas) | bAuth.ath_policy |
+| 36 | bauth | bos_auth_config | bAuth | ath_config | Configuración operativa del motor de autenticación | bAuth.ath_config |
+| 37 | bauth | bos_auth_method_enrollment_log | bAuth | ath_enrollment | Registro de enrolamiento de métodos auth | bAuth.ath_enrollment |
+| 38 | bauth | bos_mfa_enrollments | bAuth | ath_mfa | Dispositivos MFA por usuario (TOTP, FIDO2, Passkey) | bAuth.ath_mfa |
+| 39 | bauth | bos_password_history | bAuth | ath_password | Historial de contraseñas (últimas 10, NIST screening) | bAuth.ath_password |
+| 40 | bauth | bos_password_screening_log | bAuth | ath_password_screening | Cribado HIBP k-anonymity (NIST §5.1.1) | bAuth.ath_password_screening |
+| 41 | bauth | bos_biometric_templates | bAuth | ath_biometric | Plantillas biométricas hasheadas (RGPD Art.9) | bAuth.ath_biometric |
+| 42 | bauth | bos_credential_policy | bAuth | ath_credential | Políticas de credenciales (rotación, fortaleza) | bAuth.ath_credential |
+| 43 | bauth | bos_credential_rotation_log | bAuth | ath_credential_rotation | Rotación de credenciales por tiempo/evento | bAuth.ath_credential_rotation |
+| 44 | bauth | bos_token_delivery_log | bAuth | ath_token | Entrega de tokens de autenticación (8 canales) | bAuth.ath_token |
+| 45 | bauth | bos_authenticator_binding | bAuth | ath_binding | Vínculo authenticator↔subscriber (NIST §5.2) | bAuth.ath_binding |
+| 46 | bauth | bos_authenticator_revocation | bAuth | ath_revocation | Revocación de authenticators (<30s, NIST §5.2.2) | bAuth.ath_revocation |
+| 47 | bauth | bos_federation_protocol | bAuth | ath_federacion | Protocolos de federación (OAuth 2.1, SAML, OIDC) | bGlobal.global_federation |
+| 48 | bauth | bos_crypto_algorithm | bAuth | ath_cripto | Catálogo de 16 algoritmos criptográficos (FIPS 140-3) | bGlobal.global_crypto |
+| 49 | bauth | bos_context_sessions | bAuth | ses_session | Sesión del Context Plane 6 capas (SBOS-049 §4) | bAuth.ses_session |
+| 50 | bauth | bos_context_switches | bAuth | ses_session_switch | Historial de cambios de contexto operativo | bAuth.ses_session_switch |
+| 51 | bauth | bos_financial_limit | bAuth | fin_limit | Límites financieros por rol (por operación/día/mes) | bAuth.fin_limit |
+| 52 | bauth | bos_financial_decision_matrix | bAuth | fin_matrix | Matriz de decisión de aprobación (3 niveles) | bAuth.fin_matrix |
+| 53 | bauth | bos_financial_approval | bAuth | fin_approval | Registro de aprobaciones financieras (dual control) | bAuth.fin_approval |
+| 54 | bauth | bos_financial_document_operation | bAuth | fin_operation | Operaciones sobre documentos financieros | bAuth.fin_operation |
+| 55 | bauth | bos_financial_role_permission | bAuth | fin_permission | Permisos financieros por rol | bAuth.fin_permission |
+| 56 | bauth | bos_financial_tipo_transaccion | bAuth | fin_transaction | Tipos de transacción financiera (ISO 20022) | bAuth.fin_transaction |
+| 57 | bauth | bos_audit_events | bAuth | aud_event | Registro WORM inmutable de eventos (ISO 27001 A.8.15) | bAuth.aud_event |
+| 58 | bauth | bos_audit_events_2026_07 | bAuth | aud_evento_2026_07 | Partición Julio 2026 de aud_event | bAuth.aud_evento_2026_07 |
+| 59 | bauth | bos_audit_events_2026_08 | bAuth | aud_evento_2026_08 | Partición Agosto 2026 de aud_event | bAuth.aud_evento_2026_08 |
+| 60 | bauth | bos_sync_log | bAuth | aud_sync | Registro de sincronización bAuth→KC+Tryton (WORM) | bAuth.aud_sync |
+| 61 | bauth | bos_policy_audit | bAuth | aud_policy_audit | Auditoría WORM de cambios de políticas (ISO 27001 A.8.9) | bAuth.aud_policy_audit |
+| 62 | bauth | bos_policy_history | bAuth | aud_policy_history | Historial versionado de políticas para rollback | bAuth.aud_policy_history |
+| 63 | bauth | bos_backup_log | bAuth | aud_backup | Registro de backups (ADR-016, SHA-256) | bAuth.aud_backup |
+| 64 | bauth | bos_login_attempt | bAuth | aud_login_attempt | Intentos de login exitosos/fallidos (NIST AC-7) | bAuth.aud_login_attempt |
+| 65 | bauth | bos_superuser_contexts | bAuth | aud_superuser | Activaciones break-glass SU (ISO 27001 A.8.2) | bAuth.aud_superuser |
+| 66 | bauth | bos_key_inventory | bAuth | sec_key | Inventario de llaves criptográficas (NIST SP 800-57) | bAuth.sec_key |
+| 67 | bauth | bos_key_recovery_log | bAuth | sec_key_recovery | Recuperación de llaves (break-glass, 2-of-3) | bAuth.sec_key_recovery |
+| 68 | bauth | bos_key_rotation_log | bAuth | sec_key_rotation | Rotación de llaves con ceremonia y testigos | bAuth.sec_key_rotation |
+| 69 | bauth | bos_device_registry | bAuth | sec_device | Registro de dispositivos físicos (ISO 27001 A.8.1) | bAuth.sec_device |
+| 70 | bauth | bos_dispositivo_fisico | bAuth | sec_hardware_device | Hardware específico: OSDP, MQTT, ONVIF, RFID | bAuth.sec_hardware_device |
+| 71 | bauth | bos_sitio_fisico | bAuth | sec_site | Sitio físico geolocalizado (lat/lon) | bAuth.sec_site |
+| 72 | bauth | bos_edificio | bAuth | sec_building | Edificio dentro del sitio físico | bAuth.sec_building |
+| 73 | bauth | bos_piso | bAuth | sec_floor | Piso dentro del edificio | bAuth.sec_floor |
+| 74 | bauth | bos_area_fisica | bAuth | sec_area | Área funcional dentro del piso | bAuth.sec_area |
+| 75 | bauth | bos_pais | bAuth | geo_pais | Países (ISO 3166-1: BO, AR, BR, CL, PE...) | bGlobal.global_country |
+| 76 | bauth | bos_ciudad | bAuth | geo_ciudad | Ciudades y divisiones administrativas | bGlobal.global_city |
+| 77 | bauth | bos_moneda | bAuth | geo_moneda | Monedas (ISO 4217: BOB, USD, EUR...) | bGlobal.global_currency |
+| 78 | bauth | bos_idioma | bAuth | geo_idioma | Idiomas (ISO 639: ES, EN, PT, QU, AY, GN) | bGlobal.global_language |
+| 79 | bauth | bos_timezone | bAuth | geo_timezone | Zonas horarias (IANA TZ Database) | bGlobal.global_timezone |
+| 80 | bauth | bos_compliance_map | bAuth | cfg_cumplimiento | Mapeo de 34 controles a estándares internacionales | bGlobal.global_compliance |
+| 81 | bauth | bos_saga_catalog | bAuth | cfg_saga | Catálogo de 12 sagas de autenticación | bGlobal.global_saga |
+| 82 | bauth | bos_saga_step | bAuth | cfg_saga_paso | Pasos individuales de cada saga (acción+compensación) | bGlobal.global_saga_paso |
+| 83 | bauth | bos_saga_execution | bAuth | cfg_saga_ejecucion | Registro inmutable de ejecuciones de saga | bGlobal.global_saga_execution |
+| 84 | bos_blockchain | bos_merkle_batch | bAuth | blk_merkle_batch | Lotes de eventos para anclaje Merkle en L2 | bAuth.blk_merkle_batch |
+| 85 | bos_blockchain | bos_merkle_leaf | bAuth | blk_merkle_leaf | Hojas del árbol Merkle (Keccak-256) | bAuth.blk_merkle_leaf |
+| 86 | bos_blockchain | bos_blockchain_anchor_log | bAuth | blk_anchor_log | Histórico de transacciones de anclaje en L2 | bAuth.blk_anchor_log |
+| 87 | bos_blockchain | bos_anchor_reconciliation_log | bAuth | blk_anchor_reconciliation | Verificación cross-chain Merkle roots | bAuth.blk_anchor_reconciliation |
+| 88 | bos_blockchain | bos_onchain_account | bAuth | blk_account | Cuentas on-chain (Variante B Besu QBFT) | bAuth.blk_account |
+| 89 | bos_blockchain | bos_onchain_settlement | bAuth | blk_settlement | Liquidaciones on-chain con dual-approval | bAuth.blk_settlement |
+| 90 | bos_blockchain | bos_reconciliation_log | bAuth | blk_reconciliation | Reconciliación periódica on-chain ↔ PostgreSQL | bAuth.blk_reconciliation |
+| 91 | bos_privilege | bos_application | bos | privilege_app | Aplicaciones registradas en el motor BOS | bos.privilege_app |
+| 92 | bos_privilege | bos_domain | bos | privilege_domain | Catálogo de 12 dominios de soberanía D1-D12 | bos.privilege_domain |
+| 93 | bos_privilege | bos_verb | bos | privilege_verb | Vocabulario global de verbos (label encoding) | bos.privilege_verb |
+| 94 | bos_privilege | bos_group | bos | privilege_group | Grupos funcionales dentro de cada aplicación | bos.privilege_group |
+| 95 | bos_privilege | bos_atom_catalog | bos | privilege_atom | Catálogo de átomos (1059 registros, one-hot) | bos.privilege_atom |
+| 96 | bos_privilege | bos_atom_policy | bos | privilege_policy | Políticas JSONB por átomo (6782 registros) | bos.privilege_policy |
+| 97 | bos_privilege | bos_atom_audit | bos | privilege_audit | Auditoría WORM de evaluaciones (particionado) | bos.privilege_audit |
+| 98 | bos_privilege | bos_atom_audit_2026_06 | bos | privilege_audit_2026_06 | Partición Junio 2026 | bos.privilege_audit_2026_06 |
+| 99 | bos_privilege | bos_atom_audit_2026_07 | bos | privilege_audit_2026_07 | Partición Julio 2026 | bos.privilege_audit_2026_07 |
+| 100 | bos_privilege | bos_role | bos | privilege_role | Roles base por tenant | bos.privilege_role |
+| 101 | bos_privilege | bos_role_atom | bos | privilege_role_atom | Asignación rol↔átomo (BitMask relacional) | bos.privilege_role_atom |
+
+> **🔴 Para el usuario:** Revisar cada fila. En la columna "Corrección" escribir el schema y prefijo definitivo. Ej: `bGlobal.global_country` para mover geo_pais a bGlobal.
+
+---
+
+## 3. Hallazgos de Investigación — Brechas Arquitectónicas
+
+### 3.1 Herencia Jerárquica de Parámetros (Tenant → Empresa → Sucursal)
+
+**Problema:** No existe mecanismo de herencia de configuración. `bos_tenant_config`, `bos_domain_config`, `bos_global_config` son tablas independientes sin cascada. Una sucursal no puede heredar la configuración de su empresa, ni la empresa de su tenant.
+
+**Estándar de industria (SaaS Multi-tenant):** El patrón canónico es "recursive lookup con NULL = inherit". El valor efectivo se obtiene subiendo la jerarquía hasta el primer valor NO NULL. [IBM Cognos Analytics Hierarchy Node], [StackOverflow #41780816].
+
+**Solución:** Una sola tabla jerárquica que reemplace las 3 actuales:
+```sql
+bGlobal.global_parametro (
+  param_key     TEXT,
+  tenant_id     TEXT,    -- NULL = default global
+  empresa_id    TEXT,    -- NULL = definido a nivel tenant
+  sucursal_id   TEXT,    -- NULL = definido a nivel empresa
+  param_value   JSONB,
+  UNIQUE (param_key, tenant_id, empresa_id, sucursal_id)
+)
+```
+Resolución con función `bGlobal.resolve_param(key, tenant, empresa, sucursal)`:
+```
+1. Buscar (key, tenant, empresa, sucursal)    -- sucursal override
+2. Si NULL → buscar (key, tenant, empresa, NULL)  -- empresa override
+3. Si NULL → buscar (key, tenant, NULL, NULL)    -- tenant default
+4. Si NULL → buscar (key, NULL, NULL, NULL)       -- global default
+```
+
+### 3.2 Gestión (Período Fiscal) como Named Interval — Gobernado por BOS + bAuth
+
+**Problema detectado:** El Context Plane actual omite la dimensión temporal "gestión". La gestión NO es solo a nivel empresa — un usuario puede actuar a nivel empresa en 2026 pero necesitar corregir problemas de 2025 en la sucursal norte. La gestión aplica en TODOS los niveles: tenant, empresa, sucursal.
+
+---
+
+### 3.2.1 Lo que 6 ERPs + GTRBAC aportan al SBOS
+
+| Fuente | Patrón extraído | Aplicación directa en SBOS | Tabla/Componente afectado |
+|--------|----------------|---------------------------|---------------------------|
+| **NetSuite OneWorld** | Una subsidiary = un calendario fiscal independiente. Mapping tables para consolidación cross-calendar. | Cada empresa puede tener su propio año fiscal. La consolidación se hace vía `ctx_id` + `interval_id`. | `bAuth.calendar_interval` (NUEVA) |
+| **Acumatica** | "Centralized Period Management": control independiente O compartido por company. | El tenant decide si las empresas comparten gestión o cada una define la suya. | `bAuth.calendar_interval.scope` = TENANT \| EMPRESA \| SUCURSAL |
+| **Odoo 18** | Branch hereda lock dates del padre. Branch puede cerrar ANTES que el padre pero no DESPUÉS. | Herencia jerárquica de cierre: sucursal hereda estado de empresa, empresa de tenant. La sucursal puede ser MÁS restrictiva, nunca MÁS permisiva. | `bAuth.calendar_interval.parent_interval` + `status` |
+| **D365 Finance** | Una legal entity = un calendario. Consolidación vía entidad separada. | Mismo patrón que NetSuite. Reforzado por el Context Plane. | `ctx_id` ya transporta la entidad |
+| **SAP ERP HCM** | "Period of Responsibility" derivado de la posición organizacional + Structural Authorization Profiles. | El Rol define el período de responsabilidad. El Dominio Temporal (D4) evalúa la política GTRBAC. | `bos.privilege_policy` (D4 Temporal) |
+| **Oracle ORMB** | Períodos controlados por organización, ventanas open/close por período. Back-posting con `publicable_desde`/`publicable_hasta`. | Cada intervalo tiene ventana de publicación. Permite corregir gestiones pasadas sin abrir completamente el período. | `bAuth.calendar_interval.postable_from` / `postable_until` |
+| **GTRBAC (IEEE TKDE 2005)** | Periodic expressions sobre calendar hierarchies. Role Enabling ≠ Role Activation. | El Dominio Temporal (D4) habilita/deshabilita roles según `(interval, calendar_expr)`. La sesión activa el rol. | `bos.privilege_policy` (D4) + `bAuth.context_sessions` |
+
+---
+
+### 3.2.2 Arquitectura de Gobernanza: Quién controla qué
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ BOS (IAM Installer) — Gobierno del Context Plane            │
+│                                                             │
+│  ctx_id = tenant.empresa.sucursal.pos.user.trace             │
+│  El ctx_id transporta el contexto. No se replica en tablas. │
+│  BOS crea/destruye ctx_id.                                  │
+└────────────────────────────┬────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────┐
+│ bAuth — Validación + Políticas + Calendario                  │
+│                                                             │
+│  ┌─────────────────┐  ┌─────────────────┐                   │
+│  │ Dominio Temporal │  │ Dominio Contexto│                   │
+│  │ (D4)             │  │ (D8)            │                   │
+│  │                  │  │                 │                   │
+│  │ Evalúa:          │  │ Evalúa:         │                   │
+│  │ ¿El rol está     │  │ ¿El ctx_id      │                   │
+│  │  habilitado en   │  │  pertenece al   │                   │
+│  │  este intervalo? │  │  intervalo?     │                   │
+│  └────────┬────────┘  └────────┬────────┘                   │
+│           │                    │                             │
+│           └────────┬───────────┘                             │
+│                    ▼                                         │
+│           calendar_interval (NUEVA)                          │
+│           ┌─────────────────────────┐                        │
+│           │ FY2026                  │                        │
+│           │ ├── Q1-2026             │                        │
+│           │ │   ├── Jan-2026        │                        │
+│           │ │   ├── Feb-2026        │                        │
+│           │ │   └── Mar-2026        │                        │
+│           │ ├── Q2-2026             │                        │
+│           │ ...                     │                        │
+│           └─────────────────────────┘                        │
+│                                                             │
+│  La gestión = named interval en el calendario.              │
+│  El rol tiene políticas D4 que referencian intervalos.      │
+│  El ctx_id se evalúa contra el intervalo en D8.             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 3.2.3 Tabla NUEVA: `bAuth.calendar_interval`
+
+```sql
+-- Reemplaza y unifica: bos_schedule + bos_gestion_calendario
+-- Basado en: NetSuite (multi-calendar) + Odoo (herencia cierre) 
+--            + Oracle ORMB (ventanas publicación) + GTRBAC (periodic expressions)
+
+CREATE TABLE bAuth.calendar_interval (
+    interval_id       TEXT PK,           -- 'FY2026', 'Q1-2026', 'JAN-2026', 'TAX_SEASON'
+    tenant_id         TEXT NOT NULL,
+    empresa_id        TEXT,             -- NULL = aplica a todo el tenant
+    sucursal_id       TEXT,             -- NULL = aplica a toda la empresa
+    interval_type     TEXT NOT NULL,    -- FISCAL_YEAR, QUARTER, MONTH, WEEK, CUSTOM
+    start_date        DATE NOT NULL,
+    end_date          DATE NOT NULL,
+    parent_interval   TEXT,             -- FK → calendar_interval.interval_id (jerarquía)
+    status            TEXT DEFAULT 'OPEN',  -- OPEN, SOFT_CLOSED, HARD_CLOSED, ARCHIVED
+    postable_from     DATE,             -- ventana back-posting (Oracle ORMB)
+    postable_until    DATE,             -- cierre de ventana
+    closed_by         UUID,
+    closed_at         TIMESTAMPTZ,
+    previous_interval TEXT,             -- linked list: FY2025 → FY2026 (NetSuite)
+    UNIQUE (tenant_id, empresa_id, sucursal_id, interval_id),
+    CONSTRAINT chk_interval_status CHECK (status IN ('OPEN','SOFT_CLOSED','HARD_CLOSED','ARCHIVED')),
+    CONSTRAINT chk_interval_type CHECK (interval_type IN ('FISCAL_YEAR','QUARTER','MONTH','WEEK','DAY','CUSTOM'))
+);
+
+-- La herencia de cierre (Odoo): una sucursal puede cerrar ANTES, nunca DESPUÉS
+-- Se implementa con una función: resolve_interval_status(tenant, empresa, sucursal, interval_id)
+-- que recorre la jerarquía hacia arriba hasta encontrar el primer status definido.
+
+COMMENT ON TABLE bAuth.calendar_interval IS 
+  '[NetSuite OneWorld] [Odoo 18] [Oracle ORMB] [GTRBAC] Named intervals para gestión fiscal multi-nivel. 
+   Soporta diferentes calendarios por empresa/sucursal con herencia jerárquica de cierre. 
+   Ventanas de back-posting por intervalo. Gobernado por BOS (ctx_id) + bAuth (políticas D4/D8).';
+```
+
+---
+
+### 3.2.4 Cómo se resuelve la gestión SIN modificar tablas operativas
+
+La gestión NO es una columna. Es una **política del Dominio Temporal** que se evalúa en runtime:
+
+```
+PASO 1: El usuario inicia sesión → bAuth crea ctx_id (BOS)
+PASO 2: El ctx_id establece tenant.empresa.sucursal.pos.user
+PASO 3: El rol del usuario tiene políticas D4 que referencian calendar_interval
+PASO 4: El motor D4 evalúa: ¿el intervalo actual está en la lista de permitidos?
+PASO 5: El motor D8 evalúa: ¿el ctx_id pertenece al scope del intervalo?
+PASO 6: Si D4 Y D8 aprueban → el rol está habilitado para actuar
+```
+
+**Ejemplo concreto:**
+
+```
+María (contadora) quiere corregir factura de 2025 en Sucursal Norte.
+
+1. ctx_id = skull.empresa_skull.suc_norte.pos_3.maria.trace_abc
+2. Rol "Contador" tiene política D4:
+   (intervalo 'FY2025', all.Days, READ_ONLY)     ← gestión pasada
+   (intervalo 'FY2026', all.Days, READ_WRITE)     ← gestión actual
+3. calendar_interval 'FY2025' está HARD_CLOSED en Empresa SKULL
+   pero Sucursal Norte tiene 'FY2025' en SOFT_CLOSED (permite correcciones)
+4. Motor D4: intervalo FY2025 + permiso READ_ONLY → OK
+5. Motor D8: ctx_id.sucursal = suc_norte ∈ scope del intervalo → OK
+6. Resultado: María puede CORREGIR (READ_ONLY), no puede CREAR nuevas facturas en 2025
+```
+
+---
+
+### 3.2.5 Lo que hay que construir (resumen)
+
+| # | Componente | Tipo | Basado en | Prioridad |
+|---|-----------|------|-----------|-----------|
+| 1 | `bAuth.calendar_interval` | Tabla NUEVA | NetSuite + Odoo + Oracle ORMB + GTRBAC | 🔴 Alta |
+| 2 | `resolve_interval_status()` | Función SQL | Odoo (herencia cierre) + Acumatica (centralized/shared) | 🔴 Alta |
+| 3 | Políticas D4 con periodic expressions | Enriquecer `bos.privilege_policy` | GTRBAC §3.2 | 🟡 Media |
+| 4 | Evaluación D8: ctx_id ∈ interval | Enriquecer DomainEvaluator | GTRBAC §5 | 🟡 Media |
+| 5 | `bAuth.context_sessions.interval_id` | Columna NUEVA (mínima) | SBOS-049 §4 | 🟢 Baja |
+
+**No se modifica ninguna tabla operativa existente.** La gestión se resuelve en la capa de políticas.
+
+### 3.3 Corrección: ctx_id ya transporta el contexto
+
+**Nota corregida:** El `ctx_id` ya codifica `tenant.empresa.sucursal.pos.user.trace` y se propaga vía W3C Trace Context. Agregar columnas redundantes de tenant/empresa/sucursal a cada tabla rompe la arquitectura del Context Plane. Las tablas operativas usan `ctx_id` como único identificador de contexto. La trazabilidad se obtiene resolviendo el `ctx_id`, no replicando columnas.
+
+---
+
+### 3.4 Multi-Lenguaje y Multi-Moneda — Configuración Regional Jerárquica
+
+**Problema detectado:** El DDL actual tiene tablas de idiomas y monedas, pero:
+- Solo se configuran a nivel **tenant** (no hay herencia a empresa/sucursal)
+- Los valores son datos de referencia (seeds), no están hardcodeados — correcto
+- Falta integración con **bRates** (SmartRates) para tipos de cambio
+
+**Lo que YA existe (correcto, no tocar):**
+
+| Tabla | Propósito | Estándar |
+|-------|-----------|----------|
+| `bos_idioma` → `bGlobal.global_language` | Catálogo de idiomas | ISO 639 / BCP 47 (RFC 5646) |
+| `bos_moneda` → `bGlobal.global_currency` | Catálogo de monedas | ISO 4217 |
+| `bos_tenant_language` → `bGlobal.global_tenant_language` | Idiomas habilitados por tenant | — |
+| `bos_tenant_currency` → `bGlobal.global_tenant_currency` | Monedas habilitadas por tenant | — |
+| `bos_tenant_config.locale` | Locale por defecto del tenant | IETF BCP 47 |
+| `bos_tenant_config.currency_default` | Moneda por defecto del tenant | ISO 4217 |
+
+**Lo que se ELIMINA del plan (manejado por bRates):**
+
+| Concepto eliminado | Motivo |
+|-------------------|--------|
+| ~~Tabla `bGlobal.exchange_rate`~~ | bRates (`smartrates_db.rates.exchange_rates`) es la fuente de verdad de tipos de cambio |
+| ~~`functional_currency` vs `presentation_currencies`~~ | bRates maneja la conversión via `catalog.RATE()`. La moneda funcional es `currency_default` en `tenant_config` |
+| ~~`bGlobal.regional_config`~~ | La configuración regional ya existe en `bos_tenant_config` |
+
+### 3.4b Integración con bRates (SmartRates) — Subproyecto SBOS Nivel 3
+
+**bRates es un subproyecto independiente con su propia base de datos `smartrates_db`:**
+- 8 schemas: `catalog`, `rates`, `company`, `security`, etc.
+- 23+ tablas: `catalog.currencies`, `rates.exchange_rates`, `company.adjustment_global`, `company.adjustment_daily`
+- Función nativa: `catalog.RATE(from, to, date)` — extensión C en PostgreSQL, nanosegundos por conversión
+- Stack: Laravel 13.7 + PostgreSQL 18.4 + Redis 7 + Flutter 3.x
+- Modo dual: standalone (Sanctum) + SBOS acoplado (Keycloak + Kong)
+
+**Modelo de ajustes por tenant/empresa (bRates):**
+
+```
+NIVEL 1 — Ajuste GLOBAL del tenant (company.adjustment_global)
+  │  Confirmado por: operador SBOS
+  │  Alcance: TODAS las empresas del tenant
+  │  Si empresa no tiene ajuste propio → hereda este valor
+  │
+  ▼
+NIVEL 2 — Ajuste por EMPRESA (company.adjustment_daily)
+  │  Confirmado por: operador de la empresa
+  │  Si está configurado → sobrescribe el ajuste global
+  │  Si NO está configurado → hereda automáticamente del global
+```
+
+**Cómo bAuth consume bRates:**
+
+```
+bAuth NO almacena tipos de cambio. bAuth consulta bRates cuando necesita convertir:
+
+1. La tabla bGlobal.global_currency define QUÉ monedas existen (catálogo ISO)
+2. La tabla bGlobal.global_tenant_currency define QUÉ monedas usa cada tenant
+3. bRates (smartrates_db) define el TIPO DE CAMBIO de cada moneda
+4. La función catalog.RATE() convierte en tiempo real
+5. bAuth hereda la configuración de monedas: tenant → empresa → sucursal
+```
+
+**Flujo de conversión (ejemplo):**
+
+```
+Usuario en Sucursal Norte ve precio en USD:
+1. ctx_id = skull.empresa_skull.suc_norte.pos_3.user.trace
+2. bAuth consulta bGlobal.global_tenant_currency: ¿USD habilitado para este tenant? ✅
+3. bAuth llama catalog.RATE('BOB', 'USD', CURRENT_DATE) → 0.1449
+4. Precio base Bs. 350 × 0.1449 = $50.72 (solo display, no se modifica el valor base)
+5. bAuth registra audit_event: 'RATE_CONSULTED', ctx_id, rate=0.1449, source='smartrates'
+```
+
+**Lo que bAuth SÍ necesita (mínimo):**
+
+| Componente | Tipo | Propósito |
+|-----------|------|-----------|
+| `bGlobal.global_currency` | Tabla (ya existe como `bos_moneda`) | Catálogo ISO 4217 |
+| `bGlobal.global_tenant_currency` | Tabla (ya existe) | Monedas habilitadas por tenant |
+| `bGlobal.global_tenant_language` | Tabla (ya existe) | Idiomas habilitados por tenant |
+| `bAuth.tenant_config.currency_default` | Columna (ya existe) | Moneda funcional del tenant |
+| Extensión `smartrates_rate` | Extensión PostgreSQL | `catalog.RATE()` disponible en el cluster |
+
+**Lo que NO necesita bAuth:**
+- ❌ No necesita tabla `exchange_rate` propia
+- ❌ No necesita `functional_currency` vs `presentation_currencies` (eso lo maneja bRates)
+- ❌ No necesita almacenar tipos de cambio (bRates es la fuente de verdad)
+
+### 3.5 Principio Unificado de Herencia Jerárquica — Tenant → Empresa → Sucursal
+
+**Descubrimiento:** Las brechas §3.1 (parámetros), §3.2 (gestión/calendario), y §3.4 (idiomas/monedas) comparten el MISMO patrón de herencia jerárquica. No son tres problemas separados — es UN solo mecanismo que aplica a múltiples dominios.
+
+#### 3.5.1 La Regla de Oro
+
+> **La empresa NUNCA puede tener MÁS que el tenant. Solo puede tener IGUAL o MENOS.**
+> **La sucursal NUNCA puede tener MÁS que la empresa. Solo puede tener IGUAL o MENOS.**
+
+```
+TENANT (máximo permitido)
+  │
+  ├── EMPRESA A (hereda todo del tenant, o restringe)
+  │   ├── Sucursal A1 (hereda de empresa A, o restringe más)
+  │   └── Sucursal A2 (hereda de empresa A)  
+  │
+  └── EMPRESA B (puede tener MENOS que el tenant)
+      └── Sucursal B1 (hereda de empresa B)
+```
+
+#### 3.5.2 Aplicación por Dominio
+
+| Dominio | ¿Qué define el tenant? | ¿Qué hereda la empresa? | Ejemplo |
+|---------|----------------------|------------------------|---------|
+| **Idiomas** | Todos los idiomas disponibles | Subconjunto de idiomas del tenant | Tenant: {es, en, pt, qu, ay}. Empresa A: {es, en}. Empresa B: {es} |
+| **Monedas** | Todas las monedas disponibles | Subconjunto de monedas del tenant | Tenant: {BOB, USD, EUR, ARS}. Empresa A: {BOB, USD}. Empresa B (frontera): {BOB, ARS} |
+| **Políticas de autenticación** | Todas las políticas disponibles (catálogo BOS) | Subconjunto de políticas suscritas | Tenant: Argon2id, TOTP, FIDO2, Passkey. Empresa Trial: solo Argon2id + TOTP |
+| **Métodos MFA** | Todos los métodos disponibles | Subconjunto de métodos habilitados | Tenant: {FIDO2, TOTP, SMS, Passkey}. Empresa A: {FIDO2, TOTP}. Empresa B: {TOTP} |
+| **Parámetros de sesión** | Límites máximos absolutos | Límites iguales o más restrictivos | Tenant: max_session=12h. Empresa A: max_session=8h. Empresa B: max_session=12h (hereda) |
+| **Gestión fiscal** | Calendario base del tenant | Calendario propio o heredado | Tenant: Ene-Dic. Empresa A (UK): Abr-Mar. Empresa B: hereda Ene-Dic |
+
+#### 3.5.3 Gobernanza
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ BOS — Catálogo Global (fuente de verdad)                    │
+│                                                             │
+│  privilege_policy  ← TODAS las políticas que EXISTEN        │
+│  privilege_method  ← TODOS los métodos que EXISTEN          │
+│                                                             │
+│  El BOS define QUÉ EXISTE en el ecosistema.                 │
+│  BOS NO decide quién lo usa — eso es bAuth.                │
+└────────────────────────────┬────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────┐
+│ bAuth — Suscripción y Herencia                              │
+│                                                             │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │ Tenant (nivel máximo)                                │    │
+│  │   idn_tenant_policy    ← políticas suscritas         │    │
+│  │   idn_tenant_method    ← métodos suscritos           │    │
+│  │   idn_tenant_language  ← idiomas habilitados         │    │
+│  │   idn_tenant_currency  ← monedas habilitadas         │    │
+│  └────────────┬────────────────────────────────────────┘    │
+│               │ hereda o restringe                           │
+│               ▼                                              │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │ Empresa (subconjunto del tenant)                     │    │
+│  │   idn_company_policy    ← políticas heredadas/extra  │    │
+│  │   idn_company_method    ← métodos heredados/extra    │    │
+│  │   idn_company_language  ← idiomas heredados          │    │
+│  │   idn_company_currency  ← monedas heredadas          │    │
+│  └────────────┬────────────────────────────────────────┘    │
+│               │ hereda o restringe                           │
+│               ▼                                              │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │ Sucursal (subconjunto de la empresa)                 │    │
+│  │   idn_branch_policy     ← solo si necesita menos     │    │
+│  │   idn_branch_language   ← idiomas extra (frontera)   │    │
+│  │   idn_branch_currency   ← monedas extra (frontera)   │    │
+│  └─────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Regla de restricción (nunca expansión):**
+```sql
+-- Al suscribir una empresa a políticas, validar:
+SELECT 1 FROM idn_tenant_policy 
+WHERE tenant_id = $tenant_id AND policy_id = $policy_id;
+-- Si el tenant NO tiene la política → RECHAZAR suscripción de empresa
+-- Si el tenant SÍ tiene la política → PERMITIR (empresa hereda o restringe)
+
+-- Al habilitar idiomas en empresa, validar:
+SELECT 1 FROM idn_tenant_language
+WHERE tenant_id = $tenant_id AND language_code = $lang;
+-- Si el tenant NO tiene el idioma → RECHAZAR
+```
+
+#### 3.5.4 Tablas necesarias (mínimas, solo suscripciones)
+
+```sql
+-- Suscripción de políticas por tenant/empresa (hereda de BOS)
+CREATE TABLE bAuth.idn_tenant_policy (
+    tenant_id   TEXT NOT NULL,
+    policy_id   TEXT NOT NULL,        -- referencia a bos.privilege_policy
+    enabled     BOOLEAN DEFAULT TRUE,
+    PRIMARY KEY (tenant_id, policy_id)
+);
+
+-- Suscripción de políticas por empresa (subconjunto del tenant)
+CREATE TABLE bAuth.idn_company_policy (
+    empresa_id  TEXT NOT NULL,
+    policy_id   TEXT NOT NULL,
+    enabled     BOOLEAN DEFAULT TRUE,
+    PRIMARY KEY (empresa_id, policy_id)
+    -- CHECK: policy_id DEBE existir en idn_tenant_policy del tenant padre
+);
+
+-- Mismo patrón para métodos, idiomas, monedas...
+```
+
+#### 3.5.5 Resumen del principio unificado
+
+| El BOS define | El tenant suscribe | La empresa hereda/restringe | La sucursal afina |
+|--------------|-------------------|---------------------------|-------------------|
+| QUÉ existe | QUÉ usa este tenant | Qué de eso usa esta empresa | Qué de eso usa esta sucursal |
+| Catálogo total | Subconjunto del catálogo | Subconjunto del tenant | Subconjunto de la empresa |
+| Ej: 12 políticas | Ej: 8 políticas | Ej: 5 políticas (hereda 5 de 8) | Ej: 5 políticas (hereda todas) |
+| Ej: 20 métodos auth | Ej: 6 métodos | Ej: 3 métodos (empresa trial) | Ej: 3 métodos (hereda todos) |
+
+> **Principio:** El nivel superior es el TECHO. El nivel inferior puede ser IGUAL o MÁS RESTRICTIVO, nunca MÁS PERMISIVO.
+
+---
+
+### 3.6 Estandarización de Tipos de Datos — UUID para todas las PKs
+
+**Problema detectado:** La DDL actual usa 4 tipos distintos para primary keys: TEXT (20), UUID (32), BIGSERIAL (27), SERIAL (27). Esta inconsistencia causa:
+- JOINs ineficientes (TEXT es más lento que UUID en B-tree)
+- IDs predecibles (SERIAL permite enumerar registros)
+- Incompatibilidad en FKs (TEXT → BIGSERIAL requiere casteo)
+- Sin soporte para replicación multi-nodo (SERIAL colapsa en distributed SQL)
+
+**Estándar PostgreSQL 18+:** UUID v7 (time-ordered) es el tipo recomendado para PKs. Ventajas:
+- `gen_random_uuid()` nativo desde PG 13
+- UUID v7 ordena temporalmente (bueno para B-tree, evita fragmentación)
+- 128-bit fijo (más rápido que TEXT variable)
+- No predecible (seguridad)
+- Compatible con replicación multi-master
+
+**Regla de estandarización:**
+
+| Tipo de PK | Usar en | Ejemplo |
+|-----------|---------|---------|
+| **UUID** (gen_random_uuid()) | **TODAS las tablas sin excepción** | tenant, empresa, user, rol, evento, audit_event, login_attempt |
+| **CHAR(3)** | Códigos ISO (natural keys) | currency_code, country_code |
+| **TEXT** (solo natural keys) | Identificadores únicos no numéricos | locale ('es-BO'), timezone_id ('America/La_Paz') |
+
+**Impacto en la DDL — ejemplos de cambio:**
+
+```sql
+-- ANTES (inconsistente)
+CREATE TABLE bauth.bos_tenant (
+    tenant_id       TEXT        PRIMARY KEY,    -- ❌ TEXT
+    ...
+);
+
+-- DESPUÉS (estandarizado)
+CREATE TABLE bAuth.idn_tenant (
+    tenant_id       UUID        PRIMARY KEY DEFAULT gen_random_uuid(),  -- ✅ UUID
+    tenant_slug     TEXT        UNIQUE NOT NULL,  -- 'skull', 'acme' (natural key para URLs)
+    ...
+);
+
+-- ANTES (inconsistente)
+CREATE TABLE bauth.bos_empresa (
+    empresa_id      TEXT        NOT NULL,        -- ❌ TEXT
+    tenant_id       TEXT        NOT NULL,        -- ❌ TEXT FK
+    ...
+);
+
+-- DESPUÉS (estandarizado)
+CREATE TABLE bAuth.idn_company (
+    company_id      UUID        PRIMARY KEY DEFAULT gen_random_uuid(),  -- ✅ UUID
+    tenant_id       UUID        NOT NULL,        -- ✅ UUID FK
+    company_slug    TEXT        UNIQUE NOT NULL,  -- natural key para URLs
+    ...
+);
+```
+
+**Ventajas específicas en PostgreSQL 18+:**
+- Índices B-tree sobre UUID v7: inserción ordenada, sin page splits
+- `UUID` ocupa 16 bytes fijos vs TEXT que ocupa 36+ bytes
+- JOINs UUID↔UUID son ~40% más rápidos que TEXT↔TEXT
+- Particionamiento por UUID v7: distribución uniforme entre particiones
+- Replicación lógica: UUID no colisiona entre nodos
+
+**Resultado de la conversión (APLICADO al DDL .bak):**
+
+| Tipo PK | Antes | Después |
+|---------|-------|---------|
+| UUID DEFAULT gen_random_uuid() | 32 | **103** |
+| TEXT | 20 | **0** |
+| SERIAL | 27 | **0** |
+| BIGSERIAL | 27 | **0** |
+| CHAR(2)/CHAR(3) (códigos ISO) | 2 | **2** |
+
+**100% de las PKs son UUID. Solo 2 natural keys ISO permanecen como CHAR.**
+**Auditoría y logs incluidos: `audit_event`, `login_attempt`, `sync_log` → UUID.**
+**Fundamento: PostgreSQL 18+ UUID v7 time-ordered rinde igual que BIGSERIAL con ventajas de seguridad y replicación.**
+
+---
+
+### 3.7 Schema `bRates` en bAuth — Control de Acceso a Monedas
+
+**Principio:** bRates (SmartRates, `SBOS_rates_db`) es la fuente de datos de tipos de cambio de 200+ monedas. bAuth gobierna QUIÉN tiene DERECHO a acceder a cuáles de esas monedas.
+
+**Frontera limpia:**
+
+| Responsabilidad | Dueño |
+|----------------|-------|
+| Colección de tipos de cambio de todas las monedas del mundo | bRates (SBOS_rates_db) |
+| Política cambiaria, ajustes diarios, moneda oficial, moneda de cambio, `catalog.RATE()` | bRates (SBOS_rates_db) |
+| ¿Qué tenant tiene acceso a bRates? | **bAuth** (skSBOS_db, bRates) |
+| ¿Qué monedas puede usar este tenant? | **bAuth** (skSBOS_db, bRates) |
+| ¿Qué monedas puede usar esta empresa? (hereda del tenant) | **bAuth** (skSBOS_db, bRates) |
+| Auditoría: ¿quién consultó bRates? | **bAuth** (skSBOS_db, bRates) |
+
+#### Tabla 1: `bRates.currency_access` — Control de acceso por tenant/empresa
+
+```sql
+CREATE TABLE IF NOT EXISTS bAuth.bRates.currency_access (
+    access_id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id       UUID NOT NULL,
+    empresa_id      UUID,                    -- NULL = nivel tenant
+    currency_code   CHAR(3) NOT NULL,        -- ISO 4217 (BOB, USD, EUR...)
+    can_access      BOOLEAN NOT NULL DEFAULT TRUE,
+    granted_by      UUID NOT NULL,
+    granted_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    revoked_at      TIMESTAMPTZ,             -- NULL = acceso vigente
+    ctx_id          TEXT NOT NULL,
+    UNIQUE (tenant_id, empresa_id, currency_code)
+);
+
+CREATE INDEX IF NOT EXISTS idx_bca_tenant ON bAuth.bRates.currency_access(tenant_id, empresa_id);
+
+COMMENT ON TABLE bAuth.bRates.currency_access IS
+  'Control de acceso a monedas. bRates tiene 200+ monedas. bAuth define a cuáles
+   tiene derecho este tenant/empresa. Sin registro = sin acceso a esa moneda.
+   Empresa hereda del tenant (empresa_id=NULL define el conjunto base del tenant).
+   Empresa puede tener MENOS monedas que el tenant, nunca MÁS.';
+```
+
+#### Tabla 2: `bRates.access_audit` — Auditoría de acceso a bRates
+
+```sql
+CREATE TABLE IF NOT EXISTS bAuth.bRates.access_audit (
+    audit_id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id       UUID NOT NULL,
+    empresa_id      UUID,
+    user_id         UUID NOT NULL,
+    currency_code   CHAR(3),                -- moneda consultada (NULL = acceso general)
+    action          TEXT NOT NULL,           -- 'RATE_QUERY', 'ACCESS_GRANTED', 'ACCESS_REVOKED'
+    rate_value      NUMERIC(20,8),           -- valor retornado (solo para RATE_QUERY)
+    rate_date       DATE,                    -- fecha del tipo consultado
+    ctx_id          TEXT NOT NULL,
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_baa_tenant ON bAuth.bRates.access_audit(tenant_id, created_at DESC);
+
+COMMENT ON TABLE bAuth.bRates.access_audit IS
+  '[ISO 27001 A.8.15] Auditoría WORM de acceso a bRates.
+   Registra quién consultó qué moneda, cuándo, y el valor retornado.
+   Permite detectar accesos no autorizados y patrones anómalos.
+   Inmutable: solo INSERT.';
+```
+
+**Total tablas en schema `bRates`: 2** (control de acceso + auditoría).
+
+**Ejemplo de herencia de acceso:**
+
+```
+TENANT SKULL: acceso a {BOB, USD, EUR, BRL, ARS, PEN, CLP, COP} (8 monedas)
+  │
+  ├── EMPRESA A: hereda las 8 del tenant (no tiene registro propio)
+  │
+  ├── EMPRESA B: acceso a {BOB, USD, EUR, ARS} (4 monedas — MÁS restrictivo)
+  │
+  └── EMPRESA C: acceso a {BOB, USD} (2 monedas — trial, acceso mínimo)
+```
+
+**bAuth NO almacena:** tipos de cambio, ajustes diarios, políticas cambiarias. Eso es de bRates.
+
+## 4. Proyecto de Personalización — Calendario Fiscal Multi-Nivel para bAuth
+
+### 4.0 Diagnóstico: ¿Por qué AHORA?
+
+El calendario debe desarrollarse en esta etapa porque:
+1. La DDL está siendo reconstruida — podemos agregar las tablas del calendario limpiamente
+2. La estandarización de prefijos está en curso — el calendario usará los prefijos correctos desde el inicio
+3. La herencia jerárquica (§3.5) está definida — el calendario la implementa
+4. El Context Plane (§3.2) ya gobierna tenant/empresa/sucursal — el calendario hereda ese contexto
+5. Sin calendario, la "gestión" es solo teoría — con calendario, es funcional
+
+### 4.1 Lo que el calendario DEBE cubrir
+
+| # | Necesidad | ¿Quién la cubre? | ¿Cómo? |
+|---|-----------|-----------------|--------|
+| N1 | **Gestión fiscal por tenant/empresa/sucursal** | pgcalendar + bAuth | Tabla `calendar_interval` con tenant_id, empresa_id, sucursal_id. Herencia: sucursal hereda cierre de empresa. |
+| N2 | **Períodos mensuales/trimestrales/anuales** | pgcalendar `schedules` | Recurrence type: monthly, quarterly, yearly. Proyección automática de períodos. |
+| N3 | **Festivos y días no laborables** | pgcalendar `exceptions` | exception_type='cancelled' para festivos. Un feriado nacional cancela el día laboral en todas las sucursales. |
+| N4 | **Cierre de gestión (SOFT/HARD)** | calendar_interval.status | OPEN → SOFT_CLOSED → HARD_CLOSED → ARCHIVED. Heredable. |
+| N5 | **Ventanas de back-posting** | calendar_interval + rrule_plpgsql | `postable_from` / `postable_until` por intervalo. rrule.between() para validar. |
+| N6 | **Recurrencia infinita con excepciones** | rrule_plpgsql | RFC 5545 completo. FREQ=YEARLY;BYMONTH=1,4,7,10 para trimestres. Excepciones para modificar instancias individuales. |
+| N7 | **Visualización multi-sucursal** | FullCalendar Resource Timeline | Vista timeline con una columna por sucursal. Colores por estado de gestión. |
+| N8 | **No solapar períodos** | pgcalendar triggers | Trigger `prevent_schedule_overlap` evita que dos gestiones se solapen para la misma empresa. |
+| N9 | **Integración con ctx_id** | bAuth Context Plane | Cada evento/schedule/excepción registra el ctx_id que lo creó/modificó. |
+| N10 | **API REST sin programar backend** | PostgREST | Auto-genera endpoints desde las tablas PostgreSQL. Swagger automático. |
+
+### 4.2 Las 3 herramientas y cómo se integran
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                    CALENDARIO SBOS — ARQUITECTURA                  │
+│                                                                   │
+│  ┌─────────────────────────────────────────────────────────────┐ │
+│  │ FullCalendar (UI)                  MIT · 20K+ ★ GitHub      │ │
+│  │                                                             │ │
+│  │  • Vista mes/semana/día/timeline                            │ │
+│  │  • Resource Timeline: 1 columna por sucursal                │ │
+│  │  • Drag & drop: modificar fechas de cierre                  │ │
+│  │  • Colores: verde=ABIERTO, amarillo=SOFT, rojo=HARD         │ │
+│  │  • RRULE plugin: mostrar recurrencia en UI                  │ │
+│  │  • Componente React embeble en Core UI                      │ │
+│  └──────────────────────┬──────────────────────────────────────┘ │
+│                         │ GET/POST/PATCH /api/calendar            │
+│                         ▼                                         │
+│  ┌─────────────────────────────────────────────────────────────┐ │
+│  │ PostgREST (API)                   MIT · 10K+ ★ GitHub       │ │
+│  │                                                             │ │
+│  │  • 0 código backend — lee el schema PostgreSQL               │ │
+│  │  • Endpoints auto-generados: /calendar_interval,             │ │
+│  │    /calendar_event, /calendar_schedule, /calendar_exception  │ │
+│  │  • Filtros: ?tenant_id=eq.xxx&status=eq.OPEN                 │ │
+│  │  • JWT auth integrado con bAuth                              │ │
+│  │  • Swagger /docs automático                                  │ │
+│  └──────────────────────┬──────────────────────────────────────┘ │
+│                         │ SQL nativo                              │
+│                         ▼                                         │
+│  ┌─────────────────────────────────────────────────────────────┐ │
+│  │ PostgreSQL + rrule_plpgsql (Motor)  MIT · PGXN              │ │
+│  │                                                             │ │
+│  │  Tablas (schema pgcalendar adaptado):                        │ │
+│  │  ┌──────────────────────────────────────────────────────┐   │ │
+│  │  │ bAuth.calendar_interval                               │   │ │
+│  │  │  • Gestión fiscal: FY2026, Q1-2026, Jan-2026          │   │ │
+│  │  │  • tenant_id, empresa_id, sucursal_id (herencia)      │   │ │
+│  │  │  • status: OPEN/SOFT_CLOSED/HARD_CLOSED/ARCHIVED     │   │ │
+│  │  │  • postable_from/until (ventana back-posting)         │   │ │
+│  │  │  • parent_interval (jerarquía FY→Q→M)                │   │ │
+│  │  ├──────────────────────────────────────────────────────┤   │ │
+│  │  │ bAuth.calendar_schedule                               │   │ │
+│  │  │  • recurrence_type: DAILY/WEEKLY/MONTHLY/YEARLY       │   │ │
+│  │  │  • recurrence_interval, day_of_week, day_of_month     │   │ │
+│  │  │  • rrule TEXT (RFC 5545 completo vía rrule_plpgsql)  │   │ │
+│  │  │  • start_date, end_date                               │   │ │
+│  │  ├──────────────────────────────────────────────────────┤   │ │
+│  │  │ bAuth.calendar_exception                              │   │ │
+│  │  │  • exception_type: CANCELLED (festivo/cierre)         │   │ │
+│  │  │  │                 MODIFIED (cambio de fecha)          │   │ │
+│  │  │  • exception_date                                     │   │ │
+│  │  │  • modified_start, modified_end (para MODIFIED)       │   │ │
+│  │  └──────────────────────────────────────────────────────┘   │ │
+│  │                                                             │ │
+│  │  Funciones rrule_plpgsql:                                    │ │
+│  │  • rrule.between(rrule, start, end) → fechas en rango       │ │
+│  │  • rrule.overlaps() → validar no solapamiento               │ │
+│  │  • pgcalendar.generate_projections() → expandir recurrencia │ │
+│  └─────────────────────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### 4.3 Plan de Personalización (lo que SÍ hay que construir)
+
+| Fase | Tarea | Horas | Entrega |
+|------|-------|-------|---------|
+| **C1** | Crear 3 tablas en `bAuth`: `calendar_interval`, `calendar_schedule`, `calendar_exception` | 4h | SQL en `001_bauth_init.sql` |
+| **C2** | Instalar y configurar rrule_plpgsql en PostgreSQL | 1h | Extensión funcionando |
+| **C3** | Implementar triggers: anti-solapamiento, herencia de cierre, generación de períodos | 4h | PL/pgSQL |
+| **C4** | Instalar PostgREST y configurar schema `bAuth` | 2h | API REST auto-generada |
+| **C5** | Integrar FullCalendar React en Core UI | 6h | Componente visual |
+| **C6** | Conectar FullCalendar → PostgREST → PostgreSQL | 3h | CRUD funcional |
+| **C7** | Configurar vista Resource Timeline por sucursal | 2h | Multi-sucursal |
+| **C8** | Seeds: festivos Bolivia 2025-2030, gestiones base | 2h | Datos de referencia |
+| **C9** | Pruebas: herencia cierre, back-posting, multi-sucursal | 3h | Test suite |
+| **Total** | | **27h** | Calendario funcional |
+
+### 4.4 Lo que NO construimos (ya existe)
+
+| Componente | Herramienta | Licencia | Lo que nos ahorramos |
+|-----------|-----------|----------|---------------------|
+| UI de calendario | FullCalendar | MIT | ~200h de desarrollo frontend |
+| API REST | PostgREST | MIT | ~80h de desarrollo backend |
+| Motor de recurrencia | rrule_plpgsql | MIT | ~60h de algoritmo RFC 5545 |
+| Triggers de solapamiento | pgcalendar | PGXN | ~20h de lógica de validación |
+| Proyección de fechas | pgcalendar | PGXN | ~30h de generación de ocurrencias |
+| **Total ahorrado** | | | **~390h** |
+
+### 4.5 Cómo cubre cada necesidad del SBOS
+
+| Necesidad SBOS | Solución | Precisión |
+|---------------|----------|-----------|
+| Un contador corrige factura de 2025 en Sucursal Norte | `calendar_interval` con status=SOFT_CLOSED en sucursal, postable_from vigente. rrule.between() valida que la fecha esté en ventana. | ✅ |
+| Un cajero solo opera en gestión 2026 | Política D4: `(interval FY2026, L-V 08:00-16:00, enable Cajero)`. rrule_plpgsql evalúa la recurrencia. | ✅ |
+| Feriado nacional bloquea operaciones | `calendar_exception` con type=CANCELLED, exception_date=01-01-2026. Aplica a todas las sucursales del tenant. | ✅ |
+| Sucursal fronteriza cierra antes que empresa | `calendar_interval` sucursal: HARD_CLOSED. Empresa: SOFT_CLOSED. La sucursal es MÁS restrictiva (Odoo pattern). | ✅ |
+| Tenant ofrece año fiscal Abr-Mar a empresa UK | `calendar_interval` con parent_interval=NULL, fechas 2026-04-01 a 2027-03-31. Independiente del calendario base del tenant. | ✅ |
+| Mostrar todas las sucursales en pantalla | FullCalendar Resource Timeline: 1 columna por sucursal. Colores por status. | ✅ |
+
+---
+
+
+### 4.6 Las Tablas del Calendario — 5 Tablas (Diseño Reconsiderado)
+
+**Investigación aplicada:** Google Calendar System Design (2025) + LinkedIn Calendar Interview + AppMaster PostgreSQL Recurring Patterns + RFC 5545 iCalendar.
+
+**Principio clave (Google):** Separar el EVENTO (template) de la INSTANCIA (occurrence). El evento define QUÉ y CUÁNDO se repite. La instancia es UNA ocurrencia concreta en el tiempo. Esto permite:
+- Consultar "qué pasa esta semana" sin expandir recurrencias cada vez
+- Modificar UNA instancia sin afectar la serie completa
+- Free/Busy rápido: consultar instances, no eventos
+
+#### Tabla 1: `bAuth.calendar_event` — El template del evento
+
+```sql
+CREATE TABLE bAuth.calendar_event (
+    event_id          UUID PK DEFAULT gen_random_uuid(),
+    tenant_id         UUID NOT NULL,         -- scope: tenant dueño
+    empresa_id        UUID,                  -- NULL = evento del tenant
+    sucursal_id       UUID,                  -- NULL = evento de la empresa
+    owner_id          UUID,                  -- NULL = organizacional; NOT NULL = personal
+    calendar_name     TEXT DEFAULT 'default',-- 'work', 'personal', 'fiscal', 'process'
+    event_type        TEXT NOT NULL,         -- MEETING, PROCESS, REMINDER, FISCAL_EVENT
+    title             VARCHAR(512) NOT NULL,
+    description       TEXT,
+    location          VARCHAR(512),
+    start_time        TIMESTAMPTZ NOT NULL,  -- primera ocurrencia
+    end_time          TIMESTAMPTZ NOT NULL,
+    all_day           BOOLEAN DEFAULT FALSE,
+    timezone          VARCHAR(50) DEFAULT 'America/La_Paz',
+    rrule             TEXT,                  -- RFC 5545: 'FREQ=WEEKLY;BYDAY=MO,WE,FR;COUNT=52'
+    status            TEXT DEFAULT 'CONFIRMED',
+    visibility        TEXT DEFAULT 'DEFAULT',-- DEFAULT, PUBLIC, PRIVATE
+    process_name      TEXT,                  -- solo PROCESS: nombre del proceso a lanzar
+    process_params    JSONB,                 -- solo PROCESS: parámetros
+    ctx_id            TEXT NOT NULL,
+    created_at        TIMESTAMPTZ DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT chk_event_type CHECK (event_type IN ('MEETING','PROCESS','REMINDER','FISCAL_EVENT')),
+    CONSTRAINT chk_event_status CHECK (status IN ('CONFIRMED','TENTATIVE','CANCELLED'))
+);
+
+CREATE INDEX idx_event_time ON bAuth.calendar_event(tenant_id, start_time, end_time);
+CREATE INDEX idx_event_owner ON bAuth.calendar_event(owner_id, tenant_id);
+```
+
+#### Tabla 2: `bAuth.calendar_instance` — Ocurrencias materializadas (GOOGLE PATTERN)
+
+```sql
+CREATE TABLE bAuth.calendar_instance (
+    instance_id       UUID PK DEFAULT gen_random_uuid(),
+    event_id          UUID NOT NULL,         -- FK → calendar_event
+    tenant_id         UUID NOT NULL,
+    original_date     DATE NOT NULL,         -- fecha que le correspondería según RRULE
+    start_time        TIMESTAMPTZ NOT NULL,  -- inicio real (puede diferir del template)
+    end_time          TIMESTAMPTZ NOT NULL,  -- fin real
+    is_exception      BOOLEAN DEFAULT FALSE, -- TRUE = esta instancia fue modificada
+    status            TEXT DEFAULT 'CONFIRMED',
+    ctx_id            TEXT,
+    created_at        TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (event_id, original_date)
+);
+
+CREATE INDEX idx_instance_time ON bAuth.calendar_instance(tenant_id, start_time, end_time);
+CREATE INDEX idx_instance_event ON bAuth.calendar_instance(event_id, original_date);
+
+COMMENT ON TABLE bAuth.calendar_instance IS
+  '[Google Calendar] Instancia materializada de un evento recurrente.
+   Se pre-expande una ventana de 60-90 días. Fuera de esa ventana se calcula dinámicamente.
+   Optimiza queries de "qué pasa esta semana" sin expandir recurrencias cada vez.';
+```
+
+**Ventana de expansión (Google Hybrid Window):**
+- Al crear/modificar un evento recurrente → expandir 90 días hacia adelante
+- Un cron cada noche → expandir el día 91 (mantener siempre 90 días pre-calculados)
+- Consultas más allá de 90 días → expansión dinámica con rrule_plpgsql
+
+#### Tabla 3: `bAuth.calendar_exception` — Modificaciones/Cancelaciones
+
+```sql
+CREATE TABLE bAuth.calendar_exception (
+    exception_id      UUID PK DEFAULT gen_random_uuid(),
+    event_id          UUID NOT NULL,         -- FK → calendar_event
+    interval_id       TEXT,                  -- FK → calendar_interval (nullable)
+    original_date     DATE NOT NULL,
+    exception_type    TEXT NOT NULL,         -- CANCELLED, MODIFIED
+    modified_start    TIMESTAMPTZ,           -- solo MODIFIED
+    modified_end      TIMESTAMPTZ,           -- solo MODIFIED
+    reason            TEXT,
+    ctx_id            TEXT NOT NULL,
+    created_at        TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (event_id, interval_id, original_date),
+    CONSTRAINT chk_exception_target CHECK (
+        (event_id IS NOT NULL AND interval_id IS NULL) OR
+        (event_id IS NULL AND interval_id IS NOT NULL)
+    ),
+    CONSTRAINT chk_exception_type CHECK (exception_type IN ('CANCELLED','MODIFIED'))
+);
+```
+
+#### Tabla 4: `bAuth.calendar_interval` — Períodos fiscales (sin cambios)
+
+(Misma definición que antes — ver §4.6 original. UUID PK, tenant/empresa/sucursal, rrule, status.)
+
+#### Tabla 5: `bAuth.calendar_attendee` — Participantes de reuniones (Google Calendar)
+
+```sql
+CREATE TABLE bAuth.calendar_attendee (
+    attendee_id       UUID PK DEFAULT gen_random_uuid(),
+    event_id          UUID NOT NULL,         -- FK → calendar_event
+    user_id           UUID NOT NULL,
+    response_status   TEXT DEFAULT 'PENDING',-- PENDING, ACCEPTED, DECLINED, TENTATIVE
+    is_organizer      BOOLEAN DEFAULT FALSE,
+    notified_at       TIMESTAMPTZ,
+    created_at        TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (event_id, user_id)
+);
+```
+
+### 4.7 Cómo cada tabla cubre las necesidades
+
+| Necesidad | Tabla(s) | Cómo |
+|-----------|----------|------|
+| "Reunión general SKULL todos los lunes 9AM" | event + instance | event.rrule='FREQ=WEEKLY;BYDAY=MO', instances pre-expandidas 90 días |
+| "Cita médica María 15-Jun 14:00" | event | event_type=MEETING, owner_id=UUID_MARIA, rrule=NULL |
+| "Cierre contable automático cada 31-Dic 23:00" | event + instance | event_type=PROCESS, process_name='cierre_contable', rrule='FREQ=YEARLY' |
+| "Cancelar reunión del 20-Jun" | exception | exception_type=CANCELLED, original_date='2026-06-20' |
+| "Mover feriado del lunes al viernes" | exception | exception_type=MODIFIED, modified_start/end ajustados |
+| "¿Quién va a la reunión?" | attendee | SELECT con response_status |
+| "¿Qué tengo esta semana?" | instance | SELECT WHERE start_time BETWEEN now() AND now()+7days (instantáneo) |
+| "Gestión 2026 cierra 31-Dic" | interval | interval_type=FISCAL_YEAR, status=SOFT_CLOSED |
+| "¿Está abierta la gestión para publicar?" | interval | SELECT status WHERE interval_id='FY2026' AND CURRENT_DATE BETWEEN postable_from AND postable_until |
+
+### 4.8 Alertas, Notificaciones Multi-Canal y Auditoría (NUEVO)
+
+**Problema detectado por el usuario:** El calendario debe generar alertas: reuniones envían WhatsApp, recordatorios por SMS, mensajes en la UI. La trazabilidad y auditoría deben ser controladas al extremo.
+
+**Investigación aplicada:** [JMAP Calendars IETF 2025] [Twilio WhatsApp Reminder 2024] [AlgoMaster Notification Service 2025] [malnu-backend multi-channel PR].
+
+#### Tabla 6: `bAuth.calendar_reminder` — Programa de alertas por evento
+
+```sql
+CREATE TABLE bAuth.calendar_reminder (
+    reminder_id       UUID PK DEFAULT gen_random_uuid(),
+    event_id          UUID NOT NULL,         -- FK → calendar_event
+    user_id           UUID NOT NULL,         -- quién recibe la alerta
+    remind_at         TIMESTAMPTZ NOT NULL,  -- cuándo disparar
+    offset_minutes    INTEGER NOT NULL,      -- -30 = 30min antes, -1440 = 1 día antes
+    channel           TEXT NOT NULL,         -- WHATSAPP, SMS, EMAIL, UI, PUSH
+    priority          TEXT DEFAULT 'MEDIUM', -- CRITICAL, HIGH, MEDIUM, LOW
+    status            TEXT DEFAULT 'PENDING',-- PENDING, SENT, DELIVERED, FAILED, READ
+    retry_count       INTEGER DEFAULT 0,
+    max_retries       INTEGER DEFAULT 3,
+    sent_at           TIMESTAMPTZ,
+    delivered_at      TIMESTAMPTZ,
+    read_at           TIMESTAMPTZ,
+    error_message     TEXT,
+    ctx_id            TEXT NOT NULL,
+    created_at        TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT chk_reminder_channel CHECK (channel IN ('WHATSAPP','SMS','EMAIL','UI','PUSH')),
+    CONSTRAINT chk_reminder_status CHECK (status IN ('PENDING','SENT','DELIVERED','FAILED','READ'))
+);
+
+CREATE INDEX idx_reminder_fire ON bAuth.calendar_reminder(remind_at, status) WHERE status = 'PENDING';
+CREATE INDEX idx_reminder_user ON bAuth.calendar_reminder(user_id, status);
+```
+
+#### Tabla 7: `bAuth.calendar_notification` — Registro de entrega (AUDITORÍA)
+
+```sql
+CREATE TABLE bAuth.calendar_notification (
+    notification_id   UUID PK DEFAULT gen_random_uuid(),
+    reminder_id       UUID,                  -- FK → calendar_reminder
+    user_id           UUID NOT NULL,
+    channel           TEXT NOT NULL,         -- WHATSAPP, SMS, EMAIL, UI, PUSH
+    subject           VARCHAR(512),
+    body              TEXT,
+    provider          TEXT,                  -- TWILIO, SENDGRID, FCM, WHATSAPP_API
+    provider_msg_id   TEXT,                  -- ID externo del proveedor
+    provider_response JSONB,                 -- respuesta completa del proveedor
+    status            TEXT DEFAULT 'PENDING',
+    delivered_at      TIMESTAMPTZ,
+    read_at           TIMESTAMPTZ,
+    error_message     TEXT,
+    ctx_id            TEXT NOT NULL,
+    created_at        TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT chk_notif_channel CHECK (channel IN ('WHATSAPP','SMS','EMAIL','UI','PUSH'))
+);
+
+CREATE INDEX idx_notif_user ON bAuth.calendar_notification(user_id, created_at DESC);
+CREATE INDEX idx_notif_reminder ON bAuth.calendar_notification(reminder_id);
+
+COMMENT ON TABLE bAuth.calendar_notification IS
+  '[JMAP IETF 2025] [malnu-backend] Registro WORM de cada notificación enviada.
+   Trazabilidad completa: qué, a quién, por qué canal, resultado, respuesta del proveedor.';
+```
+
+#### Tabla 8: `bAuth.calendar_template` — Plantillas de mensajes por canal
+
+```sql
+CREATE TABLE bAuth.calendar_template (
+    template_id       UUID PK DEFAULT gen_random_uuid(),
+    name              TEXT NOT NULL UNIQUE,   -- 'event_reminder', 'event_cancelled', 'meeting_today'
+    channel           TEXT NOT NULL,
+    subject           VARCHAR(512),
+    body_template     TEXT NOT NULL,          -- '⏰ {event_title} inicia a las {start_time}'
+    variables         JSONB,                 -- ['event_title','start_time','location']
+    created_at        TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT chk_tpl_channel CHECK (channel IN ('WHATSAPP','SMS','EMAIL','UI','PUSH'))
+);
+```
+
+#### Tabla 9: `bAuth.calendar_user_prefs` — Preferencias de notificación por usuario
+
+```sql
+CREATE TABLE bAuth.calendar_user_prefs (
+    pref_id           UUID PK DEFAULT gen_random_uuid(),
+    user_id           UUID NOT NULL,
+    channel           TEXT NOT NULL,
+    enabled           BOOLEAN DEFAULT TRUE,
+    quiet_start       TIME,                  -- 22:00
+    quiet_end         TIME,                  -- 07:00
+    frequency         TEXT DEFAULT 'IMMEDIATE', -- IMMEDIATE, DIGEST_DAILY, DIGEST_WEEKLY
+    UNIQUE (user_id, channel),
+    CONSTRAINT chk_pref_channel CHECK (channel IN ('WHATSAPP','SMS','EMAIL','UI','PUSH'))
+);
+```
+
+### 4.9 Trazabilidad y Auditoría Extrema
+
+**Principio SFP-08:** Toda decisión basada en estándares internacionales.
+
+| Requisito | Implementación | Estándar |
+|-----------|---------------|----------|
+| **Quién creó/modificó el evento** | `ctx_id` en TODAS las tablas (event, instance, exception, interval, reminder, notification) | ISO 27001 A.8.15 · W3C Trace Context |
+| **Cuándo se envió la notificación** | `calendar_notification.sent_at` + `delivered_at` + `read_at` | JMAP IETF 2025 |
+| **Qué respondió el proveedor** | `calendar_notification.provider_response` (JSONB completo) | PCI DSS 4.0 Req 10.3 |
+| **Cuántos reintentos** | `calendar_reminder.retry_count` + `max_retries` | At-least-once delivery |
+| **Hash-chain de integridad** | `prev_hash` + `entry_hash` en audit_events (ya existe) | PCI DSS 10.3 · ISO 27001 A.8.15 |
+| **No se borra, se marca** | `status = 'CANCELLED'` en eventos, excepciones, notificaciones | ISO 24760-2 §8.3.7 |
+| **Inmutabilidad de notificaciones** | REVOKE UPDATE/DELETE en calendar_notification (solo INSERT+SELECT) | ISO 27001 A.8.15 |
+
+### 4.10 Flujo de una Alerta (ejemplo completo)
+
+```
+1. María crea reunión "Planificación Q1" para el 15-Ene-2026 09:00
+   → calendar_event (rrule=NULL, event_type=MEETING)
+   → calendar_attendee (invitados: Juan, Pedro)
+   → calendar_reminder (offset=-30min, channel=WHATSAPP, user=Juan)
+   → calendar_reminder (offset=-30min, channel=WHATSAPP, user=Pedro)
+   → calendar_reminder (offset=-1440min, channel=EMAIL, user=María)
+
+2. Cron cada 60 segundos:
+   SELECT * FROM calendar_reminder
+   WHERE remind_at <= NOW() AND status = 'PENDING'
+   FOR UPDATE SKIP LOCKED
+
+3. Para cada reminder:
+   → Verificar user_prefs (¿canal habilitado? ¿horario silencio?)
+   → Cargar template ('event_reminder', 'WHATSAPP')
+   → Rellenar variables: {event_title}, {start_time}, {location}
+   → Enviar vía WhatsApp Business API (Twilio)
+   → INSERT en calendar_notification (status='SENT', provider_msg_id, provider_response)
+   → UPDATE calendar_reminder (status='SENT', sent_at=NOW())
+
+4. Webhook de Twilio confirma delivery:
+   → UPDATE calendar_reminder (status='DELIVERED', delivered_at=NOW())
+
+5. Auditoría: cada paso genera un audit_event con ctx_id
+```
+
+### 4.11 Resumen Final del Calendario
+
+| Métrica | Valor |
+|---------|-------|
+| **Tablas totales** | **9** |
+| **Tablas de calendario** | 5 (event, instance, exception, interval, attendee) |
+| **Tablas de notificación** | 4 (reminder, notification, template, user_prefs) |
+| **PKs** | **100% UUID** |
+| **Canales de notificación** | 5 (WHATSAPP, SMS, EMAIL, UI, PUSH) |
+| **Tipos de evento** | 4 (MEETING, PROCESS, REMINDER, FISCAL_EVENT) |
+| **Niveles de visibilidad** | 4 (USER, SUCURSAL, EMPRESA, TENANT) |
+| **Auditoría** | ctx_id en TODAS las tablas + calendar_notification WORM + hash-chain |
+| **Ficha BOS** | `cal-fiscal` (puerto 28150, común a todas las apps) |
+| **Motor recurrencia** | rrule_plpgsql + instances pre-expandidas 90 días |
+| **Horas estimadas** | 40h (subió de 27h por notificaciones y auditoría) |
+
+### 2.6 Mapeo Completo OLD → NEW (sujeto a correcciones del usuario)
+
+Cada renombrado incluye: **nombre actual** → **nombre nuevo** + **schema** + **motivo**.
+
+#### Schema: bAuth · Prefijo: idn_ (Identidad) — 35 tablas
+
+| # | Nombre Actual | Nombre Nuevo | Schema | Motivo |
+|---|---------------|-------------|--------|--------|
+| 1 | `bAuth.bos_tenant` | `bAuth.idn_tenant` | bAuth | Entidad raíz multi-tenant. Prefijo idn_ = identidad. |
+| 2 | `bAuth.bos_tenant_config` | `bAuth.idn_tenant_config` | bAuth | Configuración regional del tenant. |
+| 3 | `bAuth.bos_tenant_verification` | `bAuth.idn_tenant_verification` | bAuth | Verificación KYC del tenant. |
+| 4 | `bAuth.bos_tenant_domain` | `bAuth.idn_tenant_domain` | bAuth | Dominios FQDN por tenant. |
+| 5 | `bAuth.bos_tenant_network` | `bAuth.idn_tenant_network` | bAuth | Redes autorizadas por tenant. |
+| 6 | `bAuth.bos_tenant_currency` | `bAuth.idn_tenant_currency` | bAuth | Monedas habilitadas. |
+| 7 | `bAuth.bos_tenant_language` | `bAuth.idn_tenant_language` | bAuth | Idiomas habilitados. |
+| 8 | `bAuth.bos_tenant_gestion` | `bAuth.idn_tenant_gestion` | bAuth | Períodos contables. |
+| 9 | `bAuth.bos_empresa` | `bAuth.idn_empresa` | bAuth | Empresa dentro del tenant. |
+| 10 | `bAuth.bos_sucursal` | `bAuth.idn_sucursal` | bAuth | Sucursal de la empresa. |
+| 11 | `bAuth.bos_pos_logico` | `bAuth.idn_pos` | bAuth | Terminal lógico (POS/caja). |
+| 12 | `bAuth.bos_user_template` | `bAuth.idn_usuario` | bAuth | Identidad digital del usuario. |
+| 13 | `bAuth.bos_user_consent` | `bAuth.idn_user_consent` | bAuth | Consentimientos GDPR del usuario. |
+| 14 | `bAuth.bos_user_role_assignment` | `bAuth.idn_user_role` | bAuth | Asignación usuario↔rol. |
+| 15 | `bAuth.bos_rol_template` | `bAuth.idn_rol` | bAuth | Plantilla de rol (fuente de verdad). |
+| 16 | `bAuth.bos_rol_template_history` | `bAuth.idn_role_history` | bAuth | Historial WORM de cambios al rol. |
+| 17 | `bAuth.bos_tier_policy` | `bAuth.idn_tier` | bAuth | Políticas por tier NIST 800-63B-4. |
+| 18 | `bAuth.bos_sod_conflict_matrix` | `bAuth.idn_sod` | bAuth | Matriz de Separación de Deberes. |
+| 19 | `bAuth.bos_rol_closure` | `bAuth.idn_role_closure` | bAuth | Closure table DAG de herencia H-RBAC. |
+| 20 | `bAuth.bos_delegation_log` | `bAuth.idn_delegation` | bAuth | Delegaciones temporales de roles. |
+| 21 | `bAuth.bos_recovery_method` | `bAuth.idn_recovery` | bAuth | Métodos de recuperación de cuenta. |
+| 22 | `bAuth.bos_recovery_challenge` | `bAuth.idn_recovery_challenge` | bAuth | Desafíos de recuperación (hash). |
+| 23 | `bAuth.bos_permiso_logico` | `bAuth.idn_permiso` | bAuth | Permiso granular: zona × verbo × rol. |
+| 24 | `bAuth.bos_zona_logica` | `bAuth.idn_zona` | bAuth | Zona de negocio lógica. |
+| 25 | `bAuth.bos_zone_application_map` | `bAuth.idn_zona_app` | bAuth | Mapeo zona ↔ aplicación. |
+| 26 | `bAuth.bos_domain_config` | `bAuth.idn_domain_config` | bAuth | Activación de dominios por tenant. |
+| 27 | `bAuth.bos_global_config` | `bAuth.idn_global_config` | bAuth | Parámetros globales del sistema. |
+| 28 | `bAuth.bos_framework_version` | `bAuth.idn_framework_version` | bAuth | Versionado semántico de frameworks. |
+| 29 | `bAuth.bos_schedule` | `bAuth.idn_schedule` | bAuth | Horarios y turnos. |
+| 30 | `bAuth.bos_gestion_calendario` | `bAuth.idn_calendar` | bAuth | Calendario de gestión contable. |
+| 31 | `bAuth.bos_vdi_profiles` | `bAuth.idn_vdi` | bAuth | Perfiles de escritorio virtual. |
+| 32 | `bAuth.bos_ghost_accounts` | `bAuth.idn_ghost_account` | bAuth | Detección de cuentas abandonadas. |
+| 33 | `bAuth.bos_access_reviews` | `bAuth.idn_access_review` | bAuth | Campañas de recertificación (SOC 2). |
+
+#### Schema: bAuth · Prefijo: ath_ (Autenticación) — 15 tablas
+
+| # | Nombre Actual | Nombre Nuevo | Schema | Motivo |
+|---|---------------|-------------|--------|--------|
+| 34 | `bAuth.bos_auth_method` | `bAuth.ath_method` | bAuth | Catálogo de métodos de autenticación. |
+| 35 | `bAuth.bos_auth_policy` | `bAuth.ath_policy` | bAuth | Políticas de autenticación por tier. |
+| 36 | `bAuth.bos_auth_config` | `bAuth.ath_config` | bAuth | Configuración operativa del motor auth. |
+| 37 | `bAuth.bos_auth_method_enrollment_log` | `bAuth.ath_enrollment` | bAuth | Registro de enrolamiento de métodos. |
+| 38 | `bAuth.bos_mfa_enrollments` | `bAuth.ath_mfa` | bAuth | Dispositivos MFA del usuario. |
+| 39 | `bAuth.bos_password_history` | `bAuth.ath_password` | bAuth | Historial de contraseñas (NIST screening). |
+| 40 | `bAuth.bos_password_screening_log` | `bAuth.ath_password_screening` | bAuth | Cribado HIBP k-anonymity. |
+| 41 | `bAuth.bos_biometric_templates` | `bAuth.ath_biometric` | bAuth | Plantillas biométricas (RGPD Art.9). |
+| 42 | `bAuth.bos_credential_policy` | `bAuth.ath_credential` | bAuth | Políticas de credenciales. |
+| 43 | `bAuth.bos_credential_rotation_log` | `bAuth.ath_credential_rotation` | bAuth | Rotación de credenciales. |
+| 44 | `bAuth.bos_token_delivery_log` | `bAuth.ath_token` | bAuth | Entrega de tokens de autenticación. |
+| 45 | `bAuth.bos_authenticator_binding` | `bAuth.ath_binding` | bAuth | Vínculo authenticator↔subscriber (NIST §5.2). |
+| 46 | `bAuth.bos_authenticator_revocation` | `bAuth.ath_revocation` | bAuth | Revocación de authenticators. |
+| 47 | `bAuth.bos_federation_protocol` | `bAuth.ath_federacion` | bAuth | Protocolos de federación (OAuth 2.1, SAML, OIDC). |
+| 48 | `bAuth.bos_crypto_algorithm` | `bAuth.ath_cripto` | bAuth | Catálogo de algoritmos criptográficos (FIPS 140-3). |
+
+#### Schema: bAuth · Prefijo: ses_ (Sesiones) — 2 tablas
+
+| # | Nombre Actual | Nombre Nuevo | Schema | Motivo |
+|---|---------------|-------------|--------|--------|
+| 49 | `bAuth.bos_context_sessions` | `bAuth.ses_session` | bAuth | Sesión del Context Plane 6 capas (SBOS-049). |
+| 50 | `bAuth.bos_context_switches` | `bAuth.ses_session_switch` | bAuth | Historial de cambios de contexto operativo. |
+
+#### Schema: bAuth · Prefijo: fin_ (Financiero) — 6 tablas
+
+| # | Nombre Actual | Nombre Nuevo | Schema | Motivo |
+|---|---------------|-------------|--------|--------|
+| 51 | `bAuth.bos_financial_limit` | `bAuth.fin_limit` | bAuth | Límites financieros por operación/día/mes. |
+| 52 | `bAuth.bos_financial_decision_matrix` | `bAuth.fin_matrix` | bAuth | Matriz de decisión de aprobación. |
+| 53 | `bAuth.bos_financial_approval` | `bAuth.fin_approval` | bAuth | Registro de aprobaciones financieras. |
+| 54 | `bAuth.bos_financial_document_operation` | `bAuth.fin_operation` | bAuth | Operaciones sobre documentos financieros. |
+| 55 | `bAuth.bos_financial_role_permission` | `bAuth.fin_permission` | bAuth | Permisos financieros por rol. |
+| 56 | `bAuth.bos_financial_tipo_transaccion` | `bAuth.fin_transaction` | bAuth | Tipos de transacción financiera (ISO 20022). |
+
+#### Schema: bAuth · Prefijo: aud_ (Auditoría) — 7 tablas
+
+| # | Nombre Actual | Nombre Nuevo | Schema | Motivo |
+|---|---------------|-------------|--------|--------|
+| 57 | `bAuth.bos_audit_events` | `bAuth.aud_event` | bAuth | Registro WORM inmutable (ISO 27001 A.8.15). Particionado por mes. |
+| 58 | `bAuth.bos_sync_log` | `bAuth.aud_sync` | bAuth | Registro de sincronización bAuth→KC+Tryton. WORM. |
+| 59 | `bAuth.bos_policy_audit` | `bAuth.aud_policy_audit` | bAuth | Auditoría WORM de cambios de políticas. |
+| 60 | `bAuth.bos_policy_history` | `bAuth.aud_policy_history` | bAuth | Historial versionado de políticas. |
+| 61 | `bAuth.bos_backup_log` | `bAuth.aud_backup` | bAuth | Registro de backups (ADR-016). |
+| 62 | `bAuth.bos_login_attempt` | `bAuth.aud_login_attempt` | bAuth | Intentos de login (NIST AC-7). Particionado por mes. |
+| 63 | `bAuth.bos_superuser_contexts` | `bAuth.aud_superuser` | bAuth | Activaciones break-glass SU (ISO 27001 A.8.2). |
+
+#### Schema: bAuth · Prefijo: sec_ (Seguridad) — 9 tablas
+
+| # | Nombre Actual | Nombre Nuevo | Schema | Motivo |
+|---|---------------|-------------|--------|--------|
+| 64 | `bAuth.bos_key_inventory` | `bAuth.sec_key` | bAuth | Inventario de llaves criptográficas (NIST SP 800-57). |
+| 65 | `bAuth.bos_key_recovery_log` | `bAuth.sec_key_recovery` | bAuth | Recuperación de llaves (break-glass). |
+| 66 | `bAuth.bos_key_rotation_log` | `bAuth.sec_key_rotation` | bAuth | Rotación de llaves criptográficas. |
+| 67 | `bAuth.bos_device_registry` | `bAuth.sec_device` | bAuth | Registro de dispositivos físicos (ISO 27001 A.8.1). |
+| 68 | `bAuth.bos_dispositivo_fisico` | `bAuth.sec_hardware_device` | bAuth | Hardware específico: OSDP, MQTT, ONVIF, Wiegand. |
+| 69 | `bAuth.bos_sitio_fisico` | `bAuth.sec_site` | bAuth | Sitio físico geolocalizado. |
+| 70 | `bAuth.bos_edificio` | `bAuth.sec_building` | bAuth | Edificio dentro del sitio. |
+| 71 | `bAuth.bos_piso` | `bAuth.sec_floor` | bAuth | Piso dentro del edificio. |
+| 72 | `bAuth.bos_area_fisica` | `bAuth.sec_area` | bAuth | Área funcional dentro del piso. |
+
+#### Schema: bAuth · Prefijo: geo_ (Geografía) — 5 tablas
+
+| # | Nombre Actual | Nombre Nuevo | Schema | Motivo |
+|---|---------------|-------------|--------|--------|
+| 73 | `bAuth.bos_pais` | `bAuth.geo_pais` | bAuth | Países (ISO 3166-1). |
+| 74 | `bAuth.bos_ciudad` | `bAuth.geo_ciudad` | bAuth | Ciudades y divisiones administrativas. |
+| 75 | `bAuth.bos_moneda` | `bAuth.geo_moneda` | bAuth | Monedas (ISO 4217). |
+| 76 | `bAuth.bos_idioma` | `bAuth.geo_idioma` | bAuth | Idiomas (ISO 639). |
+| 77 | `bAuth.bos_timezone` | `bAuth.geo_timezone` | bAuth | Zonas horarias (IANA TZ Database). |
+
+#### Schema: bAuth · Prefijo: cfg_ (Configuración) — 4 tablas
+
+| # | Nombre Actual | Nombre Nuevo | Schema | Motivo |
+|---|---------------|-------------|--------|--------|
+| 78 | `bAuth.bos_compliance_map` | `bAuth.cfg_cumplimiento` | bAuth | Mapeo de cumplimiento normativo (34 estándares). |
+| 79 | `bAuth.bos_saga_catalog` | `bAuth.cfg_saga` | bAuth | Catálogo de sagas de autenticación (12 sagas). |
+| 80 | `bAuth.bos_saga_step` | `bAuth.cfg_saga_paso` | bAuth | Pasos individuales de cada saga. |
+| 81 | `bAuth.bos_saga_execution` | `bAuth.cfg_saga_ejecucion` | bAuth | Registro inmutable de ejecuciones de saga. |
+
+#### Schema: bAuth · Prefijo: blk_ (Blockchain D12) — 7 tablas
+
+| # | Nombre Actual | Nombre Nuevo | Schema | Motivo |
+|---|---------------|-------------|--------|--------|
+| 82 | `bos_blockchain.bos_merkle_batch` | `bAuth.blk_merkle_batch` | bAuth | Lotes de eventos para anclaje Merkle. |
+| 83 | `bos_blockchain.bos_merkle_leaf` | `bAuth.blk_merkle_leaf` | bAuth | Hojas del árbol Merkle (Keccak-256). |
+| 84 | `bos_blockchain.bos_blockchain_anchor_log` | `bAuth.blk_anchor_log` | bAuth | Histórico de transacciones de anclaje en L2. |
+| 85 | `bos_blockchain.bos_anchor_reconciliation_log` | `bAuth.blk_anchor_reconciliation` | bAuth | Verificación cross-chain Merkle roots. |
+| 86 | `bos_blockchain.bos_onchain_account` | `bAuth.blk_account` | bAuth | Cuentas on-chain (Variante B). |
+| 87 | `bos_blockchain.bos_onchain_settlement` | `bAuth.blk_settlement` | bAuth | Liquidaciones on-chain (Variante B). |
+| 88 | `bos_blockchain.bos_reconciliation_log` | `bAuth.blk_reconciliation` | bAuth | Reconciliación on-chain ↔ PostgreSQL. |
+
+#### Schema: bos · Prefijo: privilege_ (Motor de Privilegios) — 7+ tablas
+
+| # | Nombre Actual | Nombre Nuevo | Schema | Motivo |
+|---|---------------|-------------|--------|--------|
+| 89 | `bos_privilege.bos_application` | `bos.privilege_app` | bos | Aplicaciones registradas en el motor. |
+| 90 | `bos_privilege.bos_domain` | `bos.privilege_domain` | bos | Catálogo de 12 dominios de soberanía D1-D12. |
+| 91 | `bos_privilege.bos_verb` | `bos.privilege_verb` | bos | Vocabulario global de verbos (CRUD). |
+| 92 | `bos_privilege.bos_group` | `bos.privilege_group` | bos | Grupos funcionales por aplicación. |
+| 93 | `bos_privilege.bos_atom_catalog` | `bos.privilege_atom` | bos | Catálogo de átomos (1059 registros). |
+| 94 | `bos_privilege.bos_atom_policy` | `bos.privilege_policy` | bos | Políticas por átomo (6782 registros). |
+| 95 | `bos_privilege.bos_atom_audit` | `bos.privilege_audit` | bos | Auditoría WORM de evaluaciones. Particionado por mes. |
+| 96 | `bos_privilege.bos_role` | `bos.privilege_role` | bos | Roles base por tenant. |
+| 97 | `bos_privilege.bos_role_atom` | `bos.privilege_role_atom` | bos | Asignación rol↔átomo (BitMask relacional). |
+
+### 2.6 Tablas sin cambios de schema (ya están en bauth)
+
+Todas las tablas de los prefijos idn_, ath_, ses_, fin_, aud_, sec_, geo_, cfg_, blk_ permanecen en el schema `bauth`. Solo cambia su prefijo de `bos_` al nuevo prefijo funcional.
+
+### 2.7 Resumen de la Reorganización
+
+| Métrica | Actual | Propuesto |
+|---------|--------|-----------|
+| Schemas | 3 (bauth, bos_privilege, bos_blockchain) | **2** (bauth, bos) |
+| Prefijos | 1 (`bos_`) | **10** (idn_, ath_, ses_, fin_, aud_, sec_, geo_, cfg_, blk_, privilege_) |
+| Tablas renombradas | — | **85** (cambio de prefijo) |
+| Tablas migradas de schema | — | **7** (bos_blockchain → bauth) |
+| Legibilidad | `bos_financial_approval` | `fin_approval` |
+| Agrupación | Imposible sin examinar | Instantánea por prefijo |
+
+---
+
+## 3. Plan de Ejecución por Fases
+
+### FASE 1: Análisis y Preparación `[PENDIENTE]`
+
+| # | Tarea | Estado |
+|---|-------|--------|
+| 1.1 | Confirmar prefijo de tablas con el usuario | 🟢 COMPLETADO |
+| 1.2 | Backup de DDL actual | 🟢 COMPLETADO |
+| 1.3 | Extraer INSERTs a seeds independientes | 🟢 COMPLETADO |
+| 1.4 | Mapear grafo de dependencias FK (orden topológico) | 🟢 COMPLETADO |
+| 1.5 | Identificar columnas ALTER TABLE a integrar en CREATE TABLE | 🟢 COMPLETADO |
+| 1.6 | Listar todas las tablas con columnas, constraints, índices | 🟢 COMPLETADO |
+
+### 1.X Resultados del Análisis de Dependencias FK
+
+**104 dependencias FK analizadas · 0 ciclos detectados · 67 tablas en orden topológico**
+
+#### Raíces del grafo (Nivel 0 — sin dependencias)
+
+Estas 29 tablas no referencian a ninguna otra. Se crean primero:
+
+`bos_application`, `bos_domain`, `bos_financial_document_operation`, `bos_financial_tipo_transaccion`, `bos_idioma`, `bos_merkle_batch`, `bos_onchain_account`, `bos_pais`, `bos_rol_template`, `bos_role`, `bos_saga_catalog`, `bos_tenant`, `bos_verb`, `bos_zona_logica`, `bos_area_fisica`, `bos_authenticator_binding`, `bos_ciudad`, `bos_edificio`, `bos_empresa`, `bos_moneda`, `bos_piso`, `bos_pos_logico`, `bos_sitio_fisico`, `bos_sucursal`, `bos_tenant_gestion`, `bos_timezone`, `bos_user_template`, `bos_atom_catalog`, `bos_group`
+
+#### Orden topológico completo (67 tablas)
+
+Ver archivo `/tmp/topo_order.txt` en el servidor de desarrollo.
+
+#### Nota sobre self-reference
+
+`bos_rol_template` tiene FK a sí misma (`parent_id → bos_rol_template.id`). PostgreSQL soporta self-referencing FKs en CREATE TABLE — no requiere ALTER.
+
+---
+
+### 1.Y Resultados del Análisis de ALTER TABLE
+
+**80 columnas en 16 tablas** deben integrarse en sus CREATE TABLE originales.
+
+| # | Tabla | Columnas a integrar | Cantidad |
+|---|-------|---------------------|----------|
+| 1 | `bos_tenant_config` | locale, timezone, currency_default, supported_locales | 4 |
+| 2 | `bos_tenant_domain` | active | 1 |
+| 3 | `bos_pais` | codice_iso_alfa2, alfa3, num, nombre_es, nombre_en, continente, region, flag_emoji, codigo_telefonico | 9 |
+| 4 | `bos_moneda` | codice_num, nombre_es, nombre_en, simbolo, simbolo_int, precision, pais_emisor | 7 |
+| 5 | `bos_idioma` | locale, codice_iso_639_1, codice_iso_639_2, nombre_nativo, nombre_es, direccion_texto, flag_emoji | 7 |
+| 6 | `bos_timezone` | nombre_es, utc_offset, utc_offset_min, observa_dst, pais, ciudad_principal | 6 |
+| 7 | `bos_financial_tipo_transaccion` | categoria, riesgo, requiere_dual_control, requiere_evidencia, notificacion_sin | 5 |
+| 8 | `bos_zona_logica` | categoria, ambito, es_critica, requiere_segregacion | 4 |
+| 9 | `bos_credential_policy` | nombre, credential_type, min_strength_bits, ttl_max_dias, rota_por_tiempo, rota_post_compromiso, rota_post_evento, requiere_breach_screening, historial_retencion | 9 |
+| 10 | `bos_financial_document_operation` | operacion_id, tipo_documento, verbo, afecta_dosificacion, requiere_firma_digital, notifica_sin | 6 |
+| 11 | `bos_sod_conflict_matrix` | bit_a, bit_b, risk_level, action, rationale | 5 |
+| 12 | `bos_context_sessions` | pre_auth_session_id, session_rotated_at, absolute_timeout_at, idle_timeout_secs | 4 |
+| 13 | `bos_user_template` | consecutive_failures, locked_until, lockout_reason, hibp_screened_at | 4 |
+| 14 | `bos_access_reviews` | review_cycle_id, cycle_start_date, cycle_end_date | 3 |
+| 15 | `bos_mfa_enrollments` | binding_loa, enrollment_authority, revocation_reason, revoked_by | 4 |
+| 16 | `bos_delegation_log` | criticality | 1 |
+
+**ALTER TABLE que se CONSERVAN** (no son columnas, son configuraciones de seguridad):
+- `bos_audit_events ENABLE ROW LEVEL SECURITY` → se mantiene (es pos-creación)
+- `bos_audit_events FORCE ROW LEVEL SECURITY` → se mantiene (es pos-creación)
+
+---
+
+### FASE 2: Reconstrucción DDL (solo CREATEs) `[EN PROGRESO]`
+
+| # | Tarea | Estado |
+|---|-------|--------|
+| 2.1 | Crear base de datos de prueba `bauth_test` en VPS | 🟢 COMPLETADO |
+| 2.2 | Script `build_ddl.sh` — generador automatizado desde .bak | 🟢 v6: 94 tablas, 91 creadas, 38 errores |
+| 2.3 | Órden topológico con tsort | 🟢 67 tablas ordenadas, 0 ciclos |
+| 2.4 | REFERENCES intactas (sin limpieza destructiva) | 🟢 Se conservan las FK originales |
+| 2.5 | Depurar errores restantes hasta 0 | 🟡 38 errores por depurar |
+| 2.6 | CREATE OR REPLACE FUNCTION | ⚪ NO INICIADO |
+| 2.7 | Triggers con DO blocks | ⚪ NO INICIADO |
+| 2.8 | COMMENT ON con referencias a estándares | ⚪ NO INICIADO |
+| 2.9 | Prefijos (idn_, ath_, ses_, etc.) | ⚪ NO INICIADO |
+| 2.10 | Idempotencia (2ª ejecución = 0 errores) | ⚪ NO INICIADO |
+
+### FASE 3: Seeds Independientes `[PENDIENTE]`
+
+| # | Tarea | Archivo | Estado |
+|---|-------|---------|--------|
+| 3.1 | Geografía y monedas | `seeds/035_geografia.sql` | ⚪ NO INICIADO |
+| 3.2 | Framework auth | `seeds/036_framework.sql` | ⚪ NO INICIADO |
+| 3.3 | Privilegios y átomos | `seeds/037_privilegios.sql` | ⚪ NO INICIADO |
+| 3.4 | Seguridad | `seeds/038_seguridad.sql` | ⚪ NO INICIADO |
+| 3.5 | Blockchain | `seeds/039_blockchain.sql` | ⚪ NO INICIADO |
+| 3.6 | Tenant SKULL | `seeds/040_tenant_skull.sql` | ⚪ NO INICIADO |
+
+### FASE 4: Pruebas en VPS `bauth_test` `[PENDIENTE]`
+
+| # | Tarea | Criterio de éxito | Estado |
+|---|-------|-------------------|--------|
+| 4.1 | `DROP DATABASE IF EXISTS bauth_test; CREATE DATABASE bauth_test` | BD creada | ⚪ |
+| 4.2 | Ejecutar DDL | **0 ERRORES** | ⚪ |
+| 4.3 | Ejecutar seeds en orden | **0 ERRORES** | ⚪ |
+| 4.4 | Verificar integridad referencial | **0 FK violations** | ⚪ |
+| 4.5 | Verificar normalización 1NF/2NF/3NF | Cumplimiento confirmado | ⚪ |
+| 4.6 | Ejecutar DDL segunda vez (idempotencia) | **0 ERRORES**, solo NOTICEs | ⚪ |
+| 4.7 | Ejecutar seeds segunda vez (idempotencia) | **0 ERRORES**, ON CONFLICT | ⚪ |
+| 4.8 | Si hay errores → corregir → volver a 4.1 | Iterar hasta 0 errores | ⚪ |
+
+### FASE 5: Cierre `[PENDIENTE]`
+
+| # | Tarea | Estado |
+|---|-------|--------|
+| 5.1 | Commit de DDL + seeds al repositorio | ⚪ NO INICIADO |
+| 5.2 | Documento de cumplimiento normativo final | ⚪ NO INICIADO |
+| 5.3 | Migración controlada a `bauth_db` de producción | ⚪ NO INICIADO |
+
+---
+
+## 4. Estados
+
+| Símbolo | Significado |
+|---------|-------------|
+| 🔴 PENDIENTE | Bloqueado, requiere decisión |
+| ⚪ NO INICIADO | Listo para ejecutar |
+| 🟡 EN PROGRESO | Ejecutándose ahora |
+| 🟢 COMPLETADO | Terminado y verificado |
+| ❌ ERROR | Falló, requiere corrección |
+
+---
+
+## 5. Base de Datos de Prueba
+
+```
+Host:     13.140.128.230
+Motor:    PostgreSQL 18.4 (pod sbos-data/postgresql-0)
+BD prod:  bauth_db      ← NUNCA TOCAR durante desarrollo
+BD test:  bauth_test    ← CREAR desde cero, DROP y recrear libremente
+```
+
+---
+
+## 6. Estándares Internacionales a Verificar
+
+| # | Estándar | Controles |
+|---|----------|-----------|
+| 1 | ISO 27001:2022 | A.5.15-18, A.8.2, A.8.5, A.8.9, A.8.15, A.8.17 |
+| 2 | ISO 24760-2:2025 | §5.3, §5.4, §8.3.1-8.3.7 |
+| 3 | NIST 800-63B-4 | §4, §5.1, §5.2, §7 |
+| 4 | NIST 800-53 Rev.5 | AC-2, AC-5, AC-6, AC-7, AU-2, AU-3, AU-9, CM-6 |
+| 5 | NIST 800-207 ZTA | Continuous Verification |
+| 6 | PCI DSS 4.0.1 | Req 8.2-8.4, Req 10.1-10.7 |
+| 7 | OWASP ASVS 5.0 | V2.1, V2.5, V3.1-3.3, V4.1-4.2 |
+| 8 | SOC 2 Type II | CC6.1, CC6.3, CC6.6, CC7.1, CC9.1 |
+| 9 | GDPR/RGPD | Art.7, Art.9, Art.17, Art.32 |
+| 10 | ANSI INCITS 359 | §2, §3, §4 (RBAC) |
+| 11 | ISO 20022 / FATF 16 | Límites financieros |
+| 12 | NIST FIPS 140-3/203/204/205 | Criptografía y PQC |
+
+---
+
+## 7. Diagnóstico y Estado Actual — Junio 22, 2026
+
+### 7.1 Lo que FUNCIONA (no tocar)
+
+| Componente | Estado | Detalle |
+|-----------|--------|---------|
+| `bauth_db` (VPS producción) | 🟢 85 tablas | Base de datos en producción, funcionando |
+| `.bak` (diseño DDL) | 🟢 103 tablas | Fuente de verdad del diseño completo |
+| UUID en PKs | 🟢 Aplicado | 103 PKs son UUID DEFAULT gen_random_uuid() |
+| Seeds extraídos | 🟢 4 archivos | 050_geo.sql, 051_tier_policy.sql, 052_financial.sql, 053_security.sql |
+| Seeds VPS respaldo | 🟢 2 archivos | 033_vps_data_resguardo.sql (8805 líneas), 034_vps_completo.sql (9355 líneas) |
+| Plan de calendario | 🟢 Documentado | 9 tablas definidas en §4 |
+| Estándares documentados | 🟢 12 estándares | §6 con controles específicos |
+| Prefijos y schemas | 🟢 Definidos | §2 con 8 prefijos + bGlobal + bos |
+
+### 7.2 Lo que FALTA (priorizado)
+
+| # | Problema | Impacto | Solución |
+|---|----------|---------|----------|
+| 🔴 P1 | REFERENCES eliminadas del .bak | Sin FKs no hay integridad referencial | Restaurar REFERENCES. Usar orden topológico (tsort) al generar DDL con `build_ddl.sh` |
+| 🔴 P2 | 80 columnas ALTER TABLE no integradas | CREATE TABLE incompletos | Integrar columnas en sus CREATE TABLE. **Cero ALTER TABLE en la DDL final.** |
+| 🔴 P3 | `build_ddl.sh` no funcional | No hay generación automatizada | Re-escribir para: orden topológico + REFERENCES intactas + sin INSERTs + IF NOT EXISTS |
+| 🟡 P4 | `bauth_test` inconsistente | No se puede probar | Recrear desde cero con el DDL corregido |
+| 🟡 P5 | Tablas del calendario no creadas | Calendario solo en papel | Agregar CREATE TABLEs al .bak o como archivo separado |
+| 🟢 P6 | Seeds del calendario | Festivos Bolivia, gestiones base | Crear seeds 060+, 061+ con datos de referencia |
+
+### 7.3 Reglas para la DDL final
+
+| # | Regla | Fuente |
+|---|-------|--------|
+| R1 | **Cero ALTER TABLE** (solo CREATEs) | Usuario |
+| R2 | **Cero INSERTs** (van en seeds separados) | Usuario |
+| R3 | **100% UUID** para PKs | RFC 9562 · PostgreSQL 18+ |
+| R4 | **REFERENCES intactas** con orden topológico | Integridad referencial |
+| R5 | **IF NOT EXISTS** en todos los CREATE | Idempotencia |
+| R6 | **COMMENT ON** con referencias a estándares | ISO/NIST/PCI documentados en header |
+| R7 | **Nombres de tabla en inglés** con prefijos funcionales | §2.2 |
+
+### 7.4 Plan de Restauración de Integridad Referencial
+
+**Objetivo:** El .bak perdió las REFERENCES (fueron eliminadas por sed). Hay que restaurarlas desde git (`git show HEAD:db/migrations/001_bauth_init.sql`) y verificar que cada FK apunte a una tabla existente con el tipo correcto (UUID).
+
+#### Paso 1: Recuperar REFERENCES desde git
+
+```bash
+cd BauthAgent/db/migrations
+# El commit 695ae158 tiene el DDL original con REFERENCES
+git show 695ae158:BauthAgent/db/migrations/001_bauth_init.sql > /tmp/ddl_original.sql
+# Extraer solo las REFERENCES del original
+grep -o 'REFERENCES [a-z_]*\.[a-z_][a-z0-9_]*([a-z_][a-z0-9_, ]*)' /tmp/ddl_original.sql | sort -u
+```
+
+**Resultado esperado:** ~104 REFERENCES extraídas. Cada una: `REFERENCES schema.tabla(columna)`.
+
+#### Paso 2: Verificar que cada FK apunta a tabla existente
+
+Para cada REFERENCES extraída:
+1. Identificar la tabla origen (CREATE TABLE donde aparece)
+2. Identificar la tabla destino y columna referenciada
+3. Verificar que la tabla destino EXISTE en el .bak
+4. Verificar que el tipo de la columna origen coincide con el tipo de la columna destino (UUID)
+5. Verificar que la tabla destino se crea ANTES que la tabla origen (orden topológico)
+
+**Script de verificación:**
+```bash
+for ref in $(grep -o 'REFERENCES [a-z_]*\.[a-z_][a-z0-9_]*([a-z_][a-z0-9_, ]*)' 001_bauth_init.sql.bak); do
+  dest_table=$(echo $ref | sed 's/REFERENCES //' | sed 's/(.*//')
+  grep -q "CREATE TABLE.*$dest_table" 001_bauth_init.sql.bak || echo "❌ $ref → tabla NO EXISTE"
+done
+```
+
+#### Paso 3: Insertar REFERENCES en el .bak
+
+Para cada CREATE TABLE en el .bak, restaurar las REFERENCES que le corresponden (extraídas del git original).
+
+**Regla:** Si una REFERENCES causaría error de orden (tabla referenciada se crea después), mover la tabla a la posición correcta según el orden topológico (tsort).
+
+#### Paso 4: Verificar que todos los tipos coinciden (UUID ↔ UUID)
+
+Con la estandarización UUID, todas las FKs deben ser `UUID REFERENCES schema.tabla(UUID_PK)`. Verificar que ningún TEXT FK quede apuntando a un UUID PK.
+
+### 7.5 Plan de Verificación de Normalización
+
+**Objetivo:** Verificar que el esquema cumple 1NF, 2NF, 3NF después de restaurar las REFERENCES. Los desvíos previos (7 documentados) deben seguir siendo los mismos.
+
+#### Verificación 1NF
+
+| # | Verificación | Método |
+|---|-------------|--------|
+| 1 | Toda tabla tiene PK | `grep -L "PRIMARY KEY"` en cada CREATE TABLE |
+| 2 | No hay grupos repetidos | Arrays TEXT[] son atómicos en PostgreSQL. JSONB es documento atómico. |
+| 3 | Cada columna tiene tipo definido | Revisar que no haya TEXT genérico sin newtype |
+
+#### Verificación 2NF
+
+| # | Verificación | Método |
+|---|-------------|--------|
+| 1 | Tablas con PK compuesta sin dependencias parciales | Revisar `bos_role_atom`, `bos_atom_catalog`, `bos_rol_closure` |
+| 2 | `atom_position` en `bos_role_atom`: ¿depende solo de atom_code? | Sí — desnormalización documentada por rendimiento |
+
+#### Verificación 3NF
+
+| # | Verificación | Método |
+|---|-------------|--------|
+| 1 | `tier → loa_required, mfa_required` | `bos_tier_policy` ya resuelve esto (tabla separada) |
+| 2 | `mask_own_hex → sam128_*` | Columnas cacheadas por PrivilegeEngine — documentado |
+| 3 | Jerarquía Context Plane (sucursal→empresa→tenant) | Desnormalización aceptada por SBOS-049 |
+| 4 | `sync_status → sync_error` | Columna de diagnóstico — NULL si != ERROR |
+
+#### Verificación de tipos post-UUID
+
+| # | Verificación | Método |
+|---|-------------|--------|
+| 1 | 0 TEXT PKs (excepto natural keys) | `grep -c "TEXT.*PRIMARY KEY"` |
+| 2 | 0 SERIAL/BIGSERIAL PKs | `grep -c "SERIAL.*PRIMARY KEY"` |
+| 3 | 103 UUID PKs con DEFAULT gen_random_uuid() | `grep -c "UUID.*PRIMARY KEY.*DEFAULT gen_random_uuid()"` |
+| 4 | Todas las FKs son UUID → UUID | Sin TEXT FK apuntando a UUID PK |
+
+### 7.6 Orden de Ejecución Actualizado
+
+| # | Tarea | Estado | Depende de |
+|---|-------|--------|-----------|
+| 1 | Leer PROTOCOLO-COMUNICACION-AGENTE.md | ✅ | — |
+| 2 | **Recuperar REFERENCES desde git** | 🔴 | — |
+| 3 | **Verificar integridad referencial** (104 FKs) | 🔴 | #2 |
+| 4 | **Verificar normalización 1NF/2NF/3NF post-UUID** | 🔴 | #2, #3 |
+| 5 | **Insertar REFERENCES en .bak con orden topológico** | 🔴 | #3, #4 |
+| 6 | Integrar 80 columnas ALTER TABLE en CREATE TABLE | 🔴 | #2 |
+| 7 | Re-escribir `build_ddl.sh` con orden topológico | 🔴 | #5 |
+| 8 | Probar en `bauth_test` (DROP + CREATE) hasta 0 errores | 🔴 | #7 |
+| 9 | Probar idempotencia (2ª ejecución) | 🔴 | #8 |
+| 10 | Agregar tablas del calendario al .bak | 🟡 | #8 |
+| 11 | Probar seeds (050-053) sobre `bauth_test` | 🟡 | #8 |
+
+---
+
+## 8. Tablas SQL del Calendario — 9 CREATE TABLEs
+
+### 8.1 Lista de tablas
+
+| # | Tabla | Schema | Prefijo | Propósito |
+|---|-------|--------|---------|-----------|
+| 1 | `calendar_event` | bAuth | cal_ | Template del evento (reunión, proceso, recordatorio) |
+| 2 | `calendar_instance` | bAuth | cal_ | Ocurrencias materializadas (Google Hybrid Window) |
+| 3 | `calendar_exception` | bAuth | cal_ | Cancelaciones y modificaciones de instancias |
+| 4 | `calendar_interval` | bAuth | cal_ | Períodos fiscales, feriados, cierres |
+| 5 | `calendar_attendee` | bAuth | cal_ | Participantes de reuniones con RSVP |
+| 6 | `calendar_reminder` | bAuth | cal_ | Programa de alertas (WhatsApp, SMS, Email, UI) |
+| 7 | `calendar_notification` | bAuth | cal_ | Registro WORM de envíos (AUDITORÍA) |
+| 8 | `calendar_template` | bGlobal | global_ | Plantillas de mensajes por canal |
+| 9 | `calendar_user_prefs` | bAuth | cal_ | Preferencias de notificación por usuario |
+
+### 8.2 SQL Completo
+
+```sql
+-- ============================================================
+-- CALENDARIO SBOS — 9 Tablas
+-- Schema: bAuth (8) + bGlobal (1)
+-- Prefijo: cal_ | Motor: rrule_plpgsql + Google Hybrid Window
+-- ============================================================
+
+-- 1. CALENDAR EVENT — Template del evento
+CREATE TABLE IF NOT EXISTS bAuth.calendar_event (
+    event_id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id         UUID NOT NULL,
+    empresa_id        UUID,
+    sucursal_id       UUID,
+    owner_id          UUID,
+    calendar_name     TEXT DEFAULT 'default',
+    event_type        TEXT NOT NULL,
+    title             VARCHAR(512) NOT NULL,
+    description       TEXT,
+    location          VARCHAR(512),
+    start_time        TIMESTAMPTZ NOT NULL,
+    end_time          TIMESTAMPTZ NOT NULL,
+    all_day           BOOLEAN DEFAULT FALSE,
+    timezone          VARCHAR(50) DEFAULT 'America/La_Paz',
+    rrule             TEXT,
+    status            TEXT DEFAULT 'CONFIRMED',
+    visibility        TEXT DEFAULT 'DEFAULT',
+    process_name      TEXT,
+    process_params    JSONB,
+    ctx_id            TEXT NOT NULL,
+    created_at        TIMESTAMPTZ DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT chk_cal_event_type CHECK (event_type IN ('MEETING','PROCESS','REMINDER','FISCAL_EVENT')),
+    CONSTRAINT chk_cal_event_status CHECK (status IN ('CONFIRMED','TENTATIVE','CANCELLED')),
+    CONSTRAINT chk_cal_visibility CHECK (visibility IN ('DEFAULT','PUBLIC','PRIVATE'))
+);
+CREATE INDEX IF NOT EXISTS idx_cal_event_time ON bAuth.calendar_event(tenant_id, start_time, end_time);
+CREATE INDEX IF NOT EXISTS idx_cal_event_owner ON bAuth.calendar_event(owner_id, tenant_id);
+
+-- 2. CALENDAR INSTANCE — Ocurrencias materializadas
+CREATE TABLE IF NOT EXISTS bAuth.calendar_instance (
+    instance_id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_id          UUID NOT NULL,
+    tenant_id         UUID NOT NULL,
+    original_date     DATE NOT NULL,
+    start_time        TIMESTAMPTZ NOT NULL,
+    end_time          TIMESTAMPTZ NOT NULL,
+    is_exception      BOOLEAN DEFAULT FALSE,
+    status            TEXT DEFAULT 'CONFIRMED',
+    ctx_id            TEXT,
+    created_at        TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (event_id, original_date)
+);
+CREATE INDEX IF NOT EXISTS idx_cal_inst_time ON bAuth.calendar_instance(tenant_id, start_time, end_time);
+CREATE INDEX IF NOT EXISTS idx_cal_inst_event ON bAuth.calendar_instance(event_id, original_date);
+
+-- 3. CALENDAR EXCEPTION — Modificaciones/Cancelaciones
+CREATE TABLE IF NOT EXISTS bAuth.calendar_exception (
+    exception_id      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_id          UUID,
+    interval_id       TEXT,
+    original_date     DATE NOT NULL,
+    exception_type    TEXT NOT NULL,
+    modified_start    TIMESTAMPTZ,
+    modified_end      TIMESTAMPTZ,
+    reason            TEXT,
+    ctx_id            TEXT NOT NULL,
+    created_at        TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (event_id, interval_id, original_date),
+    CONSTRAINT chk_cal_exc_target CHECK (
+        (event_id IS NOT NULL AND interval_id IS NULL) OR
+        (event_id IS NULL AND interval_id IS NOT NULL)
+    ),
+    CONSTRAINT chk_cal_exc_type CHECK (exception_type IN ('CANCELLED','MODIFIED'))
+);
+
+-- 4. CALENDAR INTERVAL — Períodos fiscales
+CREATE TABLE IF NOT EXISTS bAuth.calendar_interval (
+    interval_id       TEXT PRIMARY KEY,
+    tenant_id         UUID NOT NULL,
+    empresa_id        UUID,
+    sucursal_id       UUID,
+    interval_type     TEXT NOT NULL,
+    start_date        DATE NOT NULL,
+    end_date          DATE NOT NULL,
+    parent_interval   TEXT,
+    rrule             TEXT,
+    status            TEXT DEFAULT 'OPEN',
+    postable_from     DATE,
+    postable_until    DATE,
+    closed_by         UUID,
+    closed_at         TIMESTAMPTZ,
+    ctx_id            TEXT NOT NULL,
+    created_at        TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (tenant_id, empresa_id, sucursal_id, interval_id),
+    CONSTRAINT chk_cal_int_status CHECK (status IN ('OPEN','SOFT_CLOSED','HARD_CLOSED','ARCHIVED')),
+    CONSTRAINT chk_cal_int_type CHECK (interval_type IN ('FISCAL_YEAR','QUARTER','MONTH','WEEK','DAY','HOLIDAY','CUSTOM'))
+);
+
+-- 5. CALENDAR ATTENDEE — Participantes
+CREATE TABLE IF NOT EXISTS bAuth.calendar_attendee (
+    attendee_id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_id          UUID NOT NULL,
+    user_id           UUID NOT NULL,
+    response_status   TEXT DEFAULT 'PENDING',
+    is_organizer      BOOLEAN DEFAULT FALSE,
+    notified_at       TIMESTAMPTZ,
+    created_at        TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (event_id, user_id),
+    CONSTRAINT chk_cal_att_status CHECK (response_status IN ('PENDING','ACCEPTED','DECLINED','TENTATIVE'))
+);
+
+-- 6. CALENDAR REMINDER — Programa de alertas
+CREATE TABLE IF NOT EXISTS bAuth.calendar_reminder (
+    reminder_id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_id          UUID NOT NULL,
+    user_id           UUID NOT NULL,
+    remind_at         TIMESTAMPTZ NOT NULL,
+    offset_minutes    INTEGER NOT NULL,
+    channel           TEXT NOT NULL,
+    priority          TEXT DEFAULT 'MEDIUM',
+    status            TEXT DEFAULT 'PENDING',
+    retry_count       INTEGER DEFAULT 0,
+    max_retries       INTEGER DEFAULT 3,
+    sent_at           TIMESTAMPTZ,
+    delivered_at      TIMESTAMPTZ,
+    read_at           TIMESTAMPTZ,
+    error_message     TEXT,
+    ctx_id            TEXT NOT NULL,
+    created_at        TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT chk_cal_rem_ch CHECK (channel IN ('WHATSAPP','SMS','EMAIL','UI','PUSH')),
+    CONSTRAINT chk_cal_rem_st CHECK (status IN ('PENDING','SENT','DELIVERED','FAILED','READ'))
+);
+CREATE INDEX IF NOT EXISTS idx_cal_rem_fire ON bAuth.calendar_reminder(remind_at, status) WHERE status = 'PENDING';
+
+-- 7. CALENDAR NOTIFICATION — Auditoría WORM de envíos
+CREATE TABLE IF NOT EXISTS bAuth.calendar_notification (
+    notification_id   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    reminder_id       UUID,
+    user_id           UUID NOT NULL,
+    channel           TEXT NOT NULL,
+    subject           VARCHAR(512),
+    body              TEXT,
+    provider          TEXT,
+    provider_msg_id   TEXT,
+    provider_response JSONB,
+    status            TEXT DEFAULT 'PENDING',
+    delivered_at      TIMESTAMPTZ,
+    read_at           TIMESTAMPTZ,
+    error_message     TEXT,
+    ctx_id            TEXT NOT NULL,
+    created_at        TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT chk_cal_not_ch CHECK (channel IN ('WHATSAPP','SMS','EMAIL','UI','PUSH'))
+);
+CREATE INDEX IF NOT EXISTS idx_cal_not_user ON bAuth.calendar_notification(user_id, created_at DESC);
+
+-- 8. CALENDAR TEMPLATE — Plantillas de mensajes (bGlobal)
+CREATE TABLE IF NOT EXISTS bGlobal.calendar_template (
+    template_id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name              TEXT NOT NULL UNIQUE,
+    channel           TEXT NOT NULL,
+    subject           VARCHAR(512),
+    body_template     TEXT NOT NULL,
+    variables         JSONB,
+    created_at        TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT chk_cal_tpl_ch CHECK (channel IN ('WHATSAPP','SMS','EMAIL','UI','PUSH'))
+);
+
+-- 9. CALENDAR USER PREFS — Preferencias por usuario
+CREATE TABLE IF NOT EXISTS bAuth.calendar_user_prefs (
+    pref_id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id           UUID NOT NULL,
+    channel           TEXT NOT NULL,
+    enabled           BOOLEAN DEFAULT TRUE,
+    quiet_start       TIME,
+    quiet_end         TIME,
+    frequency         TEXT DEFAULT 'IMMEDIATE',
+    UNIQUE (user_id, channel),
+    CONSTRAINT chk_cal_pref_ch CHECK (channel IN ('WHATSAPP','SMS','EMAIL','UI','PUSH')),
+    CONSTRAINT chk_cal_pref_fr CHECK (frequency IN ('IMMEDIATE','DIGEST_DAILY','DIGEST_WEEKLY'))
+);
+```
+
+---
+
+*Documento actualizado. Próximo paso: restaurar REFERENCES en el .bak.*

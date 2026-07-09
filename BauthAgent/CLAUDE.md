@@ -20,6 +20,26 @@ Identity Control Plane — Orquestador central de identidad · **Plano:** Identi
 
 ## Reglas comunes (heredadas del proyecto)
 Interface Dual · `ctx_id` en toda operación (SBOS-049) · systemd en el host (no pods) · puertos SBOS-050 · ISO 27001 (SBOS-047).
+- **Formato de documentos: Markdown (.md) obligatorio.** Todo documento, informe, demo, especificación o artefacto escrito se genera en `.md`. HTML solo se desarrolla a pedido explícito del humano. Por defecto, siempre `.md`.
+
+## ⚠️ C12 — EVIDENCIA OBLIGATORIA (AA-1 REFORZADO) — NO NEGOCIABLE
+**Toda afirmación verificable DEBE adjuntar evidencia firmada.** PROHIBIDO afirmar:
+- "X compila sin errores" sin haber ejecutado `cargo check` y mostrado la salida
+- "Y tiene N archivos" sin haber ejecutado `find`/`ls` y mostrado la salida
+- "grep Z retorna 0 resultados" sin haber ejecutado `grep` y mostrado la salida
+
+**Herramienta obligatoria:** `scripts/verificar_afirmacion.sh "<desc>" <comando>`
+La salida incluye timestamp + SHA256 del comando y su resultado. Se adjunta al informe.
+
+**Sin evidencia AA-1 = RECHAZO automático del Revisor.** Reincidencia = tarea devuelta.
+
+## Parámetros operativos (proyecto SBOS)
+- **UUID del proyecto SBOS (para RPC al Coordinador):** `4c697f66-d204-45a5-ac36-c104f07c7046`
+  - Todo método JSON-RPC del Coordinador que requiera `proyecto_id` DEBE usar este UUID.
+  - Los strings tipo `"sbos-bauth"` causan error PostgreSQL: `invalid input syntax for type uuid`.
+- **Python:** usar `python3` — `python` no existe en el host (código 127).
+- **Contrato BOS ↔ bAuth:** `../context/contracts/BOS-BAUTH-CONTRATOS.md` (nivel proyecto — bilateral, NO dentro de un solo daemon).
+- **Comunicación tmux:** `source scripts/agente_enviar.sh && agente_enviar <pane> "<mensaje>"` (shim → script canónico de fábrica).
 
 ## Skills sugeridas (a poblar en `.claude/skills/`)
 - `bauth-bitmask-64bit`

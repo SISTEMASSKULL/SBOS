@@ -1,0 +1,1127 @@
+{
+  "bAuth_Authentication_Framework": {
+    "metadata": {
+      "version": "4.0.0",
+      "release_date": "2026-06-20",
+      "codename": "SBOS Identity Core",
+      "status": "production",
+      "replaces": ["Policies_Authentication_Framework.json v3.0.0"],
+      "_bitmask_model": "BitMask Dual (Jun 2026): SAM-128 descartado. Ver SBOS-MANUAL-SISTEMA-PRIVILEGIOS-v1.0.md",
+      "aligned_with": [
+        "BAUTH-CATALOGO-ROLES-EMPRESARIALES.md v2.1",
+        "BAUTH-CADENAS-JERARQUIA.md v1.2",
+        "SBOS-MANUAL-SISTEMA-PRIVILEGIOS-v1.0.md",
+        "SBOS-MANUAL-BAUTH-COMPONENT-ROLES.md v1.7",
+        "SBOS-MANUAL-BAUTH-D12-BLOCKCHAIN-WALLET-CONTROL.md v2.1",
+        "SBOS-BAUTH-EVALUACION-INTEGRAL-v2.2.md",
+        "NIST RBAC Model (4 levels, Constrained RBAC)",
+        "NIST SP 800-53 Rev.5 (AC-2, AC-5, AC-6)",
+        "NIST SP 800-63B Rev.4 (Digital Identity Guidelines)",
+        "NIST SP 800-63-4 (IAL/AAL/FAL)",
+        "NIST SP 800-57 (Key Management)",
+        "NIST SP 800-207 (Zero Trust)",
+        "ISO 27001:2022 (A.5.15-18, A.8.2, A.8.15)",
+        "ISO 9001:2015 (§3.2.4)",
+        "ISO 24760-2:2025 (Identity Management Reference Architecture)",
+        "ANSI INCITS 359-2004 (RBAC Standard)",
+        "OAuth 2.0 (RFC 6749, 6819, 7009, 7636, 8705, 9449)",
+        "RFC 9470 (Step-Up Authentication)",
+        "eIDAS 2.0 (Qualified Electronic Registers)",
+        "FIDO2/WebAuthn (W3C)",
+        "RFC 9470 (Step-Up Authentication)",
+        "OWASP ASVS 4.0.3 (§2.4.3)"
+      ]
+    },
+
+    "section_1_rbac_foundation": {
+      "title": "SECTION 1 — RBAC FOUNDATION & ROLE ARCHITECTURE",
+      "description": "Core role-based access control model per NIST RBAC Level 3 (Constrained RBAC) with Separation of Duties.",
+      "rbac_model": {
+        "level": 3,
+        "name": "Constrained RBAC",
+        "capabilities": ["flat_rbac", "hierarchical_rbac", "static_sod", "dynamic_sod"],
+        "role_graph": {
+          "type": "directed_acyclic_graph",
+          "inheritance": "junior_to_senior",
+          "permission_propagation": "OR_bitwise",
+          "cycle_prevention": "transitive_closure_check",
+          "closure_table": {
+            "schema": "rol_closure(ancestro_id, descendiente_id, profundidad)",
+            "query_pattern": "single_join_no_recursion",
+            "reference": "AWS_IAM_Zanzibar_Cerbos"
+          }
+        },
+        "bitmask_engine": {
+          "bits": 64,
+          "layers": {
+            "layer_1": {
+              "bits": "0-31",
+              "scope": "system_privileges",
+              "assignable_to": ["SU", "SYS"]
+            },
+            "layer_2": {
+              "bits": "32-63",
+              "scope": "business_privileges",
+              "assignable_to": ["BIZ", "EXT"]
+            }
+          },
+          "operations": {
+            "effective_mask": "mask_own OR mask_junior_1 OR mask_junior_2 ...",
+            "permission_check": "(mask_eff AND bit_operation) != 0",
+            "inheritance": "reflexive_transitive_antisymmetric"
+          }
+        },
+        "separation_of_duties": {
+          "static_sod": {
+            "description": "Conflicting roles cannot be assigned to the same user",
+            "conflicts": [
+              ["ROL-COMPRADOR", "ROL-AUDITOR-INTERNO"],
+              ["ROL-ENCARGADO-FACTURACION", "ROL-REVISOR-FISCAL"],
+              ["ROL-SYS-ADMIN-PROYECTO", "ROL-SYS-ADMIN-SEGURIDAD"],
+              ["ROL-JEFE-CONTABILIDAD", "ROL-AUDITOR-EXTERNO-CONTABLE"]
+            ]
+          },
+          "dynamic_sod": {
+            "description": "Conflicting roles cannot be activated in the same session",
+            "conflicts": [
+              ["ROL-CAJERO", "ROL-AUDITOR-INVENTARIO"],
+              ["ROL-SUPERVISOR-FACT-COBRANZA", "ROL-COBRADOR"]
+            ]
+          }
+        }
+      },
+
+      "role_tiers": {
+        "tier_definitions": [
+          {
+            "tier": "SU",
+            "code": "TIER-SUPERUSUARIO",
+            "count": 1,
+            "aal": 3,
+            "description": "Máximo permiso global. Bootstrap, DR, mantenimiento mayor. PAM break-glass.",
+            "roles": ["ROL-SYS-SUPERUSUARIO"]
+          },
+          {
+            "tier": "SYS",
+            "code": "TIER-SISTEMA",
+            "count": 47,
+            "sub_tiers": ["N1-Platform", "N2-Module", "N3-Tenant", "N4-Bootstrap"],
+            "aal": "2-3",
+            "description": "Administración de plataforma, módulos, tenants, bootstrap. Sin relación laboral con tenant.",
+            "roles": ["S002-S048"]
+          },
+          {
+            "tier": "BIZ",
+            "code": "TIER-NEGOCIO",
+            "count": 174,
+            "sub_tiers": ["N5-Direccion", "N4-Gerencia", "N3-Supervision", "N2-Tecnico", "N1-Operativo"],
+            "aal": "1-3",
+            "description": "Roles de negocio. Personal y empleados por sector CAEB."
+          },
+          {
+            "tier": "EXT",
+            "code": "TIER-EXTERNO",
+            "count": 146,
+            "aal": 1,
+            "description": "Actor externo. Cliente del sistema (ISO 9001). Identidad verificable, autorización limitada."
+          },
+          {
+            "tier": "M2M",
+            "code": "TIER-M2M",
+            "count": 29,
+            "aal": "n/a",
+            "description": "Machine-to-machine. Service accounts, daemons. mTLS obligatorio. Sin contraseña."
+          }
+        ],
+
+        "role_template_attributes": {
+          "mandatory": [
+            "role_id", "role_name", "role_type", "tier",
+            "parent_role_ids", "mask_own", "description",
+            "issuer", "owner_tenant", "start_time",
+            "loa_required", "mfa_required", "audit_level"
+          ],
+          "recommended": [
+            "objective", "expiry_time", "step_up_enabled",
+            "sod_group", "max_sessions", "session_timeout",
+            "template_id"
+          ],
+          "automatic": ["extensions", "created_at", "updated_at", "version"],
+          "standards_ref": "ISO_24760-2:2025 §4.2, §5.1, ANSI_INCITS_359, oneM2M_TS_0001"
+        }
+      }
+    },
+
+    "section_2_password_credential_policies": {
+      "title": "SECTION 2 — PASSWORD & CREDENTIAL POLICIES",
+      "description": "Per-tier password and credential policies aligned with NIST SP 800-63B Rev.4 (2024).",
+      "nist_800_63b_compliance": {
+        "core_principles": {
+          "length_over_complexity": true,
+          "no_composition_rules": true,
+          "no_periodic_rotation_without_compromise": true,
+          "mandatory_breach_screening": true,
+          "password_managers_encouraged": true,
+          "no_password_hints": true,
+          "no_kba": true,
+          "max_length_at_least_64_chars": true
+        },
+        "deprecated_practices": [
+          "SMS_OTP_as_sole_factor",
+          "periodic_password_expiration_60_90_days",
+          "complexity_rules_upper_lower_digit_special",
+          "password_hints",
+          "knowledge_based_authentication"
+        ]
+      },
+
+      "password_policy_by_tier": {
+        "SU": {
+          "min_length": 20,
+          "recommended_length": 32,
+          "max_length": 128,
+          "hash_algorithm": "argon2id",
+          "hash_params": { "t": 5, "m_mb": 128, "p": 2 },
+          "screening": ["hibp_k_anonymity", "top_100k_common", "context_terms", "user_history_10"],
+          "rotation": "on_compromise_or_post_event_only",
+          "mfa": "fido2_webauthn_hardware_token",
+          "jit_required": true,
+          "session_recording": true
+        },
+        "SYS": {
+          "min_length": 15,
+          "recommended_length": 24,
+          "max_length": 128,
+          "hash_algorithm": "argon2id",
+          "hash_params": { "t": 3, "m_mb": 64, "p": 2 },
+          "screening": ["hibp_k_anonymity", "top_100k_common", "context_terms", "user_history_10"],
+          "rotation": "on_compromise_only",
+          "mfa": "totp_or_fido2",
+          "separate_admin_account": true
+        },
+        "BIZ_N3_N5": {
+          "min_length": 12,
+          "recommended_length": 20,
+          "max_length": 64,
+          "hash_algorithm": "argon2id",
+          "hash_params": { "t": 3, "m_mb": 64, "p": 2 },
+          "screening": ["hibp_k_anonymity", "top_100k_common", "context_terms"],
+          "rotation": "on_compromise_only",
+          "mfa": "totp_or_fido2_recommended"
+        },
+        "BIZ_N1_N2": {
+          "min_length": 10,
+          "recommended_length": 15,
+          "max_length": 64,
+          "hash_algorithm": "argon2id",
+          "hash_params": { "t": 2, "m_mb": 32, "p": 1 },
+          "screening": ["hibp_k_anonymity", "top_100k_common"],
+          "rotation": "on_compromise_only",
+          "mfa": "totp_optional"
+        },
+        "EXT_N0": {
+          "min_length": 8,
+          "recommended_length": 12,
+          "max_length": 64,
+          "hash_algorithm": "argon2id",
+          "hash_params": { "t": 2, "m_mb": 32, "p": 1 },
+          "screening": ["hibp_k_anonymity", "top_100k_common"],
+          "rotation": "on_compromise_or_reset_only",
+          "mfa": "passkey_webauthn_optional"
+        },
+        "M2M": {
+          "auth_method": "mtls_only",
+          "certificate": {
+            "type": "x509_ephemeral",
+            "ttl_hours": 24,
+            "algorithm": "ECDSA_P384",
+            "issuer": "vault_pki_engine"
+          },
+          "no_passwords": true,
+          "no_shared_secrets": true,
+          "no_api_keys": true
+        },
+        "VISITANTE": {
+          "auth_method": "temporary_credential",
+          "types": ["qr_code", "badge", "mobile_pass"],
+          "expiry": "on_checkout",
+          "no_permanent_account": true
+        }
+      },
+
+      "password_screening": {
+        "sources": [
+          {
+            "name": "Have_I_Been_Pwned",
+            "url": "api.pwnedpasswords.com",
+            "method": "k_anonymity",
+            "update_frequency": "daily"
+          },
+          {
+            "name": "Top_100K_Common",
+            "source": "SecLists_rockyou",
+            "update_frequency": "weekly"
+          },
+          {
+            "name": "Context_Terms",
+            "source": "username_company_branch_tenant",
+            "update_frequency": "realtime"
+          },
+          {
+            "name": "User_Password_History",
+            "retention": "last_10_passwords",
+            "update_frequency": "on_change"
+          }
+        ],
+        "reject_on_match": true,
+        "nist_ref": "SP_800-63B_Rev4_§5.1.1.2"
+      }
+    },
+
+    "section_3_authentication_methods": {
+      "title": "SECTION 3 — AUTHENTICATION METHODS, MFA & FEDERATED IDENTITY",
+      "description": "Catálogo completo de métodos de autenticación soportados por Keycloak 26.6.2, mapeados a bAuth tiers y NIST AAL.",
+
+      "keycloak_authentication_catalog": {
+        "provider": "Keycloak_26_6_2",
+        "total_methods": 18,
+        "philosophy": "Each method is enabled/required per realm and per tier. No method is globally forced.",
+
+        "password_based": {
+          "method_id": "KC_PASSWORD",
+          "name": "Password / Standard Browser Flow",
+          "type": "single_factor",
+          "kc_implementation": "Browser Flow + Direct Grant (deprecated per OAuth 2.1)",
+          "nist_aal": "AAL1",
+          "applies_to": ["EXT_N0", "BIZ_N1_N2"],
+          "bAuth_notes": "Direct Grant (ROPC) NOT enabled in bAuth. Replaced by Authorization Code + PKCE.",
+          "deprecated": false,
+          "requires_https": true
+        },
+
+        "otp_totp": {
+          "method_id": "KC_TOTP",
+          "name": "Time-based One-Time Password (TOTP)",
+          "type": "multi_factor",
+          "kc_implementation": "OTP Policy → FreeOTP / Google Authenticator / Aegis",
+          "nist_aal": "AAL2",
+          "rfc_ref": "RFC_6238",
+          "applies_to": ["BIZ_N2_N5", "SYS_N3"],
+          "config": {
+            "algorithm": "SHA256",
+            "digits": 6,
+            "period_seconds": 30,
+            "look_ahead_window": 1,
+            "max_attempts": 3
+          },
+          "deprecated": false
+        },
+
+        "otp_hotp": {
+          "method_id": "KC_HOTP",
+          "name": "HMAC-based One-Time Password",
+          "type": "multi_factor",
+          "kc_implementation": "OTP Policy → Hardware tokens (YubiKey OTP, Nitrokey)",
+          "rfc_ref": "RFC_4226",
+          "applies_to": ["BIZ_N3_N5"],
+          "config": { "digits": 8, "resynchronization_window": 5 },
+          "deprecated": false,
+          "bAuth_notes": "Only for hardware token-based scenarios. TOTP preferred for software."
+        },
+
+        "webauthn_fido2_passwordless": {
+          "method_id": "KC_WEBAUTHN_PASSWORDLESS",
+          "name": "WebAuthn / FIDO2 Passwordless",
+          "type": "multi_factor_phishing_resistant",
+          "kc_implementation": "WebAuthn Policy → Platform Authenticator + Roaming Authenticator",
+          "nist_aal": "AAL3",
+          "w3c_ref": "WebAuthn_Level_2",
+          "applies_to": ["SU", "SYS_N1_N2"],
+          "user_verification": "required",
+          "resident_key": "required",
+          "attestation": "direct",
+          "trusted_roots": ["FIDO_CERTIFIED", "APPLE", "GOOGLE", "MICROSOFT"],
+          "deprecated": false
+        },
+
+        "webauthn_fido2_2fa": {
+          "method_id": "KC_WEBAUTHN_2FA",
+          "name": "WebAuthn / FIDO2 as Second Factor",
+          "type": "multi_factor",
+          "kc_implementation": "WebAuthn Policy → 2FA mode (combined with password)",
+          "nist_aal": "AAL2",
+          "applies_to": ["BIZ_N3_N5", "SYS_N3"],
+          "user_verification": "discouraged",
+          "resident_key": "discouraged",
+          "attestation": "none",
+          "deprecated": false
+        },
+
+        "passkey": {
+          "method_id": "KC_PASSKEY",
+          "name": "Passkey (Synced WebAuthn)",
+          "type": "single_factor_or_mfa",
+          "kc_implementation": "WebAuthn Policy → Passkey mode",
+          "nist_aal": "AAL1_to_AAL2",
+          "applies_to": ["EXT_N0", "BIZ_N1"],
+          "sync_allowed": true,
+          "user_verification": "preferred",
+          "bAuth_notes": "Ideal for consumer-facing apps. Combines security + usability.",
+          "deprecated": false
+        },
+
+        "x509_certificate": {
+          "method_id": "KC_X509",
+          "name": "X.509 Certificate Authentication",
+          "type": "single_factor_or_mfa",
+          "kc_implementation": "X.509 Authenticator → Client Certificate via mTLS",
+          "nist_aal": "AAL2_to_AAL3",
+          "rfc_ref": "RFC_8705",
+          "applies_to": ["M2M", "SYS_N4", "NEXUS"],
+          "config": {
+            "crl_check": "ocsp_stapling",
+            "ocsp_required": true,
+            "cert_policy_oid_validation": true,
+            "key_usage_validation": ["clientAuth"],
+            "extended_key_usage": ["TLS_Web_Client_Authentication"]
+          },
+          "bAuth_notes": "Primary method for M2M and NEXUS. Certificates issued by Vault PKI (TTL 24h).",
+          "deprecated": false
+        },
+
+        "kerberos_spnego": {
+          "method_id": "KC_KERBEROS",
+          "name": "Kerberos / SPNEGO",
+          "type": "single_factor",
+          "kc_implementation": "Kerberos Authenticator → LDAP/AD backed",
+          "rfc_ref": "RFC_4120_RFC_4559",
+          "applies_to": ["BIZ_N1_N2"],
+          "bAuth_notes": "Enabled only for organizations with existing AD/LDAP infrastructure. NOT enabled by default in bAuth.",
+          "enabled_by_default": false,
+          "requires_ad_ldap": true,
+          "deprecated": false
+        },
+
+        "identity_brokering_social": {
+          "method_id": "KC_IDP_SOCIAL",
+          "name": "Social Login / Identity Brokering",
+          "type": "federated",
+          "kc_implementation": "Identity Provider → OIDC / SAML",
+          "applies_to": ["EXT_N0"],
+          "supported_providers": {
+            "google": { "protocol": "oidc", "enabled": true },
+            "microsoft": { "protocol": "oidc", "enabled": true },
+            "apple": { "protocol": "oidc", "enabled": true },
+            "facebook": { "protocol": "oidc", "enabled": false, "note": "Only if required by business" },
+            "github": { "protocol": "oidc", "enabled": false }
+          },
+          "bAuth_notes": "External identities linked to bAuth RolTemplate EXT_N0. Mapped to tenant-{id}-ext realm.",
+          "linking_strategy": "email_verified_match",
+          "trust_level": "bronze",
+          "requires_step_up_for_sensitive_ops": true,
+          "deprecated": false
+        },
+
+        "identity_brokering_saml": {
+          "method_id": "KC_IDP_SAML",
+          "name": "SAML 2.0 Identity Brokering",
+          "type": "federated",
+          "kc_implementation": "SAML Identity Provider → Enterprise SSO",
+          "saml_version": "2.0",
+          "applies_to": ["BIZ", "EXT"],
+          "bindings": ["HTTP-POST", "HTTP-Redirect"],
+          "signature_requirements": {
+            "assertions": true,
+            "requests": true,
+            "metadata": true
+          },
+          "bAuth_notes": "For B2B federation with enterprise customers/partners. Each IdP requires explicit vetting.",
+          "requires_idp_review": true,
+          "deprecated": false
+        },
+
+        "ciba": {
+          "method_id": "KC_CIBA",
+          "name": "Client Initiated Backchannel Authentication",
+          "type": "decoupled",
+          "kc_implementation": "CIBA Grant Type → Push notification to authentication device",
+          "openid_ref": "OpenID_Connect_CIBA_Core",
+          "applies_to": ["EXT_N0", "BIZ_N1"],
+          "config": {
+            "auth_req_id_ttl_seconds": 300,
+            "polling_interval_seconds": 5,
+            "max_polling_duration_seconds": 300
+          },
+          "bAuth_notes": "For decoupled scenarios: POS terminal initiates auth, user approves on phone.",
+          "deprecated": false
+        },
+
+        "device_authorization_grant": {
+          "method_id": "KC_DEVICE_AUTH",
+          "name": "OAuth 2.0 Device Authorization Grant",
+          "type": "device_flow",
+          "kc_implementation": "Device Authorization Grant Type → TV/IoT/CLI login",
+          "rfc_ref": "RFC_8628",
+          "applies_to": ["EXT_N0", "M2M_IoT"],
+          "config": {
+            "device_code_ttl_seconds": 600,
+            "user_code_length": 8,
+            "polling_interval_seconds": 5,
+            "verification_uri": "https://auth.sbos.skull.bo/device"
+          },
+          "deprecated": false
+        },
+
+        "conditional_otp": {
+          "method_id": "KC_CONDITIONAL_OTP",
+          "name": "Conditional OTP / Adaptive MFA",
+          "type": "adaptive",
+          "kc_implementation": "Authentication Flow → Condition → OTP sub-flow",
+          "applies_to": ["BIZ_N1_N5"],
+          "trigger_conditions": [
+            "new_device_detected",
+            "new_ip_geolocation",
+            "outside_business_hours",
+            "high_risk_transaction",
+            "unusual_behavior_pattern"
+          ],
+          "bAuth_notes": "Configured per tenant. Reduces MFA friction for trusted devices.",
+          "deprecated": false
+        },
+
+        "recovery_codes": {
+          "method_id": "KC_RECOVERY",
+          "name": "Recovery Codes / Backup Codes",
+          "type": "recovery",
+          "kc_implementation": "Recovery Codes Authenticator",
+          "applies_to": ["SU", "SYS", "BIZ_N3_N5"],
+          "config": {
+            "count": 10,
+            "code_length": 12,
+            "single_use": true,
+            "hash_algorithm": "SHA256",
+            "generation_requires_mfa": true
+          },
+          "bAuth_notes": "Generated during initial MFA enrollment. Stored encrypted. Regeneration invalidates all previous.",
+          "deprecated": false
+        },
+
+        "email_otp": {
+          "method_id": "KC_EMAIL_OTP",
+          "name": "Email OTP / Magic Link",
+          "type": "single_factor_or_passwordless",
+          "kc_implementation": "Email OTP Authenticator",
+          "applies_to": ["EXT_N0"],
+          "config": {
+            "code_length": 6,
+            "ttl_minutes": 5,
+            "max_attempts": 3,
+            "rate_limit_per_email_per_hour": 5
+          },
+          "bAuth_notes": "Only for EXT_N0 (consumers). NOT permitted for SYS or BIZ roles. Magic link = passwordless email flow.",
+          "restrictions": {
+            "no_sys_no_biz": true,
+            "requires_verified_email": true,
+            "cooldown_after_failure_minutes": 15
+          },
+          "deprecated": false
+        },
+
+        "sms_otp": {
+          "method_id": "KC_SMS_OTP",
+          "name": "SMS OTP (Legacy — Deprecated)",
+          "type": "deprecated",
+          "kc_implementation": "SMS OTP Authenticator",
+          "nist_status": "DEPRECATED_per_NIST_800_63B_Rev4_§5.1",
+          "enabled_in_bAuth": false,
+          "bAuth_notes": "NOT ENABLED in bAuth per NIST deprecation. Superseded by TOTP, Passkey, and Email OTP.",
+          "replacement": ["KC_TOTP", "KC_PASSKEY", "KC_EMAIL_OTP"],
+          "deprecated": true
+        },
+
+        "client_credentials": {
+          "method_id": "KC_CLIENT_CREDENTIALS",
+          "name": "OAuth 2.0 Client Credentials Grant (M2M)",
+          "type": "machine_to_machine",
+          "kc_implementation": "Client Credentials Grant + Service Account",
+          "rfc_ref": "RFC_6749_§4.4",
+          "applies_to": ["M2M", "SYS_N4"],
+          "config": {
+            "access_token_ttl_minutes": 15,
+            "no_refresh_token": true,
+            "client_assertion_jwt": "RFC_7523_preferred",
+            "client_secret": "only_for_legacy_integrations_rotated_90d"
+          },
+          "bAuth_notes": "Primary M2M auth. Short-lived tokens, no refresh. JWT client assertion preferred.",
+          "deprecated": false
+        },
+
+        "token_exchange": {
+          "method_id": "KC_TOKEN_EXCHANGE",
+          "name": "OAuth 2.0 Token Exchange (Impersonation & Delegation)",
+          "type": "delegation",
+          "kc_implementation": "Token Exchange Grant Type",
+          "rfc_ref": "RFC_8693",
+          "applies_to": ["SYS", "BIZ_N3_N5"],
+          "use_cases": ["service_impersonation", "delegation", "downstream_api_call"],
+          "restrictions": {
+            "requires_explicit_permission": true,
+            "audience_restriction": "strict",
+            "max_impersonation_depth": 2,
+            "audit_logging": "full"
+          },
+          "bAuth_notes": "Controlled delegation for service-to-service calls on behalf of users.",
+          "deprecated": false
+        }
+      },
+
+      "oauth2_grant_type_policy": {
+        "description": "OAuth 2.0 grant types supported and their restrictions in bAuth.",
+        "grant_types": {
+          "authorization_code_pkce": {
+            "status": "enabled_preferred_for_all_human_users",
+            "rfc_ref": "RFC_7636",
+            "pkce_required": true,
+            "code_ttl_seconds": 60,
+            "max_code_uses": 1,
+            "applies_to": ["SU", "SYS", "BIZ", "EXT"]
+          },
+          "client_credentials": {
+            "status": "enabled_for_M2M_only",
+            "rfc_ref": "RFC_6749_§4.4",
+            "applies_to": ["M2M", "SYS_N4"],
+            "jwt_assertion_preferred": true
+          },
+          "refresh_token": {
+            "status": "enabled_with_rotation",
+            "rfc_ref": "RFC_6749_§6",
+            "rotation_on_every_use": true,
+            "absolute_max_lifetime_days": 90,
+            "reuse_detection": "immediate_revocation"
+          },
+          "device_authorization": {
+            "status": "enabled",
+            "rfc_ref": "RFC_8628",
+            "applies_to": ["EXT_N0", "M2M_IoT"]
+          },
+          "token_exchange": {
+            "status": "enabled_controlled",
+            "rfc_ref": "RFC_8693",
+            "applies_to": ["SYS", "BIZ_N3_N5"]
+          },
+          "ciba": {
+            "status": "enabled",
+            "openid_ref": "CIBA_Core",
+            "applies_to": ["EXT_N0", "BIZ_N1"]
+          },
+          "resource_owner_password": {
+            "status": "DISABLED_permanently",
+            "rfc_ref": "RFC_6749_§4.3",
+            "reason": "Deprecated by OAuth 2.1. Replaced by Authorization Code + PKCE.",
+            "bAuth_notes": "NEVER enable this grant in bAuth."
+          },
+          "implicit": {
+            "status": "DISABLED_permanently",
+            "rfc_ref": "RFC_6749_§4.2",
+            "reason": "Deprecated by OAuth 2.1. Tokens in URL fragment are insecure.",
+            "bAuth_notes": "NEVER enable this grant in bAuth."
+          },
+          "saml2_bearer": {
+            "status": "enabled_for_SAML_federation",
+            "rfc_ref": "RFC_7522",
+            "applies_to": ["BIZ", "EXT"]
+          }
+        }
+      },
+
+      "authenticator_assurance_levels": {
+        "AAL1": {
+          "description": "Single-factor authentication permitted",
+          "kc_methods": ["KC_PASSWORD", "KC_PASSKEY", "KC_EMAIL_OTP", "KC_KERBEROS"],
+          "applies_to": ["EXT_N0", "BIZ_N1", "VISITANTE"],
+          "restrictions": {
+            "no_sms_otp": true,
+            "rate_limiting": "10_attempts_per_minute",
+            "account_lockout": "after_10_consecutive_failures"
+          }
+        },
+        "AAL2": {
+          "description": "Multi-factor authentication required (2 factors)",
+          "kc_methods": ["KC_TOTP", "KC_HOTP", "KC_WEBAUTHN_2FA", "KC_CONDITIONAL_OTP", "KC_PASSKEY"],
+          "discouraged": ["KC_SMS_OTP"],
+          "applies_to": ["BIZ_N2_N5", "SYS_N3"],
+          "step_up_enabled": true
+        },
+        "AAL3": {
+          "description": "Phishing-resistant hardware-backed authentication only",
+          "kc_methods": ["KC_WEBAUTHN_PASSWORDLESS", "KC_X509"],
+          "prohibited": ["KC_SMS_OTP", "KC_TOTP", "KC_EMAIL_OTP"],
+          "applies_to": ["SU", "SYS_N1_N2"],
+          "channel_binding_required": true
+        }
+      },
+
+      "step_up_authentication": {
+        "rfc_ref": "RFC_9470",
+        "description": "Temporary LoA elevation for sensitive operations",
+        "example": "Cajero (AAL2) → arqueo general → Step-Up TOTP → AAL3 temporal",
+        "max_elevation_duration_minutes": 15,
+        "audit_required": true,
+        "sod_check": "step_up_approver_cannot_be_requester"
+      },
+
+      "mfa_enrollment_policy": {
+        "new_user_grace_period_days": 7,
+        "mfa_reset_requires_approval": true,
+        "mfa_reset_approver": "ROL-SYS-ADMIN-SEGURIDAD or ROL-SYS-ADMIN-TENANT",
+        "recovery_codes": {
+          "count": 10,
+          "single_use": true,
+          "hash_algorithm": "SHA256"
+        },
+        "mfa_methods_per_tier": {
+          "SU": { "required": 1, "allowed": ["KC_WEBAUTHN_PASSWORDLESS", "KC_X509"] },
+          "SYS_N1_N2": { "required": 1, "allowed": ["KC_WEBAUTHN_PASSWORDLESS", "KC_X509", "KC_TOTP"] },
+          "SYS_N3": { "required": 1, "allowed": ["KC_TOTP", "KC_WEBAUTHN_2FA"] },
+          "BIZ_N3_N5": { "required": 1, "allowed": ["KC_TOTP", "KC_WEBAUTHN_2FA"] },
+          "BIZ_N1_N2": { "required": 0, "recommended": 1, "allowed": ["KC_TOTP", "KC_PASSKEY"] },
+          "EXT_N0": { "required": 0, "recommended": 0, "allowed": ["KC_PASSKEY", "KC_EMAIL_OTP"] }
+        }
+      }
+    },
+
+    "section_4_token_oauth2_policies": {
+      "title": "SECTION 4 — TOKEN & OAUTH 2.0 POLICIES",
+      "description": "JWT/OAuth 2.0 token lifecycle per tier, aligned with OAuth 2.0 Security BCP and MITRE profile.",
+      "authorization_server": {
+        "provider": "Keycloak_26_6_2",
+        "realms": {
+          "sbos_system": { "purpose": "SU_N1_N2_N4", "token_lifetime": "5_15_min" },
+          "tenant_{id}": { "purpose": "BIZ_N1_N5", "token_lifetime": "30_60_min" },
+          "tenant_{id}_ext": { "purpose": "EXT_N0", "token_lifetime": "24_hours" }
+        }
+      },
+
+      "token_policy_by_tier": {
+        "SU": {
+          "access_token_ttl_minutes": 5,
+          "refresh_token": "none_JIT_only",
+          "signing_algorithm": "ES256",
+          "token_binding": "mtls_rfc8705",
+          "sender_constrained": true,
+          "revocation": "immediate_rfc7009"
+        },
+        "SYS": {
+          "access_token_ttl_minutes": 15,
+          "refresh_token_ttl_hours": 4,
+          "refresh_rotation": "on_every_use",
+          "signing_algorithm": "ES256",
+          "token_binding": "dpop_rfc9449",
+          "sender_constrained": true
+        },
+        "BIZ_N3_N5": {
+          "access_token_ttl_minutes": 30,
+          "refresh_token_ttl_hours": 8,
+          "refresh_rotation": "on_every_use",
+          "pkce_required": true,
+          "signing_algorithm": "ES256"
+        },
+        "BIZ_N1_N2": {
+          "access_token_ttl_minutes": 60,
+          "refresh_token_ttl_days": 30,
+          "refresh_rotation": "on_every_use",
+          "pkce_required": true,
+          "signing_algorithm": "ES256"
+        },
+        "EXT_N0": {
+          "access_token_ttl_hours": 24,
+          "refresh_token_ttl_days": 90,
+          "refresh_rotation": "no_manual_revocation",
+          "pkce_required": true,
+          "signing_algorithm": "ES256"
+        },
+        "M2M": {
+          "access_token_ttl_minutes": 15,
+          "refresh_token": "none_client_credentials_only",
+          "signing_algorithm": "ES384",
+          "token_binding": "mtls_rfc8705",
+          "sender_constrained": true,
+          "jwt_client_assertion": "rfc7523"
+        }
+      },
+
+      "jwt_validation": {
+        "required_claims": ["exp", "nbf", "iss", "aud", "sub", "jti"],
+        "audience_validation": "strict_match_resource_identifier",
+        "clock_skew_seconds": 30,
+        "reject_query_param_tokens": true,
+        "blocklist_enabled": true,
+        "blocklist_ttl": "matching_token_ttl"
+      },
+
+      "api_gateway": {
+        "provider": "Kong_3_9_x",
+        "oidc_plugin": {
+          "introspection_endpoint": "/realms/{realm}/protocol/openid-connect/token/introspect",
+          "injected_headers": ["X-User-Id", "X-Role-Id", "X-Tenant-Id", "X-Ctx-Id"]
+        },
+        "rate_limiting_by_tier": {
+          "SU": "unlimited",
+          "SYS": "1000_rps",
+          "BIZ_N3_N5": "100_rps",
+          "BIZ_N1_N2": "50_rps",
+          "EXT_N0": "10_rps",
+          "VISITANTE": "1_rps",
+          "M2M": "500_rps"
+        }
+      }
+    },
+
+    "section_5_ecosystem_integration": {
+      "title": "SECTION 5 — ECOSYSTEM INTEGRATION",
+      "description": "Identity lifecycle orchestration across Vault, Kong, Keycloak, and Tryton.",
+      "vault_2_0_1": {
+        "role": "secret_storage_and_rotation",
+        "engines": {
+          "pki": {
+            "purpose": "M2M_certificates_N4_daemons",
+            "ttl_hours": 24,
+            "algorithm": "ECDSA_P384",
+            "auto_rotation": true,
+            "crl_enabled": true
+          },
+          "database": {
+            "purpose": "postgresql_18_4_dynamic_credentials",
+            "ttl_days": 30,
+            "auto_rotation": true,
+            "zero_downtime": true
+          },
+          "transit": {
+            "purpose": "AES_256_GCM_encryption_keys",
+            "ttl_days": 90,
+            "auto_rewrap": true
+          },
+          "kv_v2": {
+            "purpose": "oauth_client_secrets_api_keys",
+            "ttl_days": 90,
+            "dual_credential_rotation": true
+          }
+        },
+        "break_glass": {
+          "purpose": "SU_emergency_credentials",
+          "unseal": "2_of_3_shamir",
+          "max_session_hours": 24,
+          "sentinel_policies": true
+        }
+      },
+
+      "keycloak_26_6_2": {
+        "role": "authorization_server_identity_provider",
+        "per_realm_password_policies": {
+          "sbos_system": "length(15)_notUsername(1)_argon2id_t5_m128",
+          "tenant": "length(12)_notUsername(1)_argon2id_t3_m64",
+          "tenant_ext": "length(8)_notUsername(1)_argon2id_t2_m32"
+        },
+        "hash_algorithm": "argon2id",
+        "deprecated_algorithms": ["sha1", "md5", "bcrypt"],
+        "federation_protocols": ["openid_connect", "saml_2_0"],
+        "user_storage_spi": "tryton_sync_via_bAuth"
+      },
+
+      "kong_3_9_x": {
+        "role": "api_gateway_single_external_entry",
+        "plugins": {
+          "oidc": "jwt_validation_against_keycloak",
+          "rate_limiting": "per_tier_per_endpoint",
+          "mtls": "M2M_and_NEXUS_clients",
+          "cors": "sbos_skull_bo_domains_only",
+          "audit_log": "json_to_loki_via_alloy"
+        },
+        "auth_pipeline": [
+          "rate_limit_check",
+          "oidc_validate_jwt",
+          "extract_claims",
+          "inject_headers",
+          "mtls_if_applicable",
+          "route_to_daemon"
+        ],
+        "no_http_between_daemons": true,
+        "unix_socket_only": "/run/bos/{daemon}.sock"
+      },
+
+      "tryton_erp": {
+        "role": "business_identity_source_of_truth",
+        "synchronization": {
+          "engine": "bAuth_reconcile_loop",
+          "frequency_seconds": 60,
+          "entities": {
+            "res_users": { "direction": "tryton_to_keycloak", "target": "tenant_{id}" },
+            "res_partner": { "direction": "tryton_to_keycloak", "target": "tenant_{id}_ext" },
+            "res_company": { "direction": "bAuth_to_keycloak_admin_api", "target": "realm_creation" },
+            "res_branch": { "direction": "bAuth_to_keycloak", "target": "group" },
+            "res_department": { "direction": "bAuth_to_keycloak", "target": "group" }
+          }
+        }
+      }
+    },
+
+    "section_6_context_plane": {
+      "title": "SECTION 6 — CONTEXT PLANE & TRACEABILITY",
+      "description": "Distributed context propagation per SBOS-049. W3C Trace Context + OpenTelemetry Baggage.",
+      "ctx_id": {
+        "mandatory": true,
+        "iso_ref": "ISO_27001_A.8.15",
+        "structure": {
+          "fields": ["tenant_id", "empresa_id", "sucursal_id", "pos_logico", "user_id", "traceparent"],
+          "traceparent_format": "W3C_Trace_Context",
+          "baggage_format": "OpenTelemetry_Baggage"
+        },
+        "lifecycle": {
+          "creator": "bos_IAM_Installer",
+          "propagator": "ctx_orchestrator_S045",
+          "validator": "ctx_validator_S046",
+          "validation_point": "every_request",
+          "reject_without_ctx_id": true
+        }
+      },
+
+      "audit_logging": {
+        "levels": {
+          "none": "no_logging",
+          "basic": "login_logout",
+          "full": "every_operation"
+        },
+        "default_by_tier": {
+          "SU": "full",
+          "SYS": "full",
+          "BIZ_N3_N5": "basic",
+          "BIZ_N1_N2": "basic",
+          "EXT_N0": "none",
+          "M2M": "full",
+          "VISITANTE": "basic"
+        },
+        "log_destination": "loki_via_alloy",
+        "immutable_storage": true,
+        "retention": {
+          "authentication_events_days": 365,
+          "authorization_events_years": 7,
+          "privileged_sessions_days": 90
+        }
+      }
+    },
+
+    "section_7_physical_logical_integration": {
+      "title": "SECTION 7 — PHYSICAL-LOGICAL AUTHENTICATION",
+      "description": "Unified authentication for NEXUS (bhnexus + banexus). Hardware bridges and edge devices.",
+      "physical_access": {
+        "high_security_areas": {
+          "required_factors": 3,
+          "methods": ["biometric_fingerprint_iris", "smart_card_contactless", "pin_6_digits"],
+          "liveness_detection": true,
+          "monitoring": ["video_surveillance", "access_logs", "real_time_alerts"]
+        },
+        "standard_areas": {
+          "required_factors": 2,
+          "methods": ["biometric_fingerprint", "smart_card_contactless"]
+        },
+        "emergency_override": {
+          "triggers": ["fire_alarm", "security_breach", "natural_disaster"],
+          "audit_required": true,
+          "video_recording": true
+        }
+      },
+
+      "edge_authentication": {
+        "banexus_agent": {
+          "platform": "Fedora_VDI",
+          "interceptors": ["udev_usb", "pam_shell", "polkit"],
+          "cache": {
+            "type": "policy_cache_ephemeral",
+            "encryption": "AES_256_GCM",
+            "ttl_seconds": 300
+          },
+          "offline_operation": {
+            "max_period_hours": 24,
+            "restricted_operations": ["privilege_escalation", "policy_changes"],
+            "sync_mandatory_on_reconnect": true
+          }
+        },
+        "device_requirements": {
+          "secure_boot": true,
+          "integrity_verification": true,
+          "encrypted_storage": true
+        }
+      },
+
+      "nexus_hardware_bridges": {
+        "protocols": ["OSDP", "MQTT", "ONVIF", "Wiegand"],
+        "auth_cache": {
+          "type": "in_memory",
+          "ttl_seconds": 30,
+          "max_connections": 10000
+        }
+      },
+
+      "impossible_travel_detection": {
+        "enabled": true,
+        "max_speed_kmh": 500,
+        "grace_period_minutes": 5,
+        "action": "force_reauth_and_alert"
+      },
+
+      "concurrent_access_policy": {
+        "physical_and_remote_simultaneous": false,
+        "multiple_physical_locations": false,
+        "exception_approval_required": true
+      }
+    },
+
+    "section_8_emergency_break_glass": {
+      "title": "SECTION 8 — EMERGENCY & BREAK-GLASS PROCEDURES",
+      "description": "PAM break-glass for SU and emergency access protocols per ISO 27001 A.8.2.",
+      "superuser_break_glass": {
+        "activation": "without_prior_approval",
+        "post_event_audit_deadline_hours": 24,
+        "max_session_hours": 4,
+        "session_recording": true,
+        "credentials": "vault_2_of_3_unseal",
+        "justification_required": true
+      },
+
+      "emergency_authentication_fallback": {
+        "offline_tokens": {
+          "max_validity_hours": 48,
+          "usage_limit": 3,
+          "encryption": "AES_256_GCM"
+        },
+        "cached_credentials": {
+          "max_cache_hours": 24,
+          "limited_permissions": true,
+          "mandatory_revalidation": true
+        }
+      },
+
+      "degraded_operation_modes": {
+        "critical_services": {
+          "minimum_factors": 2,
+          "max_session_hours": 4
+        },
+        "essential_services": {
+          "minimum_factors": 1,
+          "max_session_hours": 8,
+          "restricted_actions": true
+        }
+      },
+
+      "service_recovery_priority": [
+        { "service": "primary_authentication", "max_recovery_minutes": 30 },
+        { "service": "mfa_services", "max_recovery_minutes": 60 },
+        { "service": "federation_services", "max_recovery_minutes": 120 }
+      ]
+    },
+
+    "section_9_compliance_regulation": {
+      "title": "SECTION 9 — COMPLIANCE & REGULATORY ALIGNMENT",
+      "description": "Regulatory compliance mapping for ISO 27001, NIST, PCI DSS, and GDPR.",
+      "iso_27001_2022": {
+        "controls_applicable": {
+          "A_5_15": "Access_Control_Policy",
+          "A_5_16": "Identity_Management",
+          "A_5_17": "Authentication_Information",
+          "A_5_18": "Access_Rights",
+          "A_8_2": "Privileged_Access_Rights",
+          "A_8_5": "Secure_Authentication",
+          "A_8_15": "Logging_Monitoring"
+        },
+        "isms_owner": "ROL-SYS-ADMIN-SEGURIDAD",
+        "review_frequency": "quarterly"
+      },
+
+      "nist_compliance": {
+        "sp_800_53_rev5": {
+          "AC_2": "Account_Management",
+          "AC_5": "Separation_of_Duties",
+          "AC_6": "Least_Privilege"
+        },
+        "sp_800_63b_rev4": {
+          "AAL1": "Single_Factor",
+          "AAL2": "Multi_Factor",
+          "AAL3": "Phishing_Resistant_Hardware"
+        },
+        "rbac_level": "Level_3_Constrained_RBAC"
+      },
+
+      "pci_dss_4_0": {
+        "requirement_8": "Identify_and_Authenticate_Access",
+        "mfa_required_for_cde": true,
+        "password_min_length": 12,
+        "key_management": "hsm_based",
+        "encryption": "TLS_1_3_AES_256_GCM"
+      },
+
+      "data_protection": {
+        "gdpr_alignment": {
+          "legal_bases": ["consent", "contract", "legal_obligation", "legitimate_interests"],
+          "data_minimization": true,
+          "purpose_limitation": true,
+          "storage_limitation": true,
+          "data_subject_rights": ["access", "rectification", "erasure", "portability"],
+          "breach_notification_hours": 72
+        },
+        "retention": {
+          "authentication_data_active_months": 12,
+          "authentication_data_archived_years": 7,
+          "audit_logs_years": 10,
+          "deletion_method": "secure_erasure"
+        }
+      },
+
+      "access_review_schedule": {
+        "privileged_accounts_SU_SYS": "monthly",
+        "standard_accounts_BIZ": "quarterly",
+        "service_accounts_M2M": "semi_annual",
+        "external_accounts_EXT": "annual",
+        "reviewer_roles": ["direct_manager", "role_owner", "security_team"],
+        "criteria": ["access_patterns", "role_appropriateness", "least_privilege", "sod_compliance"]
+      }
+    },
+
+    "section_10_future_planned": {
+      "title": "SECTION 10 — FUTURE & PLANNED CAPABILITIES",
+      "description": "Capabilities reserved for future SBOS releases. NOT in current production scope.",
+      "status": "planned_research",
+
+      "post_quantum_cryptography": {
+        "priority": "medium",
+        "planned_release": "2027-2028",
+        "algorithms_under_evaluation": ["CRYSTALS-Kyber", "CRYSTALS-Dilithium", "SPHINCS+"],
+        "hybrid_mode_planned": true,
+        "nist_standardization": "NIST_PQC_Standard_2024"
+      },
+
+      "blockchain_audit_trail": {
+        "priority": "low",
+        "planned_release": "2028+",
+        "approach": "merkle_tree_anchoring_private_ethereum",
+        "note": "Current immutable audit via Loki + WORM storage is sufficient for ISO 27001"
+      },
+
+      "advanced_ml_security": {
+        "priority": "medium",
+        "planned_release": "2027",
+        "use_cases": [
+          "behavioral_anomaly_detection",
+          "adaptive_risk_scoring",
+          "automated_threat_response"
+        ],
+        "note": "Rule-based RBAC engine handles core authorization; ML augments detection"
+      },
+
+      "continuous_adaptive_trust": {
+        "priority": "medium",
+        "planned_release": "2027-2028",
+        "factors": ["device_health", "network_context", "behavioral_baseline", "threat_intelligence"]
+      }
+    }
+  }
+}

@@ -1,0 +1,454 @@
+{
+  "bAuth_Authentication_Framework": {
+    "metadata": {
+      "version": "3.0.0",
+      "release_date": "2026-06-20",
+      "codename": "SBOS Identity Core — Production",
+      "status": "production",
+      "replaces": ["Authentication_Framework.json v2.0.0"],
+      "_bitmask_model": "BitMask Dual (Jun 2026): BitMask Átomo 64-bit label encoding + Rol BitMask N-bit one-hot. SAM-128 descartado. Ver SBOS-MANUAL-SISTEMA-PRIVILEGIOS-v1.0.md",
+      "companion_documents": [
+        "BAUTH-CATALOGO-ROLES-EMPRESARIALES.md v2.1",
+        "BAUTH-CADENAS-JERARQUIA.md v1.2",
+        "Policies_Authentication_Framework_v4.json",
+        "SBOS-MANUAL-SISTEMA-PRIVILEGIOS-v1.0.md",
+        "SBOS-MANUAL-BAUTH-COMPONENT-ROLES.md v1.7",
+        "SBOS-MANUAL-BAUTH-D12-BLOCKCHAIN-WALLET-CONTROL.md v2.1",
+        "SBOS-BAUTH-EVALUACION-INTEGRAL-v2.2.md"
+      ],
+      "aligned_standards": [
+        "NIST_RBAC_Level_3_Constrained",
+        "NIST_SP_800-53_Rev5_AC-2_AC-5_AC-6",
+        "NIST_SP_800-63B_Rev4_Digital_Identity",
+        "NIST_SP_800-63-4_IAL_AAL_FAL",
+        "NIST_SP_800-57_Key_Management",
+        "NIST_SP_800-207_Zero_Trust",
+        "NIST_SP_800-162_ABAC",
+        "ISO_27001_2022_A.5.15-18_A.8.2_A.8.15",
+        "ISO_9001_2015_§3.2.4",
+        "ISO_24760-2_2025_Identity_Management",
+        "ANSI_INCITS_359-2004_RBAC",
+        "OAuth_2.0_RFC_6749_6819_7009_7636_8705_9449",
+        "FIDO2_WebAuthn_W3C",
+        "RFC_9470_Step_Up",
+        "RFC_6962_Certificate_Transparency",
+        "RFC_9943_SCITT_Architecture",
+        "eIDAS_2.0_Qualified_Electronic_Registers",
+        "RFC_9470_StepUp",
+        "RFC_8693_Token_Exchange",
+        "RFC_8628_Device_Authorization",
+        "OWASP_ASVS_4.0.3",
+        "PCI_DSS_4.0"
+      ]
+    },
+
+    "group_1_role_based_access_control": {
+      "title": "GROUP 1 — ROLE-BASED ACCESS CONTROL (NIST RBAC LEVEL 3)",
+      "description": "Core RBAC engine with 368 roles across 7 tiers, 64-bit BitMask, DAG inheritance, and Separation of Duties.",
+      "rbac_engine": {
+        "level": "Constrained_RBAC_NIST_Level_3",
+        "total_roles": 368,
+        "total_plantillas": 66,
+        "role_graph": {
+          "type": "DAG_directed_acyclic_graph",
+          "inheritance_direction": "junior_to_senior",
+          "closure_table": "rol_closure(ancestro_id, descendiente_id, profundidad)",
+          "query": "single_join_no_recursion"
+        },
+        "bitmask": {
+          "bits": 64,
+          "layer_1_system": { "bits": "0-31", "scope": "SU_SYS" },
+          "layer_2_business": { "bits": "32-63", "scope": "BIZ_EXT" },
+          "effective_mask": "mask_own | mask_junior_1 | mask_junior_2 ...",
+          "permission_check": "(mask_eff & bit_operation) != 0"
+        },
+        "separation_of_duties": {
+          "static": [
+            ["ROL-COMPRADOR", "ROL-AUDITOR-INTERNO"],
+            ["ROL-ENCARGADO-FACTURACION", "ROL-REVISOR-FISCAL"],
+            ["ROL-SYS-ADMIN-PROYECTO", "ROL-SYS-ADMIN-SEGURIDAD"],
+            ["ROL-JEFE-CONTABILIDAD", "ROL-AUDITOR-EXTERNO-CONTABLE"]
+          ],
+          "dynamic": [
+            ["ROL-CAJERO", "ROL-AUDITOR-INVENTARIO"],
+            ["ROL-SUPERVISOR-FACT-COBRANZA", "ROL-COBRADOR"]
+          ]
+        }
+      },
+      "tiers": ["SU", "SYS", "BIZ_N5", "BIZ_N4", "BIZ_N3", "BIZ_N2", "BIZ_N1", "EXT_N0", "M2M", "VISITANTE"],
+      "detailed_role_catalog": "See BAUTH-CATALOGO-ROLES-EMPRESARIALES.md v2.0",
+      "detailed_dependency_chains": "See BAUTH-CADENAS-JERARQUIA.md v1.1"
+    },
+
+    "group_2_core_authentication_engine": {
+      "title": "GROUP 2 — CORE AUTHENTICATION ENGINE",
+      "description": "Primary authentication server (Keycloak 26.6.2) with all methods, OAuth 2.0 grants, and token management.",
+      "identity_provider": {
+        "type": "Keycloak_26_6_2",
+        "realms": {
+          "sbos_system": { "users": "SU_N1_N2_N4", "token_ttl": "5-15min", "password_policy": "length(15)_argon2id_t5" },
+          "tenant_{id}": { "users": "BIZ_N1_N5", "token_ttl": "30-60min", "password_policy": "length(12)_argon2id_t3" },
+          "tenant_{id}_ext": { "users": "EXT_N0", "token_ttl": "24h", "password_policy": "length(8)_argon2id_t2" }
+        }
+      },
+      "authentication_methods": {
+        "active": [
+          "password_browser_flow",
+          "totp_rfc6238",
+          "hotp_rfc4226",
+          "webauthn_fido2_passwordless",
+          "webauthn_fido2_2fa",
+          "passkey_synced",
+          "x509_mtls",
+          "social_brokering_oidc",
+          "saml2_brokering",
+          "ciba_decoupled",
+          "device_authorization_rfc8628",
+          "conditional_otp_adaptive",
+          "recovery_codes",
+          "email_otp_magic_link",
+          "client_credentials_m2m",
+          "token_exchange_rfc8693",
+          "kerberos_spnego"
+        ],
+        "deprecated_permanently": [
+          "sms_otp_nist_800_63b_rev4_§5.1",
+          "resource_owner_password_oauth_2.1",
+          "implicit_grant_oauth_2.1"
+        ]
+      },
+      "oauth2_grant_types": {
+        "enabled": [
+          "authorization_code_pkce_rfc7636",
+          "client_credentials_rfc6749_§4.4",
+          "refresh_token_rotativo",
+          "device_authorization_rfc8628",
+          "token_exchange_rfc8693",
+          "ciba_openid",
+          "saml2_bearer_rfc7522"
+        ],
+        "disabled": [
+          "resource_owner_password_deprecated",
+          "implicit_deprecated"
+        ]
+      },
+      "token_management": {
+        "signing_algorithm": "ES256_for_humans_ES384_for_M2M",
+        "access_token_ttl": "5min_SU__15min_SYS__30-60min_BIZ__24h_EXT",
+        "refresh_token_rotation": "on_every_use",
+        "token_binding": { "SU": "mtls_rfc8705", "SYS": "dpop_rfc9449", "M2M": "mtls_rfc8705" },
+        "revocation": "immediate_rfc7009",
+        "key_rotation": "automatic_24h_for_M2M__90d_for_oauth_clients"
+      },
+      "hash_algorithm": {
+        "passwords": "argon2id",
+        "deprecated": ["sha1", "md5", "bcrypt"],
+        "per_tier_params": {
+          "SU": { "t": 5, "m_mb": 128, "p": 2 },
+          "SYS": { "t": 3, "m_mb": 64, "p": 2 },
+          "BIZ_N3_N5": { "t": 3, "m_mb": 64, "p": 2 },
+          "BIZ_N1_N2": { "t": 2, "m_mb": 32, "p": 1 },
+          "EXT_N0": { "t": 2, "m_mb": 32, "p": 1 }
+        }
+      },
+      "password_policy": {
+        "nist_800_63b_rev4_compliant": true,
+        "principles": [
+          "length_over_complexity",
+          "no_composition_rules",
+          "no_periodic_rotation_without_compromise",
+          "mandatory_breach_screening",
+          "password_managers_encouraged"
+        ],
+        "per_tier_length": {
+          "SU": { "min": 20, "recommended": 32 },
+          "SYS": { "min": 15, "recommended": 24 },
+          "BIZ_N3_N5": { "min": 12, "recommended": 20 },
+          "BIZ_N1_N2": { "min": 10, "recommended": 15 },
+          "EXT_N0": { "min": 8, "recommended": 12 }
+        },
+        "screening": ["hibp_k_anonymity", "top_100k_common", "context_terms", "password_history_10"]
+      }
+    },
+
+    "group_3_physical_logical_unified_authentication": {
+      "title": "GROUP 3 — PHYSICAL-LOGICAL UNIFIED AUTHENTICATION (NEXUS)",
+      "description": "Unified physical + logical auth via bhnexus (host) and banexus (edge). Hardware bridge protocols.",
+      "nexus_host": {
+        "daemon": "bhnexus",
+        "port": 9444,
+        "transport": "wss_mtls",
+        "max_connections": 10000,
+        "auth_cache": { "type": "in_memory", "ttl_seconds": 30 },
+        "hardware_bridges": {
+          "protocols": ["OSDP", "MQTT", "ONVIF", "Wiegand"],
+          "translation": "nexus_bridge_S038"
+        }
+      },
+      "nexus_edge": {
+        "daemon": "banexus",
+        "platform": "Fedora_VDI_user_mode",
+        "interceptors": ["udev_usb", "pam_shell", "polkit"],
+        "cache": { "type": "ephemeral", "encryption": "AES_256_GCM" },
+        "offline_max_period_hours": 24,
+        "device_requirements": ["secure_boot", "integrity_verification", "encrypted_storage"]
+      },
+      "physical_access": {
+        "high_security": { "factors": 3, "methods": ["biometric", "smart_card", "pin_6_digits"], "liveness_detection": true },
+        "standard": { "factors": 2, "methods": ["biometric_fingerprint", "smart_card_contactless"] },
+        "emergency_override": { "triggers": ["fire_alarm", "security_breach", "natural_disaster"], "audit": true }
+      },
+      "contextual_validations": {
+        "impossible_travel": { "enabled": true, "max_speed_kmh": 500, "grace_minutes": 5 },
+        "concurrent_access": { "physical_and_remote": false, "multi_location": false },
+        "location_validation": { "methods": ["gps", "wifi_triangulation", "bluetooth_beacons"], "accuracy_meters": 5 },
+        "time_validation": { "working_hours": "08:00-18:00", "after_hours_requires_approval": true }
+      }
+    },
+
+    "group_4_ecosystem_integration": {
+      "title": "GROUP 4 — ECOSYSTEM INTEGRATION (VAULT + KONG + TRYTON)",
+      "description": "Secrets management, API gateway enforcement, and ERP identity synchronization.",
+      "vault": {
+        "version": "2.0.1",
+        "engines": {
+          "pki": { "purpose": "M2M_certificates", "ttl_hours": 24, "algorithm": "ECDSA_P384", "crl": true },
+          "database": { "purpose": "postgresql_credentials", "ttl_days": 30, "dynamic": true },
+          "transit": { "purpose": "encryption_keys_AES_256_GCM", "ttl_days": 90, "auto_rewrap": true },
+          "kv_v2": { "purpose": "oauth_secrets_api_keys", "ttl_days": 90, "dual_credential_rotation": true }
+        },
+        "break_glass": { "unseal": "2_of_3_shamir", "max_session_hours": 24, "sentinel_policies": true }
+      },
+      "kong": {
+        "version": "3.9.x_LTS",
+        "role": "single_external_entry_point",
+        "port": "8000_8443_ClusterIP_8160",
+        "plugins": ["oidc_jwt_validation", "rate_limiting", "mtls", "cors", "audit_log"],
+        "auth_pipeline": [
+          "rate_limit", "oidc_validate_jwt", "extract_claims",
+          "inject_headers_X_User_Id_X_Role_Id_X_Tenant_Id_X_Ctx_Id",
+          "mtls_if_applicable", "route_to_daemon"
+        ],
+        "rate_limits": {
+          "SU": "unlimited", "SYS": "1000_rps", "BIZ": "50-100_rps",
+          "EXT": "10_rps", "VISITANTE": "1_rps", "M2M": "500_rps"
+        }
+      },
+      "tryton": {
+        "role": "business_identity_source_of_truth",
+        "sync_engine": "bAuth_reconcile_loop",
+        "sync_frequency_seconds": 60,
+        "entities": {
+          "res_users": "employees_to_keycloak",
+          "res_partner": "clients_providers_to_keycloak",
+          "res_company": "company_to_realm",
+          "res_branch": "branch_to_group"
+        }
+      }
+    },
+
+    "group_5_context_plane_and_audit": {
+      "title": "GROUP 5 — CONTEXT PLANE & AUDIT TRAIL",
+      "description": "Distributed context (SBOS-049), W3C Trace Context, OpenTelemetry, and immutable audit logging.",
+      "ctx_id": {
+        "mandatory": true,
+        "iso_27001_ref": "A.8.15",
+        "fields": ["tenant_id", "empresa_id", "sucursal_id", "pos_logico", "user_id", "traceparent"],
+        "standards": ["W3C_Trace_Context", "OpenTelemetry_Baggage"],
+        "lifecycle": {
+          "creator": "bos_IAM_Installer_S011",
+          "propagator": "ctx_orchestrator_S045",
+          "validator": "ctx_validator_S046",
+          "reject_without_ctx_id": true
+        }
+      },
+      "audit_logging": {
+        "levels": { "none": 0, "basic": "login_logout", "full": "every_operation" },
+        "default_by_tier": { "SU": "full", "SYS": "full", "BIZ": "basic", "EXT": "none", "M2M": "full", "VISITANTE": "basic" },
+        "destination": "loki_via_alloy",
+        "immutable_storage": true,
+        "retention_days": { "authentication": 365, "authorization": 2555, "privileged_sessions": 90 }
+      },
+      "blockchain_anchoring": { "status": "planned_future", "current_alternative": "WORM_storage_via_Loki" }
+    },
+
+    "group_6_emergency_and_break_glass": {
+      "title": "GROUP 6 — EMERGENCY & BREAK-GLASS PROCEDURES",
+      "description": "PAM break-glass for SU, emergency auth fallback, service continuity per ISO 27001 A.8.2.",
+      "superuser_break_glass": {
+        "activation": "without_prior_approval",
+        "post_event_audit_hours": 24,
+        "max_session_hours": 4,
+        "session_recording": true,
+        "credentials": "vault_2_of_3_unseal"
+      },
+      "emergency_fallback": {
+        "offline_tokens": { "ttl_hours": 48, "usage_limit": 3 },
+        "cached_credentials": { "ttl_hours": 24, "limited_permissions": true }
+      },
+      "degraded_modes": {
+        "critical_services": { "min_factors": 2, "max_session_hours": 4 },
+        "essential_services": { "min_factors": 1, "max_session_hours": 8 }
+      },
+      "service_recovery_priority": [
+        { "service": "primary_auth", "rto_minutes": 30 },
+        { "service": "mfa_services", "rto_minutes": 60 },
+        { "service": "federation", "rto_minutes": 120 }
+      ],
+      "credential_reset": {
+        "mass_reset_support": true,
+        "phased_approach": {
+          "critical": "4_hours", "high": "12_hours", "normal": "24_hours"
+        },
+        "identity_proof_required": true,
+        "audit_logging": true
+      }
+    },
+
+    "group_7_mfa_and_step_up_authentication": {
+      "title": "GROUP 7 — MFA & STEP-UP AUTHENTICATION",
+      "description": "Multi-factor authentication policies per tier with Step-Up (RFC 9470) for temporary LoA elevation.",
+      "aal_mapping": {
+        "AAL1": { "methods": ["password", "passkey", "email_otp"], "applies_to": ["EXT_N0", "BIZ_N1", "VISITANTE"] },
+        "AAL2": { "methods": ["totp", "hotp", "webauthn_2fa", "conditional_otp"], "applies_to": ["BIZ_N2_N5", "SYS_N3"] },
+        "AAL3": { "methods": ["webauthn_passwordless", "x509_mtls"], "applies_to": ["SU", "SYS_N1_N2"] }
+      },
+      "step_up": {
+        "rfc_ref": "RFC_9470",
+        "example": "Cajero_AAL2_doing_arqueo_general_requires_AAL3_step_up_via_TOTP",
+        "max_duration_minutes": 15,
+        "audit_required": true
+      },
+      "mfa_enrollment": {
+        "grace_period_days": 7,
+        "reset_requires_approval": true,
+        "recovery_codes": { "count": 10, "single_use": true, "hash": "SHA256" },
+        "methods_per_tier": {
+          "SU": { "required": 1, "allowed": ["webauthn_passwordless", "x509"] },
+          "SYS": { "required": 1, "allowed": ["webauthn_passwordless", "x509", "totp"] },
+          "BIZ_N3_N5": { "required": 1, "allowed": ["totp", "webauthn_2fa"] },
+          "BIZ_N1_N2": { "recommended": 1, "allowed": ["totp", "passkey"] },
+          "EXT_N0": { "recommended": 0, "allowed": ["passkey", "email_otp"] }
+        }
+      }
+    },
+
+    "group_8_role_lifecycle_and_governance": {
+      "title": "GROUP 8 — ROLE LIFECYCLE & IDENTITY GOVERNANCE",
+      "description": "Complete role lifecycle: Definido → Desarrollado → Revisado → Autorizado → Publicado → Deprecado → Retirado.",
+      "role_lifecycle_states": [
+        "DEFINIDO", "DESARROLLADO", "REVISADO", "AUTORIZADO", "PUBLICADO", "DEPRECADO", "RETIRADO"
+      ],
+      "transitions": {
+        "definir": { "executor": "Admin_Modulo_N2", "sod": "none" },
+        "desarrollar": { "executor": "Desarrollador_N2", "sod": "desarrollador_ne_revisor" },
+        "revisar": { "executor": "Revisor", "sod": "revisor_ne_desarrollador" },
+        "autorizar": { "executor": "Admin_Seguridad_N1_or_Admin_Proyecto", "sod": "autorizador_ne_revisor" },
+        "publicar": { "executor": "Admin_Modulo_N2", "sod": "none" },
+        "deprecar": { "executor": "Admin_Modulo_N2", "sod": "none" },
+        "retirar": { "executor": "Admin_Proyecto_N1", "sod": "retirador_ne_admin_modulo" }
+      },
+      "role_template_attributes": {
+        "mandatory": 14,
+        "recommended": 6,
+        "automatic": 4,
+        "standard_ref": "ISO_24760-2:2025_ANSI_INCITS_359_oneM2M_TS_0001"
+      },
+      "access_review_schedule": {
+        "privileged_SU_SYS": "monthly",
+        "standard_BIZ": "quarterly",
+        "service_M2M": "semi_annual",
+        "external_EXT": "annual"
+      },
+      "pre_registration_checklist": [
+        "unicity_check",
+        "dag_position_defined",
+        "no_cycle_detection",
+        "mask_coherence",
+        "sod_conflict_check",
+        "loa_appropriate",
+        "expiry_if_temporary",
+        "spanish_documentation",
+        "issuer_authorization"
+      ]
+    },
+
+    "group_9_compliance_and_regulatory": {
+      "title": "GROUP 9 — COMPLIANCE & REGULATORY ALIGNMENT",
+      "description": "Regulatory compliance mapping for ISO 27001:2022, NIST SP 800-53, PCI DSS 4.0, and data protection.",
+      "iso_27001_2022": {
+        "controls": ["A.5.15", "A.5.16", "A.5.17", "A.5.18", "A.8.2", "A.8.5", "A.8.15"],
+        "isms_owner": "ROL-SYS-ADMIN-SEGURIDAD_S003",
+        "review_frequency": "quarterly"
+      },
+      "nist_sp_800_53_rev5": {
+        "AC_2": "Account_Management",
+        "AC_5": "Separation_of_Duties",
+        "AC_6": "Least_Privilege"
+      },
+      "pci_dss_4_0": {
+        "req_8": "Identify_Authenticate_Access",
+        "password_min": 12,
+        "encryption": "TLS_1_3_AES_256_GCM"
+      },
+      "data_protection": {
+        "retention": {
+          "auth_data_active_months": 12,
+          "auth_data_archived_years": 7,
+          "audit_logs_years": 10
+        },
+        "data_subject_rights": ["access", "rectification", "erasure", "portability"],
+        "breach_notification_hours": 72
+      }
+    },
+
+    "group_10_ml_behavioral_and_advanced_detection": {
+      "title": "GROUP 10 — BEHAVIORAL ANALYSIS & ANOMALY DETECTION",
+      "description": "Machine learning augmented security detection. Complements — not replaces — the rule-based RBAC engine.",
+      "status": "production_for_anomaly_detection__research_for_advanced_models",
+      "capabilities": {
+        "behavioral_analysis": {
+          "metrics": ["keystroke_dynamics", "mouse_dynamics", "login_time_patterns", "resource_usage_rhythms"],
+          "algorithms": ["isolation_forest", "local_outlier_factor", "autoencoder"]
+        },
+        "risk_scoring": {
+          "factors": ["device_health", "network_context", "behavioral_baseline", "threat_intel"],
+          "confidence_threshold": 0.95
+        },
+        "automated_response": {
+          "low_risk": "log_and_monitor",
+          "medium_risk": "request_verification_or_step_up",
+          "high_risk": "restrict_permissions_increase_monitoring",
+          "critical_risk": "terminate_session_lock_account_alert_sec_team"
+        }
+      }
+    },
+
+    "group_11_future_planned_capabilities": {
+      "title": "GROUP 11 — FUTURE & PLANNED CAPABILITIES",
+      "description": "Capabilities reserved for future releases. NOT in current production scope.",
+      "status": "planned",
+      "post_quantum_cryptography": {
+        "priority": "medium",
+        "planned_release": "2027-2028",
+        "algorithms": ["CRYSTALS-Kyber", "CRYSTALS-Dilithium", "SPHINCS+"],
+        "nist_standardization": "NIST_PQC_Standard_2024"
+      },
+      "blockchain_audit": {
+        "priority": "low",
+        "planned_release": "2028+",
+        "note": "Current immutable audit via Loki + WORM meets ISO 27001"
+      },
+      "advanced_ai_threat_detection": {
+        "priority": "medium",
+        "planned_release": "2027",
+        "note": "Rule-based RBAC handles core auth; ML augments detection"
+      },
+      "continuous_adaptive_trust": {
+        "priority": "medium",
+        "planned_release": "2027-2028",
+        "note": "Dynamic trust scoring beyond current risk-based step-up"
+      }
+    }
+  }
+}

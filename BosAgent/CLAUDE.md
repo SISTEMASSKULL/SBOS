@@ -132,7 +132,7 @@ cmd/bosctl/<cmd>.go      ← comando CLI (WebSocket RPC)
 
 ## Documentación normativa
 
-**Raíz documental:** `/opt/skull/orquestador/proyectos/desarrollo/context/sbos/Procesar/humano/`
+**Raíz documental:** `/opt/skull/orquestador/proyectos/SBOS/context/`
 
 | Ruta | Contenido |
 |------|-----------|
@@ -142,4 +142,4 @@ cmd/bosctl/<cmd>.go      ← comando CLI (WebSocket RPC)
 | `daemons/bos/SBOS-BOOTSTRAP-MANUAL.md` | Manual de bootstrap 6 capas |
 | `daemons/bos/plandeaccion/` | Plan de reparación del daemon (Plan Maestro v3, REGISTRO-ESTADO, informes) |
 | `daemons/bos/plandeaccion/INFORME-AUDITORIA-BOSAGENT-*.md` | Informe de auditoría técnica (referencia de fases activas) |
-| `/opt/skull/orquestador/proyectos/desarrollo/sbos/BOS-BAUTH-CONTRATOS.md` | Contratos de integración BOS ↔ bAuth |
+| `context/contracts/BOS-BAUTH-CONTRATOS.md` | Contratos de integración BOS ↔ bAuth |

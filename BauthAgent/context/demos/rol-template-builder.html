@@ -1,0 +1,1763 @@
+<title>bAuth Admin — Identity Control Plane</title>
+<style>
+:root{
+  --bg:#0C1219;--s1:#131C27;--s2:#1C2A3A;--s3:#253344;
+  --bd:#2E4058;--bd-s:#1D2E42;
+  --ac:#2CC4A8;--ac-h:#4DD4BC;--ac-d:rgba(44,196,168,.11);
+  --t1:#DDE6F0;--t2:#8BA4BD;--t3:#4E6A84;
+  --ok:#34D399;--ok-d:rgba(52,211,153,.11);
+  --am:#FBBF24;--am-d:rgba(251,191,36,.11);
+  --er:#F87171;--er-d:rgba(248,113,113,.11);
+  --bl:#60A5FA;--bl-d:rgba(96,165,250,.11);
+  --pu:#A78BFA;--pu-d:rgba(167,139,250,.11);
+  --lk:#F59E0B;--lk-d:rgba(245,158,11,.09);--lk-b:rgba(245,158,11,.22);
+  --fn:system-ui,-apple-system,sans-serif;
+  --fm:'Cascadia Code','JetBrains Mono',ui-monospace,monospace;
+  --r:4px;
+}
+@media(prefers-color-scheme:light){:root{--bg:#E8F1FA;--s1:#fff;--s2:#F0F6FD;--s3:#E0ECF8;--bd:#B4CCDF;--bd-s:#D0E4F0;--t1:#0C1219;--t2:#3D5A73;--t3:#6B8BA8;}}
+:root[data-theme="light"]{--bg:#E8F1FA;--s1:#fff;--s2:#F0F6FD;--s3:#E0ECF8;--bd:#B4CCDF;--bd-s:#D0E4F0;--t1:#0C1219;--t2:#3D5A73;--t3:#6B8BA8;}
+:root[data-theme="dark"]{--bg:#0C1219;--s1:#131C27;--s2:#1C2A3A;--s3:#253344;--bd:#2E4058;--bd-s:#1D2E42;--t1:#DDE6F0;--t2:#8BA4BD;--t3:#4E6A84;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--fn);font-size:13px;line-height:1.5;background:var(--bg);color:var(--t1);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.bar{display:flex;align-items:center;gap:10px;padding:0 16px;height:42px;flex-shrink:0;background:var(--s1);border-bottom:1px solid var(--bd)}
+.logo{font-family:var(--fm);font-size:13px;font-weight:700;color:var(--ac)}
+.bsep{width:1px;height:18px;background:var(--bd);margin:0 4px}
+.bc{font-size:11px;color:var(--t3)}.bc strong{color:var(--t2)}
+.sp{flex:1}
+.ch{display:inline-flex;align-items:center;padding:1px 7px;border-radius:2px;font-family:var(--fm);font-size:9px;font-weight:700}
+.c-ok{background:var(--ok-d);color:var(--ok);border:1px solid rgba(52,211,153,.3)}
+.c-bd{background:var(--s2);color:var(--t2);border:1px solid var(--bd)}
+.btn{padding:4px 11px;border-radius:var(--r);border:none;cursor:pointer;font-size:11px;font-family:var(--fn);font-weight:600;white-space:nowrap}
+.btn-p{background:var(--ac);color:#0C1219}.btn-p:hover{background:var(--ac-h)}
+.btn-g{background:transparent;color:var(--t2);border:1px solid var(--bd)}.btn-g:hover{border-color:var(--ac);color:var(--ac)}
+.btn-d{background:transparent;color:var(--er);border:1px solid rgba(248,113,113,.32)}.btn-d:hover{background:var(--er-d)}
+.tab-strip{display:flex;align-items:center;background:var(--s1);border-bottom:1px solid var(--bd);flex-shrink:0;padding:0 16px}
+.tab{padding:7px 14px;font-size:11px;font-weight:600;color:var(--t3);background:transparent;border:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tab:hover{color:var(--t2)}.tab.active{color:var(--ac);border-bottom-color:var(--ac)}
+.tab-hint{font-size:9px;color:var(--t3);font-family:var(--fm);padding:0 6px}
+/* 3-col layout */
+.main{flex:1;display:flex;overflow:hidden}
+.side{width:252px;flex-shrink:0;display:none;flex-direction:column;overflow:hidden;background:var(--s1)}
+.main.wp .side{display:flex}
+.side.L{border-right:1px solid var(--bd)}
+.side.R{border-left:1px solid var(--bd)}
+.lp-sec{display:flex;flex-direction:column;overflow:hidden}
+.lp-div{height:1px;background:var(--bd);flex-shrink:0}
+.lp-hd{display:flex;align-items:center;gap:5px;padding:5px 10px 4px;flex-shrink:0;border-bottom:1px solid var(--bd-s);background:var(--s2)}
+.lp-title{font-family:var(--fm);font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;flex:1}
+.lp-cnt{font-family:var(--fm);font-size:9px;color:var(--t3)}
+.lp-search{padding:4px 8px;border-bottom:1px solid var(--bd-s);flex-shrink:0}
+.lp-search input{width:100%;background:var(--s2);border:1px solid var(--bd-s);border-radius:var(--r);padding:3px 7px;color:var(--t1);font-size:11px;outline:none}
+.lp-search input:focus{border-color:var(--ac)}
+.lp-scroll{flex:1;overflow-y:auto}
+/* Atom 4-level tree */
+.n-app,.n-mod,.n-grp{cursor:pointer;user-select:none;border-bottom:1px solid var(--bd-s)}
+.n-app-hd{display:flex;align-items:center;gap:4px;padding:5px 8px;background:var(--s2)}.n-app-hd:hover{background:var(--s3)}
+.n-mod-hd{display:flex;align-items:center;gap:4px;padding:4px 8px 4px 18px;background:var(--s1)}.n-mod-hd:hover{background:var(--s2)}
+.n-grp-hd{display:flex;align-items:center;gap:4px;padding:3px 8px 3px 30px}.n-grp-hd:hover{background:var(--s2)}
+.arr{font-size:7px;color:var(--t3);transition:transform .1s;font-family:var(--fm);width:8px;flex-shrink:0}
+.n-app.op>.n-app-hd .arr,.n-mod.op>.n-mod-hd .arr,.n-grp.op>.n-grp-hd .arr{transform:rotate(90deg)}
+.n-body{display:none}.n-app.op>.n-body,.n-mod.op>.n-body,.n-grp.op>.n-body{display:block}
+.n-name{font-size:10px;font-weight:700;flex:1;color:var(--t1)}
+.n-cnt{font-family:var(--fm);font-size:8px;color:var(--t3)}
+.v-row{display:flex;align-items:center;gap:5px;padding:2px 8px 2px 40px;border-bottom:1px solid var(--bd-s)}.v-row:hover{background:var(--ac-d)}
+/* Policy tree in right panel */
+.p-dom{border-bottom:1px solid var(--bd-s)}
+.p-dom-hd{display:flex;align-items:center;gap:4px;padding:5px 8px;background:var(--s2);cursor:pointer;user-select:none}.p-dom-hd:hover{background:var(--s3)}
+.p-dom-body{display:none}.p-dom.op>.p-dom-body{display:block}
+.p-dom-name{font-size:10px;font-weight:700;color:var(--t2);flex:1}
+.p-row{display:flex;align-items:center;gap:5px;padding:3px 8px 3px 22px;border-bottom:1px solid var(--bd-s)}.p-row:hover{background:var(--s2)}
+.p-name{font-family:var(--fm);font-size:10px;color:var(--t1);flex:1}
+/* Auth methods in right panel */
+.m-row{display:flex;align-items:center;gap:5px;padding:3px 10px;border-bottom:1px solid var(--bd-s)}.m-row:hover{background:var(--s2)}
+.m-name{font-size:10px;color:var(--t1);flex:1}
+.m-help{padding:6px 10px;background:var(--s2);border-bottom:1px solid var(--bd);font-size:9px;color:var(--t3);line-height:1.6;flex-shrink:0}
+.m-help strong{color:var(--am);font-family:var(--fm)}
+/* Assigned methods list in center domain */
+.m-asig-row{display:flex;align-items:center;gap:5px;padding:2px 6px;background:var(--s1);border:1px solid var(--bd-s);border-radius:3px;margin-bottom:2px;border-left:2px solid var(--pu)}
+.m-asig-row:hover{background:var(--s2)}
+.m-promo{padding:1px 5px;border-radius:2px;border:1px solid var(--bd);background:transparent;font-size:9px;font-weight:700;cursor:pointer;flex-shrink:0}
+.m-promo.req{color:var(--am);border-color:rgba(251,191,36,.4)}.m-promo.req:hover{background:var(--am-d)}
+.m-promo.alt{color:var(--bl);border-color:rgba(96,165,250,.4)}.m-promo.alt:hover{background:var(--bl-d)}
+/* Badges */
+.wt{font-family:var(--fm);font-size:8px;font-weight:700;padding:1px 5px;border-radius:2px;white-space:nowrap;flex-shrink:0}
+.vC{background:var(--ok-d);color:var(--ok);border:1px solid rgba(52,211,153,.3)}
+.vR{background:var(--bl-d);color:var(--bl);border:1px solid rgba(96,165,250,.3)}
+.vU{background:var(--am-d);color:var(--am);border:1px solid rgba(251,191,36,.3)}
+.vD{background:var(--er-d);color:var(--er);border:1px solid rgba(248,113,113,.3)}
+.vP{background:var(--s3);color:var(--t2);border:1px solid var(--bd)}
+.vX{background:var(--ac-d);color:var(--ac-h);border:1px solid rgba(44,196,168,.3)}
+.vE{background:var(--pu-d);color:var(--pu);border:1px solid rgba(167,139,250,.3)}
+.exp{font-family:var(--fm);font-size:8px;color:var(--t3);background:var(--s3);border:1px solid var(--bd-s);padding:1px 4px;border-radius:2px;flex-shrink:0}
+.wtb{font-family:var(--fm);font-size:8px;color:var(--t3);background:var(--s3);padding:1px 4px;border-radius:2px;border:1px solid var(--bd);flex-shrink:0}
+.aal1{background:var(--ok-d);color:var(--ok);border:1px solid rgba(52,211,153,.3)}
+.aal2{background:var(--am-d);color:var(--am);border:1px solid rgba(251,191,36,.3)}
+.aal3{background:var(--er-d);color:var(--er);border:1px solid rgba(248,113,113,.3)}
+.lp-add{padding:1px 6px;border-radius:2px;border:1px solid var(--bd);background:transparent;color:var(--ac);font-size:10px;font-weight:700;cursor:pointer;flex-shrink:0;line-height:1.4}
+.lp-add:hover{background:var(--ac-d);border-color:var(--ac)}
+/* Center */
+.center{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.pane-bar{display:flex;align-items:center;gap:8px;padding:6px 14px;border-bottom:1px solid var(--bd);background:var(--s1);flex-shrink:0}
+.ptitle{font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-right:2px}
+.sel{background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);padding:4px 8px;color:var(--t1);font-size:11px;outline:none;cursor:pointer;min-width:200px}
+.sel:focus{border-color:var(--ac)}
+.inp{background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);padding:4px 8px;color:var(--t1);font-size:11px;outline:none;width:100%}
+.inp:focus{border-color:var(--ac)}
+.b-tmpl{background:var(--ac-d);color:var(--ac-h);border:1px solid rgba(44,196,168,.3);font-family:var(--fm);font-size:9px;padding:1px 6px;border-radius:2px}
+.b-new{background:var(--ok-d);color:var(--ok);border:1px solid rgba(52,211,153,.3);font-family:var(--fm);font-size:9px;padding:1px 6px;border-radius:2px}
+.b-empty{background:var(--am-d);color:var(--am);border:1px solid rgba(251,191,36,.3);font-family:var(--fm);font-size:9px;padding:1px 6px;border-radius:2px}
+.pane{display:none;flex:1;overflow-y:auto;padding:12px 14px}
+.pane.active{display:block}
+.pane-full{display:none;flex:1;overflow-y:auto;padding:12px 14px}
+.pane-full.active{display:block}
+/* Identification section */
+.sec{margin-bottom:14px}
+.sec-hd{font-family:var(--fm);font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.1em;display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.sec-hd::after{content:'';flex:1;height:1px;background:var(--bd-s)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.fld{display:flex;flex-direction:column;gap:3px}
+.fld label{font-size:10px;color:var(--t3);font-family:var(--fm)}
+/* Domain tree in center */
+.dom-sec{border:1px solid var(--bd-s);border-radius:var(--r);margin-bottom:5px;overflow:hidden}
+.dom-hd{display:flex;align-items:center;gap:6px;padding:7px 10px;background:var(--s2);cursor:pointer;user-select:none}
+.dom-hd:hover{background:var(--s3)}
+.dom-sec.op>.dom-hd{border-bottom:1px solid var(--bd-s)}
+.dom-icon{font-size:13px;flex-shrink:0}
+.dom-name{font-size:11px;font-weight:700;color:var(--t1);flex:1}
+.dom-cnt{font-family:var(--fm);font-size:9px;color:var(--t3)}
+.dom-body{display:none;padding:8px 10px}.dom-sec.op>.dom-body{display:block}
+/* Árbol de bloques RolTemplate v6.0 (centro panel Roles) */
+.blk-sec{border:1px solid var(--bd-s);border-radius:var(--r);margin-bottom:4px;overflow:hidden}
+.blk-hd{display:flex;align-items:center;gap:5px;padding:6px 10px;background:var(--s2);cursor:pointer;user-select:none}
+.blk-hd:hover{background:var(--s3)}
+.blk-sec.op>.blk-hd{border-bottom:1px solid var(--bd-s)}
+.blk-body{display:none;padding:8px 10px}.blk-sec.op>.blk-body{display:block}
+.blk-num{font-family:var(--fm);font-size:8px;font-weight:700;color:var(--ac);background:var(--ac-d);border:1px solid rgba(44,196,168,.3);border-radius:2px;padding:1px 5px;flex-shrink:0}
+.blk-name{font-size:11px;font-weight:700;color:var(--t1);flex:1}
+.blk-dom{font-family:var(--fm);font-size:8px;font-weight:700;padding:1px 5px;border-radius:2px;background:var(--bl-d);color:var(--bl);border:1px solid rgba(96,165,250,.3);flex-shrink:0}
+.blk-cnt{font-family:var(--fm);font-size:9px;color:var(--t3);flex-shrink:0}
+.blk-pend{border-color:rgba(251,191,36,.35)}
+.blk-pend>.blk-hd{background:rgba(251,191,36,.05)}
+.blk-pend>.blk-hd:hover{background:rgba(251,191,36,.1)}
+.blk-ro>.blk-hd{cursor:default}
+.blk-pend-badge{font-family:var(--fm);font-size:8px;font-weight:700;color:var(--am);background:var(--am-d);border:1px solid rgba(251,191,36,.3);border-radius:2px;padding:1px 5px;flex-shrink:0}
+.blk-ro-badge{font-family:var(--fm);font-size:8px;color:var(--t3);background:var(--s3);border:1px solid var(--bd-s);border-radius:2px;padding:1px 5px;flex-shrink:0}
+.blk-section-hd{font-family:var(--fm);font-size:8px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.1em;padding:10px 2px 4px;border-bottom:1px solid var(--bd-s);margin-bottom:5px}
+.blk-section-hd:first-child{padding-top:2px}
+.bf-row{display:flex;align-items:flex-start;gap:8px;padding:2px 0;border-bottom:1px solid var(--bd-s);font-size:10px;min-height:18px}
+.bf-key{font-family:var(--fm);color:var(--t3);flex-shrink:0;min-width:132px;padding-top:1px}
+.bf-val{color:var(--t1);word-break:break-all;flex:1}
+.bf-note{font-size:9px;color:var(--t3);font-style:italic;margin:1px 0 3px 140px}
+.blk-emb-note{font-size:9px;font-family:var(--fm);color:var(--am);background:var(--am-d);border-left:2px solid var(--am);padding:3px 8px;border-radius:2px;margin-bottom:5px}
+.blk-sec-sep{height:1px;background:var(--bd-s);margin:8px 0 10px}
+.blk-sec.op>.blk-hd .arr,.dom-sec.op>.dom-hd .arr{transform:rotate(90deg)}
+/* Domain sub-sections */
+.dsub{margin-bottom:10px}
+.dsub-hd{font-family:var(--fm);font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;display:flex;align-items:center;gap:6px;margin-bottom:5px;padding-bottom:3px;border-bottom:1px solid var(--bd-s)}
+.dsub-hd .cnt{font-weight:400;letter-spacing:0;text-transform:none}
+/* Policy config rows */
+.pol-cfg{display:flex;align-items:center;gap:6px;padding:3px 6px;background:var(--s1);border:1px solid var(--bd-s);border-radius:3px;margin-bottom:3px;border-left:2px solid var(--pu)}
+.pol-cfg-name{font-family:var(--fm);font-size:10px;color:var(--t1);min-width:140px}
+.pol-inp{background:var(--s2);border:1px solid var(--bd);border-radius:2px;padding:2px 5px;color:var(--t1);font-size:10px;font-family:var(--fm);outline:none;flex:1;min-width:50px}
+.pol-inp:focus{border-color:var(--pu)}
+/* Meth categories in center */
+.mcat-lbl{font-size:9px;font-weight:700;color:var(--t3);font-family:var(--fm);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;margin-top:5px}
+.mcat-lbl:first-child{margin-top:0}
+/* Chips */
+.chip-wrap{display:flex;flex-wrap:wrap;gap:4px;min-height:26px;padding:4px;background:var(--s2);border:1px dashed var(--bd);border-radius:var(--r)}
+.ci{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:var(--s1);border:1px solid var(--bd);border-radius:2px;font-family:var(--fm);font-size:10px;color:var(--t1)}
+.ci.lk{border-color:var(--lk-b);background:var(--lk-d);color:var(--lk)}
+.ci.mp{border-color:rgba(167,139,250,.35);background:var(--pu-d)}
+.ci.mr{border-color:rgba(251,191,36,.35);background:var(--am-d)}
+.ci.ma{border-color:rgba(96,165,250,.35);background:var(--bl-d)}
+.crm{background:none;border:none;color:var(--t3);cursor:pointer;font-size:10px;padding:0 1px;line-height:1}.crm:hover{color:var(--er)}
+.ce{font-size:10px;color:var(--t3);font-style:italic;padding:2px}
+/* Atom rows in center */
+.a-row{display:flex;align-items:center;gap:6px;padding:2px 4px;border-radius:3px}
+.a-row:hover{background:var(--s2)}
+.a-chk{width:13px;height:13px;accent-color:var(--ac);cursor:pointer;flex-shrink:0}
+.a-rm{background:none;border:none;color:var(--t3);cursor:pointer;font-size:10px;padding:0 2px;flex-shrink:0;opacity:.5}.a-rm:hover{color:var(--er);opacity:1}
+.slugt{font-family:var(--fm);font-size:9px;color:var(--t3);flex:1}
+.post{font-family:var(--fm);font-size:8px;color:var(--t3);flex-shrink:0}
+.lk-ic{font-size:9px;color:var(--lk);flex-shrink:0}
+/* Attrs in panel */
+.la-row{display:flex;align-items:center;gap:5px;padding:3px 10px;border-bottom:1px solid var(--bd-s);cursor:pointer}.la-row:hover{background:var(--s2)}
+.la-name{font-family:var(--fm);font-size:10px;color:var(--t1);flex:1}
+/* CRUD list */
+.lr{display:flex;align-items:center;gap:7px;padding:5px 10px;background:var(--s1);border:1px solid var(--bd-s);border-radius:var(--r);margin-bottom:3px;border-left:3px solid var(--ac)}
+.lk-f{font-family:var(--fm);font-size:11px;color:var(--t1);flex:1}
+.lm{font-family:var(--fm);font-size:9px;color:var(--t3)}
+.la{display:flex;gap:4px;margin-left:auto}
+.lb{padding:2px 8px;border-radius:2px;border:1px solid var(--bd);background:transparent;color:var(--t2);cursor:pointer;font-size:10px;font-family:var(--fn);font-weight:600}.lb:hover{border-color:var(--ac);color:var(--ac)}
+.lb.d{color:var(--er);border-color:rgba(248,113,113,.3)}.lb.d:hover{background:var(--er-d)}
+.lsh{font-family:var(--fm);font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;display:flex;align-items:center;gap:8px;margin:10px 0 5px}.lsh:first-child{margin-top:0}.lsh::after{content:'';flex:1;height:1px;background:var(--bd-s)}
+.empty{padding:16px;text-align:center;color:var(--t3);font-size:11px;font-style:italic}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
+</style>
+
+<div class="bar">
+  <span class="logo">bAuth</span><div class="bsep"></div>
+  <span class="bc">Identity Control Plane</span><div class="bsep"></div>
+  <span class="bc">Tenant: <strong>empresa_demo</strong></span>
+  <div class="sp"></div>
+  <span class="ch c-ok">ACTIVO</span>
+  <span class="ch c-bd" style="margin-left:4px">5808 átomos · 12 dominios</span>
+</div>
+
+<div class="tab-strip">
+  <button class="tab active" onclick="showTab('roles',this)">Roles</button>
+  <button class="tab" onclick="showTab('usuarios',this)">Usuarios</button>
+  <div class="bsep" style="margin:10px 8px"></div>
+  <span class="tab-hint">catálogos →</span>
+  <button class="tab" onclick="showTab('politicas',this)">Políticas</button>
+  <button class="tab" onclick="showTab('atributos',this)">Atributos</button>
+  <button class="tab" onclick="showTab('aplicaciones',this)">Aplicaciones</button>
+  <button class="tab" onclick="showTab('atomos',this)">Átomos</button>
+</div>
+
+<div class="main wp" id="main">
+
+<!-- ═══════════ PANEL IZQUIERDO ═══════════ -->
+<div class="side L" id="lp">
+
+  <!-- Atributos -->
+  <div class="lp-sec" style="flex:0 0 40%">
+    <div class="lp-hd"><span class="lp-title">Atributos</span><span class="lp-cnt" id="lp-ac"></span></div>
+    <div class="lp-search"><input placeholder="Filtrar…" oninput="fAttr(this.value)"></div>
+    <div class="lp-scroll" id="lp-al"></div>
+  </div>
+
+  <div class="lp-div"></div>
+
+  <!-- Átomos — 4 niveles: App → Módulo → Grupo → Verbo, filtrados por dominio activo -->
+  <div class="lp-sec" style="flex:1">
+    <div class="lp-hd"><span class="lp-title">Átomos</span><span class="lp-cnt" id="lp-atc"></span></div>
+    <div class="lp-search"><input placeholder="Filtrar…" oninput="fAtom(this.value)"></div>
+    <div id="atom-target" style="padding:4px 10px;background:var(--ac-d);border-bottom:1px solid rgba(44,196,168,.2);font-size:9px;color:var(--ac);font-family:var(--fm);flex-shrink:0;display:flex;align-items:center;gap:4px">
+      <span>Dominio:</span><span id="atom-target-lbl" style="font-weight:700">⚙️ D1 Lógico</span>
+    </div>
+    <div class="lp-scroll" id="lp-atl"></div>
+  </div>
+</div>
+
+<!-- ═══════════ CENTRO ═══════════ -->
+<div class="center">
+
+  <div id="pb-roles" class="pane-bar">
+    <span class="ptitle">Rol</span>
+    <select class="sel" id="rol-sel" onchange="loadRol(this.value)"><option value="">— Seleccionar rol —</option></select>
+    <span id="rol-badge"></span><div class="sp"></div>
+    <button class="btn btn-g" onclick="newRol()">+ Nuevo</button>
+    <button class="btn btn-p" onclick="saveRol()">💾 Guardar</button>
+    <button class="btn btn-d" onclick="deleteRol()">🗑 Eliminar</button>
+  </div>
+  <div class="pane active" id="pane-roles">
+    <!-- Identificación -->
+    <div class="sec">
+      <div class="sec-hd">Identificación</div>
+      <div class="g2">
+        <div class="fld"><label>Nombre</label><input class="inp" id="r-name" placeholder="Nombre del rol"></div>
+        <div class="fld"><label>Slug</label><input class="inp" id="r-slug"></div>
+        <div class="fld"><label>Tier</label>
+          <select class="sel" id="r-tier" style="width:100%">
+            <option>SU</option><option>SYS</option><option>BIZ_N1</option><option>BIZ_N2</option>
+            <option>BIZ_N3</option><option>BIZ_N4</option><option>BIZ_N5</option><option>EXT_N0</option><option>M2M</option><option>VISITANTE</option>
+          </select>
+        </div>
+        <div class="fld"><label>Estado</label>
+          <select class="sel" id="r-status" style="width:100%">
+            <option>DRAFT</option><option>REVIEW</option><option>ACTIVE</option><option>DEPRECATED</option><option>ARCHIVED</option>
+          </select>
+        </div>
+        <div class="fld"><label>Nivel jerárquico</label><input class="inp" id="r-level" type="number" min="1" max="10" value="5"></div>
+        <div class="fld"><label>Código</label><input class="inp" id="r-code" readonly style="color:var(--t3)"></div>
+      </div>
+    </div>
+    <!-- Árbol de 12 dominios -->
+    <div id="r-dom-tree"></div>
+  </div>
+
+  <div id="pb-usuarios" class="pane-bar" style="display:none">
+    <span class="ptitle">Usuario</span>
+    <select class="sel" id="usr-sel" onchange="loadUser(this.value)">
+      <option value="">— Seleccionar usuario —</option>
+      <option value="u1">jperez — Juan Pérez</option>
+    </select>
+    <div class="sp"></div>
+    <button class="btn btn-g">+ Nuevo</button>
+    <button class="btn btn-p">💾 Guardar</button>
+    <button class="btn btn-d">🗑 Eliminar</button>
+  </div>
+  <div class="pane" id="pane-usuarios">
+    <div class="sec">
+      <div class="sec-hd">Datos del usuario</div>
+      <div class="g2">
+        <div class="fld"><label>Username</label><input class="inp" id="u-username" placeholder="jperez"></div>
+        <div class="fld"><label>Entidad ID</label><input class="inp" id="u-eid" placeholder="E-00247"></div>
+        <div class="fld" style="grid-column:1/-1"><label>Rol base (solo roles con template)</label>
+          <select class="sel" id="u-rol" style="width:100%" onchange="loadUserRole(this.value)"><option value="">— Seleccionar rol —</option></select>
+        </div>
+      </div>
+    </div>
+    <div id="u-dom-tree"></div>
+  </div>
+
+  <div id="pb-politicas" class="pane-bar" style="display:none">
+    <span class="ptitle">Catálogo de Políticas</span>
+    <input class="inp" style="width:200px;flex-shrink:0" placeholder="Buscar…" oninput="renderCRUD('pols',this.value)">
+    <div class="sp"></div><button class="btn btn-g">+ Nueva</button><button class="btn btn-p">💾 Guardar</button>
+  </div>
+  <div class="pane-full" id="pane-politicas"><div id="pols-crud"></div></div>
+
+  <div id="pb-atributos" class="pane-bar" style="display:none">
+    <span class="ptitle">Catálogo de Atributos</span>
+    <input class="inp" style="width:200px;flex-shrink:0" placeholder="Buscar…" oninput="renderCRUD('attrs',this.value)">
+    <div class="sp"></div><button class="btn btn-g">+ Nuevo</button><button class="btn btn-p">💾 Guardar</button>
+  </div>
+  <div class="pane-full" id="pane-atributos"><div id="attrs-crud"></div></div>
+
+  <div id="pb-aplicaciones" class="pane-bar" style="display:none">
+    <span class="ptitle">Catálogo de Aplicaciones</span>
+    <input class="inp" style="width:200px;flex-shrink:0" placeholder="Buscar…" oninput="renderCRUD('apps',this.value)">
+    <div class="sp"></div><button class="btn btn-g">+ Nueva app</button><button class="btn btn-p">💾 Guardar</button>
+  </div>
+  <div class="pane-full" id="pane-aplicaciones"><div id="apps-crud"></div></div>
+
+  <div id="pb-atomos" class="pane-bar" style="display:none">
+    <span class="ptitle">Catálogo de Átomos</span>
+    <input class="inp" style="width:200px;flex-shrink:0" placeholder="Buscar…" oninput="renderCRUD('atoms',this.value)">
+    <div class="sp"></div><span style="font-size:9px;color:var(--t3);font-family:var(--fm)">120 demo (D1–D12) · 5808 VPS</span>
+  </div>
+  <div class="pane-full" id="pane-atomos"><div id="atoms-crud"></div></div>
+</div>
+
+<!-- ═══════════ PANEL DERECHO ═══════════ -->
+<div class="side R" id="rp">
+
+  <!-- Políticas filtradas por dominio activo -->
+  <div class="lp-sec" style="flex:0 0 55%">
+    <div class="lp-hd"><span class="lp-title">Políticas</span><span class="lp-cnt" id="rp-pc"></span></div>
+    <div class="lp-search"><input placeholder="Filtrar…" oninput="fPol(this.value)"></div>
+    <div id="pol-target" style="padding:4px 10px;background:var(--ac-d);border-bottom:1px solid rgba(44,196,168,.2);font-size:9px;color:var(--ac);font-family:var(--fm);flex-shrink:0;display:flex;align-items:center;gap:4px">
+      <span>Dominio:</span><span id="pol-target-lbl" style="font-weight:700">⚙️ D1 Lógico</span>
+    </div>
+    <div class="lp-scroll" id="rp-pl"></div>
+  </div>
+
+  <div class="lp-div"></div>
+
+  <!-- Métodos auth: catálogo de todos los disponibles en bAuth -->
+  <div class="lp-sec" style="flex:1">
+    <div class="lp-hd"><span class="lp-title">Métodos auth</span><span class="lp-cnt" id="rp-mc"></span></div>
+    <div class="lp-search"><input placeholder="Filtrar…" oninput="fMeth(this.value)"></div>
+    <div class="m-help">
+      Catálogo de métodos que bAuth puede controlar.<br>
+      <strong>Req</strong> = obligatorio en orden · <strong>Alt</strong> = sustituto autorizado por rol superior.
+    </div>
+    <div id="meth-target" style="padding:4px 10px;background:var(--ac-d);border-bottom:1px solid rgba(44,196,168,.2);font-size:9px;color:var(--ac);font-family:var(--fm);flex-shrink:0;display:flex;align-items:center;gap:4px">
+      <span>Asignando a:</span><span id="meth-target-lbl" style="font-weight:700">⚙️ D1 Lógico</span>
+      <span style="color:var(--t3);font-size:8px;margin-left:2px">(abre un dominio para cambiar)</span>
+    </div>
+    <div class="lp-scroll" id="rp-ml"></div>
+  </div>
+</div>
+
+</div><!-- .main -->
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// CATÁLOGOS
+// ═══════════════════════════════════════════════════════════════
+const DOMAINS = [
+  {c:1, name:'Lógico',       icon:'⚙️'},
+  {c:2, name:'Físico',       icon:'🏛️'},
+  {c:3, name:'Financiero',   icon:'💰'},
+  {c:4, name:'Temporal',     icon:'⏱️'},
+  {c:5, name:'Biométrico',   icon:'🫁'},
+  {c:6, name:'Geoespacial',  icon:'🌍'},
+  {c:7, name:'Red',          icon:'🌐'},
+  {c:8, name:'Contexto',     icon:'📋'},
+  {c:9, name:'Credenciales', icon:'🔐'},
+  {c:10,name:'Delegación',   icon:'👥'},
+  {c:11,name:'Auditoría',    icon:'📊'},
+  {c:12,name:'Blockchain',   icon:'⛓️'},
+];
+
+const ROLES = [
+  {code:101,name:'Cajero de Prueba',     slug:'test-cajero',     tier:'BIZ_N1',has_tmpl:false},
+  {code:102,name:'Contador de Prueba',   slug:'test-contador',   tier:'BIZ_N2',has_tmpl:true},
+  {code:103,name:'Supervisor de Prueba', slug:'test-supervisor', tier:'BIZ_N3',has_tmpl:false},
+];
+
+// Catálogo canónico de métodos de autenticación (22 métodos — NIST SP 800-63B-4, FIDO2, ISO, PCI DSS)
+// cat = familia técnica · domains = domain_code[] donde el método es aplicable según estándares
+// Investigación: BAUTH-METODOS-AUTH-CLASIFICACION-DOMINIOS-2026-07-08.md
+// CORRECCIÓN 2026-07-08: D6 Geoespacial SÍ tiene métodos propios (WinMagic, USPTO patents, FIDO2 attestation+GPS)
+// D1 Lógico tiene 18 de 22 métodos (todos los NIST 800-63B + federación + M2M)
+const AUTH_METHODS = [
+  // ── Conocimiento ──────────────────────────────────────────────────────────
+  {id:'am1', name:'Password / Memorized Secret',           code:'password',        aal:'AAL1',mfa:false,cat:'knowledge',  domains:[1,3,7,8],            std:'NIST 800-63B-4 §5.1.1'},
+  // ── Posesión — OTP ───────────────────────────────────────────────────────
+  {id:'am2', name:'TOTP (RFC 6238)',                       code:'totp',            aal:'AAL2',mfa:true, cat:'possession', domains:[1,3,4,7,8],           std:'RFC 6238 · NIST AAL2'},
+  {id:'am3', name:'HOTP (RFC 4226)',                       code:'hotp',            aal:'AAL2',mfa:true, cat:'possession', domains:[1,3,4,7,8],           std:'RFC 4226'},
+  // ── Posesión — FIDO2 / WebAuthn ──────────────────────────────────────────
+  // D6: device attestation incluye coordenadas GPS verificadas (FIDO2 + location claim)
+  {id:'am4', name:'WebAuthn Passwordless',                 code:'webauthn-pw',     aal:'AAL2',mfa:false,cat:'possession', domains:[1,3,5,6,7,9],         std:'W3C WebAuthn L2 · FIDO2 · GPS attestation'},
+  {id:'am5', name:'WebAuthn 2FA',                          code:'webauthn-2fa',    aal:'AAL2',mfa:true, cat:'possession', domains:[1,3,5,6,7,9],         std:'W3C WebAuthn L2'},
+  {id:'am6', name:'Passkey (FIDO2 sincronizable)',         code:'passkey',         aal:'AAL2',mfa:false,cat:'possession', domains:[1,2,3,5,6,7,9],       std:'FIDO Alliance 2.2 · NFC Mobile PACS · GPS attestation'},
+  // ── Posesión — PKI / Certificados ────────────────────────────────────────
+  // D6: certificado X.509 puede incluir location claim (RFC 5280 extension)
+  {id:'am7', name:'X.509 mTLS / PIV / CAC',               code:'x509-mtls',       aal:'AAL3',mfa:true, cat:'possession', domains:[1,2,3,6,7,9,10,11,12],std:'RFC 8705 · NIST SP 800-116 · HSPD-12'},
+  {id:'am8', name:'Smart Card / NFC (PACS)',               code:'smartcard-nfc',   aal:'AAL3',mfa:false,cat:'possession', domains:[2,7,9],               std:'ISO 14443 · ISO 7816 · OSDP v2.2'},
+  // ── Posesión — Red empresarial ───────────────────────────────────────────
+  {id:'am9', name:'Kerberos',                              code:'kerberos',        aal:'AAL2',mfa:false,cat:'possession', domains:[1,7],                 std:'RFC 4120 · MS-KILE'},
+  // ── Federación / SSO ─────────────────────────────────────────────────────
+  {id:'am10',name:'SAML 2.0',                              code:'saml2',           aal:'AAL1',mfa:false,cat:'federation', domains:[1,10,11],             std:'OASIS SAML 2.0'},
+  {id:'am11',name:'Social Brokering (OAuth2/OIDC)',        code:'social',          aal:'AAL1',mfa:false,cat:'federation', domains:[1],                   std:'RFC 6749 · OIDC Core 1.0'},
+  // ── Backchannel / Adaptativo ─────────────────────────────────────────────
+  // D6: CIBA se usa para aprobaciones remotas cuando ubicación no coincide (geofencing backch.)
+  {id:'am12',name:'CIBA (Backchannel Auth)',                code:'ciba',            aal:'AAL2',mfa:true, cat:'adaptive',   domains:[1,3,6,8,10],          std:'OpenID CIBA 1.0'},
+  // D6: Conditional OTP es el mecanismo PRINCIPAL de geofencing step-up (RFC 9470)
+  {id:'am13',name:'Conditional OTP / Step-Up',             code:'cond-otp',        aal:'AAL2',mfa:true, cat:'adaptive',   domains:[1,4,6,7,8],           std:'RFC 9470 · NIST AAL2'},
+  {id:'am14',name:'Device Authorization (RFC 8628)',       code:'device-auth',     aal:'AAL1',mfa:false,cat:'adaptive',   domains:[1,4,6,7,8],           std:'RFC 8628'},
+  // ── Recuperación / Backup ────────────────────────────────────────────────
+  {id:'am15',name:'Recovery Codes',                        code:'recovery',        aal:'AAL1',mfa:false,cat:'backup',     domains:[1,9],                 std:'NIST 800-63B-4 §5.1.2'},
+  {id:'am16',name:'Email OTP',                             code:'email-otp',       aal:'AAL1',mfa:false,cat:'backup',     domains:[1,8],                 std:'Deprecado NIST — uso limitado'},
+  // ── M2M ──────────────────────────────────────────────────────────────────
+  // D6: Client Credentials autentica servicios de geolocalización (APIs GPS/ubicación)
+  {id:'am17',name:'Client Credentials (M2M)',              code:'client-creds',    aal:'AAL1',mfa:false,cat:'m2m',        domains:[1,3,6,7,9,10,11,12],  std:'RFC 6749 §4.4'},
+  {id:'am18',name:'Token Exchange',                        code:'token-exch',      aal:'AAL1',mfa:false,cat:'m2m',        domains:[1,4,8,10,11],         std:'RFC 8693'},
+  // ── Inherencia / Biométrico físico (PACS) ────────────────────────────────
+  {id:'am19',name:'Biométrico Lector (huella/iris/rostro)',code:'biometric-reader',aal:'AAL3',mfa:false,cat:'inherence',  domains:[2,5],                 std:'ISO/IEC 30107-3 · NIST SP 800-76-2'},
+  // ── Firma criptográfica blockchain / PKI ─────────────────────────────────
+  {id:'am20',name:'ECDSA secp256k1 (Blockchain)',          code:'ecdsa-secp256k1', aal:'AAL3',mfa:false,cat:'signature',  domains:[9,10,11,12],           std:'ANSI X9.62 · FIPS 186-5 · EIP-191'},
+  {id:'am21',name:'EdDSA Ed25519 (Vault / ADSIB)',         code:'eddsa-ed25519',   aal:'AAL3',mfa:false,cat:'signature',  domains:[9,10,11,12],           std:'RFC 8032 · FIPS 186-5 · Bolivia Ley 164'},
+  // ── Geolocalización (NUEVO — corrige error clasificación D6) ─────────────
+  // USPTO: US 12375929 "Geolocation authenticator" · US 8839361 "GPS location validation"
+  // WinMagic MagicEndpoint: Geolocation como factor primario de autenticación
+  {id:'am22',name:'Geolocation Auth (GPS / IP / Wi-Fi)',   code:'geolocation-auth',aal:'AAL2',mfa:false,cat:'geospatial', domains:[1,6,8],               std:'USPTO US 12375929 · WinMagic MagicEndpoint · Zero Trust LBAC'},
+];
+
+// cfg_policy_library — estructura real VPS (FRAMEWORK→DOMAIN→POLICY_SET→POLICY→RULE→PROPERTY)
+// Columnas: id, lt=level_type, path(ltree), name=section_name, dm=domain_map[], vt=value_type, def=default_value, std=standard_ref
+const CFG_POLICY_LIB = [
+  // ── FRAMEWORK: Policies Authentication Framework ──────────────────────────
+  {id:'fw1', lt:'FRAMEWORK', path:'policiesAuthenticationFramework.PoliciesAuthenticationFramework', name:'PoliciesAuthenticationFramework', dm:['D1','D9','D11','D12']},
+  // DOMAIN: advanced_identity_management
+  {id:'d1-aim', lt:'DOMAIN', path:'policiesAuthenticationFramework.PoliciesAuthenticationFramework.advanced_identity_management', name:'advanced_identity_management', dm:['D1','D9']},
+  {id:'ps1-cm', lt:'POLICY_SET', path:'policiesAuthenticationFramework.PoliciesAuthenticationFramework.advanced_identity_management.credential_management', name:'credential_management', dm:['D1','D9']},
+  {id:'p1-ct', lt:'POLICY', path:'policiesAuthenticationFramework.PoliciesAuthenticationFramework.advanced_identity_management.credential_management.credential_types', name:'credential_types', dm:['D1','D9'], vt:'TEXT', def:'password,passkey'},
+  {id:'ps1-io', lt:'POLICY_SET', path:'policiesAuthenticationFramework.PoliciesAuthenticationFramework.advanced_identity_management.identity_orchestration', name:'identity_orchestration', dm:['D1','D9']},
+  {id:'p1-fi', lt:'POLICY', path:'policiesAuthenticationFramework.PoliciesAuthenticationFramework.advanced_identity_management.identity_orchestration.federated_identity', name:'federated_identity', dm:['D1','D9'], vt:'BOOLEAN', def:'false'},
+  {id:'p1-lm', lt:'POLICY', path:'policiesAuthenticationFramework.PoliciesAuthenticationFramework.advanced_identity_management.identity_orchestration.lifecycle_management', name:'lifecycle_management', dm:['D1','D9'], vt:'TEXT', def:'MANAGED'},
+  // DOMAIN: identity_access_policies
+  {id:'d1-iap', lt:'DOMAIN', path:'policiesAuthenticationFramework.PoliciesAuthenticationFramework.identity_access_policies', name:'identity_access_policies', dm:['D1','D9']},
+  {id:'ps1-did', lt:'POLICY_SET', path:'policiesAuthenticationFramework.PoliciesAuthenticationFramework.identity_access_policies.decentralized_identity', name:'decentralized_identity', dm:['D1','D9']},
+  {id:'p1-dm', lt:'POLICY', path:'policiesAuthenticationFramework.PoliciesAuthenticationFramework.identity_access_policies.decentralized_identity.did_management', name:'did_management', dm:['D1','D9'], vt:'BOOLEAN', def:'false'},
+  // DOMAIN: blockchain_audit
+  {id:'d12-ba', lt:'DOMAIN', path:'policiesAuthenticationFramework.PoliciesAuthenticationFramework.blockchain_audit', name:'blockchain_audit', dm:['D12']},
+  {id:'ps12-av', lt:'POLICY_SET', path:'policiesAuthenticationFramework.PoliciesAuthenticationFramework.blockchain_audit.audit_verification', name:'audit_verification', dm:['D12']},
+  {id:'p12-vp', lt:'POLICY', path:'policiesAuthenticationFramework.PoliciesAuthenticationFramework.blockchain_audit.audit_verification.verification_process', name:'verification_process', dm:['D12'], vt:'BOOLEAN', def:'true'},
+  {id:'ps12-il', lt:'POLICY_SET', path:'policiesAuthenticationFramework.PoliciesAuthenticationFramework.blockchain_audit.immutable_logging', name:'immutable_logging', dm:['D12']},
+  {id:'p12-ea', lt:'POLICY', path:'policiesAuthenticationFramework.PoliciesAuthenticationFramework.blockchain_audit.immutable_logging.event_anchoring', name:'event_anchoring', dm:['D12'], vt:'BOOLEAN', def:'true'},
+  // DOMAIN: compliance_regulation
+  {id:'d11-cr', lt:'DOMAIN', path:'policiesAuthenticationFramework.PoliciesAuthenticationFramework.compliance_regulation', name:'compliance_regulation', dm:['D11']},
+  {id:'ps11-rf', lt:'POLICY_SET', path:'policiesAuthenticationFramework.PoliciesAuthenticationFramework.compliance_regulation.regulatory_framework', name:'regulatory_framework', dm:['D11']},
+  {id:'p11-ae', lt:'POLICY', path:'policiesAuthenticationFramework.PoliciesAuthenticationFramework.compliance_regulation.regulatory_framework.audit_evidence', name:'audit_evidence', dm:['D11'], vt:'BOOLEAN', def:'true'},
+  {id:'p11-cr2', lt:'POLICY', path:'policiesAuthenticationFramework.PoliciesAuthenticationFramework.compliance_regulation.regulatory_framework.compliance_requirements', name:'compliance_requirements', dm:['D11'], vt:'TEXT', def:'ISO27001,NIST'},
+  // DOMAIN: emergency_management
+  {id:'d8-em', lt:'DOMAIN', path:'policiesAuthenticationFramework.PoliciesAuthenticationFramework.emergency_management', name:'emergency_management', dm:['D8']},
+  {id:'ps8-cp', lt:'POLICY_SET', path:'policiesAuthenticationFramework.PoliciesAuthenticationFramework.emergency_management.contingency_plans', name:'contingency_plans', dm:['D8']},
+  {id:'p8-ea', lt:'POLICY', path:'policiesAuthenticationFramework.PoliciesAuthenticationFramework.emergency_management.contingency_plans.emergency_authentication', name:'emergency_authentication', dm:['D8'], vt:'BOOLEAN', def:'true'},
+  {id:'p8-sc', lt:'POLICY', path:'policiesAuthenticationFramework.PoliciesAuthenticationFramework.emergency_management.contingency_plans.service_continuity', name:'service_continuity', dm:['D8'], vt:'INTEGER', def:'99'},
+  // DOMAIN: edge_authentication_policies
+  {id:'d2-eap', lt:'DOMAIN', path:'policiesAuthenticationFramework.PoliciesAuthenticationFramework.edge_authentication_policies', name:'edge_authentication_policies', dm:['D2','D7']},
+  {id:'p2-es', lt:'POLICY', path:'policiesAuthenticationFramework.PoliciesAuthenticationFramework.edge_authentication_policies.edge_security', name:'edge_security', dm:['D2','D7'], vt:'BOOLEAN', def:'true'},
+  {id:'r2-dr', lt:'RULE', path:'policiesAuthenticationFramework.PoliciesAuthenticationFramework.edge_authentication_policies.edge_security.device_requirements', name:'device_requirements', dm:['D2','D7'], vt:'TEXT', def:'MANAGED'},
+  {id:'p2-oo', lt:'POLICY', path:'policiesAuthenticationFramework.PoliciesAuthenticationFramework.edge_authentication_policies.offline_operation', name:'offline_operation', dm:['D2','D7'], vt:'BOOLEAN', def:'false'},
+
+  // ── FRAMEWORK: NIST SP 800-63B Rev.4 ─────────────────────────────────────
+  {id:'fw2', lt:'FRAMEWORK', path:'nist_sp_800_63b_rev4.password_policy_rev4', name:'NIST SP 800-63B Rev.4', dm:['D9']},
+  // DOMAIN: blocklist_screening
+  {id:'d9-bls', lt:'DOMAIN', path:'nist_sp_800_63b_rev4.password_policy_rev4.blocklist_screening', name:'blocklist_screening', dm:['D9']},
+  {id:'r9-req', lt:'RULE', path:'nist_sp_800_63b_rev4.password_policy_rev4.blocklist_screening.required', name:'required', dm:['D9'], vt:'BOOLEAN', def:'true', std:'NIST SP 800-63B-4 §5.1.1.2'},
+  {id:'pr9-uf', lt:'PROPERTY', path:'nist_sp_800_63b_rev4.password_policy_rev4.blocklist_screening.update_frequency', name:'update_frequency', dm:['D9'], vt:'TEXT', def:'daily', std:'NIST SP 800-63B-4'},
+  // DOMAIN: composition_rules
+  {id:'d9-cr', lt:'DOMAIN', path:'nist_sp_800_63b_rev4.password_policy_rev4.composition_rules', name:'composition_rules', dm:['D9']},
+  {id:'pr9-au', lt:'PROPERTY', path:'nist_sp_800_63b_rev4.password_policy_rev4.composition_rules.allow_unicode', name:'allow_unicode', dm:['D9'], vt:'BOOLEAN', def:'true', std:'NIST SP 800-63B-4 §5.1.1.2'},
+  {id:'pr9-ac', lt:'PROPERTY', path:'nist_sp_800_63b_rev4.password_policy_rev4.composition_rules.arbitrary_complexity', name:'arbitrary_complexity', dm:['D9'], vt:'BOOLEAN', def:'false', std:'NIST SP 800-63B-4 §5.1.1.2'},
+  {id:'pr9-rn', lt:'PROPERTY', path:'nist_sp_800_63b_rev4.password_policy_rev4.composition_rules.require_numeric', name:'require_numeric', dm:['D9'], vt:'BOOLEAN', def:'false', std:'NIST SP 800-63B-4 §5.1.1.2'},
+  // DOMAIN: mfa_requirements
+  {id:'d9-mfa', lt:'DOMAIN', path:'nist_sp_800_63b_rev4.password_policy_rev4.mfa_requirements', name:'mfa_requirements', dm:['D9']},
+  {id:'r9-mfar', lt:'RULE', path:'nist_sp_800_63b_rev4.password_policy_rev4.mfa_requirements.required', name:'required', dm:['D9'], vt:'BOOLEAN', def:'true', std:'NIST SP 800-63B-4 §5.1.8'},
+  {id:'pr9-aal', lt:'PROPERTY', path:'nist_sp_800_63b_rev4.password_policy_rev4.mfa_requirements.minimum_aal', name:'minimum_aal', dm:['D9'], vt:'TEXT', def:'AAL2', std:'NIST SP 800-63B-4'},
+
+  // ── FRAMEWORK: Temporal Extensions D4 ────────────────────────────────────
+  {id:'fw4', lt:'FRAMEWORK', path:'d4_temporal_ext.session_timeout_by_aal', name:'Session Timeout by AAL (D4)', dm:['D4']},
+  {id:'d4-aal1', lt:'DOMAIN', path:'d4_temporal_ext.session_timeout_by_aal.aal1', name:'aal1', dm:['D4']},
+  {id:'pr4-t1', lt:'PROPERTY', path:'d4_temporal_ext.session_timeout_by_aal.aal1.timeout_seconds', name:'timeout_seconds', dm:['D4'], vt:'INTEGER', def:'3600', std:'NIST SP 800-63B §7.2'},
+  {id:'d4-aal2', lt:'DOMAIN', path:'d4_temporal_ext.session_timeout_by_aal.aal2', name:'aal2', dm:['D4']},
+  {id:'pr4-t2', lt:'PROPERTY', path:'d4_temporal_ext.session_timeout_by_aal.aal2.timeout_seconds', name:'timeout_seconds', dm:['D4'], vt:'INTEGER', def:'28800', std:'NIST SP 800-63B §7.2'},
+  {id:'fw4b', lt:'FRAMEWORK', path:'d4_temporal_ext.totp_rfc6238_policy', name:'TOTP RFC 6238 (D4)', dm:['D4']},
+  {id:'d4-tod', lt:'DOMAIN', path:'d4_temporal_ext.totp_rfc6238_policy.time_drift', name:'time_drift', dm:['D4']},
+  {id:'pr4-td', lt:'PROPERTY', path:'d4_temporal_ext.totp_rfc6238_policy.time_drift.allowed_drift_steps', name:'allowed_drift_steps', dm:['D4'], vt:'INTEGER', def:'1', std:'RFC 6238 §5.2'},
+
+  // ── FRAMEWORK: Financial Extensions D3 ───────────────────────────────────
+  {id:'fw3', lt:'FRAMEWORK', path:'d3_financial_ext.pci_dss_strong_customer_auth', name:'PCI DSS Strong Customer Auth (D3)', dm:['D3']},
+  {id:'d3-sca', lt:'DOMAIN', path:'d3_financial_ext.pci_dss_strong_customer_auth.sca_requirements', name:'sca_requirements', dm:['D3']},
+  {id:'r3-2fa', lt:'RULE', path:'d3_financial_ext.pci_dss_strong_customer_auth.sca_requirements.two_factor_required', name:'two_factor_required', dm:['D3'], vt:'BOOLEAN', def:'true', std:'PCI DSS 4.0 §8.4'},
+  {id:'pr3-t', lt:'PROPERTY', path:'d3_financial_ext.pci_dss_strong_customer_auth.sca_requirements.transaction_threshold', name:'transaction_threshold', dm:['D3'], vt:'FLOAT', def:'30.00', std:'PCI DSS 4.0'},
+  {id:'fw3b', lt:'FRAMEWORK', path:'d3_financial_ext.bolivia_factura_electronica_auth', name:'Bolivia Factura Electrónica (D3)', dm:['D3']},
+  {id:'d3-fe', lt:'DOMAIN', path:'d3_financial_ext.bolivia_factura_electronica_auth.firma_digital', name:'firma_digital', dm:['D3']},
+  {id:'r3-fd', lt:'RULE', path:'d3_financial_ext.bolivia_factura_electronica_auth.firma_digital.required', name:'required', dm:['D3'], vt:'BOOLEAN', def:'true', std:'Bolivia Ley 164'},
+
+  // ── FRAMEWORK: Delegation Extensions D10 ──────────────────────────────────
+  {id:'fw10', lt:'FRAMEWORK', path:'d10_delegation_ext.delegation_separation_of_duties', name:'Delegation SoD (D10)', dm:['D10']},
+  {id:'d10-sod', lt:'DOMAIN', path:'d10_delegation_ext.delegation_separation_of_duties.sod_constraints', name:'sod_constraints', dm:['D10']},
+  {id:'r10-exc', lt:'RULE', path:'d10_delegation_ext.delegation_separation_of_duties.sod_constraints.exclusive_roles', name:'exclusive_roles', dm:['D10'], vt:'BOOLEAN', def:'true', std:'NIST SP 800-53 AC-5'},
+
+  // ── FRAMEWORK: Blockchain Extensions D12 ─────────────────────────────────
+  {id:'fw12', lt:'FRAMEWORK', path:'d12_blockchain_ext.bolivia_blockchain_digital_signature_legal', name:'Bolivia Blockchain Firma Digital (D12)', dm:['D12']},
+  {id:'d12-fd', lt:'DOMAIN', path:'d12_blockchain_ext.bolivia_blockchain_digital_signature_legal.legal_requirements', name:'legal_requirements', dm:['D12']},
+  {id:'r12-le', lt:'RULE', path:'d12_blockchain_ext.bolivia_blockchain_digital_signature_legal.legal_requirements.ley164_compliance', name:'ley164_compliance', dm:['D12'], vt:'BOOLEAN', def:'true', std:'Bolivia Ley 164 Art.13'},
+];
+// Nodos seleccionables: POLICY, RULE, PROPERTY con value_type definido
+const POLS = CFG_POLICY_LIB.filter(n=>['POLICY','RULE','PROPERTY'].includes(n.lt) && n.vt);
+
+// ═══════════════════════════════════════════════════════════════
+// METHOD_BUNDLES — (method_id × domain_code) → {pols[], attrs[], atoms[]}
+// Catálogo estático: qué políticas/atributos/átomos son técnicamente necesarios
+// cuando un método pasa a Requerido o Alternativo en un dominio específico.
+// Fuentes: NIST 800-63B-4, RFC 6238, FIDO2, PCI DSS 4.0, Ley 164 Bolivia.
+// Nota: políticas se agregan al dominio de activación; attrs y atoms a su propio dc.
+// ═══════════════════════════════════════════════════════════════
+const METHOD_BUNDLES = {
+  // am1 — Password / Memorized Secret
+  'am1:1':{pols:['p1-ct','r9-req','pr9-au','pr9-rn'],    attrs:['a2102','a2106'],       atoms:['at1453','at1454']},
+  'am1:3':{pols:['r3-2fa','pr3-t'],                       attrs:['a7001','a7005'],       atoms:['at5815','at5816']},
+  'am1:7':{pols:['p2-es','r9-mfar'],                      attrs:['a2102'],               atoms:['at1816','at1817']},
+  'am1:8':{pols:['p8-ea','p8-sc'],                        attrs:['a2101'],               atoms:['at5843','at5844']},
+  // am2 — TOTP (RFC 6238)
+  'am2:1':{pols:['pr4-td','pr9-aal','r9-mfar'],           attrs:['a2102','a2106'],       atoms:['at1453','at1463']},
+  'am2:3':{pols:['r3-2fa','pr4-td'],                      attrs:['a2101','a7001'],       atoms:['at5815','at5817']},
+  'am2:4':{pols:['pr4-t2','pr4-td'],                      attrs:['a9002'],               atoms:['at5821','at5822']},
+  'am2:7':{pols:['p2-es','pr4-td'],                       attrs:['a2001'],               atoms:['at5837','at5838']},
+  'am2:8':{pols:['p8-ea','pr4-td'],                       attrs:['a2101'],               atoms:['at5843','at5845']},
+  // am3 — HOTP (RFC 4226)
+  'am3:1':{pols:['r9-mfar','pr9-aal'],                    attrs:['a2102'],               atoms:['at1453','at1463']},
+  'am3:3':{pols:['r3-2fa'],                               attrs:['a7001'],               atoms:['at5815','at5817']},
+  'am3:4':{pols:['pr4-t2'],                               attrs:['a9002'],               atoms:['at5821']},
+  // am4 — WebAuthn Passwordless
+  'am4:1':{pols:['p1-ct','pr9-aal'],                      attrs:['a2102','a6002'],       atoms:['at1453','at1211']},
+  'am4:3':{pols:['r3-2fa'],                               attrs:['a7001'],               atoms:['at5815']},
+  'am4:5':{pols:['r9-req'],                               attrs:['a1101','a1102'],       atoms:['at5828','at5829']},
+  'am4:6':{pols:['p2-es'],                                attrs:['a4001','a4002'],       atoms:['at5834','at5835']},
+  'am4:7':{pols:['p2-es','pr9-aal'],                      attrs:['a2102'],               atoms:['at1816','at1819']},
+  'am4:9':{pols:['r9-req','pr9-aal'],                     attrs:['a3001'],               atoms:['at2421','at2424']},
+  // am5 — WebAuthn 2FA
+  'am5:1':{pols:['p1-ct','r9-mfar','pr9-aal'],            attrs:['a2102','a6002'],       atoms:['at1453','at1211']},
+  'am5:3':{pols:['r3-2fa'],                               attrs:['a7001'],               atoms:['at5815']},
+  'am5:5':{pols:['r9-req'],                               attrs:['a1101','a1102'],       atoms:['at5828','at5829']},
+  'am5:6':{pols:['p2-es'],                                attrs:['a4001','a4002'],       atoms:['at5834','at5835']},
+  'am5:9':{pols:['r9-req','r9-mfar'],                     attrs:['a3001'],               atoms:['at2421','at2424']},
+  // am6 — Passkey (FIDO2 sincronizable)
+  'am6:1':{pols:['p1-ct','pr9-aal'],                      attrs:['a2102','a6002'],       atoms:['at1453','at1211']},
+  'am6:2':{pols:['p2-es'],                                attrs:['a4001','a4010'],       atoms:['at5809','at5811']},
+  'am6:5':{pols:['r9-req'],                               attrs:['a1101','a1102'],       atoms:['at5828','at5829']},
+  'am6:6':{pols:['p2-es'],                                attrs:['a4001','a4002'],       atoms:['at5834','at5835']},
+  'am6:9':{pols:['r9-req','pr9-aal'],                     attrs:['a3001'],               atoms:['at2421','at2424']},
+  // am7 — X.509 mTLS / PIV / CAC
+  'am7:1':{pols:['p1-ct','pr9-aal','r9-req'],             attrs:['a3001','a2102','a6002'],atoms:['at2424','at2421','at1211']},
+  'am7:2':{pols:['p2-es','r9-req'],                       attrs:['a3001','a4001'],       atoms:['at5809','at5812']},
+  'am7:3':{pols:['r3-2fa','r3-fd'],                       attrs:['a3001','a7001'],       atoms:['at5815','at5816']},
+  'am7:6':{pols:['p2-es'],                                attrs:['a4001','a1105'],       atoms:['at5834','at5835']},
+  'am7:9':{pols:['r9-req','pr9-aal'],                     attrs:['a3001','a3101'],       atoms:['at2421','at2424']},
+  'am7:11':{pols:['p11-ae'],                              attrs:['a3001'],               atoms:['at5853','at5854']},
+  'am7:12':{pols:['r12-le','p12-vp'],                     attrs:['a3001','a3101'],       atoms:['at5858','at5860']},
+  // am8 — Smart Card / NFC (PACS)
+  'am8:2':{pols:['p2-es','r9-req'],                       attrs:['a4001','a4010'],       atoms:['at5809','at5811','at5812']},
+  'am8:7':{pols:['p2-es'],                                attrs:['a4001'],               atoms:['at5837','at5840']},
+  'am8:9':{pols:['r9-req'],                               attrs:['a3001'],               atoms:['at2421','at2424']},
+  // am9 — Kerberos
+  'am9:1':{pols:['p1-ct','pr9-aal'],                      attrs:['a2102','a6001','a6002'],atoms:['at1211','at1332']},
+  'am9:7':{pols:['p2-es'],                                attrs:['a6001'],               atoms:['at5837','at5840']},
+  // am10 — SAML 2.0
+  'am10:1':{pols:['p1-fi','p1-lm'],                       attrs:['a2102','a6001','a6002'],atoms:['at1332','at1453']},
+  'am10:10':{pols:['r10-exc'],                            attrs:['a6002','a6001'],       atoms:['at5848','at5849']},
+  'am10:11':{pols:['p11-ae'],                             attrs:['a2102'],               atoms:['at5855','at5856']},
+  // am11 — Social Brokering
+  'am11:1':{pols:['p1-fi','p1-ct'],                       attrs:['a2101','a1001','a1004'],atoms:['at1453','at1456']},
+  // am12 — CIBA (Backchannel Auth)
+  'am12:1':{pols:['r9-mfar','pr9-aal'],                   attrs:['a2001','a2101'],       atoms:['at1453','at5843']},
+  'am12:3':{pols:['r3-2fa'],                              attrs:['a7001','a2001'],       atoms:['at5815','at5816']},
+  'am12:6':{pols:['p2-es'],                               attrs:['a4001','a2001'],       atoms:['at5835','at5836']},
+  'am12:8':{pols:['p8-ea','p8-sc'],                       attrs:['a2001'],               atoms:['at5843','at5845']},
+  // am13 — Conditional OTP / Step-Up
+  'am13:1':{pols:['r9-mfar','pr9-aal','pr4-t2'],          attrs:['a2001','a2102'],       atoms:['at5843','at5847']},
+  'am13:4':{pols:['pr4-t2','pr4-td'],                     attrs:['a9002'],               atoms:['at5821','at5822']},
+  'am13:6':{pols:['p2-es'],                               attrs:['a4001','a4002'],       atoms:['at5835','at5836']},
+  'am13:7':{pols:['p2-es'],                               attrs:['a2001'],               atoms:['at5837','at5838']},
+  'am13:8':{pols:['p8-ea'],                               attrs:['a2001'],               atoms:['at5843','at5844']},
+  // am14 — Device Authorization (RFC 8628)
+  'am14:1':{pols:['pr9-aal','p1-ct'],                     attrs:['a2102','a6001'],       atoms:['at1332','at1456']},
+  'am14:4':{pols:['pr4-t1','pr4-t2'],                     attrs:['a9002'],               atoms:['at5821','at5822']},
+  'am14:6':{pols:['p2-es'],                               attrs:['a4001'],               atoms:['at5834']},
+  'am14:7':{pols:['p2-es'],                               attrs:['a6001'],               atoms:['at5837','at5840']},
+  'am14:8':{pols:['p8-ea'],                               attrs:['a2001'],               atoms:['at5843','at5845']},
+  // am15 — Recovery Codes
+  'am15:1':{pols:['p1-ct','r9-req'],                      attrs:['a2106','a2102'],       atoms:['at1453','at1456']},
+  'am15:9':{pols:['r9-req'],                              attrs:['a2106','a3001'],       atoms:['at2424']},
+  // am16 — Email OTP
+  'am16:1':{pols:['p1-ct'],                               attrs:['a2101','a2106'],       atoms:['at1453','at1456']},
+  'am16:8':{pols:['p8-ea'],                               attrs:['a2101'],               atoms:['at5843','at5845']},
+  // am17 — Client Credentials (M2M)
+  'am17:1':{pols:['p1-ct','pr9-aal'],                     attrs:['a6001','a6002'],       atoms:['at1332','at1342']},
+  'am17:3':{pols:['r3-2fa'],                              attrs:['a7001'],               atoms:['at5815','at5817']},
+  'am17:6':{pols:['p2-es'],                               attrs:['a6001'],               atoms:['at5835','at5836']},
+  'am17:9':{pols:['r9-req'],                              attrs:['a3001','a3101'],       atoms:['at2300','at2303']},
+  'am17:12':{pols:['r12-le'],                             attrs:['a3101'],               atoms:['at5858','at5862']},
+  // am18 — Token Exchange
+  'am18:1':{pols:['p1-lm','pr9-aal'],                     attrs:['a6001','a6002'],       atoms:['at1332','at1342']},
+  'am18:4':{pols:['pr4-t2'],                              attrs:['a9002'],               atoms:['at5821','at5822']},
+  'am18:8':{pols:['p8-sc'],                               attrs:['a2101'],               atoms:['at5843','at5847']},
+  'am18:10':{pols:['r10-exc'],                            attrs:['a6002'],               atoms:['at5848','at5849']},
+  'am18:11':{pols:['p11-ae'],                             attrs:['a2102'],               atoms:['at5853','at5855']},
+  // am19 — Biométrico Lector
+  'am19:2':{pols:['p2-es','r9-req'],                      attrs:['a1101','a1102','a4010'],atoms:['at5809','at5812']},
+  'am19:5':{pols:['r9-req'],                              attrs:['a1101','a1102'],       atoms:['at5826','at5827','at5829']},
+  // am20 — ECDSA secp256k1 (Blockchain)
+  'am20:9':{pols:['r9-req','pr9-aal'],                    attrs:['a3001','a3101'],       atoms:['at2300','at2301','at2424']},
+  'am20:11':{pols:['p11-ae','p12-vp'],                    attrs:['a3101'],               atoms:['at5853','at5854']},
+  'am20:12':{pols:['r12-le','p12-ea'],                    attrs:['a3101'],               atoms:['at5858','at5860','at5861']},
+  // am21 — EdDSA Ed25519 (Vault / ADSIB)
+  'am21:9':{pols:['r9-req','pr9-aal'],                    attrs:['a3001','a3101'],       atoms:['at2300','at2421','at2424']},
+  'am21:11':{pols:['p11-ae'],                             attrs:['a3101'],               atoms:['at5853','at5854']},
+  'am21:12':{pols:['r12-le','p12-ea'],                    attrs:['a3101'],               atoms:['at5858','at5860']},
+  // am22 — Geolocation Auth (GPS / IP / Wi-Fi)
+  'am22:1':{pols:['p1-ct','pr9-aal'],                     attrs:['a4001','a4002','a1105'],atoms:['at5843','at5845']},
+  'am22:6':{pols:['p2-es'],                               attrs:['a4001','a4002','a1105'],atoms:['at5831','at5834','at5835']},
+  'am22:8':{pols:['p8-ea'],                               attrs:['a4001'],               atoms:['at5843','at5844']},
+};
+
+// idn_tipo_atributo — catálogo controlado de tipos de atributo (BAUTH-D00-IDN-TIPO-ATRIBUTO-v1.0.md)
+// Campos: id, code=tipo_code, cat=categoria, sub=sub_categoria, name=tipo_key, nom=tipo_nombre, fmt=display_format, dc=dom_code
+const ATTRS = [
+  // ── personal — Nombres ──────────────────────────────────────────────────────
+  {id:'a1001',code:1001,cat:'personal',  sub:'nombres',    name:'nombre_primero',  nom:'Primer Nombre',       fmt:'TEXT',       dc:1},
+  {id:'a1002',code:1002,cat:'personal',  sub:'nombres',    name:'nombre_segundo',  nom:'Segundo Nombre',      fmt:'TEXT',       dc:1},
+  {id:'a1004',code:1004,cat:'personal',  sub:'nombres',    name:'apellido_paterno',nom:'Apellido Paterno',    fmt:'TEXT',       dc:1},
+  {id:'a1005',code:1005,cat:'personal',  sub:'nombres',    name:'apellido_materno',nom:'Apellido Materno',    fmt:'TEXT',       dc:1},
+  {id:'a1008',code:1008,cat:'personal',  sub:'nombres',    name:'nombre_preferido',nom:'Nombre Preferido',    fmt:'TEXT',       dc:1},
+  {id:'a1010',code:1010,cat:'personal',  sub:'nombres',    name:'nombre_comercial',nom:'Nombre Comercial',    fmt:'TEXT',       dc:1},
+  // ── personal — Datos biográficos ─────────────────────────────────────────────
+  {id:'a1101',code:1101,cat:'personal',  sub:'biografico', name:'fecha_nacimiento',nom:'Fecha de Nacimiento', fmt:'DATE_ISO',   dc:5},
+  {id:'a1102',code:1102,cat:'personal',  sub:'biografico', name:'genero',          nom:'Género',              fmt:'ENUM',       dc:5},
+  {id:'a1103',code:1103,cat:'personal',  sub:'biografico', name:'estado_civil',    nom:'Estado Civil',        fmt:'ENUM',       dc:1},
+  {id:'a1105',code:1105,cat:'personal',  sub:'biografico', name:'nacionalidad',    nom:'Nacionalidad',        fmt:'COUNTRY_CODE',dc:6},
+  {id:'a1106',code:1106,cat:'personal',  sub:'biografico', name:'idioma_principal',nom:'Idioma Principal',    fmt:'LOCALE_BCP47',dc:1},
+  // ── contacto — Teléfonos ─────────────────────────────────────────────────────
+  {id:'a2001',code:2001,cat:'contacto',  sub:'telefonos',  name:'telefono_movil',  nom:'Teléfono Móvil',      fmt:'E164',       dc:1},
+  {id:'a2002',code:2002,cat:'contacto',  sub:'telefonos',  name:'telefono_fijo',   nom:'Teléfono Fijo',       fmt:'E164',       dc:1},
+  {id:'a2007',code:2007,cat:'contacto',  sub:'telefonos',  name:'whatsapp',        nom:'WhatsApp',            fmt:'E164',       dc:1},
+  // ── contacto — Emails ────────────────────────────────────────────────────────
+  {id:'a2101',code:2101,cat:'contacto',  sub:'emails',     name:'email_personal',  nom:'Email Personal',      fmt:'EMAIL',      dc:1},
+  {id:'a2102',code:2102,cat:'contacto',  sub:'emails',     name:'email_trabajo',   nom:'Email de Trabajo',    fmt:'EMAIL',      dc:1},
+  {id:'a2106',code:2106,cat:'contacto',  sub:'emails',     name:'email_recuperacion',nom:'Email de Recuperación',fmt:'EMAIL',   dc:9},
+  // ── contacto — Redes sociales ─────────────────────────────────────────────────
+  {id:'a2201',code:2201,cat:'contacto',  sub:'redes',      name:'linkedin',        nom:'LinkedIn',            fmt:'URL',        dc:1},
+  {id:'a2202',code:2202,cat:'contacto',  sub:'redes',      name:'twitter_x',       nom:'Twitter / X',         fmt:'TEXT',       dc:1},
+  // ── documento — Identidad personal ──────────────────────────────────────────
+  {id:'a3001',code:3001,cat:'documento', sub:'identidad',  name:'ci_bo',           nom:'CI Bolivia',          fmt:'CI_BO',      dc:9},
+  {id:'a3013',code:3013,cat:'documento', sub:'identidad',  name:'pasaporte',       nom:'Pasaporte',           fmt:'PASSPORT',   dc:9},
+  {id:'a3015',code:3015,cat:'documento', sub:'identidad',  name:'dni_ar',          nom:'DNI Argentina',       fmt:'DNI_AR',     dc:9},
+  // ── documento — Tributario / Fiscal ──────────────────────────────────────────
+  {id:'a3101',code:3101,cat:'documento', sub:'tributario', name:'nit_bo',          nom:'NIT Bolivia',         fmt:'NIT_BO',     dc:9},
+  {id:'a3105',code:3105,cat:'documento', sub:'tributario', name:'ruc_pe',          nom:'RUC Perú',            fmt:'RUC_PE',     dc:9},
+  // ── ubicacion ────────────────────────────────────────────────────────────────
+  {id:'a4001',code:4001,cat:'ubicacion', sub:'direccion',  name:'pais',            nom:'País',                fmt:'COUNTRY_CODE',dc:6},
+  {id:'a4002',code:4002,cat:'ubicacion', sub:'direccion',  name:'ciudad',          nom:'Ciudad',              fmt:'TEXT',       dc:6},
+  {id:'a4010',code:4010,cat:'ubicacion', sub:'direccion',  name:'direccion_postal',nom:'Dirección Postal',    fmt:'TEXT',       dc:6},
+  // ── profesional ───────────────────────────────────────────────────────────────
+  {id:'a6001',code:6001,cat:'profesional',sub:'laboral',   name:'empresa',         nom:'Empresa',             fmt:'TEXT',       dc:1},
+  {id:'a6002',code:6002,cat:'profesional',sub:'laboral',   name:'cargo',           nom:'Cargo',               fmt:'TEXT',       dc:1},
+  {id:'a6005',code:6005,cat:'profesional',sub:'laboral',   name:'fecha_ingreso',   nom:'Fecha de Ingreso',    fmt:'DATE_ISO',   dc:1},
+  {id:'a6025',code:6025,cat:'profesional',sub:'laboral',   name:'habilidad',       nom:'Habilidad',           fmt:'TEXT',       dc:1},
+  // ── financiero ────────────────────────────────────────────────────────────────
+  {id:'a7001',code:7001,cat:'financiero', sub:'bancario',  name:'cuenta_bancaria', nom:'Cuenta Bancaria',     fmt:'IBAN',       dc:3},
+  {id:'a7005',code:7005,cat:'financiero', sub:'bancario',  name:'moneda_preferida',nom:'Moneda Preferida',    fmt:'CURRENCY_ISO',dc:3},
+  // ── suscripcion ───────────────────────────────────────────────────────────────
+  {id:'a9001',code:9001,cat:'suscripcion',sub:'plan',      name:'plan_codigo',     nom:'Código de Plan',      fmt:'TEXT',       dc:1},
+  {id:'a9002',code:9002,cat:'suscripcion',sub:'plan',      name:'fecha_vencimiento',nom:'Fecha Vencimiento',  fmt:'DATE_ISO',   dc:4},
+];
+
+// 4 niveles: app / mod / grp / vrb — dom_code del átomo
+const ATOMS = [
+  {id:'at1',  app:'Tryton', mod:'Finanzas',           grp:'Contabilidad',  vrb:'create', slug:'tryton.g1.d1.nuevo',      pos:1,   dc:1},
+  {id:'at2',  app:'Tryton', mod:'Finanzas',           grp:'Contabilidad',  vrb:'update', slug:'tryton.g1.d1.editar',     pos:2,   dc:1},
+  {id:'at3',  app:'Tryton', mod:'Finanzas',           grp:'Contabilidad',  vrb:'delete', slug:'tryton.g1.d1.eliminar',   pos:3,   dc:1},
+  {id:'at4',  app:'Tryton', mod:'Finanzas',           grp:'Contabilidad',  vrb:'read',   slug:'tryton.g1.d1.ver',        pos:4,   dc:1},
+  {id:'at5',  app:'Tryton', mod:'Finanzas',           grp:'Contabilidad',  vrb:'print',  slug:'tryton.g1.d1.imprimir',   pos:5,   dc:1},
+  {id:'at11', app:'Tryton', mod:'Finanzas',           grp:'Contabilidad',  vrb:'execute',slug:'tryton.g1.d1.ejecutar',   pos:11,  dc:1},
+  {id:'at18', app:'Tryton', mod:'Finanzas',           grp:'Contabilidad',  vrb:'export', slug:'tryton.g1.d1.exportar',   pos:18,  dc:1},
+  {id:'at122',app:'Tryton', mod:'Cadena Suministro',  grp:'Inventario',    vrb:'create', slug:'tryton.g2.d1.nuevo',      pos:122, dc:1},
+  {id:'at123',app:'Tryton', mod:'Cadena Suministro',  grp:'Inventario',    vrb:'update', slug:'tryton.g2.d1.editar',     pos:123, dc:1},
+  {id:'at124',app:'Tryton', mod:'Cadena Suministro',  grp:'Inventario',    vrb:'delete', slug:'tryton.g2.d1.eliminar',   pos:124, dc:1},
+  {id:'at125',app:'Tryton', mod:'Cadena Suministro',  grp:'Inventario',    vrb:'read',   slug:'tryton.g2.d1.ver',        pos:125, dc:1},
+  {id:'at126',app:'Tryton', mod:'Cadena Suministro',  grp:'Inventario',    vrb:'print',  slug:'tryton.g2.d1.imprimir',   pos:126, dc:1},
+  {id:'at132',app:'Tryton', mod:'Cadena Suministro',  grp:'Inventario',    vrb:'execute',slug:'tryton.g2.d1.ejecutar',   pos:132, dc:1},
+  {id:'at139',app:'Tryton', mod:'Cadena Suministro',  grp:'Inventario',    vrb:'export', slug:'tryton.g2.d1.exportar',   pos:139, dc:1},
+  {id:'at243',app:'Tryton', mod:'Comercial',          grp:'Ventas',        vrb:'create', slug:'tryton.g3.d1.nuevo',      pos:243, dc:1},
+  {id:'at244',app:'Tryton', mod:'Comercial',          grp:'Ventas',        vrb:'update', slug:'tryton.g3.d1.editar',     pos:244, dc:1},
+  {id:'at245',app:'Tryton', mod:'Comercial',          grp:'Ventas',        vrb:'delete', slug:'tryton.g3.d1.eliminar',   pos:245, dc:1},
+  {id:'at246',app:'Tryton', mod:'Comercial',          grp:'Ventas',        vrb:'read',   slug:'tryton.g3.d1.ver',        pos:246, dc:1},
+  {id:'at247',app:'Tryton', mod:'Comercial',          grp:'Ventas',        vrb:'print',  slug:'tryton.g3.d1.imprimir',   pos:247, dc:1},
+  {id:'at253',app:'Tryton', mod:'Comercial',          grp:'Ventas',        vrb:'execute',slug:'tryton.g3.d1.ejecutar',   pos:253, dc:1},
+  {id:'at260',app:'Tryton', mod:'Comercial',          grp:'Ventas',        vrb:'export', slug:'tryton.g3.d1.exportar',   pos:260, dc:1},
+  {id:'at364',app:'Tryton', mod:'Comercial',          grp:'Compras',       vrb:'create', slug:'tryton.g4.d1.nuevo',      pos:364, dc:1},
+  {id:'at365',app:'Tryton', mod:'Comercial',          grp:'Compras',       vrb:'update', slug:'tryton.g4.d1.editar',     pos:365, dc:1},
+  {id:'at366',app:'Tryton', mod:'Comercial',          grp:'Compras',       vrb:'delete', slug:'tryton.g4.d1.eliminar',   pos:366, dc:1},
+  {id:'at367',app:'Tryton', mod:'Comercial',          grp:'Compras',       vrb:'read',   slug:'tryton.g4.d1.ver',        pos:367, dc:1},
+  {id:'at368',app:'Tryton', mod:'Comercial',          grp:'Compras',       vrb:'print',  slug:'tryton.g4.d1.imprimir',   pos:368, dc:1},
+  {id:'at374',app:'Tryton', mod:'Comercial',          grp:'Compras',       vrb:'execute',slug:'tryton.g4.d1.ejecutar',   pos:374, dc:1},
+  {id:'at381',app:'Tryton', mod:'Comercial',          grp:'Compras',       vrb:'export', slug:'tryton.g4.d1.exportar',   pos:381, dc:1},
+  {id:'at485',app:'Tryton', mod:'Proyectos',          grp:'Gestión Tiempo',vrb:'create', slug:'tryton.g5.d1.nuevo',      pos:485, dc:1},
+  {id:'at486',app:'Tryton', mod:'Proyectos',          grp:'Gestión Tiempo',vrb:'update', slug:'tryton.g5.d1.editar',     pos:486, dc:1},
+  {id:'at488',app:'Tryton', mod:'Proyectos',          grp:'Gestión Tiempo',vrb:'read',   slug:'tryton.g5.d1.ver',        pos:488, dc:1},
+  {id:'at495',app:'Tryton', mod:'Proyectos',          grp:'Gestión Tiempo',vrb:'execute',slug:'tryton.g5.d1.ejecutar',   pos:495, dc:1},
+  {id:'at1211',app:'Keycloak',mod:'Realm Mgmt',       grp:'Admin Realm',   vrb:'create', slug:'keycloak.g1.d1.nuevo',    pos:1211,dc:1},
+  {id:'at1212',app:'Keycloak',mod:'Realm Mgmt',       grp:'Admin Realm',   vrb:'update', slug:'keycloak.g1.d1.editar',   pos:1212,dc:1},
+  {id:'at1213',app:'Keycloak',mod:'Realm Mgmt',       grp:'Admin Realm',   vrb:'delete', slug:'keycloak.g1.d1.eliminar', pos:1213,dc:1},
+  {id:'at1214',app:'Keycloak',mod:'Realm Mgmt',       grp:'Admin Realm',   vrb:'read',   slug:'keycloak.g1.d1.ver',      pos:1214,dc:1},
+  {id:'at1221',app:'Keycloak',mod:'Realm Mgmt',       grp:'Admin Realm',   vrb:'execute',slug:'keycloak.g1.d1.ejecutar', pos:1221,dc:1},
+  {id:'at1332',app:'Keycloak',mod:'Client Mgmt',      grp:'Admin Clientes',vrb:'create', slug:'keycloak.g2.d1.nuevo',    pos:1332,dc:1},
+  {id:'at1333',app:'Keycloak',mod:'Client Mgmt',      grp:'Admin Clientes',vrb:'update', slug:'keycloak.g2.d1.editar',   pos:1333,dc:1},
+  {id:'at1334',app:'Keycloak',mod:'Client Mgmt',      grp:'Admin Clientes',vrb:'delete', slug:'keycloak.g2.d1.eliminar', pos:1334,dc:1},
+  {id:'at1335',app:'Keycloak',mod:'Client Mgmt',      grp:'Admin Clientes',vrb:'read',   slug:'keycloak.g2.d1.ver',      pos:1335,dc:1},
+  {id:'at1342',app:'Keycloak',mod:'Client Mgmt',      grp:'Admin Clientes',vrb:'execute',slug:'keycloak.g2.d1.ejecutar', pos:1342,dc:1},
+  {id:'at1453',app:'Keycloak',mod:'User Mgmt',        grp:'Admin Usuarios',vrb:'create', slug:'keycloak.g3.d1.nuevo',    pos:1453,dc:1},
+  {id:'at1454',app:'Keycloak',mod:'User Mgmt',        grp:'Admin Usuarios',vrb:'update', slug:'keycloak.g3.d1.editar',   pos:1454,dc:1},
+  {id:'at1455',app:'Keycloak',mod:'User Mgmt',        grp:'Admin Usuarios',vrb:'delete', slug:'keycloak.g3.d1.eliminar', pos:1455,dc:1},
+  {id:'at1456',app:'Keycloak',mod:'User Mgmt',        grp:'Admin Usuarios',vrb:'read',   slug:'keycloak.g3.d1.ver',      pos:1456,dc:1},
+  {id:'at1463',app:'Keycloak',mod:'User Mgmt',        grp:'Admin Usuarios',vrb:'execute',slug:'keycloak.g3.d1.ejecutar', pos:1463,dc:1},
+  {id:'at1816',app:'Kong',    mod:'API Gateway',      grp:'Administrador', vrb:'create', slug:'kong.g1.d1.nuevo',        pos:1816,dc:1},
+  {id:'at1817',app:'Kong',    mod:'API Gateway',      grp:'Administrador', vrb:'update', slug:'kong.g1.d1.editar',       pos:1817,dc:1},
+  {id:'at1818',app:'Kong',    mod:'API Gateway',      grp:'Administrador', vrb:'delete', slug:'kong.g1.d1.eliminar',     pos:1818,dc:1},
+  {id:'at1819',app:'Kong',    mod:'API Gateway',      grp:'Administrador', vrb:'read',   slug:'kong.g1.d1.ver',          pos:1819,dc:1},
+  {id:'at1826',app:'Kong',    mod:'API Gateway',      grp:'Administrador', vrb:'execute',slug:'kong.g1.d1.ejecutar',     pos:1826,dc:1},
+  {id:'at1937',app:'Kong',    mod:'API Gateway',      grp:'Desarrollador', vrb:'create', slug:'kong.g2.d1.nuevo',        pos:1937,dc:1},
+  {id:'at1938',app:'Kong',    mod:'API Gateway',      grp:'Desarrollador', vrb:'update', slug:'kong.g2.d1.editar',       pos:1938,dc:1},
+  {id:'at1940',app:'Kong',    mod:'API Gateway',      grp:'Desarrollador', vrb:'read',   slug:'kong.g2.d1.ver',          pos:1940,dc:1},
+  {id:'at1947',app:'Kong',    mod:'API Gateway',      grp:'Desarrollador', vrb:'execute',slug:'kong.g2.d1.ejecutar',     pos:1947,dc:1},
+  {id:'at2300',app:'Vault',   mod:'Secrets Engine',   grp:'Administrador', vrb:'create', slug:'vault.g1.d1.nuevo',       pos:2300,dc:9},
+  {id:'at2301',app:'Vault',   mod:'Secrets Engine',   grp:'Administrador', vrb:'update', slug:'vault.g1.d1.editar',      pos:2301,dc:9},
+  {id:'at2302',app:'Vault',   mod:'Secrets Engine',   grp:'Administrador', vrb:'delete', slug:'vault.g1.d1.eliminar',    pos:2302,dc:9},
+  {id:'at2303',app:'Vault',   mod:'Secrets Engine',   grp:'Administrador', vrb:'read',   slug:'vault.g1.d1.ver',         pos:2303,dc:9},
+  {id:'at2310',app:'Vault',   mod:'Secrets Engine',   grp:'Administrador', vrb:'execute',slug:'vault.g1.d1.ejecutar',    pos:2310,dc:9},
+  {id:'at2421',app:'Vault',   mod:'PKI Engine',       grp:'Operador',      vrb:'create', slug:'vault.g2.d9.nuevo',       pos:2421,dc:9},
+  {id:'at2422',app:'Vault',   mod:'PKI Engine',       grp:'Operador',      vrb:'update', slug:'vault.g2.d9.editar',      pos:2422,dc:9},
+  {id:'at2424',app:'Vault',   mod:'PKI Engine',       grp:'Operador',      vrb:'read',   slug:'vault.g2.d9.ver',         pos:2424,dc:9},
+  {id:'at2431',app:'Vault',   mod:'PKI Engine',       grp:'Operador',      vrb:'execute',slug:'vault.g2.d9.ejecutar',    pos:2431,dc:9},
+  // ── D2 Físico — bHnexus Control de Acceso (demo, pos 5809+) ──────────────
+  {id:'at5809',app:'bHnexus', mod:'Control Acceso',   grp:'Puertas',       vrb:'abrir',  slug:'bhnexus.g1.d2.abrir',     pos:5809,dc:2},
+  {id:'at5810',app:'bHnexus', mod:'Control Acceso',   grp:'Puertas',       vrb:'bloquear',slug:'bhnexus.g1.d2.bloquear', pos:5810,dc:2},
+  {id:'at5811',app:'bHnexus', mod:'Control Acceso',   grp:'Puertas',       vrb:'read',   slug:'bhnexus.g1.d2.ver',       pos:5811,dc:2},
+  {id:'at5812',app:'bHnexus', mod:'Control Acceso',   grp:'Puertas',       vrb:'autorizar',slug:'bhnexus.g1.d2.autorizar',pos:5812,dc:2},
+  {id:'at5813',app:'bHnexus', mod:'Control Acceso',   grp:'Videovigilancia',vrb:'read',  slug:'bhnexus.g2.d2.ver',       pos:5813,dc:2},
+  {id:'at5814',app:'bHnexus', mod:'Control Acceso',   grp:'Videovigilancia',vrb:'export',slug:'bhnexus.g2.d2.exportar',  pos:5814,dc:2},
+  // ── D3 Financiero — Tryton Tesorería (demo) ──────────────────────────────
+  {id:'at5815',app:'Tryton',  mod:'Tesorería',        grp:'Transacciones', vrb:'create', slug:'tryton.g11.d3.nuevo',     pos:5815,dc:3},
+  {id:'at5816',app:'Tryton',  mod:'Tesorería',        grp:'Transacciones', vrb:'autorizar',slug:'tryton.g11.d3.autorizar',pos:5816,dc:3},
+  {id:'at5817',app:'Tryton',  mod:'Tesorería',        grp:'Transacciones', vrb:'read',   slug:'tryton.g11.d3.ver',       pos:5817,dc:3},
+  {id:'at5818',app:'Tryton',  mod:'Tesorería',        grp:'Transacciones', vrb:'revocar',slug:'tryton.g11.d3.revocar',   pos:5818,dc:3},
+  {id:'at5819',app:'Tryton',  mod:'Tesorería',        grp:'Límites Gasto', vrb:'configurar',slug:'tryton.g12.d3.configurar',pos:5819,dc:3},
+  {id:'at5820',app:'Tryton',  mod:'Tesorería',        grp:'Límites Gasto', vrb:'read',   slug:'tryton.g12.d3.ver',       pos:5820,dc:3},
+  // ── D4 Temporal — Keycloak Session + Tryton Tiempo (demo) ────────────────
+  {id:'at5821',app:'Keycloak',mod:'Session Mgmt',     grp:'Sesiones',      vrb:'revocar',slug:'keycloak.g5.d4.revocar',  pos:5821,dc:4},
+  {id:'at5822',app:'Keycloak',mod:'Session Mgmt',     grp:'Sesiones',      vrb:'autorizar',slug:'keycloak.g5.d4.autorizar',pos:5822,dc:4},
+  {id:'at5823',app:'Keycloak',mod:'Session Mgmt',     grp:'Sesiones',      vrb:'read',   slug:'keycloak.g5.d4.ver',      pos:5823,dc:4},
+  {id:'at5824',app:'Tryton',  mod:'Proyectos',        grp:'Control Tiempo',vrb:'registrar',slug:'tryton.g5.d4.registrar',pos:5824,dc:4},
+  {id:'at5825',app:'Tryton',  mod:'Proyectos',        grp:'Control Tiempo',vrb:'autorizar',slug:'tryton.g5.d4.autorizar',pos:5825,dc:4},
+  // ── D5 Biométrico — bAuth Gestión Biométrica (demo) ──────────────────────
+  {id:'at5826',app:'bAuth',   mod:'Biométrico',       grp:'Plantillas',    vrb:'registrar',slug:'bauth.g1.d5.registrar', pos:5826,dc:5},
+  {id:'at5827',app:'bAuth',   mod:'Biométrico',       grp:'Plantillas',    vrb:'revocar',slug:'bauth.g1.d5.revocar',     pos:5827,dc:5},
+  {id:'at5828',app:'bAuth',   mod:'Biométrico',       grp:'Plantillas',    vrb:'read',   slug:'bauth.g1.d5.ver',         pos:5828,dc:5},
+  {id:'at5829',app:'bAuth',   mod:'Biométrico',       grp:'Verificación',  vrb:'verificar',slug:'bauth.g2.d5.verificar',pos:5829,dc:5},
+  {id:'at5830',app:'bAuth',   mod:'Biométrico',       grp:'Verificación',  vrb:'configurar',slug:'bauth.g2.d5.configurar',pos:5830,dc:5},
+  // ── D6 Geoespacial — bHnexus Geofencing (demo) ───────────────────────────
+  {id:'at5831',app:'bHnexus', mod:'Geofencing',       grp:'Zonas',         vrb:'create', slug:'bhnexus.g3.d6.nuevo',    pos:5831,dc:6},
+  {id:'at5832',app:'bHnexus', mod:'Geofencing',       grp:'Zonas',         vrb:'update', slug:'bhnexus.g3.d6.editar',   pos:5832,dc:6},
+  {id:'at5833',app:'bHnexus', mod:'Geofencing',       grp:'Zonas',         vrb:'delete', slug:'bhnexus.g3.d6.eliminar', pos:5833,dc:6},
+  {id:'at5834',app:'bHnexus', mod:'Geofencing',       grp:'Zonas',         vrb:'read',   slug:'bhnexus.g3.d6.ver',      pos:5834,dc:6},
+  {id:'at5835',app:'bHnexus', mod:'Geofencing',       grp:'Acceso Geo',    vrb:'autorizar',slug:'bhnexus.g4.d6.autorizar',pos:5835,dc:6},
+  {id:'at5836',app:'bHnexus', mod:'Geofencing',       grp:'Acceso Geo',    vrb:'bloquear',slug:'bhnexus.g4.d6.bloquear',pos:5836,dc:6},
+  // ── D7 Red — Kong Network Security (demo) ────────────────────────────────
+  {id:'at5837',app:'Kong',    mod:'Network Security', grp:'Firewall IP',   vrb:'create', slug:'kong.g3.d7.nuevo',       pos:5837,dc:7},
+  {id:'at5838',app:'Kong',    mod:'Network Security', grp:'Firewall IP',   vrb:'autorizar',slug:'kong.g3.d7.autorizar', pos:5838,dc:7},
+  {id:'at5839',app:'Kong',    mod:'Network Security', grp:'Firewall IP',   vrb:'bloquear',slug:'kong.g3.d7.bloquear',   pos:5839,dc:7},
+  {id:'at5840',app:'Kong',    mod:'Network Security', grp:'Firewall IP',   vrb:'read',   slug:'kong.g3.d7.ver',         pos:5840,dc:7},
+  {id:'at5841',app:'Grafana', mod:'Monitoreo Red',    grp:'Tráfico',       vrb:'read',   slug:'grafana.g1.d7.ver',      pos:5841,dc:7},
+  {id:'at5842',app:'Grafana', mod:'Monitoreo Red',    grp:'Tráfico',       vrb:'export', slug:'grafana.g1.d7.exportar', pos:5842,dc:7},
+  // ── D8 Contexto — Keycloak Adaptive Auth (demo) ───────────────────────────
+  {id:'at5843',app:'Keycloak',mod:'Adaptive Auth',    grp:'Evaluación Riesgo',vrb:'evaluar',slug:'keycloak.g6.d8.evaluar',pos:5843,dc:8},
+  {id:'at5844',app:'Keycloak',mod:'Adaptive Auth',    grp:'Evaluación Riesgo',vrb:'configurar',slug:'keycloak.g6.d8.configurar',pos:5844,dc:8},
+  {id:'at5845',app:'Keycloak',mod:'Adaptive Auth',    grp:'Evaluación Riesgo',vrb:'read',  slug:'keycloak.g6.d8.ver',   pos:5845,dc:8},
+  {id:'at5846',app:'Keycloak',mod:'Adaptive Auth',    grp:'Políticas Ctx', vrb:'create', slug:'keycloak.g7.d8.nuevo',   pos:5846,dc:8},
+  {id:'at5847',app:'Keycloak',mod:'Adaptive Auth',    grp:'Políticas Ctx', vrb:'update', slug:'keycloak.g7.d8.editar',  pos:5847,dc:8},
+  // ── D10 Delegación — Keycloak Delegation (demo) ──────────────────────────
+  {id:'at5848',app:'Keycloak',mod:'Delegation',       grp:'Acceso Delegado',vrb:'delegar',slug:'keycloak.g8.d10.delegar',pos:5848,dc:10},
+  {id:'at5849',app:'Keycloak',mod:'Delegation',       grp:'Acceso Delegado',vrb:'revocar',slug:'keycloak.g8.d10.revocar',pos:5849,dc:10},
+  {id:'at5850',app:'Keycloak',mod:'Delegation',       grp:'Acceso Delegado',vrb:'read',   slug:'keycloak.g8.d10.ver',  pos:5850,dc:10},
+  {id:'at5851',app:'Keycloak',mod:'Delegation',       grp:'Impersonación',  vrb:'impersonar',slug:'keycloak.g9.d10.impersonar',pos:5851,dc:10},
+  {id:'at5852',app:'Keycloak',mod:'Delegation',       grp:'Impersonación',  vrb:'read',   slug:'keycloak.g9.d10.ver',  pos:5852,dc:10},
+  // ── D11 Auditoría — Vault Audit + Grafana (demo) ─────────────────────────
+  {id:'at5853',app:'Vault',   mod:'Audit Log',        grp:'Registros',     vrb:'read',   slug:'vault.g4.d11.ver',       pos:5853,dc:11},
+  {id:'at5854',app:'Vault',   mod:'Audit Log',        grp:'Registros',     vrb:'export', slug:'vault.g4.d11.exportar',  pos:5854,dc:11},
+  {id:'at5855',app:'Grafana', mod:'Auditoría',        grp:'Reportes',      vrb:'read',   slug:'grafana.g2.d11.ver',     pos:5855,dc:11},
+  {id:'at5856',app:'Grafana', mod:'Auditoría',        grp:'Reportes',      vrb:'export', slug:'grafana.g2.d11.exportar',pos:5856,dc:11},
+  {id:'at5857',app:'Grafana', mod:'Auditoría',        grp:'Reportes',      vrb:'configurar',slug:'grafana.g2.d11.configurar',pos:5857,dc:11},
+  // ── D12 Blockchain — Besu QBFT (demo) ────────────────────────────────────
+  {id:'at5858',app:'Besu',    mod:'QBFT',             grp:'Contratos',     vrb:'firmar', slug:'besu.g1.d12.firmar',     pos:5858,dc:12},
+  {id:'at5859',app:'Besu',    mod:'QBFT',             grp:'Contratos',     vrb:'execute',slug:'besu.g1.d12.ejecutar',   pos:5859,dc:12},
+  {id:'at5860',app:'Besu',    mod:'QBFT',             grp:'Contratos',     vrb:'read',   slug:'besu.g1.d12.ver',        pos:5860,dc:12},
+  {id:'at5861',app:'Besu',    mod:'QBFT',             grp:'Contratos',     vrb:'deploy', slug:'besu.g1.d12.deploy',     pos:5861,dc:12},
+  {id:'at5862',app:'Besu',    mod:'QBFT',             grp:'Nodos',         vrb:'autorizar',slug:'besu.g2.d12.autorizar',pos:5862,dc:12},
+  {id:'at5863',app:'Besu',    mod:'QBFT',             grp:'Nodos',         vrb:'read',   slug:'besu.g2.d12.ver',        pos:5863,dc:12},
+];
+
+const ROL_TEMPLATES = {
+  102:{
+    name:'Contador de Prueba',slug:'test-contador',tier:'BIZ_N2',status:'ACTIVE',level:3,code:102,
+    d:{
+      // D1 Lógico — políticas de identidad + acceso
+      1:{pols:{'p1-ct':'password,passkey','p1-fi':'false','pr9-aal':'AAL2'},
+         meths:{assigned:['am1'],required:['am2'],alternative:['am12']},
+         attrs:['a1001','a2102','a6002'],
+         atoms:{'at4':{p:true},'at125':{p:true},'at246':{p:true},'at1214':{p:false},'at1335':{p:true}}},
+      // D9 Credenciales — políticas NIST SP 800-63B
+      9:{pols:{'r9-req':'true','pr9-au':'true','pr9-rn':'false'},
+         meths:{assigned:[],required:[],alternative:[]},
+         attrs:['a3001'],
+         atoms:{'at2303':{p:true},'at2424':{p:true}}},
+      // D11 Auditoría — cumplimiento normativo
+      11:{pols:{'p11-ae':'true','p11-cr2':'ISO27001,NIST'},
+          meths:{assigned:[],required:[],alternative:[]},
+          attrs:[],atoms:{}},
+    }
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════
+// ESTADO
+// ═══════════════════════════════════════════════════════════════
+const initD = ()=>({pols:{},meths:{assigned:[],required:[],alternative:[]},attrs:[],atoms:{}});
+let mode='roles';
+let methTarget=1; // dominio activo para asignar métodos desde el panel lateral
+let RT={name:'',slug:'',tier:'BIZ_N1',status:'DRAFT',level:5,code:null,
+        d:Object.fromEntries(DOMAINS.map(d=>[d.c,initD()]))};
+// Para usuario: locked=del rol, extra=del usuario
+let UT={locked:null, extra:{d:Object.fromEntries(DOMAINS.map(d=>[d.c,initD()]))}};
+let fA='',fAt='',fP='',fM='';
+
+// ═══════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════
+const byK=(arr,k)=>arr.reduce((a,i)=>{(a[i[k]]=a[i[k]]||[]).push(i);return a},{});
+const vc=v=>({create:'wt vC',read:'wt vR',update:'wt vU',delete:'wt vD',print:'wt vP',execute:'wt vX',export:'wt vE',abrir:'wt vC',bloquear:'wt vD',autorizar:'wt vX',revocar:'wt vD',registrar:'wt vC',evaluar:'wt vU',configurar:'wt vU',delegar:'wt vE',impersonar:'wt vE',firmar:'wt vX',verificar:'wt vR',deploy:'wt vC'}[v]||'wt vR');
+const vLbl=v=>({create:'nuevo',read:'ver',update:'editar',delete:'eliminar',print:'imprimir',execute:'ejecutar',export:'exportar',abrir:'abrir',bloquear:'bloquear',autorizar:'autorizar',revocar:'revocar',registrar:'registrar',evaluar:'evaluar',configurar:'config.',delegar:'delegar',impersonar:'impers.',firmar:'firmar',verificar:'verificar',deploy:'deploy'}[v]||v);
+const aIcon=a=>({Tryton:'🏢',Keycloak:'🔑',Kong:'🌐',Vault:'🔒',bHnexus:'🚪',bAuth:'🔐',Grafana:'📊',Besu:'⛓️',Prometheus:'📈',MinIO:'🗄️','Cal.com':'📅',Mattermost:'💬',Novu:'🔔'}[a]||'📦');
+const aalC=a=>({AAL1:'wt aal1',AAL2:'wt aal2',AAL3:'wt aal3'}[a]||'wt aal1');
+const catLbl={assigned:'Asignados',required:'Requeridos',alternative:'Alternativos'};
+const catClass={assigned:'mp',required:'mr',alternative:'ma'};
+function tg(id){const el=document.getElementById(id);if(el)el.classList.toggle('op');}
+// Cambia el dominio destino — filtra métodos aplicables según campo domains[]
+function setMethTarget(dc){
+  methTarget=dc;
+  const dom=DOMAINS.find(d=>d.c===dc);
+  if(!dom) return;
+  const txt=`${dom.icon} D${dc} ${dom.name}`;
+  // Sincronizar los 3 indicadores de dominio activo
+  const ml=document.getElementById('meth-target-lbl'); if(ml) ml.textContent=txt;
+  const al=document.getElementById('atom-target-lbl'); if(al) al.textContent=txt;
+  const pl=document.getElementById('pol-target-lbl');  if(pl) pl.textContent=txt;
+  // Re-renderizar los 3 paneles con el nuevo dominio
+  renderLpAtom();
+  renderRpPol();
+  renderRpMeth();
+}
+
+// USED sets (distinct pool)
+function usedAtoms(){
+  const src=mode==='roles'?RT:UT.extra;
+  const s=new Set();
+  DOMAINS.forEach(d=>{Object.keys((src.d[d.c]||initD()).atoms).forEach(id=>s.add(id));});
+  if(mode==='usuarios'&&UT.locked) DOMAINS.forEach(d=>Object.keys((UT.locked.d[d.c]||initD()).atoms).forEach(id=>s.add(id)));
+  return s;
+}
+function usedAttrs(){
+  const src=mode==='roles'?RT:UT.extra;
+  const s=new Set();
+  DOMAINS.forEach(d=>{((src.d[d.c]||initD()).attrs||[]).forEach(id=>s.add(id));});
+  if(mode==='usuarios'&&UT.locked) DOMAINS.forEach(d=>((UT.locked.d[d.c]||initD()).attrs||[]).forEach(id=>s.add(id)));
+  return s;
+}
+function usedPols(){
+  const src=mode==='roles'?RT:UT.extra;
+  const s=new Set();
+  DOMAINS.forEach(d=>Object.keys((src.d[d.c]||initD()).pols).forEach(id=>s.add(id)));
+  if(mode==='usuarios'&&UT.locked) DOMAINS.forEach(d=>Object.keys((UT.locked.d[d.c]||initD()).pols).forEach(id=>s.add(id)));
+  return s;
+}
+function usedMeths(){
+  const src=mode==='roles'?RT:UT.extra;
+  const s=new Set();
+  DOMAINS.forEach(d=>{const m=(src.d[d.c]||initD()).meths;['assigned','required','alternative'].forEach(c=>(m[c]||[]).forEach(id=>s.add(id)));});
+  if(mode==='usuarios'&&UT.locked) DOMAINS.forEach(d=>{const m=(UT.locked.d[d.c]||initD()).meths;['assigned','required','alternative'].forEach(c=>(m[c]||[]).forEach(id=>s.add(id)));});
+  return s;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PANEL IZQUIERDO — Atributos
+// ═══════════════════════════════════════════════════════════════
+function fAttr(q){fA=q;renderLpAttr();}
+function renderLpAttr(){
+  const used=usedAttrs();
+  const vis=ATTRS.filter(a=>!used.has(a.id)&&(!fA||(a.nom||a.name).toLowerCase().includes(fA.toLowerCase())||a.name.toLowerCase().includes(fA.toLowerCase())));
+  document.getElementById('lp-ac').textContent=vis.length+' disp.';
+  // Panel izquierdo: agrupa por categoria → sub para mantener orden
+  const byCat=byK(vis,'cat');
+  document.getElementById('lp-al').innerHTML=vis.length
+    ?Object.entries(byCat).map(([cat,items])=>{
+        const bySub=byK(items,'sub');
+        return Object.entries(bySub).map(([sub,sitems])=>`
+          <div style="padding:2px 8px;background:var(--s2);border-bottom:1px solid var(--bd-s)">
+            <span style="font-family:var(--fm);font-size:8px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.06em">${cat} / ${sub}</span>
+          </div>
+          ${sitems.map(a=>`<div class="la-row" onclick="addAttr('${a.id}')">
+            <span class="la-name" title="${a.name}">${a.nom||a.name}</span>
+            <span class="wtb">${a.fmt||''}</span>
+            <button class="lp-add" onclick="event.stopPropagation();addAttr('${a.id}')">+</button>
+          </div>`).join('')}`).join('');
+      }).join('')
+    :'<div class="empty">Todos seleccionados</div>';
+}
+
+// PANEL IZQUIERDO — Átomos 4-nivel: App → Módulo → Grupo → Verbo
+function fAtom(q){fAt=q;renderLpAtom();}
+function renderLpAtom(){
+  const used=usedAtoms();
+  // Filtrar por dominio activo (methTarget) — igual que métodos y políticas
+  const vis=ATOMS.filter(a=>
+    a.dc===methTarget &&
+    !used.has(a.id) &&
+    (!fAt||[a.app,a.mod,a.grp,a.vrb,a.slug].join(' ').toLowerCase().includes(fAt.toLowerCase()))
+  );
+  document.getElementById('lp-atc').textContent=vis.length+' disp.';
+  if(!vis.length){document.getElementById('lp-atl').innerHTML='<div class="empty">Todos seleccionados</div>';return;}
+  const byApp=byK(vis,'app');
+  document.getElementById('lp-atl').innerHTML=Object.entries(byApp).map(([app,aitems])=>{
+    const byMod=byK(aitems,'mod');
+    const aid='la'+app.replace(/\W/g,'');
+    return `<div class="n-app op" id="${aid}">
+      <div class="n-app-hd" onclick="tg('${aid}')">
+        <span class="arr">▶</span><span style="font-size:11px">${aIcon(app)}</span>
+        <span class="n-name">${app}</span><span class="n-cnt">${aitems.length}</span>
+      </div>
+      <div class="n-body">${Object.entries(byMod).map(([mod,mitems])=>{
+        const mid='lm'+app.replace(/\W/g,'')+mod.replace(/\W/g,'');
+        const byGrp=byK(mitems,'grp');
+        return `<div class="n-mod op" id="${mid}">
+          <div class="n-mod-hd" onclick="tg('${mid}')">
+            <span class="arr">▶</span><span class="n-name" style="font-size:10px;color:var(--t2)">${mod}</span><span class="n-cnt">${mitems.length}</span>
+          </div>
+          <div class="n-body">${Object.entries(byGrp).map(([grp,gitems])=>{
+            const gid='lg'+app.replace(/\W/g,'')+mod.replace(/\W/g,'')+grp.replace(/\W/g,'');
+            return `<div class="n-grp op" id="${gid}">
+              <div class="n-grp-hd" onclick="tg('${gid}')">
+                <span class="arr">▶</span><span class="n-name" style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em">${grp}</span><span class="n-cnt">${gitems.length}</span>
+              </div>
+              <div class="n-body">${gitems.map(a=>`
+                <div class="v-row">
+                  <span class="${vc(a.vrb)}">${vLbl(a.vrb)}</span>
+                  <span class="exp">D${a.dc}</span>
+                  <span style="font-family:var(--fm);font-size:8px;color:var(--t3);flex:1">${a.pos}</span>
+                  <button class="lp-add" onclick="addAtom('${a.id}')">+</button>
+                </div>`).join('')}
+              </div>
+            </div>`;
+          }).join('')}</div>
+        </div>`;
+      }).join('')}</div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PANEL DERECHO — Políticas agrupadas por dominio destino
+// ═══════════════════════════════════════════════════════════════
+function fPol(q){fP=q;renderRpPol();}
+function renderRpPol(){
+  // Filtrar por dominio activo (methTarget) — solo políticas que incluyen ese dominio en dm[]
+  const used=usedPols();
+  const vis=POLS.filter(p=>
+    (p.dm||[]).includes(`D${methTarget}`) &&
+    !used.has(p.id) &&
+    (!fP||p.name.toLowerCase().includes(fP.toLowerCase())||p.path.toLowerCase().includes(fP.toLowerCase()))
+  );
+  document.getElementById('rp-pc').textContent=vis.length+' disp.';
+  if(!vis.length){
+    document.getElementById('rp-pl').innerHTML=`<div class="empty">Sin políticas para D${methTarget}<br><span style="font-size:9px">Selecciona otro dominio en el centro.</span></div>`;
+    return;
+  }
+  const ltBadge={POLICY:'wt vX',RULE:'wt vU',PROPERTY:'wt vR'};
+  document.getElementById('rp-pl').innerHTML=vis.map(p=>`
+    <div class="p-row">
+      <span class="${ltBadge[p.lt]||'wt vR'}">${p.lt}</span>
+      <span class="p-name" title="${p.path}">${p.name}</span>
+      <span class="wtb">${p.vt||''}</span>
+      <button class="lp-add" onclick="addPol('${p.id}')">+</button>
+    </div>`).join('');
+}
+
+// PANEL DERECHO — Métodos: filtrado por dominio activo (campo domains[] del catálogo)
+// Un mismo método puede asignarse a varios dominios — no se oculta al asignar
+const CAT_ORDER=['knowledge','possession','inherence','geospatial','signature','federation','adaptive','backup','m2m'];
+const CAT_LABEL={knowledge:'Conocimiento',possession:'Posesión / Hardware',inherence:'Inherencia / Biométrico',geospatial:'Geoespacial / Ubicación',signature:'Firma Criptográfica',federation:'Federación / SSO',adaptive:'Adaptativo / Step-Up',backup:'Recuperación / Backup',m2m:'M2M / Máquina'};
+
+function fMeth(q){fM=q;renderRpMeth();}
+function renderRpMeth(){
+  const vis=AUTH_METHODS.filter(m=>
+    (m.domains||[]).includes(methTarget)&&
+    (!fM||m.name.toLowerCase().includes(fM.toLowerCase()))
+  );
+  document.getElementById('rp-mc').textContent=vis.length+' aplicables';
+  if(!vis.length){
+    document.getElementById('rp-ml').innerHTML=`<div class="empty">Sin métodos aplicables para D${methTarget}<br><span style="font-size:9px">Este dominio usa restricciones de contexto,<br>no métodos de autenticación directos.</span></div>`;
+    return;
+  }
+  const byCat=byK(vis,'cat');
+  document.getElementById('rp-ml').innerHTML=CAT_ORDER.filter(c=>byCat[c]).map(cat=>`
+    <div style="padding:2px 10px;background:var(--s2);border-bottom:1px solid var(--bd-s)">
+      <span style="font-family:var(--fm);font-size:8px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.06em">${CAT_LABEL[cat]||cat}</span>
+    </div>
+    ${byCat[cat].map(m=>`
+      <div class="m-row">
+        <span class="m-name" style="font-size:10px">${m.name}</span>
+        ${m.mfa?'<span style="font-size:8px;color:var(--pu)">MFA</span>':''}
+        <span class="wt ${aalC(m.aal)}">${m.aal}</span>
+        <button class="lp-add" title="${m.std||''}" onclick="addMeth('${m.id}','assigned')">+</button>
+      </div>`).join('')}`).join('');
+}
+
+function renderAllPanels(){renderLpAttr();renderLpAtom();renderRpPol();renderRpMeth();}
+
+// ═══════════════════════════════════════════════════════════════
+// ACCIONES AGREGAR DESDE PANELES
+// ═══════════════════════════════════════════════════════════════
+function addAttr(id){
+  const a=ATTRS.find(x=>x.id===id);if(!a)return;
+  const dc=a.dc||1;
+  if(mode==='roles'){ if(!RT.d[dc])RT.d[dc]=initD(); if(!RT.d[dc].attrs.includes(id))RT.d[dc].attrs.push(id); }
+  else { if(!UT.extra.d[dc])UT.extra.d[dc]=initD(); if(!UT.extra.d[dc].attrs.includes(id))UT.extra.d[dc].attrs.push(id); }
+  refresh();
+}
+function addAtom(id){
+  const a=ATOMS.find(x=>x.id===id);if(!a)return;
+  const dc=a.dc||1;
+  if(mode==='roles'){ if(!RT.d[dc])RT.d[dc]=initD(); RT.d[dc].atoms[id]={p:true}; }
+  else { if(!UT.extra.d[dc])UT.extra.d[dc]=initD(); UT.extra.d[dc].atoms[id]={p:true}; }
+  refresh();
+}
+function addPol(id){
+  // cfg_policy_library: el dominio destino es dm[0] (primer dominio del nodo)
+  const p=CFG_POLICY_LIB.find(x=>x.id===id);if(!p)return;
+  const dc=p.dm&&p.dm.length?parseInt(p.dm[0].replace('D',''),10):1;
+  const val=p.def||'';
+  if(mode==='roles'){ if(!RT.d[dc])RT.d[dc]=initD(); RT.d[dc].pols[id]=val; }
+  else { if(!UT.extra.d[dc])UT.extra.d[dc]=initD(); UT.extra.d[dc].pols[id]=val; }
+  refresh();
+}
+function addMeth(id,cat){
+  const dc=methTarget;
+  if(mode==='roles'){ if(!RT.d[dc])RT.d[dc]=initD(); if(!(RT.d[dc].meths[cat]||[]).includes(id))(RT.d[dc].meths[cat]=RT.d[dc].meths[cat]||[]).push(id); }
+  else { if(!UT.extra.d[dc])UT.extra.d[dc]=initD(); if(!(UT.extra.d[dc].meths[cat]||[]).includes(id))(UT.extra.d[dc].meths[cat]=UT.extra.d[dc].meths[cat]||[]).push(id); }
+  refresh();
+}
+
+// Aplica el bundle del método al pasar a Requerido o Alternativo.
+// Políticas → dominio de activación (dc). Atributos y átomos → su propio dc del catálogo.
+function applyMethodBundle(dc, methId, src){
+  const bundle = METHOD_BUNDLES[methId+':'+dc];
+  if(!bundle) return null;
+  if(!src.d[dc]) src.d[dc]=initD();
+  const added={pols:[],attrs:[],atoms:[]};
+  bundle.pols.forEach(pid=>{
+    if(src.d[dc].pols[pid]===undefined){
+      const pol=CFG_POLICY_LIB.find(p=>p.id===pid);
+      src.d[dc].pols[pid]=pol?(pol.def||''):'';
+      added.pols.push(pol?pol.name:pid);
+    }
+  });
+  bundle.attrs.forEach(aid=>{
+    const attr=ATTRS.find(a=>a.id===aid); if(!attr)return;
+    const aDc=attr.dc||1;
+    if(!src.d[aDc])src.d[aDc]=initD();
+    if(!src.d[aDc].attrs.includes(aid)){src.d[aDc].attrs.push(aid);added.attrs.push(attr.nom||attr.name);}
+  });
+  bundle.atoms.forEach(aid=>{
+    const atom=ATOMS.find(a=>a.id===aid); if(!atom)return;
+    const aDc=atom.dc||1;
+    if(!src.d[aDc])src.d[aDc]=initD();
+    if(!src.d[aDc].atoms[aid]){src.d[aDc].atoms[aid]={p:true};added.atoms.push(atom.vrb+' '+atom.grp);}
+  });
+  return added;
+}
+
+// Muestra una notificación flotante con el resumen del bundle activado (5 segundos).
+function showBundleToast(methId, dc, added, tier){
+  const m=AUTH_METHODS.find(x=>x.id===methId);
+  const dom=DOMAINS.find(d=>d.c===dc);
+  const total=added.pols.length+added.attrs.length+added.atoms.length;
+  if(!total)return;
+  const old=document.getElementById('bundle-toast'); if(old)old.remove();
+  const lines=[];
+  if(added.pols.length) lines.push(`<div><span style="color:var(--ac)">POL</span> ${added.pols.slice(0,4).join(', ')}${added.pols.length>4?'…':''}</div>`);
+  if(added.attrs.length)lines.push(`<div><span style="color:var(--pu)">ATR</span> ${added.attrs.slice(0,4).join(', ')}${added.attrs.length>4?'…':''}</div>`);
+  if(added.atoms.length)lines.push(`<div><span style="color:var(--bl)">ATM</span> ${added.atoms.slice(0,4).join(', ')}${added.atoms.length>4?'…':''}</div>`);
+  const t=document.createElement('div');
+  t.id='bundle-toast';
+  t.innerHTML=`<div style="font-size:9px;font-family:var(--fm);font-weight:700;color:var(--am);margin-bottom:5px">BUNDLE → ${m?m.name:methId} como ${tier} en D${dc} ${dom?dom.name:''}</div><div style="font-size:9px;color:var(--t2);line-height:1.8">${lines.join('')}</div><div style="font-size:8px;color:var(--t3);margin-top:5px">${total} elemento(s) auto-agregado(s) al rol</div>`;
+  t.style.cssText='position:fixed;bottom:18px;right:18px;z-index:9999;background:var(--s1);border:1px solid var(--am);border-left:3px solid var(--am);border-radius:4px;padding:10px 14px;min-width:260px;max-width:380px;box-shadow:0 4px 24px rgba(0,0,0,.45)';
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(),5500);
+}
+
+// REMOVER desde el centro
+function rmAttr(dc,id){ if(mode==='roles'){RT.d[dc].attrs=RT.d[dc].attrs.filter(x=>x!==id);}else{UT.extra.d[dc].attrs=UT.extra.d[dc].attrs.filter(x=>x!==id);} refresh(); }
+function rmAtom(dc,id){ if(mode==='roles'){delete RT.d[dc].atoms[id];}else{delete UT.extra.d[dc].atoms[id];} refresh(); }
+function rmPol(dc,id){ if(mode==='roles'){delete RT.d[dc].pols[id];}else{delete UT.extra.d[dc].pols[id];} refresh(); }
+function rmMeth(dc,cat,id){
+  const src=mode==='roles'?RT:UT.extra;
+  const d=src.d[dc]; if(!d) return;
+  d.meths[cat]=(d.meths[cat]||[]).filter(x=>x!==id);
+  // Al quitar de Req/Alt, devuelve a Asignados
+  if((cat==='required'||cat==='alternative')&&!(d.meths.assigned||[]).includes(id)){
+    (d.meths.assigned=d.meths.assigned||[]).push(id);
+  }
+  refresh();
+}
+// Promueve un método de Asignados → Requeridos y aplica su METHOD_BUNDLE
+function promoteToReq(dc,id){
+  const src=mode==='roles'?RT:UT.extra;
+  const d=src.d[dc]; if(!d) return;
+  if((d.meths.alternative||[]).includes(id)){alert('Ya está en Alternativos. Retíralo primero.');return;}
+  d.meths.assigned=(d.meths.assigned||[]).filter(x=>x!==id);
+  if(!(d.meths.required||[]).includes(id))(d.meths.required=d.meths.required||[]).push(id);
+  const added=applyMethodBundle(dc,id,src);
+  if(added)showBundleToast(id,dc,added,'Requerido');
+  refresh();
+}
+// Promueve un método de Asignados → Alternativos y aplica su METHOD_BUNDLE
+function promoteToAlt(dc,id){
+  const src=mode==='roles'?RT:UT.extra;
+  const d=src.d[dc]; if(!d) return;
+  if((d.meths.required||[]).includes(id)){alert('Ya está en Requeridos. Retíralo primero.');return;}
+  d.meths.assigned=(d.meths.assigned||[]).filter(x=>x!==id);
+  if(!(d.meths.alternative||[]).includes(id))(d.meths.alternative=d.meths.alternative||[]).push(id);
+  const added=applyMethodBundle(dc,id,src);
+  if(added)showBundleToast(id,dc,added,'Alternativo');
+  refresh();
+}
+function upPol(dc,id,val){ const src=mode==='roles'?RT:UT.extra; if(src.d[dc]?.pols)src.d[dc].pols[id]=val; }
+function upAtom(dc,id,chk){ const src=mode==='roles'?RT:UT.extra; if(src.d[dc]?.atoms[id])src.d[dc].atoms[id].p=chk.checked; }
+
+function refresh(){renderAllPanels();if(mode==='roles')renderRolCenter();else renderUserCenter();}
+
+// ═══════════════════════════════════════════════════════════════
+// CENTRO — renderizar árbol de 12 dominios
+// ═══════════════════════════════════════════════════════════════
+function renderDomTree(el, getDomData, isLocked){
+  el.innerHTML=DOMAINS.map(dom=>{
+    const dd=getDomData(dom.c)||initD();
+    const pols=Object.keys(dd.pols);
+    const meths=[...dd.meths.assigned,...dd.meths.required,...dd.meths.alternative];
+    const total=pols.length+meths.length+(dd.attrs||[]).length+Object.keys(dd.atoms).length;
+    const isOpen=total>0;
+    const sid='ds'+dom.c+(isLocked?'L':'R');
+    return `<div class="dom-sec${isOpen?' op':''}" id="${sid}">
+      <div class="dom-hd" onclick="tg('${sid}');setMethTarget(${dom.c})">
+        <span class="arr">▶</span>
+        <span class="dom-icon">${dom.icon}</span>
+        <span class="dom-name">D${dom.c} — ${dom.name}</span>
+        <span class="dom-cnt">${total>0?total+' item'+(total>1?'s':''):'vacío'}</span>
+      </div>
+      <div class="dom-body">
+        ${renderDomPols(dom.c, dd.pols, isLocked)}
+        ${renderDomMeths(dom.c, dd.meths, isLocked)}
+        ${renderDomAttrs(dom.c, dd.attrs||[], isLocked)}
+        ${renderDomAtoms(dom.c, dd.atoms, isLocked)}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderDomPols(dc, pols, locked){
+  const keys=Object.keys(pols);
+  if(!keys.length&&locked) return '';
+  const ltC={POLICY:'wt vX',RULE:'wt vU',PROPERTY:'wt vR'};
+  return `<div class="dsub">
+    <div class="dsub-hd">${locked?'🔒 ':''}cfg_policy_library <span class="cnt">${keys.length} nodos</span></div>
+    ${keys.length?keys.map(id=>{
+      const p=CFG_POLICY_LIB.find(x=>x.id===id);if(!p)return '';
+      const val=pols[id];
+      const vtype=p.vt||'TEXT';
+      const inp=locked
+        ?`<span style="font-family:var(--fm);font-size:10px;color:var(--am)">${val}</span>`
+        :vtype==='BOOLEAN'
+          ?`<select class="pol-inp" onchange="upPol(${dc},'${id}',this.value)"><option${val==='true'?' selected':''}>true</option><option${val==='false'?' selected':''}>false</option></select>`
+          :vtype==='INTEGER'
+          ?`<input class="pol-inp" type="number" value="${val}" onchange="upPol(${dc},'${id}',this.value)">`
+          :`<input class="pol-inp" type="text" value="${val}" onchange="upPol(${dc},'${id}',this.value)">`;
+      const shortPath=p.path.split('.').slice(-2).join('.');
+      return `<div class="pol-cfg">
+        <span class="pol-cfg-name" title="${p.path}">${p.name}</span>
+        <span class="${ltC[p.lt]||'wt vR'}">${p.lt}</span>
+        <span class="wtb">${vtype}</span>${inp}
+        ${p.std?`<span style="font-family:var(--fm);font-size:7px;color:var(--t3);flex-shrink:0">${p.std}</span>`:''}
+        ${locked?'<span class="lk-ic">🔒</span>':`<button class="a-rm" onclick="rmPol(${dc},'${id}')">✕</button>`}
+      </div>`;
+    }).join(''):`<div class="empty">Sin políticas${locked?'':" — panel derecho →"}</div>`}
+  </div>`;
+}
+
+function renderDomMeths(dc, meths, locked){
+  const total=['assigned','required','alternative'].reduce((s,c)=>(meths[c]||[]).length+s,0);
+  if(!total&&locked) return '';
+  const assigned=meths.assigned||[];
+  const required=meths.required||[];
+  const alternative=meths.alternative||[];
+  // Asignados: lista con botones de distribución
+  const asigHtml=assigned.length
+    ?assigned.map(id=>{
+        const m=AUTH_METHODS.find(x=>x.id===id); if(!m) return '';
+        return `<div class="m-asig-row">
+          <span class="wt ${aalC(m.aal)}">${m.aal}</span>
+          <span style="font-size:10px;flex:1">${m.name}</span>
+          ${m.mfa?'<span style="font-size:8px;color:var(--pu)">MFA</span>':''}
+          ${locked?'<span class="lk-ic">🔒</span>':`
+            <button class="m-promo req" onclick="promoteToReq(${dc},'${id}')">→Req</button>
+            <button class="m-promo alt" onclick="promoteToAlt(${dc},'${id}')">→Alt</button>
+            <button class="a-rm" onclick="rmMeth(${dc},'assigned','${id}')">✕</button>`}
+        </div>`;
+      }).join('')
+    :`<div class="chip-wrap"><span class="ce">${locked?'ninguno':'panel derecho →'}</span></div>`;
+  // Requeridos y Alternativos: chips
+  const chipSection=(cat,items,label,cls)=>`
+    <div class="mcat-lbl">${label}</div>
+    <div class="chip-wrap">${items.length?items.map(id=>{
+      const m=AUTH_METHODS.find(x=>x.id===id); if(!m) return '';
+      return `<span class="ci ${cls}">
+        <span class="wt ${aalC(m.aal)}">${m.aal}</span>${m.name}
+        ${locked?'<span class="lk-ic">🔒</span>':`<button class="crm" title="Devolver a Asignados" onclick="rmMeth(${dc},'${cat}','${id}')">✕</button>`}
+      </span>`;
+    }).join(''):`<span class="ce">${locked?'ninguno':'desde Asignados ↑'}</span>`}
+    </div>`;
+  return `<div class="dsub">
+    <div class="dsub-hd">${locked?'🔒 ':''}Métodos de Autenticación <span class="cnt">${total}</span></div>
+    <div class="mcat-lbl">${catLbl['assigned']}</div>
+    ${asigHtml}
+    ${chipSection('required',required,catLbl['required'],'mr')}
+    ${chipSection('alternative',alternative,catLbl['alternative'],'ma')}
+  </div>`;
+}
+
+function renderDomAttrs(dc, attrs, locked){
+  if(!attrs.length&&locked) return '';
+  return `<div class="dsub">
+    <div class="dsub-hd">${locked?'🔒 ':''}Atributos <span class="cnt">${attrs.length}</span></div>
+    <div class="chip-wrap">${attrs.length?attrs.map(id=>{
+      const a=ATTRS.find(x=>x.id===id);
+      return a?`<span class="ci ${locked?'lk':''}" title="${a.name} (cod:${a.code})">${locked?'🔒 ':''}${a.nom||a.name}<span style="font-size:8px;color:var(--t3);margin-left:3px">${a.fmt||''}</span>${!locked?`<button class="crm" onclick="rmAttr(${dc},'${id}')">✕</button>`:''}</span>`:'';
+    }).join(''):`<span class="ce">${locked?'ninguno':"panel izquierdo ←"}</span>`}
+    </div>
+  </div>`;
+}
+
+function renderDomAtoms(dc, atoms, locked){
+  const keys=Object.keys(atoms);
+  if(!keys.length&&locked) return '';
+  if(!keys.length) return `<div class="dsub"><div class="dsub-hd">Átomos <span class="cnt">0</span></div><div class="empty">panel izquierdo ←</div></div>`;
+  const items=keys.map(id=>ATOMS.find(a=>a.id===id)).filter(Boolean);
+  const byApp=byK(items,'app');
+  return `<div class="dsub">
+    <div class="dsub-hd">${locked?'🔒 ':''}Átomos <span class="cnt">${keys.length}</span> <span class="cnt">App / Módulo / Grupo / Verbo</span></div>
+    ${Object.entries(byApp).map(([app,ai])=>{
+      const byMod=byK(ai,'mod');
+      return `<div style="margin-bottom:6px">
+        <div style="font-size:10px;font-weight:700;color:var(--t1);padding:3px 0 2px;display:flex;align-items:center;gap:4px;border-bottom:1px solid var(--bd-s);margin-bottom:2px">${aIcon(app)} ${app}</div>
+        ${Object.entries(byMod).map(([mod,mi])=>{
+          const byGrp=byK(mi,'grp');
+          return `<div style="padding-left:8px;margin-bottom:4px">
+            <div style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.05em;padding:2px 0;border-bottom:1px solid var(--bd-s);margin-bottom:2px">${mod}</div>
+            ${Object.entries(byGrp).map(([grp,gi])=>`
+              <div style="padding-left:8px">
+                <div style="font-size:8px;color:var(--t3);font-family:var(--fm);text-transform:uppercase;letter-spacing:.06em;padding:1px 0;margin-bottom:1px">${grp}</div>
+                ${gi.map(a=>`<div class="a-row">
+                  ${locked
+                    ?'<span class="lk-ic">🔒</span>'
+                    :`<input type="checkbox" class="a-chk" ${atoms[a.id]?.p?'checked':''} onchange="upAtom(${dc},'${a.id}',this)">`}
+                  <span class="${vc(a.vrb)}">${vLbl(a.vrb)}</span>
+                  <span class="slugt">${a.slug}</span>
+                  <span class="post">${a.pos}</span>
+                  ${locked?'':`<button class="a-rm" onclick="rmAtom(${dc},'${a.id}')">✕</button>`}
+                </div>`).join('')}
+              </div>`).join('')}
+          </div>`;
+        }).join('')}
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ROLES
+// ═══════════════════════════════════════════════════════════════
+function initRolCombo(){
+  const sel=document.getElementById('rol-sel');
+  ROLES.forEach(r=>{const o=document.createElement('option');o.value=r.code;o.textContent=`[${r.code}] ${r.name}`;sel.appendChild(o);});
+}
+function loadRol(code){
+  RT={name:'',slug:'',tier:'BIZ_N1',status:'DRAFT',level:5,code:null,d:Object.fromEntries(DOMAINS.map(d=>[d.c,initD()]))};
+  const badge=document.getElementById('rol-badge');
+  if(!code){clearRolForm();badge.innerHTML='';renderRolCenter();renderAllPanels();return;}
+  const rol=ROLES.find(r=>r.code===parseInt(code));
+  const tmpl=ROL_TEMPLATES[code];
+  if(tmpl){
+    badge.innerHTML='<span class="b-tmpl">✅ Template</span>';
+    ['name','slug','tier','status','level','code'].forEach(k=>{const el=document.getElementById('r-'+k);if(el)el.value=tmpl[k]||'';});
+    // deep copy dominos del template
+    DOMAINS.forEach(dom=>{
+      if(tmpl.d[dom.c]){
+        RT.d[dom.c]={
+          pols:Object.assign({},tmpl.d[dom.c].pols||{}),
+          meths:{assigned:[...(tmpl.d[dom.c].meths?.assigned||[])],required:[...(tmpl.d[dom.c].meths?.required||[])],alternative:[...(tmpl.d[dom.c].meths?.alternative||[])]},
+          attrs:[...(tmpl.d[dom.c].attrs||[])],
+          atoms:Object.assign({},tmpl.d[dom.c].atoms||{}),
+        };
+      }
+    });
+  } else {
+    badge.innerHTML='<span class="b-empty">⚠ Sin template</span>';
+    clearRolForm();
+    if(rol){document.getElementById('r-name').value=rol.name;document.getElementById('r-slug').value=rol.slug;document.getElementById('r-tier').value=rol.tier;document.getElementById('r-code').value=rol.code;}
+  }
+  renderRolCenter();renderAllPanels();
+}
+function clearRolForm(){['r-name','r-slug','r-level','r-code'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});}
+function newRol(){document.getElementById('rol-sel').value='';loadRol('');document.getElementById('rol-badge').innerHTML='<span class="b-new">+ Nuevo</span>';}
+function saveRol(){alert('💾 Guardado (simulación)\nPendiente: definir tabla bauth_rol_template vinculada a privilege_role.role_code');}
+function deleteRol(){if(confirm('¿Eliminar rol y template?'))alert('Eliminado (simulación)');}
+
+// ═══════════════════════════════════════════════════════════════
+// CENTRO — árbol RolTemplate v6.0 (14 bloques + 7 pendientes)
+// Estructura canónica: SBOS-ROLTEMPLATE-v5_0.md (contenido v6.0)
+// ═══════════════════════════════════════════════════════════════
+function renderBlockTree(el, getDomData, isLocked){
+  const dd=dc=>getDomData(dc)||initD();
+  const cntD=dc=>{const d=dd(dc);return Object.keys(d.pols).length+(d.attrs||[]).length+Object.keys(d.atoms).length+(d.meths.assigned||[]).length+(d.meths.required||[]).length+(d.meths.alternative||[]).length;};
+
+  // Bloque de dominio activo — pols/meths/attrs/atoms del dominio
+  const domBlk=(bn,dc,name,embNote)=>{
+    const d=dd(dc);const n=cntD(dc);const op=n>0;
+    const sid='blk'+bn+(isLocked?'L':'R');
+    return `<div class="blk-sec${op?' op':''}" id="${sid}">
+      <div class="blk-hd" onclick="tg('${sid}');setMethTarget(${dc})">
+        <span class="arr">▶</span><span class="blk-num">B${bn}</span>
+        <span class="blk-dom">D${dc}</span>
+        <span class="blk-name">${name}</span>
+        <span class="blk-cnt">${n>0?n+' ítem'+(n>1?'s':''):'vacío'}</span>
+      </div>
+      <div class="blk-body">
+        ${embNote?`<div class="blk-emb-note">↪ Embebe: ${embNote}</div>`:''}
+        ${renderDomPols(dc,d.pols,isLocked)}${renderDomMeths(dc,d.meths,isLocked)}${renderDomAttrs(dc,d.attrs||[],isLocked)}${renderDomAtoms(dc,d.atoms,isLocked)}
+      </div></div>`;
+  };
+
+  // Bloque pendiente — muestra datos del dominio con badge PENDIENTE
+  const pendBlk=(bn,dc,name,prRef)=>{
+    const d=dd(dc);const n=cntD(dc);const op=n>0;
+    const sid='blk'+bn+(isLocked?'L':'R');
+    return `<div class="blk-sec blk-pend${op?' op':''}" id="${sid}">
+      <div class="blk-hd" onclick="tg('${sid}');setMethTarget(${dc})">
+        <span class="arr">▶</span><span class="blk-num">B${bn}</span>
+        <span class="blk-pend-badge">PENDIENTE</span>
+        <span class="blk-dom">D${dc}</span>
+        <span class="blk-name">${name}</span>
+        <span class="blk-cnt">${n>0?n+' ítem'+(n>1?'s':''):'vacío'}</span>
+      </div>
+      <div class="blk-body">
+        <div class="bf-note" style="margin-left:0;margin-bottom:6px">📌 Ver plan de reparación §${prRef}. Los datos aquí se conservarán al formalizar el bloque.</div>
+        ${renderDomPols(dc,d.pols,isLocked)}${renderDomMeths(dc,d.meths,isLocked)}${renderDomAttrs(dc,d.attrs||[],isLocked)}${renderDomAtoms(dc,d.atoms,isLocked)}
+      </div></div>`;
+  };
+
+  // Bloque estático — campos clave del contrato (sin dominio configurable)
+  const statBlk=(bn,name,domLbl,isRO,fields)=>{
+    const sid='blk'+bn+(isLocked?'L':'R');
+    return `<div class="blk-sec${isRO?' blk-ro':''}" id="${sid}">
+      <div class="blk-hd" onclick="tg('${sid}')">
+        <span class="arr">▶</span><span class="blk-num">B${bn}</span>
+        ${isRO?`<span class="blk-ro-badge">READONLY</span>`:''}
+        ${domLbl?`<span class="blk-dom">${domLbl}</span>`:''}
+        <span class="blk-name">${name}</span>
+      </div>
+      <div class="blk-body">
+        ${fields.map(([k,v,note])=>`<div class="bf-row"><span class="bf-key">${k}</span><span class="bf-val">${v}</span></div>${note?`<div class="bf-note">${note}</div>`:''}`).join('')}
+      </div></div>`;
+  };
+
+  el.innerHTML=`
+    <div class="blk-section-hd">Gobernanza del Contrato</div>
+    ${statBlk(1,'Identificación y Metadatos','D0',false,[
+      ['id','—','Formato: {DEPT}-{NNN} · INMUTABLE post-creación'],
+      ['parent_id','—','Herencia H-RBAC · null = rol raíz'],
+      ['type_id','TYPE-OPERATIVO',''],
+      ['hierarchy_level','5','1 = C-Level … 5 = Operativo estándar'],
+      ['status','DRAFT','DRAFT → REVIEW → ACTIVE → DEPRECATED → ARCHIVED'],
+      ['version','1.0.0','SemVer · MAJOR = breaking change en permisos'],
+      ['metadata.classification','INTERNAL','PUBLIC | INTERNAL | CONFIDENTIAL | RESTRICTED'],
+      ['digital_signature.algorithm','EdDSA_Ed25519','Ley 164 Bolivia · Post-quantum: Dilithium planificado 2027'],
+    ])}
+    ${statBlk(2,'Vigencia y Ciclo de Vida','D4↗',false,[
+      ['validity_period.type','INDEFINITE','FIXED | INDEFINITE | PROJECT_BASED'],
+      ['start_date','—',''],
+      ['end_date','—','null para INDEFINITE'],
+      ['review_date','—','bAuth alerta 30 días antes al role_owner'],
+      ['renewal_settings.renewable','true',''],
+      ['renewal_settings.max_renewals','2',''],
+      ['early_termination.requires_approval','true',''],
+    ])}
+    ${statBlk(3,'Flujo de Aprobación','',false,[
+      ['required_approvers','2',''],
+      ['approver_roles','[ ]',''],
+      ['sla_hours','48','Tiempo máximo para obtener aprobación'],
+      ['escalation_after_hours','24',''],
+      ['escalation_to','[ ]',''],
+    ])}
+    <div class="blk-sec-sep"></div>
+    <div class="blk-section-hd">Dominios con Bloque Dedicado</div>
+    ${domBlk(4,1,'D1 — Dominio Lógico · Autenticación Digital','D4 temporal_control · D6 geospatial_control · D8 step_up_rules')}
+    ${domBlk(5,2,'D2 — Dominio Físico · Acceso Presencial','D5 biometric_enrollment_policy')}
+    ${statBlk(6,'Zonas de Negocio (mapa D1 → Aplicaciones)','D1↗',false,[
+      ['zone_logical/ventas','READ · WRITE · APPROVE · EXECUTE','scope: REGIONAL'],
+      ['zone_logical/facturacion','READ · WRITE · EMIT',''],
+      ['zone_logical/reportes','READ · EXECUTE',''],
+      ['zone_logical/clientes','READ · WRITE','pii_access: true'],
+      ['zone_financial/ventas','CREATE · APPROVE','limit_tier 2 — hasta 10 000 BOB'],
+    ])}
+    ${statBlk(7,'Privilegios Tryton — 5 Capas ERP','D1↗',false,[
+      ['CAPA 1 model_access','sale.order · party.party · account.invoice …','CRUD por modelo Tryton'],
+      ['CAPA 2 visible_actions','menu_sale_orders · menu_party_customers …','Menús visibles (ir.action.groups)'],
+      ['CAPA 3 field_restrictions','margin=false · cost_price=false …','Campos ocultos al rol'],
+      ['CAPA 4 button_rules','confirm ≤10k → 1 usr · confirm ≤50k → 2 usr + WebAuthn','PYSON conditions'],
+      ['CAPA 5 record_rules','shop.region = usuario.region','Filtros SQL dinámicos por zona'],
+    ])}
+    ${domBlk(8,3,'D3 — Dominio Financiero · Transacciones','D4 transaction_schedule · D6 geospatial_control')}
+    ${statBlk(9,'SAM-128 + BitMask Dual','',true,[
+      ['physical_domain_mask_hex','0x000000000003E627','Q1+Q2 · Solo lectura — calculado por PrivilegeEngine'],
+      ['logical_domain_mask_hex','0x0000010900030052','Q1 extendido · 64 bits one-hot encoding'],
+      ['financial_domain_mask_hex','0x0000020900010000','Q3'],
+      ['governance_mask_hex','0x0000021200010052','Q4'],
+      ['computed_by','bAuth.PrivilegeEngine.v2.0','Evaluación &lt; 0.5 ns — DAG closure table'],
+    ])}
+    ${domBlk(10,10,'D10 — Delegación · DSD / SoD Dinámico','')}
+    ${statBlk(11,'Grupos y Jerarquías H-RBAC','',false,[
+      ['role_hierarchy.level','—','1 = C-Level … 5 = Operativo'],
+      ['role_hierarchy.parent_role','—','Herencia vía AND NOT bits_removed'],
+      ['role_hierarchy.child_roles','[ ]',''],
+      ['role_groups','[ ]','Grupos funcionales con quórum configurable'],
+    ])}
+    ${statBlk(12,'SoD — Separación de Funciones','',false,[
+      ['incompatible_roles','[ ]','Roles que NO pueden coexistir con este'],
+      ['incompatible_functions','[ ]','Funciones mutuamente excluyentes'],
+      ['conflict_validation.check_frequency','REAL_TIME','Verificado en cada token issue'],
+    ])}
+    ${domBlk(13,11,'D11 — Cumplimiento y Auditoría','')}
+    ${statBlk(14,'Estado de Sincronización','',true,[
+      ['sync_status','PENDING','PENDING | SYNCING | SYNCED | ERROR | DRIFT'],
+      ['keycloak.composite_role','—','Nombre del composite role en KC 26.6.2'],
+      ['keycloak.auth_flow','—','ID del flujo de autenticación'],
+      ['tryton.group_id','—','ID del grupo Tryton asociado'],
+      ['drift_detected','false','bAuth reconcile loop cada 60 s'],
+    ])}
+    <div class="blk-sec-sep"></div>
+    <div class="blk-section-hd">Dominios Pendientes — Plan de Reparación PR-3</div>
+    ${pendBlk(15,4,'D4 — Temporal · Vigencia y Schedules','PR-2 §D4')}
+    ${pendBlk(16,5,'D5 — Biométrico · Enrolamiento y Liveness','PR-2 §D5')}
+    ${pendBlk(17,6,'D6 — Geoespacial · Política Unificada','PR-2 §D6')}
+    ${pendBlk(18,7,'D7 — Red · Network Access Control','PR-2 §D7')}
+    ${pendBlk(19,8,'D8 — Contexto Adaptativo · Zero Trust','PR-2 §D8')}
+    ${pendBlk(20,9,'D9 — Credenciales · Ciclo de Vida','PR-2 §D9')}
+    ${pendBlk(21,12,'D12 — Blockchain · Firma Digital DLT','PR-2 §D12')}
+  `;
+}
+
+function renderRolCenter(){
+  renderBlockTree(document.getElementById('r-dom-tree'), dc=>RT.d[dc], false);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// USUARIOS
+// ═══════════════════════════════════════════════════════════════
+function initUserCombo(){
+  const sel=document.getElementById('u-rol');
+  ROLES.filter(r=>r.has_tmpl).forEach(r=>{const o=document.createElement('option');o.value=r.code;o.textContent=`[${r.code}] ${r.name}`;sel.appendChild(o);});
+}
+function loadUser(uid){
+  if(!uid)return;
+  document.getElementById('u-username').value='jperez';
+  document.getElementById('u-eid').value='E-00247';
+  document.getElementById('u-rol').value='102';
+  loadUserRole('102');
+}
+function loadUserRole(code){
+  UT={locked:null,extra:{d:Object.fromEntries(DOMAINS.map(d=>[d.c,initD()]))}};
+  if(!code){renderUserCenter();renderAllPanels();return;}
+  const tmpl=ROL_TEMPLATES[code];
+  if(!tmpl)return;
+  UT.locked={d:{}};
+  DOMAINS.forEach(dom=>{
+    if(tmpl.d[dom.c]){
+      UT.locked.d[dom.c]={
+        pols:Object.assign({},tmpl.d[dom.c].pols||{}),
+        meths:{assigned:[...(tmpl.d[dom.c].meths?.assigned||[])],required:[...(tmpl.d[dom.c].meths?.required||[])],alternative:[...(tmpl.d[dom.c].meths?.alternative||[])]},
+        attrs:[...(tmpl.d[dom.c].attrs||[])],
+        atoms:Object.assign({},tmpl.d[dom.c].atoms||{}),
+      };
+    } else {
+      UT.locked.d[dom.c]=initD();
+    }
+  });
+  renderUserCenter();renderAllPanels();
+}
+
+function renderUserCenter(){
+  const el=document.getElementById('u-dom-tree');
+  // Render: primero los dominios bloqueados del rol, luego extras del usuario combinados
+  el.innerHTML=DOMAINS.map(dom=>{
+    const locked=UT.locked?(UT.locked.d[dom.c]||initD()):null;
+    const extra=UT.extra.d[dom.c]||initD();
+    const lTotal=locked?(Object.keys(locked.pols).length+locked.attrs.length+Object.keys(locked.atoms).length+['assigned','required','alternative'].reduce((s,c)=>(locked.meths[c]||[]).length+s,0)):0;
+    const eTotal=Object.keys(extra.pols).length+extra.attrs.length+Object.keys(extra.atoms).length+['assigned','required','alternative'].reduce((s,c)=>(extra.meths[c]||[]).length+s,0);
+    const total=lTotal+eTotal;
+    const isOpen=total>0;
+    const sid='uds'+dom.c;
+    return `<div class="dom-sec${isOpen?' op':''}" id="${sid}">
+      <div class="dom-hd" onclick="tg('${sid}');setMethTarget(${dom.c})">
+        <span class="arr">▶</span>
+        <span class="dom-icon">${dom.icon}</span>
+        <span class="dom-name">D${dom.c} — ${dom.name}</span>
+        <span class="dom-cnt">${total>0?(lTotal?`🔒 ${lTotal} `:'')+(eTotal?`+${eTotal}`:total===0?'vacío':''):'vacío'}</span>
+      </div>
+      <div class="dom-body">
+        ${locked&&lTotal>0?'<div style="font-size:9px;font-weight:700;color:var(--lk);font-family:var(--fm);margin-bottom:5px">DEL ROL — bloqueados</div>':''}
+        ${locked&&lTotal>0?[renderDomPols(dom.c,locked.pols,true),renderDomMeths(dom.c,locked.meths,true),renderDomAttrs(dom.c,locked.attrs,true),renderDomAtoms(dom.c,locked.atoms,true)].join(''):''}
+        ${eTotal>0?'<div style="font-size:9px;font-weight:700;color:var(--ac);font-family:var(--fm);margin:6px 0 5px;padding-top:5px;border-top:1px solid var(--bd-s)">+ EXTRAS DEL USUARIO</div>':''}
+        ${renderDomPols(dom.c,extra.pols,false)}
+        ${renderDomMeths(dom.c,extra.meths,false)}
+        ${renderDomAttrs(dom.c,extra.attrs,false)}
+        ${renderDomAtoms(dom.c,extra.atoms,false)}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════════════════════
+const PANEL_TABS=['roles','usuarios'];
+function showTab(name,btn){
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('main').classList.toggle('wp',PANEL_TABS.includes(name));
+  ['roles','usuarios','politicas','atributos','aplicaciones','atomos'].forEach(p=>{
+    const pb=document.getElementById('pb-'+p);
+    const pn=document.getElementById('pane-'+p);
+    if(pb)pb.style.display=(p===name)?'flex':'none';
+    if(pn){pn.classList.remove('active');if(p===name)pn.classList.add('active');}
+  });
+  if(PANEL_TABS.includes(name)){mode=name;renderAllPanels();}
+}
+document.querySelectorAll('[id^="pb-"]').forEach(el=>{if(el.id!=='pb-roles')el.style.display='none';});
+
+// ═══════════════════════════════════════════════════════════════
+// CRUDs CATÁLOGOS
+// ═══════════════════════════════════════════════════════════════
+// Helpers de árbol colapsable reutilizables en tabs CRUD
+let _ct={};
+function ctog(id){_ct[id]=!_ct[id];const b=document.getElementById('ct-body-'+id);const a=document.getElementById('ct-arr-'+id);if(b)b.style.display=_ct[id]?'none':'';if(a)a.style.transform=_ct[id]?'rotate(-90deg)':'';}
+const ltColor={FRAMEWORK:'var(--ac)',DOMAIN:'var(--am)',POLICY_SET:'var(--pu)',POLICY:'var(--bl)',RULE:'var(--ok)',PROPERTY:'var(--t2)'};
+const ltBorderColor={FRAMEWORK:'var(--ac)',DOMAIN:'var(--am)',POLICY_SET:'var(--pu)',POLICY:'var(--bl)',RULE:'var(--ok)',PROPERTY:'var(--bd)'};
+
+function renderCRUD(type,q){
+  q=(q||'').toLowerCase();
+
+  if(type==='pols'){
+    // cfg_policy_library — árbol FRAMEWORK → DOMAIN → POLICY_SET → POLICY → RULE → PROPERTY
+    const vis=CFG_POLICY_LIB.filter(n=>!q||n.name.toLowerCase().includes(q)||n.path.toLowerCase().includes(q));
+    // construir árbol por path
+    const fws=vis.filter(n=>n.lt==='FRAMEWORK');
+    const ltBadge=lt=>`<span style="font-family:var(--fm);font-size:8px;font-weight:700;padding:1px 4px;border-radius:2px;background:rgba(0,0,0,.18);color:${ltColor[lt]||'var(--t2)'};">${lt}</span>`;
+    const renderNode=(node,pad)=>{
+      const children=vis.filter(n=>n.path.startsWith(node.path+'.')&&n.path.split('.').length===node.path.split('.').length+1);
+      const hasKids=children.length>0;
+      const id='pln'+node.id.replace(/\W/g,'');
+      return `<div style="border-left:2px solid ${ltBorderColor[node.lt]||'var(--bd)'};margin-bottom:2px">
+        <div class="lr" style="padding-left:${pad}px;cursor:${hasKids?'pointer':'default'}" onclick="${hasKids?`ctog('${id}')`:''}" >
+          ${hasKids?`<span id="ct-arr-${id}" class="arr" style="font-family:var(--fm);font-size:7px;color:var(--t3)">▶</span>`:'<span style="width:8px;display:inline-block"></span>'}
+          ${ltBadge(node.lt)}
+          <span class="lk-f" style="font-size:${pad<24?11:pad<36?10:9}px">${node.name}</span>
+          ${node.vt?`<span class="wtb">${node.vt}</span>`:''}
+          ${node.def?`<span class="lm" style="font-family:var(--fm)">${node.def}</span>`:''}
+          ${node.std?`<span style="font-family:var(--fm);font-size:7px;color:var(--t3)">${node.std}</span>`:''}
+          <div class="la"><button class="lb">editar</button>${['RULE','PROPERTY'].includes(node.lt)?'<button class="lb d">✕</button>':''}</div>
+        </div>
+        ${hasKids?`<div id="ct-body-${id}">${children.map(c=>renderNode(c,pad+12)).join('')}</div>`:''}
+      </div>`;
+    };
+    document.getElementById('pols-crud').innerHTML=fws.map(fw=>renderNode(fw,8)).join('');
+
+  } else if(type==='attrs'){
+    // idn_tipo_atributo — árbol: categoria → sub_categoria → tipo
+    const vis=ATTRS.filter(a=>!q||(a.nom||a.name).toLowerCase().includes(q)||a.name.toLowerCase().includes(q)||a.cat.toLowerCase().includes(q)||(a.sub||'').toLowerCase().includes(q));
+    const byCat=byK(vis,'cat');
+    const catIcon={personal:'👤',contacto:'📞',documento:'📄',ubicacion:'📍',profesional:'💼',financiero:'💰',dispositivo:'💻',suscripcion:'⭐',facturacion:'🧾'};
+    document.getElementById('attrs-crud').innerHTML=Object.entries(byCat).map(([cat,items])=>{
+      const cid='atc'+cat.replace(/\W/g,'');
+      const bySub=byK(items,'sub');
+      return `<div style="border-left:2px solid var(--ac);margin-bottom:3px">
+        <div class="lr" style="padding-left:8px;cursor:pointer" onclick="ctog('${cid}')">
+          <span id="ct-arr-${cid}" class="arr" style="font-family:var(--fm);font-size:7px;color:var(--t3)">▶</span>
+          <span style="font-size:12px">${catIcon[cat]||'📋'}</span>
+          <span class="lk-f" style="font-size:11px;text-transform:capitalize">${cat}</span>
+          <span class="lm">${items.length} tipos</span>
+          <div class="la"><button class="lb">+ tipo</button></div>
+        </div>
+        <div id="ct-body-${cid}">${Object.entries(bySub).map(([sub,sitems])=>{
+          const sid='ats'+cat.replace(/\W/g,'')+sub.replace(/\W/g,'');
+          return `<div style="border-left:2px solid var(--am);margin-left:16px;margin-bottom:2px">
+            <div class="lr" style="padding-left:8px;cursor:pointer" onclick="ctog('${sid}')">
+              <span id="ct-arr-${sid}" class="arr" style="font-family:var(--fm);font-size:7px;color:var(--t3)">▶</span>
+              <span class="lk-f" style="color:var(--t2);text-transform:capitalize">${sub}</span>
+              <span class="lm">${sitems.length} tipos</span>
+            </div>
+            <div id="ct-body-${sid}">${sitems.map(a=>`
+              <div class="lr" style="padding-left:20px;border-left:2px solid var(--bd)">
+                <span class="lk-f" style="font-size:10px">${a.nom||a.name}</span>
+                <span style="font-family:var(--fm);font-size:8px;color:var(--t3)">${a.name}</span>
+                <span class="wtb">${a.fmt||''}</span>
+                <span class="exp">D${a.dc}</span>
+                <span class="lm" style="font-family:var(--fm)">cod:${a.code}</span>
+                <div class="la"><button class="lb">editar</button><button class="lb d">✕</button></div>
+              </div>`).join('')}
+            </div>
+          </div>`;
+        }).join('')}
+        </div>
+      </div>`;
+    }).join('');
+
+  } else if(type==='apps'){
+    // Gestión de jerarquía: Aplicación → Módulo → Grupo (catálogo de estructura)
+    const vis=ATOMS.filter(a=>!q||a.app.toLowerCase().includes(q)||a.mod.toLowerCase().includes(q)||a.grp.toLowerCase().includes(q));
+    const byApp=byK(vis,'app');
+    document.getElementById('apps-crud').innerHTML=Object.entries(byApp).map(([app,items])=>{
+      const byMod=byK(items,'mod');
+      const aid='app'+app.replace(/\W/g,'');
+      return `<div style="border-left:2px solid var(--ac);margin-bottom:3px">
+        <div class="lr" style="padding-left:8px;cursor:pointer" onclick="ctog('${aid}')">
+          <span id="ct-arr-${aid}" class="arr" style="font-family:var(--fm);font-size:7px;color:var(--t3)">▶</span>
+          <span style="font-size:13px">${aIcon(app)}</span>
+          <span class="lk-f" style="font-size:11px">${app}</span>
+          <span class="lm">${Object.keys(byMod).length} módulos · ${items.length} átomos</span>
+          <div class="la"><button class="lb">+ módulo</button><button class="lb">editar</button></div>
+        </div>
+        <div id="ct-body-${aid}">${Object.entries(byMod).map(([mod,mi])=>{
+          const byGrp=byK(mi,'grp');const mid='mod'+app.replace(/\W/g,'')+mod.replace(/\W/g,'');
+          return `<div style="border-left:2px solid var(--am);margin-left:16px;margin-bottom:2px">
+            <div class="lr" style="padding-left:8px;cursor:pointer" onclick="ctog('${mid}')">
+              <span id="ct-arr-${mid}" class="arr" style="font-family:var(--fm);font-size:7px;color:var(--t3)">▶</span>
+              <span class="lk-f" style="color:var(--t2)">${mod}</span>
+              <span class="lm">${Object.keys(byGrp).length} grupos · ${mi.length} átomos</span>
+              <div class="la"><button class="lb">+ grupo</button><button class="lb">editar</button><button class="lb d">✕</button></div>
+            </div>
+            <div id="ct-body-${mid}">${Object.entries(byGrp).map(([grp,gi])=>`
+              <div class="lr" style="padding-left:20px;border-left:2px solid var(--bd)">
+                <span class="lk-f" style="font-size:10px">${grp}</span>
+                <span class="lm">${gi.length} átomos</span>
+                <div class="la"><button class="lb">editar</button><button class="lb d">✕</button></div>
+              </div>`).join('')}
+            </div>
+          </div>`;
+        }).join('')}</div>
+      </div>`;
+    }).join('');
+
+  } else if(type==='atoms'){
+    // Misma jerarquía App → Módulo → Grupo, átomos individuales dentro de cada Grupo
+    const vis=ATOMS.filter(a=>!q||a.slug.includes(q)||a.vrb.includes(q)||a.grp.toLowerCase().includes(q)||a.mod.toLowerCase().includes(q)||a.app.toLowerCase().includes(q));
+    const byApp=byK(vis,'app');
+    const vbc={create:'var(--ok)',read:'var(--bl)',delete:'var(--er)',execute:'var(--ac)',update:'var(--am)',print:'var(--t2)',export:'var(--pu)'};
+    document.getElementById('atoms-crud').innerHTML=Object.entries(byApp).map(([app,items])=>{
+      const byMod=byK(items,'mod');
+      const aid='ata'+app.replace(/\W/g,'');
+      return `<div style="border-left:2px solid var(--ac);margin-bottom:3px">
+        <div class="lr" style="padding-left:8px;cursor:pointer" onclick="ctog('${aid}')">
+          <span id="ct-arr-${aid}" class="arr" style="font-family:var(--fm);font-size:7px;color:var(--t3)">▶</span>
+          <span style="font-size:13px">${aIcon(app)}</span>
+          <span class="lk-f" style="font-size:11px">${app}</span>
+          <span class="lm">${items.length} átomos</span>
+        </div>
+        <div id="ct-body-${aid}">${Object.entries(byMod).map(([mod,mi])=>{
+          const byGrp=byK(mi,'grp');const mid='atm'+app.replace(/\W/g,'')+mod.replace(/\W/g,'');
+          return `<div style="border-left:2px solid var(--am);margin-left:16px;margin-bottom:2px">
+            <div class="lr" style="padding-left:8px;cursor:pointer" onclick="ctog('${mid}')">
+              <span id="ct-arr-${mid}" class="arr" style="font-family:var(--fm);font-size:7px;color:var(--t3)">▶</span>
+              <span class="lk-f" style="color:var(--t2)">${mod}</span>
+              <span class="lm">${mi.length} átomos</span>
+            </div>
+            <div id="ct-body-${mid}">${Object.entries(byGrp).map(([grp,gi])=>{
+              const gid='atg'+app.replace(/\W/g,'')+mod.replace(/\W/g,'')+grp.replace(/\W/g,'');
+              return `<div style="border-left:2px solid var(--bl);margin-left:16px;margin-bottom:1px">
+                <div class="lr" style="padding-left:8px;cursor:pointer" onclick="ctog('${gid}')">
+                  <span id="ct-arr-${gid}" class="arr" style="font-family:var(--fm);font-size:7px;color:var(--t3)">▶</span>
+                  <span class="lk-f" style="font-size:10px">${grp}</span>
+                  <span class="lm">${gi.length} átomos</span>
+                  <div class="la"><button class="lb">+ átomo</button></div>
+                </div>
+                <div id="ct-body-${gid}">${gi.map(a=>`
+                  <div class="lr" style="padding-left:20px;border-left:2px solid ${vbc[a.vrb]||'var(--bd)'}">
+                    <span class="${vc(a.vrb)}">${vLbl(a.vrb)}</span>
+                    <span class="exp">D${a.dc}</span>
+                    <span class="lk-f" style="font-size:9px;font-family:var(--fm)">${a.slug}</span>
+                    <span class="lm">pos:${a.pos}</span>
+                    <div class="la"><button class="lb">editar</button><button class="lb d">✕</button></div>
+                  </div>`).join('')}
+                </div>
+              </div>`;
+            }).join('')}
+            </div>
+          </div>`;
+        }).join('')}</div>
+      </div>`;
+    }).join('');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+initRolCombo();initUserCombo();
+renderAllPanels();renderRolCenter();renderUserCenter();
+renderCRUD('pols');renderCRUD('attrs');renderCRUD('apps');renderCRUD('atoms');
+</script>

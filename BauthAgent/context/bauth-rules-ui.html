@@ -1,0 +1,1187 @@
+<title>bAuth — Gestión de Reglas y Políticas</title>
+<style>
+:root {
+  --bg:        #F6F8FA;
+  --bg-2:      #FFFFFF;
+  --bg-3:      #EAEEF2;
+  --sidebar:   #24292F;
+  --border:    #D0D7DE;
+  --border-2:  #AFB8C1;
+  --text:      #24292F;
+  --text-2:    #57606A;
+  --text-inv:  #E6EDF3;
+  --text-inv-2:#8B949E;
+  --accent:    #2F81F7;
+  --accent-dim:#1A5EA8;
+  --green:     #1A7F37;
+  --green-bg:  #DAFBE1;
+  --amber:     #9A6700;
+  --amber-bg:  #FFF8C5;
+  --red:       #CF222E;
+  --red-bg:    #FFEBE9;
+  --red-bright:#F85149;
+  --mono:      ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --sans:      system-ui, -apple-system, sans-serif;
+  --r-sm:      4px;
+  --r-pill:    100px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:        #0D1117;
+    --bg-2:      #161B22;
+    --bg-3:      #21262D;
+    --sidebar:   #010409;
+    --border:    #30363D;
+    --border-2:  #484F58;
+    --text:      #E6EDF3;
+    --text-2:    #8B949E;
+    --text-inv:  #E6EDF3;
+    --text-inv-2:#8B949E;
+    --accent:    #2F81F7;
+    --accent-dim:#388BFD;
+    --green:     #3FB950;
+    --green-bg:  #0F291A;
+    --amber:     #D29922;
+    --amber-bg:  #2D1F00;
+    --red:       #F85149;
+    --red-bg:    #2D0F0F;
+    --red-bright:#F85149;
+  }
+}
+:root[data-theme="light"] {
+  --bg:#F6F8FA; --bg-2:#FFFFFF; --bg-3:#EAEEF2; --sidebar:#24292F;
+  --border:#D0D7DE; --border-2:#AFB8C1; --text:#24292F; --text-2:#57606A;
+  --text-inv:#E6EDF3; --text-inv-2:#8B949E; --accent:#2F81F7; --accent-dim:#1A5EA8;
+  --green:#1A7F37; --green-bg:#DAFBE1; --amber:#9A6700; --amber-bg:#FFF8C5;
+  --red:#CF222E; --red-bg:#FFEBE9; --red-bright:#F85149;
+}
+:root[data-theme="dark"] {
+  --bg:#0D1117; --bg-2:#161B22; --bg-3:#21262D; --sidebar:#010409;
+  --border:#30363D; --border-2:#484F58; --text:#E6EDF3; --text-2:#8B949E;
+  --text-inv:#E6EDF3; --text-inv-2:#8B949E; --accent:#2F81F7; --accent-dim:#388BFD;
+  --green:#3FB950; --green-bg:#0F291A; --amber:#D29922; --amber-bg:#2D1F00;
+  --red:#F85149; --red-bg:#2D0F0F; --red-bright:#F85149;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; font-family: var(--sans); font-size: 14px; background: var(--bg); color: var(--text); }
+
+/* SHELL */
+.shell { display: flex; height: 100vh; overflow: hidden; }
+
+/* SIDEBAR */
+.sidebar {
+  width: 220px; flex-shrink: 0;
+  background: var(--sidebar);
+  display: flex; flex-direction: column;
+  overflow-y: auto; border-right: 1px solid #000;
+}
+.sidebar-header {
+  padding: 16px 14px 12px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.sidebar-logo {
+  display: flex; align-items: center; gap: 8px;
+  color: var(--text-inv);
+}
+.sidebar-logo .logo-mark {
+  width: 28px; height: 28px; background: var(--accent);
+  display: grid; place-items: center;
+  font-weight: 700; font-size: 13px; color: #fff;
+  font-family: var(--mono); letter-spacing: -1px;
+}
+.sidebar-logo .logo-text { font-size: 13px; font-weight: 600; color: var(--text-inv); }
+.sidebar-logo .logo-sub { font-size: 10px; color: var(--text-inv-2); margin-top: 1px; }
+
+.nav-group { padding: 10px 0 4px; }
+.nav-group-label {
+  padding: 0 14px 6px;
+  font-size: 10px; font-weight: 600; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--text-inv-2);
+}
+.nav-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 14px; cursor: pointer;
+  color: var(--text-inv-2); font-size: 12.5px;
+  font-family: var(--mono); transition: background .1s, color .1s;
+  border-left: 2px solid transparent;
+}
+.nav-item:hover { background: rgba(255,255,255,.06); color: var(--text-inv); }
+.nav-item.active {
+  background: rgba(47,129,247,.15); color: var(--accent-dim);
+  border-left-color: var(--accent);
+}
+.nav-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .5; flex-shrink: 0; }
+.nav-item.active .nav-dot { opacity: 1; }
+
+/* CONTENT */
+.content { flex: 1; overflow-y: auto; background: var(--bg); display: flex; flex-direction: column; }
+
+/* TOPBAR */
+.topbar {
+  height: 48px; flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 20px; gap: 12px;
+  background: var(--bg-2);
+  position: sticky; top: 0; z-index: 10;
+}
+.breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); }
+.breadcrumb span { color: var(--text); font-weight: 500; }
+.topbar-spacer { flex: 1; }
+.topbar-user { font-size: 12px; color: var(--text-2); display: flex; align-items: center; gap: 6px; }
+.avatar { width: 24px; height: 24px; background: var(--accent); border-radius: 50%; display: grid; place-items: center; font-size: 10px; font-weight: 700; color: #fff; }
+.aal-chip { font-family: var(--mono); font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: var(--r-sm); background: var(--green-bg); color: var(--green); letter-spacing: .03em; }
+
+/* SCREEN */
+.screen { display: none; padding: 20px; flex-direction: column; gap: 16px; }
+.screen.active { display: flex; }
+
+/* SCREEN HEADER */
+.screen-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.screen-title { font-size: 16px; font-weight: 600; line-height: 1.3; }
+.screen-desc { font-size: 12px; color: var(--text-2); margin-top: 3px; max-width: 560px; }
+.screen-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+
+/* BUTTONS */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px; border-radius: var(--r-sm);
+  font-size: 12.5px; font-weight: 500; cursor: pointer;
+  border: 1px solid transparent; font-family: var(--sans);
+  transition: background .1s, border-color .1s;
+}
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn-primary:hover { background: var(--accent-dim); }
+.btn-secondary { background: var(--bg-2); color: var(--text); border-color: var(--border); }
+.btn-secondary:hover { background: var(--bg-3); border-color: var(--border-2); }
+.btn-danger { background: var(--red-bg); color: var(--red); border-color: var(--red); }
+.btn-danger:hover { background: var(--red); color: #fff; }
+.btn-ghost { background: transparent; color: var(--text-2); border-color: transparent; }
+.btn-ghost:hover { background: var(--bg-3); color: var(--text); }
+.btn-sm { padding: 3px 8px; font-size: 11.5px; }
+
+/* BADGES */
+.badge {
+  display: inline-flex; align-items: center;
+  font-family: var(--mono); font-size: 10.5px; font-weight: 600;
+  padding: 2px 7px; border-radius: var(--r-pill); letter-spacing: .02em;
+}
+.badge-active   { background: var(--green-bg); color: var(--green); }
+.badge-inactive { background: var(--bg-3); color: var(--text-2); }
+.badge-expired  { background: var(--bg-3); color: var(--text-2); }
+.badge-revoked  { background: var(--red-bg); color: var(--red); }
+.badge-pending  { background: var(--amber-bg); color: var(--amber); }
+.badge-branch   { background: rgba(47,129,247,.12); color: var(--accent); }
+.badge-regional { background: rgba(130,80,240,.12); color: #8050F0; }
+.badge-global   { background: rgba(240,100,40,.12); color: #D06020; }
+.badge-aal3     { background: var(--red-bg); color: var(--red); font-size: 10px; }
+.badge-seed     { background: var(--bg-3); color: var(--text-2); font-size: 10px; }
+
+/* TABLES */
+.table-wrap { border: 1px solid var(--border); border-radius: var(--r-sm); overflow-x: auto; }
+.data-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.data-table thead tr { background: var(--bg-3); border-bottom: 1px solid var(--border); }
+.data-table th { padding: 8px 12px; text-align: left; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-2); white-space: nowrap; }
+.data-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); font-size: 12.5px; vertical-align: middle; }
+.data-table tr:last-child td { border-bottom: 0; }
+.data-table tbody tr:hover { background: var(--bg-3); }
+.data-table .code { font-family: var(--mono); font-size: 11.5px; }
+.data-table .muted { color: var(--text-2); }
+.row-actions { display: flex; gap: 4px; }
+
+/* SETTINGS PANEL */
+.settings-card {
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--bg-2); overflow: hidden;
+}
+.settings-card-head {
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--bg-3);
+}
+.settings-card-head h3 { font-size: 13px; font-weight: 600; }
+.settings-body { padding: 0; }
+.settings-row {
+  display: flex; align-items: center;
+  padding: 11px 16px; border-bottom: 1px solid var(--border);
+  gap: 16px;
+}
+.settings-row:last-child { border-bottom: 0; }
+.settings-label { width: 220px; flex-shrink: 0; }
+.settings-label-main { font-size: 12.5px; font-weight: 500; }
+.settings-label-hint { font-size: 11px; color: var(--text-2); margin-top: 1px; }
+.settings-value { flex: 1; display: flex; align-items: center; gap: 8px; }
+.settings-value .code { font-family: var(--mono); font-size: 12px; color: var(--text); }
+.edit-mode .settings-value .view-val { display: none; }
+.view-mode .settings-value .edit-ctrl { display: none; }
+
+/* FORM CONTROLS */
+.input, .select, .textarea {
+  font-family: var(--sans); font-size: 12.5px;
+  padding: 5px 8px; border: 1px solid var(--border);
+  border-radius: var(--r-sm); background: var(--bg);
+  color: var(--text); width: 100%;
+}
+.input:focus, .select:focus, .textarea:focus {
+  outline: 2px solid var(--accent); outline-offset: 0;
+  border-color: var(--accent);
+}
+.input-sm { padding: 3px 7px; font-size: 12px; width: auto; }
+.select-sm { padding: 3px 24px 3px 7px; font-size: 12px; width: auto; }
+.toggle-wrap { display: flex; align-items: center; gap: 8px; }
+.toggle { appearance: none; width: 32px; height: 18px; border-radius: 9px; background: var(--border-2); cursor: pointer; position: relative; transition: background .15s; flex-shrink: 0; }
+.toggle:checked { background: var(--green); }
+.toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.toggle:checked::after { transform: translateX(14px); }
+.toggle-label { font-size: 12.5px; }
+
+/* THRESHOLD BARS */
+.threshold-visual {
+  display: flex; align-items: stretch; border-radius: var(--r-sm); overflow: hidden;
+  height: 32px; border: 1px solid var(--border); flex: 1; min-width: 200px;
+}
+.thresh-seg { display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 10px; font-weight: 700; color: #fff; letter-spacing: .03em; }
+.thresh-low    { background: #1A7F37; flex: 30; }
+.thresh-medium { background: #9A6700; flex: 30; }
+.thresh-high   { background: #CF222E; flex: 20; }
+.thresh-crit   { background: #6F0000; flex: 15; }
+
+/* INFO BOX */
+.info-box {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 10px 14px; border-radius: var(--r-sm);
+  background: rgba(47,129,247,.08); border: 1px solid rgba(47,129,247,.25);
+  font-size: 12px; color: var(--text-2);
+}
+.info-box-icon { color: var(--accent); margin-top: 1px; flex-shrink: 0; }
+
+/* WARNING BOX */
+.warn-box {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 10px 14px; border-radius: var(--r-sm);
+  background: var(--red-bg); border: 1px solid rgba(248,81,73,.3);
+  font-size: 12px; color: var(--red);
+}
+
+/* EMERGENCY HEADER */
+.emergency-header {
+  background: var(--red); color: #fff;
+  padding: 12px 16px; border-radius: var(--r-sm);
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.emergency-header h2 { font-size: 14px; font-weight: 700; letter-spacing: .02em; }
+.emergency-header p { font-size: 12px; opacity: .85; margin-top: 2px; }
+.btn-break-glass {
+  background: #fff; color: var(--red); border: none;
+  padding: 7px 16px; border-radius: var(--r-sm);
+  font-size: 12.5px; font-weight: 700; cursor: pointer;
+  display: flex; align-items: center; gap: 6px; white-space: nowrap;
+  font-family: var(--sans);
+}
+.btn-break-glass:hover { background: #FFE5E4; }
+
+/* EMPTY STATE */
+.empty-state { text-align: center; padding: 40px 20px; color: var(--text-2); }
+.empty-state svg { opacity: .25; margin-bottom: 10px; }
+.empty-icon { font-size: 32px; margin-bottom: 8px; opacity: .3; font-family: var(--mono); }
+.empty-state p { font-size: 13px; }
+.empty-state .good { color: var(--green); font-weight: 600; opacity: 1; }
+
+/* VISITOR CARD */
+.visitor-list { display: flex; flex-direction: column; gap: 1px; border: 1px solid var(--border); border-radius: var(--r-sm); overflow: hidden; }
+.visitor-row {
+  display: grid; grid-template-columns: 1fr 160px 140px 120px auto;
+  align-items: center; gap: 12px;
+  padding: 10px 14px; background: var(--bg-2); border-bottom: 1px solid var(--border);
+}
+.visitor-row:last-child { border-bottom: 0; }
+.visitor-row-head { background: var(--bg-3); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-2); }
+.visitor-name { font-weight: 500; font-size: 13px; }
+.visitor-host { font-size: 11px; color: var(--text-2); margin-top: 2px; }
+.visitor-zone-list { display: flex; flex-wrap: wrap; gap: 3px; }
+.zone-tag { font-family: var(--mono); font-size: 10px; padding: 1px 5px; border-radius: 3px; background: var(--bg-3); color: var(--text-2); border: 1px solid var(--border); }
+
+/* FORM PANEL */
+.form-panel {
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--bg-2); overflow: hidden;
+}
+.form-panel-head {
+  padding: 10px 14px; background: var(--bg-3); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.form-panel-head h3 { font-size: 13px; font-weight: 600; }
+.form-body { padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.form-row { display: flex; flex-direction: column; gap: 4px; }
+.form-label { font-size: 11.5px; font-weight: 600; color: var(--text-2); letter-spacing: .02em; }
+.form-hint { font-size: 11px; color: var(--text-2); margin-top: 2px; }
+.form-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.form-footer { display: flex; gap: 8px; justify-content: flex-end; padding: 10px 14px; border-top: 1px solid var(--border); background: var(--bg-3); }
+.required-star { color: var(--red); margin-left: 2px; }
+
+/* STAT ROW */
+.stat-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.stat-card {
+  flex: 1; min-width: 120px; padding: 12px 14px;
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--bg-2);
+}
+.stat-num { font-family: var(--mono); font-size: 22px; font-weight: 700; line-height: 1; }
+.stat-label { font-size: 11px; color: var(--text-2); margin-top: 4px; }
+
+/* DIVIDER */
+.divider { border: 0; border-top: 1px solid var(--border); }
+</style>
+
+<div class="shell">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <div class="logo-mark">bA</div>
+        <div>
+          <div class="logo-text">bAuth Admin</div>
+          <div class="logo-sub">Identity Control Plane</div>
+        </div>
+      </div>
+    </div>
+
+    <nav>
+      <div class="nav-group">
+        <div class="nav-group-label">Reglas de Zona</div>
+        <div class="nav-item active" onclick="show('btn-rule')" id="nav-btn-rule">
+          <div class="nav-dot"></div>zone_button_rule
+        </div>
+        <div class="nav-item" onclick="show('data-pol')" id="nav-data-pol">
+          <div class="nav-dot"></div>zone_data_policy
+        </div>
+        <div class="nav-item" onclick="show('rec-rule')" id="nav-rec-rule">
+          <div class="nav-dot"></div>zone_record_rule
+        </div>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">Motores — Singleton</div>
+        <div class="nav-item" onclick="show('ztna')" id="nav-ztna">
+          <div class="nav-dot"></div>net_ztna_policy
+        </div>
+        <div class="nav-item" onclick="show('velocity')" id="nav-velocity">
+          <div class="nav-dot"></div>geo_velocity_policy
+        </div>
+        <div class="nav-item" onclick="show('risk')" id="nav-risk">
+          <div class="nav-dot"></div>ses_risk_policy
+        </div>
+        <div class="nav-item" onclick="show('conflict')" id="nav-conflict">
+          <div class="nav-dot"></div>conflict_interest
+        </div>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">Ciclo de Vida</div>
+        <div class="nav-item" onclick="show('visitor')" id="nav-visitor">
+          <div class="nav-dot"></div>visitor_access
+        </div>
+        <div class="nav-item" onclick="show('emergency')" id="nav-emergency">
+          <div class="nav-dot"></div>emergency_override
+        </div>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- CONTENT -->
+  <div class="content">
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div class="breadcrumb">bAuth &rsaquo; <span id="bc-title">zone_button_rule</span></div>
+      <div class="topbar-spacer"></div>
+      <div class="topbar-user">
+        <span class="aal-chip">AAL3</span>
+        <span>admin@empresa.bo</span>
+        <div class="avatar">A</div>
+      </div>
+    </div>
+
+    <!-- ── SCREEN: zone_button_rule ── -->
+    <div class="screen active" id="screen-btn-rule">
+      <div class="screen-head">
+        <div>
+          <div class="screen-title">Reglas de botón por zona</div>
+          <div class="screen-desc">Define qué acciones están habilitadas en cada zona y modelo. bAuth evalúa estas reglas al momento de emitir el token de acceso.</div>
+        </div>
+        <div class="screen-actions">
+          <button class="btn btn-secondary btn-sm" onclick="toggleForm('form-btn')">Filtrar</button>
+          <button class="btn btn-primary btn-sm" onclick="toggleForm('form-btn')">+ Nueva regla</button>
+        </div>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-card"><div class="stat-num">12</div><div class="stat-label">Reglas activas</div></div>
+        <div class="stat-card"><div class="stat-num">3</div><div class="stat-label">Zonas configuradas</div></div>
+        <div class="stat-card"><div class="stat-num">2</div><div class="stat-label">Con step-up AAL3</div></div>
+        <div class="stat-card"><div class="stat-num">4</div><div class="stat-label">Con SoD</div></div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr>
+            <th>Zona</th><th>Aplicación</th><th>Modelo</th><th>Botón</th>
+            <th>Aprobadores</th><th>SoD</th><th>Step-Up</th><th>Estado</th><th></th>
+          </tr></thead>
+          <tbody>
+            <tr>
+              <td><span class="code">ZONA-FIN-LPZ</span></td>
+              <td><span class="code muted">app:3</span></td>
+              <td><span class="code">account.invoice</span></td>
+              <td><span class="code">void</span></td>
+              <td>2 usuarios</td>
+              <td><span class="code muted">≠ post</span></td>
+              <td><span class="badge badge-aal3">AAL3</span></td>
+              <td><span class="badge badge-active">activa</span></td>
+              <td><div class="row-actions">
+                <button class="btn btn-ghost btn-sm">Editar</button>
+                <button class="btn btn-ghost btn-sm">Desactivar</button>
+              </div></td>
+            </tr>
+            <tr>
+              <td><span class="code">ZONA-FIN-LPZ</span></td>
+              <td><span class="code muted">app:3</span></td>
+              <td><span class="code">account.invoice</span></td>
+              <td><span class="code">post</span></td>
+              <td>1 usuario</td>
+              <td><span class="muted">—</span></td>
+              <td><span class="badge badge-inactive">AAL2</span></td>
+              <td><span class="badge badge-active">activa</span></td>
+              <td><div class="row-actions">
+                <button class="btn btn-ghost btn-sm">Editar</button>
+                <button class="btn btn-ghost btn-sm">Desactivar</button>
+              </div></td>
+            </tr>
+            <tr>
+              <td><span class="code">ZONA-RRHH</span></td>
+              <td><span class="code muted">app:2</span></td>
+              <td><span class="code">hr.employee</span></td>
+              <td><span class="code">terminate</span></td>
+              <td>2 usuarios</td>
+              <td><span class="code muted">≠ hire</span></td>
+              <td><span class="badge badge-aal3">AAL3</span></td>
+              <td><span class="badge badge-active">activa</span></td>
+              <td><div class="row-actions">
+                <button class="btn btn-ghost btn-sm">Editar</button>
+                <button class="btn btn-ghost btn-sm">Desactivar</button>
+              </div></td>
+            </tr>
+            <tr>
+              <td><span class="code">ZONA-VTAS</span></td>
+              <td><span class="code muted">app:2</span></td>
+              <td><span class="code">sale.order</span></td>
+              <td><span class="code">approve</span></td>
+              <td>1 usuario</td>
+              <td><span class="muted">—</span></td>
+              <td><span class="badge badge-inactive">AAL2</span></td>
+              <td><span class="badge badge-inactive">inactiva</span></td>
+              <td><div class="row-actions">
+                <button class="btn btn-ghost btn-sm">Editar</button>
+                <button class="btn btn-ghost btn-sm" style="color:var(--green)">Activar</button>
+              </div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- FORM NUEVA REGLA -->
+      <div class="form-panel" id="form-btn" style="display:none">
+        <div class="form-panel-head">
+          <h3>Nueva regla de botón</h3>
+          <button class="btn btn-ghost btn-sm" onclick="toggleForm('form-btn')">✕</button>
+        </div>
+        <div class="form-body">
+          <div class="form-cols">
+            <div class="form-row">
+              <label class="form-label">Zona<span class="required-star">*</span></label>
+              <select class="select"><option>ZONA-FIN-LPZ</option><option>ZONA-RRHH</option><option>ZONA-VTAS</option></select>
+            </div>
+            <div class="form-row">
+              <label class="form-label">Aplicación<span class="required-star">*</span></label>
+              <select class="select"><option>app:2 — ERP Core</option><option>app:3 — Contabilidad</option></select>
+            </div>
+          </div>
+          <div class="form-cols">
+            <div class="form-row">
+              <label class="form-label">Modelo de datos<span class="required-star">*</span></label>
+              <input class="input" placeholder="ej: account.invoice" style="font-family:var(--mono)" />
+            </div>
+            <div class="form-row">
+              <label class="form-label">Nombre del botón<span class="required-star">*</span></label>
+              <input class="input" placeholder="ej: void, post, approve" style="font-family:var(--mono)" />
+            </div>
+          </div>
+          <div class="form-cols">
+            <div class="form-row">
+              <label class="form-label">Aprobadores requeridos</label>
+              <select class="select"><option>1 — un usuario</option><option>2 — dual (dos usuarios distintos)</option></select>
+            </div>
+            <div class="form-row">
+              <label class="form-label">Step-up AAL</label>
+              <select class="select"><option>Sin step-up</option><option>AAL2 requerido</option><option>AAL3 requerido</option></select>
+            </div>
+          </div>
+          <div class="form-row">
+            <label class="form-label">SoD — el mismo usuario no puede haber ejecutado</label>
+            <input class="input" placeholder="ej: post (dejar vacío si no aplica)" style="font-family:var(--mono)" />
+            <div class="form-hint">Si el usuario ya ejecutó ese botón en el mismo documento, bAuth bloqueará esta acción.</div>
+          </div>
+          <div class="form-row">
+            <label class="form-label">Condición adicional (JSON)</label>
+            <input class="input" placeholder='ej: {"amount_gte": 5000}' style="font-family:var(--mono)" />
+          </div>
+          <div class="form-row">
+            <label class="form-label">Descripción</label>
+            <input class="input" placeholder="Descripción legible de esta regla" />
+          </div>
+        </div>
+        <div class="form-footer">
+          <button class="btn btn-secondary btn-sm" onclick="toggleForm('form-btn')">Cancelar</button>
+          <button class="btn btn-primary btn-sm">Crear regla</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SCREEN: zone_data_policy ── -->
+    <div class="screen" id="screen-data-pol">
+      <div class="screen-head">
+        <div>
+          <div class="screen-title">Política de datos por zona</div>
+          <div class="screen-desc">Una política por zona. Define qué datos sensibles puede ver esa zona y cómo se tratan (enmascaramiento, retención, base legal GDPR).</div>
+        </div>
+        <div class="screen-actions">
+          <button class="btn btn-primary btn-sm">+ Nueva política de zona</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr>
+            <th>Zona</th><th>Clasificación</th><th>PII</th><th>PHI</th><th>GDPR Art.9</th><th>Enmascaramiento</th><th>Retención</th><th>Base legal</th><th>Estado</th><th></th>
+          </tr></thead>
+          <tbody>
+            <tr>
+              <td><span class="code">ZONA-RRHH-CENTRAL</span></td>
+              <td><span class="badge badge-aal3">RESTRICTED</span></td>
+              <td>✔ <span class="muted" style="font-size:11px">sí</span></td>
+              <td><span class="muted">—</span></td>
+              <td>✔</td>
+              <td><span class="code">PARTIAL</span></td>
+              <td><span class="code">1825 d</span></td>
+              <td><span class="code muted">contract</span></td>
+              <td><span class="badge badge-active">activa</span></td>
+              <td><div class="row-actions"><button class="btn btn-ghost btn-sm">Editar</button></div></td>
+            </tr>
+            <tr>
+              <td><span class="code">ZONA-FIN-LPZ</span></td>
+              <td><span class="badge badge-regional" style="background:rgba(155,107,0,.12);color:var(--amber)">CONFIDENTIAL</span></td>
+              <td>✔</td><td><span class="muted">—</span></td><td><span class="muted">—</span></td>
+              <td><span class="code">NONE</span></td>
+              <td><span class="code">2555 d</span></td>
+              <td><span class="code muted">legal_obligation</span></td>
+              <td><span class="badge badge-active">activa</span></td>
+              <td><div class="row-actions"><button class="btn btn-ghost btn-sm">Editar</button></div></td>
+            </tr>
+            <tr>
+              <td><span class="code">ZONA-VTAS</span></td>
+              <td><span class="badge badge-inactive">INTERNAL</span></td>
+              <td><span class="muted">—</span></td><td><span class="muted">—</span></td><td><span class="muted">—</span></td>
+              <td><span class="code">NONE</span></td>
+              <td><span class="code">365 d</span></td>
+              <td><span class="code muted">contract</span></td>
+              <td><span class="badge badge-active">activa</span></td>
+              <td><div class="row-actions"><button class="btn btn-ghost btn-sm">Editar</button></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="info-box">
+        <div class="info-box-icon">ℹ</div>
+        <div>Cada zona puede tener exactamente <strong>una política activa</strong>. Para modificarla, usa "Editar" — se registra en <span style="font-family:var(--mono);font-size:11px">aud_policy_change</span>. Para reemplazarla, desactiva la actual y crea una nueva.</div>
+      </div>
+    </div>
+
+    <!-- ── SCREEN: zone_record_rule ── -->
+    <div class="screen" id="screen-rec-rule">
+      <div class="screen-head">
+        <div>
+          <div class="screen-title">Reglas de registro por zona</div>
+          <div class="screen-desc">Define el scope de datos que un usuario puede ver en cada modelo. bAuth incluye el scope como claim en el JWT; la aplicación aplica el filtro.</div>
+        </div>
+        <div class="screen-actions">
+          <button class="btn btn-primary btn-sm">+ Nueva regla</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Zona</th><th>App</th><th>Modelo</th><th>Scope</th><th>Dominio SQL</th><th>Excepción escritura</th><th>Estado</th><th></th></tr></thead>
+          <tbody>
+            <tr>
+              <td><span class="code">ZONA-VTAS-SUC</span></td>
+              <td><span class="code muted">app:2</span></td>
+              <td><span class="code">sale.order</span></td>
+              <td><span class="badge badge-branch">BRANCH</span></td>
+              <td><span class="code" style="font-size:11px">company_id=$user.co AND branch_id=$user.br</span></td>
+              <td><span class="muted">No</span></td>
+              <td><span class="badge badge-active">activa</span></td>
+              <td><button class="btn btn-ghost btn-sm">Editar</button></td>
+            </tr>
+            <tr>
+              <td><span class="code">ZONA-REGIONAL</span></td>
+              <td><span class="code muted">app:2</span></td>
+              <td><span class="code">sale.order</span></td>
+              <td><span class="badge badge-regional">REGIONAL</span></td>
+              <td><span class="code" style="font-size:11px">company_id=$user.co AND region_id=$user.region</span></td>
+              <td><span class="muted">No</span></td>
+              <td><span class="badge badge-active">activa</span></td>
+              <td><button class="btn btn-ghost btn-sm">Editar</button></td>
+            </tr>
+            <tr>
+              <td><span class="code">ZONA-GERENCIA</span></td>
+              <td><span class="code muted">app:2</span></td>
+              <td><span class="code">sale.order</span></td>
+              <td><span class="badge badge-global">GLOBAL</span></td>
+              <td><span class="code" style="font-size:11px">company_id=$user.co</span></td>
+              <td>Sí</td>
+              <td><span class="badge badge-active">activa</span></td>
+              <td><button class="btn btn-ghost btn-sm">Editar</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── SCREEN: net_ztna_policy (SINGLETON) ── -->
+    <div class="screen" id="screen-ztna">
+      <div class="screen-head">
+        <div>
+          <div class="screen-title">Política ZTNA global</div>
+          <div class="screen-desc">Singleton — una sola fila activa. El motor PrivilegeEngine D7 la carga al iniciar y recarga cada 60 s. Requiere AAL3 para modificar.</div>
+        </div>
+        <div class="screen-actions">
+          <span class="badge badge-seed">SEED</span>
+          <button class="btn btn-secondary btn-sm" onclick="toggleEdit('ztna-card')">Modificar — AAL3</button>
+        </div>
+      </div>
+      <div class="info-box" style="margin-bottom:0">
+        <div class="info-box-icon">⚠</div>
+        <div>Modificar esta política afecta <strong>inmediatamente</strong> el comportamiento de acceso de todos los usuarios. El motor recarga en &lt; 1 s. Cambios registrados en <span style="font-family:var(--mono);font-size:11px">aud_policy_change</span>.</div>
+      </div>
+      <div class="settings-card view-mode" id="ztna-card">
+        <div class="settings-card-head">
+          <h3>net_ztna_policy</h3>
+          <span class="badge badge-active">activa</span>
+        </div>
+        <div class="settings-body">
+          <div class="settings-row">
+            <div class="settings-label">
+              <div class="settings-label-main">Acción por defecto</div>
+              <div class="settings-label-hint">DENY = Zero Trust estricto</div>
+            </div>
+            <div class="settings-value">
+              <span class="view-val badge badge-aal3" style="font-size:12px">DENY</span>
+              <select class="select edit-ctrl" style="width:140px"><option selected>DENY</option><option>ALLOW</option></select>
+            </div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-label">
+              <div class="settings-label-main">Microsegmentación</div>
+              <div class="settings-label-hint">Aisla cada servicio en su propio segmento</div>
+            </div>
+            <div class="settings-value">
+              <span class="view-val badge badge-active">habilitada</span>
+              <div class="edit-ctrl toggle-wrap"><input type="checkbox" class="toggle" checked /><span class="toggle-label">Habilitada</span></div>
+            </div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-label">
+              <div class="settings-label-main">Acceso Just-in-Time (JIT)</div>
+              <div class="settings-label-hint">Acceso temporal solicitado por demanda</div>
+            </div>
+            <div class="settings-value">
+              <span class="view-val badge badge-inactive">deshabilitado</span>
+              <div class="edit-ctrl toggle-wrap"><input type="checkbox" class="toggle" /><span class="toggle-label">Deshabilitado</span></div>
+            </div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-label">
+              <div class="settings-label-main">Servicios permitidos</div>
+              <div class="settings-label-hint">Lista de servicios accesibles por defecto</div>
+            </div>
+            <div class="settings-value">
+              <span class="view-val code" style="font-size:11.5px">{bauth, biedata, bsearch}</span>
+              <input class="input edit-ctrl" value="bauth, biedata, bsearch" style="font-family:var(--mono);font-size:12px" />
+            </div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-label">
+              <div class="settings-label-main">Intervalo de re-verificación</div>
+              <div class="settings-label-hint">Segundos entre verificaciones continuas</div>
+            </div>
+            <div class="settings-value">
+              <span class="view-val code">300 s <span class="muted">(5 min)</span></span>
+              <input class="input-sm input edit-ctrl" type="number" value="300" style="width:80px" />
+              <span class="edit-ctrl muted" style="font-size:12px">segundos</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="ztna-edit-footer" style="display:none; justify-content:flex-end; gap:8px">
+        <button class="btn btn-secondary btn-sm" onclick="toggleEdit('ztna-card')">Cancelar</button>
+        <button class="btn btn-primary btn-sm" onclick="toggleEdit('ztna-card')">Guardar cambios</button>
+      </div>
+    </div>
+
+    <!-- ── SCREEN: geo_velocity_policy (SINGLETON) ── -->
+    <div class="screen" id="screen-velocity">
+      <div class="screen-head">
+        <div>
+          <div class="screen-title">Política de velocidad geográfica</div>
+          <div class="screen-desc">Detector de impossible travel. Singleton — una sola fila activa. GeoEngine D6 la carga al iniciar.</div>
+        </div>
+        <div class="screen-actions">
+          <span class="badge badge-seed">SEED</span>
+          <button class="btn btn-secondary btn-sm" onclick="toggleEdit('vel-card')">Modificar — AAL3</button>
+        </div>
+      </div>
+      <div class="settings-card view-mode" id="vel-card">
+        <div class="settings-card-head"><h3>geo_velocity_policy</h3><span class="badge badge-active">activa</span></div>
+        <div class="settings-body">
+          <div class="settings-row">
+            <div class="settings-label"><div class="settings-label-main">Velocidad máxima</div><div class="settings-label-hint">EBA ICT Risk Guidelines §4.3</div></div>
+            <div class="settings-value">
+              <span class="view-val code">900 km/h</span>
+              <input class="input edit-ctrl" type="number" value="900" style="width:80px" />
+              <span class="edit-ctrl muted" style="font-size:12px">km/h</span>
+            </div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-label"><div class="settings-label-main">Tolerancia</div><div class="settings-label-hint">Margen de error GPS</div></div>
+            <div class="settings-value">
+              <span class="view-val code">10 km</span>
+              <input class="input edit-ctrl" type="number" value="10" style="width:80px" />
+              <span class="edit-ctrl muted" style="font-size:12px">km</span>
+            </div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-label"><div class="settings-label-main">Ventana de tiempo</div><div class="settings-label-hint">Intervalo para comparar posiciones</div></div>
+            <div class="settings-value">
+              <span class="view-val code">5 min</span>
+              <input class="input edit-ctrl" type="number" value="5" style="width:80px" />
+              <span class="edit-ctrl muted" style="font-size:12px">minutos</span>
+            </div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-label"><div class="settings-label-main">Acción al detectar</div><div class="settings-label-hint">Qué hace bAuth al superar velocidad</div></div>
+            <div class="settings-value">
+              <span class="view-val badge badge-pending">REQUIRE_STEP_UP</span>
+              <select class="select edit-ctrl" style="width:200px">
+                <option selected>REQUIRE_STEP_UP</option>
+                <option>TERMINATE_SESSION</option>
+                <option>LOCK_ACCOUNT</option>
+                <option>LOG_ONLY</option>
+              </select>
+            </div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-label"><div class="settings-label-main">Violaciones antes de escalar</div><div class="settings-label-hint">Acción más severa tras N violaciones</div></div>
+            <div class="settings-value">
+              <span class="view-val code">3</span>
+              <input class="input edit-ctrl" type="number" value="3" style="width:80px" />
+            </div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-label"><div class="settings-label-main">Cooldown tras violación</div><div class="settings-label-hint">Minutos hasta limpiar el contador</div></div>
+            <div class="settings-value">
+              <span class="view-val code">30 min</span>
+              <input class="input edit-ctrl" type="number" value="30" style="width:80px" />
+              <span class="edit-ctrl muted" style="font-size:12px">minutos</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SCREEN: ses_risk_policy (SINGLETON) ── -->
+    <div class="screen" id="screen-risk">
+      <div class="screen-head">
+        <div>
+          <div class="screen-title">Política de riesgo de sesión</div>
+          <div class="screen-desc">Define los umbrales (0–100) y la acción por nivel de riesgo. SessionRiskEngine D8 la evalúa en cada evento de sesión activa.</div>
+        </div>
+        <div class="screen-actions">
+          <span class="badge badge-seed">SEED</span>
+          <button class="btn btn-secondary btn-sm">Modificar — AAL3</button>
+        </div>
+      </div>
+
+      <div class="settings-card">
+        <div class="settings-card-head"><h3>ses_risk_policy — Umbrales y acciones</h3><span class="badge badge-active">activa</span></div>
+        <div class="settings-body">
+          <div class="settings-row" style="flex-direction:column; align-items:flex-start; gap:10px">
+            <div class="settings-label-main">Distribución de niveles (score 0 – 100)</div>
+            <div style="width:100%; display:flex; flex-direction:column; gap:6px">
+              <div style="display:flex; gap:8px; align-items:center">
+                <div class="threshold-visual">
+                  <div class="thresh-seg thresh-low" title="BAJO 0–30">BAJO</div>
+                  <div class="thresh-seg thresh-medium" title="MEDIO 30–60">MEDIO</div>
+                  <div class="thresh-seg thresh-high" title="ALTO 60–80">ALTO</div>
+                  <div class="thresh-seg thresh-crit" title="CRÍTICO 80–95">CRIT</div>
+                </div>
+              </div>
+              <div style="display:flex; gap:4px; font-family:var(--mono); font-size:10px; color:var(--text-2)">
+                <span style="flex:30; text-align:center">0 — 30</span>
+                <span style="flex:30; text-align:center">30 — 60</span>
+                <span style="flex:20; text-align:center">60 — 80</span>
+                <span style="flex:15; text-align:center">80 — 95</span>
+              </div>
+            </div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-label"><div class="settings-label-main" style="color:var(--green)">● Riesgo BAJO (0–30)</div></div>
+            <div class="settings-value"><span class="badge badge-active">NONE</span><span class="muted" style="font-size:12px">— sin acción, acceso normal</span></div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-label"><div class="settings-label-main" style="color:var(--amber)">● Riesgo MEDIO (30–60)</div></div>
+            <div class="settings-value"><span class="badge badge-pending">REQUIRE_STEP_UP</span><span class="muted" style="font-size:12px">— step-up AAL activado</span></div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-label"><div class="settings-label-main" style="color:var(--red)">● Riesgo ALTO (60–80)</div></div>
+            <div class="settings-value"><span class="badge badge-aal3">REQUIRE_STEP_UP</span><span class="muted" style="font-size:12px">— step-up AAL3 obligatorio</span></div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-label"><div class="settings-label-main" style="color:var(--red); font-weight:700">● Riesgo CRÍTICO (80–95)</div></div>
+            <div class="settings-value"><span class="badge badge-revoked">TERMINATE_SESSION</span><span class="muted" style="font-size:12px">— sesión terminada inmediatamente</span></div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-label"><div class="settings-label-main">Fuentes de riesgo activas</div></div>
+            <div class="settings-value" style="flex-wrap:wrap; gap:6px">
+              <span class="badge badge-active">geo_velocity</span>
+              <span class="badge badge-active">device_trust</span>
+              <span class="badge badge-active">impossible_travel</span>
+              <span class="badge badge-active">new_device</span>
+              <span class="badge badge-inactive">user_behavior</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SCREEN: conflict_interest_policy ── -->
+    <div class="screen" id="screen-conflict">
+      <div class="screen-head">
+        <div>
+          <div class="screen-title">Política de conflicto de interés</div>
+          <div class="screen-desc">Singleton global. ComplianceEngine D10/D3 la consulta al validar asignaciones de roles y aprobaciones financieras.</div>
+        </div>
+        <div class="screen-actions">
+          <span class="badge badge-seed">SEED</span>
+          <button class="btn btn-secondary btn-sm">Modificar — AAL3</button>
+        </div>
+      </div>
+      <div class="settings-card">
+        <div class="settings-card-head"><h3>conflict_interest_policy</h3><span class="badge badge-active">activa</span></div>
+        <div class="settings-body">
+          <div class="settings-row">
+            <div class="settings-label"><div class="settings-label-main">Entidades restringidas</div><div class="settings-label-hint">Tipos de relación que generan conflicto</div></div>
+            <div class="settings-value" style="flex-wrap:wrap; gap:6px">
+              <span class="badge badge-aal3">supplier</span>
+              <span class="badge badge-aal3">client</span>
+              <span class="badge badge-aal3">competitor</span>
+            </div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-label"><div class="settings-label-main">Grados de separación</div><div class="settings-label-hint">Relaciones de 1.° y 2.° grado se bloquean</div></div>
+            <div class="settings-value"><span class="code">2 grados</span></div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-label"><div class="settings-label-main">Frecuencia de declaración</div></div>
+            <div class="settings-value"><span class="badge badge-branch">ANNUAL</span></div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-label"><div class="settings-label-main">Método de verificación</div></div>
+            <div class="settings-value"><span class="code">COMPLIANCE_REVIEW</span></div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-label"><div class="settings-label-main">Actualizar al cambiar relación</div></div>
+            <div class="settings-value"><span class="badge badge-active">sí</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SCREEN: visitor_access_policy ── -->
+    <div class="screen" id="screen-visitor">
+      <div class="screen-head">
+        <div>
+          <div class="screen-title">Acceso de visitantes</div>
+          <div class="screen-desc">Registros operacionales. El anfitrión crea la autorización, se genera un QR. Al terminar la visita el registro se revoca o expira automáticamente.</div>
+        </div>
+        <div class="screen-actions">
+          <button class="btn btn-secondary btn-sm">Ver historial</button>
+          <button class="btn btn-primary btn-sm" onclick="toggleForm('form-visitor')">+ Autorizar visita</button>
+        </div>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-card"><div class="stat-num" style="color:var(--green)">3</div><div class="stat-label">Visitas activas hoy</div></div>
+        <div class="stat-card"><div class="stat-num">12</div><div class="stat-label">Este mes</div></div>
+        <div class="stat-card"><div class="stat-num" style="color:var(--red)">0</div><div class="stat-label">Revocadas hoy</div></div>
+      </div>
+
+      <div class="visitor-list">
+        <div class="visitor-row visitor-row-head">
+          <div>Visitante</div><div>Zonas autorizadas</div><div>Ventana</div><div>Estado</div><div>Acciones</div>
+        </div>
+        <div class="visitor-row">
+          <div>
+            <div class="visitor-name">Carlos Mamani</div>
+            <div class="visitor-host">Anfitrión: Ana Flores · +591 70123456</div>
+          </div>
+          <div class="visitor-zone-list">
+            <span class="zone-tag">RECEPCION</span>
+            <span class="zone-tag">SALA-REUNIONES-A</span>
+          </div>
+          <div style="font-size:12px">
+            <div>08:00 – 17:00</div>
+            <div class="muted" style="font-size:11px">hoy</div>
+          </div>
+          <div><span class="badge badge-active">ACTIVE</span></div>
+          <div class="row-actions">
+            <button class="btn btn-ghost btn-sm">Ver QR</button>
+            <button class="btn btn-danger btn-sm">Revocar</button>
+          </div>
+        </div>
+        <div class="visitor-row">
+          <div>
+            <div class="visitor-name">Lucía Vargas (externa)</div>
+            <div class="visitor-host">Anfitrión: Pedro Quispe · Auditoría externa</div>
+          </div>
+          <div class="visitor-zone-list">
+            <span class="zone-tag">SALA-AUDITORÍA</span>
+          </div>
+          <div style="font-size:12px">
+            <div>09:00 – 18:00</div>
+            <div class="muted" style="font-size:11px">hoy</div>
+          </div>
+          <div><span class="badge badge-active">ACTIVE</span></div>
+          <div class="row-actions">
+            <button class="btn btn-ghost btn-sm">Ver QR</button>
+            <button class="btn btn-danger btn-sm">Revocar</button>
+          </div>
+        </div>
+        <div class="visitor-row" style="opacity:.6">
+          <div>
+            <div class="visitor-name">Técnico Entel</div>
+            <div class="visitor-host">Anfitrión: IT Infra · Mantenimiento red</div>
+          </div>
+          <div class="visitor-zone-list">
+            <span class="zone-tag">SERVIDORES-CBB</span>
+          </div>
+          <div style="font-size:12px"><div>07:00 – 12:00</div><div class="muted" style="font-size:11px">ayer</div></div>
+          <div><span class="badge badge-expired">EXPIRED</span></div>
+          <div class="row-actions"><button class="btn btn-ghost btn-sm">Ver log</button></div>
+        </div>
+      </div>
+
+      <!-- FORM CREAR VISITA -->
+      <div class="form-panel" id="form-visitor" style="display:none">
+        <div class="form-panel-head">
+          <h3>Autorizar nueva visita</h3>
+          <button class="btn btn-ghost btn-sm" onclick="toggleForm('form-visitor')">✕</button>
+        </div>
+        <div class="form-body">
+          <div class="form-cols">
+            <div class="form-row">
+              <label class="form-label">Nombre del visitante<span class="required-star">*</span></label>
+              <input class="input" placeholder="Nombre completo" />
+            </div>
+            <div class="form-row">
+              <label class="form-label">Teléfono de contacto</label>
+              <input class="input" placeholder="+591 7XXXXXXX" />
+            </div>
+          </div>
+          <div class="form-row">
+            <label class="form-label">Zonas autorizadas<span class="required-star">*</span></label>
+            <div style="display:flex; flex-wrap:wrap; gap:6px; padding:8px; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--bg)">
+              <label style="display:flex; align-items:center; gap:5px; font-size:12.5px; cursor:pointer"><input type="checkbox" /> RECEPCION</label>
+              <label style="display:flex; align-items:center; gap:5px; font-size:12.5px; cursor:pointer"><input type="checkbox" /> SALA-REUNIONES-A</label>
+              <label style="display:flex; align-items:center; gap:5px; font-size:12.5px; cursor:pointer"><input type="checkbox" /> SALA-REUNIONES-B</label>
+              <label style="display:flex; align-items:center; gap:5px; font-size:12.5px; cursor:pointer"><input type="checkbox" disabled style="opacity:.4" /> SERVIDORES <span class="muted" style="font-size:11px">(sin permiso)</span></label>
+            </div>
+            <div class="form-hint">Solo puedes autorizar zonas a las que tú también tienes acceso.</div>
+          </div>
+          <div class="form-cols">
+            <div class="form-row">
+              <label class="form-label">Inicio de visita<span class="required-star">*</span></label>
+              <input class="input" type="datetime-local" />
+            </div>
+            <div class="form-row">
+              <label class="form-label">Fin de visita<span class="required-star">*</span></label>
+              <input class="input" type="datetime-local" />
+              <div class="form-hint">Máximo 24 h desde el inicio.</div>
+            </div>
+          </div>
+          <div class="form-row">
+            <label class="form-label">Motivo de la visita</label>
+            <input class="input" placeholder="Ej: Reunión de auditoría, Mantenimiento TI..." />
+          </div>
+        </div>
+        <div class="form-footer">
+          <button class="btn btn-secondary btn-sm" onclick="toggleForm('form-visitor')">Cancelar</button>
+          <button class="btn btn-primary btn-sm">Generar autorización y QR</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SCREEN: emergency_override_policy ── -->
+    <div class="screen" id="screen-emergency">
+      <div class="emergency-header">
+        <div>
+          <h2>Break-Glass — Override de emergencia</h2>
+          <p>Acceso de emergencia con doble autorización AAL3. Cada acción queda registrada permanentemente. Retención: 7 años.</p>
+        </div>
+        <button class="btn-break-glass" onclick="toggleForm('form-emergency')">
+          ⚠ Abrir Break-Glass
+        </button>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-card"><div class="stat-num" style="color:var(--green)">0</div><div class="stat-label">Activos ahora</div></div>
+        <div class="stat-card"><div class="stat-num">2</div><div class="stat-label">Este mes</div></div>
+        <div class="stat-card"><div class="stat-num">100%</div><div class="stat-label">Cerrados correctamente</div></div>
+      </div>
+
+      <!-- Empty state (sin activos) -->
+      <div class="settings-card">
+        <div class="settings-card-head"><h3>Overrides activos</h3></div>
+        <div class="empty-state">
+          <div class="empty-icon">✓</div>
+          <p class="good">Sin overrides activos</p>
+          <p style="margin-top:6px">No hay ninguna sesión de emergencia abierta en este momento.</p>
+        </div>
+      </div>
+
+      <div class="settings-card">
+        <div class="settings-card-head"><h3>Historial reciente</h3></div>
+        <div class="table-wrap" style="border:0; border-radius:0">
+          <table class="data-table">
+            <thead><tr><th>Para</th><th>Motivo</th><th>Ticket</th><th>Ventana</th><th>Autorizó</th><th>Estado</th><th></th></tr></thead>
+            <tbody>
+              <tr>
+                <td><span class="code">jperez@empresa.bo</span></td>
+                <td>Falla eléctrica Sucursal CBB</td>
+                <td><span class="code muted">INC-2026-07-01-031</span></td>
+                <td style="font-size:12px">01 Jul 02:00 – 05:00</td>
+                <td><span class="code muted">superadmin</span></td>
+                <td><span class="badge badge-expired">EXPIRED</span></td>
+                <td><button class="btn btn-ghost btn-sm">Auditar</button></td>
+              </tr>
+              <tr>
+                <td><span class="code">mlopez@empresa.bo</span></td>
+                <td>Recuperación BD — migración urgente</td>
+                <td><span class="code muted">INC-2026-06-18-007</span></td>
+                <td style="font-size:12px">18 Jun 22:00 – 23:30</td>
+                <td><span class="code muted">superadmin</span></td>
+                <td><span class="badge badge-revoked">REVOKED</span></td>
+                <td><button class="btn btn-ghost btn-sm">Auditar</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- FORM BREAK-GLASS -->
+      <div class="form-panel" id="form-emergency" style="display:none; border-color:var(--red)">
+        <div class="form-panel-head" style="background:var(--red-bg); border-color:var(--red)">
+          <h3 style="color:var(--red)">⚠ Abrir sesión Break-Glass</h3>
+          <button class="btn btn-ghost btn-sm" onclick="toggleForm('form-emergency')">✕</button>
+        </div>
+        <div class="form-body">
+          <div class="warn-box">
+            Esta acción requiere <strong>AAL3 + aprobación de un segundo superusuario</strong>. Todas las acciones del usuario durante el override quedarán registradas permanentemente. El override no puede superar 4 horas.
+          </div>
+          <div class="form-row">
+            <label class="form-label">Usuario en emergencia<span class="required-star">*</span></label>
+            <input class="input" placeholder="usuario@empresa.bo" style="font-family:var(--mono)" />
+          </div>
+          <div class="form-row">
+            <label class="form-label">Motivo detallado<span class="required-star">*</span></label>
+            <textarea class="textarea" rows="3" placeholder="Describe la situación de emergencia y por qué se requiere acceso fuera de las restricciones normales..."></textarea>
+          </div>
+          <div class="form-row">
+            <label class="form-label">Referencia de ticket ITSM<span class="required-star">*</span></label>
+            <input class="input" placeholder="INC-YYYY-MM-DD-XXXX" style="font-family:var(--mono)" />
+          </div>
+          <div class="form-row">
+            <label class="form-label">Zonas autorizadas durante el override</label>
+            <input class="input" placeholder="ZONA-SERVIDORES-CBB (dejar vacío = sin restricción de zona)" style="font-family:var(--mono)" />
+          </div>
+          <div class="form-cols">
+            <div class="form-row">
+              <label class="form-label">Duración máxima<span class="required-star">*</span></label>
+              <select class="select">
+                <option>1 hora</option><option>2 horas</option>
+                <option selected>3 horas</option><option>4 horas (máximo)</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label class="form-label">Bypasses autorizados</label>
+              <div style="display:flex; flex-direction:column; gap:6px; padding-top:4px">
+                <label class="toggle-wrap"><input type="checkbox" class="toggle" checked /><span class="toggle-label" style="font-size:12px">Restricciones geográficas</span></label>
+                <label class="toggle-wrap"><input type="checkbox" class="toggle" checked /><span class="toggle-label" style="font-size:12px">Restricciones temporales</span></label>
+                <label class="toggle-wrap"><input type="checkbox" class="toggle" /><span class="toggle-label" style="font-size:12px; color:var(--red)">Restricciones físicas</span></label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="form-footer" style="background:var(--red-bg); border-color:var(--red)">
+          <button class="btn btn-secondary btn-sm" onclick="toggleForm('form-emergency')">Cancelar</button>
+          <button class="btn btn-danger btn-sm" style="font-weight:700">Solicitar aprobación dual — AAL3</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /shell -->
+
+<script>
+const screens = {
+  'btn-rule':'screen-btn-rule', 'data-pol':'screen-data-pol',
+  'rec-rule':'screen-rec-rule', 'ztna':'screen-ztna',
+  'velocity':'screen-velocity', 'risk':'screen-risk',
+  'conflict':'screen-conflict', 'visitor':'screen-visitor',
+  'emergency':'screen-emergency'
+};
+const bcTitles = {
+  'btn-rule':'zone_button_rule','data-pol':'zone_data_policy',
+  'rec-rule':'zone_record_rule','ztna':'net_ztna_policy',
+  'velocity':'geo_velocity_policy','risk':'ses_risk_policy',
+  'conflict':'conflict_interest_policy','visitor':'visitor_access_policy',
+  'emergency':'emergency_override_policy'
+};
+function show(key) {
+  Object.entries(screens).forEach(([k, sid]) => {
+    document.getElementById(sid).classList.toggle('active', k === key);
+    const navEl = document.getElementById('nav-' + k);
+    if (navEl) navEl.classList.toggle('active', k === key);
+  });
+  document.getElementById('bc-title').textContent = bcTitles[key] || key;
+}
+function toggleForm(id) {
+  const el = document.getElementById(id);
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  if (el.style.display === 'block') el.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+function toggleEdit(cardId) {
+  const card = document.getElementById(cardId);
+  const isEdit = card.classList.contains('edit-mode');
+  card.classList.toggle('edit-mode', !isEdit);
+  card.classList.toggle('view-mode', isEdit);
+  const footer = document.getElementById(cardId.replace('-card','-edit-footer'));
+  if (footer) footer.style.display = isEdit ? 'none' : 'flex';
+}
+</script>

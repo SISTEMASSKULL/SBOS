@@ -32,6 +32,8 @@ recursos_proyecto:
   servers: "servers"       # catálogo de fichas por servidor lógico — índice: servers/servers.yml
   ddls:    "DDLs"          # esquema de la BD única SBOS_db — índice: DDLs/ddls.yml
   context: "context"       # documentación conceptual (BOS_V8, IAM_Enterprise_Stack) — fuente de verdad
+  contracts: "context/contracts"         # contratos bilaterales entre daemons — índice: context/contracts/LEEME.md
+  buzon_bibliotecario: "context/buzon-bibliotecario"  # buzón único de reportes al Bibliotecario — índice: context/buzon-bibliotecario/LEEME.md
 
 # ── CATÁLOGO DE MICROSERVICIOS (hermanos) — para consulta intra-proyecto ──────
 # nombre → { dir, rol }. `dir` es relativo a la raíz del proyecto. `rol` orienta
@@ -72,6 +74,3 @@ microservicios:
     dir: "BtaxAgent"
     rol: "btax — SmartTax — facturación fiscal (SIN Bolivia, cumplimiento tributario LATAM)"
   # nuevos microservicios se registran aquí
-  # Nota: hay microservicios adicionales en el árbol /opt/skull/…/desarrollo/sbos/
-  # (BcmsAgent, BpayAgent, BrateAgent, BtaxAgent, InfraAgent). Pendiente unificar
-  # los dos árboles de SBOS en un solo root (ver sesión 3-niveles).
