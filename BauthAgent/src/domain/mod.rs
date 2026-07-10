@@ -49,5 +49,6 @@ pub mod merkle;         // B29: Merkle Tree Engine (RFC 6962 + Keccak-256)
 pub mod risk;           // H-12: Risk Scoring Engine (Zero Trust NIST 800-207)
 pub mod rule_engine;    // B45: RuleEngine — validación de valores contra cfg_validation_rule
 pub mod calendar_alarm; // B47.C01: Cron Job poll_cal_alarms() — alarma→bnotify→WORM log
+pub mod caep;           // C-BAUTH-004: eventos CAEP (SSF) hacia bNotify — tipos puros
 
 // Re-export del nuevo motor BitMask Dual

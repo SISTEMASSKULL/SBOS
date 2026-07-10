@@ -1,6 +1,7 @@
 // D5 — Biométrico (Huella, Rostro, LoA) · NIST SP 800-63B
 // External-Path: FastPath verifica átomo en RolBitMask (<0.5ns).
-// Superado → Keycloak evalúa LoA, liveness, intentos máximos vía SPIs.
+// Superado → el motor biométrico de borde (bhnexus) evalúa LoA, liveness e intentos;
+// bAuth recibe SOLO el resultado (match/score/liveness) — el binario nunca entra a bAuth.
 // El resultado se refleja en policy_state del JWT: 00=NoAplica, 01=Pendiente(step-up), 10=Aprobado.
 #![allow(dead_code)]
 use crate::bitmask::{registry::{DomainEvaluator, DomainResult}, AtomBitMask, AtomPosition, DomainCode, RolBitMask};
@@ -12,7 +13,7 @@ impl BiometricEvaluator {
     pub fn new() -> Self { Self }
 
     /// Evalúa reglas biométricas (LoA, liveness, intentos) contra el contexto del usuario.
-    /// Usado por el External-Path cuando Keycloak ya resolvió la autenticación biométrica.
+    /// Usado por el External-Path cuando el motor biométrico de borde ya resolvió la autenticación.
     pub fn evaluate_rules(rules: &[PolicyRule], ctx: &EvalContext) -> (bool, Vec<crate::domain::policy::PolicyResult>) {
         let (passed, _, results) = PolicyEngine::evaluate(rules, ctx); (passed, results)
     }
@@ -23,13 +24,13 @@ impl DomainEvaluator for BiometricEvaluator {
 
     /// Flujo D5:
     ///   1. FastPath: ¿átomo en RolBitMask? → NO → DENEGADO
-    ///   2. External-Path: Keycloak evalúa LoA + liveness + intentos
+    ///   2. External-Path: el motor biométrico de borde evalúa LoA + liveness + intentos
     ///      El LoA se almacena en ses_context.loa_current durante el login.
     ///      Si LoA < requerido → PENDIENTE (step-up RFC 9470).
     fn evaluate(&self, _ctx: &str, _user: &str, rol: &RolBitMask, ap: AtomPosition, _atom: &AtomBitMask) -> DomainResult {
         if rol.check(ap) {
             // FastPath OK — el átomo está en el RolBitMask.
-            // La verificación biométrica real (LoA, liveness) ocurrió en Keycloak durante el login.
+            // La verificación biométrica real (LoA, liveness) ocurrió en el motor de borde durante el login.
             // El resultado ya está en ses_context.loa_current y en el JWT.
             DomainResult::permitido(BIOMETRIC_DOMAIN)
         } else {

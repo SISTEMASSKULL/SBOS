@@ -35,15 +35,11 @@ pub struct NotifyConfig {
     #[serde(default = "default_bnotify_socket")]
     pub bnotify_socket: String,
 
-    /// Keycloak client secret (desde Vault o env)
-    #[serde(default)]
-    pub kc_client_secret: String,
-
     /// OIDC issuer URL
     #[serde(default = "default_oidc_issuer")]
     pub oidc_issuer: String,
 
-    /// Verificar TLS en conexiones a Keycloak
+    /// Verificar TLS en conexiones salientes
     #[serde(default = "default_true")]
     pub tls_verify: bool,
 }
@@ -74,7 +70,6 @@ impl Default for NotifyConfig {
             empresa_hooks: Vec::new(),
             sucursal_hooks: Vec::new(),
             bnotify_socket: default_bnotify_socket(),
-            kc_client_secret: String::new(),
             oidc_issuer: default_oidc_issuer(),
             tls_verify: true,
         }
@@ -107,7 +102,6 @@ impl NotifyConfig {
         // Fallback: variables de entorno
         Self {
             mattermost_token: std::env::var("BAUTH_MM_TOKEN").unwrap_or_default(),
-            kc_client_secret: std::env::var("BAUTH_KC_CLIENT_SECRET").unwrap_or_default(),
             mattermost_url: std::env::var("BAUTH_MM_URL").unwrap_or_else(|_| default_mm_url()),
             bnotify_socket: std::env::var("BAUTH_BNOTIFY_SOCKET").unwrap_or_else(|_| default_bnotify_socket()),
             oidc_issuer: std::env::var("BAUTH_OIDC_ISSUER").unwrap_or_else(|_| default_oidc_issuer()),
@@ -118,10 +112,5 @@ impl NotifyConfig {
     /// Verificar si el token de MM esta configurado
     pub fn has_mm_token(&self) -> bool {
         !self.mattermost_token.is_empty()
-    }
-
-    /// Verificar si el secreto KC esta configurado
-    pub fn has_kc_secret(&self) -> bool {
-        !self.kc_client_secret.is_empty()
     }
 }

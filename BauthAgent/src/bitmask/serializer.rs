@@ -17,7 +17,7 @@
 use crate::bitmask::{AtomBitMask, RolBitMask};
 use serde::{Deserialize, Serialize};
 
-/// Claims JWT que bAuth inyecta en el token emitido por Keycloak.
+/// Claims JWT que bAuth inyecta en el token que emite de forma nativa (firma Ed25519 vía Vault).
 ///
 /// Estructura que los SPIs Java (B23) inyectan en el JWT
 /// durante el login, y que los PEPs (Kong, bhnexus) validan
@@ -89,7 +89,7 @@ mod tests {
     #[test]
     fn test_jwt_claims_roundtrip() {
         let rol = RolBitMask::from_positions(&[0, 1, 3, 4, 14, 42, 100, 255], 500);
-        let atom = AtomBitMask::new_simple(3, 1, 2, 1, PolicyState::Pendiente); // Tryton.Comprobantes.nuevo D3
+        let atom = AtomBitMask::new_simple(3, 1, 2, 1, PolicyState::Pendiente); // erp.comprobantes.nuevo D3
 
         let claims = BosJwtClaims::new(&rol, &atom, "skull", "ctx_abc123", 2);
 

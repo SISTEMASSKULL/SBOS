@@ -5,16 +5,19 @@
 // Cada motor externo implementa AuthEngine. EngineRegistry permite
 // registrar nuevos motores sin modificar el core (Open/Closed).
 //
-// Motores implementados:
-//   KeycloakEngine — B12: Admin REST API para identidad (OIDC, SAML, WebAuthn)
-//   TrytonEngine   — B13: DEPRECADO (ADR-010, 2026-06-28)
+// Motores:
+//   VaultEngine — G6: Vault PKI, emisión de certificados X.509
+//
+// ELIMINADOS (ADR-010, 2026-06-28): KeycloakEngine y TrytonEngine.
+// bAuth autentica y enforcea nativamente — no depende de KC ni Tryton.
+// Ver MANUAL-APLICACIONES §3.2.
 //
 // DOC-SBOS-001 N3 · BAUTH-ARQUITECTURA-FRAMEWORK.md
 // ================================================================
 #![allow(dead_code)]
 
-pub mod keycloak_engine;
 pub mod vault_engine;  // G6: Vault PKI — emision de certificados X.509
+pub mod caep_client;   // C-BAUTH-004: SSF Transmitter — eventos CAEP hacia bNotify (gRPC)
 
 use std::collections::HashMap;
 use std::sync::Arc;

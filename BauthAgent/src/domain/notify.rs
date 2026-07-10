@@ -1,13 +1,21 @@
 // ============================================================
-// bauth::domain::notify — G2 Integracion con sbos-notifier
+// bauth::domain::notify — Integracion con bNotify (Orquestador de Notificaciones)
 //
-// sbos-notifier (bnotify) — daemon Python 3.14 del ecosistema.
-//   Stack: Apprise (100+ providers) + Centrifugo (WebSocket)
-//   Socket: /run/bos/bnotify.sock (JSON-RPC 2.0, ADR-020)
-//   Ficha: servers/S06/sbos-notifier/manifest.yml v1.0.0
+// bNotify — orquestador de notificaciones multi-canal en RUST, daemon systemd
+//   del host Ubuntu, par de bAuth. En concepcion (gate G0); destino: motor bChat
+//   (mensajeria nivel WeChat). Fuente de verdad: BnotifyAgent/context/BNOTIFY-000.
+//   Socket: /run/bos/bnotify.sock · Transporte entre daemons: gRPC (ADR-001).
+//   Reparto (D16, NIST SP 800-207): bAuth DECIDE (PDP), bNotify APLICA (PEP).
 //
-// bAuth envia OTP, push challenges y recovery codes via bnotify.
-// bnotify maneja la entrega real (email via SMTP, push via Centrifugo).
+// bAuth envia OTP, push challenges (con number matching) y recovery codes, y como
+// SSF Transmitter emite 5 eventos CAEP hacia bNotify. Contrato bilateral formal:
+//   context/contracts/BAUTH-BNOTIFY-CONTRATOS.md (C-BAUTH-001..004 · C-BNOTIFY-001..004).
+//
+// ⚠️ VESTIGIO — CONCEPCION SUPERADA: este modulo llama a bNotify por JSON-RPC
+//   (bnotify.mfa/send/trigger) asumiendo un daemon Python/Apprise sencillo. Esa
+//   concepcion YA NO ES VALIDA (bNotify es Rust/gRPC). El transporte debe realinearse
+//   a gRPC NotifyDispatcher.ReceiveCaepEvent segun el contrato. Ver plan de reparacion:
+//   context/Documentacion/4.01_MANUAL-BAUTH-BNOTIFY-v1.0.md (brechas P1).
 // ============================================================
 #![allow(dead_code)]
 

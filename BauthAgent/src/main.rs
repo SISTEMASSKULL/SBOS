@@ -259,6 +259,9 @@ async fn main() {
         } else {
             std::sync::Arc::new(domain::notify::StubNotifyClient)
         };
+    // C-BAUTH-004: transmisor CAEP (SSF Transmitter) hacia bNotify — gRPC
+    // sobre el mismo Unix socket. Stub mientras bnotify no esté desplegado.
+    let caep_tx = engine::caep_client::fabricar(&notify_cfg.bnotify_socket);
     dispatcher.register("bauth.notify.send",
         std::sync::Arc::new(server::handlers::notify_send::NotifySendHandler {
             client: notify_client.clone(),
@@ -545,50 +548,9 @@ async fn main() {
         std::sync::Arc::new(server::handlers::framework_reload::FrameworkReloadHandler {
             pg_pool: db_ctx.as_ref().map(|c| c.pg.clone()),
         }));
-    // ── B12: KeycloakEngine (H-001 FIX) ────────────────────
-    let kc_engine: Option<std::sync::Arc<engine::keycloak_engine::KeycloakEngine>> =
-        cfg.engines.keycloak.as_ref().map(|kc| {
-            let secret = if notify_cfg.has_kc_secret() {
-                notify_cfg.kc_client_secret.clone()
-            } else {
-                warn!("KC_CLIENT_SECRET no configurado — KeycloakEngine en modo observador");
-                String::new()
-            };
-            let engine = engine::keycloak_engine::KeycloakEngine::new(
-                "keycloak",
-                &kc.base_url,
-                &kc.admin_realm,
-                &kc.client_id,
-                &secret,
-            );
-            std::sync::Arc::new(engine)
-        });
-    dispatcher.register("bauth.keycloak.status",
-        std::sync::Arc::new(server::handlers::keycloak_sync::KeycloakStatusHandler {
-            engine: kc_engine.clone(),
-        }));
-    dispatcher.register("bauth.keycloak.sync",
-        std::sync::Arc::new(server::handlers::keycloak_sync::KeycloakSyncHandler {
-            engine: kc_engine.clone(),
-        }));
-    dispatcher.register("bauth.keycloak.reconcile",
-        std::sync::Arc::new(server::handlers::keycloak_sync::KeycloakReconcileHandler {
-            engine: kc_engine.clone(),
-        }));
-    // ── B12.1: Sync Flow + Realm Roles + Reconcile Full ────
-    dispatcher.register("bauth.keycloak.sync_flow",
-        std::sync::Arc::new(server::handlers::keycloak_sync::KeycloakSyncFlowHandler {
-            engine: kc_engine.clone(),
-        }));
-    dispatcher.register("bauth.keycloak.sync_roles",
-        std::sync::Arc::new(server::handlers::keycloak_sync::KeycloakSyncRolesHandler {
-            engine: kc_engine.clone(),
-            pg_pool: db_ctx.as_ref().map(|c| c.pg.clone()),
-        }));
-    dispatcher.register("bauth.keycloak.reconcile_full",
-        std::sync::Arc::new(server::handlers::keycloak_sync::KeycloakReconcileFullHandler {
-            engine: kc_engine.clone(),
-        }));
+    // ── Keycloak ELIMINADO (ADR-010) — bAuth es el IdP nativo (OIDC Provider abajo).
+    //    Los métodos bauth.keycloak.* y KeycloakEngine se purgaron: bAuth autentica,
+    //    firma y enforcea nativamente. Ver MANUAL-APLICACIONES §3.2.
     // ── Fase 2: OIDC Provider Nativo (H-005 FIX) ─────────
     let oidc_issuer = notify_cfg.oidc_issuer.clone();
     dispatcher.register("bauth.oidc.discovery",
@@ -704,8 +666,9 @@ async fn main() {
     // invalidación sesiones expiradas, eventos CAEP)
     let _reconcile_handle = if let Some(ref db) = db_ctx {
         let reconcile_ctx = db.clone();
+        let caep_reconcile = caep_tx.clone();
         tokio::spawn(async move {
-            sync::reconcile_loop(reconcile_ctx).await;
+            sync::reconcile_loop(reconcile_ctx, caep_reconcile).await;
         })
     } else {
         warn!("reconcile loop no iniciado — base de datos no disponible");

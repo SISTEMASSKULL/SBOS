@@ -205,18 +205,10 @@ fn default_redis_ttl() -> u64 {
 }
 
 /// Configuración de motores externos.
+/// (KeycloakConfig eliminado — ADR-010: bAuth es el IdP nativo. Ver MANUAL-APLICACIONES §3.2)
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct EnginesConfig {
-    pub keycloak: Option<KeycloakConfig>,
     pub nexus: Option<NexusConfig>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct KeycloakConfig {
-    pub base_url: String,
-    pub admin_realm: String,
-    pub client_id: String,
-    pub client_secret_vault_path: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

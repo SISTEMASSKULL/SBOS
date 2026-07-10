@@ -1,5 +1,5 @@
 # bauth — SBOS Identity Core v3.0 · BitMask Dual
-# ADR-001: Rust 1.85+ (MUSL, LTO, tokio) + Java 21 (8 SPIs Keycloak)
+# ADR-001: Rust 1.85+ (MUSL, LTO, tokio) — autenticación nativa (SPIs Keycloak eliminadas, ADR-010)
 # DOC-SBOS-001 N3: Documentación obligatoria en español
 # SSOT: SBOS-MANUAL-SISTEMA-PRIVILEGIOS-v1.0.md · BAUTH-CATALOGO-ROLES-EMPRESARIALES.md v2.1
 #       SBOS-MANUAL-BAUTH-COMPONENT-ROLES.md v1.7 · SBOS-MANUAL-BAUTH-D12-BLOCKCHAIN-WALLET-CONTROL.md v2.1
@@ -44,9 +44,15 @@ sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres",
 # === HTTP Client (HIBP screening) ===
 reqwest = { version = "0.12", features = ["rustls-tls", "json"], default-features = false }
 
-# === gRPC (ADR-020: daemon-to-daemon) ===
-# Implementación manual: JSON-RPC 2.0 sobre Unix socket cubre el mismo caso de uso.
-# tonic/prost pospuesto hasta resolver conflictos de dependencias con uuid/tonic-build.
+# === gRPC (contrato C-BAUTH-004 / C-BNOTIFY-001: eventos CAEP hacia bNotify) ===
+# ACTIVADO 2026-07-10 sin tonic-build/protoc: los 2 mensajes del contrato
+# (CaepEvent/CaepAck) se definen a mano con `prost::Message` derive y el método
+# unary se invoca con tonic::client::Grpc — se evita así el conflicto histórico
+# de dependencias con uuid/tonic-build. Ver src/engine/caep_client.rs.
+tonic = "0.12"                                          # cliente gRPC (HTTP/2)
+prost = "0.13"                                          # mensajes protobuf (derive manual)
+tower = { version = "0.4", features = ["util"] }        # service_fn — conector Unix socket
+hyper-util = { version = "0.1", features = ["tokio"] }  # TokioIo — envoltura del UnixStream
 
 # === Criptografía (RustCrypto — auditado, FIPS 140-2 compatible) ===
 argon2 = "0.5"                  # Password hashing (Argon2id, NIST SP 800-63B)

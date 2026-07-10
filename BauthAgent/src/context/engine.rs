@@ -3,7 +3,7 @@
 //
 // Ciclo de vida del ctx_id:
 //   1. BOS crea dctx_id (pre-auth) → Redis + PostgreSQL
-//   2. Usuario autentica en Keycloak → dctx_id validado
+//   2. Usuario autentica con los métodos nativos de bAuth → dctx_id validado
 //   3. bAuth promueve dctx_id → ctx_id (asigna user_id, bitmask)
 //   4. Kong valida ctx_id en cada request (PEP)
 //   5. bAuth invalida ctx_id en logout/timeout
@@ -43,7 +43,7 @@ impl CtxEngine {
     }
 
     /// Verifica que un dctx_id (pre-auth) existe y está en estado Pending.
-    /// Llamado ANTES de permitir la autenticación en Keycloak (B16.T15).
+    /// Llamado ANTES de permitir la autenticación nativa de bAuth (B16.T15).
     /// Si dctx_id no existe → denegar autenticación (sin dispositivo registrado).
     pub fn validate_pre_auth(ctx: &CtxPlane) -> CtxResult {
         if !ctx.is_pending() {

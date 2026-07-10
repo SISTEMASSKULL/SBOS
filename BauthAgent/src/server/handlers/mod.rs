@@ -39,7 +39,7 @@ pub mod policy_admin;    // B9.T25: PolicyAdministrator CRUD (create/update/dele
 pub mod policy_simulate;     // B9.T27: PolicySimulator — dry-run de cambios de políticas
 pub mod policy_distribution; // B9.T29: PolicyDistributionMonitor — NIST SP 800-207 CDM
 pub mod framework_reload;    // B9.T31: FrameworkHotReload — recarga JSON sin reiniciar
-pub mod keycloak_sync;       // B12: KeycloakEngine — sync roles/users + reconcile
+// keycloak_sync ELIMINADO (ADR-010) — bAuth no sincroniza con KC. Ver MANUAL-APLICACIONES §3.2
 pub mod user_template;       // B11: UserTemplate CRUD — get/create/update/delete/assign_role/revoke_role
 pub mod notify_send;         // G2: bnotify integration — enviar notificaciones (stub/dev)
 pub mod webauthn_handlers;   // G3: WebAuthn API — register/authenticate via JSON-RPC

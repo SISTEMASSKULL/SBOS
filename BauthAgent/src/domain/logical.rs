@@ -19,18 +19,18 @@ pub const LOGICAL_DOMAIN: DomainCode = 1;
 /// Los verbos (nuevo=1, editar=2, eliminar=3, ver=4) se combinan
 /// con grupos funcionales por aplicación para formar átomos completos.
 pub mod atoms {
-    // ─── Tryton ERP ───
-    pub const TRYTON_CONTABILIDAD_NUEVO: &str = "tryton.contabilidad.nuevo";
-    pub const TRYTON_CONTABILIDAD_EDITAR: &str = "tryton.contabilidad.editar";
-    pub const TRYTON_CONTABILIDAD_ELIMINAR: &str = "tryton.contabilidad.eliminar";
-    pub const TRYTON_CONTABILIDAD_VER: &str = "tryton.contabilidad.ver";
+    // ─── ERP (ejemplo genérico de átomos de aplicación) ───
+    pub const ERP_CONTABILIDAD_NUEVO: &str = "erp.contabilidad.nuevo";
+    pub const ERP_CONTABILIDAD_EDITAR: &str = "erp.contabilidad.editar";
+    pub const ERP_CONTABILIDAD_ELIMINAR: &str = "erp.contabilidad.eliminar";
+    pub const ERP_CONTABILIDAD_VER: &str = "erp.contabilidad.ver";
 
-    pub const TRYTON_COMPROBANTES_NUEVO: &str = "tryton.comprobantes.nuevo";
-    pub const TRYTON_COMPROBANTES_EDITAR: &str = "tryton.comprobantes.editar";
-    pub const TRYTON_COMPROBANTES_ELIMINAR: &str = "tryton.comprobantes.eliminar";
+    pub const ERP_COMPROBANTES_NUEVO: &str = "erp.comprobantes.nuevo";
+    pub const ERP_COMPROBANTES_EDITAR: &str = "erp.comprobantes.editar";
+    pub const ERP_COMPROBANTES_ELIMINAR: &str = "erp.comprobantes.eliminar";
 
-    pub const TRYTON_INVENTARIO_VER: &str = "tryton.inventario.ver";
-    pub const TRYTON_INVENTARIO_EDITAR: &str = "tryton.inventario.editar";
+    pub const ERP_INVENTARIO_VER: &str = "erp.inventario.ver";
+    pub const ERP_INVENTARIO_EDITAR: &str = "erp.inventario.editar";
 
     // ─── OrangeHRM ───
     pub const ORANGEHRM_EMPLEADOS_NUEVO: &str = "orangehrm.empleados.nuevo";
@@ -121,11 +121,11 @@ mod tests {
     #[test]
     fn test_atom_slugs_unique() {
         let slugs = vec![
-            atoms::TRYTON_CONTABILIDAD_NUEVO, atoms::TRYTON_CONTABILIDAD_EDITAR,
-            atoms::TRYTON_CONTABILIDAD_ELIMINAR, atoms::TRYTON_CONTABILIDAD_VER,
-            atoms::TRYTON_COMPROBANTES_NUEVO, atoms::TRYTON_COMPROBANTES_EDITAR,
-            atoms::TRYTON_COMPROBANTES_ELIMINAR,
-            atoms::TRYTON_INVENTARIO_VER, atoms::TRYTON_INVENTARIO_EDITAR,
+            atoms::ERP_CONTABILIDAD_NUEVO, atoms::ERP_CONTABILIDAD_EDITAR,
+            atoms::ERP_CONTABILIDAD_ELIMINAR, atoms::ERP_CONTABILIDAD_VER,
+            atoms::ERP_COMPROBANTES_NUEVO, atoms::ERP_COMPROBANTES_EDITAR,
+            atoms::ERP_COMPROBANTES_ELIMINAR,
+            atoms::ERP_INVENTARIO_VER, atoms::ERP_INVENTARIO_EDITAR,
             atoms::ORANGEHRM_EMPLEADOS_NUEVO, atoms::ORANGEHRM_EMPLEADOS_EDITAR,
             atoms::ORANGEHRM_EMPLEADOS_VER,
             atoms::SALEOR_CATALOGO_NUEVO, atoms::SALEOR_CATALOGO_EDITAR,
