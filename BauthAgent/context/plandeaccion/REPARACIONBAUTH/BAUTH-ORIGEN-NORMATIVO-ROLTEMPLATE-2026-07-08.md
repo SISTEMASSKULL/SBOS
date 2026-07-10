@@ -304,10 +304,46 @@ Profundidad del nodo en el árbol padre-hijo (`id → parent_id`). No es una cla
 
 ---
 
-**G-B01-05** · campo `status` · norma NIST SP 800-53 AC-2(j) · estado **⚠ Hardcoded**
-AC-2(j) exige deshabilitar cuentas cuando ya no son necesarias. Ciclo: DRAFT → REVIEW → ACTIVE → DEPRECATED → ARCHIVED.
+**G-B01-05** · campo `status` · norma NIST SP 800-53 AC-2(j) · estado **✅ RESUELTO** — 2026-07-10
+Ciclo de vida del rol como artefacto gestionado. No es la vigencia temporal (`validity_period`): es el estado del proceso de gestión.
 
-> ⏳ **PENDIENTE** — resolver en siguiente iteración
+> **✅ RESOLUCIÓN G-B01-05 — 2026-07-10**
+>
+> **Gap original:** columna `status text DEFAULT 'DEFINIDO'` con CHECK constraint de 7 valores en español (`DEFINIDO, DESARROLLADO, REVISADO, AUTORIZADO, PUBLICADO, DEPRECADO, RETIRADO`). Sin ENUM → sin validación de tipo · sin semántica normativa · incompatible con el reconcile loop de bAuth.
+>
+> **Norma:** NIST SP 800-53 AC-2(j) — el sistema debe deshabilitar cuentas/roles cuando ya no son necesarios. Requiere estados formales auditables.
+>
+> **Dimensión vs. validity_period (G-B02-01):** son ortogonales. `validity_period` = vigencia temporal (¿hasta cuándo?). `status` = estado del ciclo de gestión (¿en qué fase está el rol como entidad?).
+>
+> **ENUM creado:** `bauth.role_status_type`
+>
+> ```sql
+> CREATE TYPE bauth.role_status_type AS ENUM (
+>     'DRAFT',        -- definido, pendiente aprobación: no asignable
+>     'REVIEW',       -- en revisión formal (role_owner + aprobador): no asignable
+>     'ACTIVE',       -- en producción: asignable, sincronizado KC + Tryton
+>     'SUSPENDED',    -- congelado temporalmente: usuarios bloqueados en KC
+>     'DEPRECATED',   -- obsoleto: no asignable a nuevos; existentes hasta remoción
+>     'ARCHIVED'      -- cerrado: sin usuarios; eliminado de KC y Tryton
+> );
+> ```
+>
+> **Migración aplicada** en `bauth_47b__role_status_enum.sql`:
+> 1. `DROP DEFAULT` (el default `'DEFINIDO'::text` bloquea el ALTER)
+> 2. `DROP CONSTRAINT chk_brt_status` (CHECK en español, reemplazado por el ENUM)
+> 3. UPDATE mapeo: `DEFINIDO/AUTORIZADO/PUBLICADO → ACTIVE`, `DESARROLLADO → DRAFT`, `REVISADO → REVIEW`, `DEPRECADO → DEPRECATED`, `RETIRADO → ARCHIVED`
+> 4. `ALTER COLUMN status TYPE bauth.role_status_type USING status::bauth.role_status_type`
+> 5. `SET DEFAULT 'ACTIVE'::bauth.role_status_type`
+>
+> **Seed bauth_48:** reemplazados los 548 `'DEFINIDO'` por `'ACTIVE'` (idempotente).
+>
+> **`bglobal.menu_context`:** entrada `role_status` agregada → `RoleStatus (DRAFT, REVIEW, ACTIVE, SUSPENDED, DEPRECATED, ARCHIVED)`. También se agregó `role_validity_type` (G-B02-01, faltaba desde la resolución anterior).
+>
+> **Evidencia VPS (2026-07-10):**
+> - `tipo columna status: USER-DEFINED (role_status_type)` ✓
+> - `distribución status: ACTIVE → 548` ✓
+> - `constraint chk_brt_status eliminado: SÍ ✓`
+> - `menu_context: role_status + role_validity_type registrados` ✓
 
 ---
 

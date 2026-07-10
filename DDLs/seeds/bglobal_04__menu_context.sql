@@ -85,6 +85,10 @@ INSERT INTO bglobal.menu_context (tenant_id, context_key, entity_type, descripti
 ((SELECT tenant_id FROM bauth.idn_tenant WHERE tenant_slug='skull'), 'translation_status',   'TranslationStatus',   'COMPLETE, PARTIAL, MACHINE_TRANSLATED, NOT_TRANSLATED'),
 ((SELECT tenant_id FROM bauth.idn_tenant WHERE tenant_slug='skull'), 'menu_type',            'MenuType',            'HIERARCHICAL, CONTEXTUAL'),
 ((SELECT tenant_id FROM bauth.idn_tenant WHERE tenant_slug='skull'), 'role_type',            'RoleType',            'TYPE_OPERATIVO, TYPE_SUPERVISOR, TYPE_GERENCIA_MEDIA, TYPE_DIRECCION, TYPE_ADMIN_SISTEMA, TYPE_SERVICIO, TYPE_AUDITORIA, TYPE_COMERCIAL, TYPE_TECNICO'),
+-- Ciclo de vida del rol (G-B01-05) — NIST SP 800-53 AC-2(j)
+((SELECT tenant_id FROM bauth.idn_tenant WHERE tenant_slug='skull'), 'role_status',          'RoleStatus',          'DRAFT, REVIEW, ACTIVE, SUSPENDED, DEPRECATED, ARCHIVED'),
+-- Vigencia temporal del rol (G-B02-01) — NIST SP 800-53 AC-2(d)
+((SELECT tenant_id FROM bauth.idn_tenant WHERE tenant_slug='skull'), 'role_validity_type',   'RoleValidityType',    'INDEFINITE, FIXED, PROJECT_BASED, TEMPORARY, EMERGENCY'),
 ((SELECT tenant_id FROM bauth.idn_tenant WHERE tenant_slug='skull'), 'schedule_status',      'ScheduleStatus',      'OPEN, CLOSED, LAUNCH, BREAK, OVERTIME'),
 ((SELECT tenant_id FROM bauth.idn_tenant WHERE tenant_slug='skull'), 'verification_status',  'VerificationStatus',  'PENDING, IN_PROGRESS, PASSED, FAILED'),
 ((SELECT tenant_id FROM bauth.idn_tenant WHERE tenant_slug='skull'), 'verification_step',    'VerificationStep',    'IDENTITY_CHECK, LEGAL_CHECK, TECHNICAL_SETUP, SECURITY_REVIEW, FINAL_APPROVAL'),
