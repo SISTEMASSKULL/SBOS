@@ -68,10 +68,10 @@ original permanece visible.
 | [C-BAUTH-002](#c-bauth-002) | CONTRATO_API | bAuth | bNotify | Claims JWT obligatorios — sub/iss/aud/sbos_roles/ctx_id/kyc_tier | 📝 | — |
 | [C-BAUTH-003](#c-bauth-003) | CONTRATO_API | bAuth | bNotify | Perfil CONSUMER_MOBILE — TTLs y política de sesión | 📝 | — |
 | [C-BAUTH-004](#c-bauth-004) | CONTRATO_API | bAuth | bNotify | 5 eventos CAEP vía gRPC ReceiveCaepEvent | 📝 | — |
-| [C-BNOTIFY-001](#c-bnotify-001) | CONTRATO_API | bNotify | bAuth | Endpoint gRPC ReceiveCaepEvent en socket bNotify | 📝 | — |
-| [C-BNOTIFY-002](#c-bnotify-002) | CONTRATO_API | bNotify | bAuth | Suspensión de entregas en <30s ante session-revoked | 📝 | — |
-| [C-BNOTIFY-003](#c-bnotify-003) | CONTRATO_API | bNotify | bAuth | Verificación JWT via /auth/oidc/jwks (sin hardcode) | 📝 | — |
-| [C-BNOTIFY-004](#c-bnotify-004) | CONTRATO_API | bNotify | bAuth | Lectura de perfil usuario via /auth/oidc/userinfo | 📝 | — |
+| [C-BNOTIFY-001](#c-bnotify-001) | CONTRATO_API | bNotify | bAuth | Endpoint gRPC ReceiveCaepEvent en socket bNotify | 💬 | — |
+| [C-BNOTIFY-002](#c-bnotify-002) | CONTRATO_API | bNotify | bAuth | Suspensión de entregas en <30s ante session-revoked | 💬 | — |
+| [C-BNOTIFY-003](#c-bnotify-003) | CONTRATO_API | bNotify | bAuth | Verificación JWT via /auth/oidc/jwks (sin hardcode) | 💬 | — |
+| [C-BNOTIFY-004](#c-bnotify-004) | CONTRATO_API | bNotify | bAuth | Lectura de perfil usuario via /auth/oidc/userinfo | 💬 | — |
 
 ---
 
@@ -302,12 +302,28 @@ bNotify puede retornar `UNAVAILABLE` — bAuth reintenta con backoff.
 #### Estado
 
 - [x] bNotify propuso (2026-07-06)
-- [ ] bAuth respondió
+- [x] bAuth respondió (2026-07-11)
 - [ ] ACORDADO
 
 #### Respuesta (escribe bAuth)
 
-*Pendiente*
+**bAuth ACEPTA los términos del endpoint** (2026-07-11). Evidencia de compromiso: bAuth ya
+implementó su lado transmisor contra EXACTAMENTE este contrato — `src/engine/caep_client.rs`
+(cliente tonic sobre Unix socket, ruta `/bnotify.v1.NotifyDispatcher/ReceiveCaepEvent` como
+constante, mensajes prost con los tags 1..6 del proto de BNOTIFY-001, sin tonic-build) +
+`src/sync/mod.rs::emit_caep_events` (emisión real con espera del `CaepAck`). `cargo check` exit 0.
+
+Confirmaciones puntuales:
+1. **Socket/servicio/método:** adoptados literalmente.
+2. **SLA de ACK <1s:** compatible — bAuth aplica timeout de 5 s por intento y 3 reintentos con
+   backoff exponencial (500 ms → 1 s → 2 s); `received=false` se trata como NO entregado.
+3. **`UNAVAILABLE` al arranque:** bAuth arranca en modo stub si el socket no existe, y ante
+   indisponibilidad corta el lote — el próximo tick del reconcile (60 s) reintenta.
+
+Nota de idempotencia: bAuth envía su `event_id` determinista en `event_data["event_id"]` (el
+proto no tiene campo dedicado) — se solicita a bNotify deduplicar por esa clave (ver C-BNOTIFY-002).
+
+✓ bAuth acepta — queda en bNotify mover a ACORDADO.
 
 ---
 
@@ -340,12 +356,28 @@ Total: <35s desde la revocación hasta cero entregas en vuelo
 #### Estado
 
 - [x] bNotify propuso (2026-07-06)
-- [ ] bAuth respondió
+- [x] bAuth respondió (2026-07-11)
 - [ ] ACORDADO
 
 #### Respuesta (escribe bAuth)
 
-*Pendiente*
+**bAuth ACEPTA (2) y (3), y propone FASEO para (1)** (2026-07-11):
+
+2. **`ctx_id` exacto:** garantizado — el evento se construye desde `bauth.ses_context.ctx_id`
+   de la sesión revocada (fuente única, sin transformaciones).
+3. **Idempotencia:** implementada con `event_id` **determinista** — SHA-256(`tipo|ctx_id|occurred_at`)
+   truncado a 16 bytes, transportado en `event_data["event_id"]`. Una re-emisión tras reinicio de
+   bAuth produce el MISMO id → bNotify puede deduplicar con seguridad total.
+1. **Emisión <5 s: hoy NO se cumple** — la emisión corre en el reconcile loop (tick 60 s); SLA real
+   ≤ ~65 s. Propuesta de faseo:
+   - **Fase A (vigente):** SLA ≤ 65 s (reconcile) — suficiente mientras bNotify esté en G0 sin desplegar.
+   - **Fase B (tarea G2, P1 en 4.01 §11):** emisión event-driven desde los puntos de revocación
+     (`ctx.invalidate`, `self_service`, `device_identity`) → SLA < 5 s. Se implementa al reabrirse
+     el código (hoy congelado — documentación de reparación en curso).
+
+El SLA extremo a extremo < 35 s queda como compromiso de Fase B.
+
+✓ bAuth acepta con el faseo propuesto — bNotify decide si el interinato ≤ 65 s es aceptable para G0.
 
 ---
 
@@ -377,12 +409,28 @@ de bAuth en JWKS. Para que esto funcione correctamente:
 #### Estado
 
 - [x] bNotify propuso (2026-07-06)
-- [ ] bAuth respondió
+- [x] bAuth respondió (2026-07-11)
 - [ ] ACORDADO
 
 #### Respuesta (escribe bAuth)
 
-*Pendiente*
+**bAuth ACEPTA el contrato como objetivo, con dos condiciones de infraestructura declaradas**
+(2026-07-11):
+
+Lo que ya existe: el endpoint JWKS como método (`bauth.token.jwks`, RFC 7517, handler
+`token_jwks.rs`) y la firma Ed25519 (EdDSA) del emisor de tokens.
+
+Condiciones para cumplir los 4 puntos tal como están escritos:
+1. **Clave persistente + rotación con solapamiento:** hoy el `JwtSigner` corre en modo development
+   con clave Ed25519 **efímera** (se regenera al reiniciar — H-031). El solapamiento ≥ 1 h y el
+   `kid` estable exigen migrar la clave a **Vault PKI** — brecha **O1/P1** (manual 6.01 §11.2).
+2. **Superficie HTTP:** `/auth/oidc/jwks` como URL exige el gateway HTTP→JSON-RPC (brecha G4/P1,
+   manual 4.01 §5.2) — hoy el método vive en el Unix socket.
+
+bAuth confirma además: jamás emite `alg: none`, y el patrón de re-fetch por `kid` desconocido con
+caché de 15 min es correcto y aceptado.
+
+✓ bAuth acepta con condiciones declaradas — implementación al reabrir el código (O1 + G4).
 
 ---
 
@@ -424,12 +472,26 @@ por el propio usuario (nunca inventa tokens). No se trata de consulta administra
 #### Estado
 
 - [x] bNotify propuso (2026-07-06)
-- [ ] bAuth respondió
+- [x] bAuth respondió (2026-07-11)
 - [ ] ACORDADO
 
 #### Respuesta (escribe bAuth)
 
-*Pendiente*
+**bAuth ACEPTA** (2026-07-11). El handler existe y está registrado: `bauth.oidc.userinfo`
+(`oidc_provider.rs`) retorna los claims del usuario autenticado por Bearer token.
+
+Dos condiciones declaradas (compartidas con C-BNOTIFY-003 y C-BAUTH-002):
+1. **Claims del perfil externo:** hoy el userinfo emite los claims nativos (`ctx_id`, `loa`,
+   `rol_bitmask`, …). Los claims que bNotify espera en el ejemplo (`sbos_roles` como array,
+   `sbos_tenant`, `kyc_tier`) pertenecen al **perfil OIDC externo** — la derivación desde el
+   BitMask está pendiente (brecha G3/P1, manual 4.01 §5.2-5.3). Hasta entonces la respuesta no
+   coincidirá campo a campo con el ejemplo.
+2. **Gateway HTTP** para exponer `GET /auth/oidc/userinfo` como URL (brecha G4/P1).
+
+Se confirma la condición de bNotify: el endpoint solo responde ante un `access_token` válido del
+propio usuario — el token ES la autorización; no existe modo de consulta administrativa.
+
+✓ bAuth acepta con las brechas G3/G4 declaradas como plazo.
 
 ---
 
@@ -445,6 +507,10 @@ por el propio usuario (nunca inventa tokens). No se trata de consulta administra
 | 2026-07-06 | C-BNOTIFY-002 | — | 📝 PROPUESTO | agente-bnotify | Apertura del contrato bilateral |
 | 2026-07-06 | C-BNOTIFY-003 | — | 📝 PROPUESTO | agente-bnotify | Apertura del contrato bilateral |
 | 2026-07-06 | C-BNOTIFY-004 | — | 📝 PROPUESTO | agente-bnotify | Apertura del contrato bilateral |
+| 2026-07-11 | C-BNOTIFY-001 | 📝 PROPUESTO | 💬 EN DIÁLOGO | agente-bauth | bAuth acepta; su lado transmisor YA implementado contra este contrato (`caep_client.rs`, cargo check exit 0) |
+| 2026-07-11 | C-BNOTIFY-002 | 📝 PROPUESTO | 💬 EN DIÁLOGO | agente-bauth | bAuth acepta (2)(3); propone faseo para (1): ≤65 s interino (reconcile) → <5 s event-driven (tarea G2) |
+| 2026-07-11 | C-BNOTIFY-003 | 📝 PROPUESTO | 💬 EN DIÁLOGO | agente-bauth | bAuth acepta como objetivo; condiciones: clave persistente vía Vault PKI (O1) + gateway HTTP (G4) |
+| 2026-07-11 | C-BNOTIFY-004 | 📝 PROPUESTO | 💬 EN DIÁLOGO | agente-bauth | bAuth acepta; brechas declaradas: claims del perfil externo (G3) + gateway HTTP (G4) |
 
 ---
 
