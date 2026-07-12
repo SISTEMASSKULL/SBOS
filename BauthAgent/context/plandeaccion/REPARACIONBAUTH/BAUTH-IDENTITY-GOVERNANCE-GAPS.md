@@ -107,6 +107,26 @@ Cada gap incluye la acción concreta para cerrarlo.
 **DDL concreto:** Trigger `compute_entry_hash()` + columnas `prev_hash TEXT, entry_hash TEXT NOT NULL`.  
 **Prioridad:** `bos_sync_log`, `bos_superuser_contexts`, `bos_policy_audit` primero (🔴). El resto después (🟠).
 
+> #### ✅ RESOLUCIÓN GAP-04 — 2026-07-11 (bauth-developer)
+> **Migración:** `DDLs/migrations/bauth_44__gap04_worm_hash_chain.sql` — escrita, idempotente,
+> pendiente de aplicar en VPS (Testeador, verificación al pie de la migración).
+>
+> **Estado real verificado antes de resolver (nombres actuales del esquema):**
+> - Con cadena ya en DDL (4, no 2): `aud_event`, `bos_rol_template_history`, `fin_approval`, `fin_document_operation`.
+> - Sin cadena (6): `sync_log`, `ses_superuser_context`, `ath_login_attempt`, `privilege_atom_audit`, `ath_revocation`, `aud_policy_change` (T-148, ex bos_policy_audit).
+> - **Hallazgo agravante:** NO existía ningún trigger ni código Rust que poblara `entry_hash` —
+>   los INSERT del daemon a `aud_event` (sync, token_issue, sagas, role_lifecycle) no envían la
+>   columna, que es `NOT NULL`: la cadena estaba declarada pero **nadie la escribía** (y esos
+>   INSERT violan el esquema canónico). La migración lo sana de raíz.
+>
+> **Solución implementada:** tabla `aud_chain_head` (puntero O(1) al último hash por cadena) +
+> función-trigger genérica `fn_worm_hash_chain()` (SECURITY DEFINER, `pg_advisory_xact_lock` por
+> cadena contra bifurcación concurrente, `sha256()` built-in, payload canónico `to_jsonb(NEW)` sin
+> los campos de cadena) + columnas en las 6 tablas + trigger en las **10** + REVOKE UPDATE/DELETE
+> en las 9 que no lo tenían (patrón sync_log). Cero cambios de código Rust (BEFORE INSERT llena
+> la columna). Verificado: 0 UPDATEs del daemon sobre las tablas → el REVOKE no rompe operación.
+> `ses_context` queda fuera a propósito (las sesiones sí se actualizan — no es WORM).
+
 ---
 
 ## 3. Brechas de Eventos de Auditoría

@@ -25,8 +25,9 @@ Sin bAuth no hay autenticación, no hay roles, no hay permisos, no hay facturaci
 no hay acceso físico. **Soy el cimiento sobre el que se construye todo el ecosistema.**
 
 **bAuth NO es un motor de autenticación. bAuth es el ORQUESTADOR CENTRAL:**
-recibe credenciales, las enruta al motor correcto (Keycloak, Vault, Besu),
-recibe el resultado, aplica sus propias reglas (BitMask Dual + DomainRegistry +
+recibe credenciales, las **valida en su motor de métodos nativo** (Rust — sin depender de
+motores de autenticación externos), consulta a Vault (firma/PKI) y Besu (dominio blockchain)
+donde la operación lo requiere, aplica sus propias reglas (BitMask Dual + DomainRegistry +
 PolicyChain + SoD + DAG), y emite el JWT final con todos los claims.
 Ver `MANUAL_DB_DDL.md §41` para el flujo end-to-end completo.
 
@@ -34,17 +35,17 @@ Ver `MANUAL_DB_DDL.md §41` para el flujo end-to-end completo.
 |---|---|
 | **PrivilegeEngine** | Motor algebraico NIST RBAC Nivel 3 (Constrained). BitMask 64-bit 2 capas con DAG herencia OR. Closure table SQL. Evaluación < 0.5ns. |
 | **Catálogo de Roles** | 368 roles en 7 tiers (SU, SYS, BIZ_N1-N5, EXT_N0, M2M, VISITANTE). 66 plantillas base. 21 sectores CAEB SIN. 186 aristas de dependencia. |
-| **Sincronización KC** | Traduzco RolTemplate → objetos nativos Keycloak 26.6.2 (Composite Roles, Realm Roles, Auth Flows, User Attributes). 3 realms por tenant. **ANTES del login, no durante.** |
-| **Sincronización Tryton** | 5 capas de enforcement: ir.model.access (CRUD) → ir.rule (SQL por zona) → ir.model.button (botones) → ir.model.field (campos) → ir.action.groups (menús) |
-| **5 SPIs Java 21** | RolTemporalAuthenticator, RolGeoAuthenticator, RolRoleValidityAuthenticator, RolUserConfiguredCondition, RolStepUpCondition (RFC 9470) |
+| **Motor de métodos nativo** | Valido los métodos de autenticación directamente en Rust (`domain/auth_methods/` — MethodRegistry) + **OIDC Provider propio** + multi-tenancy nativa. **Sin Keycloak** (eliminado — ADR-010; ni realms ni sync KC). |
+| **Motor de Políticas nativo (PDP)** | Autorización nativa: `DomainRegistry` + `PolicyEngine` (XACML/ABAC) sobre los 12 dominios. **Sin Tryton** (eliminado — ADR-010; el enforcement es del PDP nativo). |
+| **Condiciones nativas** | Temporal, geoespacial, validez de rol, step-up (RFC 9470) — **evaluadores de dominio nativos** en Rust (`domain/`), **no SPIs Java** (eliminadas — `src/spi/` no existe). |
 | **18 métodos auth** | Password, TOTP, HOTP, WebAuthn Passwordless, WebAuthn 2FA, Passkey, X.509 mTLS, Kerberos, Social Brokering, SAML 2.0, CIBA, Device Auth, Conditional OTP, Recovery Codes, Email OTP, Client Credentials, Token Exchange. SMS OTP deprecado. |
 | **4 LoA + Step-Up** | AAL1 → AAL2 → AAL3 con elevación temporal RFC 9470 |
-| **Reconcile loop** | Cada 60s: estado declarado (bauth_db) vs estado real (KC + Tryton). Drift → auto-corrección o alerta |
+| **Reconcile loop** | Coherencia interna: estado declarado (bauth_db) vs proyecciones/cache. Drift → auto-corrección o alerta. (Ya **no** reconcilia contra KC/Tryton — eliminados.) |
 | **Doble motor firma** | Interno (Vault PKI, EdDSA Ed25519) + Externo (ADSIB/SIN Bolivia, RSA-SHA256). Ley 164. |
 | **Ciclo vida credenciales** | Registro IAL1-3, credenciales aleatorias (diceware), auto-gestión, recuperación password+MFA, revocación < 30s, revisión trimestral, privilege creep detection |
 | **Context Plane** | Policy Engine NIST SP 800-207. ctx_id con 6 capas. W3C Trace Context + OpenTelemetry Baggage. Kong PEP. |
 
-**Stack:** Rust 1.85+ (MUSL, LTO, tokio) para daemon core + Java 21 para 5 SPIs Keycloak.
+**Stack:** Rust 1.85+ (MUSL, LTO, tokio) — daemon core **autosuficiente**. (Las SPIs Java 21 y Keycloak/Tryton fueron eliminados post-ADR-010; `src/spi/` no existe.)
 **SSOT:** `BAUTH-CATALOGO-ROLES-EMPRESARIALES.md` v2.0 · `BAUTH-CADENAS-JERARQUIA.md` v1.1 ·
 `SBOS-ROLTEMPLATE-v6_0.md` · `SBOS-USERTEMPLATE-v6_0.md` · `Authentication_Framework.json` v3.0.0 ·
 `Policies_Authentication_Framework_v4.json` v4.0.0
@@ -73,8 +74,8 @@ src/
 │   └── signature.rs           # Firma digital (interno + externo)
 ├── engine/                    # TRAIT AuthEngine + implementaciones
 │   ├── mod.rs                 # trait AuthEngine, EngineRegistry
-│   ├── keycloak_engine.rs     # Keycloak Admin REST API client
-│   ├── tryton_engine.rs       # Tryton JSON-RPC client
+│   ├── (keycloak_engine.rs)   # LEGACY — Keycloak eliminado (ADR-010); deuda a purgar
+│   ├── (tryton_engine.rs)     # LEGACY — Tryton eliminado (ADR-010); deuda a purgar
 │   ├── oauth2proxy_engine.rs  # OAuth2-Proxy config generator
 │   └── nexus_engine.rs        # bhnexus gRPC + WebSocket client
 ├── server/                    # Interface Dual ADR-020
@@ -84,8 +85,8 @@ src/
 │   └── unix_socket.rs         # /run/bos/bauth.sock listener
 ├── sync/                      # Sincronización y reconcile
 │   ├── mod.rs
-│   ├── role_sync.rs           # RolTemplate → KC + Tryton
-│   ├── user_sync.rs           # UserTemplate → KC + Tryton
+│   ├── role_sync.rs           # RolTemplate → proyecciones nativas (no KC/Tryton)
+│   ├── user_sync.rs           # UserTemplate → proyecciones nativas (no KC/Tryton)
 │   ├── reconcile.rs           # Drift detection + auto-corrección
 │   └── bootstrap.rs           # Reconstrucción desde cero
 ├── catalog/                   # Catálogo de roles (carga desde YAML/JSON)
@@ -146,10 +147,10 @@ src/
 | `SBOS-BAUTH-DIGITAL-SIGNATURE-ENGINES.md` | v1.0 | Doble motor firma digital |
 | `SBOS-BAUTH-USER-REGISTRATION-CREDENTIAL-LIFECYCLE.md` | v1.0 | IAL1-3, credenciales, recuperación |
 | `SBOS-BAUTH-ACCESS-REVOCATION-REMOVAL.md` | v1.0 | Revocación, offboarding, privilege creep |
-| `BAUTH-CONTRATO-SYMBIOSIS.md` | v1.0 | Simbiosis trilateral bAuth-KC-Tryton |
+| `BAUTH-CONTRATO-SYMBIOSIS.md` | v1.0 | ⚠️ **OBSOLETO** — la simbiosis bAuth-KC-Tryton fue reemplazada por ADR-010 (bAuth autosuficiente). Registro histórico. |
 | `BAUTH-ARQUITECTURA-FRAMEWORK.md` | v1.0 | bAuth como orquestador |
 | `SBOS-054-NETWORK-SECURITY.md` | v1.3.0 | NRS-01 a NRS-10, SAN-01 a SAN-12 |
-| `SBOS-008-ROLFRAMEWORK-v1_0.md` | v2.0 | 5 SPIs Java, 5 capas Tryton |
+| `SBOS-008-ROLFRAMEWORK-v1_0.md` | v2.0 | ⚠️ Las 5 SPIs Java / 5 capas Tryton fueron **eliminadas** (ADR-010) — hoy son evaluadores de dominio nativos. Registro histórico. |
 | `adrs/ADR-001` al `ADR-008` | — | Decisiones arquitectónicas irreversibles |
 
 ## PROTOCOLO DE COMUNICACIÓN

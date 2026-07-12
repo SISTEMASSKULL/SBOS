@@ -15,6 +15,27 @@
 
 ---
 
+## ⭐ Vista por Motor (ADR-013)
+
+bAuth se estructura por **motores**: una capacidad (verbo) = un motor = un punto único de cambio. La
+**[vista por motor](MOTORES/MOTORES-INDEX.md)** agrupa estos manuales bajo el motor al que sirven —
+**sin renumerarlos**. Para reparar o completar una capacidad, abre la **portada** de su motor: reúne
+su propósito, los archivos de código a consolidar, y las referencias a manuales/anexos/contratos.
+
+| Motor (verbo) | Portada | Estado |
+|---------------|---------|:------:|
+| BitMask (privilegios) | [motor-bitmask](MOTORES/motor-bitmask.md) | ✅ |
+| Métodos (autenticar) | [motor-metodos](MOTORES/motor-metodos.md) | 🔄 9/18 |
+| Políticas/PDP (autorizar) | [motor-politicas](MOTORES/motor-politicas.md) | 🔄 partido + fail-open |
+| Canales (transportar) | [motor-canales](MOTORES/motor-canales.md) | ⬜ |
+| Criptográfico (cifrar) | [motor-criptografico](MOTORES/motor-criptografico.md) | ⬜ |
+| Firma (documentos) | [motor-firma](MOTORES/motor-firma.md) | 🔄 |
+| Auditoría (WORM) | [motor-auditoria](MOTORES/motor-auditoria.md) | 🔄 |
+
+> Índice completo, especialización (familias/dominios/PIP) y orden de convergencia: **[MOTORES/MOTORES-INDEX.md](MOTORES/MOTORES-INDEX.md)**.
+
+---
+
 ## Manuales disponibles
 
 > **Alineación IAM Enterprise:** cada manual documenta uno o más de los 7 pilares de la carta
@@ -50,11 +71,12 @@ listar la carpeta; los archivos ordenan solos por fase y dependencia. La carta r
 | 1.5 | [DDL y Seeds](1.05_MANUAL-DDL-SEEDS-v1.0.md) | 1.3 (schema del catálogo) | ✅ 1.0.0 |
 | 1.6 | [D00 — Identidad Organizacional](1.06_MANUAL-D00-IDENTIDAD-v1.0.md) | 1.4 | ✅ 1.0.0 |
 | 1.7 | [Atributos](1.07_MANUAL-ATRIBUTOS-v1.0.md) | 1.6 | ✅ 1.0.0 |
-| 1.8 | [User y UserTemplate](1.08_MANUAL-USER-TEMPLATE-v1.0.md) | 1.6, 1.9 | ✅ 1.0.0 |
-| 1.9 | [Roles](1.09_MANUAL-ROLES-v1.0.md) | 1.4, 1.6 | ✅ 1.2.0 |
+| 1.8 | [User y UserTemplate](1.08_MANUAL-USER-TEMPLATE-v1.0.md) | 1.6, 1.9 | ✅ 1.1.0 |
+| 1.9 | [Roles](1.09_MANUAL-ROLES-v1.0.md) | 1.4, 1.6 | ✅ 1.3.0 |
 | 1.10 | [Aplicaciones (catálogo e integración)](1.10_MANUAL-APLICACIONES-v1.0.md) | 1.3, 1.9 | ✅ 1.2.0 |
 | 1.11 | [Context Plane (ctx_id)](1.11_MANUAL-CONTEXT-PLANE-v1.0.md) | 1.6 (árbol D00) | ✅ 1.0.0 |
 | 1.12 | [Multi-tenancy e IDaaS (`bauth.tenant.*` + `bauth.idp.*`)](1.12_MANUAL-MULTITENANCY-IDAAS-v1.0.md) | 1.6, 1.8 | ✅ 1.0.0 ➕ |
+| 1.13 | [Motor de Versionado Universal (MVU)](1.13_MANUAL-MOTOR-VERSIONADO-v1.0.md) | 1.5, 1.8, 1.9, 2.10, 5.01, 7.3 | ✅ 2.1.0 ➕ (motor: L1) |
 
 ### Fase 2 — PROTECCIÓN · control de acceso, autenticación, salvaguardas
 
@@ -71,6 +93,7 @@ listar la carpeta; los archivos ordenan solos por fase y dependencia. La carta r
 | 2.9 | [Seguridad (cibernética + red)](2.09_MANUAL-SEGURIDAD-v1.0.md) | 1.11, 2.3 | ✅ 1.0.0 |
 | 2.10 | [Seguridad de Datos](2.10_MANUAL-SEGURIDAD-DATOS-v1.0.md) | 1.7, 2.4 | ✅ 1.0.0 |
 | 2.11 | [Frontend (Dashboard)](2.11_MANUAL-FRONTEND-v1.0.md) | 2.5, 1.10 | ✅ 1.0.0 |
+| 2.12 | [Canales Protegidos (Gestor de canales)](2.12_MANUAL-CANALES-PROTEGIDOS-v1.0.md) | 2.9, 1.11, 2.3, 2.4 | ✅ 1.0.0 ➕ (gestor: L0) |
 
 ### Fase 3 — DETECCIÓN · monitoreo y riesgo
 
@@ -88,7 +111,7 @@ listar la carpeta; los archivos ordenan solos por fase y dependencia. La carta r
 
 | N° | Manual | Depende de | Estado / Ver. |
 |:--:|--------|------------|:-------------:|
-| 5.1 | [Auditoría y Trazabilidad](5.01_MANUAL-AUDITORIA-TRAZABILIDAD-v1.0.md) | 1.11, 2.3 | ✅ 1.0.0 |
+| 5.1 | [Auditoría y Trazabilidad](5.01_MANUAL-AUDITORIA-TRAZABILIDAD-v1.0.md) | 1.11, 2.3 | ✅ 1.1.0 |
 | 5.2 | [Blockchain D12 (Forma A y B)](5.02_MANUAL-BLOCKCHAIN-D12-v1.0.md) | 5.1 | ✅ 1.0.0 |
 
 ### Fase 6 — RECUPERACIÓN · restauración, bootstrap, break-glass
@@ -112,6 +135,23 @@ listar la carpeta; los archivos ordenan solos por fase y dependencia. La carta r
 |:--:|--------|------------|:-------------:|
 | 9.1 | [Producto (entregables)](9.01_MANUAL-PRODUCTO-v1.0.md) | todos | ✅ 1.0.0 |
 | 9.2 | [Referencia de API (~141 métodos `bauth.*` por plano)](9.02_MANUAL-REFERENCIA-API-v1.0.md) | 9.1 | ✅ 1.0.0 ➕ |
+
+---
+
+### Anexos — la capa de respaldo documental (`anexos/`)
+
+Los manuales afirman; los **anexos respaldan**: documentos nuevos, organizados y
+referenciables (`A.NN §X`) que estructuran el conocimiento de los SSOT de diseño + la
+verificación contra normas y estándares internacionales. **No son copias** — son la lectura
+curada para consulta sin fricción. Índice, patrón canónico y plan: [anexos/INDICE-ANEXOS.md](anexos/INDICE-ANEXOS.md).
+
+| Anexo | Respalda a | Estado |
+|:--:|--------|:-------------:|
+| [A.01 — El Contrato RolTemplate v6.0 + estructura completa D00–D13 (14/14, resoluciones)](anexos/A.01_ANEXO-ROLTEMPLATE-v1.0.md) — FUENTE AUTOSUFICIENTE (traslado fiel §19) | 1.1, 1.9, 1.13, 1.4, 2.5 | ✅ 2.1.0 ➕ |
+| [A.02 — El Contrato UserTemplate v6.0 + verificación de completitud RESUELTA (U1–U7)](anexos/A.02_ANEXO-USERTEMPLATE-v1.0.md) — FUENTE AUTOSUFICIENTE (traslado fiel §22) | 1.1, 1.8, 1.13, 2.1, 2.10 | ✅ 1.1.0 ➕ |
+| A.03 Catálogo de Roles (+BitMask Dual) · A.04 Cadenas DAG · A.05 Átomos de Dominio · A.06/A.07 Frameworks (+recursos) · A.08 Firma · A.09 Credenciales/IAL · A.10 Revocación · A.11 Red · A.12 Blockchain D12 · A.13 ADRs (vigencia real) · A.14 Context Plane | ver [INDICE-ANEXOS](anexos/INDICE-ANEXOS.md) §2 | ✅ (14 publicados) |
+| [A.15 — Stack Rust de Autenticación](anexos/A.15_ANEXO-STACK-RUST-AUTENTICACION-v1.0.md) — el patrón de SUSTENTACIÓN (verificación de código: cubierto/parcial/brechas específicas) | 2.1, 2.2, 2.3 | ✅ 1.0.0 ➕ |
+| **Sustentación A.16–A.40 (25 anexos)** — verificación de código real de todos los manuales: protocolos, BitMask, frontend, superficie, OIDC, dominios, RLS, validadores, sqlx, calidad, riesgo, auditoría, DPoP, operación, IGA, atributos, aplicaciones, motor, D99, calendario, menú, datos, CAEP, CLI, producto | [INDICE-ANEXOS §2-§3.1](anexos/INDICE-ANEXOS.md) | ✅ **COBERTURA TOTAL** (36/36 manuales) |
 
 ---
 

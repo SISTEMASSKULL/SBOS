@@ -3,10 +3,10 @@
 <!-- Doc de dominio: context/BOS_V8/BOS_V8_SBOS-021-DAEMON-BAUTH.md · Registro: SBOS/paths.yml → microservicios -->
 
 ## Propósito propio
-**bAuth** — Identity Control Plane — Orquestador central de identidad. Enruta credenciales a los motores (Keycloak OIDC/SAML/WebAuthn, Vault PKI/Ed25519, Besu ECDSA), aplica BitMask Dual 64-bit + DomainRegistry 12 dominios + PolicyChain + SoD + DAG, y emite JWT unificado con RolBitMask + ctx_id + firma. Doble motor de firmas (Vault Ed25519 interno + ADSIB RSA-SHA256 externo). PAP/PIP/PDP/PEP. 47 handlers JSON-RPC.
+**bAuth** — Identity Control Plane — Orquestador central de identidad. Valida credenciales en su **motor de métodos nativo** (OIDC/SAML/WebAuthn en Rust — **sin Keycloak**, ADR-010) y consulta a Vault (PKI/Ed25519) y Besu (ECDSA, dominio blockchain); aplica BitMask Dual 64-bit + DomainRegistry 12 dominios + PolicyChain + SoD + DAG, y emite JWT unificado con RolBitMask + ctx_id + firma. Doble motor de firmas (Vault Ed25519 interno + ADSIB RSA-SHA256 externo). PAP/PIP/PDP/PEP. ~147 métodos JSON-RPC.
 
 ## Producto que desarrolla
-Identity Control Plane — Orquestador central de identidad · **Plano:** Identidad · **Stack:** Rust 1.85+ (MUSL) + Java 21 (5 SPIs)
+Identity Control Plane — Orquestador central de identidad · **Plano:** Identidad · **Stack:** Rust 1.85+ (MUSL) — autosuficiente (las SPIs Java fueron eliminadas, ADR-010)
 
 ## Interfaz (ADR-020 — Interface Dual)
 - Unix socket `/run/bos/bauth.sock` (0660, grupo `bos`): **WebSocket RPC** (humanos/CLI) + **JSON-RPC 2.0** (otros daemons).

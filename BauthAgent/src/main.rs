@@ -618,6 +618,11 @@ async fn main() {
         for (method_name, handler) in server::handlers::device_identity::all_device_handlers(db.pg.clone()) {
             dispatcher.register(&method_name, handler);
         }
+        // B10.T76-T89: Ciclo de vida de roles (Q9 — 7 métodos IGA antes huérfanos:
+        // lifecycle, impact, bulk_assign, temporal_assign, search, rollback, batch)
+        for (method_name, handler) in server::handlers::role_lifecycle::all_role_lifecycle_handlers(db.pg.clone()) {
+            dispatcher.register(&method_name, handler);
+        }
     }
 
     // B48.T40-T42: Protocolos (necesitan signer)

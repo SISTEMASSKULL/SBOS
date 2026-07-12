@@ -42,7 +42,7 @@ Esto incluye:
 - Producir código que "parece funcionar" pero que no ha sido verificado contra la especificación.
 - Omitir restricciones de seguridad conocidas porque complicarían la implementación.
 - Presentar una implementación incompleta como si estuviera terminada.
-- Asumir el comportamiento de un componente externo (Keycloak, Vault, Redis) sin leer cómo está configurado en el sistema real.
+- Asumir el comportamiento de un componente externo (Vault, Redis, PostgreSQL) sin leer cómo está configurado en el sistema real.
 - Generar migraciones DDL que contradigan el esquema existente sin señalarlo explícitamente.
 
 **Si no sabes algo, lo dices. Si la documentación no cubre algo, lo reportas. Si encontraste una contradicción, la escalas. Nunca rellenas vacíos con invención.**
@@ -324,7 +324,7 @@ bAuth no opera en aislamiento. Interactúa con otros componentes del ecosistema.
 
 ### 6.1 Lo que bAuth consume
 
-bAuth depende de Keycloak para emisión y validación de tokens, de FreeIPA para directorio de identidades, de FreeRADIUS para ciertos métodos MFA, de Vault para gestión de secretos y PKI, de PostgreSQL para persistencia, y de Redis para cache de sesiones y BitMask.
+bAuth es **autosuficiente** en autenticación y autorización (ADR-010): emite y valida sus **JWT nativamente** (OIDC Provider propio — **no** Keycloak), valida los **métodos MFA nativamente** en Rust (**no** FreeRADIUS), y es su **propio directorio** de identidades (**no** FreeIPA). Sus dependencias reales de infraestructura son: **Vault** (secretos y PKI de firma), **PostgreSQL** (persistencia — `bauth_db`) y **Redis** (cache de sesiones/BitMask — hoy **desactivado**, H-019).
 
 Las formas exactas de esas integraciones — protocolos, formatos, endpoints, configuraciones — están en los documentos de especificación.
 
@@ -342,18 +342,17 @@ Los documentos de roadmap de SBOS describen la evolución del sistema hacia un C
 
 ### 7.1 Tecnología y alcance de plataformas
 
-El dashboard se construye en **Flutter** usando **forUI** como librería de componentes base. Esta combinación es mandatoria — no se usa otro framework de UI ni otra librería de componentes sin autorización explícita.
+El dashboard producto (**bAuth Desktop**) se construye en **Flutter** usando **`tf_shadcn_flutter`** como librería de componentes base y **Riverpod** (3.x) para el estado (ADR-013 · manual 2.11 · A.18 §3.1). Esta combinación es mandatoria — no se usa otro framework de UI ni otra librería de componentes sin autorización explícita.
 
-El dashboard debe compilar y funcionar correctamente en **todas las plataformas Flutter** de forma simultánea:
+> **Dos apps, dos propósitos** (A.18 §3.1): **bAuth Desktop** es el Dashboard producto (este stack). **bAuthDEV** es una herramienta interna aparte —RPC tester— en Material + provider; su stack **NO** aplica al Dashboard.
 
-- **Windows** (desktop nativo)
-- **Linux** (desktop nativo)
-- **macOS** (desktop nativo)
-- **Web** (compilado a WASM/JS, compatible con navegadores modernos)
-- **Android** (móvil nativo)
-- **iOS** (móvil nativo)
+Alcance de plataformas (decisión 2026-07-12):
 
-No existe una plataforma de segunda categoría. El comportamiento funcional debe ser idéntico en todas. La adaptación es de layout y densidad de información, no de funcionalidad.
+- **Windows · Linux · macOS** (desktop nativo) — **el foco de esta fase**.
+- **Android · iOS** (móvil nativo) — el diseño es **responsive** desde el inicio para adaptarse a ellos.
+- **Web** — **diferida** por ahora (no se desarrolla en esta fase; el responsive la deja preparada).
+
+El comportamiento funcional es idéntico en las plataformas activas. La adaptación es de layout y densidad de información, no de funcionalidad.
 
 ### 7.2 Diseño responsive — regla fundamental
 
@@ -365,17 +364,17 @@ El layout debe adaptarse al espacio disponible, no a la plataforma. Las categor�
 
 Ningún widget puede asumir dimensiones fijas absolutas que rompan en alguno de estos rangos. Todo componente se diseña para los tres rangos desde el inicio, no como adaptación posterior.
 
-### 7.3 forUI — uso correcto
+### 7.3 tf_shadcn_flutter — uso correcto
 
-forUI es la librería de componentes que provee los widgets base del sistema. Se usa para construir sobre ella, no para rodearla. Las reglas de uso:
+`tf_shadcn_flutter` es la librería de componentes que provee los widgets base del sistema. Se usa para construir sobre ella, no para rodearla. Las reglas de uso:
 
-- Usa los componentes de forUI tal como están definidos. No los reimplementes desde cero si forUI ya los provee.
-- Cuando forUI no cubra un caso de uso específico de bAuth, extiéndela de forma coherente con su API y convenciones internas, no con un widget suelto que ignora el sistema.
-- Los tokens del Design System Abyss se aplican sobre forUI. Si forUI expone parámetros de tema, úsalos para inyectar Abyss. No apliques colores ni tipografía directamente sobre widgets individuales saltando el sistema de temas.
+- Usa los componentes de `tf_shadcn_flutter` tal como están definidos. No los reimplementes desde cero si la librería ya los provee.
+- Cuando la librería no cubra un caso de uso específico de bAuth, extiéndela de forma coherente con su API y convenciones, no con un widget suelto que ignora el sistema.
+- Los tokens del Design System **SBOS Dark** se aplican vía el tema (`ShadThemeData`). No apliques colores ni tipografía directamente sobre widgets individuales saltando el sistema de temas.
 
-### 7.4 Design System Abyss — contrato visual
+### 7.4 Design System SBOS Dark — contrato visual
 
-El Design System Abyss define los tokens visuales del sistema: paleta de colores (Slate + Cyan dark theme), tipografía, espaciado, grid de 12 columnas, y márgenes. Estos tokens son contratos, no sugerencias. No se modifican sin autorización explícita. No se introducen estilos ad-hoc que los contradigan.
+El Design System **SBOS Dark** define los tokens visuales del sistema: paleta dark (fondo `#060A10`, superficie `#0F161F`, acento azul `#3B82F6`, semáforo ok/warn/crit/info) + tema light; **colores por dominio** (D1 Lógico `#8B5CF6` … D9 Credenciales `#EAB308`); tipografía **Inter** (UI) + **JetBrains Mono** (código/JSON); espaciado y grid. Estos tokens son contratos, no sugerencias. No se modifican sin autorización explícita. No se introducen estilos ad-hoc que los contradigan. *(Reemplaza al antiguo «Abyss / Slate+Cyan», descartado — A.18 §3.1.)*
 
 La coherencia visual entre plataformas es parte del contrato. El dashboard en web y el dashboard en iOS deben sentirse como el mismo producto, adaptado al espacio disponible, no como dos productos diferentes.
 
@@ -434,7 +433,7 @@ Antes de entregar cualquier implementación, pásala por estos criterios:
 Antes de abordar cualquier tarea específica, ejecutar el siguiente protocolo de arranque:
 
 1. Leer `REGISTRO-ESTADO.md` para tener el estado actual del proyecto.
-2. Buscar en internet si existen security advisories publicados en las últimas semanas para los componentes centrales del stack: Keycloak, PostgreSQL, Redis, Vault, Kong, y las dependencias de Rust/Go de bAuth.
+2. Buscar en internet si existen security advisories publicados en las últimas semanas para los componentes centrales del stack: PostgreSQL, Redis, Vault, Kong, y las dependencias de Rust de bAuth.
 3. Si se encuentran CVEs críticos no atendidos en el stack, reportarlos al humano como primer punto antes de cualquier otra actividad. Un entorno con vulnerabilidades activas conocidas no puede recibir nuevo código sin que el humano haya evaluado el riesgo.
 4. Verificar si alguno de los estándares normativos de referencia (NIST SP 800-63, OWASP ASVS) ha publicado una nueva versión o actualización desde la última sesión. Si es así, reportarlo.
 5. Solo tras completar estos pasos, proceder con las tareas planificadas.
@@ -459,14 +458,14 @@ Antes de modificar código o DDL existente, entender por qué fue escrito como e
 
 Las aplicaciones base del sistema ya están desplegadas en la VPS de prueba. Todo desarrollo, toda implementación, toda verificación ocurre directamente en ese entorno real — no en simulaciones locales, no en mocks, no en ambientes hipotéticos.
 
-Esto tiene una implicación directa: **el código que produces se prueba contra el sistema real**. Keycloak real. PostgreSQL real con el DDL real. Redis real. Vault real. Kong real. No hay lugar para código que "debería funcionar en teoría". Funciona o no funciona, y la diferencia se mide en el entorno de prueba.
+Esto tiene una implicación directa: **el código que produces se prueba contra el sistema real**. PostgreSQL real con el DDL real. Redis real. Vault real. Kong real. No hay lugar para código que "debería funcionar en teoría". Funciona o no funciona, y la diferencia se mide en el entorno de prueba.
 
 ### 10.2 Protocolo de trabajo en la VPS
 
 Antes de desplegar cualquier cambio en la VPS de prueba:
 
 1. Leer el estado actual del componente que vas a modificar. No asumas que el entorno está en el estado que esperas — verifica.
-2. Entender qué otros componentes dependen del componente que vas a tocar. Un cambio en el esquema de la base de datos puede romper el daemon. Un cambio en la configuración de Keycloak puede afectar todos los clientes OAuth. Mapea las dependencias antes de actuar.
+2. Entender qué otros componentes dependen del componente que vas a tocar. Un cambio en el esquema de la base de datos puede romper el daemon. Un cambio en el OIDC Provider nativo puede afectar todos los clientes OAuth. Mapea las dependencias antes de actuar.
 3. Ejecutar el cambio de forma atómica y verificable. Si el cambio requiere múltiples pasos, cada paso debe ser reversible o al menos diagnosticable si falla.
 4. Verificar el resultado contra el comportamiento esperado definido en la especificación. No contra tu intuición de lo que debería pasar.
 5. Verificar que los logs de auditoría registraron correctamente lo que ocurrió durante la prueba.

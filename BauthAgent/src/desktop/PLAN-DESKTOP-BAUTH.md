@@ -63,10 +63,10 @@ renderizado — la verdad vive en el daemon Rust.
 | Decisión | Elección | Justificación |
 |----------|----------|---------------|
 | **Framework UI** | `tf_shadcn_flutter` ^0.0.53+1 | 84+ componentes, árbol nativo (`TreeNodeData`), desktop-first, responsive integrado |
-| **State management** | Riverpod 2.x | Providers declarativos, `AsyncValue` para loading/error/data, cache automática |
+| **State management** | Riverpod 3.x (`flutter_riverpod` ^3.3.2) | Providers declarativos, `AsyncValue` para loading/error/data, cache automática |
 | **Tablas avanzadas** | `pluto_grid` | Sort, filtro, paginación, columnas ocultables — necesario para roles/usuarios |
 | **Gráficos** | `fl_chart` | MIT license, liviano, sin dependencia de Material |
-| **Tema visual** | **ForUI SSOT** (tokens) → `ShadThemeData` | Gobernanza SBOS-010. Tokens de color, tipografía, espaciado desde ForUI |
+| **Tema visual** | **SBOS Dark SSOT** (tokens) → `ShadThemeData` | Tokens (color/tipografía/espaciado) del Design System **SBOS Dark**. *(Reemplaza «ForUI», descartado — A.18 §3.1)* |
 | **Comunicación** | JSON-RPC 2.0 sobre WebSocket Unix socket | ADR-020. Sin HTTP. Mismo socket que los daemons. |
 | **Plataformas** | Windows, Linux, macOS (primarias) | Android/iOS responsive heredado del mismo codebase |
 | **Ruteo** | `go_router` | Navegación declarativa, deep links, breadcrumbs |
@@ -87,7 +87,7 @@ dependencies:
   flutter:
     sdk: flutter
   tf_shadcn_flutter: 0.0.53+1      # Base UI (84+ componentes, árbol nativo)
-  flutter_riverpod: ^2.6.0          # State management
+  flutter_riverpod: ^3.3.2          # State management
   riverpod_annotation: ^2.6.0       # Codegen para providers
   web_socket_channel: ^2.4.0        # WebSocket transport
   pluto_grid: ^8.0.0                # Tablas avanzadas (roles, usuarios, políticas)
@@ -117,12 +117,12 @@ desktop/
 ├── pubspec.yaml
 ├── lib/
 │   ├── main.dart                  ← Entry point
-│   ├── app.dart                   ← ShadApp + tema ForUI
+│   ├── app.dart                   ← ShadApp + tema SBOS Dark
 │   │
 │   ├── core/
 │   │   ├── theme/
-│   │   │   ├── forui_tokens.dart  ← Tokens ForUI (colores, tipografía, espaciado)
-│   │   │   └── shad_theme.dart    ← ShadThemeData desde tokens ForUI
+│   │   │   ├── sbos_tokens.dart   ← Tokens SBOS Dark (colores, tipografía, espaciado)
+│   │   │   └── shad_theme.dart    ← ShadThemeData desde tokens SBOS Dark
 │   │   ├── router/
 │   │   │   └── app_router.dart    ← GoRouter config
 │   │   └── constants/
@@ -642,7 +642,7 @@ Al hacer click en un usuario conectado, se expande:
 | # | Tarea | Archivos |
 |---|-------|----------|
 | 0.1 | `flutter create` + `pubspec.yaml` con dependencias | `pubspec.yaml` |
-| 0.2 | Configurar `ShadApp` + tema ForUI (colores, tipografía, espaciado) | `main.dart`, `app.dart`, `forui_tokens.dart` |
+| 0.2 | Configurar `ShadApp` + tema SBOS Dark (colores, tipografía, espaciado) | `main.dart`, `app.dart`, `sbos_tokens.dart` |
 | 0.3 | Implementar `JsonRpcClient` (WebSocket → Unix socket `/run/bos/bauth.sock`) | `jsonrpc_client.dart` |
 | 0.4 | `bauth.health.check` — verificar conectividad con daemon | `health_provider.dart` |
 | 0.5 | GoRouter con rutas vacías para todas las pantallas | `app_router.dart` |
@@ -1187,7 +1187,7 @@ BauthAgent/
 │   ├── assets/
 │   │   ├── config.json           ← Configuración VPS (embebida en binario)
 │   │   ├── icons/                ← Iconos de la aplicación
-│   │   └── fonts/                ← Tipografía SBOS (ForUI)
+│   │   └── fonts/                ← Tipografía SBOS Dark (Inter / JetBrains Mono)
 │   ├── installer/                ← Scripts de empaquetado por SO
 │   │   ├── linux/
 │   │   │   ├── control           ← DEBIAN/control (.deb)
@@ -1315,7 +1315,7 @@ Obligatorio para clientes gubernamentales y enterprise. Flutter lo soporta vía 
 
 | Requisito | WCAG | Implementación |
 |-----------|------|---------------|
-| **Contraste de color** | 1.4.3 (4.5:1 texto, 3:1 grande) | Tokens ForUI ya definen paleta accesible. Verificar con `flutter_accessibility_scanner` |
+| **Contraste de color** | 1.4.3 (4.5:1 texto, 3:1 grande) | Tokens SBOS Dark ya definen paleta accesible. Verificar con `flutter_accessibility_scanner` |
 | **Navegación por teclado** | 2.1.1 (todo operable sin mouse) | `FocusNode` + `FocusTraversalGroup` + `ShortcutManager` |
 | **Etiquetas en iconos** | 1.1.1 (texto alternativo) | `Semantics(label: 'Roles')` en cada icono interactivo |
 | **Indicador de foco visible** | 2.4.7 | `FocusIndicatorSpec` — borde visible en el elemento activo |

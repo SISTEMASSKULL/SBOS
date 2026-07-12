@@ -188,7 +188,8 @@ mod tests {
 
     #[test]
     fn test_all_d1_slugs_defined() {
-        assert_eq!(atoms::TRYTON_CONTABILIDAD_NUEVO, "tryton.contabilidad.nuevo");
+        // Q3: constantes renombradas TRYTON_* → ERP_* (app genérica, ADR-010)
+        assert_eq!(atoms::ERP_CONTABILIDAD_NUEVO, "erp.contabilidad.nuevo");
         assert_eq!(atoms::SISTEMA_SESION_INGRESAR, "sistema.sesion.ingresar");
     }
 }

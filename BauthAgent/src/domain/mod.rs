@@ -50,5 +50,6 @@ pub mod risk;           // H-12: Risk Scoring Engine (Zero Trust NIST 800-207)
 pub mod rule_engine;    // B45: RuleEngine — validación de valores contra cfg_validation_rule
 pub mod calendar_alarm; // B47.C01: Cron Job poll_cal_alarms() — alarma→bnotify→WORM log
 pub mod caep;           // C-BAUTH-004: eventos CAEP (SSF) hacia bNotify — tipos puros
+pub mod andamiaje;      // La base arquitectónica: contratos BA1-BA20 (A.41 §11) — fail-closed
 
 // Re-export del nuevo motor BitMask Dual
