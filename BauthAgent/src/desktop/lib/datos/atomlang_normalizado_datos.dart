@@ -57,7 +57,7 @@ const Map<String, String> _mapa = {
   'B14 · Gobernanza de acceso':            'b14_gobernanza_acceso',
 
   // ── Átomos D1 (Gap Analysis D1) ──
-  'monto de transacción alto (>10 000 BOB)': 'financial_approve',
+  'monto de transacción alto (> @bauth_config_param.approval_threshold_tier2)': 'financial_approve',
   'zona de alta seguridad':                   'zona_alta_seguridad',
   'verbo CONFIGURE o ADMIN':                  'system_config_change',
   'verbo CONFIGURE':                          'system_config_change',
