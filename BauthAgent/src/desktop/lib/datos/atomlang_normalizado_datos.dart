@@ -4,18 +4,20 @@
 // Propósito: árbol SOURCE completo traducido al lenguaje AtomLang v1.
 //   Toma arbolRolTemplate y aplica el autómata de normalización:
 //     1. Nombres de nodo → snake_case canónico (tabla de mapeo + conversión genérica)
-//     2. Verbos ENUM → valor del vocabulario cerrado bos_verb
+//     2. Verbos ENUM → valor del vocabulario cerrado bauth.privilege_verb
 //     3. Clave "propiedad" → snake_case del atributo
 //   MISMO árbol, MISMA estructura, MISMO contenido — solo el lenguaje cambia.
 //   No es compilación para el autenticador (eso es Tab 2).
 // Dependencias: datos/rol_template_datos (NodoTemplate + TipoNodo + arbolRolTemplate).
-// Estándar: AtomLang-especificacion-completa.md §8 EBNF · Gap Analysis D1.
+// Estándar: A.46 §3 EBNF · A.47 §6 (diagnóstico D1) · DOC-SBOS-001 N3.
 // ============================================================
 
 import 'rol_template_datos.dart';
 
 // ──── Tabla de mapeo: nombre SOURCE → ID AtomLang canónico ───
 // Para todo lo que no está en la tabla se aplica _toSnakeCase genérico.
+// Nota: verbos en mayúsculas en esta tabla representan el texto libre SOURCE
+// que se normaliza a slug — los verbos válidos en atomc son siempre minúsculas.
 
 const Map<String, String> _mapa = {
   // ── Dominios ──
@@ -31,7 +33,9 @@ const Map<String, String> _mapa = {
   'D10 · Blockchain y ADSIB':              'd10_blockchain_adsib',
   'D11 · Multi-Tenant':                    'd11_multitenant',
   'D12 · Compliance':                      'd12_compliance',
+  'D13 · Firma Digital Externa':           'd13_firma_digital_externa',
   'D98 · Registro Estructural':            'd98_registro_estructural',
+  'D99 · Administrativo Global':           'd99_administrativo_global',
 
   // ── Bloques ──
   'B1 · Identificación':                   'b1_identificacion',
@@ -41,8 +45,9 @@ const Map<String, String> _mapa = {
   'B5 · Ciclo de vida de credenciales':    'b5_ciclo_vida_credenciales',
   'B6 · Zonas de negocio':                'b6_aplicaciones',
   'B6 · Gestión de sesiones':             'b6_gestion_sesiones',
-  'B7 · Privilegios ERP (5 capas)':       'b7_privilege_engine',
-  'B7 · 5 capas de evaluación (PrivilegeEngine)': 'b7_privilege_engine',
+  'B7 · Privilegios ERP (5 capas)':                'b7_privilege_engine',
+  'B7 · Privilegios de Aplicaciones (5 capas)':   'b7_privilege_engine',
+  'B7 · 5 capas de evaluación (PrivilegeEngine)':  'b7_privilege_engine',
   'B8 · Registro y auditoría':             'b8_registro_auditoria',
   'B9 · Federación externa':               'b9_federacion_externa',
   'B10 · Acceso físico biométrico':        'b10_acceso_fisico_biometrico',

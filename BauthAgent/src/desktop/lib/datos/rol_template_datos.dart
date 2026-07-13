@@ -658,7 +658,7 @@ NodoTemplate('D1 · ACCESO LÓGICO', TipoNodo.dominio,
 
       _ev('zone_ventas_write', [
         _a('subject', 'SET(vendedores)',
-            help: 'D98 · bos_group.vendedores — pendiente declarar en D98 · Registro Estructural.'),
+            help: 'D98 · bauth.privilege_role_set.vendedores — pendiente declarar en D98 · Registro Estructural.'),
         _a('resource', 'zone_logical/ventas'),
         _prop('zone.scope'),
         _op('=='),
@@ -670,7 +670,7 @@ NodoTemplate('D1 · ACCESO LÓGICO', TipoNodo.dominio,
 
       _ev('zone_ventas_approve', [
         _a('subject', 'SET(gerentes_ventas)',
-            help: 'D98 · bos_group.gerentes_ventas — pendiente declarar en D98 · Registro Estructural.'),
+            help: 'D98 · bauth.privilege_role_set.gerentes_ventas — pendiente declarar en D98 · Registro Estructural.'),
         _a('resource', 'zone_logical/ventas'),
         _ef('PERMIT · audit=on · notify=supervisor'),
       ], verbo: 'approve',
@@ -679,7 +679,7 @@ NodoTemplate('D1 · ACCESO LÓGICO', TipoNodo.dominio,
 
       _ev('zone_ventas_execute', [
         _a('subject', 'SET(vendedores)',
-            help: 'D98 · bos_group.vendedores'),
+            help: 'D98 · bauth.privilege_role_set.vendedores'),
         _a('resource', 'zone_logical/ventas'),
         _prop('zone.scope'),
         _op('=='),
@@ -710,7 +710,7 @@ NodoTemplate('D1 · ACCESO LÓGICO', TipoNodo.dominio,
 
       _ev('zone_clientes_write', [
         _a('subject', 'SET(atencion_clientes)',
-            help: 'D98 · bos_group.atencion_clientes — pendiente declarar en D98 · Registro Estructural.'),
+            help: 'D98 · bauth.privilege_role_set.atencion_clientes — pendiente declarar en D98 · Registro Estructural.'),
         _a('resource', 'zone_logical/clientes'),
         _a('pii_access', 'true'),
         _prop('ctx.justificacion_presente'),
@@ -744,7 +744,7 @@ NodoTemplate('D1 · ACCESO LÓGICO', TipoNodo.dominio,
 
       _ev('zone_financial_approve_dentro_tier', [
         _a('subject', 'SET(financieros_tier2)',
-            help: 'D98 · bos_group.financieros_tier2 — límite de aprobación = 10 000 BOB.'),
+            help: 'D98 · bauth.privilege_role_set.financieros_tier2 — límite de aprobación = 10 000 BOB.'),
         _a('resource', 'zone_financial/ventas'),
         _prop('transaction.amount_bob'),
         _op('<='),
@@ -768,7 +768,7 @@ NodoTemplate('D1 · ACCESO LÓGICO', TipoNodo.dominio,
 
       _ev('zone_financial_emit', [
         _a('subject', 'SET(financieros_tier2)',
-            help: 'D98 · bos_group.financieros_tier2'),
+            help: 'D98 · bauth.privilege_role_set.financieros_tier2'),
         _a('resource', 'zone_financial/ventas'),
         _prop('transaction.amount_bob'),
         _op('<='),
@@ -792,9 +792,14 @@ NodoTemplate('D1 · ACCESO LÓGICO', TipoNodo.dominio,
     ]),
   ]),
 
-  // ── B7 Privilegios ERP (5 capas) ─────────────────────────
-  NodoTemplate('B7 · Privilegios ERP (5 capas)', TipoNodo.bloque,
-      help: 'Enforcement nativo (BitMask+PolicyEngine). NIST AC-3/AC-6(10) · PCI 7.3.', hijos: [
+  // ── B7 Privilegios de Aplicaciones (5 capas) ─────────────
+  NodoTemplate('B7 · Privilegios de Aplicaciones (5 capas)', TipoNodo.bloque,
+      help: 'Motor de privilegios de grano fino (BitMask + PolicyEngine) para TODA aplicación '
+            'registrada en bauth.privilege_application (hasta 511 apps por tenant). '
+            'Las 5 capas aplican a ERP (Odoo), CRM, RRHH, bNotify, bSearch, portal de cliente, '
+            'apps de tenant externo — cualquier aplicación con control de acceso fino. '
+            'Equivalente a Odoo ir.rule + record rules + field access + SAP Dynamic Authorization. '
+            'NIST AC-3/AC-6(10) · PCI DSS 7.3.', hijos: [
 
     NodoTemplate('model_access', TipoNodo.politica, valor: 'CAPA 1 · CRUD por modelo',
         help: 'read:false = modelo completamente invisible.', hijos: [
@@ -866,32 +871,74 @@ NodoTemplate('D1 · ACCESO LÓGICO', TipoNodo.dominio,
     ]),
 
     NodoTemplate('button_rules', TipoNodo.politica, valor: 'CAPA 4 · botones con PYSON',
-        help: 'PCI 7.3.1 — users_required + condition_pyson + sod_cannot_also + step_up_loa.', hijos: [
-      _algo('first-applicable'),
-      _ev('venta ≤ 10 000 BOB — aprobación simple', [
-        _prop('sale.amount_total'),
-        _op('<='),
-        _val('10 000 BOB'),
-        _ef('users_required = 1 · sin step-up'),
-      ], verbo: 'approve'),
-      _ev('venta 10 001–50 000 BOB — doble + WebAuthn', [
-        _prop('sale.amount_total'),
+        help: 'PCI DSS 4.0 Req 7.3.1 — users_required + condition_pyson + sod_cannot_also + step_up_loa. '
+              'combining_algorithm: deny-overrides (un DENY de tier superior bloquea siempre aunque un '
+              'tier inferior produzca PERMIT). Anti-patrón 6: first-applicable fue eliminado porque '
+              'los rangos pueden solaparse si se amplía el catálogo — deny-overrides garantiza que '
+              'el control más restrictivo gane siempre. '
+              'Anti-patrón 1: valores de umbral externos via @bauth_config_param (no montos literales '
+              'en nombres ni en valores — un cambio de política no requiere recompilar el árbol).',
+        hijos: [
+      _algo('deny-overrides'),
+
+      // Tier fuera del rol → DENY explícito PRIMERO (deny-overrides lo prioriza)
+      _ev('venta_fuera_tier_maximo_deny', [
+        _a('subject', 'SET(financieros_tier2)',
+            help: 'D98 · bauth.privilege_role_set.financieros_tier2 *(propuesta)*'),
+        _a('resource', 'app.erp/sale.order'),
+        _prop('sale_order.amount_total_bob'),
+        _op('>'),
+        _val('@bauth_config_param.approval_threshold_tier2',
+            help: 'Umbral tier 2 desde PIP — no hardcodeado. PCI DSS 4.0 Req 7.3.1.'),
+        _ef('DENY · HTTP 403 · "supera límite de aprobación del rol" · omitir botón Aprobar'),
+      ], verbo: 'approve',
+        help: 'DENY explícito cuando el monto supera el tier máximo del rol. '
+              'deny-overrides garantiza que este DENY prevalezca sobre cualquier PERMIT de tier inferior. '
+              'PCI DSS 4.0 Req 7.2.4: usuarios con límite de aprobación no pueden auto-aprobarse sobre su límite.'),
+
+      // Tier 2: doble aprobador + step-up WebAuthn
+      _ev('venta_aprobacion_tier2_doble_webauthn', [
+        _a('subject', 'SET(financieros_tier2)',
+            help: 'D98 · bauth.privilege_role_set.financieros_tier2 *(propuesta)*'),
+        _a('resource', 'app.erp/sale.order'),
+        _prop('sale_order.amount_total_bob'),
         _op('BETWEEN'),
-        _val('[10 001, 50 000] BOB'),
-        _ef('users_required = 2 · step_up_loa = 3 (WebAuthn)'),
-      ], verbo: 'approve'),
-      _ev('pago > 5 000 BOB — SoD', [
-        _prop('payment.amount'),
+        _val('[@bauth_config_param.approval_threshold_tier1, @bauth_config_param.approval_threshold_tier2]',
+            help: 'Rango tier 2 desde PIP — ambos extremos configurables sin recompilar. '
+                  'BETWEEN es inclusivo en ambos extremos.'),
+        _ef('PERMIT · users_required=2 · step_up_loa=3 (WebAuthn) · SoD: aprobadores distintos · audit=on'),
+      ], verbo: 'approve',
+        help: 'Aprobación dual con WebAuthn hardware para montos de tier 2. '
+              'Equivalente a SAP dual-control para transacciones de alto valor. '
+              'RFC 9470 step-up mid-session — no cierra la sesión, añade factor.'),
+
+      // Tier 1: aprobación simple
+      _ev('venta_aprobacion_tier1_simple', [
+        _a('subject', 'SET(financieros_tier2)',
+            help: 'D98 · bauth.privilege_role_set.financieros_tier2 *(propuesta)*'),
+        _a('resource', 'app.erp/sale.order'),
+        _prop('sale_order.amount_total_bob'),
+        _op('<='),
+        _val('@bauth_config_param.approval_threshold_tier1',
+            help: 'Umbral tier 1 desde PIP. Odoo equivalent: ir.rule sale.amount_total.'),
+        _ef('PERMIT · users_required=1 · sin step-up · audit=on'),
+      ], verbo: 'approve',
+        help: 'Aprobación simple para ventas dentro del límite tier 1. '
+              'SoD aplicado a nivel de zona (B6): quien crea ≠ quien aprueba (evaluado en B6, no aquí).'),
+
+      // SoD en pagos — evaluado en el momento del approve
+      _ev('pago_aprobacion_sod_enforce', [
+        _a('subject', 'ANY'),
+        _a('resource', 'app.erp/account.payment'),
+        _prop('payment.amount_bob'),
         _op('>'),
-        _val('5 000 BOB'),
-        _ef('sod_cannot_also: CREADOR ≠ APROBADOR · enforce en validación'),
-      ], verbo: 'approve'),
-      _ev('venta > 50 000 BOB — fuera del tier 2', [
-        _prop('sale.amount_total'),
-        _op('>'),
-        _val('50 000 BOB'),
-        _ef('DENY · HTTP 403 · "supera límite del rol" · no mostrar botón'),
-      ], verbo: 'approve'),
+        _val('@bauth_config_param.sod_payment_approval_threshold',
+            help: 'Umbral a partir del cual SoD es obligatorio. NIST AC-5 · PCI DSS 4.0 Req 7.2.4.'),
+        _ef('DENY si ctx.subject_created_this_payment==true · "SoD: creador ≠ aprobador" · audit=SOD_ATTEMPT'),
+      ], verbo: 'approve',
+        help: 'SoD duro para pagos: quien creó el pago no puede aprobarlo. '
+              'Equivalente a SAP SoD rule T-Code F-53 vs FB01. '
+              'NIST AC-5 · ISO 27001 A.5.18.'),
     ]),
 
     NodoTemplate('record_rules', TipoNodo.politica, valor: 'CAPA 5 · filtros de fila',
@@ -915,6 +962,152 @@ NodoTemplate('D1 · ACCESO LÓGICO', TipoNodo.dominio,
         _val('user.managed_team_ids[]'),
         _ef('WHERE salesperson_team_id IN (:managed_teams) — combinado con OR anterior'),
       ], verbo: 'read'),
+    ]),
+
+    // ── Política CRM (app_id = crm) — ejemplo no-ERP ─────────────
+    // Demuestra que B7 no es exclusivo de ERP: cada aplicación registrada
+    // en bauth.privilege_application tiene su propio conjunto de 5 capas.
+    // Equivalente a Odoo CRM ir.model.access + record rules por equipo.
+    NodoTemplate('b7_crm_acceso', TipoNodo.politica,
+        valor: 'app.crm — Acceso CRM para rol Ventas',
+        help: 'Políticas B7 para la aplicación CRM del tenant. '
+              'Registro en bauth.privilege_application: app_code=crm, app_slug=crm. '
+              'Aplicación separada del ERP — los privilegios no se heredan entre apps. '
+              'Real-world: Salesforce Field-Level Security + Record Types + OWD. '
+              'Equivalente en Odoo: groups_id en crm.lead + domain filter por team_id. '
+              'NIST AC-3(7) — Remote-Process Access.', hijos: [
+      _algo('deny-overrides'),
+
+      // CRM model_access
+      _ev('crm_lead_read', [
+        _a('subject', 'ANY',
+            help: 'Cualquier usuario autenticado puede leer leads de su equipo — filtrado por record_rules.'),
+        _a('resource', 'app.crm/crm.lead'),
+        _a('pii_access', 'false',
+            help: 'Leads = datos de prospecto, NO PII de cliente (eso es zone_clientes — B6). '
+                  'Distinción RGPD Art. 4(1): prospecto no es interesado hasta conversión.'),
+        _ef('PERMIT · record_rule=team_filter · audit=off (alto volumen)'),
+      ], verbo: 'read',
+        help: 'Lectura de leads CRM dentro del equipo de ventas. '
+              'Equivalente Salesforce: Record Type "Opportunity" + OWD "Read/Write" + Role Hierarchy.'),
+
+      _ev('crm_lead_create', [
+        _a('subject', 'SET(vendedores)',
+            help: 'D98 · bauth.privilege_role_set.vendedores *(propuesta)*'),
+        _a('resource', 'app.crm/crm.lead'),
+        _ef('PERMIT · audit=on · owner_id=user.id (asignado automáticamente)'),
+      ], verbo: 'create',
+        help: 'Creación de lead/oportunidad — solo SET vendedores. '
+              'owner_id inyectado automáticamente por el PEP.'),
+
+      _ev('crm_lead_convert_deny', [
+        _a('subject', 'SET(vendedores)',
+            help: 'Vendedor común no puede convertir lead a cliente — requiere gerencia.'),
+        _a('resource', 'app.crm/crm.lead.convert'),
+        _ef('DENY · "La conversión de lead a cliente requiere aprobación de gerencia" · notify SET(gerentes_ventas)'),
+      ], verbo: 'execute',
+        help: 'SoD soft: el vendedor que crea el lead no puede convertirlo en cliente sin aprobación. '
+              'Evita creación masiva de cuentas fraudulentas. '
+              'Equivalente SAP CRM: activity type "Convert Lead" con workflow de aprobación.'),
+
+      _ev('crm_pipeline_export_deny', [
+        _a('subject', 'ANY'),
+        _a('resource', 'app.crm/crm.pipeline.export'),
+        _ef('DENY · "Exportación del pipeline requiere rol CRM_EXPORT_AUTHORIZED" · audit=EXPORT_ATTEMPT'),
+      ], verbo: 'export',
+        help: 'Anti-exfiltración: exportar el pipeline completo expone estrategia comercial y datos de clientes potenciales. '
+              'RGPD Art. 5(c) minimización de datos. ISO 27001 A.8.12 (fuga de información).'),
+    ]),
+
+    // ── Política RRHH (app_id = hrms) — expedientes de personal ──
+    // Demuestra acceso restrictivo a datos de empleados: el manager de ventas
+    // solo ve datos de su equipo y solo campos no sensibles.
+    // Real-world: Workday Row-Level Security + Domain Security Policy.
+    // Equivalente Odoo: hr.employee + ir.rule res_users (manager only).
+    NodoTemplate('b7_rrhh_acceso', TipoNodo.politica,
+        valor: 'app.hrms — Acceso RRHH para rol Ventas (solo su equipo)',
+        help: 'Políticas B7 para la aplicación RRHH. Solo lectura parcial — datos de su equipo. '
+              'Equivalente Workday: "Domain Security Policy" para Business Object "Worker" '
+              'con Data Source "Organizations I support". '
+              'NIST AC-6(1) — Least Privilege: authorize access only for necessary functions. '
+              'ISO 27001 A.8.2 — privileged access rights.', hijos: [
+      _algo('deny-overrides'),
+
+      _ev('hrms_team_read_basico', [
+        _a('subject', 'SET(gerentes_ventas)',
+            help: 'D98 · bauth.privilege_role_set.gerentes_ventas *(propuesta)* — solo managers ven su equipo'),
+        _a('resource', 'app.hrms/hr.employee'),
+        _prop('employee.department_id'),
+        _op('IN'),
+        _val('user.managed_department_ids[]'),
+        _ef('PERMIT · field_mask=[omitir salary, bank_account, dni_completo] · audit=on'),
+      ], verbo: 'read',
+        help: 'Lectura de datos básicos de empleados de su departamento (nombre, cargo, teléfono). '
+              'Campos sensibles (salario, cuenta bancaria, DNI completo) enmascarados por field_restrictions. '
+              'Equivalente Workday Domain "Worker Data: Personal Information" restringido.'),
+
+      _ev('hrms_salary_deny', [
+        _a('subject', 'ANY'),
+        _a('resource', 'app.hrms/hr.payslip'),
+        _ef('DENY · "Acceso a nómina requiere rol RRHH_PAYROLL_ADMIN" · audit=SENSITIVE_DATA_ATTEMPT'),
+      ], verbo: 'read',
+        help: 'DENY explícito en nómina — dato ultrasensible. '
+              'Ningún gerente de línea puede ver salarios de su equipo sin rol específico. '
+              'RGPD Art. 9 (datos laborales especialmente protegidos en algunas jurisdicciones). '
+              'Equivalente SAP HCM: infotype 0008 (Basic Pay) bloqueado para managers.'),
+
+      _ev('hrms_org_chart_read', [
+        _a('subject', 'ANY'),
+        _a('resource', 'app.hrms/hr.org_chart'),
+        _ef('PERMIT · vista solo nombre+cargo (sin datos sensibles) · audit=off'),
+      ], verbo: 'read',
+        help: 'Organigrama público — nombre y cargo visible para todos los empleados autenticados. '
+              'Dato no sensible bajo RGPD. Equivalente Workday "Worker: Public Profile".'),
+    ]),
+
+    // ── Política bNotify (app_id = bnotify) — notificaciones ─────
+    // Demuestra control de acceso sobre el sistema de notificaciones.
+    // El manager de ventas puede ENVIAR notificaciones a su equipo
+    // pero NO configurar plantillas globales ni ver logs de otros.
+    NodoTemplate('b7_bnotify_acceso', TipoNodo.politica,
+        valor: 'app.bnotify — Acceso bNotify para rol Ventas',
+        help: 'Políticas B7 para bNotify. '
+              'Equivalente Twilio Notify + SendGrid: sender permissions by team/role. '
+              'Evitar spam interno y exfiltración vía canales de notificación. '
+              'NIST SI-8 (Spam Protection) · ISO 27001 A.13.2.3.', hijos: [
+      _algo('deny-overrides'),
+
+      _ev('bnotify_send_equipo', [
+        _a('subject', 'SET(gerentes_ventas)',
+            help: 'D98 · bauth.privilege_role_set.gerentes_ventas *(propuesta)*'),
+        _a('resource', 'app.bnotify/notification'),
+        _prop('notification.recipient_group'),
+        _op('SUBSET_OF'),
+        _val('user.managed_team_ids[]'),
+        _ef('PERMIT · canal=rocket_chat · audit=on · rate_limit=50/hora'),
+      ], verbo: 'emit',
+        help: 'El manager puede enviar notificaciones SOLO a su equipo directo. '
+              'Anti-spam: rate_limit=50/hora para evitar flood. '
+              'Canal: siempre vía bNotify (nunca directo).'),
+
+      _ev('bnotify_configure_template_deny', [
+        _a('subject', 'ANY'),
+        _a('resource', 'app.bnotify/template'),
+        _ef('DENY · "Configuración de plantillas globales requiere rol BNOTIFY_ADMIN" · audit=on'),
+      ], verbo: 'configure',
+        help: 'Ningún gerente de línea puede crear o modificar plantillas de notificación globales. '
+              'Evita phishing interno vía plantillas maliciosas. ISO 27001 A.12.2.1.'),
+
+      _ev('bnotify_broadcast_deny', [
+        _a('subject', 'ANY'),
+        _a('resource', 'app.bnotify/broadcast'),
+        _prop('notification.recipient_scope'),
+        _op('NOT_IN'),
+        _val('[TEAM, DEPARTMENT]'),
+        _ef('DENY · "Broadcast masivo requiere rol COMMUNICATIONS_ADMIN" · audit=BROADCAST_ATTEMPT'),
+      ], verbo: 'emit',
+        help: 'DENY de broadcast a toda la organización — riesgo de información falsa / pánico. '
+              'Equivalente Slack: solo workspace owners pueden postear en #general.'),
     ]),
   ]),
 ]),

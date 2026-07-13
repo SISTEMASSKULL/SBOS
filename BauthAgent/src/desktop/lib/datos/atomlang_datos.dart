@@ -59,7 +59,7 @@ NodoTemplate _seccionEstructura() => _bloque(
   'ESTRUCTURA DEL ÁRBOL',
   help: 'Jerarquía de nodos válidos en AtomLang v1.\n\n'
       'Regla de dependencia: una entidad solo puede contener entidades del nivel inmediato inferior.\n'
-      'Catálogos (bos_verb, bos_group) se REFERENCIAN por ID — nunca se copian inline.',
+      'Catálogos (bauth.privilege_verb, bauth.privilege_role_set) se REFERENCIAN por ID — nunca se copian inline.',
   hijos: [
     _nodoTipoDominio(),
     _nodoTipoBloque(),
@@ -71,7 +71,7 @@ NodoTemplate _seccionEstructura() => _bloque(
 
 NodoTemplate _nodoTipoDominio() => _pol(
   'dominio',
-  help: 'PolicySet de nivel 1 (D1..D12 + D98).\n\n'
+  help: 'PolicySet de nivel 1 (D0..D13 + D98 + D99).\n\n'
       'Agrupa bloques y políticas bajo un mismo dominio de control.\n'
       'Badge obligatorio: [POLICYSET].\n'
       'combining_algorithm: opcional (si no se declara, cada Policy hija tiene el suyo).',
@@ -121,8 +121,8 @@ NodoTemplate _nodoTipoPolitica() => _pol(
   hijos: [
     _a('policy_id', 'snake_case · ej: step_up_triggers',
         help: 'Identificador único de la política. Inmutable una vez publicada.\n'
-            'Se usa como clave en bos_atom_compiled.'),
-    _a('application_id', 'FK bos_application | null',
+            'Se usa como clave en bauth.privilege_atom_compiled *(propuesto)*.'),
+    _a('application_id', 'FK bauth.privilege_application | null',
         help: 'null = Guardrail Atom (política de autenticación, no de negocio).\n'
             'Si application_id != null, la política aplica solo a esa aplicación.'),
     _en('combining_algorithm', 'aggregate-strictest',
@@ -161,7 +161,7 @@ NodoTemplate _nodoTipoAtomo() => _pol(
   help: 'Unidad de evaluación atómica (Rule XACML).\n\n'
       'El PDP evalúa en orden: Target-gate → Condition → Effect.\n'
       'La Condition NUNCA se evalúa si el Target-gate no cerró en Match.\n'
-      'atom_id es inmutable una vez publicado en bos_atom_compiled.',
+      'atom_id es inmutable una vez publicado en bauth.privilege_atom_compiled *(propuesto)*.',
   hijos: [
     _a('atom_id', 'snake_case · ej: monto_transaccion_alto',
         help: 'Identificador único del átomo. Patrón: [a-z][a-z0-9_]{2,63}.\n'
@@ -169,7 +169,7 @@ NodoTemplate _nodoTipoAtomo() => _pol(
     _en('verbo', 'execute',
         const ['read', 'write', 'create', 'delete', 'approve', 'execute',
           'configure', 'audit', 'emit', 'login', 'delegate', 'export', 'void', 'any_verb'],
-        help: 'Action XACML del Target-gate. FK a bos_verb.verb_id.\n'
+        help: 'Action XACML del Target-gate. FK a bauth.privilege_verb.verb_id.\n'
             'PROHIBIDO escribir el verbo como string libre (ej. "CONFIGURE" en mayúsculas).\n'
             'any_verb: comodín — el átomo aplica a cualquier acción.'),
     _obj('target', help: 'Target-gate XACML — filtra si el átomo aplica al contexto actual.\n'
@@ -178,9 +178,9 @@ NodoTemplate _nodoTipoAtomo() => _pol(
           _en('subject', 'ANY', const ['ANY', 'ROL(id)', 'SET(id)'],
               help: 'Sujeto que ejecuta la acción.\n'
                   'ANY: cualquier rol.\n'
-                  'ROL(id): rol específico por FK.\n'
-                  'SET(id): conjunto de roles declarado en D98 (bos_group).'),
-          _a('resource', 'FK bos_resource_catalog',
+                  'ROL(id): rol específico por FK a bauth.idn_role_template.\n'
+                  'SET(id): conjunto de roles declarado en D98 (bauth.privilege_role_set *(propuesta)*).'),
+          _a('resource', 'FK bauth.privilege_resource *(propuesta)*',
               help: 'Recurso al que aplica el átomo. FK al catálogo de modelos/campos.\n'
                   'Nunca un string libre como "sale.order.margin".'),
           NodoTemplate('environment', TipoNodo.lista,
@@ -196,14 +196,14 @@ NodoTemplate _nodoTipoAtomo() => _pol(
         'condition: null explícito = siempre True (equivale a XACML "Condition vacía").\n'
         'PROHIBIDO omitir — el compilador exige que sea null o un predicado completo.',
         hijos: [
-          _a('propiedad', 'FK bos_attribute_catalog',
+          _a('propiedad', 'FK bauth.privilege_attribute *(propuesta)*',
               help: 'Atributo del contexto a evaluar. FK al catálogo de atributos.\n'
                   'Define también el tipo de dato esperado en "valor".'),
           _en('operador', '>', const ['==', '!=', '>', '<', '>=', '<=', 'IN', 'NOT_IN', 'BETWEEN'],
               help: 'Vocabulario cerrado de 9 operadores.\n'
                   'Cualquier símbolo fuera de esta lista → ATOMC-E-013.'),
           _a('valor', 'tipado según propiedad',
-              help: 'Tipo dinámico determinado por propiedad.data_type en bos_attribute_catalog.\n'
+              help: 'Tipo dinámico determinado por propiedad.data_type en bauth.privilege_attribute *(propuesta)*.\n'
                   'Si data_type == enum → valor DEBE resolverse contra el mismo enum.\n'
                   'Nunca comparado como string crudo en runtime.'),
         ]),
@@ -290,8 +290,8 @@ NodoTemplate _vocabularioCombining() => _pol(
 );
 
 NodoTemplate _vocabularioVerbos() => _pol(
-  'verbos (bos_verb)',
-  help: 'Catálogo cerrado de verbos XACML (Actions) registrados en bos_verb.\n\n'
+  'verbos (bauth.privilege_verb)',
+  help: 'Catálogo cerrado de verbos XACML (Actions) registrados en bauth.privilege_verb.\n\n'
       'Todo verbo en un átomo DEBE estar en este catálogo — el Lexer (Fase 1) lo valida.\n'
       'Prohibido escribir el verbo como string libre (ej. "CONFIGURE") — '
       'el linter rechaza cualquier variante con mayúsculas.',
@@ -354,7 +354,7 @@ NodoTemplate _vocabularioVerbos() => _pol(
         const ['read', 'write', 'create', 'delete', 'approve', 'execute',
           'configure', 'audit', 'emit', 'login', 'delegate', 'export', 'void', 'any_verb'],
         help: 'Comodín — el átomo aplica independientemente de la acción.\n'
-            'verb_id=0 en bos_verb. El Target-gate siempre matchea en cuanto a verbo.\n'
+            'verb_id=0 en bauth.privilege_verb. El Target-gate siempre matchea en cuanto a verbo.\n'
             'Usar con cuidado — el matching lo hace la Condition, no el Target.'),
   ],
 );
@@ -370,12 +370,12 @@ NodoTemplate _vocabularioSubject() => _pol(
             'Default si no se especifica subject.'),
     _en('ROL(id)', 'ROL(id)', const ['ANY', 'ROL(id)', 'SET(id)'],
         help: 'El átomo aplica solo a un rol específico.\n'
-            'id = rol_id de bos_rol_template. FK obligatoria.\n'
+            'id = rol_id de bauth.idn_role_template. FK obligatoria.\n'
             'Si el mismo conjunto de roles aparece en 2+ átomos, '
             'el compilador emite ATOMC-W-030 sugiriendo declarar un SET en D98.'),
     _en('SET(id)', 'SET(id)', const ['ANY', 'ROL(id)', 'SET(id)'],
-        help: 'El átomo aplica a un conjunto de roles declarado en D98 (bos_group).\n'
-            'id = set_id de bos_group. FK obligatoria.\n'
+        help: 'El átomo aplica a un conjunto de roles declarado en D98 (bauth.privilege_role_set *(propuesta)*).\n'
+            'id = set_id de bauth.privilege_role_set. FK obligatoria.\n'
             'Preferir SET sobre múltiples ROL cuando el grupo de roles es estable.'),
   ],
 );
@@ -423,7 +423,7 @@ NodoTemplate _vocabularioDecision() => _pol(
 NodoTemplate _vocabularioObligationKeys() => _pol(
   'obligation_keys',
   help: 'Claves canónicas del mapa obligation.\n\n'
-      'Cada clave tiene una regla de "strictest()" definida en bos_attribute_catalog.\n'
+      'Cada clave tiene una regla de "strictest()" definida en bauth.privilege_attribute *(propuesta)*.\n'
       'aggregate-strictest usa estas reglas para fusionar Obligations de múltiples Permits.',
   hijos: [
     _a('required_loa', '1 | 2 | 3',
@@ -470,7 +470,7 @@ NodoTemplate _vocabularioBadges() => _pol(
     _a('[ATOM]', 'átomo',
         help: 'Badge de Atom/Rule. Aplica a las unidades de evaluación atómica.'),
     _a('[REGISTRO ESTRUCTURAL]', 'D98 — catálogo de sets',
-        help: 'Badge especial del dominio D98. Contiene las declaraciones de SET (bos_group).\n'
+        help: 'Badge especial del dominio D98. Contiene las declaraciones de SET (bauth.privilege_role_set *(propuesta)*).\n'
             'Es el único dominio donde se declaran Sets de roles referenciables con SET(id).'),
   ],
 );
@@ -497,7 +497,7 @@ NodoTemplate _seccionReglasLexicas() => _bloque(
             'Omitirlo genera ATOMC-E-022 (ambigüedad entre "olvidé escribirlo" '
             'e "intencionalmente sin condición").'),
     _a('verbo en minúsculas', 'configure (✓) vs CONFIGURE (✗)',
-        help: 'El verbo debe coincidir exactamente con el verb_id en bos_verb (minúsculas).\n'
+        help: 'El verbo debe coincidir exactamente con el verb_id en bauth.privilege_verb (minúsculas).\n'
             "Escribir CONFIGURE → ATOMC-E-014: verbo 'CONFIGURE' no está registrado "
             "(¿quisiste decir 'configure'?).\n\n"
             'Este era el defecto §2.1 #1 — ahora estructuralmente imposible.'),
@@ -530,11 +530,11 @@ NodoTemplate _seccionErroresCompilador() => _bloque(
               'espacios o guiones.'),
     ]),
     _pol('Errores de referencia (E-01x)', help: 'Fase 1 — resolución de catálogos', hijos: [
-      _a('ATOMC-E-010', 'verbo no registrado en bos_verb',
-          help: 'El verbo_ref no existe en bos_verb. Verificar el catálogo.'),
-      _a('ATOMC-E-011', 'resource no registrado en bos_resource_catalog',
+      _a('ATOMC-E-010', 'verbo no registrado en bauth.privilege_verb',
+          help: 'El verbo_ref no existe en bauth.privilege_verb. Verificar el catálogo.'),
+      _a('ATOMC-E-011', 'resource no registrado en bauth.privilege_resource *(propuesta)*',
           help: 'El resource_ref no existe en el catálogo de recursos.'),
-      _a('ATOMC-E-012', 'propiedad no registrada en bos_attribute_catalog',
+      _a('ATOMC-E-012', 'propiedad no registrada en bauth.privilege_attribute *(propuesta)*',
           help: 'El property_id de condition o environment no existe en el catálogo.'),
       _a('ATOMC-E-013', 'operador fuera del vocabulario cerrado',
           help: 'Solo se permiten: ==, !=, >, <, >=, <=, IN, NOT_IN, BETWEEN.'),
@@ -580,7 +580,7 @@ NodoTemplate _seccionFasesCompilador() => _bloque(
           help: 'Convierte el YAML en tokens tipados (Rust structs).'),
       _a('normalización', 'snake_case en frontera de entrada',
           help: 'Normaliza identificadores a minúsculas. Rechaza (no corrige) variantes inválidas.'),
-      _a('resolución de catálogos', 'bos_verb · bos_resource_catalog · bos_group',
+      _a('resolución de catálogos', 'bauth.privilege_verb · bauth.privilege_resource *(propuesta)* · bauth.privilege_role_set *(propuesta)*',
           help: 'Cada string de verbo, resource, set_id se resuelve a su ID entero.\n'
               'Si no existe → error de compilación (ATOMC-E-010..012).'),
       _a('salida', 'AST parcialmente tipado',
@@ -612,12 +612,12 @@ NodoTemplate _seccionFasesCompilador() => _bloque(
       _a('garantía', 'ningún string comparado en runtime',
           help: 'Todo verb_id, resource_id, property_id es de tipo entero (INTEGER FK).\n'
               'Esto hace estructuralmente imposible el defecto §2.1 #1.'),
-      _a('publicación (atomc publish)', 'INSERT en bos_atom_compiled',
-          help: 'atomc publish inserta el IR en bos_atom_compiled dentro de una transacción.\n'
-              'También inserta una fila de auditoría en bos_atom_audit (quién, cuándo, source_hash).'),
-      _a('salida', 'fila en bos_atom_compiled — lo ejecuta el PDP',
-          help: 'El PDP (evaluador) lee SOLO bos_atom_compiled WHERE is_active=true.\n'
-              'Nunca lee bos_atom_catalog (fuente humana) directamente.'),
+      _a('publicación (atomc publish)', 'INSERT en bauth.privilege_atom_compiled *(propuesto)*',
+          help: 'atomc publish inserta el IR en bauth.privilege_atom_compiled *(propuesto)* dentro de una transacción.\n'
+              'También inserta una fila de auditoría en bauth.privilege_atom_audit (quién, cuándo, source_hash).'),
+      _a('salida', 'fila en bauth.privilege_atom_compiled *(propuesto)* — lo ejecuta el PDP',
+          help: 'El PDP (evaluador) lee SOLO bauth.privilege_atom_compiled WHERE is_active=true.\n'
+              'Nunca lee bauth.privilege_atom (fuente humana/catálogo) directamente.'),
     ]),
   ],
 );
