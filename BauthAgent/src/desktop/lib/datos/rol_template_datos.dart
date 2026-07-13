@@ -90,8 +90,9 @@ NodoTemplate _algo(String v) => NodoTemplate('combining_algorithm', TipoNodo.enu
     opciones: const [
       'deny-overrides', 'permit-overrides', 'first-applicable',
       'only-one-applicable', 'deny-unless-permit', 'permit-unless-deny',
+      'aggregate-strictest',
     ],
-    help: 'XACML 3.0 §7.14. deny-overrides=un DENY bloquea todo · first-applicable=primer match gana · deny-unless-permit=silencio→DENY.');
+    help: 'XACML 3.0 §7.14. deny-overrides=un DENY bloquea todo · first-applicable=primer match gana · deny-unless-permit=silencio→DENY. aggregate-strictest (ext. bAuth)=todos los Permit concurrentes se fusionan eligiendo el valor más estricto campo a campo (max required_loa, min max_age_seconds) — resuelve el problema de atoms simultáneos en step_up_triggers.');
 
 // ════════════════════════════════════════════════════════════
 final List<NodoTemplate> arbolRolTemplate = [
@@ -394,26 +395,24 @@ NodoTemplate('D1 · ACCESO LÓGICO', TipoNodo.dominio,
         ]),
 
         NodoTemplate('step_up_triggers', TipoNodo.politica,
-            help: 'Orden=3. Elevación mid-session — NO cierra sesión, añade factor. RFC 9470 · acr_values.', hijos: [
-          _algo('first-applicable'),
+            help: 'Orden=3. Elevación mid-session — NO cierra sesión, añade factor. RFC 9470 · acr_values. aggregate-strictest: cuando varios atoms aplican simultáneamente (ej. monto alto EN zona crítica), se fusionan tomando max(required_loa) y min(max_age_seconds) — nunca first-applicable (que perdería el requisito más estricto por orden de declaración).', hijos: [
+          _algo('aggregate-strictest'),
           _ev('monto de transacción alto (>10 000 BOB)', [
             _prop('transaction.amount_bob'),
             _op('>'),
-            _val('10 000 BOB'),
+            _val('10000'),
             _ef('required_loa = 3 · max_age_seconds = 300 · acr = aal3'),
           ], verbo: 'execute'),
           _ev('zona de alta seguridad', [
             _prop('zone.security_level'),
             _op('=='),
-            _val('CRITICAL'),
+            _val('critical'),
             _ef('required_loa = 3 · max_age_seconds = 600'),
           ], verbo: 'ANY'),
-          _ev('verbo CONFIGURE o ADMIN', [
-            _prop('action.verb'),
-            _op('IN'),
-            _val('[CONFIGURE, ADMIN, DELETE]'),
+          _ev('verbo administrativo (configure)', [
             _ef('required_loa = 3 · max_age_seconds = 0 (fresca siempre)'),
-          ], verbo: 'configure'),
+          ], verbo: 'configure',
+            help: 'Target-gate = verbo configure. Condición eliminada (defecto §2.1 #2): el verbo en el Target-gate es el único discriminador — una condición secundaria sobre action.verb sería redundante y causaría case-sensitivity bugs.'),
         ]),
 
         NodoTemplate('re_auth_policy{}', TipoNodo.objeto,
