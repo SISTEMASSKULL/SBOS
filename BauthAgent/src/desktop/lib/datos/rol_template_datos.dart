@@ -98,6 +98,66 @@ NodoTemplate _algo(String v) => NodoTemplate('combining_algorithm', TipoNodo.enu
 final List<NodoTemplate> arbolRolTemplate = [
 
 // ══════════════════════════════════════════════
+// D98 · REGISTRO ESTRUCTURAL
+// ══════════════════════════════════════════════
+NodoTemplate('D98 · REGISTRO ESTRUCTURAL', TipoNodo.dominio,
+    help: 'Nodo declarativo — NO produce Decision, NO entra al BitMask funcional. '
+          'Declara los Sets de roles usados como Target.Subject SET en átomos. '
+          'Equivale a AWS IAM Group / Okta Group / AD Security Group. '
+          'Almacenado en bauth.privilege_role_set *(propuesta)*. '
+          'Badge: [REGISTRO ESTRUCTURAL] — sin combining_algorithm ni effect.', hijos: [
+
+  NodoTemplate('role_sets[]', TipoNodo.lista,
+      help: 'Conjuntos de roles del tenant. Referenciados en Target.Subject SET '
+            'de cualquier átomo del árbol. Un rol puede pertenecer a N sets; '
+            'un set puede tener N roles (N:M via privilege_role_set_member).', hijos: [
+
+    NodoTemplate('financieros_tier2', TipoNodo.objeto,
+        help: 'Roles con facultad de aprobar operaciones financieras '
+              'hasta @bauth_config_param.approval_threshold_tier2. '
+              'Referenciado en zona_financial_ventas (D1) y button_rules (D1/B7). '
+              'PCI DSS 4.0 Req 7.2.4 · NIST AC-5.', hijos: [
+      _a('set_slug', 'financieros_tier2'),
+      _a('set_name', 'Financieros Tier 2 — Aprobadores de ventas'),
+      _en('active', 'true', ['true', 'false']),
+      NodoTemplate('members[]', TipoNodo.lista,
+          help: 'Roles miembro del set. FK bauth.privilege_role. '
+                'Sincronizado por el reconcile loop.', hijos: [
+        _a('ROL_APROBADOR_VENTAS_N2', 'tier BIZ_N2 — ventas regionales'),
+        _a('ROL_APROBADOR_VENTAS_N3', 'tier BIZ_N3 — ventas nacionales'),
+      ]),
+    ]),
+
+    NodoTemplate('aprobadores_financieros', TipoNodo.objeto,
+        help: 'Roles con facultad de aprobar operaciones sobre '
+              '@bauth_config_param.financial_high_threshold. '
+              'Aprobación dual requerida — SoD: aprobador ≠ iniciador. '
+              'NIST AC-5 · ISO 27001 A.5.18.', hijos: [
+      _a('set_slug', 'aprobadores_financieros'),
+      _a('set_name', 'Aprobadores Financieros — Tier superior'),
+      _en('active', 'true', ['true', 'false']),
+      NodoTemplate('members[]', TipoNodo.lista, hijos: [
+        _a('ROL_DIRECTOR_FINANCIERO', 'tier BIZ_N4 — aprobación gerencial'),
+        _a('ROL_GERENTE_AREA', 'tier BIZ_N3 — aprobación de área'),
+      ]),
+    ]),
+
+    NodoTemplate('auditores_externos', TipoNodo.objeto,
+        help: 'Auditores con acceso de solo lectura transversal. '
+              'SoD duro: NO pueden tener APPROVE en ninguna zona financiera. '
+              'ISO 27001 A.5.35 · NIST AU-2.', hijos: [
+      _a('set_slug', 'auditores_externos'),
+      _a('set_name', 'Auditores Externos — Solo lectura'),
+      _en('active', 'true', ['true', 'false']),
+      NodoTemplate('members[]', TipoNodo.lista, hijos: [
+        _a('ROL_AUDITOR_EXTERNO', 'tier EXT_N0 — externo certificado'),
+        _a('ROL_AUDITOR_INTERNO', 'tier BIZ_N2 — auditoría interna'),
+      ]),
+    ]),
+  ]),
+]),
+
+// ══════════════════════════════════════════════
 // D0 · IDENTIDAD ORGANIZACIONAL
 // ══════════════════════════════════════════════
 NodoTemplate('D0 · IDENTIDAD ORGANIZACIONAL', TipoNodo.dominio,
@@ -385,10 +445,12 @@ NodoTemplate('D1 · ACCESO LÓGICO', TipoNodo.dominio,
               _ef('eligible_mfa = [webauthn_platform, webauthn_roaming] · min_loa_mfa = 3'),
             ]),
             _olo('OR'),
-            _ev('financiero > 25 000 BOB → triple factor', [
+            _ev('financiero > @bauth_config_param.financial_high_threshold → triple factor', [
               _prop('transaction.amount_bob'),
               _op('>'),
-              _val('25 000 BOB'),
+              _val('@bauth_config_param.financial_high_threshold',
+                  help: 'PIP: bauth.bauth_config_param · default 25 000 BOB. '
+                        'Cambiable sin recompilar el árbol.'),
               _ef('primary + webauthn_platform + totp_fresh(max_age=0) → JWT LoA 3 · PCI Req 8'),
             ], verbo: 'login'),
           ]),
@@ -397,10 +459,12 @@ NodoTemplate('D1 · ACCESO LÓGICO', TipoNodo.dominio,
         NodoTemplate('step_up_triggers', TipoNodo.politica,
             help: 'Orden=3. Elevación mid-session — NO cierra sesión, añade factor. RFC 9470 · acr_values. aggregate-strictest: cuando varios atoms aplican simultáneamente (ej. monto alto EN zona crítica), se fusionan tomando max(required_loa) y min(max_age_seconds) — nunca first-applicable (que perdería el requisito más estricto por orden de declaración).', hijos: [
           _algo('aggregate-strictest'),
-          _ev('monto de transacción alto (>10 000 BOB)', [
+          _ev('monto de transacción alto (> @bauth_config_param.approval_threshold_tier2)', [
             _prop('transaction.amount_bob'),
             _op('>'),
-            _val('10000'),
+            _val('@bauth_config_param.approval_threshold_tier2',
+                help: 'PIP: bauth.bauth_config_param · mismo umbral que button_rules. '
+                      'Default 10 000 BOB.'),
             _ef('required_loa = 3 · max_age_seconds = 300 · acr = aal3'),
           ], verbo: 'execute'),
           _ev('zona de alta seguridad', [
@@ -467,7 +531,7 @@ NodoTemplate('D1 · ACCESO LÓGICO', TipoNodo.dominio,
     // ── Bloqueo de cuenta (NUEVO — NIST 800-53 AC-7) ────────
     NodoTemplate('account_lockout_policy', TipoNodo.politica,
         help: 'Bloqueo progresivo tras intentos fallidos. NIST 800-53 R5 AC-7 · 800-63B-4.', hijos: [
-      _algo('first-applicable'),
+      _algo('deny-overrides'),
       _ev('intentos 1-3: sin penalización', [
         _prop('login.failed_attempts_in_window'),
         _op('BETWEEN'),
@@ -736,22 +800,25 @@ NodoTemplate('D1 · ACCESO LÓGICO', TipoNodo.dominio,
     // ── zona_financial_ventas ────────────────────────────
     NodoTemplate('zona_financial_ventas', TipoNodo.politica,
         valor: 'ZONA · Financiera / Ventas',
-        help: 'Perímetro financiero de ventas. Tier 2 = hasta 10 000 BOB. '
-              'Aprobación dual obligatoria > 10 000 BOB. '
+        help: 'Perímetro financiero de ventas. Tier 2 = hasta @bauth_config_param.approval_threshold_tier2. '
+              'Aprobación dual obligatoria > @bauth_config_param.approval_threshold_tier2. '
               'SoD: aprobador ≠ auditor de la misma zona. '
               'ISO 27001 A.5.15 · NIST AC-5 · PCI DSS 4.0.', hijos: [
       _algo('deny-overrides'),
 
       _ev('zone_financial_approve_dentro_tier', [
         _a('subject', 'SET(financieros_tier2)',
-            help: 'D98 · bauth.privilege_role_set.financieros_tier2 — límite de aprobación = 10 000 BOB.'),
+            help: 'D98 · bauth.privilege_role_set.financieros_tier2 — '
+                  'límite: @bauth_config_param.approval_threshold_tier2.'),
         _a('resource', 'zone_financial/ventas'),
         _prop('transaction.amount_bob'),
         _op('<='),
-        _val('10000'),
+        _val('@bauth_config_param.approval_threshold_tier2',
+            help: 'PIP: bauth.bauth_config_param · default 10 000 BOB.'),
         _ef('PERMIT · audit=on · currency=BOB'),
       ], verbo: 'approve',
-        help: 'Aprobación de transacciones dentro del tier 2 (≤ 10 000 BOB). '
+        help: 'Aprobación de transacciones dentro del tier 2 '
+              '(≤ @bauth_config_param.approval_threshold_tier2). '
               'PCI DSS 4.0 Req 7.2.4.'),
 
       _ev('zone_financial_approve_sobre_tier · DENY requiere aprobación dual', [
@@ -759,10 +826,12 @@ NodoTemplate('D1 · ACCESO LÓGICO', TipoNodo.dominio,
         _a('resource', 'zone_financial/ventas'),
         _prop('transaction.amount_bob'),
         _op('>'),
-        _val('10000'),
+        _val('@bauth_config_param.approval_threshold_tier2',
+            help: 'PIP: bauth.bauth_config_param · default 10 000 BOB.'),
         _ef('DENY · AMOUNT_EXCEEDS_TIER · pendiente=aprobacion_dual · notify=gerente_financiero'),
       ], verbo: 'approve',
-        help: 'DENY para financieros tier 2 cuando el monto supera 10 000 BOB. '
+        help: 'DENY para financieros tier 2 cuando el monto supera '
+              '@bauth_config_param.approval_threshold_tier2. '
               'La operación queda en espera de aprobación dual del tier superior. '
               'PCI DSS 4.0 Req 7.2.4 · ISO 27001 A.5.15.'),
 
@@ -772,7 +841,8 @@ NodoTemplate('D1 · ACCESO LÓGICO', TipoNodo.dominio,
         _a('resource', 'zone_financial/ventas'),
         _prop('transaction.amount_bob'),
         _op('<='),
-        _val('10000'),
+        _val('@bauth_config_param.approval_threshold_tier2',
+            help: 'PIP: bauth.bauth_config_param · default 10 000 BOB.'),
         _ef('PERMIT · audit=on · emit_receipt=true · currency=BOB'),
       ], verbo: 'emit',
         help: 'Emisión de comprobantes de operación financiera dentro del tier. '
@@ -1343,22 +1413,25 @@ NodoTemplate('D3 · FINANCIERO', TipoNodo.dominio,
 
     NodoTemplate('requiredMethods_financial', TipoNodo.politica,
         help: 'Autenticación adicional para operaciones financieras. PCI DSS Req 8.', hijos: [
-      _ev('operación financiera estándar (≤ 10 000 BOB)', [
+      _ev('operación financiera estándar (≤ @bauth_config_param.approval_threshold_tier2)', [
         _prop('transaction.amount_bob'),
         _op('<='),
-        _val('10 000 BOB'),
+        _val('@bauth_config_param.approval_threshold_tier2',
+            help: 'PIP: bauth.bauth_config_param · default 10 000 BOB.'),
         _ef('flujo: LoA 2 existente suficiente · no step-up'),
       ]),
-      _ev('operación financiera alto valor (> 10 000 BOB)', [
+      _ev('operación financiera alto valor (> @bauth_config_param.approval_threshold_tier2)', [
         _prop('transaction.amount_bob'),
         _op('>'),
-        _val('10 000 BOB'),
+        _val('@bauth_config_param.approval_threshold_tier2',
+            help: 'PIP: bauth.bauth_config_param · default 10 000 BOB.'),
         _ef('step-up: + webauthn_platform → LoA 3 · max_age = 300 s'),
       ]),
-      _ev('operación financiera máxima (> 25 000 BOB)', [
+      _ev('operación financiera máxima (> @bauth_config_param.financial_high_threshold)', [
         _prop('transaction.amount_bob'),
         _op('>'),
-        _val('25 000 BOB'),
+        _val('@bauth_config_param.financial_high_threshold',
+            help: 'PIP: bauth.bauth_config_param · default 25 000 BOB.'),
         _ef('step-up: + webauthn + totp_fresh(max_age=0) → LoA 3 + 2 aprobadores'),
       ]),
     ]),
@@ -1391,12 +1464,17 @@ NodoTemplate('D3 · FINANCIERO', TipoNodo.dominio,
       ]),
     ]),
 
-    NodoTemplate('transaction_limits', TipoNodo.objeto, help: 'PCI 7.3.1 · SOX §302.', hijos: [
+    NodoTemplate('transaction_limits', TipoNodo.objeto, help: 'PCI 7.3.1 · SOX §302. '
+        'Todos los valores via PIP @bauth_config_param — cambiables sin recompilar.', hijos: [
       _a('currency', 'BOB'),
-      _a('single_transaction_limit', '10 000'),
-      _a('daily_limit', '50 000'),
-      _a('monthly_limit', '200 000'),
-      _a('requires_dual_approval_above', '10 000', help: '2 aprobadores distintos.'),
+      _a('single_transaction_limit', '@bauth_config_param.approval_threshold_tier2',
+          help: 'PIP · default 10 000 BOB.'),
+      _a('daily_limit', '@bauth_config_param.financial_daily_limit',
+          help: 'PIP · default 50 000 BOB.'),
+      _a('monthly_limit', '@bauth_config_param.financial_monthly_limit',
+          help: 'PIP · default 200 000 BOB.'),
+      _a('requires_dual_approval_above', '@bauth_config_param.approval_threshold_tier2',
+          help: 'PIP · default 10 000 BOB · 2 aprobadores distintos.'),
     ]),
 
     NodoTemplate('sod_rules', TipoNodo.politica, help: 'AC-5 · INCITS 359 SSD. Evaluado ANTES de guardar.', hijos: [
@@ -2161,7 +2239,8 @@ NodoTemplate('D13 · FIRMA DIGITAL EXTERNA', TipoNodo.dominio,
     NodoTemplate('operations_requiring_legal_signature[]', TipoNodo.lista, hijos: [
       NodoTemplate('aprobacion_venta_alto_valor', TipoNodo.objeto, hijos: [
         _a('zona', 'zone_financial/ventas:APPROVE'),
-        _a('umbral', '> 25 000 BOB'),
+        _a('umbral', '> @bauth_config_param.financial_high_threshold',
+            help: 'PIP · default 25 000 BOB.'),
         _a('motor_firma', 'EXTERNAL_ADSIB (RSA-SHA256)'),
       ]),
       NodoTemplate('firma_contratos_legales', TipoNodo.objeto, hijos: [
@@ -2171,7 +2250,8 @@ NodoTemplate('D13 · FIRMA DIGITAL EXTERNA', TipoNodo.dominio,
       ]),
       NodoTemplate('emision_facturas_criticas', TipoNodo.objeto, hijos: [
         _a('zona', 'zone_financial/facturas:EMIT'),
-        _a('umbral', '> 50 000 BOB'),
+        _a('umbral', '> @bauth_config_param.financial_critical_threshold',
+            help: 'PIP · default 50 000 BOB.'),
         _a('motor_firma', 'INTERNAL (EdDSA Ed25519) + sello_tiempo'),
       ]),
     ]),
