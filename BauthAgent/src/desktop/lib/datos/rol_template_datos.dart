@@ -154,6 +154,48 @@ NodoTemplate('D98 · REGISTRO ESTRUCTURAL', TipoNodo.dominio,
         _a('ROL_AUDITOR_INTERNO', 'tier BIZ_N2 — auditoría interna'),
       ]),
     ]),
+
+    NodoTemplate('vendedores', TipoNodo.objeto,
+        help: 'Roles con permiso de escritura y ejecución en zona_logical/ventas. '
+              'Referenciado en zona_logical_ventas (D1/B6). '
+              'NIST AC-3 · ISO 27001 A.8.3.', hijos: [
+      _a('set_slug', 'vendedores'),
+      _a('set_name', 'Vendedores — Escritura zona ventas'),
+      _en('active', 'true', ['true', 'false']),
+      NodoTemplate('members[]', TipoNodo.lista, hijos: [
+        _a('ROL_VENDEDOR_SENIOR', 'tier BIZ_N1 — ventas senior'),
+        _a('ROL_VENDEDOR_JUNIOR', 'tier BIZ_N1 — ventas junior'),
+        _a('ROL_EJECUTIVO_VENTAS', 'tier BIZ_N2 — ejecutivo de cuenta'),
+      ]),
+    ]),
+
+    NodoTemplate('gerentes_ventas', TipoNodo.objeto,
+        help: 'Roles con permiso de aprobación en zona_logical/ventas, '
+              'lectura de RRHH de su equipo y envío bNotify a su equipo. '
+              'Referenciado en zona_logical_ventas, b7_rrhh_acceso y b7_bnotify_acceso (D1). '
+              'NIST AC-5 SoD: gerente_ventas ⊥ auditor_financiero. '
+              'NIST AC-6(1) · ISO 27001 A.5.15.', hijos: [
+      _a('set_slug', 'gerentes_ventas'),
+      _a('set_name', 'Gerentes de Ventas — Aprobadores y supervisores'),
+      _en('active', 'true', ['true', 'false']),
+      NodoTemplate('members[]', TipoNodo.lista, hijos: [
+        _a('ROL_GERENTE_REGIONAL_VENTAS', 'tier BIZ_N2 — gerente regional'),
+        _a('ROL_DIRECTOR_VENTAS', 'tier BIZ_N3 — director de ventas'),
+      ]),
+    ]),
+
+    NodoTemplate('atencion_clientes', TipoNodo.objeto,
+        help: 'Roles con permiso de escritura en zona_logical/clientes (PII). '
+              'Referenciado en zona_logical_clientes (D1/B6). '
+              'RGPD Art. 5 · ISO 27001 A.8.11 — tratamiento de datos personales.', hijos: [
+      _a('set_slug', 'atencion_clientes'),
+      _a('set_name', 'Atención a Clientes — Escritura PII'),
+      _en('active', 'true', ['true', 'false']),
+      NodoTemplate('members[]', TipoNodo.lista, hijos: [
+        _a('ROL_AGENTE_ATENCION', 'tier BIZ_N1 — agente de atención'),
+        _a('ROL_SUPERVISOR_CRM', 'tier BIZ_N2 — supervisor CRM'),
+      ]),
+    ]),
   ]),
 ]),
 
@@ -223,6 +265,7 @@ NodoTemplate('D0 · IDENTIDAD ORGANIZACIONAL', TipoNodo.dominio,
       help: 'Gobernanza de cambios del contrato del rol. ISO 27001 A.5.2 · CM-3/AC-5.', hijos: [
     NodoTemplate('approval_workflow', TipoNodo.politica,
         help: 'Condiciones de aprobación de cambios MAJOR del contrato.', hijos: [
+      _algo('permit-overrides'),
       _ev('quórum de aprobadores', [
         _prop('approval.count_distinct_approvers'),
         _op('>='),
@@ -1248,6 +1291,7 @@ NodoTemplate('D2 · ACCESO FÍSICO', TipoNodo.dominio,
               help: 'AAL2 mínimo — acceso físico siempre requiere posesión verificada.'),
           NodoTemplate('condiciones', TipoNodo.politica,
               help: 'Cada eval selecciona el método físico primario según el nivel de seguridad de la zona.', hijos: [
+            _algo('first-applicable'),
             _ev('zonas estándar (security_level 1-2) → NFC', [
               _prop('zone.physical_security_level'),
               _op('BETWEEN'),
@@ -1274,6 +1318,7 @@ NodoTemplate('D2 · ACCESO FÍSICO', TipoNodo.dominio,
           ]),
           NodoTemplate('condiciones', TipoNodo.politica,
               help: 'Cada eval selecciona el segundo factor físico según el nivel crítico de la zona.', hijos: [
+            _algo('first-applicable'),
             _ev('zona restringida (security_level 3) → biométrico', [
               _prop('zone.physical_security_level'),
               _op('=='),
@@ -1291,6 +1336,7 @@ NodoTemplate('D2 · ACCESO FÍSICO', TipoNodo.dominio,
 
         NodoTemplate('step_up_triggers', TipoNodo.politica,
             help: 'Orden=3. Elevación física en tiempo real — alarma del controlador OSDP.', hijos: [
+          _algo('aggregate-strictest'),
           _ev('anti-passback detectado → step-up biométrico', [
             _prop('event.dual_badge_sequence_detected'),
             _op('=='),
@@ -1354,6 +1400,7 @@ NodoTemplate('D2 · ACCESO FÍSICO', TipoNodo.dominio,
 
     NodoTemplate('zones_access_rules', TipoNodo.politica,
         help: 'Decisión de acceso por zona. Default DENY implícito.', hijos: [
+      _algo('deny-overrides'),
       _ev('zona ventas — acceso completo', [
         _prop('zone.id'),
         _op('=='),
@@ -1382,6 +1429,7 @@ NodoTemplate('D2 · ACCESO FÍSICO', TipoNodo.dominio,
 
     NodoTemplate('physical_security_controls', TipoNodo.politica,
         help: 'Controles físicos de seguridad presencial. NIST 800-116 §5.', hijos: [
+      _algo('deny-overrides'),
       _ev('anti-passback — doble badge detectado', [
         _prop('event.dual_badge_sequence_detected'),
         _op('=='),
@@ -1413,6 +1461,7 @@ NodoTemplate('D3 · FINANCIERO', TipoNodo.dominio,
 
     NodoTemplate('requiredMethods_financial', TipoNodo.politica,
         help: 'Autenticación adicional para operaciones financieras. PCI DSS Req 8.', hijos: [
+      _algo('deny-overrides'),
       _ev('operación financiera estándar (≤ @bauth_config_param.approval_threshold_tier2)', [
         _prop('transaction.amount_bob'),
         _op('<='),
@@ -1438,6 +1487,7 @@ NodoTemplate('D3 · FINANCIERO', TipoNodo.dominio,
 
     NodoTemplate('transaction_schedule', TipoNodo.politica,
         help: 'Ventanas horarias para transacciones financieras.', hijos: [
+      _algo('deny-overrides'),
       _ev('días hábiles autorizados', [
         _prop('date.day_of_month'),
         _op('IN'),
@@ -1478,6 +1528,7 @@ NodoTemplate('D3 · FINANCIERO', TipoNodo.dominio,
     ]),
 
     NodoTemplate('sod_rules', TipoNodo.politica, help: 'AC-5 · INCITS 359 SSD. Evaluado ANTES de guardar.', hijos: [
+      _algo('deny-overrides'),
       _ev('crear venta ⊥ aprobar venta', [
         _prop('user.active_roles'),
         _op('INTERSECT'),
@@ -1500,6 +1551,7 @@ NodoTemplate('D3 · FINANCIERO', TipoNodo.dominio,
 
     NodoTemplate('facturación Bolivia', TipoNodo.objeto,
         help: 'SIN RND 102100000011 §4-5 · Ley 164 Art. 78.', hijos: [
+      _algo('deny-overrides'),
       _a('rnnd_emisor', 'NIT + código emisor SIN'),
       _en('modalidad', 'EN_LINEA', ['EN_LINEA', 'COMPUTARIZADA', 'MASIVA'],
         help: 'SIN RND 102100000011 §4-5.'),
@@ -1526,6 +1578,7 @@ NodoTemplate('D4 · TEMPORAL', TipoNodo.dominio,
     ]),
     NodoTemplate('renewal_settings', TipoNodo.politica,
         help: 'Anti privilege-creep. PCI 7.2.4.', hijos: [
+      _algo('deny-overrides'),
       _ev('máximo de renovaciones', [
         _prop('role_assignment.renewal_count'),
         _op('>'),
@@ -1547,6 +1600,7 @@ NodoTemplate('D4 · TEMPORAL', TipoNodo.dominio,
     ]),
     NodoTemplate('early_termination', TipoNodo.politica,
         help: 'Terminación anticipada. NIST AC-2i.', hijos: [
+      _algo('deny-overrides'),
       _ev('aprobación requerida', [
         _prop('termination.approval_count'),
         _op('<'),
@@ -1575,6 +1629,7 @@ NodoTemplate('D4 · TEMPORAL', TipoNodo.dominio,
 NodoTemplate('D5 · BIOMÉTRICO', TipoNodo.dominio,
     help: 'External-Path. ISO 30107-3 (PAD) · NIST 800-76-2.', hijos: [
   NodoTemplate('B5 · biometric_enrollment_policy', TipoNodo.politica, hijos: [
+    _algo('deny-overrides'),
     _ev('modo de enrolamiento', [
       _prop('enrollment.mode'),
       _op('NOT_IN'),
@@ -1614,6 +1669,7 @@ NodoTemplate('D5 · BIOMÉTRICO', TipoNodo.dominio,
 // ══════════════════════════════════════════════
 NodoTemplate('D6 · GEOESPACIAL', TipoNodo.dominio,
     help: 'Única fuente de verdad geoespacial. NIST 800-207 §3.2 · 800-162 · LBAC.', hijos: [
+  _algo('deny-overrides'),
   NodoTemplate('B15 · geospatial_policy', TipoNodo.bloque, hijos: [
 
     NodoTemplate('allowed_locations[]', TipoNodo.lista,
@@ -1643,7 +1699,9 @@ NodoTemplate('D6 · GEOESPACIAL', TipoNodo.dominio,
     ]),
 
     NodoTemplate('validation_rules', TipoNodo.politica, hijos: [
+      _algo('deny-overrides'),
       NodoTemplate('VPN requerida en remoto', TipoNodo.regla, hijos: [
+        _algo('deny-overrides'),
         _ev('conexión remota', [_prop('connection.type'), _op('=='), _val('REMOTE')]),
         _olo('AND'),
         _ev('VPN inactiva', [_prop('connection.vpn_active'), _op('=='), _val('false')]),
@@ -1687,6 +1745,7 @@ NodoTemplate('D7 · RED', TipoNodo.dominio,
         help: 'Postura verificada por PEP del gateway en cada request.'),
     NodoTemplate('device_compliance_checks', TipoNodo.politica,
         help: 'Postura del dispositivo evaluada en cada request. NIST 800-207 §3.3.', hijos: [
+      _algo('deny-overrides'),
       _ev('sistema operativo parcheado', [
         _prop('device.os_patch_status'),
         _op('=='),
@@ -1726,6 +1785,7 @@ NodoTemplate('D7 · RED', TipoNodo.dominio,
     _en('mtls_required', 'true', ['true', 'false'],
         help: 'Certificado de cliente por request. RFC 8705.'),
     NodoTemplate('api_gateway_rules', TipoNodo.politica, hijos: [
+      _algo('deny-overrides'),
       _ev('rate limit por minuto', [
         _prop('request.rate_per_minute'),
         _op('>'),
@@ -1753,9 +1813,11 @@ NodoTemplate('D7 · RED', TipoNodo.dominio,
 // ══════════════════════════════════════════════
 NodoTemplate('D8 · CONTEXTO / SESIÓN', TipoNodo.dominio,
     help: 'Pre-BitMask (¿ctx_id vivo?). Evaluación continua. NIST 800-207 §2.1 · RFC 9470 · CAEP 1.0.', hijos: [
+  _algo('deny-overrides'),
   NodoTemplate('B17 · adaptive_context', TipoNodo.bloque, hijos: [
 
     NodoTemplate('risk_engine', TipoNodo.politica, hijos: [
+      _algo('deny-overrides'),
       _ev('modo de evaluación continua', [
         _prop('risk.evaluation_mode'),
         _op('=='),
@@ -1772,6 +1834,7 @@ NodoTemplate('D8 · CONTEXTO / SESIÓN', TipoNodo.dominio,
 
     NodoTemplate('context_signals', TipoNodo.lista,
         help: 'Señales de contexto evaluadas por el motor de riesgo. NIST 800-207 §3.3 · CAEP 1.0.', hijos: [
+      _algo('deny-overrides'),
       NodoTemplate('device_posture', TipoNodo.objeto, help: 'Estado del dispositivo.', hijos: [
         _a('propiedad', 'device.patch_status, device.antivirus_active, device.storage_encrypted'),
         _a('evaluación', 'NIST 800-207 §3.3 — todos deben ser true/CURRENT'),
@@ -1805,6 +1868,7 @@ NodoTemplate('D8 · CONTEXTO / SESIÓN', TipoNodo.dominio,
     ]),
 
     NodoTemplate('adaptive_policies', TipoNodo.politica, hijos: [
+      _algo('deny-overrides'),
       _ev('riesgo moderado — step-up', [
         _prop('risk.score'),
         _op('BETWEEN'),
@@ -1826,6 +1890,7 @@ NodoTemplate('D8 · CONTEXTO / SESIÓN', TipoNodo.dominio,
     ]),
 
     NodoTemplate('emergency_access', TipoNodo.politica, help: 'Break-glass. Auditoría crítica.', hijos: [
+      _algo('deny-overrides'),
       _ev('doble aprobación requerida', [
         _prop('emergency.distinct_approvals'),
         _op('<'),
@@ -1864,6 +1929,7 @@ NodoTemplate('D9 · CREDENCIALES', TipoNodo.dominio,
     // ── Política de contraseña (NUEVO — NIST 800-63B-4) ──────
     NodoTemplate('password_policy', TipoNodo.politica,
         help: 'Política de contraseñas conforme NIST SP 800-63B-4 (2024). Sin complejidad forzada.', hijos: [
+      _algo('deny-overrides'),
       _ev('longitud mínima (factor único)', [
         _prop('password.length'),
         _op('<'),
@@ -1924,6 +1990,7 @@ NodoTemplate('D9 · CREDENCIALES', TipoNodo.dominio,
     ]),
 
     NodoTemplate('enrollment_policy', TipoNodo.politica, help: 'Condiciones de enrolamiento. 800-63B-4 §6.1.2.', hijos: [
+      _algo('deny-overrides'),
       _ev('nivel de proofing de identidad', [
         _prop('identity_proofing.level'),
         _op('NOT_IN'),
@@ -1945,6 +2012,7 @@ NodoTemplate('D9 · CREDENCIALES', TipoNodo.dominio,
     ]),
 
     NodoTemplate('rotation_policy', TipoNodo.politica, help: 'NIST 800-63B-4: sin rotación periódica.', hijos: [
+      _algo('deny-overrides'),
       _ev('rotación por brecha detectada', [
         _prop('credential.breach_detected'),
         _op('=='),
@@ -1966,6 +2034,7 @@ NodoTemplate('D9 · CREDENCIALES', TipoNodo.dominio,
     ]),
 
     NodoTemplate('revocation_policy', TipoNodo.politica, hijos: [
+      _algo('deny-overrides'),
       _ev('tiempo máximo de propagación', [
         _prop('revocation.propagation_elapsed_seconds'),
         _op('>'),
@@ -1987,6 +2056,7 @@ NodoTemplate('D9 · CREDENCIALES', TipoNodo.dominio,
     ]),
 
     NodoTemplate('privilege_creep_detection', TipoNodo.politica, hijos: [
+      _algo('deny-overrides'),
       _ev('período de revisión vencido', [
         _prop('permission.days_since_last_review'),
         _op('>'),
@@ -2017,6 +2087,7 @@ NodoTemplate('D10 · DELEGACIÓN', TipoNodo.dominio,
 
     NodoTemplate('non_delegable_permissions', TipoNodo.politica,
         help: 'Lista negra absoluta de delegación (AC-6(3)). Ninguna excepción.', hijos: [
+      _algo('deny-overrides'),
       _ev('aprobación de ventas — no delegable', [
         _prop('delegation.permission'),
         _op('=='),
@@ -2072,6 +2143,7 @@ NodoTemplate('D10 · DELEGACIÓN', TipoNodo.dominio,
   NodoTemplate('B12 · Gestión de conflictos (SSD/SoD)', TipoNodo.bloque,
       help: 'INCITS 359 SSD · AC-5.', hijos: [
     NodoTemplate('incompatible_roles', TipoNodo.politica, hijos: [
+      _algo('deny-overrides'),
       _ev('gerente ventas ⊥ auditor financiero', [
         _prop('user.concurrent_roles'),
         _op('INTERSECT'),
@@ -2086,6 +2158,7 @@ NodoTemplate('D10 · DELEGACIÓN', TipoNodo.dominio,
       ]),
     ]),
     NodoTemplate('conflict_validation', TipoNodo.politica, hijos: [
+      _algo('deny-overrides'),
       _ev('tiempo de evaluación', [
         _prop('conflict.evaluation_timing'),
         _op('!='),
@@ -2100,6 +2173,7 @@ NodoTemplate('D10 · DELEGACIÓN', TipoNodo.dominio,
       ]),
     ]),
     NodoTemplate('interest_conflicts', TipoNodo.politica, help: 'SOX §302.', hijos: [
+      _algo('deny-overrides'),
       _ev('parentesco prohibido', [
         _prop('user.supervisor_relationship_degree'),
         _op('<='),
@@ -2121,6 +2195,7 @@ NodoTemplate('D10 · DELEGACIÓN', TipoNodo.dominio,
 // ══════════════════════════════════════════════
 NodoTemplate('D11 · AUDITORÍA', TipoNodo.dominio,
     help: 'Post-hoc (registra, no decide). ISO A.8.15 · RGPD Art. 30 · SOX §404 · PCI Req 10.', hijos: [
+  _algo('deny-overrides'),
   NodoTemplate('B13 · Cumplimiento y auditoría', TipoNodo.bloque, hijos: [
     _en('review_frequency', 'QUARTERLY',
         ['MONTHLY', 'QUARTERLY', 'SEMIANNUAL', 'ANNUAL'],
@@ -2146,6 +2221,7 @@ NodoTemplate('D11 · AUDITORÍA', TipoNodo.dominio,
       _a('Ley_164_Bolivia', 'firma digital · registros electrónicos · validez jurídica'),
     ]),
     NodoTemplate('change_tracking', TipoNodo.politica, hijos: [
+      _algo('deny-overrides'),
       _ev('eventos de auditoría obligatorios', [
         _prop('audit.event_type'),
         _op('IN'),
@@ -2173,11 +2249,13 @@ NodoTemplate('D11 · AUDITORÍA', TipoNodo.dominio,
 // ══════════════════════════════════════════════
 NodoTemplate('D12 · BLOCKCHAIN / ANCLAJE', TipoNodo.dominio,
     help: 'External-Path. Besu QBFT · ECDSA secp256k1 · EIP-155.', hijos: [
+  _algo('deny-overrides'),
   NodoTemplate('B19 · blockchain_access', TipoNodo.bloque, hijos: [
     _en('enabled', 'false', ['true', 'false'],
         help: 'Default cerrado — habilitado solo para roles con operaciones blockchain.'),
     _a('network', 'Besu QBFT · chain_id configurable', help: 'Acceso SIEMPRE vía daemon bnexus.'),
     NodoTemplate('signing_config', TipoNodo.politica, hijos: [
+      _algo('deny-overrides'),
       _ev('algoritmo de firma', [
         _prop('signing.algorithm'),
         _op('=='),
@@ -2198,6 +2276,7 @@ NodoTemplate('D12 · BLOCKCHAIN / ANCLAJE', TipoNodo.dominio,
       ]),
     ]),
     NodoTemplate('smart_contract_permissions', TipoNodo.politica, hijos: [
+      _algo('deny-overrides'),
       _ev('método no autorizado', [
         _prop('contract.method_name'),
         _op('NOT_IN'),
@@ -2212,6 +2291,7 @@ NodoTemplate('D12 · BLOCKCHAIN / ANCLAJE', TipoNodo.dominio,
       ]),
     ]),
     NodoTemplate('wallet_policy', TipoNodo.politica, hijos: [
+      _algo('deny-overrides'),
       _ev('wallet comprometida', [
         _prop('wallet.compromised_flag'),
         _op('=='),
@@ -2233,6 +2313,7 @@ NodoTemplate('D12 · BLOCKCHAIN / ANCLAJE', TipoNodo.dominio,
 // ══════════════════════════════════════════════
 NodoTemplate('D13 · FIRMA DIGITAL EXTERNA', TipoNodo.dominio,
     help: 'Firma legal SIN blockchain (ADSIB). Ley 164 Art. 78 · ADSIB-FD-POLT-015 v2.3.', hijos: [
+  _algo('deny-overrides'),
   NodoTemplate('B20 · legal_signature_policy', TipoNodo.bloque, hijos: [
     _en('enabled', 'false', ['true', 'false'],
         help: 'Default cerrado — habilitado solo cuando la operación requiere firma legal.'),
@@ -2259,6 +2340,7 @@ NodoTemplate('D13 · FIRMA DIGITAL EXTERNA', TipoNodo.dominio,
         ['INTERNAL', 'EXTERNAL_ADSIB', 'INTERNAL+SELLO_TIEMPO'],
         help: 'INTERNAL=Ed25519/Vault · EXTERNAL_ADSIB=RSA-SHA256/Ley164.'),
     NodoTemplate('certificate_requirements', TipoNodo.politica, hijos: [
+      _algo('deny-overrides'),
       _ev('tipo de certificado', [
         _prop('cert.policy_type'),
         _op('NOT_IN'),
@@ -2266,6 +2348,7 @@ NodoTemplate('D13 · FIRMA DIGITAL EXTERNA', TipoNodo.dominio,
         _ef('DENY firma · "Certificado emitido por CA no reconocida en Bolivia"'),
       ]),
       NodoTemplate('vigencia del certificado', TipoNodo.regla, hijos: [
+        _algo('deny-overrides'),
         _ev('certificado expirado', [_prop('cert.is_expired'), _op('=='), _val('true')]),
         _olo('OR'),
         _ev('certificado revocado', [_prop('cert.revoked'), _op('=='), _val('true')]),
