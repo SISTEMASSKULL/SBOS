@@ -741,27 +741,39 @@ policy:
 | | Propuesta |
 |---|---|
 | Nombre del binario | **`atomc`** (AtomLang Compiler) |
-| Lenguaje de implementación | **Go** |
-| Forma de distribución | Un solo daemon/CLI más, dentro de tu Fábrica SBOS (`/opt/skull/orquestador/.../bauth/tools/atomc/`) |
+| Lenguaje de implementación | **Rust 1.85+ (MUSL)** |
+| Forma de distribución | Binario estático dentro del ecosistema bAuth (`BauthAgent/tools/atomc/`) — mismo stack que el daemon principal |
 
-**Por qué Go y no Rust (tu Track B nativo de bChat) ni Python:**
+**Por qué Rust:**
 
-- Tu propio stack ya usa Go para varios daemons de bkernel/orquestación — reutiliza expertise existente en tu "equipo" de agentes.
-- El parseo de YAML + validación JSON Schema tiene librerías maduras en Go (`gopkg.in/yaml.v3`, `santhosh-tekuri/jsonschema`), sin fricción.
-- Un compilador de este tipo no tiene requisitos de performance de runtime (corre en CI/pre-publish, no en el hot path del PDP) — no justifica la complejidad adicional de Rust aquí. El **evaluador** (PDP en caliente) sí puede seguir en el lenguaje que ya usa tu BitMask engine; `atomc` es una herramienta de build-time, no de runtime.
+- El compilador comparte el stack con el daemon bAuth (Rust 1.85+ MUSL, tokio) — un solo lenguaje en todo el subsistema de identidad, sin dependencias externas adicionales.
+- El parseo de YAML + validación JSON Schema tiene librerías maduras en Rust (`serde_yaml`, `jsonschema-rs`), con tipado estricto en tiempo de compilación — coherente con la filosofía de eliminar strings ambiguos del sistema.
+- Al estar en Rust, `atomc` puede reutilizar directamente los tipos del dominio bAuth (`BauthError`, newtypes de `verb_id`, `policy_id`, etc.) sin serializar/deserializar entre lenguajes.
+- El binario compilado es un artefacto MUSL estático — mismo patrón de despliegue que el resto del ecosistema SBOS.
 
 ### 11.2 Arquitectura interna (mapea 1:1 a las 3 fases ya especificadas)
 
 ```
-atomc/
-  cmd/atomc/           → entrypoint CLI (atomc lint | atomc compile | atomc validate)
-  internal/lexer/      → Fase 1: tokeniza YAML, resuelve cada string contra catálogos (bos_verb, bos_resource_catalog, bos_group)
-  internal/parser/     → Fase 1-2: construye AST tipado desde el YAML validado por JSON Schema
-  internal/semantic/   → Fase 2: valida grafo de dependencias, combining_algorithm obligatorio, atributos duplicados Target/Condition
-  internal/codegen/    → Fase 3: emite el Árbol Técnico (.atm.json) — bos_atom_compiled
-  internal/catalog/    → cliente de solo lectura contra Postgres (bos_verb, bos_group, bos_resource_catalog, bos_attribute_catalog)
-  internal/diagnostics/→ formato estándar de errores/warnings (§2.4)
-  schemas/             → AtomLang.Atom.v1.json, AtomLang.CompiledTree.v1.json (JSON Schemas versionados)
+BauthAgent/tools/atomc/
+  src/
+    main.rs            → entrypoint CLI (atomc lint | atomc compile | atomc validate | atomc publish)
+    lexer/
+      mod.rs           → Fase 1: tokeniza YAML, resuelve cada string contra catálogos (bos_verb, bos_resource_catalog, bos_group)
+    parser/
+      mod.rs           → Fase 1-2: construye AST tipado (structs Rust) desde el YAML validado por JSON Schema
+      ast.rs           → tipos del AST: Policy, Atom, Target, Condition, Effect, Obligation
+    semantic/
+      mod.rs           → Fase 2: valida grafo de dependencias, combining_algorithm obligatorio, atributos duplicados Target/Condition
+    codegen/
+      mod.rs           → Fase 3: emite el Árbol Técnico (.atm.json) — serializado para bos_atom_compiled
+    catalog/
+      mod.rs           → cliente solo-lectura contra PostgreSQL (bos_verb, bos_group, bos_resource_catalog, bos_attribute_catalog)
+    diagnostics/
+      mod.rs           → formato estándar de errores/warnings con códigos ATOMC-E-0xx / ATOMC-W-0xx
+  schemas/
+    AtomLang.Atom.v1.json          → JSON Schema versionado del Atom
+    AtomLang.CompiledTree.v1.json  → JSON Schema versionado del Árbol Técnico
+  Cargo.toml
 ```
 
 ### 11.3 Comandos propuestos (interfaz CLI)
