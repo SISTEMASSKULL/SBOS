@@ -2,7 +2,7 @@
 
 **Versión:** 1.0.0  
 **Mantenido por:** bauth-developer  
-**Última actualización:** 2026-07-10  
+**Última actualización:** 2026-07-13  
 **Estado:** Activo — se amplía a medida que se cierran los gaps de reparación
 
 ---
@@ -94,6 +94,8 @@ listar la carpeta; los archivos ordenan solos por fase y dependencia. La carta r
 | 2.10 | [Seguridad de Datos](2.10_MANUAL-SEGURIDAD-DATOS-v1.0.md) | 1.7, 2.4 | ✅ 1.0.0 |
 | 2.11 | [Frontend (Dashboard)](2.11_MANUAL-FRONTEND-v1.0.md) | 2.5, 1.10 | ✅ 1.0.0 |
 | 2.12 | [Canales Protegidos (Gestor de canales)](2.12_MANUAL-CANALES-PROTEGIDOS-v1.0.md) | 2.9, 1.11, 2.3, 2.4 | ✅ 1.0.0 ➕ (gestor: L0) |
+| 2.13 | [AtomLang — Lenguaje de configuración del árbol de políticas](2.13_MANUAL-ATOMLANG-LENGUAJE-v1.0.md) | 1.02, 1.03, 2.05, 7.03 | ✅ 1.0.0 (lenguaje L1 · compilador L0) |
+| 2.14 | [Composición del Árbol — dominios, zonas, aplicaciones y posición de cada átomo](2.14_MANUAL-COMPOSICION-ARBOL-v1.0.md) | 2.13, 1.01, 1.03, 1.10, 2.05 | ✅ 1.0.0 (árbol conceptual L2 · árbol técnico L0) |
 
 ### Fase 3 — DETECCIÓN · monitoreo y riesgo
 
@@ -152,6 +154,7 @@ curada para consulta sin fricción. Índice, patrón canónico y plan: [anexos/I
 | A.03 Catálogo de Roles (+BitMask Dual) · A.04 Cadenas DAG · A.05 Átomos de Dominio · A.06/A.07 Frameworks (+recursos) · A.08 Firma · A.09 Credenciales/IAL · A.10 Revocación · A.11 Red · A.12 Blockchain D12 · A.13 ADRs (vigencia real) · A.14 Context Plane | ver [INDICE-ANEXOS](anexos/INDICE-ANEXOS.md) §2 | ✅ (14 publicados) |
 | [A.15 — Stack Rust de Autenticación](anexos/A.15_ANEXO-STACK-RUST-AUTENTICACION-v1.0.md) — el patrón de SUSTENTACIÓN (verificación de código: cubierto/parcial/brechas específicas) | 2.1, 2.2, 2.3 | ✅ 1.0.0 ➕ |
 | **Sustentación A.16–A.40 (25 anexos)** — verificación de código real de todos los manuales: protocolos, BitMask, frontend, superficie, OIDC, dominios, RLS, validadores, sqlx, calidad, riesgo, auditoría, DPoP, operación, IGA, atributos, aplicaciones, motor, D99, calendario, menú, datos, CAEP, CLI, producto | [INDICE-ANEXOS §2-§3.1](anexos/INDICE-ANEXOS.md) | ✅ **COBERTURA TOTAL** (36/36 manuales) |
+| **AtomLang A.45–A.48 (4 anexos)** — respaldo normativo y técnico de los manuales 2.13 y 2.14: A.45 fundamentos XACML/NIST/ISO · A.46 gramática EBNF + compilador atomc + catálogo errores ATOMC · A.47 clasificación, antipatrones, diagnóstico D1 as-is, glosario XACML/NIST/AWS/bAuth · A.48 PIP bauth_config_param DDL + gobernanza | [INDICE-ANEXOS §2](anexos/INDICE-ANEXOS.md) | ✅ 1.0.0 |
 
 ---
 
