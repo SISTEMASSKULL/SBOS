@@ -1,17 +1,18 @@
 // ============================================================
 // bauth_desktop · datos/atomlang_normalizado_datos.dart
 //
-// Propósito: árbol SOURCE completo traducido al lenguaje AtomLang v1.
-//   Toma arbolRolTemplate y aplica el autómata de normalización:
-//     1. Nombres de nodo → snake_case canónico (tabla de mapeo + conversión genérica)
-//     2. Verbos ENUM → valor del vocabulario cerrado bauth.privilege_verb
-//     3. Clave "propiedad" → snake_case del atributo
-//   MISMO árbol, MISMA estructura, MISMO contenido — solo el lenguaje cambia.
-//   No es compilación para el autenticador (eso es Tab 2).
-// Dependencias: datos/rol_template_datos (NodoTemplate + TipoNodo + arbolRolTemplate).
-// Estándar: A.46 §3 EBNF · A.47 §6 (diagnóstico D1) · DOC-SBOS-001 N3.
+// Propósito: árbol SOURCE traducido al lenguaje AtomLang v1 + ANALIZADO.
+//   Pipeline de dos pasos:
+//     1. Normalizador: nombres → snake_case canónico (tabla de mapeo + conversión)
+//     2. Validador:    detecta violaciones de reglas AtomLang e inyecta nodos
+//                     TipoNodo.diagnostico donde ocurre el incumplimiento.
+//   El árbol resultante (arbolNormalizado) funciona como la salida de un linter:
+//   MISMO árbol, MISMO contenido — lenguaje normalizado + errores visibles.
+// Dependencias: datos/rol_template_datos · datos/atomlang_validador_datos.
+// Estándar: A.46 §3 EBNF · A.47 §6 · 2.13 §4 · 2.14 §3/§10 · DOC-SBOS-001 N3.
 // ============================================================
 
+import 'atomlang_validador_datos.dart';
 import 'rol_template_datos.dart';
 
 // ──── Tabla de mapeo: nombre SOURCE → ID AtomLang canónico ───
@@ -126,9 +127,21 @@ NodoTemplate _aplicarLenguaje(NodoTemplate n) => NodoTemplate(
       hijos: n.hijos.map(_aplicarLenguaje).toList(),
     );
 
-// ──── Árbol normalizado ───────────────────────────────────────
+// ──── Árbol normalizado + analizado ──────────────────────────
 
-/// El mismo árbol SOURCE con lenguaje AtomLang aplicado.
-/// Generado en tiempo de compilación aplicando _aplicarLenguaje a cada nodo.
-final List<NodoTemplate> arbolNormalizado =
-    arbolRolTemplate.map(_aplicarLenguaje).toList();
+/// Árbol SOURCE con lenguaje AtomLang (snake_case) + anotaciones del validador.
+/// Pipeline: SOURCE → normalizador → validador.
+///
+/// Paso 1 — normalizador: todos los nombres humanos → IDs snake_case canónicos.
+/// Paso 2 — validador: recorre el árbol normalizado, detecta violaciones de
+///   reglas AtomLang (ATOMC-E/W-xxx) e inyecta nodos TipoNodo.diagnostico
+///   como primeros hijos del nodo infractor (igual que un linter inline).
+final List<NodoTemplate> arbolNormalizado = arbolRolTemplate
+    .map(_aplicarLenguaje)
+    .map((n) => anotarNodo(n))
+    .toList();
+
+/// Cantidad total de diagnósticos (errores + avisos) en el árbol analizado.
+/// Usado para mostrar el badge de conteo en el tab "Árbol AtomLang".
+final int totalDiagnosticosArbol = arbolNormalizado
+    .fold(0, (s, n) => s + contarDiagnosticosEnSubarbol(n));

@@ -15,14 +15,21 @@ import '../../datos/rol_template_datos.dart';
 
 /// Rótulo + color de un tipo de rama.
 (String, Color) _infoTipo(TipoNodo t, ColorScheme cs) => switch (t) {
-      TipoNodo.objeto => ('OBJETO', cs.mutedForeground),
-      TipoNodo.lista => ('LISTA', cs.mutedForeground),
-      TipoNodo.politica => ('POLÍTICA', cs.primary),
-      TipoNodo.regla => ('REGLA', Colors.amber.shade600),
-      TipoNodo.evaluacion => ('ATOM', Colors.teal.shade400),
-      TipoNodo.enumerado => ('ENUM', Colors.violet.shade400),
-      _ => ('', cs.mutedForeground),
+      TipoNodo.objeto      => ('OBJETO',  cs.mutedForeground),
+      TipoNodo.lista       => ('LISTA',   cs.mutedForeground),
+      TipoNodo.politica    => ('POLÍTICA', cs.primary),
+      TipoNodo.regla       => ('REGLA',   Colors.amber.shade600),
+      TipoNodo.evaluacion  => ('ATOM',    Colors.teal.shade400),
+      TipoNodo.enumerado   => ('ENUM',    Colors.violet.shade400),
+      TipoNodo.diagnostico => ('ERROR',   Colors.red.shade400),
+      _                    => ('',        cs.mutedForeground),
     };
+
+/// Cuenta diagnósticos (TipoNodo.diagnostico) en el subárbol.
+/// Usado para mostrar un badge de conteo en nodos colapsados.
+int _contarDiagnosticos(NodoTemplate n) =>
+    (n.tipo == TipoNodo.diagnostico ? 1 : 0) +
+    n.hijos.fold(0, (s, h) => s + _contarDiagnosticos(h));
 
 /// Árbol del RolTemplate: funcional (expand/collapse), notifica selección.
 /// [shrinkWrap] = true cuando se usa dentro de SingleChildScrollView (ej. PanelLateral).
@@ -88,6 +95,79 @@ class _ArbolTemplateState extends State<ArbolTemplate> {
       builder: (context, item) {
         final n = item.data;
         final activo = identical(n, widget.seleccionado);
+
+        // ── Nodos de diagnóstico: renderizado especial ────────
+        if (n.tipo == TipoNodo.diagnostico) {
+          final esDiagError = n.clave.startsWith('✕');
+          final colorDiag =
+              esDiagError ? Colors.red.shade400 : Colors.amber.shade500;
+          return TreeItemView(
+            onExpand: (expanded) => _expandir(_nodos, item, expanded),
+            onPressed: () => widget.alSeleccionar(n),
+            child: Row(
+              children: [
+                Icon(
+                  esDiagError ? LucideIcons.circleX : LucideIcons.triangleAlert,
+                  size: 11 * s,
+                  color: colorDiag,
+                ),
+                SizedBox(width: 5 * s),
+                Flexible(
+                  child: Text(
+                    n.clave,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 10 * s,
+                      fontWeight: FontWeight.w700,
+                      color: colorDiag,
+                    ),
+                  ),
+                ),
+                if (n.valor != null) ...[
+                  SizedBox(width: 8 * s),
+                  Text(
+                    n.valor!,
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 9 * s,
+                      color: colorDiag.withValues(alpha: 0.65),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+        }
+
+        // ── Conteo de diagnósticos en descendientes ───────────
+        // Muestra badge rojo/ámbar en nodos padre con errores.
+        final nDiags = _contarDiagnosticos(n);
+        final filaDiagBadge = nDiags > 0 && n.tipo != TipoNodo.diagnostico
+            ? Padding(
+                padding: EdgeInsets.only(left: 5 * s),
+                child: Container(
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 4 * s, vertical: 1 * s),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade700.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(3 * s),
+                    border: Border.all(
+                        color: Colors.red.shade700.withValues(alpha: 0.4)),
+                  ),
+                  child: Text(
+                    '$nDiags',
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 8 * s,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.red.shade400,
+                    ),
+                  ),
+                ),
+              )
+            : null;
+
         final fila = Row(
           children: [
             Flexible(
@@ -97,6 +177,7 @@ class _ArbolTemplateState extends State<ArbolTemplate> {
                 style: _estiloClave(n.tipo, activo, cs, s),
               ),
             ),
+            ?filaDiagBadge,
             if (n.tipo != TipoNodo.atributo &&
                 n.tipo != TipoNodo.dominio &&
                 n.tipo != TipoNodo.bloque)
@@ -167,6 +248,8 @@ class _ArbolTemplateState extends State<ArbolTemplate> {
         TextStyle(fontSize: 11 * s, fontFamily: 'monospace', fontWeight: FontWeight.w600, color: Colors.violet.shade300),
       TipoNodo.atributo =>
         TextStyle(fontSize: 11 * s, fontFamily: 'monospace', fontWeight: FontWeight.w500, color: cs.mutedForeground),
+      TipoNodo.diagnostico =>
+        TextStyle(fontSize: 10 * s, fontFamily: 'monospace', fontWeight: FontWeight.w700, color: Colors.red.shade400),
       _ => TextStyle(fontSize: 11.5 * s, fontWeight: FontWeight.w600, color: cs.foreground),
     };
   }

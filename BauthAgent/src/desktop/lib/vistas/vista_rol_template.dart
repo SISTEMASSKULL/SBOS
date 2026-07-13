@@ -5,17 +5,19 @@
 //   Panel lateral izquierdo: vocabulario AtomLang v1 (referencia de lenguaje).
 //   Panel central — 3 tabs:
 //     Tab 0 · Árbol Fuente    — árbol SOURCE humano (RolTemplate v6.0, sin tocar)
-//     Tab 1 · Árbol AtomLang  — mismo árbol traducido al lenguaje (salida del
-//                               autómata de control de calidad: snake_case,
-//                               verbo enum, condición tipada, combining_algorithm)
+//     Tab 1 · Árbol AtomLang  — árbol normalizado (snake_case) + ANALIZADO:
+//                               nodos TipoNodo.diagnostico inyectados donde
+//                               el árbol viola reglas del lenguaje AtomLang.
+//                               Funciona como un linter inline (ATOMC-E/W-xxx).
 //     Tab 2 · Árbol Compilado — placeholder (fase 3 — atomc → bos_atom_compiled)
 //   Panel de ayuda + barra de ruta con copia al portapapeles.
+//   Barra de diagnósticos en Tab 1: muestra conteo total de errores/avisos.
 // Dependencias: tf_shadcn_flutter, flutter/services,
 //   datos/{arbol_datos, rol_template_datos, atomlang_datos,
 //          atomlang_normalizado_datos},
 //   widgets/comunes/{arbol_sbos, arbol_template, panel_lateral, tira_tabs}.
 // Estándar: Anexo A.01 (RolTemplate v6.0) · AtomLang-especificacion-completa.md
-//           · DOC-SBOS-001 N3.
+//           · 2.13 §4 · 2.14 §3/§10 · A.47 §9 · DOC-SBOS-001 N3.
 // ============================================================
 
 import 'package:flutter/services.dart';
@@ -130,6 +132,8 @@ class _VistaRolTemplateState extends State<VistaRolTemplate> {
                       ),
                       // ── Contenido según tab activo ────────────────────────
                       Expanded(child: _contenidoTab(cs)),
+                      // ── Barra de diagnósticos (solo Tab AtomLang) ─────────
+                      if (_tabArbol == 1) _BarraDiagnosticos(cs: cs),
                       // ── Barra de ruta + panel de ayuda (comunes) ──────────
                       _BarraRuta(
                         ruta: _ruta,
@@ -301,6 +305,69 @@ class _BarraRuta extends StatelessWidget {
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Barra de diagnósticos: aparece debajo del árbol en Tab «Árbol AtomLang».
+/// Muestra el total de errores/avisos detectados por el validador AtomLang,
+/// comportándose como la barra de problemas de un IDE (Problems panel).
+class _BarraDiagnosticos extends StatelessWidget {
+  final ColorScheme cs;
+  const _BarraDiagnosticos({required this.cs});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final s = theme.scaling;
+    final total = totalDiagnosticosArbol;
+    final sinErrores = total == 0;
+
+    return Container(
+      height: 26 * s,
+      decoration: BoxDecoration(
+        color: sinErrores
+            ? Colors.green.shade900.withValues(alpha: 0.25)
+            : Colors.red.shade900.withValues(alpha: 0.25),
+        border: Border(
+          top: BorderSide(
+            color: sinErrores
+                ? Colors.green.shade700.withValues(alpha: 0.4)
+                : Colors.red.shade700.withValues(alpha: 0.4),
+          ),
+        ),
+      ),
+      padding: EdgeInsets.symmetric(horizontal: 12 * s),
+      child: Row(
+        children: [
+          Icon(
+            sinErrores ? LucideIcons.circleCheck : LucideIcons.circleAlert,
+            size: 12 * s,
+            color: sinErrores ? Colors.green.shade400 : Colors.red.shade400,
+          ),
+          SizedBox(width: 6 * s),
+          Text(
+            sinErrores
+                ? 'Árbol AtomLang válido — sin violaciones de lenguaje'
+                : '$total violación${total == 1 ? '' : 'es'} detectada${total == 1 ? '' : 's'} '
+                    '— expande los nodos marcados con badge rojo para ver detalles',
+            style: TextStyle(
+              fontSize: 10 * s,
+              fontWeight: FontWeight.w600,
+              color: sinErrores ? Colors.green.shade400 : Colors.red.shade400,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            'ATOMC linter · 2.13/2.14/A.47',
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 9 * s,
+              color: cs.mutedForeground.withValues(alpha: 0.5),
+            ),
+          ),
         ],
       ),
     );

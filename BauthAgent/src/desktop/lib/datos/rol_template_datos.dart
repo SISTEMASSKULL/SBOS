@@ -15,15 +15,16 @@
 
 /// Naturaleza de un nodo del árbol.
 enum TipoNodo {
-  dominio,    // cabecera de dominio de control
-  bloque,     // bloque dentro del dominio
-  objeto,     // estructura JSONB de datos (entidad, no lógica)
-  lista,      // array de ítems homogéneos (datos, no lógica)
-  politica,   // conjunción de condiciones gobernantes
-  regla,      // una o más evaluaciones + efecto. Patrón: eval [op_lógico eval]* efecto.
-  evaluacion, // evaluación atómica: propiedad / operador / valor / efecto
-  atributo,   // hoja: clave → valor libre
-  enumerado,  // hoja: clave → valor de conjunto fijo (menú contextual clic derecho)
+  dominio,     // cabecera de dominio de control
+  bloque,      // bloque dentro del dominio
+  objeto,      // estructura JSONB de datos (entidad, no lógica)
+  lista,       // array de ítems homogéneos (datos, no lógica)
+  politica,    // conjunción de condiciones gobernantes
+  regla,       // una o más evaluaciones + efecto. Patrón: eval [op_lógico eval]* efecto.
+  evaluacion,  // evaluación atómica: propiedad / operador / valor / efecto
+  atributo,    // hoja: clave → valor libre
+  enumerado,   // hoja: clave → valor de conjunto fijo (menú contextual clic derecho)
+  diagnostico, // hoja: violación de regla AtomLang — inyectado por el validador (no está en SOURCE)
 }
 
 class NodoTemplate {
