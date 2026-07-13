@@ -18,10 +18,10 @@ enum TipoNodo {
   dominio,    // cabecera de dominio de control
   bloque,     // bloque dentro del dominio
   objeto,     // estructura JSONB de datos (entidad, no lógica)
-  lista,      // array de ítems
+  lista,      // array de ítems homogéneos (datos, no lógica)
   politica,   // conjunción de condiciones gobernantes
-  regla,      // condición(es) con efecto explícito
-  evaluacion, // evaluación atómica dentro de política/regla
+  regla,      // una o más evaluaciones + efecto. Patrón: eval [op_lógico eval]* efecto.
+  evaluacion, // evaluación atómica: propiedad / operador / valor / efecto
   atributo,   // hoja: clave → valor libre
   enumerado,  // hoja: clave → valor de conjunto fijo (menú contextual clic derecho)
 }
@@ -47,8 +47,23 @@ NodoTemplate _a(String c, String v, {String? help}) =>
 NodoTemplate _en(String c, String v, List<String> ops, {String? help}) =>
     NodoTemplate(c, TipoNodo.enumerado, valor: v, opciones: ops, help: help);
 
-NodoTemplate _ev(String nombre, List<NodoTemplate> props, {String? help}) =>
-    NodoTemplate(nombre, TipoNodo.evaluacion, help: help, hijos: props);
+NodoTemplate _ev(String nombre, List<NodoTemplate> props, {String? verbo, String? help}) =>
+    NodoTemplate(nombre, TipoNodo.evaluacion, help: help, hijos: [
+      if (verbo != null)
+        NodoTemplate('verbo', TipoNodo.enumerado, valor: verbo,
+            opciones: const ['read', 'write', 'create', 'delete', 'approve', 'execute',
+                'export', 'delegate', 'configure', 'audit', 'login', 'emit', 'void', 'ANY'],
+            help: 'Acción (Action) del Target XACML — §7 del manual de estructuración. Obligatorio en todo átomo.'),
+      ...props,
+    ]);
+
+/// Operador lógico entre evaluaciones dentro de una regla.
+/// Se sitúa ENTRE dos evaluaciones contiguas: _ev → _olo('AND'|'OR') → _ev → _ef.
+/// Permite menú contextual para cambiar el operador.
+NodoTemplate _olo(String op) => NodoTemplate(
+    'op_lógico', TipoNodo.enumerado, valor: op,
+    opciones: const ['AND', 'OR', 'NOT', 'MATCH_ALL', 'FIRST_APPLICABLE'],
+    help: 'Conector lógico entre evaluaciones. AND = todas deben cumplirse · OR = basta con una.');
 
 NodoTemplate _prop(String v, {String? help}) =>
     NodoTemplate('propiedad', TipoNodo.atributo, valor: v, help: help);
@@ -68,6 +83,15 @@ NodoTemplate _val(String v, {String? help}) =>
 
 NodoTemplate _ef(String v, {String? help}) =>
     NodoTemplate('efecto', TipoNodo.atributo, valor: v, help: help);
+
+/// Algoritmo de combinación — primer hijo de toda TipoNodo.politica.
+/// Determina qué pasa cuando varias reglas evalúan simultáneamente.
+NodoTemplate _algo(String v) => NodoTemplate('combining_algorithm', TipoNodo.enumerado, valor: v,
+    opciones: const [
+      'deny-overrides', 'permit-overrides', 'first-applicable',
+      'only-one-applicable', 'deny-unless-permit', 'permit-unless-deny',
+    ],
+    help: 'XACML 3.0 §7.14. deny-overrides=un DENY bloquea todo · first-applicable=primer match gana · deny-unless-permit=silencio→DENY.');
 
 // ════════════════════════════════════════════════════════════
 final List<NodoTemplate> arbolRolTemplate = [
@@ -284,25 +308,42 @@ NodoTemplate('D1 · ACCESO LÓGICO', TipoNodo.dominio,
             help: 'Orden=1. Factor primario — SIEMPRE ejecuta. NIST 800-63B-4 §4.1 · RFC 8176 pwd/hwk/sc.', hijos: [
           _a('method_id', 'username_password | x509_smartcard | webauthn_platform | passkey'),
           _en('min_loa', '1', ['1', '2', '3', '4']),
-          NodoTemplate('condiciones[]', TipoNodo.lista, hijos: [
-            _ev('riesgo bajo + zona normal → contraseña', [
-              _prop('risk.score AND zone.sensitivity'),
-              _op('<= 0.50 AND != HIGH'),
-              _val('contexto de trabajo habitual'),
+          NodoTemplate('condiciones', TipoNodo.regla,
+              help: 'OR: cualquiera de estas sub-reglas puede aplicar su efecto independientemente. NIST 800-63B-4 §4.1.', hijos: [
+            NodoTemplate('verbo', TipoNodo.enumerado, valor: 'login',
+                opciones: const ['read', 'write', 'create', 'delete', 'approve', 'execute',
+                    'export', 'delegate', 'configure', 'audit', 'login', 'emit', 'void', 'ANY'],
+                help: 'Acción (Action) del Target XACML. §7 del manual de estructuración. Obligatorio en todo átomo.'),
+            NodoTemplate('riesgo bajo + zona normal → contraseña', TipoNodo.regla,
+                help: 'AND: ambas deben cumplirse. 800-63B-4 §4.1 — riesgo bajo Y zona no sensible habilitan contraseña.', hijos: [
+              NodoTemplate('verbo', TipoNodo.enumerado, valor: 'login',
+                  opciones: const ['read', 'write', 'create', 'delete', 'approve', 'execute',
+                      'export', 'delegate', 'configure', 'audit', 'login', 'emit', 'void', 'ANY'],
+                  help: 'Acción (Action) del Target XACML. §7 del manual de estructuración. Obligatorio en todo átomo.'),
+              _ev('riesgo bajo', [_prop('risk.score'), _op('<='), _val('0.50')]),
+              _olo('AND'),
+              _ev('zona no sensible', [_prop('zone.sensitivity'), _op('!='), _val('HIGH')]),
               _ef('method = username_password · amr = [pwd]'),
             ]),
-            _ev('zona sensible o acción privilegiada → hardware', [
-              _prop('zone.sensitivity OR action.verb'),
-              _op('IN [HIGH, CONFIGURE, ADMIN]'),
-              _val('cualquier condición activa el factor hardware'),
+            _olo('OR'),
+            NodoTemplate('zona sensible o acción privilegiada → hardware', TipoNodo.regla,
+                help: 'OR: basta con una condición para escalar a hardware. 800-53 AC-6 least privilege.', hijos: [
+              NodoTemplate('verbo', TipoNodo.enumerado, valor: 'login',
+                  opciones: const ['read', 'write', 'create', 'delete', 'approve', 'execute',
+                      'export', 'delegate', 'configure', 'audit', 'login', 'emit', 'void', 'ANY'],
+                  help: 'Acción (Action) del Target XACML. §7 del manual de estructuración. Obligatorio en todo átomo.'),
+              _ev('zona sensible', [_prop('zone.sensitivity'), _op('IN'), _val('[HIGH, CRITICAL]')]),
+              _olo('OR'),
+              _ev('verbo privilegiado', [_prop('action.verb'), _op('IN'), _val('[CONFIGURE, ADMIN, DELETE]')]),
               _ef('method = webauthn_platform | x509_smartcard · amr = [fpt | sc]'),
             ]),
+            _olo('OR'),
             _ev('certificado mTLS presente → x509', [
               _prop('connection.client_cert_present'),
               _op('=='),
               _val('true'),
               _ef('method = x509_smartcard · amr = [sc]'),
-            ]),
+            ], verbo: 'login'),
           ]),
         ]),
 
@@ -318,48 +359,61 @@ NodoTemplate('D1 · ACCESO LÓGICO', TipoNodo.dominio,
             _a('5 · backup_codes', 'ÚLTIMO RECURSO — solo emergencia · amr=otp'),
           ]),
           _en('min_additional_loa', '2', ['1', '2', '3', '4']),
-          NodoTemplate('condiciones[]', TipoNodo.lista, hijos: [
+          NodoTemplate('condiciones', TipoNodo.regla,
+              help: 'OR: cualquiera de estas sub-reglas puede aplicar su efecto independientemente. Pueden coincidir varias (ej: LoA 3 + monto grande). NIST 800-63B-4 §4.2-4.3.', hijos: [
+            NodoTemplate('verbo', TipoNodo.enumerado, valor: 'login',
+                opciones: const ['read', 'write', 'create', 'delete', 'approve', 'execute',
+                    'export', 'delegate', 'configure', 'audit', 'login', 'emit', 'void', 'ANY'],
+                help: 'Acción (Action) del Target XACML. §7 del manual de estructuración. Obligatorio en todo átomo.'),
             _ev('login AAL2 estándar → TOTP o Push', [
               _prop('role.level_of_assurance'),
               _op('=='),
               _val('2'),
               _ef('eligible_mfa = [totp, push_notification] · min_loa_mfa = 2'),
             ], help: 'NIST 800-63B-4 AAL2.'),
-            _ev('login AAL3 (zona crítica) → WebAuthn hardware', [
-              _prop('role.level_of_assurance OR context.requires_aal3'),
-              _op('== 3 OR == true'),
-              _val('3 o contexto crítico'),
+            _olo('OR'),
+            NodoTemplate('login AAL3 (zona crítica) → WebAuthn hardware', TipoNodo.regla,
+                help: 'OR: basta con una condición para activar WebAuthn hardware. NIST 800-63B-4 AAL3.', hijos: [
+              NodoTemplate('verbo', TipoNodo.enumerado, valor: 'login',
+                  opciones: const ['read', 'write', 'create', 'delete', 'approve', 'execute',
+                      'export', 'delegate', 'configure', 'audit', 'login', 'emit', 'void', 'ANY'],
+                  help: 'Acción (Action) del Target XACML. §7 del manual de estructuración. Obligatorio en todo átomo.'),
+              _ev('LoA del rol es 3', [_prop('role.level_of_assurance'), _op('=='), _val('3')]),
+              _olo('OR'),
+              _ev('contexto requiere AAL3', [_prop('context.requires_aal3'), _op('=='), _val('true')]),
               _ef('eligible_mfa = [webauthn_platform, webauthn_roaming] · min_loa_mfa = 3'),
-            ], help: 'NIST 800-63B-4 AAL3.'),
+            ]),
+            _olo('OR'),
             _ev('financiero > 25 000 BOB → triple factor', [
               _prop('transaction.amount_bob'),
               _op('>'),
               _val('25 000 BOB'),
               _ef('primary + webauthn_platform + totp_fresh(max_age=0) → JWT LoA 3 · PCI Req 8'),
-            ]),
+            ], verbo: 'login'),
           ]),
         ]),
 
-        NodoTemplate('step_up_triggers[]', TipoNodo.regla,
+        NodoTemplate('step_up_triggers', TipoNodo.politica,
             help: 'Orden=3. Elevación mid-session — NO cierra sesión, añade factor. RFC 9470 · acr_values.', hijos: [
+          _algo('first-applicable'),
           _ev('monto de transacción alto (>10 000 BOB)', [
             _prop('transaction.amount_bob'),
             _op('>'),
             _val('10 000 BOB'),
             _ef('required_loa = 3 · max_age_seconds = 300 · acr = aal3'),
-          ]),
+          ], verbo: 'execute'),
           _ev('zona de alta seguridad', [
             _prop('zone.security_level'),
             _op('=='),
             _val('CRITICAL'),
             _ef('required_loa = 3 · max_age_seconds = 600'),
-          ]),
+          ], verbo: 'ANY'),
           _ev('verbo CONFIGURE o ADMIN', [
             _prop('action.verb'),
             _op('IN'),
             _val('[CONFIGURE, ADMIN, DELETE]'),
             _ef('required_loa = 3 · max_age_seconds = 0 (fresca siempre)'),
-          ]),
+          ], verbo: 'configure'),
         ]),
 
         NodoTemplate('re_auth_policy{}', TipoNodo.objeto,
@@ -414,100 +468,103 @@ NodoTemplate('D1 · ACCESO LÓGICO', TipoNodo.dominio,
     // ── Bloqueo de cuenta (NUEVO — NIST 800-53 AC-7) ────────
     NodoTemplate('account_lockout_policy', TipoNodo.politica,
         help: 'Bloqueo progresivo tras intentos fallidos. NIST 800-53 R5 AC-7 · 800-63B-4.', hijos: [
+      _algo('first-applicable'),
       _ev('intentos 1-3: sin penalización', [
         _prop('login.failed_attempts_in_window'),
         _op('BETWEEN'),
         _val('[1, 3]'),
         _ef('acceso normal — registrar intento en audit_log'),
-      ]),
+      ], verbo: 'login'),
       _ev('intentos 4-6: retardo progresivo', [
         _prop('login.failed_attempts_in_window'),
         _op('BETWEEN'),
         _val('[4, 6]'),
         _ef('delay = (attempt - 3) × 60 s · notify usuario'),
-      ]),
+      ], verbo: 'login'),
       _ev('intentos 7-10: bloqueo temporal', [
         _prop('login.failed_attempts_in_window'),
         _op('BETWEEN'),
         _val('[7, 10]'),
         _ef('lockout_duration = 15 min · notify role_owner + security_team'),
-      ]),
+      ], verbo: 'login'),
       _ev('intentos > 10: bloqueo hasta administrador', [
         _prop('login.failed_attempts_in_window'),
         _op('>'),
         _val('10'),
         _ef('status = LOCKED · require admin_unlock + MFA verify · alert CISO'),
-      ]),
+      ], verbo: 'login'),
       _ev('ventana de conteo de intentos', [
         _prop('login.attempt_window_minutes'),
         _op('=='),
         _val('60', help: 'El contador se reinicia cada 60 min si no hubo bloqueo.'),
         _ef('reset counter después de 60 min sin bloqueo'),
-      ]),
+      ], verbo: 'login'),
     ]),
 
     // ── Gestión de sesión ────────────────────────────────────
     NodoTemplate('session_management', TipoNodo.politica,
         help: 'NIST 800-63B §7: timeout total + inactividad + reautenticación + concurrencia.', hijos: [
+      _algo('deny-overrides'),
       _ev('duración máxima absoluta', [
         _prop('session.duration_minutes'),
         _op('>'),
         _val('480', help: '8 h — sesión absoluta.'),
         _ef('force_logout · require_reauth para nueva sesión'),
-      ]),
+      ], verbo: 'access'),
       _ev('inactividad máxima', [
         _prop('session.idle_minutes'),
         _op('>'),
         _val('15', help: 'NIST 800-63B-4 §7.2.'),
         _ef('session_lock · require_reauth (no nueva sesión, solo reactivación)'),
-      ]),
+      ], verbo: 'access'),
       _ev('reautenticación periódica', [
         _prop('session.minutes_since_last_auth'),
         _op('>'),
         _val('240', help: '4 h — reautenticar sin cerrar sesión.'),
         _ef('prompt_reauth (no logout, solo verificación MFA)'),
-      ]),
+      ], verbo: 'access'),
       _ev('sesiones concurrentes', [
         _prop('session.concurrent_active_count'),
         _op('>'),
         _val('1'),
         _ef('revocar sesión más antigua · notify usuario · audit_event'),
-      ]),
+      ], verbo: 'access'),
       _ev('dispositivo AC-2(3) — inactividad de cuenta', [
         _prop('account.days_since_last_login'),
         _op('>'),
         _val('90', help: 'NIST AC-2(3) — deshabilitar cuentas inactivas.'),
         _ef('status = SUSPENDED · notify role_owner · require reactivación manual'),
-      ]),
+      ], verbo: 'access'),
     ]),
 
     // ── Vinculación de tokens de sesión (NUEVO — DPoP RFC 9449) ──
     NodoTemplate('session_binding', TipoNodo.politica,
         help: 'Vinculación criptográfica de tokens para prevenir token replay y session hijacking. DPoP RFC 9449.', hijos: [
+      _algo('deny-overrides'),
       _ev('DPoP requerido en API calls', [
         _prop('api_request.dpop_header_present'),
         _op('=='),
         _val('true', help: 'RFC 9449 — prueba de posesión de clave privada en cada request.'),
         _ef('DENY request sin DPoP header válido · HTTP 401'),
-      ]),
+      ], verbo: 'execute'),
       _ev('PKCE requerido en auth code flow', [
         _prop('auth_request.code_challenge_method'),
         _op('=='),
         _val('S256 (SHA-256)', help: 'RFC 7636 — PKCE previene CSRF e intercepción de código.'),
         _ef('DENY auth code request sin code_challenge · HTTP 400'),
-      ]),
+      ], verbo: 'login'),
       _ev('huella de dispositivo obligatoria', [
         _prop('session.device_fingerprint_valid'),
         _op('=='),
         _val('true', help: 'Combinación: user-agent + TLS fingerprint + screen props.'),
         _ef('flag anomaly si fingerprint cambia mid-session · step-up LoA 3'),
-      ]),
+      ], verbo: 'access'),
       _ev('token binding (RFC 8471) — DEPRECADO', [
         _prop('connection.token_binding_status'),
         _op('=='),
         _val('NOT_REQUIRED', help: 'RFC 8471 sin soporte en navegadores modernos. DPoP es el sucesor.'),
         _ef('ignorar — usar DPoP en su lugar'),
-      ]),
+      ], verbo: 'access'),
     ]),
 
     // ── Scopes OAuth 2.0 / OIDC (NUEVO — RFC 6749) ──────────
@@ -540,21 +597,23 @@ NodoTemplate('D1 · ACCESO LÓGICO', TipoNodo.dominio,
     // ── Referencias a otros dominios ─────────────────────────
     NodoTemplate('geospatial_control', TipoNodo.politica, valor: 'ref → B15/D6',
         help: 'Única fuente en D6/B15. Aquí solo la referencia.', hijos: [
+      _algo('deny-overrides'),
       _ev('referencia al dominio geoespacial', [
         _prop('d6_geospatial_ref'),
         _op('=='),
         _val('D6.B15.allowed_locations[]'),
         _ef('evaluar condiciones de acceso desde D6 — no duplicar aquí'),
-      ]),
+      ], verbo: 'ANY'),
     ]),
     NodoTemplate('temporal_control', TipoNodo.politica, valor: 'ref → D4',
         help: 'Enlaza a D4 para horarios de autenticación.', hijos: [
+      _algo('deny-overrides'),
       _ev('referencia al dominio temporal', [
         _prop('d4_temporal_ref'),
         _op('=='),
         _val('D4.B2.validity_period + D8.B17.context_signals'),
         _ef('evaluar vigencia temporal desde D4 — no duplicar aquí'),
-      ]),
+      ], verbo: 'ANY'),
     ]),
   ]),
 
@@ -587,120 +646,125 @@ NodoTemplate('D1 · ACCESO LÓGICO', TipoNodo.dominio,
   NodoTemplate('B7 · Privilegios ERP (5 capas)', TipoNodo.bloque,
       help: 'Enforcement nativo (BitMask+PolicyEngine). NIST AC-3/AC-6(10) · PCI 7.3.', hijos: [
 
-    NodoTemplate('model_access', TipoNodo.regla, valor: 'CAPA 1 · CRUD por modelo',
+    NodoTemplate('model_access', TipoNodo.politica, valor: 'CAPA 1 · CRUD por modelo',
         help: 'read:false = modelo completamente invisible.', hijos: [
+      _algo('deny-overrides'),
       _ev('aislamiento de usuarios (res.user)', [
         _prop('model.res_user.read'),
         _op('=='),
         _val('false'),
         _ef('modelo res.user invisible — DENY todo acceso (aislamiento multi-tenant)'),
-      ]),
+      ], verbo: 'read'),
       _ev('acceso CRUD por zona declarada (B6)', [
         _prop('model.{nombre}.crud_mask'),
         _op('SUBSET_OF'),
         _val('verbos de zones{} (B6)'),
         _ef('DENY verbo no declarado en B6 · HTTP 403'),
-      ]),
+      ], verbo: 'execute'),
     ]),
 
-    NodoTemplate('visible_actions', TipoNodo.regla, valor: 'CAPA 2 · menús visibles',
+    NodoTemplate('visible_actions', TipoNodo.politica, valor: 'CAPA 2 · menús visibles',
         help: 'Deny-all implícito: solo lo listado es visible. AC-6(10).', hijos: [
+      _algo('deny-overrides'),
       _ev('menú ventas — visible', [
         _prop('ui.menu_id'),
         _op('IN'),
         _val('[ventas.lista, ventas.nueva_venta, ventas.aprobar, ventas.reportes_propios]'),
         _ef('render = VISIBLE'),
-      ]),
+      ], verbo: 'read'),
       _ev('menú clientes — visible (solo lectura/edición)', [
         _prop('ui.menu_id'),
         _op('IN'),
         _val('[clientes.lista, clientes.ficha, clientes.editar]'),
         _ef('render = VISIBLE'),
-      ]),
+      ], verbo: 'read'),
       _ev('acciones financieras (dentro del tier)', [
         _prop('ui.action_id'),
         _op('IN'),
         _val('[pagos.nueva_≤10k, pagos.aprobar_≤50k, facturas.emitir]'),
         _ef('render = VISIBLE · badge con límite de monto'),
-      ]),
+      ], verbo: 'execute'),
       _ev('menú administración — oculto', [
         _prop('ui.menu_id'),
         _op('STARTS_WITH'),
         _val('admin.'),
         _ef('render = HIDDEN — no enviar al cliente (AC-6(10))'),
-      ]),
+      ], verbo: 'read'),
     ]),
 
-    NodoTemplate('field_restrictions', TipoNodo.regla, valor: 'CAPA 3 · campos individuales',
+    NodoTemplate('field_restrictions', TipoNodo.politica, valor: 'CAPA 3 · campos individuales',
         help: 'Masking y ocultamiento por campo. ISO A.8.11.', hijos: [
+      _algo('deny-overrides'),
       _ev('campo margin — oculto', [
         _prop('field.sale_order.margin'),
         _op('visible_to_role'),
         _val('false'),
         _ef('omitir de respuesta JSON · campo omitido en SELECT'),
-      ]),
+      ], verbo: 'read'),
       _ev('campo cost_price — oculto', [
         _prop('field.product.cost_price'),
         _op('visible_to_role'),
         _val('false'),
         _ef('omitir de respuesta JSON'),
-      ]),
+      ], verbo: 'read'),
       _ev('campo credit_limit — solo lectura', [
         _prop('field.res_partner.credit_limit'),
         _op('max_access'),
         _val('READ'),
         _ef('DENY write · HTTP 403 si intenta modificar'),
-      ]),
+      ], verbo: 'write'),
     ]),
 
-    NodoTemplate('button_rules[]', TipoNodo.regla, valor: 'CAPA 4 · botones con PYSON',
+    NodoTemplate('button_rules', TipoNodo.politica, valor: 'CAPA 4 · botones con PYSON',
         help: 'PCI 7.3.1 — users_required + condition_pyson + sod_cannot_also + step_up_loa.', hijos: [
+      _algo('first-applicable'),
       _ev('venta ≤ 10 000 BOB — aprobación simple', [
         _prop('sale.amount_total'),
         _op('<='),
         _val('10 000 BOB'),
         _ef('users_required = 1 · sin step-up'),
-      ]),
+      ], verbo: 'approve'),
       _ev('venta 10 001–50 000 BOB — doble + WebAuthn', [
         _prop('sale.amount_total'),
         _op('BETWEEN'),
         _val('[10 001, 50 000] BOB'),
         _ef('users_required = 2 · step_up_loa = 3 (WebAuthn)'),
-      ]),
+      ], verbo: 'approve'),
       _ev('pago > 5 000 BOB — SoD', [
         _prop('payment.amount'),
         _op('>'),
         _val('5 000 BOB'),
         _ef('sod_cannot_also: CREADOR ≠ APROBADOR · enforce en validación'),
-      ]),
+      ], verbo: 'approve'),
       _ev('venta > 50 000 BOB — fuera del tier 2', [
         _prop('sale.amount_total'),
         _op('>'),
         _val('50 000 BOB'),
         _ef('DENY · HTTP 403 · "supera límite del rol" · no mostrar botón'),
-      ]),
+      ], verbo: 'approve'),
     ]),
 
-    NodoTemplate('record_rules[]', TipoNodo.regla, valor: 'CAPA 5 · filtros de fila',
+    NodoTemplate('record_rules', TipoNodo.politica, valor: 'CAPA 5 · filtros de fila',
         help: 'NIST 800-162 — filtro automático en CADA consulta.', hijos: [
+      _algo('deny-overrides'),
       _ev('solo registros de su región', [
         _prop('record.territory_code'),
         _op('=='),
         _val('user.territory_code (VEN-NORTH-001)'),
         _ef('WHERE territory_code = :user_territory_code (inyectado automáticamente)'),
-      ]),
+      ], verbo: 'read'),
       _ev('solo sus oportunidades propias', [
         _prop('record.owner_id'),
         _op('=='),
         _val('user.id'),
         _ef('WHERE owner_id = :user_id (inyectado automáticamente)'),
-      ]),
+      ], verbo: 'read'),
       _ev('ventas del equipo (modo manager)', [
         _prop('record.salesperson_team_id'),
         _op('IN'),
         _val('user.managed_team_ids[]'),
         _ef('WHERE salesperson_team_id IN (:managed_teams) — combinado con OR anterior'),
-      ]),
+      ], verbo: 'read'),
     ]),
   ]),
 ]),
@@ -769,7 +833,8 @@ NodoTemplate('D2 · ACCESO FÍSICO', TipoNodo.dominio,
           _a('method_id', 'nfc_desfire | smartcard_x509 | qr_dynamic'),
           _en('min_loa', '2', ['1', '2', '3', '4'],
               help: 'AAL2 mínimo — acceso físico siempre requiere posesión verificada.'),
-          NodoTemplate('condiciones[]', TipoNodo.lista, hijos: [
+          NodoTemplate('condiciones', TipoNodo.politica,
+              help: 'Cada eval selecciona el método físico primario según el nivel de seguridad de la zona.', hijos: [
             _ev('zonas estándar (security_level 1-2) → NFC', [
               _prop('zone.physical_security_level'),
               _op('BETWEEN'),
@@ -794,7 +859,8 @@ NodoTemplate('D2 · ACCESO FÍSICO', TipoNodo.dominio,
             _a('2 · smartcard_x509', 'PKCS#11 físico · security_level 4 · amr=sc'),
             _a('3 · pin_pad', 'PIN OSDP · SOLO como 2.º factor (conocimiento) · amr=pin'),
           ]),
-          NodoTemplate('condiciones[]', TipoNodo.lista, hijos: [
+          NodoTemplate('condiciones', TipoNodo.politica,
+              help: 'Cada eval selecciona el segundo factor físico según el nivel crítico de la zona.', hijos: [
             _ev('zona restringida (security_level 3) → biométrico', [
               _prop('zone.physical_security_level'),
               _op('=='),
@@ -810,7 +876,7 @@ NodoTemplate('D2 · ACCESO FÍSICO', TipoNodo.dominio,
           ]),
         ]),
 
-        NodoTemplate('step_up_triggers[]', TipoNodo.regla,
+        NodoTemplate('step_up_triggers', TipoNodo.politica,
             help: 'Orden=3. Elevación física en tiempo real — alarma del controlador OSDP.', hijos: [
           _ev('anti-passback detectado → step-up biométrico', [
             _prop('event.dual_badge_sequence_detected'),
@@ -873,7 +939,7 @@ NodoTemplate('D2 · ACCESO FÍSICO', TipoNodo.dominio,
       ]),
     ]),
 
-    NodoTemplate('zones_access_rules', TipoNodo.regla,
+    NodoTemplate('zones_access_rules', TipoNodo.politica,
         help: 'Decisión de acceso por zona. Default DENY implícito.', hijos: [
       _ev('zona ventas — acceso completo', [
         _prop('zone.id'),
@@ -990,7 +1056,7 @@ NodoTemplate('D3 · FINANCIERO', TipoNodo.dominio,
       _a('requires_dual_approval_above', '10 000', help: '2 aprobadores distintos.'),
     ]),
 
-    NodoTemplate('sod_rules[]', TipoNodo.regla, help: 'AC-5 · INCITS 359 SSD. Evaluado ANTES de guardar.', hijos: [
+    NodoTemplate('sod_rules', TipoNodo.politica, help: 'AC-5 · INCITS 359 SSD. Evaluado ANTES de guardar.', hijos: [
       _ev('crear venta ⊥ aprobar venta', [
         _prop('user.active_roles'),
         _op('INTERSECT'),
@@ -1090,9 +1156,10 @@ NodoTemplate('D5 · BIOMÉTRICO', TipoNodo.dominio,
   NodoTemplate('B5 · biometric_enrollment_policy', TipoNodo.politica, hijos: [
     _ev('modo de enrolamiento', [
       _prop('enrollment.mode'),
-      _op('!='),
-      _val('admin_only OR self_service (sin aprobación)'),
-      _ef('require modo hybrid: usuario registra + admin aprueba'),
+      _op('NOT_IN'),
+      _val('[hybrid]',
+          help: 'Único modo válido: hybrid — usuario registra biométrico, admin aprueba.'),
+      _ef('DENY enrolamiento · require modo hybrid: usuario registra + admin aprueba'),
     ]),
     _ev('detección de vida requerida', [
       _prop('enrollment.liveness_check'),
@@ -1154,17 +1221,21 @@ NodoTemplate('D6 · GEOESPACIAL', TipoNodo.dominio,
       ]),
     ]),
 
-    NodoTemplate('validation_rules', TipoNodo.regla, hijos: [
-      _ev('VPN requerida en remoto', [
-        _prop('connection.type == REMOTE AND connection.vpn_active'),
-        _op('=='),
-        _val('false'),
+    NodoTemplate('validation_rules', TipoNodo.politica, hijos: [
+      NodoTemplate('VPN requerida en remoto', TipoNodo.regla, hijos: [
+        _ev('conexión remota', [_prop('connection.type'), _op('=='), _val('REMOTE')]),
+        _olo('AND'),
+        _ev('VPN inactiva', [_prop('connection.vpn_active'), _op('=='), _val('false')]),
         _ef('DENY acceso · "VPN requerida para acceso remoto"'),
       ]),
-      _ev('attestation GPS en roaming', [
-        _prop('location.roaming AND gps_attestation.accuracy_meters'),
-        _op('>'),
-        _val('500'),
+      NodoTemplate('attestation GPS en roaming', TipoNodo.regla, hijos: [
+        _ev('usuario en roaming', [_prop('location.roaming'), _op('=='), _val('true')]),
+        _olo('AND'),
+        _ev('precisión GPS insuficiente', [
+          _prop('gps_attestation.accuracy_meters'),
+          _op('>'),
+          _val('500', help: 'Tolerancia: ≤500 m requeridos para attestation válida.'),
+        ]),
         _ef('DENY · "Precisión GPS insuficiente (requerido: ≤500 m)"'),
       ]),
       _ev('velocidad imposible (suplantación de ubicación)', [
@@ -1173,10 +1244,10 @@ NodoTemplate('D6 · GEOESPACIAL', TipoNodo.dominio,
         _val('1 200', help: 'Tolerancia 10 km. Físicamente imposible.'),
         _ef('DENY + alert CISO + session.revoke (CAEP session-revoked)'),
       ]),
-      _ev('operación financiera desde home_office', [
-        _prop('location.type == home_office AND action.zone'),
-        _op('STARTS_WITH'),
-        _val('zone_financial'),
+      NodoTemplate('operación financiera desde home_office', TipoNodo.regla, hijos: [
+        _ev('acceso desde home_office', [_prop('location.type'), _op('=='), _val('home_office')]),
+        _olo('AND'),
+        _ev('zona financiera', [_prop('action.zone'), _op('STARTS_WITH'), _val('zone_financial')]),
         _ef('DENY · "Operaciones financieras requieren red segura"'),
       ]),
     ]),
@@ -1233,7 +1304,7 @@ NodoTemplate('D7 · RED', TipoNodo.dominio,
     ]),
     _en('mtls_required', 'true', ['true', 'false'],
         help: 'Certificado de cliente por request. RFC 8705.'),
-    NodoTemplate('api_gateway_rules', TipoNodo.regla, hijos: [
+    NodoTemplate('api_gateway_rules', TipoNodo.politica, hijos: [
       _ev('rate limit por minuto', [
         _prop('request.rate_per_minute'),
         _op('>'),
@@ -1312,7 +1383,7 @@ NodoTemplate('D8 · CONTEXTO / SESIÓN', TipoNodo.dominio,
       ]),
     ]),
 
-    NodoTemplate('adaptive_policies[]', TipoNodo.regla, hijos: [
+    NodoTemplate('adaptive_policies', TipoNodo.politica, hijos: [
       _ev('riesgo moderado — step-up', [
         _prop('risk.score'),
         _op('BETWEEN'),
@@ -1378,12 +1449,15 @@ NodoTemplate('D9 · CREDENCIALES', TipoNodo.dominio,
         _val('15', help: 'NIST 800-63B-4 §5.1.1.1 — 15 chars si es el único factor.'),
         _ef('DENY · "Mínimo 15 caracteres (contraseña única)"'),
       ]),
-      _ev('longitud mínima (con MFA adicional)', [
-        _prop('password.length AND session.mfa_enrolled'),
-        _op('<'),
-        _val('8 (MFA presente)',
-            help: 'Con MFA adicional el mínimo baja a 8 chars según 800-63B-4.'),
-        _ef('DENY · "Mínimo 8 caracteres"'),
+      NodoTemplate('longitud mínima (con MFA adicional)', TipoNodo.regla, hijos: [
+        _ev('MFA enrollado', [_prop('session.mfa_enrolled'), _op('=='), _val('true')]),
+        _olo('AND'),
+        _ev('contraseña muy corta', [
+          _prop('password.length'),
+          _op('<'),
+          _val('8', help: 'Con MFA adicional el mínimo baja a 8 chars según 800-63B-4.'),
+        ]),
+        _ef('DENY · "Mínimo 8 caracteres (con MFA presente)"'),
       ]),
       _ev('longitud máxima', [
         _prop('password.length'),
@@ -1416,10 +1490,14 @@ NodoTemplate('D9 · CREDENCIALES', TipoNodo.dominio,
         _val('(cualquier valor periódico)'),
         _ef('DENY configuración · NIST 800-63B-4 eliminó rotación periódica'),
       ]),
-      _ev('hints y preguntas de seguridad — PROHIBIDOS', [
-        _prop('password_policy.hints_enabled OR security_questions_enabled'),
-        _op('=='),
-        _val('true'),
+      NodoTemplate('hints y preguntas de seguridad — PROHIBIDOS', TipoNodo.regla, hijos: [
+        _ev('hints habilitados', [_prop('password_policy.hints_enabled'), _op('=='), _val('true')]),
+        _olo('OR'),
+        _ev('preguntas de seguridad habilitadas', [
+          _prop('password_policy.security_questions_enabled'),
+          _op('=='),
+          _val('true'),
+        ]),
         _ef('DENY configuración · NIST 800-63B-4 §5.1.1.2 los prohíbe'),
       ]),
     ]),
@@ -1487,7 +1565,7 @@ NodoTemplate('D9 · CREDENCIALES', TipoNodo.dominio,
       ]),
     ]),
 
-    NodoTemplate('privilege_creep_detection', TipoNodo.regla, hijos: [
+    NodoTemplate('privilege_creep_detection', TipoNodo.politica, hijos: [
       _ev('período de revisión vencido', [
         _prop('permission.days_since_last_review'),
         _op('>'),
@@ -1516,7 +1594,7 @@ NodoTemplate('D10 · DELEGACIÓN', TipoNodo.dominio,
     _a('delegable_to_roles[]', '["VEN-JUNIOR-001","VEN-TRAINEE-001"]',
         help: 'Solo roles inferiores — jamás hacia arriba (AC-6(3)).'),
 
-    NodoTemplate('non_delegable_permissions[]', TipoNodo.regla,
+    NodoTemplate('non_delegable_permissions', TipoNodo.politica,
         help: 'Lista negra absoluta de delegación (AC-6(3)). Ninguna excepción.', hijos: [
       _ev('aprobación de ventas — no delegable', [
         _prop('delegation.permission'),
@@ -1572,7 +1650,7 @@ NodoTemplate('D10 · DELEGACIÓN', TipoNodo.dominio,
 
   NodoTemplate('B12 · Gestión de conflictos (SSD/SoD)', TipoNodo.bloque,
       help: 'INCITS 359 SSD · AC-5.', hijos: [
-    NodoTemplate('incompatible_roles[]', TipoNodo.regla, hijos: [
+    NodoTemplate('incompatible_roles', TipoNodo.politica, hijos: [
       _ev('gerente ventas ⊥ auditor financiero', [
         _prop('user.concurrent_roles'),
         _op('INTERSECT'),
@@ -1586,7 +1664,7 @@ NodoTemplate('D10 · DELEGACIÓN', TipoNodo.dominio,
         _ef('severity CRITICAL → DENY'),
       ]),
     ]),
-    NodoTemplate('conflict_validation', TipoNodo.regla, hijos: [
+    NodoTemplate('conflict_validation', TipoNodo.politica, hijos: [
       _ev('tiempo de evaluación', [
         _prop('conflict.evaluation_timing'),
         _op('!='),
@@ -1646,7 +1724,7 @@ NodoTemplate('D11 · AUDITORÍA', TipoNodo.dominio,
       _a('ISO_27001_2022', 'A.8.15 logging · A.5.15 access control · revisión semestral'),
       _a('Ley_164_Bolivia', 'firma digital · registros electrónicos · validez jurídica'),
     ]),
-    NodoTemplate('change_tracking', TipoNodo.regla, hijos: [
+    NodoTemplate('change_tracking', TipoNodo.politica, hijos: [
       _ev('eventos de auditoría obligatorios', [
         _prop('audit.event_type'),
         _op('IN'),
@@ -1698,7 +1776,7 @@ NodoTemplate('D12 · BLOCKCHAIN / ANCLAJE', TipoNodo.dominio,
         _ef('DENY · "Acceso SIEMPRE vía daemon bnexus — jamás directo al nodo"'),
       ]),
     ]),
-    NodoTemplate('smart_contract_permissions[]', TipoNodo.regla, hijos: [
+    NodoTemplate('smart_contract_permissions', TipoNodo.politica, hijos: [
       _ev('método no autorizado', [
         _prop('contract.method_name'),
         _op('NOT_IN'),
@@ -1764,10 +1842,10 @@ NodoTemplate('D13 · FIRMA DIGITAL EXTERNA', TipoNodo.dominio,
         _val('[ADSIB-FD-POLT-015 v2.3, CA_TRUSTED_LIST_BOLIVIA]'),
         _ef('DENY firma · "Certificado emitido por CA no reconocida en Bolivia"'),
       ]),
-      _ev('vigencia del certificado', [
-        _prop('cert.is_expired OR cert.revoked'),
-        _op('=='),
-        _val('true'),
+      NodoTemplate('vigencia del certificado', TipoNodo.regla, hijos: [
+        _ev('certificado expirado', [_prop('cert.is_expired'), _op('=='), _val('true')]),
+        _olo('OR'),
+        _ev('certificado revocado', [_prop('cert.revoked'), _op('=='), _val('true')]),
         _ef('DENY firma · validar contra OCSP/CRL de ADSIB en tiempo real'),
       ]),
       _ev('emisor autorizado', [

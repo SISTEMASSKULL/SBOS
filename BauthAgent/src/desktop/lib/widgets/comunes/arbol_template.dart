@@ -19,7 +19,7 @@ import '../../datos/rol_template_datos.dart';
       TipoNodo.lista => ('LISTA', cs.mutedForeground),
       TipoNodo.politica => ('POLÍTICA', cs.primary),
       TipoNodo.regla => ('REGLA', Colors.amber.shade600),
-      TipoNodo.evaluacion => ('EVAL', Colors.teal.shade400),
+      TipoNodo.evaluacion => ('ATOM', Colors.teal.shade400),
       TipoNodo.enumerado => ('ENUM', Colors.violet.shade400),
       _ => ('', cs.mutedForeground),
     };
@@ -168,7 +168,7 @@ class _ArbolTemplateState extends State<ArbolTemplate> {
   }
 }
 
-/// Badge del tipo de rama (OBJETO/LISTA/POLÍTICA/REGLA).
+/// Badge del tipo de rama (OBJETO/LISTA/POLÍTICA/REGLA/EVAL/ENUM).
 class _BadgeTipo extends StatelessWidget {
   final TipoNodo tipo;
   const _BadgeTipo({required this.tipo});
