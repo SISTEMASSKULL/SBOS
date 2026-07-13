@@ -2,19 +2,23 @@
 // bauth_desktop · vistas/vista_rol_template.dart
 //
 // Propósito: VISTA «Rol Template» — árbol completo de los 14 dominios del
-//   RolTemplate global. Muestra la ruta del nodo seleccionado en una barra
-//   compacta con botón de copia al portapapeles, para referenciar nodos
-//   exactos en conversaciones de depuración y reparación.
+//   RolTemplate global. Panel central con 3 tabs:
+//     Tab 0 · Árbol Fuente    — árbol SOURCE (RolTemplate v6.0)
+//     Tab 1 · Lenguaje        — vocabulario AtomLang v1 (palabras reservadas)
+//     Tab 2 · Árbol Compilado — placeholder (fase 3 — atomc)
+//   Barra de ruta con copia al portapapeles. Panel de ayuda inferior.
 // Dependencias: tf_shadcn_flutter, flutter/services,
-//   datos/{arbol_datos,rol_template_datos},
+//   datos/{arbol_datos, rol_template_datos, atomlang_datos},
 //   widgets/comunes/{arbol_sbos, arbol_template, panel_lateral, tira_tabs}.
-// Estándar: Anexo A.01 (RolTemplate v6.0) · DOC-SBOS-001 N3.
+// Estándar: Anexo A.01 (RolTemplate v6.0) · AtomLang-especificacion-completa.md
+//           · DOC-SBOS-001 N3.
 // ============================================================
 
 import 'package:flutter/services.dart';
 import 'package:tf_shadcn_flutter/shadcn_flutter.dart';
 
 import '../datos/arbol_datos.dart';
+import '../datos/atomlang_datos.dart';
 import '../datos/rol_template_datos.dart';
 import '../widgets/comunes/arbol_sbos.dart';
 import '../widgets/comunes/arbol_template.dart';
@@ -30,9 +34,22 @@ class VistaRolTemplate extends StatefulWidget {
 }
 
 class _VistaRolTemplateState extends State<VistaRolTemplate> {
+  /// 0 = Árbol Fuente · 1 = Lenguaje AtomLang · 2 = Árbol Compilado.
+  int _tabArbol = 0;
+
   NodoTemplate? _seleccion;
   String _ruta = '';
   bool _copiado = false;
+
+  /// Cambia el tab activo y limpia la selección actual.
+  void _cambiarTab(int idx) {
+    setState(() {
+      _tabArbol = idx;
+      _seleccion = null;
+      _ruta = '';
+      _copiado = false;
+    });
+  }
 
   /// DFS recursivo que devuelve la ruta completa del nodo objetivo.
   /// Usa el separador › para distinguirla de rutas de archivo.
@@ -45,6 +62,18 @@ class _VistaRolTemplateState extends State<VistaRolTemplate> {
       if (sub.isNotEmpty) return sub;
     }
     return '';
+  }
+
+  /// Árbol activo según el tab seleccionado.
+  List<NodoTemplate> get _arbolActivo =>
+      _tabArbol == 0 ? arbolRolTemplate : arbolAtomLang;
+
+  /// Registra la selección y calcula la ruta en el árbol activo.
+  void _seleccionar(NodoTemplate n) {
+    setState(() {
+      _seleccion = n;
+      _ruta = _calcularRuta(_arbolActivo, n, '');
+    });
   }
 
   /// Copia la ruta actual al portapapeles y activa el indicador visual por 2 s.
@@ -81,16 +110,15 @@ class _VistaRolTemplateState extends State<VistaRolTemplate> {
                   color: cs.background,
                   child: Column(
                     children: [
-                      Expanded(
-                        child: ArbolTemplate(
-                          nodos: arbolRolTemplate,
-                          seleccionado: _seleccion,
-                          alSeleccionar: (n) => setState(() {
-                            _seleccion = n;
-                            _ruta = _calcularRuta(arbolRolTemplate, n, '');
-                          }),
-                        ),
+                      // ── Barra de tabs interior del árbol ──────────────────
+                      TiraTabs(
+                        tabs: const ['Árbol Fuente', 'Lenguaje AtomLang', 'Árbol Compilado'],
+                        activa: _tabArbol,
+                        alSeleccionar: _cambiarTab,
                       ),
+                      // ── Contenido según tab activo ────────────────────────
+                      Expanded(child: _contenidoTab(cs)),
+                      // ── Barra de ruta + panel de ayuda (comunes) ──────────
                       _BarraRuta(
                         ruta: _ruta,
                         copiado: _copiado,
@@ -111,6 +139,88 @@ class _VistaRolTemplateState extends State<VistaRolTemplate> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _contenidoTab(ColorScheme cs) {
+    switch (_tabArbol) {
+      case 0:
+        return ArbolTemplate(
+          nodos: arbolRolTemplate,
+          seleccionado: _seleccion,
+          alSeleccionar: _seleccionar,
+        );
+      case 1:
+        return ArbolTemplate(
+          nodos: arbolAtomLang,
+          seleccionado: _seleccion,
+          alSeleccionar: _seleccionar,
+        );
+      default:
+        return _PlaceholderCompiladoTab(cs: cs);
+    }
+  }
+}
+
+/// Placeholder para el tab «Árbol Compilado» (fase 3 — atomc).
+class _PlaceholderCompiladoTab extends StatelessWidget {
+  final ColorScheme cs;
+  const _PlaceholderCompiladoTab({required this.cs});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final s = theme.scaling;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(LucideIcons.cpu, size: 40 * s, color: cs.mutedForeground.withValues(alpha: 0.4)),
+          SizedBox(height: 16 * s),
+          Text(
+            'Árbol Compilado',
+            style: TextStyle(fontSize: 14 * s, fontWeight: FontWeight.w700, color: cs.foreground),
+          ),
+          SizedBox(height: 8 * s),
+          Text(
+            'Fase 3 — Pendiente',
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 10 * s,
+              color: cs.primary.withValues(alpha: 0.7),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          SizedBox(height: 16 * s),
+          SizedBox(
+            width: 340 * s,
+            child: Text(
+              'Este panel mostrará el árbol técnico (IR) generado por atomc '
+              'a partir del Árbol Fuente. Solo contiene IDs, enums y valores '
+              'tipados — cero strings comparados en runtime.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 11 * s, height: 1.6, color: cs.mutedForeground),
+            ),
+          ),
+          SizedBox(height: 24 * s),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 12 * s, vertical: 6 * s),
+            decoration: BoxDecoration(
+              color: cs.muted.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(4 * s),
+              border: Border.all(color: cs.border),
+            ),
+            child: Text(
+              'atomc compile .atm.yaml → bos_atom_compiled',
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 10 * s,
+                color: cs.mutedForeground,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
