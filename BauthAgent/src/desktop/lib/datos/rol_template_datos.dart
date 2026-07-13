@@ -618,26 +618,177 @@ NodoTemplate('D1 · ACCESO LÓGICO', TipoNodo.dominio,
 
   // ── B6 Zonas de negocio ───────────────────────────────────
   NodoTemplate('B6 · Zonas de negocio', TipoNodo.bloque,
-      help: 'Zonas abstractas + verbos autorizados. XACML 3.0 · NIST 800-162.', hijos: [
-    NodoTemplate('zones{}', TipoNodo.objeto,
-        help: 'Clave = zona abstracta. Verbos: READ/WRITE/DELETE/APPROVE/EXECUTE/CONFIGURE/AUDIT/EMIT.', hijos: [
-      NodoTemplate('zone_logical/ventas', TipoNodo.objeto, hijos: [
-        _a('verbs', '["READ","WRITE","APPROVE","EXECUTE"]'),
-        _en('scope', 'REGIONAL', ['GLOBAL', 'REGIONAL', 'LOCAL', 'PERSONAL']),
-        _a('max_record_limit', '1000'),
-      ]),
-      NodoTemplate('zone_logical/clientes', TipoNodo.objeto, hijos: [
-        _a('verbs', '["READ","WRITE"]'),
-        _en('pii_access', 'true', ['true', 'false'],
-            help: 'Logging extra + masking_policy(lastFourVisible). RGPD Art. 5.'),
-        _a('masking_policy', 'lastFourVisible (DNI, teléfono, email parcial)'),
-      ]),
-      NodoTemplate('zone_financial/ventas', TipoNodo.objeto, hijos: [
-        _a('limit_tier', '2', help: '0=sin ops · 1=1k · 2=10k · 3=50k · 4=200k · 5=sin límite.'),
-        _a('sod_cannot_also', 'zone_financial/ventas:AUDIT'),
-        _a('requires_dual_approval_above', '10 000 BOB'),
-        _a('currency', 'BOB'),
-      ]),
+      help: 'Átomos de acceso por perímetro de negocio (application_id = null · Caso 2 Guardrail). '
+            'Cada zona es una Policy con combining_algorithm propio. '
+            'XACML 3.0 · NIST SP 800-162 · ISO 27001 A.8.3.', hijos: [
+
+    // ── zona_logical_ventas ──────────────────────────────
+    NodoTemplate('zona_logical_ventas', TipoNodo.politica,
+        valor: 'ZONA · Lógica / Ventas',
+        help: 'Perímetro lógico de ventas. Scope = REGIONAL. '
+              'Límite anti-exfiltración: 1 000 registros por consulta. '
+              'SoD implícito: quien crea ≠ quien aprueba (AC-5).', hijos: [
+      _algo('deny-overrides'),
+
+      _ev('zone_ventas_read', [
+        _a('subject', 'ANY',
+            help: 'Cualquier usuario autenticado puede leer registros de ventas dentro de su scope regional.'),
+        _a('resource', 'zone_logical/ventas'),
+        _prop('zone.scope'),
+        _op('=='),
+        _val('REGIONAL'),
+        _olo('AND'),
+        _prop('query.record_count'),
+        _op('<='),
+        _val('1000'),
+        _ef('PERMIT · scope=REGIONAL · max_records=1000 · audit=on'),
+      ], verbo: 'read',
+        help: 'Lectura permitida dentro del scope regional. '
+              'ISO 27001 A.8.15: toda lectura genera evento de auditoría.'),
+
+      _ev('zone_ventas_read_sobre_limite · DENY exfiltración', [
+        _a('subject', 'ANY'),
+        _a('resource', 'zone_logical/ventas'),
+        _prop('query.record_count'),
+        _op('>'),
+        _val('1000'),
+        _ef('DENY · ZONE_EXFIL_LIMIT · alerta SIEM'),
+      ], verbo: 'read',
+        help: 'DENY explícito cuando la consulta supera el límite anti-exfiltración. NIST SI-4.'),
+
+      _ev('zone_ventas_write', [
+        _a('subject', 'SET(vendedores)',
+            help: 'D98 · bos_group.vendedores — pendiente declarar en D98 · Registro Estructural.'),
+        _a('resource', 'zone_logical/ventas'),
+        _prop('zone.scope'),
+        _op('=='),
+        _val('REGIONAL'),
+        _ef('PERMIT · audit=on'),
+      ], verbo: 'write',
+        help: 'Creación y modificación de registros en zona ventas. '
+              'Solo SET(vendedores). Scope regional obligatorio.'),
+
+      _ev('zone_ventas_approve', [
+        _a('subject', 'SET(gerentes_ventas)',
+            help: 'D98 · bos_group.gerentes_ventas — pendiente declarar en D98 · Registro Estructural.'),
+        _a('resource', 'zone_logical/ventas'),
+        _ef('PERMIT · audit=on · notify=supervisor'),
+      ], verbo: 'approve',
+        help: 'Aprobación de operaciones en zona ventas. '
+              'AC-5 SoD implícito: quien crea (SET vendedores) ≠ quien aprueba (SET gerentes_ventas).'),
+
+      _ev('zone_ventas_execute', [
+        _a('subject', 'SET(vendedores)',
+            help: 'D98 · bos_group.vendedores'),
+        _a('resource', 'zone_logical/ventas'),
+        _prop('zone.scope'),
+        _op('=='),
+        _val('REGIONAL'),
+        _ef('PERMIT · audit=on'),
+      ], verbo: 'execute',
+        help: 'Ejecución de operaciones (confirmar pedido, cerrar venta) dentro del scope regional.'),
+    ]),
+
+    // ── zona_logical_clientes ────────────────────────────
+    NodoTemplate('zona_logical_clientes', TipoNodo.politica,
+        valor: 'ZONA · Lógica / Clientes',
+        help: 'Perímetro de datos de clientes (PII). '
+              'Masking obligatorio en toda lectura. Logging extra. '
+              'RGPD Art. 5 · ISO 27001 A.8.11.', hijos: [
+      _algo('deny-overrides'),
+
+      _ev('zone_clientes_read', [
+        _a('subject', 'ANY',
+            help: 'Cualquier usuario autenticado puede leer, sujeto a masking automático por rol.'),
+        _a('resource', 'zone_logical/clientes'),
+        _a('pii_access', 'true'),
+        _ef('PERMIT · masking=lastFourVisible(DNI,telefono,email) · audit=PII_READ · logging=extra'),
+      ], verbo: 'read',
+        help: 'Lectura PII con masking automático. '
+              'DNI / teléfono / email → últimos 4 caracteres visibles. '
+              'Evento PII_READ obligatorio. RGPD Art. 5(f).'),
+
+      _ev('zone_clientes_write', [
+        _a('subject', 'SET(atencion_clientes)',
+            help: 'D98 · bos_group.atencion_clientes — pendiente declarar en D98 · Registro Estructural.'),
+        _a('resource', 'zone_logical/clientes'),
+        _a('pii_access', 'true'),
+        _prop('ctx.justificacion_presente'),
+        _op('=='),
+        _val('true'),
+        _ef('PERMIT · audit=PII_MODIFICATION · logging=extra'),
+      ], verbo: 'write',
+        help: 'Modificación PII solo para atención a clientes, con justificación documentada. '
+              'RGPD Art. 5(b) — limitación de finalidad. ISO 27001 A.8.11.'),
+
+      _ev('zone_clientes_write_sin_justificacion · DENY', [
+        _a('subject', 'ANY'),
+        _a('resource', 'zone_logical/clientes'),
+        _prop('ctx.justificacion_presente'),
+        _op('=='),
+        _val('false'),
+        _ef('DENY · PII_NO_JUSTIFICATION · alerta SIEM'),
+      ], verbo: 'write',
+        help: 'DENY explícito si la escritura PII no lleva justificación. '
+              'RGPD requiere documentar la base legal de cada modificación de datos personales.'),
+    ]),
+
+    // ── zona_financial_ventas ────────────────────────────
+    NodoTemplate('zona_financial_ventas', TipoNodo.politica,
+        valor: 'ZONA · Financiera / Ventas',
+        help: 'Perímetro financiero de ventas. Tier 2 = hasta 10 000 BOB. '
+              'Aprobación dual obligatoria > 10 000 BOB. '
+              'SoD: aprobador ≠ auditor de la misma zona. '
+              'ISO 27001 A.5.15 · NIST AC-5 · PCI DSS 4.0.', hijos: [
+      _algo('deny-overrides'),
+
+      _ev('zone_financial_approve_dentro_tier', [
+        _a('subject', 'SET(financieros_tier2)',
+            help: 'D98 · bos_group.financieros_tier2 — límite de aprobación = 10 000 BOB.'),
+        _a('resource', 'zone_financial/ventas'),
+        _prop('transaction.amount_bob'),
+        _op('<='),
+        _val('10000'),
+        _ef('PERMIT · audit=on · currency=BOB'),
+      ], verbo: 'approve',
+        help: 'Aprobación de transacciones dentro del tier 2 (≤ 10 000 BOB). '
+              'PCI DSS 4.0 Req 7.2.4.'),
+
+      _ev('zone_financial_approve_sobre_tier · DENY requiere aprobación dual', [
+        _a('subject', 'SET(financieros_tier2)'),
+        _a('resource', 'zone_financial/ventas'),
+        _prop('transaction.amount_bob'),
+        _op('>'),
+        _val('10000'),
+        _ef('DENY · AMOUNT_EXCEEDS_TIER · pendiente=aprobacion_dual · notify=gerente_financiero'),
+      ], verbo: 'approve',
+        help: 'DENY para financieros tier 2 cuando el monto supera 10 000 BOB. '
+              'La operación queda en espera de aprobación dual del tier superior. '
+              'PCI DSS 4.0 Req 7.2.4 · ISO 27001 A.5.15.'),
+
+      _ev('zone_financial_emit', [
+        _a('subject', 'SET(financieros_tier2)',
+            help: 'D98 · bos_group.financieros_tier2'),
+        _a('resource', 'zone_financial/ventas'),
+        _prop('transaction.amount_bob'),
+        _op('<='),
+        _val('10000'),
+        _ef('PERMIT · audit=on · emit_receipt=true · currency=BOB'),
+      ], verbo: 'emit',
+        help: 'Emisión de comprobantes de operación financiera dentro del tier. '
+              'Ley 843 Bolivia (facturación electrónica).'),
+
+      _ev('zone_financial_audit_sod · DENY violación SoD', [
+        _a('subject', 'ANY'),
+        _a('resource', 'zone_financial/ventas'),
+        _prop('ctx.subject_also_approver_in_zone'),
+        _op('=='),
+        _val('zone_financial/ventas'),
+        _ef('DENY · SOD_VIOLATION · audit=SOD_ATTEMPT · alerta SIEM · notifica compliance'),
+      ], verbo: 'audit',
+        help: 'SoD duro: quien tiene APPROVE en zone_financial/ventas NO puede ejecutar AUDIT. '
+              'NIST AC-5 · ISO 27001 A.5.18. '
+              'Violación genera alerta inmediata en SIEM y notifica compliance.'),
     ]),
   ]),
 
