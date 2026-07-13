@@ -171,6 +171,136 @@ Y debe resolver explícitamente el caso del defecto #3 (múltiples Atoms aplicab
 
 ---
 
+### 3.7 Distinción fundamental: Rule dentro de Aplicación vs. Rule Guardrail transversal
+
+Un Atom (Rule) en AtomLang puede existir en **dos contextos radicalmente diferentes** según el valor de `application_id`. La estructura interna del Atom — Target, Condition, Effect — es **idéntica en ambos casos**; lo que cambia es el contexto contenedor y el alcance de evaluación.
+
+---
+
+#### Caso 1 — Rule dentro de una Aplicación (`application_id != NULL`)
+
+Un Atom vive **dentro de un módulo de negocio concreto** (una fila de `bos_application`, ej. `tryton.account`, `bos_crm`, `bos_rrhh`). Existe una **Policy** que agrupa todos los Rules del mismo módulo y declara el `combining_algorithm` que los combina.
+
+**Cuándo aplica:**
+- El Atom regula operaciones específicas del módulo (ej. `approve`, `reconcile`, `void` dentro de `tryton.account`).
+- Coexisten varios Atoms del mismo módulo → la Policy los agrupa y el `combining_algorithm` resuelve su resultado conjunto.
+- El nodo Policy representa "las reglas de acceso del módulo X".
+
+```yaml
+# Caso 1 — Rule de Aplicación: tryton.account
+policy:
+  policy_id: tryton_account_pagos
+  application_id: 7              # FK a bos_application → tryton.account
+  combining_algorithm: deny-overrides
+
+  atoms:
+    - atom_id: payment_supplier_approve
+      verbo: approve
+      target:
+        subject: SET(analistas_y_finanzas)
+        resource: payment_supplier_transaction
+      condition:
+        propiedad: proveedor_estado
+        operador: "=="
+        valor: activo
+      effect:
+        decision: Permit
+
+    - atom_id: payment_supplier_reconcile
+      verbo: reconcile
+      target:
+        subject: SET(contadores)
+        resource: payment_supplier_transaction
+      condition: null
+      effect:
+        decision: Permit
+
+    - atom_id: payment_supplier_void
+      verbo: delete
+      target:
+        subject: SET(gerentes_finanzas)
+        resource: payment_supplier_transaction
+      condition: null
+      effect:
+        decision: Permit
+```
+
+**Invariante de compilador:** si `application_id != NULL`, el Atom DEBE estar dentro de una Policy con `combining_algorithm` declarado. Violación → **ATOMC-E-031** ("Atom de aplicación sin `combining_algorithm` en Policy contenedora").
+
+---
+
+#### Caso 2 — Rule Guardrail transversal (`application_id = NULL`)
+
+Un Atom **no pertenece a ningún módulo específico**: es una regla de guardia transversal que actúa como pre-filtro reutilizable delante de múltiples aplicaciones. Al ser autónomo, no necesita agruparse en una Policy con `combining_algorithm`.
+
+**Cuándo aplica:**
+- La restricción es universal, independiente del módulo en evaluación (ej. "monto > 3 000 BOB siempre requiere aprobación", "fuera de horario laboral denegar acceso a zona segura").
+- Un único Atom expresa la decisión completa — no necesita combinarse con otros Rules del mismo módulo.
+- La regla se **reutiliza** como guardrail delante de varios módulos sin duplicar la lógica.
+
+```yaml
+# Caso 2 — Rule Guardrail: restricción financiera transversal
+atomlang_version: 1
+
+atom:
+  atom_id: payment_amount_threshold_check
+  application_id: null           # guardrail — no pertenece a ningún módulo concreto
+  verbo: procesar
+  target:
+    subject: ANY
+    resource: transaccion
+  condition:
+    propiedad: transaction_amount_bob
+    operador: ">"
+    valor: 3000
+  effect:
+    decision: Deny
+    obligation:
+      reason: monto_supera_limite_aprobacion_automatica
+```
+
+**Invariante de compilador:** un Atom con `application_id = NULL` NO requiere Policy contenedora con `combining_algorithm` en su nodo inmediato padre. La validación **ATOMC-E-031 no se activa** para este caso. Si varios Guardrails se agrupan en un PolicySet, ese PolicySet sí debe declarar su propio `combining_algorithm`, pero cada Atom sigue teniendo `application_id = NULL`.
+
+---
+
+#### Tabla comparativa
+
+| Atributo | Caso 1 — Rule de Aplicación | Caso 2 — Rule Guardrail |
+|---|---|---|
+| `application_id` | `INTEGER` (FK a `bos_application`) | `NULL` |
+| Policy contenedora | **Obligatoria** (con `combining_algorithm`) | Opcional |
+| `combining_algorithm` | **Obligatorio** en la Policy | No requerido por el Atom |
+| Alcance | Específico del módulo | Transversal — cualquier recurso / módulo |
+| Reusabilidad | Solo dentro del módulo vinculado | Reutilizable en múltiples aplicaciones |
+| Orden de evaluación (PDP) | Dentro del contexto de su aplicación | Pre-filtro antes de Rules de módulo |
+| Ejemplo típico | "¿Puede este rol aprobar facturas en `tryton.account`?" | "¿Supera el monto el umbral de aprobación automática?" |
+
+---
+
+#### Estructura interna idéntica — solo cambia el contexto padre
+
+El evaluador (PDP) aplica el **mismo algoritmo** de §7.2 a cualquier Atom, independientemente de `application_id`. La distinción no altera la lógica de evaluación de un Atom individual; altera el **contexto en que ese Atom se invoca** y **si su Policy contenedora necesita `combining_algorithm`**.
+
+```
+Caso 1:
+  PolicySet
+    └── Policy [application_id=7, combining_algorithm=deny-overrides]
+              ├── Atom [payment_supplier_approve]
+              ├── Atom [payment_supplier_reconcile]
+              └── Atom [payment_supplier_void]
+
+Caso 2 (standalone):
+  PolicySet
+    └── Atom [application_id=null, payment_amount_threshold_check]
+
+Caso 2 (guardrails agrupados):
+  PolicySet [combining_algorithm=deny-overrides]
+    ├── Atom [application_id=null, payment_amount_threshold_check]
+    └── Atom [application_id=null, horario_laboral_check]
+```
+
+---
+
 ## 4. Brecha entre lo que existe hoy y lo que se necesita
 
 | Componente | Estado actual | Estado objetivo |
@@ -204,11 +334,11 @@ Esta es la definición de tipo que cualquier implementador (humano o agente de I
     },
     "application_id": {
       "type": ["integer", "null"],
-      "description": "FK a bos_application. null == Guardrail Atom (§6.2 del manual base)."
+      "description": "FK a bos_application (Caso 1 — Rule de Aplicación, application_id != null) · null (Caso 2 — Rule Guardrail transversal). Ver §3.7 para la distinción completa y sus invariantes de compilador."
     },
     "policy_id": {
       "type": ["integer", "null"],
-      "description": "FK a la Policy contenedora. null solo permitido si application_id también es null."
+      "description": "FK a la Policy contenedora. Obligatorio cuando application_id != null (Caso 1); null permitido cuando application_id también es null (Caso 2 — Guardrail standalone). Ver §3.7."
     },
     "verb_id": {
       "type": "integer",
@@ -696,13 +826,16 @@ Esto es coherente con tu propio patrón en SBOS: `fabrica.sh`, `CLAUDE.md`, tus 
 
 ### 10.3 Sintaxis final propuesta (ejemplo canónico)
 
+> **Nota:** este ejemplo muestra el **Caso 2 — Rule Guardrail transversal** (`application_id: null`).
+> Para el **Caso 1 — Rule dentro de Aplicación** (`application_id != null`, Policy con `combining_algorithm` obligatorio) ver §3.7.
+
 ```yaml
 # step_up_triggers.atm.yaml
 atomlang_version: 1
 
 policy:
   policy_id: step_up_triggers
-  application_id: null          # null = Guardrail-level Policy (autenticación, no negocio)
+  application_id: null          # null = Caso 2 — Guardrail transversal (autenticación, no módulo de negocio)
   combining_algorithm: aggregate-strictest
 
   atoms:
