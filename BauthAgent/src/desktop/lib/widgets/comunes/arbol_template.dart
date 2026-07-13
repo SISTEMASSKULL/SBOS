@@ -25,16 +25,19 @@ import '../../datos/rol_template_datos.dart';
     };
 
 /// Árbol del RolTemplate: funcional (expand/collapse), notifica selección.
+/// [shrinkWrap] = true cuando se usa dentro de SingleChildScrollView (ej. PanelLateral).
 class ArbolTemplate extends StatefulWidget {
   final List<NodoTemplate> nodos;
   final NodoTemplate? seleccionado;
   final ValueChanged<NodoTemplate> alSeleccionar;
+  final bool shrinkWrap;
 
   const ArbolTemplate({
     super.key,
     required this.nodos,
     this.seleccionado,
     required this.alSeleccionar,
+    this.shrinkWrap = false,
   });
 
   @override
@@ -80,6 +83,7 @@ class _ArbolTemplateState extends State<ArbolTemplate> {
     final s = theme.scaling;
     return TreeView<NodoTemplate>(
       nodes: _nodos,
+      shrinkWrap: widget.shrinkWrap,
       padding: EdgeInsets.symmetric(horizontal: 10 * s, vertical: 8 * s),
       builder: (context, item) {
         final n = item.data;

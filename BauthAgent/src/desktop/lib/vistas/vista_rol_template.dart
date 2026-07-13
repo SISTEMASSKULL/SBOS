@@ -113,6 +113,7 @@ class _VistaRolTemplateState extends State<VistaRolTemplate> {
                 lado: LadoPanel.izquierdo,
                 child: ArbolTemplate(
                   nodos: arbolAtomLang,
+                  shrinkWrap: true,
                   alSeleccionar: (_) {},
                 ),
               ),
