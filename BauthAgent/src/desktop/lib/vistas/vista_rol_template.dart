@@ -1,14 +1,18 @@
 // ============================================================
 // bauth_desktop · vistas/vista_rol_template.dart
 //
-// Propósito: VISTA «Rol Template» — árbol completo de los 14 dominios del
-//   RolTemplate global. Panel central con 3 tabs:
-//     Tab 0 · Árbol Fuente    — árbol SOURCE (RolTemplate v6.0)
-//     Tab 1 · Lenguaje        — vocabulario AtomLang v1 (palabras reservadas)
-//     Tab 2 · Árbol Compilado — placeholder (fase 3 — atomc)
-//   Barra de ruta con copia al portapapeles. Panel de ayuda inferior.
+// Propósito: VISTA «Rol Template» — árbol completo de los 14 dominios.
+//   Panel lateral izquierdo: vocabulario AtomLang v1 (referencia de lenguaje).
+//   Panel central — 3 tabs:
+//     Tab 0 · Árbol Fuente    — árbol SOURCE humano (RolTemplate v6.0, sin tocar)
+//     Tab 1 · Árbol AtomLang  — mismo árbol traducido al lenguaje (salida del
+//                               autómata de control de calidad: snake_case,
+//                               verbo enum, condición tipada, combining_algorithm)
+//     Tab 2 · Árbol Compilado — placeholder (fase 3 — atomc → bos_atom_compiled)
+//   Panel de ayuda + barra de ruta con copia al portapapeles.
 // Dependencias: tf_shadcn_flutter, flutter/services,
-//   datos/{arbol_datos, rol_template_datos, atomlang_datos},
+//   datos/{arbol_datos, rol_template_datos, atomlang_datos,
+//          atomlang_normalizado_datos},
 //   widgets/comunes/{arbol_sbos, arbol_template, panel_lateral, tira_tabs}.
 // Estándar: Anexo A.01 (RolTemplate v6.0) · AtomLang-especificacion-completa.md
 //           · DOC-SBOS-001 N3.
@@ -19,6 +23,7 @@ import 'package:tf_shadcn_flutter/shadcn_flutter.dart';
 
 import '../datos/arbol_datos.dart';
 import '../datos/atomlang_datos.dart';
+import '../datos/atomlang_normalizado_datos.dart';
 import '../datos/rol_template_datos.dart';
 import '../widgets/comunes/arbol_sbos.dart';
 import '../widgets/comunes/arbol_template.dart';
@@ -65,8 +70,11 @@ class _VistaRolTemplateState extends State<VistaRolTemplate> {
   }
 
   /// Árbol activo según el tab seleccionado.
-  List<NodoTemplate> get _arbolActivo =>
-      _tabArbol == 0 ? arbolRolTemplate : arbolAtomLang;
+  List<NodoTemplate> get _arbolActivo => switch (_tabArbol) {
+        0 => arbolRolTemplate,
+        1 => arbolNormalizado,
+        _ => arbolAtomLang,
+      };
 
   /// Registra la selección y calcula la ruta en el árbol activo.
   void _seleccionar(NodoTemplate n) {
@@ -99,11 +107,14 @@ class _VistaRolTemplateState extends State<VistaRolTemplate> {
         Expanded(
           child: Row(
             children: [
-              const PanelLateral(
-                titulo: 'Átomos',
-                conteo: '48 · D1',
+              PanelLateral(
+                titulo: 'AtomLang v1',
+                conteo: 'vocabulario',
                 lado: LadoPanel.izquierdo,
-                child: ArbolSbos(nodos: arbolAtomos),
+                child: ArbolTemplate(
+                  nodos: arbolAtomLang,
+                  alSeleccionar: (_) {},
+                ),
               ),
               Expanded(
                 child: Container(
@@ -112,7 +123,7 @@ class _VistaRolTemplateState extends State<VistaRolTemplate> {
                     children: [
                       // ── Barra de tabs interior del árbol ──────────────────
                       TiraTabs(
-                        tabs: const ['Árbol Fuente', 'Lenguaje AtomLang', 'Árbol Compilado'],
+                        tabs: const ['Árbol Fuente', 'Árbol AtomLang', 'Árbol Compilado'],
                         activa: _tabArbol,
                         alSeleccionar: _cambiarTab,
                       ),
@@ -152,7 +163,7 @@ class _VistaRolTemplateState extends State<VistaRolTemplate> {
         );
       case 1:
         return ArbolTemplate(
-          nodos: arbolAtomLang,
+          nodos: arbolNormalizado,
           seleccionado: _seleccion,
           alSeleccionar: _seleccionar,
         );
