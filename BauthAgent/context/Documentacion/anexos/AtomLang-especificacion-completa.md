@@ -5,6 +5,32 @@
 **Referencia:** Árbol real `D1 · ACCESO LÓGICO → B4 · Dominio lógico (autenticación) → step_up_triggers`
 
 ---
+
+## 0. Objetivo — Para qué existe este documento
+
+**Lo que estamos construyendo:**
+
+Un humano (o un agente) diseña reglas de acceso, políticas de autenticación y privilegios en un árbol con estructura clara y terminología técnica estándar (XACML, NIST RBAC, FIDO2). Ese árbol es legible para una persona pero no directamente ejecutable por una máquina — igual que Rust es legible para un programador pero la CPU no lo ejecuta directamente.
+
+**AtomLang** es el lenguaje con el que se escribe ese árbol. **`atomc`** es el compilador (Rust) que lo transforma en una representación técnica que el motor de evaluación de bAuth (PDP/BitMask) sí puede ejecutar sin ambigüedad.
+
+```
+Árbol Fuente (AtomLang)          atomc (Rust)         Árbol Técnico (IR)
+─────────────────────────   ──────────────────►   ──────────────────────────
+Escrito por humano/agente        compila,              Solo IDs, enums,
+con terminología estándar        valida,               valores tipados.
+(XACML · NIST · FIDO2).         rechaza errores.      Lo ejecuta el PDP.
+```
+
+**El objetivo concreto de esta sesión de trabajo:**
+
+1. Tener el lenguaje AtomLang definido formalmente (gramática, tipos, reglas).
+2. Tener el compilador `atomc` especificado (fases, validaciones, salida).
+3. Dividir la UI del dashboard en dos secciones: **Árbol Fuente** (lo que escribe el humano) y **Árbol Compilado** (lo que genera `atomc` y ejecuta el motor).
+
+Todo lo demás en este documento (JSON Schema, algoritmos, DDL) son los detalles de implementación que sostienen esos tres objetivos.
+
+---
 ## 1. Contexto
 
 bAuth define privilegios y comportamiento de autenticación mediante un árbol de configuración jerárquico (Dominios → Bloques → Políticas → Atoms), escrito y mantenido por humanos a través de una UI. Ese árbol —el que hoy se ve en pantalla— es el **Árbol Fuente**.
