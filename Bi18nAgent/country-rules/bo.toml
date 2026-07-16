@@ -22,14 +22,14 @@ sep_miles         = ","
 
 # ── Moneda (ISO 4217: BOB — Boliviano) ───────────────────────────────────────
 # decimales           = muestreo/pantalla (2 → "Bs. 10.50")
-# decimales_operacion = precisión interna de cálculo (6 → "10.500000")
+# decimales_operacion = precisión interna de cálculo (7 → "10.5000000")
 
 [moneda]
 iso4217              = "BOB"
 simbolo_local        = "Bs."
 simbolo_intl         = "BOB"
 decimales            = 2
-decimales_operacion  = 6
+decimales_operacion  = 7
 sep_decimal          = "."
 sep_miles            = ","
 

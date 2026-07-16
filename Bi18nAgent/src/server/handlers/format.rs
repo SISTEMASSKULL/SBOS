@@ -90,17 +90,22 @@ pub struct FormatNumberResult {
 
 /// Formatea un número decimal con los separadores del locale del tenant.
 pub async fn format_number(
-    _ctx: &ServerContext,
+    ctx: &ServerContext,
     valor: &str,
     decimales: u32,
     regional: &RegionalConfig,
 ) -> Resultado<FormatNumberResult> {
-    // Parsear el número canónico (punto como separador decimal).
     let n: f64 = valor.parse().map_err(|_| Bi18nError::FormatoDesconocido {
         codigo: format!("número inválido: '{}'", valor),
     })?;
 
-    let (sep_dec, sep_miles) = separadores(None, &regional.locale);
+    // Preferir separadores de [numeracion] del TOML del país (evita inferencia errónea por locale).
+    let iso   = crate::domain::country_rules::IsoAlpha2::nuevo(&regional.country);
+    let reglas = ctx.loader.obtener(&iso).await.ok();
+    let (sep_dec, sep_miles) = match reglas.as_ref().and_then(|r| r.numeracion.as_ref()) {
+        Some(num) => (num.sep_decimal.clone(), num.sep_miles.clone()),
+        None      => separadores(reglas.as_ref().and_then(|r| r.moneda.as_ref()), &regional.locale),
+    };
 
     let display = formatear_numero(n, decimales, &sep_dec, &sep_miles);
     Ok(FormatNumberResult { display })

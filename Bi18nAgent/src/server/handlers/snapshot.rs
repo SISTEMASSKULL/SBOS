@@ -7,10 +7,7 @@
 /// Dependencias: crate::domain, handlers::format, crate::error
 use serde_json::Value;
 use crate::{
-    domain::{
-        country_rules::IsoAlpha2,
-        regional_config::RegionalConfig,
-    },
+    domain::country_rules::IsoAlpha2,
     error::Resultado,
     server::context::ServerContext,
 };

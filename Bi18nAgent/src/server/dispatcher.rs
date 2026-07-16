@@ -1,0 +1,195 @@
+/// server/dispatcher.rs — Dispatcher de todos los métodos JSON-RPC de bi18n.
+/// Propósito: match único method→handler; separado de unix_socket.rs (DOC-SBOS-001 N3).
+///   - 16 métodos wired: health, locale, validate(3), mask(2), format(3), enum, snapshot, attr(4).
+///   - SBOS-049: ctx_id obligatorio — ausente o vacío → error -32602.
+///   - Paridad C11: mismos handlers que gRPC (Vía 3) — transporte transparente.
+/// Dependencias: serde_json, crate::server::handlers, crate::server::dispatcher_helpers
+use serde_json::Value;
+use crate::{
+    error::Bi18nError,
+    server::{context::ServerContext, handlers},
+};
+use super::dispatcher_helpers as helpers;
+
+/// Valida ctx_id y despacha al handler correspondiente.
+pub async fn ejecutar_metodo(
+    method: &str,
+    params: Value,
+    ctx: &ServerContext,
+) -> Result<Value, Bi18nError> {
+    // SBOS-049: ctx_id obligatorio en toda operación.
+    match params.get("ctx_id").and_then(|v| v.as_str()) {
+        Some(id) if !id.is_empty() => {}
+        _ => return Err(Bi18nError::CtxIdAusente),
+    }
+
+    match method {
+        // ── Estado y locale ────────────────────────────────────────────────
+        "bi18n.health.check" => {
+            let r = handlers::health::verificar(ctx).await?;
+            Ok(serde_json::json!({
+                "status": r.status, "version": r.version,
+                "paises_cargados": r.paises_cargados, "mensaje": r.mensaje,
+            }))
+        }
+
+        "bi18n.locale.resolve" => {
+            let tenant_id = params["tenant_id"].as_str().unwrap_or("");
+            let branch_id = params["branch_id"].as_str().unwrap_or("");
+            let user_id   = params["user_id"].as_str().unwrap_or("");
+            let r = handlers::locale::resolver_locale(ctx, tenant_id, branch_id, user_id).await?;
+            Ok(serde_json::json!({
+                "locale": r.config.locale, "timezone": r.config.timezone,
+                "currency": r.config.currency, "country": r.config.country, "fuente": r.fuente,
+            }))
+        }
+
+        // ── Validación ─────────────────────────────────────────────────────
+        "bi18n.validate.email" => {
+            let valor = params["value"].as_str().unwrap_or("");
+            let r = handlers::validate::validate_email(ctx, valor).await?;
+            Ok(serde_json::json!({ "valid": r.valid, "normalized": r.normalized, "errores": r.errores }))
+        }
+
+        "bi18n.validate.phone" => {
+            let valor     = params["value"].as_str().unwrap_or("");
+            let pais_hint = params["country_hint"].as_str().unwrap_or("BO");
+            let r = handlers::validate::validate_phone(ctx, valor, pais_hint).await?;
+            Ok(serde_json::json!({ "valid": r.valid, "e164": r.e164, "errores": r.errores }))
+        }
+
+        "bi18n.validate.national_id" => {
+            let valor = params["value"].as_str().unwrap_or("");
+            let kind  = params["kind"].as_str().unwrap_or("CI");
+            let pais  = params["country"].as_str().unwrap_or("BO");
+            let tipo  = helpers::parsear_tipo_documento(kind);
+            let r = handlers::validate::validate_national_id(ctx, tipo, valor, pais).await?;
+            Ok(serde_json::json!({ "valid": r.valid, "normalized": r.normalized, "errores": r.errores }))
+        }
+
+        // ── Enmascaramiento ────────────────────────────────────────────────
+        "bi18n.mask.value" => {
+            let valor     = params["value"].as_str().unwrap_or("");
+            let mask_str  = params["strategy"].as_str().unwrap_or("none");
+            let pais      = params["country"].as_str().unwrap_or("BO");
+            let tipo_hint = params["kind"].as_str();
+            let estrategia = helpers::parsear_estrategia_mascara(mask_str);
+            let r = handlers::mask::mask_value(ctx, valor, estrategia, pais, tipo_hint).await?;
+            Ok(serde_json::json!({ "masked": r.masked }))
+        }
+
+        "bi18n.mask.pii" => {
+            let texto       = params["text"].as_str().unwrap_or("");
+            let mask_emails = params["mask_emails"].as_bool().unwrap_or(true);
+            let mask_phones = params["mask_phones"].as_bool().unwrap_or(true);
+            let r = handlers::mask::mask_pii(ctx, texto, mask_emails, mask_phones).await?;
+            Ok(serde_json::json!({ "redacted": r.redacted, "campos_redactados": r.campos_redactados }))
+        }
+
+        // ── Formateo ───────────────────────────────────────────────────────
+        "bi18n.format.date" => {
+            let regional = helpers::regional_desde_params(&params, ctx).await?;
+            let gran = match params["granularity"].as_str() {
+                Some("solo_fecha") => handlers::format::GranularidadFecha::SoloFecha,
+                Some("solo_hora")  => handlers::format::GranularidadFecha::SoloHora,
+                Some("mes_anio")   => handlers::format::GranularidadFecha::MesAnio,
+                Some("solo_anio")  => handlers::format::GranularidadFecha::SoloAnio,
+                _                  => handlers::format::GranularidadFecha::FechaHora,
+            };
+            let ts = params["iso_datetime"].as_str();
+            let r  = handlers::format::format_fecha_o_ahora(ctx, ts, gran, &regional).await?;
+            Ok(serde_json::json!({ "display": r.display, "timezone": regional.timezone, "locale": regional.locale }))
+        }
+
+        "bi18n.format.number" => {
+            let valor    = params["value"].as_str().unwrap_or("0");
+            let decimals = params["decimales"].as_u64().unwrap_or(2) as u32;
+            let regional = helpers::regional_desde_params(&params, ctx).await?;
+            let r = handlers::format::format_number(ctx, valor, decimals, &regional).await?;
+            Ok(serde_json::json!({ "display": r.display }))
+        }
+
+        "bi18n.format.money" => {
+            let monto    = params["amount"].as_str().unwrap_or("0");
+            let moneda   = params["currency_code"].as_str().unwrap_or("");
+            let regional = helpers::regional_desde_params(&params, ctx).await?;
+            let r = handlers::format::format_money(ctx, monto, moneda, &regional).await?;
+            Ok(serde_json::json!({ "display": r.display, "symbol_local": r.symbol_local }))
+        }
+
+        // ── Enums y snapshot ──────────────────────────────────────────────
+        "bi18n.enum.display" => {
+            let enum_name = params["enum_name"].as_str().unwrap_or("");
+            let value     = params["value"].as_str().unwrap_or("");
+            let locale    = params["locale"].as_str().unwrap_or("es-BO");
+            let r = handlers::enums::display(ctx, enum_name, value, locale).await?;
+            Ok(serde_json::json!({ "label": r.label, "found": r.found, "fallback": r.fallback }))
+        }
+
+        "bi18n.regional.snapshot" => {
+            let tenant_id = params["tenant_id"].as_str().unwrap_or("");
+            let branch_id = params["branch_id"].as_str();
+            let user_id   = params["user_id"].as_str();
+            let r = handlers::snapshot::regional_snapshot(ctx, tenant_id, branch_id, user_id).await?;
+            Ok(r.payload)
+        }
+
+        // ── Pipeline de atributos ──────────────────────────────────────────
+        "bi18n.attr.pipeline" => {
+            let key             = params["key"].as_str().unwrap_or("");
+            let valor           = params["value"].as_str().unwrap_or("");
+            let validate_format = params["validate_format"].as_str().unwrap_or("");
+            let format_code     = params["format_code"].as_str().unwrap_or("");
+            let mask_str        = params["mask"].as_str().unwrap_or("none");
+            let transforms      = helpers::parsear_transformaciones(&params["transforms"]);
+            let regional        = helpers::regional_desde_params(&params, ctx).await?;
+            let mascara         = helpers::parsear_estrategia_mascara(mask_str);
+            let (mn, mp, ms)    = helpers::extraer_params_mascara(&mascara);
+            let r = handlers::attr::pipeline(
+                ctx, key, valor, validate_format, &transforms,
+                format_code, mascara, mn, mp, ms, &regional,
+            ).await?;
+            Ok(serde_json::json!({
+                "raw": r.raw, "valid": r.valid, "transformed": r.transformed,
+                "display": r.display, "masked": r.masked,
+                "enum_label": r.enum_label, "errores_validacion": r.errores_validacion,
+            }))
+        }
+
+        "bi18n.attr.build" => {
+            let key        = params["key"].as_str().unwrap_or("");
+            let valor      = params["value"].as_str().unwrap_or("");
+            let format_code = params["format_code"].as_str().unwrap_or("");
+            let mask_str   = params["mask"].as_str().unwrap_or("none");
+            let regional   = helpers::regional_desde_params(&params, ctx).await?;
+            let mascara    = helpers::parsear_estrategia_mascara(mask_str);
+            let (mn, mp, ms) = helpers::extraer_params_mascara(&mascara);
+            // Build = pipeline sin validación (validate_format vacío).
+            let r = handlers::attr::pipeline(
+                ctx, key, valor, "", &[], format_code, mascara, mn, mp, ms, &regional,
+            ).await?;
+            Ok(serde_json::json!({
+                "raw": r.raw, "display": r.display, "masked": r.masked,
+            }))
+        }
+
+        "bi18n.attr.config" => {
+            let display_format = params["display_format"].as_str().unwrap_or("");
+            let r = handlers::attr::config(display_format);
+            Ok(serde_json::json!({
+                "display_format": r.display_format,
+                "mask_pattern":   r.mask_pattern,
+                "masks_pii":      r.masks_pii,
+            }))
+        }
+
+        "bi18n.attr.config_batch" => {
+            let locale  = params["locale"].as_str().unwrap_or("es-BO");
+            let country = params["country"].as_str().unwrap_or("BO");
+            let campos  = handlers::attr::config_batch_desde_json(&params["fields"], locale, country);
+            Ok(serde_json::json!({ "campos": campos }))
+        }
+
+        metodo => Err(Bi18nError::MetodoNoEncontrado { metodo: metodo.to_string() }),
+    }
+}

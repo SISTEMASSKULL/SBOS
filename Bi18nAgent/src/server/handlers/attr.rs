@@ -1,7 +1,9 @@
-/// server/handlers/attr.rs — Handler del pipeline de atributos (método principal bi18n).
-/// Propósito: pipeline completo raw → validate → transform → format → mask.
-///   - Método central que bAuth invoca para CI/NIT/teléfono/email.
-///   - Las funciones helper viven en attr_helpers.rs (DOC-SBOS-001 N3: split por tamaño).
+/// server/handlers/attr.rs — Handlers del pipeline y configuración de atributos.
+/// Propósito: pipeline completo raw → validate → transform → format → mask,
+///   y consultas de configuración de formato (mask_pattern, display_format) para UX.
+///   - pipeline(): método central que bAuth invoca para CI/NIT/teléfono/email.
+///   - config() / config_batch(): configuración liviana de campo para widgets (A.02 §3.2).
+///   - Los helpers viven en attr_helpers.rs (DOC-SBOS-001 N3: split por tamaño).
 /// Dependencias: crate::server::handlers, crate::domain, crate::error
 use crate::{
     error::Resultado,
@@ -91,4 +93,67 @@ pub async fn pipeline(
         enum_label: String::new(),
         errores_validacion: errores_val,
     })
+}
+
+// ── Config liviana de atributo ────────────────────────────────────────────────
+
+/// Resultado de consulta de configuración de formato (A.02 §3.2).
+/// No ejecuta validación — devuelve solo lo necesario para configurar un widget cliente.
+pub struct AttrConfigResult {
+    /// Código de formato canónico. Ejemplo: "ID_BO", "E164", "DATE_ISO"
+    pub display_format: String,
+    /// Patrón de máscara de entrada (9=dígito, A=letra, separadores literales).
+    /// Ejemplo: "9999999-AA" para CI boliviana.
+    pub mask_pattern: String,
+    /// Indica si el valor contiene PII y debe enmascararse al almacenar o mostrar.
+    pub masks_pii: bool,
+}
+
+/// Retorna la configuración de formato de un atributo dado su código display_format.
+/// Operación síncrona — solo consulta el format_map estático en memoria.
+pub fn config(display_format: &str) -> AttrConfigResult {
+    use crate::domain::format_map;
+
+    // Formatos que contienen PII: documentos de identidad y contacto personal.
+    let masks_pii = matches!(
+        display_format,
+        "ID_BO" | "TAX_BO" | "DNI_AR" | "CUIT_AR"
+        | "CPF_BR" | "CNPJ_BR" | "PASSPORT" | "EMAIL" | "E164"
+    );
+
+    let mask_pattern = format_map::obtener(display_format)
+        .map(|s| s.patron.to_string())
+        .unwrap_or_default();
+
+    AttrConfigResult {
+        display_format: display_format.to_string(),
+        mask_pattern,
+        masks_pii,
+    }
+}
+
+/// Construye el payload JSON del config_batch desde el array `fields` del request.
+/// Retorna un mapa key → config listo para serializar (A.02 §3.3).
+pub fn config_batch_desde_json(
+    fields: &serde_json::Value,
+    _locale: &str,
+    _country: &str,
+) -> serde_json::Value {
+    let arr = match fields.as_array() {
+        Some(a) => a,
+        None    => return serde_json::json!({}),
+    };
+
+    let mut mapa = serde_json::Map::new();
+    for campo in arr {
+        let key            = campo["key"].as_str().unwrap_or("");
+        let display_format = campo["display_format"].as_str().unwrap_or("");
+        let r = config(display_format);
+        mapa.insert(key.to_string(), serde_json::json!({
+            "display_format": r.display_format,
+            "mask_pattern":   r.mask_pattern,
+            "masks_pii":      r.masks_pii,
+        }));
+    }
+    serde_json::Value::Object(mapa)
 }
