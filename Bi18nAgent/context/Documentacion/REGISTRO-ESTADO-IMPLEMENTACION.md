@@ -29,10 +29,11 @@ ruta de sesión en sesión — marcar ✅ al completar, anotar commit.
 | SIGTERM drain de conexiones activas | ✅ | — |
 | SBOS-049 ctx_id obligatorio | ✅ | — |
 | gRPC Vía 3 (estructura + proto generado) | ✅ parcial | FormatAddress stub |
-| JSON-RPC dispatcher (8 de 16 métodos) | ✅ 8 métodos | 8 métodos sin wiring |
+| JSON-RPC dispatcher (16 de 16 métodos) | ✅ 16/16 `9e0c95d` | — |
+| Dispatcher separado (dispatcher.rs) | ✅ `9e0c95d` | — |
 | country-rules/bo.toml completo | ✅ | — |
 | country-rules/ar.toml básico | ✅ parcial | Ampliar al nivel de bo.toml |
-| Handlers de lógica (format, validate, mask, attr) | ✅ existen | No todos wired en dispatcher |
+| Handlers de lógica (format, validate, mask, attr) | ✅ todos wired | — |
 | format_map 18 códigos display_format | ✅ | — |
 | ICU4X integrado en código (llamadas reales) | ❌ | Declarado, sin llamadas |
 | fluent integrado (mensajes localizados) | ❌ | Declarado, sin código ni locales/ |
@@ -56,7 +57,7 @@ Archivo a modificar: **`src/server/unix_socket.rs`** (función `ejecutar_metodo`
 - **Retorno:** `{ "display": "1,234.567" }`
 - **Criterio de done:** el handler ya resuelve el locale desde `RegionalConfig`; solo agregar el
   arm `"bi18n.format.number" =>` en el match del dispatcher y resolver el `RegionalConfig` del tenant.
-- **Estado:** ❌
+- **Estado:** ✅ `9e0c95d` — Fix añadido: lee `[numeracion]` TOML del país (Bolivia: `.` decimal, `,` miles)
 
 ### 1.2 `bi18n.format.money`
 
@@ -64,7 +65,7 @@ Archivo a modificar: **`src/server/unix_socket.rs`** (función `ejecutar_metodo`
 - **Params JSON-RPC:** `ctx_id`, `monto` (string), `currency_code` (ej: "BOB"), `tenant_id`
 - **Retorno:** `{ "display": "Bs. 1.234,50", "symbol_local": "Bs." }`
 - **Criterio de done:** arm `"bi18n.format.money" =>` en dispatcher.
-- **Estado:** ❌
+- **Estado:** ✅ `9e0c95d`
 
 ### 1.3 `bi18n.validate.national_id`
 
@@ -74,7 +75,7 @@ Archivo a modificar: **`src/server/unix_socket.rs`** (función `ejecutar_metodo`
 - **Retorno:** `{ "valid": true, "normalized": "7654321-LP", "errores": [] }`
 - **Criterio de done:** arm `"bi18n.validate.national_id" =>` en dispatcher; extraer
   `IsoAlpha2` del param `country`.
-- **Estado:** ❌
+- **Estado:** ✅ `9e0c95d`
 
 ### 1.4 `bi18n.mask.value`
 
@@ -83,7 +84,7 @@ Archivo a modificar: **`src/server/unix_socket.rs`** (función `ejecutar_metodo`
 - **Retorno:** `{ "masked": "****321-LP" }`
 - **Criterio de done:** arm `"bi18n.mask.value" =>` en dispatcher; parsear el string
   de estrategia al enum `MaskStrategy` (convención wire definida en 1.01 §7.3).
-- **Estado:** ❌
+- **Estado:** ✅ `9e0c95d`
 
 ### 1.5 `bi18n.attr.pipeline`
 
@@ -93,14 +94,14 @@ Archivo a modificar: **`src/server/unix_socket.rs`** (función `ejecutar_metodo`
 - **Retorno:** `{ "raw", "valid", "transformed", "display", "masked", "errores_validacion" }`
 - **Ejemplo canónico:** manual 1.01 §8.3
 - **Criterio de done:** arm `"bi18n.attr.pipeline" =>` en dispatcher.
-- **Estado:** ❌
+- **Estado:** ✅ `9e0c95d`
 
 ### 1.6 `bi18n.attr.build`
 
 - **Handler:** `handlers::attr::build()` (o en `grpc_attr.rs`) — verificar existencia exacta
 - **Params JSON-RPC:** `ctx_id`, `key`, `value`, `regional_config` (simplificado vs pipeline)
 - **Criterio de done:** arm `"bi18n.attr.build" =>` en dispatcher.
-- **Estado:** ❌
+- **Estado:** ✅ `9e0c95d`
 
 ### 1.7 `bi18n.attr.config`
 
@@ -110,7 +111,7 @@ Archivo a modificar: **`src/server/unix_socket.rs`** (función `ejecutar_metodo`
 - **Params:** `ctx_id`, `key` (ej: "CI"), `tenant_id`
 - **Retorno:** `{ "key": "CI", "display_format": "ID_BO", "mask": "partial_both(2,3)", "validate_format": "ID_BO" }`
 - **Criterio de done:** crear handler en `handlers/attr.rs` + arm en dispatcher.
-- **Estado:** ❌
+- **Estado:** ✅ `9e0c95d`
 
 ### 1.8 `bi18n.attr.config_batch`
 
@@ -118,7 +119,7 @@ Archivo a modificar: **`src/server/unix_socket.rs`** (función `ejecutar_metodo`
 - **Propósito:** misma operación que config pero para un array de claves en una sola llamada.
 - **Params:** `ctx_id`, `keys[]`, `tenant_id`
 - **Criterio de done:** handler que llame `attr_config()` en loop + arm en dispatcher.
-- **Estado:** ❌
+- **Estado:** ✅ `9e0c95d`
 
 ---
 
@@ -137,7 +138,7 @@ Archivo a modificar: **`src/server/unix_socket.rs`** (función `ejecutar_metodo`
   - `dispatcher.rs` contiene: `ejecutar_metodo` completo (el match de métodos).
 - **Criterio de done:** ambos archivos ≤200 líneas. `unix_socket.rs` llama
   `crate::server::dispatcher::ejecutar_metodo(...)`.
-- **Estado:** ❌
+- **Estado:** ✅ `9e0c95d`
 
 ### 2.2 Split de `format.rs` (218 líneas → ≤200)
 
