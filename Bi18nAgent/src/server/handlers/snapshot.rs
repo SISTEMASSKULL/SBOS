@@ -41,12 +41,13 @@ pub async fn regional_snapshot(
     ).await?;
 
     let moneda = reglas.moneda.as_ref().map(|m| serde_json::json!({
-        "iso4217":       m.iso4217,
-        "simbolo_local": m.simbolo_local,
-        "simbolo_intl":  m.simbolo_intl,
-        "decimales":     m.decimales,
-        "sep_decimal":   m.sep_decimal,
-        "sep_miles":     m.sep_miles,
+        "iso4217":              m.iso4217,
+        "simbolo_local":        m.simbolo_local,
+        "simbolo_intl":         m.simbolo_intl,
+        "decimales_muestreo":   m.decimales,
+        "decimales_operacion":  m.decimales_operacion,
+        "sep_decimal":          m.sep_decimal,
+        "sep_miles":            m.sep_miles,
     })).unwrap_or(serde_json::json!({ "iso4217": regional.currency }));
 
     let pais = reglas.pais.as_ref().map(|p| serde_json::json!({
@@ -58,16 +59,23 @@ pub async fn regional_snapshot(
         "ltr":             p.ltr,
     })).unwrap_or(serde_json::json!({ "iso_alpha2": regional.country }));
 
+    let numeracion = reglas.numeracion.as_ref().map(|n| serde_json::json!({
+        "decimales_defecto": n.decimales_defecto,
+        "sep_decimal":       n.sep_decimal,
+        "sep_miles":         n.sep_miles,
+    }));
+
     let payload = serde_json::json!({
-        "ahora":    ahora.display,
-        "hora":     hora.display,
-        "timezone": regional.timezone,
-        "locale":   regional.locale,
-        "currency": regional.currency,
-        "country":  regional.country,
-        "pais":     pais,
-        "moneda":   moneda,
-        "enums":    reglas.enums,
+        "ahora":      ahora.display,
+        "hora":       hora.display,
+        "timezone":   regional.timezone,
+        "locale":     regional.locale,
+        "currency":   regional.currency,
+        "country":    regional.country,
+        "pais":       pais,
+        "moneda":     moneda,
+        "numeracion": numeracion,
+        "enums":      reglas.enums,
         "documentos": reglas.documentos.keys().collect::<Vec<_>>(),
     });
 

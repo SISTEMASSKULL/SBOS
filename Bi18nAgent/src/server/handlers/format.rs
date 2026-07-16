@@ -100,10 +100,9 @@ pub async fn format_number(
         codigo: format!("número inválido: '{}'", valor),
     })?;
 
-    // Separadores por locale (ICU4X en Fase 2 — aquí lógica básica).
-    let (sep_dec, sep_miles) = separadores_por_locale(&regional.locale);
+    let (sep_dec, sep_miles) = separadores(None, &regional.locale);
 
-    let display = formatear_numero(n, decimales, sep_dec, sep_miles);
+    let display = formatear_numero(n, decimales, &sep_dec, &sep_miles);
     Ok(FormatNumberResult { display })
 }
 
@@ -133,12 +132,12 @@ pub async fn format_money(
     // String owned en cada rama para evitar lifetime cruzado entre los brazos del match.
     let (simbolo, decimales, sep_dec, sep_miles): (String, u32, String, String) = match reglas.moneda {
         Some(m) if m.iso4217.eq_ignore_ascii_case(currency_code) || currency_code.is_empty() => {
-            (m.simbolo_local, m.decimales as u32, m.sep_decimal, m.sep_miles)
+            (m.simbolo_local, m.decimales as u32, m.sep_decimal.clone(), m.sep_miles.clone())
         }
-        _ => {
-            // Fallback genérico cuando el país no define la moneda solicitada.
-            let (sd, sm) = separadores_por_locale(&regional.locale);
-            (currency_code.to_string(), 2u32, sd.to_string(), sm.to_string())
+        ref opt => {
+            // Fallback: separadores desde reglas de moneda (si existen) o por locale.
+            let (sd, sm) = separadores(opt.as_ref(), &regional.locale);
+            (currency_code.to_string(), 2u32, sd, sm)
         }
     };
 
@@ -170,12 +169,19 @@ pub async fn format_fecha_o_ahora(
 
 // ── Utilidades internas ───────────────────────────────────────────────────────
 
-/// Retorna (sep_decimal, sep_miles) según el locale BCP 47.
-fn separadores_por_locale(locale: &str) -> (&'static str, &'static str) {
-    // Locales con coma decimal: la mayoría de Europa y América Latina.
-    // Locales con punto decimal: en-US, en-GB, zh-CN, etc.
-    let usa_coma = !locale.starts_with("en") && !locale.starts_with("zh");
-    if usa_coma { (",", ".") } else { (".", ",") }
+/// Retorna (sep_decimal, sep_miles) desde country-rules o, como fallback,
+/// inferido del locale BCP 47. Las reglas TOML siempre prevalecen sobre
+/// la inferencia por locale (Bolivia usa "." decimal aunque el locale sea es-BO).
+pub(crate) fn separadores(
+    moneda: Option<&crate::domain::country_rules::MonedaRules>,
+    locale: &str,
+) -> (String, String) {
+    if let Some(m) = moneda {
+        return (m.sep_decimal.clone(), m.sep_miles.clone());
+    }
+    // Fallback por locale: punto decimal en en-* y zh-*.
+    let usa_punto = locale.starts_with("en") || locale.starts_with("zh");
+    if usa_punto { (".".into(), ",".into()) } else { (",".into(), ".".into()) }
 }
 
 /// Formatea un número con los separadores dados.

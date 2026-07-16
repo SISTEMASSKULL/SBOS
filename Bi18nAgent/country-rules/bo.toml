@@ -12,15 +12,26 @@ locale_defecto  = "es-BO"
 tz_defecto      = "America/La_Paz"
 ltr             = true
 
+# ── Numeración general (cantidades, pesos, medidas — no monetaria) ────────────
+# Bolivia: separador decimal PUNTO, miles COMA (convención americana/boliviana)
+
+[numeracion]
+decimales_defecto = 7
+sep_decimal       = "."
+sep_miles         = ","
+
 # ── Moneda (ISO 4217: BOB — Boliviano) ───────────────────────────────────────
+# decimales           = muestreo/pantalla (2 → "Bs. 10.50")
+# decimales_operacion = precisión interna de cálculo (6 → "10.500000")
 
 [moneda]
-iso4217       = "BOB"
-simbolo_local = "Bs."
-simbolo_intl  = "BOB"
-decimales     = 2
-sep_decimal   = ","
-sep_miles     = "."
+iso4217              = "BOB"
+simbolo_local        = "Bs."
+simbolo_intl         = "BOB"
+decimales            = 2
+decimales_operacion  = 6
+sep_decimal          = "."
+sep_miles            = ","
 
 # ── Documentos de identidad (SEGIP / SIN) ────────────────────────────────────
 # CI: Cédula de Identidad — 5 a 8 dígitos + extensión departamental opcional

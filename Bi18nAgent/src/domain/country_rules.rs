@@ -32,6 +32,8 @@ pub struct CountryRules {
     #[serde(default)]
     pub moneda: Option<MonedaRules>,
     #[serde(default)]
+    pub numeracion: Option<NumeracionRules>,
+    #[serde(default)]
     pub pais: Option<PaisRules>,
     #[serde(default)]
     pub documentos: HashMap<String, DocumentoRules>,
@@ -39,21 +41,39 @@ pub struct CountryRules {
     pub mascaras: HashMap<String, MascaraRules>,
     /// Catálogo de etiquetas localizadas por enum de negocio.
     /// Estructura: { "gender": { "M": "Masculino", "F": "Femenino" } }
-    /// Usado por EnumService.Display (Fase 2 — actualmente con catálogo embebido).
     #[serde(default)]
     pub enums: HashMap<String, HashMap<String, String>>,
 }
 
-/// Reglas de moneda local (GAP-02 — sin bglobal en línea).
+/// Reglas de moneda local (GAP-02).
+/// `decimales` = precisión de muestreo (pantalla).
+/// `decimales_operacion` = precisión interna de cálculo (por defecto 6).
 #[derive(Debug, Clone, Deserialize)]
 pub struct MonedaRules {
     pub iso4217: String,
     pub simbolo_local: String,
     pub simbolo_intl: String,
+    /// Decimales de muestreo / presentación (ej: 2 → "Bs. 10.50").
     pub decimales: u8,
+    /// Decimales de operación interna (ej: 6 → "10.500000" en cálculos).
+    #[serde(default = "decimales_op_defecto")]
+    pub decimales_operacion: u8,
     pub sep_decimal: String,
     pub sep_miles: String,
 }
+
+/// Reglas de numeración general (no monetaria) del país.
+#[derive(Debug, Clone, Deserialize)]
+pub struct NumeracionRules {
+    /// Decimales por defecto para cantidades generales (pesos, medidas, etc.).
+    pub decimales_defecto: u8,
+    /// Separador decimal del país (ej: "." Bolivia / USA, "," Europa).
+    pub sep_decimal: String,
+    /// Separador de miles del país (ej: "," Bolivia / USA, "." Europa).
+    pub sep_miles: String,
+}
+
+fn decimales_op_defecto() -> u8 { 6 }
 
 /// Metadatos del país para resolución de locale y formatos.
 #[derive(Debug, Clone, Deserialize)]
