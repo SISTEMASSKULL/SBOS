@@ -64,6 +64,10 @@ pub enum Bi18nError {
     #[error("Parámetro de máscara inválido: {causa}")]
     MascaraParametro { causa: String },
 
+    // ── Dispatch JSON-RPC ──────────────────────────────────────────────────
+    #[error("Método JSON-RPC no encontrado: '{metodo}'")]
+    MetodoNoEncontrado { metodo: String },
+
     // ── ctx_id (SBOS-049) ──────────────────────────────────────────────────
     #[error("ctx_id ausente o inválido en la solicitud (SBOS-049)")]
     CtxIdAusente,

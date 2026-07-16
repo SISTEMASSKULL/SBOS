@@ -93,11 +93,19 @@ async fn despachar_request(linea: &str, ctx: &ServerContext) -> Value {
             "id": id,
             "result": result,
         }),
-        Err(e) => serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": id,
-            "error": { "code": -32000, "message": e.to_string() },
-        }),
+        Err(e) => {
+            // Códigos JSON-RPC 2.0: -32601 método no encontrado, -32602 params inválidos.
+            let code = match &e {
+                crate::error::Bi18nError::MetodoNoEncontrado { .. } => -32601_i32,
+                crate::error::Bi18nError::CtxIdAusente => -32602,
+                _ => -32000,
+            };
+            serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": id,
+                "error": { "code": code, "message": e.to_string() },
+            })
+        }
     }
 }
 
@@ -109,14 +117,11 @@ async fn ejecutar_metodo(
 ) -> Result<Value, Bi18nError> {
     use crate::server::handlers;
 
-    let ctx_id = params.get("ctx_id")
-        .and_then(|v| v.as_str())
-        .unwrap_or("unknown")
-        .to_string();
-
-    if ctx_id.is_empty() {
-        return Err(Bi18nError::CtxIdAusente);
-    }
+    // SBOS-049: ctx_id obligatorio en toda operación — ausente o vacío = error.
+    let _ctx_id = match params.get("ctx_id").and_then(|v| v.as_str()) {
+        Some(id) if !id.is_empty() => id.to_string(),
+        _ => return Err(Bi18nError::CtxIdAusente),
+    };
 
     match method {
         "bi18n.health.check" => {
@@ -172,8 +177,8 @@ async fn ejecutar_metodo(
             Ok(serde_json::json!({ "label": r.label, "found": r.found, "fallback": r.fallback }))
         }
 
-        metodo_desconocido => Err(Bi18nError::FormatoDesconocido {
-            codigo: format!("método no encontrado: '{}'", metodo_desconocido),
+        metodo_desconocido => Err(Bi18nError::MetodoNoEncontrado {
+            metodo: metodo_desconocido.to_string(),
         }),
     }
 }

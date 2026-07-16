@@ -99,7 +99,9 @@ pub async fn mask_pii(
     }
 
     if mask_phones {
-        let re = regex::Regex::new(r"\+?1?[-.\s]?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|\+\d{7,15}")
+        // E.164 primero (más específico) para evitar que la alternativa corta
+        // consuma solo parte del número (+591 country-code + 8 dígitos locales).
+        let re = regex::Regex::new(r"\+\d{7,15}|\+?1?[-.\s]?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}")
             .expect("regex de teléfono invariante");
         let n = re.find_iter(&resultado).count() as u32;
         resultado = re.replace_all(&resultado, "[TELEFONO]").to_string();
