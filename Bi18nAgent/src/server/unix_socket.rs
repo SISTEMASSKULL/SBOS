@@ -60,7 +60,10 @@ pub async fn iniciar_jsonrpc(
 }
 
 /// Maneja una conexión Unix socket: lee requests JSON-RPC, responde.
+/// Incrementa `activas` al abrir la conexión y decrementa al cerrarla —
+/// permite a SIGTERM y SIGHUP esperar el drenado antes de actuar.
 async fn manejar_conexion(stream: UnixStream, ctx: ServerContext) {
+    ctx.solicitud_iniciada();
     let (reader, mut writer) = stream.into_split();
     let mut lineas = BufReader::new(reader).lines();
 
@@ -73,6 +76,7 @@ async fn manejar_conexion(stream: UnixStream, ctx: ServerContext) {
             break;
         }
     }
+    ctx.solicitud_finalizada();
 }
 
 /// Parsea y despacha un request JSON-RPC 2.0.

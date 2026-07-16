@@ -39,9 +39,13 @@ pub async fn manejar_sighup(
     }
 }
 
-/// Espera SIGTERM y señaliza el shutdown ordenado por el canal watch.
-/// Notifica a todos los servidores (JSON-RPC + gRPC) para que cierren.
-pub async fn manejar_sigterm(sd_tx: watch::Sender<bool>) {
+/// Espera SIGTERM, drena conexiones activas y luego señaliza el shutdown.
+/// El drenado respeta `drain_timeout_secs` como máximo de espera (GAP-03).
+pub async fn manejar_sigterm(
+    sd_tx: watch::Sender<bool>,
+    activas: Arc<AtomicU64>,
+    drain_timeout_secs: u64,
+) {
     tokio::signal::unix::signal(
         tokio::signal::unix::SignalKind::terminate(),
     )
@@ -49,7 +53,10 @@ pub async fn manejar_sigterm(sd_tx: watch::Sender<bool>) {
     .recv()
     .await;
 
-    tracing::info!("SIGTERM recibido — iniciando apagado ordenado de bi18n");
+    let n = activas.load(Ordering::SeqCst);
+    tracing::info!("SIGTERM recibido — drenando {} conexiones activas (timeout {}s)", n, drain_timeout_secs);
+    drenar_solicitudes(&activas, drain_timeout_secs).await;
+    tracing::info!("Drenado completo — apagando bi18n");
     let _ = sd_tx.send(true);
 }
 

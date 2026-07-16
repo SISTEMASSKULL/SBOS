@@ -1,80 +1,268 @@
-# country-rules/bo.toml — Reglas de Bolivia para el orquestador bi18n
-# SSOT: context/Documentacion/GAPS-BI18N-v1.0.md (GAP-02 resuelto)
-# ISO 3166-1 alpha-2: BO · ISO 3166-1 alpha-3: BOL
+# country-rules/bo.toml — Reglas completas de Bolivia para el orquestador bi18n
+# Fuentes: SEGIP · SIN · ATT · INE · ISO 3166-2:BO · Ley 164 · E.164 ITU-T
+# ISO 3166-1 alpha-2: BO · alpha-3: BOL · Numérico: 068
+
+# ── Metadatos del país ────────────────────────────────────────────────────────
 
 [pais]
-iso_alpha2     = "BO"
-iso_alpha3     = "BOL"
+iso_alpha2      = "BO"
+iso_alpha3      = "BOL"
 codigo_telefono = "+591"
 locale_defecto  = "es-BO"
 tz_defecto      = "America/La_Paz"
 ltr             = true
 
+# ── Moneda (ISO 4217: BOB — Boliviano) ───────────────────────────────────────
+
 [moneda]
-iso4217      = "BOB"
+iso4217       = "BOB"
 simbolo_local = "Bs."
 simbolo_intl  = "BOB"
-decimales    = 2
-sep_decimal  = ","
-sep_miles    = "."
+decimales     = 2
+sep_decimal   = ","
+sep_miles     = "."
 
-# ── Documentos de identidad nacionales ────────────────────────────────────────
+# ── Documentos de identidad (SEGIP / SIN) ────────────────────────────────────
+# CI: Cédula de Identidad — 5 a 8 dígitos + extensión departamental opcional
+# Extensiones válidas: LP CB SC OR PT TJ CH BE PD
+# Complemento (duplicidad): sufijo -XN donde X=letra, N=dígito (ej: -1A)
 
 [documentos.CI]
 regex         = '^\d{5,8}(-[A-Z]{2})?$'
 ejemplo       = "7654321-LP"
-error_mensaje = "Cédula de identidad boliviana inválida. Formato esperado: 7654321-LP"
+error_mensaje = "Cédula de identidad boliviana inválida. Formato: 7654321 o 7654321-LP"
+
+[documentos.CI_COMP]
+regex         = '^\d{5,8}-[A-Z0-9]{2,3}$'
+ejemplo       = "7654321-1A"
+error_mensaje = "CI con complemento inválido. Formato: 7654321-1A (complemento por duplicidad SEGIP)"
 
 [documentos.NIT]
-regex         = '^\d{10}$'
+regex         = '^\d{7,12}$'
 ejemplo       = "1023456789"
-error_mensaje = "NIT boliviano inválido. Debe contener exactamente 10 dígitos"
+error_mensaje = "NIT boliviano inválido. Debe contener entre 7 y 12 dígitos numéricos (SIN Bolivia)"
 
 [documentos.PASSPORT]
-regex         = '^[A-Z]{1,2}\d{6,7}$'
+regex         = '^[A-Z]{1,2}\d{5,8}$'
 ejemplo       = "BO123456"
-error_mensaje = "Número de pasaporte boliviano inválido. Formato: dos letras seguidas de 6-7 dígitos"
+error_mensaje = "Pasaporte boliviano inválido. Formato: 1-2 letras seguidas de 5-8 dígitos (SEGIP/DIGEMIG)"
 
-# ── Máscaras PII por tipo de documento ────────────────────────────────────────
+[documentos.CARNET_EXT]
+regex         = '^[A-Z0-9]{5,15}$'
+ejemplo       = "CE123456789"
+error_mensaje = "Carnet de extranjería inválido. Debe contener entre 5 y 15 caracteres alfanuméricos"
+
+[documentos.LICENCIA]
+regex         = '^[A-Z]{1,2}\d{4,7}$'
+ejemplo       = "LP12345"
+error_mensaje = "Licencia de conducir boliviana inválida. Formato: extensión departamental + 4-7 dígitos"
+
+[documentos.MATRICULA]
+regex         = '^\d{6,10}-[A-Z]{2}$'
+ejemplo       = "123456-SC"
+error_mensaje = "Matrícula de comercio inválida. Formato: dígitos + guión + extensión departamental (FUNDEMPRESA)"
+
+# ── Máscaras PII por tipo de documento/dato ───────────────────────────────────
 
 [mascaras.CI]
+estrategia     = "both"
+prefix_visible = 2
+suffix_visible = 3
+
+[mascaras.CI_COMP]
+estrategia     = "both"
+prefix_visible = 2
+suffix_visible = 2
+
+[mascaras.NIT]
+estrategia = "partial"
+n          = 4
+
+[mascaras.PASSPORT]
 estrategia     = "both"
 prefix_visible = 1
 suffix_visible = 3
 
-[mascaras.NIT]
-estrategia     = "partial"
-n              = 4
+[mascaras.CARNET_EXT]
+estrategia = "partial"
+n          = 4
 
 [mascaras.EMAIL]
-estrategia     = "prefix"
-n              = 3
+estrategia = "prefix"
+n          = 3
 
 [mascaras.PHONE]
-estrategia     = "partial"
-n              = 4
+estrategia = "partial"
+n          = 4
 
-# ── Formatos de enums de negocio (catálogo en español boliviano) ──────────────
+[mascaras.NOMBRE]
+estrategia     = "both"
+prefix_visible = 2
+suffix_visible = 1
 
+[mascaras.CUENTA_BANCARIA]
+estrategia = "partial"
+n          = 4
+
+# ── Enums de negocio (catálogo en español boliviano) ─────────────────────────
+
+# Departamentos (9) — ISO 3166-2:BO + extensión CI + zona telefónica
+[enums.departamento]
+LP = "La Paz"
+CB = "Cochabamba"
+SC = "Santa Cruz"
+OR = "Oruro"
+PT = "Potosí"
+TJ = "Tarija"
+CH = "Chuquisaca"
+BE = "Beni"
+PD = "Pando"
+
+# Zona telefónica por departamento (ATT Bolivia — numeración cerrada 8 dígitos)
+[enums.zona_telefonica]
+"2" = "La Paz / Oruro / Potosí (fijo)"
+"3" = "Santa Cruz / Beni / Pando (fijo)"
+"4" = "Cochabamba / Chuquisaca / Tarija (fijo)"
+"6" = "Móvil — Entel / Viva (prefijo 6x)"
+"7" = "Móvil — Tigo (prefijo 7x)"
+
+# Género — conforme CPE 2009 Art. 14 no discriminación
 [enums.gender]
-M = "Masculino"
-F = "Femenino"
-O = "Otro"
+M   = "Masculino"
+F   = "Femenino"
+NB  = "No binario"
+O   = "Otro"
+NI  = "Prefiero no indicar"
 
+# Estado civil — Código de las Familias y del Proceso Familiar (Ley 603)
 [enums.marital_status]
-SINGLE   = "Soltero/a"
-MARRIED  = "Casado/a"
-DIVORCED = "Divorciado/a"
-WIDOWED  = "Viudo/a"
+SINGLE    = "Soltero/a"
+MARRIED   = "Casado/a"
+DIVORCED  = "Divorciado/a"
+WIDOWED   = "Viudo/a"
+UNION     = "Unión libre"
+SEPARATED = "Separado/a"
 
+# Tipo de empleo — Ley General del Trabajo + Ley 065 (pensiones)
 [enums.employment_type]
-FULL_TIME  = "Tiempo completo"
-PART_TIME  = "Medio tiempo"
-FREELANCE  = "Independiente"
-UNEMPLOYED = "Desempleado/a"
+DEP   = "Dependiente (relación laboral)"
+IND   = "Independiente / Cuenta propia"
+PUB   = "Servidor público"
+EMP   = "Emprendedor / Microempresa"
+JUB   = "Jubilado/a"
+DES   = "Desempleado/a"
+EST   = "Estudiante"
+PAS   = "Pasante / Practicante"
 
+# Régimen tributario SIN (Servicio de Impuestos Nacionales)
+[enums.tax_regime]
+GENERAL  = "Régimen General (IVA + IT + IUE)"
+RTS      = "Régimen Tributario Simplificado"
+STI      = "Sistema Tributario Integrado"
+RAU      = "Régimen Agropecuario Unificado"
+RCM      = "Régimen Complementario al IVA (RC-IVA)"
+NINGUNO  = "Sin régimen (no inscrito)"
+
+# Tipo de contribuyente SIN
+[enums.contributor_type]
+PNB = "Persona Natural Boliviana"
+PNE = "Persona Natural Extranjera"
+PJN = "Persona Jurídica Nacional"
+PJE = "Persona Jurídica Extranjera"
+SUC = "Sucursal de empresa extranjera"
+ENT = "Entidad sin fines de lucro"
+
+# Tipo de documento de identidad
+[enums.document_type]
+CI       = "Cédula de Identidad"
+NIT      = "Número de Identificación Tributaria"
+PASSPORT = "Pasaporte"
+CE       = "Carnet de Extranjería"
+LICENCIA = "Licencia de Conducir"
+MATRICULA = "Matrícula de Comercio (FUNDEMPRESA)"
+
+# Tipo de teléfono
+[enums.phone_type]
+MOVIL      = "Celular / Móvil"
+FIJO       = "Teléfono fijo"
+OFICINA    = "Oficina"
+EMERGENCIA = "Emergencias"
+WHATSAPP   = "WhatsApp"
+
+# Tipo de dirección
+[enums.address_type]
+PRINCIPAL      = "Domicilio principal"
+ALTERNATIVO    = "Domicilio alternativo"
+TRABAJO        = "Dirección de trabajo"
+CORRESPONDENCIA = "Dirección de correspondencia"
+LEGAL          = "Domicilio legal / fiscal"
+
+# Tratamiento / saludo formal
+[enums.salutation]
+SR   = "Sr."
+SRA  = "Sra."
+SRTA = "Srta."
+LIC  = "Lic."
+ING  = "Ing."
+DR   = "Dr."
+DRA  = "Dra."
+PROF = "Prof."
+TEC  = "Téc."
+ARQ  = "Arq."
+
+# Nivel educativo — clasificación ISCED/INE Bolivia
+[enums.education_level]
+NINGUNO      = "Sin instrucción"
+PRIMARIA     = "Primaria"
+SECUNDARIA   = "Secundaria"
+TECNICO      = "Técnico medio"
+TECNICO_SUP  = "Técnico superior"
+UNIVERSITARIO = "Universitario (Licenciatura)"
+POSTGRADO    = "Postgrado (Maestría / Doctorado)"
+
+# Estado general de entidad (usuarios, contratos, trámites)
 [enums.status]
-ACTIVE   = "Activo"
-INACTIVE = "Inactivo"
-PENDING  = "Pendiente"
-BLOCKED  = "Bloqueado"
+ACTIVE    = "Activo"
+INACTIVE  = "Inactivo"
+PENDING   = "Pendiente"
+BLOCKED   = "Bloqueado"
+SUSPENDED = "Suspendido"
+EXPIRED   = "Vencido"
+CANCELLED = "Anulado"
+
+# Tipo de contrato laboral — Ley General del Trabajo Bolivia
+[enums.employment_contract]
+INDEFINIDO = "A plazo indefinido"
+FIJO       = "A plazo fijo"
+OBRA       = "Por obra o servicio determinado"
+EVENTUAL   = "Eventual / Temporario"
+HONORARIOS = "Por honorarios profesionales"
+
+# Monedas aceptadas en Bolivia (Ley 1670 BCB)
+[enums.currency]
+BOB = "Boliviano (Bs.)"
+USD = "Dólar estadounidense ($)"
+EUR = "Euro (€)"
+UFV = "Unidad de Fomento a la Vivienda (UFV)"
+
+# Principales sectores CAEB-SIN (nivel sección CIIU Rev.4)
+[enums.sector_caeb]
+A = "Agricultura, ganadería, caza, silvicultura y pesca"
+B = "Extracción de minas y canteras"
+C = "Industrias manufactureras"
+D = "Suministro de electricidad, gas, vapor y AC"
+E = "Suministro de agua; alcantarillado y gestión de desechos"
+F = "Construcción"
+G = "Comercio al por mayor y menor; reparación de vehículos"
+H = "Transporte y almacenamiento"
+I = "Actividades de alojamiento y de servicio de comidas"
+J = "Información y comunicación"
+K = "Actividades financieras y de seguros"
+L = "Actividades inmobiliarias"
+M = "Actividades profesionales, científicas y técnicas"
+N = "Actividades de servicios administrativos y de apoyo"
+O = "Administración pública y defensa"
+P = "Enseñanza"
+Q = "Actividades de atención de la salud humana y de asistencia social"
+R = "Actividades artísticas, de entretenimiento y recreativas"
+S = "Otras actividades de servicios"

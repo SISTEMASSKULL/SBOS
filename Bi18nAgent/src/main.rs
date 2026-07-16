@@ -35,7 +35,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         r = grpc::iniciar_grpc(cfg.servidor.grpc_socket_path.clone(), ctx, sd_rx) =>
             tracing::error!("gRPC finalizó inesperadamente: {:?}", r),
         _ = signal::manejar_sighup(Arc::clone(&loader), Arc::clone(&activas), cfg.servidor.drain_timeout_secs) => {},
-        _ = signal::manejar_sigterm(sd_tx.clone()) => {},
+        _ = signal::manejar_sigterm(sd_tx.clone(), Arc::clone(&activas), cfg.servidor.drain_timeout_secs) => {},
         _ = signal::manejar_sigint(sd_tx) => {},
     }
 
