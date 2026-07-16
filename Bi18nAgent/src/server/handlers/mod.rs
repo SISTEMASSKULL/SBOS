@@ -11,4 +11,5 @@ pub mod format;
 pub mod health;
 pub mod locale;
 pub mod mask;
+pub mod snapshot;
 pub mod validate;

@@ -181,6 +181,32 @@ async fn ejecutar_metodo(
             Ok(serde_json::json!({ "label": r.label, "found": r.found, "fallback": r.fallback }))
         }
 
+        "bi18n.regional.snapshot" => {
+            let tenant_id  = params["tenant_id"].as_str().unwrap_or("");
+            let branch_id  = params["branch_id"].as_str();
+            let user_id    = params["user_id"].as_str();
+            let r = handlers::snapshot::regional_snapshot(ctx, tenant_id, branch_id, user_id).await?;
+            Ok(r.payload)
+        }
+
+        "bi18n.format.date" => {
+            let regional = ctx.resolver.resolver("", None, None).await?;
+            let gran = match params["granularity"].as_str() {
+                Some("solo_fecha") => handlers::format::GranularidadFecha::SoloFecha,
+                Some("solo_hora")  => handlers::format::GranularidadFecha::SoloHora,
+                Some("mes_anio")   => handlers::format::GranularidadFecha::MesAnio,
+                Some("solo_anio")  => handlers::format::GranularidadFecha::SoloAnio,
+                _                  => handlers::format::GranularidadFecha::FechaHora,
+            };
+            let ts = params["iso_datetime"].as_str();
+            let r = handlers::format::format_fecha_o_ahora(ctx, ts, gran, &regional).await?;
+            Ok(serde_json::json!({
+                "display": r.display,
+                "timezone": regional.timezone,
+                "locale": regional.locale,
+            }))
+        }
+
         metodo_desconocido => Err(Bi18nError::MetodoNoEncontrado {
             metodo: metodo_desconocido.to_string(),
         }),

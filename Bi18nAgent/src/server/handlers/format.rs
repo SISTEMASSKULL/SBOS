@@ -147,6 +147,27 @@ pub async fn format_money(
     Ok(FormatMoneyResult { display, symbol_local: simbolo })
 }
 
+// ── Helpers de conveniencia ───────────────────────────────────────────────────
+
+/// Formatea la hora actual (o un timestamp opcional) en la zona del tenant.
+/// `iso_datetime = None` → usa jiff::Timestamp::now().
+pub async fn format_fecha_o_ahora(
+    ctx: &ServerContext,
+    iso_datetime: Option<&str>,
+    granularidad: GranularidadFecha,
+    regional: &RegionalConfig,
+) -> Resultado<FormatDateResult> {
+    let owned;
+    let ts_str = match iso_datetime {
+        Some(s) => s,
+        None => {
+            owned = jiff::Timestamp::now().to_string();
+            &owned
+        }
+    };
+    format_date(ctx, ts_str, granularidad, regional).await
+}
+
 // ── Utilidades internas ───────────────────────────────────────────────────────
 
 /// Retorna (sep_decimal, sep_miles) según el locale BCP 47.
