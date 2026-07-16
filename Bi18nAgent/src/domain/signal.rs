@@ -8,10 +8,7 @@ use std::sync::{
     Arc,
 };
 use tokio::sync::watch;
-use crate::{
-    domain::country_rules::CountryRulesLoader,
-    error::Resultado,
-};
+use crate::domain::country_rules::CountryRulesLoader;
 
 /// Espera SIGHUP y recarga el catálogo de países atómicamente.
 /// Si la recarga falla, loguea el error pero NO apaga el daemon (mantiene datos anteriores).

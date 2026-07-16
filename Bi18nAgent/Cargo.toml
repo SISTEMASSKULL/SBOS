@@ -117,8 +117,8 @@ veil = "0.3"
 universal_mask = "0.1"
 
 # ── §2.6 Máscaras de entrada — TUI/CLI (A.01 §2.6) ──────────────────────────
-# Widget MaskedInput para TUI/CLI interactivo (ratatui) — solo para i18nctl interactivo
-rat-input = "0.16"
+# rat-input = "0.16"  — REMOVIDO: v0.16.6 tiene bug interno (rat-focus API
+# incompatible + conflicto ratatui 0.26/0.27). Se reintegra en Fase 5 (i18nctl).
 
 # Lectura enmascarada para CLI (contraseñas, tokens) — solo para i18nctl
 clipass_rs = "0.1"

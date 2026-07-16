@@ -45,8 +45,8 @@ pub async fn format_date(
             causa: e.to_string(),
         })?;
 
-    // Convertir a la zona horaria del tenant.
-    let tz: jiff::tz::TimeZone = regional.timezone.parse()
+    // Convertir a la zona horaria del tenant (jiff 0.2: TimeZone::get, no FromStr).
+    let tz = jiff::tz::TimeZone::get(&regional.timezone)
         .map_err(|_| Bi18nError::ZonaHorariaInvalida {
             tz: regional.timezone.clone(),
             causa: "zona horaria no reconocida por jiff/IANA tzdb".to_string(),
