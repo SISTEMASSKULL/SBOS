@@ -1,14 +1,16 @@
-/// server/handlers/locale.rs — Handler de resolución de locale.
-/// Propósito: resuelve la configuración regional por jerarquía (GAP-01).
-///   - Jerarquía: user_id → branch_id → tenant_id → default.
-///   - En MVP siempre retorna la config estática del TOML.
-///   - Informa el nivel de resolución ("fuente") para diagnóstico.
-/// Dependencias: crate::domain::regional_config, crate::server::context
+/// server/handlers/locale.rs — Handler de resolución y validación de locale.
+/// Propósito:
+///   - resolver_locale: resuelve la configuración regional por jerarquía (GAP-01).
+///     Jerarquía: user_id → branch_id → tenant_id → default.
+///   - validar_locale_bcp47: valida un locale BCP 47 con ICU4X (icu_locale_core).
+///     Un locale inválido retorna error descriptivo en español.
+/// Dependencias: crate::domain::regional_config, crate::server::context, icu_locale_core
 use crate::{
     domain::regional_config::RegionalConfig,
-    error::Resultado,
+    error::{Bi18nError, Resultado},
     server::context::ServerContext,
 };
+use icu_locale_core::Locale;
 
 /// Resultado de resolución de locale.
 #[derive(Debug)]
@@ -19,21 +21,62 @@ pub struct LocaleResult {
 }
 
 /// Resuelve la configuración regional para un contexto de tenant/branch/user.
+/// En MVP siempre resuelve desde el resolver estático (bi18n.toml).
+/// En producción bAuth enviará RegionalConfig en cada request.
 pub async fn resolver_locale(
     ctx: &ServerContext,
     tenant_id: &str,
     branch_id: &str,
     user_id: &str,
 ) -> Resultado<LocaleResult> {
-    // En MVP siempre resuelve desde el resolver estático (bi18n.toml).
-    // En producción bAuth enviará RegionalConfig en cada request.
     let config = ctx.resolver.resolver(
         tenant_id,
         if branch_id.is_empty() { None } else { Some(branch_id) },
         if user_id.is_empty() { None } else { Some(user_id) },
     ).await?;
 
-    // La fuente siempre es "default" en MVP porque usamos ResolverEstatico.
-    // Cuando bAuth implemente la jerarquía, esta lógica cambiará.
     Ok(LocaleResult { config, fuente: "default" })
+}
+
+/// Valida que un locale BCP 47 sea reconocido por ICU4X.
+/// Retorna el Locale parseado si es válido, o un error descriptivo en español.
+///
+/// Ejemplos:
+/// - "es-BO" → Ok(Locale)
+/// - "es-INVALIDO" → Err(LocaleInvalido { valor: "es-INVALIDO", ... })
+/// - "und" → Ok(Locale) (locale undetermined — siempre válido)
+pub fn validar_locale_bcp47(locale: &str) -> Resultado<Locale> {
+    locale.parse::<Locale>().map_err(|_| Bi18nError::LocaleInvalido {
+        locale: locale.to_string(),
+        causa: "locale BCP 47 inválido según ICU4X (icu_locale_core)".to_string(),
+    })
+}
+
+/// Verifica si un locale BCP 47 es válido. Versión bool para validaciones de params.
+pub fn es_locale_valido(locale: &str) -> bool {
+    locale.parse::<Locale>().is_ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_locale_valido_es_bo() {
+        assert!(es_locale_valido("es-BO"));
+        assert!(validar_locale_bcp47("es-BO").is_ok());
+    }
+
+    #[test]
+    fn test_locale_invalido() {
+        // ICU4X usa parsing lenient para subtags — rechazo con caracteres prohibidos BCP 47
+        assert!(!es_locale_valido("!@#invalid"));
+        let err = validar_locale_bcp47("!@#invalid");
+        assert!(err.is_err());
+    }
+
+    #[test]
+    fn test_locale_und_valido() {
+        assert!(es_locale_valido("und"));
+    }
 }

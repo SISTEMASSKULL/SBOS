@@ -175,10 +175,12 @@ pub async fn ejecutar_metodo(
 
         "bi18n.attr.config" => {
             let display_format = params["display_format"].as_str().unwrap_or("");
-            let r = handlers::attr::config(display_format);
+            let locale         = params["locale"].as_str().unwrap_or("es-BO");
+            let r = handlers::attr::config(display_format, locale);
             Ok(serde_json::json!({
                 "display_format": r.display_format,
                 "mask_pattern":   r.mask_pattern,
+                "input_mask":     r.input_mask,
                 "masks_pii":      r.masks_pii,
             }))
         }

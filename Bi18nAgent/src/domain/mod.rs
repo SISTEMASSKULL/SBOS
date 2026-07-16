@@ -3,5 +3,6 @@
 /// Dependencias: cero dependencias de infraestructura.
 pub mod country_rules;
 pub mod format_map;
+pub mod input_mask;
 pub mod regional_config;
 pub mod signal;

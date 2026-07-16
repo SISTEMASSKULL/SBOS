@@ -3,12 +3,12 @@
 ///   y consultas de configuración de formato (mask_pattern, display_format) para UX.
 ///   - pipeline(): método central que bAuth invoca para CI/NIT/teléfono/email.
 ///   - config() / config_batch(): configuración liviana de campo para widgets (A.02 §3.2).
-///   - Los helpers viven en attr_helpers.rs (DOC-SBOS-001 N3: split por tamaño).
+///     config() ahora incluye input_mask (máscara de formulario del locale BCP 47 §7.2).
 /// Dependencias: crate::server::handlers, crate::domain, crate::error
 use crate::{
     error::Resultado,
     server::context::ServerContext,
-    domain::regional_config::RegionalConfig,
+    domain::{regional_config::RegionalConfig, input_mask},
 };
 use super::attr_helpers::{aplicar_transformaciones, ejecutar_formato, ejecutar_validacion};
 
@@ -102,16 +102,19 @@ pub async fn pipeline(
 pub struct AttrConfigResult {
     /// Código de formato canónico. Ejemplo: "ID_BO", "E164", "DATE_ISO"
     pub display_format: String,
-    /// Patrón de máscara de entrada (9=dígito, A=letra, separadores literales).
-    /// Ejemplo: "9999999-AA" para CI boliviana.
+    /// Patrón de máscara de entrada estructural (9=dígito, A=letra, literales).
+    /// Ejemplo: "9999999-AA" para CI boliviana, "99/99/9999" para fecha en es-BO.
     pub mask_pattern: String,
+    /// Máscara de formulario derivada del locale BCP 47 (manual 1.01 §7.2).
+    /// Ejemplo: "99/99/9999" para fecha con locale "es-BO".
+    pub input_mask: String,
     /// Indica si el valor contiene PII y debe enmascararse al almacenar o mostrar.
     pub masks_pii: bool,
 }
 
-/// Retorna la configuración de formato de un atributo dado su código display_format.
-/// Operación síncrona — solo consulta el format_map estático en memoria.
-pub fn config(display_format: &str) -> AttrConfigResult {
+/// Retorna la configuración de formato de un atributo dado su código y locale.
+/// Operación síncrona — consulta el format_map estático e input_mask por locale.
+pub fn config(display_format: &str, locale: &str) -> AttrConfigResult {
     use crate::domain::format_map;
 
     // Formatos que contienen PII: documentos de identidad y contacto personal.
@@ -125,9 +128,21 @@ pub fn config(display_format: &str) -> AttrConfigResult {
         .map(|s| s.patron.to_string())
         .unwrap_or_default();
 
+    // Derivar máscara de formulario desde locale BCP 47 (§7.2)
+    let input_mask_str = match display_format {
+        "DATE_ISO" | "DATE_LOCAL" | "FECHA"         => input_mask::mascara_fecha(locale).patron.to_string(),
+        "DATETIME" | "FECHA_HORA"                   => input_mask::mascara_fecha_hora(locale),
+        "TIME" | "HORA"                             => input_mask::mascara_hora(locale).to_string(),
+        "YEARMONTH" | "MES_ANIO"                    => input_mask::mascara_mes_anio(locale).to_string(),
+        "YEAR" | "ANIO"                             => input_mask::mascara_anio(locale).to_string(),
+        // Para formatos no temporales, la mask_pattern estructural ya es la máscara de input
+        _                                           => mask_pattern.clone(),
+    };
+
     AttrConfigResult {
         display_format: display_format.to_string(),
         mask_pattern,
+        input_mask: input_mask_str,
         masks_pii,
     }
 }
@@ -136,7 +151,7 @@ pub fn config(display_format: &str) -> AttrConfigResult {
 /// Retorna un mapa key → config listo para serializar (A.02 §3.3).
 pub fn config_batch_desde_json(
     fields: &serde_json::Value,
-    _locale: &str,
+    locale: &str,
     _country: &str,
 ) -> serde_json::Value {
     let arr = match fields.as_array() {
@@ -148,10 +163,11 @@ pub fn config_batch_desde_json(
     for campo in arr {
         let key            = campo["key"].as_str().unwrap_or("");
         let display_format = campo["display_format"].as_str().unwrap_or("");
-        let r = config(display_format);
+        let r = config(display_format, locale);
         mapa.insert(key.to_string(), serde_json::json!({
             "display_format": r.display_format,
             "mask_pattern":   r.mask_pattern,
+            "input_mask":     r.input_mask,
             "masks_pii":      r.masks_pii,
         }));
     }

@@ -1,13 +1,17 @@
 /// server/handlers/format_utils.rs — Utilidades internas de formateo numérico.
-/// Propósito: funciones puras de cálculo extraídas de format.rs (DOC-SBOS-001 N3).
+/// Propósito: funciones puras de cálculo extraídas de format.rs (cohesión lógica).
 ///   - separadores(): elige sep_decimal/sep_miles desde TOML o por inferencia de locale.
-///   - formatear_numero(): aplica separadores de miles y decimales a un f64.
+///   - formatear_numero(): aplica separadores de miles y decimales a un f64 (fuente TOML).
+/// Diseño: las reglas TOML del país SIEMPRE prevalecen sobre la inferencia por locale.
+///   Bolivia usa "." decimal (bo.toml) aunque el locale CLDR de es-BO diga coma.
+///   Cuando no hay TOML disponible, se infiere el separador desde la familia de locale BCP 47.
+///   La crate icu_decimal se reserva para números con lógica de agrupación no estándar
+///   (ej: formato hindú) — no se usa aquí para no depender del feature "ryu" (f64→Decimal).
 /// Dependencias: crate::domain::country_rules (MonedaRules)
 use crate::domain::country_rules::MonedaRules;
 
 /// Retorna (sep_decimal, sep_miles) desde country-rules o, como fallback,
-/// inferido del locale BCP 47. Las reglas TOML siempre prevalecen sobre
-/// la inferencia por locale (Bolivia usa "." decimal aunque el locale sea es-BO).
+/// inferido del locale BCP 47. Las reglas TOML siempre prevalecen.
 pub(crate) fn separadores(moneda: Option<&MonedaRules>, locale: &str) -> (String, String) {
     if let Some(m) = moneda {
         return (m.sep_decimal.clone(), m.sep_miles.clone());
@@ -21,10 +25,10 @@ pub(crate) fn separadores(moneda: Option<&MonedaRules>, locale: &str) -> (String
 /// Entrada canónica: punto decimal (ej: `1234567.89`).
 /// Salida: representación localizada (ej: `"1,234,567.89"` para Bolivia/US).
 pub(crate) fn formatear_numero(n: f64, decimales: u32, sep_dec: &str, sep_miles: &str) -> String {
-    let factor     = 10_u64.pow(decimales) as f64;
-    let redondeado = (n * factor).round() / factor;
+    let factor       = 10_u64.pow(decimales) as f64;
+    let redondeado   = (n * factor).round() / factor;
     let parte_entera = redondeado.abs() as u64;
-    let signo = if n < 0.0 { "-" } else { "" };
+    let signo        = if n < 0.0 { "-" } else { "" };
 
     // Insertar separador de miles cada 3 dígitos de derecha a izquierda.
     let entero_str = parte_entera.to_string();
@@ -50,4 +54,15 @@ pub(crate) fn formatear_numero(n: f64, decimales: u32, sep_dec: &str, sep_miles:
     } else {
         format!("{}{}", signo, con_miles)
     }
+}
+
+/// Formatea un número usando separadores inferidos del locale BCP 47.
+/// Fallback de format_number cuando no hay reglas TOML del país cargadas.
+/// Recibe la tupla ya calculada por separadores() para evitar recalcular.
+pub(crate) fn formatear_numero_por_locale(
+    n: f64,
+    decimales: u32,
+    seps: (String, String),
+) -> String {
+    formatear_numero(n, decimales, &seps.0, &seps.1)
 }
