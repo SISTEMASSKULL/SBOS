@@ -1,0 +1,194 @@
+# bi18n-daemon-orchestrator — bi18n · SBOS Orquestador Universal de Internacionalización
+# SSOT: context/Documentacion/1.01_MANUAL-BI18N-ARQUITECTURA-v1.3.0.md
+#       context/Documentacion/anexos/A.01_ANEXO-BI18N-COBERTURA-LIBRERIAS-v1.0.md (23 librerías, 9 categorías)
+#       context/Documentacion/anexos/A.03_ANEXO-BI18N-GRPC-INTERFACE-v1.0.md (Interface Triple C11)
+#       context/Documentacion/GAPS-BI18N-v1.0.md (v2.0.0 — 4 decisiones resueltas)
+# Normas: C1-C11 ORQUESTA-048 · DOC-SBOS-001 N3 · SBOS-050 P9 (sin TCP entre daemons)
+# Stack: Rust 1.85+ (MUSL, LTO, tokio) — daemon stateless, Interface Triple (Unix socket)
+
+[package]
+name        = "bi18n-daemon-orchestrator"
+version     = "0.1.0"
+edition     = "2021"
+description = "Orquestador Universal de Internacionalización del ecosistema SBOS — bi18nd + i18nctl"
+authors     = ["SKULL <sistemas@skull.com.bo>"]
+license     = "UNLICENSED"
+rust-version = "1.85"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TARGETS
+# ─────────────────────────────────────────────────────────────────────────────
+
+[lib]
+name = "bi18n_daemon_orchestrator"
+path = "src/lib.rs"
+
+[[bin]]
+name = "bi18nd"
+path = "src/main.rs"
+
+[[bin]]
+name = "i18nctl"
+path = "src/bin/i18nctl.rs"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PERFILES DE COMPILACIÓN
+# ─────────────────────────────────────────────────────────────────────────────
+
+[profile.release]
+opt-level     = "z"   # optimizar tamaño para MUSL (binario estático pequeño)
+lto           = true  # Link-Time Optimization
+codegen-units = 1     # mejor optimización, compilación más lenta
+panic         = "abort"
+strip         = true
+
+[profile.dev]
+opt-level = 1         # compilación rápida con optimización básica
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DEPENDENCIAS
+# Organización: sección por categoría (espejo de A.01 §2)
+# Versiones: SemVer mayor fijado; el patch lo resuelve Cargo en cada build.
+# Protocolo de actualización: PIN explícito si un crate tiene historial de
+# breaking changes menores (icu_*, tonic). Sin rangos ^major.minor abiertos.
+# ─────────────────────────────────────────────────────────────────────────────
+
+[dependencies]
+
+# ── §2.1 Traducción (A.01 §2.1) ──────────────────────────────────────────────
+# Project Fluent — mensajes con plurales, género y variables (camino a Unicode MF2)
+fluent        = "0.16"
+fluent-bundle = "0.15"
+
+# Traducción tipo-safe con derive macros; archivos YAML/JSON/TOML; fallback en cadena
+rust-i18n = "4"
+
+# Traducción en tiempo de compilación desde TOML → enum Languages
+# A.01 §2.1: verificado como "shakehand" en crates.io
+shakehand = "0.1"
+
+# ── §2.2 Fechas, horas y cálculo temporal (A.01 §2.2) ───────────────────────
+# IANA tzdata compilada (596 zonas), cálculo temporal zone-aware — SSOT de TZ
+jiff = { version = "0.2", features = ["tzdb-bundle-platform", "serde"] }
+
+# Presentación de fecha/hora localizada vía CLDR (1000+ locales)
+icu_datetime = "2"
+
+# Workhorse histórico; integración masiva con sqlx, serde; fallback de parsing
+chrono = { version = "0.4", features = ["serde"] }
+
+# ── §2.3 Formatos regionales — CLDR (A.01 §2.3) ─────────────────────────────
+# Validación y parseo de locale BCP 47 — tipo DataLocale
+icu_locale_core = "2"
+
+# Formato de números con separadores por locale (CLDR UTS #35)
+icu_decimal = "2"
+
+# Validación de argumentos con API fluida: rangos, patrones, constraints
+prism3-core = "0.2"
+
+# ── §2.4 Validación de atributos (A.01 §2.4) ────────────────────────────────
+# Validación con derive macros, soporte i18n (10 idiomas), anidamiento, async
+valida = "1.1"
+
+# Validación + modificación + parsing con derive macros; integración con Axum
+validy = "1.2"
+
+# Validación de propósito general: email, URL, longitud, rango, regex, crédito
+validator = { version = "0.19", features = ["derive"] }
+
+# Validación de reglas de negocio (mismo patrón que bAuth)
+scrutiny = "0.1"
+
+# Validación E.164 vía Google libphonenumber (200+ países) — Fase 4
+phonenumber = "0.3"
+
+# Motor de expresiones regulares — documentos nacionales contra country-rules TOML
+regex = "1"
+
+# ── §2.5 Enmascaramiento PII (A.01 §2.5) ────────────────────────────────────
+# Enmascaramiento de emails y teléfonos — builder pattern
+mask-pii = "0.2"
+
+# Redacción de campos sensibles en logs: #[derive(Redact)], #[redact(partial)]
+veil = "0.3"
+
+# Formateo con máscara estructural: SSN XXX-XX-XXXX, teléfono (XXX) XXX-XXXX
+universal_mask = "0.1"
+
+# ── §2.6 Máscaras de entrada — TUI/CLI (A.01 §2.6) ──────────────────────────
+# Widget MaskedInput para TUI/CLI interactivo (ratatui) — solo para i18nctl interactivo
+rat-input = "0.16"
+
+# Lectura enmascarada para CLI (contraseñas, tokens) — solo para i18nctl
+clipass_rs = "0.1"
+
+# ── §2.7 Serialización (A.01 §2.7) ──────────────────────────────────────────
+# Serialización JSON para JSON-RPC 2.0 y respuestas de la API
+serde      = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Anotaciones avanzadas: formatos de fecha, base64, máscaras en serialización
+serde_with = "3"
+
+# Lectura de country-rules/*.toml y /etc/bos/bi18n.toml (configuración del daemon)
+toml = "0.8"
+
+# ── §2.8 Catálogo de referencia — bglobal representado en TOML (GAP-02 resuelto)
+# No se agrega sqlx aquí — GAP-02: bi18n es stateless, datos de moneda/país
+# viven en country-rules/{iso}.toml. bglobal es consultado offline por admins.
+
+# ── Interface Triple C11 — gRPC sobre Unix domain socket (A.03) ──────────────
+# Servidor y cliente gRPC — transport = Unix domain socket (sin TCP, SBOS-050 P9)
+tonic       = { version = "0.12", features = ["transport"] }
+
+# Serialización de mensajes protobuf generados por tonic-build desde proto/bi18n.proto
+prost = "0.13"
+
+# UnixListenerStream — permite a tonic aceptar conexiones por Unix socket
+tokio-stream = { version = "0.1", features = ["net"] }
+
+# Necesario para construir el conector Unix socket en clientes (mismo patrón que bAuth)
+tower        = { version = "0.4", features = ["util"] }
+hyper-util   = { version = "0.1", features = ["tokio"] }
+
+# ── Async Runtime ────────────────────────────────────────────────────────────
+# Tokio full: IO, tiempo, proceso, canales, tasks — base del daemon bi18nd
+tokio = { version = "1", features = ["full"] }
+
+# ── Observabilidad y Logging (C10: mensajes en español) ─────────────────────
+tracing            = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# ── CLI — i18nctl (Fase 5) ───────────────────────────────────────────────────
+clap = { version = "4", features = ["derive"] }
+
+# ── Utilidades comunes ───────────────────────────────────────────────────────
+# ctx_id obligatorio en toda operación (SBOS-049 Context Plane)
+uuid = { version = "1", features = ["v4", "serde"] }
+
+# Errores tipados con contexto (C6) — sin .unwrap() en producción
+thiserror = "2"
+
+# Traits async en definiciones de interfaz (RegionalConfigResolver, etc.)
+async-trait = "0.1"
+
+# Señales de sistema (SIGHUP para recarga de TOML, SIGTERM para shutdown)
+libc = "0.2"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# BUILD DEPENDENCIES
+# tonic-build compila proto/bi18n.proto → src/generated/bi18n.v1.rs
+# Requiere protoc instalado en el host de compilación (verificado: /usr/bin/protoc 3.21.12)
+# ─────────────────────────────────────────────────────────────────────────────
+
+[build-dependencies]
+tonic-build = "0.12"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DEV DEPENDENCIES
+# ─────────────────────────────────────────────────────────────────────────────
+
+[dev-dependencies]
+tokio-test = "0.4"
+tempfile   = "3"

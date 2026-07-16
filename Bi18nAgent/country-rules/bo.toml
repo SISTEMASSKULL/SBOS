@@ -1,0 +1,80 @@
+# country-rules/bo.toml — Reglas de Bolivia para el orquestador bi18n
+# SSOT: context/Documentacion/GAPS-BI18N-v1.0.md (GAP-02 resuelto)
+# ISO 3166-1 alpha-2: BO · ISO 3166-1 alpha-3: BOL
+
+[pais]
+iso_alpha2     = "BO"
+iso_alpha3     = "BOL"
+codigo_telefono = "+591"
+locale_defecto  = "es-BO"
+tz_defecto      = "America/La_Paz"
+ltr             = true
+
+[moneda]
+iso4217      = "BOB"
+simbolo_local = "Bs."
+simbolo_intl  = "BOB"
+decimales    = 2
+sep_decimal  = ","
+sep_miles    = "."
+
+# ── Documentos de identidad nacionales ────────────────────────────────────────
+
+[documentos.CI]
+regex         = '^\d{5,8}(-[A-Z]{2})?$'
+ejemplo       = "7654321-LP"
+error_mensaje = "Cédula de identidad boliviana inválida. Formato esperado: 7654321-LP"
+
+[documentos.NIT]
+regex         = '^\d{10}$'
+ejemplo       = "1023456789"
+error_mensaje = "NIT boliviano inválido. Debe contener exactamente 10 dígitos"
+
+[documentos.PASSPORT]
+regex         = '^[A-Z]{1,2}\d{6,7}$'
+ejemplo       = "BO123456"
+error_mensaje = "Número de pasaporte boliviano inválido. Formato: dos letras seguidas de 6-7 dígitos"
+
+# ── Máscaras PII por tipo de documento ────────────────────────────────────────
+
+[mascaras.CI]
+estrategia     = "both"
+prefix_visible = 1
+suffix_visible = 3
+
+[mascaras.NIT]
+estrategia     = "partial"
+n              = 4
+
+[mascaras.EMAIL]
+estrategia     = "prefix"
+n              = 3
+
+[mascaras.PHONE]
+estrategia     = "partial"
+n              = 4
+
+# ── Formatos de enums de negocio (catálogo en español boliviano) ──────────────
+
+[enums.gender]
+M = "Masculino"
+F = "Femenino"
+O = "Otro"
+
+[enums.marital_status]
+SINGLE   = "Soltero/a"
+MARRIED  = "Casado/a"
+DIVORCED = "Divorciado/a"
+WIDOWED  = "Viudo/a"
+
+[enums.employment_type]
+FULL_TIME  = "Tiempo completo"
+PART_TIME  = "Medio tiempo"
+FREELANCE  = "Independiente"
+UNEMPLOYED = "Desempleado/a"
+
+[enums.status]
+ACTIVE   = "Activo"
+INACTIVE = "Inactivo"
+PENDING  = "Pendiente"
+BLOCKED  = "Bloqueado"
