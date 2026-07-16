@@ -1,9 +1,10 @@
 /// server/handlers/format.rs — Handlers de formateo de fecha, número y moneda.
 /// Propósito: formatea valores crudos en representaciones localizadas para el tenant.
-///   - FormatDate: ICU4X icu_datetime + jiff para cálculo zonal.
-///   - FormatNumber: ICU4X icu_decimal con separadores del locale.
+///   - FormatDate: jiff para conversión zonal (ICU4X en Fase 3).
+///   - FormatNumber: separadores desde TOML del país vía format_utils.
 ///   - FormatMoney: símbolo y decimales desde country-rules TOML.
-/// Dependencias: jiff, icu_datetime, icu_decimal, icu_locale_core, crate::domain
+/// Utilidades internas (separadores, formatear_numero) → format_utils.rs (DOC-SBOS-001 N3).
+/// Dependencias: jiff, crate::domain, crate::server
 use crate::{
     domain::{
         country_rules::IsoAlpha2,
@@ -12,6 +13,7 @@ use crate::{
     error::{Bi18nError, Resultado},
     server::context::ServerContext,
 };
+use super::format_utils::{formatear_numero, separadores};
 
 // ── FormatDate ────────────────────────────────────────────────────────────────
 
@@ -172,52 +174,3 @@ pub async fn format_fecha_o_ahora(
     format_date(ctx, ts_str, granularidad, regional).await
 }
 
-// ── Utilidades internas ───────────────────────────────────────────────────────
-
-/// Retorna (sep_decimal, sep_miles) desde country-rules o, como fallback,
-/// inferido del locale BCP 47. Las reglas TOML siempre prevalecen sobre
-/// la inferencia por locale (Bolivia usa "." decimal aunque el locale sea es-BO).
-pub(crate) fn separadores(
-    moneda: Option<&crate::domain::country_rules::MonedaRules>,
-    locale: &str,
-) -> (String, String) {
-    if let Some(m) = moneda {
-        return (m.sep_decimal.clone(), m.sep_miles.clone());
-    }
-    // Fallback por locale: punto decimal en en-* y zh-*.
-    let usa_punto = locale.starts_with("en") || locale.starts_with("zh");
-    if usa_punto { (".".into(), ",".into()) } else { (",".into(), ".".into()) }
-}
-
-/// Formatea un número con los separadores dados.
-fn formatear_numero(n: f64, decimales: u32, sep_dec: &str, sep_miles: &str) -> String {
-    let factor = 10_u64.pow(decimales) as f64;
-    let redondeado = (n * factor).round() / factor;
-    let parte_entera = redondeado.abs() as u64;
-    let signo = if n < 0.0 { "-" } else { "" };
-
-    // Aplicar separador de miles.
-    let entero_str = parte_entera.to_string();
-    let con_miles: String = entero_str
-        .chars()
-        .rev()
-        .enumerate()
-        .flat_map(|(i, c)| {
-            if i > 0 && i % 3 == 0 {
-                vec![sep_miles.chars().next().unwrap_or(','), c]
-            } else {
-                vec![c]
-            }
-        })
-        .collect::<String>()
-        .chars()
-        .rev()
-        .collect();
-
-    if decimales > 0 {
-        let parte_dec = ((redondeado.abs() - parte_entera as f64) * factor).round() as u64;
-        format!("{}{}{}{:0>width$}", signo, con_miles, sep_dec, parte_dec, width = decimales as usize)
-    } else {
-        format!("{}{}", signo, con_miles)
-    }
-}
