@@ -1,0 +1,69 @@
+# country-rules/ar.toml — Reglas de Argentina para el orquestador bi18n
+# ISO 3166-1 alpha-2: AR · ISO 3166-1 alpha-3: ARG
+
+[pais]
+iso_alpha2      = "AR"
+iso_alpha3      = "ARG"
+codigo_telefono = "+54"
+locale_defecto  = "es-AR"
+tz_defecto      = "America/Argentina/Buenos_Aires"
+ltr             = true
+
+[moneda]
+iso4217       = "ARS"
+simbolo_local = "$"
+simbolo_intl  = "ARS"
+decimales     = 2
+sep_decimal   = ","
+sep_miles     = "."
+
+[documentos.DNI]
+regex         = '^\d{7,8}$'
+ejemplo       = "12345678"
+error_mensaje = "DNI argentino inválido. Debe contener 7 u 8 dígitos"
+
+[documentos.CUIT]
+regex         = '^\d{2}-\d{8}-\d{1}$'
+ejemplo       = "20-12345678-9"
+error_mensaje = "CUIT argentino inválido. Formato esperado: 20-12345678-9"
+
+[mascaras.DNI]
+estrategia     = "both"
+prefix_visible = 2
+suffix_visible = 2
+
+[mascaras.CUIT]
+estrategia = "partial"
+n          = 4
+
+[mascaras.EMAIL]
+estrategia     = "both"
+prefix_visible = 2
+suffix_visible = 4
+
+[mascaras.PHONE]
+estrategia = "partial"
+n          = 4
+
+[enums.gender]
+M = "Masculino"
+F = "Femenino"
+X = "No binario"
+
+[enums.marital_status]
+SINGLE   = "Soltero/a"
+MARRIED  = "Casado/a"
+DIVORCED = "Divorciado/a"
+WIDOWED  = "Viudo/a"
+
+[enums.employment_type]
+FULL_TIME  = "Tiempo completo"
+PART_TIME  = "Medio tiempo"
+FREELANCE  = "Independiente"
+UNEMPLOYED = "Desempleado/a"
+
+[enums.status]
+ACTIVE   = "Activo"
+INACTIVE = "Inactivo"
+PENDING  = "Pendiente"
+BLOCKED  = "Bloqueado"
