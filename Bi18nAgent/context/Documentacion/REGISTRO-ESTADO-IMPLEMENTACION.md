@@ -30,7 +30,7 @@ ruta de sesión en sesión — marcar ✅ al completar, anotar commit.
 | SBOS-049 ctx_id obligatorio | ✅ | — |
 | gRPC Vía 3 (estructura + proto generado) | ✅ parcial | FormatAddress stub |
 | JSON-RPC dispatcher (16 de 16 métodos) | ✅ 16/16 `9e0c95d` | — |
-| Dispatcher separado (dispatcher.rs) | ✅ `9e0c95d` | — |
+| Dispatcher separado (dispatcher.rs) | ❌ | — |
 | country-rules/bo.toml completo | ✅ | — |
 | country-rules/ar.toml básico | ✅ parcial | Ampliar al nivel de bo.toml |
 | Handlers de lógica (format, validate, mask, attr) | ✅ todos wired | — |
@@ -148,7 +148,7 @@ Archivo a modificar: **`src/server/unix_socket.rs`** (función `ejecutar_metodo`
     structs `FormatDateResult`, `FormatNumberResult`, `FormatMoneyResult`, `GranularidadFecha`.
   - `format_utils.rs` contiene: `formatear_numero`, `separadores`.
 - **Criterio de done:** ambos archivos ≤200 líneas. `format.rs` importa desde `format_utils`.
-- **Estado:** ❌
+- **Estado:** ✅ `043236f`
 
 ---
 
@@ -169,7 +169,7 @@ Archivo a modificar: **`src/server/unix_socket.rs`** (función `ejecutar_metodo`
   - Para `MesAnio` → `YearMonthFormatter` · para `SoloHora` → `TimeFormatter`
 - **Resultado esperado:** "16 de julio de 2026" en lugar de "2026-07-16" para `es-BO`.
 - **Criterio de done:** test con tenant `es-BO` devuelve fecha en lenguaje natural.
-- **Estado:** ❌
+- **Estado:** ✅ `66d7d25`
 
 ### 3.2 `format_number` con ICU4X `icu_decimal`
 
@@ -179,7 +179,7 @@ Archivo a modificar: **`src/server/unix_socket.rs`** (función `ejecutar_metodo`
 - **Criterio de done:** "1,234,567.0000000" para `en-US` y "1.234.567,0000000" para `es-ES`.
   Bolivia con `es-BO` lee separadores de `country-rules/bo.toml` (sep_decimal=".") — la
   función `separadores()` ya tiene la lógica correcta; el `FixedDecimalFormatter` debe usar esos mismos.
-- **Estado:** ❌
+- **Estado:** ✅ `66d7d25`
 
 ### 3.3 `icu_locale_core` — validación BCP 47
 
@@ -187,7 +187,7 @@ Archivo a modificar: **`src/server/unix_socket.rs`** (función `ejecutar_metodo`
 - **Acción:** al recibir un locale BCP 47 en el request, validarlo con `icu_locale_core::Locale`
   antes de usarlo. Retornar error descriptivo si el locale no es válido.
 - **Criterio de done:** `"es-INVALIDO"` retorna error con mensaje en español; `"es-BO"` pasa.
-- **Estado:** ❌
+- **Estado:** ✅ `66d7d25`
 
 ### 3.4 Derivación de máscaras de entrada desde CLDR (Mecanismo §7.2)
 
@@ -198,7 +198,7 @@ Archivo a modificar: **`src/server/unix_socket.rs`** (función `ejecutar_metodo`
   - Exponer vía `bi18n.attr.config` (campo `input_mask`)
 - **Referencia:** manual 1.01 §7.2, tabla de conversión
 - **Criterio de done:** `bi18n.attr.config{ key: "fecha_nacimiento", locale: "es-BO" }` devuelve `input_mask: "99/99/9999"`.
-- **Estado:** ❌
+- **Estado:** ✅ `66d7d25`
 
 ---
 
