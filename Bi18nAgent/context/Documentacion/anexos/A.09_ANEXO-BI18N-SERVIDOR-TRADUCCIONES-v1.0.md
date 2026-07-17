@@ -21,6 +21,7 @@
 9. [Integración con bglobal](#9-integración-con-bglobal)
 10. [Cumplimiento normativo](#10-cumplimiento-normativo)
 11. [Plataforma web de gestión de traducciones — Weblate](#11-plataforma-web-de-gestión-de-traducciones--weblate)
+12. [Ligadura de traducciones con frontends — patrón Bundle Prefetch](#12-ligadura-de-traducciones-con-frontends--patrón-bundle-prefetch)
 
 ---
 
@@ -651,6 +652,390 @@ Cada vez que el traductor guarda un cambio, Weblate hace push al repo usando las
 
 ---
 
+---
+
+## §12 Ligadura de traducciones con frontends — patrón Bundle Prefetch
+
+Esta sección explica cómo los componentes visuales del frontend obtienen el texto en el idioma
+correcto, y por qué el patrón elegido es el estándar de la industria con 30 años de historia.
+
+---
+
+### 12.1 El error conceptual que hay que evitar primero
+
+La pregunta intuitiva es: "¿el componente llama a bi18n cada vez que necesita mostrar un texto?"
+
+**No. Eso sería como llamar a un diccionario por teléfono cada vez que necesitas decir una palabra.**
+
+Si un frontend llama a bi18n en cada renderizado, tiene estos problemas:
+- La pantalla de login tiene ~20 textos → 20 llamadas de red antes de poder mostrarla
+- Cada texto aparece con un retraso (espera respuesta de red antes de renderizar)
+- La UI parpadea: primero muestra la clave cruda (`bauth.login.titulo`), luego el texto real
+- Si bi18n falla un segundo, la pantalla queda en blanco
+
+Nadie hace esto en producción. React, Android, iOS, Flutter — todos evitan este patrón sin excepción.
+
+---
+
+### 12.2 La analogía correcta — el diccionario de viaje
+
+El patrón que usa la industria es este:
+
+```
+Antes de irte de viaje → llevas UN diccionario completo del idioma destino
+                          (una sola compra, antes de salir)
+
+Durante el viaje →       cuando necesitas una palabra, buscas EN TU DICCIONARIO
+                          (sin llamar a ningún servicio, sin esperar nada)
+```
+
+Aplicado a SBOS:
+
+```
+Al iniciar sesión →      el frontend descarga UNA VEZ el diccionario del locale del usuario
+                          (una sola llamada a bi18n, antes de mostrar la primera pantalla)
+
+Al renderizar →          cada componente busca su texto EN EL DICCIONARIO QUE YA TIENE EN MEMORIA
+                          (cero llamadas de red, resultado instantáneo)
+```
+
+El diccionario = el **bundle**. Cargar el bundle al inicio se llama **Bundle Prefetch**.
+
+---
+
+### 12.3 El flujo completo — paso a paso
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  FASE 1 — Una sola vez, al iniciar sesión                                    │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+1. El usuario ingresa sus credenciales
+2. bAuth valida y emite el JWT — el JWT contiene el claim: "locale": "es-BO"
+3. El frontend lee ese claim y sabe qué idioma usar
+4. El frontend llama a bi18n UNA SOLA VEZ:
+
+   bi18n.translate.list_messages({ locale: "es-BO", namespace: "common" })
+   bi18n.translate.list_messages({ locale: "es-BO", namespace: "bauth" })
+
+5. bi18n responde con el diccionario completo del módulo:
+
+   {
+     "bauth.login.titulo":          "Acceso al Sistema",
+     "bauth.login.boton-ingresar":  "Ingresar",
+     "bauth.login.error-credenciales": "Credenciales incorrectas",
+     "bauth.usuario.titulo-perfil": "Perfil de Usuario",
+     "common.boton-cancelar":       "Cancelar",
+     "common.cargando":             "Cargando...",
+     ...todos los textos del módulo...
+   }
+
+6. El frontend guarda ese diccionario en MEMORIA (no en disco, no en base de datos)
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  FASE 2 — Cero veces, por cada componente que renderiza                      │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+7. El componente LoginScreen necesita mostrar el título:
+
+   Text(t("bauth.login.titulo"))
+
+8. La función t() NO llama a bi18n — simplemente busca en el diccionario en memoria:
+
+   diccionario["bauth.login.titulo"] → "Acceso al Sistema"   ← instantáneo, 0 ms de red
+
+9. El componente muestra: "Acceso al Sistema"
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  bi18n no sabe que se está renderizando una pantalla — ya hizo su trabajo    │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 12.4 Carga progresiva por módulo — división del diccionario
+
+En un ERP con múltiples módulos (bAuth, btax, bcms, bpay, bnotify) no es necesario descargar
+el diccionario completo de todos los módulos al iniciar. Se usa carga progresiva:
+
+```
+Al iniciar sesión:
+  → Descargar namespace "common" (siempre — tiene botones, errores genéricos)
+  → Descargar namespace del módulo inicial (ej. "bauth" para la pantalla de login)
+
+Al navegar a Facturación:
+  → Descargar namespace "btax" (solo cuando el usuario abre esa sección)
+  → El namespace "common" ya está en memoria — no se vuelve a descargar
+
+Al navegar a Notificaciones:
+  → Descargar namespace "bnotify"
+  → "common" y "bauth" siguen en memoria
+```
+
+```
+Memoria del frontend en un momento dado:
+┌─────────────────────────────────────────────────────────┐
+│  Diccionario en memoria (Map<String, String>)            │
+│                                                         │
+│  common.*   → siempre presente (precargado al inicio)   │
+│  bauth.*    → presente (módulo de identidad abierto)    │
+│  btax.*     → presente (módulo fiscal abierto antes)    │
+│  bnotify.*  → ausente (el usuario nunca fue ahí)        │
+│                                                         │
+│  Total: ~800 claves × ~50 bytes/clave = ~40 KB en RAM   │
+└─────────────────────────────────────────────────────────┘
+```
+
+40 KB en RAM es imperceptible. Un módulo de traducción completo es más pequeño que una imagen de UI.
+
+---
+
+### 12.5 Cuándo se actualiza el diccionario en el frontend
+
+El diccionario en memoria es válido hasta que una de estas condiciones ocurre:
+
+| Evento | Qué hace el frontend |
+|---|---|
+| El usuario cambia su idioma preferido | Recarga todos los bundles en el nuevo locale |
+| El usuario hace logout + login | Los bundles se limpian y se vuelven a descargar al entrar |
+| bi18nd emite evento WebSocket `translations.updated` | El frontend recarga silenciosamente solo el namespace afectado |
+| El usuario fuerza recarga de la app (F5 / restart) | Descarga limpia de todos los bundles |
+
+**El evento `translations.updated`** es el mecanismo de propagación en vivo: cuando el equipo de
+negocio actualiza un texto en Weblate, ese cambio llega a todos los frontends conectados en
+segundos, sin que los usuarios tengan que cerrar sesión.
+
+```
+Weblate guarda el cambio
+        │
+        ▼
+bi18nd detecta el cambio en disco (notify crate)
+bi18nd recarga el bundle interno (ArcSwap — atómico)
+bi18nd emite evento WebSocket a todos los conectados:
+  { "event": "translations.updated", "namespace": "bauth", "locale": "es-BO" }
+        │
+        ▼
+Cada frontend conectado recibe el evento
+  → descarta el bundle "bauth" en memoria
+  → llama bi18n.translate.list_messages para el namespace afectado
+  → actualiza el diccionario en memoria
+  → los componentes que usan esas claves se re-renderizan
+        │
+        ▼
+El texto nuevo aparece en pantalla sin que nadie cierre sesión
+```
+
+Este mecanismo es opcional — el sistema funciona perfectamente sin él. Solo aporta valor cuando
+el equipo de negocio actualiza traducciones mientras los usuarios están trabajando.
+
+---
+
+### 12.6 Implementación — Flutter (frontend desktop de SBOS)
+
+Flutter es el frontend principal de SBOS (`BauthAgent/src/desktop/`). El patrón Bundle Prefetch
+se implementa con **Riverpod** como gestor de estado.
+
+```dart
+// ──────────────────────────────────────────────────────────────────
+// PASO 1 — Provider que sabe el locale activo del usuario (del JWT)
+// ──────────────────────────────────────────────────────────────────
+@riverpod
+String localeActivo(LocaleActivoRef ref) {
+  // El JWT ya está validado — el claim "locale" contiene "es-BO"
+  final jwt = ref.watch(sesionActivaProvider).jwt;
+  return jwt.claims['locale'] ?? 'es-BO';
+}
+
+// ──────────────────────────────────────────────────────────────────
+// PASO 2 — Provider que descarga el bundle de un namespace
+//          Se ejecuta UNA SOLA VEZ por namespace al iniciar sesión
+//          Si el locale cambia, Riverpod lo recalcula automáticamente
+// ──────────────────────────────────────────────────────────────────
+@riverpod
+Future<Map<String, String>> i18nBundle(
+  I18nBundleRef ref,
+  String namespace,  // "bauth", "btax", "common", etc.
+) async {
+  final locale = ref.watch(localeActivoProvider);
+  final cliente = ref.read(bi18nClientProvider);
+
+  // UNA sola llamada RPC — descarga todo el namespace de una vez
+  final respuesta = await cliente.listMessages(
+    locale: locale,
+    namespace: namespace,
+  );
+  return respuesta.messages; // Map<String, String>
+}
+
+// ──────────────────────────────────────────────────────────────────
+// PASO 3 — Función t() que los widgets usan para resolver texto
+//          NO hace llamadas de red — solo busca en el Map en memoria
+// ──────────────────────────────────────────────────────────────────
+String t(WidgetRef ref, String clave, {Map<String, String>? args}) {
+  // Extrae el namespace del primer segmento: "bauth.login.titulo" → "bauth"
+  final namespace = clave.split('.').first;
+
+  // Lee el bundle ya cargado — si no está listo, devuelve la clave como fallback
+  final bundle = ref.watch(i18nBundleProvider(namespace)).valueOrNull ?? {};
+
+  final texto = bundle[clave] ?? clave; // clave como último recurso documentado
+
+  // Interpolación de variables: "Bienvenido, { $nombre }" → "Bienvenido, María"
+  if (args == null) return texto;
+  return args.entries.fold(
+    texto,
+    (s, e) => s.replaceAll('{ \$${e.key} }', e.value),
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────
+// PASO 4 — En cualquier widget — limpio, sin async, sin await
+// ──────────────────────────────────────────────────────────────────
+class LoginScreen extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Precarga el bundle al renderizar por primera vez
+    ref.watch(i18nBundleProvider('bauth'));
+    ref.watch(i18nBundleProvider('common'));
+
+    return Column(
+      children: [
+        Text(t(ref, 'bauth.login.titulo')),           // → "Acceso al Sistema"
+        Text(t(ref, 'bauth.login.boton-ingresar')),   // → "Ingresar"
+        Text(t(ref, 'common.boton-cancelar')),         // → "Cancelar"
+        Text(t(ref, 'bauth.login.bienvenida',          // → "Bienvenido, Carlos"
+               args: {'nombre': 'Carlos'})),
+      ],
+    );
+  }
+}
+```
+
+**Lo que sucede cuando se renderiza `LoginScreen`:**
+1. Riverpod detecta que `i18nBundleProvider('bauth')` no está cargado → llama a bi18n UNA VEZ
+2. Mientras carga: los `Text()` muestran un indicador de carga (o nada — configurable)
+3. El bundle llega → Riverpod lo guarda → notifica a los widgets → se re-renderizan con texto real
+4. La próxima vez que se renderice `LoginScreen` en la misma sesión: el bundle ya está en memoria → renderizado instantáneo
+
+---
+
+### 12.7 Implementación — Frontend web (TypeScript/JavaScript)
+
+Para portales web del cliente que se sirven desde S16-webserver:
+
+```typescript
+// ──────────────────────────────────────────────────────────────────
+// Clase I18nStore — almacén en memoria de todos los bundles cargados
+// ──────────────────────────────────────────────────────────────────
+class I18nStore {
+  private bundles = new Map<string, Record<string, string>>();
+  private locale: string;
+
+  constructor(locale: string) {
+    this.locale = locale;
+  }
+
+  // Carga el bundle de un namespace desde bi18n — llamado una sola vez por namespace
+  async cargarNamespace(namespace: string): Promise<void> {
+    if (this.bundles.has(namespace)) return; // ya cargado, no vuelve a llamar
+
+    const respuesta = await bi18nClient.call('bi18n.translate.list_messages', {
+      ctx_id: ctxId(),
+      locale: this.locale,
+      namespace,
+    });
+    this.bundles.set(namespace, respuesta.messages);
+  }
+
+  // Función t() — resolución local, cero red
+  t(clave: string, args?: Record<string, string>): string {
+    const namespace = clave.split('.')[0];
+    const bundle = this.bundles.get(namespace) ?? {};
+    const texto = bundle[clave] ?? clave;
+    if (!args) return texto;
+    return Object.entries(args).reduce(
+      (s, [k, v]) => s.replace(`{ $${k} }`, v),
+      texto
+    );
+  }
+
+  // Recarga un namespace — llamado al recibir evento translations.updated
+  async recargarNamespace(namespace: string): Promise<void> {
+    this.bundles.delete(namespace);
+    await this.cargarNamespace(namespace);
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Al iniciar la app — precarga common + módulo inicial
+// ──────────────────────────────────────────────────────────────────
+const i18n = new I18nStore(jwt.claims.locale);
+await Promise.all([
+  i18n.cargarNamespace('common'),
+  i18n.cargarNamespace('bauth'),  // módulo de la primera pantalla
+]);
+
+// ──────────────────────────────────────────────────────────────────
+// En componentes React — limpio, sin async, sin await
+// ──────────────────────────────────────────────────────────────────
+function LoginScreen() {
+  return (
+    <div>
+      <h1>{i18n.t('bauth.login.titulo')}</h1>
+      <button>{i18n.t('bauth.login.boton-ingresar')}</button>
+    </div>
+  );
+}
+```
+
+---
+
+### 12.8 Tabla resumen — qué hace el frontend en cada momento
+
+| Momento | Llamada a bi18n | Tiempo de espera |
+|---|---|---|
+| Inicio de sesión | Sí — descarga bundles `common` + módulo inicial | Una sola vez, ~50–200 ms |
+| Al abrir un módulo nuevo | Sí — si el bundle de ese namespace no está en memoria | Una sola vez por módulo, ~50 ms |
+| Al renderizar cada componente | **No** — resolución local en el Map | 0 ms |
+| Al mostrar un error | **No** — la clave `bauth.error.*` ya está en el bundle | 0 ms |
+| Al cambiar de locale | Sí — descarga todos los bundles en el nuevo locale | Una sola vez, al cambiar |
+| Al recibir evento `translations.updated` | Sí — recarga solo el namespace afectado | Una sola vez, en segundo plano |
+
+---
+
+### 12.9 Estándares internacionales que avalan este patrón
+
+Este no es un diseño propio de SBOS — es el patrón universal del sector:
+
+| Sistema / Framework | Mecanismo | Equivalente en SBOS |
+|---|---|---|
+| **Android ResourceBundle** (Google, 2008) | Archivos `strings-XX.xml` cargados al iniciar la Activity | Bundle prefetch al iniciar la pantalla |
+| **iOS NSBundle** (Apple, 2008) | `Localizable.strings` cargado al arrancar la app | Bundle prefetch al iniciar la app |
+| **React-i18next** (2015 — 78% del ecosistema React) | Backend HTTP carga `/locales/es/translation.json` al iniciar | `list_messages` al iniciar, `t()` local |
+| **Vue-i18n** (Vue 2016+) | `createI18n` con mensajes precargados | Idéntico |
+| **Flutter AppLocalizations** (Google, 2021) | Archivos `.arb` compilados o cargados al arrancar | Bundle prefetch con Riverpod |
+| **Angular i18n** (Google) | Archivos XLIFF/JSON cargados en build o runtime | Idéntico |
+| **GNU gettext** (1990 — el original) | Archivo `.mo` compilado, cargado al arrancar el proceso | El patrón más antiguo del sector |
+
+La invariante es siempre la misma: **cargar el diccionario una vez, resolver localmente**.
+
+---
+
+### 12.10 Lo que bi18n aporta que ningún framework da nativamente
+
+Los frameworks anteriores cargan archivos estáticos (JSON, .xml, .arb). bi18n es más que eso:
+
+| Capacidad | Framework estático | bi18n |
+|---|---|---|
+| Actualización de textos sin redeploy | ❌ Requiere nueva build | ✅ Weblate → disco → hot-reload → WebSocket |
+| Plurales y géneros gramaticales complejos | ⚠️ Depende del formato | ✅ FTL/Fluent nativo |
+| Validación de documentos nacionales (CI, NIT) | ❌ No incluido | ✅ `country-rules/*.toml` |
+| Enums de negocio por país | ❌ No incluido | ✅ `bi18n.enum.display` |
+| Soberanía total — sin CDN externo | ⚠️ Depende del proveedor | ✅ 100% on-premise |
+| Mismo servidor para daemons y frontends | ❌ No aplica | ✅ Unix socket + WebSocket TCP |
+
+---
+
 ## Historial
 
 | Versión | Fecha | Descripción |
@@ -658,3 +1043,4 @@ Cada vez que el traductor guarda un cambio, Weblate hace push al repo usando las
 | 1.0.0 | 2026-07-17 | Anexo inicial. Define el rol arquitectónico de bi18n como servidor canónico de traducciones: locales soportados, estructura FTL, namespacing de claves, jerarquía de fallback, métodos RPC `bi18n.translate.*` y `bi18n.i18n.*`, contrato de consumo para daemons SBOS, integración con bglobal y cumplimiento normativo. |
 | 1.1.0 | 2026-07-17 | Nueva §11 — Plataforma web Weblate: confirmación soporte FTL nativo (Weblate 2026.7), comparativa Weblate/Tolgee/Pontoon, flujo completo paso a paso, requisitos Docker Compose y configuración del componente Git. URLs de referencia: weblate.org, docs.weblate.org/formats/fluent.html. |
 | 1.2.0 | 2026-07-17 | §11.3 reescrito: tres modos de operación (A directo al disco — soberano sin Git; B Gitea local — trazabilidad on-premise; C GitHub — solo SKULL en desarrollo). GitHub no es requerido para traducciones en producción. bi18nd notify crate detecta cambios en disco automáticamente. |
+| 1.3.0 | 2026-07-17 | Nueva §12 — Ligadura con frontends: patrón Bundle Prefetch explicado desde primeros principios. Analogía del diccionario de viaje. Flujo completo 3 fases (prefetch → bundle en memoria → resolución local). Carga progresiva por namespace. Propagación en vivo vía WebSocket `translations.updated`. Implementación Flutter (Riverpod) e implementación web (TypeScript). Tabla resumen de llamadas. Estándares internacionales que avalan el patrón (Android, iOS, React-i18next, Vue-i18n, GNU gettext). |
