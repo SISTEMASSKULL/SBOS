@@ -423,6 +423,230 @@ Agregar los subcomandos que faltan (según A.02 §4.3):
 
 ---
 
+## BLOQUE 9 — Ligadura Frontend (A.04) 🔴
+
+> **Principio fundamental:** bi18n es **agnóstico de plataforma**. El daemon expone un protocolo
+> (WebSocket + JSON-RPC 2.0 newline-delimited). Cualquier cliente — sea cual sea el lenguaje,
+> framework o entorno — implementa su propio adapter local. El daemon no conoce ni depende de
+> Flutter, Vue, React, Swift, Kotlin, ni ningún otro. Las tareas de este bloque son EXCLUSIVAMENTE
+> del daemon; los adapters por plataforma son responsabilidad de cada equipo cliente.
+
+### 9.1 WebSocket listener en bi18nd (transporte universal para clientes remotos)
+
+- **Acción:** agregar un listener WebSocket al daemon (junto al Unix socket existente) para
+  que Kong pueda exponer el endpoint y cualquier cliente remoto se conecte por TLS.
+  - Mismo dispatcher `ejecutar_metodo` que usa el JSON-RPC Unix socket — un solo core,
+    dos transportes. El daemon no distingue entre un cliente Flutter, un Vue app o un script bash.
+  - Autenticación por token JWT (bAuth) en el handshake WebSocket.
+  - El protocolo es JSON-RPC 2.0 newline-delimited — idéntico al del Unix socket. Quien ya
+    sabe llamar al socket local puede llamar al WebSocket cambiando solo el transporte.
+- **Archivo(s):** `src/server/websocket.rs` (crear) + `src/server/mod.rs` (registrar) + `src/main.rs`
+- **Criterio de done:** cualquier cliente WebSocket estándar (`websocat`, `wscat`, script bash con
+  `curl --include --no-buffer -H "Upgrade: websocket"`) conecta y recibe respuesta de
+  `bi18n.health.check` en JSON-RPC 2.0 — sin adapter específico.
+- **Estado:** ❌
+
+### 9.2 Método `bi18n.attr.config_batch` + `bi18n.attr.pipeline` en el dispatcher
+
+- **Acción:** implementar los dos métodos que forman el contrato de ligadura (A.04 §3):
+  - `bi18n.attr.config_batch` — recibe lista de `field_id`, devuelve `{mask_pattern, display_format, validator_profile}` por campo.
+  - `bi18n.attr.pipeline` — recibe `{field_id, value, validator_profile, locale}`, devuelve `{valid, display, masked, validation_errors}`.
+  - Ambos deben funcionar tanto en Unix socket (daemons internos, CLI) como en WebSocket (clientes remotos).
+  - Cache de `country-rules` en memoria — no leer TOML por request, sino servir desde el cache ya cargado.
+- **Archivo(s):** `src/server/dispatcher.rs` + `src/server/handlers/attr.rs` (crear)
+- **Criterio de done:** `i18nctl attr-pipeline --field-id CI --valor "1234567" --locale es-BO`
+  retorna `{valid: true, display: "1234567", masked: "123****"}` — verificable sin ningún framework de frontend.
+- **Estado:** ❌
+
+### 9.3 Resolución de locale por tenant — una vez por sesión, no por campo
+
+- **Acción:** en `attr.config_batch`, resolver el locale efectivo (tenant + branch + usuario)
+  **una sola vez** antes de iterar los campos — no repetir la resolución 20 veces por batch.
+  - Reutilizar `bi18n.locale.resolve` internamente como función, no como RPC.
+- **Archivo(s):** `src/server/handlers/attr.rs` + `src/domain/regional_config.rs`
+- **Criterio de done:** `attr.config_batch` con 20 campos hace exactamente 1 consulta de locale
+  (verificable con `tracing::debug!` o un contador atómico en el loader).
+- **Estado:** ❌
+
+### 9.4 Rate limiting por conexión WebSocket + timeout por request
+
+- **Acción:** en `src/server/websocket.rs`, limitar la tasa de requests por conexión para
+  `attr.pipeline` (protege el daemon de clientes sin debounce — eso es responsabilidad del
+  cliente, pero el daemon no puede confiar en ello).
+  - Rate limit: N requests/s por conexión (configurable en TOML).
+  - Timeout explícito por request: si el handler no responde en X ms, el WebSocket retorna error.
+  - El cliente recibe `{"error": {"code": -32000, "message": "rate limit excedido"}}`.
+- **Criterio de done:** `websocat ws://... < /dev/stdin` enviando 200 requests/s recibe
+  respuestas de error en el campo `error.code` después del umbral — sin crash del daemon.
+- **Estado:** ❌
+
+### 9.5 Documentación del protocolo WebSocket (contract-first, agnóstico de plataforma)
+
+- **Acción:** crear `context/Documentacion/anexos/A.07_ANEXO-BI18N-PROTOCOLO-WEBSOCKET-v1.0.md`
+  con la especificación formal del protocolo:
+  - URL del endpoint expuesto por Kong.
+  - Handshake JWT (qué header, qué claim).
+  - Framing: JSON-RPC 2.0 newline-delimited (un objeto JSON por línea, `\n` como delimitador).
+  - Los métodos disponibles y sus parámetros exactos.
+  - Códigos de error específicos del WebSocket (-32000 rate limit, -32001 auth, etc.).
+  - Fragmento de conexión mínimo en pseudocódigo neutro (no en ningún lenguaje concreto).
+- **Criterio de done:** un equipo nuevo puede implementar un cliente WebSocket funcional leyendo
+  solo este anexo, sin consultar el código fuente del daemon.
+- **Estado:** ❌
+
+---
+
+## BLOQUE 10 — Cierre de Gaps (A.05) 🟠
+
+> **Impacto:** RTL desbloquea locales árabe/hebreo; gobernanza evita regresiones fiscales;
+> CI de paridad detecta claves faltantes antes de llegar a producción.
+
+### 10.1 RTL — `text_direction` en locale.resolve y attr.config_batch
+
+- **Acción:** agregar campo `text_direction: "ltr" | "rtl"` al response de `bi18n.locale.resolve`
+  y de `bi18n.attr.config_batch`. Se resuelve una vez por sesión, no por campo.
+  - `icu_locale_core::DataLocale` ya expone esta info de CLDR — sin cálculo manual.
+- **Archivo(s):** `src/server/handlers/locale.rs` + `src/server/handlers/attr.rs`
+  + `src/domain/regional_config.rs`
+- **Criterio de done:** `bi18n.locale.resolve { locale: "ar-SA" }` retorna `"text_direction": "rtl"`;
+  `bi18n.locale.resolve { locale: "es-BO" }` retorna `"text_direction": "ltr"`.
+- **Estado:** ❌
+
+### 10.2 CODEOWNERS — gobernanza sobre country-rules y translations
+
+- **Acción:** crear `.github/CODEOWNERS` en la raíz del repo con:
+  ```
+  /Bi18nAgent/country-rules/  @equipo-legal-fiscal @arquitecto-sbos
+  /Bi18nAgent/translations/   @equipo-i18n
+  ```
+  + regla de protección de rama que requiere aprobación de CODEOWNER para `country-rules/**`.
+  + Campo `[meta] version = "X.Y.Z"` obligatorio en cada TOML de país.
+- **Criterio de done:** un PR que toque `country-rules/bo.toml` sin aprobación del CODEOWNER
+  no puede mergearse — verificar intentando mergear uno de prueba.
+- **Estado:** ❌
+
+### 10.3 CI de paridad de claves — `i18nctl translations check-parity`
+
+- **Acción:** agregar subcomando `translations check-parity` a `src/bin/i18nctl.rs`:
+  - Lee todos los archivos FTL/TOML de `locales/` por locale.
+  - Compara el set de claves de cada locale contra el locale de referencia (`es-BO`).
+  - Exit code 1 si falta alguna clave en cualquier locale secundario.
+  - Agregar como job obligatorio en `.github/workflows/ci.yml`.
+- **Criterio de done:** si `locales/pt-BR/main.ftl` no tiene la clave `paises-cargados`,
+  el job de CI falla con mensaje indicando la clave faltante y el locale afectado.
+- **Estado:** ❌
+
+### 10.4 Alta disponibilidad — 2+ réplicas bi18nd detrás de Kong
+
+- **Acción:**
+  1. Verificar que el build empaqueta `country-rules/` dentro del artefacto (inmutable).
+  2. Definir volumen/storage compartido para `translations/`, accesible por igual desde
+     todas las réplicas (no un disco local por instancia).
+  3. Configurar 2+ réplicas de `bi18nd` con Kong apuntando a ambas vía `bi18n.health.check`.
+  4. El pipeline de A.06 llama `bi18n.admin.reload_translations` en cada réplica individualmente.
+- **Criterio de done:** `systemctl stop bi18nd` en una réplica → Kong redirige sin error
+  al cliente; al restaurarla, re-entra al pool automáticamente.
+- **Estado:** ❌
+
+### 10.5 Accesibilidad (a11y) en los ejemplos de referencia de A.04 §9
+
+> **Nota:** bi18n es agnóstico de plataforma. Esta tarea es una actualización a los
+> **ejemplos de referencia** del anexo — no código del daemon. Cada equipo cliente aplica
+> los atributos de a11y en su mecanismo nativo; los ejemplos deben mostrar cómo hacerlo.
+
+- **Acción:** actualizar los 4 ejemplos de referencia de A.04 §9 para incluir los atributos
+  de accesibilidad en el contenedor del mensaje de error:
+  - Ejemplo web vanilla: `aria-live="polite"` y `role="alert"` en el div de error.
+  - Ejemplo JS/Vue: `aria-live="polite"` en el elemento `<small class="p-error">`.
+  - Ejemplo Flutter: `Semantics(liveRegion: true, label: errorMessage)` en el widget de error.
+  - Ejemplo Rust (servidor): sin cambio — el servidor no renderiza UI.
+  - Para otros lenguajes/plataformas: el mismo principio — el contenedor del error debe ser
+    anunciable por lector de pantalla sin que el usuario mueva el foco al campo.
+- **Criterio de done:** A.04 §9 contiene el atributo de a11y en los 3 ejemplos de cliente
+  (web, Flutter, Vue). La descripción de §5 menciona la a11y como parte del adapter pattern.
+- **Estado:** ❌
+
+### 10.6 A.07 — Especificación formal del protocolo WebSocket (agnóstico de plataforma)
+
+> **Nota:** bi18n no crea ni mantiene SDKs en lenguajes/frameworks de frontend. Su
+> responsabilidad es publicar el contrato del protocolo para que cualquier equipo lo implemente.
+
+- **Acción:** crear `context/Documentacion/anexos/A.07_ANEXO-BI18N-PROTOCOLO-WEBSOCKET-v1.0.md`
+  con la especificación formal del protocolo WebSocket de bi18n:
+  - URL del endpoint Kong + path de upgrade.
+  - Handshake JWT: qué header, qué claim, qué retorna si falla.
+  - Framing: JSON-RPC 2.0 newline-delimited — explicado sin asumir ningún lenguaje.
+  - Tabla de todos los métodos JSON-RPC disponibles vía WebSocket con parámetros y respuestas.
+  - Códigos de error del transporte WebSocket (-32000 rate limit, -32001 auth, etc.).
+  - Pseudocódigo neutro (sin lenguaje concreto) de una sesión mínima: connect → auth → request → response.
+- **Criterio de done:** un equipo nuevo puede implementar un cliente funcional leyendo solo
+  A.07, sin consultar el código del daemon, en cualquier lenguaje que soporte WebSocket.
+- **Estado:** ❌
+
+---
+
+## BLOQUE 11 — Daemon de Traducciones (A.06) 🟡
+
+> **Impacto:** hoy cambiar un texto de UI requiere que un desarrollador edite un FTL y
+> redeploy el daemon. Con este bloque, un responsable de negocio cambia el texto en Weblate
+> y en minutos está en producción — sin tocar Git, sin redeploy del binario.
+
+### 11.1 Weblate self-hosteado
+
+- **Acción:** levantar Weblate con Docker Compose (app + PostgreSQL + Redis) en VPS de STAGING,
+  conectado al repo donde viven `locales/` (solo `locales/`, no `country-rules/`).
+  Importar las claves existentes de `locales/es-BO/main.ftl` como import inicial.
+- **Criterio de done:** un usuario de negocio (no desarrollador) edita una clave de `es-BO`
+  en Weblate de principio a fin sin tocar Git ni FTL directamente; Weblate commitea al repo.
+- **Estado:** ❌
+
+### 11.2 `bi18n.admin.reload_translations` con ArcSwap
+
+- **Acción:** implementar el nuevo método RPC `bi18n.admin.reload_translations` en el dispatcher.
+  - Usar crate `arc-swap` (143M+ descargas): las traducciones en memoria viven detrás de
+    `ArcSwap<Translations>` — los requests hacen `load()` sin bloqueo.
+  - El reload construye la nueva `Translations` completa en memoria **antes** de hacer `store()`
+    (swap atómico). Si el parseo falla, la versión anterior sigue sirviendo.
+  - El RPC **no** debe exponerse en la ruta pública de Kong — solo accesible desde el pipeline
+    de CI/deploy o el socket Unix local.
+- **Archivo(s):** `src/server/dispatcher.rs` + nuevo `src/domain/translations.rs`
+  + `Cargo.toml` (agregar `arc-swap = "1"`)
+- **Criterio de done:** `bi18n.admin.reload_translations` llamado mientras hay requests
+  concurrentes en curso no produce errores ni estado corrupto (verificar con `cargo test`
+  de estrés o wrk/vegeta).
+- **Estado:** ❌
+
+### 11.3 File watcher con `notify` crate
+
+- **Acción:** agregar un file watcher sobre `cfg.rutas.fluent_dir` usando el crate `notify`
+  (usado por rust-analyzer, deno, mdBook — patrón estándar).
+  - Al detectar cambio, dispara el mismo reload que `bi18n.admin.reload_translations`.
+  - Es la red de seguridad: cubre el caso de edición manual en el VPS sin pasar por el pipeline.
+- **Archivo(s):** `src/domain/signal.rs` o nuevo `src/domain/file_watcher.rs`
+- **Criterio de done:** editar `locales/es-BO/main.ftl` directamente en el VPS produce
+  recarga automática en < 2s sin reiniciar el daemon.
+- **Estado:** ❌
+
+### 11.4 Pipeline CI: Weblate → commit → check paridad → deploy → RPC reload
+
+- **Acción:** en `.github/workflows/ci.yml`, agregar paso que después de sincronizar
+  `locales/` al VPS, llame a `bi18n.admin.reload_translations` en **cada réplica de bi18nd**
+  individualmente (nunca a través de la ruta balanceada de Kong).
+- **Criterio de done:** el ciclo completo (editar en Weblate → commit → CI → deploy → reload
+  visible en `bi18n.health.check`) se mide de punta a punta en < 5 minutos.
+- **Estado:** ❌
+
+### 11.5 Ajuste CODEOWNERS — liberar translations/ de aprobación obligatoria
+
+- **Acción:** actualizar `.github/CODEOWNERS` para que `translations/**` fluya de Weblate
+  a `main` **solo con el gate de CI de paridad de claves** (Bloque 10.3), sin aprobación
+  humana obligatoria. `country-rules/**` mantiene la aprobación obligatoria.
+- **Criterio de done:** un PR de Weblate que solo toque `locales/*.ftl` se mergea
+  automáticamente si CI pasa — sin esperar aprobación de CODEOWNER.
+- **Estado:** ❌
+
+---
+
 ## Orden de ejecución recomendado
 
 ```
