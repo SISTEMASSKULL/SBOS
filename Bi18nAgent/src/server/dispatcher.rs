@@ -272,6 +272,17 @@ pub async fn ejecutar_metodo(
             handlers::lib_validator::validate_must_match_fields(ctx, &params).await
         }
 
+        // ── Enmascaramiento PII en texto libre (A.08.08) ─────────────────
+        "bi18n.mask.email_in_text" => {
+            handlers::lib_mask_pii::mask_email_in_text(ctx, &params).await
+        }
+        "bi18n.mask.phone_in_text" => {
+            handlers::lib_mask_pii::mask_phone_in_text(ctx, &params).await
+        }
+        "bi18n.mask.pii_with_char" => {
+            handlers::lib_mask_pii::mask_pii_with_char(ctx, &params).await
+        }
+
         // ── Validación de formatos especiales (A.08.07) ───────────────────
         "bi18n.validate.uuid" => {
             handlers::lib_scrutiny::validate_uuid(ctx, &params).await

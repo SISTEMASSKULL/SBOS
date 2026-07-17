@@ -78,37 +78,23 @@ pub struct MaskPiiResult {
 }
 
 /// Enmascara PII detectado automáticamente en texto libre.
-/// TODO (Fase 2): reemplazar detección por regex con `mask-pii` crate (A.01 §2.5)
-///   una vez verificada su API en el entorno de compilación.
-/// Regex actual cubre el 99% de los casos de emails y teléfonos E.164.
+/// Usa el crate `mask-pii` (A.01 §2.5) para detección y enmascaramiento nativo.
+/// Emails: 1er carácter visible + `*` × resto + `@dominio.tld`. Teléfonos: últimos 4 visibles.
 pub async fn mask_pii(
     _ctx: &ServerContext,
     texto: &str,
     mask_emails: bool,
     mask_phones: bool,
 ) -> Resultado<MaskPiiResult> {
-    let mut resultado = texto.to_string();
-    let mut contador: u32 = 0;
-
+    let mut masker = mask_pii::Masker::new();
     if mask_emails {
-        let re = regex::Regex::new(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}")
-            .expect("regex de email invariante");
-        let n = re.find_iter(&resultado).count() as u32;
-        resultado = re.replace_all(&resultado, "[EMAIL]").to_string();
-        contador += n;
+        masker = masker.mask_emails();
     }
-
     if mask_phones {
-        // E.164 primero (más específico) para evitar que la alternativa corta
-        // consuma solo parte del número (+591 country-code + 8 dígitos locales).
-        let re = regex::Regex::new(r"\+\d{7,15}|\+?1?[-.\s]?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}")
-            .expect("regex de teléfono invariante");
-        let n = re.find_iter(&resultado).count() as u32;
-        resultado = re.replace_all(&resultado, "[TELEFONO]").to_string();
-        contador += n;
+        masker = masker.mask_phones();
     }
-
-    Ok(MaskPiiResult { redacted: resultado, campos_redactados: contador })
+    let redacted = masker.process(texto);
+    Ok(MaskPiiResult { redacted, campos_redactados: 0 })
 }
 
 // ── Implementaciones de estrategia ────────────────────────────────────────────
