@@ -649,6 +649,20 @@ async fn main() {
             std::sync::Arc::new(DebugMethodsHandler { methods: method_list }));
     }
 
+    // ── Motor de Identidad (2.15 §5) ──
+    dispatcher.register("bauth.identidad.list",
+        std::sync::Arc::new(server::handlers::identidad_crud::IdentidadListHandler { pg_pool: db_ctx.as_ref().map(|c| c.pg.clone()) }));
+    dispatcher.register("bauth.identidad.get",
+        std::sync::Arc::new(server::handlers::identidad_crud::IdentidadGetHandler { pg_pool: db_ctx.as_ref().map(|c| c.pg.clone()) }));
+    dispatcher.register("bauth.identidad.hijos",
+        std::sync::Arc::new(server::handlers::identidad_crud::IdentidadHijosHandler { pg_pool: db_ctx.as_ref().map(|c| c.pg.clone()) }));
+    dispatcher.register("bauth.identidad.atributo.list",
+        std::sync::Arc::new(server::handlers::identidad_crud::IdentidadAtributoListHandler { pg_pool: db_ctx.as_ref().map(|c| c.pg.clone()) }));
+    dispatcher.register("bauth.identidad.atributo.get",
+        std::sync::Arc::new(server::handlers::identidad_crud::IdentidadAtributoGetHandler { pg_pool: db_ctx.as_ref().map(|c| c.pg.clone()) }));
+    dispatcher.register("bauth.identidad.atributo.search",
+        std::sync::Arc::new(server::handlers::identidad_crud::IdentidadAtributoSearchHandler { pg_pool: db_ctx.as_ref().map(|c| c.pg.clone()) }));
+
     let methods = dispatcher.list_methods();
     info!(metodos = ?methods, "JSON-RPC 2.0 dispatcher registrado");
 

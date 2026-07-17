@@ -37,18 +37,18 @@ impl JsonRpcHandler for RoleTemplateListHandler {
 
         #[derive(sqlx::FromRow, serde::Serialize)]
         struct Row {
-            id: String,
+            id: sqlx::types::Uuid,
             tier: String,
             status: String,
             hierarchy_level: i32,
             loa_required: i32,
             mfa_required: bool,
             template_version: Option<String>,
-            parent_id: Option<String>,
+            parent_id: Option<sqlx::types::Uuid>,
         }
 
         let mut query = String::from(
-            "SELECT id, tier, status, hierarchy_level, loa_required, mfa_required, template_version, parent_id
+            "SELECT id, tier::text, status::text, hierarchy_level, loa_required, mfa_required, template_version, parent_id
              FROM bauth.idn_role_template WHERE 1=1"
         );
         if tier_filter.is_some() { query.push_str(" AND tier = $2"); }
@@ -64,11 +64,11 @@ impl JsonRpcHandler for RoleTemplateListHandler {
         })?;
 
         let list: Vec<Value> = rows.iter().map(|r| serde_json::json!({
-            "id": r.id, "tier": r.tier, "status": r.status,
+            "id": r.id.to_string(), "tier": r.tier, "status": r.status,
             "hierarchy_level": r.hierarchy_level,
             "loa_required": r.loa_required, "mfa_required": r.mfa_required,
             "template_version": r.template_version,
-            "parent_id": r.parent_id,
+            "parent_id": r.parent_id.map(|p| p.to_string()),
         })).collect();
 
         Ok(serde_json::json!({"templates": list, "count": list.len()}))
@@ -86,14 +86,18 @@ impl JsonRpcHandler for RoleTemplateGetHandler {
             code: -32000, message: "base de datos no disponible".into(), data: None,
         })?;
 
-        let role_id = params.get("id").and_then(|v| v.as_str())
+        let role_id_str = params.get("id").and_then(|v| v.as_str())
             .ok_or_else(|| JsonRpcError {
-                code: -32602, message: "id requerido (ej: ROL-ORG-CAJ)".into(), data: None,
+                code: -32602, message: "id requerido (UUID v7)".into(), data: None,
             })?;
+
+        let role_id = sqlx::types::Uuid::parse_str(role_id_str).map_err(|_| JsonRpcError {
+            code: -32602, message: format!("id inválido — debe ser UUID: {}", role_id_str), data: None,
+        })?;
 
         #[derive(sqlx::FromRow)]
         struct Row {
-            id: String,
+            id: sqlx::types::Uuid,
             tier: String,
             status: String,
             hierarchy_level: i32,
@@ -111,7 +115,7 @@ impl JsonRpcHandler for RoleTemplateGetHandler {
         }
 
         let row: Row = sqlx::query_as(
-            "SELECT id, tier, status, hierarchy_level, loa_required, mfa_required,
+            "SELECT id, tier::text, status::text, hierarchy_level, loa_required, mfa_required,
                     step_up_enabled, sod_group, max_sessions, session_timeout,
                     audit_level, template_version, template, created_at, updated_at
              FROM bauth.idn_role_template WHERE id = $1"
@@ -141,7 +145,7 @@ impl JsonRpcHandler for RoleTemplateGetHandler {
         }
 
         Ok(serde_json::json!({
-            "id": row.id,
+            "id": row.id.to_string(),
             "tier": row.tier,
             "status": row.status,
             "hierarchy_level": row.hierarchy_level,

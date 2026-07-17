@@ -58,4 +58,5 @@ pub mod self_service;      // B48.T30-T34: User self-service
 pub mod token_protocols;   // B48.T40-T42: Token Exchange + DPoP + Introspection
 pub mod kong_oauth;        // B48.T50-T52: Kong PEP + OAuth2-Proxy + Rate-limiting
 pub mod device_identity;   // B48.T63-T66: Device register/attest/transfer/trust
+pub mod identidad_crud;    // Motor de Identidad: list/get/hijos/atributo.*
 pub mod role_lifecycle;    // B10.T76-T89: Role lifecycle, impact, search, bulk, rollback, batch (panel1,1b,4,9,9b,10,11,12,13,78)

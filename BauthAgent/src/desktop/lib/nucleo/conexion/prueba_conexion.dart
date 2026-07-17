@@ -1,16 +1,16 @@
 // ============================================================
 // bauth_desktop · nucleo/conexion/prueba_conexion.dart
 //
-// Propósito: el "hola mundo" — llama `bauth.health.check` al servidor y
-//   expone el resultado (conectando / ok con versión / error) para la UI.
+// Propósito: health check contra bAuth real usando el cliente
+//   persistente. Expone el resultado para la UI de estado.
+//
 // Dependencias: flutter_riverpod, cliente_rpc, config_conexion.
-// Estándar: bauth.health.check (verificado en la VPS: status/version).
+// Estándar: bauth.health.check (verificado VPS 2026-07-15).
 // ============================================================
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'cliente_rpc.dart';
-import 'config_conexion.dart';
 
 /// Fase del intento de conexión.
 enum FaseConexion { inicial, probando, exitosa, fallida }
@@ -19,10 +19,16 @@ enum FaseConexion { inicial, probando, exitosa, fallida }
 class ResultadoConexion {
   final FaseConexion fase;
   final String mensaje;
-  const ResultadoConexion(this.fase, this.mensaje);
+  final String? version;
+  final int? uptime;
+
+  const ResultadoConexion(this.fase, this.mensaje,
+      {this.version, this.uptime});
 
   static const inicial =
-      ResultadoConexion(FaseConexion.inicial, 'Sin probar todavía');
+      ResultadoConexion(FaseConexion.inicial, 'Sin probar');
+
+  bool get ok => fase == FaseConexion.exitosa;
 }
 
 /// Ejecuta el health.check y publica el resultado.
@@ -31,22 +37,31 @@ class PruebaConexionNotifier extends Notifier<ResultadoConexion> {
   ResultadoConexion build() => ResultadoConexion.inicial;
 
   Future<void> probar() async {
-    final cfg = ref.read(configConexionProvider);
     state = const ResultadoConexion(FaseConexion.probando, 'Conectando…');
+
+    // Usar el cliente persistente en vez de crear uno nuevo por test
+    final cliente = ClienteRpc();
     try {
-      final r = await ClienteRpc()
-          .llamar(cfg.host, cfg.puerto, 'bauth.health.check');
+      await cliente.conectar();
+      final r = await cliente.llamar('bauth.health.check');
       final version = r['version'] ?? '?';
-      final estado = r['status'] ?? '?';
+      final status = r['status'] ?? '?';
+      final uptime = r['uptime_seconds'] as int? ?? 0;
       state = ResultadoConexion(
-          FaseConexion.exitosa, 'bAuth v$version — $estado ✓');
+        FaseConexion.exitosa,
+        'bAuth v$version — $status ✓',
+        version: version.toString(),
+        uptime: uptime,
+      );
     } catch (e) {
       state = ResultadoConexion(FaseConexion.fallida, e.toString());
+    } finally {
+      cliente.desconectar();
     }
   }
 }
 
-/// Provider del resultado del "hola mundo".
+/// Provider del resultado del health check.
 final pruebaConexionProvider =
     NotifierProvider<PruebaConexionNotifier, ResultadoConexion>(
         PruebaConexionNotifier.new);
