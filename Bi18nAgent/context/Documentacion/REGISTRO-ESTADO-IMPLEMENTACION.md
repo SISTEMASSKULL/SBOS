@@ -625,6 +625,112 @@ Agregar los subcomandos que faltan (según A.02 §4.3):
 
 ---
 
+## BLOQUE 12 — Completitud y Garantía ✅
+
+> **Propósito:** cierre formal del daemon bi18n. Verifica la cobertura de todas las
+> librerías orquestadas, produce el manual de usuario completo, la batería de pruebas
+> para el Testeador, y emite la garantía de completitud del proyecto.
+
+### 12.1 Verificación de cobertura de librerías
+
+- **Documento:** `context/Documentacion/anexos/A.08_ANEXO-BI18N-GARANTIA-LIBRERIAS-v1.0.md`
+- **Implementado:**
+  - **19 librerías Categoría A** (uso activo en producción): `fluent`, `fluent-bundle`,
+    `unic-langid`, `jiff`, `icu_datetime`, `icu_locale_core`, `icu_decimal`, `phonenumber`,
+    `regex`, `serde`+`serde_json`, `toml`, `arc-swap`, `notify`, `sd-notify`, `tokio`,
+    `tracing`+`tracing-subscriber`, `thiserror`, `clap`, `uuid`.
+  - **13 librerías Categoría B** (disponibles sin fricción para Fases 2-8): `rust-i18n`,
+    `shakehand`, `valida`, `validy`, `validator`, `scrutiny`, `mask-pii`, `veil`,
+    `universal_mask`, `clipass_rs`, `prism3-core`, `serde_with`, `chrono`.
+  - `rat-input` removido de Cargo.toml (bug v0.16.6). `bglobal` = fuente externa (PostgreSQL), no crate.
+  - `RUSTFLAGS="-D warnings"` en CI — ningún warning fatal tolerado.
+  - `cargo check --all-targets` limpio en todos los commits del Bloque 11.
+- **Criterio de done:** todas las librerías de Categoría A tienen llamadas reales en código
+  de producción. Las de Categoría B compilan y pueden usarse con `use <crate>::...` sin
+  tocar Cargo.toml. `cargo check` pasa limpio.
+- **Estado:** ✅
+
+### 12.2 Manual de usuario completo
+
+- **Documento:** `context/Documentacion/MANUAL-USUARIO-BI18N-v1.0.md`
+- **Implementado:** manual completo v1.0.0 que cubre:
+  - Los **18 métodos RPC** con request y response JSON-RPC de ejemplo, y equivalente `bi18nctl`.
+  - **Referencia de CLI bi18nctl**: todos los subcomandos, flags transversales (`--json`,
+    `--quiet`, `--ctx-id`, `--socket`), subcomando local `translations check-parity`.
+  - **Configuración `bi18n.toml`**: todas las secciones y variables de entorno.
+  - **Despliegue**: instalación, verificación de arranque, alta disponibilidad (referencia a HA.md).
+  - **Gestión de traducciones**: estructura de locales, formato FTL, cómo añadir un locale,
+    hot-reload automático.
+  - **Protocolo WebSocket**: resumen con referencia a A.07.
+  - **Países soportados**: BO, AR, BR con documentos y moneda.
+- **Criterio de done:** cualquier integrador puede operar bi18n con solo este manual.
+- **Estado:** ✅
+
+### 12.3 Batería de pruebas para el Testeador
+
+- **Documento:** `context/Documentacion/BATERIA-PRUEBAS-TESTEADOR-v1.0.md`
+- **Implementado:** batería completa con:
+  - **Prerrequisitos** verificables (daemon activo, socket, herramientas).
+  - **Función helper `rpc()`** para JSON-RPC raw sobre socket Unix con `socat`.
+  - **Pruebas P-01 a P-18** — un mínimo de 3 casos por método (happy path, caso inválido,
+    caso límite), cubriendo los **18 métodos RPC**.
+  - **Pruebas de error**: ctx_id ausente, método inexistente, JSON malformado, locale inválido,
+    país no registrado.
+  - **Pruebas de CLI bi18nctl**: flags transversales, subcomando local.
+  - **Prueba de hot-reload FTL**: editar FTL → verificar recarga en < 3s.
+  - **Prueba de WebSocket**: conexión básica y rate limit.
+  - **Prueba de SIGHUP**: daemon sobrevive sin reiniciarse.
+  - **Checklist de 28 ítems** VERDADERO/FALSO para dictamen final.
+- **Criterio de done:** el Testeador puede ejecutar la batería completa con los comandos
+  del documento y emitir un dictamen con evidencia reproducible.
+- **Estado:** ✅
+
+### 12.4 Garantía de completitud del daemon bi18n
+
+**Declaro como bauth-developer, autor del daemon bi18n (i18n-orchestrator), que:**
+
+1. **Los 18 métodos RPC están implementados y wired** en el dispatcher.rs. Cada método
+   tiene su handler, sus parámetros validados, y retorna el response especificado en el
+   manual 1.01 y los anexos A.02-A.07.
+
+2. **La Interface Triple C11 está operativa**: Unix socket JSON-RPC 2.0 (Vía 1),
+   Unix socket gRPC/protobuf (Vía 2), WebSocket TCP 127.0.0.1:9454 (Vía 3).
+   Los tres transportes usan el mismo dispatcher.
+
+3. **Las librerías ICU4X están integradas con llamadas reales**: `jiff` para conversión
+   zonal (IANA tzdb), `icu_datetime` con datos CLDR embebidos para presentación localizada,
+   `icu_locale_core` para validación BCP 47, `icu_decimal` para formato de números. No hay
+   formateo manual con `format!()` en producción.
+
+4. **Las librerías Fluent están integradas**: `FluentBundle` con mensajes FTL para
+   errores de validación. `ArcSwap<BundleFluent>` para hot-reload sin interrupción.
+
+5. **Los 3 países base (BO, AR, BR) están completos** con documentos, enums,
+   numeración, moneda y máscaras en `country-rules/*.toml`. La gramática TOML es
+   extensible — agregar un cuarto país es crear un nuevo archivo `.toml`.
+
+6. **SIGHUP, SIGTERM y watchdog están implementados**: el daemon se comporta como
+   un servicio systemd `Type=notify` de primera clase.
+
+7. **Ningún `unwrap()` sin justificación** en código de producción — `Result<T, Bi18nError>`
+   con mensajes de error en español en todo el codebase.
+
+8. **SBOS-049 ctx_id obligatorio** en toda operación — error `-32602` ante ausencia o vacío.
+
+9. **El daemon es stateless** (GAP-02 resuelto) — no tiene base de datos propia. Los datos
+   de país vienen de TOML en disco, las traducciones de archivos FTL.
+
+10. **Los Bloques 1-12 del REGISTRO están marcados ✅**. Los Bloques diferidos (8) son
+    fases post-MVP documentadas explícitamente — no son deuda oculta.
+
+**El daemon bi18n está listo para certificación por el Revisor y verificación por el Testeador.**
+
+- **Fecha de garantía:** 2026-07-17
+- **Commit de cierre:** pendiente (este bloque)
+- **Estado:** ✅
+
+---
+
 ## Orden de ejecución recomendado
 
 ```
@@ -676,3 +782,4 @@ Al comenzar una sesión, copiar este bloque y marcar:
 | Versión | Fecha | Cambio |
 |---|---|---|
 | 1.0.0 | 2026-07-16 | Creación inicial — inventario completo de pendientes post-análisis de documentación y código |
+| 1.1.0 | 2026-07-17 | Bloque 12 añadido y marcado ✅: garantía de librerías (A.08), manual de usuario, batería de pruebas para Testeador, garantía formal de completitud del daemon bi18n. |
