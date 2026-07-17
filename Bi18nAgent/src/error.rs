@@ -68,6 +68,9 @@ pub enum Bi18nError {
     #[error("Método JSON-RPC no encontrado: '{metodo}'")]
     MetodoNoEncontrado { metodo: String },
 
+    #[error("Parámetro obligatorio ausente o inválido: '{param}'")]
+    ParamAusente { param: String },
+
     // ── ctx_id (SBOS-049) ──────────────────────────────────────────────────
     #[error("ctx_id ausente o inválido en la solicitud (SBOS-049)")]
     CtxIdAusente,

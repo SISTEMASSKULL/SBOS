@@ -12,12 +12,12 @@
 
 | # | Función / Tipo fuente | Método RPC `bi18n.*` | Fase | Estado |
 |---|----------------------|----------------------|------|--------|
-| 1 | `FluentBundle::has_message(id)` | `bi18n.translate.has_message` | 2 | 📋 Fase 2 |
-| 2 | `FluentBundle::get_message(id)` + `format_pattern(pattern, args, errors)` | `bi18n.translate.message` | 2 | 📋 Fase 2 |
-| 3 | `FluentBundle::get_message(id)` múltiples ids | `bi18n.translate.batch` | 2 | 📋 Fase 2 |
-| 4 | mensajes activos del bundle | `bi18n.translate.list_messages` | 2 | 📋 Fase 2 |
-| 5 | `FluentBundle::format_pattern` con `FluentArgs` | `bi18n.translate.message_with_args` | 2 | 📋 Fase 2 |
-| 6 | `FluentMessage::attributes()` — atributos `.label`, `.placeholder` | `bi18n.translate.attribute` | 2 | 📋 Fase 2 |
+| 1 | `FluentBundle::has_message(id)` | `bi18n.translate.has_message` | 2 | ✅ Implementado |
+| 2 | `FluentBundle::get_message(id)` + `format_pattern(pattern, args, errors)` | `bi18n.translate.message` | 2 | ✅ Implementado |
+| 3 | `FluentBundle::get_message(id)` múltiples ids | `bi18n.translate.batch` | 2 | ✅ Implementado |
+| 4 | mensajes activos del bundle | `bi18n.translate.list_messages` | 2 | ✅ Implementado |
+| 5 | `FluentBundle::format_pattern` con `FluentArgs` | `bi18n.translate.message_with_args` | 2 | ✅ Implementado |
+| 6 | `FluentMessage::attributes()` — atributos `.label`, `.placeholder` | `bi18n.translate.attribute` | 2 | ✅ Implementado |
 | 7 | `FluentBundle::new(locales)` / `new_concurrent(locales)` | — | — | ❌ Infra interna |
 | 8 | `FluentBundle::add_resource(res)` | — | — | ❌ Infra interna |
 | 9 | `FluentBundle::add_resource_overriding(res)` | — | — | ❌ Infra interna |

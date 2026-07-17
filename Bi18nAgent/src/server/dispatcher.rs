@@ -1,7 +1,8 @@
 /// server/dispatcher.rs — Dispatcher de todos los métodos JSON-RPC de bi18n.
 /// Propósito: match único method→handler; separado de unix_socket.rs (DOC-SBOS-001 N3).
-///   - 18 métodos wired: health, locale, validate(3), mask(2), format(3), enum, snapshot,
+///   - Fase 1 (18): health, locale, validate(3), mask(2), format(3), enum, snapshot,
 ///     attr(4), admin.reload, admin.reload_translations.
+///   - Fase 2 A.08.01 (6): translate.{has_message,message,message_with_args,batch,list_messages,attribute}.
 ///   - SBOS-049: ctx_id obligatorio — ausente o vacío → error -32602.
 ///   - Paridad C11: mismos handlers que gRPC (Vía 3) — transporte transparente.
 ///   - admin.reload_translations: NO exponer en ruta pública de Kong (solo socket Unix/CI).
@@ -217,6 +218,26 @@ pub async fn ejecutar_metodo(
             let text_direction = handlers::locale::detectar_direccion_texto(&locale);
             let campos = handlers::attr::config_batch_desde_json(&params["fields"], &locale, &country);
             Ok(serde_json::json!({ "campos": campos, "locale": locale, "country": country, "text_direction": text_direction }))
+        }
+
+        // ── Traducción Fluent (A.08.01) ───────────────────────────────────
+        "bi18n.translate.has_message" => {
+            handlers::lib_fluent::translate_has_message(ctx, &params).await
+        }
+        "bi18n.translate.message" => {
+            handlers::lib_fluent::translate_message(ctx, &params).await
+        }
+        "bi18n.translate.message_with_args" => {
+            handlers::lib_fluent::translate_message_with_args(ctx, &params).await
+        }
+        "bi18n.translate.batch" => {
+            handlers::lib_fluent::translate_batch(ctx, &params).await
+        }
+        "bi18n.translate.list_messages" => {
+            handlers::lib_fluent::translate_list_messages(ctx, &params).await
+        }
+        "bi18n.translate.attribute" => {
+            handlers::lib_fluent::translate_attribute(ctx, &params).await
         }
 
         // ── Administración ────────────────────────────────────────────────

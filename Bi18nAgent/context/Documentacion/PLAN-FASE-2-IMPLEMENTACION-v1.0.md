@@ -26,7 +26,7 @@ Los anexos A.08.15–A.08.22 son infraestructura interna: 0 métodos RPC, no gen
 
 | Orden | Anexo | Librería | Handler Rust | RPC nuevos | Estado |
 |:-----:|-------|----------|--------------|:----------:|:------:|
-| 1 | A.08.01 | `fluent-bundle 0.15.3` | `lib_fluent.rs` | 6 | ⏳ Pendiente |
+| 1 | A.08.01 | `fluent-bundle 0.15.3` | `lib_fluent.rs` | 6 | ✅ Implementado |
 | 2 | A.08.02 | `rust-i18n 4.x` | `lib_rust_i18n.rs` | 4 | ⏳ Pendiente |
 | 3 | A.08.03 | `icu_datetime 2.2.0` | `lib_icu_datetime.rs` | 6 | ⏳ Pendiente |
 | 4 | A.08.04 | `icu_locale_core 2.2.0` | `lib_icu_locale.rs` | 4 | ⏳ Pendiente |
@@ -132,7 +132,7 @@ Nuevos (Fase 2):
 
 | Orden | Handler | Métodos | Commit | Estado |
 |:-----:|---------|:-------:|--------|:------:|
-| 1 | `lib_fluent.rs` | 6 | — | ⏳ |
+| 1 | `lib_fluent.rs` | 6 | pendiente commit | ✅ |
 | 2 | `lib_rust_i18n.rs` | 4 | — | ⏳ |
 | 3 | `lib_icu_datetime.rs` | 6 | — | ⏳ |
 | 4 | `lib_icu_locale.rs` | 4 | — | ⏳ |

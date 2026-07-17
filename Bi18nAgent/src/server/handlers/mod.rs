@@ -10,6 +10,7 @@ pub mod enums;
 pub mod format;
 pub(crate) mod format_utils;
 pub mod health;
+pub mod lib_fluent;
 pub mod locale;
 pub mod mask;
 pub mod snapshot;
