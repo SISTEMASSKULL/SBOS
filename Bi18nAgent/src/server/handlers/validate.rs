@@ -161,17 +161,15 @@ pub struct ValidateEmailResult {
     pub errores: Vec<String>,
 }
 
-/// Valida una dirección de email con regex RFC 5321.
+/// Valida una dirección de email según la especificación HTML5 (validator crate).
 /// El mensaje de error viene del FluentBundle (recargable en SIGHUP).
 pub async fn validate_email(
     ctx: &ServerContext,
     valor: &str,
 ) -> Resultado<ValidateEmailResult> {
-    let re = regex::Regex::new(r"(?i)^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$")
-        .expect("regex de email invariante");
-
+    use validator::ValidateEmail;
     let normalizado = valor.trim().to_lowercase();
-    if re.is_match(&normalizado) {
+    if normalizado.validate_email() {
         Ok(ValidateEmailResult {
             valid: true,
             normalized: normalizado,
