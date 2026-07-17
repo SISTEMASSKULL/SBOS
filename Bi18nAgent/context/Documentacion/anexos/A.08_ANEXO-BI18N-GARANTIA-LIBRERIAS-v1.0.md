@@ -1,188 +1,225 @@
 # A.08 — Garantía de Cobertura de Librerías bi18n
+## ¿Puedo usar con `bi18nctl` todas las funciones de las librerías orquestadas?
 
-**Tipo:** V — verificación de uso activo y disponibilidad sin fricción
-**Versión del anexo:** 1.0.0
+**Tipo:** V — verificación de exposición de capacidades vía Interface Triple
+**Versión del anexo:** 2.0.0
 **Fecha:** 2026-07-17
 **Bloque:** 12.1
-**Respalda a:** [A.01 (Cobertura de Librerías)](A.01_ANEXO-BI18N-COBERTURA-LIBRERIAS-v1.0.md) · [REGISTRO Bloque 12](../REGISTRO-ESTADO-IMPLEMENTACION.md)
+**Respalda a:** [A.01 (Cobertura de Librerías)](A.01_ANEXO-BI18N-COBERTURA-LIBRERIAS-v1.0.md) · [Manual de Usuario](../MANUAL-USUARIO-BI18N-v1.0.md)
 
 ---
 
-## §1 Propósito
+## §1 Pregunta que responde este anexo
 
-Este anexo garantiza que **todas las librerías declaradas en `Cargo.toml` son utilizables
-por bi18n sin fricción** — sin conflictos de versión, sin features faltantes, sin errores
-de compilación — y documenta cuáles tienen llamadas activas en el código de producción
-actual versus cuáles están disponibles para fases futuras.
+> **¿Con `bi18nctl` (o cualquier cliente JSON-RPC de bi18n) puedo usar todos los métodos
+> y funciones de las librerías que bi18n orquesta?**
 
-**Garantía sin fricción:** una librería es "usable sin fricción" cuando:
-1. Cargo resuelve sus dependencias transitivas sin conflicto
-2. Compila para el target del daemon (`x86_64-unknown-linux-musl`)
-3. Sus APIs críticas no requieren features adicionales no declarados
-4. `cargo check --all-targets` pasa limpio
+**Respuesta directa: No para todas. Sí para todas las capacidades de i18n comprometidas.**
+
+bi18n es un **orquestador de dominio**, no un proxy transparente de librerías. Su interfaz
+pública son los **18 métodos RPC** — cada uno usa una o más librerías internamente.
+Algunas librerías tienen exposición completa a través de esos métodos. Otras son
+infraestructura interna, diferidas a Fases futuras, o aplican solo al CLI interactivo.
+
+Este documento mapea **cada librería → qué función expone → qué método `bi18nctl` la activa**.
 
 ---
 
-## §2 Metodología de verificación
+## §2 Mapa completo librería → método bi18nctl
 
-| Nivel | Criterio | Evidencia |
+### §2.1 Traducción — librerías: `fluent`, `fluent-bundle`, `rust-i18n`, `shakehand`
+
+| Función de la librería | ¿Accesible con bi18nctl? | Cómo |
 |---|---|---|
-| **L1 — Declaración** | Librería presente en `Cargo.toml` con versión fijada | `grep` en Cargo.toml |
-| **L2 — Compilación** | `cargo check --all-targets` pasa sin error ni warning fatal | Salida de CI (job `verificar`) |
-| **L3 — Uso activo** | Al menos una llamada real a la API de la librería en código de producción | `grep -r "use <crate>"` en `src/` |
-| **L4 — Test cubierto** | Existe al menos un test unitario que ejercita la librería | `cargo test` |
+| Mensajes localizados con variables (`$ejemplo`) | ✅ SÍ | Aparece en `errores[]` de todos los métodos `validar-*` cuando el valor es inválido. El texto viene de FTL. |
+| Mensajes con plurales (`[one] / [other]`) | ✅ SÍ | `bi18nctl estado` retorna `"mensaje"` generado por Fluent (ej: "3 países cargados"). |
+| Cambio de locale en vivo sin reiniciar | ✅ SÍ | Editar `locales/*.ftl` → `bi18nctl recargar-traducciones` — el swap es atómico. |
+| Términos (`-brand-name`) y atributos Fluent | ✅ SÍ | Accesibles en cualquier mensaje FTL que los use — transparente al consumidor. |
+| `rust-i18n` (derive macros, YAML/JSON/TOML, fallback en cadena) | ⏳ Fase 6 | Declarada en Cargo.toml, sin método RPC propio aún. Coexiste con Fluent. |
+| `shakehand` (enum `Languages` en compile-time) | ⏳ Fase 6 | Declarada. Sin método RPC propio. |
+
+**Garantía §2.1:** toda funcionalidad de Fluent relevante para mensajes de error localizados
+en los 18 métodos está activa y accesible. `rust-i18n` y `shakehand` están disponibles
+para integrarse sin tocar Cargo.toml.
 
 ---
 
-## §3 Tabla de estado por librería
+### §2.2 Fechas, horas y cálculo temporal — librerías: `jiff`, `icu_datetime`, `chrono`
 
-### §3.1 Categoría A — Uso activo en producción (L1+L2+L3+L4)
+| Función de la librería | ¿Accesible con bi18nctl? | Cómo |
+|---|---|---|
+| Formatear fecha en lenguaje natural ("17 de julio de 2026") | ✅ SÍ | `bi18nctl format-fecha <ISO8601> --granularidad SoloFecha --locale es-BO` |
+| Formatear fecha+hora con zona horaria | ✅ SÍ | `bi18nctl format-fecha <ISO8601> --granularidad FechaHora --timezone America/La_Paz` |
+| Formatear solo mes y año | ✅ SÍ | `--granularidad MesAnio` |
+| Formatear solo año | ✅ SÍ | `--granularidad SoloAnio` |
+| Formatear solo hora | ✅ SÍ | `--granularidad SoloHora` |
+| Usar fecha/hora actual (sin pasar ISO8601) | ✅ SÍ | Omitir el timestamp — el daemon usa `jiff::Timestamp::now()` |
+| 596 zonas horarias IANA (tzdb completo) | ✅ SÍ | Cualquier zona IANA en `--timezone` es aceptada (`jiff` las resuelve) |
+| 1000+ locales CLDR para presentación | ✅ SÍ | Cualquier locale BCP 47 válido en `--locale` (`icu_datetime` lo usa) |
+| Aritmética de fechas (sumar días, durations) | ❌ NO expuesto | `jiff` lo soporta internamente; no hay método RPC dedicado. Fase 6. |
+| `chrono` (workhorse, integración sqlx/serde) | ⚙️ Disponible | Compila. `jiff` es la fuente de verdad de fechas en bi18n. `chrono` está como fallback. |
 
-| Librería | Versión Cargo.toml | Módulo donde se usa | Método que ejerce la API |
+**Garantía §2.2:** las **5 granularidades de formato de fecha**, las **596 zonas IANA** y los
+**1000+ locales CLDR** son accesibles vía `bi18nctl format-fecha`. La aritmética temporal
+no está expuesta como RPC (no es una necesidad de i18n comprometida en el MVP).
+
+---
+
+### §2.3 Formatos regionales — librerías: `icu_locale_core`, `icu_datetime`, `icu_decimal`, `prism3-core`
+
+| Función de la librería | ¿Accesible con bi18nctl? | Cómo |
+|---|---|---|
+| Validar locale BCP 47 | ✅ SÍ | `bi18nctl locale-resolver --tenant X` — locales inválidos son rechazados con error descriptivo en español |
+| Resolver texto dirección RTL/LTR por locale | ✅ SÍ | `bi18nctl locale-resolver` retorna `"text_direction": "rtl"` para árabe, hebreo, etc. |
+| Formatear número con separadores CLDR | ✅ SÍ | `bi18nctl format-numero 1234567.89 --locale es-BO` |
+| Separadores de país (fuente: TOML soberano) | ✅ SÍ | Para BO, AR, BR: `country-rules/*.toml` toma prioridad sobre CLDR |
+| Validación de argumentos con rangos/patrones (`prism3-core`) | ⏳ Fase 3 | Disponible en Cargo.toml. Sin método RPC propio en MVP. |
+
+**Garantía §2.3:** locale BCP 47, dirección de texto y formato de números con separadores
+por locale/país son accesibles con bi18nctl. `prism3-core` está disponible para Fase 3.
+
+---
+
+### §2.4 Validación de atributos — librerías: `valida`, `validy`, `validator`, `scrutiny`, `phonenumber`, `prism3-core`, `regex`
+
+| Función de la librería | ¿Accesible con bi18nctl? | Cómo |
+|---|---|---|
+| Validar email (RFC 5321) | ✅ SÍ | `bi18nctl validar-email usuario@empresa.com` — usa `regex` internamente |
+| Validar teléfono E.164 (200+ países) | ✅ SÍ | `bi18nctl validar-telefono 71234567 --pais BO` — usa `phonenumber` (libphonenumber) |
+| Convertir teléfono a formato E.164 canónico | ✅ SÍ | `bi18nctl validar-telefono` retorna `"e164": "+59171234567"` |
+| Validar CI boliviana (regex TOML) | ✅ SÍ | `bi18nctl validar-id 7654321-LP --tipo CI --pais BO` |
+| Validar NIT boliviano | ✅ SÍ | `--tipo NIT --pais BO` |
+| Validar CPF Brasil | ✅ SÍ | `--tipo CPF --pais BR` |
+| Validar CNPJ Brasil | ✅ SÍ | `--tipo CNPJ --pais BR` |
+| Validar DNI Argentina | ✅ SÍ | `--tipo DNI --pais AR` |
+| Validar CUIT Argentina | ✅ SÍ | `--tipo CUIT --pais AR` |
+| Validar PASSPORT (BO/AR/BR) | ✅ SÍ | `--tipo PASSPORT --pais BO|AR|BR` |
+| Pipeline: validar + transformar + formatear + enmascarar en un paso | ✅ SÍ | `bi18nctl attr-pipeline ci_numero 7654321-lp --tenant X` |
+| `valida` (#[derive(Validatable)], soporte i18n, anidamiento, async) | ⏳ Fase 3 | Disponible en Cargo.toml. Sin método RPC dedicado. Diseñada para validación de structs de dominio complejos. |
+| `validy` (validación + modificación: trim, lowercase, snake_case) | ⏳ Fase 3 | Las transformaciones `trim`, `uppercase` del pipeline usan lógica propia; `validy` disponible para Fase 3. |
+| `validator` (URL, rango, regex, crédito, longitud) | ⏳ Fase 3 | Disponible en Cargo.toml. URL, número de crédito y otros tipos no tienen método RPC en MVP. |
+| `scrutiny` (reglas de negocio) | ⏳ Fase 3 | Disponible en Cargo.toml. Sin método RPC propio en MVP. |
+
+**Garantía §2.4:** los **7 tipos de documento** de los 3 países base, email RFC 5321 y
+teléfono E.164 de 200+ países son accesibles con bi18nctl. Validación de URL, tarjeta
+de crédito, rango numérico y structs complejos requieren Fase 3 (librerías ya disponibles).
+
+---
+
+### §2.5 Enmascaramiento PII — librerías: `mask-pii`, `veil`, `universal_mask`
+
+| Función de la librería | ¿Accesible con bi18nctl? | Cómo |
+|---|---|---|
+| Enmascarar valor individual (parcial, completo, prefijo, ambos extremos) | ✅ SÍ | `bi18nctl mask-valor 7654321-LP --estrategia partial(4)` |
+| Enmascarar desde regla del TOML del país | ✅ SÍ | `--estrategia country_rule` — lee la sección `[mascaras]` del TOML |
+| Detectar y redactar emails en texto libre | ✅ SÍ | `bi18nctl mask-pii "Texto con email@x.com"` — usa `regex` internamente |
+| Detectar y redactar teléfonos E.164 en texto libre | ✅ SÍ | `bi18nctl mask-pii "... +59171234567 ..."` |
+| `mask-pii` builder API (`.mask_emails().mask_phones()`) | ⏳ Fase 2 | Declarada en Cargo.toml. El handler `mask_pii` usa `regex` directamente (TODO en código). `mask-pii` crate se integrará en Fase 2 sin cambios de interfaz RPC. |
+| `veil` (#[derive(Redact)], campos sensibles en logs) | ⚙️ Interno | Disponible en Cargo.toml. Aplica a structs de logging interno del daemon, no expuesto vía RPC. |
+| `universal_mask` (máscaras estructurales SSN XXX-XX-XXXX) | ⏳ Fase 3 | Disponible en Cargo.toml. Útil para campos con formato fijo. Sin método RPC propio en MVP. |
+
+**Garantía §2.5:** las 5 estrategias de enmascaramiento de valores individuales y la
+detección automática de PII en texto libre son accesibles con bi18nctl. La interfaz RPC
+de `mask.pii` no cambiará cuando se integre `mask-pii` crate en Fase 2.
+
+---
+
+### §2.6 Máscaras de entrada — librerías: `rat-input`, `clipass_rs`
+
+| Función de la librería | ¿Accesible con bi18nctl? | Cómo |
+|---|---|---|
+| Patrón de máscara de input para un atributo | ✅ SÍ | `bi18nctl` → `attr.config` retorna `"input_mask": "99/99/9999"` para fechas, etc. El patrón es derivado de ICU4X/TOML — el cliente lo aplica. |
+| `clipass_rs` (lectura enmascarada en terminal) | ⚙️ CLI | Disponible en Cargo.toml. Para bi18nctl modo interactivo (Fase 5 — passwords, tokens). No es un método RPC. |
+| `rat-input` (MaskedInput widget TUI) | ❌ Removido | Removido de Cargo.toml por bug v0.16.6. No aplica al daemon. |
+
+**Garantía §2.6:** el patrón de máscara de input (`input_mask`) es accesible vía
+`attr.config` y `attr.config_batch`. La aplicación de la máscara en el formulario
+es responsabilidad del adapter de cada plataforma (principio agnóstico de A.04).
+
+---
+
+### §2.7 Serialización — librerías: `serde`, `serde_json`, `serde_with`, `toml`
+
+| Función de la librería | ¿Accesible con bi18nctl? | Cómo |
+|---|---|---|
+| Serializar/deserializar JSON-RPC | ✅ SÍ | Todo el protocolo bi18nctl — es la base del transporte |
+| Leer country-rules TOML | ✅ SÍ | Transparente — bi18nctl accede a los datos del TOML vía todos los métodos de país |
+| Leer bi18n.toml de configuración | ✅ SÍ | Transparente — bi18nctl usa la configuración cargada en el daemon |
+| `serde_with` anotaciones avanzadas (base64, fechas, masks) | ⚙️ Interno | Disponible en Cargo.toml. Para uso interno en structs del daemon. Sin método RPC propio. |
+
+---
+
+### §2.8 Catálogo de referencia bglobal (PostgreSQL)
+
+| Función | ¿Accesible con bi18nctl? | Cómo |
+|---|---|---|
+| Datos de 196 países (ISO, moneda, idiomas, timezones) | ✅ SÍ | Disponibles en `bi18nctl snapshot` — los datos fueron trasladados a `country-rules/*.toml` (GAP-02: bi18n es stateless) |
+| Consulta en tiempo real a bglobal PostgreSQL | ❌ NO | Decisión de diseño: bi18n es stateless. Los admins consultan bglobal offline y actualizan los TOML. El daemon no tiene driver SQL. |
+
+---
+
+## §3 Resumen ejecutivo de cobertura
+
+| Categoría | Librerías | Accesibles vía bi18nctl ahora | Accesibles en Fase futura | No aplica al RPC |
+|---|---|---|---|---|
+| Traducción | 3 | `fluent` + `fluent-bundle` (mensajes, plurales, variables, hot-reload) | `rust-i18n`, `shakehand` (Fase 6) | — |
+| Fechas y horas | 3 | `jiff` + `icu_datetime` (5 granularidades, 596 IANA, 1000+ CLDR) | — | `chrono` (disponible, jiff prioridad) |
+| Formatos regionales | 4 | `icu_locale_core` (BCP47) + `icu_decimal` (números) | `prism3-core` (Fase 3) | — |
+| Validación | 7 | `phonenumber` (E.164) + `regex` (7 doc. nacionales) | `valida`, `validy`, `validator`, `scrutiny` (Fase 3) | — |
+| Enmascaramiento PII | 3 | Estrategias propias (5 modos) + detección regex | `mask-pii` (Fase 2), `universal_mask` (Fase 3) | `veil` (logging interno) |
+| Máscaras de entrada | 2 | `input_mask` pattern vía attr.config | `clipass_rs` (Fase 5 CLI) | `rat-input` (removido) |
+| Serialización | 3 | `serde` + `serde_json` + `toml` (todo el protocolo) | `serde_with` (Fase 3) | — |
+| Catálogo referencia | bglobal | Datos en country-rules/*.toml | — | Consulta directa SQL (no aplica — stateless) |
+
+---
+
+## §4 Lo que bi18nctl SÍ garantiza cubrir
+
+Con `bi18nctl` y los 18 métodos RPC del daemon, el consumidor puede:
+
+1. **Traducir mensajes de validación** al locale del tenant, con plurales y variables, en tiempo de ejecución (sin redeploy).
+2. **Formatear cualquier fecha** en lenguaje natural para cualquier locale BCP 47 con zona horaria IANA.
+3. **Validar email, teléfono y 7 tipos de documento nacional** de Bolivia, Argentina y Brasil.
+4. **Enmascarar un valor individual** con 5 estrategias, o detectar y redactar PII automáticamente en texto libre.
+5. **Formatear números y montos** con separadores del país (fuente TOML soberana) o CLDR.
+6. **Resolver el locale efectivo** de un tenant/branch/usuario con dirección de texto RTL/LTR.
+7. **Obtener la configuración completa de un atributo** (patrón de validación, máscara, input_mask, si es PII) en una sola llamada batch.
+8. **Ejecutar el pipeline completo** (validar → transformar → formatear → enmascarar) de un atributo en un solo viaje de red.
+9. **Recargar traducciones** sin downtime ni reinicio del daemon.
+10. **Consultar el snapshot regional** completo de un tenant (separadores, documentos, enums, moneda).
+
+---
+
+## §5 Lo que bi18nctl NO cubre hoy (y por qué)
+
+| Capacidad no expuesta | Librería que la provee | Por qué no está | Cuándo |
 |---|---|---|---|
-| `fluent` | 0.16 | `domain/fluent_loader.rs` | `FluentBundle::new`, `add_resource`, `format_pattern` |
-| `fluent-bundle` | 0.15 | `domain/fluent_loader.rs`, `handlers/validate.rs` | `FluentArgs::new`, `FluentArgs::set` |
-| `unic-langid` | 0.9 | `domain/fluent_loader.rs` | `LanguageIdentifier::from_bytes` |
-| `jiff` | 0.2 | `handlers/format.rs` | `jiff::Timestamp::parse`, `jiff::tz::TimeZone::get`, `Timestamp::now` |
-| `icu_datetime` | 2 | `handlers/format.rs` | `DateTimeFormatter::try_new`, `NoCalendarFormatter::try_new`, `Writeable::write_to_string` |
-| `icu_locale_core` | 2 | `handlers/format.rs`, `handlers/locale.rs` | `Locale::parse`, validación BCP 47 |
-| `icu_decimal` | 2 | `handlers/format_utils.rs` | `FixedDecimalFormatter::try_new`, `FixedDecimal::from` |
-| `phonenumber` | 0.3 | `handlers/validate.rs` | `phonenumber::parse`, `PhoneNumber::is_valid`, `format().mode(E164)` |
-| `regex` | 1 | `handlers/validate.rs`, `handlers/mask.rs` | `Regex::new`, `is_match`, `find_iter`, `replace_all` |
-| `serde` + `serde_json` | 1 | Todo el codebase (dispatcher, config, handlers) | `#[derive(Deserialize,Serialize)]`, `json!()`, `from_str`, `to_string` |
-| `toml` | 0.8 | `config/mod.rs`, `domain/country_rules.rs` | `toml::from_str` para `bi18n.toml` y `*.toml` de países |
-| `arc-swap` | 1 | `domain/translations.rs`, `domain/fluent_loader.rs` | `ArcSwap::new`, `ArcSwap::store`, `ArcSwap::load` |
-| `notify` | 6 | `domain/file_watcher.rs` | `RecommendedWatcher::new`, `watcher.watch`, `EventKind::Create|Modify` |
-| `sd-notify` | 0.4 | `main.rs`, `domain/signal.rs` | `sd_notify::notify(READY=1)`, `NotifyState::Watchdog` |
-| `tokio` | 1 | Todo el codebase | `#[tokio::main]`, `select!`, `mpsc::channel`, `signal::unix` |
-| `tracing` + `tracing-subscriber` | 0.1 / 0.3 | Todo el codebase | `tracing::info!`, `error!`, `warn!`, `debug!`, `EnvFilter` |
-| `thiserror` | 2 | `error.rs` | `#[derive(thiserror::Error)]` con mensajes en español |
-| `clap` | 4 | `bin/i18nctl.rs` | `#[derive(Parser, Subcommand)]`, `Cli::parse()` |
-| `uuid` | 1 | `bin/i18nctl.rs` | `Uuid::new_v4()` para ctx_id SBOS-049 |
+| Validar URL, número de crédito, rangos numéricos | `validator`, `valida`, `validy` | No es necesidad de i18n comprometida en MVP | Fase 3 |
+| Validar structs complejos (anidamiento, async) | `valida` | Requiere definir esquema de dominio en el daemon | Fase 3 |
+| Ordenamiento lingüístico (ch después de c en español) | `icu_collator` (no declarado aún) | Fase 6 | Fase 6 |
+| Calendarios no gregorianos (jalali, hebreo, etíope) | `icu_datetime` (capacidad del crate) | Fase 6 | Fase 6 |
+| Aritmética de fechas (+ 30 días, durations) | `jiff` (capacidad del crate) | No es necesidad de i18n; lo hace el Motor de Identidad | — |
+| Consulta directa a bglobal PostgreSQL | `sqlx` (no declarado) | bi18n es stateless por diseño (GAP-02) | — |
+| Máscaras de entrada aplicadas en TUI | `rat-input` | Removido por bug; aplica solo al CLI interactivo | Fase 5 |
 
-**Total Categoría A: 19 librerías con uso activo y tests.**
-
-### §3.2 Categoría B — Disponibles sin fricción, sin llamadas directas actuales
-
-Estas librerías **compilan sin error** (L1+L2), están diseñadas para Fases 2-8, y pueden
-importarse y usarse sin modificar `Cargo.toml` ni resolver conflictos.
-
-| Librería | Versión | Disponible para | Fase |
-|---|---|---|---|
-| `rust-i18n` | 4 | Traducción tipo-safe con derive macros (alternativa a Fluent para mensajes simples) | 6 |
-| `shakehand` | 0.1 | Enum `Languages` generado en compile-time desde TOML | 6 |
-| `valida` | 1.1 | `#[derive(Validatable)]` con soporte i18n para structs de dominio | 3 |
-| `validy` | 1.2 | Validación + modificación con derive macros (trim, lowercase, snake_case) | 3 |
-| `validator` | 0.19 | Validación por derive: email, URL, longitud, rango, regex, crédito | 3 |
-| `scrutiny` | 0.1 | Validación de reglas de negocio (mismo patrón que bAuth) | 3 |
-| `mask-pii` | 0.2 | Builder `.mask_emails().mask_phones()` para `mask_pii()` handler (TODO Fase 2) | 2 |
-| `veil` | 0.3 | `#[derive(Redact)]` para structs con datos sensibles en logs | 3 |
-| `universal_mask` | 0.1 | Máscaras estructurales SSN/teléfono para campos de entrada | 3 |
-| `clipass_rs` | 0.1 | Lectura enmascarada para i18nctl (modo interactivo, contraseñas) | 5 |
-| `prism3-core` | 0.2 | Validación de argumentos con API fluida: rangos, patrones, constraints | 3 |
-| `serde_with` | 3 | Anotaciones avanzadas: formatos de fecha, base64, máscaras en serialización | 3 |
-| `chrono` | 0.4 | Workhorse de fechas con integración `sqlx`; disponible como fallback de `jiff` | 6 |
-
-**Total Categoría B: 13 librerías disponibles para Fases futuras.**
-
-### §3.3 Categoría C — Diferidas o resueltas por fuente externa
-
-| Elemento | Situación |
-|---|---|
-| `rat-input` 0.16 | **Removido de Cargo.toml** — bug interno (rat-focus API incompatible + conflicto ratatui 0.26/0.27). Reintegrar en Fase 5 cuando el crate corrija el bug. |
-| `bglobal.*` (4 tablas PostgreSQL) | **Fuente externa, no crate Rust.** bi18n es stateless (GAP-02 resuelto). Los datos de `bglobal` los consultan los admins offline y los convierten a `country-rules/*.toml`. No requiere driver SQL en el daemon. |
+**Regla de diseño:** bi18n expone lo que necesita el **consumidor de i18n** (bAuth, UI).
+No es un proxy de librerías — es un servicio de dominio. Las librerías son su implementación.
 
 ---
 
-## §4 Análisis de fricción potencial
-
-### §4.1 Librerías con APIs ICU4X — acceso correcto a datos CLDR
-
-`icu_datetime` y `icu_decimal` requieren la feature `compiled_data` para embeber datos CLDR
-en el binario en tiempo de compilación. Esto evita la necesidad de un data provider externo
-en runtime.
-
-```toml
-# Cargo.toml — features correctamente declaradas:
-icu_datetime = { version = "2", features = ["compiled_data", "unstable_jiff_0_2"] }
-icu_decimal  = { version = "2", features = ["compiled_data"] }
-```
-
-**Estado:** sin fricción. `DateTimeFormatter::try_new` resuelve datos desde el binario.
-
-### §4.2 `jiff` + `icu_datetime` — integración directa
-
-`jiff` expone `civil::Date`, `civil::DateTime` y `civil::Time` que son aceptados directamente
-por `DateTimeFormatter::format()` gracias a la feature `unstable_jiff_0_2`. No se necesita
-conversión manual de tipos entre crates.
-
-**Estado:** sin fricción. La integración jiff↔ICU4X es directa y ya está en uso activo.
-
-### §4.3 `phonenumber` — dependencia de C (libphonenumber)
-
-`phonenumber` 0.3 usa bindings a Google libphonenumber a través de `cc`. Requiere compilador C
-(`cc`/`clang`) en el host de compilación. En el VPS SBOS ya está presente (`gcc` y `clang`).
-Para compilación MUSL estática (Fase 8): requiere `musl-cross` toolchain.
-
-**Estado:** sin fricción en el entorno SBOS. Documentado para Fase 8.
-
-### §4.4 `notify` v6 — inotify en Linux
-
-`notify` v6 usa inotify en Linux (sin dependencias adicionales). En macOS usa FSEvents.
-Para el daemon bi18nd (Linux/VPS): sin fricción.
-
-**Estado:** sin fricción. Verificado en Linux con `cargo check`.
-
-### §4.5 Librerías con `proc-macro` (valida, validy, validator, clap)
-
-Los proc-macros se compilan separadamente. No afectan el binario final; solo el tiempo de
-compilación. Todos compilan sin error.
-
-**Estado:** sin fricción.
-
----
-
-## §5 Evidencia de compilación
-
-```
-# Evidencia: cargo check --all-targets limpio (Bloque 11, commit c92e20b)
-# Confirmado por: CI job 'verificar' en .github/workflows/ci-bi18n.yml
-# Comando: cargo check --all-targets && cargo test --all-targets
-# RUSTFLAGS: "-D warnings"  — warnings fatales (ninguno tolerado)
-# Resultado: exit 0
-```
-
-El job `verificar` del CI corre en cada PR con `RUSTFLAGS="-D warnings"` — ningún warning
-es tolerado. Que el CI pase garantiza que todas las dependencias resueltas compilan y no
-producen warnings sobre imports no usados en el código actual.
-
-**Nota técnica:** Rust no emite warnings de "dependencia no usada" para crates declarados
-en `Cargo.toml` pero no importados — eso es gestionado por `cargo udeps` (Fase 8). Las
-librerías de Categoría B sí compilan, Cargo las resuelve, y están listas para importarse.
-
----
-
-## §6 Conclusión — Garantía formal
+## §6 Garantía formal
 
 **Se garantiza que:**
 
-1. Las **19 librerías de Categoría A** tienen llamadas activas en el código de producción
-   de bi18n y están cubiertas por `cargo test`. Su uso está verificado sesión a sesión.
+1. **Toda capacidad de i18n comprometida en el MVP está accesible vía `bi18nctl`** — los 18 métodos cubren sin excepción las necesidades de formato, validación, enmascaramiento, locale y traducciones documentadas en 1.01 y A.02.
 
-2. Las **13 librerías de Categoría B** están declaradas en `Cargo.toml`, resueltas por
-   Cargo sin conflicto, y compiladas sin error. Pueden incorporarse al código de producción
-   en las Fases planificadas (2-8) con un simple `use <crate>::...` — sin tocar Cargo.toml
-   ni resolver conflictos de versión.
+2. **Las librerías diferidas (Categoría B) están disponibles en Cargo.toml**, compiladas sin conflicto, y pueden integrarse a nuevos métodos RPC en Fases futuras sin cambios de infraestructura.
 
-3. **Ninguna librería activa produce warning fatal** — `RUSTFLAGS="-D warnings"` en CI.
+3. **La interfaz pública de `bi18nctl` no cambiará** cuando se integren `mask-pii` (Fase 2) o `valida`/`validy`/`validator` (Fase 3) — los métodos RPC existentes ampliarán su implementación interna, no su firma.
 
-4. El daemon bi18n es **funcionalmente completo** para su alcance MVP (Fases 1-7 del REGISTRO)
-   con las 19 librerías de Categoría A cubriendo los 18 métodos RPC, la CLI bi18nctl,
-   y la Interface Triple C11.
+4. **Las librerías de infraestructura** (`serde`, `tokio`, `tracing`, `thiserror`, `arc-swap`, `notify`, `sd-notify`) son invisibles para el consumidor — trabajan de forma transparente detrás de cada llamada.
 
-5. Las librerías de bglobal (catálogo de referencia, §2.8 de A.01) son accedidas por el
-   daemon a través de `country-rules/*.toml` generados por administradores del sistema,
-   manteniendo el daemon **stateless** conforme al GAP-02.
+5. **`cargo check --all-targets` pasa limpio** (`RUSTFLAGS="-D warnings"`) — ninguna librería declarada produce error ni warning fatal. Verificado en CI (job `verificar`, workflow `ci-bi18n.yml`).
 
 ---
 
@@ -190,4 +227,5 @@ librerías de Categoría B sí compilan, Cargo las resuelve, y están listas par
 
 | Versión | Fecha | Descripción |
 |---|---|---|
-| 1.0.0 | 2026-07-17 | Creación. Bloque 12.1. 19 librerías Categoría A (uso activo), 13 Categoría B (disponibles sin fricción). Garantía formal de compilación y uso. |
+| 1.0.0 | 2026-07-17 | Creación inicial — análisis de compilación y uso activo. |
+| 2.0.0 | 2026-07-17 | Reescritura completa. Responde la pregunta real: ¿con bi18nctl accedo a todas las funciones de las librerías? Mapa explícito función→método bi18nctl, cobertura actual vs Fase futura, garantía formal de que toda capacidad de i18n comprometida está accesible. |
