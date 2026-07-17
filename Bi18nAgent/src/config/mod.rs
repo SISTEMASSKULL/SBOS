@@ -18,7 +18,8 @@ pub struct Config {
 }
 
 /// Parámetros de los sockets Unix y el servidor WebSocket TCP (Interface Triple C11).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Redacta campos sensibles en logs usando veil (A.08.21 · ISO 27001 A.8.15).
+#[derive(Clone, Serialize, Deserialize, veil::Redact)]
 pub struct ServidorConfig {
     /// Ruta del socket JSON-RPC Unix. Valor por defecto: /run/bos/bi18n.sock
     pub socket_path: PathBuf,
@@ -27,12 +28,18 @@ pub struct ServidorConfig {
     /// Segundos máximos de drenado de conexiones activas en SIGHUP (GAP-03).
     pub drain_timeout_secs: u64,
     /// Dirección TCP del servidor WebSocket para clientes remotos (Bloque 9.1).
-    /// Kong proxea la ruta pública hacia esta dirección interna. Solo loopback.
     pub ws_bind: String,
     /// Máximo de requests por segundo por conexión WebSocket (0 = sin límite).
     pub ws_rate_limit_rps: u32,
     /// Timeout por request WebSocket en milisegundos.
     pub ws_timeout_ms: u64,
+    /// Hash SHA256 de la contraseña admin para autenticar operaciones bi18nctl.
+    /// Se redacta en Debug/logs — solo se muestra el prefijo (A.08.21).
+    #[redact(partial)]
+    pub admin_hash: Option<String>,
+    /// Token de acceso a Vault PKI. Completamente redactado en logs (A.08.21).
+    #[redact]
+    pub vault_token: Option<String>,
 }
 
 /// Configuración regional por defecto para MVP (GAP-01 — estática).
@@ -79,6 +86,8 @@ impl Default for Config {
                 ws_bind: "127.0.0.1:9454".to_string(),
                 ws_rate_limit_rps: 60,
                 ws_timeout_ms: 5_000,
+                admin_hash: None,
+                vault_token: None,
             },
             regional: RegionalDefecto {
                 locale: "es-BO".to_string(),

@@ -54,6 +54,9 @@ pub enum Bi18nError {
     FormatoDesconocido { codigo: String },
 
     // ── Validación ─────────────────────────────────────────────────────────
+    #[error("Parámetro '{campo}' inválido: {mensaje}")]
+    ValidacionFallida { campo: String, mensaje: String },
+
     #[error("Tipo de documento de identidad no soportado para país '{iso}'")]
     DocumentoNoSoportado { iso: String },
 

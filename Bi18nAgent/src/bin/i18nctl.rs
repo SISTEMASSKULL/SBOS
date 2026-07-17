@@ -5,7 +5,9 @@
 ///   - Exit codes: 0=ok, 1=respuesta inválida del dominio, 2=error daemon/conexión.
 ///   - ctx_id generado automáticamente (UUID v4) si no se pasa explícitamente (SBOS-049).
 ///   - Subcomandos locales (sin daemon): `translations check-parity`.
-/// Dependencias: clap (CLI), serde_json (JSON-RPC), uuid (ctx_id), std::os::unix::net
+///   - Subcomando protegido: `admin` — lee contraseña con clipass_rs (A.08.17).
+/// Dependencias: clap, serde_json, uuid, clipass_rs, std::os::unix::net
+use clipass_rs::CliPass;
 use std::{
     collections::HashSet,
     fs,
@@ -174,6 +176,24 @@ enum Comando {
         #[command(subcommand)]
         subcomando: ComandoTranslations,
     },
+
+    /// Operaciones administrativas protegidas (requieren contraseña admin).
+    /// Lee la contraseña de forma segura con clipass_rs y la envía como hash SHA256 (A.08.17).
+    Admin {
+        #[command(subcommand)]
+        operacion: ComandoAdmin,
+    },
+}
+
+/// Subcomandos administrativos protegidos por contraseña.
+#[derive(clap::Subcommand, Debug)]
+enum ComandoAdmin {
+    /// Recarga country-rules y traducciones Fluent (operación protegida).
+    Recargar,
+    /// Recarga solo traducciones FTL, sin recargar country-rules (operación protegida).
+    RecargarTraducciones,
+    /// Verifica el estado interno del daemon con privilegios admin.
+    Estado,
 }
 
 /// Subcomandos de gestión de traducciones.
@@ -378,8 +398,58 @@ fn construir_llamada(comando: &Comando, ctx_id: &str) -> (&'static str, Value) {
                 "tenant": tenant,
             }),
         ),
-        // Translations se ejecuta localmente en main() — nunca llega aquí.
+        // Translations y Admin se ejecutan localmente en main() — nunca llegan aquí.
         Comando::Translations { .. } => unreachable!("traducciones son operaciones locales"),
+        Comando::Admin { .. } => unreachable!("admin se procesa antes en main()"),
+    }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Admin — operaciones protegidas por contraseña (A.08.17 clipass_rs)
+// ────────────────────────────────────────────────────────────────────────────
+
+/// Autentica al operador con clipass_rs y envía la operación admin al daemon.
+/// El hash SHA256 de la contraseña se envía como `admin_token` al daemon.
+/// El daemon verifica el hash contra ServidorConfig.admin_hash (nunca en texto plano).
+fn ejecutar_admin(
+    operacion: &ComandoAdmin,
+    socket: &str,
+    ctx_id_arg: &Option<String>,
+    json_mode: bool,
+    quiet: bool,
+) -> ExitCode {
+    // Leer contraseña de forma segura con clipass_rs — oculta con '*'
+    let mut session = CliPass::new();
+    session.set_prompt_label("Contraseña admin bi18n: ");
+    session.set_no_visibility();
+    session.set_prompt_mask_token('*');
+
+    if session.launch_prompt().is_err() {
+        return imprimir_error("no se pudo leer la contraseña", quiet, json_mode);
+    }
+
+    let admin_token = session.hash_sha256_internal();
+    let ctx_id = ctx_id_arg.clone()
+        .unwrap_or_else(|| Uuid::new_v4().to_string());
+
+    let (method, params) = match operacion {
+        ComandoAdmin::Recargar => (
+            "bi18n.admin.reload",
+            json!({ "ctx_id": ctx_id, "admin_token": admin_token }),
+        ),
+        ComandoAdmin::RecargarTraducciones => (
+            "bi18n.admin.reload_translations",
+            json!({ "ctx_id": ctx_id, "admin_token": admin_token }),
+        ),
+        ComandoAdmin::Estado => (
+            "bi18n.health.check",
+            json!({ "ctx_id": ctx_id, "admin_token": admin_token }),
+        ),
+    };
+
+    match enviar_jsonrpc(socket, method, params) {
+        Ok(resultado) => imprimir_ok(&resultado, json_mode, quiet),
+        Err(e)        => imprimir_error(&e, quiet, json_mode),
     }
 }
 
@@ -393,6 +463,11 @@ fn main() -> ExitCode {
     // Subcomandos locales: operan sobre el sistema de archivos sin conectar al daemon.
     if let Comando::Translations { subcomando } = &cli.comando {
         return ejecutar_translations(subcomando, cli.quiet, cli.json);
+    }
+
+    // Subcomandos admin: requieren autenticación con contraseña antes de enviar al daemon.
+    if let Comando::Admin { operacion } = &cli.comando {
+        return ejecutar_admin(operacion, &cli.socket, &cli.ctx_id, cli.json, cli.quiet);
     }
 
     let ctx_id = cli.ctx_id.clone()

@@ -7,60 +7,110 @@
 ///   bi18n.locale.negotiate · bi18n.locale.subtags
 /// Nota: bi18n.locale.resolve (Fase 1) sigue en locale.rs — no se duplica aquí.
 /// Parámetro ctx_id: validado en el dispatcher antes de llegar aquí (SBOS-049).
+/// validy A.08.15: structs de request con Validate para sanitización y validación declarativa.
+/// serde_with A.08.22: skip_serializing_none en respuestas con campos opcionales.
 /// Referencia: A.08.04_INVENTARIO-LIB-ICU-LOCALE-v1.0.md · PLAN-FASE-2 §4
-/// Dependencias: icu_locale_core, serde_json, crate::error, crate::server::context
+/// Dependencias: icu_locale_core, serde_json, validy, serde_with, crate::error, crate::server::context
 use icu_locale_core::Locale;
+use serde::Deserialize;
 use serde_json::{json, Value};
+use serde_with::{serde_as, skip_serializing_none};
+use valida::prelude::RulesBuilder;
+use validy::core::{ValidateAndModificate, ValidationError, ValidationErrors};
+// Re-exporta el derive macro Validate desde validation_derive via validy::core
+use validy::core::Validate;
 use crate::{error::Bi18nError, server::context::ServerContext};
+
+/// DTO de request para operaciones que reciben un string de locale BCP-47.
+/// #[validate(modificate)] activa el flag para que #[modificate(...)] en campos funcione (A.08.15).
+#[derive(Deserialize, Validate)]
+#[validate(modificate)]
+struct LocaleParam {
+    #[modificate(trim)]
+    #[validate(length(2..=35))]
+    locale: String,
+    #[allow(dead_code)]
+    ctx_id: String,
+}
+
+/// Respuesta de parse_bcp47: campos opcionales omitidos cuando son None (A.08.22).
+#[serde_as]
+#[skip_serializing_none]
+#[derive(serde::Serialize)]
+struct ParseBcp47Resp {
+    valid: bool,
+    normalized: String,
+    language: String,
+    script: Option<String>,
+    region: Option<String>,
+    variants: Vec<String>,
+}
+
+/// Convierte ValidationErrors de validy a un string legible en español.
+fn fmt_errores(errs: &ValidationErrors) -> String {
+    errs.iter()
+        .flat_map(|(campo, lista)| lista.iter().map(move |e| match e {
+            ValidationError::Leaf(l) => format!(
+                "{}: {}", campo,
+                l.message.as_deref().unwrap_or(l.code.as_ref())
+            ),
+            ValidationError::Node(n) => format!("{}: error en subcampos ({})", campo, n.code),
+        }))
+        .collect::<Vec<_>>()
+        .join("; ")
+}
 
 /// Parsea y valida un string BCP-47. Retorna los componentes si es válido.
 /// Entrada: `{ "locale": "es-BO-419", "ctx_id": "..." }`.
 /// Salida: `{ "valid": true, "normalized": "es-419-BO", "language": "es", ... }`.
 pub async fn locale_parse_bcp47(_ctx: &ServerContext, params: &Value) -> Result<Value, Bi18nError> {
-    let s = params["locale"].as_str().unwrap_or("");
-    if s.is_empty() {
-        return Err(Bi18nError::ParamAusente { param: "locale".to_string() });
-    }
-    match Locale::try_from_str(s) {
+    // Deserializa y valida con validy (A.08.15)
+    let mut p: LocaleParam = serde_json::from_value(params.clone())
+        .map_err(|_| Bi18nError::ParamAusente { param: "locale".to_string() })?;
+    p.validate_and_modificate()
+        .map_err(|errs| Bi18nError::ValidacionFallida {
+            campo: "locale".to_string(),
+            mensaje: fmt_errores(&errs),
+        })?;
+
+    match Locale::try_from_str(&p.locale) {
         Ok(locale) => {
-            let lang = locale.id.language.to_string();
-            let script = locale.id.script.map(|sc| sc.to_string());
-            let region = locale.id.region.map(|r| r.to_string());
-            let variants: Vec<String> = locale.id.variants.iter()
-                .map(|v| v.to_string())
-                .collect();
-            Ok(json!({
-                "valid": true,
-                "normalized": locale.to_string(),
-                "language": lang,
-                "script": script,
-                "region": region,
-                "variants": variants,
-            }))
+            let resp = ParseBcp47Resp {
+                valid: true,
+                normalized: locale.to_string(),
+                language: locale.id.language.to_string(),
+                script: locale.id.script.map(|sc| sc.to_string()),
+                region: locale.id.region.map(|r| r.to_string()),
+                variants: locale.id.variants.iter().map(|v| v.to_string()).collect(),
+            };
+            Ok(serde_json::to_value(resp).unwrap_or_else(|_| json!({ "valid": true })))
         }
         Err(e) => Ok(json!({
             "valid": false,
             "error": e.to_string(),
-            "locale": s,
+            "locale": p.locale,
         })),
     }
 }
 
 /// Normaliza un string de locale BCP-47 (capitalización canónica de subtags).
 /// Usa Locale::normalize() de icu_locale_core (canonicalización básica sin datos CLDR).
-/// Para canonicalización completa (zh-TW → zh-Hant-TW) se requiere icu_locale con datos.
 /// Entrada: `{ "locale": "ES-bo", "ctx_id": "..." }`.
 /// Salida: `{ "canonical": "es-BO", "original": "ES-bo" }`.
 pub async fn locale_canonicalize(_ctx: &ServerContext, params: &Value) -> Result<Value, Bi18nError> {
-    let s = params["locale"].as_str().unwrap_or("");
-    if s.is_empty() {
-        return Err(Bi18nError::ParamAusente { param: "locale".to_string() });
-    }
-    let canonical = Locale::normalize(s).map_err(|e| Bi18nError::LocaleInvalido {
-        locale: s.to_string(),
+    let mut p: LocaleParam = serde_json::from_value(params.clone())
+        .map_err(|_| Bi18nError::ParamAusente { param: "locale".to_string() })?;
+    p.validate_and_modificate()
+        .map_err(|errs| Bi18nError::ValidacionFallida {
+            campo: "locale".to_string(),
+            mensaje: fmt_errores(&errs),
+        })?;
+    let original = p.locale.clone();
+    let canonical = Locale::normalize(&p.locale).map_err(|e| Bi18nError::LocaleInvalido {
+        locale: p.locale.clone(),
         causa: e.to_string(),
     })?;
-    Ok(json!({ "canonical": canonical.as_ref(), "original": s }))
+    Ok(json!({ "canonical": canonical.as_ref(), "original": original }))
 }
 
 /// Negocia el mejor locale disponible para un conjunto de preferencias.
@@ -90,15 +140,34 @@ pub async fn locale_negotiate(ctx: &ServerContext, params: &Value) -> Result<Val
 }
 
 /// Extrae los subtags de un locale BCP-47: language, script, region, variants.
+/// Usa valida RulesBuilder para validación programática compleja (A.08.16).
 /// Entrada: `{ "locale": "zh-Hans-CN", "ctx_id": "..." }`.
 /// Salida: `{ "language": "zh", "script": "Hans", "region": "CN", "variants": [] }`.
 pub async fn locale_subtags(_ctx: &ServerContext, params: &Value) -> Result<Value, Bi18nError> {
-    let s = params["locale"].as_str().unwrap_or("");
-    if s.is_empty() {
-        return Err(Bi18nError::ParamAusente { param: "locale".to_string() });
+    let s = params["locale"].as_str()
+        .ok_or_else(|| Bi18nError::ParamAusente { param: "locale".to_string() })?
+        .trim()
+        .to_string();
+
+    // Validación programática con valida RulesBuilder (A.08.16)
+    struct LocaleDto { locale: String }
+    let dto = LocaleDto { locale: s.clone() };
+    let mut builder: RulesBuilder<LocaleDto, std::io::Error> = RulesBuilder::new();
+    builder.field("locale", |d| &d.locale)
+        .min_length(2)
+        .max_length(35)
+        .build();
+    let errores = builder.validate(&dto).await
+        .map_err(|e| Bi18nError::Io(e))?;
+    if !errores.is_empty() {
+        return Err(Bi18nError::ValidacionFallida {
+            campo: "locale".to_string(),
+            mensaje: format!("{:?}", errores),
+        });
     }
-    let locale = Locale::try_from_str(s).map_err(|e| Bi18nError::LocaleInvalido {
-        locale: s.to_string(),
+
+    let locale = Locale::try_from_str(&s).map_err(|e| Bi18nError::LocaleInvalido {
+        locale: s.clone(),
         causa: e.to_string(),
     })?;
     Ok(json!({
