@@ -14,10 +14,10 @@
 
 | # | Función / Tipo fuente | Método RPC `bi18n.*` | Fase | Estado |
 |---|----------------------|----------------------|------|--------|
-| 1 | `check_bounds(offset, length, total_length)` | `bi18n.guard.check_bounds` | 2 | 📋 Fase 2 |
-| 2 | `check_element_index(index, size)` | `bi18n.guard.check_element_index` | 2 | 📋 Fase 2 |
-| 3 | `check_position_index(index, size)` | `bi18n.guard.check_position_index` | 2 | 📋 Fase 2 |
-| 4 | `require_equal(name1, v1, name2, v2)` / `require_not_equal(...)` | `bi18n.guard.num_compare` | 2 | 📋 Fase 2 |
+| 1 | `check_bounds(offset, length, total_length)` | `bi18n.guard.check_bounds` | 2 | ✅ `af243d3` |
+| 2 | `check_element_index(index, size)` | `bi18n.guard.check_element_index` | 2 | ✅ `af243d3` |
+| 3 | `check_position_index(index, size)` | `bi18n.guard.check_position_index` | 2 | ✅ `af243d3` |
+| 4 | `require_equal(name1, v1, name2, v2)` / `require_not_equal(...)` | `bi18n.guard.num_compare` | 2 | ✅ `af243d3` |
 | 5 | `check_argument(condition)` | — | — | ❌ Infra interna |
 | 6 | `check_argument_with_message(condition, msg)` | — | — | ❌ Infra interna |
 | 7 | `check_argument_fmt(condition, message)` | — | — | ❌ Infra interna |
@@ -30,9 +30,9 @@
 
 | # | Función / Tipo fuente | Método RPC `bi18n.*` | Fase | Estado |
 |---|----------------------|----------------------|------|--------|
-| 12 | `value.require_positive(name)` | `bi18n.guard.num_positive` | 2 | 📋 Fase 2 |
-| 13 | `value.require_non_negative(name)` | `bi18n.guard.num_non_negative` | 2 | 📋 Fase 2 |
-| 14 | `value.require_in_closed_range(name, min, max)` | `bi18n.guard.num_in_range` | 2 | 📋 Fase 2 |
+| 12 | `value.require_positive(name)` | `bi18n.guard.num_positive` | 2 | ✅ `af243d3` |
+| 13 | `value.require_non_negative(name)` | `bi18n.guard.num_non_negative` | 2 | ✅ `af243d3` |
+| 14 | `value.require_in_closed_range(name, min, max)` | `bi18n.guard.num_in_range` | 2 | ✅ `af243d3` |
 | 15 | `value.require_zero(name)` | — | — | 🔮 Futuro |
 | 16 | `value.require_non_zero(name)` | — | — | 🔮 Futuro |
 | 17 | `value.require_negative(name)` | — | — | 🔮 Futuro |
@@ -49,9 +49,9 @@
 
 | # | Función / Tipo fuente | Método RPC `bi18n.*` | Fase | Estado |
 |---|----------------------|----------------------|------|--------|
-| 26 | `s.require_non_blank(name)` | `bi18n.guard.str_non_blank` | 2 | 📋 Fase 2 |
-| 27 | `s.require_length_in_range(name, min, max)` | `bi18n.guard.str_length_range` | 2 | 📋 Fase 2 |
-| 28 | `s.require_match(name, &regex)` | `bi18n.guard.str_match` | 2 | 📋 Fase 2 |
+| 26 | `s.require_non_blank(name)` | `bi18n.guard.str_non_blank` | 2 | ✅ `af243d3` |
+| 27 | `s.require_length_in_range(name, min, max)` | `bi18n.guard.str_length_range` | 2 | ✅ `af243d3` |
+| 28 | `s.require_match(name, &regex)` | `bi18n.guard.str_match` | 2 | ✅ `af243d3` |
 | 29 | `s.require_length_be(name, length)` | — | — | 🔮 Futuro |
 | 30 | `s.require_length_at_least(name, min)` | — | — | 🔮 Futuro |
 | 31 | `s.require_length_at_most(name, max)` | — | — | 🔮 Futuro |
@@ -61,8 +61,8 @@
 
 | # | Función / Tipo fuente | Método RPC `bi18n.*` | Fase | Estado |
 |---|----------------------|----------------------|------|--------|
-| 33 | `col.require_non_empty(name)` | `bi18n.guard.col_non_empty` | 2 | 📋 Fase 2 |
-| 34 | `col.require_length_in_range(name, min, max)` | `bi18n.guard.col_length_range` | 2 | 📋 Fase 2 |
+| 33 | `col.require_non_empty(name)` | `bi18n.guard.col_non_empty` | 2 | ✅ `af243d3` |
+| 34 | `col.require_length_in_range(name, min, max)` | `bi18n.guard.col_length_range` | 2 | ✅ `af243d3` |
 | 35 | `col.require_length_be(name, length)` | — | — | 🔮 Futuro |
 | 36 | `col.require_length_at_least(name, min)` | — | — | 🔮 Futuro |
 | 37 | `col.require_length_at_most(name, max)` | — | — | 🔮 Futuro |

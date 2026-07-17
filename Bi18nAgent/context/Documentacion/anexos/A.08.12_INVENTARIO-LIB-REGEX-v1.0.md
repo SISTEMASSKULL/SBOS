@@ -14,11 +14,11 @@
 
 | # | Función / Tipo fuente | Método RPC `bi18n.*` | Fase | Estado |
 |---|----------------------|----------------------|------|--------|
-| 1 | `Regex::new(pat)?.is_match(text)` | `bi18n.text.regex_match` | 2 | 📋 Fase 2 |
-| 2 | `re.captures(text)` → grupos nombrados | `bi18n.text.regex_extract` | 2 | 📋 Fase 2 |
-| 3 | `re.find_iter(text).collect()` | `bi18n.text.regex_extract_all` | 2 | 📋 Fase 2 |
-| 4 | `re.replace_all(text, replacement)` / `re.replace(text, rep)` | `bi18n.text.regex_replace` | 2 | 📋 Fase 2 |
-| 5 | `re.split(text).collect()` | `bi18n.text.regex_split` | 2 | 📋 Fase 2 |
+| 1 | `Regex::new(pat)?.is_match(text)` | `bi18n.text.regex_match` | 2 | ✅ `5caad2e` |
+| 2 | `re.captures(text)` → grupos nombrados | `bi18n.text.regex_extract` | 2 | ✅ `5caad2e` |
+| 3 | `re.find_iter(text).collect()` | `bi18n.text.regex_extract_all` | 2 | ✅ `5caad2e` |
+| 4 | `re.replace_all(text, replacement)` / `re.replace(text, rep)` | `bi18n.text.regex_replace` | 2 | ✅ `5caad2e` |
+| 5 | `re.split(text).collect()` | `bi18n.text.regex_split` | 2 | ✅ `5caad2e` |
 | 6 | `re.is_match_at(text, start)` | — | — | 🔮 Futuro |
 | 7 | `re.find(text)` → primera coincidencia | — | — | 🔮 Futuro |
 | 8 | `re.find_at(text, start)` | — | — | 🔮 Futuro |
@@ -34,7 +34,7 @@
 
 | # | Función / Tipo fuente | Método RPC `bi18n.*` | Fase | Estado |
 |---|----------------------|----------------------|------|--------|
-| 16 | `RegexSet::new(patterns)?.matches(text)` → índices que hicieron match | `bi18n.text.regex_match_set` | 2 | 📋 Fase 2 |
+| 16 | `RegexSet::new(patterns)?.matches(text)` → índices que hicieron match | `bi18n.text.regex_match_set` | 2 | ✅ `5caad2e` |
 | 17 | `RegexSet::is_match(text)` | — | — | ❌ Infra interna |
 | 18 | `RegexSet::len()` / `is_empty()` / `patterns()` | — | — | ❌ Infra interna |
 | 19 | `RegexSet::matches_at(text, start)` | — | — | 🔮 Futuro |

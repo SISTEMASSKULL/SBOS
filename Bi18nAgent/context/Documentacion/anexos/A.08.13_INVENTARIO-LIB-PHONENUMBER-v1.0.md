@@ -14,15 +14,15 @@
 
 | # | Función / Tipo fuente | Método RPC `bi18n.*` | Fase | Estado |
 |---|----------------------|----------------------|------|--------|
-| 1 | `phonenumber::parse(region, phone_str)?.format().mode(Mode::E164).to_string()` | `bi18n.phone.parse_e164` | 2 | 📋 Fase 2 |
+| 1 | `phonenumber::parse(region, phone_str)?.format().mode(Mode::E164).to_string()` | `bi18n.phone.parse_e164` | 2 | ✅ `88f6361` |
 | 2 | `phonenumber::is_valid(&num)` | `bi18n.validate.phone` ✅ | 1 | ✅ Implementado |
-| 3 | `num.format().mode(Mode::International).to_string()` | `bi18n.phone.format` | 2 | 📋 Fase 2 |
-| 4 | `num.number_type(&database) -> Type` | `bi18n.phone.type` | 2 | 📋 Fase 2 |
-| 5 | `phonenumber::is_viable(raw_str: S)` ⚠️ (toma string, no PhoneNumber) | `bi18n.phone.is_viable` | 2 | 📋 Fase 2 |
-| 6 | combinación de campos del PhoneNumber parseado | `bi18n.phone.info` | 2 | 📋 Fase 2 |
-| 7 | `num.format().mode(Mode::National).to_string()` | `bi18n.phone.parse_national` | 2 | 📋 Fase 2 |
-| 8 | `num.format().mode(Mode::Rfc3966).to_string()` | `bi18n.phone.parse_rfc3966` | 2 | 📋 Fase 2 |
-| 9 | `num.code().code() -> u16` (código numérico del país) | `bi18n.phone.country_code` | 2 | 📋 Fase 2 |
+| 3 | `num.format().mode(Mode::International).to_string()` | `bi18n.phone.format` | 2 | ✅ `88f6361` |
+| 4 | `num.number_type(&database) -> Type` | `bi18n.phone.type` | 2 | ✅ `88f6361` |
+| 5 | `phonenumber::is_viable(raw_str: S)` ⚠️ (toma string, no PhoneNumber) | `bi18n.phone.is_viable` | 2 | ✅ `88f6361` |
+| 6 | combinación de campos del PhoneNumber parseado | `bi18n.phone.info` | 2 | ✅ `88f6361` |
+| 7 | `num.format().mode(Mode::National).to_string()` | `bi18n.phone.parse_national` | 2 | ✅ `88f6361` |
+| 8 | `num.format().mode(Mode::Rfc3966).to_string()` | `bi18n.phone.parse_rfc3966` | 2 | ✅ `88f6361` |
+| 9 | `num.code().value() -> u16` (código numérico — fix: .value(), no .code()) | `bi18n.phone.country_code` | 2 | ✅ `88f6361` |
 | 10 | `phonenumber::parse(None, phone_str)` — sin región (requiere `+`) | — | — | ❌ Infra interna |
 | 11 | `num.national() -> &NationalNumber` | — | — | ❌ Infra interna |
 | 12 | `num.code() -> &country::Code` | — | — | ❌ Infra interna |

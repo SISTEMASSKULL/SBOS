@@ -137,15 +137,15 @@ Nuevos (Fase 2):
 | 3 | `lib_icu_datetime.rs` | 6 | `3930f53`+1 | ✅ |
 | 4 | `lib_icu_locale.rs` | 4 | pendiente commit | ✅ |
 | 5 | `lib_icu_decimal.rs` | 4 | pendiente commit | ✅ |
-| 6 | `lib_validator.rs` | 12 | — | ⏳ |
-| 7 | `lib_scrutiny.rs` | 4 | — | ⏳ |
-| 8 | `lib_mask_pii.rs` + FIX | 4+FIX | — | ⏳ |
-| 9 | `lib_universal_mask.rs` | 5 | — | ⏳ |
-| 10 | `lib_jiff.rs` | 18 | — | ⏳ |
-| 11 | `lib_chrono.rs` | 15 | — | ⏳ |
-| 12 | `lib_regex.rs` | 6 | — | ⏳ |
-| 13 | `lib_phonenumber.rs` | 8 | — | ⏳ |
-| 14 | `lib_prism3.rs` | 12 | — | ⏳ |
+| 6 | `lib_validator.rs` | 12 | `a2b988b` | ✅ |
+| 7 | `lib_scrutiny.rs` | 6 | `701bdd7` | ✅ |
+| 8 | `lib_mask_pii.rs` + FIX | 3+FIX | `1cb3445` | ✅ |
+| 9 | `lib_universal_mask.rs` | 5 | `739e6e1` | ✅ |
+| 10 | `lib_jiff.rs` | 17 | `1e353f4` | ✅ |
+| 11 | `lib_chrono.rs` | 10 | `0e0f370` | ✅ |
+| 12 | `lib_regex.rs` | 6 | `5caad2e` | ✅ |
+| 13 | `lib_phonenumber.rs` | 8 | `88f6361` | ✅ |
+| 14 | `lib_prism3.rs` | 12 | `af243d3` | ✅ |
 | **—** | **Acumulado** | **108** | | |
 
 ---
