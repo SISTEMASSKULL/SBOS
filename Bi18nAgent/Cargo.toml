@@ -10,7 +10,7 @@
 name        = "bi18n-daemon-orchestrator"
 version     = "0.1.0"
 edition     = "2021"
-description = "Orquestador Universal de Internacionalización del ecosistema SBOS — bi18nd + i18nctl"
+description = "Orquestador Universal de Internacionalización del ecosistema SBOS — bi18nd + bi18nctl"
 authors     = ["SKULL <sistemas@skull.com.bo>"]
 license     = "UNLICENSED"
 rust-version = "1.85"
@@ -28,7 +28,7 @@ name = "bi18nd"
 path = "src/main.rs"
 
 [[bin]]
-name = "i18nctl"
+name = "bi18nctl"
 path = "src/bin/i18nctl.rs"
 
 # ─────────────────────────────────────────────────────────────────────────────

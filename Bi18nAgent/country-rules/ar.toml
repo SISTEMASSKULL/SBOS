@@ -2,6 +2,10 @@
 # Fuentes: AFIP · RENAPER · ANSES · ARCA · MTEySS · INDEC · Ley 25246 · E.164 ITU-T
 # ISO 3166-1 alpha-2: AR · alpha-3: ARG · Numérico: 032
 
+# ── Versión del archivo (trazabilidad de cambios fiscales y legales) ──────────
+[meta]
+version = "1.0.0"
+
 # ── Metadatos del país ────────────────────────────────────────────────────────
 
 [pais]

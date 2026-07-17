@@ -1,0 +1,61 @@
+# .github/workflows/ci-bi18n.yml — CI del daemon bi18n
+# Ejecuta en PRs y pushes que toquen Bi18nAgent/.
+# Jobs: cargo check · cargo test · paridad de claves FTL.
+
+name: CI bi18n
+
+on:
+  push:
+    paths:
+      - 'Bi18nAgent/**'
+  pull_request:
+    paths:
+      - 'Bi18nAgent/**'
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  verificar:
+    name: Verificación bi18n
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Bi18nAgent
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar Rust estable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Caché de compilación
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            Bi18nAgent/target
+          key: ${{ runner.os }}-cargo-bi18n-${{ hashFiles('Bi18nAgent/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-bi18n-
+
+      - name: cargo check (todos los targets)
+        run: cargo check --all-targets
+
+      - name: cargo test
+        run: cargo test --all-targets
+
+      - name: Paridad de claves de traducción (10.3)
+        # Falla si algún locale secundario tiene claves faltantes respecto a es-BO.
+        # Criterio: locales/pt-BR/main.ftl sin 'paises-cargados' → exit 1 + mensaje.
+        run: >
+          cargo run --bin bi18nctl --
+          translations check-parity
+          --reference es-BO
+          --locales-dir locales
+          --fail-on-missing

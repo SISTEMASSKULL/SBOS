@@ -1,13 +1,17 @@
-/// bin/i18nctl.rs — CLI de administración del daemon bi18n.
+/// bin/i18nctl.rs — CLI de administración del daemon bi18n (binario: bi18nctl).
 /// Propósito: cliente JSON-RPC sobre Unix socket para operadores y scripts.
 ///   - Comunica con bi18nd por /run/bos/bi18n.sock (JSON-RPC 2.0, línea por conexión).
 ///   - Flags transversales: --json (JSON crudo), --quiet (solo exit code), --ctx-id.
 ///   - Exit codes: 0=ok, 1=respuesta inválida del dominio, 2=error daemon/conexión.
 ///   - ctx_id generado automáticamente (UUID v4) si no se pasa explícitamente (SBOS-049).
+///   - Subcomandos locales (sin daemon): `translations check-parity`.
 /// Dependencias: clap (CLI), serde_json (JSON-RPC), uuid (ctx_id), std::os::unix::net
 use std::{
+    collections::HashSet,
+    fs,
     io::{BufRead, BufReader, Write},
     os::unix::net::UnixStream,
+    path::PathBuf,
     process::ExitCode,
     time::Duration,
 };
@@ -19,9 +23,9 @@ use uuid::Uuid;
 // Definición CLI (clap derive)
 // ────────────────────────────────────────────────────────────────────────────
 
-/// i18nctl — administra el daemon bi18n del ecosistema SBOS.
+/// bi18nctl — administra el daemon bi18n del ecosistema SBOS.
 #[derive(Parser, Debug)]
-#[command(name = "i18nctl", about = "CLI de administración del daemon bi18n (SBOS i18n-orchestrator)")]
+#[command(name = "bi18nctl", about = "CLI de administración del daemon bi18n (SBOS i18n-orchestrator)")]
 struct Cli {
     /// Ruta al socket Unix del daemon (por defecto: /run/bos/bi18n.sock).
     #[arg(long, global = true, default_value = "/run/bos/bi18n.sock")]
@@ -159,6 +163,30 @@ enum Comando {
         valor: String,
         #[arg(long, default_value = "default", help = "ID del tenant")]
         tenant: String,
+    },
+
+    /// Gestión de traducciones (operaciones locales — no requieren daemon activo).
+    Translations {
+        #[command(subcommand)]
+        subcomando: ComandoTranslations,
+    },
+}
+
+/// Subcomandos de gestión de traducciones.
+#[derive(clap::Subcommand, Debug)]
+enum ComandoTranslations {
+    /// Verifica que todos los locales tienen las mismas claves que el locale de referencia.
+    /// Sale con código 1 si falta alguna clave; no requiere que bi18nd esté activo.
+    CheckParity {
+        /// Locale de referencia — fuente de verdad de claves FTL.
+        #[arg(long, default_value = "es-BO")]
+        reference: String,
+        /// Directorio raíz de locales. Relativo al CWD o ruta absoluta.
+        #[arg(long, default_value = "locales")]
+        locales_dir: String,
+        /// Retorna exit code 1 si hay claves faltantes (para CI/CD).
+        #[arg(long)]
+        fail_on_missing: bool,
     },
 }
 
@@ -342,6 +370,8 @@ fn construir_llamada(comando: &Comando, ctx_id: &str) -> (&'static str, Value) {
                 "tenant": tenant,
             }),
         ),
+        // Translations se ejecuta localmente en main() — nunca llega aquí.
+        Comando::Translations { .. } => unreachable!("traducciones son operaciones locales"),
     }
 }
 
@@ -352,6 +382,11 @@ fn construir_llamada(comando: &Comando, ctx_id: &str) -> (&'static str, Value) {
 fn main() -> ExitCode {
     let cli = Cli::parse();
 
+    // Subcomandos locales: operan sobre el sistema de archivos sin conectar al daemon.
+    if let Comando::Translations { subcomando } = &cli.comando {
+        return ejecutar_translations(subcomando, cli.quiet, cli.json);
+    }
+
     let ctx_id = cli.ctx_id.clone()
         .unwrap_or_else(|| Uuid::new_v4().to_string());
 
@@ -360,5 +395,129 @@ fn main() -> ExitCode {
     match enviar_jsonrpc(&cli.socket, method, params) {
         Ok(resultado) => imprimir_ok(&resultado, cli.json, cli.quiet),
         Err(e)        => imprimir_error(&e, cli.quiet, cli.json),
+    }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Traducciones — operaciones locales (10.3)
+// ────────────────────────────────────────────────────────────────────────────
+
+/// Despacha subcomandos de translations (todos locales — sin daemon).
+fn ejecutar_translations(
+    subcomando: &ComandoTranslations,
+    quiet: bool,
+    json_mode: bool,
+) -> ExitCode {
+    match subcomando {
+        ComandoTranslations::CheckParity { reference, locales_dir, fail_on_missing } =>
+            verificar_paridad_claves(reference, locales_dir, *fail_on_missing, quiet, json_mode),
+    }
+}
+
+/// Extrae los IDs de mensajes top-level de un archivo FTL.
+/// Solo considera líneas que empiezan en columna 0 con un identificador seguido de '='.
+/// Ignora: comentarios (#), términos (-), atributos (.attr), continuaciones (sangría).
+fn extraer_claves_ftl(contenido: &str) -> HashSet<String> {
+    let mut claves = HashSet::new();
+    for linea in contenido.lines() {
+        if linea.is_empty()
+            || linea.starts_with('#')
+            || linea.starts_with('-')
+            || linea.starts_with(' ')
+            || linea.starts_with('\t')
+        {
+            continue;
+        }
+        if let Some(pos) = linea.find('=') {
+            let clave = linea[..pos].trim_end();
+            // Solo IDs Fluent válidos: alfanumérico ASCII, guion y guion bajo
+            if !clave.is_empty()
+                && clave.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+            {
+                claves.insert(clave.to_string());
+            }
+        }
+    }
+    claves
+}
+
+/// Compara claves FTL de todos los locales contra el locale de referencia.
+/// Reporta claves faltantes por locale y retorna ExitCode::FAILURE si `fail_on_missing`.
+fn verificar_paridad_claves(
+    referencia: &str,
+    directorio: &str,
+    fail_on_missing: bool,
+    quiet: bool,
+    json_mode: bool,
+) -> ExitCode {
+    let archivo_ref = PathBuf::from(directorio).join(referencia).join("main.ftl");
+    let contenido_ref = match fs::read_to_string(&archivo_ref) {
+        Ok(c) => c,
+        Err(e) => {
+            if !quiet {
+                eprintln!("[i18nctl] error: no se pudo leer '{}': {}", archivo_ref.display(), e);
+            }
+            return ExitCode::FAILURE;
+        }
+    };
+    let claves_ref = extraer_claves_ftl(&contenido_ref);
+
+    let entradas = match fs::read_dir(directorio) {
+        Ok(e) => e,
+        Err(e) => {
+            if !quiet {
+                eprintln!("[i18nctl] error: no se pudo leer directorio '{}': {}", directorio, e);
+            }
+            return ExitCode::FAILURE;
+        }
+    };
+
+    let mut faltantes: Vec<(String, Vec<String>)> = Vec::new();
+    for entrada in entradas.flatten() {
+        let nombre = entrada.file_name().to_string_lossy().to_string();
+        if nombre == referencia { continue; }
+        if !entrada.file_type().map(|t| t.is_dir()).unwrap_or(false) { continue; }
+
+        let archivo = entrada.path().join("main.ftl");
+        if !archivo.exists() { continue; }
+
+        let contenido = match fs::read_to_string(&archivo) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+        let claves_locale = extraer_claves_ftl(&contenido);
+        let mut ausentes: Vec<String> = claves_ref.difference(&claves_locale).cloned().collect();
+
+        if !ausentes.is_empty() {
+            ausentes.sort();
+            faltantes.push((nombre, ausentes));
+        }
+    }
+
+    if json_mode {
+        let resultado = if faltantes.is_empty() {
+            json!({ "ok": true, "referencia": referencia, "faltantes": {} })
+        } else {
+            let mapa: serde_json::Map<String, Value> = faltantes.iter()
+                .map(|(locale, claves)| (locale.clone(), json!(claves)))
+                .collect();
+            json!({ "ok": false, "referencia": referencia, "faltantes": mapa })
+        };
+        println!("{}", serde_json::to_string_pretty(&resultado).unwrap_or_default());
+    } else if !quiet {
+        if faltantes.is_empty() {
+            println!("paridad correcta — todos los locales tienen las mismas claves que '{}'", referencia);
+        } else {
+            eprintln!("claves faltantes respecto a '{}':", referencia);
+            for (locale, claves) in &faltantes {
+                eprintln!("  {} ({} clave(s)): {}", locale, claves.len(), claves.join(", "));
+            }
+        }
+    }
+
+    if !faltantes.is_empty() && fail_on_missing {
+        ExitCode::FAILURE
+    } else {
+        ExitCode::SUCCESS
     }
 }

@@ -1,0 +1,13 @@
+# CODEOWNERS — bi18n daemon
+# Aprobación obligatoria de propietarios de código antes de merge en main.
+# Documentación: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+#
+# NOTA: para que sea efectivo, también debe configurarse protección de rama en GitHub:
+#   Settings → Branches → main → Require review from Code Owners.
+
+# Reglas de país: cambios fiscales/legales requieren aprobación del equipo legal y arquitecto SBOS
+/country-rules/   @equipo-legal-fiscal @arquitecto-sbos
+
+# Traducciones: el equipo de i18n aprueba adiciones o eliminaciones de claves
+/locales/         @equipo-i18n
+/translations/    @equipo-i18n

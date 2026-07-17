@@ -2,6 +2,10 @@
 # Fuentes: SEGIP · SIN · ATT · INE · ISO 3166-2:BO · Ley 164 · E.164 ITU-T
 # ISO 3166-1 alpha-2: BO · alpha-3: BOL · Numérico: 068
 
+# ── Versión del archivo (trazabilidad de cambios fiscales y legales) ──────────
+[meta]
+version = "1.0.0"
+
 # ── Metadatos del país ────────────────────────────────────────────────────────
 
 [pais]

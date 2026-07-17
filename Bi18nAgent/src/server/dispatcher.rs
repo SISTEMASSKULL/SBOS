@@ -41,6 +41,7 @@ pub async fn ejecutar_metodo(
             Ok(serde_json::json!({
                 "locale": r.config.locale, "timezone": r.config.timezone,
                 "currency": r.config.currency, "country": r.config.country, "fuente": r.fuente,
+                "text_direction": handlers::locale::detectar_direccion_texto(&r.config.locale),
             }))
         }
 
@@ -211,8 +212,9 @@ pub async fn ejecutar_metodo(
                     params["country"].as_str().unwrap_or("BO").to_string(),
                 )
             };
+            let text_direction = handlers::locale::detectar_direccion_texto(&locale);
             let campos = handlers::attr::config_batch_desde_json(&params["fields"], &locale, &country);
-            Ok(serde_json::json!({ "campos": campos, "locale": locale, "country": country }))
+            Ok(serde_json::json!({ "campos": campos, "locale": locale, "country": country, "text_direction": text_direction }))
         }
 
         // ── Administración ────────────────────────────────────────────────

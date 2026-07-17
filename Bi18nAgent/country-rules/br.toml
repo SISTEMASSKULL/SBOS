@@ -2,6 +2,10 @@
 # Fontes: Receita Federal · TSE · IBGE · BACEN · CLT · SUSEP · E.164 UIT-T
 # ISO 3166-1 alpha-2: BR · alpha-3: BRA · Numérico: 076
 
+# ── Versão do arquivo (rastreabilidade de mudanças fiscais e legais) ──────────
+[meta]
+version = "1.0.0"
+
 # ── Metadados do país ─────────────────────────────────────────────────────────
 
 [pais]

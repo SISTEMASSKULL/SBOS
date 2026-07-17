@@ -57,6 +57,18 @@ pub fn es_locale_valido(locale: &str) -> bool {
     locale.parse::<Locale>().is_ok()
 }
 
+/// Detecta la dirección de escritura de un locale BCP 47 (10.1).
+/// Retorna "rtl" para lenguas con escritura derecha a izquierda conocidas; "ltr" para el resto.
+/// La detección opera sobre el subtag de idioma — sin crate adicional (ICU4X no expone
+/// dirección de script directamente en icu_locale_core).
+pub fn detectar_direccion_texto(locale: &str) -> &'static str {
+    let lang = locale.split('-').next().unwrap_or(locale);
+    match lang {
+        "ar" | "he" | "fa" | "ur" | "dv" | "yi" | "ug" | "ku" | "sd" | "ps" => "rtl",
+        _ => "ltr",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -78,5 +90,19 @@ mod tests {
     #[test]
     fn test_locale_und_valido() {
         assert!(es_locale_valido("und"));
+    }
+
+    #[test]
+    fn test_detectar_direccion_texto() {
+        // RTL — lenguas conocidas con escritura derecha a izquierda
+        assert_eq!(detectar_direccion_texto("ar-SA"), "rtl");
+        assert_eq!(detectar_direccion_texto("he-IL"), "rtl");
+        assert_eq!(detectar_direccion_texto("fa-IR"), "rtl");
+        assert_eq!(detectar_direccion_texto("ur-PK"), "rtl");
+        // LTR — lenguas del ecosistema SBOS y otras
+        assert_eq!(detectar_direccion_texto("es-BO"), "ltr");
+        assert_eq!(detectar_direccion_texto("pt-BR"), "ltr");
+        assert_eq!(detectar_direccion_texto("en-US"), "ltr");
+        assert_eq!(detectar_direccion_texto("es-AR"), "ltr");
     }
 }
