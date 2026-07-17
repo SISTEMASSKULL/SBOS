@@ -3,7 +3,7 @@
 **Versión:** 2.1.0
 **Mantenido por:** bauth-developer
 **Última actualización:** 2026-07-17
-**Estado:** Activo — Fase 1 ✅ (18 métodos RPC, Bloques 1-12) + Fase 2 ✅ (103 métodos RPC nuevos — bloques A-Ω, 14 handlers, 23 librerías). Total acumulado: 121 métodos RPC. P4 servidor HTTP (9456) pendiente.
+**Estado:** Activo — Fase 1 ✅ (18 métodos RPC, Bloques 1-12) + Fase 2 ✅ (103 métodos RPC nuevos — bloques A-Ω, 14 handlers, 23 librerías). Total acumulado: 121 métodos RPC. P4 pendiente: 4 métodos `bi18n.admin.*` por JSON-RPC (sin servidor HTTP separado).
 
 ---
 
@@ -31,7 +31,7 @@ Los manuales se numeran `N.M` desde 1.01 (primer manual de bi18n).
 | Documento | Contenido | Estado |
 |---|---|---|
 | [REGISTRO-ESTADO-IMPLEMENTACION — Fase 1](REGISTRO-ESTADO-IMPLEMENTACION.md) | Bloques 1-12 ✅ completos. 18 métodos RPC, Interface Triple C11, BO/AR/BR, Weblate, ArcSwap, hot-reload, manual, batería de pruebas, garantía de completitud. | ✅ v1.1.0 cerrado |
-| [**REGISTRO-ESTADO-DOS — Fase 2**](REGISTRO-ESTADO-DOS.md) | 15 bloques (A-N + Ω). Exposición completa de las 23 librerías de Cargo.toml como métodos RPC. **108 métodos RPC nuevos** (total acumulado 126). Servidor web HTTP (puerto 9456, 5 endpoints). APIs verificadas directamente en `~/.cargo/registry/src/` — v3.0.0 corrige 5 errores de la v2.0.0. | ✅ v3.0.0 VERIFICADO |
+| [**REGISTRO-ESTADO-DOS — Fase 2**](REGISTRO-ESTADO-DOS.md) | 15 bloques (A-N + Ω). Exposición completa de las 23 librerías de Cargo.toml como métodos RPC. **103 métodos RPC implementados** (total acumulado 121). P4: 4 métodos `bi18n.admin.*` por JSON-RPC (sin servidor HTTP). APIs verificadas directamente en `~/.cargo/registry/src/` — v3.0.0 corrige 5 errores de la v2.0.0. | ✅ v3.1.0 |
 | [**PLAN-FASE-2-IMPLEMENTACION**](PLAN-FASE-2-IMPLEMENTACION-v1.0.md) | Protocolo de trabajo para los 14 handlers Rust de Fase 2. **Un anexo = una librería = un handler.** Mapa A.08.01→14 a `lib_*.rs`, convención de naming, estructura del dispatcher, tabla de progreso con commit por handler. | ✅ v1.0.0 |
 | [BATERIA-PRUEBAS-TESTEADOR — Fase 1](BATERIA-PRUEBAS-TESTEADOR-v1.0.md) | 28 verificaciones VERDADERO/FALSO para los 18 métodos RPC de Fase 1. | ✅ 1.0.0 |
 
@@ -113,3 +113,4 @@ Los manuales se numeran `N.M` desde 1.01 (primer manual de bi18n).
 | 1.9.0 | 2026-07-17 | Nuevo A.09 — bi18n como Servidor Canónico de Traducciones de Lenguajes: rol arquitectónico, estructura FTL, namespacing de claves, fallback de idioma, contrato de consumo para daemons, integración bglobal. |
 | 2.0.0 | 2026-07-17 | PLAN-FASE-2-IMPLEMENTACION v1.0.0 — protocolo formal de trabajo: un anexo = una librería = un handler Rust. Mapa A.08.01–A.08.14 → 14 `lib_*.rs`, convención de naming, estructura del dispatcher, tabla de progreso. |
 | 2.1.0 | 2026-07-17 | Fase 2 completa. Tabla de tracking REGISTRO-ESTADO-DOS actualizada (⏳→✅ con SHAs reales para los 15 bloques A-Ω). INDICE actualizado a v2.1.0 con estado "Fase 2 ✅". Recuentos corregidos: H scrutiny 4→6, I mask-pii 4→3, K jiff 18→17, L chrono 15→10. Total acumulado: 121 métodos RPC. |
+| 2.2.0 | 2026-07-17 | Limpieza arquitectónica: servidor HTTP (puerto 9456) eliminado del plan. P4 redefinido como 4 métodos `bi18n.admin.*` por JSON-RPC sobre WebSocket existente — sin nuevo puerto, sin parser HTTP manual. REGISTRO-ESTADO-DOS y INDICE actualizados en consecuencia. |

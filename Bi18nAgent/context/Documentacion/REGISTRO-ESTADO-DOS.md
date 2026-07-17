@@ -26,15 +26,15 @@
 | L | chrono 0.4 | 15 | Fecha/hora strftime + locales |
 | M | regex 1 | 6 | Expresiones regulares |
 | N | phonenumber 0.3 | 8 | Teléfonos internacionales |
-| Ω | prism3-core 0.2 · validy 1.2 · valida 1.1 · clipass_rs 0.1 | 12 | Guardas + CLI + Servidor Web |
+| Ω | prism3-core 0.2 · validy 1.2 · valida 1.1 · clipass_rs 0.1 | 12 | Guardas + CLI |
 | — | arc-swap 1 · notify 6 | 0 | Infraestructura interna (ya implementada) |
 
 **Total Fase 1 (existentes):** 18 métodos RPC
-**Total Fase 2 (nuevos):** 108 métodos RPC (los 2 de `CompactDecimalFormatter` fueron reemplazados por `number_grouping_always` y `number_grouping_min2`, que sí usan `GroupingStrategy` de `icu_decimal`)
-**Total acumulado:** 126 métodos RPC
+**Total Fase 2 (implementados):** 103 métodos RPC (recuentos reales verificados post-implementación)
+**Total acumulado:** 121 métodos RPC
 
-**Servidor Web de Traducciones (puerto 9456):** 5 endpoints HTTP
-**CLI bi18nctl:** 108 subcomandos nuevos correspondientes a los métodos RPC nuevos
+**Edición de traducciones (P4):** 4 métodos `bi18n.admin.*` por JSON-RPC — sin servidor HTTP separado (decisión arquitectónica: usar WebSocket+JSON-RPC existente, no abrir puerto 9456)
+**CLI bi18nctl:** 103 subcomandos correspondientes a los métodos RPC implementados
 
 ---
 
@@ -787,7 +787,7 @@ Los métodos `bi18n.validate.phone` y `bi18n.validate.national_id` ya existen en
 
 ---
 
-## BLOQUE Ω — prism3-core · validy · valida · clipass_rs · Servidor Web · CLI
+## BLOQUE Ω — prism3-core · validy · valida · clipass_rs · CLI
 
 ### prism3-core 0.2 — Guardas / Precondiciones
 
@@ -898,27 +898,27 @@ El daemon valida el hash contra `ServidorConfig.admin_hash`. No genera tokens de
 
 ---
 
-### Servidor Web de Traducciones — Puerto 9456
+### Edición de traducciones — bi18n.admin.* (JSON-RPC)
 
-**Requerimiento:** A.06 §7 — edición runtime de traducciones sin reiniciar el daemon.
+**Decisión arquitectónica:** No se abre el puerto 9456 — los 5 endpoints HTTP originales
+se reemplazan por 4 métodos JSON-RPC en el namespace `bi18n.admin.*`, sobre el WebSocket
+existente (puerto 9454). Sin infraestructura nueva — cumple SBOS-050 (deny-all salvo 22/80/443).
+Autenticación: `admin_token` (hash SHA-256 de contraseña admin — ya implementado A.08.17/clipass_rs).
 
-**Implementación:** `tokio::net::TcpListener` en `127.0.0.1:9456`, parser HTTP/1.1 manual (sin frameworks externos).
+| Método | Función | Parámetros |
+|--------|---------|------------|
+| `bi18n.admin.list_locales` | Lista locales disponibles en `fluent_dir` | `ctx_id` |
+| `bi18n.admin.list_messages` | IDs y textos de un locale | `ctx_id`, `locale` |
+| `bi18n.admin.get_message` | Texto de un ID específico | `ctx_id`, `locale`, `id` |
+| `bi18n.admin.update_message` | Escribe FTL + ArcSwap reload | `ctx_id`, `locale`, `id`, `text`, `admin_token` |
 
-```
-GET  /                              → HTML editor UI (inline, ~20KB)
-GET  /api/locales                   → ["es-BO", "en-US", "pt-BR"]
-GET  /api/messages?locale=es-BO    → {"id": "texto en FTL", ...}
-POST /api/update                   → {locale, id, text} → actualiza FTL + ArcSwap reload
-POST /api/reload                   → fuerza hot-reload de todos los bundles
-```
+`bi18n.admin.reload_translations` ya existe desde Bloque 11 (`c92e20b`).
 
-**Flujo ArcSwap:**
-1. POST /api/update → `{locale: "es-BO", id: "validate-email-error", text: "Correo inválido"}`
-2. Escribe a `locales/es-BO/main.ftl`
-3. `translations.store(Arc::new(nuevo_bundle))` — swap atómico sin bloquear lectores
+**Flujo ArcSwap en update_message:**
+1. Validar `admin_token` vs `ServidorConfig.admin_hash`
+2. Leer `fluent_dir/{locale}/main.ftl` → localizar línea del `id` → reescribir
+3. `fluent.recargar(fluent_dir)` — swap atómico sin bloquear lectores
 4. Responde `{"ok": true, "reloaded_at": unix_ts}`
-
-**Seguridad:** Solo escucha en `127.0.0.1`. Kong maneja el acceso autenticado desde el exterior.
 
 ---
 
@@ -1031,10 +1031,10 @@ translate-locale-not-available = Locale no disponible: { $locale }
 12. `src/server/dispatcher.rs` — añadir 108 arms al match
 13. `src/bin/bi18nctl.rs` — añadir 108 subcomandos
 
-### P4 — Servidor Web
-14. `src/server/http_traducciones.rs` — TcpListener 9456 + 5 endpoints
-15. `src/config/mod.rs` — añadir `http_traducciones_bind: String` + `weblate_url: String`
-16. `src/main.rs` — 8va rama en tokio::select!
+### P4 — admin.* edición de traducciones (JSON-RPC)
+14. `src/server/handlers/lib_admin_traducciones.rs` — 4 métodos `bi18n.admin.*`
+15. Arms en `src/server/dispatcher.rs` — registrar en namespace `bi18n.admin.*`
+16. `src/server/handlers/mod.rs` — `pub mod lib_admin_traducciones;`
 
 ### P5 — Infraestructura compile-time
 17. Aplicar `#[derive(Redact)]` a `ServidorConfig` (veil)
@@ -1062,9 +1062,9 @@ translate-locale-not-available = Locale no disponible: { $locale }
 | N | phonenumber | 8 | ✅ Completo | `88f6361` |
 | Ω | prism3-core · validy · valida · clipass_rs | 12 + infra | ✅ Completo | `af243d3` + `1ab009d` |
 | — | arc-swap · notify | 0 (ya impl) | ✅ Fase 1 | `c92e20b` |
-| **TOTAL** | **23 librerías** | **103 RPC + 5 HTTP (P4 pendiente)** | ✅ **103 RPC implementados** | |
+| **TOTAL** | **23 librerías** | **103 RPC + 4 admin.* (P4 pendiente)** | ✅ **103 RPC implementados** | |
 
-> **Correcciones respecto al plan original:** H (scrutiny) 4→6 métodos reales · I (mask-pii) 4→3 métodos reales · K (jiff) 18→17 métodos reales · L (chrono) 15→10 métodos reales. Los 5 HTTP corresponden al servidor web P4 (`src/server/http_traducciones.rs`) — pendiente.
+> **Correcciones respecto al plan original:** H (scrutiny) 4→6 · I (mask-pii) 4→3 · K (jiff) 18→17 · L (chrono) 15→10. El servidor HTTP (puerto 9456) fue reemplazado por 4 métodos `bi18n.admin.*` JSON-RPC — sin nuevo puerto, sin parser HTTP manual.
 
 ---
 
