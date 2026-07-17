@@ -11,6 +11,7 @@ use bi18n_daemon_orchestrator::{
     config,
     domain::{
         country_rules::CountryRulesLoader,
+        file_watcher,
         fluent_loader::FluentLoader,
         regional_config::ResolverEstatico,
         signal,
@@ -80,6 +81,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         _ = signal::manejar_sigterm(sd_tx.clone(), Arc::clone(&activas), cfg.servidor.drain_timeout_secs) => {},
         _ = signal::manejar_sigint(sd_tx) => {},
         _ = signal::manejar_watchdog(watchdog_intervalo) => {},
+        // Bloque 11.3: vigilar cambios FTL y recargar traducciones automáticamente.
+        _ = file_watcher::vigilar_traducciones(cfg.rutas.fluent_dir.clone(), Arc::clone(&fluent)) =>
+            tracing::warn!("file_watcher: vigilancia de traducciones detenida inesperadamente"),
     }
 
     tracing::info!("bi18n apagado limpiamente");

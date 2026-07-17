@@ -193,6 +193,14 @@ futures-util = "0.3"
 # Si NOTIFY_SOCKET no existe, las llamadas son no-op — sin overhead en desarrollo
 sd-notify = "0.4"
 
+# Swap atómico de traducciones sin bloqueo de lectores (Bloque 11.2)
+# ArcSwap<T>::store() es una única instrucción atómica de puntero
+arc-swap = "1"
+
+# Vigilante de archivos FTL para recarga automática en caliente (Bloque 11.3)
+# inotify en Linux — latencia típica < 100ms tras modificar un .ftl
+notify = "6"
+
 # ─────────────────────────────────────────────────────────────────────────────
 # BUILD DEPENDENCIES
 # tonic-build compila proto/bi18n.proto → src/generated/bi18n.v1.rs

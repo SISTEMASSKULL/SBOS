@@ -1,6 +1,7 @@
 # .github/workflows/ci-bi18n.yml — CI del daemon bi18n
-# Ejecuta en PRs y pushes que toquen Bi18nAgent/.
-# Jobs: cargo check · cargo test · paridad de claves FTL.
+# Jobs:
+#   verificar  — cargo check + test + paridad de claves FTL (todos los PRs y pushes)
+#   desplegar  — sincronizar locales/ al VPS + recargar bi18nd (solo push a main)
 
 name: CI bi18n
 
@@ -59,3 +60,35 @@ jobs:
           --reference es-BO
           --locales-dir locales
           --fail-on-missing
+
+  # Bloque 11.4 — Pipeline Weblate → commit → check paridad → deploy → RPC reload
+  # Solo en push a main (no en PRs). Requiere secrets de VPS en GitHub Actions.
+  desplegar:
+    name: Desplegar traducciones y recargar bi18nd
+    needs: verificar
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Sincronizar locales/ al VPS (NFS / rsync)
+        # Requiere: SBOS_VPS_SSH_KEY, SBOS_VPS_USER, SBOS_VPS_HOST en GitHub Secrets.
+        # Solo sincroniza locales/ — no toca country-rules/ ni el binario.
+        run: |
+          echo "${{ secrets.SBOS_VPS_SSH_KEY }}" > /tmp/vps_key && chmod 600 /tmp/vps_key
+          rsync -avz --delete \
+            -e "ssh -i /tmp/vps_key -o StrictHostKeyChecking=no" \
+            Bi18nAgent/locales/ \
+            "${{ secrets.SBOS_VPS_USER }}@${{ secrets.SBOS_VPS_HOST }}:/srv/sbos/bi18n/locales/"
+          rm -f /tmp/vps_key
+
+      - name: Recargar traducciones en cada réplica bi18nd
+        # NUNCA via Kong (no garantiza alcanzar todas las réplicas).
+        # Cada réplica recibe la señal por su socket Unix individual.
+        run: |
+          ssh -i /tmp/vps_key -o StrictHostKeyChecking=no \
+            "${{ secrets.SBOS_VPS_USER }}@${{ secrets.SBOS_VPS_HOST }}" \
+            "bi18nctl --socket /run/bos/bi18n-1.sock recargar-traducciones && \
+             bi18nctl --socket /run/bos/bi18n-2.sock recargar-traducciones"

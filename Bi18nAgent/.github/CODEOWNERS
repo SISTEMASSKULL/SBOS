@@ -5,9 +5,12 @@
 # NOTA: para que sea efectivo, también debe configurarse protección de rama en GitHub:
 #   Settings → Branches → main → Require review from Code Owners.
 
-# Reglas de país: cambios fiscales/legales requieren aprobación del equipo legal y arquitecto SBOS
+# Reglas de país: cambios fiscales/legales requieren aprobación del equipo legal y arquitecto SBOS.
+# Toda modificación a un TOML de país debe ser revisada antes de merge.
 /country-rules/   @equipo-legal-fiscal @arquitecto-sbos
 
-# Traducciones: el equipo de i18n aprueba adiciones o eliminaciones de claves
-/locales/         @equipo-i18n
-/translations/    @equipo-i18n
+# Traducciones FTL (locales/ y translations/):
+# Bloque 11.5 — PRs de Weblate se auto-mergean si el gate de CI de paridad (10.3) pasa.
+# Sin CODEOWNER obligatorio — el único gate es el job 'Paridad de claves de traducción'.
+# /locales/      → sin reviewer obligatorio
+# /translations/ → sin reviewer obligatorio

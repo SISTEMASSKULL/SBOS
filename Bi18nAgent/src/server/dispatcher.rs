@@ -1,8 +1,10 @@
 /// server/dispatcher.rs — Dispatcher de todos los métodos JSON-RPC de bi18n.
 /// Propósito: match único method→handler; separado de unix_socket.rs (DOC-SBOS-001 N3).
-///   - 16 métodos wired: health, locale, validate(3), mask(2), format(3), enum, snapshot, attr(4).
+///   - 18 métodos wired: health, locale, validate(3), mask(2), format(3), enum, snapshot,
+///     attr(4), admin.reload, admin.reload_translations.
 ///   - SBOS-049: ctx_id obligatorio — ausente o vacío → error -32602.
 ///   - Paridad C11: mismos handlers que gRPC (Vía 3) — transporte transparente.
+///   - admin.reload_translations: NO exponer en ruta pública de Kong (solo socket Unix/CI).
 /// Dependencias: serde_json, crate::server::handlers, crate::server::dispatcher_helpers
 use serde_json::Value;
 use crate::{
@@ -232,6 +234,31 @@ pub async fn ejecutar_metodo(
                 "paises_cargados": n,
                 "country_rules": if ok_rules { "ok" } else { "error" },
                 "fluent": if ok_fluent { "ok" } else { "error" },
+            }))
+        }
+
+        // Solo traducciones FTL (sin recargar country-rules).
+        // NOTA: no exponer en ruta pública de Kong — solo CI/deploy via socket Unix.
+        "bi18n.admin.reload_translations" => {
+            let dir = &ctx.config.rutas.fluent_dir;
+            let ok = match ctx.fluent.recargar(dir) {
+                Ok(()) => {
+                    tracing::info!("reload_translations: swap atómico completado ({})", ctx.config.regional.locale);
+                    true
+                }
+                Err(e) => {
+                    tracing::error!("reload_translations: error — versión anterior activa: {}", e);
+                    false
+                }
+            };
+            Ok(serde_json::json!({
+                "recargado": ok,
+                "locale": ctx.config.regional.locale,
+                "mensaje": if ok {
+                    "traducciones recargadas sin interrupción de servicio"
+                } else {
+                    "error en recarga — versión anterior activa (rollback implícito)"
+                },
             }))
         }
 

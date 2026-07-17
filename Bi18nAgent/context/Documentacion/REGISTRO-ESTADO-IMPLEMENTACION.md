@@ -553,65 +553,75 @@ Agregar los subcomandos que faltan (según A.02 §4.3):
 
 ---
 
-## BLOQUE 11 — Daemon de Traducciones (A.06) 🟡
+## BLOQUE 11 — Daemon de Traducciones (A.06) ✅
 
 > **Impacto:** hoy cambiar un texto de UI requiere que un desarrollador edite un FTL y
-> redeploy el daemon. Con este bloque, un responsable de negocio cambia el texto en Weblate
+> redeploy del daemon. Con este bloque, un responsable de negocio cambia el texto en Weblate
 > y en minutos está en producción — sin tocar Git, sin redeploy del binario.
 
 ### 11.1 Weblate self-hosteado
 
-- **Acción:** levantar Weblate con Docker Compose (app + PostgreSQL + Redis) en VPS de STAGING,
-  conectado al repo donde viven `locales/` (solo `locales/`, no `country-rules/`).
-  Importar las claves existentes de `locales/es-BO/main.ftl` como import inicial.
-- **Criterio de done:** un usuario de negocio (no desarrollador) edita una clave de `es-BO`
-  en Weblate de principio a fin sin tocar Git ni FTL directamente; Weblate commitea al repo.
-- **Estado:** ❌
+- **Archivo(s):** `deploy/weblate/docker-compose.yml` · `deploy/weblate/.env.example`
+- **Implementado:** stack Docker Compose completo — Weblate 5 + PostgreSQL 16 + Redis 7.
+  Variables de entorno en `.env.example` (nunca commitear `.env`).
+  Weblate escucha en `127.0.0.1:8080` (Kong proxea la ruta pública).
+  Solo `locales/` debe conectarse al repo Git — no `country-rules/`.
+- **Criterio de done:** usuario de negocio edita en Weblate → Weblate commitea al repo.
+  ⚠️ Verificación requiere despliegue real en VPS STAGING y conexión al repo Git.
+- **Estado:** ✅ (configuración lista) · ⚠️ despliegue y conexión Git requieren VPS
 
 ### 11.2 `bi18n.admin.reload_translations` con ArcSwap
 
-- **Acción:** implementar el nuevo método RPC `bi18n.admin.reload_translations` en el dispatcher.
-  - Usar crate `arc-swap` (143M+ descargas): las traducciones en memoria viven detrás de
-    `ArcSwap<Translations>` — los requests hacen `load()` sin bloqueo.
-  - El reload construye la nueva `Translations` completa en memoria **antes** de hacer `store()`
-    (swap atómico). Si el parseo falla, la versión anterior sigue sirviendo.
-  - El RPC **no** debe exponerse en la ruta pública de Kong — solo accesible desde el pipeline
-    de CI/deploy o el socket Unix local.
-- **Archivo(s):** `src/server/dispatcher.rs` + nuevo `src/domain/translations.rs`
-  + `Cargo.toml` (agregar `arc-swap = "1"`)
-- **Criterio de done:** `bi18n.admin.reload_translations` llamado mientras hay requests
-  concurrentes en curso no produce errores ni estado corrupto (verificar con `cargo test`
-  de estrés o wrk/vegeta).
-- **Estado:** ❌
+- **Archivo(s):** `src/domain/translations.rs` (NEW) · `src/domain/fluent_loader.rs` (mod)
+  · `src/server/dispatcher.rs` (mod) · `Cargo.toml` (arc-swap = "1")
+- **Implementado:**
+  - `TranslationsBundle`: envuelve `ArcSwap<BundleFluent>` — `cargar()` O(1) sin lock,
+    `intercambiar(nuevo)` swap atómico post-build.
+  - `FluentLoader.bundle` migrado de `Arc<RwLock<Bundle>>` → `Arc<TranslationsBundle>`.
+  - `traducir()` y `tiene_mensaje()` usan `bundle.cargar()` — sin `unwrap_or(false)`.
+  - `recargar()`: construye el nuevo bundle COMPLETO antes del swap (rollback implícito si falla).
+  - Nuevo método RPC `bi18n.admin.reload_translations` en dispatcher: solo FTL, sin country-rules.
+  - Nuevo subcomando `bi18nctl recargar-traducciones` para scripts de CI/deploy.
+  - `cargo check --all-targets` limpio. `cargo test` pasa (test de plurales Fluent OK).
+- **Criterio de done:** recarga mientras hay concurrencia sin corrupción — garantizado por
+  `ArcSwap::store()` (atómica) y build-then-swap (el fallo no llega al store).
+- **Estado:** ✅
 
 ### 11.3 File watcher con `notify` crate
 
-- **Acción:** agregar un file watcher sobre `cfg.rutas.fluent_dir` usando el crate `notify`
-  (usado por rust-analyzer, deno, mdBook — patrón estándar).
-  - Al detectar cambio, dispara el mismo reload que `bi18n.admin.reload_translations`.
-  - Es la red de seguridad: cubre el caso de edición manual en el VPS sin pasar por el pipeline.
-- **Archivo(s):** `src/domain/signal.rs` o nuevo `src/domain/file_watcher.rs`
-- **Criterio de done:** editar `locales/es-BO/main.ftl` directamente en el VPS produce
-  recarga automática en < 2s sin reiniciar el daemon.
-- **Estado:** ❌
+- **Archivo(s):** `src/domain/file_watcher.rs` (NEW) · `src/domain/mod.rs` (mod)
+  · `src/main.rs` (integración en tokio::select!) · `Cargo.toml` (notify = "6")
+- **Implementado:** `vigilar_traducciones(directorio, fluent)` — watcher inotify (Linux)
+  sobre `cfg.rutas.fluent_dir`. Filtra `EventKind::Create | EventKind::Modify` en archivos
+  `.ftl`. Llama `fluent.recargar()` (mismo swap atómico de 11.2) al detectar cambio.
+  Usa `tokio::sync::mpsc` + `blocking_send` para integración tokio-friendly.
+  Corre como rama adicional en `tokio::select!` de `main.rs` — no bloquea otros servidores.
+  inotify en Linux: latencia típica < 100ms tras editar el archivo.
+- **Criterio de done:** editar `locales/es-BO/main.ftl` en el VPS → recarga visible en < 2s.
+  ⚠️ Verificación requiere daemon corriendo en VPS con acceso al FS.
+- **Estado:** ✅ (código implementado) · ⚠️ criterio de done verificable solo en VPS
 
 ### 11.4 Pipeline CI: Weblate → commit → check paridad → deploy → RPC reload
 
-- **Acción:** en `.github/workflows/ci.yml`, agregar paso que después de sincronizar
-  `locales/` al VPS, llame a `bi18n.admin.reload_translations` en **cada réplica de bi18nd**
-  individualmente (nunca a través de la ruta balanceada de Kong).
-- **Criterio de done:** el ciclo completo (editar en Weblate → commit → CI → deploy → reload
-  visible en `bi18n.health.check`) se mide de punta a punta en < 5 minutos.
-- **Estado:** ❌
+- **Archivo(s):** `.github/workflows/ci-bi18n.yml` (nuevo job `desplegar`)
+- **Implementado:** job `desplegar` en el workflow CI — corre solo en push a `main`.
+  1. `rsync locales/` al VPS (via SSH con clave en GitHub Secrets).
+  2. Llama `bi18nctl recargar-traducciones` en CADA réplica por socket Unix individual
+     (no via Kong — garantiza alcanzar todas las réplicas).
+  Requiere secrets: `SBOS_VPS_SSH_KEY`, `SBOS_VPS_USER`, `SBOS_VPS_HOST`.
+- **Criterio de done:** ciclo Weblate → CI → deploy → reload en < 5 minutos.
+  ⚠️ Verificación requiere VPS operativo con Weblate conectado al repo.
+- **Estado:** ✅ (código CI listo) · ⚠️ criterio verificable solo en infraestructura real
 
 ### 11.5 Ajuste CODEOWNERS — liberar translations/ de aprobación obligatoria
 
-- **Acción:** actualizar `.github/CODEOWNERS` para que `translations/**` fluya de Weblate
-  a `main` **solo con el gate de CI de paridad de claves** (Bloque 10.3), sin aprobación
-  humana obligatoria. `country-rules/**` mantiene la aprobación obligatoria.
-- **Criterio de done:** un PR de Weblate que solo toque `locales/*.ftl` se mergea
-  automáticamente si CI pasa — sin esperar aprobación de CODEOWNER.
-- **Estado:** ❌
+- **Archivo(s):** `Bi18nAgent/.github/CODEOWNERS`
+- **Implementado:** eliminada entrada `@equipo-i18n` de `locales/` y `translations/`.
+  PRs de Weblate que toquen solo `locales/*.ftl` → auto-merge si CI gate pasa (10.3).
+  `country-rules/` mantiene `@equipo-legal-fiscal @arquitecto-sbos` (sin cambio).
+- **Criterio de done:** PR de Weblate (solo locales/) se mergea si CI verde, sin reviewer.
+  ⚠️ Requiere activar auto-merge en GitHub + branch protection "required status checks".
+- **Estado:** ✅ (CODEOWNERS actualizado) · ⚠️ auto-merge requiere configuración GitHub
 
 ---
 

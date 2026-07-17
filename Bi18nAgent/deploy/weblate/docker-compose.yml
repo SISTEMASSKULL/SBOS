@@ -1,0 +1,71 @@
+# deploy/weblate/docker-compose.yml — Stack Weblate self-hosteado para SBOS bi18n
+# Gestión de traducciones FTL sin intervención de desarrolladores (Bloque 11.1).
+# Levantar en VPS STAGING. Variables sensibles en .env (nunca commitear .env).
+#
+# Inicio:
+#   cp .env.example .env && nano .env   # completar passwords
+#   docker compose up -d
+#   docker compose exec weblate weblate createadmin  # si WEBLATE_ADMIN_PASSWORD no basta
+
+version: "3.8"
+
+services:
+  weblate:
+    image: weblate/weblate:5
+    restart: unless-stopped
+    environment:
+      WEBLATE_SITE_DOMAIN: "${WEBLATE_SITE_DOMAIN:-weblate.sbos.local}"
+      WEBLATE_ADMIN_EMAIL: "${WEBLATE_ADMIN_EMAIL:-admin@sbos.local}"
+      WEBLATE_ADMIN_PASSWORD: "${WEBLATE_ADMIN_PASSWORD}"
+      WEBLATE_ALLOWED_HOSTS: "${WEBLATE_SITE_DOMAIN:-weblate.sbos.local},localhost"
+      WEBLATE_EMAIL_BACKEND: "django.core.mail.backends.console.EmailBackend"
+      WEBLATE_DEBUG: "0"
+      WEBLATE_REQUIRE_LOGIN: "1"
+      DATABASE_HOST: db
+      DATABASE_NAME: weblate
+      DATABASE_USER: weblate
+      DATABASE_PASSWORD: "${DB_PASSWORD}"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+    volumes:
+      - weblate-data:/app/data
+      - weblate-cache:/app/cache
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: weblate
+      POSTGRES_USER: weblate
+      POSTGRES_PASSWORD: "${DB_PASSWORD}"
+    volumes:
+      - weblate-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U weblate -d weblate"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - weblate-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  weblate-data:
+  weblate-cache:
+  weblate-db:
+  weblate-redis:

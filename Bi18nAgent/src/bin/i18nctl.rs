@@ -56,6 +56,10 @@ enum Comando {
     /// Recarga country-rules y mensajes Fluent sin reiniciar el daemon.
     Recargar,
 
+    /// Recarga solo las traducciones FTL sin recargar country-rules (Bloque 11.2).
+    /// Swap atómico — el daemon sigue sirviendo durante la recarga.
+    RecargarTraducciones,
+
     /// Formatea una fecha/hora según el locale del tenant.
     FormatFecha {
         #[arg(help = "Timestamp ISO 8601 (ej: 2026-07-16T14:30:00Z)")]
@@ -284,6 +288,10 @@ fn construir_llamada(comando: &Comando, ctx_id: &str) -> (&'static str, Value) {
         ),
         Comando::Recargar => (
             "bi18n.admin.reload",
+            json!({ "ctx_id": ctx_id }),
+        ),
+        Comando::RecargarTraducciones => (
+            "bi18n.admin.reload_translations",
             json!({ "ctx_id": ctx_id }),
         ),
         Comando::FormatFecha { fecha, locale, granularidad, timezone } => (

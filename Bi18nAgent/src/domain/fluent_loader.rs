@@ -1,28 +1,29 @@
 /// domain/fluent_loader.rs — Cargador de mensajes Fluent para bi18n.
 /// Propósito: carga archivos .ftl del directorio `locales/{locale}/` y expone
 ///   `traducir(id, args)` para mensajes localizados con plurales y variables.
-///   Recargable en SIGHUP sin reiniciar el daemon (recargar + swap atómico).
-///   Usa FluentBundle::new_concurrent → thread-safe (Arc sin Mutex adicional).
+///   Recarga atómica vía TranslationsBundle (ArcSwap) — sin bloqueo de lectores.
+///   Usa FluentBundle::new_concurrent → thread-safe (IntlLangMemoizer Send+Sync).
 /// Referencia: Project Fluent <https://projectfluent.org/> · fluent-bundle 0.15
-/// Dependencias: fluent-bundle, unic-langid, crate::error
+/// Dependencias: fluent-bundle, unic-langid, crate::domain::translations, crate::error
 use fluent_bundle::{
     concurrent::FluentBundle, FluentArgs, FluentResource,
 };
 use unic_langid::LanguageIdentifier;
-use std::{
-    path::Path,
-    sync::{Arc, RwLock},
+use std::{path::Path, sync::Arc};
+use crate::{
+    domain::translations::TranslationsBundle,
+    error::{Bi18nError, Resultado},
 };
-use crate::error::{Bi18nError, Resultado};
 
 /// Tipo de bundle thread-safe (concurrent IntlLangMemoizer).
 type Bundle = FluentBundle<FluentResource>;
 
-/// Cargador de mensajes Fluent.
-/// Clonación barata por Arc interno — compartido entre todos los handlers.
+/// Cargador de mensajes Fluent con swap atómico (Bloque 11.2).
+/// Clonación barata por Arc — compartido entre todos los handlers.
+/// recargar() usa ArcSwap::store() — lectores en vuelo no se bloquean.
 #[derive(Clone)]
 pub struct FluentLoader {
-    bundle: Arc<RwLock<Bundle>>,
+    bundle: Arc<TranslationsBundle>,
     locale: String,
 }
 
@@ -32,30 +33,30 @@ impl FluentLoader {
     pub fn cargar(locale: &str, fluent_dir: &Path) -> Resultado<Self> {
         let bundle = construir_bundle(locale, fluent_dir)?;
         Ok(Self {
-            bundle: Arc::new(RwLock::new(bundle)),
+            bundle: Arc::new(TranslationsBundle::nuevo(bundle)),
             locale: locale.to_string(),
         })
     }
 
-    /// Recarga todos los archivos FTL sin reiniciar el daemon (SIGHUP).
-    /// Swap atómico: mientras se construye el nuevo bundle, el anterior sigue activo.
+    /// Recarga todos los archivos FTL sin reiniciar el daemon.
+    /// Construye el nuevo bundle completo en memoria ANTES del swap (build-then-swap).
+    /// Si el parseo falla, el bundle anterior sigue activo — rollback implícito.
     pub fn recargar(&self, fluent_dir: &Path) -> Resultado<()> {
         let nuevo = construir_bundle(&self.locale, fluent_dir)?;
-        let mut guard = self.bundle.write()
-            .map_err(|_| Bi18nError::ConfigFaltante { parametro: "fluent_loader_lock" })?;
-        *guard = nuevo;
-        tracing::info!("Fluent: bundle '{}' recargado", self.locale);
+        self.bundle.intercambiar(nuevo);
+        tracing::info!("Fluent: bundle '{}' recargado con swap atómico", self.locale);
         Ok(())
     }
 
     /// Traduce un mensaje con argumentos opcionales.
-    /// Si el id no existe o el bundle no está disponible, retorna el id sin modificar.
+    /// Guard de ArcSwap — sin lock de escritura, nunca bloquea.
     pub fn traducir<'a>(&self, id: &str, args: Option<&'a FluentArgs<'a>>) -> String {
-        let Ok(guard) = self.bundle.read() else { return id.to_string() };
-        let Some(msg) = guard.get_message(id) else { return id.to_string() };
+        let guard = self.bundle.cargar();
+        let bundle: &Bundle = &**guard;
+        let Some(msg) = bundle.get_message(id) else { return id.to_string() };
         let Some(pattern) = msg.value() else { return id.to_string() };
         let mut errores = vec![];
-        guard.format_pattern(pattern, args, &mut errores).to_string()
+        bundle.format_pattern(pattern, args, &mut errores).to_string()
     }
 
     /// Construye args de un solo argumento entero (útil para plurales).
@@ -65,11 +66,10 @@ impl FluentLoader {
         args
     }
 
-    /// Verifica si el bundle tiene un mensaje dado.
+    /// Verifica si el bundle tiene un mensaje dado. Sin bloqueo de escritura.
     pub fn tiene_mensaje(&self, id: &str) -> bool {
-        self.bundle.read()
-            .map(|g| g.has_message(id))
-            .unwrap_or(false)
+        let guard = self.bundle.cargar();
+        guard.has_message(id)
     }
 }
 
