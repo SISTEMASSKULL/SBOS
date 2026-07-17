@@ -1063,7 +1063,8 @@ translate-locale-not-available = Locale no disponible: { $locale }
 | Ω | prism3-core · validy · valida · clipass_rs | 12 + infra | ✅ Completo | `af243d3` + `1ab009d` |
 | — | arc-swap · notify | 0 (ya impl) | ✅ Fase 1 | `c92e20b` |
 | P4 | bi18n.admin.{list_locales,list_messages,get_message,update_message} | 4 | ✅ Completo | `25973cc` |
-| **TOTAL** | **23 librerías + 4 admin** | **107 RPC** | ✅ **Fase 2 COMPLETA** | |
+| P3 | bi18nctl — CLI Fase 2 (src/cli/ 11 módulos + bi18nctl.rs extendido) | 107 sub | ✅ Completo | `b0aa4e0` |
+| **TOTAL** | **23 librerías + 4 admin + CLI** | **107 RPC + 107 sub** | ✅ **Fase 2 COMPLETA** | |
 
 > **Correcciones respecto al plan original:** H (scrutiny) 4→6 · I (mask-pii) 4→3 · K (jiff) 18→17 · L (chrono) 15→10. El servidor HTTP (puerto 9456) fue reemplazado por 4 métodos `bi18n.admin.*` JSON-RPC — sin nuevo puerto, sin parser HTTP manual. Total final: 18 (Fase 1) + 107 (Fase 2) = **125 métodos RPC**.
 
