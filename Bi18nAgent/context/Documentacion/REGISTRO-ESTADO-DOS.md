@@ -3,7 +3,7 @@
 
 **Versión:** 3.0.0
 **Estado:** VERIFICADO — datos extraídos directamente de código fuente en `~/.cargo/registry/src/` (sin inferencia ni agentes externos)
-**Última actualización:** 2026-07-17
+**Última actualización:** 2026-07-18
 **Base:** Cargo.toml verificado — 23 librerías en 9 categorías
 
 ---
@@ -412,10 +412,14 @@ pub fn deserialize_json<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, Validati
 
 | Método RPC | Llamada Rust | Params entrada | Retorno |
 |---|---|---|---|
-| `bi18n.validate.from_json` | `scrutiny::deserialize::from_json::<SomeValidated>(bytes)` | `ctx_id`, `json_str`, `schema_id` | `{ "valid": bool, "errors?": {} }` |
-| `bi18n.validate.struct_errors` | `obj.validate().err().map(\|e\| e.messages())` | `ctx_id`, (dispatch por schema) | `{ "errors": {"campo": ["msg"]} }` |
+| `bi18n.validate.uuid` | scrutiny uuid rule | `ctx_id`, `value` | `{ "valid": bool }` |
 | `bi18n.validate.ulid` | scrutiny ulid rule | `ctx_id`, `value` | `{ "valid": bool }` |
+| `bi18n.validate.mac_address` | scrutiny mac_address rule | `ctx_id`, `value` | `{ "valid": bool }` |
 | `bi18n.validate.hex_color` | scrutiny hex_color rule | `ctx_id`, `value` | `{ "valid": bool }` |
+| `bi18n.validate.timezone` | scrutiny timezone rule | `ctx_id`, `value` | `{ "valid": bool }` |
+| `bi18n.validate.is_json` | scrutiny is_json rule | `ctx_id`, `value` | `{ "valid": bool }` |
+
+> ⚠️ `from_json` y `struct_errors` no están en el spec A.08.07 — se eliminaron del CLI. Los 6 métodos implementados son los que figuran en el spec.
 
 ---
 
@@ -496,10 +500,12 @@ mask("20260717", "XXXX/XX/XX")            // → "2026/07/17"
 | Método RPC | Llamada Rust | Params entrada | Retorno |
 |---|---|---|---|
 | `bi18n.format.structural_mask` | `universal_mask::mask(text, pattern)` | `ctx_id`, `text`, `pattern` | `{ "masked": "..." }` |
-| `bi18n.format.mask_ssn` | `mask(text, "XXX-XX-XXXX")` | `ctx_id`, `text` | `{ "masked": "123-45-6789" }` |
+| `bi18n.format.mask_cnpj` | `mask(text, "XX.XXX.XXX/XXXX-XX")` | `ctx_id`, `text` | `{ "masked": "12.345.678/0001-90" }` |
+| `bi18n.format.mask_cpf` | `mask(text, "XXX.XXX.XXX-XX")` | `ctx_id`, `text` | `{ "masked": "123.456.789-01" }` |
 | `bi18n.format.mask_card` | `mask(text, "XXXX-XXXX-XXXX-XXXX")` | `ctx_id`, `text` | `{ "masked": "4532-0151-1283-0366" }` |
-| `bi18n.format.mask_date_iso` | `mask(text, "XXXX-XX-XX")` | `ctx_id`, `text` | `{ "masked": "2026-07-17" }` |
-| `bi18n.format.mask_ci_bo` | `mask(text, "X-XXXX-XXXXX")` | `ctx_id`, `ci` | `{ "masked": "1-2345-67890" }` |
+| `bi18n.format.mask_ci_bo` | `mask(text, "XXXXXXX\|XXXXXXXX")` | `ctx_id`, `text` | `{ "masked": "1234567" }` |
+
+> ⚠️ `mask_ssn` y `mask_date_iso` fueron excluidos del dispatcher (no están en el spec A.08.09). Reemplazados por `mask_cnpj` y `mask_cpf` que sí figuran en A.08.09.
 
 ---
 
@@ -1064,9 +1070,12 @@ translate-locale-not-available = Locale no disponible: { $locale }
 | — | arc-swap · notify | 0 (ya impl) | ✅ Fase 1 | `c92e20b` |
 | P4 | bi18n.admin.{list_locales,list_messages,get_message,update_message} | 4 | ✅ Completo | `25973cc` |
 | P3 | bi18nctl — CLI Fase 2 (src/cli/ 11 módulos + bi18nctl.rs extendido) | 107 sub | ✅ Completo | `b0aa4e0` |
-| **TOTAL** | **23 librerías + 4 admin + CLI** | **107 RPC + 107 sub** | ✅ **Fase 2 COMPLETA** | |
+| **P4b** | **Ligaduras frontend A.04+A.09** — `bi18n.translate.bundle`, push events `translations.updated` (broadcast WebSocket), Bundle Prefetch, aliases canónicos en dispatcher; corrección sistemática CLI (21 nombres erróneos + 18 variantes inventadas eliminadas, CLI = dispatcher 100%) | **+1 RPC** | ✅ Completo | `75165d2` |
+| **TOTAL** | **23 librerías + 4 admin + CLI + ligaduras** | **108 RPC + CLI corregido** | ✅ **Fase 2 COMPLETA** | |
 
-> **Correcciones respecto al plan original:** H (scrutiny) 4→6 · I (mask-pii) 4→3 · K (jiff) 18→17 · L (chrono) 15→10. El servidor HTTP (puerto 9456) fue reemplazado por 4 métodos `bi18n.admin.*` JSON-RPC — sin nuevo puerto, sin parser HTTP manual. Total final: 18 (Fase 1) + 107 (Fase 2) = **125 métodos RPC**.
+> **Correcciones respecto al plan original:** H (scrutiny) 4→6 · I (mask-pii) 4→3 · K (jiff) 18→17 · L (chrono) 15→10. El servidor HTTP (puerto 9456) fue reemplazado por 4 métodos `bi18n.admin.*` JSON-RPC — sin nuevo puerto, sin parser HTTP manual. Total final: 18 (Fase 1) + 108 (Fase 2) = **126 métodos RPC**.
+>
+> **P4b — detalle ligaduras frontend (commit `75165d2`):** context.rs añade `push_tx broadcast::Sender` y `emitir_traducciones_actualizadas()`; main.rs crea canal broadcast 64 slots; file_watcher.rs emite `translations.updated` tras cada ArcSwap; lib_fluent.rs extiende `translate_list_messages` con mapa `messages` y añade `translate_bundle` (Bundle Prefetch A.09 §12); dispatcher.rs registra `bi18n.translate.bundle` + aliases `t`/`available_locales`/`message_attribute` + push event en admin reload; websocket.rs usa `tokio::select!` para recibir push events en paralelo. CLI: 6 módulos corregidos — 0 métodos que no existan en el dispatcher.
 
 ---
 
