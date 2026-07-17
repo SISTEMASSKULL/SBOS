@@ -304,6 +304,44 @@ pub async fn ejecutar_metodo(
             handlers::lib_chrono::chrono_timedelta_total(ctx, &params).await
         }
 
+        // ── Guardas / Precondiciones prism3-core (A.08.14) ───────────────
+        "bi18n.guard.check_bounds" => {
+            handlers::lib_prism3::guard_check_bounds(ctx, &params).await
+        }
+        "bi18n.guard.check_element_index" => {
+            handlers::lib_prism3::guard_check_element_index(ctx, &params).await
+        }
+        "bi18n.guard.check_position_index" => {
+            handlers::lib_prism3::guard_check_position_index(ctx, &params).await
+        }
+        "bi18n.guard.num_compare" => {
+            handlers::lib_prism3::guard_num_compare(ctx, &params).await
+        }
+        "bi18n.guard.num_positive" => {
+            handlers::lib_prism3::guard_num_positive(ctx, &params).await
+        }
+        "bi18n.guard.num_non_negative" => {
+            handlers::lib_prism3::guard_num_non_negative(ctx, &params).await
+        }
+        "bi18n.guard.num_in_range" => {
+            handlers::lib_prism3::guard_num_in_range(ctx, &params).await
+        }
+        "bi18n.guard.str_non_blank" => {
+            handlers::lib_prism3::guard_str_non_blank(ctx, &params).await
+        }
+        "bi18n.guard.str_length_range" => {
+            handlers::lib_prism3::guard_str_length_range(ctx, &params).await
+        }
+        "bi18n.guard.str_match" => {
+            handlers::lib_prism3::guard_str_match(ctx, &params).await
+        }
+        "bi18n.guard.col_non_empty" => {
+            handlers::lib_prism3::guard_col_non_empty(ctx, &params).await
+        }
+        "bi18n.guard.col_length_range" => {
+            handlers::lib_prism3::guard_col_length_range(ctx, &params).await
+        }
+
         // ── Teléfonos internacionales (A.08.13) ──────────────────────────
         "bi18n.phone.parse_e164" => {
             handlers::lib_phonenumber::phone_parse_e164(ctx, &params).await
