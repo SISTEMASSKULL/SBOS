@@ -272,6 +272,59 @@ pub async fn ejecutar_metodo(
             handlers::lib_validator::validate_must_match_fields(ctx, &params).await
         }
 
+        // ── Operaciones temporales jiff (A.08.10) ────────────────────────
+        "bi18n.datetime.now_utc" => {
+            handlers::lib_jiff::now_utc(ctx, &params).await
+        }
+        "bi18n.datetime.now_tz" => {
+            handlers::lib_jiff::now_tz(ctx, &params).await
+        }
+        "bi18n.datetime.parse_jiff" => {
+            handlers::lib_jiff::parse_jiff(ctx, &params).await
+        }
+        "bi18n.datetime.from_unix" => {
+            handlers::lib_jiff::from_unix(ctx, &params).await
+        }
+        "bi18n.datetime.format_jiff" => {
+            handlers::lib_jiff::format_jiff(ctx, &params).await
+        }
+        "bi18n.datetime.series" => {
+            handlers::lib_jiff::series(ctx, &params).await
+        }
+        "bi18n.datetime.add_span" => {
+            handlers::lib_jiff::add_span(ctx, &params).await
+        }
+        "bi18n.datetime.sub_span" => {
+            handlers::lib_jiff::sub_span(ctx, &params).await
+        }
+        "bi18n.datetime.diff_span" => {
+            handlers::lib_jiff::diff_span(ctx, &params).await
+        }
+        "bi18n.datetime.convert_tz" => {
+            handlers::lib_jiff::convert_tz(ctx, &params).await
+        }
+        "bi18n.datetime.round" => {
+            handlers::lib_jiff::round(ctx, &params).await
+        }
+        "bi18n.datetime.weekday_of_date" => {
+            handlers::lib_jiff::weekday_of_date(ctx, &params).await
+        }
+        "bi18n.datetime.days_in_month" => {
+            handlers::lib_jiff::days_in_month(ctx, &params).await
+        }
+        "bi18n.datetime.is_leap_year" => {
+            handlers::lib_jiff::is_leap_year(ctx, &params).await
+        }
+        "bi18n.datetime.nth_weekday" => {
+            handlers::lib_jiff::nth_weekday(ctx, &params).await
+        }
+        "bi18n.datetime.span_total" => {
+            handlers::lib_jiff::span_total(ctx, &params).await
+        }
+        "bi18n.datetime.tz_info" => {
+            handlers::lib_jiff::tz_info(ctx, &params).await
+        }
+
         // ── Máscaras estructurales posicionales (A.08.09) ────────────────
         "bi18n.format.structural_mask" => {
             handlers::lib_universal_mask::format_structural_mask(ctx, &params).await

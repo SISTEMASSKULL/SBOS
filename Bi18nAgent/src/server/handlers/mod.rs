@@ -11,6 +11,7 @@ pub mod format;
 pub(crate) mod format_utils;
 pub mod health;
 pub mod lib_fluent;
+pub mod lib_jiff;
 pub mod lib_mask_pii;
 pub mod lib_icu_datetime;
 pub mod lib_icu_decimal;
