@@ -2,8 +2,11 @@
 /// Propósito: concentra todos los recursos del daemon en un Arc clonable.
 ///   - JSON-RPC, gRPC y WebSocket comparten EXACTAMENTE el mismo contexto.
 ///   - Garantía de paridad de capacidades (C11): misma lógica, distinto transporte.
+///   - push_tx: canal broadcast para enviar eventos a clientes WebSocket conectados
+///     (patrón A.09 §12 — propagación en vivo de translations.updated).
 /// Dependencias: Arc, CountryRulesLoader, RegionalConfigResolver, FluentLoader, Config
 use std::sync::{atomic::AtomicU64, Arc};
+use tokio::sync::broadcast;
 use crate::{
     config::Config,
     domain::{
@@ -27,6 +30,9 @@ pub struct ServerContext {
     pub config: Arc<Config>,
     /// Contador de solicitudes activas (para drenado en SIGHUP — GAP-03).
     pub activas: Arc<AtomicU64>,
+    /// Canal de eventos push para todos los clientes WebSocket conectados.
+    /// Capacidad 64: si un cliente se retrasa, pierde eventos intermedios (lagged).
+    pub push_tx: broadcast::Sender<String>,
 }
 
 impl ServerContext {
@@ -37,8 +43,9 @@ impl ServerContext {
         fluent: Arc<FluentLoader>,
         config: Arc<Config>,
         activas: Arc<AtomicU64>,
+        push_tx: broadcast::Sender<String>,
     ) -> Self {
-        Self { loader, resolver, fluent, config, activas }
+        Self { loader, resolver, fluent, config, activas, push_tx }
     }
 
     /// Incrementa el contador de solicitudes activas.
@@ -49,5 +56,16 @@ impl ServerContext {
     /// Decrementa el contador de solicitudes activas.
     pub fn solicitud_finalizada(&self) {
         self.activas.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+    }
+
+    /// Emite un evento push `translations.updated` a todos los clientes WebSocket.
+    /// Si no hay clientes conectados, la operación es silenciosa (broadcast::SendError ignorado).
+    pub fn emitir_traducciones_actualizadas(&self, namespace: &str, locale: &str) {
+        let evento = serde_json::json!({
+            "event": "translations.updated",
+            "namespace": namespace,
+            "locale": locale,
+        }).to_string();
+        let _ = self.push_tx.send(evento);
     }
 }

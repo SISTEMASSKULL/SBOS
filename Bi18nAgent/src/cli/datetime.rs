@@ -63,11 +63,6 @@ pub enum Datetime {
     },
     /// Indica si un año es bisiesto.
     IsLeapYear { #[arg(long)] year: i32 },
-    /// Primer día del mes indicado.
-    FirstOfMonth {
-        #[arg(long)] year: i32,
-        #[arg(long)] month: u8,
-    },
     /// N-ésimo día de la semana en el mes (ej: 2do lunes de julio).
     NthWeekday {
         #[arg(long)] year: i32,
@@ -94,29 +89,46 @@ pub enum Datetime {
     WeekdayOfDate { #[arg(long)] ts_unix: i64 },
 
     // ── chrono (A.08.11) ──────────────────────────────────────────────────
-    /// Fecha y hora actual UTC (chrono).
-    ChronoNowUtc,
-    /// Fecha y hora actual en local (chrono).
-    ChronoNowLocal,
-    /// Parsea un string ISO 8601 con chrono.
-    ChronoParseIso { #[arg(long)] datetime: String },
+    /// Parsea un string RFC 3339 con chrono.
+    ChronoParseRfc3339 { #[arg(long)] value: String },
+    /// Parsea un string RFC 2822 con chrono.
+    ChronoParseRfc2822 { #[arg(long)] value: String },
+    /// Convierte un Unix timestamp a string RFC 3339 (chrono).
+    ChronoToRfc3339 { #[arg(long)] unix: i64 },
+    /// Convierte un Unix timestamp a string RFC 2822 (chrono).
+    ChronoToRfc2822 { #[arg(long)] unix: i64 },
     /// Formatea timestamp Unix con patrón strftime (chrono).
-    ChronoFormatStrftime {
+    ChronoFormat {
         #[arg(long)] unix: i64,
+        #[arg(long, default_value = "%Y-%m-%d %H:%M:%S")] format: String,
+    },
+    /// Formatea timestamp Unix con patrón strftime localizado (chrono).
+    ChronoFormatLocalized {
+        #[arg(long)] unix: i64,
+        #[arg(long, default_value = "%A %d %B %Y")] format: String,
+        #[arg(long, default_value = "es_BO")] locale: String,
+    },
+    /// Convierte un string RFC 3339 a Unix timestamp (chrono).
+    ChronoToUnix { #[arg(long)] value: String },
+    /// Indica si una fecha (year/month/day) cae en año bisiesto (chrono).
+    ChronoLeapYear {
+        #[arg(long)] year: i32,
+        #[arg(long)] month: u32,
+        #[arg(long)] day: u32,
+    },
+    /// Parsea un string de fecha con formato personalizado (chrono NaiveDate).
+    ChronoNaiveParse {
+        #[arg(long)] value: String,
         #[arg(long, default_value = "%Y-%m-%d")] format: String,
     },
-    /// Formatea timestamp Unix como RFC 3339 (chrono).
-    ChronoFormatRfc3339 { #[arg(long)] unix: i64 },
-    /// Formatea timestamp Unix como RFC 2822 (chrono).
-    ChronoFormatRfc2822 { #[arg(long)] unix: i64 },
-    /// Suma días a un timestamp Unix (chrono).
-    ChronoAddDays { #[arg(long)] unix: i64, #[arg(long)] days: i64 },
-    /// Resta días a un timestamp Unix (chrono).
-    ChronoSubDays { #[arg(long)] unix: i64, #[arg(long)] days: i64 },
-    /// Suma segundos a un timestamp Unix (chrono).
-    ChronoAddSeconds { #[arg(long)] unix: i64, #[arg(long)] seconds: i64 },
-    /// Diferencia en segundos entre dos timestamps Unix (chrono).
-    ChronoDiffSeconds { #[arg(long)] from: i64, #[arg(long)] to: i64 },
+    /// Total de un TimeDelta en la unidad indicada (hours|minutes|seconds).
+    ChronoTimedeltaTotal {
+        #[arg(long, default_value = "0")] days: i64,
+        #[arg(long, default_value = "0")] hours: i64,
+        #[arg(long, default_value = "0")] minutes: i64,
+        #[arg(long, default_value = "0")] seconds: i64,
+        #[arg(long, default_value = "hours")] unit: String,
+    },
 }
 
 pub fn construir_llamada(sub: &Datetime, ctx_id: &str) -> (&'static str, Value) {
@@ -163,10 +175,6 @@ pub fn construir_llamada(sub: &Datetime, ctx_id: &str) -> (&'static str, Value) 
             "bi18n.datetime.is_leap_year",
             json!({ "ctx_id": ctx_id, "year": year }),
         ),
-        Datetime::FirstOfMonth { year, month } => (
-            "bi18n.datetime.first_of_month",
-            json!({ "ctx_id": ctx_id, "year": year, "month": month }),
-        ),
         Datetime::NthWeekday { year, month, weekday, n } => (
             "bi18n.datetime.nth_weekday",
             json!({ "ctx_id": ctx_id, "year": year, "month": month, "weekday": weekday, "n": n }),
@@ -187,39 +195,45 @@ pub fn construir_llamada(sub: &Datetime, ctx_id: &str) -> (&'static str, Value) 
             "bi18n.datetime.weekday_of_date",
             json!({ "ctx_id": ctx_id, "ts_unix": ts_unix }),
         ),
-        Datetime::ChronoNowUtc => ("bi18n.datetime.chrono_now_utc", json!({ "ctx_id": ctx_id })),
-        Datetime::ChronoNowLocal => ("bi18n.datetime.chrono_now_local", json!({ "ctx_id": ctx_id })),
-        Datetime::ChronoParseIso { datetime } => (
-            "bi18n.datetime.chrono_parse_iso",
-            json!({ "ctx_id": ctx_id, "datetime": datetime }),
+        Datetime::ChronoParseRfc3339 { value } => (
+            "bi18n.datetime.chrono_parse_rfc3339",
+            json!({ "ctx_id": ctx_id, "value": value }),
         ),
-        Datetime::ChronoFormatStrftime { unix, format } => (
-            "bi18n.datetime.chrono_format_strftime",
+        Datetime::ChronoParseRfc2822 { value } => (
+            "bi18n.datetime.chrono_parse_rfc2822",
+            json!({ "ctx_id": ctx_id, "value": value }),
+        ),
+        Datetime::ChronoToRfc3339 { unix } => (
+            "bi18n.datetime.chrono_to_rfc3339",
+            json!({ "ctx_id": ctx_id, "unix": unix }),
+        ),
+        Datetime::ChronoToRfc2822 { unix } => (
+            "bi18n.datetime.chrono_to_rfc2822",
+            json!({ "ctx_id": ctx_id, "unix": unix }),
+        ),
+        Datetime::ChronoFormat { unix, format } => (
+            "bi18n.datetime.chrono_format",
             json!({ "ctx_id": ctx_id, "unix": unix, "format": format }),
         ),
-        Datetime::ChronoFormatRfc3339 { unix } => (
-            "bi18n.datetime.chrono_format_rfc3339",
-            json!({ "ctx_id": ctx_id, "unix": unix }),
+        Datetime::ChronoFormatLocalized { unix, format, locale } => (
+            "bi18n.datetime.chrono_format_localized",
+            json!({ "ctx_id": ctx_id, "unix": unix, "format": format, "locale": locale }),
         ),
-        Datetime::ChronoFormatRfc2822 { unix } => (
-            "bi18n.datetime.chrono_format_rfc2822",
-            json!({ "ctx_id": ctx_id, "unix": unix }),
+        Datetime::ChronoToUnix { value } => (
+            "bi18n.datetime.chrono_to_unix",
+            json!({ "ctx_id": ctx_id, "value": value }),
         ),
-        Datetime::ChronoAddDays { unix, days } => (
-            "bi18n.datetime.chrono_add_days",
-            json!({ "ctx_id": ctx_id, "unix": unix, "days": days }),
+        Datetime::ChronoLeapYear { year, month, day } => (
+            "bi18n.datetime.chrono_leap_year",
+            json!({ "ctx_id": ctx_id, "year": year, "month": month, "day": day }),
         ),
-        Datetime::ChronoSubDays { unix, days } => (
-            "bi18n.datetime.chrono_sub_days",
-            json!({ "ctx_id": ctx_id, "unix": unix, "days": days }),
+        Datetime::ChronoNaiveParse { value, format } => (
+            "bi18n.datetime.chrono_naive_parse",
+            json!({ "ctx_id": ctx_id, "value": value, "format": format }),
         ),
-        Datetime::ChronoAddSeconds { unix, seconds } => (
-            "bi18n.datetime.chrono_add_seconds",
-            json!({ "ctx_id": ctx_id, "unix": unix, "seconds": seconds }),
-        ),
-        Datetime::ChronoDiffSeconds { from, to } => (
-            "bi18n.datetime.chrono_diff_seconds",
-            json!({ "ctx_id": ctx_id, "from": from, "to": to }),
+        Datetime::ChronoTimedeltaTotal { days, hours, minutes, seconds, unit } => (
+            "bi18n.datetime.chrono_timedelta_total",
+            json!({ "ctx_id": ctx_id, "days": days, "hours": hours, "minutes": minutes, "seconds": seconds, "unit": unit }),
         ),
     }
 }

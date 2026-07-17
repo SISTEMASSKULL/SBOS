@@ -530,10 +530,12 @@ pub async fn ejecutar_metodo(
         "bi18n.i18n.set_locale" => {
             handlers::lib_rust_i18n::i18n_set_locale(ctx, &params).await
         }
-        "bi18n.i18n.available_locales" => {
+        // A.09 §7.2: nombre canónico locales_disponibles (alias backward-compat: available_locales)
+        "bi18n.i18n.locales_disponibles" | "bi18n.i18n.available_locales" => {
             handlers::lib_rust_i18n::i18n_available_locales(ctx, &params).await
         }
-        "bi18n.i18n.translate" => {
+        // A.09 §7.2: nombre canónico t (alias backward-compat: translate)
+        "bi18n.i18n.t" | "bi18n.i18n.translate" => {
             handlers::lib_rust_i18n::i18n_translate(ctx, &params).await
         }
 
@@ -553,8 +555,13 @@ pub async fn ejecutar_metodo(
         "bi18n.translate.list_messages" => {
             handlers::lib_fluent::translate_list_messages(ctx, &params).await
         }
-        "bi18n.translate.attribute" => {
+        // A.09 §7.1: nombre canónico message_attribute (alias backward-compat: attribute)
+        "bi18n.translate.message_attribute" | "bi18n.translate.attribute" => {
             handlers::lib_fluent::translate_attribute(ctx, &params).await
+        }
+        // Descarga el bundle completo de un namespace (Bundle Prefetch — A.09 §12).
+        "bi18n.translate.bundle" => {
+            handlers::lib_fluent::translate_bundle(ctx, &params).await
         }
 
         // ── Administración ────────────────────────────────────────────────
@@ -567,6 +574,9 @@ pub async fn ejecutar_metodo(
                 Ok(()) => { tracing::info!("admin.reload: Fluent recargado"); true }
                 Err(e) => { tracing::warn!("admin.reload: Fluent falló: {}", e); false }
             };
+            if ok_fluent {
+                ctx.emitir_traducciones_actualizadas("*", &ctx.config.regional.locale);
+            }
             Ok(serde_json::json!({
                 "recargado": ok_rules || ok_fluent,
                 "paises_cargados": n,
@@ -604,6 +614,9 @@ pub async fn ejecutar_metodo(
                     false
                 }
             };
+            if ok {
+                ctx.emitir_traducciones_actualizadas("*", &ctx.config.regional.locale);
+            }
             Ok(serde_json::json!({
                 "recargado": ok,
                 "locale": ctx.config.regional.locale,

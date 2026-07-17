@@ -12,10 +12,6 @@ pub enum I18n {
     LocaleActivo,
     /// Lista los locales disponibles compilados en el daemon.
     AvailableLocales,
-    /// Establece el locale buscando por código de idioma (ej: "en").
-    SetLocaleByLang {
-        #[arg(long)] lang: String,
-    },
 }
 
 pub fn construir_llamada(sub: &I18n, ctx_id: &str) -> (&'static str, Value) {
@@ -31,10 +27,6 @@ pub fn construir_llamada(sub: &I18n, ctx_id: &str) -> (&'static str, Value) {
         I18n::AvailableLocales => (
             "bi18n.i18n.available_locales",
             json!({ "ctx_id": ctx_id }),
-        ),
-        I18n::SetLocaleByLang { lang } => (
-            "bi18n.i18n.set_locale_by_lang",
-            json!({ "ctx_id": ctx_id, "lang": lang }),
         ),
     }
 }

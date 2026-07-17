@@ -49,24 +49,18 @@ pub enum ValidateFase2 {
     },
 
     // ── scrutiny (A.08.07) ────────────────────────────────────────────────
-    /// Valida un JSON contra un schema (objeto JSON como string).
-    FromJson {
-        #[arg(long, help = "JSON a validar")] json: String,
-        #[arg(long, help = "Schema JSON")] schema: String,
-    },
-    /// Devuelve los errores de validación de un struct JSON.
-    StructErrors {
-        #[arg(long)] json: String,
-        #[arg(long)] schema: String,
-    },
+    /// Valida que el valor sea un UUID válido.
+    Uuid { #[arg(long)] value: String },
     /// Valida que el valor sea un ULID válido.
     Ulid { #[arg(long)] value: String },
+    /// Valida que el valor sea una dirección MAC válida.
+    MacAddress { #[arg(long)] value: String },
     /// Valida que el valor sea un color hexadecimal (#RRGGBB o #RGB).
     HexColor { #[arg(long)] value: String },
-    /// Valida una dirección de email (scrutiny — alternativa a validator).
-    EmailScrutiny { #[arg(long)] value: String },
-    /// Valida un slug (solo letras, números y guiones).
-    Slug { #[arg(long)] value: String },
+    /// Valida que el valor sea una zona horaria IANA válida.
+    Timezone { #[arg(long)] value: String },
+    /// Valida que el valor sea JSON bien formado.
+    IsJson { #[arg(long)] value: String },
 }
 
 pub fn construir_llamada(sub: &ValidateFase2, ctx_id: &str) -> (&'static str, Value) {
@@ -104,7 +98,7 @@ pub fn construir_llamada(sub: &ValidateFase2, ctx_id: &str) -> (&'static str, Va
             json!({ "ctx_id": ctx_id, "value": value, "needle": needle }),
         ),
         ValidateFase2::NotContains { value, needle } => (
-            "bi18n.validate.does_not_contain",
+            "bi18n.validate.not_contains",
             json!({ "ctx_id": ctx_id, "value": value, "needle": needle }),
         ),
         ValidateFase2::Required { value } => (
@@ -119,28 +113,28 @@ pub fn construir_llamada(sub: &ValidateFase2, ctx_id: &str) -> (&'static str, Va
             "bi18n.validate.must_match",
             json!({ "ctx_id": ctx_id, "a": a, "b": b }),
         ),
-        ValidateFase2::FromJson { json: j, schema } => (
-            "bi18n.validate.from_json",
-            json!({ "ctx_id": ctx_id, "json": j, "schema": schema }),
-        ),
-        ValidateFase2::StructErrors { json: j, schema } => (
-            "bi18n.validate.struct_errors",
-            json!({ "ctx_id": ctx_id, "json": j, "schema": schema }),
+        ValidateFase2::Uuid { value } => (
+            "bi18n.validate.uuid",
+            json!({ "ctx_id": ctx_id, "value": value }),
         ),
         ValidateFase2::Ulid { value } => (
             "bi18n.validate.ulid",
+            json!({ "ctx_id": ctx_id, "value": value }),
+        ),
+        ValidateFase2::MacAddress { value } => (
+            "bi18n.validate.mac_address",
             json!({ "ctx_id": ctx_id, "value": value }),
         ),
         ValidateFase2::HexColor { value } => (
             "bi18n.validate.hex_color",
             json!({ "ctx_id": ctx_id, "value": value }),
         ),
-        ValidateFase2::EmailScrutiny { value } => (
-            "bi18n.validate.email_scrutiny",
+        ValidateFase2::Timezone { value } => (
+            "bi18n.validate.timezone",
             json!({ "ctx_id": ctx_id, "value": value }),
         ),
-        ValidateFase2::Slug { value } => (
-            "bi18n.validate.slug",
+        ValidateFase2::IsJson { value } => (
+            "bi18n.validate.is_json",
             json!({ "ctx_id": ctx_id, "value": value }),
         ),
     }

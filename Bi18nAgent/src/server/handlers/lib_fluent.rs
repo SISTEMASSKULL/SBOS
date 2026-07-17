@@ -100,18 +100,71 @@ pub async fn translate_batch(ctx: &ServerContext, params: &Value) -> Result<Valu
 }
 
 /// Lista todos los IDs de mensajes disponibles en el bundle activo.
-/// Parámetro opcional `prefix` para filtrar por prefijo (p. ej. "bauth.").
-/// Entrada: `{ "prefix": "bauth.", "ctx_id": "..." }`.
-/// Salida: `{ "ids": ["bauth.login.titulo", ...], "count": N }`.
+/// Parámetros opcionales: `prefix` O `namespace` (alias — el namespace se normaliza añadiendo '.')
+/// para filtrar por módulo (ej. namespace="bauth" filtra ids que empiecen por "bauth.").
+/// Retorna también el mapa `messages` con los textos para Bundle Prefetch (A.09 §12).
+/// Entrada: `{ "namespace": "bauth", "ctx_id": "..." }`.
+/// Salida: `{ "ids": [...], "messages": {"key":"text",...}, "count": N }`.
 pub async fn translate_list_messages(ctx: &ServerContext, params: &Value) -> Result<Value, Bi18nError> {
     let mut ids = ctx.fluent.listar_ids();
-    if let Some(prefix) = params["prefix"].as_str() {
-        if !prefix.is_empty() {
-            ids.retain(|id| id.starts_with(prefix));
-        }
+
+    // `namespace` es el parámetro canónico (A.09 §12); `prefix` se mantiene como alias.
+    let filtro = params["namespace"].as_str()
+        .or_else(|| params["prefix"].as_str())
+        .unwrap_or("");
+
+    if !filtro.is_empty() {
+        // Si se pasa "bauth" lo convertimos a "bauth." para no mezclar con "bauth_extra.*"
+        let prefijo = if filtro.ends_with('.') {
+            filtro.to_string()
+        } else {
+            format!("{}.", filtro)
+        };
+        ids.retain(|id| id.starts_with(&prefijo) || id == filtro);
+    }
+
+    // Construir mapa messages: id → texto (Bundle Prefetch — A.09 §12.3)
+    let mut messages = serde_json::Map::new();
+    for id in &ids {
+        let texto = ctx.fluent.traducir(id, None);
+        messages.insert(id.clone(), json!(texto));
     }
     let count = ids.len();
-    Ok(json!({ "ids": ids, "count": count }))
+    Ok(json!({ "ids": ids, "messages": messages, "count": count }))
+}
+
+/// Descarga el bundle completo de un namespace como mapa id → texto.
+/// Uso principal: Bundle Prefetch del frontend al iniciar sesión (A.09 §12.3).
+/// Entrada: `{ "namespace": "bauth", "locale": "es-BO", "ctx_id": "..." }`.
+/// Salida: `{ "messages": {"bauth.login.titulo":"Acceso al Sistema",...}, "count": N,
+///            "namespace": "bauth", "locale": "es-BO" }`.
+pub async fn translate_bundle(ctx: &ServerContext, params: &Value) -> Result<Value, Bi18nError> {
+    let namespace = params["namespace"].as_str().unwrap_or("");
+    let locale    = params["locale"].as_str()
+        .unwrap_or(&ctx.config.regional.locale);
+
+    let mut ids = ctx.fluent.listar_ids();
+    if !namespace.is_empty() {
+        let prefijo = if namespace.ends_with('.') {
+            namespace.to_string()
+        } else {
+            format!("{}.", namespace)
+        };
+        ids.retain(|id| id.starts_with(&prefijo) || id == namespace);
+    }
+
+    let mut messages = serde_json::Map::new();
+    for id in &ids {
+        let texto = ctx.fluent.traducir(id, None);
+        messages.insert(id.clone(), json!(texto));
+    }
+    let count = messages.len();
+    Ok(json!({
+        "messages":  messages,
+        "count":     count,
+        "namespace": namespace,
+        "locale":    locale,
+    }))
 }
 
 /// Traduce un atributo de un mensaje Fluent (`.label`, `.placeholder`, etc.).

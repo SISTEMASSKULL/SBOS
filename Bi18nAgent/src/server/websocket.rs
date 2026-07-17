@@ -9,7 +9,7 @@
 /// Dependencias: tokio, tokio-tungstenite, futures-util, serde_json, crate::server
 
 use std::time::{Duration, Instant};
-use tokio::{net::TcpListener, sync::watch};
+use tokio::{net::TcpListener, sync::{broadcast::error::RecvError, watch}};
 use tokio_tungstenite::{accept_async, tungstenite::Message};
 use futures_util::{SinkExt, StreamExt};
 use serde_json::Value;
@@ -73,45 +73,68 @@ async fn manejar_conexion(
 
     ctx.solicitud_iniciada();
 
+    // Suscribir al canal broadcast de push events (translations.updated, etc. — A.09 §12.5)
+    let mut push_rx = ctx.push_tx.subscribe();
+
     // Estado de rate limiting local a esta conexión: ventana deslizante de 1 segundo.
     let mut ventana_inicio = Instant::now();
     let mut contador: u32 = 0;
     let timeout = Duration::from_millis(timeout_ms);
 
-    while let Some(resultado) = ws.next().await {
-        let msg = match resultado {
-            Ok(m)  => m,
-            Err(e) => { tracing::debug!("WS: error de frame: {}", e); break; }
-        };
-
-        match msg {
-            Message::Text(texto) => {
-                // Ventana deslizante: reiniciar contador si pasó ≥ 1 segundo
-                let ahora = Instant::now();
-                if ahora.duration_since(ventana_inicio) >= Duration::from_secs(1) {
-                    ventana_inicio = ahora;
-                    contador = 0;
-                }
-                contador += 1;
-
-                let respuesta = if rate_limit_rps > 0 && contador > rate_limit_rps {
-                    tracing::warn!("WS: rate limit excedido ({} req en ventana actual)", contador);
-                    error_ws(Value::Null, -32000, "rate limit excedido — demasiados requests por segundo")
-                } else {
-                    match tokio::time::timeout(timeout, despachar(&texto, &ctx)).await {
-                        Ok(r)  => r,
-                        Err(_) => {
-                            tracing::warn!("WS: timeout de {}ms excedido en request", timeout_ms);
-                            error_ws(Value::Null, -32001, "timeout: el handler no respondió en el tiempo configurado")
-                        }
-                    }
+    loop {
+        tokio::select! {
+            // ── Mensaje entrante del cliente WS (request JSON-RPC) ───────────────
+            msg_opt = ws.next() => {
+                let msg = match msg_opt {
+                    Some(Ok(m))  => m,
+                    Some(Err(e)) => { tracing::debug!("WS: error de frame: {}", e); break; }
+                    None         => break,
                 };
 
-                if ws.send(Message::Text(respuesta)).await.is_err() { break; }
+                match msg {
+                    Message::Text(texto) => {
+                        let ahora = Instant::now();
+                        if ahora.duration_since(ventana_inicio) >= Duration::from_secs(1) {
+                            ventana_inicio = ahora;
+                            contador = 0;
+                        }
+                        contador += 1;
+
+                        let respuesta = if rate_limit_rps > 0 && contador > rate_limit_rps {
+                            tracing::warn!("WS: rate limit excedido ({} req en ventana actual)", contador);
+                            error_ws(Value::Null, -32000, "rate limit excedido — demasiados requests por segundo")
+                        } else {
+                            match tokio::time::timeout(timeout, despachar(&texto, &ctx)).await {
+                                Ok(r)  => r,
+                                Err(_) => {
+                                    tracing::warn!("WS: timeout de {}ms excedido en request", timeout_ms);
+                                    error_ws(Value::Null, -32001, "timeout: el handler no respondió en el tiempo configurado")
+                                }
+                            }
+                        };
+
+                        if ws.send(Message::Text(respuesta)).await.is_err() { break; }
+                    }
+                    Message::Ping(data) => { let _ = ws.send(Message::Pong(data)).await; }
+                    Message::Close(_)   => break,
+                    _                   => {}
+                }
             }
-            Message::Ping(data) => { let _ = ws.send(Message::Pong(data)).await; }
-            Message::Close(_)   => break,
-            _                   => {}
+
+            // ── Evento push servidor → cliente (translations.updated, etc.) ──────
+            push_res = push_rx.recv() => {
+                match push_res {
+                    Ok(texto) => {
+                        tracing::debug!("WS: emitiendo push event a cliente conectado");
+                        if ws.send(Message::Text(texto)).await.is_err() { break; }
+                    }
+                    Err(RecvError::Lagged(n)) => {
+                        // El cliente es lento — perdió n eventos, seguimos sin cortar
+                        tracing::warn!("WS: cliente lagged — perdió {} push events", n);
+                    }
+                    Err(RecvError::Closed) => break,
+                }
+            }
         }
     }
 

@@ -32,7 +32,7 @@ pub enum FormatFase2 {
         #[arg(long)] ts_unix: i64,
     },
     /// Fecha+hora con zona horaria explícita (ICU).
-    DatetimeWithTimezone {
+    DatetimeWithTime {
         #[arg(long, default_value = "es-BO")] locale: String,
         #[arg(long)] ts_unix: i64,
         #[arg(long, default_value = "America/La_Paz")] tz: String,
@@ -66,21 +66,21 @@ pub enum FormatFase2 {
         #[arg(long)] text: String,
         #[arg(long, help = "Patrón con X como comodín")] pattern: String,
     },
-    /// Enmascara número de Seguro Social (XXX-XX-XXXX → ***-**-6789).
-    MaskSsn {
-        #[arg(long)] ssn: String,
+    /// Enmascara CNPJ brasileño (XX.XXX.XXX/XXXX-XX).
+    MaskCnpj {
+        #[arg(long)] text: String,
+    },
+    /// Enmascara CPF brasileño (XXX.XXX.XXX-XX).
+    MaskCpf {
+        #[arg(long)] text: String,
     },
     /// Enmascara número de tarjeta (solo últimos 4 dígitos visibles).
     MaskCard {
-        #[arg(long)] card: String,
-    },
-    /// Enmascara fecha ISO (YYYY-MM-DD → ****-MM-DD).
-    MaskDateIso {
-        #[arg(long)] date: String,
+        #[arg(long)] text: String,
     },
     /// Enmascara carnet de identidad boliviano (primeros dígitos ocultos).
     MaskCiBo {
-        #[arg(long)] ci: String,
+        #[arg(long)] text: String,
     },
 }
 
@@ -106,8 +106,8 @@ pub fn construir_llamada(sub: &FormatFase2, ctx_id: &str) -> (&'static str, Valu
             "bi18n.format.month_name",
             json!({ "ctx_id": ctx_id, "locale": locale, "ts_unix": ts_unix }),
         ),
-        FormatFase2::DatetimeWithTimezone { locale, ts_unix, tz } => (
-            "bi18n.format.datetime_with_timezone",
+        FormatFase2::DatetimeWithTime { locale, ts_unix, tz } => (
+            "bi18n.format.datetime_with_time",
             json!({ "ctx_id": ctx_id, "locale": locale, "ts_unix": ts_unix, "tz": tz }),
         ),
         FormatFase2::NumberIcu { locale, number } => (
@@ -130,21 +130,21 @@ pub fn construir_llamada(sub: &FormatFase2, ctx_id: &str) -> (&'static str, Valu
             "bi18n.format.structural_mask",
             json!({ "ctx_id": ctx_id, "text": text, "pattern": pattern }),
         ),
-        FormatFase2::MaskSsn { ssn } => (
-            "bi18n.format.mask_ssn",
-            json!({ "ctx_id": ctx_id, "ssn": ssn }),
+        FormatFase2::MaskCnpj { text } => (
+            "bi18n.format.mask_cnpj",
+            json!({ "ctx_id": ctx_id, "text": text }),
         ),
-        FormatFase2::MaskCard { card } => (
+        FormatFase2::MaskCpf { text } => (
+            "bi18n.format.mask_cpf",
+            json!({ "ctx_id": ctx_id, "text": text }),
+        ),
+        FormatFase2::MaskCard { text } => (
             "bi18n.format.mask_card",
-            json!({ "ctx_id": ctx_id, "card": card }),
+            json!({ "ctx_id": ctx_id, "text": text }),
         ),
-        FormatFase2::MaskDateIso { date } => (
-            "bi18n.format.mask_date_iso",
-            json!({ "ctx_id": ctx_id, "date": date }),
-        ),
-        FormatFase2::MaskCiBo { ci } => (
+        FormatFase2::MaskCiBo { text } => (
             "bi18n.format.mask_ci_bo",
-            json!({ "ctx_id": ctx_id, "ci": ci }),
+            json!({ "ctx_id": ctx_id, "text": text }),
         ),
     }
 }

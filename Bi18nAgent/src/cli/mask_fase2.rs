@@ -13,7 +13,7 @@ pub enum MaskFase2 {
         #[arg(long)] text: String,
     },
     /// Enmascara datos PII (email + teléfono) en texto libre.
-    PiiInText {
+    Pii {
         #[arg(long)] text: String,
     },
     /// Enmascara PII reemplazando con el carácter indicado.
@@ -33,8 +33,8 @@ pub fn construir_llamada(sub: &MaskFase2, ctx_id: &str) -> (&'static str, Value)
             "bi18n.mask.phone_in_text",
             json!({ "ctx_id": ctx_id, "text": text }),
         ),
-        MaskFase2::PiiInText { text } => (
-            "bi18n.mask.pii_in_text",
+        MaskFase2::Pii { text } => (
+            "bi18n.mask.pii",
             json!({ "ctx_id": ctx_id, "text": text }),
         ),
         MaskFase2::PiiWithChar { text, char } => (

@@ -11,9 +11,14 @@ use tokio::sync::mpsc;
 use crate::domain::fluent_loader::FluentLoader;
 
 /// Vigila `directorio` en busca de cambios FTL y recarga el bundle cuando detecta uno.
+/// Tras cada recarga exitosa emite `translations.updated` al canal push (A.09 §12).
 /// Retorna solo si el canal de eventos se cierra (error no recuperable del watcher).
 /// Diseñado para correr bajo `tokio::select!` en main.rs.
-pub async fn vigilar_traducciones(directorio: PathBuf, fluent: Arc<FluentLoader>) {
+pub async fn vigilar_traducciones(
+    directorio: PathBuf,
+    fluent: Arc<FluentLoader>,
+    push_tx: tokio::sync::broadcast::Sender<String>,
+) {
     let (tx, mut rx) = mpsc::channel::<notify::Result<notify::Event>>(32);
 
     let mut watcher = match RecommendedWatcher::new(
@@ -50,7 +55,16 @@ pub async fn vigilar_traducciones(directorio: PathBuf, fluent: Arc<FluentLoader>
                 if es_relevante {
                     tracing::info!("file_watcher: cambio FTL detectado ({:?}) — recargando", ev.paths);
                     match fluent.recargar(&directorio) {
-                        Ok(()) => tracing::info!("file_watcher: traducciones recargadas con swap atómico"),
+                        Ok(()) => {
+                            tracing::info!("file_watcher: traducciones recargadas con swap atómico");
+                            // Notificar a todos los clientes WebSocket conectados (A.09 §12.5)
+                            let evento = serde_json::json!({
+                                "event": "translations.updated",
+                                "namespace": "*",
+                                "locale": "all",
+                            }).to_string();
+                            let _ = push_tx.send(evento);
+                        }
                         Err(e) => tracing::error!("file_watcher: recarga fallida — versión anterior activa: {}", e),
                     }
                 }

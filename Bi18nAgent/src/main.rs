@@ -44,6 +44,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     let resolver = Arc::new(ResolverEstatico::nuevo(&cfg.regional));
     let activas  = Arc::new(AtomicU64::new(0));
+    // Canal broadcast para push events WebSocket (A.09 §12 — translations.updated).
+    // El receptor `_push_keep` mantiene el canal abierto aunque no haya clientes aún.
+    let (push_tx, _push_keep) = tokio::sync::broadcast::channel::<String>(64);
     let cfg      = Arc::new(cfg);
 
     let ctx = ServerContext::nuevo(
@@ -52,6 +55,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&fluent),
         Arc::clone(&cfg),
         Arc::clone(&activas),
+        push_tx.clone(),
     );
 
     // Bloque 6.2 — Notificar a systemd que el daemon está listo (READY=1)
@@ -82,7 +86,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         _ = signal::manejar_sigint(sd_tx) => {},
         _ = signal::manejar_watchdog(watchdog_intervalo) => {},
         // Bloque 11.3: vigilar cambios FTL y recargar traducciones automáticamente.
-        _ = file_watcher::vigilar_traducciones(cfg.rutas.fluent_dir.clone(), Arc::clone(&fluent)) =>
+        // push_tx permite emitir translations.updated a clientes WebSocket al detectar cambio.
+        _ = file_watcher::vigilar_traducciones(cfg.rutas.fluent_dir.clone(), Arc::clone(&fluent), push_tx) =>
             tracing::warn!("file_watcher: vigilancia de traducciones detenida inesperadamente"),
     }
 
