@@ -30,7 +30,7 @@ Los anexos A.08.15–A.08.22 son infraestructura interna: 0 métodos RPC, no gen
 | 2 | A.08.02 | `rust-i18n 4.x` | `lib_rust_i18n.rs` | 4 | ✅ Implementado |
 | 3 | A.08.03 | `icu_datetime 2.2.0` | `lib_icu_datetime.rs` | 6 | ✅ Implementado |
 | 4 | A.08.04 | `icu_locale_core 2.2.0` | `lib_icu_locale.rs` | 4 | ✅ Implementado |
-| 5 | A.08.05 | `icu_decimal 2.2.0` | `lib_icu_decimal.rs` | 4 | ⏳ Pendiente |
+| 5 | A.08.05 | `icu_decimal 2.2.0` | `lib_icu_decimal.rs` | 4 | ✅ Implementado |
 | 6 | A.08.06 | `validator 0.19.0` | `lib_validator.rs` | 12 | ⏳ Pendiente |
 | 7 | A.08.07 | `scrutiny 0.1.2` | `lib_scrutiny.rs` | 4 | ⏳ Pendiente |
 | 8 | A.08.08 | `mask-pii 0.2.0` | `lib_mask_pii.rs` + FIX `mask.rs:81` | 4 | ⏳ Pendiente |
@@ -136,7 +136,7 @@ Nuevos (Fase 2):
 | 2 | `lib_rust_i18n.rs` | 4 | pendiente commit | ✅ |
 | 3 | `lib_icu_datetime.rs` | 6 | `3930f53`+1 | ✅ |
 | 4 | `lib_icu_locale.rs` | 4 | pendiente commit | ✅ |
-| 5 | `lib_icu_decimal.rs` | 4 | — | ⏳ |
+| 5 | `lib_icu_decimal.rs` | 4 | pendiente commit | ✅ |
 | 6 | `lib_validator.rs` | 12 | — | ⏳ |
 | 7 | `lib_scrutiny.rs` | 4 | — | ⏳ |
 | 8 | `lib_mask_pii.rs` + FIX | 4+FIX | — | ⏳ |

@@ -12,6 +12,7 @@ pub(crate) mod format_utils;
 pub mod health;
 pub mod lib_fluent;
 pub mod lib_icu_datetime;
+pub mod lib_icu_decimal;
 pub mod lib_icu_locale;
 pub mod lib_rust_i18n;
 pub mod locale;

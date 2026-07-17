@@ -220,6 +220,20 @@ pub async fn ejecutar_metodo(
             Ok(serde_json::json!({ "campos": campos, "locale": locale, "country": country, "text_direction": text_direction }))
         }
 
+        // ── ICU decimal format (A.08.05) ─────────────────────────────────
+        "bi18n.format.number_icu" => {
+            handlers::lib_icu_decimal::format_number_icu(ctx, &params).await
+        }
+        "bi18n.format.number_no_grouping" => {
+            handlers::lib_icu_decimal::format_number_no_grouping(ctx, &params).await
+        }
+        "bi18n.format.number_grouping_always" => {
+            handlers::lib_icu_decimal::format_number_grouping_always(ctx, &params).await
+        }
+        "bi18n.format.number_grouping_min2" => {
+            handlers::lib_icu_decimal::format_number_grouping_min2(ctx, &params).await
+        }
+
         // ── ICU locale BCP-47 (A.08.04) ──────────────────────────────────
         "bi18n.locale.parse_bcp47" => {
             handlers::lib_icu_locale::locale_parse_bcp47(ctx, &params).await

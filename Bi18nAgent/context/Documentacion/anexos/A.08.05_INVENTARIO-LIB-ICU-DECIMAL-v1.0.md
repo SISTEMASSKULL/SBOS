@@ -14,10 +14,10 @@
 
 | # | Función / Tipo fuente | Método RPC `bi18n.*` | Fase | Estado |
 |---|----------------------|----------------------|------|--------|
-| 1 | `DecimalFormatter::try_new(prefs, opts)` con `GroupingStrategy::Auto` | `bi18n.format.number_icu` | 2 | 📋 Fase 2 |
-| 2 | `DecimalFormatter` con `GroupingStrategy::Never` | `bi18n.format.number_no_grouping` | 2 | 📋 Fase 2 |
-| 3 | `DecimalFormatter` con `GroupingStrategy::Always` | `bi18n.format.number_grouping_always` | 2 | 📋 Fase 2 |
-| 4 | `DecimalFormatter` con `GroupingStrategy::Min2` | `bi18n.format.number_grouping_min2` | 2 | 📋 Fase 2 |
+| 1 | `DecimalFormatter::try_new(prefs, opts)` con `GroupingStrategy::Auto` | `bi18n.format.number_icu` | 2 | ✅ Implementado |
+| 2 | `DecimalFormatter` con `GroupingStrategy::Never` | `bi18n.format.number_no_grouping` | 2 | ✅ Implementado |
+| 3 | `DecimalFormatter` con `GroupingStrategy::Always` | `bi18n.format.number_grouping_always` | 2 | ✅ Implementado |
+| 4 | `DecimalFormatter` con `GroupingStrategy::Min2` | `bi18n.format.number_grouping_min2` | 2 | ✅ Implementado |
 | 5 | `DecimalFormatter::try_new_unstable(provider, prefs, opts)` | — | — | ❌ Infra interna |
 | 6 | `DecimalFormatter::try_new_with_buffer_provider(provider, prefs, opts)` | — | — | ❌ Infra interna |
 | 7 | `DecimalFormatter::format(value: &Decimal)` → `FormattedDecimal` | — | — | ❌ Infra interna |
