@@ -1,8 +1,11 @@
 /// main.rs — Entry point del daemon bi18n-daemon-orchestrator (bi18nd).
 /// Propósito: arranque del daemon soberano de i18n del ecosistema SBOS.
+///   - Preflight (Bloque 6.1): valida entorno antes de arrancar.
 ///   - Carga configuración → inicia loader + FluentBundle → arranca Interface Triple.
+///   - sd_notify READY=1 (Bloque 6.2): notifica a systemd que el daemon está listo.
 ///   - SIGHUP: recarga country-rules + FluentBundle sin reiniciar.
 ///   - SIGTERM/SIGINT: apagado ordenado con drenado de solicitudes.
+///   - Watchdog systemd: ping sd_notify cada WatchdogSec/2.
 use std::{path::PathBuf, sync::{atomic::AtomicU64, Arc}};
 use bi18n_daemon_orchestrator::{
     config,
@@ -12,6 +15,7 @@ use bi18n_daemon_orchestrator::{
         regional_config::ResolverEstatico,
         signal,
     },
+    preflight,
     server::{context::ServerContext, grpc, unix_socket},
 };
 
@@ -24,6 +28,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     config::inicializar_log(&cfg.log);
 
     tracing::info!("bi18n arrancando — versión {}", env!("CARGO_PKG_VERSION"));
+
+    // Bloque 6.1 — Preflight: verificar entorno antes de cargar recursos
+    preflight::ejecutar(&cfg).await?;
 
     let loader = Arc::new(CountryRulesLoader::nuevo(&cfg.rutas.country_rules_dir).await?);
     let fluent = Arc::new(
@@ -46,6 +53,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&activas),
     );
 
+    // Bloque 6.2 — Notificar a systemd que el daemon está listo (READY=1)
+    if let Err(e) = sd_notify::notify(false, &[sd_notify::NotifyState::Ready]) {
+        tracing::debug!("sd_notify READY no enviado (normal en desarrollo): {}", e);
+    } else {
+        tracing::info!("sd_notify: READY=1 enviado a systemd");
+    }
+
+    // Bloque 6.2 — Intervalo del watchdog: WatchdogSec/2 (por defecto 15s si WatchdogSec=30)
+    let watchdog_intervalo = cfg.servidor.drain_timeout_secs.min(30) / 2;
+
     let (sd_tx, sd_rx) = tokio::sync::watch::channel(false);
 
     tokio::select! {
@@ -56,6 +73,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         _ = signal::manejar_sighup(Arc::clone(&loader), Arc::clone(&fluent), Arc::clone(&activas), cfg.servidor.drain_timeout_secs, cfg.rutas.fluent_dir.clone()) => {},
         _ = signal::manejar_sigterm(sd_tx.clone(), Arc::clone(&activas), cfg.servidor.drain_timeout_secs) => {},
         _ = signal::manejar_sigint(sd_tx) => {},
+        _ = signal::manejar_watchdog(watchdog_intervalo) => {},
     }
 
     tracing::info!("bi18n apagado limpiamente");

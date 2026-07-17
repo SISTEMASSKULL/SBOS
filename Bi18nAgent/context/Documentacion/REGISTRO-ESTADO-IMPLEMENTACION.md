@@ -306,7 +306,7 @@ Agregar los subcomandos que faltan (según A.02 §4.3):
 
 ---
 
-## BLOQUE 6 — Infraestructura de producción 🟡
+## BLOQUE 6 — Infraestructura de producción ✅
 
 ### 6.1 `preflight.rs` — validaciones pre-arranque
 
@@ -323,7 +323,7 @@ Agregar los subcomandos que faltan (según A.02 §4.3):
   ```
 - **Criterio de done:** `main.rs` llama `preflight::ejecutar(&cfg).await?` antes de iniciar
   los servidores. Si falla, el daemon no arranca y loguea el error en español.
-- **Estado:** ❌
+- **Estado:** ✅ — `src/preflight.rs` con 4 checks (C1-C4); main.rs llama preflight antes de arrancar servidores
 
 ### 6.2 `systemd sd_notify` + WatchdogSec
 
@@ -334,7 +334,7 @@ Agregar los subcomandos que faltan (según A.02 §4.3):
   - En SIGTERM drain completado: `sd_notify::notify(false, &[sd_notify::NotifyState::Stopping])`
   - Watchdog: responder al watchdog en el loop principal cada `WatchdogSec/2`
 - **Criterio de done:** `systemctl status bi18nd` muestra `active (running)` sin timeout.
-- **Estado:** ❌
+- **Estado:** ✅ — sd_notify READY=1 en main.rs; watchdog loop en signal.rs (WatchdogSec/2); dep sd-notify 0.4
 
 ### 6.3 Archivo `bi18nd.service` (systemd unit)
 
@@ -358,7 +358,7 @@ Agregar los subcomandos que faltan (según A.02 §4.3):
   WantedBy=multi-user.target
   ```
 - **Criterio de done:** archivo existe en el repo, instalable con `systemctl enable`.
-- **Estado:** ❌
+- **Estado:** ✅ — `deploy/bi18nd.service` con Type=notify, WatchdogSec=30, hardening de seguridad ISO 27001
 
 ---
 

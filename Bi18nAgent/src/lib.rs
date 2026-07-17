@@ -7,4 +7,5 @@ pub mod config;
 pub mod domain;
 pub mod error;
 pub mod generated;
+pub mod preflight;
 pub mod server;

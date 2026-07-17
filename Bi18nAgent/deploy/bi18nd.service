@@ -1,0 +1,68 @@
+# bi18nd.service — Unidad systemd del daemon bi18n (SBOS i18n-orchestrator)
+# Instalación:
+#   cp deploy/bi18nd.service /etc/systemd/system/
+#   systemctl daemon-reload
+#   systemctl enable --now bi18nd
+# Requiere: usuario 'bos' + grupo 'bosagent' + /run/bos/ con permisos correctos
+#   useradd --system --no-create-home --shell /usr/sbin/nologin bos
+#   groupadd bosagent && usermod -aG bosagent bos
+#   mkdir -p /run/bos && chown bos:bosagent /run/bos && chmod 2770 /run/bos
+
+[Unit]
+Description=SBOS bi18n — Orquestador Universal de Internacionalización
+Documentation=https://sbos.skull.com.bo/docs/bi18n
+After=network.target
+Wants=network.target
+
+[Service]
+Type=notify
+ExecStart=/usr/local/bin/bi18nd
+ExecReload=/bin/kill -HUP $MAINPID
+
+# Configuración del daemon (C7 — sin hardcodes en el binario)
+Environment=BI18N_CONFIG=/etc/bos/bi18n.toml
+
+# Timeouts y watchdog
+WatchdogSec=30
+TimeoutStartSec=30
+TimeoutStopSec=30
+
+# Reinicio automático en fallo
+Restart=on-failure
+RestartSec=5
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+# Identidad y permisos
+User=bos
+Group=bosagent
+SupplementaryGroups=bosagent
+
+# Seguridad — confinamiento del proceso (ISO 27001 A.8.2)
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RemoveIPC=true
+
+# Acceso a filesystem — solo lo estrictamente necesario
+ReadWritePaths=/run/bos
+ReadOnlyPaths=/etc/bos /etc/bos/bi18n /opt/skull/country-rules /opt/skull/locales
+RuntimeDirectory=bos
+RuntimeDirectoryMode=2770
+
+# Límites de recursos
+LimitNOFILE=65536
+LimitNPROC=512
+
+[Install]
+WantedBy=multi-user.target

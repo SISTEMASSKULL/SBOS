@@ -3,7 +3,8 @@
 ///   - Drenado máximo: drain_timeout_secs (GAP-03).
 ///   - Conteo atómico de solicitudes activas para esperar drenado.
 ///   - Bloque 4: FluentLoader también se recarga en SIGHUP (mensajes Fluent en vivo).
-/// Dependencias: tokio::signal, tokio::sync::watch, std::sync::atomic
+///   - Bloque 6.2: watchdog systemd — sd_notify cada WatchdogSec/2 (< 800 líneas OK).
+/// Dependencias: tokio::signal, tokio::sync::watch, std::sync::atomic, sd_notify
 use std::sync::{
     atomic::{AtomicU64, Ordering},
     Arc,
@@ -13,6 +14,9 @@ use crate::domain::{
     country_rules::CountryRulesLoader,
     fluent_loader::FluentLoader,
 };
+
+// sd_notify es no-op si NOTIFY_SOCKET no está definido (sin systemd en desarrollo)
+use sd_notify;
 
 /// Espera SIGHUP y recarga country-rules + FluentBundle atómicamente.
 /// Si la recarga falla, loguea el error pero NO apaga el daemon (mantiene datos anteriores).
@@ -74,6 +78,20 @@ pub async fn manejar_sigint(sd_tx: watch::Sender<bool>) {
         .expect("no se pudo registrar SIGINT");
     tracing::info!("SIGINT recibido — apagando bi18n (modo desarrollo)");
     let _ = sd_tx.send(true);
+}
+
+/// Loop del watchdog systemd (Bloque 6.2).
+/// Envía sd_notify WATCHDOG=1 cada intervalo_secs para que systemd no mate el proceso.
+/// Si NOTIFY_SOCKET no está definido (desarrollo), la llamada es no-op.
+pub async fn manejar_watchdog(intervalo_secs: u64) {
+    if intervalo_secs == 0 { return; }
+    let intervalo = std::time::Duration::from_secs(intervalo_secs);
+    loop {
+        tokio::time::sleep(intervalo).await;
+        if let Err(e) = sd_notify::notify(false, &[sd_notify::NotifyState::Watchdog]) {
+            tracing::debug!("watchdog sd_notify no enviado (normal en desarrollo): {}", e);
+        }
+    }
 }
 
 /// Bloquea hasta que no haya solicitudes activas o se agote el timeout.
