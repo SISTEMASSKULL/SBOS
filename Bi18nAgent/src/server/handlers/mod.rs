@@ -17,6 +17,7 @@ pub mod lib_mask_pii;
 pub mod lib_icu_datetime;
 pub mod lib_icu_decimal;
 pub mod lib_icu_locale;
+pub mod lib_phonenumber;
 pub mod lib_regex;
 pub mod lib_rust_i18n;
 pub mod lib_scrutiny;

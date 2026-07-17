@@ -304,6 +304,32 @@ pub async fn ejecutar_metodo(
             handlers::lib_chrono::chrono_timedelta_total(ctx, &params).await
         }
 
+        // ── Teléfonos internacionales (A.08.13) ──────────────────────────
+        "bi18n.phone.parse_e164" => {
+            handlers::lib_phonenumber::phone_parse_e164(ctx, &params).await
+        }
+        "bi18n.phone.format" => {
+            handlers::lib_phonenumber::phone_format(ctx, &params).await
+        }
+        "bi18n.phone.type" => {
+            handlers::lib_phonenumber::phone_type(ctx, &params).await
+        }
+        "bi18n.phone.is_viable" => {
+            handlers::lib_phonenumber::phone_is_viable(ctx, &params).await
+        }
+        "bi18n.phone.info" => {
+            handlers::lib_phonenumber::phone_info(ctx, &params).await
+        }
+        "bi18n.phone.parse_national" => {
+            handlers::lib_phonenumber::phone_parse_national(ctx, &params).await
+        }
+        "bi18n.phone.parse_rfc3966" => {
+            handlers::lib_phonenumber::phone_parse_rfc3966(ctx, &params).await
+        }
+        "bi18n.phone.country_code" => {
+            handlers::lib_phonenumber::phone_country_code(ctx, &params).await
+        }
+
         // ── Expresiones regulares sobre texto libre (A.08.12) ────────────
         "bi18n.text.regex_match" => {
             handlers::lib_regex::regex_match(ctx, &params).await
