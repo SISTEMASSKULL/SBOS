@@ -7,6 +7,7 @@
 ///   - Subcomandos locales (sin daemon): `translations check-parity`.
 ///   - Subcomando protegido: `admin` — lee contraseña con clipass_rs (A.08.17).
 /// Dependencias: clap, serde_json, uuid, clipass_rs, std::os::unix::net
+use bi18n_daemon_orchestrator::cli;
 use clipass_rs::CliPass;
 use std::{
     collections::HashSet,
@@ -171,6 +172,61 @@ enum Comando {
         tenant: String,
     },
 
+    // ── Fase 2: namespaces nuevos ────────────────────────────────────────────
+
+    /// Traduce mensajes Fluent con argumentos opcionales (A.08.01 fluent-bundle).
+    Translate {
+        #[command(subcommand)]
+        subcomando: cli::translate::Translate,
+    },
+    /// Gestión de locale activo para el daemon (A.08.02 rust-i18n).
+    I18n {
+        #[command(subcommand)]
+        subcomando: cli::i18n::I18n,
+    },
+    /// Operaciones con locales BCP 47 (A.08.03 icu4x LocaleCanonicalizer).
+    LocaleFase2 {
+        #[command(subcommand)]
+        subcomando: cli::locale_fase2::LocaleFase2,
+    },
+    /// Formateo ICU datetime + decimal + universal_mask (A.08.04/05/06).
+    FormatFase2 {
+        #[command(subcommand)]
+        subcomando: cli::format_fase2::FormatFase2,
+    },
+    /// Validación validator 0.20 + scrutiny 0.1 (A.08.07/08).
+    ValidateFase2 {
+        #[command(subcommand)]
+        subcomando: cli::validate_fase2::ValidateFase2,
+    },
+    /// Enmascarado de PII en texto libre (A.08.09 pii-mask).
+    MaskFase2 {
+        #[command(subcommand)]
+        subcomando: cli::mask_fase2::MaskFase2,
+    },
+    /// Operaciones con texto y regex (A.08.12 regex 1.13).
+    Text {
+        #[command(subcommand)]
+        subcomando: cli::text::Text,
+    },
+    /// Formateo y análisis de números de teléfono (A.08.13 phonenumber 0.3).
+    Phone {
+        #[command(subcommand)]
+        subcomando: cli::phone::Phone,
+    },
+    /// Guardas de validación tipadas (A.08.14 prism3-core 0.2).
+    Guard {
+        #[command(subcommand)]
+        subcomando: cli::guard::Guard,
+    },
+    /// Operaciones de fecha y hora (A.08.10 jiff + A.08.11 chrono).
+    Datetime {
+        #[command(subcommand)]
+        subcomando: cli::datetime::Datetime,
+    },
+
+    // ── Operaciones locales / administrativas ────────────────────────────────
+
     /// Gestión de traducciones (operaciones locales — no requieren daemon activo).
     Translations {
         #[command(subcommand)]
@@ -194,6 +250,11 @@ enum ComandoAdmin {
     RecargarTraducciones,
     /// Verifica el estado interno del daemon con privilegios admin.
     Estado,
+    /// Administración de traducciones FTL: listar, leer y actualizar mensajes en caliente.
+    Traducciones {
+        #[command(subcommand)]
+        operacion: cli::admin_traducciones::AdminTraducciones,
+    },
 }
 
 /// Subcomandos de gestión de traducciones.
@@ -398,6 +459,18 @@ fn construir_llamada(comando: &Comando, ctx_id: &str) -> (&'static str, Value) {
                 "tenant": tenant,
             }),
         ),
+        // ── Fase 2 ──────────────────────────────────────────────────────────
+        Comando::Translate { subcomando }    => cli::translate::construir_llamada(subcomando, ctx_id),
+        Comando::I18n { subcomando }         => cli::i18n::construir_llamada(subcomando, ctx_id),
+        Comando::LocaleFase2 { subcomando }  => cli::locale_fase2::construir_llamada(subcomando, ctx_id),
+        Comando::FormatFase2 { subcomando }  => cli::format_fase2::construir_llamada(subcomando, ctx_id),
+        Comando::ValidateFase2 { subcomando } => cli::validate_fase2::construir_llamada(subcomando, ctx_id),
+        Comando::MaskFase2 { subcomando }    => cli::mask_fase2::construir_llamada(subcomando, ctx_id),
+        Comando::Text { subcomando }         => cli::text::construir_llamada(subcomando, ctx_id),
+        Comando::Phone { subcomando }        => cli::phone::construir_llamada(subcomando, ctx_id),
+        Comando::Guard { subcomando }        => cli::guard::construir_llamada(subcomando, ctx_id),
+        Comando::Datetime { subcomando }     => cli::datetime::construir_llamada(subcomando, ctx_id),
+
         // Translations y Admin se ejecutan localmente en main() — nunca llegan aquí.
         Comando::Translations { .. } => unreachable!("traducciones son operaciones locales"),
         Comando::Admin { .. } => unreachable!("admin se procesa antes en main()"),
@@ -445,6 +518,8 @@ fn ejecutar_admin(
             "bi18n.health.check",
             json!({ "ctx_id": ctx_id, "admin_token": admin_token }),
         ),
+        ComandoAdmin::Traducciones { operacion } =>
+            cli::admin_traducciones::construir_llamada_con_token(operacion, &ctx_id, &admin_token),
     };
 
     match enviar_jsonrpc(socket, method, params) {

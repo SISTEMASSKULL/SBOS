@@ -29,7 +29,7 @@ path = "src/main.rs"
 
 [[bin]]
 name = "bi18nctl"
-path = "src/bin/i18nctl.rs"
+path = "src/bin/bi18nctl.rs"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PERFILES DE COMPILACIÓN

@@ -6,6 +6,7 @@
 // Expone: rust_i18n::locale(), set_locale(), t!(), available_locales!()
 rust_i18n::i18n!("locales");
 
+pub mod cli;
 pub mod config;
 pub mod domain;
 pub mod error;
