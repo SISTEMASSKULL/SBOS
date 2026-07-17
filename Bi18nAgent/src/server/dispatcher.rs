@@ -234,6 +234,44 @@ pub async fn ejecutar_metodo(
             handlers::lib_icu_decimal::format_number_grouping_min2(ctx, &params).await
         }
 
+        // ── Validación de tipos y formatos (A.08.06) ──────────────────────
+        "bi18n.validate.email_html5" => {
+            handlers::lib_validator::validate_email_html5(ctx, &params).await
+        }
+        "bi18n.validate.url" => {
+            handlers::lib_validator::validate_url(ctx, &params).await
+        }
+        "bi18n.validate.ip" => {
+            handlers::lib_validator::validate_ip(ctx, &params).await
+        }
+        "bi18n.validate.ipv4" => {
+            handlers::lib_validator::validate_ipv4(ctx, &params).await
+        }
+        "bi18n.validate.ipv6" => {
+            handlers::lib_validator::validate_ipv6(ctx, &params).await
+        }
+        "bi18n.validate.length" => {
+            handlers::lib_validator::validate_length(ctx, &params).await
+        }
+        "bi18n.validate.range" => {
+            handlers::lib_validator::validate_range(ctx, &params).await
+        }
+        "bi18n.validate.contains" => {
+            handlers::lib_validator::validate_contains(ctx, &params).await
+        }
+        "bi18n.validate.not_contains" => {
+            handlers::lib_validator::validate_not_contains(ctx, &params).await
+        }
+        "bi18n.validate.required" => {
+            handlers::lib_validator::validate_required(ctx, &params).await
+        }
+        "bi18n.validate.credit_card" => {
+            handlers::lib_validator::validate_credit_card(ctx, &params).await
+        }
+        "bi18n.validate.must_match" => {
+            handlers::lib_validator::validate_must_match_fields(ctx, &params).await
+        }
+
         // ── ICU locale BCP-47 (A.08.04) ──────────────────────────────────
         "bi18n.locale.parse_bcp47" => {
             handlers::lib_icu_locale::locale_parse_bcp47(ctx, &params).await

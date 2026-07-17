@@ -100,7 +100,7 @@ valida = "1.1"
 validy = "1.2"
 
 # Validación de propósito general: email, URL, longitud, rango, regex, crédito
-validator = { version = "0.19", features = ["derive"] }
+validator = { version = "0.19", features = ["derive", "card"] }
 
 # Validación de reglas de negocio (mismo patrón que bAuth)
 scrutiny = "0.1"
