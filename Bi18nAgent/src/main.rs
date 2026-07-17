@@ -16,7 +16,7 @@ use bi18n_daemon_orchestrator::{
         signal,
     },
     preflight,
-    server::{context::ServerContext, grpc, unix_socket},
+    server::{context::ServerContext, grpc, unix_socket, websocket},
 };
 
 #[tokio::main]
@@ -65,11 +65,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let (sd_tx, sd_rx) = tokio::sync::watch::channel(false);
 
+    let ws_bind        = cfg.servidor.ws_bind.clone();
+    let ws_rate_limit  = cfg.servidor.ws_rate_limit_rps;
+    let ws_timeout     = cfg.servidor.ws_timeout_ms;
+
     tokio::select! {
         r = unix_socket::iniciar_jsonrpc(cfg.servidor.socket_path.clone(), ctx.clone(), sd_rx.clone()) =>
             tracing::error!("JSON-RPC finalizó inesperadamente: {:?}", r),
-        r = grpc::iniciar_grpc(cfg.servidor.grpc_socket_path.clone(), ctx, sd_rx) =>
+        r = grpc::iniciar_grpc(cfg.servidor.grpc_socket_path.clone(), ctx.clone(), sd_rx.clone()) =>
             tracing::error!("gRPC finalizó inesperadamente: {:?}", r),
+        r = websocket::iniciar_websocket(ws_bind, ctx, ws_rate_limit, ws_timeout, sd_rx) =>
+            tracing::error!("WebSocket finalizó inesperadamente: {:?}", r),
         _ = signal::manejar_sighup(Arc::clone(&loader), Arc::clone(&fluent), Arc::clone(&activas), cfg.servidor.drain_timeout_secs, cfg.rutas.fluent_dir.clone()) => {},
         _ = signal::manejar_sigterm(sd_tx.clone(), Arc::clone(&activas), cfg.servidor.drain_timeout_secs) => {},
         _ = signal::manejar_sigint(sd_tx) => {},

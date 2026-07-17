@@ -184,6 +184,11 @@ async-trait = "0.1"
 # Señales de sistema (SIGHUP para recarga de TOML, SIGTERM para shutdown)
 libc = "0.2"
 
+# WebSocket sobre TCP para clientes remotos (Bloque 9.1 — agnóstico de plataforma)
+# Kong proxea la ruta pública hacia la dirección interna ws_bind del daemon
+tokio-tungstenite = "0.24"
+futures-util = "0.3"
+
 # Integración systemd Type=notify + WatchdogSec (Bloque 6.2)
 # Si NOTIFY_SOCKET no existe, las llamadas son no-op — sin overhead en desarrollo
 sd-notify = "0.4"

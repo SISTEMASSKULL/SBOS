@@ -136,15 +136,23 @@ pub async fn ejecutar_metodo(
 
         // ── Pipeline de atributos ──────────────────────────────────────────
         "bi18n.attr.pipeline" => {
-            let key             = params["key"].as_str().unwrap_or("");
-            let valor           = params["value"].as_str().unwrap_or("");
-            let validate_format = params["validate_format"].as_str().unwrap_or("");
-            let format_code     = params["format_code"].as_str().unwrap_or("");
-            let mask_str        = params["mask"].as_str().unwrap_or("none");
-            let transforms      = helpers::parsear_transformaciones(&params["transforms"]);
-            let regional        = helpers::regional_desde_params(&params, ctx).await?;
-            let mascara         = helpers::parsear_estrategia_mascara(mask_str);
-            let (mn, mp, ms)    = helpers::extraer_params_mascara(&mascara);
+            // Aliases del contrato A.04 §3 (agnóstico de plataforma):
+            //   field_id       → key
+            //   validator_profile → validate_format (y format_code si no viene explícito)
+            let key = params["field_id"].as_str()
+                .or_else(|| params["key"].as_str())
+                .unwrap_or("");
+            let valor = params["value"].as_str().unwrap_or("");
+            let validator_profile = params["validator_profile"].as_str().unwrap_or("");
+            let validate_format = params["validate_format"].as_str()
+                .unwrap_or(validator_profile);
+            let format_code = params["format_code"].as_str()
+                .unwrap_or(validator_profile);
+            let mask_str     = params["mask"].as_str().unwrap_or("none");
+            let transforms   = helpers::parsear_transformaciones(&params["transforms"]);
+            let regional     = helpers::regional_desde_params(&params, ctx).await?;
+            let mascara      = helpers::parsear_estrategia_mascara(mask_str);
+            let (mn, mp, ms) = helpers::extraer_params_mascara(&mascara);
             let r = handlers::attr::pipeline(
                 ctx, key, valor, validate_format, &transforms,
                 format_code, mascara, mn, mp, ms, &regional,
@@ -152,7 +160,7 @@ pub async fn ejecutar_metodo(
             Ok(serde_json::json!({
                 "raw": r.raw, "valid": r.valid, "transformed": r.transformed,
                 "display": r.display, "masked": r.masked,
-                "enum_label": r.enum_label, "errores_validacion": r.errores_validacion,
+                "validation_errors": r.errores_validacion,
             }))
         }
 
@@ -178,18 +186,33 @@ pub async fn ejecutar_metodo(
             let locale         = params["locale"].as_str().unwrap_or("es-BO");
             let r = handlers::attr::config(display_format, locale);
             Ok(serde_json::json!({
-                "display_format": r.display_format,
-                "mask_pattern":   r.mask_pattern,
-                "input_mask":     r.input_mask,
-                "masks_pii":      r.masks_pii,
+                "display_format":    r.display_format,
+                "validator_profile": r.validator_profile,
+                "mask_pattern":      r.mask_pattern,
+                "input_mask":        r.input_mask,
+                "masks_pii":         r.masks_pii,
             }))
         }
 
         "bi18n.attr.config_batch" => {
-            let locale  = params["locale"].as_str().unwrap_or("es-BO");
-            let country = params["country"].as_str().unwrap_or("BO");
-            let campos  = handlers::attr::config_batch_desde_json(&params["fields"], locale, country);
-            Ok(serde_json::json!({ "campos": campos }))
+            // 9.3: resolver locale UNA SOLA VEZ antes de iterar campos.
+            // Si llegan tenant_id/branch_id/user_id → resolver por jerarquía (§8 de 1.01).
+            // Si llega locale explícito → usarlo directamente (sin resolver de nuevo).
+            let (locale, country) = if params["tenant_id"].as_str().is_some() {
+                let tenant_id = params["tenant_id"].as_str().unwrap_or("");
+                let branch_id = params["branch_id"].as_str().unwrap_or("");
+                let user_id   = params["user_id"].as_str().unwrap_or("");
+                let r = handlers::locale::resolver_locale(ctx, tenant_id, branch_id, user_id).await?;
+                tracing::debug!("config_batch: locale resuelto por tenant '{}' → {}", tenant_id, r.config.locale);
+                (r.config.locale, r.config.country)
+            } else {
+                (
+                    params["locale"].as_str().unwrap_or("es-BO").to_string(),
+                    params["country"].as_str().unwrap_or("BO").to_string(),
+                )
+            };
+            let campos = handlers::attr::config_batch_desde_json(&params["fields"], &locale, &country);
+            Ok(serde_json::json!({ "campos": campos, "locale": locale, "country": country }))
         }
 
         // ── Administración ────────────────────────────────────────────────

@@ -433,66 +433,47 @@ Agregar los subcomandos que faltan (según A.02 §4.3):
 
 ### 9.1 WebSocket listener en bi18nd (transporte universal para clientes remotos)
 
-- **Acción:** agregar un listener WebSocket al daemon (junto al Unix socket existente) para
-  que Kong pueda exponer el endpoint y cualquier cliente remoto se conecte por TLS.
-  - Mismo dispatcher `ejecutar_metodo` que usa el JSON-RPC Unix socket — un solo core,
-    dos transportes. El daemon no distingue entre un cliente Flutter, un Vue app o un script bash.
-  - Autenticación por token JWT (bAuth) en el handshake WebSocket.
-  - El protocolo es JSON-RPC 2.0 newline-delimited — idéntico al del Unix socket. Quien ya
-    sabe llamar al socket local puede llamar al WebSocket cambiando solo el transporte.
-- **Archivo(s):** `src/server/websocket.rs` (crear) + `src/server/mod.rs` (registrar) + `src/main.rs`
-- **Criterio de done:** cualquier cliente WebSocket estándar (`websocat`, `wscat`, script bash con
-  `curl --include --no-buffer -H "Upgrade: websocket"`) conecta y recibe respuesta de
-  `bi18n.health.check` en JSON-RPC 2.0 — sin adapter específico.
-- **Estado:** ❌
+- **Archivo(s):** `src/server/websocket.rs` (nuevo) · `src/server/mod.rs` · `src/main.rs`
+  · `src/config/mod.rs` (campos `ws_bind`, `ws_rate_limit_rps`, `ws_timeout_ms`)
+  · `Cargo.toml` (crates `tokio-tungstenite 0.24`, `futures-util 0.3`)
+- **Implementado:** `iniciar_websocket()` sobre `TcpListener` 127.0.0.1:9454.
+  Mismo `ejecutar_metodo` que el Unix socket — un core, dos transportes. Arranca en
+  `tokio::select!` junto a gRPC y JSON-RPC Unix.
+- **Estado:** ✅
 
-### 9.2 Método `bi18n.attr.config_batch` + `bi18n.attr.pipeline` en el dispatcher
+### 9.2 Contrato de ligadura — `validator_profile` en config_batch y pipeline
 
-- **Acción:** implementar los dos métodos que forman el contrato de ligadura (A.04 §3):
-  - `bi18n.attr.config_batch` — recibe lista de `field_id`, devuelve `{mask_pattern, display_format, validator_profile}` por campo.
-  - `bi18n.attr.pipeline` — recibe `{field_id, value, validator_profile, locale}`, devuelve `{valid, display, masked, validation_errors}`.
-  - Ambos deben funcionar tanto en Unix socket (daemons internos, CLI) como en WebSocket (clientes remotos).
-  - Cache de `country-rules` en memoria — no leer TOML por request, sino servir desde el cache ya cargado.
-- **Archivo(s):** `src/server/dispatcher.rs` + `src/server/handlers/attr.rs` (crear)
-- **Criterio de done:** `i18nctl attr-pipeline --field-id CI --valor "1234567" --locale es-BO`
-  retorna `{valid: true, display: "1234567", masked: "123****"}` — verificable sin ningún framework de frontend.
-- **Estado:** ❌
+- **Archivo(s):** `src/server/handlers/attr.rs` · `src/server/dispatcher.rs`
+- **Implementado:** `AttrConfigResult` incluye `validator_profile` (= display_format).
+  `bi18n.attr.config_batch` retorna `validator_profile` por campo.
+  `bi18n.attr.pipeline` acepta `field_id` (alias de `key`) y `validator_profile`
+  (alias de `validate_format`/`format_code`). Response unificado con `validation_errors`.
+- **Estado:** ✅
 
-### 9.3 Resolución de locale por tenant — una vez por sesión, no por campo
+### 9.3 Resolución de locale por tenant — una vez antes de iterar campos
 
-- **Acción:** en `attr.config_batch`, resolver el locale efectivo (tenant + branch + usuario)
-  **una sola vez** antes de iterar los campos — no repetir la resolución 20 veces por batch.
-  - Reutilizar `bi18n.locale.resolve` internamente como función, no como RPC.
-- **Archivo(s):** `src/server/handlers/attr.rs` + `src/domain/regional_config.rs`
-- **Criterio de done:** `attr.config_batch` con 20 campos hace exactamente 1 consulta de locale
-  (verificable con `tracing::debug!` o un contador atómico en el loader).
-- **Estado:** ❌
+- **Archivo(s):** `src/server/dispatcher.rs`
+- **Implementado:** en `bi18n.attr.config_batch`, si llega `tenant_id` → `resolver_locale()`
+  una sola vez, resultado usado para todos los campos. Si llega `locale` explícito → directo.
+  `tracing::debug!` confirma la resolución única. Cache de country-rules servido desde memoria.
+- **Estado:** ✅
 
 ### 9.4 Rate limiting por conexión WebSocket + timeout por request
 
-- **Acción:** en `src/server/websocket.rs`, limitar la tasa de requests por conexión para
-  `attr.pipeline` (protege el daemon de clientes sin debounce — eso es responsabilidad del
-  cliente, pero el daemon no puede confiar en ello).
-  - Rate limit: N requests/s por conexión (configurable en TOML).
-  - Timeout explícito por request: si el handler no responde en X ms, el WebSocket retorna error.
-  - El cliente recibe `{"error": {"code": -32000, "message": "rate limit excedido"}}`.
-- **Criterio de done:** `websocat ws://... < /dev/stdin` enviando 200 requests/s recibe
-  respuestas de error en el campo `error.code` después del umbral — sin crash del daemon.
-- **Estado:** ❌
+- **Archivo(s):** `src/server/websocket.rs`
+- **Implementado:** ventana deslizante de 1s por conexión (no global). Si `contador > ws_rate_limit_rps`
+  → error `-32000`. `tokio::time::timeout(ws_timeout_ms)` por dispatch → error `-32001`.
+  La conexión NO se cierra al superar el límite.
+- **Estado:** ✅
 
-### 9.5 Documentación del protocolo WebSocket (contract-first, agnóstico de plataforma)
+### 9.5 Documentación del protocolo WebSocket — A.07
 
-- **Acción:** crear `context/Documentacion/anexos/A.07_ANEXO-BI18N-PROTOCOLO-WEBSOCKET-v1.0.md`
-  con la especificación formal del protocolo:
-  - URL del endpoint expuesto por Kong.
-  - Handshake JWT (qué header, qué claim).
-  - Framing: JSON-RPC 2.0 newline-delimited (un objeto JSON por línea, `\n` como delimitador).
-  - Los métodos disponibles y sus parámetros exactos.
-  - Códigos de error específicos del WebSocket (-32000 rate limit, -32001 auth, etc.).
-  - Fragmento de conexión mínimo en pseudocódigo neutro (no en ningún lenguaje concreto).
-- **Criterio de done:** un equipo nuevo puede implementar un cliente WebSocket funcional leyendo
-  solo este anexo, sin consultar el código fuente del daemon.
-- **Estado:** ❌
+- **Archivo(s):** `context/Documentacion/anexos/A.07_ANEXO-BI18N-PROTOCOLO-WEBSOCKET-v1.0.md`
+- **Implementado:** especificación formal completa — topología Kong→daemon, handshake JWT,
+  framing (un objeto JSON por WebSocket Text Frame), tabla de todos los métodos disponibles,
+  códigos de error (-32000 rate limit, -32001 timeout), requisito de a11y agnóstico,
+  pseudocódigo neutro, ejemplo con websocat.
+- **Estado:** ✅
 
 ---
 

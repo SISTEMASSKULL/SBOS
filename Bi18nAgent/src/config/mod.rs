@@ -17,15 +17,22 @@ pub struct Config {
     pub log: LogConfig,
 }
 
-/// Parámetros de los sockets Unix (Interface Triple C11).
+/// Parámetros de los sockets Unix y el servidor WebSocket TCP (Interface Triple C11).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServidorConfig {
-    /// Ruta del socket JSON-RPC + WebSocket. Valor por defecto: /run/bos/bi18n.sock
+    /// Ruta del socket JSON-RPC Unix. Valor por defecto: /run/bos/bi18n.sock
     pub socket_path: PathBuf,
     /// Ruta del socket gRPC (Unix domain, sin TCP). Valor por defecto: /run/bos/bi18n-grpc.sock
     pub grpc_socket_path: PathBuf,
     /// Segundos máximos de drenado de conexiones activas en SIGHUP (GAP-03).
     pub drain_timeout_secs: u64,
+    /// Dirección TCP del servidor WebSocket para clientes remotos (Bloque 9.1).
+    /// Kong proxea la ruta pública hacia esta dirección interna. Solo loopback.
+    pub ws_bind: String,
+    /// Máximo de requests por segundo por conexión WebSocket (0 = sin límite).
+    pub ws_rate_limit_rps: u32,
+    /// Timeout por request WebSocket en milisegundos.
+    pub ws_timeout_ms: u64,
 }
 
 /// Configuración regional por defecto para MVP (GAP-01 — estática).
@@ -69,6 +76,9 @@ impl Default for Config {
                 socket_path: PathBuf::from("/run/bos/bi18n.sock"),
                 grpc_socket_path: PathBuf::from("/run/bos/bi18n-grpc.sock"),
                 drain_timeout_secs: 5,
+                ws_bind: "127.0.0.1:9454".to_string(),
+                ws_rate_limit_rps: 60,
+                ws_timeout_ms: 5_000,
             },
             regional: RegionalDefecto {
                 locale: "es-BO".to_string(),

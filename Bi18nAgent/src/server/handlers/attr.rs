@@ -102,6 +102,9 @@ pub async fn pipeline(
 pub struct AttrConfigResult {
     /// Código de formato canónico. Ejemplo: "ID_BO", "E164", "DATE_ISO"
     pub display_format: String,
+    /// Perfil de validación que el cliente devuelve en attr.pipeline (contrato A.04 §3).
+    /// En esta versión es igual a display_format — campo explícito para extensibilidad futura.
+    pub validator_profile: String,
     /// Patrón de máscara de entrada estructural (9=dígito, A=letra, literales).
     /// Ejemplo: "9999999-AA" para CI boliviana, "99/99/9999" para fecha en es-BO.
     pub mask_pattern: String,
@@ -141,6 +144,7 @@ pub fn config(display_format: &str, locale: &str) -> AttrConfigResult {
 
     AttrConfigResult {
         display_format: display_format.to_string(),
+        validator_profile: display_format.to_string(),
         mask_pattern,
         input_mask: input_mask_str,
         masks_pii,
@@ -165,10 +169,11 @@ pub fn config_batch_desde_json(
         let display_format = campo["display_format"].as_str().unwrap_or("");
         let r = config(display_format, locale);
         mapa.insert(key.to_string(), serde_json::json!({
-            "display_format": r.display_format,
-            "mask_pattern":   r.mask_pattern,
-            "input_mask":     r.input_mask,
-            "masks_pii":      r.masks_pii,
+            "display_format":    r.display_format,
+            "validator_profile": r.validator_profile,
+            "mask_pattern":      r.mask_pattern,
+            "input_mask":        r.input_mask,
+            "masks_pii":         r.masks_pii,
         }));
     }
     serde_json::Value::Object(mapa)

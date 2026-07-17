@@ -13,5 +13,6 @@ pub mod grpc_attr;
 pub mod grpc_validate;
 pub mod handlers;
 pub mod unix_socket;
+pub mod websocket;
 
 pub use context::ServerContext;
