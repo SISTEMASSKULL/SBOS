@@ -1,0 +1,301 @@
+# country-rules/br.toml — Regras completas do Brasil para o orquestrador bi18n
+# Fontes: Receita Federal · TSE · IBGE · BACEN · CLT · SUSEP · E.164 UIT-T
+# ISO 3166-1 alpha-2: BR · alpha-3: BRA · Numérico: 076
+
+# ── Metadados do país ─────────────────────────────────────────────────────────
+
+[pais]
+iso_alpha2      = "BR"
+iso_alpha3      = "BRA"
+codigo_telefono = "+55"
+locale_defecto  = "pt-BR"
+tz_defecto      = "America/Sao_Paulo"
+ltr             = true
+
+# ── Numeração geral (quantidades, pesos, medidas — não monetária) ─────────────
+# Brasil: separador decimal VÍRGULA, milhar PONTO (padrão ABNT NBR 5892)
+
+[numeracion]
+decimales_defecto = 2
+sep_decimal       = ","
+sep_miles         = "."
+
+# ── Moeda (ISO 4217: BRL — Real Brasileiro) ──────────────────────────────────
+
+[moneda]
+iso4217              = "BRL"
+simbolo_local        = "R$"
+simbolo_intl         = "BRL"
+decimales            = 2
+decimales_operacion  = 4
+sep_decimal          = ","
+sep_miles            = "."
+
+# ── Documentos de identidade (Receita Federal / TSE / DETRAN) ────────────────
+
+# CPF: Cadastro de Pessoas Físicas — 11 dígitos com dígitos verificadores
+[documentos.CPF]
+regex         = '^\d{3}\.\d{3}\.\d{3}-\d{2}$'
+ejemplo       = "123.456.789-09"
+error_mensaje = "CPF brasileiro inválido. Formato esperado: 123.456.789-09 (Receita Federal)"
+
+# CNPJ: Cadastro Nacional da Pessoa Jurídica — 14 dígitos com dígitos verificadores
+[documentos.CNPJ]
+regex         = '^\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}$'
+ejemplo       = "11.222.333/0001-81"
+error_mensaje = "CNPJ brasileiro inválido. Formato esperado: 11.222.333/0001-81 (Receita Federal)"
+
+# RG: Registro Geral — formato variável por estado (7 a 9 dígitos + dígito verificador opcional)
+[documentos.RG]
+regex         = '^\d{7,9}(-?\d|X)?$'
+ejemplo       = "12345678-9"
+error_mensaje = "RG brasileiro inválido. Formato: 7-9 dígitos com dígito verificador opcional (DETRAN estadual)"
+
+# CNH: Carteira Nacional de Habilitação
+[documentos.CNH]
+regex         = '^\d{11}$'
+ejemplo       = "12345678901"
+error_mensaje = "CNH brasileira inválida. Deve conter 11 dígitos (DENATRAN/SENATRAN)"
+
+# Título de Eleitor
+[documentos.TITULO_ELEITOR]
+regex         = '^\d{12}$'
+ejemplo       = "000012345678"
+error_mensaje = "Título de Eleitor inválido. Deve conter 12 dígitos (TSE)"
+
+# Passaporte brasileiro (DELEMIG/PF)
+[documentos.PASSPORT]
+regex         = '^[A-Z]{2}\d{6}$'
+ejemplo       = "AB123456"
+error_mensaje = "Passaporte brasileiro inválido. Formato: 2 letras + 6 dígitos (DELEMIG/PF)"
+
+# ── Máscaras PII por tipo de documento/dado ───────────────────────────────────
+
+[mascaras.CPF]
+estrategia     = "both"
+prefix_visible = 3
+suffix_visible = 2
+
+[mascaras.CNPJ]
+estrategia = "partial"
+n          = 4
+
+[mascaras.RG]
+estrategia     = "both"
+prefix_visible = 2
+suffix_visible = 2
+
+[mascaras.CNH]
+estrategia = "partial"
+n          = 4
+
+[mascaras.TITULO_ELEITOR]
+estrategia = "partial"
+n          = 4
+
+[mascaras.PASSPORT]
+estrategia     = "both"
+prefix_visible = 2
+suffix_visible = 2
+
+[mascaras.EMAIL]
+estrategia     = "both"
+prefix_visible = 2
+suffix_visible = 4
+
+[mascaras.PHONE]
+estrategia = "partial"
+n          = 4
+
+[mascaras.NOME]
+estrategia     = "both"
+prefix_visible = 2
+suffix_visible = 1
+
+[mascaras.CONTA_BANCARIA]
+estrategia = "partial"
+n          = 4
+
+# ── Enums de negócio (catálogo em português brasileiro) ──────────────────────
+
+# Estados e Distrito Federal (27 unidades federativas) — ISO 3166-2:BR
+[enums.estado]
+AC = "Acre"
+AL = "Alagoas"
+AP = "Amapá"
+AM = "Amazonas"
+BA = "Bahia"
+CE = "Ceará"
+DF = "Distrito Federal"
+ES = "Espírito Santo"
+GO = "Goiás"
+MA = "Maranhão"
+MT = "Mato Grosso"
+MS = "Mato Grosso do Sul"
+MG = "Minas Gerais"
+PA = "Pará"
+PB = "Paraíba"
+PR = "Paraná"
+PE = "Pernambuco"
+PI = "Piauí"
+RJ = "Rio de Janeiro"
+RN = "Rio Grande do Norte"
+RS = "Rio Grande do Sul"
+RO = "Rondônia"
+RR = "Roraima"
+SC = "Santa Catarina"
+SP = "São Paulo"
+SE = "Sergipe"
+TO = "Tocantins"
+
+# DDDs (principais áreas — ANATEL)
+[enums.ddd]
+"11" = "São Paulo (capital e região)"
+"21" = "Rio de Janeiro (capital e região)"
+"31" = "Belo Horizonte (MG)"
+"41" = "Curitiba (PR)"
+"51" = "Porto Alegre (RS)"
+"61" = "Brasília (DF)"
+"71" = "Salvador (BA)"
+"81" = "Recife (PE)"
+"85" = "Fortaleza (CE)"
+"91" = "Belém (PA)"
+
+# Gênero — Lei 9.029/95 + resolução CNJ (identidade de gênero)
+[enums.gender]
+M  = "Masculino"
+F  = "Feminino"
+NB = "Não binário"
+NI = "Prefiro não informar"
+
+# Estado civil — Código Civil Brasileiro (Lei 10.406/2002)
+[enums.marital_status]
+SINGLE    = "Solteiro/a"
+MARRIED   = "Casado/a"
+DIVORCED  = "Divorciado/a"
+WIDOWED   = "Viúvo/a"
+UNION     = "União estável"
+SEPARATED = "Separado/a judicialmente"
+
+# Tipo de vínculo empregatício — CLT (Decreto-Lei 5.452/1943) + Lei 6.019/74
+[enums.employment_type]
+CLT   = "CLT (carteira assinada)"
+PJ    = "Pessoa Jurídica (PJ)"
+PUB   = "Servidor público (estatutário)"
+EMP   = "Empreendedor / MEI"
+JUB   = "Aposentado/a"
+DES   = "Desempregado/a"
+EST   = "Estudante"
+EST_T = "Estagiário/a"
+
+# Tipo de contrato — CLT + Lei 9.601/98 (contrato por prazo determinado)
+[enums.employment_contract]
+INDETERMINADO  = "Por prazo indeterminado"
+DETERMINADO    = "Por prazo determinado"
+OBRA           = "Por obra ou serviço"
+TEMPORARIO     = "Temporário (Lei 6.019/74)"
+EXPERIENCIA    = "Período de experiência"
+HONORARIOS     = "Prestação de serviços (RPA/NF)"
+
+# Regime tributário Receita Federal (Simples Nacional + regimes gerais)
+[enums.tax_regime]
+SIMPLES    = "Simples Nacional"
+LUCRO_PRES = "Lucro Presumido"
+LUCRO_REAL = "Lucro Real"
+MEI        = "Microempreendedor Individual (MEI)"
+ISENTO     = "Isento / Imune"
+
+# Tipo de pessoa (Receita Federal)
+[enums.contributor_type]
+PF  = "Pessoa Física"
+PJ  = "Pessoa Jurídica"
+MEI = "Microempreendedor Individual"
+OS  = "Organização Social / OSCIP"
+GOV = "Entidade governamental"
+
+# Tipo de documento
+[enums.document_type]
+CPF            = "Cadastro de Pessoas Físicas"
+CNPJ           = "Cadastro Nacional da Pessoa Jurídica"
+RG             = "Registro Geral"
+CNH            = "Carteira Nacional de Habilitação"
+TITULO_ELEITOR = "Título de Eleitor"
+PASSPORT       = "Passaporte"
+
+# Tipo de telefone
+[enums.phone_type]
+CELULAR    = "Celular / Móvel"
+FIXO       = "Telefone fixo"
+COMERCIAL  = "Comercial"
+EMERGENCIA = "Emergências"
+WHATSAPP   = "WhatsApp"
+
+# Tipo de endereço
+[enums.address_type]
+RESIDENCIAL     = "Residencial"
+COMERCIAL       = "Comercial"
+CORRESPONDENCIA = "Correspondência"
+FISCAL          = "Fiscal / Tributário"
+ENTREGA         = "Entrega"
+
+# Tratamento / pronome de cortesia
+[enums.salutation]
+SR   = "Sr."
+SRA  = "Sra."
+SRTA = "Srta."
+DR   = "Dr."
+DRA  = "Dra."
+PROF = "Prof."
+PROFA = "Profa."
+ENG  = "Eng."
+ADV  = "Adv."
+ARQ  = "Arq."
+
+# Nível de instrução — IBGE / INEP
+[enums.education_level]
+NENHUM         = "Sem instrução"
+FUNDAMENTAL    = "Ensino Fundamental"
+MEDIO          = "Ensino Médio"
+TECNICO        = "Técnico / Tecnólogo"
+SUPERIOR       = "Ensino Superior (Graduação)"
+ESPECIALIZACAO = "Especialização / MBA"
+MESTRADO       = "Mestrado"
+DOUTORADO      = "Doutorado"
+
+# Status geral de entidade
+[enums.status]
+ATIVO      = "Ativo"
+INATIVO    = "Inativo"
+PENDENTE   = "Pendente"
+BLOQUEADO  = "Bloqueado"
+SUSPENSO   = "Suspenso"
+EXPIRADO   = "Expirado"
+CANCELADO  = "Cancelado"
+
+# Moedas aceitas (BACEN)
+[enums.currency]
+BRL = "Real Brasileiro (R$)"
+USD = "Dólar Americano (US$)"
+EUR = "Euro (€)"
+
+# Setores da economia — CNAE 2.0 (IBGE / Receita Federal, nível seção)
+[enums.setor_cnae]
+A = "Agricultura, pecuária, produção florestal, pesca e aquicultura"
+B = "Indústrias extrativas"
+C = "Indústrias de transformação"
+D = "Eletricidade e gás"
+E = "Água, esgoto, atividades de gestão de resíduos e descontaminação"
+F = "Construção"
+G = "Comércio; reparação de veículos automotores e motocicletas"
+H = "Transporte, armazenagem e correio"
+I = "Alojamento e alimentação"
+J = "Informação e comunicação"
+K = "Atividades financeiras, de seguros e serviços relacionados"
+L = "Atividades imobiliárias"
+M = "Atividades profissionais, científicas e técnicas"
+N = "Atividades administrativas e serviços complementares"
+O = "Administração pública, defesa e seguridade social"
+P = "Educação"
+Q = "Saúde humana e serviços sociais"
+R = "Artes, cultura, esporte e recreação"
+S = "Outras atividades de serviços"

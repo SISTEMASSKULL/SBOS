@@ -362,7 +362,7 @@ Agregar los subcomandos que faltan (según A.02 §4.3):
 
 ---
 
-## BLOQUE 7 — Country-rules: ampliar cobertura 🟡
+## BLOQUE 7 — Country-rules: ampliar cobertura ✅
 
 ### 7.1 Ampliar `ar.toml` al nivel de `bo.toml`
 
@@ -373,7 +373,7 @@ Agregar los subcomandos que faltan (según A.02 §4.3):
 - **Referencia:** AFIP Argentina, RENAPER, ANSES, ARCA.
 - **Criterio de done:** `bi18n.regional.snapshot{ tenant_id: "acme-ar" }` devuelve
   numeracion + enums completos.
-- **Estado:** ❌
+- **Estado:** ✅ — ar.toml: [numeracion]+5 docs+16 enums (DNI/CUIT/CUIL/PASSPORT/CDI + provincias/sectores CIIU)
 
 ### 7.2 `br.toml` — Brasil
 
@@ -383,7 +383,7 @@ Agregar los subcomandos que faltan (según A.02 §4.3):
 - **Moneda:** BRL, símbolo "R$", `sep_decimal=","`, `sep_miles="."`
 - **Locale:** `pt-BR`, `America/Sao_Paulo`
 - **Criterio de done:** `bi18n.validate.national_id{ country:"BR", kind:"CPF", value:"123.456.789-09" }` valida correctamente.
-- **Estado:** ❌
+- **Estado:** ✅ — br.toml creado: CPF/CNPJ/RG/CNH/TITULO_ELEITOR/PASSPORT + 16 enums pt-BR (27 estados, sectores CNAE)
 
 ---
 

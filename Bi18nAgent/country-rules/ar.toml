@@ -1,5 +1,8 @@
-# country-rules/ar.toml — Reglas de Argentina para el orquestador bi18n
-# ISO 3166-1 alpha-2: AR · ISO 3166-1 alpha-3: ARG
+# country-rules/ar.toml — Reglas completas de Argentina para el orquestador bi18n
+# Fuentes: AFIP · RENAPER · ANSES · ARCA · MTEySS · INDEC · Ley 25246 · E.164 ITU-T
+# ISO 3166-1 alpha-2: AR · alpha-3: ARG · Numérico: 032
+
+# ── Metadatos del país ────────────────────────────────────────────────────────
 
 [pais]
 iso_alpha2      = "AR"
@@ -9,23 +12,53 @@ locale_defecto  = "es-AR"
 tz_defecto      = "America/Argentina/Buenos_Aires"
 ltr             = true
 
+# ── Numeración general (cantidades, pesos, medidas — no monetaria) ────────────
+# Argentina: separador decimal COMA, miles PUNTO (convención continental europea)
+
+[numeracion]
+decimales_defecto = 2
+sep_decimal       = ","
+sep_miles         = "."
+
+# ── Moneda (ISO 4217: ARS — Peso Argentino) ──────────────────────────────────
+
 [moneda]
-iso4217       = "ARS"
-simbolo_local = "$"
-simbolo_intl  = "ARS"
-decimales     = 2
-sep_decimal   = ","
-sep_miles     = "."
+iso4217              = "ARS"
+simbolo_local        = "$"
+simbolo_intl         = "ARS"
+decimales            = 2
+decimales_operacion  = 4
+sep_decimal          = ","
+sep_miles            = "."
+
+# ── Documentos de identidad (RENAPER / AFIP / ARCA) ──────────────────────────
 
 [documentos.DNI]
 regex         = '^\d{7,8}$'
 ejemplo       = "12345678"
-error_mensaje = "DNI argentino inválido. Debe contener 7 u 8 dígitos"
+error_mensaje = "DNI argentino inválido. Debe contener 7 u 8 dígitos (RENAPER)"
 
 [documentos.CUIT]
 regex         = '^\d{2}-\d{8}-\d{1}$'
 ejemplo       = "20-12345678-9"
-error_mensaje = "CUIT argentino inválido. Formato esperado: 20-12345678-9"
+error_mensaje = "CUIT argentino inválido. Formato: 20-12345678-9 (AFIP/ARCA)"
+
+[documentos.CUIL]
+regex         = '^\d{2}-\d{8}-\d{1}$'
+ejemplo       = "20-12345678-9"
+error_mensaje = "CUIL argentino inválido. Formato: 20-12345678-9 (ANSES)"
+
+[documentos.PASSPORT]
+regex         = '^[A-Z]{2}\d{7}$'
+ejemplo       = "AA1234567"
+error_mensaje = "Pasaporte argentino inválido. Formato: 2 letras + 7 dígitos (RENAPER)"
+
+[documentos.CDI]
+regex         = '^\d{11}$'
+ejemplo       = "20123456789"
+error_mensaje = "CDI argentino inválido. Clave de Identificación — 11 dígitos (AFIP)"
+
+# ── Máscaras PII por tipo de documento/dato ───────────────────────────────────
 
 [mascaras.DNI]
 estrategia     = "both"
@@ -36,6 +69,15 @@ suffix_visible = 2
 estrategia = "partial"
 n          = 4
 
+[mascaras.CUIL]
+estrategia = "partial"
+n          = 4
+
+[mascaras.PASSPORT]
+estrategia     = "both"
+prefix_visible = 2
+suffix_visible = 2
+
 [mascaras.EMAIL]
 estrategia     = "both"
 prefix_visible = 2
@@ -45,25 +87,191 @@ suffix_visible = 4
 estrategia = "partial"
 n          = 4
 
+[mascaras.NOMBRE]
+estrategia     = "both"
+prefix_visible = 2
+suffix_visible = 1
+
+[mascaras.CUENTA_BANCARIA]
+estrategia = "partial"
+n          = 4
+
+# ── Enums de negocio (catálogo en español argentino) ─────────────────────────
+
+# Provincias (23 + CABA) — ISO 3166-2:AR
+[enums.provincia]
+BA  = "Buenos Aires"
+CA  = "Catamarca"
+CH  = "Chaco"
+CL  = "Chubut"
+CR  = "Córdoba"
+CN  = "Corrientes"
+ER  = "Entre Ríos"
+FO  = "Formosa"
+JY  = "Jujuy"
+LP  = "La Pampa"
+LR  = "La Rioja"
+MZ  = "Mendoza"
+MN  = "Misiones"
+NQ  = "Neuquén"
+RN  = "Río Negro"
+SA  = "Salta"
+SJ  = "San Juan"
+SL  = "San Luis"
+SC  = "Santa Cruz"
+SF  = "Santa Fe"
+SE  = "Santiago del Estero"
+TF  = "Tierra del Fuego"
+TU  = "Tucumán"
+CABA = "Ciudad Autónoma de Buenos Aires"
+
+# Código de área telefónica (ENRE/ENACOM — principales)
+[enums.codigo_area]
+"11"  = "Buenos Aires (CABA y GBA)"
+"221" = "La Plata (Buenos Aires)"
+"261" = "Mendoza"
+"351" = "Córdoba capital"
+"381" = "Tucumán"
+"387" = "Salta"
+"388" = "Jujuy"
+"341" = "Rosario (Santa Fe)"
+"342" = "Santa Fe capital"
+"299" = "Neuquén"
+
+# Género — Ley 26743 (identidad de género) + DNI sin especificación
 [enums.gender]
-M = "Masculino"
-F = "Femenino"
-X = "No binario"
+M  = "Masculino"
+F  = "Femenino"
+X  = "No binario (X)"
+NI = "Prefiero no indicar"
 
+# Estado civil — Código Civil y Comercial (Ley 26994)
 [enums.marital_status]
-SINGLE   = "Soltero/a"
-MARRIED  = "Casado/a"
-DIVORCED = "Divorciado/a"
-WIDOWED  = "Viudo/a"
+SINGLE    = "Soltero/a"
+MARRIED   = "Casado/a"
+DIVORCED  = "Divorciado/a"
+WIDOWED   = "Viudo/a"
+UNION     = "Unión convivencial"
+SEPARATED = "Separado/a de hecho"
 
+# Tipo de empleo — Ley de Contrato de Trabajo (LCT 20744) + MTEySS
 [enums.employment_type]
-FULL_TIME  = "Tiempo completo"
-PART_TIME  = "Medio tiempo"
-FREELANCE  = "Independiente"
-UNEMPLOYED = "Desempleado/a"
+DEP   = "Relación de dependencia"
+IND   = "Cuenta propia / Monotributista"
+PUB   = "Empleado público"
+EMP   = "Emprendedor / PyME"
+JUB   = "Jubilado/a"
+DES   = "Desempleado/a"
+EST   = "Estudiante"
+PAS   = "Pasante / Practicante"
 
+# Tipo de contrato laboral — LCT + Ley 25013
+[enums.employment_contract]
+INDEFINIDO = "A plazo indeterminado"
+FIJO       = "A plazo fijo"
+OBRA       = "Por obra determinada"
+EVENTUAL   = "Eventual"
+HONORARIOS = "Locación de servicios / Honorarios"
+APRENDIZ   = "Aprendizaje"
+
+# Régimen tributario AFIP/ARCA (principales)
+[enums.tax_regime]
+GENERAL     = "Régimen General (IVA + Ganancias)"
+MONOTRIBUTO = "Monotributo (RS)"
+EXENTO      = "Exento / No inscripto"
+AGROP       = "Régimen agropecuario"
+
+# Tipo de contribuyente AFIP/ARCA
+[enums.contributor_type]
+PF  = "Persona humana (física)"
+PJ  = "Persona jurídica"
+SUC = "Sucursal / Agencia"
+ENT = "Entidad sin fines de lucro"
+GOB = "Organismo gubernamental"
+
+# Tipo de documento
+[enums.document_type]
+DNI      = "Documento Nacional de Identidad"
+CUIT     = "Clave Única de Identificación Tributaria"
+CUIL     = "Clave Única de Identificación Laboral"
+CDI      = "Clave de Identificación"
+PASSPORT = "Pasaporte"
+
+# Tipo de teléfono
+[enums.phone_type]
+MOVIL      = "Celular / Móvil"
+FIJO       = "Teléfono fijo"
+OFICINA    = "Oficina"
+EMERGENCIA = "Emergencias"
+WHATSAPP   = "WhatsApp"
+
+# Tipo de dirección
+[enums.address_type]
+PRINCIPAL       = "Domicilio principal"
+ALTERNATIVO     = "Domicilio alternativo"
+TRABAJO         = "Dirección laboral"
+CORRESPONDENCIA = "Dirección de correspondencia"
+LEGAL           = "Domicilio legal / fiscal"
+
+# Tratamiento / saludo formal
+[enums.salutation]
+SR   = "Sr."
+SRA  = "Sra."
+SRTA = "Srta."
+LIC  = "Lic."
+ING  = "Ing."
+DR   = "Dr."
+DRA  = "Dra."
+PROF = "Prof."
+TEC  = "Téc."
+ARQ  = "Arq."
+CPN  = "C.P.N."
+
+# Nivel educativo — INDEC + ISCO
+[enums.education_level]
+NINGUNO       = "Sin instrucción"
+PRIMARIA      = "Primaria"
+SECUNDARIA    = "Secundaria"
+TERCIARIO     = "Terciario / Técnico"
+UNIVERSITARIO = "Universitario (Grado)"
+POSTGRADO     = "Posgrado (Especialización / Maestría / Doctorado)"
+
+# Estado general de entidad
 [enums.status]
-ACTIVE   = "Activo"
-INACTIVE = "Inactivo"
-PENDING  = "Pendiente"
-BLOCKED  = "Bloqueado"
+ACTIVE    = "Activo"
+INACTIVE  = "Inactivo"
+PENDING   = "Pendiente"
+BLOCKED   = "Bloqueado"
+SUSPENDED = "Suspendido"
+EXPIRED   = "Vencido"
+CANCELLED = "Anulado"
+
+# Monedas aceptadas en Argentina (BCRA)
+[enums.currency]
+ARS = "Peso argentino ($)"
+USD = "Dólar estadounidense (US$)"
+EUR = "Euro (€)"
+UVA = "Unidad de Valor Adquisitivo (UVA)"
+UVI = "Unidad de Vivienda (UVI)"
+
+# Principales sectores CIIU Rev.4 (INDEC / AFIP)
+[enums.sector_ciiu]
+A = "Agricultura, ganadería, silvicultura y pesca"
+B = "Explotación de minas y canteras"
+C = "Industria manufacturera"
+D = "Electricidad, gas, vapor y aire acondicionado"
+E = "Gestión de agua y saneamiento"
+F = "Construcción"
+G = "Comercio al por mayor y menor; talleres mecánicos"
+H = "Transporte y almacenamiento"
+I = "Alojamiento y servicios de comida"
+J = "Información y comunicación"
+K = "Actividades financieras y de seguros"
+L = "Actividades inmobiliarias"
+M = "Actividades profesionales, científicas y técnicas"
+N = "Servicios administrativos y de apoyo"
+O = "Administración pública y defensa"
+P = "Enseñanza"
+Q = "Salud humana y asistencia social"
+R = "Artes, entretenimiento y recreación"
+S = "Otras actividades de servicios"
