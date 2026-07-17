@@ -1,0 +1,49 @@
+[package]
+name = "atomc"
+version = "0.1.0"
+edition = "2024"
+description = "Compilador AtomLang v1 — SOURCE (.atm.yaml) → CANONICAL (.atm.json)"
+authors = ["bAuth Identity Core <sistemas@skull.com>"]
+license = "SBOS-Proprietary"
+repository = "https://git.skull.com/sbos/bauth"
+
+[[bin]]
+name = "atomc"
+path = "src/main.rs"
+
+[dependencies]
+# YAML — parseo del árbol fuente .atm.yaml
+serde = { version = "1", features = ["derive"] }
+serde_yaml = "0.9"
+serde_json = "1"
+
+# Catálogos — resolución contra PostgreSQL (read-only, misma pool que bAuth)
+sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres"] }
+tokio = { version = "1", features = ["full"] }
+
+# Hashing — SHA256 del source para auditoría WORM
+sha2 = "0.10"
+hex = "0.4"
+
+# Utilidades codegen
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v7", "serde"] }
+
+# CLI
+clap = { version = "4", features = ["derive", "env"] }
+
+# Logging y diagnóstico
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+# Tipos compartidos con bAuth (newtypes de dominio)
+# bauth-core = { path = "../../src/domain" }   # activar cuando bAuth sea crate publicable
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
