@@ -272,6 +272,23 @@ pub async fn ejecutar_metodo(
             handlers::lib_validator::validate_must_match_fields(ctx, &params).await
         }
 
+        // ── Máscaras estructurales posicionales (A.08.09) ────────────────
+        "bi18n.format.structural_mask" => {
+            handlers::lib_universal_mask::format_structural_mask(ctx, &params).await
+        }
+        "bi18n.format.mask_cnpj" => {
+            handlers::lib_universal_mask::format_mask_cnpj(ctx, &params).await
+        }
+        "bi18n.format.mask_cpf" => {
+            handlers::lib_universal_mask::format_mask_cpf(ctx, &params).await
+        }
+        "bi18n.format.mask_card" => {
+            handlers::lib_universal_mask::format_mask_card(ctx, &params).await
+        }
+        "bi18n.format.mask_ci_bo" => {
+            handlers::lib_universal_mask::format_mask_ci_bo(ctx, &params).await
+        }
+
         // ── Enmascaramiento PII en texto libre (A.08.08) ─────────────────
         "bi18n.mask.email_in_text" => {
             handlers::lib_mask_pii::mask_email_in_text(ctx, &params).await
