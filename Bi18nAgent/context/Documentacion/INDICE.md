@@ -1,6 +1,6 @@
 # Documentación Técnica — bi18n (i18n-orchestrator)
 
-**Versión:** 2.5.0
+**Versión:** 2.6.0
 **Mantenido por:** bauth-developer
 **Última actualización:** 2026-07-18
 **Estado:** Activo — Fase 1 ✅ (18 RPC) + Fase 2 ✅ (108 RPC nuevos). Total: **126 métodos RPC**. P4b ✅. Documentación normalizada: **4 manuales (1.01–1.04) · 18 anexos (A.01–A.18). Cero documentos sueltos.**
@@ -24,7 +24,7 @@ Los manuales se numeran `N.M` desde 1.01 (primer manual de bi18n).
 | 1.01 | [bi18n — Arquitectura del Orquestador](1.01_MANUAL-BI18N-ARQUITECTURA-v1.2.md) | [i18n-orchestrator-rust.md](../i18n-orchestrator-rust.md) · [1.07 Atributos](../../BauthAgent/context/Documentacion/1.07_MANUAL-ATRIBUTOS-v2.0.md) · [2.15 Motor Identidad](../../BauthAgent/context/Documentacion/2.15_MANUAL-MOTOR-IDENTIDAD-v1.0.md) | ✅ 1.4.0 |
 | 1.02 | [Manual de Usuario bi18n](1.02_MANUAL-USUARIO-BI18N-v1.0.md) | 1.01 · A.02 · A.07 | ✅ 1.0.0 |
 | 1.03 | [**Manual del Programador — Mantenimiento y Actualización**](1.03_MANUAL-PROGRAMADOR-BI18N-v1.0.md) | 1.01 · A.01 · A.10 · ISO 14764 · ISO 12207 | ✅ 1.0.0 |
-| 1.04 | [**Manual del Usuario Programador — Consumir bi18n**](1.04_MANUAL-USUARIO-PROGRAMADOR-v1.0.md) | 1.01 · A.07 · A.09 · A.10 | ✅ 1.0.0 |
+| 1.04 | [**Manual del Usuario Programador — Consumir bi18n**](1.04_MANUAL-USUARIO-PROGRAMADOR-v1.0.md) | 1.01 · A.07 · A.09 · A.10 | ✅ 2.0.0 |
 
 ---
 
@@ -126,3 +126,4 @@ Los registros históricos de implementación y los documentos de planificación 
 | 2.3.0 | 2026-07-17 | P4 completo (`25973cc`): 4 métodos `bi18n.admin.*` implementados. Total acumulado: 125 RPC. Pendiente: P3 CLI (103 subcomandos bi18nctl). |
 | 2.4.0 | 2026-07-18 | P4b completo (`75165d2`, `9fc8587`): auditoría namespace CLI al 100%, WebSocket push events, Bundle Prefetch. Total definitivo: **126 métodos RPC**. Documentación completa: nuevos manuales 1.03 (programador) y 1.04 (usuario programador); nuevos anexos A.10 (inventario API, renombrado de MANUAL-METODOS-LIBRERIAS-SBOS.md), A.11 (batería CLI completa: 261 TCs) y A.12 (batería Frontend completa: 204 TCs). |
 | 2.5.0 | 2026-07-18 | Normalización total de documentación: todos los .md sueltos convertidos a manuales o anexos numerados. `MANUAL-USUARIO-BI18N` → `1.02`, `BATERIA-PRUEBAS-TESTEADOR` → `A.14`, `GAPS-BI18N` → `A.15`, `PLAN-FASE-2` → `A.16`, `REGISTRO-ESTADO-DOS` → `A.17`, `REGISTRO-ESTADO-IMPLEMENTACION` → `A.18`. `LISTADO-METODOS-LIBRERIAS-SBOS` → `A.13` (commit previo). Total: 4 manuales + 18 anexos. Cero documentos sueltos. |
+| 2.6.0 | 2026-07-18 | Manual 1.04 reescrito a v2.0.0: tres partes bien definidas (I — CLI y Unix Socket: arranque, bi18n.toml, señales, bi18nctl completo, clientes Rust/Go/Python sobre socket; II — Frontend y WebSocket: protocolo completo, clientes en TS/React, Vue 3, Dart/Flutter, Python asyncio, Go, Bundle Prefetch; III — Ligaduras GUI/UI: 7 tipos de componente con ejemplos en React, Vue 3, Flutter, Python/PyQt6). |
