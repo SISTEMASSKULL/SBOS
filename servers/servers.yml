@@ -94,6 +94,7 @@ servidores_logicos:
   S13-geoserver:       { criticidad: MEDIA,  namespace: sbos-geo,      apps_num: 5,  apps: "Traccar, Fleetbase, Xibo, Novo SGA, CardMesh" }
   S14-opsserver:       { criticidad: ALTA,   namespace: sbos-ops,      apps_num: 7,  apps: "GitLab, Bareos, Velero, pgBackRest" }
   S15-aiserver:        { criticidad: NINGUNA, namespace: "(opcional)", apps_num: 6,  apps: "Ollama, Qdrant, Open WebUI, Embedding Worker, Langfuse, Flowise" }
+  S16-webserver:       { criticidad: ALTA,   namespace: sbos-web,     apps_num: 4,  apps: "nginx, certbot, modsecurity, weblate", nota: "Plataforma web pública multi-tenant — dominios personalizados por cliente, TLS por dominio, WAF, renderizado dinámico por tenant/empresa/sucursal" }
 orden_de_carga: "Lo resuelve el MOTOR (bos) por el DAG de dependencias (depends_on
                  del manifest), NO una lista manual. execution_order es la pista."
 

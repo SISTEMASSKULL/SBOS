@@ -30,6 +30,12 @@ Puerto = `containerPort → ClusterIP SBOS` (SBOS-050 §12.3). Nunca externos sa
 | MongoDB | 27017→8148 | ⬜ falta | Backend Rocket.Chat |
 | PgAdmin 4 | 5050→8149 | ⬜ falta | Administración PostgreSQL |
 
+## Daemons soberanos declarados
+
+| Daemon | Ficha | Binario | Estado |
+|--------|-------|---------|:------:|
+| bi18n | `bi18n/` | `bi18nd` (Rust MUSL) — Orquestador de i18n, servidor canónico de traducciones | 🆕 declarada |
+
 ## Fichas existentes ratificadas
 `PostgreSQL`, `Redis`, `MinIO S3`, `MinIO Console`  
 (se ratifican en su sitio, **sin cambiar de servidor**).

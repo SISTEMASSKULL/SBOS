@@ -73,4 +73,7 @@ microservicios:
   BtaxAgent:
     dir: "BtaxAgent"
     rol: "btax — SmartTax — facturación fiscal (SIN Bolivia, cumplimiento tributario LATAM)"
+  Bi18nAgent:
+    dir: "Bi18nAgent"
+    rol: "bi18n — Orquestador Universal de Internacionalización (i18n-orchestrator crate + daemon bi18nd). Locale, formato, validación regional, máscaras PII, reglas por país vía TOML, pipeline de atributos."
   # nuevos microservicios se registran aquí

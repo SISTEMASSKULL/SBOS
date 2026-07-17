@@ -1,6 +1,6 @@
 # Documentación Técnica — bi18n (i18n-orchestrator)
 
-**Versión:** 1.8.0
+**Versión:** 1.9.0
 **Mantenido por:** bauth-developer
 **Última actualización:** 2026-07-17
 **Estado:** Activo — Fase 1 ✅ (18 métodos RPC, Bloques 1-12). Fase 2 PLANIFICADA: 108 métodos RPC nuevos + 5 endpoints HTTP (total acumulado 126). REGISTRO-ESTADO-DOS v2.0.0 DEFINITIVO.
@@ -56,6 +56,7 @@ Los manuales se numeran `N.M` desde 1.01 (primer manual de bi18n).
 | [A.06 — bi18n como Daemon de Traducciones](anexos/A.06_ANEXO-BI18N-DAEMON-TRADUCCIONES-v1.1.md) | **Tipo G:** edición de traducciones sin fricción. Weblate self-hosteado (recomendado sobre Tolgee por licencia GPLv3+). Hot-reload con `arc-swap` (swap atómico sin bloqueo, patrón estándar). Nuevo RPC `bi18n.admin.reload_translations`. Gobernanza diferenciada: `country-rules/` (aprobación obligatoria) vs `translations/` (solo gate CI). | 1.01 · A.05 | ✅ 1.1.0 |
 | [A.07 — Protocolo WebSocket bi18n](anexos/A.07_ANEXO-BI18N-PROTOCOLO-WEBSOCKET-v1.0.md) | **Tipo A:** especificación formal del protocolo WebSocket agnóstico de plataforma — URL Kong, handshake JWT, framing JSON-RPC 2.0 newline-delimited, tabla de métodos, códigos de error, requisito a11y, pseudocódigo neutro de sesión mínima. | 1.01 · A.04 · A.05 | ✅ 1.0.0 |
 | [A.08 — Garantía de Cobertura de Librerías](anexos/A.08_ANEXO-BI18N-GARANTIA-LIBRERIAS-v1.0.md) | **Tipo V:** 19 librerías Categoría A, 13 Categoría B. Garantía formal de compilación. **Sub-anexos A.08.01–A.08.22:** inventario de exposición de las 22 librerías (función fuente → método RPC → estado ✅/📋/🔮/❌). | A.01 · REGISTRO Bloque 12 | ✅ 1.0.0 |
+| [A.09 — bi18n como Servidor Canónico de Traducciones](anexos/A.09_ANEXO-BI18N-SERVIDOR-TRADUCCIONES-v1.0.md) | **Tipo A/G:** rol arquitectónico de bi18n como servidor único de traducciones de texto para todo SBOS. Locales soportados (BCP 47), estructura de archivos FTL, namespacing de claves por daemon, jerarquía de fallback de idioma, métodos RPC `bi18n.translate.*` (fluent-bundle) y `bi18n.i18n.*` (rust-i18n), contrato de consumo para daemons, integración con bglobal, cumplimiento normativo (BCP 47, CLDR, Ley 164). | 1.01 · A.06 · A.08.01 · A.08.02 | ✅ 1.0.0 |
 | [A.08.01 — Inventario fluent-bundle 0.15.3](anexos/A.08.01_INVENTARIO-LIB-FLUENT-BUNDLE-v1.0.md) | **Inventario de exposición:** 6 métodos RPC Fase 2 (✅/📋/🔮/❌). Handler: `lib_fluent.rs`. Fuente: cargo registry. | A.08 · REGISTRO Bloque A | ✅ 1.0.0 |
 | [A.08.02 — Inventario rust-i18n 4.x](anexos/A.08.02_INVENTARIO-LIB-RUST-I18N-v1.0.md) | **Inventario de exposición:** 4 métodos RPC Fase 2. Handler: `lib_rust_i18n.rs`. Macros compile-time ❌. | A.08 · REGISTRO Bloque B | ✅ 1.0.0 |
 | [A.08.03 — Inventario icu_datetime 2.2.0](anexos/A.08.03_INVENTARIO-LIB-ICU-DATETIME-v1.0.md) | **Inventario de exposición:** 6 métodos RPC Fase 2. Handler: `lib_icu_datetime.rs`. API 2.x field-sets. | A.08 · REGISTRO Bloque D | ✅ 1.0.0 |
@@ -108,3 +109,4 @@ Los manuales se numeran `N.M` desde 1.01 (primer manual de bi18n).
 | 1.6.0 | 2026-07-17 | Bloque 12 completado. Nuevo Manual 1.02 (manual de usuario completo). A.07 marcado ✅. Nuevo A.08 (garantía de librerías). BATERIA-PRUEBAS-TESTEADOR añadida al índice. REGISTRO marcado ✅ v1.1.0 cerrado. Estado del índice actualizado a "Bloques 1-12 completos". |
 | 1.7.0 | 2026-07-17 | REGISTRO-ESTADO-DOS creado (Fase 2 en curso). 14 bloques para exposición completa de 23 librerías + servidor web de traducciones. Estado del índice actualizado a "Fase 2 EN CURSO". |
 | 1.8.0 | 2026-07-17 | REGISTRO-ESTADO-DOS reescrito a v2.0.0 DEFINITIVO con datos verificados de 4 agentes. 108 métodos RPC nuevos (total 126) + 5 endpoints HTTP. API exhaustiva de las 23 librerías. |
+| 1.9.0 | 2026-07-17 | Nuevo A.09 — bi18n como Servidor Canónico de Traducciones de Lenguajes: rol arquitectónico, estructura FTL, namespacing de claves, fallback de idioma, contrato de consumo para daemons, integración bglobal. |
