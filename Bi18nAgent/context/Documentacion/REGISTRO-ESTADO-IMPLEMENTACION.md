@@ -548,28 +548,18 @@ Agregar los subcomandos que faltan (según A.02 §4.3):
   al cliente; al restaurarla, re-entra al pool automáticamente.
 - **Estado:** ❌
 
-### 10.5 Accesibilidad (a11y) en los ejemplos de referencia de A.04 §9
+### 10.5 Accesibilidad (a11y) — principio en la especificación del protocolo (A.07)
 
-> **Nota:** bi18n es agnóstico de plataforma. Esta tarea es una actualización a los
-> **ejemplos de referencia** del anexo — no código del daemon. Cada equipo cliente aplica
-> los atributos de a11y en su mecanismo nativo; los ejemplos deben mostrar cómo hacerlo.
-
-- **Acción:** actualizar los 4 ejemplos de referencia de A.04 §9 para incluir los atributos
-  de accesibilidad en el contenedor del mensaje de error:
-  - Ejemplo web vanilla: `aria-live="polite"` y `role="alert"` en el div de error.
-  - Ejemplo JS/Vue: `aria-live="polite"` en el elemento `<small class="p-error">`.
-  - Ejemplo Flutter: `Semantics(liveRegion: true, label: errorMessage)` en el widget de error.
-  - Ejemplo Rust (servidor): sin cambio — el servidor no renderiza UI.
-  - Para otros lenguajes/plataformas: el mismo principio — el contenedor del error debe ser
-    anunciable por lector de pantalla sin que el usuario mueva el foco al campo.
-- **Criterio de done:** A.04 §9 contiene el atributo de a11y en los 3 ejemplos de cliente
-  (web, Flutter, Vue). La descripción de §5 menciona la a11y como parte del adapter pattern.
+- **Acción:** documentar en A.07 (Bloque 10.6) el requisito de accesibilidad que todo cliente
+  debe cumplir al mostrar mensajes de error: el componente que muestra el error debe ser
+  anunciable por lector de pantalla sin que el usuario mueva el foco al campo.
+  Cada equipo implementa esto según el mecanismo nativo de su plataforma — bi18n no dicta
+  el mecanismo, solo establece el contrato de comportamiento observable.
+- **Criterio de done:** A.07 incluye una sección "Requisitos de accesibilidad para clientes"
+  con el contrato de comportamiento (qué debe ocurrir) sin prescribir mecanismo de plataforma.
 - **Estado:** ❌
 
 ### 10.6 A.07 — Especificación formal del protocolo WebSocket (agnóstico de plataforma)
-
-> **Nota:** bi18n no crea ni mantiene SDKs en lenguajes/frameworks de frontend. Su
-> responsabilidad es publicar el contrato del protocolo para que cualquier equipo lo implemente.
 
 - **Acción:** crear `context/Documentacion/anexos/A.07_ANEXO-BI18N-PROTOCOLO-WEBSOCKET-v1.0.md`
   con la especificación formal del protocolo WebSocket de bi18n:
