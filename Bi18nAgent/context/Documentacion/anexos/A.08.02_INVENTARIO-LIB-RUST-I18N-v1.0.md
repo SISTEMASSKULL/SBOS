@@ -12,10 +12,10 @@
 
 | # | Función / Tipo fuente | Método RPC `bi18n.*` | Fase | Estado |
 |---|----------------------|----------------------|------|--------|
-| 1 | `rust_i18n::locale()` | `bi18n.i18n.locale_activo` | 2 | 📋 Fase 2 |
-| 2 | `rust_i18n::set_locale("es-BO")` | `bi18n.i18n.set_locale` | 2 | 📋 Fase 2 |
-| 3 | `available_locales!()` | `bi18n.i18n.available_locales` | 2 | 📋 Fase 2 |
-| 4 | `t!("key", locale = "es-BO", arg = val)` | `bi18n.i18n.translate` | 2 | 📋 Fase 2 |
+| 1 | `rust_i18n::locale()` | `bi18n.i18n.locale_activo` | 2 | ✅ Implementado |
+| 2 | `rust_i18n::set_locale("es-BO")` | `bi18n.i18n.set_locale` | 2 | ✅ Implementado |
+| 3 | `available_locales!()` | `bi18n.i18n.available_locales` | 2 | ✅ Implementado |
+| 4 | `t!("key", locale = "es-BO", arg = val)` | `bi18n.i18n.translate` | 2 | ✅ Implementado |
 | 5 | `i18n!("locales/", fallback = "en-US")` | — | — | ❌ Infra interna |
 | 6 | `tkv!("key", key1 = val1, key2 = val2)` | — | — | ❌ Infra interna |
 | 7 | `extend!(backend)` | — | — | ❌ Infra interna |

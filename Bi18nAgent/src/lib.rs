@@ -1,8 +1,11 @@
-/// lib.rs — Punto de entrada del crate bi18n-daemon-orchestrator.
-/// Propósito: re-exporta los módulos públicos del orquestador.
-///   - El crate es tanto una librería (para tests e integración) como un daemon.
-///   - Las implementaciones viven en los submódulos; lib.rs solo declara.
-/// Dependencias: todos los módulos del crate.
+// lib.rs — Punto de entrada del crate bi18n-daemon-orchestrator.
+// Re-exporta los módulos públicos; el crate funciona como librería (tests) y daemon.
+
+// Inicialización compile-time de rust-i18n (A.08.02).
+// Escanea locales/ buscando YAML/TOML; si no hay (solo FTL), genera backend vacío.
+// Expone: rust_i18n::locale(), set_locale(), t!(), available_locales!()
+rust_i18n::i18n!("locales");
+
 pub mod config;
 pub mod domain;
 pub mod error;

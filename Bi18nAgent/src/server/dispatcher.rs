@@ -220,6 +220,20 @@ pub async fn ejecutar_metodo(
             Ok(serde_json::json!({ "campos": campos, "locale": locale, "country": country, "text_direction": text_direction }))
         }
 
+        // ── rust-i18n runtime (A.08.02) ──────────────────────────────────
+        "bi18n.i18n.locale_activo" => {
+            handlers::lib_rust_i18n::i18n_locale_activo(ctx, &params).await
+        }
+        "bi18n.i18n.set_locale" => {
+            handlers::lib_rust_i18n::i18n_set_locale(ctx, &params).await
+        }
+        "bi18n.i18n.available_locales" => {
+            handlers::lib_rust_i18n::i18n_available_locales(ctx, &params).await
+        }
+        "bi18n.i18n.translate" => {
+            handlers::lib_rust_i18n::i18n_translate(ctx, &params).await
+        }
+
         // ── Traducción Fluent (A.08.01) ───────────────────────────────────
         "bi18n.translate.has_message" => {
             handlers::lib_fluent::translate_has_message(ctx, &params).await
