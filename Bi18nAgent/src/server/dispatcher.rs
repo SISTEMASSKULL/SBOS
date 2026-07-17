@@ -272,6 +272,38 @@ pub async fn ejecutar_metodo(
             handlers::lib_validator::validate_must_match_fields(ctx, &params).await
         }
 
+        // ── Formateo RFC3339/RFC2822/strftime chrono (A.08.11) ───────────
+        "bi18n.datetime.chrono_parse_rfc3339" => {
+            handlers::lib_chrono::chrono_parse_rfc3339(ctx, &params).await
+        }
+        "bi18n.datetime.chrono_parse_rfc2822" => {
+            handlers::lib_chrono::chrono_parse_rfc2822(ctx, &params).await
+        }
+        "bi18n.datetime.chrono_to_rfc3339" => {
+            handlers::lib_chrono::chrono_to_rfc3339(ctx, &params).await
+        }
+        "bi18n.datetime.chrono_to_rfc2822" => {
+            handlers::lib_chrono::chrono_to_rfc2822(ctx, &params).await
+        }
+        "bi18n.datetime.chrono_format" => {
+            handlers::lib_chrono::chrono_format(ctx, &params).await
+        }
+        "bi18n.datetime.chrono_format_localized" => {
+            handlers::lib_chrono::chrono_format_localized(ctx, &params).await
+        }
+        "bi18n.datetime.chrono_to_unix" => {
+            handlers::lib_chrono::chrono_to_unix(ctx, &params).await
+        }
+        "bi18n.datetime.chrono_leap_year" => {
+            handlers::lib_chrono::chrono_leap_year(ctx, &params).await
+        }
+        "bi18n.datetime.chrono_naive_parse" => {
+            handlers::lib_chrono::chrono_naive_parse(ctx, &params).await
+        }
+        "bi18n.datetime.chrono_timedelta_total" => {
+            handlers::lib_chrono::chrono_timedelta_total(ctx, &params).await
+        }
+
         // ── Operaciones temporales jiff (A.08.10) ────────────────────────
         "bi18n.datetime.now_utc" => {
             handlers::lib_jiff::now_utc(ctx, &params).await

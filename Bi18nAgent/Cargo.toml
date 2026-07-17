@@ -79,7 +79,7 @@ jiff = { version = "0.2", features = ["tzdb-bundle-platform", "serde"] }
 icu_datetime = { version = "2", features = ["compiled_data", "unstable_jiff_0_2"] }
 
 # Workhorse histórico; integración masiva con sqlx, serde; fallback de parsing
-chrono = { version = "0.4", features = ["serde"] }
+chrono = { version = "0.4", features = ["serde", "unstable-locales"] }
 
 # ── §2.3 Formatos regionales — CLDR (A.01 §2.3) ─────────────────────────────
 # Validación y parseo de locale BCP 47 — tipo DataLocale
