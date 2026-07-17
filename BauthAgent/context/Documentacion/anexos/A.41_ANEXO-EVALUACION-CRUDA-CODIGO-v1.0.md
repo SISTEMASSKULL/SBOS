@@ -218,7 +218,7 @@ desarrollar (no existe) · ⚫ a cablear (existe, desconectado).
 | # | Contrato / función | Norma | Justificación | Estado |
 |---|---|---|---|---|
 | **BA6** | `IdentityProofing::verify(evidence, ial_target) -> Result<IalResult>` + tabla/sección `identity_proofing` (ial_achieved, proofing_type, evidence[], proofed_by, reproofing_due) | NIST SP 800-63A | A.09 §4.bis · A.02 §19.2-U1 | ❌ **por desarrollar** — el IAL 1-3 no tiene código; es la fuente de la resolución A.02 U1 |
-| **BA7** | Migración `bauth_NN__idn_atributo.sql`: tablas `idn_atributo` + `idn_tipo_atributo` (valores 1:N con clasificación y enmascaramiento) | SCIM RFC 7643 · ISO 24760-1 §6 | A.31-AT1 | ❌ **por desarrollar** — la tabla destino de los campos multivaluados del UserTemplate NO existe en el DDL |
+| **BA7** | Migración `bauth_NN__idn_atributo.sql`: tablas `idn_identidad_atributo` + `idn_tipo_atributo` (valores 1:N con clasificación y enmascaramiento) | SCIM RFC 7643 · ISO 24760-1 §6 | A.31-AT1 | ❌ **por desarrollar** — la tabla destino de los campos multivaluados del UserTemplate NO existe en el DDL |
 | **BA8** | `SignatureEngineExternal::sign_adsib(doc_hash, cert) -> Result<Signature>` — motor de firma legal RSA-SHA256 con certificado ADSIB (validez jurídica Ley 164) | Ley 164 Art. 78 · ADSIB-FD-POLT-015 · eIDAS | A.08 §3.bis (F-C1) | ❌ **por desarrollar** — solo existe el motor interno Ed25519; el externo (firma legal) falta |
 | **BA9** | `JwtSigner`: cablear la clave a **Vault PKI** (hoy en memoria dev) + política de rotación | NIST 800-57 | A.08 §3.bis (F-C2) · A.41 §8 | 🔧 **a completar** — la clave se genera en memoria; producción requiere la bóveda |
 
@@ -254,7 +254,7 @@ desarrollar (no existe) · ⚫ a cablear (existe, desconectado).
 ❌ 8 por desarrollar (no existen) · ⚫ 1 a cablear. **El orden de construcción** (por dependencia
 y severidad): BA3 (fail-closed pipeline, 1 línea) → BA2 (DPoP) → BA4 (rate-limit) → BA12 (aplicar
 WORM, desbloquea BA11 y el motor 1.13) → BA11 (emisor auditoría) → BA10 (cablear risk) → BA6/BA7
-(IAL + idn_atributo) → BA14/BA17 (átomos + RLS) → BA8/BA13 (ADSIB + IGA) → BA5/BA9/BA16 → BA18-20.
+(IAL + idn_identidad_atributo) → BA14/BA17 (átomos + RLS) → BA8/BA13 (ADSIB + IGA) → BA5/BA9/BA16 → BA18-20.
 
 **Con este catálogo, el proyecto sabe exactamente:** lo ✅ desarrollado (núcleo robusto +
 WebAuthn corregido), lo 🔧 a completar (10 contratos con base), lo ❌ por desarrollar (8 nuevos),

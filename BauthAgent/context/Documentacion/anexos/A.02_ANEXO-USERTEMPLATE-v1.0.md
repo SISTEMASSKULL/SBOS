@@ -2,9 +2,9 @@
 ## Documento de respaldo: la identidad digital completa del actor — estructura, origen normativo y verificación de completitud
 
 **Tipo:** ANEXO — documento de respaldo del corpus (los manuales afirman, este anexo respalda)
-**Versión del anexo:** 1.1.0 · **Fecha:** 2026-07-11
+**Versión del anexo:** 1.2.0 · **Fecha:** 2026-07-14
 **Estatus:** FUENTE AUTOSUFICIENTE — contiene la estructura COMPLETA del contrato (traslado fiel, §22); la documentación de origen queda como cita histórica y **no es fuente de lectura**
-**Respalda a:** MANUAL-USER-TEMPLATE (1.08) §3-§10 · MANUAL-MOTOR-VERSIONADO (1.13 — F5) · MANUAL-AUTENTICACION (2.01) · MANUAL-SEGURIDAD-DATOS (2.10)
+**Respalda a:** MANUAL-USER-TEMPLATE (1.08) §3-§10 · MANUAL-D00-IDENTIDAD v2.0 (1.06) · MANUAL-ATRIBUTOS v2.0 (1.07) · MANUAL-MOTOR-IDENTIDAD (2.15) · MANUAL-MOTOR-VERSIONADO (1.13 — F5) · MANUAL-AUTENTICACION (2.01) · MANUAL-SEGURIDAD-DATOS (2.10)
 **Fuentes de origen (cita histórica):** `SBOS-USERTEMPLATE-v6_0` (contrato definitivo, jun-2026) · verificación contra fuentes primarias 2026-07-11
 **Normas base:** SCIM 2.0 RFC 7643 (§4.1 Core · §4.3 Enterprise) · NIST SP 800-63A (IAL) · NIST SP 800-63B (AAL §4-5 · sesiones §7 · reauth §9) · OIDC Core 1.0 · ANSI INCITS 359 (`USERS`/`UA`) · RGPD Arts. 4/9/17/46 · ISO/IEC 27701 · ISO 24760 · FIDO2/WebAuthn W3C · SIA OSDP v2.2.2 · ISO/IEC 30107-3 · NIST SP 800-124
 
@@ -120,7 +120,7 @@ RGPD.
 | `addresses[]` | Con coordenadas y exactitud — la dirección de trabajo referencia la zona física | SCIM `addresses` |
 | `emergency_contacts[]` | Contactos con canales de notificación | — |
 
-Los campos 1:N (emails, phones, addresses) se materializan en `idn_atributo` — regla de
+Los campos 1:N (emails, phones, addresses) se materializan en `idn_identidad_atributo` — regla de
 almacenamiento de 1.08 §3.
 
 ---
@@ -1525,10 +1525,10 @@ physical_credentials.biometric_templates.template_hash → [NEVER RETURNED via A
 | Tabla `idn_user_template` | `sbos_00__esquema_base.sql` (`CREATE TABLE`) | ✅ existe |
 | Asignación `idn_user_role` | `sbos_00` | ✅ |
 | Validador de las 15 secciones | `usertemplate_validator.rs` (**495 líneas** — el más extenso, A.23) | ✅ real |
-| Los campos 1:N (emails/phones) → `idn_atributo` | **`idn_atributo` NO existe en DDL** (A.31 — 0 menciones) | ❌ **la tabla destino falta** |
+| Los campos 1:N (emails/phones) → `idn_identidad_atributo` | **`idn_identidad_atributo` NO existe en DDL** (A.31 — 0 menciones) | ❌ **la tabla destino falta** |
 
 **Hallazgo crudo:** el UserTemplate tiene tabla y validador reales (495 líneas), **pero la
-tabla `idn_atributo`** donde deben materializarse sus campos multivaluados (B2/B3, regla 1.08 §3)
+tabla `idn_identidad_atributo`** donde deben materializarse sus campos multivaluados (B2/B3, regla 1.08 §3)
 **no existe en el esquema** (A.31-AT1, P1). Hoy esos 1:N o van al JSONB (contra la regla) o no se
 guardan. Las resoluciones U1–U7 (§19.2) son especificación, pendientes de materializar.
 
@@ -1561,6 +1561,92 @@ doctrina) · MANUAL-DOMINIOS (1.01 §4) · A.01 (la contraparte de autoridad) ·
 
 | Versión | Fecha | Descripción |
 |---------|-------|-------------|
-| 1.1.0 | 2026-07-11 | **Añadida verificación de código real** (§22.bis: tabla+validador (495 líneas) reales, PERO idn_atributo destino de los 1:N NO existe en DDL). |
+| 1.1.0 | 2026-07-11 | **Añadida verificación de código real** (§22.bis: tabla+validador (495 líneas) reales, PERO idn_identidad_atributo destino de los 1:N NO existe en DDL). |
 | 1.0.0 | 2026-07-11 | Anexo inicial con el patrón completo desde el origen (los 8 elementos + autosuficiencia + frontera). Estructura: los 16 bloques del contrato en lectura normativa a nivel de campo (§3–§18), la verificación de completitud contra normas y estándares (§19): matriz de los 14 planos D00–D13 proyectados sobre el SUJETO (el rol define la política; el usuario porta credenciales/señales/excepciones/consentimientos — D3 N/A por diseño, invariante 4) con 7 hallazgos U1–U7; validaciones+PII+invariantes (§20), el ciclo JML (§21), el **traslado fiel** de la estructura JSONB íntegra + reglas del contrato (§22, extracción literal) y el mapa a manuales. |
 | 1.1.0 | 2026-07-11 | **Verificación de completitud RESUELTA + materialización nativa reflejada** (corrección del humano: bAuth es autosuficiente — los manuales ya documentan la solución; y la completitud se resuelve con normas+estándares+industria, sin esperar decisión). §19.2 pasa de "defases para HITL" a **RESOLUCIONES**: U1 especificada la sección `identity_proofing` (800-63A: IAL, tipo de proofing, evidencia FAIR/STRONG/SUPERIOR, evento auditado — verificado contra la industria: Entra Verified ID con verificadores ISO 30107-3+IAL2/AAL2, Okta IDV con Persona/CLEAR/Incode, log inalterable por evento); U2 EdDSA+ML-DSA (FIPS 204, catálogo `crypto_algorithm`); U3 Argon2id por re-enrolamiento (`auth_config` ya lo declara por tier — 2.01 §7.4); U4 convención uuidv7; U5 sms_otp retirado (`auth_method.nist_status` declarativo); U6 especificada `legal_signature_identity` del sujeto (wallet custodia vault + certificado ADSIB — Ley 164/eIDAS: el certificado es de la persona; el rol define cuándo se exige — A.01 D13); U7 resuelto por los manuales. **Las lecturas §1/§7/§9/§17/§18/§21 describen la materialización NATIVA vigente** (framework declarativo de 7 tablas, `ath_*`, OIDC Provider nativo, biedata como aduana, JML soberano 1.08 §7) — los nombres de época quedan solo en el traslado histórico §22. Matriz §19.1: 14/14 planos con representación del sujeto especificada. |
+
+
+---
+
+## §23 — v1.2.0: El UserTemplate en la arquitectura de identidad v2.0 (2026-07-14)
+
+### 23.1 El usuario es una entidad en `idn_identidad_entidad`
+
+En la arquitectura D00 v2.0, todo actor del sistema —sea humano, servicio, dispositivo o
+bot— es una fila en `idn_identidad_entidad` con `nivel='actor'`. El UserTemplate (`idn_user_template`)
+sigue existiendo como contrato específico para actores que requieren autenticación, credenciales
+y sesiones. La relación es:
+
+```
+idn_identidad_entidad (nivel=actor, tipo=HUMAN)
+  │
+  └── idn_user_template (1:1, vinculado por entidad_id)
+        ├── username, status, account_type
+        ├── rol_bitmask_base64 (UserBitMask precomputado)
+        ├── credenciales (sección 5 — Argon2id, TOTP, WebAuthn nativos)
+        ├── sesiones (sección 8)
+        └── resto del JSONB v6.0 (15 secciones)
+```
+
+Los atributos 1:N del usuario (emails, teléfonos, direcciones, documentos, certificaciones,
+idiomas) migran del JSONB a `idn_identidad_atributo`:
+
+```
+idn_identidad_entidad (act-jperez)
+  │
+  └── idn_identidad_atributo (1:N)
+        ├── contacto/email/work → jperez@skull.com
+        ├── contacto/email/recovery → jperez@gmail.com
+        ├── contacto/telefono/mobile → +591-7-1234567
+        ├── documento/id_nacional/CI → 1234567 LP
+        ├── profesional/idioma/ingles → {nivel:B2, cert:TOEFL}
+        └── profesional/certificacion → SALES_CERT_A
+```
+
+### 23.2 Conjuntos de usuarios (D94)
+
+Un usuario puede pertenecer a múltiples conjuntos (USERSET). Esto determina en qué contextos
+opera sin duplicar la entidad:
+
+```
+Juan Pérez (actor, tipo=HUMAN)
+  ├── USERSET(autenticacion)    → puede loguearse
+  ├── USERSET(RRHH)             → es empleado
+  ├── USERSET(proveedor)        → vende servicios freelance
+  └── USERSET(cliente)          → compra en la tienda interna
+```
+
+### 23.3 Atributos del propio rol
+
+Los roles también son entidades con atributos en `idn_identidad_atributo` (entidad_tipo='role'):
+
+```
+idn_identidad_atributo (rol vendedor_senior)
+  ├── norma/respaldo/nist → NIST SP 800-53 AC-3/AC-6
+  ├── norma/respaldo/iso  → ISO 27001:2022 A.5.15
+  ├── seguridad/loa_required → 2
+  └── seguridad/mfa_required → true
+```
+
+### 23.4 Gobernanza de atributos vía átomos D00
+
+Los atributos del usuario en `idn_identidad_atributo` están vinculados a átomos D00 vía `atom_code`.
+El UserBitMask del usuario (calculado como OR de los RolBitMask de sus roles activos)
+determina qué atributos puede ver o editar:
+
+```
+Juan Pérez (rol=vendedor_senior)
+  UserBitMask incluye:
+    5827 (locale)     → puede editar su propio locale
+    5828 (timezone)   → puede editar su propio timezone
+    5813 (email)      → NO tiene → no puede editar emails de otros
+    5826 (CI)         → NO tiene → no puede ver CI de otros
+```
+
+---
+
+## Historial (continuación)
+
+| Versión | Fecha | Descripción |
+|---------|-------|-------------|
+| 1.2.0 | 2026-07-14 | **Arquitectura de identidad v2.0.** Nueva §23: el usuario como entidad en `idn_identidad_entidad`, atributos 1:N en `idn_identidad_atributo`, conjuntos de usuarios (D94), atributos de roles, gobernanza vía átomos D00. |

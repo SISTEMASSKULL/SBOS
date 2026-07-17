@@ -26,11 +26,11 @@ Sustancial: 12 migraciones (`bauth_10..44`) + **101 seeds** (`bauth_01..62`, `bg
 |---|---|:---:|
 | P1 | **`bauth_44` (WORM) sin aplicar en VPS** (A.27-AU2) | P1 |
 | P2 | Seeds de átomos D2–D12 y D13 pendientes (A.17-C3, A.05) | P1 |
-| P3 | Migración de `idn_atributo` ausente (A.31-AT1) | P1 |
+| P3 | Migración de `idn_identidad_atributo` ausente (A.31-AT1) | P1 |
 | P4 | Verificar que toda migración es reversible/diagnosticable | P3 |
 
 **Industria:** [sqlx](https://github.com/launchbadge/sqlx) · [PostgreSQL 18](https://www.postgresql.org/docs/18/)
 
 | Ver. | Fecha | Descripción |
 |---|---|---|
-| 1.0.0 | 2026-07-11 | sqlx justificado (SQL crudo verificado en compilación = soberanía, vs ORM); estado real 12 migraciones + 101 seeds (maduro); brechas P1 bauth_44 sin aplicar, P2 átomos sin sembrar, P3 idn_atributo ausente. |
+| 1.0.0 | 2026-07-11 | sqlx justificado (SQL crudo verificado en compilación = soberanía, vs ORM); estado real 12 migraciones + 101 seeds (maduro); brechas P1 bauth_44 sin aplicar, P2 átomos sin sembrar, P3 idn_identidad_atributo ausente. |

@@ -1,11 +1,11 @@
 # A.45 — Fundamentos Normativos de AtomLang
 ## Tipo B+C — Respaldo normativo e investigación: de dónde proviene cada constructo del lenguaje
 
-**Versión:** 1.0.0  
-**Fecha:** 2026-07-13  
+**Versión:** 1.2.0  
+**Fecha:** 2026-07-14  
 **Tipo de anexo:** B (respaldo normativo/industria) + C (justificación de decisión técnica)  
-**Respalda a:** [2.13 MANUAL-ATOMLANG-LENGUAJE §2–§6](../2.13_MANUAL-ATOMLANG-LENGUAJE-v1.0.md) · [2.14 MANUAL-COMPOSICION-ARBOL §3–§7](../2.14_MANUAL-COMPOSICION-ARBOL-v1.0.md) · [2.05 MANUAL-POLITICAS §2](../2.05_MANUAL-POLITICAS-v1.0.md)  
-**Normas consultadas:** OASIS XACML 3.0 (docs.oasis-open.org) · NIST SP 800-162 (ABAC) · NIST SP 800-207 (Zero Trust) · NIST SP 800-53 Rev.5 AC-3 · ISO 24760-2:2025 · ISO 27001:2022 A.5.15-18 · TOGAF 10
+**Respalda a:** [2.13 MANUAL-ATOMLANG-LENGUAJE v2.0 §2–§7](../2.13_MANUAL-ATOMLANG-LENGUAJE-v2.0.md) · [1.06 D00 Identidad v2.0](../1.06_MANUAL-D00-IDENTIDAD-v2.0.md) · [1.07 Atributos v2.0](../1.07_MANUAL-ATRIBUTOS-v2.0.md) · [2.15 Motor de Identidad](../2.15_MANUAL-MOTOR-IDENTIDAD-v1.0.md) · [2.14 MANUAL-COMPOSICION-ARBOL §3–§7](../2.14_MANUAL-COMPOSICION-ARBOL-v1.0.md) · [2.05 MANUAL-POLITICAS §2](../2.05_MANUAL-POLITICAS-v1.0.md)  
+**Normas consultadas:** OASIS XACML 3.0 · NIST SP 800-162 (ABAC) · NIST SP 800-207 (Zero Trust) · NIST SP 800-53 Rev.5 AC-3 · ANSI INCITS 359-2004 (RBAC) · ISO 24760-2:2025 · ISO 27001:2022 A.5.15-18 · ISO 9001:2015 §3.2.4 · SCIM 2.0 RFC 7643 · TOGAF 10
 
 ---
 
@@ -221,23 +221,123 @@ Las aplicaciones dentro de zonas (B6 `app_*`) corresponden al concepto de **reso
 
 ---
 
-## §9 Dominios (D00–D13): norma de plano de identidad
+## §9 Dominios: planos de control (D00-D13) y dominios del lenguaje (D95-D99)
 
 *Cita ISO 24760-2:2025 §5.1 (Identity Management Reference Architecture):* *"An identity domain is a bounded context within which the identity of an entity is managed... Access to resources within the domain is governed by the policies of that domain."*
 
 *Cita NIST SP 800-63 §6.2 (Federation):* *"A federation is a set of organizations that agree to share identity information. Each organization operates within its own trust domain."*
 
-En bAuth, los 13 dominios (D00–D13) son los **planos de identidad** sobre los que opera el BitMask Dual 64-bit. Cada dominio es una raíz del árbol RolTemplate y un aspecto del modelo de identidad convergente:
+### §9.1 Planos de control (D00-D13) — los módulos de evaluación del BitMask
 
-| Dominio | Aspecto de identidad | Norma de referencia |
+Fuente: Manual 1.01 §4. Los 14 planos de control son los **planos de identidad** sobre los
+que opera el BitMask 64-bit. Cada uno es un evaluador de dominio con código Rust en
+`src/domain/`. El pipeline de evaluación los ordena en 5 fases con cortocircuito (D8→D9
+Pre-BitMask, D1→D2 Fast-Path, D3→D10→D4 Policy-Path, D6→D7→D5→D12 External, D11 Siempre).
+
+| Plano | Nombre | Path | Norma de referencia |
+|:-----:|--------|------|---------------------|
+| D00 | Identidad Organizacional | Pre-condición (ctx_id) | ISO 24760-2:2025 §5 · NIST SP 800-63 §4 |
+| D1 | Acceso Lógico | Fast-Path <0.5ns | NIST 800-63B-4 · RFC 9470 · XACML 3.0 |
+| D2 | Acceso Físico | Fast-Path +OSDP | IEC 60839-11-5 · OSDP v2.2.2 · NIST SP 800-116 |
+| D3 | Financiero | Policy-Path | PCI DSS 4.0.1 · SOX §404 · COSO · ISO 20022 |
+| D4 | Temporal | Policy-Path (encadenado a D1) | GTRBAC · RFC 5545 · ISO 8601 |
+| D5 | Biométrico | External-Path | ISO/IEC 30107-3 · NIST SP 800-63B §5.2.3 |
+| D6 | Geoespacial | External-Path (encadenado a D1) | OGC GeoFence · BeyondCorp |
+| D7 | Red | External-Path (vía Kong) | NIST SP 800-207 ZTA · IEEE 802.1X |
+| D8 | Contexto/Sesión | Pre-BitMask | SBOS-049 · W3C Trace Context · CAEP |
+| D9 | Credenciales | Pre-BitMask | NIST SP 800-63B AAL1-3 · FIDO2 · WebAuthn |
+| D10 | Delegación | Policy-Path (reducción AND) | INCITS 359 DSD · NIST AC-5 |
+| D11 | Auditoría | Post-hoc (registra, no decide) | ISO 27001 A.8.15 · PCI 10.3.2 · NIST AU-2/3 |
+| D12 | Blockchain/Anclaje | External-Path | NIST IR 8202 · EIP-725/735 · W3C DID |
+| D13 | Firma Digital Externa | Diseño (átomos 5929-5964) | Ley 164 · ADSIB-FD-POLT-015 v2.3 |
+
+### §9.2 Dominios del lenguaje AtomLang (D95-D99)
+
+Además de los 14 planos de control que participan en la evaluación del BitMask, AtomLang
+define **5 dominios del lenguaje** que no son evaluados en runtime pero son parte de la
+estructura del DSL. Residen en el mismo árbol (`bauth.atom_tree`) pero tienen reglas
+diferentes:
+
+#### D95 — Catálogo de Átomos Compilados
+
+**Rol:** Dominio auto-generado de solo lectura. La "tabla de símbolos" del sistema: contiene
+los átomos que pasaron la compilación y están listos para ser asignados a roles.
+
+**Base normativa:**
+- NIST SP 800-162 §4.2: integridad de política — separación entre definición y ejecución
+- ISO 27001:2022 A.8.9: gestión de configuración — solo artefactos validados llegan a producción
+- Principio de compilación: el PDP lee exclusivamente el IR compilado (A.46 §3.2), nunca el fuente
+
+**Comportamiento normativo:**
+- Si un átomo en D00-D13 pasa D97 (normas) y D96 (contrato de métodos) → atomc lo emite en D95 como ACTIVO
+- Si el átomo se corrompe en el árbol fuente → atomc lo remueve de D95 (estado CORROMPIDO)
+- D95 garantiza que ningún átomo no validado llegue al PDP (fail-secure por defecto)
+
+#### D96 — Contrato de Métodos de Autenticación
+
+**Rol:** Define los contratos de entrada/salida de los 18 métodos de autenticación.
+Es el "sistema de tipos" de los métodos auth: qué datos necesita cada método, qué retorna,
+qué debe proveer el cliente, y las secuencias válidas de flujos multi-step.
+
+**Base normativa:**
+- NIST SP 800-63B §4 (AAL1-3): cada nivel de assurance requiere métodos y combinaciones específicas
+- RFC 9470 (Step-Up Authentication): el orden de métodos en un flujo step-up es normativo
+- FIDO2/WebAuthn W3C: contratos de entrada/salida para autenticación sin contraseña
+- ISO 27001:2022 A.5.15: reglas de acceso basadas en requisitos de negocio
+
+**¿Qué valida?**
+- Que cada método declare sus parámetros obligatorios (entrada) y su respuesta (salida)
+- Que los flujos multi-step tengan orden canónico y timeout definido
+- Que las precondiciones del cliente estén documentadas (dispositivo, canal, LoA previo)
+
+#### D97 — Conformidad Normativa
+
+**Rol:** Meta-dominio. Define los requisitos que cada nodo del árbol debe cumplir para ser
+conforme a las normas. Es el "type checker" de cumplimiento: cada tipo de nodo tiene una
+lista de requisitos trazables a un estándar.
+
+**Base normativa:**
+- ISO 27001:2022 A.5.15: *"Rules for access control shall be established based on business and information security requirements"*
+- NIST SP 800-162 §5: *"Attribute values should be obtained from authoritative attribute sources"*
+- XACML 3.0 §7.3: orden de evaluación Target → Condition → Effect
+- NIST SP 800-53 AC-6: principio de mínimo privilegio (verbo obligatorio en todo átomo)
+
+**Requisitos que valida (catálogo parcial):**
+
+| Requisito | Aplica a | Norma |
 |---|---|---|
-| D00 Identidad Organizacional | Directory / árbol de identidad | ISO 24760-2:2025 §5 · NIST SP 800-63 §4 |
-| D1 Acceso Lógico | Access Management (AM) | XACML 3.0 · NIST SP 800-162 |
-| D2 Acceso Físico | Physical Access Control | ISO 27001:2022 A.7.2 (physical access) · OSDP |
-| D3 Firma Digital | Digital Signature | Ley 164 Bolivia · ADSIB FIPS 186-4 |
-| D4 Calendario | Temporal conditions | RFC 5545 iCalendar · NIST SP 800-162 §4 |
-| D12 Blockchain | Ledger / anclaje forense | Ethereum EVM · NIST SP 800-208 |
-| D99 Admin Global | IGA / governance layer | NIST SP 800-53 AC-2 · ISO 27001:2022 A.5.18 |
+| combining_algorithm obligatorio | Política con 2+ átomos | XACML 3.0 §7.18 |
+| verbo debe existir en catálogo | Toda evaluación | NIST SP 800-162 §4 |
+| property_id tipado | Toda condición | NIST SP 800-162 §4 |
+| subject.set_id declarado en D98 | Todo Target con SET | ANSI INCITS 359-2004 |
+| Sin literales numéricos en AMOUNT | Toda condición con tipo AMOUNT | NIST SP 800-162 §5 · ISO 27001 A.8.9 |
+| effect.decision solo Permit/Deny | Todo Effect | XACML 3.0 §2.6 |
+| Sin atributos duplicados Target/Condition | Todo átomo | XACML 3.0 §7.3 |
+
+#### D98 — Registro Estructural
+
+**Rol:** Declaraciones del lenguaje. NO produce Decision. NO entra al BitMask. Contiene
+constantes (`@bauth_config_param.*`), conjuntos de roles (`Set<Rol>`), y enums del lenguaje.
+
+**Base normativa:**
+- ANSI INCITS 359-2004 §3.1 (Core RBAC): la asignación de permisos a roles es la base del modelo
+- NIST SP 800-53 AC-2: group membership como mecanismo de asignación
+- NIST SP 800-162 §5: gobernanza de atributos — constantes como fuente autoritativa
+
+**Por qué existe separado:** los conjuntos cambian por movimientos organizacionales (altas/bajas
+frecuentes). Las reglas cambian por compliance (infrecuente). Separarlos permite cambiar la
+membresía de un conjunto sin recompilar todo el árbol de políticas.
+
+#### D99 — Administrativo Global
+
+**Rol:** Garante transversal. PolicySet global cuyas políticas aplican a TODO el sistema.
+No entra al BitMask funcional. Es el garante de D00 (identidad organizacional). Cambia
+solo por HITL. 447 nodos.
+
+**Base normativa:**
+- NIST SP 800-207 §3.1: Control Plane Policies — políticas que gobiernan el plano de control
+- AWS SCP analogy: límites de permiso globales que aplican antes que cualquier política de recurso
+- ISO 27001:2022 A.5.18: gobernanza de acceso privilegiado
 
 Los bloques B0–B19 dentro de cada dominio son **agrupaciones de aspecto** — no son XACML por sí mismos, sino convenciones de organización del árbol bAuth que agrupan Policies relacionadas (análogo a XACML PolicySet anidado).
 
@@ -301,7 +401,11 @@ Referencia rápida para auditorías y verificación de cumplimiento:
 | Dominio D00–D13 | PolicySet raíz | — | — | ISO 24760-2:2025 §5 |
 | Bloque B0–B19 | PolicySet anidado (convención) | — | — | Convención propia bAuth |
 | `bauth_config_param` (PIP) | §7.2 PIP | §5 Attribute authority | A.8.9 | — |
-| D98 Registro Estructural | — (no XACML) | §3 Group attribute | A.5.18 | NIST SP 800-53 AC-2 |
+| D95 Catálogo de Átomos | NIST SP 800-162 §4.2 (integridad) | §4.2 IR integrity | A.8.9 | Principio fail-secure |
+| D96 Contrato de Métodos | NIST SP 800-63B §4 (AAL1-3) | §5 Attribute authority | A.5.15 | RFC 9470 · FIDO2 |
+| D97 Conformidad Normativa | XACML 3.0 §7.3 | §4 Boolean function | A.5.15 | NIST SP 800-53 AC-6 |
+| D98 Registro Estructural | — (no XACML) | §3 Group attribute | A.5.18 | ANSI INCITS 359-2004 |
+| D99 Admin Global | NIST SP 800-207 §3.1 (Control Plane) | — | A.5.18 | AWS SCP analogy |
 
 ---
 
@@ -309,17 +413,18 @@ Referencia rápida para auditorías y verificación de cumplimiento:
 
 | Sección de este anexo | Respalda al manual | Sección respaldada |
 |---|---|---|
-| §2 (XACML como base) | 2.13 §2, §4 | Por qué existe AtomLang; constructos del lenguaje |
-| §3 (Target) | 2.13 §4.2 | Target: Subject, Resource, Environment |
-| §4 (Condition) | 2.13 §4.3 | Condition y operadores |
-| §5 (Effect/Obligation) | 2.13 §4.4 | Effect y Obligation |
-| §6 (combining_algorithm) | 2.13 §4.5 | combining_algorithm |
+| §2 (XACML como base) | 2.13 v2.0 §2, §5 | Por qué existe AtomLang; constructos del lenguaje |
+| §3 (Target) | 2.13 v2.0 §5.3 | Target: Subject, Resource, Verbo, Environment |
+| §4 (Condition) | 2.13 v2.0 §5.3 | Condition y operadores |
+| §5 (Effect/Obligation) | 2.13 v2.0 §5.3 | Effect y Obligation |
+| §6 (combining_algorithm) | 2.13 v2.0 §5.2 | combining_algorithm |
 | §7 (Zonas) | 2.14 §4 | Las zonas (B6) — concepto y reglas |
 | §8 (Aplicaciones) | 2.14 §5 | Las aplicaciones — dentro de zonas |
-| §9 (Dominios) | 2.14 §3 | Los dominios D00–D13 como raíces |
+| §9.1 (Planos D00-D13) | 2.13 v2.0 §4.2 · 2.14 §3 | Planos de control como módulos |
+| §9.2 (Dominios D95-D99) | 2.13 v2.0 §4.3 | Dominios del lenguaje AtomLang |
 | §10 (bauth_config_param) | 2.14 §7 | Reglas de parametrización |
 | §11 (Bloques B0–B19) | 2.14 §2 | El árbol RolTemplate |
-| §12 (Tabla maestra) | 2.13, 2.14, 2.05 | Referencia transversal de cumplimiento |
+| §12 (Tabla maestra) | 2.13 v2.0, 2.14, 2.05 | Referencia transversal de cumplimiento |
 
 ---
 
@@ -342,4 +447,49 @@ Referencia rápida para auditorías y verificación de cumplimiento:
 
 | Versión | Fecha | Descripción |
 |---------|-------|-------------|
-| 1.0.0 | 2026-07-13 | Primera edición. Mapa normativo completo de todos los constructos de AtomLang: XACML 3.0 como base (por qué YAML y no Cedar/OPA/ALFA); norma de Target (XACML §5.5 + NIST 800-162 §3); Condition (XACML §5.6 + invariante Target-gate primero); Effect/Obligation/Advice (XACML §2.6 + §5.3.15 + §6.5); combining_algorithm (XACML §7.18 + justificación de `aggregate-strictest` por NIST 800-63B §4.3); zonas B6 (NIST SP 800-207 §2.2 + ISO 27001:2022 A.8.22); aplicaciones (NIST SP 800-53 AC-3 + TOGAF 10 §B.3 + XACML §5.2); dominios D00–D13 (ISO 24760-2:2025 §5); bloques B0–B19 (convención propia bAuth); bauth_config_param como PIP (NIST SP 800-162 §5 + XACML §7.2). Tabla maestra de 17 constructos con sus normas. Corrección: `bos_config_param` → `bauth_config_param`. |
+| 1.2.0 | 2026-07-14 | **Dominios D93-D94 + Motor de Identidad.** Nueva §14: D93 (Catálogo de Identidades: ISO 9001, SCIM), D94 (Registro de Usuarios: NIST AC-2, ANSI INCITS 359), Motor de Identidad (NIST 800-63A/B, RFC 5321, E.164, BCP 47), gobernanza de atributos vía átomos D00. Cabecera actualizada con referencias a 1.06 v2.0, 1.07 v2.0, 2.15. |
+| 1.1.0 | 2026-07-14 | Actualización mayor: §9 reescrito con las DOS taxonomías de dominio (planos de control D00-D13 según Manual 1.01 §4 + dominios del lenguaje D95-D99 según Manual 2.13 v2.0 §4.3). Nuevos dominios documentados: D95 (Catálogo de Átomos — NIST SP 800-162 §4.2 integridad de política, ISO 27001 A.8.9, principio fail-secure), D96 (Contrato de Métodos — NIST SP 800-63B §4 AAL1-3, RFC 9470 Step-Up, FIDO2/WebAuthn), D97 (Conformidad Normativa — XACML 3.0 §7.3, NIST SP 800-162 §5, NIST SP 800-53 AC-6). Tabla D00-D13 corregida con los 14 planos completos (D3 Financiero, no Firma Digital; D13 Firma Digital Externa Ley 164). §12 tabla maestra ampliada de 17 a 22 constructos. §13 mapa actualizado con referencias a 2.13 v2.0. |
+| 1.0.0 | 2026-07-13 | Primera edición. Mapa normativo completo de todos los constructos de AtomLang. |
+
+
+---
+
+## §14 — v1.2.0: Dominios del lenguaje D93-D94 y Motor de Identidad (2026-07-14)
+
+### D93 — Catálogo de Identidades
+
+Define qué `tipo` es válido para cada `nivel` en `idn_identidad_entidad`, qué atributos son requeridos,
+y qué conjuntos de membresía (USERSET) son permitidos para cada tipo de entidad. Base normativa:
+
+- **ISO 9001:2015 §3.2.4**: definición de cliente como quien recibe el producto/servicio
+- **ISO 9001:2015 §3.2.5**: definición de proveedor como quien provee
+- **ANSI INCITS 359-2004 §3.1 (Core RBAC)**: conjuntos de usuarios como entidad de membresía
+- **SCIM 2.0 RFC 7643 §4.1**: atributos canónicos de recurso extensible
+
+### D94 — Registro de Usuarios
+
+Define conjuntos de usuarios (USERSET) que agrupan entidades por contexto operativo.
+Una entidad pertenece a múltiples conjuntos sin duplicarse. Base normativa:
+
+- **NIST SP 800-53 AC-2**: group membership como mecanismo de asignación
+- **ANSI INCITS 359-2004**: user assignment (UA) en RBAC
+
+### Motor de Identidad
+
+El motor de validación de datos de entidades usa el MISMO lenguaje AtomLang que el motor
+BitMask. Verbos: `validate` (formato), `verify` (fuente externa: SIN, SEGIP, ADSIB),
+`format` (canónico). Base normativa:
+
+- **NIST SP 800-63A**: Identity Assurance Levels (IAL) — verificación de evidencia
+- **NIST SP 800-63B §5**: verificación de canales (email, teléfono)
+- **RFC 5321**: formato de email · **E.164**: formato de teléfono
+- **BCP 47**: formato de locale · **IANA**: formato de timezone
+
+### Gobernanza de atributos vía átomos D00
+
+Los atributos en `idn_identidad_atributo.atom_code` vinculan cada atributo con un átomo D00 en
+`privilege_atom`. Esto permite que el BitMask gobierne quién puede ver/editar cada
+atributo de identidad. Base normativa:
+
+- **NIST SP 800-162 §4**: separación PAP/PDP/PEP/PIP
+- **NIST SP 800-162 §5**: gobernanza de atributos desde fuente autoritativa

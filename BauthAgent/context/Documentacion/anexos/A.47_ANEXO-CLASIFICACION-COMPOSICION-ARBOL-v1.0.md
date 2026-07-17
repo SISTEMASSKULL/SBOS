@@ -1,12 +1,12 @@
 # A.47 — Clasificación y Composición del Árbol de Configuración
 ## Tipo B+C — Fundamento normativo y justificación técnica para la posición de cada nodo en el árbol de políticas bAuth
 
-**Versión:** 1.0.1  
-**Fecha:** 2026-07-13  
+**Versión:** 1.0.3  
+**Fecha:** 2026-07-14  
 **Tipo de anexo:** B (normativo/industria) + C (justificación de decisión técnica)  
-**Respalda a:** [2.14 MANUAL-COMPOSICION-ARBOL §8–§10](../2.14_MANUAL-COMPOSICION-ARBOL-v1.0.md) — dos tipos de Atom, anti-patrones, ciclo de mantenimiento  
+**Respalda a:** [2.14 MANUAL-COMPOSICION-ARBOL §8–§10](../2.14_MANUAL-COMPOSICION-ARBOL-v1.0.md) · [2.13 MANUAL-ATOMLANG-LENGUAJE v2.0 §4](../2.13_MANUAL-ATOMLANG-LENGUAJE-v2.0.md) · [1.06 D00 Identidad v2.0](../1.06_MANUAL-D00-IDENTIDAD-v2.0.md) · [2.15 Motor de Identidad](../2.15_MANUAL-MOTOR-IDENTIDAD-v1.0.md)  
 **Fuentes absorbidas:** `manual-estructuracion-politicas-roles-bAuth.md` §6–§12 (legacy en `anexos/` — este anexo lo reemplaza) · `ATOMLANG-GAP-ANALYSIS-D1-v1.0.md` §1–§5 (gaps D1 absorbidos en §6)  
-**Normas base:** OASIS XACML 3.0 · NIST SP 800-162 §4 · NIST SP 800-207 §2.2 · AWS IAM equivalences
+**Normas base:** OASIS XACML 3.0 · NIST SP 800-162 §4 · NIST SP 800-207 §2.2 · ANSI INCITS 359-2004 · AWS IAM equivalences
 
 ---
 
@@ -31,19 +31,29 @@ Estas son las reglas que determinan si un elemento del árbol debe ser PolicySet
 
 ```
 ¿El nodo produce Decision (Permit/Deny)?
-├── NO → es D98 · Registro Estructural → badge [REGISTRO ESTRUCTURAL]
-│         no lleva combining_algorithm · contiene solo declaraciones de Sets
-└── SÍ → ¿contiene otros nodos que producen Decision?
-          ├── SÍ → es PolicySet (Dominio o Zona)
-          │         ├── ¿Es una raíz temática de control (D00-D13)?
-          │         │   └── SÍ → badge [POLICYSET] + código D
-          │         └── ¿Es un segmento lógico dentro de un Dominio?
-          │             └── SÍ → badge [POLICYSET] + nombre de zona (B6)
-          └── NO → ¿contiene directamente Rules (Atoms)?
-                    ├── SÍ → es Policy (Aplicación o capa B7)
-                    │         → badge [POLICY] · combining_algorithm obligatorio si 2+ Rules
-                    └── NO → es Rule/Atom (la unidad evaluable)
-                              └── badge [REGLA] o [ATOM] — NUNCA [EVAL]
+├── NO → ¿Es un dominio del lenguaje AtomLang?
+│         ├── D95 · Catálogo de Átomos → badge [CATÁLOGO]
+│         │     Solo lectura. Poblado automáticamente por atomc.
+│         ├── D96 · Contrato de Métodos → badge [CONTRATO]
+│         │     Declarativo. Define entradas/salidas/flujos auth.
+│         ├── D97 · Conformidad Normativa → badge [NORMATIVO]
+│         │     Validador. Requisitos ISO/NIST/XACML por tipo de nodo.
+│         └── D98 · Registro Estructural → badge [REGISTRO ESTRUCTURAL]
+│               no lleva combining_algorithm · contiene Sets, constantes, enums
+└── SÍ → ¿Es garante transversal (aplica a todo el sistema)?
+          ├── SÍ → D99 · Administrativo Global → badge [POLICYSET][GLOBAL]
+          │         combining_algorithm obligatorio. No entra al BitMask.
+          └── NO → ¿contiene otros nodos que producen Decision?
+                    ├── SÍ → es PolicySet (Dominio o Zona)
+                    │         ├── ¿Es un plano de control del BitMask (D00-D13)?
+                    │         │   └── SÍ → badge [POLICYSET] + código D + path de evaluación
+                    │         └── ¿Es un segmento lógico dentro de un Dominio?
+                    │             └── SÍ → badge [POLICYSET] + nombre de zona (B6)
+                    └── NO → ¿contiene directamente Rules (Atoms)?
+                              ├── SÍ → es Policy (Aplicación o capa B7)
+                              │         → badge [POLICY] · combining_algorithm obligatorio si 2+ Rules
+                              └── NO → es Rule/Atom (la unidad evaluable)
+                                        └── badge [REGLA] o [ATOM] — NUNCA [EVAL]
 ```
 
 ### §2.2 Reglas de posicionamiento de Atoms (XACML 3.0 §2.2 + NIST SP 800-162 §4)
@@ -55,6 +65,14 @@ Estas son las reglas que determinan si un elemento del árbol debe ser PolicySet
 **Regla A-03 — Atoms de B7 (PrivilegeEngine):** los Atoms que controlan acceso a nivel de modelo, campo, menú o fila en cualquier aplicación del tenant (registradas en `bauth.privilege_application`) pertenecen a una de las 5 capas de B7. Cada capa es una Policy con su propio `combining_algorithm`. B7 aplica a ERP, CRM, RRHH, correo, portales y toda aplicación con control de acceso de grano fino — no solo ERP.
 
 **Regla A-04 — D98 no es contenedor de Atoms:** los Sets declarados en D98 NO contienen Atoms. Son solo declaraciones de membresía. Si un nodo en D98 tiene un `effect: Permit/Deny`, está en el lugar incorrecto.
+
+**Regla A-05 — D95 es solo lectura:** el Catálogo de Átomos (D95) es poblado exclusivamente por `atomc compile`. Ningún administrador puede crear, modificar o eliminar nodos en D95 manualmente. Si un átomo en D00-D13 pasa D97 y D96, atomc lo emite en D95 como ACTIVO. Si se corrompe, atomc lo remueve.
+
+**Regla A-06 — D96 es declarativo:** el Contrato de Métodos (D96) define contratos de entrada/salida para los 18 métodos de autenticación. No contiene reglas de negocio ni átomos evaluables. Sus nodos son objetos de datos (parámetros obligatorios, tipo de retorno, precondiciones, flujos).
+
+**Regla A-07 — D97 es un validador:** la Conformidad Normativa (D97) contiene requisitos trazables a normas (ISO, NIST, XACML). No produce Decision. atomc consulta D97 en Fase 2 (Semantic) para verificar que cada nodo del árbol cumple los requisitos aplicables a su tipo.
+
+**Regla A-08 — D99 es un PolicySet global:** el Administrativo Global (D99) sigue la misma estructura que D00-D13 (PolicySet → Política → Regla) pero sus políticas aplican a TODO el sistema, sin importar el dominio funcional. No entra al BitMask. Cambia solo por HITL.
 
 ### §2.3 Decisión de `combining_algorithm` por tipo de contenedor
 
@@ -392,8 +410,8 @@ Sin verbo, un Atom no puede distinguir entre `read`, `write`, `approve`, `delete
 
 | Sección | Respalda a | Qué sección |
 |---|---|---|
-| §2 (reglas de clasificación) | 2.14 §8 | Tipos de Atom según posición |
-| §3 (D98 reglas normativas) | 2.14 §7 | D98 Registro Estructural |
+| §2 (reglas de clasificación) | 2.13 v2.0 §4 · 2.14 §8 | Dominios D00-D13, D95-D99. Tipos de Atom según posición |
+| §3 (D98 reglas normativas) | 2.13 v2.0 §4.3 · 2.14 §7 | D98 Registro Estructural |
 | §4 (dos tipos de Atom) | 2.14 §8 | Base XACML de los dos tipos |
 | §5 (glosario equivalencias) | 2.13 §9, 2.14 §5 | Estado del arte industria |
 | §6 (diagnóstico as-is D1) | 2.14 §10 | Anti-patrones con casos concretos |
@@ -407,5 +425,33 @@ Sin verbo, un Atom no puede distinguir entre `read`, `write`, `approve`, `delete
 
 | Versión | Fecha | Descripción |
 |---------|-------|-------------|
-| 1.0.1 | 2026-07-13 | Correcciones por revisión: (1) B7 renombrado de "Privilegios ERP" a "Privilegios de Aplicaciones" en §3.1, §3.3, §5 glosario y regla A-03 — cubre todas las apps registradas en `bauth.privilege_application`, no solo ERP. (2) Reemplazadas todas las referencias `bos_*` inventadas: `bos_group`/`bos_group_members` → `bauth.privilege_role_set`/`bauth.privilege_role_set_member *(propuestas)*`, `bos_atom_catalog` → `bauth.privilege_atom`, `bos_atom_compiled` → `bauth.privilege_atom_compiled *(propuesto)*`, `bos_application` → `bauth.privilege_application`, `bos_verb` → `bauth.privilege_verb`, `bos_resource_catalog` → `bauth.privilege_resource *(propuesta)*`, `bos_attribute_catalog` → `bauth.privilege_attribute *(propuesta)*`, `bos_rol.rol_slug` → `bauth.idn_role_template.rol_slug`, `bos_atom_audit` → `bauth.privilege_atom_audit`. |
-| 1.0.0 | 2026-07-13 | Primera edición. Absorbe y reemplaza `manual-estructuracion-politicas-roles-bAuth.md` §6–§12 (jerarquía canónica, dos formas de Rule, D98, taxonomía de Subject, glosario XACML/NIST/AWS/bAuth, árbol as-is D1, árbol corregido, checklist) y `ATOMLANG-GAP-ANALYSIS-D1-v1.0.md` §1–§5 (tipos de gap, gaps D1 step_up_triggers verificados en VPS, análisis extendido D1 completo, resumen cuantitativo ~45 gaps, plan P0/P1/P2). Incorpora: árbol de decisión de clasificación (§2.1), reglas A-01..A-04 (§2.2), reglas de `combining_algorithm` por tipo (§2.3), reglas R-D98-01..R-D98-05 (§3.2), tabla de 4 valores de Decision con justificación de auditoría (§8), catálogo de verbos base `bauth.privilege_verb` (§9). Todo con `bauth_config_param` en lugar de `bos_config_param`. |
+| 1.0.2 | 2026-07-14 | Actualización: árbol de decisión §2.1 ampliado con D95-D99 (Catálogo de Átomos, Contrato de Métodos, Conformidad Normativa, Administrativo Global). Nuevas reglas A-05..A-08 para dominios del lenguaje. Cabecera y mapa §10 actualizados con referencia a 2.13 v2.0. |
+| 1.0.1 | 2026-07-13 | Correcciones por revisión: B7 renombrado, referencias `bos_*` reemplazadas. |
+| 1.0.0 | 2026-07-13 | Primera edición. Árbol de decisión, reglas A-01..A-04, D98, glosario, diagnóstico D1, checklist. |
+
+
+---
+
+## §11 — v1.0.3: Dominios D93-D94 del lenguaje AtomLang (2026-07-14)
+
+### Catálogo de dominios ampliado
+
+| Dominio | Rol | Badge |
+|---|---|---|
+| **D93** | Catálogo de Identidades — tipos válidos por nivel, atributos requeridos, conjuntos permitidos | `[CATÁLOGO]` |
+| **D94** | Registro de Usuarios — conjuntos de usuarios (USERSET) | `[REGISTRO USUARIOS]` |
+| D95 | Catálogo de Átomos — compilados, listos para asignar | `[CATÁLOGO ÁTOMOS]` |
+| D96 | Contrato de Métodos — entradas/salidas/flujos auth | `[CONTRATO]` |
+| D97 | Conformidad Normativa — requisitos ISO/NIST/XACML | `[NORMATIVO]` |
+| D98 | Registro Estructural — conjuntos de roles (SET) | `[REGISTRO ESTRUCTURAL]` |
+| D99 | Administrativo Global — garante transversal | `[POLICYSET][GLOBAL]` |
+
+### Nuevas reglas de clasificación
+
+**Regla A-09 — D93 gobierna tipos de entidad:** el Catálogo de Identidades define qué `tipo`
+es válido para cada `nivel` en `idn_identidad_entidad`. El motor de identidad rechaza cualquier tipo
+no registrado. Agregar un sector nuevo (educación, salud) es agregar su tipo a la política D93.
+
+**Regla A-10 — D94 agrupa usuarios:** el Registro de Usuarios define USERSETs que agrupan
+entidades por contexto operativo (RRHH, flota, autenticacion). Una entidad pertenece a
+múltiples conjuntos sin duplicarse. Mismo patrón que D98 (SET de roles).

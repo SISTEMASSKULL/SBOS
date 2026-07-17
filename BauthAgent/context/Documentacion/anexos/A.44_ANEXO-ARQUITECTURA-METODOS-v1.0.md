@@ -357,7 +357,7 @@ vigencia, revocación). Doble motor Ed25519 interno + ADSIB RSA externo (Ley 164
 - **Petición →** operación SCIM (`POST/PATCH /Users`). **← UserTemplate:** es el **destino** — SCIM crea/actualiza el UserTemplate. **← RolTemplate:** mapea grupos SCIM → roles.
 - **Devuelve →** recurso SCIM + estado. **Verificar:** token de servicio del cliente SCIM + esquema.
 - **🌍 Ejemplo real:** RRHH da de alta a un empleado en su sistema y SCIM lo provisiona automáticamente en bAuth.
-- **✔ Validar:** *norma* → esquema RFC 7643, filtros; **bidireccional** (in/out). **Brecha:** SCIM saliente + `idn_atributo` (A.31, 🔄).
+- **✔ Validar:** *norma* → esquema RFC 7643, filtros; **bidireccional** (in/out). **Brecha:** SCIM saliente + `idn_identidad_atributo` (A.31, 🔄).
 
 ---
 

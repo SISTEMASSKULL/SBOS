@@ -1,10 +1,10 @@
 # A.48 — Parametrización `bauth_config_param`
 ## Tipo B+C+A — Fundamento normativo, diseño técnico y especificación del catálogo de parámetros del PIP de bAuth
 
-**Versión:** 1.0.1  
-**Fecha:** 2026-07-13  
+**Versión:** 1.0.2  
+**Fecha:** 2026-07-14  
 **Tipo de anexo:** B (normativo/industria) + C (justificación técnica) + A (SSOT del catálogo propuesto)  
-**Respalda a:** [2.13 MANUAL-ATOMLANG §4.5](../2.13_MANUAL-ATOMLANG-LENGUAJE-v1.0.md) — valor referenciado en Condition · [2.14 MANUAL-COMPOSICION §9](../2.14_MANUAL-COMPOSICION-ARBOL-v1.0.md) — parametrización en el árbol  
+**Respalda a:** [2.13 MANUAL-ATOMLANG v2.0 §5.2](../2.13_MANUAL-ATOMLANG-LENGUAJE-v2.0.md) — vocabularios cerrados y @bauth_config_param · [2.14 MANUAL-COMPOSICION §9](../2.14_MANUAL-COMPOSICION-ARBOL-v1.0.md) — parametrización en el árbol  
 **Normas base:** NIST SP 800-162 §5 (PIP) · XACML 3.0 §7.2 (attribute retrieval) · ISO 27001:2022 A.5.15 (access control policy)  
 **Estado de implementación:** L0 — concepto definido, sin DDL aplicado
 
@@ -344,5 +344,6 @@ Si la consulta retorna resultados, el parámetro no puede desactivarse hasta que
 
 | Versión | Fecha | Descripción |
 |---------|-------|-------------|
+| 1.0.2 | 2026-07-14 | Actualización de cabecera: referencia a 2.13 v2.0. Sin cambios en el cuerpo. |
 | 1.0.1 | 2026-07-13 | Correcciones por revisión: reemplazadas referencias `bos_*` inventadas — `bos_atom_compiled` → `bauth.privilege_atom_compiled *(propuesto)*` en consulta SQL §2 y en inventario §3.3; `bos_rol` → `bauth.privilege_role`; `bos_resource_catalog` → `bauth.privilege_resource *(propuesta)*`. Nota: las apariciones de `bos_config_param` en §1 (párrafo justificativo) y en el historial de v1.0.0 se conservan intencionalmente — son el texto canónico que justifica por qué NO se usa ese nombre. |
 | 1.0.0 | 2026-07-13 | Primera edición. Define `bauth_config_param` como fuente PIP para valores de negocio configurables: 20 parámetros iniciales en §3.2 (AMOUNT, CURRENCY, INTEGER, NUMERIC_PERCENT, BOOLEAN), DDL completo con `bauth_param_audit` WORM, cadena de precedencia global→tenant→domain, gobernanza con rol `IAM_PARAM_ADMIN`, ciclo de cambio sin recompilación del árbol. Normas base: NIST SP 800-162 §5 (PIP authority), XACML 3.0 §7.2 (attribute retrieval), ISO 27001:2022 A.5.15 (access control policy basada en requisitos de negocio). Naming `bauth_config_param` (no `bos_config_param`) justificado en §1 párrafo final. Estado L0 — sin aplicar. |

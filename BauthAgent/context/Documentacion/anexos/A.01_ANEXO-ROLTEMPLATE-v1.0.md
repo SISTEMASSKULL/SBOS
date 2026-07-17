@@ -2,9 +2,9 @@
 ## Documento de respaldo: estructura completa, origen normativo campo a campo y estado de materialización
 
 **Tipo:** ANEXO — documento de respaldo del corpus (no es un manual; los manuales afirman, este anexo respalda)
-**Versión del anexo:** 2.1.0 · **Fecha:** 2026-07-11
+**Versión del anexo:** 2.2.0 · **Fecha:** 2026-07-14
 **Estatus:** FUENTE AUTOSUFICIENTE — contiene la estructura COMPLETA del contrato (traslado fiel, §19); la documentación de origen queda como cita histórica y **no es fuente de lectura**
-**Respalda a:** MANUAL-ROLES (1.09) §2.5/§7/§11 · MANUAL-MOTOR-VERSIONADO (1.13) §9.2 · MANUAL-BITMASK (1.04) · MANUAL-POLITICAS (2.05)
+**Respalda a:** MANUAL-ROLES (1.09) §2.5/§7/§11 · MANUAL-D00-IDENTIDAD v2.0 (1.06) · MANUAL-ATRIBUTOS v2.0 (1.07) · MANUAL-MOTOR-IDENTIDAD (2.15) · MANUAL-MOTOR-VERSIONADO (1.13) §9.2 · MANUAL-BITMASK (1.04) · MANUAL-POLITICAS (2.05)
 **Fuentes de origen:** `SBOS-ROLTEMPLATE-v6_0` (contrato definitivo, jun-2026) · `BAUTH-ORIGEN-NORMATIVO-ROLTEMPLATE-2026-07-08` (mapa campo→norma, códigos G-B*) · resoluciones G-B01-01…05 / G-B02-01…02 (estado real en VPS)
 **Normas base:** ANSI INCITS 359 (RBAC: Core·Hierarchical·SSD·DSD) · NIST SP 800-63B · NIST SP 800-53 (AC-2/3/5/6, CM-3, AU-*) · ISO 27001:2022 · ISO 24760 · OASIS XACML 3.0 / NIST SP 800-162 · RFC 9470 · PCI DSS 4.0 · SOX · SIN RND · Ley 164
 
@@ -1841,3 +1841,77 @@ está en reparación — sin ambigüedad.
 | 1.1.0 | 2026-07-11 | **§17 reescrita: la estructura COMPLETA por dominios** (corrección del humano: todos los dominios deben estar representados). Incorpora: la matriz de cobertura de los 14 planos D00–D13 (+D99) contra la estructura del rol — consolidando PR-1 del SSOT con la tabla maestra y el pipeline de MANUAL-DOMINIOS 1.01 §4-§5 (D4/D6 sin átomos propios encadenados a D1; D8/D9 pre-BitMask); la especificación de estructura de los 5 bloques nuevos B15–B19 (geoespacial unificado, red/ZTA, contexto adaptativo con los 4 event types de OpenID CAEP 1.0 verificados en la spec final, ciclo de vida de credenciales 800-63B-4 §6, blockchain) y de los 3 enriquecimientos (D0 en B1, D4 cross-refs, D5 en B5 con ISO 30107-3); **tres defases detectados y documentados para HITL**: (1) D13 Firma Digital Externa ausente del plan del SSOT — con recomendación de separar de D12; (2) numeración doble B15–B21 (bloques del contrato ≠ secciones de tracking del doc de gaps) — canónica declarada: la del SSOT; (3) B14 sync_targets pre-ADR-010; el árbol completo y la secuencia de 10 pasos HITL. |
 | 2.0.0 | 2026-07-11 | **MAJOR — cambio de estatus: el anexo pasa a FUENTE AUTOSUFICIENTE** (decisión del humano: los anexos son la nueva documentación; la legacy deja de consultarse). Nueva §19 «Traslado fiel»: la estructura JSONB COMPLETA del contrato v6.0 (los 14 bloques íntegros, extracción literal — no transcripción), las tablas de mapping de materialización `[pre-ADR-010]` y las 5 estructuras JSON propuestas de los bloques nuevos B15–B19 (PR-2). §1 actualizado al nuevo estatus (con la excepción operativa: el doc de gaps sigue siendo el tracking activo). Secciones renumeradas: mapa→§20, referencias→§21. |
 | 2.1.0 | 2026-07-11 | **Verificación de completitud RESUELTA + materialización nativa** (corrección del humano: la solución autosuficiente ya está documentada en los manuales; la completitud se resuelve con normas+estándares+industria). §17.4 pasa de "defases para HITL" a **RESOLUCIONES**: (1) D13 → especificado el **nuevo bloque `B20 legal_signature_policy`** del rol (operaciones que exigen firma jurídica, motor requerido INTERNAL/EXTERNAL_ADSIB de 2.04, requisitos de certificado ADSIB, evidencia — fundamento Ley 164/eIDAS: el certificado es de la persona → el sujeto lo porta en A.02 §19.2-U6); (2) numeración canónica confirmada; (3) B14 resuelto por los manuales (coherencia interna 1.09 §7.3 + prueba de consistencia opcional 1.08 §7.2). §9-B7 actualizado a la materialización vigente (enforcement nativo BitMask+PolicyEngine; 5 capas como patrón declarativo de integración vía átomos D1 + biedata — 1.10). Matriz §17.1: **14/14 planos representados** (árbol §17.5 con B20; secuencia ampliada). |
+
+
+---
+
+## §22 — v2.2.0: El RolTemplate y los átomos de identidad D00 (2026-07-14)
+
+### 22.1 El RolTemplate como fábrica de átomos — incluidos los de identidad
+
+El RolTemplate fabrica átomos. No solo átomos de acceso (D1 leer, D3 aprobar), sino también
+átomos de identidad (D00). Los 20 átomos D00 sembrados en `bauth_50__d00_identidad_seeds.sql`
+son átomos del mismo `privilege_atom`, se asignan con el mismo `privilege_role_atom`, y el
+mismo UserBitMask los evalúa.
+
+```
+ROL "vendedor_senior" tiene tickeados:
+
+  D1 · Acceso Lógico              D00 · Identidad
+  ─────────────────────           ──────────────
+  ✅ d1.zona_ventas.approve       ✅ org.g5.d0.locale        (self-edit)
+  ✅ d1.zona_ventas.read          ✅ org.g5.d0.timezone      (self-edit)
+  ✅ d3.payment.approve           ☐ org.g5.d0.email         (admin-edit)
+  ☐ d3.transfer.execute           ☐ org.g2.d0.nit           (read)
+
+ROL "gerente_regional" tiene tickeados:
+
+  D1 · Acceso Lógico              D00 · Identidad
+  ─────────────────────           ──────────────
+  ✅ d1.zona_ventas.approve       ✅ org.g5.d0.email         (editar emails del equipo)
+  ✅ d3.payment.approve           ✅ org.g2.d0.nit           (ver NIT de la empresa)
+  ✅ d3.transfer.execute           ☐ org.g2.d0.direccion    (cambiar dirección fiscal)
+```
+
+### 22.2 Atributos del propio rol
+
+Los roles son entidades en `idn_identidad_atributo` con `entidad_tipo='role'`. Tienen atributos
+extensibles sin tocar el DDL de `idn_role_template`:
+
+```sql
+INSERT INTO bauth.idn_identidad_atributo (entidad_id, category, attr_key, type, value_text) VALUES
+  ('vendedor_senior', 'norma', 'respaldo', 'nist', 'NIST SP 800-53 AC-3/AC-6'),
+  ('vendedor_senior', 'norma', 'respaldo', 'iso', 'ISO 27001:2022 A.5.15'),
+  ('vendedor_senior', 'seguridad', 'loa_required', NULL, '2'),
+  ('vendedor_senior', 'seguridad', 'mfa_required', NULL, 'true'),
+  ('vendedor_senior', 'sector', 'caeb', 'primario', 'COMERCIAL');
+```
+
+### 22.3 Conjuntos de roles (D98) y conjuntos de usuarios (D94)
+
+El RolTemplate ya incluye D98 (conjuntos de roles). La arquitectura v2.0 agrega D94
+(conjuntos de usuarios). Ambos usan el mismo patrón:
+
+```
+D98 · SET(financieros_tier2)  → {analista_pagos, contador_junior}
+D98 · SET(vendedores)         → {vendedor_senior, vendedor_junior, ejecutivo_ventas}
+
+D94 · USERSET(RRHH)           → todos los actores HUMAN empleados
+D94 · USERSET(flota)          → todos los actores tipo=vehiculo
+D94 · USERSET(autenticacion)  → todos los actores que pueden loguearse
+```
+
+### 22.4 Conexión con el motor de identidad
+
+Los átomos D00 son validados por el motor de identidad (2.15) antes de ser asignados a
+roles. La validación del dato (¿el NIT tiene 14 dígitos?) ocurre en el motor de identidad.
+La gobernanza del acceso (¿Juan puede ver el NIT?) ocurre en el BitMask. Dos motores,
+mismo lenguaje AtomLang, mismos átomos.
+
+---
+
+## Historial (continuación)
+
+| Versión | Fecha | Descripción |
+|---------|-------|-------------|
+| 2.2.0 | 2026-07-14 | **Átomos de identidad D00 en el RolTemplate.** Nueva §22: el RolTemplate fabrica átomos D00 además de D1-D13. Atributos del propio rol en idn_identidad_atributo. Conjuntos de usuarios (D94). Conexión con el motor de identidad (2.15). |

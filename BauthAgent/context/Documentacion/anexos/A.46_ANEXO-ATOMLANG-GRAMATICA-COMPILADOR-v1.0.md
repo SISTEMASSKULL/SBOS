@@ -1,10 +1,10 @@
 # A.46 — Gramática AtomLang y Compilador `atomc`
 ## Tipo A+D — Traslado de SSOT + verificación de implementación: la especificación completa del lenguaje y su compilador
 
-**Versión:** 1.0.1  
-**Fecha:** 2026-07-13  
+**Versión:** 1.0.3  
+**Fecha:** 2026-07-14  
 **Tipo de anexo:** A (traslado de SSOT) + D (verificación de código / estado de implementación)  
-**Respalda a:** [2.13 MANUAL-ATOMLANG-LENGUAJE §3–§6](../2.13_MANUAL-ATOMLANG-LENGUAJE-v1.0.md) — la gramática EBNF (§3), los constructos (§4), el compilador (§5–§6)  
+**Respalda a:** [2.13 MANUAL-ATOMLANG-LENGUAJE v2.0 §5, §8](../2.13_MANUAL-ATOMLANG-LENGUAJE-v2.0.md) · [2.15 Motor de Identidad](../2.15_MANUAL-MOTOR-IDENTIDAD-v1.0.md) · [1.06 D00 Identidad v2.0](../1.06_MANUAL-D00-IDENTIDAD-v2.0.md) · [A.45 §9.2](A.45_ANEXO-FUNDAMENTOS-NORMATIVOS-ATOMLANG-v1.0.md)  
 **Fuentes absorbidas:** `AtomLang-especificacion-completa.md` §5–§12 · `ATOMLANG-DSL-SPEC-v1.0.md` §1–§5 (ambas legacy en `anexos/` — este anexo las reemplaza)  
 **Normas base:** OASIS XACML 3.0 · NIST SP 800-162 §4 · JSON Schema 2020-12
 
@@ -539,5 +539,6 @@ Resumen del análisis `vw_gaps` para D1 (fuente: `ATOMLANG-GAP-ANALYSIS-D1-v1.0.
 
 | Versión | Fecha | Descripción |
 |---------|-------|-------------|
-| 1.0.1 | 2026-07-13 | Correcciones por revisión: reemplazadas todas las referencias a tablas `bos_*` inventadas — `bos_verb` → `bauth.privilege_verb`, `bos_atom_catalog` → `bauth.privilege_atom`, `bos_group` → `bauth.privilege_role_set *(propuesta)*`, `bos_resource_catalog` → `bauth.privilege_resource *(propuesta)*`, `bos_attribute_catalog` → `bauth.privilege_attribute *(propuesta)*`, `bos_application` → `bauth.privilege_application`. Referencias en EBNF §2, JSON Schema §3, grafos G-01..G-10, DDL §6.1 y catálogo §7. |
-| 1.0.0 | 2026-07-13 | Primera edición. Absorbe y reemplaza: `AtomLang-especificacion-completa.md` (§5–§12: JSON Schema Atom, JSON Schema CompiledTree, algoritmo evaluador en 3 pasos, EBNF, ejemplo end-to-end, propuesta atomc CLI, DDL bauth.privilege_atom_compiled *(propuesto)*, Definition of Done) y `ATOMLANG-DSL-SPEC-v1.0.md` (§1–§5: EBNF DSL-style, grafo dependencias G-01..G-10, compilador SOURCE→CANONICAL, tabla de equivalencias D1, estado BD VPS). Unifica ambas gramáticas (YAML-based es la elegida — §10.2 de la especificación). Catálogo de errores ATOMC-E-011..E-061 y W-011..W-031. Estado de implementación verificado: atomc L0, bauth.privilege_atom_compiled *(propuesto)* sin aplicar. `aggregate-strictest` documentado como extensión bAuth con justificación NIST SP 800-63B §4.3. `bauth_config_param` en lugar de `bos_config_param`. |
+| 1.0.2 | 2026-07-14 | Actualización de cabecera: referencia a 2.13 v2.0 y A.45 §9.2 (dominios del lenguaje D95-D99). Sin cambios en el cuerpo — gramática EBNF, JSON Schema, catálogo de errores y arquitectura atomc vigentes. |
+| 1.0.1 | 2026-07-13 | Correcciones por revisión: reemplazadas todas las referencias a tablas `bos_*` inventadas. |
+| 1.0.0 | 2026-07-13 | Primera edición. Unifica gramáticas, catálogo ATOMC, arquitectura atomc, DDL privilege_atom_compiled. |

@@ -69,8 +69,8 @@ listar la carpeta; los archivos ordenan solos por fase y dependencia. La carta r
 | 1.3 | [Átomos](1.03_MANUAL-ATOMOS-v1.0.md) | 1.1, 1.2 | ✅ 1.2.0 |
 | 1.4 | [BitMask y Dominios](1.04_MANUAL-BITMASK-v1.0.md) | 1.3 | ✅ 1.1.0 |
 | 1.5 | [DDL y Seeds](1.05_MANUAL-DDL-SEEDS-v1.0.md) | 1.3 (schema del catálogo) | ✅ 1.0.0 |
-| 1.6 | [D00 — Identidad Organizacional](1.06_MANUAL-D00-IDENTIDAD-v1.0.md) | 1.4 | ✅ 1.0.0 |
-| 1.7 | [Atributos](1.07_MANUAL-ATRIBUTOS-v1.0.md) | 1.6 | ✅ 1.0.0 |
+| 1.6 | [D00 — Identidad Organizacional v2.1.0](1.06_MANUAL-D00-IDENTIDAD-v2.0.md) | 1.4, 1.7 | ✅ 2.1.0 (37 dominios · N-to-N · multi-tenant · visibilidad) |
+| 1.7 | [Atributos v2.0](1.07_MANUAL-ATRIBUTOS-v2.0.md) | 1.6 | ✅ 2.0.0 |
 | 1.8 | [User y UserTemplate](1.08_MANUAL-USER-TEMPLATE-v1.0.md) | 1.6, 1.9 | ✅ 1.1.0 |
 | 1.9 | [Roles](1.09_MANUAL-ROLES-v1.0.md) | 1.4, 1.6 | ✅ 1.3.0 |
 | 1.10 | [Aplicaciones (catálogo e integración)](1.10_MANUAL-APLICACIONES-v1.0.md) | 1.3, 1.9 | ✅ 1.2.0 |
@@ -94,8 +94,11 @@ listar la carpeta; los archivos ordenan solos por fase y dependencia. La carta r
 | 2.10 | [Seguridad de Datos](2.10_MANUAL-SEGURIDAD-DATOS-v1.0.md) | 1.7, 2.4 | ✅ 1.0.0 |
 | 2.11 | [Frontend (Dashboard)](2.11_MANUAL-FRONTEND-v1.0.md) | 2.5, 1.10 | ✅ 1.0.0 |
 | 2.12 | [Canales Protegidos (Gestor de canales)](2.12_MANUAL-CANALES-PROTEGIDOS-v1.0.md) | 2.9, 1.11, 2.3, 2.4 | ✅ 1.0.0 ➕ (gestor: L0) |
-| 2.13 | [AtomLang — Lenguaje de configuración del árbol de políticas](2.13_MANUAL-ATOMLANG-LENGUAJE-v1.0.md) | 1.02, 1.03, 2.05, 7.03 | ✅ 1.0.0 (lenguaje L1 · compilador L0) |
+| 2.13 | [AtomLang — Lenguaje de configuración del árbol de políticas v2.0](2.13_MANUAL-ATOMLANG-LENGUAJE-v2.0.md) | 1.01, 1.02, 1.03, 1.04, 2.05, 7.03 | ✅ 2.0.0 (lenguaje L2 · compilador L0) |
 | 2.14 | [Composición del Árbol — dominios, zonas, aplicaciones y posición de cada átomo](2.14_MANUAL-COMPOSICION-ARBOL-v1.0.md) | 2.13, 1.01, 1.03, 1.10, 2.05 | ✅ 1.0.0 (árbol conceptual L2 · árbol técnico L0) |
+| 2.15 | [Motor de Identidad — validación de datos con políticas AtomLang](2.15_MANUAL-MOTOR-IDENTIDAD-v1.0.md) | 1.06 v2.0, 1.07 v2.0, 2.13 v2.0 | ✅ 1.1.0 (N-to-N · multi-tenant · visibilidad) |
+| 2.16 | [Uso del Motor de Identidad — guía práctica](2.16_MANUAL-USO-MOTOR-IDENTIDAD-v1.0.md) | 1.06 v2.0, 1.07 v2.0, 2.15 | ✅ 1.1.0 (guía de uso · ejemplos · API) |
+| 2.17 | [Motor de Roles — gestión de roles, átomos y asignaciones vía JSON-RPC y CLI](2.17_MANUAL-MOTOR-ROLES-v1.0.md) | 1.03, 1.04, 1.08, 1.09, 2.05, 2.13, 2.15 | ✅ 1.1.0 (CRUD + CLI + RPC · diseño completo) |
 
 ### Fase 3 — DETECCIÓN · monitoreo y riesgo
 
@@ -149,12 +152,13 @@ curada para consulta sin fricción. Índice, patrón canónico y plan: [anexos/I
 
 | Anexo | Respalda a | Estado |
 |:--:|--------|:-------------:|
-| [A.01 — El Contrato RolTemplate v6.0 + estructura completa D00–D13 (14/14, resoluciones)](anexos/A.01_ANEXO-ROLTEMPLATE-v1.0.md) — FUENTE AUTOSUFICIENTE (traslado fiel §19) | 1.1, 1.9, 1.13, 1.4, 2.5 | ✅ 2.1.0 ➕ |
-| [A.02 — El Contrato UserTemplate v6.0 + verificación de completitud RESUELTA (U1–U7)](anexos/A.02_ANEXO-USERTEMPLATE-v1.0.md) — FUENTE AUTOSUFICIENTE (traslado fiel §22) | 1.1, 1.8, 1.13, 2.1, 2.10 | ✅ 1.1.0 ➕ |
+| [A.01 — El Contrato RolTemplate v6.0 + átomos D00 + idn_identidad_atributo roles (§22)](anexos/A.01_ANEXO-ROLTEMPLATE-v1.0.md) — FUENTE AUTOSUFICIENTE | 1.06, 1.09, 1.13, 1.04, 2.05, 2.15 | ✅ 2.2.0 |
+| [A.02 — El Contrato UserTemplate v6.0 + idn_identidad_entidad + idn_identidad_atributo usuarios (§23)](anexos/A.02_ANEXO-USERTEMPLATE-v1.0.md) — FUENTE AUTOSUFICIENTE | 1.06, 1.08, 1.13, 2.01, 2.10, 2.15 | ✅ 1.2.0 |
 | A.03 Catálogo de Roles (+BitMask Dual) · A.04 Cadenas DAG · A.05 Átomos de Dominio · A.06/A.07 Frameworks (+recursos) · A.08 Firma · A.09 Credenciales/IAL · A.10 Revocación · A.11 Red · A.12 Blockchain D12 · A.13 ADRs (vigencia real) · A.14 Context Plane | ver [INDICE-ANEXOS](anexos/INDICE-ANEXOS.md) §2 | ✅ (14 publicados) |
 | [A.15 — Stack Rust de Autenticación](anexos/A.15_ANEXO-STACK-RUST-AUTENTICACION-v1.0.md) — el patrón de SUSTENTACIÓN (verificación de código: cubierto/parcial/brechas específicas) | 2.1, 2.2, 2.3 | ✅ 1.0.0 ➕ |
 | **Sustentación A.16–A.40 (25 anexos)** — verificación de código real de todos los manuales: protocolos, BitMask, frontend, superficie, OIDC, dominios, RLS, validadores, sqlx, calidad, riesgo, auditoría, DPoP, operación, IGA, atributos, aplicaciones, motor, D99, calendario, menú, datos, CAEP, CLI, producto | [INDICE-ANEXOS §2-§3.1](anexos/INDICE-ANEXOS.md) | ✅ **COBERTURA TOTAL** (36/36 manuales) |
-| **AtomLang A.45–A.48 (4 anexos)** — respaldo normativo y técnico de los manuales 2.13 y 2.14: A.45 fundamentos XACML/NIST/ISO · A.46 gramática EBNF + compilador atomc + catálogo errores ATOMC · A.47 clasificación, antipatrones, diagnóstico D1 as-is, glosario XACML/NIST/AWS/bAuth · A.48 PIP bauth_config_param DDL + gobernanza | [INDICE-ANEXOS §2](anexos/INDICE-ANEXOS.md) | ✅ 1.0.0 |
+| **AtomLang A.45–A.51 (7 anexos)** — respaldo normativo y técnico de los manuales 2.13 y 2.14. | [INDICE-ANEXOS §2](anexos/INDICE-ANEXOS.md) | ✅ |
+| **Identidad + Motor de Roles A.52–A.63 (10 anexos)** — A.52 Tipos y Dominios · A.53 Capas Acumulativas · A.54 Catálogo Autopartes · A.55 Catálogo Automotriz · A.56 Diseño BD Identidad · A.57 Rendimiento Identidad · A.59 Tipos de Átomos (6,000, BitMask) · A.60 Ciclo Vida Átomos (DAG, merge) · A.61 Diseño BD Roles · A.62 Rendimiento Roles · A.63 Objetos Compuestos (Composite GoF, 3 árboles) | [INDICE-ANEXOS §2](anexos/INDICE-ANEXOS.md) | ✅ 2.1.0 |
 
 ---
 
