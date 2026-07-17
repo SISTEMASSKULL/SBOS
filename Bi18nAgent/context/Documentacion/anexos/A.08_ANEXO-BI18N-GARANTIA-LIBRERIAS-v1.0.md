@@ -2,7 +2,7 @@
 ## ¿Puedo usar con `bi18nctl` todas las funciones de las librerías orquestadas?
 
 **Tipo:** V — verificación de exposición de capacidades vía Interface Triple
-**Versión del anexo:** 2.0.0
+**Versión del anexo:** 3.0.0
 **Fecha:** 2026-07-17
 **Bloque:** 12.1
 **Respalda a:** [A.01 (Cobertura de Librerías)](A.01_ANEXO-BI18N-COBERTURA-LIBRERIAS-v1.0.md) · [Manual de Usuario](../MANUAL-USUARIO-BI18N-v1.0.md)
@@ -207,7 +207,58 @@ No es un proxy de librerías — es un servicio de dominio. Las librerías son s
 
 ---
 
-## §6 Garantía formal
+## §6 Protocolo de implementación Fase 2 — un anexo = una librería = un handler
+
+### 6.1 La regla
+
+Cada librería de `Cargo.toml` que expone métodos RPC tiene exactamente:
+
+- **Un inventario de exposición** (`A.08.XX`) — define qué funciones de la librería se exponen como RPC y cuáles son infraestructura interna
+- **Un archivo handler Rust** (`src/server/handlers/lib_<nombre>.rs`) — implementa solo los métodos de esa librería, sin mezclar lógica de otras
+- **Arms en el dispatcher** (`src/server/dispatcher.rs`) — registra cada método RPC del handler en el match central
+
+El nombre del handler Rust refleja directamente el nombre de la librería tal como aparece en el inventario. No se mezclan librerías en un mismo handler.
+
+### 6.2 Mapa completo: inventario → handler Rust
+
+| Inventario | Librería | Handler Rust | Métodos RPC |
+|-----------|----------|--------------|:-----------:|
+| [A.08.01](A.08.01_INVENTARIO-LIB-FLUENT-BUNDLE-v1.0.md) | `fluent-bundle 0.15.3` | `lib_fluent.rs` | 6 |
+| [A.08.02](A.08.02_INVENTARIO-LIB-RUST-I18N-v1.0.md) | `rust-i18n 4.x` | `lib_rust_i18n.rs` | 4 |
+| [A.08.03](A.08.03_INVENTARIO-LIB-ICU-DATETIME-v1.0.md) | `icu_datetime 2.2.0` | `lib_icu_datetime.rs` | 6 |
+| [A.08.04](A.08.04_INVENTARIO-LIB-ICU-LOCALE-v1.0.md) | `icu_locale_core 2.2.0` | `lib_icu_locale.rs` | 4 |
+| [A.08.05](A.08.05_INVENTARIO-LIB-ICU-DECIMAL-v1.0.md) | `icu_decimal 2.2.0` | `lib_icu_decimal.rs` | 4 |
+| [A.08.06](A.08.06_INVENTARIO-LIB-VALIDATOR-v1.0.md) | `validator 0.19.0` | `lib_validator.rs` | 12 |
+| [A.08.07](A.08.07_INVENTARIO-LIB-SCRUTINY-v1.0.md) | `scrutiny 0.1.2` | `lib_scrutiny.rs` | 4 |
+| [A.08.08](A.08.08_INVENTARIO-LIB-MASK-PII-v1.0.md) | `mask-pii 0.2.0` | `lib_mask_pii.rs` | 4 + FIX |
+| [A.08.09](A.08.09_INVENTARIO-LIB-UNIVERSAL-MASK-v1.0.md) | `universal_mask 0.1.0` | `lib_universal_mask.rs` | 5 |
+| [A.08.10](A.08.10_INVENTARIO-LIB-JIFF-v1.0.md) | `jiff 0.2.32` | `lib_jiff.rs` | 18 |
+| [A.08.11](A.08.11_INVENTARIO-LIB-CHRONO-v1.0.md) | `chrono 0.4.45` | `lib_chrono.rs` | 15 |
+| [A.08.12](A.08.12_INVENTARIO-LIB-REGEX-v1.0.md) | `regex 1.13.1` | `lib_regex.rs` | 6 |
+| [A.08.13](A.08.13_INVENTARIO-LIB-PHONENUMBER-v1.0.md) | `phonenumber 0.3.10` | `lib_phonenumber.rs` | 8 |
+| [A.08.14](A.08.14_INVENTARIO-LIB-PRISM3-v1.0.md) | `prism3-core 0.2.0` | `lib_prism3.rs` | 12 |
+| A.08.15–A.08.22 | `validy` · `valida` · `clipass_rs` · `arc-swap` · `notify` · `shakehand` · `veil` · `serde_with` | — sin handler — | 0 (infra interna) |
+
+**Total Fase 2:** 14 handlers · 108 métodos RPC nuevos · total acumulado 126.
+
+### 6.3 Protocolo de trabajo por handler
+
+Para cada inventario con métodos RPC, en orden A.08.01 → A.08.14:
+
+```
+1. Leer A.08.XX — identificar exactamente qué funciones de la librería se exponen
+2. Crear src/server/handlers/lib_<nombre>.rs
+   · Encabezado con propósito, librería, métodos expuestos
+   · Una función pública por método RPC — nombre en snake_case del método
+   · Result<Value, Bi18nError> en toda función — sin unwrap()
+3. Registrar en src/server/handlers/mod.rs — pub mod lib_<nombre>;
+4. Agregar arms en src/server/dispatcher.rs — en el namespace correcto
+5. Verificar compilación — cargo check (C12: evidencia obligatoria)
+6. Actualizar A.08.XX — cambiar 📋 → ✅ en los métodos implementados
+7. Commit — "feat(bi18n): A.08.XX lib_<nombre> — N métodos RPC"
+```
+
+## §7 Garantía formal
 
 **Se garantiza que:**
 
@@ -229,3 +280,4 @@ No es un proxy de librerías — es un servicio de dominio. Las librerías son s
 |---|---|---|
 | 1.0.0 | 2026-07-17 | Creación inicial — análisis de compilación y uso activo. |
 | 2.0.0 | 2026-07-17 | Reescritura completa. Responde la pregunta real: ¿con bi18nctl accedo a todas las funciones de las librerías? Mapa explícito función→método bi18nctl, cobertura actual vs Fase futura, garantía formal de que toda capacidad de i18n comprometida está accesible. |
+| 3.0.0 | 2026-07-17 | Nueva §6 — Protocolo Fase 2: un anexo = una librería = un handler Rust. Mapa completo A.08.01–A.08.14 → 14 `lib_*.rs`, protocolo de 7 pasos por handler, 108 métodos RPC nuevos declarados. |

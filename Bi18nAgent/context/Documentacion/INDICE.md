@@ -32,6 +32,7 @@ Los manuales se numeran `N.M` desde 1.01 (primer manual de bi18n).
 |---|---|---|
 | [REGISTRO-ESTADO-IMPLEMENTACION — Fase 1](REGISTRO-ESTADO-IMPLEMENTACION.md) | Bloques 1-12 ✅ completos. 18 métodos RPC, Interface Triple C11, BO/AR/BR, Weblate, ArcSwap, hot-reload, manual, batería de pruebas, garantía de completitud. | ✅ v1.1.0 cerrado |
 | [**REGISTRO-ESTADO-DOS — Fase 2**](REGISTRO-ESTADO-DOS.md) | 15 bloques (A-N + Ω). Exposición completa de las 23 librerías de Cargo.toml como métodos RPC. **108 métodos RPC nuevos** (total acumulado 126). Servidor web HTTP (puerto 9456, 5 endpoints). APIs verificadas directamente en `~/.cargo/registry/src/` — v3.0.0 corrige 5 errores de la v2.0.0. | ✅ v3.0.0 VERIFICADO |
+| [**PLAN-FASE-2-IMPLEMENTACION**](PLAN-FASE-2-IMPLEMENTACION-v1.0.md) | Protocolo de trabajo para los 14 handlers Rust de Fase 2. **Un anexo = una librería = un handler.** Mapa A.08.01→14 a `lib_*.rs`, convención de naming, estructura del dispatcher, tabla de progreso con commit por handler. | ✅ v1.0.0 |
 | [BATERIA-PRUEBAS-TESTEADOR — Fase 1](BATERIA-PRUEBAS-TESTEADOR-v1.0.md) | 28 verificaciones VERDADERO/FALSO para los 18 métodos RPC de Fase 1. | ✅ 1.0.0 |
 
 ---
@@ -110,3 +111,4 @@ Los manuales se numeran `N.M` desde 1.01 (primer manual de bi18n).
 | 1.7.0 | 2026-07-17 | REGISTRO-ESTADO-DOS creado (Fase 2 en curso). 14 bloques para exposición completa de 23 librerías + servidor web de traducciones. Estado del índice actualizado a "Fase 2 EN CURSO". |
 | 1.8.0 | 2026-07-17 | REGISTRO-ESTADO-DOS reescrito a v2.0.0 DEFINITIVO con datos verificados de 4 agentes. 108 métodos RPC nuevos (total 126) + 5 endpoints HTTP. API exhaustiva de las 23 librerías. |
 | 1.9.0 | 2026-07-17 | Nuevo A.09 — bi18n como Servidor Canónico de Traducciones de Lenguajes: rol arquitectónico, estructura FTL, namespacing de claves, fallback de idioma, contrato de consumo para daemons, integración bglobal. |
+| 2.0.0 | 2026-07-17 | PLAN-FASE-2-IMPLEMENTACION v1.0.0 — protocolo formal de trabajo: un anexo = una librería = un handler Rust. Mapa A.08.01–A.08.14 → 14 `lib_*.rs`, convención de naming, estructura del dispatcher, tabla de progreso. |
