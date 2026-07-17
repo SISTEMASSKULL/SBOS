@@ -245,7 +245,7 @@ Archivo a modificar: **`src/server/unix_socket.rs`** (función `ejecutar_metodo`
 
 ---
 
-## BLOQUE 5 — i18nctl: implementación real 🟠
+## BLOQUE 5 — i18nctl: implementación real ✅
 
 > **Impacto:** la CLI es la Vía 3 del operador. Actualmente solo parsea argumentos e imprime
 > "Fase 5 pendiente" — no conecta con el daemon.
@@ -263,7 +263,7 @@ Precondición: daemon bi18nd activo en `/run/bos/bi18n.sock`.
   4. Parsea y retorna el `result` o imprime el `error`
 - **Criterio de done:** `i18nctl estado` conecta al socket y muestra el resultado de
   `bi18n.health.check`.
-- **Estado:** ❌
+- **Estado:** ✅ — `enviar_jsonrpc()` síncrono vía `UnixStream`; timeouts 5s/10s
 
 ### 5.2 Subcomandos base (Estado, Recargar)
 
@@ -271,7 +271,7 @@ Precondición: daemon bi18nd activo en `/run/bos/bi18n.sock`.
 - **Recargar:** enviar SIGHUP al daemon **o** un método JSON-RPC de recarga (agregar
   `bi18n.admin.reload` en el dispatcher si se prefiere no usar señales desde el CLI)
 - **Criterio de done:** ambos comandos producen output legible en terminal.
-- **Estado:** ❌
+- **Estado:** ✅ — `estado`→`bi18n.health.check`; `recargar`→`bi18n.admin.reload` (dispatcher + context)
 
 ### 5.3 Subcomandos de formato y validación
 
@@ -294,7 +294,7 @@ Agregar los subcomandos que faltan (según A.02 §4.3):
 
 - **Criterio de done:** todos los subcomandos listados tienen implementación que llama
   al daemon y formatea la respuesta en la terminal. `--json` produce JSON crudo.
-- **Estado:** ❌
+- **Estado:** ✅ — 12 subcomandos implementados: format-fecha/numero/monto, validar-id/email/telefono, mask-valor/pii, locale-resolver, enum-display, snapshot, attr-pipeline
 
 ### 5.4 Flags transversales
 
@@ -302,7 +302,7 @@ Agregar los subcomandos que faltan (según A.02 §4.3):
 - `--quiet` → solo exit code (0=ok, 1=inválido, 2=error daemon)
 - `--ctx-id UUID` → pasar ctx_id explícito (por defecto: UUID generado localmente)
 - **Criterio de done:** `i18nctl --json snapshot --tenant acme-sa` imprime JSON.
-- **Estado:** ❌
+- **Estado:** ✅ — `--json`, `--quiet`, `--ctx-id` globales; exit codes 0/2
 
 ---
 

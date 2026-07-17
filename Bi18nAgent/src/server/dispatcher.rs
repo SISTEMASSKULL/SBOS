@@ -192,6 +192,24 @@ pub async fn ejecutar_metodo(
             Ok(serde_json::json!({ "campos": campos }))
         }
 
+        // ── Administración ────────────────────────────────────────────────
+        "bi18n.admin.reload" => {
+            let (n, ok_rules) = match ctx.loader.recargar().await {
+                Ok(n)  => { tracing::info!("admin.reload: {} países recargados", n); (n, true) }
+                Err(e) => { tracing::error!("admin.reload: country-rules falló: {}", e); (0, false) }
+            };
+            let ok_fluent = match ctx.fluent.recargar(&ctx.config.rutas.fluent_dir) {
+                Ok(()) => { tracing::info!("admin.reload: Fluent recargado"); true }
+                Err(e) => { tracing::warn!("admin.reload: Fluent falló: {}", e); false }
+            };
+            Ok(serde_json::json!({
+                "recargado": ok_rules || ok_fluent,
+                "paises_cargados": n,
+                "country_rules": if ok_rules { "ok" } else { "error" },
+                "fluent": if ok_fluent { "ok" } else { "error" },
+            }))
+        }
+
         metodo => Err(Bi18nError::MetodoNoEncontrado { metodo: metodo.to_string() }),
     }
 }
