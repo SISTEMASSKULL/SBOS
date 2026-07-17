@@ -15,6 +15,7 @@ pub mod lib_icu_datetime;
 pub mod lib_icu_decimal;
 pub mod lib_icu_locale;
 pub mod lib_rust_i18n;
+pub mod lib_scrutiny;
 pub mod lib_validator;
 pub mod locale;
 pub mod mask;

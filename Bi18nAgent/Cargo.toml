@@ -103,7 +103,7 @@ validy = "1.2"
 validator = { version = "0.19", features = ["derive", "card"] }
 
 # Validación de reglas de negocio (mismo patrón que bAuth)
-scrutiny = "0.1"
+scrutiny = { version = "0.1", features = ["ulid-parse", "timezone"] }
 
 # Validación E.164 vía Google libphonenumber (200+ países) — Fase 4
 phonenumber = "0.3"

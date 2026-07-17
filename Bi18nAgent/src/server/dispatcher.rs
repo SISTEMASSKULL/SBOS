@@ -272,6 +272,26 @@ pub async fn ejecutar_metodo(
             handlers::lib_validator::validate_must_match_fields(ctx, &params).await
         }
 
+        // ── Validación de formatos especiales (A.08.07) ───────────────────
+        "bi18n.validate.uuid" => {
+            handlers::lib_scrutiny::validate_uuid(ctx, &params).await
+        }
+        "bi18n.validate.ulid" => {
+            handlers::lib_scrutiny::validate_ulid(ctx, &params).await
+        }
+        "bi18n.validate.mac_address" => {
+            handlers::lib_scrutiny::validate_mac_address(ctx, &params).await
+        }
+        "bi18n.validate.hex_color" => {
+            handlers::lib_scrutiny::validate_hex_color(ctx, &params).await
+        }
+        "bi18n.validate.timezone" => {
+            handlers::lib_scrutiny::validate_timezone(ctx, &params).await
+        }
+        "bi18n.validate.is_json" => {
+            handlers::lib_scrutiny::validate_is_json(ctx, &params).await
+        }
+
         // ── ICU locale BCP-47 (A.08.04) ──────────────────────────────────
         "bi18n.locale.parse_bcp47" => {
             handlers::lib_icu_locale::locale_parse_bcp47(ctx, &params).await
