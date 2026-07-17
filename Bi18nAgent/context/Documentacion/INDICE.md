@@ -1,9 +1,9 @@
 # Documentación Técnica — bi18n (i18n-orchestrator)
 
-**Versión:** 2.1.0
+**Versión:** 2.4.0
 **Mantenido por:** bauth-developer
-**Última actualización:** 2026-07-17
-**Estado:** Activo — Fase 1 ✅ (18 RPC) + Fase 2 ✅ (107 RPC nuevos: 103 handlers + 4 admin.*). Total acumulado: 125 métodos RPC. Pendiente: P3 CLI (103 subcomandos bi18nctl para Fase 2).
+**Última actualización:** 2026-07-18
+**Estado:** Activo — Fase 1 ✅ (18 RPC) + Fase 2 ✅ (108 RPC nuevos). Total: **126 métodos RPC**. P4 ✅ (admin.* + WebSocket push + Bundle Prefetch). P4b ✅ (auditoría namespace CLI: 100% alineado). Documentación completa: 4 manuales · 25 anexos.
 
 ---
 
@@ -23,6 +23,8 @@ Los manuales se numeran `N.M` desde 1.01 (primer manual de bi18n).
 |:--:|--------|------------|:------:|
 | 1.01 | [bi18n — Arquitectura del Orquestador](1.01_MANUAL-BI18N-ARQUITECTURA-v1.2.md) | [i18n-orchestrator-rust.md](../i18n-orchestrator-rust.md) · [1.07 Atributos](../../BauthAgent/context/Documentacion/1.07_MANUAL-ATRIBUTOS-v2.0.md) · [2.15 Motor Identidad](../../BauthAgent/context/Documentacion/2.15_MANUAL-MOTOR-IDENTIDAD-v1.0.md) | ✅ 1.4.0 |
 | 1.02 | [Manual de Usuario bi18n](MANUAL-USUARIO-BI18N-v1.0.md) | 1.01 · A.02 · A.07 | ✅ 1.0.0 |
+| 1.03 | [**Manual del Programador — Mantenimiento y Actualización**](1.03_MANUAL-PROGRAMADOR-BI18N-v1.0.md) | 1.01 · A.01 · A.10 · ISO 14764 · ISO 12207 | ✅ 1.0.0 |
+| 1.04 | [**Manual del Usuario Programador — Consumir bi18n**](1.04_MANUAL-USUARIO-PROGRAMADOR-v1.0.md) | 1.01 · A.07 · A.09 · A.10 | ✅ 1.0.0 |
 
 ---
 
@@ -80,6 +82,10 @@ Los manuales se numeran `N.M` desde 1.01 (primer manual de bi18n).
 | [A.08.20 — Inventario shakehand 0.1.3](anexos/A.08.20_INVENTARIO-LIB-SHAKEHAND-v1.0.md) | **Inventario de exposición:** 0 métodos RPC — proc-macro compile-time puro. | A.08 · REGISTRO Bloque C | ✅ 1.0.0 |
 | [A.08.21 — Inventario veil 0.3.0](anexos/A.08.21_INVENTARIO-LIB-VEIL-v1.0.md) | **Inventario de exposición:** 0 métodos RPC — derive macro de redacción en logs (ISO 27001 A.8.15). | A.08 · REGISTRO Bloque C | ✅ 1.0.0 |
 | [A.08.22 — Inventario serde_with 3.21.0](anexos/A.08.22_INVENTARIO-LIB-SERDE-WITH-v1.0.md) | **Inventario de exposición:** 0 métodos RPC — adaptadores de serialización serde. `#[serde_as]` + `TimestampSeconds`. | A.08 · REGISTRO Bloque C | ✅ 1.0.0 |
+| [**A.10 — Inventario API y Librerías v3.0**](anexos/A.10_INVENTARIO-API-LIBRERIAS-v3.0.md) | **Tipo R:** referencia completa de API de las 23 librerías con firmas reales del cargo registry. Fuente de verdad de parámetros y tipos para handlers y CLI. | 1.03 · 1.04 · A.08 | ✅ 3.0.0 |
+| [**A.11 — Batería de Pruebas CLI (bi18nctl)**](anexos/A.11_ANEXO-BATERIA-PRUEBAS-CLI-v1.0.md) | **Tipo T:** batería completa de pruebas para los 126 métodos RPC via `bi18nctl`. 261 casos de prueba (TC-CLI-001 a TC-CLI-E03). Destinada al Agente Testeador. | 1.03 · A.08 | ✅ 1.0.0 |
+| [**A.12 — Batería de Pruebas Frontend/WebSocket**](anexos/A.12_ANEXO-BATERIA-PRUEBAS-FRONTEND-v1.0.md) | **Tipo T:** batería completa de pruebas para los 126 métodos RPC via WebSocket JSON-RPC 2.0 (websocat). Incluye pruebas de push events y errores de protocolo. Destinada al Agente Testeador. | 1.04 · A.07 · A.09 | ✅ 1.0.0 |
+| [**A.13 — Listado de Métodos por Librería**](anexos/A.13_LISTADO-METODOS-LIBRERIAS-v1.0.md) | **Tipo R:** listado unificado de métodos y funciones públicas de las 23 librerías (fluent-bundle, rust-i18n, regex, jiff, chrono, validator, scrutiny, etc.) con estado de verificación (🟢/🟡/🔴). Complementa A.10 con una vista más compacta. | 1.03 · 1.04 · A.10 | ✅ 1.0.0 |
 
 ---
 
@@ -89,7 +95,7 @@ Los manuales se numeran `N.M` desde 1.01 (primer manual de bi18n).
 |---|---|---|
 | Crate `i18n-orchestrator` | `src/` | ✅ Implementado — Fase 1 (Bloques 1-12) + Fase 2 (14 handlers A.08.01–A.08.14, 103 RPC) |
 | Daemon `bi18nd` | `src/main.rs` | ✅ preflight + sd_notify + watchdog + SIGHUP |
-| CLI `i18nctl` | `src/bin/i18nctl.rs` | ✅ 14 subcomandos JSON-RPC + flags globales + subcomando `Admin` (clipass_rs) |
+| CLI `bi18nctl` | `src/bin/bi18nctl.rs` | ✅ Subcomandos Fase 1 + 10 namespaces Fase 2 + `Admin` (clipass_rs) + `Translations` local |
 | Reglas Bolivia | `country-rules/bo.toml` | ✅ Completo — 7 documentos, 14 enums |
 | Reglas Argentina | `country-rules/ar.toml` | ✅ Completo — 5 documentos, 16 enums (Bloque 7) |
 | Reglas Brasil | `country-rules/br.toml` | ✅ Nuevo — 6 documentos, 16 enums pt-BR (Bloque 7) |
@@ -115,3 +121,4 @@ Los manuales se numeran `N.M` desde 1.01 (primer manual de bi18n).
 | 2.1.0 | 2026-07-17 | Fase 2 completa. Tabla de tracking REGISTRO-ESTADO-DOS actualizada (⏳→✅ con SHAs reales para los 15 bloques A-Ω). INDICE actualizado a v2.1.0 con estado "Fase 2 ✅". Recuentos corregidos: H scrutiny 4→6, I mask-pii 4→3, K jiff 18→17, L chrono 15→10. Total acumulado: 121 métodos RPC. |
 | 2.2.0 | 2026-07-17 | Limpieza arquitectónica: servidor HTTP (puerto 9456) eliminado del plan. P4 redefinido como 4 métodos `bi18n.admin.*` por JSON-RPC sobre WebSocket existente — sin nuevo puerto, sin parser HTTP manual. REGISTRO-ESTADO-DOS y INDICE actualizados en consecuencia. |
 | 2.3.0 | 2026-07-17 | P4 completo (`25973cc`): 4 métodos `bi18n.admin.*` implementados. Total acumulado: 125 RPC. Pendiente: P3 CLI (103 subcomandos bi18nctl). |
+| 2.4.0 | 2026-07-18 | P4b completo (`75165d2`, `9fc8587`): auditoría namespace CLI al 100%, WebSocket push events, Bundle Prefetch. Total definitivo: **126 métodos RPC**. Documentación completa: nuevos manuales 1.03 (programador) y 1.04 (usuario programador); nuevos anexos A.10 (inventario API, renombrado de MANUAL-METODOS-LIBRERIAS-SBOS.md), A.11 (batería CLI completa: 261 TCs) y A.12 (batería Frontend completa: 204 TCs). |
