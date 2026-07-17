@@ -575,6 +575,21 @@ pub async fn ejecutar_metodo(
             }))
         }
 
+        // Edición de traducciones FTL en runtime (P4 — bi18n.admin.*).
+        // NOTA: no exponer en ruta pública de Kong — solo acceso autenticado via bi18nctl.
+        "bi18n.admin.list_locales" => {
+            handlers::lib_admin_traducciones::admin_list_locales(ctx, &params).await
+        }
+        "bi18n.admin.list_messages" => {
+            handlers::lib_admin_traducciones::admin_list_messages(ctx, &params).await
+        }
+        "bi18n.admin.get_message" => {
+            handlers::lib_admin_traducciones::admin_get_message(ctx, &params).await
+        }
+        "bi18n.admin.update_message" => {
+            handlers::lib_admin_traducciones::admin_update_message(ctx, &params).await
+        }
+
         // Solo traducciones FTL (sin recargar country-rules).
         // NOTA: no exponer en ruta pública de Kong — solo CI/deploy via socket Unix.
         "bi18n.admin.reload_translations" => {

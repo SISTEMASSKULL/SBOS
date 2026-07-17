@@ -78,6 +78,10 @@ pub enum Bi18nError {
     #[error("Parámetro obligatorio ausente o inválido: '{param}'")]
     ParamAusente { param: String },
 
+    // ── Acceso / Autenticación ─────────────────────────────────────────────
+    #[error("Acceso denegado: {motivo}")]
+    AccesoDenegado { motivo: String },
+
     // ── ctx_id (SBOS-049) ──────────────────────────────────────────────────
     #[error("ctx_id ausente o inválido en la solicitud (SBOS-049)")]
     CtxIdAusente,

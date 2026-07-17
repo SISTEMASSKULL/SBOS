@@ -6,6 +6,7 @@
 /// Dependencias: crate::server::context, crate::domain, crate::error
 pub mod attr;
 pub(crate) mod attr_helpers;
+pub mod lib_admin_traducciones;
 pub mod enums;
 pub mod format;
 pub(crate) mod format_utils;
