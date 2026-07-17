@@ -1046,23 +1046,25 @@ translate-locale-not-available = Locale no disponible: { $locale }
 
 | Bloque | Librerías | Métodos nuevos | Estado | Commit |
 |:---:|---|:---:|:---:|---|
-| A | fluent-bundle | 6 | ⏳ Pendiente | — |
-| B | rust-i18n | 4 | ⏳ Pendiente | — |
-| C | shakehand · veil · serde_with | 0 (infra) | ⏳ Pendiente | — |
-| D | icu_datetime | 6 | ⏳ Pendiente | — |
-| E | icu_locale_core | 4 | ⏳ Pendiente | — |
-| F | icu_decimal | 4 (solo GroupingStrategy — sin CompactDecimalFormatter) | ⏳ Pendiente | — |
-| G | validator | 12 | ⏳ Pendiente | — |
-| H | scrutiny | 4 | ⏳ Pendiente | — |
-| I | mask-pii + FIX | 4 + FIX | ⏳ Pendiente | — |
-| J | universal_mask | 5 | ⏳ Pendiente | — |
-| K | jiff | 18 | ⏳ Pendiente | — |
-| L | chrono | 15 | ⏳ Pendiente | — |
-| M | regex | 6 | ⏳ Pendiente | — |
-| N | phonenumber | 8 | ⏳ Pendiente | — |
-| Ω | prism3-core · validy · valida · clipass_rs | 12 + Web | ⏳ Pendiente | — |
+| A | fluent-bundle | 6 | ✅ Completo | `143fb19` |
+| B | rust-i18n | 4 | ✅ Completo | `3930f53` |
+| C | shakehand · veil · serde_with | 0 (infra) | ✅ Completo | `1ab009d` |
+| D | icu_datetime | 6 | ✅ Completo | `25bc89c` |
+| E | icu_locale_core | 4 | ✅ Completo | `9d40bbb` |
+| F | icu_decimal | 4 (solo GroupingStrategy — sin CompactDecimalFormatter) | ✅ Completo | `8d7488e` |
+| G | validator | 12 | ✅ Completo | `a2b988b` |
+| H | scrutiny | 6 | ✅ Completo | `701bdd7` |
+| I | mask-pii + FIX | 3 + FIX | ✅ Completo | `1cb3445` |
+| J | universal_mask | 5 | ✅ Completo | `739e6e1` |
+| K | jiff | 17 | ✅ Completo | `1e353f4` |
+| L | chrono | 10 | ✅ Completo | `0e0f370` |
+| M | regex | 6 | ✅ Completo | `5caad2e` |
+| N | phonenumber | 8 | ✅ Completo | `88f6361` |
+| Ω | prism3-core · validy · valida · clipass_rs | 12 + infra | ✅ Completo | `af243d3` + `1ab009d` |
 | — | arc-swap · notify | 0 (ya impl) | ✅ Fase 1 | `c92e20b` |
-| **TOTAL** | **23 librerías** | **108 RPC + 5 HTTP** | — | — |
+| **TOTAL** | **23 librerías** | **103 RPC + 5 HTTP (P4 pendiente)** | ✅ **103 RPC implementados** | |
+
+> **Correcciones respecto al plan original:** H (scrutiny) 4→6 métodos reales · I (mask-pii) 4→3 métodos reales · K (jiff) 18→17 métodos reales · L (chrono) 15→10 métodos reales. Los 5 HTTP corresponden al servidor web P4 (`src/server/http_traducciones.rs`) — pendiente.
 
 ---
 

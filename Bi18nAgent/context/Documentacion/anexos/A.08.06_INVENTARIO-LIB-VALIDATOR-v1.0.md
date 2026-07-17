@@ -14,18 +14,18 @@
 
 | # | Función / Tipo fuente | Método RPC `bi18n.*` | Fase | Estado |
 |---|----------------------|----------------------|------|--------|
-| 1 | `trait ValidateEmail::validate_email(&self)` | `bi18n.validate.email_html5` | 2 | 📋 Fase 2 |
-| 2 | `trait ValidateUrl::validate_url(&self)` | `bi18n.validate.url` | 2 | 📋 Fase 2 |
-| 3 | `trait ValidateIp::validate_ip(&self)` | `bi18n.validate.ip` | 2 | 📋 Fase 2 |
-| 4 | `trait ValidateIp::validate_ip_v4(&self)` | `bi18n.validate.ipv4` | 2 | 📋 Fase 2 |
-| 5 | `trait ValidateIp::validate_ip_v6(&self)` | `bi18n.validate.ipv6` | 2 | 📋 Fase 2 |
-| 6 | `trait ValidateLength::validate_length(min, max, equal)` | `bi18n.validate.length` | 2 | 📋 Fase 2 |
-| 7 | `trait ValidateRange<T>::validate_range(min, max)` | `bi18n.validate.range` | 2 | 📋 Fase 2 |
-| 8 | `trait ValidateContains::validate_contains(needle)` | `bi18n.validate.contains` | 2 | 📋 Fase 2 |
-| 9 | `trait ValidateDoesNotContain::validate_does_not_contain(needle)` | `bi18n.validate.not_contains` | 2 | 📋 Fase 2 |
-| 10 | `trait ValidateRequired::validate_required(&self)` | `bi18n.validate.required` | 2 | 📋 Fase 2 |
-| 11 | `trait ValidateCreditCard::validate_credit_card(&self)` | `bi18n.validate.credit_card` | 2 | 📋 Fase 2 |
-| 12 | `fn validate_must_match<T: Eq>(a, b)` — única función libre | `bi18n.validate.must_match` | 2 | 📋 Fase 2 |
+| 1 | `trait ValidateEmail::validate_email(&self)` | `bi18n.validate.email_html5` | 2 | ✅ Implementado |
+| 2 | `trait ValidateUrl::validate_url(&self)` | `bi18n.validate.url` | 2 | ✅ Implementado |
+| 3 | `trait ValidateIp::validate_ip(&self)` | `bi18n.validate.ip` | 2 | ✅ Implementado |
+| 4 | `trait ValidateIp::validate_ipv4(&self)` | `bi18n.validate.ipv4` | 2 | ✅ Implementado |
+| 5 | `trait ValidateIp::validate_ipv6(&self)` | `bi18n.validate.ipv6` | 2 | ✅ Implementado |
+| 6 | `trait ValidateLength::validate_length(min, max, equal)` | `bi18n.validate.length` | 2 | ✅ Implementado |
+| 7 | `trait ValidateRange<f64>::validate_range(min, max, excl_min, excl_max)` | `bi18n.validate.range` | 2 | ✅ Implementado |
+| 8 | `trait ValidateContains::validate_contains(needle)` | `bi18n.validate.contains` | 2 | ✅ Implementado |
+| 9 | `trait ValidateDoesNotContain::validate_does_not_contain(needle)` | `bi18n.validate.not_contains` | 2 | ✅ Implementado |
+| 10 | `trait ValidateRequired::validate_required(&self)` (sobre Option) | `bi18n.validate.required` | 2 | ✅ Implementado |
+| 11 | `trait ValidateCreditCard::validate_credit_card(&self)` (feature card) | `bi18n.validate.credit_card` | 2 | ✅ Implementado |
+| 12 | `fn validate_must_match<T: Eq>(a, b)` — única función libre | `bi18n.validate.must_match` | 2 | ✅ Implementado |
 | 13 | `trait ValidateNonControlCharacter::validate_non_control_character(&self)` | — | — | 🔮 Futuro |
 | 14 | `trait ValidateRegex::validate_regex(&self, regex)` | — | — | 🔮 Futuro |
 | 15 | `trait AsRegex::as_regex(&self)` | — | — | ❌ Infra interna |

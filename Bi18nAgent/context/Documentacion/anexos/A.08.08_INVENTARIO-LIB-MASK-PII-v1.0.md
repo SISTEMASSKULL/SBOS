@@ -12,10 +12,10 @@
 
 | # | Función / Tipo fuente | Método RPC `bi18n.*` | Fase | Estado |
 |---|----------------------|----------------------|------|--------|
-| 1 | `Masker::new().mask_emails().process(input)` | `bi18n.mask.email_in_text` | 2 | 📋 Fase 2 |
-| 2 | `Masker::new().mask_phones().process(input)` | `bi18n.mask.phone_in_text` | 2 | 📋 Fase 2 |
-| 3 | `Masker::new().mask_emails().mask_phones().process(input)` | `bi18n.mask.pii` | 2 | 📋 Fase 2 |
-| 4 | `Masker::new().with_mask_char('X').mask_emails().process(input)` | `bi18n.mask.pii_with_char` | 2 | 📋 Fase 2 |
+| 1 | `Masker::new().mask_emails().process(input)` | `bi18n.mask.email_in_text` | 2 | ✅ Implementado |
+| 2 | `Masker::new().mask_phones().process(input)` | `bi18n.mask.phone_in_text` | 2 | ✅ Implementado |
+| 3 | `Masker::new().mask_emails().mask_phones().process(input)` | `bi18n.mask.pii` | FIX | ✅ Fix en mask.rs |
+| 4 | `Masker::new().with_mask_char('X').mask_emails().mask_phones().process(input)` | `bi18n.mask.pii_with_char` | 2 | ✅ Implementado |
 | 5 | `Masker::new()` constructor | — | — | ❌ Infra interna |
 | 6 | `Masker::mask_emails(mut self)` builder | — | — | ❌ Infra interna |
 | 7 | `Masker::mask_phones(mut self)` builder | — | — | ❌ Infra interna |

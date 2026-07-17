@@ -1,9 +1,9 @@
 # Documentación Técnica — bi18n (i18n-orchestrator)
 
-**Versión:** 1.9.0
+**Versión:** 2.1.0
 **Mantenido por:** bauth-developer
 **Última actualización:** 2026-07-17
-**Estado:** Activo — Fase 1 ✅ (18 métodos RPC, Bloques 1-12). Fase 2 PLANIFICADA: 108 métodos RPC nuevos + 5 endpoints HTTP (total acumulado 126). REGISTRO-ESTADO-DOS v2.0.0 DEFINITIVO.
+**Estado:** Activo — Fase 1 ✅ (18 métodos RPC, Bloques 1-12) + Fase 2 ✅ (103 métodos RPC nuevos — bloques A-Ω, 14 handlers, 23 librerías). Total acumulado: 121 métodos RPC. P4 servidor HTTP (9456) pendiente.
 
 ---
 
@@ -87,9 +87,9 @@ Los manuales se numeran `N.M` desde 1.01 (primer manual de bi18n).
 
 | Componente | Ubicación | Estado |
 |---|---|---|
-| Crate `i18n-orchestrator` | `src/` | ✅ Implementado — Bloques 1-7 commiteados |
+| Crate `i18n-orchestrator` | `src/` | ✅ Implementado — Fase 1 (Bloques 1-12) + Fase 2 (14 handlers A.08.01–A.08.14, 103 RPC) |
 | Daemon `bi18nd` | `src/main.rs` | ✅ preflight + sd_notify + watchdog + SIGHUP |
-| CLI `i18nctl` | `src/bin/i18nctl.rs` | ✅ 14 subcomandos JSON-RPC + flags globales |
+| CLI `i18nctl` | `src/bin/i18nctl.rs` | ✅ 14 subcomandos JSON-RPC + flags globales + subcomando `Admin` (clipass_rs) |
 | Reglas Bolivia | `country-rules/bo.toml` | ✅ Completo — 7 documentos, 14 enums |
 | Reglas Argentina | `country-rules/ar.toml` | ✅ Completo — 5 documentos, 16 enums (Bloque 7) |
 | Reglas Brasil | `country-rules/br.toml` | ✅ Nuevo — 6 documentos, 16 enums pt-BR (Bloque 7) |
@@ -112,3 +112,4 @@ Los manuales se numeran `N.M` desde 1.01 (primer manual de bi18n).
 | 1.8.0 | 2026-07-17 | REGISTRO-ESTADO-DOS reescrito a v2.0.0 DEFINITIVO con datos verificados de 4 agentes. 108 métodos RPC nuevos (total 126) + 5 endpoints HTTP. API exhaustiva de las 23 librerías. |
 | 1.9.0 | 2026-07-17 | Nuevo A.09 — bi18n como Servidor Canónico de Traducciones de Lenguajes: rol arquitectónico, estructura FTL, namespacing de claves, fallback de idioma, contrato de consumo para daemons, integración bglobal. |
 | 2.0.0 | 2026-07-17 | PLAN-FASE-2-IMPLEMENTACION v1.0.0 — protocolo formal de trabajo: un anexo = una librería = un handler Rust. Mapa A.08.01–A.08.14 → 14 `lib_*.rs`, convención de naming, estructura del dispatcher, tabla de progreso. |
+| 2.1.0 | 2026-07-17 | Fase 2 completa. Tabla de tracking REGISTRO-ESTADO-DOS actualizada (⏳→✅ con SHAs reales para los 15 bloques A-Ω). INDICE actualizado a v2.1.0 con estado "Fase 2 ✅". Recuentos corregidos: H scrutiny 4→6, I mask-pii 4→3, K jiff 18→17, L chrono 15→10. Total acumulado: 121 métodos RPC. |

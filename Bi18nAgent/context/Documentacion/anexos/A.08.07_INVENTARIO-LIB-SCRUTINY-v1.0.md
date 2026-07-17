@@ -12,16 +12,16 @@
 
 | # | Función / Tipo fuente | Método RPC `bi18n.*` | Fase | Estado |
 |---|----------------------|----------------------|------|--------|
-| 1 | `is_uuid(value)` | `bi18n.validate.uuid` | 2 | 📋 Fase 2 |
-| 2 | `is_ulid(value)` | `bi18n.validate.ulid` | 2 | 📋 Fase 2 |
-| 3 | `is_mac_address(value)` | `bi18n.validate.mac_address` | 2 | 📋 Fase 2 |
-| 4 | `is_hex_color(value)` | `bi18n.validate.hex_color` | 2 | 📋 Fase 2 |
+| 1 | `is_uuid(value)` | `bi18n.validate.uuid` | 2 | ✅ Implementado |
+| 2 | `is_ulid(value)` | `bi18n.validate.ulid` | 2 | ✅ Implementado |
+| 3 | `is_mac_address(value)` | `bi18n.validate.mac_address` | 2 | ✅ Implementado |
+| 4 | `is_hex_color(value)` | `bi18n.validate.hex_color` | 2 | ✅ Implementado |
 | 5 | `from_json::<T>(bytes)` / `deserialize_json::<T>(bytes)` | — | — | ❌ Infra interna |
 | 6 | `is_email(value)` | — | — | 🔮 Futuro (cubierto por validator) |
 | 7 | `is_url(value)` | — | — | 🔮 Futuro (cubierto por validator) |
 | 8 | `is_ip(value)` / `is_ipv4(value)` / `is_ipv6(value)` | — | — | 🔮 Futuro (cubierto por validator) |
-| 9 | `is_timezone(value)` | `bi18n.validate.timezone` | 2 | 📋 Fase 2 |
-| 10 | `is_json(value)` | `bi18n.validate.is_json` | 2 | 📋 Fase 2 |
+| 9 | `is_timezone(value)` | `bi18n.validate.timezone` | 2 | ✅ Implementado |
+| 10 | `is_json(value)` | `bi18n.validate.is_json` | 2 | ✅ Implementado |
 | 11 | `is_ascii(value)` | — | — | 🔮 Futuro |
 | 12 | `is_alpha(value)` | — | — | 🔮 Futuro |
 | 13 | `is_alpha_num(value)` | — | — | 🔮 Futuro |

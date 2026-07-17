@@ -31,15 +31,15 @@ Los anexos A.08.15–A.08.22 son infraestructura interna: 0 métodos RPC, no gen
 | 3 | A.08.03 | `icu_datetime 2.2.0` | `lib_icu_datetime.rs` | 6 | ✅ Implementado |
 | 4 | A.08.04 | `icu_locale_core 2.2.0` | `lib_icu_locale.rs` | 4 | ✅ Implementado |
 | 5 | A.08.05 | `icu_decimal 2.2.0` | `lib_icu_decimal.rs` | 4 | ✅ Implementado |
-| 6 | A.08.06 | `validator 0.19.0` | `lib_validator.rs` | 12 | ⏳ Pendiente |
-| 7 | A.08.07 | `scrutiny 0.1.2` | `lib_scrutiny.rs` | 4 | ⏳ Pendiente |
-| 8 | A.08.08 | `mask-pii 0.2.0` | `lib_mask_pii.rs` + FIX `mask.rs:81` | 4 | ⏳ Pendiente |
-| 9 | A.08.09 | `universal_mask 0.1.0` | `lib_universal_mask.rs` | 5 | ⏳ Pendiente |
-| 10 | A.08.10 | `jiff 0.2.32` | `lib_jiff.rs` | 18 | ⏳ Pendiente |
-| 11 | A.08.11 | `chrono 0.4.45` | `lib_chrono.rs` | 15 | ⏳ Pendiente |
-| 12 | A.08.12 | `regex 1.13.1` | `lib_regex.rs` | 6 | ⏳ Pendiente |
-| 13 | A.08.13 | `phonenumber 0.3.10` | `lib_phonenumber.rs` | 8 | ⏳ Pendiente |
-| 14 | A.08.14 | `prism3-core 0.2.0` | `lib_prism3.rs` | 12 | ⏳ Pendiente |
+| 6 | A.08.06 | `validator 0.19.0` | `lib_validator.rs` | 12 | ✅ Implementado |
+| 7 | A.08.07 | `scrutiny 0.1.2` | `lib_scrutiny.rs` | 6 | ✅ Implementado |
+| 8 | A.08.08 | `mask-pii 0.2.0` | `lib_mask_pii.rs` + FIX `mask.rs:81` | 3 | ✅ Implementado |
+| 9 | A.08.09 | `universal_mask 0.1.0` | `lib_universal_mask.rs` | 5 | ✅ Implementado |
+| 10 | A.08.10 | `jiff 0.2.32` | `lib_jiff.rs` | 17 | ✅ Implementado |
+| 11 | A.08.11 | `chrono 0.4.45` | `lib_chrono.rs` | 10 | ✅ Implementado |
+| 12 | A.08.12 | `regex 1.13.1` | `lib_regex.rs` | 6 | ✅ Implementado |
+| 13 | A.08.13 | `phonenumber 0.3.10` | `lib_phonenumber.rs` | 8 | ✅ Implementado |
+| 14 | A.08.14 | `prism3-core 0.2.0` | `lib_prism3.rs` | 12 | ✅ Implementado |
 | — | A.08.15 | `validy 1.2.4` | — (infra: LocaleParam en lib_icu_locale.rs) | 0 | ✅ `1ab009d` |
 | — | A.08.16 | `valida 1.1.2` | — (infra: RulesBuilder en locale_subtags) | 0 | ✅ `1ab009d` |
 | — | A.08.17 | `clipass_rs 0.1.0` | — (CLI: Admin en i18nctl.rs) | 0 | ✅ `1ab009d` |
@@ -133,10 +133,10 @@ Nuevos (Fase 2):
 | Orden | Handler | Métodos | Commit | Estado |
 |:-----:|---------|:-------:|--------|:------:|
 | 1 | `lib_fluent.rs` | 6 | `143fb19` | ✅ |
-| 2 | `lib_rust_i18n.rs` | 4 | pendiente commit | ✅ |
-| 3 | `lib_icu_datetime.rs` | 6 | `3930f53`+1 | ✅ |
-| 4 | `lib_icu_locale.rs` | 4 | pendiente commit | ✅ |
-| 5 | `lib_icu_decimal.rs` | 4 | pendiente commit | ✅ |
+| 2 | `lib_rust_i18n.rs` | 4 | `3930f53` | ✅ |
+| 3 | `lib_icu_datetime.rs` | 6 | `25bc89c` | ✅ |
+| 4 | `lib_icu_locale.rs` | 4 | `9d40bbb` | ✅ |
+| 5 | `lib_icu_decimal.rs` | 4 | `8d7488e` | ✅ |
 | 6 | `lib_validator.rs` | 12 | `a2b988b` | ✅ |
 | 7 | `lib_scrutiny.rs` | 6 | `701bdd7` | ✅ |
 | 8 | `lib_mask_pii.rs` + FIX | 3+FIX | `1cb3445` | ✅ |
@@ -146,7 +146,7 @@ Nuevos (Fase 2):
 | 12 | `lib_regex.rs` | 6 | `5caad2e` | ✅ |
 | 13 | `lib_phonenumber.rs` | 8 | `88f6361` | ✅ |
 | 14 | `lib_prism3.rs` | 12 | `af243d3` | ✅ |
-| **—** | **Acumulado** | **108** | | |
+| **—** | **Acumulado** | **103** | | |
 
 ---
 
@@ -155,3 +155,4 @@ Nuevos (Fase 2):
 | Versión | Fecha | Descripción |
 |---------|-------|-------------|
 | 1.0.0 | 2026-07-17 | Plan inicial. Formaliza el protocolo de trabajo, el mapa A.08.XX→handler, la convención de naming y la tabla de progreso. |
+| 1.1.0 | 2026-07-17 | Fase 2 completa. Tabla de progreso: SHAs reales para todos los 14 handlers (corregidos 2→`3930f53`, 3→`25bc89c`, 4→`9d40bbb`, 5→`8d7488e`). Recuentos corregidos: H scrutiny 4→6, I mask-pii 4→3, K jiff 18→17, L chrono 15→10. Total real: 103 métodos RPC (no 108). Mapa completo sincronizado. |

@@ -12,11 +12,11 @@
 
 | # | Función / Tipo fuente | Método RPC `bi18n.*` | Fase | Estado |
 |---|----------------------|----------------------|------|--------|
-| 1 | `mask(text, "(XXX) XXX-XXXX")` — máscara teléfono US | `bi18n.format.structural_mask` | 2 | 📋 Fase 2 |
-| 2 | `mask(text, "XX.XXX.XXX/XXXX-XX")` — máscara CNPJ Brasil | `bi18n.format.mask_cnpj` | 2 | 📋 Fase 2 |
-| 3 | `mask(text, "XXX.XXX.XXX-XX")` — máscara CPF Brasil | `bi18n.format.mask_cpf` | 2 | 📋 Fase 2 |
-| 4 | `mask(text, "XXXX-XXXX-XXXX-XXXX")` — máscara tarjeta crédito | `bi18n.format.mask_card` | 2 | 📋 Fase 2 |
-| 5 | `mask(text, "XXXXXXX|XXXXXXXX")` — máscara CI Bolivia (7 u 8 dígitos) | `bi18n.format.mask_ci_bo` | 2 | 📋 Fase 2 |
+| 1 | `mask(text, "(XXX) XXX-XXXX")` — máscara teléfono US | `bi18n.format.structural_mask` | 2 | ✅ Implementado |
+| 2 | `mask(text, "XX.XXX.XXX/XXXX-XX")` — máscara CNPJ Brasil | `bi18n.format.mask_cnpj` | 2 | ✅ Implementado |
+| 3 | `mask(text, "XXX.XXX.XXX-XX")` — máscara CPF Brasil | `bi18n.format.mask_cpf` | 2 | ✅ Implementado |
+| 4 | `mask(text, "XXXX-XXXX-XXXX-XXXX")` — máscara tarjeta crédito | `bi18n.format.mask_card` | 2 | ✅ Implementado |
+| 5 | `mask(text, "XXXXXXX|XXXXXXXX")` — máscara CI Bolivia (7 u 8 dígitos) | `bi18n.format.mask_ci_bo` | 2 | ✅ Implementado |
 | 6 | `pub fn mask(text: &str, format_patterns: &str) -> String` — función base | — | — | ❌ Infra interna |
 
 **Leyenda:**
