@@ -64,6 +64,10 @@ pub enum Bi18nError {
     #[error("Parámetro de máscara inválido: {causa}")]
     MascaraParametro { causa: String },
 
+    // ── Expresiones regulares ───────────────────────────────────────────────
+    #[error("Expresión regular inválida '{patron}': {causa}")]
+    PatronRegex { patron: String, causa: String },
+
     // ── Dispatch JSON-RPC ──────────────────────────────────────────────────
     #[error("Método JSON-RPC no encontrado: '{metodo}'")]
     MetodoNoEncontrado { metodo: String },

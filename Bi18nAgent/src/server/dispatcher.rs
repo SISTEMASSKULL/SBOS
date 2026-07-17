@@ -304,6 +304,26 @@ pub async fn ejecutar_metodo(
             handlers::lib_chrono::chrono_timedelta_total(ctx, &params).await
         }
 
+        // ── Expresiones regulares sobre texto libre (A.08.12) ────────────
+        "bi18n.text.regex_match" => {
+            handlers::lib_regex::regex_match(ctx, &params).await
+        }
+        "bi18n.text.regex_extract" => {
+            handlers::lib_regex::regex_extract(ctx, &params).await
+        }
+        "bi18n.text.regex_extract_all" => {
+            handlers::lib_regex::regex_extract_all(ctx, &params).await
+        }
+        "bi18n.text.regex_replace" => {
+            handlers::lib_regex::regex_replace(ctx, &params).await
+        }
+        "bi18n.text.regex_split" => {
+            handlers::lib_regex::regex_split(ctx, &params).await
+        }
+        "bi18n.text.regex_match_set" => {
+            handlers::lib_regex::regex_match_set(ctx, &params).await
+        }
+
         // ── Operaciones temporales jiff (A.08.10) ────────────────────────
         "bi18n.datetime.now_utc" => {
             handlers::lib_jiff::now_utc(ctx, &params).await
