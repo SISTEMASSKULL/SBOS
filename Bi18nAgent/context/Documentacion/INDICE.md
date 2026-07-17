@@ -1,9 +1,9 @@
 # Documentación Técnica — bi18n (i18n-orchestrator)
 
-**Versión:** 2.4.0
+**Versión:** 2.5.0
 **Mantenido por:** bauth-developer
 **Última actualización:** 2026-07-18
-**Estado:** Activo — Fase 1 ✅ (18 RPC) + Fase 2 ✅ (108 RPC nuevos). Total: **126 métodos RPC**. P4 ✅ (admin.* + WebSocket push + Bundle Prefetch). P4b ✅ (auditoría namespace CLI: 100% alineado). Documentación completa: 4 manuales · 25 anexos.
+**Estado:** Activo — Fase 1 ✅ (18 RPC) + Fase 2 ✅ (108 RPC nuevos). Total: **126 métodos RPC**. P4b ✅. Documentación normalizada: **4 manuales (1.01–1.04) · 18 anexos (A.01–A.18). Cero documentos sueltos.**
 
 ---
 
@@ -22,28 +22,26 @@ Los manuales se numeran `N.M` desde 1.01 (primer manual de bi18n).
 | N° | Manual | Depende de | Estado |
 |:--:|--------|------------|:------:|
 | 1.01 | [bi18n — Arquitectura del Orquestador](1.01_MANUAL-BI18N-ARQUITECTURA-v1.2.md) | [i18n-orchestrator-rust.md](../i18n-orchestrator-rust.md) · [1.07 Atributos](../../BauthAgent/context/Documentacion/1.07_MANUAL-ATRIBUTOS-v2.0.md) · [2.15 Motor Identidad](../../BauthAgent/context/Documentacion/2.15_MANUAL-MOTOR-IDENTIDAD-v1.0.md) | ✅ 1.4.0 |
-| 1.02 | [Manual de Usuario bi18n](MANUAL-USUARIO-BI18N-v1.0.md) | 1.01 · A.02 · A.07 | ✅ 1.0.0 |
+| 1.02 | [Manual de Usuario bi18n](1.02_MANUAL-USUARIO-BI18N-v1.0.md) | 1.01 · A.02 · A.07 | ✅ 1.0.0 |
 | 1.03 | [**Manual del Programador — Mantenimiento y Actualización**](1.03_MANUAL-PROGRAMADOR-BI18N-v1.0.md) | 1.01 · A.01 · A.10 · ISO 14764 · ISO 12207 | ✅ 1.0.0 |
 | 1.04 | [**Manual del Usuario Programador — Consumir bi18n**](1.04_MANUAL-USUARIO-PROGRAMADOR-v1.0.md) | 1.01 · A.07 · A.09 · A.10 | ✅ 1.0.0 |
 
 ---
 
-## Registro de implementación
+## Registro de implementación (reorganizado como anexos)
 
-| Documento | Contenido | Estado |
+Los registros históricos de implementación y los documentos de planificación se han normalizado a anexos numerados:
+
+| Anexo | Documento | Estado |
 |---|---|---|
-| [REGISTRO-ESTADO-IMPLEMENTACION — Fase 1](REGISTRO-ESTADO-IMPLEMENTACION.md) | Bloques 1-12 ✅ completos. 18 métodos RPC, Interface Triple C11, BO/AR/BR, Weblate, ArcSwap, hot-reload, manual, batería de pruebas, garantía de completitud. | ✅ v1.1.0 cerrado |
-| [**REGISTRO-ESTADO-DOS — Fase 2**](REGISTRO-ESTADO-DOS.md) | 15 bloques (A-N + Ω). Exposición completa de las 23 librerías de Cargo.toml como métodos RPC. **103 métodos RPC implementados** (total acumulado 121). P4: 4 métodos `bi18n.admin.*` por JSON-RPC (sin servidor HTTP). APIs verificadas directamente en `~/.cargo/registry/src/` — v3.0.0 corrige 5 errores de la v2.0.0. | ✅ v3.1.0 |
-| [**PLAN-FASE-2-IMPLEMENTACION**](PLAN-FASE-2-IMPLEMENTACION-v1.0.md) | Protocolo de trabajo para los 14 handlers Rust de Fase 2. **Un anexo = una librería = un handler.** Mapa A.08.01→14 a `lib_*.rs`, convención de naming, estructura del dispatcher, tabla de progreso con commit por handler. | ✅ v1.0.0 |
-| [BATERIA-PRUEBAS-TESTEADOR — Fase 1](BATERIA-PRUEBAS-TESTEADOR-v1.0.md) | 28 verificaciones VERDADERO/FALSO para los 18 métodos RPC de Fase 1. | ✅ 1.0.0 |
+| [A.14](anexos/A.14_ANEXO-BATERIA-PRUEBAS-FASE1-v1.0.md) | Batería de pruebas Fase 1 — 18 métodos, casos límite, checklist VERDADERO/FALSO, hot-reload, SIGHUP | ✅ 1.0.0 |
+| [A.15](anexos/A.15_ANEXO-GAPS-DECISIONES-ARQUITECTURA-v2.0.md) | Gaps y decisiones arquitectónicas — 4 decisiones (RegionalConfig, PostgreSQL, SIGHUP, ICU4X) | ✅ 2.0.0 |
+| [A.16](anexos/A.16_ANEXO-PLAN-IMPLEMENTACION-FASE2-v1.0.md) | Plan de implementación Fase 2 — mapa A.08.01→14, protocolo de trabajo por handler | ✅ 1.0.0 |
+| [A.17](anexos/A.17_ANEXO-REGISTRO-ESTADO-FASE2-v3.0.md) | Registro de estado Fase 2 — 15 bloques (A-Ω), SHAs, 108 métodos RPC | ✅ 3.0.0 |
+| [A.18](anexos/A.18_ANEXO-REGISTRO-ESTADO-FASE1-v1.0.md) | Registro de estado Fase 1 — 12 bloques, 18 métodos RPC | ✅ 1.0.0 |
 
 ---
 
-## Gaps de diseño
-
-| Documento | Contenido | Estado |
-|---|---|---|
-| [GAPS-BI18N — 4 decisiones resueltas](GAPS-BI18N-v1.0.md) | **Todas las decisiones de diseño resueltas (v2.0.0):** RegionalConfig estático → request, sin PostgreSQL, SIGHUP, patrones fijos en format_map. | ✅ 2.0.0 |
 
 ---
 
@@ -86,6 +84,11 @@ Los manuales se numeran `N.M` desde 1.01 (primer manual de bi18n).
 | [**A.11 — Batería de Pruebas CLI (bi18nctl)**](anexos/A.11_ANEXO-BATERIA-PRUEBAS-CLI-v1.0.md) | **Tipo T:** batería completa de pruebas para los 126 métodos RPC via `bi18nctl`. 261 casos de prueba (TC-CLI-001 a TC-CLI-E03). Destinada al Agente Testeador. | 1.03 · A.08 | ✅ 1.0.0 |
 | [**A.12 — Batería de Pruebas Frontend/WebSocket**](anexos/A.12_ANEXO-BATERIA-PRUEBAS-FRONTEND-v1.0.md) | **Tipo T:** batería completa de pruebas para los 126 métodos RPC via WebSocket JSON-RPC 2.0 (websocat). Incluye pruebas de push events y errores de protocolo. Destinada al Agente Testeador. | 1.04 · A.07 · A.09 | ✅ 1.0.0 |
 | [**A.13 — Listado de Métodos por Librería**](anexos/A.13_LISTADO-METODOS-LIBRERIAS-v1.0.md) | **Tipo R:** listado unificado de métodos y funciones públicas de las 23 librerías (fluent-bundle, rust-i18n, regex, jiff, chrono, validator, scrutiny, etc.) con estado de verificación (🟢/🟡/🔴). Complementa A.10 con una vista más compacta. | 1.03 · 1.04 · A.10 | ✅ 1.0.0 |
+| [**A.14 — Batería de Pruebas Fase 1**](anexos/A.14_ANEXO-BATERIA-PRUEBAS-FASE1-v1.0.md) | **Tipo T:** 18 métodos Fase 1 con casos detallados (P-01 a P-18), pruebas de CLI flags, hot-reload de traducciones FTL, supervivencia SIGHUP y checklist VERDADERO/FALSO. Destinada al Agente Testeador. | 1.03 · A.11 | ✅ 1.0.0 |
+| [**A.15 — Gaps y Decisiones Arquitectónicas**](anexos/A.15_ANEXO-GAPS-DECISIONES-ARQUITECTURA-v2.0.md) | **Tipo A:** 4 decisiones resueltas — GAP-01 RegionalConfig (TOML estático → request bound), GAP-02 sin PostgreSQL (country-rules TOML), GAP-03 SIGHUP recarga atómica, GAP-04 patrones de máscara fijos (no ICU4X internals). | 1.01 · A.01 | ✅ 2.0.0 |
+| [**A.16 — Plan de Implementación Fase 2 (histórico)**](anexos/A.16_ANEXO-PLAN-IMPLEMENTACION-FASE2-v1.0.md) | **Tipo H:** protocolo de trabajo para los 14 handlers Rust. Un anexo = una librería = un handler. Mapa A.08.01→14, convención de naming, tabla de progreso con SHAs. | A.08 · A.17 | ✅ 1.0.0 |
+| [**A.17 — Registro de Estado Fase 2 (histórico)**](anexos/A.17_ANEXO-REGISTRO-ESTADO-FASE2-v3.0.md) | **Tipo H:** 15 bloques (A–Ω), SHAs por bloque, 108 métodos RPC implementados, recuentos verificados por librería. | A.08 · A.16 | ✅ 3.0.0 |
+| [**A.18 — Registro de Estado Fase 1 (histórico)**](anexos/A.18_ANEXO-REGISTRO-ESTADO-FASE1-v1.0.md) | **Tipo H:** hoja de ruta Fase 1 — 12 bloques, 18 métodos RPC, estado por componente, criterios de done. | 1.01 | ✅ 1.0.0 |
 
 ---
 
@@ -122,3 +125,4 @@ Los manuales se numeran `N.M` desde 1.01 (primer manual de bi18n).
 | 2.2.0 | 2026-07-17 | Limpieza arquitectónica: servidor HTTP (puerto 9456) eliminado del plan. P4 redefinido como 4 métodos `bi18n.admin.*` por JSON-RPC sobre WebSocket existente — sin nuevo puerto, sin parser HTTP manual. REGISTRO-ESTADO-DOS y INDICE actualizados en consecuencia. |
 | 2.3.0 | 2026-07-17 | P4 completo (`25973cc`): 4 métodos `bi18n.admin.*` implementados. Total acumulado: 125 RPC. Pendiente: P3 CLI (103 subcomandos bi18nctl). |
 | 2.4.0 | 2026-07-18 | P4b completo (`75165d2`, `9fc8587`): auditoría namespace CLI al 100%, WebSocket push events, Bundle Prefetch. Total definitivo: **126 métodos RPC**. Documentación completa: nuevos manuales 1.03 (programador) y 1.04 (usuario programador); nuevos anexos A.10 (inventario API, renombrado de MANUAL-METODOS-LIBRERIAS-SBOS.md), A.11 (batería CLI completa: 261 TCs) y A.12 (batería Frontend completa: 204 TCs). |
+| 2.5.0 | 2026-07-18 | Normalización total de documentación: todos los .md sueltos convertidos a manuales o anexos numerados. `MANUAL-USUARIO-BI18N` → `1.02`, `BATERIA-PRUEBAS-TESTEADOR` → `A.14`, `GAPS-BI18N` → `A.15`, `PLAN-FASE-2` → `A.16`, `REGISTRO-ESTADO-DOS` → `A.17`, `REGISTRO-ESTADO-IMPLEMENTACION` → `A.18`. `LISTADO-METODOS-LIBRERIAS-SBOS` → `A.13` (commit previo). Total: 4 manuales + 18 anexos. Cero documentos sueltos. |
