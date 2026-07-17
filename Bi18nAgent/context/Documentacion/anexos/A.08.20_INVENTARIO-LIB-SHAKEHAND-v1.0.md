@@ -39,5 +39,13 @@
 
 ---
 
+## Estado de integración
+
+Verificado en `1ab009d` — `shakehand = "0.1"` presente en `Cargo.toml`. El crate es
+proc-macro puro (compile-time): no requiere `use shakehand::*` en el código fuente del
+daemon — su presencia en el grafo de dependencias es suficiente. `cargo check`: 0 errores.
+
+---
+
 *Fuente: MANUAL-METODOS-LIBRERIAS-SBOS.md v3.0.0 · Verificado desde `~/.cargo/registry/src/`*
-*Relacionado: REGISTRO-ESTADO-DOS.md Bloque C (infra) · no genera archivos handler*
+*Relacionado: Cargo.toml — sin archivos handler*

@@ -49,8 +49,21 @@
 - Los mensajes de error usan las claves FTL definidas en `locales/es-BO/main.ftl` — se resuelven en el locale del request.
 - La diferencia con validy: valida se usa para reglas complejas programáticas; validy se usa para reglas simples declarativas via derive.
 - No crear `lib_valida.rs` — valida se usa como herramienta en los handlers que necesiten validación compleja.
+- **API verificada en fuente** — sintaxis correcta confirmada:
+  - `RulesBuilder<LocaleDto, std::io::Error>::new()` — tipo genérico `<T, E: Error>`
+  - `.field("nombre", |dto| &dto.campo)` — accessor por referencia
+  - `.min_length(n)` / `.max_length(n)` — sin argumento de mensaje
+  - `.build()` — finaliza el campo y retorna el builder
+  - `.validate(&dto).await` — async, retorna `Result<ValidationErrors, E>`
+  - `errores.is_empty()` — verificar si hay errores
+
+## Estado de integración
+
+Integrado en `1ab009d` — `RulesBuilder<LocaleDto, io::Error>` con `.min_length(2).max_length(35)`
+aplicado en `locale_subtags` de `src/server/handlers/lib_icu_locale.rs`. Validación programática
+async antes de parsear el locale. `cargo check`: 0 errores, 0 warnings.
 
 ---
 
 *Fuente: MANUAL-METODOS-LIBRERIAS-SBOS.md v3.0.0 · Verificado desde `~/.cargo/registry/src/`*
-*Relacionado: REGISTRO-ESTADO-DOS.md Bloque Ω · uso transversal en src/server/handlers/*
+*Relacionado: uso concreto en src/server/handlers/lib_icu_locale.rs*

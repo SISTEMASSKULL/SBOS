@@ -50,8 +50,20 @@
   ```
 - validy complementa a validator y scrutiny: estos exponen capacidades por RPC; validy las aplica internamente en los DTOs.
 - No crear `lib_validy.rs` — validy se usa como derive en los módulos que lo necesitan.
+- **API verificada en fuente** — sintaxis correcta confirmada:
+  - `#[validate(modificate)]` en el struct para activar soporte de atributos `#[modificate(...)]`
+  - `#[validate(length(2..=35))]` — rango con operador `..=`
+  - `#[allow(dead_code)]` en campo `ctx_id` — presente por protocolo, no accedido por código
+  - El trait invocado es `ValidateAndModificate::validate_and_modificate(&mut self)`
+  - **No existe** trait `Modificate` separado — el derive `Validate` con flag `modificate` genera `ValidateAndModificate`
+
+## Estado de integración
+
+Integrado en `1ab009d` — `#[derive(Validate)]` + `#[validate(modificate)]` aplicado en
+`LocaleParam` de `src/server/handlers/lib_icu_locale.rs`. Trim automático de locale string
+antes de validar longitud mínima (2..=35). `cargo check`: 0 errores, 0 warnings.
 
 ---
 
 *Fuente: MANUAL-METODOS-LIBRERIAS-SBOS.md v3.0.0 · Verificado desde `~/.cargo/registry/src/`*
-*Relacionado: REGISTRO-ESTADO-DOS.md Bloque Ω · uso transversal en src/server/handlers/*
+*Relacionado: uso concreto en src/server/handlers/lib_icu_locale.rs*

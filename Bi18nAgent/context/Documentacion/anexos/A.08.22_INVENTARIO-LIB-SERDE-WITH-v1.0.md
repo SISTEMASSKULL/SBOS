@@ -85,7 +85,15 @@
 - `TimestampSeconds` es el conversor más relevante para bi18n: permite serializar `jiff::Timestamp` o `chrono::DateTime` directamente como Unix timestamp i64 sin conversión manual.
 - `DefaultOnNull` es útil para campos opcionales en respuestas donde `null` debe tratarse como valor por defecto.
 
+## Estado de integración
+
+Integrado en `1ab009d` — `#[serde_as]` + `#[skip_serializing_none]` aplicados en
+`ParseBcp47Resp` de `src/server/handlers/lib_icu_locale.rs`. Los campos `script: Option<String>`
+y `region: Option<String>` se omiten del JSON cuando son `None` en lugar de emitir `null`.
+`cargo check`: 0 errores. Nota: `TimestampSeconds` para tipos de fecha queda como Fase 3
+(requiere feature `chrono_0_4` en `serde_with`).
+
 ---
 
 *Fuente: MANUAL-METODOS-LIBRERIAS-SBOS.md v3.0.0 · Verificado desde `~/.cargo/registry/src/`*
-*Relacionado: REGISTRO-ESTADO-DOS.md Bloque C (infra) · src/server/handlers/ (uso transversal)*
+*Relacionado: src/server/handlers/lib_icu_locale.rs*

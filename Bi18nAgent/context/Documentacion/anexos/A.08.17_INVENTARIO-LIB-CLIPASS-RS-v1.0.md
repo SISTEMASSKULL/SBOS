@@ -51,8 +51,17 @@
 - **No existe `verify_hash()`** en la librería — la verificación se hace comparando el hash producido por `hash_sha256_internal()` contra el hash almacenado.
 - Los métodos de hash (`hash_sha256_internal`, `hash_sha256_external`, `hash_md5_internal`, `hash_md5_external`) son métodos de instancia en `CliPass`, no funciones libres.
 - El daemon bi18n valida el hash de admin contra `ServidorConfig.admin_hash` sin generar tokens de sesión.
+- **API verificada en fuente** — correcciones críticas confirmadas:
+  - `set_no_visibility()` — **NO toma `bool`**, es sin parámetros (el ejemplo del anexo era incorrecto)
+  - `set_prompt_mask_token('*')` — espera `char`, **NO** `&str`
+
+## Estado de integración
+
+Integrado en `1ab009d` — subcomando `Admin` agregado en `src/bin/i18nctl.rs` con
+función `ejecutar_admin()`. Lee contraseña con `CliPass`, genera hash con
+`hash_sha256_internal()` y lo envía como `admin_token` al daemon. `cargo check`: 0 errores.
 
 ---
 
 *Fuente: MANUAL-METODOS-LIBRERIAS-SBOS.md v3.0.0 · Verificado desde `~/.cargo/registry/src/`*
-*Relacionado: REGISTRO-ESTADO-DOS.md Bloque Ω · src/bin/bi18nctl.rs*
+*Relacionado: src/bin/i18nctl.rs · src/config/mod.rs (admin_hash)*

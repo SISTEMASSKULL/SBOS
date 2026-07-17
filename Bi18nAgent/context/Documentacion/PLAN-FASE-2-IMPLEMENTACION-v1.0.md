@@ -40,14 +40,14 @@ Los anexos A.08.15–A.08.22 son infraestructura interna: 0 métodos RPC, no gen
 | 12 | A.08.12 | `regex 1.13.1` | `lib_regex.rs` | 6 | ⏳ Pendiente |
 | 13 | A.08.13 | `phonenumber 0.3.10` | `lib_phonenumber.rs` | 8 | ⏳ Pendiente |
 | 14 | A.08.14 | `prism3-core 0.2.0` | `lib_prism3.rs` | 12 | ⏳ Pendiente |
-| — | A.08.15 | `validy 1.2.4` | — (derive macro, 0 RPC) | 0 | ❌ Sin handler |
-| — | A.08.16 | `valida 1.1.2` | — (RulesBuilder, 0 RPC) | 0 | ❌ Sin handler |
-| — | A.08.17 | `clipass_rs 0.1.0` | — (solo bi18nctl CLI) | 0 | ❌ Sin handler |
+| — | A.08.15 | `validy 1.2.4` | — (infra: LocaleParam en lib_icu_locale.rs) | 0 | ✅ `1ab009d` |
+| — | A.08.16 | `valida 1.1.2` | — (infra: RulesBuilder en locale_subtags) | 0 | ✅ `1ab009d` |
+| — | A.08.17 | `clipass_rs 0.1.0` | — (CLI: Admin en i18nctl.rs) | 0 | ✅ `1ab009d` |
 | — | A.08.18 | `arc-swap 1.9.2` | — (ya impl. Fase 1) | 0 | ✅ Fase 1 |
 | — | A.08.19 | `notify 6.1.1` | — (ya impl. Fase 1) | 0 | ✅ Fase 1 |
-| — | A.08.20 | `shakehand 0.1.3` | — (proc-macro compile-time) | 0 | ❌ Sin handler |
-| — | A.08.21 | `veil 0.3.0` | — (derive macro de logs) | 0 | ❌ Sin handler |
-| — | A.08.22 | `serde_with 3.21.0` | — (adaptadores serde) | 0 | ❌ Sin handler |
+| — | A.08.20 | `shakehand 0.1.3` | — (Cargo.toml, compile-time) | 0 | ✅ `1ab009d` |
+| — | A.08.21 | `veil 0.3.0` | — (infra: Redact en ServidorConfig) | 0 | ✅ `1ab009d` |
+| — | A.08.22 | `serde_with 3.21.0` | — (infra: skip_serializing_none en ParseBcp47Resp) | 0 | ✅ `1ab009d` |
 | | **TOTAL** | | **14 handlers nuevos** | **108** | |
 
 ---

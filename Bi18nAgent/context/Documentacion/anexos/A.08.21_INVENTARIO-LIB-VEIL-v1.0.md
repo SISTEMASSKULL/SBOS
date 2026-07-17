@@ -53,8 +53,18 @@
   }
   ```
 - La redacción afecta solo al output de `Debug`/`Display` — el valor real permanece accesible para el código.
+- **API verificada en fuente** — comportamiento confirmado:
+  - `#[derive(Redact)]` **reemplaza** `#[derive(Debug)]` — genera `impl Debug` con redacción
+  - Si se pone `Debug` Y `Redact` en el mismo derive, habrá conflicto (Debug duplicado)
+  - La sintaxis `#[derive(Clone, Serialize, Deserialize, veil::Redact)]` es correcta
+
+## Estado de integración
+
+Integrado en `1ab009d` — `#[derive(veil::Redact)]` aplicado en `ServidorConfig` de
+`src/config/mod.rs`. Campos `admin_hash: Option<String>` (`#[redact(partial)]`) y
+`vault_token: Option<String>` (`#[redact]`) agregados. `cargo check`: 0 errores.
 
 ---
 
 *Fuente: MANUAL-METODOS-LIBRERIAS-SBOS.md v3.0.0 · Verificado desde `~/.cargo/registry/src/`*
-*Relacionado: REGISTRO-ESTADO-DOS.md Bloque C (infra) · src/config/mod.rs*
+*Relacionado: src/config/mod.rs*
