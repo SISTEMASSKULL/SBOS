@@ -1,9 +1,9 @@
 # Documentación Técnica — bi18n (i18n-orchestrator)
 
-**Versión:** 1.6.0
+**Versión:** 1.8.0
 **Mantenido por:** bauth-developer
 **Última actualización:** 2026-07-17
-**Estado:** Activo — Bloques 1-12 implementados ✅. Daemon bi18n completo: 18 métodos RPC, Interface Triple C11, 3 países (BO/AR/BR), manual de usuario, batería de pruebas, garantía de completitud.
+**Estado:** Activo — Fase 1 ✅ (18 métodos RPC, Bloques 1-12). Fase 2 PLANIFICADA: 108 métodos RPC nuevos + 5 endpoints HTTP (total acumulado 126). REGISTRO-ESTADO-DOS v2.0.0 DEFINITIVO.
 
 ---
 
@@ -30,8 +30,9 @@ Los manuales se numeran `N.M` desde 1.01 (primer manual de bi18n).
 
 | Documento | Contenido | Estado |
 |---|---|---|
-| [REGISTRO-ESTADO-IMPLEMENTACION — Hoja de ruta accionable](REGISTRO-ESTADO-IMPLEMENTACION.md) | Inventario completo por bloque de prioridad. **Bloques 1-12 ✅ completos.** 18 métodos RPC, Interface Triple C11, BO/AR/BR, Weblate, ArcSwap, hot-reload, manual, batería de pruebas, garantía de completitud. | ✅ v1.1.0 cerrado |
-| [BATERIA-PRUEBAS-TESTEADOR — bi18n](BATERIA-PRUEBAS-TESTEADOR-v1.0.md) | 28 verificaciones VERDADERO/FALSO para el Testeador ORQUESTA. Cubre los 18 métodos RPC, CLI bi18nctl, hot-reload, SIGHUP, WebSocket, casos límite y checklist de dictamen. | ✅ 1.0.0 |
+| [REGISTRO-ESTADO-IMPLEMENTACION — Fase 1](REGISTRO-ESTADO-IMPLEMENTACION.md) | Bloques 1-12 ✅ completos. 18 métodos RPC, Interface Triple C11, BO/AR/BR, Weblate, ArcSwap, hot-reload, manual, batería de pruebas, garantía de completitud. | ✅ v1.1.0 cerrado |
+| [**REGISTRO-ESTADO-DOS — Fase 2**](REGISTRO-ESTADO-DOS.md) | 15 bloques (A-N + Ω). Exposición completa de las 23 librerías de Cargo.toml como métodos RPC. **108 métodos RPC nuevos** (total acumulado 126). Servidor web HTTP (puerto 9456, 5 endpoints). APIs verificadas directamente en `~/.cargo/registry/src/` — v3.0.0 corrige 5 errores de la v2.0.0. | ✅ v3.0.0 VERIFICADO |
+| [BATERIA-PRUEBAS-TESTEADOR — Fase 1](BATERIA-PRUEBAS-TESTEADOR-v1.0.md) | 28 verificaciones VERDADERO/FALSO para los 18 métodos RPC de Fase 1. | ✅ 1.0.0 |
 
 ---
 
@@ -54,7 +55,29 @@ Los manuales se numeran `N.M` desde 1.01 (primer manual de bi18n).
 | [A.05 — Cierre de Gaps de bi18n](anexos/A.05_ANEXO-BI18N-CIERRE-GAPS-v1.1.md) | **Tipo G:** 6 gaps ejecutables: RTL (`text_direction` en locale.resolve), gobernanza CODEOWNERS sobre country-rules, CI de paridad de claves (`i18nctl translations check-parity`), alta disponibilidad (2+ réplicas bi18nd + Kong), requisito a11y en la especificación de protocolo (contrato de comportamiento, no prescripción de mecanismo), especificación formal del protocolo WebSocket A.07 (agnóstico de plataforma). | 1.01 · A.04 | ✅ 1.2.0 |
 | [A.06 — bi18n como Daemon de Traducciones](anexos/A.06_ANEXO-BI18N-DAEMON-TRADUCCIONES-v1.1.md) | **Tipo G:** edición de traducciones sin fricción. Weblate self-hosteado (recomendado sobre Tolgee por licencia GPLv3+). Hot-reload con `arc-swap` (swap atómico sin bloqueo, patrón estándar). Nuevo RPC `bi18n.admin.reload_translations`. Gobernanza diferenciada: `country-rules/` (aprobación obligatoria) vs `translations/` (solo gate CI). | 1.01 · A.05 | ✅ 1.1.0 |
 | [A.07 — Protocolo WebSocket bi18n](anexos/A.07_ANEXO-BI18N-PROTOCOLO-WEBSOCKET-v1.0.md) | **Tipo A:** especificación formal del protocolo WebSocket agnóstico de plataforma — URL Kong, handshake JWT, framing JSON-RPC 2.0 newline-delimited, tabla de métodos, códigos de error, requisito a11y, pseudocódigo neutro de sesión mínima. | 1.01 · A.04 · A.05 | ✅ 1.0.0 |
-| [A.08 — Garantía de Cobertura de Librerías](anexos/A.08_ANEXO-BI18N-GARANTIA-LIBRERIAS-v1.0.md) | **Tipo V:** 19 librerías Categoría A (uso activo en producción con llamadas reales), 13 Categoría B (disponibles sin fricción para Fases 2-8). Garantía formal de compilación sin warnings fatales. Análisis de fricción potencial (ICU4X, phonenumber C, notify inotify). | A.01 · REGISTRO Bloque 12 | ✅ 1.0.0 |
+| [A.08 — Garantía de Cobertura de Librerías](anexos/A.08_ANEXO-BI18N-GARANTIA-LIBRERIAS-v1.0.md) | **Tipo V:** 19 librerías Categoría A, 13 Categoría B. Garantía formal de compilación. **Sub-anexos A.08.01–A.08.22:** inventario de exposición de las 22 librerías (función fuente → método RPC → estado ✅/📋/🔮/❌). | A.01 · REGISTRO Bloque 12 | ✅ 1.0.0 |
+| [A.08.01 — Inventario fluent-bundle 0.15.3](anexos/A.08.01_INVENTARIO-LIB-FLUENT-BUNDLE-v1.0.md) | **Inventario de exposición:** 6 métodos RPC Fase 2 (✅/📋/🔮/❌). Handler: `lib_fluent.rs`. Fuente: cargo registry. | A.08 · REGISTRO Bloque A | ✅ 1.0.0 |
+| [A.08.02 — Inventario rust-i18n 4.x](anexos/A.08.02_INVENTARIO-LIB-RUST-I18N-v1.0.md) | **Inventario de exposición:** 4 métodos RPC Fase 2. Handler: `lib_rust_i18n.rs`. Macros compile-time ❌. | A.08 · REGISTRO Bloque B | ✅ 1.0.0 |
+| [A.08.03 — Inventario icu_datetime 2.2.0](anexos/A.08.03_INVENTARIO-LIB-ICU-DATETIME-v1.0.md) | **Inventario de exposición:** 6 métodos RPC Fase 2. Handler: `lib_icu_datetime.rs`. API 2.x field-sets. | A.08 · REGISTRO Bloque D | ✅ 1.0.0 |
+| [A.08.04 — Inventario icu_locale_core + icu_locale 2.2.0](anexos/A.08.04_INVENTARIO-LIB-ICU-LOCALE-v1.0.md) | **Inventario de exposición:** 4 métodos RPC Fase 2. Handler: `lib_icu_locale.rs`. ⚠️ `LocaleCanonicalizer` no `Locale::canonicalize`. | A.08 · REGISTRO Bloque E | ✅ 1.0.0 |
+| [A.08.05 — Inventario icu_decimal 2.2.0](anexos/A.08.05_INVENTARIO-LIB-ICU-DECIMAL-v1.0.md) | **Inventario de exposición:** 4 métodos RPC Fase 2 (GroupingStrategy). Handler: `lib_icu_decimal.rs`. ⚠️ Sin CompactDecimalFormatter. | A.08 · REGISTRO Bloque F | ✅ 1.0.0 |
+| [A.08.06 — Inventario validator 0.19.0](anexos/A.08.06_INVENTARIO-LIB-VALIDATOR-v1.0.md) | **Inventario de exposición:** 12 métodos RPC Fase 2. Handler: `lib_validator.rs`. ⚠️ API 0.19: traits, no funciones libres. | A.08 · REGISTRO Bloque G | ✅ 1.0.0 |
+| [A.08.07 — Inventario scrutiny 0.1.2](anexos/A.08.07_INVENTARIO-LIB-SCRUTINY-v1.0.md) | **Inventario de exposición:** 6 métodos RPC Fase 2 + 35 funciones 🔮 Futuro. Handler: `lib_scrutiny.rs`. | A.08 · REGISTRO Bloque H | ✅ 1.0.0 |
+| [A.08.08 — Inventario mask-pii 0.2.0](anexos/A.08.08_INVENTARIO-LIB-MASK-PII-v1.0.md) | **Inventario de exposición:** 4 métodos RPC Fase 2. Handler: `lib_mask_pii.rs`. ⚠️ FIX P1: mask.rs:81. | A.08 · REGISTRO Bloque I | ✅ 1.0.0 |
+| [A.08.09 — Inventario universal_mask 0.1.0](anexos/A.08.09_INVENTARIO-LIB-UNIVERSAL-MASK-v1.0.md) | **Inventario de exposición:** 5 métodos RPC Fase 2. Handler: `lib_universal_mask.rs`. Una sola función pública `mask()`. | A.08 · REGISTRO Bloque J | ✅ 1.0.0 |
+| [A.08.10 — Inventario jiff 0.2.32](anexos/A.08.10_INVENTARIO-LIB-JIFF-v1.0.md) | **Inventario de exposición:** 18 métodos RPC Fase 2. Handler: `lib_jiff.rs`. ⚠️ `strptime` no `parse`. DST-aware. | A.08 · REGISTRO Bloque K | ✅ 1.0.0 |
+| [A.08.11 — Inventario chrono 0.4.45](anexos/A.08.11_INVENTARIO-LIB-CHRONO-v1.0.md) | **Inventario de exposición:** 15 métodos RPC Fase 2. Handler: `lib_chrono.rs`. strftime + RFC3339 + localized. | A.08 · REGISTRO Bloque L | ✅ 1.0.0 |
+| [A.08.12 — Inventario regex 1.13.1](anexos/A.08.12_INVENTARIO-LIB-REGEX-v1.0.md) | **Inventario de exposición:** 6 métodos RPC Fase 2. Handler: `lib_regex.rs`. Cachear compilaciones. | A.08 · REGISTRO Bloque M | ✅ 1.0.0 |
+| [A.08.13 — Inventario phonenumber 0.3.10](anexos/A.08.13_INVENTARIO-LIB-PHONENUMBER-v1.0.md) | **Inventario de exposición:** 8 métodos RPC Fase 2 + 1 Fase 1 ya impl. Handler: `lib_phonenumber.rs`. ⚠️ `Type` no `PhoneNumberType`. | A.08 · REGISTRO Bloque N | ✅ 1.0.0 |
+| [A.08.14 — Inventario prism3-core 0.2.0](anexos/A.08.14_INVENTARIO-LIB-PRISM3-v1.0.md) | **Inventario de exposición:** 12 métodos RPC Fase 2. Handler: `lib_prism3.rs`. Guards/precondiciones. | A.08 · REGISTRO Bloque Ω | ✅ 1.0.0 |
+| [A.08.15 — Inventario validy 1.2.4](anexos/A.08.15_INVENTARIO-LIB-VALIDY-v1.0.md) | **Inventario de exposición:** 0 métodos RPC — infra interna exclusiva. Derive macros Validate + Modificate. | A.08 · REGISTRO Bloque Ω | ✅ 1.0.0 |
+| [A.08.16 — Inventario valida 1.1.2](anexos/A.08.16_INVENTARIO-LIB-VALIDA-v1.0.md) | **Inventario de exposición:** 0 métodos RPC — infra interna exclusiva. RulesBuilder + i18n errors. | A.08 · REGISTRO Bloque Ω | ✅ 1.0.0 |
+| [A.08.17 — Inventario clipass_rs 0.1.0](anexos/A.08.17_INVENTARIO-LIB-CLIPASS-RS-v1.0.md) | **Inventario de exposición:** 0 métodos RPC — uso exclusivo en `bi18nctl` CLI. ⚠️ Sin `read_password`/`verify_hash` libres. | A.08 · REGISTRO Bloque Ω | ✅ 1.0.0 |
+| [A.08.18 — Inventario arc-swap 1.9.2](anexos/A.08.18_INVENTARIO-LIB-ARC-SWAP-v1.0.md) | **Inventario de exposición:** 0 métodos RPC — infra interna ya implementada Fase 1 (`c92e20b`). | A.08 · Fase 1 | ✅ 1.0.0 |
+| [A.08.19 — Inventario notify 6.1.1](anexos/A.08.19_INVENTARIO-LIB-NOTIFY-v1.0.md) | **Inventario de exposición:** 0 métodos RPC — infra interna ya implementada Fase 1 (`c92e20b`). | A.08 · Fase 1 | ✅ 1.0.0 |
+| [A.08.20 — Inventario shakehand 0.1.3](anexos/A.08.20_INVENTARIO-LIB-SHAKEHAND-v1.0.md) | **Inventario de exposición:** 0 métodos RPC — proc-macro compile-time puro. | A.08 · REGISTRO Bloque C | ✅ 1.0.0 |
+| [A.08.21 — Inventario veil 0.3.0](anexos/A.08.21_INVENTARIO-LIB-VEIL-v1.0.md) | **Inventario de exposición:** 0 métodos RPC — derive macro de redacción en logs (ISO 27001 A.8.15). | A.08 · REGISTRO Bloque C | ✅ 1.0.0 |
+| [A.08.22 — Inventario serde_with 3.21.0](anexos/A.08.22_INVENTARIO-LIB-SERDE-WITH-v1.0.md) | **Inventario de exposición:** 0 métodos RPC — adaptadores de serialización serde. `#[serde_as]` + `TimestampSeconds`. | A.08 · REGISTRO Bloque C | ✅ 1.0.0 |
 
 ---
 
@@ -83,3 +106,5 @@ Los manuales se numeran `N.M` desde 1.01 (primer manual de bi18n).
 | 1.4.0 | 2026-07-17 | Principio agnóstico de plataforma aplicado sistemáticamente. A.04 v2.2.0: principio agregado al inicio, §5 desacoplado de Flutter, §9 reenmarcado como referencias. A.05 v1.2.0: §6 eliminada la tarea de crear SDKs (no es responsabilidad del daemon), reemplazada por especificación formal del protocolo WebSocket (A.07). Bloques 9/10/11 agregados al REGISTRO. |
 | 1.5.0 | 2026-07-17 | REGISTRO corregido: Bloque 9 reescrito sin menciones de plataformas como tareas del daemon (WebSocket listener, `attr.*`, locale, rate limiting, A.07); 10.5 reescrito como requisito de contrato en A.07; nota redundante de 10.6 eliminada. Manual 1.01 actualizado a v1.4.0. A.07 registrado como pendiente en la tabla de anexos. |
 | 1.6.0 | 2026-07-17 | Bloque 12 completado. Nuevo Manual 1.02 (manual de usuario completo). A.07 marcado ✅. Nuevo A.08 (garantía de librerías). BATERIA-PRUEBAS-TESTEADOR añadida al índice. REGISTRO marcado ✅ v1.1.0 cerrado. Estado del índice actualizado a "Bloques 1-12 completos". |
+| 1.7.0 | 2026-07-17 | REGISTRO-ESTADO-DOS creado (Fase 2 en curso). 14 bloques para exposición completa de 23 librerías + servidor web de traducciones. Estado del índice actualizado a "Fase 2 EN CURSO". |
+| 1.8.0 | 2026-07-17 | REGISTRO-ESTADO-DOS reescrito a v2.0.0 DEFINITIVO con datos verificados de 4 agentes. 108 métodos RPC nuevos (total 126) + 5 endpoints HTTP. API exhaustiva de las 23 librerías. |
