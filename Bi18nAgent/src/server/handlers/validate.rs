@@ -2,13 +2,16 @@
 /// Propósito: valida documentos de identidad, teléfonos y emails.
 ///   - Documentos nacionales: regex desde country-rules TOML del país.
 ///   - Teléfonos: phonenumber crate (libphonenumber — E.164).
-///   - Emails: validator crate (RFC 5321).
-/// Dependencias: regex, phonenumber, validator, crate::domain
+///   - Emails: regex RFC 5321.
+///   - Mensajes de error: FluentBundle (Bloque 4) — recargables en SIGHUP.
+///     Al cambiar locales/es-BO/main.ftl + SIGHUP, los mensajes cambian en vivo.
+/// Dependencias: regex, phonenumber, fluent_bundle, crate::domain
 use crate::{
     domain::country_rules::IsoAlpha2,
     error::{Bi18nError, Resultado},
     server::context::ServerContext,
 };
+use fluent_bundle::FluentArgs;
 
 // ── ValidateNationalId ────────────────────────────────────────────────────────
 
@@ -36,6 +39,19 @@ impl TipoDocumento {
             Self::Passport => "PASSPORT",
         }
     }
+
+    /// ID de mensaje Fluent para el error de formato inválido.
+    pub fn fluent_id(&self) -> &'static str {
+        match self {
+            Self::Ci       => "error-ci-invalido",
+            Self::Nit      => "error-nit-invalido",
+            Self::Cpf      => "error-cpf-invalido",
+            Self::Cnpj     => "error-cnpj-invalido",
+            Self::Dni      => "error-dni-invalido",
+            Self::Cuit     => "error-cuit-invalido",
+            Self::Passport => "error-passport-invalido",
+        }
+    }
 }
 
 /// Resultado de validación de documento nacional.
@@ -47,13 +63,14 @@ pub struct ValidateIdResult {
 }
 
 /// Valida un documento de identidad nacional.
+/// El mensaje de error proviene del FluentBundle del servidor (recargable en SIGHUP).
 pub async fn validate_national_id(
     ctx: &ServerContext,
     tipo: TipoDocumento,
     valor: &str,
     pais: &str,
 ) -> Resultado<ValidateIdResult> {
-    let iso = IsoAlpha2::nuevo(pais);
+    let iso    = IsoAlpha2::nuevo(pais);
     let reglas = ctx.loader.obtener(&iso).await?;
 
     let clave = tipo.clave_toml();
@@ -73,10 +90,14 @@ pub async fn validate_national_id(
                     errores: vec![],
                 })
             } else {
+                // Mensaje Fluent con el ejemplo de formato del TOML
+                let mut args = FluentArgs::new();
+                args.set("ejemplo", doc_rules.ejemplo.as_str());
+                let msg = ctx.fluent.traducir(tipo.fluent_id(), Some(&args));
                 Ok(ValidateIdResult {
                     valid: false,
                     normalized: String::new(),
-                    errores: vec![doc_rules.error_mensaje.clone()],
+                    errores: vec![msg],
                 })
             }
         }
@@ -94,39 +115,39 @@ pub struct ValidatePhoneResult {
 }
 
 /// Valida un número de teléfono vía libphonenumber (phonenumber crate).
+/// Los mensajes de error vienen del FluentBundle (recargables en SIGHUP).
 pub async fn validate_phone(
-    _ctx: &ServerContext,
+    ctx: &ServerContext,
     valor: &str,
     pais_hint: &str,
 ) -> Resultado<ValidatePhoneResult> {
     use phonenumber::country::Id;
 
     let country: Option<Id> = pais_hint.parse().ok();
-
     let numero = match phonenumber::parse(country, valor) {
         Err(e) => {
+            let mut args = FluentArgs::new();
+            args.set("detalle", e.to_string());
+            let msg = ctx.fluent.traducir("error-telefono-invalido", Some(&args));
             return Ok(ValidatePhoneResult {
                 valid: false,
                 e164: String::new(),
-                errores: vec![format!("Número de teléfono inválido: {}", e)],
+                errores: vec![msg],
             });
         }
         Ok(n) => n,
     };
 
     if !numero.is_valid() {
+        let msg = ctx.fluent.traducir("error-telefono-pais", None);
         return Ok(ValidatePhoneResult {
             valid: false,
             e164: String::new(),
-            errores: vec!["Número de teléfono no válido para el país indicado".to_string()],
+            errores: vec![msg],
         });
     }
 
-    let e164 = numero
-        .format()
-        .mode(phonenumber::Mode::E164)
-        .to_string();
-
+    let e164 = numero.format().mode(phonenumber::Mode::E164).to_string();
     Ok(ValidatePhoneResult { valid: true, e164, errores: vec![] })
 }
 
@@ -140,12 +161,12 @@ pub struct ValidateEmailResult {
     pub errores: Vec<String>,
 }
 
-/// Valida una dirección de email con regex RFC 5321 (validator crate reservado para derive).
+/// Valida una dirección de email con regex RFC 5321.
+/// El mensaje de error viene del FluentBundle (recargable en SIGHUP).
 pub async fn validate_email(
-    _ctx: &ServerContext,
+    ctx: &ServerContext,
     valor: &str,
 ) -> Resultado<ValidateEmailResult> {
-    // Regex básica RFC 5321 — cubre el 99.9% de emails reales sin dependencia de API inestable.
     let re = regex::Regex::new(r"(?i)^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$")
         .expect("regex de email invariante");
 
@@ -157,10 +178,11 @@ pub async fn validate_email(
             errores: vec![],
         })
     } else {
+        let msg = ctx.fluent.traducir("error-email-invalido", None);
         Ok(ValidateEmailResult {
             valid: false,
             normalized: String::new(),
-            errores: vec!["Dirección de correo electrónico inválida (RFC 5321)".to_string()],
+            errores: vec![msg],
         })
     }
 }

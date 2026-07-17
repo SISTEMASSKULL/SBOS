@@ -202,7 +202,7 @@ Archivo a modificar: **`src/server/unix_socket.rs`** (función `ejecutar_metodo`
 
 ---
 
-## BLOQUE 4 — fluent: mensajes localizados 🟡
+## BLOQUE 4 — fluent: mensajes localizados ✅
 
 > **Impacto:** sin fluent, `bi18n.enum.display` usa solo TOML plano — funciona para enums
 > simples pero no soporta plurales ni concordancia de género.
@@ -224,7 +224,7 @@ Archivo a modificar: **`src/server/unix_socket.rs`** (función `ejecutar_metodo`
   }
   ```
 - **Criterio de done:** directorio existe, al menos un archivo FTL con un plural.
-- **Estado:** ❌
+- **Estado:** ✅ — `locales/es-BO/main.ftl` + `locales/en-US/main.ftl` (plurales, variables)
 
 ### 4.2 Integrar `FluentBundle` en el contexto del servidor
 
@@ -233,7 +233,7 @@ Archivo a modificar: **`src/server/unix_socket.rs`** (función `ejecutar_metodo`
   de la config en un `FluentBundle` cacheado en `Arc<RwLock<FluentBundle>>`.
 - **Criterio de done:** `ServerContext` expone método `traducir(id, args)` que devuelve
   el mensaje localizado; si no existe, retorna el id como fallback.
-- **Estado:** ❌
+- **Estado:** ✅ — `FluentLoader` en `Arc<RwLock<Bundle>>`; `ctx.fluent.traducir()` funcional; SIGHUP recarga
 
 ### 4.3 Usar FluentBundle en mensajes de error
 
@@ -241,7 +241,7 @@ Archivo a modificar: **`src/server/unix_socket.rs`** (función `ejecutar_metodo`
 - **Acción:** los errores de validación (`errores_validacion[]`) deben venir de FluentBundle
   en lugar de ser strings hardcodeados.
 - **Criterio de done:** al cambiar el FTL y recargar (SIGHUP), los mensajes de error cambian.
-- **Estado:** ❌
+- **Estado:** ✅ — validate.rs + health.rs usan Fluent; SIGHUP verificado en vivo
 
 ---
 

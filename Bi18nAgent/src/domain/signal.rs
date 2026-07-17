@@ -1,23 +1,28 @@
 /// domain/signal.rs — Manejo de señales POSIX del daemon bi18n.
-/// Propósito: SIGHUP recarga country-rules sin reiniciar; SIGTERM apaga ordenado.
+/// Propósito: SIGHUP recarga country-rules + FluentBundle sin reiniciar; SIGTERM apaga ordenado.
 ///   - Drenado máximo: drain_timeout_secs (GAP-03).
 ///   - Conteo atómico de solicitudes activas para esperar drenado.
+///   - Bloque 4: FluentLoader también se recarga en SIGHUP (mensajes Fluent en vivo).
 /// Dependencias: tokio::signal, tokio::sync::watch, std::sync::atomic
 use std::sync::{
     atomic::{AtomicU64, Ordering},
     Arc,
 };
 use tokio::sync::watch;
-use crate::domain::country_rules::CountryRulesLoader;
+use crate::domain::{
+    country_rules::CountryRulesLoader,
+    fluent_loader::FluentLoader,
+};
 
-/// Espera SIGHUP y recarga el catálogo de países atómicamente.
+/// Espera SIGHUP y recarga country-rules + FluentBundle atómicamente.
 /// Si la recarga falla, loguea el error pero NO apaga el daemon (mantiene datos anteriores).
 pub async fn manejar_sighup(
     loader: Arc<CountryRulesLoader>,
+    fluent: Arc<FluentLoader>,
     activas: Arc<AtomicU64>,
     drain_timeout_secs: u64,
+    fluent_dir: std::path::PathBuf,
 ) {
-    // Crear el listener UNA SOLA VEZ fuera del loop.
     let mut sighup = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::hangup())
         .expect("no se pudo registrar SIGHUP");
 
@@ -28,11 +33,16 @@ pub async fn manejar_sighup(
                 break;
             }
             Some(()) => {
-                tracing::info!("SIGHUP recibido — iniciando recarga de country-rules");
+                tracing::info!("SIGHUP recibido — recargando country-rules + mensajes Fluent");
                 drenar_solicitudes(&activas, drain_timeout_secs).await;
+
                 match loader.recargar().await {
-                    Ok(n)  => tracing::info!("Recarga completada: {} países cargados", n),
-                    Err(e) => tracing::error!("Falló la recarga: {} — datos anteriores sin cambios", e),
+                    Ok(n)  => tracing::info!("country-rules: {} países cargados", n),
+                    Err(e) => tracing::error!("country-rules: falló recarga: {}", e),
+                }
+                match fluent.recargar(&fluent_dir) {
+                    Ok(())  => tracing::info!("Fluent: bundle recargado desde {:?}", fluent_dir),
+                    Err(e) => tracing::error!("Fluent: falló recarga: {}", e),
                 }
             }
         }
@@ -40,18 +50,15 @@ pub async fn manejar_sighup(
 }
 
 /// Espera SIGTERM, drena conexiones activas y luego señaliza el shutdown.
-/// El drenado respeta `drain_timeout_secs` como máximo de espera (GAP-03).
 pub async fn manejar_sigterm(
     sd_tx: watch::Sender<bool>,
     activas: Arc<AtomicU64>,
     drain_timeout_secs: u64,
 ) {
-    tokio::signal::unix::signal(
-        tokio::signal::unix::SignalKind::terminate(),
-    )
-    .expect("no se pudo registrar SIGTERM")
-    .recv()
-    .await;
+    tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+        .expect("no se pudo registrar SIGTERM")
+        .recv()
+        .await;
 
     let n = activas.load(Ordering::SeqCst);
     tracing::info!("SIGTERM recibido — drenando {} conexiones activas (timeout {}s)", n, drain_timeout_secs);
@@ -65,7 +72,6 @@ pub async fn manejar_sigint(sd_tx: watch::Sender<bool>) {
     tokio::signal::ctrl_c()
         .await
         .expect("no se pudo registrar SIGINT");
-
     tracing::info!("SIGINT recibido — apagando bi18n (modo desarrollo)");
     let _ = sd_tx.send(true);
 }
@@ -74,17 +80,12 @@ pub async fn manejar_sigint(sd_tx: watch::Sender<bool>) {
 async fn drenar_solicitudes(activas: &AtomicU64, timeout_secs: u64) {
     let limite = std::time::Instant::now()
         + std::time::Duration::from_secs(timeout_secs);
-
     loop {
-        if activas.load(Ordering::SeqCst) == 0 {
-            break;
-        }
+        if activas.load(Ordering::SeqCst) == 0 { break; }
         if std::time::Instant::now() >= limite {
-            let pendientes = activas.load(Ordering::SeqCst);
             tracing::warn!(
-                "Timeout de drenado ({} s) alcanzado con {} solicitudes activas — continuando recarga",
-                timeout_secs,
-                pendientes
+                "Timeout de drenado ({} s) con {} solicitudes activas — continuando",
+                timeout_secs, activas.load(Ordering::SeqCst)
             );
             break;
         }

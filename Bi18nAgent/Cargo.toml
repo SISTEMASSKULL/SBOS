@@ -59,6 +59,8 @@ opt-level = 1         # compilación rápida con optimización básica
 # Project Fluent — mensajes con plurales, género y variables (camino a Unicode MF2)
 fluent        = "0.16"
 fluent-bundle = "0.15"
+# LanguageIdentifier BCP 47 — dep transitiva de fluent-bundle expuesta directamente
+unic-langid   = "0.9"
 
 # Traducción tipo-safe con derive macros; archivos YAML/JSON/TOML; fallback en cadena
 rust-i18n = "4"

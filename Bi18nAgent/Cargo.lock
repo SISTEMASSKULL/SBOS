@@ -275,12 +275,14 @@ dependencies = [
  "tower 0.4.13",
  "tracing",
  "tracing-subscriber",
+ "unic-langid",
  "universal_mask",
  "uuid",
  "valida",
  "validator",
  "validy",
  "veil",
+ "writeable",
 ]
 
 [[package]]
@@ -1313,6 +1315,7 @@ dependencies = [
  "icu_locale_core",
  "icu_provider",
  "ixdtf",
+ "jiff",
  "tinystr",
  "zerovec",
 ]
@@ -1354,6 +1357,7 @@ dependencies = [
  "icu_plurals",
  "icu_provider",
  "icu_time",
+ "jiff",
  "potential_utf",
  "tinystr",
  "writeable",
@@ -1526,6 +1530,7 @@ dependencies = [
  "icu_provider",
  "icu_time_data",
  "ixdtf",
+ "jiff",
  "serde",
  "zerotrie",
  "zerovec",
