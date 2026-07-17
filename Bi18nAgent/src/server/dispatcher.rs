@@ -220,6 +220,20 @@ pub async fn ejecutar_metodo(
             Ok(serde_json::json!({ "campos": campos, "locale": locale, "country": country, "text_direction": text_direction }))
         }
 
+        // ── ICU locale BCP-47 (A.08.04) ──────────────────────────────────
+        "bi18n.locale.parse_bcp47" => {
+            handlers::lib_icu_locale::locale_parse_bcp47(ctx, &params).await
+        }
+        "bi18n.locale.canonicalize" => {
+            handlers::lib_icu_locale::locale_canonicalize(ctx, &params).await
+        }
+        "bi18n.locale.negotiate" => {
+            handlers::lib_icu_locale::locale_negotiate(ctx, &params).await
+        }
+        "bi18n.locale.subtags" => {
+            handlers::lib_icu_locale::locale_subtags(ctx, &params).await
+        }
+
         // ── ICU datetime format (A.08.03) ────────────────────────────────
         "bi18n.format.datetime_icu" => {
             handlers::lib_icu_datetime::format_datetime_icu(ctx, &params).await

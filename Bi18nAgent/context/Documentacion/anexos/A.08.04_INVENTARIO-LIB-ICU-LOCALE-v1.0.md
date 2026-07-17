@@ -14,10 +14,10 @@
 
 | # | Función / Tipo fuente | Método RPC `bi18n.*` | Fase | Estado |
 |---|----------------------|----------------------|------|--------|
-| 1 | `Locale::try_from_str(s)` — parsear y validar locale BCP-47 | `bi18n.locale.parse_bcp47` | 2 | 📋 Fase 2 |
-| 2 | `LocaleCanonicalizer::canonicalize(&self, &mut locale)` — crate `icu_locale` | `bi18n.locale.canonicalize` | 2 | 📋 Fase 2 |
-| 3 | `LocaleFallbacker::for_config(cfg).fallback_for(locale)` — iteración de fallback | `bi18n.locale.negotiate` | 2 | 📋 Fase 2 |
-| 4 | parsear subtags: `locale.id.language`, `.script`, `.region`, `.variants` | `bi18n.locale.subtags` | 2 | 📋 Fase 2 |
+| 1 | `Locale::try_from_str(s)` — parsear y validar locale BCP-47 | `bi18n.locale.parse_bcp47` | 2 | ✅ Implementado |
+| 2 | `Locale::normalize(s)` — canonicalización básica sin datos CLDR | `bi18n.locale.canonicalize` | 2 | ✅ Implementado |
+| 3 | fallback propio por truncación de subtags BCP-47 + directorios FTL | `bi18n.locale.negotiate` | 2 | ✅ Implementado |
+| 4 | `locale.id.language/script/region/variants` | `bi18n.locale.subtags` | 2 | ✅ Implementado |
 | 5 | `Locale::normalize(input)` | — | — | 🔮 Futuro |
 | 6 | `Locale::normalizing_eq(&self, other)` | — | — | 🔮 Futuro |
 | 7 | `Locale::strict_cmp(&self, other)` | — | — | ❌ Infra interna |
