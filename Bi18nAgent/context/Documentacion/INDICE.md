@@ -3,7 +3,7 @@
 **Versión:** 2.1.0
 **Mantenido por:** bauth-developer
 **Última actualización:** 2026-07-17
-**Estado:** Activo — Fase 1 ✅ (18 métodos RPC, Bloques 1-12) + Fase 2 ✅ (103 métodos RPC nuevos — bloques A-Ω, 14 handlers, 23 librerías). Total acumulado: 121 métodos RPC. P4 pendiente: 4 métodos `bi18n.admin.*` por JSON-RPC (sin servidor HTTP separado).
+**Estado:** Activo — Fase 1 ✅ (18 RPC) + Fase 2 ✅ (107 RPC nuevos: 103 handlers + 4 admin.*). Total acumulado: 125 métodos RPC. Pendiente: P3 CLI (103 subcomandos bi18nctl para Fase 2).
 
 ---
 
@@ -114,3 +114,4 @@ Los manuales se numeran `N.M` desde 1.01 (primer manual de bi18n).
 | 2.0.0 | 2026-07-17 | PLAN-FASE-2-IMPLEMENTACION v1.0.0 — protocolo formal de trabajo: un anexo = una librería = un handler Rust. Mapa A.08.01–A.08.14 → 14 `lib_*.rs`, convención de naming, estructura del dispatcher, tabla de progreso. |
 | 2.1.0 | 2026-07-17 | Fase 2 completa. Tabla de tracking REGISTRO-ESTADO-DOS actualizada (⏳→✅ con SHAs reales para los 15 bloques A-Ω). INDICE actualizado a v2.1.0 con estado "Fase 2 ✅". Recuentos corregidos: H scrutiny 4→6, I mask-pii 4→3, K jiff 18→17, L chrono 15→10. Total acumulado: 121 métodos RPC. |
 | 2.2.0 | 2026-07-17 | Limpieza arquitectónica: servidor HTTP (puerto 9456) eliminado del plan. P4 redefinido como 4 métodos `bi18n.admin.*` por JSON-RPC sobre WebSocket existente — sin nuevo puerto, sin parser HTTP manual. REGISTRO-ESTADO-DOS y INDICE actualizados en consecuencia. |
+| 2.3.0 | 2026-07-17 | P4 completo (`25973cc`): 4 métodos `bi18n.admin.*` implementados. Total acumulado: 125 RPC. Pendiente: P3 CLI (103 subcomandos bi18nctl). |
