@@ -14,12 +14,12 @@
 
 | # | Función / Tipo fuente | Método RPC `bi18n.*` | Fase | Estado |
 |---|----------------------|----------------------|------|--------|
-| 1 | `DateTimeFormatter::try_new(prefs, fieldsets::YMD::medium()).format(dt)` | `bi18n.format.datetime_icu` | 2 | 📋 Fase 2 |
-| 2 | `DateTimeFormatter` con `fieldsets::YMD` (longitud variable) | `bi18n.format.date_icu` | 2 | 📋 Fase 2 |
-| 3 | `DateTimeFormatter` con `fieldsets::HM` / `fieldsets::HMS` | `bi18n.format.time_icu` | 2 | 📋 Fase 2 |
-| 4 | `DateTimeFormatter` con `fieldsets::YMDE::long()` (extrae weekday) | `bi18n.format.weekday_name` | 2 | 📋 Fase 2 |
-| 5 | `DateTimeFormatter` con `fieldsets::YM::long()` (extrae mes) | `bi18n.format.month_name` | 2 | 📋 Fase 2 |
-| 6 | `DateTimeFormatter` con `fieldsets::YMDHM` | `bi18n.format.datetime_with_time` | 2 | 📋 Fase 2 |
+| 1 | `DateTimeFormatter::try_new(prefs, YMDT::medium()).format(dt)` | `bi18n.format.datetime_icu` | 2 | ✅ Implementado |
+| 2 | `DateTimeFormatter` con `DateFieldSet::YMD` (longitud variable) | `bi18n.format.date_icu` | 2 | ✅ Implementado |
+| 3 | `NoCalendarFormatter` con `T::hm()` / `T::hms()` | `bi18n.format.time_icu` | 2 | ✅ Implementado |
+| 4 | `DateTimeFormatter` con `DateFieldSet::E::long()` (weekday standalone) | `bi18n.format.weekday_name` | 2 | ✅ Implementado |
+| 5 | `DateTimeFormatter` con `CalendarPeriodFieldSet::YM::long()` | `bi18n.format.month_name` | 2 | ✅ Implementado |
+| 6 | `DateTimeFormatter` con `DateAndTimeFieldSet::YMDET` | `bi18n.format.datetime_with_time` | 2 | ✅ Implementado |
 | 7 | `DateTimeFormatter::try_new_unstable(provider, prefs, field_set)` | — | — | ❌ Infra interna |
 | 8 | `DateTimeFormatter::format_same_calendar(dt)` | — | — | 🔮 Futuro |
 | 9 | `DateTimeFormatter::try_into_typed_formatter::<C>()` | — | — | ❌ Infra interna |

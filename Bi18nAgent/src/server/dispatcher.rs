@@ -220,6 +220,26 @@ pub async fn ejecutar_metodo(
             Ok(serde_json::json!({ "campos": campos, "locale": locale, "country": country, "text_direction": text_direction }))
         }
 
+        // ── ICU datetime format (A.08.03) ────────────────────────────────
+        "bi18n.format.datetime_icu" => {
+            handlers::lib_icu_datetime::format_datetime_icu(ctx, &params).await
+        }
+        "bi18n.format.date_icu" => {
+            handlers::lib_icu_datetime::format_date_icu(ctx, &params).await
+        }
+        "bi18n.format.time_icu" => {
+            handlers::lib_icu_datetime::format_time_icu(ctx, &params).await
+        }
+        "bi18n.format.weekday_name" => {
+            handlers::lib_icu_datetime::format_weekday_name(ctx, &params).await
+        }
+        "bi18n.format.month_name" => {
+            handlers::lib_icu_datetime::format_month_name(ctx, &params).await
+        }
+        "bi18n.format.datetime_with_time" => {
+            handlers::lib_icu_datetime::format_datetime_with_time(ctx, &params).await
+        }
+
         // ── rust-i18n runtime (A.08.02) ──────────────────────────────────
         "bi18n.i18n.locale_activo" => {
             handlers::lib_rust_i18n::i18n_locale_activo(ctx, &params).await
