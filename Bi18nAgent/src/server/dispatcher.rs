@@ -788,8 +788,28 @@ fn sdk_config_a_dsl(v: &Value) -> String {
         },
         "enum" => {
             let catalogo = v["catalogo"].as_str().unwrap_or("default");
+            // Si el árbol define opciones inline, las codificamos en el DSL (v1|v2|v3)
+            // para que el handler valide localmente sin consultar el catálogo de servidor.
+            if let Some(ops) = v["opciones"].as_array() {
+                let encoded: Vec<&str> = ops.iter().filter_map(|o| o.as_str()).collect();
+                if !encoded.is_empty() {
+                    return format!("enum:{}:{}", catalogo, encoded.join("|"));
+                }
+            }
             format!("enum:{}", catalogo)
         },
+        // ── Tipos semánticos del árbol bAuth ─────────────────────────────────
+        "slug"       => "slug".to_string(),
+        "semver"     => "semver".to_string(),
+        "cidr"       => "cidr".to_string(),
+        "uuid"       => "uuid".to_string(),
+        "hex"        => {
+            let bits = v["bits"].as_u64().unwrap_or(64);
+            format!("hex:{}", bits)
+        },
+        "datetime"   => "datetime".to_string(),
+        "json_array" => "json_array".to_string(),
+        "role_id"    => "role_id".to_string(),
         other => other.to_string(),
     }
 }
@@ -804,7 +824,11 @@ fn sdk_mask_dsl(v: &Value) -> String {
         "CI" | "NIT" | "phone" if !pais.is_empty() => format!("{}:{}", base, pais),
         "money" if !moneda.is_empty()               => format!("money:{}", moneda),
         "date"                                      => "date".to_string(),
-        other                                       => other.to_string(),
+        "hex" => {
+            let bits = v["bits"].as_u64().unwrap_or(64);
+            format!("hex:{}", bits)
+        },
+        other => other.to_string(),
     }
 }
 

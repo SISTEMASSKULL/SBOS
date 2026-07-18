@@ -146,8 +146,25 @@ pub async fn validate_field(
 
         "enum" => {
             let catalogo = s.get(1).copied().unwrap_or("default");
-            validar_enum(ctx, valor, catalogo).await
+            // s[2] lleva opciones inline codificadas como "v1|v2|v3" por el dispatcher
+            let inline_ops: Vec<&str> = s.get(2)
+                .map(|enc| enc.split('|').collect())
+                .unwrap_or_default();
+            validar_enum(ctx, valor, catalogo, &inline_ops).await
         }
+
+        // ── Tipos semánticos del árbol bAuth ─────────────────────────────────
+        "slug"       => validar_slug(valor),
+        "semver"     => validar_semver(valor),
+        "cidr"       => validar_cidr(valor),
+        "uuid"       => validar_uuid(valor),
+        "hex"        => {
+            let bits = s.get(1).and_then(|v| v.parse::<u32>().ok()).unwrap_or(64);
+            validar_hex(valor, bits)
+        }
+        "datetime"   => validar_datetime(ctx, valor),
+        "json_array" => validar_json_array(valor),
+        "role_id"    => validar_role_id(valor),
 
         "password" => validar_password(ctx, valor),
 
@@ -377,18 +394,47 @@ fn validar_password(ctx: &ServerContext, valor: &str) -> Resultado<ValidateField
     })
 }
 
-/// Valida un valor de enum contra el catálogo de bi18n.
-/// Si el catálogo es conocido y el valor no figura en él → inválido.
-/// Si el catálogo no está cubierto → acepta el valor (cobertura parcial).
+/// Valida un valor de enum contra opciones inline o catálogo de servidor.
+/// inline_ops: opciones codificadas por el dispatcher desde tipo_cfg["opciones"].
+///   Si no está vacío → validación local (sin RPC al servidor de catálogos).
+///   Si está vacío → delegar al catálogo embebido de enums.rs.
 async fn validar_enum(
     ctx: &ServerContext,
     valor: &str,
     catalogo: &str,
+    inline_ops: &[&str],
 ) -> Resultado<ValidateFieldResult> {
     use crate::server::handlers::enums;
 
+    // Ruta rápida: opciones pasadas inline por el árbol (evita round-trip de catálogo)
+    if !inline_ops.is_empty() {
+        if inline_ops.contains(&valor) {
+            return Ok(ValidateFieldResult {
+                valido: true, errores: vec![],
+                valor_normalizado: valor.to_string(),
+                metadata: json!({ "catalogo": catalogo }),
+            });
+        }
+        return Ok(ValidateFieldResult {
+            valido: false,
+            errores: vec![format!(
+                "El valor '{}' no está en las opciones válidas para '{}'.", valor, catalogo
+            )],
+            valor_normalizado: String::new(),
+            metadata: json!({ "catalogo": catalogo }),
+        });
+    }
+
+    // Catálogos de servidor conocidos — validación estricta
     const CATALOGOS_CONOCIDOS: &[&str] = &[
         "gender", "genero", "marital_status", "employment_type", "status",
+        "combining_algorithm", "xacml_decision", "decision",
+        "op_logico", "operador", "verbo",
+        "loa", "level_of_assurance",
+        "security_impact", "classification",
+        "tier", "algorithm", "amr",
+        "fido_requirement", "resident_key", "user_verification",
+        "attestation", "authenticator_attachment",
     ];
 
     let r = enums::display(ctx, catalogo, valor, "es").await?;
@@ -412,11 +458,162 @@ async fn validar_enum(
         });
     }
 
-    // Catálogo desconocido — aceptar con advertencia de cobertura parcial
+    // Catálogo desconocido — aceptar con nota de cobertura parcial
     Ok(ValidateFieldResult {
         valido: true, errores: vec![],
         valor_normalizado: valor.to_string(),
         metadata: json!({ "catalogo": catalogo, "en_catalogo": false }),
+    })
+}
+
+// ── Tipos semánticos del árbol bAuth ─────────────────────────────────────────
+
+/// Valida un slug: letras minúsculas, dígitos, guiones y guiones bajos.
+/// Normaliza a minúsculas automáticamente.
+fn validar_slug(valor: &str) -> Resultado<ValidateFieldResult> {
+    let norm = valor.to_lowercase();
+    let primer_ok = norm.chars().next().map(|c| c.is_ascii_lowercase()).unwrap_or(false);
+    let resto_ok  = norm.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '-');
+    if primer_ok && resto_ok {
+        return Ok(ValidateFieldResult { valido: true, errores: vec![], valor_normalizado: norm, metadata: json!({}) });
+    }
+    Ok(ValidateFieldResult {
+        valido: false,
+        errores: vec!["El slug solo puede contener letras minúsculas, dígitos, _ y -, y debe comenzar con letra.".to_string()],
+        valor_normalizado: String::new(), metadata: json!({}),
+    })
+}
+
+/// Valida versión semántica MAJOR.MINOR.PATCH según SemVer.
+fn validar_semver(valor: &str) -> Resultado<ValidateFieldResult> {
+    let partes: Vec<&str> = valor.split('.').collect();
+    if partes.len() == 3 && partes.iter().all(|p| p.parse::<u64>().is_ok()) {
+        return Ok(ValidateFieldResult { valido: true, errores: vec![], valor_normalizado: valor.to_string(), metadata: json!({}) });
+    }
+    Ok(ValidateFieldResult {
+        valido: false,
+        errores: vec!["Versión inválida. Use SemVer: MAJOR.MINOR.PATCH (ej: 1.0.0).".to_string()],
+        valor_normalizado: String::new(), metadata: json!({}),
+    })
+}
+
+/// Valida notación CIDR IPv4 (ej: 192.168.1.0/24) o la cadena literal "any".
+fn validar_cidr(valor: &str) -> Resultado<ValidateFieldResult> {
+    let v = valor.trim();
+    if v == "any" {
+        return Ok(ValidateFieldResult { valido: true, errores: vec![], valor_normalizado: v.to_string(), metadata: json!({ "any": true }) });
+    }
+    let partes: Vec<&str> = v.split('/').collect();
+    if partes.len() != 2 { return Ok(err_cidr()); }
+    let prefijo: u8 = match partes[1].parse::<u8>() {
+        Ok(p) if p <= 32 => p,
+        _ => return Ok(err_cidr()),
+    };
+    let octetos: Vec<u8> = partes[0].split('.').filter_map(|o| o.parse().ok()).collect();
+    if octetos.len() != 4 { return Ok(err_cidr()); }
+    Ok(ValidateFieldResult { valido: true, errores: vec![], valor_normalizado: v.to_string(), metadata: json!({ "prefijo": prefijo }) })
+}
+fn err_cidr() -> ValidateFieldResult {
+    ValidateFieldResult {
+        valido: false,
+        errores: vec!["CIDR inválido. Use IP/prefijo (ej: 192.168.1.0/24) o 'any'.".to_string()],
+        valor_normalizado: String::new(), metadata: json!({}),
+    }
+}
+
+/// Valida UUID (cualquier versión). Normaliza a minúsculas con guiones.
+fn validar_uuid(valor: &str) -> Resultado<ValidateFieldResult> {
+    match uuid::Uuid::parse_str(valor) {
+        Ok(id) => Ok(ValidateFieldResult {
+            valido: true, errores: vec![],
+            valor_normalizado: id.hyphenated().to_string(),
+            metadata: json!({ "version": id.get_version_num() }),
+        }),
+        Err(_) => Ok(ValidateFieldResult {
+            valido: false,
+            errores: vec!["UUID inválido. Formato: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx.".to_string()],
+            valor_normalizado: String::new(), metadata: json!({}),
+        }),
+    }
+}
+
+/// Valida un valor hexadecimal con ancho de bits opcional.
+/// Normaliza a mayúsculas con prefijo 0x.
+fn validar_hex(valor: &str, bits: u32) -> Resultado<ValidateFieldResult> {
+    let limpio = valor.trim().trim_start_matches("0x").trim_start_matches("0X");
+    if limpio.is_empty() || !limpio.chars().all(|c| c.is_ascii_hexdigit()) {
+        return Ok(ValidateFieldResult {
+            valido: false,
+            errores: vec!["Valor hexadecimal inválido. Use dígitos 0-9 y letras A-F.".to_string()],
+            valor_normalizado: String::new(), metadata: json!({}),
+        });
+    }
+    if bits > 0 {
+        let max_chars = (bits / 4) as usize;
+        if limpio.len() > max_chars {
+            return Ok(ValidateFieldResult {
+                valido: false,
+                errores: vec![format!("El valor supera {} bits ({} dígitos hex máx.).", bits, max_chars)],
+                valor_normalizado: String::new(), metadata: json!({}),
+            });
+        }
+    }
+    let norm = format!("0x{}", limpio.to_uppercase());
+    Ok(ValidateFieldResult { valido: true, errores: vec![], valor_normalizado: norm, metadata: json!({ "bits": bits }) })
+}
+
+/// Valida fecha/hora ISO 8601 (ej: 2024-01-01T00:00:00Z).
+/// Usa jiff::Timestamp para parseo estricto.
+fn validar_datetime(ctx: &ServerContext, valor: &str) -> Resultado<ValidateFieldResult> {
+    match valor.parse::<jiff::Timestamp>() {
+        Ok(_) => Ok(ValidateFieldResult {
+            valido: true, errores: vec![],
+            valor_normalizado: valor.to_string(), metadata: json!({ "datetime": true }),
+        }),
+        Err(_) => {
+            let msg = ctx.fluent.traducir("error-datetime-invalido", None);
+            let msg = if msg == "error-datetime-invalido" {
+                "Fecha/hora inválida. Use formato ISO 8601: 2024-01-01T00:00:00Z.".to_string()
+            } else { msg };
+            Ok(ValidateFieldResult { valido: false, errores: vec![msg], valor_normalizado: String::new(), metadata: json!({}) })
+        }
+    }
+}
+
+/// Valida que el valor sea un array JSON (ej: ["ITEM_A","ITEM_B"]).
+fn validar_json_array(valor: &str) -> Resultado<ValidateFieldResult> {
+    match serde_json::from_str::<Vec<serde_json::Value>>(valor) {
+        Ok(arr) => Ok(ValidateFieldResult {
+            valido: true, errores: vec![],
+            valor_normalizado: valor.to_string(),
+            metadata: json!({ "items": arr.len() }),
+        }),
+        Err(_) => Ok(ValidateFieldResult {
+            valido: false,
+            errores: vec!["Valor JSON inválido. Debe ser array, ej: [\"ITEM_A\",\"ITEM_B\"].".to_string()],
+            valor_normalizado: String::new(), metadata: json!({}),
+        }),
+    }
+}
+
+/// Valida ID de rol con formato SIGLA-NNN (segmentos alfanuméricos, último ≥ 3 dígitos).
+/// Normaliza a mayúsculas.
+fn validar_role_id(valor: &str) -> Resultado<ValidateFieldResult> {
+    let norm = valor.trim().to_uppercase();
+    let segs: Vec<&str> = norm.split('-').collect();
+    if segs.len() >= 2 {
+        let ultimo     = segs.last().unwrap();
+        let num_ok     = ultimo.len() >= 3 && ultimo.chars().all(|c| c.is_ascii_digit());
+        let prefijo_ok = segs[..segs.len()-1].iter()
+            .all(|s| !s.is_empty() && s.chars().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit()));
+        if num_ok && prefijo_ok {
+            return Ok(ValidateFieldResult { valido: true, errores: vec![], valor_normalizado: norm, metadata: json!({}) });
+        }
+    }
+    Ok(ValidateFieldResult {
+        valido: false,
+        errores: vec!["ID de rol inválido. Formato: SIGLA-NNN (ej: RGV-001).".to_string()],
+        valor_normalizado: String::new(), metadata: json!({}),
     })
 }
 
@@ -600,7 +797,27 @@ pub fn mask_pattern(tipo: &str) -> MaskPatternResult {
                 usar_mascara: true,
             }
         }
-        // email, text, password → sin máscara de entrada
+        // uuid → máscara de 32 hex dígitos con guiones (8-4-4-4-12)
+        "uuid" => MaskPatternResult {
+            motor: "Pattern",
+            patron: Some("HHHHHHHH-HHHH-HHHH-HHHH-HHHHHHHHHHHH".to_string()),
+            opciones: json!({ "definitions": { "H": "[0-9a-fA-F]" } }),
+            placeholder: Some("________-____-____-____-____________".to_string()),
+            usar_mascara: true,
+        },
+        // hex → máscara de ancho fijo según bits (default 64 bits = 16 hex chars)
+        "hex" => {
+            let bits = s.get(1).and_then(|v| v.parse::<u32>().ok()).unwrap_or(64);
+            let n = (bits / 4) as usize;
+            MaskPatternResult {
+                motor: "Pattern",
+                patron: Some(format!("0x{}", "H".repeat(n))),
+                opciones: json!({ "definitions": { "H": "[0-9a-fA-F]" } }),
+                placeholder: Some(format!("0x{}", "_".repeat(n))),
+                usar_mascara: true,
+            }
+        }
+        // email, text, password, slug, semver, cidr, datetime, json_array, role_id → sin máscara
         _ => MaskPatternResult {
             motor: "none",
             patron: None,

@@ -6,8 +6,12 @@
 /** JSON config que describe un campo de formulario. Siempre JSON — nunca string DSL. */
 export interface TipoConfig {
   // ── Requerido ──────────────────────────────────────────────────────────────
-  base: "CI" | "NIT" | "email" | "phone" | "date" | "money"
-      | "number" | "text" | "password" | "bool" | "enum";
+  base: "CI" | "NIT" | "DNI" | "PASSPORT" | "CPF" | "CNPJ" | "CUIT"
+      | "email" | "phone" | "date" | "money" | "number"
+      | "text" | "password" | "bool" | "enum"
+      // Tipos semánticos del árbol bAuth:
+      | "slug" | "semver" | "cidr" | "uuid" | "hex"
+      | "datetime" | "json_array" | "role_id";
 
   // ── Subtipos ────────────────────────────────────────────────────────────────
   pais?:       string;                              // CI, NIT, phone
@@ -15,6 +19,8 @@ export interface TipoConfig {
   subtipo?:    "integer" | "decimal" | "percent" | "alpha" | "alphanumeric"; // number, text
   decimales?:  number;                              // number, money
   catalogo?:   string;                              // enum
+  opciones?:   string[];                            // enum — opciones inline del árbol
+  bits?:       number;                              // hex — ancho en bits (32 | 64)
 
   // ── Rango ───────────────────────────────────────────────────────────────────
   min?:        number;                              // money, number
