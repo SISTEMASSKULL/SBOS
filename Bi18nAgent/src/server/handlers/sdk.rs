@@ -144,6 +144,11 @@ pub async fn validate_field(
 
         "text" => validar_texto(valor, &s),
 
+        "enum" => {
+            let catalogo = s.get(1).copied().unwrap_or("default");
+            validar_enum(ctx, valor, catalogo).await
+        }
+
         "password" => validar_password(ctx, valor),
 
         "bool" => {
@@ -369,6 +374,49 @@ fn validar_password(ctx: &ServerContext, valor: &str) -> Resultado<ValidateField
         valido: true, errores: vec![],
         valor_normalizado: String::new(), // no devolver la contraseña
         metadata: json!({ "longitud": valor.chars().count() }),
+    })
+}
+
+/// Valida un valor de enum contra el catálogo de bi18n.
+/// Si el catálogo es conocido y el valor no figura en él → inválido.
+/// Si el catálogo no está cubierto → acepta el valor (cobertura parcial).
+async fn validar_enum(
+    ctx: &ServerContext,
+    valor: &str,
+    catalogo: &str,
+) -> Resultado<ValidateFieldResult> {
+    use crate::server::handlers::enums;
+
+    const CATALOGOS_CONOCIDOS: &[&str] = &[
+        "gender", "genero", "marital_status", "employment_type", "status",
+    ];
+
+    let r = enums::display(ctx, catalogo, valor, "es").await?;
+
+    if r.found {
+        return Ok(ValidateFieldResult {
+            valido: true, errores: vec![],
+            valor_normalizado: valor.to_string(),
+            metadata: json!({ "catalogo": catalogo, "label": r.label }),
+        });
+    }
+
+    if CATALOGOS_CONOCIDOS.contains(&catalogo) {
+        return Ok(ValidateFieldResult {
+            valido: false,
+            errores: vec![format!(
+                "El valor '{}' no es válido para el catálogo '{}'.", valor, catalogo
+            )],
+            valor_normalizado: String::new(),
+            metadata: json!({ "catalogo": catalogo }),
+        });
+    }
+
+    // Catálogo desconocido — aceptar con advertencia de cobertura parcial
+    Ok(ValidateFieldResult {
+        valido: true, errores: vec![],
+        valor_normalizado: valor.to_string(),
+        metadata: json!({ "catalogo": catalogo, "en_catalogo": false }),
     })
 }
 

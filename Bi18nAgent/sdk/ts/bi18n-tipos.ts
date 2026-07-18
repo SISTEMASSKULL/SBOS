@@ -30,6 +30,11 @@ export interface TipoConfig {
   mayor_que?:  string;
   menor_que?:  string;
 
+  // ── Advertencias (onWarn) ────────────────────────────────────────────────────
+  warn_min?:   number;   // money/number: warn si valor < warn_min
+  warn_max?:   number;   // money/number: warn si valor > warn_max
+  warn_dias?:  number;   // date: warn si la fecha vence en ≤ N días desde hoy
+
   // ── Email avanzado ──────────────────────────────────────────────────────────
   verificar_mx?:       boolean;
   verificar_smtp?:     boolean;

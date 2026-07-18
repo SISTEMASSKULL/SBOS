@@ -670,6 +670,50 @@ pub async fn ejecutar_metodo(
                         }
                     }
                 }
+
+                // mayor_que: el valor normalizado debe ser estrictamente > que la referencia
+                if r.valido {
+                    if let Some(mqv) = params["mayor_que_valor"].as_str() {
+                        let msg = tipo_cfg["msgError"].as_str()
+                            .unwrap_or("El valor debe ser mayor que el campo de referencia.");
+                        if !comparar_mayor(r.valor_normalizado.as_str(), mqv) {
+                            r = handlers::sdk::ValidateFieldResult {
+                                valido: false,
+                                errores: vec![msg.to_string()],
+                                valor_normalizado: String::new(),
+                                metadata: serde_json::json!({}),
+                            };
+                        }
+                    }
+                }
+
+                // menor_que: el valor normalizado debe ser estrictamente < que la referencia
+                if r.valido {
+                    if let Some(mqv) = params["menor_que_valor"].as_str() {
+                        let msg = tipo_cfg["msgError"].as_str()
+                            .unwrap_or("El valor debe ser menor que el campo de referencia.");
+                        if !comparar_menor(r.valor_normalizado.as_str(), mqv) {
+                            r = handlers::sdk::ValidateFieldResult {
+                                valido: false,
+                                errores: vec![msg.to_string()],
+                                valor_normalizado: String::new(),
+                                metadata: serde_json::json!({}),
+                            };
+                        }
+                    }
+                }
+            }
+
+            // Advertencia (onWarn): inyectar metadata.advertencia si el campo está
+            // dentro de la zona de alerta definida por warn_min / warn_max / warn_dias
+            if r.valido {
+                if verificar_advertencia(tipo_cfg, &r.valor_normalizado, &r.metadata) {
+                    let mut meta_obj = r.metadata.as_object()
+                        .cloned()
+                        .unwrap_or_else(serde_json::Map::new);
+                    meta_obj.insert("advertencia".to_string(), serde_json::json!(true));
+                    r.metadata = serde_json::Value::Object(meta_obj);
+                }
             }
 
             Ok(serde_json::json!({
@@ -738,8 +782,15 @@ fn sdk_config_a_dsl(v: &Value) -> String {
         "date"     => format!("date:{}:{}", min_f, max_f),
         "money"    => format!("money:{}:{}:{}", moneda, min_n, max_n),
         "number"   => format!("number:{}:{}:{}:{}", subtipo, dec, min_n, max_n),
-        "text"     => format!("text:{}:{}", min_ch, max_ch),
-        other      => other.to_string(),
+        "text" => match v["subtipo"].as_str().unwrap_or("") {
+            sub @ ("alpha" | "alphanumeric") => format!("text:{}", sub),
+            _ => format!("text:{}:{}", min_ch, max_ch),
+        },
+        "enum" => {
+            let catalogo = v["catalogo"].as_str().unwrap_or("default");
+            format!("enum:{}", catalogo)
+        },
+        other => other.to_string(),
     }
 }
 
@@ -797,4 +848,45 @@ fn sdk_resolver_fecha(expr: &str) -> String {
     }
 
     expr.to_string()
+}
+
+/// Compara dos strings como f64; si falla, compara lexicográficamente (válido para ISO YYYY-MM-DD).
+fn comparar_mayor(a: &str, b: &str) -> bool {
+    if let (Ok(na), Ok(nb)) = (a.parse::<f64>(), b.parse::<f64>()) {
+        return na > nb;
+    }
+    a > b
+}
+
+fn comparar_menor(a: &str, b: &str) -> bool {
+    if let (Ok(na), Ok(nb)) = (a.parse::<f64>(), b.parse::<f64>()) {
+        return na < nb;
+    }
+    a < b
+}
+
+/// Determina si un campo válido debe disparar onWarn (metadata.advertencia = true).
+///   warn_min / warn_max — para money y number: zona de alerta antes de los límites duros.
+///   warn_dias           — para date: fecha vence en ≤ N días desde hoy.
+fn verificar_advertencia(tipo_cfg: &Value, valor_norm: &str, meta: &Value) -> bool {
+    // Caso numérico: validar_numero embebe metadata.numerico
+    if let Some(num) = meta.get("numerico").and_then(|v| v.as_f64()) {
+        if tipo_cfg["warn_min"].as_f64().map(|w| num < w).unwrap_or(false) {
+            return true;
+        }
+        if tipo_cfg["warn_max"].as_f64().map(|w| num > w).unwrap_or(false) {
+            return true;
+        }
+    }
+    // Caso fecha: valor_norm es ISO "YYYY-MM-DD"
+    if let Some(dias) = tipo_cfg["warn_dias"].as_i64() {
+        if !valor_norm.is_empty() {
+            let hoy    = sdk_resolver_fecha("hoy");
+            let umbral = sdk_resolver_fecha(&format!("hoy+{}d", dias));
+            if !hoy.is_empty() && !umbral.is_empty() {
+                return valor_norm >= hoy.as_str() && valor_norm <= umbral.as_str();
+            }
+        }
+    }
+    false
 }
