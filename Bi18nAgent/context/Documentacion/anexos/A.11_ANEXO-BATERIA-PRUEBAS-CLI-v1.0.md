@@ -1012,3 +1012,226 @@ echo '{"jsonrpc":"2.0","id":1,"method":"bi18n.inexistente","params":{"ctx_id":"t
 bi18nctl --socket /tmp/no-existe.sock estado; echo "exit=$?"
 ```
 **Esperado (PASS):** exit=2, mensaje de error en stderr.
+
+---
+
+## §26 SDK — `bi18n.validate.field` + `bi18n.mask.pattern` con JSON config
+
+Estos casos prueban los **3 métodos SDK** usando JSON config completo.
+La herramienta es `socat` sobre el socket Unix (o `bi18nctl validate`).
+Todos los requests incluyen `ctx_id` y el JSON config en el campo `tipo`.
+
+```bash
+# Helper compacto para esta sección
+sdk_validate() {
+  printf '%s' "$1" | socat - UNIX-CONNECT:/run/bos/bi18n.sock
+}
+sdk_mask() {
+  printf '%s' "$1" | socat - UNIX-CONNECT:/run/bos/bi18n.sock
+}
+CTX="sdk-$(date +%s)"
+```
+
+### TC-CLI-200 — validate.field CI Bolivia
+```bash
+sdk_validate '{"jsonrpc":"2.0","id":200,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"CI","pais":"BO"},"value":"7654321-LP"}}'
+```
+**Esperado (PASS):** `result.valido: true`, `result.valor_normalizado: "7654321-LP"`.
+
+### TC-CLI-201 — validate.field email válido
+```bash
+sdk_validate '{"jsonrpc":"2.0","id":201,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"email","requerido":true},"value":"usuario@empresa.com"}}'
+```
+**Esperado (PASS):** `result.valido: true`.
+
+### TC-CLI-202 — validate.field date con max_fecha relativa
+```bash
+sdk_validate '{"jsonrpc":"2.0","id":202,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"date","max_fecha":"hoy-18a","msgError":"Debe ser mayor de 18 anios"},"value":"1990-01-01"}}'
+```
+**Esperado (PASS):** `result.valido: true` (fecha anterior a 18 años atrás).
+
+### TC-CLI-203 — validate.field money fuera de rango
+```bash
+sdk_validate '{"jsonrpc":"2.0","id":203,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"money","moneda":"BOB","min":0,"max":50000,"msgError":"Monto excede limite"},"value":"75000"}}'
+```
+**Esperado (PASS):** `result.valido: false`, `result.errores` contiene "Monto excede limite".
+
+### TC-CLI-204 — validate.field warn_max (advertencia)
+```bash
+sdk_validate '{"jsonrpc":"2.0","id":204,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"money","moneda":"BOB","min":0,"max":500000,"warn_max":40000},"value":"75000"}}'
+```
+**Esperado (PASS):** `result.valido: true`, `result.metadata.advertencia: true`.
+
+### TC-CLI-205 — validate.field warn_min (advertencia baja)
+```bash
+sdk_validate '{"jsonrpc":"2.0","id":205,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"number","subtipo":"decimal","warn_min":100},"value":"50"}}'
+```
+**Esperado (PASS):** `result.valido: true`, `result.metadata.advertencia: true`.
+
+### TC-CLI-206 — validate.field confirmar_valor OK
+```bash
+sdk_validate '{"jsonrpc":"2.0","id":206,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"email","msgOk":"Coinciden"},"confirmar_valor":"a@b.com","value":"a@b.com"}}'
+```
+**Esperado (PASS):** `result.valido: true`.
+
+### TC-CLI-207 — validate.field confirmar_valor FAIL
+```bash
+sdk_validate '{"jsonrpc":"2.0","id":207,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"email","msgError":"No coinciden"},"confirmar_valor":"a@b.com","value":"x@b.com"}}'
+```
+**Esperado (PASS):** `result.valido: false`, error menciona confirmación.
+
+### TC-CLI-208 — validate.field mayor_que_valor (fechas ISO)
+```bash
+sdk_validate '{"jsonrpc":"2.0","id":208,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"date","msgError":"Fin debe ser posterior al inicio"},"mayor_que_valor":"2026-01-01","value":"2026-07-18"}}'
+```
+**Esperado (PASS):** `result.valido: true`.
+
+### TC-CLI-209 — validate.field menor_que_valor FAIL
+```bash
+sdk_validate '{"jsonrpc":"2.0","id":209,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"number","subtipo":"decimal","msgError":"Debe ser menor"},"menor_que_valor":"100","value":"200"}}'
+```
+**Esperado (PASS):** `result.valido: false`.
+
+### TC-CLI-210 — validate.field enum inline opciones
+```bash
+sdk_validate '{"jsonrpc":"2.0","id":210,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"enum","catalogo":"combining_algorithm","opciones":["deny-overrides","permit-overrides","first-applicable"]},"value":"deny-overrides"}}'
+```
+**Esperado (PASS):** `result.valido: true`, `result.metadata.catalogo: "combining_algorithm"`.
+
+### TC-CLI-211 — validate.field enum inline valor inválido
+```bash
+sdk_validate '{"jsonrpc":"2.0","id":211,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"enum","catalogo":"combining_algorithm","opciones":["deny-overrides","permit-overrides"]},"value":"INVALIDO"}}'
+```
+**Esperado (PASS):** `result.valido: false`.
+
+### TC-CLI-212 — validate.field slug válido
+```bash
+sdk_validate '{"jsonrpc":"2.0","id":212,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"slug"},"value":"mi-rol-comercial"}}'
+```
+**Esperado (PASS):** `result.valido: true`, `result.valor_normalizado: "mi-rol-comercial"`.
+
+### TC-CLI-213 — validate.field slug inválido (mayúscula)
+```bash
+sdk_validate '{"jsonrpc":"2.0","id":213,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"slug"},"value":"Mi-Rol"}}'
+```
+**Esperado (PASS):** `result.valido: false` ó normalizado a minúsculas según implementación.
+
+### TC-CLI-214 — validate.field semver válido
+```bash
+sdk_validate '{"jsonrpc":"2.0","id":214,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"semver"},"value":"3.0.0"}}'
+```
+**Esperado (PASS):** `result.valido: true`.
+
+### TC-CLI-215 — validate.field semver inválido
+```bash
+sdk_validate '{"jsonrpc":"2.0","id":215,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"semver"},"value":"3.0"}}'
+```
+**Esperado (PASS):** `result.valido: false` (solo 2 segmentos).
+
+### TC-CLI-216 — validate.field cidr válido
+```bash
+sdk_validate '{"jsonrpc":"2.0","id":216,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"cidr"},"value":"192.168.0.0/24"}}'
+```
+**Esperado (PASS):** `result.valido: true`.
+
+### TC-CLI-217 — validate.field cidr "any"
+```bash
+sdk_validate '{"jsonrpc":"2.0","id":217,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"cidr"},"value":"any"}}'
+```
+**Esperado (PASS):** `result.valido: true`.
+
+### TC-CLI-218 — validate.field uuid válido
+```bash
+sdk_validate '{"jsonrpc":"2.0","id":218,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"uuid"},"value":"550e8400-e29b-41d4-a716-446655440000"}}'
+```
+**Esperado (PASS):** `result.valido: true`, `result.metadata.version` presente.
+
+### TC-CLI-219 — validate.field hex 64 bits
+```bash
+sdk_validate '{"jsonrpc":"2.0","id":219,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"hex","bits":64},"value":"0x00000000003FFFFF"}}'
+```
+**Esperado (PASS):** `result.valido: true`, `result.valor_normalizado` empieza con `"0x"`.
+
+### TC-CLI-220 — validate.field hex 32 bits
+```bash
+sdk_validate '{"jsonrpc":"2.0","id":220,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"hex","bits":32},"value":"0x003FFFFF"}}'
+```
+**Esperado (PASS):** `result.valido: true`.
+
+### TC-CLI-221 — validate.field hex excede ancho
+```bash
+sdk_validate '{"jsonrpc":"2.0","id":221,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"hex","bits":32},"value":"0x003FFFFFFFFFFFFF"}}'
+```
+**Esperado (PASS):** `result.valido: false` (demasiados dígitos para 32 bits).
+
+### TC-CLI-222 — validate.field datetime ISO 8601
+```bash
+sdk_validate '{"jsonrpc":"2.0","id":222,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"datetime"},"value":"2026-07-18T14:30:00Z"}}'
+```
+**Esperado (PASS):** `result.valido: true`.
+
+### TC-CLI-223 — validate.field json_array
+```bash
+sdk_validate '{"jsonrpc":"2.0","id":223,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"json_array"},"value":"[\"RGV-001\",\"RGV-002\"]"}}'
+```
+**Esperado (PASS):** `result.valido: true`, `result.metadata.items: 2`.
+
+### TC-CLI-224 — validate.field role_id válido
+```bash
+sdk_validate '{"jsonrpc":"2.0","id":224,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"role_id"},"value":"RGV-001"}}'
+```
+**Esperado (PASS):** `result.valido: true`, `result.valor_normalizado: "RGV-001"`.
+
+### TC-CLI-225 — validate.field role_id inválido
+```bash
+sdk_validate '{"jsonrpc":"2.0","id":225,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"role_id"},"value":"RGV"}}'
+```
+**Esperado (PASS):** `result.valido: false` (sin segmento numérico).
+
+### TC-CLI-226 — mask.pattern CI:BO
+```bash
+sdk_mask '{"jsonrpc":"2.0","id":226,"method":"bi18n.mask.pattern","params":{"ctx_id":"'$CTX'","tipo":{"base":"CI","pais":"BO"}}}'
+```
+**Esperado (PASS):** `result.motor: "Pattern"`, `result.patron: "0000000-aA"`, `result.usar_mascara: true`.
+
+### TC-CLI-227 — mask.pattern money BOB
+```bash
+sdk_mask '{"jsonrpc":"2.0","id":227,"method":"bi18n.mask.pattern","params":{"ctx_id":"'$CTX'","tipo":{"base":"money","moneda":"BOB"}}}'
+```
+**Esperado (PASS):** `result.motor: "Number"`, `result.opciones.scale: 2`, `result.usar_mascara: true`.
+
+### TC-CLI-228 — mask.pattern uuid
+```bash
+sdk_mask '{"jsonrpc":"2.0","id":228,"method":"bi18n.mask.pattern","params":{"ctx_id":"'$CTX'","tipo":{"base":"uuid"}}}'
+```
+**Esperado (PASS):** `result.motor: "Pattern"`, `result.patron` contiene `"HHHHHHHH-HHHH"`, `result.usar_mascara: true`.
+
+### TC-CLI-229 — mask.pattern hex 64 bits
+```bash
+sdk_mask '{"jsonrpc":"2.0","id":229,"method":"bi18n.mask.pattern","params":{"ctx_id":"'$CTX'","tipo":{"base":"hex","bits":64}}}'
+```
+**Esperado (PASS):** `result.patron` contiene 16 caracteres `H` después de `"0x"`.
+
+### TC-CLI-230 — mask.pattern hex 32 bits
+```bash
+sdk_mask '{"jsonrpc":"2.0","id":230,"method":"bi18n.mask.pattern","params":{"ctx_id":"'$CTX'","tipo":{"base":"hex","bits":32}}}'
+```
+**Esperado (PASS):** `result.patron` contiene 8 caracteres `H` después de `"0x"` (no 16).
+
+### TC-CLI-231 — mask.pattern email (sin máscara)
+```bash
+sdk_mask '{"jsonrpc":"2.0","id":231,"method":"bi18n.mask.pattern","params":{"ctx_id":"'$CTX'","tipo":{"base":"email"}}}'
+```
+**Esperado (PASS):** `result.usar_mascara: false`, `result.motor: "none"`.
+
+### TC-CLI-232 — format.value fecha larga
+```bash
+printf '%s' '{"jsonrpc":"2.0","id":232,"method":"bi18n.format.value","params":{"ctx_id":"'$CTX'","formato":"date:long","value":"2026-07-18T00:00:00Z","regional_config":{"locale":"es-BO","timezone":"America/La_Paz","currency":"BOB","country":"BO"}}}' | socat - UNIX-CONNECT:/run/bos/bi18n.sock
+```
+**Esperado (PASS):** `result.formateado` contiene `"julio"` y `"2026"`.
+
+### TC-CLI-233 — format.value money BOB
+```bash
+printf '%s' '{"jsonrpc":"2.0","id":233,"method":"bi18n.format.value","params":{"ctx_id":"'$CTX'","formato":"money:BOB","value":"2500.75","regional_config":{"locale":"es-BO","timezone":"America/La_Paz","currency":"BOB","country":"BO"}}}' | socat - UNIX-CONNECT:/run/bos/bi18n.sock
+```
+**Esperado (PASS):** `result.formateado: "Bs. 2.500,75"` (o equivalente con separadores españoles).

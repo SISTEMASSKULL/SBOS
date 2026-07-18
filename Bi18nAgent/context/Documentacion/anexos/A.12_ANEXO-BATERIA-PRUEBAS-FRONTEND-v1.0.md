@@ -884,3 +884,178 @@ ws_call '{"jsonrpc":"2.0","id":902,"method":"bi18n.translate.message","params":{
 echo '{"jsonrpc":"2.0","id":903 MALFORMADO}' | websocat ws://127.0.0.1:9454
 ```
 **Esperado (PASS):** `error.code` = -32700 (parse error).
+
+---
+
+## §21 SDK — `bi18n.validate.field` + `bi18n.mask.pattern` con JSON config
+
+Estos casos prueban los **3 métodos SDK** por WebSocket con JSON config completo.
+Son el equivalente WS de A.11 §26. Usa la misma variable `ws_call` del §0.
+
+### TC-WS-200 — validate.field CI Bolivia
+```bash
+ws_call '{"jsonrpc":"2.0","id":200,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"CI","pais":"BO"},"value":"7654321-LP"}}'
+```
+**Esperado (PASS):** `result.valido: true`, `result.valor_normalizado: "7654321-LP"`.
+
+### TC-WS-201 — validate.field email requerido vacío
+```bash
+ws_call '{"jsonrpc":"2.0","id":201,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"email","requerido":true},"value":""}}'
+```
+**Esperado (PASS):** `result.valido: false`, errores mencionan "requerido".
+
+### TC-WS-202 — validate.field money con rango y warn_max
+```bash
+ws_call '{"jsonrpc":"2.0","id":202,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"money","moneda":"BOB","min":0,"max":500000,"warn_max":40000},"value":"75000"}}'
+```
+**Esperado (PASS):** `result.valido: true`, `result.metadata.advertencia: true`.
+
+### TC-WS-203 — validate.field date warn_dias
+```bash
+ws_call '{"jsonrpc":"2.0","id":203,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"date","warn_dias":30},"value":"2026-08-01"}}'
+```
+**Esperado (PASS):** `result.valido: true`, `result.metadata.advertencia: true` (fecha dentro de 30 días).
+
+### TC-WS-204 — validate.field mayor_que_valor (date)
+```bash
+ws_call '{"jsonrpc":"2.0","id":204,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"date"},"mayor_que_valor":"2026-01-01","value":"2026-07-18"}}'
+```
+**Esperado (PASS):** `result.valido: true`.
+
+### TC-WS-205 — validate.field menor_que_valor FAIL (number)
+```bash
+ws_call '{"jsonrpc":"2.0","id":205,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"number","subtipo":"decimal","msgError":"Debe ser menor"},"menor_que_valor":"100","value":"200"}}'
+```
+**Esperado (PASS):** `result.valido: false`, error menciona "menor".
+
+### TC-WS-206 — validate.field confirmar_valor OK
+```bash
+ws_call '{"jsonrpc":"2.0","id":206,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"email"},"confirmar_valor":"a@b.com","value":"a@b.com"}}'
+```
+**Esperado (PASS):** `result.valido: true`.
+
+### TC-WS-207 — validate.field enum inline
+```bash
+ws_call '{"jsonrpc":"2.0","id":207,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"enum","catalogo":"combining_algorithm","opciones":["deny-overrides","permit-overrides","first-applicable","only-one-applicable","deny-unless-permit","permit-unless-deny","aggregate-strictest"]},"value":"deny-overrides"}}'
+```
+**Esperado (PASS):** `result.valido: true`, `result.metadata.catalogo: "combining_algorithm"`.
+
+### TC-WS-208 — validate.field slug
+```bash
+ws_call '{"jsonrpc":"2.0","id":208,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"slug"},"value":"mi-rol-comercial"}}'
+```
+**Esperado (PASS):** `result.valido: true`, `result.valor_normalizado: "mi-rol-comercial"`.
+
+### TC-WS-209 — validate.field semver
+```bash
+ws_call '{"jsonrpc":"2.0","id":209,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"semver"},"value":"3.0.0"}}'
+```
+**Esperado (PASS):** `result.valido: true`.
+
+### TC-WS-210 — validate.field cidr
+```bash
+ws_call '{"jsonrpc":"2.0","id":210,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"cidr"},"value":"192.168.0.0/24"}}'
+```
+**Esperado (PASS):** `result.valido: true`.
+
+### TC-WS-211 — validate.field uuid con metadata.version
+```bash
+ws_call '{"jsonrpc":"2.0","id":211,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"uuid"},"value":"550e8400-e29b-41d4-a716-446655440000"}}'
+```
+**Esperado (PASS):** `result.valido: true`, `result.metadata.version` presente (número entero).
+
+### TC-WS-212 — validate.field hex 64 bits
+```bash
+ws_call '{"jsonrpc":"2.0","id":212,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"hex","bits":64},"value":"0x00000000003FFFFF"}}'
+```
+**Esperado (PASS):** `result.valido: true`, `result.valor_normalizado` empieza con `"0x"`.
+
+### TC-WS-213 — validate.field hex 32 bits excede ancho
+```bash
+ws_call '{"jsonrpc":"2.0","id":213,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"hex","bits":32},"value":"0x003FFFFFFFFFFFFF"}}'
+```
+**Esperado (PASS):** `result.valido: false`.
+
+### TC-WS-214 — validate.field datetime ISO 8601
+```bash
+ws_call '{"jsonrpc":"2.0","id":214,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"datetime"},"value":"2026-07-18T14:30:00Z"}}'
+```
+**Esperado (PASS):** `result.valido: true`.
+
+### TC-WS-215 — validate.field json_array con metadata.items
+```bash
+ws_call '{"jsonrpc":"2.0","id":215,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"json_array"},"value":"[\"RGV-001\",\"RGV-002\",\"RGV-003\"]"}}'
+```
+**Esperado (PASS):** `result.valido: true`, `result.metadata.items: 3`.
+
+### TC-WS-216 — validate.field role_id
+```bash
+ws_call '{"jsonrpc":"2.0","id":216,"method":"bi18n.validate.field","params":{"ctx_id":"'$CTX'","tipo":{"base":"role_id"},"value":"rgv-001"}}'
+```
+**Esperado (PASS):** `result.valido: true`, `result.valor_normalizado: "RGV-001"` (normalizado a MAYÚSCULAS).
+
+### TC-WS-217 — mask.pattern CI:BO
+```bash
+ws_call '{"jsonrpc":"2.0","id":217,"method":"bi18n.mask.pattern","params":{"ctx_id":"'$CTX'","tipo":{"base":"CI","pais":"BO"}}}'
+```
+**Esperado (PASS):** `result.motor: "Pattern"`, `result.patron: "0000000-aA"`, `result.placeholder: "_______-__"`.
+
+### TC-WS-218 — mask.pattern uuid
+```bash
+ws_call '{"jsonrpc":"2.0","id":218,"method":"bi18n.mask.pattern","params":{"ctx_id":"'$CTX'","tipo":{"base":"uuid"}}}'
+```
+**Esperado (PASS):** `result.motor: "Pattern"`, `result.patron` contiene `"HHHHHHHH-HHHH-HHHH-HHHH-HHHHHHHHHHHH"`.
+
+### TC-WS-219 — mask.pattern hex 64 bits
+```bash
+ws_call '{"jsonrpc":"2.0","id":219,"method":"bi18n.mask.pattern","params":{"ctx_id":"'$CTX'","tipo":{"base":"hex","bits":64}}}'
+```
+**Esperado (PASS):** `result.patron` contiene exactamente 16 `H` tras `"0x"`.
+
+### TC-WS-220 — mask.pattern hex 32 bits (distinción de 64)
+```bash
+ws_call '{"jsonrpc":"2.0","id":220,"method":"bi18n.mask.pattern","params":{"ctx_id":"'$CTX'","tipo":{"base":"hex","bits":32}}}'
+```
+**Esperado (PASS):** `result.patron` contiene exactamente 8 `H` tras `"0x"` (no 16).
+
+### TC-WS-221 — mask.pattern money USD
+```bash
+ws_call '{"jsonrpc":"2.0","id":221,"method":"bi18n.mask.pattern","params":{"ctx_id":"'$CTX'","tipo":{"base":"money","moneda":"USD"}}}'
+```
+**Esperado (PASS):** `result.motor: "Number"`, `result.opciones.radix: "."`.
+
+### TC-WS-222 — mask.pattern texto libre (sin máscara)
+```bash
+ws_call '{"jsonrpc":"2.0","id":222,"method":"bi18n.mask.pattern","params":{"ctx_id":"'$CTX'","tipo":{"base":"text"}}}'
+```
+**Esperado (PASS):** `result.usar_mascara: false`.
+
+### TC-WS-223 — format.value fecha larga en es-BO
+```bash
+ws_call '{"jsonrpc":"2.0","id":223,"method":"bi18n.format.value","params":{"ctx_id":"'$CTX'","formato":"date:long","value":"2026-07-18T00:00:00Z","regional_config":{"locale":"es-BO","timezone":"America/La_Paz","currency":"BOB","country":"BO"}}}'
+```
+**Esperado (PASS):** `result.formateado` contiene `"julio"` y `"2026"`.
+
+### TC-WS-224 — format.value money BOB
+```bash
+ws_call '{"jsonrpc":"2.0","id":224,"method":"bi18n.format.value","params":{"ctx_id":"'$CTX'","formato":"money:BOB","value":"2500.75","regional_config":{"locale":"es-BO","timezone":"America/La_Paz","currency":"BOB","country":"BO"}}}'
+```
+**Esperado (PASS):** `result.formateado` contiene `"2.500"` y `"75"` con formato boliviano.
+
+### TC-WS-225 — enum.display combining_algorithm en es-BO
+```bash
+ws_call '{"jsonrpc":"2.0","id":225,"method":"bi18n.enum.display","params":{"ctx_id":"'$CTX'","enum":"combining_algorithm","value":"deny-overrides","locale":"es-BO"}}'
+```
+**Esperado (PASS):** `result.label: "Denegar prevalece"`, `result.found: true`.
+
+### TC-WS-226 — enum.display tier en es-BO
+```bash
+ws_call '{"jsonrpc":"2.0","id":226,"method":"bi18n.enum.display","params":{"ctx_id":"'$CTX'","enum":"tier","value":"BIZ_N3","locale":"es-BO"}}'
+```
+**Esperado (PASS):** `result.label: "Negocio N3 — Gerencial"`, `result.found: true`.
+
+### TC-WS-227 — enum.display en-US (inglés)
+```bash
+ws_call '{"jsonrpc":"2.0","id":227,"method":"bi18n.enum.display","params":{"ctx_id":"'$CTX'","enum":"combining_algorithm","value":"deny-overrides","locale":"en-US"}}'
+```
+**Esperado (PASS):** `result.label: "deny-overrides"` (valor canónico en inglés), `result.found: true`.
