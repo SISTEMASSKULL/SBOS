@@ -1,9 +1,9 @@
 # Documentación Técnica — bi18n (i18n-orchestrator)
 
-**Versión:** 2.6.0
+**Versión:** 2.7.0
 **Mantenido por:** bauth-developer
 **Última actualización:** 2026-07-18
-**Estado:** Activo — Fase 1 ✅ (18 RPC) + Fase 2 ✅ (108 RPC nuevos). Total: **126 métodos RPC**. P4b ✅. Documentación normalizada: **4 manuales (1.01–1.04) · 18 anexos (A.01–A.18). Cero documentos sueltos.**
+**Estado:** Activo — Fase 1 ✅ (18 RPC) + Fase 2 ✅ (108 RPC nuevos). Total: **126 métodos RPC**. P4b ✅. Documentación normalizada: **4 manuales (1.01–1.04) · 19 anexos (A.01–A.19). Cero documentos sueltos.**
 
 ---
 
@@ -24,7 +24,7 @@ Los manuales se numeran `N.M` desde 1.01 (primer manual de bi18n).
 | 1.01 | [bi18n — Arquitectura del Orquestador](1.01_MANUAL-BI18N-ARQUITECTURA-v1.2.md) | [i18n-orchestrator-rust.md](../i18n-orchestrator-rust.md) · [1.07 Atributos](../../BauthAgent/context/Documentacion/1.07_MANUAL-ATRIBUTOS-v2.0.md) · [2.15 Motor Identidad](../../BauthAgent/context/Documentacion/2.15_MANUAL-MOTOR-IDENTIDAD-v1.0.md) | ✅ 1.4.0 |
 | 1.02 | [Manual de Usuario bi18n](1.02_MANUAL-USUARIO-BI18N-v1.0.md) | 1.01 · A.02 · A.07 | ✅ 1.0.0 |
 | 1.03 | [**Manual del Programador — Mantenimiento y Actualización**](1.03_MANUAL-PROGRAMADOR-BI18N-v1.0.md) | 1.01 · A.01 · A.10 · ISO 14764 · ISO 12207 | ✅ 1.0.0 |
-| 1.04 | [**Manual del Usuario Programador — Consumir bi18n**](1.04_MANUAL-USUARIO-PROGRAMADOR-v1.0.md) | 1.01 · A.07 · A.09 · A.10 | ✅ 2.0.0 |
+| 1.04 | [**Manual del Usuario Programador — Consumir bi18n**](1.04_MANUAL-USUARIO-PROGRAMADOR-v1.0.md) | 1.01 · A.07 · A.09 · A.10 · A.19 | ✅ 3.0.0 |
 
 ---
 
@@ -89,6 +89,7 @@ Los registros históricos de implementación y los documentos de planificación 
 | [**A.16 — Plan de Implementación Fase 2 (histórico)**](anexos/A.16_ANEXO-PLAN-IMPLEMENTACION-FASE2-v1.0.md) | **Tipo H:** protocolo de trabajo para los 14 handlers Rust. Un anexo = una librería = un handler. Mapa A.08.01→14, convención de naming, tabla de progreso con SHAs. | A.08 · A.17 | ✅ 1.0.0 |
 | [**A.17 — Registro de Estado Fase 2 (histórico)**](anexos/A.17_ANEXO-REGISTRO-ESTADO-FASE2-v3.0.md) | **Tipo H:** 15 bloques (A–Ω), SHAs por bloque, 108 métodos RPC implementados, recuentos verificados por librería. | A.08 · A.16 | ✅ 3.0.0 |
 | [**A.18 — Registro de Estado Fase 1 (histórico)**](anexos/A.18_ANEXO-REGISTRO-ESTADO-FASE1-v1.0.md) | **Tipo H:** hoja de ruta Fase 1 — 12 bloques, 18 métodos RPC, estado por componente, criterios de done. | 1.01 | ✅ 1.0.0 |
+| [**A.19 — SDK bi18n UI (especificación)**](anexos/A.19_ANEXO-SDK-BI18N-UI-v1.0.md) | **Tipo A:** especificación completa del SDK de ligaduras GUI/UI agnóstico de framework — DSL tipo (19 tipos), motor de validación pipeline 5 etapas (E1-E5), máscaras de entrada/visualización, formatos ICU4X 2.0 (fecha/monto/número/teléfono), mensajes Fluent FTL localizados, ciclo UX (blur/change/async/submit), email multi-capa (formato+MX+SMTP), API fluent (.valor/.campo/.formulario/.mostrar), adaptadores Vue/React/Flutter/PyQt6, 8 métodos RPC nuevos del daemon. | 1.04 | ✅ 1.0.0 |
 
 ---
 
@@ -127,3 +128,4 @@ Los registros históricos de implementación y los documentos de planificación 
 | 2.4.0 | 2026-07-18 | P4b completo (`75165d2`, `9fc8587`): auditoría namespace CLI al 100%, WebSocket push events, Bundle Prefetch. Total definitivo: **126 métodos RPC**. Documentación completa: nuevos manuales 1.03 (programador) y 1.04 (usuario programador); nuevos anexos A.10 (inventario API, renombrado de MANUAL-METODOS-LIBRERIAS-SBOS.md), A.11 (batería CLI completa: 261 TCs) y A.12 (batería Frontend completa: 204 TCs). |
 | 2.5.0 | 2026-07-18 | Normalización total de documentación: todos los .md sueltos convertidos a manuales o anexos numerados. `MANUAL-USUARIO-BI18N` → `1.02`, `BATERIA-PRUEBAS-TESTEADOR` → `A.14`, `GAPS-BI18N` → `A.15`, `PLAN-FASE-2` → `A.16`, `REGISTRO-ESTADO-DOS` → `A.17`, `REGISTRO-ESTADO-IMPLEMENTACION` → `A.18`. `LISTADO-METODOS-LIBRERIAS-SBOS` → `A.13` (commit previo). Total: 4 manuales + 18 anexos. Cero documentos sueltos. |
 | 2.6.0 | 2026-07-18 | Manual 1.04 reescrito a v2.0.0: tres partes bien definidas (I — CLI y Unix Socket: arranque, bi18n.toml, señales, bi18nctl completo, clientes Rust/Go/Python sobre socket; II — Frontend y WebSocket: protocolo completo, clientes en TS/React, Vue 3, Dart/Flutter, Python asyncio, Go, Bundle Prefetch; III — Ligaduras GUI/UI: 7 tipos de componente con ejemplos en React, Vue 3, Flutter, Python/PyQt6). |
+| 2.7.0 | 2026-07-18 | Nuevo Anexo A.19 — SDK bi18n UI: especificación completa (DSL tipo, pipeline validación, máscaras, formatos ICU4X 2.0, mensajes Fluent FTL, ciclo UX, email multi-capa, API fluent, adaptadores 4 frameworks). Manual 1.04 actualizado a v3.0.0: Parte III reescrita con patrón SDK compacto (§12–§18 → binding de 1 línea por campo, formulario de 10 campos en 15 líneas). |
