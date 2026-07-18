@@ -1,7 +1,7 @@
 # A.19 — Especificación SDK bi18n UI
 ## Validación, Formato, Máscara y Mensajes de Campos
 
-**Versión:** 2.0.0
+**Versión:** 3.0.0
 **Fecha:** 2026-07-18
 **Estado:** ACTIVO
 **Daemon:** bi18n (i18n-orchestrator)
@@ -14,6 +14,12 @@
 1. [Propósito y Principio Rector](#1-propósito-y-principio-rector)
 2. [Arquitectura: JSON como Medio, SDK y CLI como Formas](#2-arquitectura-json-como-medio-sdk-y-cli-como-formas)
 3. [JSON Config — Esquema Completo](#3-json-config--esquema-completo)
+   - 3.1 Estructura general
+   - 3.2 Tabla de valores `base` válidos (25 tipos)
+   - 3.3 Expresiones de fecha relativa
+   - 3.4 Ejemplos de JSON config por tipo
+   - 3.5 Tipos semánticos — Árbol bAuth (slug/semver/cidr/uuid/hex/datetime/json_array/role_id)
+   - 3.6 Catálogos de enum del servidor (23 catálogos)
 4. [Motor de Validación — Pipeline E1–E5](#4-motor-de-validación--pipeline-e1e5)
 5. [Sistema de Máscaras](#5-sistema-de-máscaras)
 6. [Sistema de Formatos](#6-sistema-de-formatos)
@@ -24,6 +30,7 @@
 11. [Adaptadores de Framework](#11-adaptadores-de-framework)
 12. [CLI — Misma Validación desde Terminal](#12-cli--misma-validación-desde-terminal)
 13. [Métodos RPC del Daemon](#13-métodos-rpc-del-daemon)
+14. [Cobertura de Tipos — Árbol RolTemplate bAuth](#14-cobertura-de-tipos--árbol-roltemplate-bauth)
 
 ---
 
@@ -121,7 +128,9 @@ La consistencia entre desarrolladores es más valiosa que la brevedad.
 ```javascript
 {
   // ── REQUERIDO ─────────────────────────────────────────────────────────
-  "base": "CI|NIT|email|phone|date|money|number|text|password|bool|enum",
+  "base": "CI|NIT|DNI|PASSPORT|CPF|CNPJ|CUIT"
+        + "|email|phone|date|money|number|text|password|bool|enum"
+        + "|slug|semver|cidr|uuid|hex|datetime|json_array|role_id",
 
   // ── SUBTIPOS (según base) ─────────────────────────────────────────────
   "pais":     "BO|AR|BR|...",          // CI, NIT, phone
@@ -129,6 +138,8 @@ La consistencia entre desarrolladores es más valiosa que la brevedad.
   "subtipo":  "integer|decimal|percent|alpha|alphanumeric",  // number, text
   "decimales": 2,                      // number, money
   "catalogo": "nombre_enum",           // enum
+  "opciones": ["v1", "v2", "v3"],      // enum — opciones inline (sin catálogo de servidor)
+  "bits":     64,                      // hex — ancho en bits: 32, 64 (default: 64)
 
   // ── RANGO ─────────────────────────────────────────────────────────────
   "min":       0,                      // number, money (valor mínimo)
@@ -137,6 +148,11 @@ La consistencia entre desarrolladores es más valiosa que la brevedad.
   "max_fecha": "hoy-18a",             // date
   "min_chars": 3,                      // text
   "max_chars": 100,                    // text
+
+  // ── ADVERTENCIAS (onWarn) ─────────────────────────────────────────────
+  "warn_min":  100,                    // money/number: warn si valor < warn_min
+  "warn_max":  40000,                  // money/number: warn si valor > warn_max
+  "warn_dias": 30,                     // date: warn si la fecha vence en ≤ N días desde hoy
 
   // ── VALIDACIÓN CRUZADA ENTRE CAMPOS ──────────────────────────────────
   "confirmar":  "#selector",           // valor debe coincidir con otro campo
@@ -170,17 +186,31 @@ La consistencia entre desarrolladores es más valiosa que la brevedad.
 
 | `base` | Descripción | Subtipos / parámetros clave |
 |---|---|---|
-| `CI` | Cédula de identidad | `pais: "BO\|AR\|BR"` |
-| `NIT` | NIT/RUC/CUIT tributario | `pais: "BO\|AR\|PE"` |
+| `CI` | Cédula de identidad | `pais: "BO\|AR\|BR\|UY\|PY\|PE\|EC\|CO\|VE\|MX"` |
+| `NIT` | NIT/RUC/CUIT tributario | `pais: "BO\|AR\|PE\|BR\|CO"` |
+| `DNI` | DNI (Argentina, España) | `pais: "AR\|ES"` |
+| `PASSPORT` | Pasaporte ICAO | — |
+| `CPF` | CPF Brasil | — |
+| `CNPJ` | CNPJ Brasil | — |
+| `CUIT` | CUIT Argentina | — |
 | `email` | Correo electrónico | `verificar_mx`, `verificar_smtp`, `detectar_typo` |
 | `phone` | Teléfono | `pais: "BO\|AR\|BR"` |
-| `date` | Fecha | `min_fecha`, `max_fecha` (ISO o expresión relativa) |
-| `money` | Monto monetario | `moneda: "BOB\|USD\|EUR"`, `min`, `max` |
-| `number` | Número genérico | `subtipo: "integer\|decimal\|percent"`, `decimales`, `min`, `max` |
+| `date` | Fecha | `min_fecha`, `max_fecha` (ISO o expresión relativa), `warn_dias` |
+| `money` | Monto monetario | `moneda: "BOB\|USD\|EUR"`, `min`, `max`, `warn_min`, `warn_max` |
+| `number` | Número genérico | `subtipo: "integer\|decimal\|percent"`, `decimales`, `min`, `max`, `warn_min`, `warn_max` |
 | `text` | Texto | `subtipo: "alpha\|alphanumeric"`, `min_chars`, `max_chars` |
-| `password` | Contraseña NIST | — |
+| `password` | Contraseña NIST 800-63B Rev.4 | — |
 | `bool` | Booleano | — |
-| `enum` | Catálogo bi18n | `catalogo: "nombre"` |
+| `enum` | Catálogo bi18n o inline | `catalogo: "nombre"`, `opciones: ["v1","v2"]` |
+| **Tipos semánticos (árbol bAuth)** | | |
+| `slug` | Identificador URL-safe | normaliza a minúsculas; `^[a-z][a-z0-9_-]*$` |
+| `semver` | Versión semántica | MAJOR.MINOR.PATCH (3 segmentos u64) |
+| `cidr` | Bloque de red IPv4 | IP/prefijo (0-32) o `"any"` |
+| `uuid` | UUID cualquier versión | normaliza a formato hyphenated; `metadata.version` |
+| `hex` | Valor hexadecimal | `bits: 32\|64` — ancho en bits; normaliza a `0xMAYUS` |
+| `datetime` | Fecha y hora ISO 8601 | jiff Timestamp — zona UTC o explícita |
+| `json_array` | JSON array como string | `metadata.items` = cantidad de elementos |
+| `role_id` | Identificador de rol | SIGLA-NNN (segmento final ≥ 3 dígitos); normaliza a MAYÚSCULAS |
 
 ### 3.3 Expresiones de fecha relativa
 
@@ -244,6 +274,97 @@ En `min_fecha` y `max_fecha` el daemon resuelve:
 { base: "number", subtipo: "percent",
   msgError: "El porcentaje debe estar entre 0 y 100" }
 ```
+
+### 3.5 Tipos semánticos — Árbol bAuth (ejemplos)
+
+Estos tipos cubren todos los campos de identidad, políticas y roles del árbol RolTemplate:
+
+```javascript
+// Identificador URL-safe (slug)
+{ base: "slug", requerido: true,
+  msgError: "Solo letras minúsculas, números, guión y guión bajo" }
+
+// Versión semántica (semver)
+{ base: "semver", requerido: true,
+  msgError: "Formato requerido: MAJOR.MINOR.PATCH (ej: 3.0.0)" }
+
+// Bloque de red IPv4 (cidr)
+{ base: "cidr", requerido: false,
+  msgError: "Ingrese un bloque CIDR válido (ej: 192.168.0.0/24) o 'any'" }
+
+// UUID cualquier versión
+{ base: "uuid", requerido: true,
+  msgError: "UUID inválido — se esperan 32 dígitos hex con guiones" }
+
+// Bitmask hexadecimal de 64 bits
+{ base: "hex", bits: 64, requerido: true,
+  msgError: "Valor hexadecimal de 64 bits inválido" }
+
+// Bitmask hexadecimal de 32 bits
+{ base: "hex", bits: 32, requerido: false,
+  msgError: "Valor hexadecimal de 32 bits inválido" }
+
+// Fecha y hora ISO 8601
+{ base: "datetime", requerido: false,
+  msgError: "Fecha/hora inválida — use formato ISO 8601 (ej: 2026-07-18T14:30:00Z)" }
+
+// JSON array como string
+{ base: "json_array", requerido: false,
+  msgError: "Se esperaba un array JSON (ej: [\"RGV-001\",\"RGV-002\"])" }
+
+// Identificador de rol bAuth
+{ base: "role_id", requerido: true,
+  msgError: "Identificador de rol inválido — formato esperado: SIGLA-NNN (ej: RGV-001)" }
+
+// Enum con opciones inline (del árbol RolTemplate — sin catálogo de servidor)
+{ base: "enum",
+  catalogo: "combining_algorithm",
+  opciones: ["deny-overrides","permit-overrides","first-applicable",
+             "only-one-applicable","deny-unless-permit","permit-unless-deny","aggregate-strictest"],
+  msgError: "Algoritmo de combinación XACML inválido" }
+
+// Enum con catálogo del servidor (traduce a etiqueta localizada)
+{ base: "enum", catalogo: "loa",
+  msgError: "Nivel de garantía inválido" }
+
+// Rango de fechas con advertencia de vencimiento próximo
+{ base: "date",
+  min_fecha: "hoy", max_fecha: "hoy+1825d",   // máx 5 años
+  warn_dias: 30,
+  msgWarn:  "La vigencia vence en menos de 30 días",
+  msgError: "La fecha de vigencia debe ser futura" }
+
+// Monto con advertencia de umbral alto
+{ base: "money", moneda: "BOB", min: 0, max: 500000,
+  warn_max: 40000,
+  msgWarn:  "Montos mayores a Bs. 40.000 requieren aprobación gerencial",
+  msgError: "El monto excede el límite permitido" }
+```
+
+### 3.6 Catálogos de enum del servidor
+
+Catálogos conocidos en `bi18n.enum.display` — disponibles sin pasar `opciones` inline:
+
+| Catálogo | Valores principales |
+|---|---|
+| `gender` / `genero` | `M`, `F`, `O` |
+| `marital_status` | `SINGLE`, `MARRIED`, `DIVORCED`, `WIDOWED` |
+| `employment_type` | `FULL_TIME`, `PART_TIME`, `FREELANCE`, `UNEMPLOYED` |
+| `status` | `ACTIVE`, `INACTIVE`, `PENDING`, `BLOCKED`, `SUSPENDED`, `ARCHIVED` |
+| `combining_algorithm` | 7 algoritmos XACML 3.0 §7.14 + `aggregate-strictest` (bAuth) |
+| `xacml_decision` / `decision` | `Permit`, `Deny` |
+| `op_logico` | `AND`, `OR`, `NOT`, `MATCH_ALL`, `FIRST_APPLICABLE` |
+| `operador` | 16 comparadores (`==`, `!=`, `>`, `<`, `IN`, `BETWEEN`, `SUBSET_OF`, …) |
+| `verbo` | 14 acciones XACML (`read`, `write`, `create`, `delete`, `approve`, …, `ANY`) |
+| `loa` / `level_of_assurance` | `1`–`4` (NIST 800-63 AAL1–AAL4) |
+| `classification` | `PUBLIC`, `INTERNAL`, `CONFIDENTIAL`, `SECRET`, `TOP_SECRET` |
+| `security_impact` | `LOW`, `MEDIUM`, `HIGH`, `CRITICAL` |
+| `tier` | `SU`, `SYS`, `BIZ_N1`–`BIZ_N5`, `EXT_N0`, `M2M`, `VISITANTE` |
+| `algorithm` | `EdDSA_Ed25519`, `EdDSA_Ed448`, `RSA_SHA256`, `ECDSA_P256` |
+| `amr` | 11 valores RFC 8176 (`pwd`, `otp`, `mfa`, `fpt`, `hwk`, …) |
+| `fido_requirement` / `resident_key` / `user_verification` | `required`, `preferred`, `discouraged` |
+| `attestation` | `direct`, `indirect`, `none` |
+| `authenticator_attachment` | `platform`, `cross-platform` |
 
 ---
 
@@ -322,6 +443,30 @@ distinto   → valor != campo_ref.valor_normalizado
 mayor_que  → valor > campo_ref.valor_normalizado  (numérico o fecha ISO)
 menor_que  → valor < campo_ref.valor_normalizado
 ```
+La comparación numérica usa `f64`; si falla el parse usa comparación léxica (válido para ISO 8601).
+
+**Advertencias** (post-E3, solo si el campo es válido)
+```
+warn_min  → numerico < warn_min       → metadata.advertencia = true → onWarn
+warn_max  → numerico > warn_max       → metadata.advertencia = true → onWarn
+warn_dias → valor_fecha ∈ [hoy, hoy+N días] → metadata.advertencia = true → onWarn
+```
+Las advertencias NO invalidan el campo. El servidor retorna `valido: true` con `metadata.advertencia: true`.
+
+**Tipos semánticos** — reglas en E2/E4
+```
+slug         E2: /^[a-z][a-z0-9_-]*$/ — normaliza a minúsculas
+semver       E2: MAJOR.MINOR.PATCH — 3 segmentos enteros u64
+cidr         E2: IP/prefijo IPv4 (octetos 0-255, prefijo 0-32) o "any"
+uuid         E2: 32 hex + guiones en posiciones canónicas; E4: cualquier versión UUID
+             normalizado: hyphenated minúsculas · metadata.version = número de versión
+hex          E2: dígitos hex; E4: máx bits/4 caracteres
+             normalizado: "0xMAYUS" · bits default: 64
+datetime     E2: ISO 8601 parseado por jiff::Timestamp (zona UTC o explícita)
+json_array   E4: serde_json::from_str::<Vec<Value>> · metadata.items = len
+role_id      E2: al menos 2 segmentos por guión; E4: segmento final ≥ 3 dígitos
+             normalizado: MAYÚSCULAS
+```
 
 ---
 
@@ -350,7 +495,10 @@ Basadas en **IMask.js** — el cliente las aplica con `IMask(element, patron)`.
 | `money:BOB` | scale:2 radix:"," sep:"." | Number | — |
 | `money:USD` | scale:2 radix:"." sep:"," | Number | — |
 | `number:decimal` | scale:n radix:"," sep:"." | Number | — |
-| `email` `text` `password` | ninguna (libre) | none | — |
+| `uuid` | `HHHHHHHH-HHHH-HHHH-HHHH-HHHHHHHHHHHH` (H=[0-9a-fA-F]) | Pattern | `________-____-____-____-____________` |
+| `hex:64` | `0xHHHHHHHHHHHHHHHH` (16 dígitos) | Pattern | `0x________________` |
+| `hex:32` | `0xHHHHHHHH` (8 dígitos) | Pattern | `0x________` |
+| `email` `text` `password` `slug` `semver` `cidr` `datetime` `json_array` `role_id` | ninguna (libre) | none | — |
 
 **Recomendación USWDS:** usar máscara solo en campos de formato fijo (CI, NIT, fecha,
 teléfono, monto, tarjeta). No usar en email, texto libre ni contraseña.
@@ -893,6 +1041,68 @@ bi18nctl format '{
 # → { "formateado": "18 de julio de 2026" }
 ```
 
+### 12.4 Tipos semánticos — ejemplos CLI
+
+```bash
+# slug
+bi18nctl validate '{"base":"slug","value":"mi-rol-comercial","ctx_id":"t-010"}'
+# → { "valido": true, "valor_normalizado": "mi-rol-comercial" }
+
+# semver
+bi18nctl validate '{"base":"semver","value":"3.0.0","ctx_id":"t-011"}'
+# → { "valido": true, "valor_normalizado": "3.0.0" }
+
+# cidr
+bi18nctl validate '{"base":"cidr","value":"192.168.0.0/24","ctx_id":"t-012"}'
+# → { "valido": true, "valor_normalizado": "192.168.0.0/24" }
+
+# uuid
+bi18nctl validate '{"base":"uuid","value":"550e8400-e29b-41d4-a716-446655440000","ctx_id":"t-013"}'
+# → { "valido": true, "valor_normalizado": "550e8400-e29b-41d4-a716-446655440000", "metadata": {"version": 4} }
+
+# hex 64 bits
+bi18nctl validate '{"base":"hex","bits":64,"value":"0x00000000003FFFFF","ctx_id":"t-014"}'
+# → { "valido": true, "valor_normalizado": "0x00000000003FFFFF" }
+
+# datetime
+bi18nctl validate '{"base":"datetime","value":"2026-07-18T14:30:00Z","ctx_id":"t-015"}'
+# → { "valido": true, "valor_normalizado": "2026-07-18T14:30:00Z" }
+
+# json_array
+bi18nctl validate '{"base":"json_array","value":"[\"RGV-001\",\"RGV-002\"]","ctx_id":"t-016"}'
+# → { "valido": true, "valor_normalizado": "[\"RGV-001\",\"RGV-002\"]", "metadata": {"items": 2} }
+
+# role_id
+bi18nctl validate '{"base":"role_id","value":"RGV-001","ctx_id":"t-017"}'
+# → { "valido": true, "valor_normalizado": "RGV-001" }
+
+# enum inline (opciones embebidas en la llamada)
+bi18nctl validate '{
+  "base": "enum",
+  "catalogo": "combining_algorithm",
+  "opciones": ["deny-overrides","permit-overrides","first-applicable"],
+  "value": "deny-overrides",
+  "ctx_id": "t-018"
+}'
+# → { "valido": true, "valor_normalizado": "deny-overrides", "metadata": {"catalogo":"combining_algorithm"} }
+
+# enum con catálogo de servidor (etiqueta localizada)
+bi18nctl validate '{"base":"enum","catalogo":"tier","value":"BIZ_N3","ctx_id":"t-019"}'
+# → { "valido": true, "valor_normalizado": "BIZ_N3", "metadata": {"catalogo":"tier"} }
+
+# warn_max — válido con advertencia
+bi18nctl validate '{"base":"money","moneda":"BOB","min":0,"max":500000,"warn_max":40000,"value":"75000","ctx_id":"t-020"}'
+# → { "valido": true, "valor_normalizado": "75000", "metadata": {"numerico":75000,"advertencia":true} }
+
+# mayor_que_valor — comparación cruzada
+bi18nctl validate '{"base":"date","mayor_que_valor":"2026-01-01","value":"2026-07-18","ctx_id":"t-021"}'
+# → { "valido": true, "valor_normalizado": "2026-07-18" }
+
+# warn_dias — fecha que vence pronto
+bi18nctl validate '{"base":"date","warn_dias":30,"value":"2026-08-01","ctx_id":"t-022"}'
+# → { "valido": true, "valor_normalizado": "2026-08-01", "metadata": {"advertencia":true} }
+```
+
 ---
 
 ## 13. Métodos RPC del Daemon
@@ -972,16 +1182,25 @@ Tres métodos SDK ya implementados y verificados en producción.
 
 ### 13.4 Evidencia de funcionamiento (producción)
 
-Pruebas verificadas contra daemon real en `/tmp/bi18n-test/bi18n.sock`:
+Pruebas verificadas contra daemon real en `/tmp/bi18n-test/bi18n.sock` (commits `187e9dc`, `a1bda0e`, `cf11193`):
 
+**Tipos base (22 pruebas — commit 187e9dc / a1bda0e):**
 ```
-✓ validate.field CI:BO "7654321-LP"      → { valido: true, normalizado: "7654321-LP" }
-✓ validate.field email inválido           → { valido: false, errores: ["RFC 5321..."] }
-✓ validate.field campo requerido vacío   → { valido: false, errores: ["Este campo es requerido."] }
-✓ validate.field phone:BO "71234567"     → { valido: true, e164: "+59171234567" }
-✓ validate.field date "18/07/2026"       → { valido: true, normalizado: "2026-07-18" }
-✓ validate.field money rango [100,50000] → { valido: false, errores: ["≤ 50000"] }
-✓ validate.field password corto          → { valido: false, errores: ["≥ 8 caracteres"] }
+✓ validate.field CI:BO "7654321-LP"       → { valido: true, normalizado: "7654321-LP" }
+✓ validate.field email inválido            → { valido: false, errores: ["RFC 5321..."] }
+✓ validate.field campo requerido vacío    → { valido: false, errores: ["Este campo es requerido."] }
+✓ validate.field phone:BO "71234567"      → { valido: true, e164: "+59171234567" }
+✓ validate.field date "18/07/2026"        → { valido: true, normalizado: "2026-07-18" }
+✓ validate.field date hoy-18a resuelto    → ISO date calculado correctamente por jiff
+✓ validate.field money rango [100,50000]  → { valido: false, errores: ["≤ 50000"] }
+✓ validate.field password corto           → { valido: false, errores: ["≥ 8 caracteres"] }
+✓ validate.field text:alpha               → subtipo alpha validado (fix sdk_config_a_dsl)
+✓ validate.field enum:gender "M"          → { valido: true }
+✓ validate.field money warn_max: 40000 v="75000" → { valido: true, metadata.advertencia: true }
+✓ validate.field date warn_dias:30 → advertencia si vence en ≤ 30 días
+✓ validate.field mayor_que_valor (numérico y fecha ISO)
+✓ validate.field menor_que_valor (numérico y fecha ISO)
+✓ validate.field confirmar_valor OK / FAIL
 ✓ format.value date → "17 de julio de 2026"
 ✓ format.value money:BOB → "Bs. 2.500,75"
 ✓ format.value phone:national:BO → "71234567"
@@ -990,3 +1209,61 @@ Pruebas verificadas contra daemon real en `/tmp/bi18n-test/bi18n.sock`:
 ✓ mask.pattern money:BOB → motor Number, scale 2, radix ","
 ✓ mask.pattern email → motor none, usar_mascara: false
 ```
+
+**Tipos semánticos y catálogos (18 pruebas — commit cf11193):**
+```
+✓ validate.field slug "mi-rol"          → { valido: true, normalizado: "mi-rol" }
+✓ validate.field semver "3.0.0"         → { valido: true }
+✓ validate.field cidr "192.168.0.0/24"  → { valido: true }
+✓ validate.field cidr "any"             → { valido: true }
+✓ validate.field uuid (hyphenated)      → { valido: true, metadata.version: 4 }
+✓ validate.field hex:64 "0x003FFFFF"    → { valido: true, normalizado: "0x003FFFFF" }
+✓ validate.field hex:32                 → mask.pattern 8 dígitos (no 16)
+✓ validate.field datetime ISO 8601      → { valido: true }
+✓ validate.field json_array "[...]"     → { valido: true, metadata.items: 2 }
+✓ validate.field role_id "RGV-001"      → { valido: true, normalizado: "RGV-001" }
+✓ validate.field enum inline opciones[] → validación local sin round-trip servidor
+✓ validate.field enum:combining_algorithm (catálogo servidor)
+✓ validate.field enum:tier (catálogo servidor)
+✓ validate.field enum:loa (catálogo servidor)
+✓ mask.pattern uuid → patron HHHHHHHH-HHHH-HHHH-HHHH-HHHHHHHHHHHH
+✓ mask.pattern hex:64 → patron 0x+16H · mask.pattern hex:32 → patron 0x+8H
+✓ enum.display combining_algorithm "deny-overrides" es-BO → "Denegar prevalece"
+✓ enum.display tier "BIZ_N3" → "Negocio N3 — Gerencial"
+```
+
+---
+
+## 14. Cobertura de Tipos — Árbol RolTemplate bAuth
+
+Mapa de tipos del SDK contra campos reales del árbol `rol_template_datos.dart`:
+
+| Campo del árbol | Helper | Tipo SDK | Catálogo / opciones |
+|---|---|---|---|
+| `set_slug` | `_a()` | `slug` | — |
+| `version` | `_a()` | `semver` | — |
+| `id` (RGV-001, …) | `_a()` | `role_id` | — |
+| `uuid_v7` / `created_at_uuid` | `_a()` | `uuid` | — |
+| `created_at` / `updated_at` | `_a()` | `datetime` | — |
+| `valid_from` / `valid_until` | `_a()` con `warn_dias` | `date` | expresión relativa |
+| `bitmask_64_ref` / `permisos_bits` | `_a()` | `hex` bits=64 | — |
+| `child_roles` / `required_certifications` | `_a()` | `json_array` | — |
+| `cidr` (ip_ranges) | `_a()` | `cidr` | — |
+| `combining_algorithm` | `_algo()` | `enum` | `combining_algorithm` |
+| `decision` / `effect` | `_ef()` | `enum` | `xacml_decision` / `decision` |
+| `operator` | `_prop()` | `enum` | `operador` |
+| `op` lógico | `_op()` | `enum` | `op_logico` |
+| `verb_id` | `_prop()` | `enum` | `verbo` |
+| `loa_required` | `_en()` | `enum` | `loa` |
+| `classification` | `_en()` | `enum` | `classification` |
+| `security_impact` | `_en()` | `enum` | `security_impact` |
+| `tier` | `_en()` | `enum` | `tier` |
+| `algorithm` | `_en()` | `enum` | `algorithm` |
+| `amr_values` | `_en()` | `enum` | `amr` |
+| `resident_key` / `user_verification` | `_en()` | `enum` | `fido_requirement` |
+| `attestation_preference` | `_en()` | `enum` | `attestation` |
+| `authenticator_attachment` | `_en()` | `enum` | `authenticator_attachment` |
+| Nombre, descripción, label | `_a()` | `text` | `alpha`/`alphanumeric` |
+| Montos, umbrales | `_a()` con `warn_min/max` | `money` / `number` | BOB/USD |
+
+**El SDK bi18n cubre el 100% de los tipos de campos del árbol RolTemplate.**
