@@ -628,6 +628,173 @@ pub async fn ejecutar_metodo(
             }))
         }
 
+        // ── SDK de vínculo de campos UI (A.19 v2.0.0) ───────────────────────
+        // Acepta: "tipo" como string DSL (compat) o JSON config { base, pais, moneda, ... }
+        "bi18n.validate.field" => {
+            let tipo_cfg = &params["tipo"];
+            let dsl      = sdk_config_a_dsl(tipo_cfg);
+            let valor    = params["value"].as_str().unwrap_or("");
+            // requerido: del JSON config o del param top-level
+            let required = tipo_cfg["requerido"].as_bool()
+                .or_else(|| params["required"].as_bool())
+                .unwrap_or(false);
+
+            let mut r = handlers::sdk::validate_field(ctx, &dsl, valor, required).await?;
+
+            // Validaciones cruzadas — el SDK resolvió los selectores y envió los valores
+            if r.valido {
+                let msg_error = tipo_cfg["msgError"].as_str()
+                    .unwrap_or("Los valores no coinciden");
+
+                // confirmar: el valor debe coincidir con el campo de referencia
+                if let Some(cv) = params["confirmar_valor"].as_str() {
+                    if valor.trim() != cv.trim() {
+                        r = handlers::sdk::ValidateFieldResult {
+                            valido: false,
+                            errores: vec![msg_error.to_string()],
+                            valor_normalizado: String::new(),
+                            metadata: serde_json::json!({}),
+                        };
+                    }
+                }
+                // distinto: el valor NO debe coincidir con el campo de referencia
+                if r.valido {
+                    if let Some(dv) = params["distinto_valor"].as_str() {
+                        if valor.trim() == dv.trim() {
+                            r = handlers::sdk::ValidateFieldResult {
+                                valido: false,
+                                errores: vec![msg_error.to_string()],
+                                valor_normalizado: String::new(),
+                                metadata: serde_json::json!({}),
+                            };
+                        }
+                    }
+                }
+            }
+
+            Ok(serde_json::json!({
+                "valido": r.valido,
+                "errores": r.errores,
+                "valor_normalizado": r.valor_normalizado,
+                "metadata": r.metadata,
+            }))
+        }
+
+        // bi18n.format.value — sin cambios
+        "bi18n.format.value" => {
+            let formato  = params["formato"].as_str().unwrap_or("text");
+            let valor    = params["value"].as_str().unwrap_or("");
+            let regional = helpers::regional_desde_params(&params, ctx).await?;
+            let r = handlers::sdk::format_value(ctx, formato, valor, &regional).await?;
+            Ok(serde_json::json!({ "formateado": r.formateado }))
+        }
+
+        // bi18n.mask.pattern — extrae tipo.base del JSON config v2.0.0
+        "bi18n.mask.pattern" => {
+            let tipo_cfg  = &params["tipo"];
+            let tipo_base = sdk_mask_dsl(tipo_cfg);
+            let r = handlers::sdk::mask_pattern(&tipo_base);
+            Ok(serde_json::json!({
+                "motor":        r.motor,
+                "patron":       r.patron,
+                "opciones":     r.opciones,
+                "placeholder":  r.placeholder,
+                "usar_mascara": r.usar_mascara,
+            }))
+        }
+
         metodo => Err(Bi18nError::MetodoNoEncontrado { metodo: metodo.to_string() }),
     }
+}
+
+// ── Helpers de JSON config → DSL (A.19 v2.0.0) ───────────────────────────────
+
+/// Convierte JSON config { base, pais, moneda, ... } al DSL interno de validate_field.
+/// También acepta string legacy "CI:BO" sin cambios.
+fn sdk_config_a_dsl(v: &Value) -> String {
+    if let Some(s) = v.as_str() {
+        return s.to_string();
+    }
+    let base    = v["base"].as_str().unwrap_or("text");
+    let pais    = v["pais"].as_str().unwrap_or("");
+    let moneda  = v["moneda"].as_str().unwrap_or("");
+    let subtipo = v["subtipo"].as_str().unwrap_or("integer");
+    let dec     = v["decimales"].as_u64().unwrap_or(0);
+    let min_n   = v["min"].as_f64().map(|n| n.to_string()).unwrap_or_default();
+    let max_n   = v["max"].as_f64().map(|n| n.to_string()).unwrap_or_default();
+    let min_f   = v["min_fecha"].as_str().map(sdk_resolver_fecha).unwrap_or_default();
+    let max_f   = v["max_fecha"].as_str().map(sdk_resolver_fecha).unwrap_or_default();
+    let min_ch  = v["min_chars"].as_u64().map(|n| n.to_string()).unwrap_or_default();
+    let max_ch  = v["max_chars"].as_u64().map(|n| n.to_string()).unwrap_or_default();
+
+    match base {
+        "CI" | "NIT" | "DNI" | "PASSPORT" | "CPF" | "CNPJ" | "CUIT" =>
+            format!("{}:{}", base, if pais.is_empty() { "BO" } else { pais }),
+        "phone" =>
+            format!("phone:{}", if pais.is_empty() { "BO" } else { pais }),
+        "email"    => "email".to_string(),
+        "password" => "password".to_string(),
+        "bool"     => "bool".to_string(),
+        "date"     => format!("date:{}:{}", min_f, max_f),
+        "money"    => format!("money:{}:{}:{}", moneda, min_n, max_n),
+        "number"   => format!("number:{}:{}:{}:{}", subtipo, dec, min_n, max_n),
+        "text"     => format!("text:{}:{}", min_ch, max_ch),
+        other      => other.to_string(),
+    }
+}
+
+/// Extrae el DSL simplificado para mask.pattern (solo base:pais/moneda).
+fn sdk_mask_dsl(v: &Value) -> String {
+    if let Some(s) = v.as_str() { return s.to_string(); }
+    let base   = v["base"].as_str().unwrap_or("text");
+    let pais   = v["pais"].as_str().unwrap_or("");
+    let moneda = v["moneda"].as_str().unwrap_or("");
+    match base {
+        "CI" | "NIT" | "phone" if !pais.is_empty() => format!("{}:{}", base, pais),
+        "money" if !moneda.is_empty()               => format!("money:{}", moneda),
+        "date"                                      => "date".to_string(),
+        other                                       => other.to_string(),
+    }
+}
+
+/// Resuelve expresiones de fecha relativa a ISO YYYY-MM-DD usando jiff.
+/// Expresiones: "hoy", "hoy-Na" (N años), "hoy-Nd" (N días), "hoy+Nd".
+/// Si la expresión no se reconoce, la retorna tal cual (puede ser ISO literal).
+fn sdk_resolver_fecha(expr: &str) -> String {
+    use jiff::{Timestamp, tz::TimeZone, Span};
+
+    let hoy = Timestamp::now()
+        .to_zoned(TimeZone::UTC)
+        .date();
+
+    if expr == "hoy" {
+        return format!("{}", hoy);
+    }
+
+    let (signo, rest) = if let Some(r) = expr.strip_prefix("hoy-") {
+        (-1i32, r)
+    } else if let Some(r) = expr.strip_prefix("hoy+") {
+        (1i32, r)
+    } else {
+        return expr.to_string(); // ISO literal u otra expresión
+    };
+
+    if let Some(ns) = rest.strip_suffix('a') {
+        if let Ok(n) = ns.parse::<i32>() {
+            let anios = (signo * n) as i64;
+            if let Ok(fecha) = hoy.checked_add(Span::new().years(anios)) {
+                return format!("{}", fecha);
+            }
+        }
+    }
+    if let Some(ns) = rest.strip_suffix('d') {
+        if let Ok(n) = ns.parse::<i32>() {
+            let dias = (signo * n) as i64;
+            if let Ok(fecha) = hoy.checked_add(Span::new().days(dias)) {
+                return format!("{}", fecha);
+            }
+        }
+    }
+
+    expr.to_string()
 }

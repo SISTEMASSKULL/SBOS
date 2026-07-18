@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>bi18n SDK — Demo bSet/bUnSet + eventos</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #0f172a; color: #e2e8f0;
+           padding: 2rem; max-width: 800px; margin: 0 auto; }
+    h1   { font-size: 1.5rem; color: #38bdf8; margin-bottom: 0.5rem; }
+    h2   { font-size: 1rem; color: #94a3b8; margin: 1.5rem 0 0.75rem; border-top: 1px solid #1e293b; padding-top: 1rem; }
+    .campo { margin-bottom: 1.25rem; }
+    label { display: block; font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.25rem; }
+    input { display: block; width: 100%; padding: 0.5rem 0.75rem;
+            background: #1e293b; border: 1.5px solid #334155; border-radius: 6px;
+            color: #e2e8f0; font-size: 0.95rem; outline: none;
+            transition: border-color 0.2s; }
+    input:focus { border-color: #38bdf8; }
+    input.valido   { border-color: #22c55e; }
+    input.invalido { border-color: #ef4444; }
+    input.warn     { border-color: #f59e0b; }
+    .msg { font-size: 0.78rem; margin-top: 0.25rem; min-height: 1.1em; }
+    .msg.ok    { color: #22c55e; }
+    .msg.error { color: #ef4444; }
+    .msg.warn  { color: #f59e0b; }
+    .msg.sys   { color: #94a3b8; }
+    button { background: #0ea5e9; color: #fff; border: none; border-radius: 6px;
+             padding: 0.6rem 1.5rem; font-size: 0.9rem; cursor: pointer;
+             margin-top: 0.5rem; }
+    button:hover { background: #38bdf8; }
+    #log { margin-top: 2rem; background: #0a0f1a; border-radius: 8px; padding: 1rem;
+           font-family: monospace; font-size: 0.78rem; max-height: 300px;
+           overflow-y: auto; color: #64748b; }
+    #log .ev-valid   { color: #22c55e; }
+    #log .ev-invalid { color: #ef4444; }
+    #log .ev-warn    { color: #f59e0b; }
+    #log .ev-error   { color: #f87171; }
+    #log .ev-info    { color: #38bdf8; }
+    #estado-ws { font-size: 0.75rem; color: #64748b; margin-bottom: 1rem; }
+    #estado-ws.ok { color: #22c55e; }
+  </style>
+</head>
+<body>
+
+<h1>bi18n SDK — Demo bSet / bUnSet + eventos</h1>
+<div id="estado-ws">⏳ Conectando a ws://127.0.0.1:9454...</div>
+
+<form id="form-demo" novalidate>
+
+  <h2>§1 — Documentos de identidad</h2>
+
+  <div class="campo">
+    <label for="ci">Cédula de Identidad Bolivia</label>
+    <input id="ci" type="text" placeholder="Ej: 7654321-LP">
+    <div id="ci-msg" class="msg"></div>
+  </div>
+
+  <div class="campo">
+    <label for="nit">NIT Bolivia</label>
+    <input id="nit" type="text" placeholder="Ej: 123456789-1">
+    <div id="nit-msg" class="msg"></div>
+  </div>
+
+  <h2>§2 — Email y Teléfono</h2>
+
+  <div class="campo">
+    <label for="email">Email (verificación DNS MX)</label>
+    <input id="email" type="email" placeholder="usuario@empresa.com">
+    <div id="email-msg" class="msg"></div>
+  </div>
+
+  <div class="campo">
+    <label for="email-conf">Confirmar Email</label>
+    <input id="email-conf" type="email" placeholder="Repita el correo">
+    <div id="email-conf-msg" class="msg"></div>
+  </div>
+
+  <div class="campo">
+    <label for="tel">Teléfono Bolivia</label>
+    <input id="tel" type="tel" placeholder="71234567">
+    <div id="tel-msg" class="msg"></div>
+  </div>
+
+  <h2>§3 — Fecha y Montos</h2>
+
+  <div class="campo">
+    <label for="fecha-nac">Fecha de Nacimiento (mayor de 18 años)</label>
+    <input id="fecha-nac" type="text" placeholder="dd/mm/aaaa">
+    <div id="fecha-nac-msg" class="msg"></div>
+  </div>
+
+  <div class="campo">
+    <label for="monto">Monto (Bs. 100 – 50.000 — warning en > 40.000)</label>
+    <input id="monto" type="text" placeholder="0,00">
+    <div id="monto-msg" class="msg"></div>
+  </div>
+
+  <h2>§4 — Contraseña con confirmación</h2>
+
+  <div class="campo">
+    <label for="pass">Contraseña (mínimo 8 caracteres)</label>
+    <input id="pass" type="password" placeholder="••••••••">
+    <div id="pass-msg" class="msg"></div>
+  </div>
+
+  <div class="campo">
+    <label for="pass-conf">Confirmar Contraseña</label>
+    <input id="pass-conf" type="password" placeholder="••••••••">
+    <div id="pass-conf-msg" class="msg"></div>
+  </div>
+
+  <button type="submit">Enviar Formulario</button>
+</form>
+
+<div id="log"><span class="ev-info">— Log de eventos SDK —</span></div>
+
+<!-- IMask desde CDN -->
+<script src="https://unpkg.com/imask@7/dist/imask.js"></script>
+
+<script type="module">
+// ── Bi18nClient — cliente WebSocket JSON-RPC 2.0 ─────────────────────────────
+class Bi18nClient {
+  constructor(url = "ws://127.0.0.1:9454") {
+    this.url        = url;
+    this.ws         = null;
+    this.pendiente  = new Map();
+    this.id         = 0;
+    this.cola       = [];
+    this.reintentos = 0;
+  }
+
+  conectar() {
+    if (this.ws?.readyState === WebSocket.OPEN) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const ws = new WebSocket(this.url);
+      ws.onopen    = () => { this.ws = ws; this.reintentos = 0;
+                             this.cola.forEach(m => ws.send(m)); this.cola = [];
+                             resolve(); };
+      ws.onmessage = e  => this._onMsg(e.data);
+      ws.onerror   = () => reject(new Error("bi18n WS: error de conexión"));
+      ws.onclose   = () => this._reconectar();
+    });
+  }
+
+  async llamar(metodo, params) {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      await this.conectar().catch(() => {});
+    }
+    const id  = ++this.id;
+    const msg = JSON.stringify({ jsonrpc: "2.0", id, method: metodo, params });
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pendiente.delete(id);
+        reject(new Error(`bi18n: timeout "${metodo}"`));
+      }, 5000);
+      this.pendiente.set(id, { resolve, reject, timer });
+      if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(msg);
+      else this.cola.push(msg);
+    });
+  }
+
+  _onMsg(raw) {
+    let r; try { r = JSON.parse(raw); } catch { return; }
+    if (r.id === undefined) return;
+    const p = this.pendiente.get(r.id);
+    if (!p) return;
+    clearTimeout(p.timer);
+    this.pendiente.delete(r.id);
+    r.error ? p.reject(new Error(r.error.message)) : p.resolve(r.result);
+  }
+
+  _reconectar() {
+    if (this.reintentos >= 6) return;
+    const d = 500 * Math.pow(2, this.reintentos++);
+    setTimeout(() => this.conectar().catch(() => {}), d);
+  }
+}
+
+// ── VinculoImpl ───────────────────────────────────────────────────────────────
+class VinculoImpl {
+  constructor(el, config, cliente) {
+    this.el       = el;
+    this.config   = config;
+    this.cliente  = cliente;
+    this.mascara  = null;
+    this.tocado   = false;
+    this.errorPrev = false;
+    this.debounce  = null;
+    this.cbValid   = null;
+    this.cbInvalid = null;
+    this.cbWarn    = null;
+    this.cbError   = null;
+    this._oyBlur   = () => this._alBlur();
+    this._oyInput  = () => this._alInput();
+    el.addEventListener("blur",  this._oyBlur);
+    el.addEventListener("input", this._oyInput);
+  }
+
+  aplicarMascara(patron) {
+    if (!patron.usar_mascara || !window.IMask) return;
+    const o = { ...patron.opciones };
+    if (patron.motor === "Pattern" && patron.patron) o.mask = patron.patron;
+    else if (patron.motor === "Date")   o.mask = Date;
+    else if (patron.motor === "Number") o.mask = Number;
+    this.mascara = IMask(this.el, o);
+  }
+
+  get valor()  { return this.mascara?.unmaskedValue ?? this.el.value; }
+
+  bUnSet() {
+    this.el.removeEventListener("blur",  this._oyBlur);
+    this.el.removeEventListener("input", this._oyInput);
+    this.mascara?.destroy(); this.mascara = null;
+    if (this.debounce) clearTimeout(this.debounce);
+  }
+
+  onValid  (cb) { this.cbValid   = cb; return this; }
+  onInvalid(cb) { this.cbInvalid = cb; return this; }
+  onWarn   (cb) { this.cbWarn    = cb; return this; }
+  onError  (cb) { this.cbError   = cb; return this; }
+
+  async _alBlur()  { this.tocado = true; await this._validar(); }
+  _alInput()       {
+    if (this.tocado && this.errorPrev) {
+      if (this.debounce) clearTimeout(this.debounce);
+      this.debounce = setTimeout(() => this._validar(), 300);
+    }
+  }
+
+  async _validar() {
+    const params = {
+      tipo:     this.config,
+      value:    this.valor,
+      required: this.config.requerido ?? false,
+      ctx_id:   crypto.randomUUID?.() ?? Math.random().toString(36).slice(2),
+    };
+
+    // Validaciones cruzadas — resuelve selector CSS
+    for (const [campo, clave] of [
+      ["confirmar", "confirmar_valor"], ["distinto",  "distinto_valor"],
+      ["mayor_que", "mayor_que_valor"], ["menor_que", "menor_que_valor"],
+    ]) {
+      const sel = this.config[campo];
+      if (sel) { const v = document.querySelector(sel)?.value; if (v != null) params[clave] = v; }
+    }
+
+    try {
+      const r   = await this.cliente.llamar("bi18n.validate.field", params);
+      const warn = Boolean(r.metadata?.advertencia);
+      const msg  = !r.valido ? (this.config.msgError ?? r.errores?.[0] ?? r.mensaje)
+                 : warn      ? (this.config.msgWarn  ?? r.mensaje)
+                 :              (this.config.msgOk   ?? r.mensaje);
+      const c = { ...r, mensaje: msg };
+
+      this.errorPrev = !r.valido;
+      if (!r.valido)   this.cbInvalid?.(c);
+      else if (warn)   this.cbWarn?.(c);
+      else             this.cbValid?.(c);
+    } catch(e) {
+      this.cbError?.(e instanceof Error ? e : new Error(String(e)));
+    }
+  }
+}
+
+// ── Bi18nSdk (simplificado para demo) ─────────────────────────────────────────
+class Bi18nSdk {
+  constructor(url) { this.cliente = new Bi18nClient(url); }
+
+  campo(sel) {
+    const el = typeof sel === "string" ? document.querySelector(sel) : sel;
+    if (!el) throw new Error("bi18n: elemento no encontrado — " + sel);
+    return {
+      _el: el, _cfg: null, _cliente: this.cliente,
+      tipo(c) { this._cfg = c; return this; },
+      bSet() {
+        const v = new VinculoImpl(this._el, this._cfg ?? { base: "text" }, this._cliente);
+        this._cliente.llamar("bi18n.mask.pattern", {
+          tipo: this._cfg, ctx_id: crypto.randomUUID?.() ?? "demo"
+        }).then(p => v.aplicarMascara(p)).catch(() => {});
+        return v;
+      },
+    };
+  }
+}
+
+// ── Utilidades de UI ─────────────────────────────────────────────────────────
+const log = document.getElementById("log");
+
+function registrar(tipo, texto) {
+  const linea = document.createElement("div");
+  linea.className = `ev-${tipo}`;
+  linea.textContent = `[${new Date().toLocaleTimeString("es-BO")}] ${texto}`;
+  log.appendChild(linea);
+  log.scrollTop = log.scrollHeight;
+}
+
+function marcar(inputId, msgId, estado, mensaje) {
+  const input = document.getElementById(inputId);
+  const msg   = document.getElementById(msgId);
+  input.className = estado;                    // "valido" | "invalido" | "warn"
+  msg.className   = `msg ${estado === "valido" ? "ok" : estado === "warn" ? "warn" : "error"}`;
+  msg.textContent  = mensaje;
+}
+
+// ── Inicialización ───────────────────────────────────────────────────────────
+const wsEstado = document.getElementById("estado-ws");
+const bi18n = new Bi18nSdk("ws://127.0.0.1:9454");
+const vinculos = [];
+
+bi18n.cliente.conectar()
+  .then(() => {
+    wsEstado.textContent = "✓ Conectado a ws://127.0.0.1:9454";
+    wsEstado.className   = "ok";
+    registrar("info", "Conexión WebSocket establecida");
+    activarVinculos();
+  })
+  .catch(e => {
+    wsEstado.textContent = "✗ No se pudo conectar: " + e.message;
+    registrar("error", "Error de conexión: " + e.message);
+  });
+
+function activarVinculos() {
+
+  // §1 — CI Bolivia
+  vinculos.push(bi18n.campo("#ci").tipo({
+    base: "CI", pais: "BO", requerido: true,
+    msgOk: "✓ CI válida", msgError: "CI inválida (Ej: 7654321-LP)"
+  }).bSet()
+    .onValid  (r  => { marcar("ci",  "ci-msg",  "valido",   r.mensaje); registrar("valid",   "CI → " + r.valor_normalizado); })
+    .onInvalid(r  => { marcar("ci",  "ci-msg",  "invalido", r.mensaje); registrar("invalid",  "CI → " + r.errores.join(", ")); })
+    .onError  (e  => { registrar("error", "CI sistema: " + e.message); }));
+
+  // §1 — NIT Bolivia
+  vinculos.push(bi18n.campo("#nit").tipo({
+    base: "NIT", pais: "BO",
+    msgOk: "✓ NIT válido", msgError: "NIT inválido (Ej: 123456789-1)"
+  }).bSet()
+    .onValid  (r  => { marcar("nit", "nit-msg", "valido",   r.mensaje); registrar("valid",   "NIT → " + r.valor_normalizado); })
+    .onInvalid(r  => { marcar("nit", "nit-msg", "invalido", r.mensaje); registrar("invalid",  "NIT → " + r.errores.join(", ")); }));
+
+  // §2 — Email con MX
+  vinculos.push(bi18n.campo("#email").tipo({
+    base: "email", requerido: true,
+    verificar_mx: true, detectar_typo: true, rechazar_temporal: true,
+    msgOk: "✓ Email válido", msgError: "Email inválido o inexistente"
+  }).bSet()
+    .onValid  (r  => { marcar("email", "email-msg", "valido",   r.mensaje); registrar("valid",   "Email → " + r.valor_normalizado); })
+    .onInvalid(r  => { marcar("email", "email-msg", "invalido", r.mensaje); registrar("invalid",  "Email → " + r.errores.join(", ")); })
+    .onError  (e  => { marcar("email", "email-msg", "",         "Sistema no disponible"); registrar("error", "Email: " + e.message); }));
+
+  // §2 — Confirmación de email
+  vinculos.push(bi18n.campo("#email-conf").tipo({
+    base: "email", confirmar: "#email",
+    msgOk: "✓ Los emails coinciden", msgError: "Los emails no coinciden"
+  }).bSet()
+    .onValid  (r => { marcar("email-conf", "email-conf-msg", "valido",   r.mensaje); registrar("valid",  "EmailConf → ok"); })
+    .onInvalid(r => { marcar("email-conf", "email-conf-msg", "invalido", r.mensaje); registrar("invalid", "EmailConf → " + r.errores[0]); }));
+
+  // §2 — Teléfono Bolivia
+  vinculos.push(bi18n.campo("#tel").tipo({
+    base: "phone", pais: "BO", requerido: true,
+    msgOk: "✓ Teléfono válido", msgError: "Número no válido para Bolivia (ej: 71234567)"
+  }).bSet()
+    .onValid  (r => { marcar("tel", "tel-msg", "valido",   r.mensaje); registrar("valid",   "Tel → " + r.valor_normalizado); })
+    .onInvalid(r => { marcar("tel", "tel-msg", "invalido", r.mensaje); registrar("invalid",  "Tel → " + r.errores[0]); }));
+
+  // §3 — Fecha nacimiento (mayor de 18)
+  vinculos.push(bi18n.campo("#fecha-nac").tipo({
+    base: "date", min_fecha: "hoy-100a", max_fecha: "hoy-18a",
+    requerido: true,
+    msgOk: "✓ Fecha válida", msgError: "Debe ser mayor de 18 años (DD/MM/AAAA)"
+  }).bSet()
+    .onValid  (r => { marcar("fecha-nac", "fecha-nac-msg", "valido",   r.mensaje); registrar("valid",   "Fecha → " + r.valor_normalizado); })
+    .onInvalid(r => { marcar("fecha-nac", "fecha-nac-msg", "invalido", r.mensaje); registrar("invalid",  "Fecha → " + r.errores[0]); }));
+
+  // §3 — Monto con warning
+  vinculos.push(bi18n.campo("#monto").tipo({
+    base: "money", moneda: "BOB", min: 100, max: 50000,
+    msgOk:    "✓ Monto válido",
+    msgWarn:  "⚠ Monto alto — requiere aprobación de gerencia",
+    msgError: "El monto debe estar entre Bs. 100 y Bs. 50.000"
+  }).bSet()
+    .onValid  (r => { marcar("monto", "monto-msg", "valido",   r.mensaje); registrar("valid",   "Monto → " + r.valor_normalizado); })
+    .onWarn   (r => { marcar("monto", "monto-msg", "warn",     r.mensaje); registrar("warn",    "Monto warn → " + r.valor_normalizado); })
+    .onInvalid(r => { marcar("monto", "monto-msg", "invalido", r.mensaje); registrar("invalid",  "Monto → " + r.errores[0]); }));
+
+  // §4 — Contraseña
+  vinculos.push(bi18n.campo("#pass").tipo({
+    base: "password", requerido: true,
+    msgOk: "✓ Contraseña válida", msgError: "Mínimo 8 caracteres"
+  }).bSet()
+    .onValid  (r => { marcar("pass", "pass-msg", "valido",   r.mensaje); registrar("valid",   "Pass → ok"); })
+    .onInvalid(r => { marcar("pass", "pass-msg", "invalido", r.mensaje); registrar("invalid",  "Pass → " + r.errores[0]); }));
+
+  // §4 — Confirmación de contraseña
+  vinculos.push(bi18n.campo("#pass-conf").tipo({
+    base: "password", confirmar: "#pass",
+    msgOk: "✓ Las contraseñas coinciden", msgError: "Las contraseñas no coinciden"
+  }).bSet()
+    .onValid  (r => { marcar("pass-conf", "pass-conf-msg", "valido",   r.mensaje); registrar("valid",   "PassConf → ok"); })
+    .onInvalid(r => { marcar("pass-conf", "pass-conf-msg", "invalido", r.mensaje); registrar("invalid",  "PassConf → " + r.errores[0]); }));
+
+  registrar("info", `${vinculos.length} vínculos activados (bSet)`);
+}
+
+// ── Submit ───────────────────────────────────────────────────────────────────
+document.getElementById("form-demo").addEventListener("submit", e => {
+  e.preventDefault();
+  registrar("info", "Submit — validación completada");
+});
+
+// ── bUnSet al salir de página ─────────────────────────────────────────────────
+window.addEventListener("beforeunload", () => {
+  vinculos.forEach(v => v.bUnSet());
+  bi18n.cliente.cerrar?.();
+});
+</script>
+</body>
+</html>
