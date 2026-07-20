@@ -82,6 +82,36 @@ class UsuarioInfo {
             [];
 }
 
+/// Entidad del catálogo universal de identidad (idn_identidad_entidad).
+/// Puede ser cualquier cosa: persona, empresa, vehículo, servidor, sensor, puerta.
+/// Los 5 niveles: tenant → bdomain → bsubdomain → pos → actor.
+class EntidadInfo {
+  final String entidadId;
+  final String? parentId;
+  final String tenantId;
+  final String nivel; // tenant | bdomain | bsubdomain | pos | actor
+  final String tipo;  // empresa, HUMAN, caja, vehiculo, servidor, etc.
+  final String nombre;
+  final String slug;
+  final bool? isInternal;
+  final int sortOrder;
+  final List<EntidadInfo> hijos;
+
+  EntidadInfo.fromJson(Map<String, dynamic> j)
+      : entidadId = j['entidad_id'] ?? j['id'] ?? '?',
+        parentId = j['parent_id'],
+        tenantId = j['tenant_id'] ?? '?',
+        nivel = j['nivel'] ?? '?',
+        tipo = j['tipo'] ?? '?',
+        nombre = j['nombre'] ?? j['name'] ?? '?',
+        slug = j['slug'] ?? '?',
+        isInternal = j['is_internal'] as bool?,
+        sortOrder = j['sort_order'] ?? 0,
+        hijos = (j['hijos'] as List<dynamic>? ?? [])
+            .map((e) => EntidadInfo.fromJson(e as Map<String, dynamic>))
+            .toList();
+}
+
 class AccessResult {
   final bool permitido;
   final String? motivo;
@@ -205,6 +235,77 @@ class BauthApi {
       'user_uuid': userUuid,
       'role_id': roleId,
     });
+  }
+
+  /// Lista usuarios con filtros opcionales.
+  Future<List<UsuarioInfo>> listarUsuarios({
+    String? busqueda,
+    String? status,
+    int limite = 100,
+  }) async {
+    final params = <String, dynamic>{'limit': limite};
+    if (busqueda != null && busqueda.isNotEmpty) params['search'] = busqueda;
+    if (status != null) params['status'] = status;
+    final r = await _rpc.llamar('bauth.user.list', params);
+    final items = r['users'] as List<dynamic>? ?? [];
+    return items
+        .map((e) => UsuarioInfo.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  // ── Entidades (idn_identidad_entidad) ────────────────────
+  // Modelo universal: cualquier cosa es una entidad con nivel y tipo.
+  // 5 niveles: tenant → bdomain → bsubdomain → pos → actor.
+
+  /// Árbol completo de entidades (estructura anidada con hijos).
+  Future<List<EntidadInfo>> arbolEntidades({String? tenantId}) async {
+    final params = <String, dynamic>{};
+    if (tenantId != null) params['tenant_id'] = tenantId;
+    final r = await _rpc.llamar('bauth.entidad.tree', params);
+    final raices = r['raices'] as List<dynamic>? ?? [];
+    return raices
+        .map((e) => EntidadInfo.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Lista entidades con filtros opcionales (para queries específicas).
+  Future<List<EntidadInfo>> listarEntidades({
+    String? nivel,
+    String? tipo,
+    String? parentId,
+    String? tenantId,
+  }) async {
+    final params = <String, dynamic>{};
+    if (nivel != null) params['nivel'] = nivel;
+    if (tipo != null) params['tipo'] = tipo;
+    if (parentId != null) params['parent_id'] = parentId;
+    if (tenantId != null) params['tenant_id'] = tenantId;
+    final r = await _rpc.llamar('bauth.entidad.list', params);
+    final items = r['entidades'] as List<dynamic>? ?? [];
+    return items
+        .map((e) => EntidadInfo.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Crea una nueva entidad en la jerarquía.
+  Future<EntidadInfo> crearEntidad({
+    required String nivel,
+    required String tipo,
+    required String nombre,
+    required String tenantId,
+    String? parentId,
+    bool? isInternal,
+  }) async {
+    final params = <String, dynamic>{
+      'nivel': nivel,
+      'tipo': tipo,
+      'nombre': nombre,
+      'tenant_id': tenantId,
+    };
+    if (parentId != null) params['parent_id'] = parentId;
+    if (isInternal != null) params['is_internal'] = isInternal;
+    final r = await _rpc.llamar('bauth.entidad.create', params);
+    return EntidadInfo.fromJson(r);
   }
 
   // ── Access Control ───────────────────────────────────────

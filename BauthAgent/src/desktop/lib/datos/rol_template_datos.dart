@@ -35,7 +35,7 @@ class NodoTemplate {
   final List<NodoTemplate> hijos;
   /// Valores posibles — sólo para TipoNodo.enumerado.
   final List<String> opciones;
-  const NodoTemplate(this.clave, this.tipo,
+  NodoTemplate(this.clave, this.tipo,
       {this.valor, this.help, this.hijos = const [], this.opciones = const []});
 }
 
@@ -744,511 +744,1808 @@ NodoTemplate('D1 · ACCESO LÓGICO', TipoNodo.dominio,
     ]),
   ]),
 
-  // ── B6 Zonas de negocio ───────────────────────────────────
-  NodoTemplate('B6 · Zonas de negocio', TipoNodo.bloque,
-      help: 'Átomos de acceso por perímetro de negocio (application_id = null · Caso 2 Guardrail). '
-            'Cada zona es una Policy con combining_algorithm propio. '
-            'XACML 3.0 · NIST SP 800-162 · ISO 27001 A.8.3.', hijos: [
+  // ── B6 Registro de Aplicaciones Lógicas ─────────────────
+  // Zona de Negocios — Business Zone (NGAC INCITS 565-2020 · SABSA SCF · ISO 27001 A.5.15).
+  // Presente en TODOS los dominios D01-D13, D98, D99.
+  // Solo acepta nodos politica de aplicación con Z0 de identidad.
+  // Jerarquía D01: Zona(=App) → model|actions|field|button|record_rule → Módulo → Átomo.
+  // zona_financial_* → D03 · FINANCIERO (no en D01).
+  // Ref: A.67_ANEXO-BLOQUE-ZONAS-NEGOCIO-ROL-TEMPLATE-v1.0.md §3-§5
+  NodoTemplate('B6 · Zona de Negocios', TipoNodo.bloque,
+      help: 'Business Zone (NGAC INCITS 565-2020 · SABSA SCF · ISO/IEC 27001:2022 A.5.15). '
+            'Presente en TODOS los dominios del árbol RolTemplate. '
+            'SOLO acepta nodos politica que representen aplicaciones concretas — '
+            'no áreas de negocio, departamentos ni categorías abstractas. '
+            'Cada hijo debe ser una zona-app con Z0·Identidad (app_code obligatorio). '
+            'D01: niveles Tryton (model · actions · field · button · record_rule). '
+            'Zonas financieras → D03 · FINANCIERO. '
+            'Slug: {dominio}.{app}.{módulo}.{verbo}. '
+            'Normas: NGAC §4 · SABSA Business Zone · XACML 3.0 PolicySet · '
+            'NIST SP 800-207 §3.3 · ISO 27001 A.8.3.', hijos: [
     _algo('deny-overrides'),
+
+    // ── zona_logical_tryton ─────────────────────────────────
+    NodoTemplate('zona_logical_tryton', TipoNodo.politica,
+        valor: 'Tryton ERP · Zona Lógica D01',
+        help: 'Perímetro lógico de Tryton ERP. Módulos: sale, party, stock. '
+              'Módulos financieros (account, payment) → D03 · FINANCIERO. '
+              'slug_prefix=tryton · AAL2 · NIST AC-3(7).', hijos: [
+      _algo('deny-overrides'),
+      NodoTemplate('Z0 · Identidad', TipoNodo.bloque,
+          help: 'Declaración normativa de la zona-app (metadatos) + átomos de acceso a la aplicación como '
+                'unidad. Los átomos app-level controlan si el usuario puede ver, entrar, registrarse o '
+                'invocar la API de la app — independientemente de los módulos internos. '
+                'NGAC INCITS 565-2020 §4 · NIST AC-2 · NIST AC-17(2) · OWASP ASVS v5.0 §2.1.', hijos: [
+        _a('app_code', 'tryton_erp'),
+        _a('vendor', 'Tryton (open source ERP)'),
+        _a('slug_prefix', 'tryton'),
+        _a('dominio', 'D01 · Acceso Lógico'),
+        _a('registro', 'bauth.privilege_application.app_code=tryton_erp'),
+        _en('app_type', 'ERP', ['ERP', 'CRM', 'RRHH', 'FINANCIERO', 'PORTAL', 'COMUNICACIONES', 'SOBERANO', 'EXTERNO']),
+        _en('loa_required', 'AAL2', ['AAL1', 'AAL2', 'AAL3']),
+        _a('sod_enforced', 'true'),
+        _a('clasificacion', 'INTERNAL'),
+        _a('nota', 'Módulos financieros (account, payment) → D03 · FINANCIERO'),
+
+        // ── Átomos app-level: acceso a Tryton ERP como unidad ──────
+        _ev('tryton.app.visible', [
+          _a('subject', 'ANY'),
+          _a('resource', 'bauth.app/tryton_erp'),
+          _ef('PERMIT · Tryton visible en launcher del workspace'),
+        ], verbo: 'read',
+          help: '¿Aparece Tryton en el escritorio del usuario? DENY = app invisible para el rol. '
+                'NIST AC-17(2) · ISO 27001 A.8.3.'),
+        _ev('tryton.app.login', [
+          _a('subject', 'ANY'),
+          _a('resource', 'bauth.app/tryton_erp'),
+          _ef('PERMIT · SSO bAuth → Tryton · loa_required=AAL2',
+              obl: {'required_loa': 'AAL2', 'sso_protocol': 'OIDC'}),
+        ], verbo: 'login',
+          help: '¿Puede iniciar sesión en Tryton? bAuth emite token SSO (OIDC). '
+                'Sin este átomo PERMIT el rol no puede entrar aunque tenga módulos declarados. '
+                'OWASP ASVS v5.0 §2.1 · NIST 800-63B AAL2.'),
+        _ev('tryton.app.register · DENY', [
+          _a('subject', 'ANY'),
+          _a('resource', 'bauth.app/tryton_erp'),
+          _ef('DENY · cuentas Tryton aprovisionadas solo por IAM Installer (BOS) · audit=REG_ATTEMPT'),
+        ], verbo: 'create',
+          help: 'Auto-registro: DENY. Las cuentas Tryton se crean exclusivamente mediante el IAM Installer. '
+                'NIST AC-2 (account management) · ISO 27001 A.9.2.1.'),
+        _ev('tryton.app.api · DENY humano', [
+          _a('subject', 'ANY'),
+          _a('resource', 'bauth.app/tryton_erp'),
+          _ef('DENY · API XML-RPC/JSON-RPC directa requiere cuenta M2M (client_credentials) · audit=API_ATTEMPT'),
+        ], verbo: 'execute',
+          help: 'Usuarios humanos: DENY de acceso API directo. Deben usar la UI (SSO). '
+                'Integraciones M2M requieren cuenta de servicio con grant client_credentials. '
+                'OAuth2 RFC 6749 §4.4 · NIST AC-17(2).'),
+      ]),
+
+      // model — ir.model.access
+      NodoTemplate('model', TipoNodo.politica,
+          valor: 'Tryton · Model (ir.model.access)',
+          help: 'CRUD por modelo — equivale a ir.model.access de Tryton. '
+                'Define qué modelos puede leer, escribir, crear y borrar cada grupo. '
+                'NIST AC-3 · ISO 27001 A.8.3.', hijos: [
+        _algo('deny-overrides'),
+        NodoTemplate('sale', TipoNodo.politica, valor: 'Módulo sale — Pedidos de venta', hijos: [
+          _algo('deny-overrides'),
+          _ev('tryton.sale.sale.read', [
+            _a('subject', 'SET(vendedores)'),
+            _a('resource', 'tryton_erp/sale.sale'),
+            _ef('PERMIT · record_rule=salesperson_filter · audit=on'),
+          ], verbo: 'read'),
+          _ev('tryton.sale.sale.create', [
+            _a('subject', 'SET(vendedores)'),
+            _a('resource', 'tryton_erp/sale.sale'),
+            _ef('PERMIT · salesperson=user.id · audit=on'),
+          ], verbo: 'create'),
+          _ev('tryton.sale.line.create', [
+            _a('subject', 'SET(vendedores)'),
+            _a('resource', 'tryton_erp/sale.line'),
+            _ef('PERMIT · sale_owner=user.id · audit=on'),
+          ], verbo: 'create'),
+        ]),
+        NodoTemplate('party', TipoNodo.politica, valor: 'Módulo party — Terceros / clientes', hijos: [
+          _algo('deny-overrides'),
+          _ev('tryton.party.party.read', [
+            _a('subject', 'SET(vendedores)'),
+            _a('resource', 'tryton_erp/party.party'),
+            _ef('PERMIT · record_rule=territory_filter'),
+          ], verbo: 'read'),
+          _ev('tryton.party.party.create', [
+            _a('subject', 'SET(vendedores)'),
+            _a('resource', 'tryton_erp/party.party'),
+            _ef('PERMIT · audit=on'),
+          ], verbo: 'create'),
+        ]),
+        NodoTemplate('stock', TipoNodo.politica, valor: 'Módulo stock — Inventario', hijos: [
+          _algo('deny-overrides'),
+          _ev('tryton.stock.move.read', [
+            _a('subject', 'SET(vendedores)'),
+            _a('resource', 'tryton_erp/stock.move'),
+            _ef('PERMIT · record_rule=warehouse_filter'),
+          ], verbo: 'read'),
+          _ev('tryton.stock.shipment.out.read', [
+            _a('subject', 'SET(vendedores)'),
+            _a('resource', 'tryton_erp/stock.shipment.out'),
+            _ef('PERMIT · record_rule=salesperson_filter'),
+          ], verbo: 'read'),
+        ]),
+      ]),
+
+      // actions — ir.action
+      NodoTemplate('actions', TipoNodo.politica,
+          valor: 'Tryton · Actions (ir.action / ir.ui.menu)',
+          help: 'Visibilidad de menús y acciones lanzables — equivale a ir.action de Tryton. '
+                'NIST AC-3 · ISO 27001 A.8.3.', hijos: [
+        _algo('deny-overrides'),
+        NodoTemplate('sale', TipoNodo.politica, valor: 'Acciones módulo sale', hijos: [
+          _algo('deny-overrides'),
+          _ev('tryton.menu.ventas', [
+            _prop('ui.menu_id'),
+            _op('IN'),
+            _val('[tryton.sale.sale, tryton.sale.quotation, tryton.sale.mis_pedidos]'),
+            _ef('PERMIT · render=VISIBLE'),
+          ], verbo: 'read'),
+          _ev('tryton.menu.config.ventas · DENY vendedor', [
+            _a('subject', 'SET(vendedores)'),
+            _prop('ui.menu_id'),
+            _op('STARTS_WITH'),
+            _val('tryton.sale.configuration.'),
+            _ef('DENY · render=HIDDEN · AC-6(10)'),
+          ], verbo: 'read'),
+        ]),
+        NodoTemplate('stock', TipoNodo.politica, valor: 'Acciones módulo stock', hijos: [
+          _algo('deny-overrides'),
+          _ev('tryton.menu.almacen', [
+            _a('subject', 'SET(vendedores)'),
+            _prop('ui.menu_id'),
+            _op('IN'),
+            _val('[tryton.stock.shipment.out, tryton.stock.location]'),
+            _ef('PERMIT · render=VISIBLE'),
+          ], verbo: 'read'),
+        ]),
+      ]),
+
+      // field — ir.model.field.access
+      NodoTemplate('field', TipoNodo.politica,
+          valor: 'Tryton · Field (ir.model.field.access)',
+          help: 'Acceso a campos individuales — equivale a ir.model.field.access de Tryton. '
+                'NIST AC-6(10) · ISO 27001 A.8.3.', hijos: [
+        _algo('deny-overrides'),
+        NodoTemplate('sale', TipoNodo.politica, valor: 'Campos módulo sale', hijos: [
+          _algo('deny-overrides'),
+          _ev('tryton.sale.sale.margin · oculto vendedor', [
+            _a('subject', 'SET(vendedores)'),
+            _prop('field.sale_sale.margin'),
+            _op('visible_to_role'),
+            _val('false'),
+            _ef('DENY · margen oculto · AC-6(10)'),
+          ], verbo: 'read'),
+          _ev('tryton.sale.line.unit_price · solo gerente', [
+            _a('subject', 'SET(vendedores)'),
+            _prop('field.sale_line.unit_price'),
+            _op('max_access'),
+            _val('gerentes_ventas'),
+            _ef('DENY · precio unitario solo aprobadores · AC-6(10)'),
+          ], verbo: 'read'),
+        ]),
+      ]),
+
+      // button — ir.model.button
+      NodoTemplate('button', TipoNodo.politica,
+          valor: 'Tryton · Button (ir.model.button)',
+          help: 'Acceso a botones de formulario — equivale a ir.model.button de Tryton. '
+                'Reglas PYSON de monto integradas. NIST AC-3.', hijos: [
+        _algo('first-applicable'),
+        NodoTemplate('sale', TipoNodo.politica, valor: 'Botones módulo sale', hijos: [
+          _algo('first-applicable'),
+          _ev('tryton.btn.confirmar_pedido · DENY sobre límite', [
+            _a('subject', 'SET(vendedores)'),
+            _prop('ui.action_id'),
+            _op('=='),
+            _val('tryton.sale.quotation.confirm'),
+            _prop('record.amount_total'),
+            _op('>'),
+            _val('@bauth_config_param.approval_threshold_tier2'),
+            _ef('DENY · "Monto supera límite — requiere aprobación" · notify=SET(gerentes_ventas)'),
+          ], verbo: 'execute'),
+          _ev('tryton.btn.confirmar_pedido · PERMIT bajo límite', [
+            _a('subject', 'SET(vendedores)'),
+            _prop('ui.action_id'),
+            _op('=='),
+            _val('tryton.sale.quotation.confirm'),
+            _ef('PERMIT · audit=on'),
+          ], verbo: 'execute'),
+          _ev('tryton.btn.cancelar_pedido · DENY vendedor', [
+            _a('subject', 'SET(vendedores)'),
+            _prop('ui.action_id'),
+            _op('=='),
+            _val('tryton.sale.sale.cancel'),
+            _ef('DENY · cancelación requiere gerente · AC-6(10)'),
+          ], verbo: 'execute'),
+        ]),
+      ]),
+
+      // record_rule — ir.rule
+      NodoTemplate('record_rule', TipoNodo.politica,
+          valor: 'Tryton · Record Rule (ir.rule)',
+          help: 'Filtros de dominio sobre registros — equivale a ir.rule de Tryton. '
+                'NIST AC-3 · ISO 27001 A.8.3.', hijos: [
+        _algo('deny-overrides'),
+        NodoTemplate('sale', TipoNodo.politica, valor: 'Reglas módulo sale', hijos: [
+          _algo('deny-overrides'),
+          _ev('tryton.sale.sale · salesperson del usuario', [
+            _prop('record.salesperson_id'),
+            _op('=='),
+            _val('user.id'),
+            _ef('PERMIT · sql_filter=salesperson_id'),
+          ], verbo: 'read'),
+          _ev('tryton.sale.sale · equipo del usuario', [
+            _prop('record.team_id'),
+            _op('IN'),
+            _val('user.sales_team_ids[]'),
+            _ef('PERMIT · sql_filter=team_id'),
+          ], verbo: 'read'),
+        ]),
+        NodoTemplate('party', TipoNodo.politica, valor: 'Reglas módulo party', hijos: [
+          _algo('deny-overrides'),
+          _ev('tryton.party.party · territorio del usuario', [
+            _prop('record.territory_code'),
+            _op('IN'),
+            _val('user.territory_codes[]'),
+            _ef('PERMIT · sql_filter=territory_code'),
+          ], verbo: 'read'),
+        ]),
+      ]),
+    ]),
+
+    // ── zona_logical_orange_crm ─────────────────────────────
+    NodoTemplate('zona_logical_orange_crm', TipoNodo.politica,
+        valor: 'Orange CRM · Zona Lógica D01',
+        help: 'Perímetro lógico de Orange CRM — prospectos, oportunidades, contactos. '
+              'slug_prefix=orange · AAL2 · NIST AC-3(7).', hijos: [
+      _algo('deny-overrides'),
+      NodoTemplate('Z0 · Identidad', TipoNodo.bloque,
+          help: 'Metadatos de la zona-app + átomos de acceso a OrangeCRM como unidad. '
+                'NGAC INCITS 565-2020 §4 · NIST AC-2 · OWASP ASVS v5.0 §2.1.', hijos: [
+        _a('app_code', 'orange_crm'),
+        _a('vendor', 'OrangeCRM / SuiteCRM'),
+        _a('slug_prefix', 'orange'),
+        _a('dominio', 'D01 · Acceso Lógico'),
+        _a('registro', 'bauth.privilege_application.app_code=orange_crm'),
+        _en('app_type', 'CRM', ['ERP', 'CRM', 'RRHH', 'FINANCIERO', 'PORTAL', 'COMUNICACIONES', 'SOBERANO', 'EXTERNO']),
+        _en('loa_required', 'AAL2', ['AAL1', 'AAL2', 'AAL3']),
+        _a('sod_enforced', 'true'),
+        _a('clasificacion', 'INTERNAL — CONFIDENTIAL en módulo contact (PII)'),
+
+        // ── Átomos app-level: acceso a OrangeCRM como unidad ───────
+        _ev('orange.app.visible', [
+          _a('subject', 'ANY'),
+          _a('resource', 'bauth.app/orange_crm'),
+          _ef('PERMIT · OrangeCRM visible en launcher del workspace'),
+        ], verbo: 'read',
+          help: '¿Aparece OrangeCRM en el escritorio del usuario? NIST AC-17(2).'),
+        _ev('orange.app.login', [
+          _a('subject', 'ANY'),
+          _a('resource', 'bauth.app/orange_crm'),
+          _ef('PERMIT · SSO bAuth → OrangeCRM · loa_required=AAL2',
+              obl: {'required_loa': 'AAL2', 'sso_protocol': 'OIDC'}),
+        ], verbo: 'login',
+          help: '¿Puede iniciar sesión en OrangeCRM? Módulo contact tiene PII — AAL2 obligatorio. '
+                'OWASP ASVS v5.0 §2.1 · RGPD Art. 5.'),
+        _ev('orange.app.register · DENY', [
+          _a('subject', 'ANY'),
+          _a('resource', 'bauth.app/orange_crm'),
+          _ef('DENY · cuentas aprovisionadas por IAM Installer · audit=REG_ATTEMPT'),
+        ], verbo: 'create',
+          help: 'Auto-registro: DENY. Aprovisionamiento exclusivo por IAM Installer. NIST AC-2.'),
+        _ev('orange.app.api · DENY humano', [
+          _a('subject', 'ANY'),
+          _a('resource', 'bauth.app/orange_crm'),
+          _ef('DENY · API directa requiere cuenta M2M (client_credentials) · audit=API_ATTEMPT'),
+        ], verbo: 'execute',
+          help: 'API REST de OrangeCRM: solo M2M con client_credentials. OAuth2 RFC 6749 §4.4.'),
+      ]),
+
+      NodoTemplate('model', TipoNodo.politica,
+          valor: 'Orange CRM · Model (ir.model.access)',
+          help: 'CRUD por módulo CRM. contact hereda pii_access=true. '
+                'NIST AC-3 · RGPD Art. 5.', hijos: [
+        _algo('deny-overrides'),
+        NodoTemplate('lead', TipoNodo.politica, valor: 'Módulo lead — Prospectos', hijos: [
+          _algo('deny-overrides'),
+          _ev('orange.lead.read', [
+            _a('subject', 'SET(vendedores)'),
+            _a('resource', 'orange_crm/crm.lead'),
+            _ef('PERMIT · record_rule=leads_asignados · audit=on'),
+          ], verbo: 'read'),
+          _ev('orange.lead.create', [
+            _a('subject', 'SET(vendedores)'),
+            _a('resource', 'orange_crm/crm.lead'),
+            _ef('PERMIT · owner_id=user.id · audit=on'),
+          ], verbo: 'create'),
+          _ev('orange.lead.delete · DENY vendedor', [
+            _a('subject', 'SET(vendedores)'),
+            _a('resource', 'orange_crm/crm.lead'),
+            _ef('DENY · eliminación requiere gerente · AC-6(10)'),
+          ], verbo: 'delete'),
+          _ev('orange.lead.export · DENY anti-exfiltración', [
+            _a('subject', 'ANY'),
+            _a('resource', 'orange_crm/crm.lead'),
+            _ef('DENY · ISO 27001 A.8.12 · audit=EXPORT_ATTEMPT'),
+          ], verbo: 'export'),
+        ]),
+        NodoTemplate('opportunity', TipoNodo.politica, valor: 'Módulo opportunity — Oportunidades', hijos: [
+          _algo('deny-overrides'),
+          _ev('orange.opportunity.read', [
+            _a('subject', 'SET(vendedores)'),
+            _a('resource', 'orange_crm/crm.opportunity'),
+            _ef('PERMIT · record_rule=pipeline_equipo · audit=on'),
+          ], verbo: 'read'),
+          _ev('orange.opportunity.close', [
+            _a('subject', 'SET(gerentes_ventas)'),
+            _a('resource', 'orange_crm/crm.opportunity'),
+            _ef('PERMIT · SoD=creador_distinto_aprobador · audit=on'),
+          ], verbo: 'approve'),
+        ]),
+        NodoTemplate('contact', TipoNodo.politica, valor: 'Módulo contact — Contactos (PII)', hijos: [
+          _algo('deny-overrides'),
+          _ev('orange.contact.read', [
+            _a('subject', 'SET(vendedores)'),
+            _a('resource', 'orange_crm/contact'),
+            _a('pii_access', 'true'),
+            _ef('PERMIT · masking=auto · audit=ENHANCED'),
+          ], verbo: 'read',
+            help: 'Masking automático en campos PII. RGPD Art. 5(f).'),
+          _ev('orange.contact.write', [
+            _a('subject', 'SET(gerentes_ventas)'),
+            _a('resource', 'orange_crm/contact'),
+            _ef('PERMIT · audit=FORENSIC · notify=dpo'),
+          ], verbo: 'write'),
+          _ev('orange.contact.delete · DENY', [
+            _a('subject', 'ANY'),
+            _a('resource', 'orange_crm/contact'),
+            _ef('DENY · solo DPO · RGPD Art. 17'),
+          ], verbo: 'delete'),
+        ]),
+      ]),
+
+      NodoTemplate('actions', TipoNodo.politica,
+          valor: 'Orange CRM · Actions (ir.action / menús)', hijos: [
+        _algo('deny-overrides'),
+        NodoTemplate('lead', TipoNodo.politica, valor: 'Acciones módulo lead', hijos: [
+          _algo('deny-overrides'),
+          _ev('orange.menu.mis_leads', [
+            _prop('ui.menu_id'),
+            _op('IN'),
+            _val('[orange.mis_leads, orange.nuevo_lead, orange.seguimiento]'),
+            _ef('PERMIT · render=VISIBLE'),
+          ], verbo: 'read'),
+          _ev('orange.menu.todos_leads · solo gerente', [
+            _a('subject', 'SET(gerentes_ventas)'),
+            _prop('ui.menu_id'),
+            _op('=='),
+            _val('orange.todos_leads'),
+            _ef('PERMIT · render=VISIBLE'),
+          ], verbo: 'read'),
+          _ev('orange.menu.config_crm · DENY vendedor', [
+            _a('subject', 'SET(vendedores)'),
+            _prop('ui.menu_id'),
+            _op('STARTS_WITH'),
+            _val('orange.config.'),
+            _ef('DENY · render=HIDDEN · AC-6(10)'),
+          ], verbo: 'read'),
+        ]),
+        NodoTemplate('opportunity', TipoNodo.politica, valor: 'Acciones módulo opportunity', hijos: [
+          _algo('deny-overrides'),
+          _ev('orange.menu.pipeline', [
+            _prop('ui.menu_id'),
+            _op('IN'),
+            _val('[orange.pipeline_kanban, orange.mis_oportunidades, orange.forecast]'),
+            _ef('PERMIT · render=VISIBLE'),
+          ], verbo: 'read'),
+        ]),
+        NodoTemplate('contact', TipoNodo.politica, valor: 'Acciones módulo contact', hijos: [
+          _algo('deny-overrides'),
+          _ev('orange.menu.contactos', [
+            _prop('ui.menu_id'),
+            _op('IN'),
+            _val('[orange.lista_contactos, orange.nuevo_contacto]'),
+            _ef('PERMIT · render=VISIBLE'),
+          ], verbo: 'read'),
+          _ev('orange.menu.exportar_contactos · DENY', [
+            _a('subject', 'ANY'),
+            _prop('ui.menu_id'),
+            _op('=='),
+            _val('orange.exportar_contactos'),
+            _ef('DENY · render=HIDDEN · ISO 27001 A.8.12'),
+          ], verbo: 'read'),
+        ]),
+      ]),
+
+      NodoTemplate('field', TipoNodo.politica,
+          valor: 'Orange CRM · Field (ir.model.field.access)',
+          help: 'Masking PII obligatorio en módulo contact. '
+                'RGPD Art. 5(f) · NIST AC-6(10).', hijos: [
+        _algo('deny-overrides'),
+        NodoTemplate('lead', TipoNodo.politica, valor: 'Campos módulo lead', hijos: [
+          _algo('deny-overrides'),
+          _ev('orange.lead.estimated_revenue · oculto vendedor', [
+            _a('subject', 'SET(vendedores)'),
+            _prop('field.crm_lead.estimated_revenue'),
+            _op('visible_to_role'),
+            _val('false'),
+            _ef('DENY · campo omitido · AC-6(10)'),
+          ], verbo: 'read'),
+          _ev('orange.lead.phone · masking', [
+            _prop('field.crm_lead.phone'),
+            _op('apply_mask'),
+            _val('lastFour'),
+            _ef('PERMIT · teléfono → últimos 4 visibles'),
+          ], verbo: 'read'),
+        ]),
+        NodoTemplate('contact', TipoNodo.politica, valor: 'Campos módulo contact (PII)', hijos: [
+          _algo('deny-overrides'),
+          _ev('orange.contact.national_id · masking', [
+            _prop('field.contact.national_id'),
+            _op('apply_mask'),
+            _val('lastFour'),
+            _ef('PERMIT · DNI → últimos 4 visibles · RGPD'),
+          ], verbo: 'read'),
+          _ev('orange.contact.email · masking', [
+            _prop('field.contact.email_address'),
+            _op('apply_mask'),
+            _val('domain_only'),
+            _ef('PERMIT · email → solo dominio'),
+          ], verbo: 'read'),
+          _ev('orange.contact.birthdate · DENY vendedor', [
+            _a('subject', 'SET(vendedores)'),
+            _prop('field.contact.birthdate'),
+            _op('visible_to_role'),
+            _val('false'),
+            _ef('DENY · fecha nacimiento solo DPO · RGPD Art. 9'),
+          ], verbo: 'read'),
+        ]),
+      ]),
+
+      NodoTemplate('button', TipoNodo.politica,
+          valor: 'Orange CRM · Button (ir.model.button)', hijos: [
+        _algo('first-applicable'),
+        NodoTemplate('lead', TipoNodo.politica, valor: 'Botones módulo lead', hijos: [
+          _algo('first-applicable'),
+          _ev('orange.btn.convert_lead · DENY vendedor', [
+            _a('subject', 'SET(vendedores)'),
+            _prop('ui.action_id'),
+            _op('=='),
+            _val('orange.crm.lead.convert_to_opportunity'),
+            _ef('DENY · "Conversión requiere gerente" · notify=SET(gerentes_ventas)'),
+          ], verbo: 'execute'),
+          _ev('orange.btn.convert_lead · PERMIT gerente', [
+            _a('subject', 'SET(gerentes_ventas)'),
+            _prop('ui.action_id'),
+            _op('=='),
+            _val('orange.crm.lead.convert_to_opportunity'),
+            _ef('PERMIT · SoD_ok · audit=on'),
+          ], verbo: 'execute'),
+        ]),
+        NodoTemplate('contact', TipoNodo.politica, valor: 'Botones módulo contact', hijos: [
+          _algo('deny-overrides'),
+          _ev('orange.btn.gdpr_forget · DENY sin DPO', [
+            _a('subject', 'ANY'),
+            _prop('ui.action_id'),
+            _op('=='),
+            _val('orange.contact.gdpr_erase'),
+            _ef('DENY · derecho al olvido solo DPO · RGPD Art. 17'),
+          ], verbo: 'execute'),
+        ]),
+      ]),
+
+      NodoTemplate('record_rule', TipoNodo.politica,
+          valor: 'Orange CRM · Record Rule (ir.rule)', hijos: [
+        _algo('deny-overrides'),
+        NodoTemplate('lead', TipoNodo.politica, valor: 'Reglas módulo lead', hijos: [
+          _algo('deny-overrides'),
+          _ev('orange.lead · asignados al usuario', [
+            _prop('record.assigned_user_id'),
+            _op('=='),
+            _val('user.id'),
+            _ef('PERMIT · sql_filter=assigned_user_id'),
+          ], verbo: 'read'),
+          _ev('orange.lead · equipo del usuario', [
+            _prop('record.team_id'),
+            _op('IN'),
+            _val('user.sales_team_ids[]'),
+            _ef('PERMIT · sql_filter=team_id'),
+          ], verbo: 'read'),
+        ]),
+        NodoTemplate('contact', TipoNodo.politica, valor: 'Reglas módulo contact', hijos: [
+          _algo('deny-overrides'),
+          _ev('orange.contact · cuentas del usuario', [
+            _prop('record.account_id'),
+            _op('IN'),
+            _val('user.account_ids[]'),
+            _ef('PERMIT · sql_filter=account_id · audit=ENHANCED'),
+          ], verbo: 'read'),
+        ]),
+      ]),
+    ]),
+
+    // ── zona_logical_orange_hrm ─────────────────────────────
+    NodoTemplate('zona_logical_orange_hrm', TipoNodo.politica,
+        valor: 'OrangeHRM · Zona Lógica D01',
+        help: 'Perímetro lógico de OrangeHRM — empleados, permisos, reclutamiento. '
+              'Datos PII. slug_prefix=hrm · AAL2 · RGPD Art. 9 · NIST AC-5.', hijos: [
+      _algo('deny-overrides'),
+      NodoTemplate('Z0 · Identidad', TipoNodo.bloque,
+          help: 'Metadatos de la zona-app + átomos de acceso a OrangeHRM como unidad. '
+                'Datos de empleados = PII sensible — AAL2 obligatorio en todos los átomos. '
+                'NGAC INCITS 565-2020 §4 · NIST AC-2 · RGPD Art. 9.', hijos: [
+        _a('app_code', 'orange_hrm'),
+        _a('vendor', 'OrangeHRM (open source RRHH)'),
+        _a('slug_prefix', 'hrm'),
+        _a('dominio', 'D01 · Acceso Lógico'),
+        _a('registro', 'bauth.privilege_application.app_code=orange_hrm'),
+        _en('app_type', 'RRHH', ['ERP', 'CRM', 'RRHH', 'FINANCIERO', 'PORTAL', 'COMUNICACIONES', 'SOBERANO', 'EXTERNO']),
+        _en('loa_required', 'AAL2', ['AAL1', 'AAL2', 'AAL3']),
+        _a('sod_enforced', 'true'),
+        _a('clasificacion', 'CONFIDENTIAL — empleados = PII'),
+        _a('masking_policy', 'lastFourVisible(national_id,salary,medical)'),
+
+        // ── Átomos app-level: acceso a OrangeHRM como unidad ───────
+        _ev('hrm.app.visible', [
+          _a('subject', 'ANY'),
+          _a('resource', 'bauth.app/orange_hrm'),
+          _ef('PERMIT · OrangeHRM visible en launcher — solo roles con acceso RRHH declarado'),
+        ], verbo: 'read',
+          help: '¿Aparece OrangeHRM en el escritorio? Datos de empleados = PII. NIST AC-17(2).'),
+        _ev('hrm.app.login', [
+          _a('subject', 'ANY'),
+          _a('resource', 'bauth.app/orange_hrm'),
+          _ef('PERMIT · SSO bAuth → OrangeHRM · loa_required=AAL2',
+              obl: {'required_loa': 'AAL2', 'sso_protocol': 'OIDC'}),
+        ], verbo: 'login',
+          help: 'Inicio de sesión en OrangeHRM. AAL2 obligatorio — datos de personal son PII sensible. '
+                'OWASP ASVS v5.0 §2.1 · RGPD Art. 9 · Ley 164.'),
+        _ev('hrm.app.register · DENY', [
+          _a('subject', 'ANY'),
+          _a('resource', 'bauth.app/orange_hrm'),
+          _ef('DENY · cuentas RRHH aprovisionadas por IAM Installer · audit=REG_ATTEMPT'),
+        ], verbo: 'create',
+          help: 'Auto-registro: DENY. Solo el IAM Installer crea cuentas en HRM. NIST AC-2.'),
+        _ev('hrm.app.api · DENY humano', [
+          _a('subject', 'ANY'),
+          _a('resource', 'bauth.app/orange_hrm'),
+          _ef('DENY · API RRHH requiere cuenta M2M + justificación · audit=API_ATTEMPT'),
+        ], verbo: 'execute',
+          help: 'API directa de RRHH: DENY para humanos. PII en tránsito requiere M2M auditado. '
+                'OAuth2 RFC 6749 §4.4 · RGPD Art. 32.'),
+      ]),
+
+      NodoTemplate('model', TipoNodo.politica,
+          valor: 'OrangeHRM · Model (ir.model.access)',
+          help: 'CRUD por módulo HRM. SoD en aprobación de permisos. '
+                'NIST AC-5 · RGPD Art. 9.', hijos: [
+        _algo('deny-overrides'),
+        NodoTemplate('employee', TipoNodo.politica, valor: 'Módulo employee — Empleados', hijos: [
+          _algo('deny-overrides'),
+          _ev('hrm.employee.read · propio', [
+            _a('subject', 'ANY'),
+            _a('resource', 'orange_hrm/employee'),
+            _prop('record.employee_id'),
+            _op('=='),
+            _val('user.employee_id'),
+            _ef('PERMIT · masking=auto · audit=ENHANCED'),
+          ], verbo: 'read'),
+          _ev('hrm.employee.read · gestores RRHH', [
+            _a('subject', 'SET(gestores_rrhh)'),
+            _a('resource', 'orange_hrm/employee'),
+            _ef('PERMIT · masking=parcial · audit=ENHANCED'),
+          ], verbo: 'read'),
+          _ev('hrm.employee.write · solo RRHH', [
+            _a('subject', 'SET(gestores_rrhh)'),
+            _a('resource', 'orange_hrm/employee'),
+            _ef('PERMIT · audit=FORENSIC · notify=dpo'),
+          ], verbo: 'write'),
+          _ev('hrm.employee.delete · DENY', [
+            _a('subject', 'ANY'),
+            _a('resource', 'orange_hrm/employee'),
+            _ef('DENY · baja = desactivación · RGPD Art. 17'),
+          ], verbo: 'delete'),
+        ]),
+        NodoTemplate('leave', TipoNodo.politica, valor: 'Módulo leave — Permisos y ausencias', hijos: [
+          _algo('deny-overrides'),
+          _ev('hrm.leave.create', [
+            _a('subject', 'ANY'),
+            _a('resource', 'orange_hrm/leave.request'),
+            _ef('PERMIT · requester=user.employee_id · audit=on'),
+          ], verbo: 'create'),
+          _ev('hrm.leave.approve · SoD supervisor', [
+            _a('subject', 'SET(supervisores)'),
+            _a('resource', 'orange_hrm/leave.request'),
+            _prop('record.requester_id'),
+            _op('!='),
+            _val('user.employee_id'),
+            _ef('PERMIT · SoD_ok · audit=on'),
+          ], verbo: 'approve'),
+          _ev('hrm.leave.approve · DENY auto-aprobación', [
+            _a('subject', 'ANY'),
+            _a('resource', 'orange_hrm/leave.request'),
+            _prop('record.requester_id'),
+            _op('=='),
+            _val('user.employee_id'),
+            _ef('DENY · SOD_VIOLATION · "No puede aprobar su propio permiso" · AC-5'),
+          ], verbo: 'approve'),
+        ]),
+      ]),
+
+      NodoTemplate('actions', TipoNodo.politica,
+          valor: 'OrangeHRM · Actions (ir.action / menús)', hijos: [
+        _algo('deny-overrides'),
+        NodoTemplate('employee', TipoNodo.politica, valor: 'Acciones módulo employee', hijos: [
+          _algo('deny-overrides'),
+          _ev('hrm.menu.mis_datos', [
+            _prop('ui.menu_id'),
+            _op('IN'),
+            _val('[hrm.my_profile, hrm.my_leave, hrm.my_attendance]'),
+            _ef('PERMIT · render=VISIBLE'),
+          ], verbo: 'read'),
+          _ev('hrm.menu.admin_empleados · solo RRHH', [
+            _a('subject', 'SET(gestores_rrhh)'),
+            _prop('ui.menu_id'),
+            _op('IN'),
+            _val('[hrm.employee_list, hrm.add_employee, hrm.reports]'),
+            _ef('PERMIT · render=VISIBLE'),
+          ], verbo: 'read'),
+          _ev('hrm.menu.nomina · DENY no-RRHH', [
+            _a('subject', 'ANY'),
+            _prop('ui.menu_id'),
+            _op('STARTS_WITH'),
+            _val('hrm.payroll.'),
+            _ef('DENY · render=HIDDEN · salario confidencial'),
+          ], verbo: 'read'),
+        ]),
+        NodoTemplate('leave', TipoNodo.politica, valor: 'Acciones módulo leave', hijos: [
+          _algo('deny-overrides'),
+          _ev('hrm.menu.mis_permisos', [
+            _prop('ui.menu_id'),
+            _op('IN'),
+            _val('[hrm.my_leave, hrm.apply_leave, hrm.leave_balance]'),
+            _ef('PERMIT · render=VISIBLE'),
+          ], verbo: 'read'),
+          _ev('hrm.menu.aprobar_permisos · solo supervisor', [
+            _a('subject', 'SET(supervisores)'),
+            _prop('ui.menu_id'),
+            _op('IN'),
+            _val('[hrm.leave_approval, hrm.leave_pending, hrm.leave_calendar]'),
+            _ef('PERMIT · render=VISIBLE'),
+          ], verbo: 'read'),
+        ]),
+      ]),
+
+      NodoTemplate('field', TipoNodo.politica,
+          valor: 'OrangeHRM · Field (ir.model.field.access)',
+          help: 'Masking PII — salario, DNI, datos médicos. '
+                'RGPD Art. 9 · ISO 27001 A.8.11.', hijos: [
+        _algo('deny-overrides'),
+        NodoTemplate('employee', TipoNodo.politica, valor: 'Campos módulo employee (PII)', hijos: [
+          _algo('deny-overrides'),
+          _ev('hrm.employee.salary · DENY no-RRHH', [
+            _a('subject', 'SET(vendedores)'),
+            _prop('field.employee.salary'),
+            _op('visible_to_role'),
+            _val('false'),
+            _ef('DENY · salario oculto · RGPD Art. 9'),
+          ], verbo: 'read'),
+          _ev('hrm.employee.national_id · masking', [
+            _prop('field.employee.national_id'),
+            _op('apply_mask'),
+            _val('lastFour'),
+            _ef('PERMIT · DNI → últimos 4 visibles · RGPD'),
+          ], verbo: 'read'),
+          _ev('hrm.employee.medical · DENY no-RRHH', [
+            _a('subject', 'ANY'),
+            _prop('field.employee.medical_details'),
+            _op('max_access'),
+            _val('gestores_rrhh'),
+            _ef('DENY · datos médicos solo RRHH · RGPD Art. 9(2)'),
+          ], verbo: 'read'),
+        ]),
+      ]),
+
+      NodoTemplate('button', TipoNodo.politica,
+          valor: 'OrangeHRM · Button (ir.model.button)', hijos: [
+        _algo('deny-overrides'),
+        NodoTemplate('employee', TipoNodo.politica, valor: 'Botones módulo employee', hijos: [
+          _algo('deny-overrides'),
+          _ev('hrm.btn.editar_salario · DENY no-RRHH', [
+            _a('subject', 'SET(vendedores)'),
+            _prop('ui.action_id'),
+            _op('=='),
+            _val('hrm.employee.edit_salary'),
+            _ef('DENY · solo RRHH · AC-6(10)'),
+          ], verbo: 'execute'),
+          _ev('hrm.btn.dar_baja · DENY sin RRHH', [
+            _a('subject', 'ANY'),
+            _prop('ui.action_id'),
+            _op('=='),
+            _val('hrm.employee.terminate'),
+            _ef('DENY · baja requiere RRHH + step_up=AAL3 · RGPD Art. 17'),
+          ], verbo: 'execute'),
+        ]),
+        NodoTemplate('leave', TipoNodo.politica, valor: 'Botones módulo leave', hijos: [
+          _algo('deny-overrides'),
+          _ev('hrm.btn.aprobar_propio · DENY SoD', [
+            _a('subject', 'ANY'),
+            _prop('ui.action_id'),
+            _op('=='),
+            _val('hrm.leave.approve'),
+            _prop('record.requester_id'),
+            _op('=='),
+            _val('user.employee_id'),
+            _ef('DENY · SOD_VIOLATION · botón ocultado · AC-5'),
+          ], verbo: 'execute'),
+        ]),
+      ]),
+
+      NodoTemplate('record_rule', TipoNodo.politica,
+          valor: 'OrangeHRM · Record Rule (ir.rule)', hijos: [
+        _algo('deny-overrides'),
+        NodoTemplate('employee', TipoNodo.politica, valor: 'Reglas módulo employee', hijos: [
+          _algo('deny-overrides'),
+          _ev('hrm.employee · propio', [
+            _prop('record.employee_id'),
+            _op('=='),
+            _val('user.employee_id'),
+            _ef('PERMIT · sql_filter=employee_id'),
+          ], verbo: 'read'),
+          _ev('hrm.employee · lista RRHH por departamento', [
+            _a('subject', 'SET(gestores_rrhh)'),
+            _prop('record.department_id'),
+            _op('IN'),
+            _val('user.managed_department_ids[]'),
+            _ef('PERMIT · sql_filter=department_id'),
+          ], verbo: 'read'),
+        ]),
+        NodoTemplate('leave', TipoNodo.politica, valor: 'Reglas módulo leave', hijos: [
+          _algo('deny-overrides'),
+          _ev('hrm.leave · propias del empleado', [
+            _prop('record.requester_id'),
+            _op('=='),
+            _val('user.employee_id'),
+            _ef('PERMIT · sql_filter=requester_id'),
+          ], verbo: 'read'),
+          _ev('hrm.leave · pendientes a aprobar supervisor', [
+            _a('subject', 'SET(supervisores)'),
+            _prop('record.supervisor_id'),
+            _op('=='),
+            _val('user.employee_id'),
+            _ef('PERMIT · sql_filter=supervisor_id · status=pending'),
+          ], verbo: 'read'),
+        ]),
+      ]),
+    ]),
+
+    // ── zona_logical_bsearch ────────────────────────────────
+    NodoTemplate('zona_logical_bsearch', TipoNodo.politica,
+        valor: 'bSearch · Zona Lógica D01',
+        help: 'Motor de búsqueda soberano SBOS (PostgreSQL 18+). '
+              'slug_prefix=bsearch · AAL1 · SBOS-daemon. '
+              'bAuth controla índices, límite de resultados anti-exfiltración.', hijos: [
+      _algo('deny-overrides'),
+      NodoTemplate('Z0 · Identidad', TipoNodo.bloque,
+          help: 'Metadatos de la zona-app + átomos de acceso a bSearch como unidad. '
+                'Daemon soberano SBOS — la clasificación depende del índice consultado. '
+                'NGAC INCITS 565-2020 §4 · NIST AC-2.', hijos: [
+        _a('app_code', 'bsearch'),
+        _a('vendor', 'SKULL SBOS — daemon bSearch'),
+        _a('slug_prefix', 'bsearch'),
+        _a('dominio', 'D01 · Acceso Lógico'),
+        _a('registro', 'bauth.privilege_application.app_code=bsearch'),
+        _en('app_type', 'SOBERANO', ['ERP', 'CRM', 'RRHH', 'FINANCIERO', 'PORTAL', 'COMUNICACIONES', 'SOBERANO', 'EXTERNO']),
+        _en('loa_required', 'AAL1', ['AAL1', 'AAL2', 'AAL3']),
+        _a('sod_enforced', 'false'),
+        _a('clasificacion', 'según índice consultado'),
+
+        // ── Átomos app-level: acceso a bSearch como unidad ─────────
+        _ev('bsearch.app.visible', [
+          _a('subject', 'ANY'),
+          _a('resource', 'bauth.app/bsearch'),
+          _ef('PERMIT · bSearch visible en launcher del workspace'),
+        ], verbo: 'read',
+          help: '¿Aparece bSearch en el escritorio del usuario? Clasificación varía por índice. NIST AC-17(2).'),
+        _ev('bsearch.app.login', [
+          _a('subject', 'ANY'),
+          _a('resource', 'bauth.app/bsearch'),
+          _ef('PERMIT · SSO bAuth → bSearch · loa_required=AAL1',
+              obl: {'required_loa': 'AAL1', 'sso_protocol': 'OIDC'}),
+        ], verbo: 'login',
+          help: 'Inicio de sesión en bSearch. AAL1 — búsqueda es función de bajo riesgo operacional. '
+                'El acceso a índices sensibles se controla en la capa model. OWASP ASVS v5.0 §2.1.'),
+        _ev('bsearch.app.register · DENY', [
+          _a('subject', 'ANY'),
+          _a('resource', 'bauth.app/bsearch'),
+          _ef('DENY · daemon SBOS — sin auto-registro · audit=REG_ATTEMPT'),
+        ], verbo: 'create',
+          help: 'Auto-registro: DENY. bSearch es daemon soberano — no tiene flujo de registro de usuario. NIST AC-2.'),
+        _ev('bsearch.app.api · DENY humano', [
+          _a('subject', 'ANY'),
+          _a('resource', 'bauth.app/bsearch'),
+          _ef('DENY · API bSearch directa requiere cuenta M2M · audit=API_ATTEMPT'),
+        ], verbo: 'execute',
+          help: 'API directa bSearch (JSON-RPC): DENY para humanos. '
+                'Daemons internos acceden vía Unix socket (fuera de este árbol). '
+                'Integraciones externas requieren cuenta M2M con client_credentials. OAuth2 RFC 6749 §4.4.'),
+      ]),
+
+      NodoTemplate('model', TipoNodo.politica,
+          valor: 'bSearch · Model — acceso a índices', hijos: [
+        _algo('deny-overrides'),
+        NodoTemplate('index', TipoNodo.politica, valor: 'Módulo index — Índices de búsqueda', hijos: [
+          _algo('deny-overrides'),
+          _ev('bsearch.index.ventas.read', [
+            _a('subject', 'SET(vendedores)'),
+            _a('resource', 'bsearch/index.ventas'),
+            _ef('PERMIT · max_hits=@bauth_config_param.max_query_records · audit=on'),
+          ], verbo: 'read'),
+          _ev('bsearch.index.clientes.read', [
+            _a('subject', 'SET(vendedores)'),
+            _a('resource', 'bsearch/index.clientes'),
+            _a('pii_access', 'true'),
+            _ef('PERMIT · masking=auto · audit=ENHANCED'),
+          ], verbo: 'read'),
+          _ev('bsearch.index.reindex · DENY usuario', [
+            _a('subject', 'SET(vendedores)'),
+            _a('resource', 'bsearch/index.*'),
+            _ef('DENY · reindexado solo administrador SBOS · AC-6(10)'),
+          ], verbo: 'execute'),
+        ]),
+      ]),
+
+      NodoTemplate('actions', TipoNodo.politica,
+          valor: 'bSearch · Actions — menús de búsqueda', hijos: [
+        _algo('deny-overrides'),
+        NodoTemplate('index', TipoNodo.politica, hijos: [
+          _ev('bsearch.menu.busqueda', [
+            _prop('ui.menu_id'),
+            _op('IN'),
+            _val('[bsearch.search_bar, bsearch.advanced_search, bsearch.saved_searches]'),
+            _ef('PERMIT · render=VISIBLE'),
+          ], verbo: 'read'),
+        ]),
+      ]),
+
+      NodoTemplate('field', TipoNodo.politica,
+          valor: 'bSearch · Field — campos en resultados', hijos: [
+        _algo('deny-overrides'),
+        NodoTemplate('index', TipoNodo.politica, hijos: [
+          _ev('bsearch.result.unit_price · oculto vendedor', [
+            _a('subject', 'SET(vendedores)'),
+            _prop('field.search_result.unit_price'),
+            _op('visible_to_role'),
+            _val('false'),
+            _ef('DENY · precio en resultados solo gerente · AC-6(10)'),
+          ], verbo: 'read'),
+        ]),
+      ]),
+
+      NodoTemplate('button', TipoNodo.politica,
+          valor: 'bSearch · Button — acciones sobre resultados', hijos: [
+        _algo('deny-overrides'),
+        NodoTemplate('index', TipoNodo.politica, hijos: [
+          _ev('bsearch.btn.export_results · DENY', [
+            _a('subject', 'ANY'),
+            _prop('ui.action_id'),
+            _op('=='),
+            _val('bsearch.export_results'),
+            _ef('DENY · exportación prohibida · ISO 27001 A.8.12'),
+          ], verbo: 'execute'),
+        ]),
+      ]),
+
+      NodoTemplate('record_rule', TipoNodo.politica,
+          valor: 'bSearch · Record Rule — filtro de resultados', hijos: [
+        _algo('deny-overrides'),
+        NodoTemplate('index', TipoNodo.politica, hijos: [
+          _ev('bsearch.results · clasificación permitida', [
+            _prop('record.zone_classification'),
+            _op('IN'),
+            _val('[INTERNAL, PUBLIC]'),
+            _ef('PERMIT · filter=classification_allowed'),
+          ], verbo: 'read'),
+          _ev('bsearch.results · DENY sobre límite de hits', [
+            _prop('query.result_count'),
+            _op('>'),
+            _val('@bauth_config_param.max_query_records'),
+            _ef('DENY · SEARCH_EXFIL_LIMIT · alerta SIEM'),
+          ], verbo: 'read'),
+        ]),
+      ]),
+    ]),
+
+    // ── zona_logical_bnotify ────────────────────────────────
+    NodoTemplate('zona_logical_bnotify', TipoNodo.politica,
+        valor: 'bNotify · Zona Lógica D01',
+        help: 'Sistema de notificaciones soberano SBOS (bChat). '
+              'slug_prefix=bnotify · AAL1 · SBOS-daemon. '
+              'bAuth controla emisión de alertas y broadcast.', hijos: [
+      _algo('deny-overrides'),
+      NodoTemplate('Z0 · Identidad', TipoNodo.bloque,
+          help: 'Metadatos de la zona-app + átomos de acceso a bNotify como unidad. '
+                'Daemon soberano SBOS — canal de notificaciones y alertas del ecosistema. '
+                'NGAC INCITS 565-2020 §4 · NIST AC-2.', hijos: [
+        _a('app_code', 'bnotify'),
+        _a('vendor', 'SKULL SBOS — daemon bNotify'),
+        _a('slug_prefix', 'bnotify'),
+        _a('dominio', 'D01 · Acceso Lógico'),
+        _a('registro', 'bauth.privilege_application.app_code=bnotify'),
+        _en('app_type', 'COMUNICACIONES', ['ERP', 'CRM', 'RRHH', 'FINANCIERO', 'PORTAL', 'COMUNICACIONES', 'SOBERANO', 'EXTERNO']),
+        _en('loa_required', 'AAL1', ['AAL1', 'AAL2', 'AAL3']),
+        _a('sod_enforced', 'false'),
+        _a('clasificacion', 'INTERNAL'),
+
+        // ── Átomos app-level: acceso a bNotify como unidad ─────────
+        _ev('bnotify.app.visible', [
+          _a('subject', 'ANY'),
+          _a('resource', 'bauth.app/bnotify'),
+          _ef('PERMIT · bNotify visible en launcher — bandeja de notificaciones del usuario'),
+        ], verbo: 'read',
+          help: '¿Aparece bNotify en el escritorio del usuario? DENY = sin acceso a notificaciones. NIST AC-17(2).'),
+        _ev('bnotify.app.login', [
+          _a('subject', 'ANY'),
+          _a('resource', 'bauth.app/bnotify'),
+          _ef('PERMIT · SSO bAuth → bNotify · loa_required=AAL1',
+              obl: {'required_loa': 'AAL1', 'sso_protocol': 'OIDC'}),
+        ], verbo: 'login',
+          help: 'Inicio de sesión en bNotify (bandeja). AAL1 — notificaciones son función auxiliar. '
+                'El envío de broadcast requiere nivel de rol superior (model capa). OWASP ASVS v5.0 §2.1.'),
+        _ev('bnotify.app.register · DENY', [
+          _a('subject', 'ANY'),
+          _a('resource', 'bauth.app/bnotify'),
+          _ef('DENY · daemon SBOS — sin auto-registro · audit=REG_ATTEMPT'),
+        ], verbo: 'create',
+          help: 'Auto-registro: DENY. bNotify es daemon soberano — las suscripciones son automáticas por rol. NIST AC-2.'),
+        _ev('bnotify.app.api · DENY humano', [
+          _a('subject', 'ANY'),
+          _a('resource', 'bauth.app/bnotify'),
+          _ef('DENY · API bNotify directa requiere cuenta M2M · audit=API_ATTEMPT'),
+        ], verbo: 'execute',
+          help: 'API JSON-RPC de bNotify: DENY para humanos. '
+                'Daemons internos acceden vía Unix socket. '
+                'Sistemas externos requieren cuenta M2M para envío de notificaciones. OAuth2 RFC 6749 §4.4.'),
+      ]),
+
+      NodoTemplate('model', TipoNodo.politica,
+          valor: 'bNotify · Model — notificaciones', hijos: [
+        _algo('deny-overrides'),
+        NodoTemplate('notification', TipoNodo.politica, valor: 'Módulo notification — Alertas', hijos: [
+          _algo('deny-overrides'),
+          _ev('bnotify.notification.read', [
+            _a('subject', 'ANY'),
+            _a('resource', 'bnotify/notification'),
+            _ef('PERMIT · record_rule=solo_destinatario · audit=off'),
+          ], verbo: 'read'),
+          _ev('bnotify.notification.emit · equipo', [
+            _a('subject', 'SET(gerentes_ventas)'),
+            _a('resource', 'bnotify/notification'),
+            _ef('PERMIT · audience=team · audit=on'),
+          ], verbo: 'emit'),
+          _ev('bnotify.notification.broadcast · DENY no-admin', [
+            _a('subject', 'SET(vendedores)'),
+            _a('resource', 'bnotify/notification'),
+            _ef('DENY · broadcast solo administrador SBOS · AC-6(10)'),
+          ], verbo: 'emit'),
+        ]),
+      ]),
+
+      NodoTemplate('actions', TipoNodo.politica,
+          valor: 'bNotify · Actions — menús de notificaciones', hijos: [
+        _algo('deny-overrides'),
+        NodoTemplate('notification', TipoNodo.politica, hijos: [
+          _ev('bnotify.menu.mis_alertas', [
+            _prop('ui.menu_id'),
+            _op('IN'),
+            _val('[bnotify.inbox, bnotify.nueva_alerta, bnotify.historial]'),
+            _ef('PERMIT · render=VISIBLE'),
+          ], verbo: 'read'),
+          _ev('bnotify.menu.admin_alertas · solo gerente', [
+            _a('subject', 'SET(gerentes_ventas)'),
+            _prop('ui.menu_id'),
+            _op('IN'),
+            _val('[bnotify.broadcast, bnotify.plantillas, bnotify.estadisticas]'),
+            _ef('PERMIT · render=VISIBLE'),
+          ], verbo: 'read'),
+        ]),
+      ]),
+
+      NodoTemplate('field', TipoNodo.politica,
+          valor: 'bNotify · Field — campos de notificación', hijos: [
+        _algo('deny-overrides'),
+        NodoTemplate('notification', TipoNodo.politica, hijos: [
+          _ev('bnotify.notification.ctx_trace_id · oculto vendedor', [
+            _a('subject', 'SET(vendedores)'),
+            _prop('field.notification.ctx_trace_id'),
+            _op('visible_to_role'),
+            _val('false'),
+            _ef('DENY · metadata de traza solo admin · privacidad operacional'),
+          ], verbo: 'read'),
+        ]),
+      ]),
+
+      NodoTemplate('button', TipoNodo.politica,
+          valor: 'bNotify · Button — acciones de notificación', hijos: [
+        _algo('deny-overrides'),
+        NodoTemplate('notification', TipoNodo.politica, hijos: [
+          _ev('bnotify.btn.broadcast_masivo · DENY no-admin', [
+            _a('subject', 'ANY'),
+            _prop('ui.action_id'),
+            _op('=='),
+            _val('bnotify.send_broadcast'),
+            _ef('DENY · broadcast masivo solo administrador SBOS · AC-6(10)'),
+          ], verbo: 'execute'),
+        ]),
+      ]),
+
+      NodoTemplate('record_rule', TipoNodo.politica,
+          valor: 'bNotify · Record Rule — filtro de notificaciones', hijos: [
+        _algo('deny-overrides'),
+        NodoTemplate('notification', TipoNodo.politica, hijos: [
+          _ev('bnotify.notification · solo destinatario', [
+            _prop('record.recipient_id'),
+            _op('=='),
+            _val('user.id'),
+            _ef('PERMIT · sql_filter=recipient_id'),
+          ], verbo: 'read'),
+        ]),
+      ]),
+    ]),
 
     // ── zona_logical_ventas ──────────────────────────────
     NodoTemplate('zona_logical_ventas', TipoNodo.politica,
         valor: 'ZONA · Lógica / Ventas',
-        help: 'Perímetro lógico de ventas. Scope = REGIONAL. '
-              'Límite anti-exfiltración: 1 000 registros por consulta. '
-              'SoD implícito: quien crea ≠ quien aprueba (AC-5).', hijos: [
+        help: 'Perímetro lógico de ventas. Scope=REGIONAL. '
+              'SoD: quien crea ≠ quien aprueba (AC-5). '
+              'Anti-exfiltración: @bauth_config_param.max_query_records.', hijos: [
       _algo('deny-overrides'),
 
-      _ev('zone_ventas_read', [
-        _a('subject', 'ANY',
-            help: 'Cualquier usuario autenticado puede leer registros de ventas dentro de su scope regional.'),
-        _a('resource', 'zone_logical/ventas'),
-        _prop('zone.scope'),
-        _op('=='),
-        _val('REGIONAL'),
-        _olo('AND'),
-        _prop('query.record_count'),
-        _op('<='),
-        _val('@bauth_config_param.max_query_records'),
-        _ef('PERMIT · scope=REGIONAL · audit=on'),
-      ], verbo: 'read',
-        help: 'Lectura permitida dentro del scope regional. '
-              'ISO 27001 A.8.15: toda lectura genera evento de auditoría.'),
+      // Z0 · Identidad de zona ─────────────────────────────
+      NodoTemplate('Z0 · Identidad de zona', TipoNodo.bloque,
+          help: 'Declaración normativa del perímetro. Análogo a D0·B1 para roles. '
+                'NGAC INCITS 565-2020 §4 (nodo OA) · XACML 3.0 PolicySet identity · '
+                'NIST AC-4(1) organization-defined security attributes.', hijos: [
+        _a('zone_id', 'Z-D01-LGV',
+            help: 'ID único. Patrón: Z-{dominio}-{código}. Inmutable tras publicación.'),
+        _a('zone_code', 'logical_ventas',
+            help: 'Slug del eje Z en la coordenada d.z.a.m.v.'),
+        _a('domain_code', 'D01'),
+        NodoTemplate('zone_name', TipoNodo.objeto, hijos: [
+          _a('es', 'Zona Lógica de Ventas'),
+          _a('en', 'Logical Sales Zone'),
+        ]),
+        NodoTemplate('zone_type', TipoNodo.enumerado, valor: 'logical_business',
+            opciones: ['logical_business', 'financial', 'compliance', 'operational', 'external'],
+            help: 'Tipo de perímetro — determina combinaciones de capas obligatorias.'),
+        NodoTemplate('classification', TipoNodo.enumerado, valor: 'INTERNAL',
+            opciones: ['PUBLIC', 'INTERNAL', 'CONFIDENTIAL', 'RESTRICTED'],
+            help: 'NIST SP 800-53 AC-4(1) organization-defined security attribute.'),
+        NodoTemplate('sensitivity_level', TipoNodo.enumerado, valor: 'MEDIUM',
+            opciones: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'],
+            help: 'Nivel heredable por todas las apps en ZA.'),
+        NodoTemplate('scope', TipoNodo.enumerado, valor: 'REGIONAL',
+            opciones: ['GLOBAL', 'REGIONAL', 'LOCAL', 'TENANT']),
+        _a('pii_access', 'false',
+            help: 'ISO 27001 A.8.11. false = sin datos personales en este perímetro.'),
+        _a('masking_policy', 'null'),
+        NodoTemplate('audit_level', TipoNodo.enumerado, valor: 'STANDARD',
+            opciones: ['STANDARD', 'ENHANCED', 'FORENSIC'],
+            help: 'ISO 27001 A.8.15. Nivel heredado por apps en ZA.'),
+        NodoTemplate('loa_required', TipoNodo.enumerado, valor: 'AAL2',
+            opciones: ['AAL1', 'AAL2', 'AAL3'],
+            help: 'NIST SP 800-63B. LOA mínimo para cruzar el perímetro.'),
+        _a('step_up_required', 'false',
+            help: 'RFC 9470. false = step-up solo si la app lo requiere explícitamente.'),
+        _a('sod_enforced', 'true',
+            help: 'NIST AC-5. true = SoD evaluado en ZR antes de entrar a ZA.'),
+        _a('owner', 'gerencia_ventas',
+            help: 'SABSA domain owner. Unidad responsable del perímetro.'),
+        NodoTemplate('norm_refs[]', TipoNodo.lista, hijos: [
+          _a('n1', 'NIST SP 800-162 · ABAC environment attributes'),
+          _a('n2', 'ISO 27001:2022 A.8.3 · information access restriction'),
+          _a('n3', 'NIST AC-4 · information flow enforcement'),
+          _a('n4', 'NGAC INCITS 565-2020 §4 · Object Attribute node'),
+        ]),
+      ]),
 
-      _ev('zone_ventas_read_sobre_limite · DENY exfiltración', [
-        _a('subject', 'ANY'),
-        _a('resource', 'zone_logical/ventas'),
-        _prop('query.record_count'),
-        _op('>'),
-        _val('@bauth_config_param.max_query_records'),
-        _ef('DENY · ZONE_EXFIL_LIMIT · alerta SIEM'),
-      ], verbo: 'read',
-        help: 'DENY explícito cuando la consulta supera el límite anti-exfiltración. NIST SI-4.'),
+      // ZA · Aplicaciones ──────────────────────────────────
+      NodoTemplate('ZA · Aplicaciones', TipoNodo.bloque,
+          help: 'Aplicaciones pertenecientes a zona_logical_ventas. '
+                'Membresía declarativa (edge NGAC app→zona). '
+                'Jerarquía: aplicación → A0 → 5 capas → átomo. '
+                'Herencia: classification=INTERNAL · loa=AAL2 · sod=true · audit=STANDARD.', hijos: [
+        _algo('deny-overrides'),
 
-      _ev('zone_ventas_write', [
-        _a('subject', 'SET(vendedores)',
-            help: 'D98 · bauth.privilege_role_set.vendedores — pendiente declarar en D98 · Registro Estructural.'),
-        _a('resource', 'zone_logical/ventas'),
-        _prop('zone.scope'),
-        _op('=='),
-        _val('REGIONAL'),
-        _ef('PERMIT · audit=on'),
-      ], verbo: 'write',
-        help: 'Creación y modificación de registros en zona ventas. '
-              'Solo SET(vendedores). Scope regional obligatorio.'),
+        // ── app.crm_ventas ──────────────────────────────
+        NodoTemplate('app.crm_ventas', TipoNodo.politica,
+            valor: 'CRM Ventas · zona: logical_ventas',
+            help: 'CRM dentro del perímetro de ventas. '
+                  'Real-world: Salesforce Record Types + OWD. '
+                  'Equivalente Odoo: groups_id en crm.lead + domain filter. '
+                  'NIST AC-3(7).', hijos: [
+          _algo('deny-overrides'),
+          NodoTemplate('A0 · Identidad de aplicación', TipoNodo.bloque, hijos: [
+            _a('app_code', 'crm_ventas'),
+            _a('app_type', 'CRM',
+                help: 'Enum: ERP, CRM, RRHH, FINANCIERO, PORTAL, COMUNICACIONES, SOBERANO, EXTERNO.'),
+            _a('zone_ref', 'logical_ventas',
+                help: 'Edge NGAC O→OA: referencia explícita al Z0.zone_code.'),
+            _a('loa_override', 'null',
+                help: 'null = hereda zona. Solo puede endurecer (AAL3), nunca relajar.'),
+            _a('pii_override', 'null'),
+          ]),
+          NodoTemplate('CAPA 1 · model_access', TipoNodo.politica,
+              valor: 'CRUD por modelo — CRM ventas', hijos: [
+            _algo('deny-overrides'),
+            _ev('crm.lead — lectura de oportunidades', [
+              _a('subject', 'ANY'),
+              _a('resource', 'app.crm_ventas/crm.lead'),
+              _a('pii_access', 'false'),
+              _ef('PERMIT · record_rule=team_filter · audit=off'),
+            ], verbo: 'read',
+              help: 'Leads dentro del equipo. Equivalente Salesforce OWD + Role Hierarchy.'),
+            _ev('crm.lead — creación', [
+              _a('subject', 'SET(vendedores)'),
+              _a('resource', 'app.crm_ventas/crm.lead'),
+              _ef('PERMIT · owner_id=user.id · audit=on'),
+            ], verbo: 'create'),
+            _ev('crm.pipeline.export — DENY anti-exfiltración', [
+              _a('subject', 'ANY'),
+              _a('resource', 'app.crm_ventas/crm.pipeline.export'),
+              _ef('DENY · ISO 27001 A.8.12 · audit=EXPORT_ATTEMPT'),
+            ], verbo: 'export'),
+          ]),
+          NodoTemplate('CAPA 2 · visible_actions', TipoNodo.politica,
+              valor: 'Menús visibles — CRM ventas', hijos: [
+            _algo('deny-overrides'),
+            _ev('menú oportunidades — visible', [
+              _prop('ui.menu_id'),
+              _op('IN'),
+              _val('[crm.oportunidades, crm.nueva_oportunidad, crm.pipeline, crm.reportes_propios]'),
+              _ef('PERMIT · render=VISIBLE'),
+            ], verbo: 'read'),
+            _ev('menú configuración CRM — oculto', [
+              _prop('ui.menu_id'),
+              _op('STARTS_WITH'),
+              _val('crm.config.'),
+              _ef('DENY · AC-6(10) · render=HIDDEN'),
+            ], verbo: 'read'),
+          ]),
+          NodoTemplate('CAPA 3 · field_restrictions', TipoNodo.politica,
+              valor: 'Campos restringidos — CRM ventas', hijos: [
+            _algo('deny-overrides'),
+            _ev('crm.lead.expected_revenue — oculto a vendedores', [
+              _a('subject', 'SET(vendedores)'),
+              _prop('field.crm_lead.expected_revenue'),
+              _op('visible_to_role'),
+              _val('false'),
+              _ef('DENY · campo omitido · AC-6(10)'),
+            ], verbo: 'read'),
+            _ev('crm.lead.partner_phone — masking', [
+              _prop('field.crm_lead.partner_phone'),
+              _op('apply_mask'),
+              _val('lastFour'),
+              _ef('PERMIT · phone → últimos 4 visibles'),
+            ], verbo: 'read'),
+          ]),
+          NodoTemplate('CAPA 4 · button_rules', TipoNodo.politica,
+              valor: 'Botones — CRM ventas', hijos: [
+            _algo('first-applicable'),
+            _ev('botón convertir lead — DENY vendedor', [
+              _a('subject', 'SET(vendedores)'),
+              _prop('ui.action_id'),
+              _op('=='),
+              _val('crm.lead.convert'),
+              _ef('DENY · "Conversión requiere aprobación de gerencia" · notify=SET(gerentes_ventas)'),
+            ], verbo: 'execute'),
+            _ev('botón convertir lead — PERMIT gerente', [
+              _a('subject', 'SET(gerentes_ventas)'),
+              _prop('ui.action_id'),
+              _op('=='),
+              _val('crm.lead.convert'),
+              _ef('PERMIT · audit=on'),
+            ], verbo: 'execute'),
+          ]),
+          NodoTemplate('CAPA 5 · record_rules', TipoNodo.politica,
+              valor: 'Filtros de fila — CRM ventas', hijos: [
+            _algo('deny-overrides'),
+            _ev('oportunidades — equipo del usuario', [
+              _prop('record.team_id'),
+              _op('IN'),
+              _val('user.sales_team_ids[]'),
+              _ef('PERMIT · sql_filter=team_id'),
+            ], verbo: 'read'),
+            _ev('oportunidades — propias si sin equipo', [
+              _prop('record.user_id'),
+              _op('=='),
+              _val('user.id'),
+              _ef('PERMIT · sql_filter=user_id'),
+            ], verbo: 'read'),
+          ]),
+        ]),
 
-      _ev('zone_ventas_approve', [
-        _a('subject', 'SET(gerentes_ventas)',
-            help: 'D98 · bauth.privilege_role_set.gerentes_ventas — pendiente declarar en D98 · Registro Estructural.'),
-        _a('resource', 'zone_logical/ventas'),
-        _ef('PERMIT · audit=on · notify=supervisor'),
-      ], verbo: 'approve',
-        help: 'Aprobación de operaciones en zona ventas. '
-              'AC-5 SoD implícito: quien crea (SET vendedores) ≠ quien aprueba (SET gerentes_ventas).'),
+        // ── app.punto_venta ─────────────────────────────
+        NodoTemplate('app.punto_venta', TipoNodo.politica,
+            valor: 'Punto de Venta · zona: logical_ventas',
+            help: 'POS dentro del perímetro de ventas. '
+                  'Equivalente Odoo POS + ir.model.access. NIST AC-3.', hijos: [
+          _algo('deny-overrides'),
+          NodoTemplate('A0 · Identidad de aplicación', TipoNodo.bloque, hijos: [
+            _a('app_code', 'punto_venta'),
+            _a('app_type', 'ERP'),
+            _a('zone_ref', 'logical_ventas'),
+            _a('loa_override', 'null'),
+            _a('pii_override', 'null'),
+          ]),
+          NodoTemplate('CAPA 1 · model_access', TipoNodo.politica,
+              valor: 'CRUD por modelo — POS', hijos: [
+            _algo('deny-overrides'),
+            _ev('pos.order — lectura sesión activa', [
+              _a('subject', 'SET(vendedores)'),
+              _a('resource', 'app.punto_venta/pos.order'),
+              _ef('PERMIT · record_rule=session_filter · audit=off'),
+            ], verbo: 'read'),
+            _ev('pos.order — creación y cierre', [
+              _a('subject', 'SET(vendedores)'),
+              _a('resource', 'app.punto_venta/pos.order'),
+              _ef('PERMIT · audit=on · session_id=user.pos_session_id'),
+            ], verbo: 'create'),
+          ]),
+          NodoTemplate('CAPA 2 · visible_actions', TipoNodo.politica,
+              valor: 'Menús visibles — POS', hijos: [
+            _algo('deny-overrides'),
+            _ev('menú POS — sesión y venta', [
+              _prop('ui.menu_id'),
+              _op('IN'),
+              _val('[pos.sesion, pos.nueva_venta, pos.cierre_turno]'),
+              _ef('PERMIT · render=VISIBLE'),
+            ], verbo: 'read'),
+            _ev('menú reportes POS — oculto a vendedores', [
+              _a('subject', 'SET(vendedores)'),
+              _prop('ui.menu_id'),
+              _op('STARTS_WITH'),
+              _val('pos.reportes.'),
+              _ef('DENY · AC-6(10) · render=HIDDEN'),
+            ], verbo: 'read'),
+          ]),
+          NodoTemplate('CAPA 3 · field_restrictions', TipoNodo.politica,
+              valor: 'Campos restringidos — POS', hijos: [
+            _algo('deny-overrides'),
+            _ev('pos.order.margin — oculto a vendedores', [
+              _a('subject', 'SET(vendedores)'),
+              _prop('field.pos_order.margin'),
+              _op('visible_to_role'),
+              _val('false'),
+              _ef('DENY · campo omitido'),
+            ], verbo: 'read'),
+          ]),
+          NodoTemplate('CAPA 4 · button_rules', TipoNodo.politica,
+              valor: 'Botones — POS', hijos: [
+            _algo('deny-overrides'),
+            _ev('botón descuento — DENY sobre límite', [
+              _a('subject', 'SET(vendedores)'),
+              _prop('ui.action_id'),
+              _op('=='),
+              _val('pos.aplicar_descuento'),
+              _prop('descuento.porcentaje'),
+              _op('>'),
+              _val('@bauth_config_param.max_descuento_tier1'),
+              _ef('DENY · "Descuento supera límite autorizado" · notify=SET(gerentes_ventas)'),
+            ], verbo: 'execute'),
+          ]),
+          NodoTemplate('CAPA 5 · record_rules', TipoNodo.politica,
+              valor: 'Filtros de fila — POS', hijos: [
+            _algo('deny-overrides'),
+            _ev('órdenes POS — solo sesión del usuario', [
+              _prop('record.session_id'),
+              _op('=='),
+              _val('user.pos_session_id'),
+              _ef('PERMIT · sql_filter=session_id'),
+            ], verbo: 'read'),
+          ]),
+        ]),
+      ]),
 
-      _ev('zone_ventas_execute', [
-        _a('subject', 'SET(vendedores)',
-            help: 'D98 · bauth.privilege_role_set.vendedores'),
-        _a('resource', 'zone_logical/ventas'),
-        _prop('zone.scope'),
-        _op('=='),
-        _val('REGIONAL'),
-        _ef('PERMIT · audit=on'),
-      ], verbo: 'execute',
-        help: 'Ejecución de operaciones (confirmar pedido, cerrar venta) dentro del scope regional.'),
+      // ZR · Reglas perimetrales ────────────────────────────
+      NodoTemplate('ZR · Reglas perimetrales', TipoNodo.politica,
+          valor: 'Guardrail zona_logical_ventas',
+          help: 'Evaluado ANTES de entrar a cualquier app en ZA. '
+                'deny-overrides: un DENY perimetral no puede ser sobrescrito por ninguna app. '
+                'XACML 3.0 §7.3 — pre-evaluation scope. NIST SI-4.', hijos: [
+        _algo('deny-overrides'),
+        _ev('zone_ventas_read', [
+          _a('subject', 'ANY',
+              help: 'Cualquier usuario autenticado puede leer dentro de su scope regional.'),
+          _a('resource', 'zone_logical/ventas'),
+          _prop('zone.scope'),
+          _op('=='),
+          _val('REGIONAL'),
+          _olo('AND'),
+          _prop('query.record_count'),
+          _op('<='),
+          _val('@bauth_config_param.max_query_records'),
+          _ef('PERMIT · scope=REGIONAL · audit=on'),
+        ], verbo: 'read',
+          help: 'ISO 27001 A.8.15: toda lectura genera evento de auditoría.'),
+        _ev('zone_ventas_read_sobre_limite · DENY exfiltración', [
+          _a('subject', 'ANY'),
+          _a('resource', 'zone_logical/ventas'),
+          _prop('query.record_count'),
+          _op('>'),
+          _val('@bauth_config_param.max_query_records'),
+          _ef('DENY · ZONE_EXFIL_LIMIT · alerta SIEM'),
+        ], verbo: 'read',
+          help: 'DENY cuando la consulta supera el límite anti-exfiltración. NIST SI-4.'),
+        _ev('zone_ventas_write', [
+          _a('subject', 'SET(vendedores)',
+              help: 'D98 · bauth.privilege_role_set.vendedores'),
+          _a('resource', 'zone_logical/ventas'),
+          _prop('zone.scope'),
+          _op('=='),
+          _val('REGIONAL'),
+          _ef('PERMIT · audit=on'),
+        ], verbo: 'write',
+          help: 'Solo SET(vendedores). Scope regional obligatorio.'),
+        _ev('zone_ventas_approve', [
+          _a('subject', 'SET(gerentes_ventas)',
+              help: 'D98 · bauth.privilege_role_set.gerentes_ventas'),
+          _a('resource', 'zone_logical/ventas'),
+          _ef('PERMIT · audit=on · notify=supervisor'),
+        ], verbo: 'approve',
+          help: 'AC-5 SoD: SET(vendedores) ≠ SET(gerentes_ventas).'),
+        _ev('zone_ventas_execute', [
+          _a('subject', 'SET(vendedores)',
+              help: 'D98 · bauth.privilege_role_set.vendedores'),
+          _a('resource', 'zone_logical/ventas'),
+          _prop('zone.scope'),
+          _op('=='),
+          _val('REGIONAL'),
+          _ef('PERMIT · audit=on'),
+        ], verbo: 'execute',
+          help: 'Ejecución de operaciones dentro del scope regional.'),
+      ]),
     ]),
 
     // ── zona_logical_clientes ────────────────────────────
     NodoTemplate('zona_logical_clientes', TipoNodo.politica,
         valor: 'ZONA · Lógica / Clientes',
-        help: 'Perímetro de datos de clientes (PII). '
-              'Masking obligatorio en toda lectura. Logging extra. '
-              'RGPD Art. 5 · ISO 27001 A.8.11.', hijos: [
+        help: 'Perímetro PII de clientes. Masking obligatorio. '
+              'Logging ENHANCED. RGPD Art. 5 · ISO 27001 A.8.11.', hijos: [
       _algo('deny-overrides'),
 
-      _ev('zone_clientes_read', [
-        _a('subject', 'ANY',
-            help: 'Cualquier usuario autenticado puede leer, sujeto a masking automático por rol.'),
-        _a('resource', 'zone_logical/clientes'),
-        _a('pii_access', 'true'),
-        _ef('PERMIT · masking=lastFourVisible(DNI,telefono,email) · audit=PII_READ · logging=extra'),
-      ], verbo: 'read',
-        help: 'Lectura PII con masking automático. '
-              'DNI / teléfono / email → últimos 4 caracteres visibles. '
-              'Evento PII_READ obligatorio. RGPD Art. 5(f).'),
+      // Z0 · Identidad de zona ─────────────────────────────
+      NodoTemplate('Z0 · Identidad de zona', TipoNodo.bloque,
+          help: 'Declaración normativa del perímetro PII. '
+                'NGAC INCITS 565-2020 §4 · XACML 3.0 · '
+                'RGPD Art. 5 · NIST SP 800-53 AC-4(1).', hijos: [
+        _a('zone_id', 'Z-D01-CLI'),
+        _a('zone_code', 'logical_clientes'),
+        _a('domain_code', 'D01'),
+        NodoTemplate('zone_name', TipoNodo.objeto, hijos: [
+          _a('es', 'Zona Lógica de Clientes'),
+          _a('en', 'Logical Clients Zone'),
+        ]),
+        NodoTemplate('zone_type', TipoNodo.enumerado, valor: 'logical_business',
+            opciones: ['logical_business', 'financial', 'compliance', 'operational', 'external']),
+        NodoTemplate('classification', TipoNodo.enumerado, valor: 'CONFIDENTIAL',
+            opciones: ['PUBLIC', 'INTERNAL', 'CONFIDENTIAL', 'RESTRICTED'],
+            help: 'CONFIDENTIAL: contiene PII de clientes. RGPD Art. 4(1).'),
+        NodoTemplate('sensitivity_level', TipoNodo.enumerado, valor: 'HIGH',
+            opciones: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']),
+        NodoTemplate('scope', TipoNodo.enumerado, valor: 'TENANT',
+            opciones: ['GLOBAL', 'REGIONAL', 'LOCAL', 'TENANT']),
+        _a('pii_access', 'true',
+            help: 'ISO 27001 A.8.11. true → masking automático en toda app de ZA.'),
+        _a('masking_policy', 'lastFourVisible(DNI,telefono,email)',
+            help: 'RGPD Art. 5(f). DNI/teléfono/email → últimos 4 visibles.'),
+        NodoTemplate('audit_level', TipoNodo.enumerado, valor: 'ENHANCED',
+            opciones: ['STANDARD', 'ENHANCED', 'FORENSIC'],
+            help: 'ENHANCED: logging extra en toda lectura PII. ISO 27001 A.8.15.'),
+        NodoTemplate('loa_required', TipoNodo.enumerado, valor: 'AAL2',
+            opciones: ['AAL1', 'AAL2', 'AAL3'],
+            help: 'AAL2 mínimo para acceder a datos PII.'),
+        _a('step_up_required', 'false',
+            help: 'step-up se evalúa en ZR por acción (write lo puede requerir).'),
+        _a('sod_enforced', 'true'),
+        _a('owner', 'dpto_atencion_clientes'),
+        NodoTemplate('norm_refs[]', TipoNodo.lista, hijos: [
+          _a('n1', 'RGPD Art. 5 · principles of data processing'),
+          _a('n2', 'ISO 27001:2022 A.8.11 · data masking'),
+          _a('n3', 'NIST SP 800-53 AC-4(1) · attribute-based access'),
+          _a('n4', 'NGAC INCITS 565-2020 §4 · Object Attribute node'),
+        ]),
+      ]),
 
-      _ev('zone_clientes_write', [
-        _a('subject', 'SET(atencion_clientes)',
-            help: 'D98 · bauth.privilege_role_set.atencion_clientes — pendiente declarar en D98 · Registro Estructural.'),
-        _a('resource', 'zone_logical/clientes'),
-        _a('pii_access', 'true'),
-        _prop('ctx.justificacion_presente'),
-        _op('=='),
-        _val('true'),
-        _ef('PERMIT · audit=PII_MODIFICATION · logging=extra'),
-      ], verbo: 'write',
-        help: 'Modificación PII solo para atención a clientes, con justificación documentada. '
-              'RGPD Art. 5(b) — limitación de finalidad. ISO 27001 A.8.11.'),
+      // ZA · Aplicaciones ──────────────────────────────────
+      NodoTemplate('ZA · Aplicaciones', TipoNodo.bloque,
+          help: 'Aplicaciones pertenecientes a zona_logical_clientes. '
+                'pii_access=true heredado: masking automático en toda app. '
+                'audit_level=ENHANCED heredado: logging extra en toda lectura.', hijos: [
+        _algo('deny-overrides'),
 
-      _ev('zone_clientes_write_sin_justificacion · DENY', [
-        _a('subject', 'ANY'),
-        _a('resource', 'zone_logical/clientes'),
-        _prop('ctx.justificacion_presente'),
-        _op('=='),
-        _val('false'),
-        _ef('DENY · PII_NO_JUSTIFICATION · alerta SIEM'),
-      ], verbo: 'write',
-        help: 'DENY explícito si la escritura PII no lleva justificación. '
-              'RGPD requiere documentar la base legal de cada modificación de datos personales.'),
+        // ── app.atencion_clientes ───────────────────────
+        NodoTemplate('app.atencion_clientes', TipoNodo.politica,
+            valor: 'Atención a Clientes · zona: logical_clientes',
+            help: 'Módulo de atención dentro del perímetro PII. '
+                  'Hereda: classification=CONFIDENTIAL · loa=AAL2 · '
+                  'pii_access=true · masking=lastFourVisible · audit=ENHANCED. '
+                  'Real-world: Salesforce Service Cloud Field-Level Security. '
+                  'NIST AC-3/AC-6.', hijos: [
+          _algo('deny-overrides'),
+          NodoTemplate('A0 · Identidad de aplicación', TipoNodo.bloque, hijos: [
+            _a('app_code', 'atencion_clientes'),
+            _a('app_type', 'CRM'),
+            _a('zone_ref', 'logical_clientes'),
+            _a('loa_override', 'null'),
+            _a('pii_override', 'null',
+                help: 'Hereda pii_access=true. No puede relajarse a false.'),
+          ]),
+          NodoTemplate('CAPA 1 · model_access', TipoNodo.politica,
+              valor: 'CRUD por modelo — Atención Clientes', hijos: [
+            _algo('deny-overrides'),
+            _ev('res.partner — lectura con masking', [
+              _a('subject', 'ANY'),
+              _a('resource', 'app.atencion_clientes/res.partner'),
+              _a('pii_access', 'true'),
+              _ef('PERMIT · masking=lastFourVisible(DNI,telefono,email) · audit=PII_READ'),
+            ], verbo: 'read'),
+            _ev('res.partner — escritura con justificación', [
+              _a('subject', 'SET(atencion_clientes)'),
+              _a('resource', 'app.atencion_clientes/res.partner'),
+              _prop('ctx.justificacion_presente'),
+              _op('=='),
+              _val('true'),
+              _ef('PERMIT · audit=PII_MODIFICATION · logging=extra'),
+            ], verbo: 'write'),
+            _ev('res.partner — escritura sin justificación · DENY', [
+              _a('subject', 'ANY'),
+              _a('resource', 'app.atencion_clientes/res.partner'),
+              _prop('ctx.justificacion_presente'),
+              _op('=='),
+              _val('false'),
+              _ef('DENY · PII_NO_JUSTIFICATION · alerta SIEM'),
+            ], verbo: 'write'),
+          ]),
+          NodoTemplate('CAPA 2 · visible_actions', TipoNodo.politica,
+              valor: 'Menús visibles — Atención Clientes', hijos: [
+            _algo('deny-overrides'),
+            _ev('menú clientes — visible', [
+              _prop('ui.menu_id'),
+              _op('IN'),
+              _val('[clientes.lista, clientes.ficha, clientes.editar, clientes.historial]'),
+              _ef('PERMIT · render=VISIBLE'),
+            ], verbo: 'read'),
+            _ev('menú exportar clientes — oculto', [
+              _prop('ui.menu_id'),
+              _op('IN'),
+              _val('[clientes.exportar, clientes.importar_masivo]'),
+              _ef('DENY · RGPD Art. 5(c) minimización · render=HIDDEN'),
+            ], verbo: 'read'),
+          ]),
+          NodoTemplate('CAPA 3 · field_restrictions', TipoNodo.politica,
+              valor: 'Campos PII restringidos — Atención Clientes', hijos: [
+            _algo('deny-overrides'),
+            _ev('res.partner.dni — masking siempre', [
+              _prop('field.res_partner.dni'),
+              _op('apply_mask'),
+              _val('lastFour'),
+              _ef('PERMIT · dni → últimos 4 visibles · audit=PII_FIELD'),
+            ], verbo: 'read'),
+            _ev('res.partner.bank_account — DENY total', [
+              _a('subject', 'ANY'),
+              _prop('field.res_partner.bank_account'),
+              _op('visible_to_role'),
+              _val('false'),
+              _ef('DENY · cuenta bancaria protegida · PCI DSS 4.0 Req 3.3.1'),
+            ], verbo: 'read'),
+          ]),
+          NodoTemplate('CAPA 4 · button_rules', TipoNodo.politica,
+              valor: 'Botones — Atención Clientes', hijos: [
+            _algo('first-applicable'),
+            _ev('botón eliminar cliente — DENY siempre', [
+              _prop('ui.action_id'),
+              _op('=='),
+              _val('clientes.eliminar'),
+              _ef('DENY · "Eliminación requiere rol DPO" · audit=DELETE_ATTEMPT'),
+            ], verbo: 'execute'),
+            _ev('botón desactivar cliente — PERMIT con justificación', [
+              _a('subject', 'SET(atencion_clientes)'),
+              _prop('ui.action_id'),
+              _op('=='),
+              _val('clientes.desactivar'),
+              _prop('ctx.justificacion_presente'),
+              _op('=='),
+              _val('true'),
+              _ef('PERMIT · audit=CLIENT_DEACTIVATION · logging=extra'),
+            ], verbo: 'execute'),
+          ]),
+          NodoTemplate('CAPA 5 · record_rules', TipoNodo.politica,
+              valor: 'Filtros de fila — Atención Clientes', hijos: [
+            _algo('deny-overrides'),
+            _ev('clientes — asignados al agente', [
+              _prop('record.user_id'),
+              _op('=='),
+              _val('user.id'),
+              _ef('PERMIT · sql_filter=user_id'),
+            ], verbo: 'read'),
+            _ev('clientes — equipo completo (gerente)', [
+              _a('subject', 'SET(atencion_clientes)'),
+              _prop('record.team_id'),
+              _op('IN'),
+              _val('user.managed_team_ids[]'),
+              _ef('PERMIT · sql_filter=team_id · combine=OR'),
+            ], verbo: 'read'),
+          ]),
+        ]),
+      ]),
+
+      // ZR · Reglas perimetrales ────────────────────────────
+      NodoTemplate('ZR · Reglas perimetrales', TipoNodo.politica,
+          valor: 'Guardrail zona_logical_clientes',
+          help: 'Evaluado ANTES de entrar a ZA. '
+                'Toda acción sobre PII pasa primero por este guardrail.', hijos: [
+        _algo('deny-overrides'),
+        _ev('zone_clientes_read', [
+          _a('subject', 'ANY',
+              help: 'Cualquier usuario autenticado puede leer, sujeto a masking automático.'),
+          _a('resource', 'zone_logical/clientes'),
+          _a('pii_access', 'true'),
+          _ef('PERMIT · masking=lastFourVisible(DNI,telefono,email) · audit=PII_READ · logging=extra'),
+        ], verbo: 'read',
+          help: 'RGPD Art. 5(f). Evento PII_READ obligatorio.'),
+        _ev('zone_clientes_write', [
+          _a('subject', 'SET(atencion_clientes)',
+              help: 'D98 · bauth.privilege_role_set.atencion_clientes'),
+          _a('resource', 'zone_logical/clientes'),
+          _a('pii_access', 'true'),
+          _prop('ctx.justificacion_presente'),
+          _op('=='),
+          _val('true'),
+          _ef('PERMIT · audit=PII_MODIFICATION · logging=extra'),
+        ], verbo: 'write',
+          help: 'RGPD Art. 5(b) limitación de finalidad.'),
+        _ev('zone_clientes_write_sin_justificacion · DENY', [
+          _a('subject', 'ANY'),
+          _a('resource', 'zone_logical/clientes'),
+          _prop('ctx.justificacion_presente'),
+          _op('=='),
+          _val('false'),
+          _ef('DENY · PII_NO_JUSTIFICATION · alerta SIEM'),
+        ], verbo: 'write',
+          help: 'DENY si escritura PII sin justificación.'),
+      ]),
     ]),
 
     // ── zona_financial_ventas ────────────────────────────
     NodoTemplate('zona_financial_ventas', TipoNodo.politica,
         valor: 'ZONA · Financiera / Ventas',
-        help: 'Perímetro financiero de ventas. Tier 2 = hasta @bauth_config_param.approval_threshold_tier2. '
-              'Aprobación dual obligatoria > @bauth_config_param.approval_threshold_tier2. '
-              'SoD: aprobador ≠ auditor de la misma zona. '
-              'ISO 27001 A.5.15 · NIST AC-5 · PCI DSS 4.0.', hijos: [
+        help: 'Perímetro financiero. LOA=AAL3. Step-up obligatorio. '
+              'SoD: aprobador ≠ auditor. '
+              'ISO 27001 A.5.15 · NIST AC-5 · PCI DSS 4.0 · Ley 843 Bolivia.', hijos: [
       _algo('deny-overrides'),
 
-      _ev('zone_financial_approve_dentro_tier', [
-        _a('subject', 'SET(financieros_tier2)',
-            help: 'D98 · bauth.privilege_role_set.financieros_tier2 — '
-                  'límite: @bauth_config_param.approval_threshold_tier2.'),
-        _a('resource', 'zone_financial/ventas'),
-        _prop('transaction.amount'),
-        _op('<='),
-        _val('@bauth_config_param.approval_threshold_tier2',
-            help: 'PIP: bauth.bauth_config_param · default 10 000 BOB.'),
-        _ef('PERMIT · audit=on'),
-      ], verbo: 'approve',
-        help: 'Aprobación de transacciones dentro del tier 2 '
-              '(≤ @bauth_config_param.approval_threshold_tier2). '
-              'PCI DSS 4.0 Req 7.2.4.'),
-
-      _ev('zone_financial_approve_sobre_tier · DENY requiere aprobación dual', [
-        _a('subject', 'SET(financieros_tier2)'),
-        _a('resource', 'zone_financial/ventas'),
-        _prop('transaction.amount'),
-        _op('>'),
-        _val('@bauth_config_param.approval_threshold_tier2',
-            help: 'PIP: bauth.bauth_config_param · default 10 000 BOB.'),
-        _ef('DENY · AMOUNT_EXCEEDS_TIER · pendiente=aprobacion_dual · notify=gerente_financiero'),
-      ], verbo: 'approve',
-        help: 'DENY para financieros tier 2 cuando el monto supera '
-              '@bauth_config_param.approval_threshold_tier2. '
-              'La operación queda en espera de aprobación dual del tier superior. '
-              'PCI DSS 4.0 Req 7.2.4 · ISO 27001 A.5.15.'),
-
-      _ev('zone_financial_emit', [
-        _a('subject', 'SET(financieros_tier2)',
-            help: 'D98 · bauth.privilege_role_set.financieros_tier2'),
-        _a('resource', 'zone_financial/ventas'),
-        _prop('transaction.amount'),
-        _op('<='),
-        _val('@bauth_config_param.approval_threshold_tier2',
-            help: 'PIP: bauth.bauth_config_param · default 10 000 BOB.'),
-        _ef('PERMIT · audit=on · emit_receipt=true'),
-      ], verbo: 'emit',
-        help: 'Emisión de comprobantes de operación financiera dentro del tier. '
-              'Ley 843 Bolivia (facturación electrónica).'),
-
-      _ev('zone_financial_audit_sod · DENY violación SoD', [
-        _a('subject', 'ANY'),
-        _a('resource', 'zone_financial/ventas'),
-        _prop('ctx.subject_also_approver_in_zone'),
-        _op('=='),
-        _val('zone_financial/ventas'),
-        _ef('DENY · SOD_VIOLATION · audit=SOD_ATTEMPT · alerta SIEM · notifica compliance'),
-      ], verbo: 'audit',
-        help: 'SoD duro: quien tiene APPROVE en zone_financial/ventas NO puede ejecutar AUDIT. '
-              'NIST AC-5 · ISO 27001 A.5.18. '
-              'Violación genera alerta inmediata en SIEM y notifica compliance.'),
-    ]),
-  ]),
-
-  // ── B7 Privilegios de Aplicaciones (5 capas) ─────────────
-  NodoTemplate('B7 · Privilegios de Aplicaciones (5 capas)', TipoNodo.bloque,
-      help: 'Motor de privilegios de grano fino (BitMask + PolicyEngine) para TODA aplicación '
-            'registrada en bauth.privilege_application (hasta 511 apps por tenant). '
-            'No es exclusivo de ninguna app — las 5 capas aplican a cualquier aplicación: '
-            'Odoo, CRM, RRHH, bNotify, bSearch, portal de cliente, apps de tenant externo. '
-            'Equivalente a Odoo ir.rule + record rules + field access + SAP Dynamic Authorization. '
-            'NIST AC-3/AC-6(10) · PCI DSS 7.3.', hijos: [
-    _algo('deny-overrides'),
-
-    NodoTemplate('model_access', TipoNodo.politica, valor: 'CAPA 1 · CRUD por modelo',
-        help: 'read:false = modelo completamente invisible.', hijos: [
-      _algo('deny-overrides'),
-      _ev('aislamiento de usuarios (res.user)', [
-        _prop('model.res_user.read'),
-        _op('=='),
-        _val('false'),
-        _ef('DENY · aislamiento multi-tenant', obl: {'model_visibility': 'hidden', 'reason': 'multi_tenant_isolation'}),
-      ], verbo: 'read'),
-      _ev('acceso CRUD por zona declarada (B6)', [
-        _prop('model.{nombre}.crud_mask'),
-        _op('SUBSET_OF'),
-        _val('verbos de zones{} (B6)'),
-        _ef('DENY verbo no declarado en B6 · HTTP 403'),
-      ], verbo: 'execute'),
-    ]),
-
-    NodoTemplate('visible_actions', TipoNodo.politica, valor: 'CAPA 2 · menús visibles',
-        help: 'Deny-all implícito: solo lo listado es visible. AC-6(10).', hijos: [
-      _algo('deny-overrides'),
-      _ev('menú ventas — visible', [
-        _prop('ui.menu_id'),
-        _op('IN'),
-        _val('[ventas.lista, ventas.nueva_venta, ventas.aprobar, ventas.reportes_propios]'),
-        _ef('PERMIT · render = VISIBLE'),
-      ], verbo: 'read'),
-      _ev('menú clientes — visible (solo lectura/edición)', [
-        _prop('ui.menu_id'),
-        _op('IN'),
-        _val('[clientes.lista, clientes.ficha, clientes.editar]'),
-        _ef('PERMIT · render = VISIBLE'),
-      ], verbo: 'read'),
-      _ev('acciones financieras (dentro del tier)', [
-        _prop('ui.action_id'),
-        _op('IN'),
-        _val('[pagos.nueva, pagos.aprobar, facturas.emitir]',
-            help: 'action_id son slugs de UI — sin umbrales monetarios embebidos. '
-                  'Los límites de monto se evalúan en button_rules (CAPA 4), no en el identificador de la acción.'),
-        _ef('PERMIT · visible con badge de límite de monto', obl: {'badge_source': 'button_rules'}),
-      ], verbo: 'execute'),
-      _ev('menú administración — oculto', [
-        _prop('ui.menu_id'),
-        _op('STARTS_WITH'),
-        _val('admin.'),
-        _ef('DENY · menú oculto AC-6(10)', obl: {'ui_render': 'hidden'}),
-      ], verbo: 'read'),
-    ]),
-
-    NodoTemplate('field_restrictions', TipoNodo.politica, valor: 'CAPA 3 · campos individuales',
-        help: 'Masking y ocultamiento por campo. ISO A.8.11.', hijos: [
-      _algo('deny-overrides'),
-      _ev('campo margin — oculto', [
-        _prop('field.sale_order.margin'),
-        _op('visible_to_role'),
-        _val('false'),
-        _ef('DENY · campo omitido', obl: {'response_filter': 'omit', 'select_filter': 'omit'}),
-      ], verbo: 'read'),
-      _ev('campo cost_price — oculto', [
-        _prop('field.product.cost_price'),
-        _op('visible_to_role'),
-        _val('false'),
-        _ef('DENY · campo omitido', obl: {'response_filter': 'omit'}),
-      ], verbo: 'read'),
-      _ev('campo credit_limit — solo lectura', [
-        _prop('field.res_partner.credit_limit'),
-        _op('max_access'),
-        _val('READ'),
-        _ef('DENY write · HTTP 403 si intenta modificar'),
-      ], verbo: 'write'),
-    ]),
-
-    NodoTemplate('button_rules', TipoNodo.politica, valor: 'CAPA 4 · botones con PYSON',
-        help: 'PCI DSS 4.0 Req 7.3.1 — users_required + condition_pyson + sod_cannot_also + step_up_loa. '
-              'combining_algorithm: first-applicable — los tiers de monto son mutuamente excluyentes '
-              '(BETWEEN rangos sin solapamiento garantizado por @bauth_config_param), por lo que '
-              'el primer átomo que coincide es el único aplicable. 2.14 §6.2. '
-              'El DENY de fuera-de-tier se evalúa primero (orden de declaración) y si coincide '
-              'detiene la cadena sin evaluar los tiers. '
-              'Anti-patrón AP1: valores de umbral externos via @bauth_config_param (no montos literales '
-              'en nombres ni en valores — un cambio de política no requiere recompilar el árbol).',
-        hijos: [
-      _algo('first-applicable'),
-
-      // Tier fuera del rol → DENY explícito · primer átomo en la lista (first-applicable lo detiene aquí)
-      _ev('venta_fuera_tier_maximo_deny', [
-        _a('subject', 'SET(financieros_tier2)',
-            help: 'D98 · bauth.privilege_role_set.financieros_tier2 *(propuesta)*'),
-        _a('resource', 'odoo/sale.order'),
-        _prop('sale_order.amount_total'),
-        _op('>'),
-        _val('@bauth_config_param.approval_threshold_tier2',
-            help: 'Umbral tier 2 desde PIP — no hardcodeado. PCI DSS 4.0 Req 7.3.1.'),
-        _ef('DENY · HTTP 403 · supera límite de aprobación del rol · omitir botón Aprobar'),
-      ], verbo: 'approve',
-        help: 'DENY explícito cuando el monto supera el tier máximo del rol. '
-              'first-applicable: este átomo va primero en la lista — si coincide detiene la cadena. '
-              'PCI DSS 4.0 Req 7.2.4: usuarios con límite de aprobación no pueden auto-aprobarse sobre su límite.'),
-
-      // Tier 2: doble aprobador + step-up LoA 3
-      _ev('venta_aprobacion_tier2', [
-        _a('subject', 'SET(financieros_tier2)',
-            help: 'D98 · bauth.privilege_role_set.financieros_tier2 *(propuesta)*'),
-        _a('resource', 'odoo/sale.order'),
-        _prop('sale_order.amount_total'),
-        _op('BETWEEN'),
-        _val('[@bauth_config_param.approval_threshold_tier1, @bauth_config_param.approval_threshold_tier2]',
-            help: 'Rango tier 2 desde PIP — ambos extremos configurables sin recompilar. '
-                  'BETWEEN es inclusivo en ambos extremos.'),
-        _ef('PERMIT · SoD: aprobadores distintos · audit=on',
-            obl: {'users_required': '2', 'required_loa': '3'}),
-      ], verbo: 'approve',
-        help: 'Aprobación dual con step-up LoA 3 para montos de tier 2. '
-              'El método concreto (WebAuthn, TOTP, etc.) lo selecciona el PDP según '
-              'los available_methods del rol — no se hardcodea en el átomo (2.14 §6.2 AP3). '
-              'RFC 9470 step-up mid-session — no cierra la sesión, añade factor.'),
-
-      // Tier 1: aprobación simple
-      _ev('venta_aprobacion_tier1_simple', [
-        _a('subject', 'SET(financieros_tier2)',
-            help: 'D98 · bauth.privilege_role_set.financieros_tier2 *(propuesta)*'),
-        _a('resource', 'odoo/sale.order'),
-        _prop('sale_order.amount_total'),
-        _op('<='),
-        _val('@bauth_config_param.approval_threshold_tier1',
-            help: 'Umbral tier 1 desde PIP. Equivale a ir.rule de Odoo sobre sale.amount_total.'),
-        _ef('PERMIT · sin step-up · audit=on', obl: {'users_required': '1'}),
-      ], verbo: 'approve',
-        help: 'Aprobación simple para ventas dentro del límite tier 1. '
-              'SoD aplicado a nivel de zona (B6): quien crea ≠ quien aprueba (evaluado en B6, no aquí).'),
-
-      // SoD en pagos — evaluado en el momento del approve
-      _ev('pago_aprobacion_sod_enforce', [
-        _a('subject', 'ANY'),
-        _a('resource', 'odoo/account.payment'),
-        _prop('payment.amount'),
-        _op('>'),
-        _val('@bauth_config_param.sod_payment_approval_threshold',
-            help: 'Umbral a partir del cual SoD es obligatorio. NIST AC-5 · PCI DSS 4.0 Req 7.2.4.'),
-        _ef('DENY · SoD: creador ≠ aprobador · audit=SOD_ATTEMPT'),
-      ], verbo: 'approve',
-        help: 'SoD duro para pagos: quien creó el pago no puede aprobarlo. '
-              'Equivalente a SAP SoD rule T-Code F-53 vs FB01. '
-              'NIST AC-5 · ISO 27001 A.5.18.'),
-    ]),
-
-    NodoTemplate('record_rules', TipoNodo.politica, valor: 'CAPA 5 · filtros de fila',
-        help: 'NIST 800-162 — filtro automático en CADA consulta.', hijos: [
-      _algo('deny-overrides'),
-      _ev('solo registros de su región', [
-        _prop('record.territory_code'),
-        _op('=='),
-        _val('user.territory_code (VEN-NORTH-001)'),
-        _ef('PERMIT · con filtro de territorio', obl: {'sql_filter': 'territory_code', 'bind': 'user.territory_code'}),
-      ], verbo: 'read'),
-      _ev('solo sus oportunidades propias', [
-        _prop('record.owner_id'),
-        _op('=='),
-        _val('user.id'),
-        _ef('PERMIT · con filtro de propietario', obl: {'sql_filter': 'owner_id', 'bind': 'user.id'}),
-      ], verbo: 'read'),
-      _ev('ventas del equipo (modo manager)', [
-        _prop('record.salesperson_team_id'),
-        _op('IN'),
-        _val('user.managed_team_ids[]'),
-        _ef('PERMIT · con filtro de equipo', obl: {'sql_filter': 'salesperson_team_id', 'bind': 'user.managed_team_ids', 'combine': 'OR'}),
-      ], verbo: 'read'),
-    ]),
-
-    // ── Política CRM (app_id = crm) — ejemplo no-ERP ─────────────
-    // Demuestra que B7 no es exclusivo de ERP: cada aplicación registrada
-    // en bauth.privilege_application tiene su propio conjunto de 5 capas.
-    // Equivalente a Odoo CRM ir.model.access + record rules por equipo.
-    NodoTemplate('b7_crm_acceso', TipoNodo.politica,
-        valor: 'app.crm — Acceso CRM para rol Ventas',
-        help: 'Políticas B7 para la aplicación CRM del tenant. '
-              'Registro en bauth.privilege_application: app_code=crm, app_slug=crm. '
-              'Aplicación separada del ERP — los privilegios no se heredan entre apps. '
-              'Real-world: Salesforce Field-Level Security + Record Types + OWD. '
-              'Equivalente en Odoo: groups_id en crm.lead + domain filter por team_id. '
-              'NIST AC-3(7) — Remote-Process Access.', hijos: [
-      _algo('deny-overrides'),
-
-      // CRM model_access
-      _ev('crm_lead_read', [
-        _a('subject', 'ANY',
-            help: 'Cualquier usuario autenticado puede leer leads de su equipo — filtrado por record_rules.'),
-        _a('resource', 'app.crm/crm.lead'),
+      // Z0 · Identidad de zona ─────────────────────────────
+      NodoTemplate('Z0 · Identidad de zona', TipoNodo.bloque,
+          help: 'Declaración normativa del perímetro financiero. '
+                'NGAC INCITS 565-2020 §4 · XACML 3.0 · NIST AC-5 · PCI DSS 4.0.', hijos: [
+        _a('zone_id', 'Z-D01-FIN'),
+        _a('zone_code', 'financial_ventas'),
+        _a('domain_code', 'D01'),
+        NodoTemplate('zone_name', TipoNodo.objeto, hijos: [
+          _a('es', 'Zona Financiera de Ventas'),
+          _a('en', 'Financial Sales Zone'),
+        ]),
+        NodoTemplate('zone_type', TipoNodo.enumerado, valor: 'financial',
+            opciones: ['logical_business', 'financial', 'compliance', 'operational', 'external'],
+            help: 'financial: implica step_up=true y loa=AAL3 como mínimo.'),
+        NodoTemplate('classification', TipoNodo.enumerado, valor: 'CONFIDENTIAL',
+            opciones: ['PUBLIC', 'INTERNAL', 'CONFIDENTIAL', 'RESTRICTED'],
+            help: 'CONFIDENTIAL: datos de transacciones financieras. PCI DSS 4.0 Req 3.'),
+        NodoTemplate('sensitivity_level', TipoNodo.enumerado, valor: 'HIGH',
+            opciones: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']),
+        NodoTemplate('scope', TipoNodo.enumerado, valor: 'TENANT',
+            opciones: ['GLOBAL', 'REGIONAL', 'LOCAL', 'TENANT']),
         _a('pii_access', 'false',
-            help: 'Leads = datos de prospecto, NO PII de cliente (eso es zone_clientes — B6). '
-                  'Distinción RGPD Art. 4(1): prospecto no es interesado hasta conversión.'),
-        _ef('PERMIT · record_rule=team_filter · audit=off (alto volumen)'),
-      ], verbo: 'read',
-        help: 'Lectura de leads CRM dentro del equipo de ventas. '
-              'Equivalente Salesforce: Record Type "Opportunity" + OWD "Read/Write" + Role Hierarchy.'),
+            help: 'Montos/transacciones no son PII per RGPD Art. 4(1).'),
+        _a('masking_policy', 'null'),
+        NodoTemplate('audit_level', TipoNodo.enumerado, valor: 'ENHANCED',
+            opciones: ['STANDARD', 'ENHANCED', 'FORENSIC'],
+            help: 'PCI DSS 4.0 Req 10: toda transacción financiera requiere trazabilidad.'),
+        NodoTemplate('loa_required', TipoNodo.enumerado, valor: 'AAL3',
+            opciones: ['AAL1', 'AAL2', 'AAL3'],
+            help: 'NIST SP 800-63B §4.3. AAL3 obligatorio para acceso financiero.'),
+        _a('step_up_required', 'true',
+            help: 'RFC 9470. Sesión activa debe elevar LOA antes de operar en este perímetro.'),
+        _a('sod_enforced', 'true',
+            help: 'NIST AC-5. Aprobador ≠ auditor en zone_financial/ventas.'),
+        _a('owner', 'gerencia_financiera'),
+        NodoTemplate('norm_refs[]', TipoNodo.lista, hijos: [
+          _a('n1', 'PCI DSS 4.0 Req 7 · access control'),
+          _a('n2', 'ISO 27001:2022 A.5.15 · access control policy'),
+          _a('n3', 'NIST AC-5 · separation of duties'),
+          _a('n4', 'Ley 843 Bolivia · facturación electrónica'),
+          _a('n5', 'NGAC INCITS 565-2020 §4 · Object Attribute node'),
+        ]),
+      ]),
 
-      _ev('crm_lead_create', [
-        _a('subject', 'SET(vendedores)',
-            help: 'D98 · bauth.privilege_role_set.vendedores *(propuesta)*'),
-        _a('resource', 'app.crm/crm.lead'),
-        _ef('PERMIT · audit=on · owner_id=user.id (asignado automáticamente)'),
-      ], verbo: 'create',
-        help: 'Creación de lead/oportunidad — solo SET vendedores. '
-              'owner_id inyectado automáticamente por el PEP.'),
+      // ZA · Aplicaciones ──────────────────────────────────
+      NodoTemplate('ZA · Aplicaciones', TipoNodo.bloque,
+          help: 'Aplicaciones pertenecientes a zona_financial_ventas. '
+                'loa=AAL3 heredado: ninguna app puede bajar de AAL3. '
+                'step_up=true heredado: siempre se verifica el LOA al entrar.', hijos: [
+        _algo('deny-overrides'),
 
-      _ev('crm_lead_convert_deny', [
-        _a('subject', 'SET(vendedores)',
-            help: 'Vendedor común no puede convertir lead a cliente — requiere gerencia.'),
-        _a('resource', 'app.crm/crm.lead.convert'),
-        _ef('DENY · "La conversión de lead a cliente requiere aprobación de gerencia" · notify SET(gerentes_ventas)'),
-      ], verbo: 'execute',
-        help: 'SoD soft: el vendedor que crea el lead no puede convertirlo en cliente sin aprobación. '
-              'Evita creación masiva de cuentas fraudulentas. '
-              'Equivalente SAP CRM: activity type "Convert Lead" con workflow de aprobación.'),
+        // ── app.facturacion ──────────────────────────────
+        NodoTemplate('app.facturacion', TipoNodo.politica,
+            valor: 'Facturación · zona: financial_ventas',
+            help: 'Módulo de facturación electrónica. '
+                  'Hereda: classification=CONFIDENTIAL · loa=AAL3 · step_up=true · audit=ENHANCED. '
+                  'Ley 843 Bolivia · SIN RND 102100000011 · PCI DSS 4.0 Req 7. '
+                  'Equivalente SAP FI: T-Code FB01 + Organizational Assignment.', hijos: [
+          _algo('deny-overrides'),
+          NodoTemplate('A0 · Identidad de aplicación', TipoNodo.bloque, hijos: [
+            _a('app_code', 'facturacion'),
+            _a('app_type', 'FINANCIERO'),
+            _a('zone_ref', 'financial_ventas'),
+            _a('loa_override', 'AAL3',
+                help: 'AAL3 explícito — confirma herencia de la zona. No puede relajarse.'),
+            _a('pii_override', 'null'),
+          ]),
+          NodoTemplate('CAPA 1 · model_access', TipoNodo.politica,
+              valor: 'CRUD por modelo — Facturación', hijos: [
+            _algo('deny-overrides'),
+            _ev('account.invoice — lectura', [
+              _a('subject', 'SET(financieros_tier2)'),
+              _a('resource', 'app.facturacion/account.invoice'),
+              _ef('PERMIT · record_rule=tenant_filter · audit=on'),
+            ], verbo: 'read'),
+            _ev('account.invoice — creación', [
+              _a('subject', 'SET(financieros_tier2)'),
+              _a('resource', 'app.facturacion/account.invoice'),
+              _ef('PERMIT · audit=on · emit_sin_receipt=pending'),
+            ], verbo: 'create'),
+            _ev('account.payment.export — DENY', [
+              _a('subject', 'ANY'),
+              _a('resource', 'app.facturacion/account.payment.export'),
+              _ef('DENY · "Exportación requiere rol TESORERIA_EXPORT" · audit=EXPORT_ATTEMPT'),
+            ], verbo: 'export'),
+          ]),
+          NodoTemplate('CAPA 2 · visible_actions', TipoNodo.politica,
+              valor: 'Menús visibles — Facturación', hijos: [
+            _algo('deny-overrides'),
+            _ev('menú facturas — visible', [
+              _prop('ui.menu_id'),
+              _op('IN'),
+              _val('[facturacion.lista, facturacion.nueva, facturacion.aprobar, facturacion.reportes]'),
+              _ef('PERMIT · render=VISIBLE'),
+            ], verbo: 'read'),
+            _ev('menú configuración contable — oculto', [
+              _prop('ui.menu_id'),
+              _op('STARTS_WITH'),
+              _val('contabilidad.config.'),
+              _ef('DENY · AC-6(10) · render=HIDDEN'),
+            ], verbo: 'read'),
+          ]),
+          NodoTemplate('CAPA 3 · field_restrictions', TipoNodo.politica,
+              valor: 'Campos restringidos — Facturación', hijos: [
+            _algo('deny-overrides'),
+            _ev('account.invoice.internal_note — oculto a vendedores', [
+              _a('subject', 'SET(vendedores)'),
+              _prop('field.account_invoice.internal_note'),
+              _op('visible_to_role'),
+              _val('false'),
+              _ef('DENY · campo omitido · AC-6(10)'),
+            ], verbo: 'read'),
+            _ev('account.payment.cbu — masking', [
+              _prop('field.account_payment.cbu'),
+              _op('apply_mask'),
+              _val('lastFour'),
+              _ef('PERMIT · CBU → últimos 4 visibles · PCI DSS 4.0 Req 3.3.1'),
+            ], verbo: 'read'),
+          ]),
+          NodoTemplate('CAPA 4 · button_rules', TipoNodo.politica,
+              valor: 'Botones — Facturación', hijos: [
+            _algo('first-applicable'),
+            _ev('botón emitir — DENY sobre tier2', [
+              _a('subject', 'SET(financieros_tier2)'),
+              _prop('invoice.amount_total'),
+              _op('>'),
+              _val('@bauth_config_param.approval_threshold_tier2',
+                  help: 'PIP bauth_config_param → T-009/T-114.'),
+              _ef('DENY · "Monto requiere aprobación del comité ejecutivo" · notify=gerencia_financiera'),
+            ], verbo: 'execute'),
+            _ev('botón emitir — PERMIT tier2 (doble aprobación)', [
+              _a('subject', 'SET(financieros_tier2)'),
+              _prop('invoice.amount_total'),
+              _op('BETWEEN'),
+              _val('[@bauth_config_param.approval_threshold_tier1, @bauth_config_param.approval_threshold_tier2]'),
+              _ef('PERMIT · SoD: 2 aprobadores · required_loa=AAL3 · audit=on'),
+            ], verbo: 'execute'),
+            _ev('botón emitir — PERMIT tier1 (simple)', [
+              _a('subject', 'SET(financieros_tier2)'),
+              _prop('invoice.amount_total'),
+              _op('<='),
+              _val('@bauth_config_param.approval_threshold_tier1'),
+              _ef('PERMIT · aprobación simple · audit=on · Ley843=emit_receipt'),
+            ], verbo: 'execute'),
+          ]),
+          NodoTemplate('CAPA 5 · record_rules', TipoNodo.politica,
+              valor: 'Filtros de fila — Facturación', hijos: [
+            _algo('deny-overrides'),
+            _ev('facturas — solo del tenant del usuario', [
+              _prop('record.company_id'),
+              _op('=='),
+              _val('user.company_id'),
+              _ef('PERMIT · sql_filter=company_id'),
+            ], verbo: 'read'),
+            _ev('pagos — solo período fiscal activo', [
+              _prop('record.date'),
+              _op('BETWEEN'),
+              _val('[user.fiscal_year_start, user.fiscal_year_end]'),
+              _ef('PERMIT · sql_filter=date_range'),
+            ], verbo: 'read'),
+          ]),
+        ]),
+      ]),
 
-      _ev('crm_pipeline_export_deny', [
-        _a('subject', 'ANY'),
-        _a('resource', 'app.crm/crm.pipeline.export'),
-        _ef('DENY · "Exportación del pipeline requiere rol CRM_EXPORT_AUTHORIZED" · audit=EXPORT_ATTEMPT'),
-      ], verbo: 'export',
-        help: 'Anti-exfiltración: exportar el pipeline completo expone estrategia comercial y datos de clientes potenciales. '
-              'RGPD Art. 5(c) minimización de datos. ISO 27001 A.8.12 (fuga de información).'),
-    ]),
-
-    // ── Política RRHH (app_id = hrms) — expedientes de personal ──
-    // Demuestra acceso restrictivo a datos de empleados: el manager de ventas
-    // solo ve datos de su equipo y solo campos no sensibles.
-    // Real-world: Workday Row-Level Security + Domain Security Policy.
-    // Equivalente Odoo: hr.employee + ir.rule res_users (manager only).
-    NodoTemplate('b7_rrhh_acceso', TipoNodo.politica,
-        valor: 'app.hrms — Acceso RRHH para rol Ventas (solo su equipo)',
-        help: 'Políticas B7 para la aplicación RRHH. Solo lectura parcial — datos de su equipo. '
-              'Equivalente Workday: "Domain Security Policy" para Business Object "Worker" '
-              'con Data Source "Organizations I support". '
-              'NIST AC-6(1) — Least Privilege: authorize access only for necessary functions. '
-              'ISO 27001 A.8.2 — privileged access rights.', hijos: [
-      _algo('deny-overrides'),
-
-      _ev('hrms_team_read_basico', [
-        _a('subject', 'SET(gerentes_ventas)',
-            help: 'D98 · bauth.privilege_role_set.gerentes_ventas *(propuesta)* — solo managers ven su equipo'),
-        _a('resource', 'app.hrms/hr.employee'),
-        _prop('employee.department_id'),
-        _op('IN'),
-        _val('user.managed_department_ids[]'),
-        _ef('PERMIT · field_mask=[omitir salary, bank_account, dni_completo] · audit=on'),
-      ], verbo: 'read',
-        help: 'Lectura de datos básicos de empleados de su departamento (nombre, cargo, teléfono). '
-              'Campos sensibles (salario, cuenta bancaria, DNI completo) enmascarados por field_restrictions. '
-              'Equivalente Workday Domain "Worker Data: Personal Information" restringido.'),
-
-      _ev('hrms_salary_deny', [
-        _a('subject', 'ANY'),
-        _a('resource', 'app.hrms/hr.payslip'),
-        _ef('DENY · "Acceso a nómina requiere rol RRHH_PAYROLL_ADMIN" · audit=SENSITIVE_DATA_ATTEMPT'),
-      ], verbo: 'read',
-        help: 'DENY explícito en nómina — dato ultrasensible. '
-              'Ningún gerente de línea puede ver salarios de su equipo sin rol específico. '
-              'RGPD Art. 9 (datos laborales especialmente protegidos en algunas jurisdicciones). '
-              'Equivalente SAP HCM: infotype 0008 (Basic Pay) bloqueado para managers.'),
-
-      _ev('hrms_org_chart_read', [
-        _a('subject', 'ANY'),
-        _a('resource', 'app.hrms/hr.org_chart'),
-        _ef('PERMIT · vista solo nombre+cargo (sin datos sensibles) · audit=off'),
-      ], verbo: 'read',
-        help: 'Organigrama público — nombre y cargo visible para todos los empleados autenticados. '
-              'Dato no sensible bajo RGPD. Equivalente Workday "Worker: Public Profile".'),
-    ]),
-
-    // ── Política bNotify (app_id = bnotify) — notificaciones ─────
-    // Demuestra control de acceso sobre el sistema de notificaciones.
-    // El manager de ventas puede ENVIAR notificaciones a su equipo
-    // pero NO configurar plantillas globales ni ver logs de otros.
-    NodoTemplate('b7_bnotify_acceso', TipoNodo.politica,
-        valor: 'app.bnotify — Acceso bNotify para rol Ventas',
-        help: 'Políticas B7 para bNotify. '
-              'Equivalente Twilio Notify + SendGrid: sender permissions by team/role. '
-              'Evitar spam interno y exfiltración vía canales de notificación. '
-              'NIST SI-8 (Spam Protection) · ISO 27001 A.13.2.3.', hijos: [
-      _algo('deny-overrides'),
-
-      _ev('bnotify_send_equipo', [
-        _a('subject', 'SET(gerentes_ventas)',
-            help: 'D98 · bauth.privilege_role_set.gerentes_ventas *(propuesta)*'),
-        _a('resource', 'app.bnotify/notification'),
-        _prop('notification.recipient_group'),
-        _op('SUBSET_OF'),
-        _val('user.managed_team_ids[]'),
-        _ef('PERMIT · canal=rocket_chat · audit=on · rate_limit=50/hora'),
-      ], verbo: 'emit',
-        help: 'El manager puede enviar notificaciones SOLO a su equipo directo. '
-              'Anti-spam: rate_limit=50/hora para evitar flood. '
-              'Canal: siempre vía bNotify (nunca directo).'),
-
-      _ev('bnotify_configure_template_deny', [
-        _a('subject', 'ANY'),
-        _a('resource', 'app.bnotify/template'),
-        _ef('DENY · "Configuración de plantillas globales requiere rol BNOTIFY_ADMIN" · audit=on'),
-      ], verbo: 'configure',
-        help: 'Ningún gerente de línea puede crear o modificar plantillas de notificación globales. '
-              'Evita phishing interno vía plantillas maliciosas. ISO 27001 A.12.2.1.'),
-
-      _ev('bnotify_broadcast_deny', [
-        _a('subject', 'ANY'),
-        _a('resource', 'app.bnotify/broadcast'),
-        _prop('notification.recipient_scope'),
-        _op('NOT_IN'),
-        _val('[TEAM, DEPARTMENT]'),
-        _ef('DENY · "Broadcast masivo requiere rol COMMUNICATIONS_ADMIN" · audit=BROADCAST_ATTEMPT'),
-      ], verbo: 'emit',
-        help: 'DENY de broadcast a toda la organización — riesgo de información falsa / pánico. '
-              'Equivalente Slack: solo workspace owners pueden postear en #general.'),
+      // ZR · Reglas perimetrales ────────────────────────────
+      NodoTemplate('ZR · Reglas perimetrales', TipoNodo.politica,
+          valor: 'Guardrail zona_financial_ventas',
+          help: 'Evaluado ANTES de entrar a ZA. SoD duro aplicado aquí. '
+                'PCI DSS 4.0 Req 7.2.4 · NIST AC-5 · ISO 27001 A.5.15.', hijos: [
+        _algo('deny-overrides'),
+        _ev('zone_financial_approve_dentro_tier', [
+          _a('subject', 'SET(financieros_tier2)',
+              help: 'D98 · bauth.privilege_role_set.financieros_tier2'),
+          _a('resource', 'zone_financial/ventas'),
+          _prop('transaction.amount'),
+          _op('<='),
+          _val('@bauth_config_param.approval_threshold_tier2',
+              help: 'PIP bauth_config_param → T-009/T-114 · default 10 000 BOB.'),
+          _ef('PERMIT · audit=on'),
+        ], verbo: 'approve',
+          help: 'Aprobación dentro del tier 2. PCI DSS 4.0 Req 7.2.4.'),
+        _ev('zone_financial_approve_sobre_tier · DENY aprobación dual', [
+          _a('subject', 'SET(financieros_tier2)'),
+          _a('resource', 'zone_financial/ventas'),
+          _prop('transaction.amount'),
+          _op('>'),
+          _val('@bauth_config_param.approval_threshold_tier2',
+              help: 'PIP bauth_config_param → T-009/T-114 · default 10 000 BOB.'),
+          _ef('DENY · AMOUNT_EXCEEDS_TIER · pendiente=aprobacion_dual · notify=gerente_financiero'),
+        ], verbo: 'approve',
+          help: 'DENY para tier2 sobre su límite. Queda en espera de aprobación dual.'),
+        _ev('zone_financial_emit', [
+          _a('subject', 'SET(financieros_tier2)',
+              help: 'D98 · bauth.privilege_role_set.financieros_tier2'),
+          _a('resource', 'zone_financial/ventas'),
+          _prop('transaction.amount'),
+          _op('<='),
+          _val('@bauth_config_param.approval_threshold_tier2',
+              help: 'PIP bauth_config_param → T-009/T-114 · default 10 000 BOB.'),
+          _ef('PERMIT · audit=on · emit_receipt=true'),
+        ], verbo: 'emit',
+          help: 'Emisión de comprobantes dentro del tier. Ley 843 Bolivia.'),
+        _ev('zone_financial_audit_sod · DENY violación SoD', [
+          _a('subject', 'ANY'),
+          _a('resource', 'zone_financial/ventas'),
+          _prop('ctx.subject_also_approver_in_zone'),
+          _op('=='),
+          _val('zone_financial/ventas'),
+          _ef('DENY · SOD_VIOLATION · audit=SOD_ATTEMPT · alerta SIEM · notifica compliance'),
+        ], verbo: 'audit',
+          help: 'SoD duro: APPROVE en zone_financial/ventas ≠ AUDIT. '
+                'NIST AC-5 · ISO 27001 A.5.18.'),
+      ]),
     ]),
   ]),
 ]),
@@ -1480,6 +2777,13 @@ NodoTemplate('D2 · ACCESO FÍSICO', TipoNodo.dominio,
       ], verbo: 'access'),
     ]),
   ]),
+  // Zona de Negocios — Business Zone D02 (NGAC INCITS 565-2020 · SABSA SCF · ISO 27001 A.5.15)
+  NodoTemplate('Zona de Negocios', TipoNodo.bloque,
+      help: 'Business Zone D02 · ACCESO FÍSICO. Solo acepta nodos politica de aplicación con Z0·Identidad. '
+            'Prefijo: zona_fisica_*. Niveles típicos: device_access · location_rule · schedule_rule. '
+            'NGAC INCITS 565-2020 · SABSA SCF · ISO/IEC 27001:2022 A.5.15 · NIST SP 800-207 §3.3.', hijos: [
+    _algo('deny-overrides'),
+  ]),
 ]),
 
 // ══════════════════════════════════════════════
@@ -1591,6 +2895,14 @@ NodoTemplate('D3 · FINANCIERO', TipoNodo.dominio,
       _a('contingencia_plan', 'modo offline + sincronización diferida ≤24 h'),
     ]),
   ]),
+  // Zona de Negocios — Business Zone D03 (NGAC INCITS 565-2020 · SABSA SCF · ISO 27001 A.5.15)
+  NodoTemplate('Zona de Negocios', TipoNodo.bloque,
+      help: 'Business Zone D03 · FINANCIERO. Solo acepta nodos politica de aplicación con Z0·Identidad. '
+            'Prefijo: zona_financial_*. Módulos típicos: account · account_invoice · account_payment. '
+            'Nota: los módulos financieros de Tryton ERP van aquí, NO en D01. '
+            'NGAC INCITS 565-2020 · SABSA SCF · ISO/IEC 27001:2022 A.5.15 · PCI DSS 4.0.', hijos: [
+    _algo('deny-overrides'),
+  ]),
 ]),
 
 // ══════════════════════════════════════════════
@@ -1654,6 +2966,13 @@ NodoTemplate('D4 · TEMPORAL', TipoNodo.dominio,
       ], verbo: 'configure'),
     ]),
   ]),
+  // Zona de Negocios — Business Zone D04 (NGAC INCITS 565-2020 · SABSA SCF · ISO 27001 A.5.15)
+  NodoTemplate('Zona de Negocios', TipoNodo.bloque,
+      help: 'Business Zone D04 · TEMPORAL. Solo acepta nodos politica de aplicación con Z0·Identidad. '
+            'Prefijo: zona_temporal_*. Niveles típicos: time_window · calendar_rule · expiry_policy. '
+            'NGAC INCITS 565-2020 · SABSA SCF · ISO/IEC 27001:2022 A.5.15 · GTRBAC · RFC 5545.', hijos: [
+    _algo('deny-overrides'),
+  ]),
 ]),
 
 // ══════════════════════════════════════════════
@@ -1695,6 +3014,13 @@ NodoTemplate('D5 · BIOMÉTRICO', TipoNodo.dominio,
       _val('1:100 000'),
       _ef('DENY uso en zona security_level >= 3 · sensor insuficiente'),
     ], verbo: 'configure'),
+  ]),
+  // Zona de Negocios — Business Zone D05 (NGAC INCITS 565-2020 · SABSA SCF · ISO 27001 A.5.15)
+  NodoTemplate('Zona de Negocios', TipoNodo.bloque,
+      help: 'Business Zone D05 · BIOMÉTRICO. Solo acepta nodos politica de aplicación con Z0·Identidad. '
+            'Prefijo: zona_biometric_*. Niveles típicos: biometric_method · liveness_check · fallback_policy. '
+            'NGAC INCITS 565-2020 · SABSA SCF · ISO/IEC 27001:2022 A.5.15 · ISO 30107-3.', hijos: [
+    _algo('deny-overrides'),
   ]),
 ]),
 
@@ -1764,6 +3090,13 @@ NodoTemplate('D6 · GEOESPACIAL', TipoNodo.dominio,
         _ef('DENY · "Operaciones financieras requieren red segura"'),
       ]),
     ]),
+  ]),
+  // Zona de Negocios — Business Zone D06 (NGAC INCITS 565-2020 · SABSA SCF · ISO 27001 A.5.15)
+  NodoTemplate('Zona de Negocios', TipoNodo.bloque,
+      help: 'Business Zone D06 · GEOESPACIAL. Solo acepta nodos politica de aplicación con Z0·Identidad. '
+            'Prefijo: zona_geo_*. Niveles típicos: geofence · country_rule · ip_region_rule. '
+            'NGAC INCITS 565-2020 · SABSA SCF · ISO/IEC 27001:2022 A.5.15 · NIST SP 800-207 §3.2.', hijos: [
+    _algo('deny-overrides'),
   ]),
 ]),
 
@@ -1841,6 +3174,13 @@ NodoTemplate('D7 · RED', TipoNodo.dominio,
         _ef('DENY · certificado de cliente requerido RFC 8705', obl: {'http_status': '401'}),
       ], verbo: 'access'),
     ]),
+  ]),
+  // Zona de Negocios — Business Zone D07 (NGAC INCITS 565-2020 · SABSA SCF · ISO 27001 A.5.15)
+  NodoTemplate('Zona de Negocios', TipoNodo.bloque,
+      help: 'Business Zone D07 · RED. Solo acepta nodos politica de aplicación con Z0·Identidad. '
+            'Prefijo: zona_network_*. Niveles típicos: network_segment · protocol_rule · port_policy. '
+            'NGAC INCITS 565-2020 · SABSA SCF · ISO/IEC 27001:2022 A.5.15 · NIST SP 800-207 §2.2.', hijos: [
+    _algo('deny-overrides'),
   ]),
 ]),
 
@@ -1952,6 +3292,13 @@ NodoTemplate('D8 · CONTEXTO / SESIÓN', TipoNodo.dominio,
         _ef('PERMIT · notificación a CISO/CEO/COMPLIANCE', obl: {'bnotify_recipients': 'CISO,CEO,COMPLIANCE', 'channel': 'rocket_chat'}),
       ], verbo: 'access'),
     ]),
+  ]),
+  // Zona de Negocios — Business Zone D08 (NGAC INCITS 565-2020 · SABSA SCF · ISO 27001 A.5.15)
+  NodoTemplate('Zona de Negocios', TipoNodo.bloque,
+      help: 'Business Zone D08 · CONTEXTO / SESIÓN. Solo acepta nodos politica de aplicación con Z0·Identidad. '
+            'Prefijo: zona_context_*. Niveles típicos: device_trust · risk_score_rule · session_context. '
+            'NGAC INCITS 565-2020 · SABSA SCF · ISO/IEC 27001:2022 A.5.15 · NIST SP 800-207 §2.1.', hijos: [
+    _algo('deny-overrides'),
   ]),
 ]),
 
@@ -2109,6 +3456,13 @@ NodoTemplate('D9 · CREDENCIALES', TipoNodo.dominio,
       ], verbo: 'configure'),
     ]),
   ]),
+  // Zona de Negocios — Business Zone D09 (NGAC INCITS 565-2020 · SABSA SCF · ISO 27001 A.5.15)
+  NodoTemplate('Zona de Negocios', TipoNodo.bloque,
+      help: 'Business Zone D09 · CREDENCIALES. Solo acepta nodos politica de aplicación con Z0·Identidad. '
+            'Prefijo: zona_credential_*. Niveles típicos: credential_type · rotation_policy · revocation_rule. '
+            'NGAC INCITS 565-2020 · SABSA SCF · ISO/IEC 27001:2022 A.5.15 · NIST SP 800-63B-4.', hijos: [
+    _algo('deny-overrides'),
+  ]),
 ]),
 
 // ══════════════════════════════════════════════
@@ -2229,6 +3583,13 @@ NodoTemplate('D10 · DELEGACIÓN', TipoNodo.dominio,
       ], verbo: 'approve'),
     ]),
   ]),
+  // Zona de Negocios — Business Zone D10 (NGAC INCITS 565-2020 · SABSA SCF · ISO 27001 A.5.15)
+  NodoTemplate('Zona de Negocios', TipoNodo.bloque,
+      help: 'Business Zone D10 · DELEGACIÓN. Solo acepta nodos politica de aplicación con Z0·Identidad. '
+            'Prefijo: zona_delegation_*. Niveles típicos: delegate_scope · delegation_depth · consent_rule. '
+            'NGAC INCITS 565-2020 · SABSA SCF · ISO/IEC 27001:2022 A.5.15 · INCITS 359 §4.2.', hijos: [
+    _algo('deny-overrides'),
+  ]),
 ]),
 
 // ══════════════════════════════════════════════
@@ -2283,6 +3644,13 @@ NodoTemplate('D11 · AUDITORÍA', TipoNodo.dominio,
         _ef('DENY · posible manipulación de logs', obl: {'alert': 'CISO', 'action': 'forensic_investigation'}),
       ], verbo: 'audit'),
     ]),
+  ]),
+  // Zona de Negocios — Business Zone D11 (NGAC INCITS 565-2020 · SABSA SCF · ISO 27001 A.5.15)
+  NodoTemplate('Zona de Negocios', TipoNodo.bloque,
+      help: 'Business Zone D11 · AUDITORÍA. Solo acepta nodos politica de aplicación con Z0·Identidad. '
+            'Prefijo: zona_audit_*. Niveles típicos: audit_level · retention_rule · alert_rule. '
+            'NGAC INCITS 565-2020 · SABSA SCF · ISO/IEC 27001:2022 A.8.15 · SOX §404 · PCI Req 10.', hijos: [
+    _algo('deny-overrides'),
   ]),
 ]),
 
@@ -2349,6 +3717,13 @@ NodoTemplate('D12 · BLOCKCHAIN / ANCLAJE', TipoNodo.dominio,
       ], verbo: 'execute'),
     ]),
   ]),
+  // Zona de Negocios — Business Zone D12 (NGAC INCITS 565-2020 · SABSA SCF · ISO 27001 A.5.15)
+  NodoTemplate('Zona de Negocios', TipoNodo.bloque,
+      help: 'Business Zone D12 · BLOCKCHAIN. Solo acepta nodos politica de aplicación con Z0·Identidad. '
+            'Prefijo: zona_blockchain_*. Niveles típicos: chain_id · smart_contract_rule · tx_policy. '
+            'NGAC INCITS 565-2020 · SABSA SCF · ISO/IEC 27001:2022 A.5.15 · Besu QBFT.', hijos: [
+    _algo('deny-overrides'),
+  ]),
 ]),
 
 // ══════════════════════════════════════════════
@@ -2406,6 +3781,13 @@ NodoTemplate('D13 · FIRMA DIGITAL EXTERNA', TipoNodo.dominio,
     ]),
     _a('signature_evidence', 'hash SHA-256 del documento + sello de tiempo RFC 3161 + aud_event'),
   ]),
+  // Zona de Negocios — Business Zone D13 (NGAC INCITS 565-2020 · SABSA SCF · ISO 27001 A.5.15)
+  NodoTemplate('Zona de Negocios', TipoNodo.bloque,
+      help: 'Business Zone D13 · FIRMA DIGITAL EXTERNA. Solo acepta nodos politica de aplicación con Z0·Identidad. '
+            'Prefijo: zona_signature_*. Niveles típicos: signature_method · certificate_authority · validity_rule. '
+            'NGAC INCITS 565-2020 · SABSA SCF · ISO/IEC 27001:2022 A.5.15 · Ley 164 · ADSIB-FD-POLT-015.', hijos: [
+    _algo('deny-overrides'),
+  ]),
 ]),
 
 // ══════════════════════════════════════════════
@@ -2431,6 +3813,13 @@ NodoTemplate('D99 · ADMINISTRATIVO GLOBAL', TipoNodo.dominio,
     _en('drift_detected', 'false', ['true', 'false'],
         help: 'true → autocorrección automática o alert SRE.'),
     _a('drift_details', 'null | {campo, valor_declarado, valor_materializado}'),
+  ]),
+  // Zona de Negocios — Business Zone D99 (NGAC INCITS 565-2020 · SABSA SCF · ISO 27001 A.5.15)
+  NodoTemplate('Zona de Negocios', TipoNodo.bloque,
+      help: 'Business Zone D99 · ADMINISTRATIVO GLOBAL. Solo acepta nodos politica de aplicación con Z0·Identidad. '
+            'Prefijo: zona_admin_*. Niveles típicos: admin_scope · emergency_rule · break_glass_policy. '
+            'NGAC INCITS 565-2020 · SABSA SCF · ISO/IEC 27001:2022 A.5.15 · NIST AC-2(2).', hijos: [
+    _algo('deny-overrides'),
   ]),
 ]),
 

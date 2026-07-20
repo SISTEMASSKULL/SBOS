@@ -60,7 +60,7 @@ int contarDiagnosticosEnSubarbol(NodoTemplate n) =>
 
 /// Devuelve el primer hijo con la clave dada, o null.
 NodoTemplate? _hijoConClave(NodoTemplate n, String clave) =>
-    n.hijos.where((h) => h.clave == clave).firstOrNull;
+    n.hijos.where((NodoTemplate h) => h.clave == clave).firstOrNull;
 
 /// Rótulo legible del tipo de nodo para mensajes de error.
 String _rotuloDeTipo(TipoNodo t) => switch (t) {
@@ -101,7 +101,7 @@ List<DiagnosticoAtomLang> _evaluarReglas(
   // Un átomo dentro de una REGLA hereda el verbo del contexto: no aplica.
   // Referencia: 2.13 §4.2 · A.47 §9 (Action del Target XACML).
   if (n.tipo == TipoNodo.evaluacion && tipoPadre == TipoNodo.politica) {
-    if (!n.hijos.any((h) => h.clave == 'verbo')) {
+    if (!n.hijos.any((NodoTemplate h) => h.clave == 'verbo')) {
       diags.add(const DiagnosticoAtomLang(
         'ATOMC-E-005',
         'verb_id faltante — todo átomo hijo directo de POLÍTICA debe declarar '
@@ -121,8 +121,8 @@ List<DiagnosticoAtomLang> _evaluarReglas(
       n.tipo == TipoNodo.bloque ||
       n.tipo == TipoNodo.politica) {
     final nEvals =
-        n.hijos.where((h) => h.tipo == TipoNodo.evaluacion).length;
-    if (nEvals >= 1 && !n.hijos.any((h) => h.clave == 'combining_algorithm')) {
+        n.hijos.where((NodoTemplate h) => h.tipo == TipoNodo.evaluacion).length;
+    if (nEvals >= 1 && !n.hijos.any((NodoTemplate h) => h.clave == 'combining_algorithm')) {
       diags.add(DiagnosticoAtomLang(
         'ATOMC-E-031',
         'combining_algorithm faltante — ${_rotuloDeTipo(n.tipo)} con $nEvals '
@@ -142,7 +142,7 @@ List<DiagnosticoAtomLang> _evaluarReglas(
   if (n.tipo == TipoNodo.regla ||
       n.tipo == TipoNodo.objeto ||
       n.tipo == TipoNodo.lista) {
-    if (n.hijos.any((h) => h.clave == 'combining_algorithm')) {
+    if (n.hijos.any((NodoTemplate h) => h.clave == 'combining_algorithm')) {
       diags.add(DiagnosticoAtomLang(
         'ATOMC-E-032',
         'combining_algorithm inválido en ${_rotuloDeTipo(n.tipo)} — '
@@ -222,7 +222,7 @@ NodoTemplate anotarNodo(NodoTemplate n, {TipoNodo? tipoPadre}) {
   final nodosError =
       _evaluarReglas(n, tipoPadre).map(_nodoDesde).toList();
   final hijosAnotados =
-      n.hijos.map((h) => anotarNodo(h, tipoPadre: n.tipo)).toList();
+      n.hijos.map((NodoTemplate h) => anotarNodo(h, tipoPadre: n.tipo)).toList();
   return NodoTemplate(
     n.clave,
     n.tipo,

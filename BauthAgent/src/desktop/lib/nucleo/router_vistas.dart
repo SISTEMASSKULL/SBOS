@@ -11,12 +11,18 @@
 import 'package:tf_shadcn_flutter/shadcn_flutter.dart';
 
 import '../vistas/vista_dashboard.dart';
+import '../vistas/vista_entidades.dart';
 import '../vistas/vista_rol_template.dart';
+import '../vistas/vista_roles.dart';
+import '../vistas/vista_usuarios.dart';
 
 /// Devuelve la vista correspondiente a una ruta (o un marcador si no existe).
 Widget vistaDeRuta(String ruta) => switch (ruta) {
       'dashboard' => const VistaDashboard(),
       'rtpl' => const VistaRolTemplate(),
+      'roles' => const VistaRoles(),
+      'usuarios' => const VistaUsuarios(),
+      'identidad' => const VistaEntidades(),
       _ => const _VistaEnConstruccion(),
     };
 

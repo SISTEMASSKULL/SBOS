@@ -90,3 +90,18 @@ final autoConexionProvider = FutureProvider<void>((ref) async {
   final control = ref.watch(controlConexionProvider);
   await control.conectar();
 });
+
+/// Lista de usuarios (recargable).
+final usuariosProvider = FutureProvider.family<List<UsuarioInfo>, String>(
+  (ref, busqueda) async {
+    final api = ref.watch(bauthApiProvider);
+    return api.listarUsuarios(busqueda: busqueda.isEmpty ? null : busqueda);
+  },
+);
+
+/// Árbol completo de entidades (idn_identidad_entidad — 5 niveles).
+/// Raíz: tenants → bdomain → bsubdomain → pos → actor.
+final arbolEntidadesProvider = FutureProvider<List<EntidadInfo>>((ref) async {
+  final api = ref.watch(bauthApiProvider);
+  return api.arbolEntidades();
+});

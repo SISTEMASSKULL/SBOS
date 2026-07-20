@@ -80,7 +80,7 @@ class ClienteRpc {
     _setEstado(EstadoConexion.conectando);
 
     try {
-      final uri = Uri.parse('ws://$_host:$_puerto/');
+      final uri = 'ws://$_host:$_puerto/';
       _ws = await WebSocket.connect(uri).timeout(_timeout);
 
       _ws!.listen(
