@@ -1349,6 +1349,154 @@ COMMENT ON TABLE bauth.privilege_verb_conflict IS
 
 COMMENT ON COLUMN bauth.privilege_verb_conflict.tipo IS '[TEXT] SOD_ESTATICO | SOD_DINAMICO | AFINIDAD.';
 
+-- ======================================================================
+-- SEEDS — bauth.privilege_verb (T-174) + bauth.privilege_verb_conflict (T-175)
+-- Catálogo canónico de 50 verbos de negocio + matriz de conflictos SoD.
+-- Fuente: 1.02_MANUAL-VERBOS-v1.0.md · GAPS-DDL-PRIVILEGIOS.md G-03
+-- Idempotente: ON CONFLICT DO NOTHING
+-- ======================================================================
+
+-- ── T-174: Verbos canónicos ────────────────────────────────────────────────────
+INSERT INTO bauth.privilege_verb (verb_id, descripcion, created_by) VALUES
+-- CRUD universal — todos los dominios
+('create',          'Crear una entidad o registro nuevo',                                   'bauth-seed'),
+('update',          'Modificar datos de un registro existente',                             'bauth-seed'),
+('delete',          'Eliminar un registro (lógico o físico según módulo)',                  'bauth-seed'),
+('read',            'Leer y visualizar información',                                        'bauth-seed'),
+-- Documentales
+('print',           'Imprimir documento o reporte',                                         'bauth-seed'),
+('copy',            'Copiar un registro o documento',                                       'bauth-seed'),
+('save',            'Guardar cambios temporales en borrador',                               'bauth-seed'),
+('duplicate',       'Duplicar un registro o documento completo',                            'bauth-seed'),
+('export',          'Exportar datos a formato externo',                                     'bauth-seed'),
+('import',          'Importar datos desde fuente externa',                                  'bauth-seed'),
+('append',          'Anexar información a un registro existente',                           'bauth-seed'),
+('append_to',       'Ser anexado a otro registro como componente',                          'bauth-seed'),
+-- Estado y bloqueo
+('lock',            'Bloquear un objeto o registro para edición',                           'bauth-seed'),
+('unlock',          'Desbloquear un objeto o registro bloqueado',                           'bauth-seed'),
+('block_entity',    'Bloquear una entidad o usuario del sistema',                           'bauth-seed'),
+('unblock_entity',  'Desbloquear una entidad o usuario bloqueado',                          'bauth-seed'),
+('archive',         'Archivar un registro como histórico inactivo',                         'bauth-seed'),
+('close',           'Cerrar un período, proceso o documento',                               'bauth-seed'),
+('reopen',          'Reabrir un período, proceso o documento cerrado',                      'bauth-seed'),
+('void',            'Anular un documento o registro sin borrar',                            'bauth-seed'),
+('draft',           'Crear o gestionar borrador de documento',                              'bauth-seed'),
+('confirm',         'Confirmar un documento o acción pendiente',                            'bauth-seed'),
+-- Contables y financieros (semántica SAP ACTVT)
+('post',            'Contabilizar/asentar en libros — irreversible sin reverso',            'bauth-seed'),
+('release',         'Liberar documento retenido para procesamiento',                        'bauth-seed'),
+('undo_release',    'Revertir la liberación de un documento',                               'bauth-seed'),
+('reverse',         'Realizar contra-asiento o reversión contable',                        'bauth-seed'),
+('display_totals',  'Ver totales agregados sin acceso a partidas individuales',             'bauth-seed'),
+('display_items',   'Ver partidas individuales de un documento contable',                   'bauth-seed'),
+('settle_rule',     'Ejecutar regla de liquidación automática',                             'bauth-seed'),
+('settle_params',   'Configurar parámetros de liquidación',                                'bauth-seed'),
+('reconcile',       'Conciliar registros contables o bancarios',                            'bauth-seed'),
+-- Flujo y aprobación
+('check',           'Verificar datos, consistencia o cumplimiento de reglas',               'bauth-seed'),
+('complete',        'Completar un proceso o documento en curso',                            'bauth-seed'),
+('approve',         'Aprobar un documento o solicitud — SoD: nunca quien crea',            'bauth-seed'),
+('reject',          'Rechazar un documento o solicitud',                                    'bauth-seed'),
+('submit',          'Enviar documento para revisión o aprobación',                          'bauth-seed'),
+('validate',        'Validar datos o documentos contra reglas del negocio',                 'bauth-seed'),
+-- Transferencia y asignación
+('transfer',        'Transferir recursos, fondos o responsabilidades',                      'bauth-seed'),
+('assign',          'Asignar recurso o tarea a usuario o grupo',                           'bauth-seed'),
+('share',           'Compartir acceso a un recurso con otro usuario',                       'bauth-seed'),
+-- Ejecución y programación
+('execute',         'Ejecutar un proceso, tarea o comando',                                 'bauth-seed'),
+('schedule',        'Programar ejecución diferida de un proceso',                           'bauth-seed'),
+('schedule_task',   'Programar tarea automatizada del sistema',                             'bauth-seed'),
+-- Delegación y suplantación — ALTO RIESGO (solo tier SU/SYS)
+('delegate',        'Delegar autorización propia a otro usuario — ALTO RIESGO',             'bauth-seed'),
+('impersonate',     'Actuar con la identidad de otro usuario — ALTO RIESGO',               'bauth-seed'),
+('delegate_access', 'Delegar acceso específico a recurso — ALTO RIESGO',                    'bauth-seed'),
+('impersonate_user','Suplantar identidad de usuario persona — ALTO RIESGO',                 'bauth-seed'),
+('emergency_access','Acceso break-glass de emergencia con dual control — ALTO RIESGO',      'bauth-seed'),
+-- Comunicación y configuración
+('notify',          'Enviar notificación o alerta a usuarios o sistemas',                   'bauth-seed'),
+('configure',       'Configurar parámetros o comportamiento del sistema',                   'bauth-seed'),
+-- IGA y certificación
+('certify',         'Certificar o recertificar accesos en campaña IGA (NIST AC-2(j))',      'bauth-seed'),
+('audit',           'Auditar operaciones y registros del sistema (ISO 27001 A.8.15)',        'bauth-seed'),
+('report',          'Generar reporte de accesos, roles o cumplimiento',                     'bauth-seed'),
+('manage',          'Gestionar o administrar entidades del sistema',                        'bauth-seed'),
+('reassess',        'Reevaluar elegibilidad de grants vía CAEP reactivo (RFC 9396)',        'bauth-seed'),
+-- Firma digital y criptografía (D13)
+('sign',            'Firmar digitalmente documentos o tokens (Ley 164 · Vault Ed25519)',    'bauth-seed'),
+('emit',            'Emitir tokens, eventos o documentos del sistema',                     'bauth-seed'),
+-- Autenticación e identidad
+('login',           'Iniciar sesión / autenticarse en el sistema',                          'bauth-seed'),
+('enroll',          'Enrolar credencial biométrica o authenticator (D9 · FIDO2)',           'bauth-seed'),
+('revoke',          'Revocar credencial, token o acceso activo (< 30s NIST AC-2(j))',       'bauth-seed'),
+-- Break-glass
+('glass',           'Activar protocolo break-glass de emergencia — romper el vidrio',       'bauth-seed')
+ON CONFLICT (verb_id) DO NOTHING;
+
+-- ── T-175: Matriz de conflictos SoD — verb_a < verb_b (orden alfabético) ─────
+-- Fuente: NIST SP 800-53 AC-5 · ISO 27001 A.6.1.2 · GAPS-DDL-PRIVILEGIOS.md G-03
+INSERT INTO bauth.privilege_verb_conflict (verb_a, verb_b, tipo, descripcion, created_by) VALUES
+-- SOD_ESTATICO — conflicto siempre prohibido para el mismo usuario ─────────────
+('approve',   'create',           'SOD_ESTATICO', 'Quien crea no puede aprobar lo que crea — principio maker-checker (NIST AC-5)',            'bauth-seed'),
+('approve',   'delegate',         'SOD_ESTATICO', 'Quien delega autorización no puede aprobar lo que delegó',                                 'bauth-seed'),
+('approve',   'delegate_access',  'SOD_ESTATICO', 'Quien delega acceso no puede aprobar la solicitud resultante',                             'bauth-seed'),
+('approve',   'emergency_access', 'SOD_ESTATICO', 'Break-glass excluye rol aprobador — dual control obligatorio (NIST AC-2(2))',               'bauth-seed'),
+('approve',   'impersonate',      'SOD_ESTATICO', 'Quien actúa como otro no puede aprobar durante esa sesión',                                'bauth-seed'),
+('approve',   'impersonate_user', 'SOD_ESTATICO', 'Suplantación de persona excluye rol aprobador',                                            'bauth-seed'),
+('approve',   'post',             'SOD_ESTATICO', 'Quien contabiliza no puede aprobar el documento que asienta',                              'bauth-seed'),
+('approve',   'reconcile',        'SOD_ESTATICO', 'Quien reconcilia no puede aprobar los asientos que reconcilia',                            'bauth-seed'),
+('approve',   'reverse',          'SOD_ESTATICO', 'Quien reversa no puede haber aprobado el asiento original',                                'bauth-seed'),
+('approve',   'settle_rule',      'SOD_ESTATICO', 'Quien liquida no puede aprobar las reglas de liquidación',                                 'bauth-seed'),
+('approve',   'void',             'SOD_ESTATICO', 'Quien anula no puede ser aprobador del documento anulado',                                 'bauth-seed'),
+('create',    'post',             'SOD_ESTATICO', 'Quien crea el documento no puede contabilizarlo — maker no es checker',                    'bauth-seed'),
+('create',    'reconcile',        'SOD_ESTATICO', 'Quien crea no puede conciliar sus propios registros',                                      'bauth-seed'),
+('create',    'reverse',          'SOD_ESTATICO', 'Quien crea un asiento no puede reversarlo (ISO 27001 A.6.1.2)',                            'bauth-seed'),
+('create',    'validate',         'SOD_ESTATICO', 'Quien crea no puede validar lo que crea — ejemplo canónico G-03',                          'bauth-seed'),
+('create',    'void',             'SOD_ESTATICO', 'Quien crea no puede anular sus propios documentos',                                        'bauth-seed'),
+('post',      'reverse',          'SOD_ESTATICO', 'Quien contabiliza no puede reversar — cuatro ojos contable',                               'bauth-seed'),
+-- SOD_DINAMICO — conflicto solo sobre el mismo objeto/instancia ───────────────
+('approve',   'check',            'SOD_DINAMICO', 'Quien verifica no puede aprobar el mismo documento',                                       'bauth-seed'),
+('approve',   'complete',         'SOD_DINAMICO', 'Quien completa un proceso no puede aprobarlo en la misma instancia',                       'bauth-seed'),
+('approve',   'submit',           'SOD_DINAMICO', 'Quien envía la solicitud no puede aprobarla',                                              'bauth-seed'),
+('create',    'reject',           'SOD_DINAMICO', 'Quien crea no puede rechazar su propio documento',                                         'bauth-seed'),
+('submit',    'validate',         'SOD_DINAMICO', 'Quien envía para validación no puede validar la misma solicitud',                          'bauth-seed'),
+-- AFINIDAD — verbos típicamente asignados juntos, sin generar rechazo ──────────
+('approve',   'reject',           'AFINIDAD',     'Aprobador y rechazador son la misma función — pares complementarios del flujo',            'bauth-seed'),
+('assign',    'delegate',         'AFINIDAD',     'Asignar y delegar son operaciones afines de distribución de trabajo',                      'bauth-seed'),
+('block_entity','unblock_entity', 'AFINIDAD',     'Bloquear y desbloquear entidades — par operacional complementario',                        'bauth-seed'),
+('close',     'reopen',           'AFINIDAD',     'Cerrar y reabrir períodos — par de ciclo de vida complementario',                          'bauth-seed'),
+('create',    'update',           'AFINIDAD',     'Crear y editar — operaciones básicas del propietario del registro',                        'bauth-seed'),
+('delegate',  'delegate_access',  'AFINIDAD',     'Delegar y delegar acceso — variantes de la misma familia semántica',                       'bauth-seed'),
+('execute',   'notify',           'AFINIDAD',     'Ejecutar y notificar — quien ejecuta típicamente también notifica el resultado',           'bauth-seed'),
+('execute',   'schedule',         'AFINIDAD',     'Ejecutar y programar — par natural de ejecución inmediata vs diferida',                    'bauth-seed'),
+('execute',   'schedule_task',    'AFINIDAD',     'Ejecutar y programar tareas — variantes de ejecución de procesos',                         'bauth-seed'),
+('export',    'read',             'AFINIDAD',     'Exportar requiere leer — quien exporta implícitamente accede al dato',                     'bauth-seed'),
+('impersonate','impersonate_user','AFINIDAD',     'Suplantar y suplantar usuario — par de variantes de la misma familia de alto riesgo',      'bauth-seed'),
+('lock',      'unlock',           'AFINIDAD',     'Bloquear y desbloquear objetos — par operacional complementario',                          'bauth-seed'),
+('print',     'read',             'AFINIDAD',     'Imprimir requiere leer — quien imprime implícitamente accede al dato',                     'bauth-seed'),
+('release',   'undo_release',     'AFINIDAD',     'Liberar y deshacer liberación — par de ciclo documental complementario',                   'bauth-seed'),
+-- SOD_ESTATICO — verbos nuevos ────────────────────────────────────────────────
+('approve',   'certify',          'SOD_ESTATICO', 'Quien certifica accesos no puede haber aprobado esos mismos accesos (IGA independiente)',  'bauth-seed'),
+('approve',   'glass',            'SOD_ESTATICO', 'Break-glass excluye rol aprobador — dual control glass vs aprobación ordinaria',           'bauth-seed'),
+('audit',     'manage',           'SOD_ESTATICO', 'Quien gestiona entidades no puede auditarse a sí mismo (ISO 27001 A.6.1.2)',               'bauth-seed'),
+('audit',     'configure',        'SOD_ESTATICO', 'Quien configura el sistema no puede auditar su propia configuración',                      'bauth-seed'),
+('certify',   'create',           'SOD_ESTATICO', 'Quien crea accesos no puede certificar (recertificar) esos mismos accesos',                'bauth-seed'),
+('certify',   'manage',           'SOD_ESTATICO', 'Quien gestiona entidades no puede certificar sus propios accesos (NIST AC-2(j))',           'bauth-seed'),
+('glass',     'post',             'SOD_ESTATICO', 'Break-glass no coexiste con contabilización — emergencia excluye operación contable',      'bauth-seed'),
+('glass',     'settle_rule',      'SOD_ESTATICO', 'Break-glass excluye liquidación — el acceso de emergencia no puede ejecutar reglas',       'bauth-seed'),
+-- SOD_DINAMICO — verbos nuevos ────────────────────────────────────────────────
+('certify',   'sign',             'SOD_DINAMICO', 'Quien firma un documento no puede certificar ese mismo documento',                         'bauth-seed'),
+('create',    'sign',             'SOD_DINAMICO', 'Quien crea un documento no puede firmarlo — la firma requiere un segundo actor',           'bauth-seed'),
+('emit',      'revoke',           'SOD_DINAMICO', 'Quien emitió un token no puede ser el único que lo revoca sobre el mismo objeto',          'bauth-seed'),
+-- AFINIDAD — verbos nuevos ────────────────────────────────────────────────────
+('audit',     'report',           'AFINIDAD',     'Auditar y reportar — el auditor típicamente genera el reporte de hallazgos',               'bauth-seed'),
+('certify',   'reassess',         'AFINIDAD',     'Certificar y reevaluar — ambos son mecanismos de revisión de accesos',                     'bauth-seed'),
+('emit',      'sign',             'AFINIDAD',     'Emitir y firmar — quien emite documentos con validez jurídica también los firma',          'bauth-seed'),
+('enroll',    'login',            'AFINIDAD',     'Enrolar y autenticarse — el enrolamiento es prerequisito del login con ese método',        'bauth-seed'),
+('glass',     'emergency_access', 'AFINIDAD',     'Glass y acceso_emergencia — verbos complementarios del protocolo break-glass',             'bauth-seed'),
+('reassess',  'revoke',           'AFINIDAD',     'Reevaluar y revocar — el reactor CAEP reevalúa y si procede revoca',                       'bauth-seed')
+ON CONFLICT (verb_a, verb_b) DO NOTHING;
 
 -- ======================================================================
 -- T-162 — bauth.idn_roles_template
@@ -3197,116 +3345,3 @@ CREATE INDEX IF NOT EXISTS idx_irt_eval_active
 --             privilege_verb (50 verbos) · privilege_verb_conflict (36 pares SoD)
 -- ======================================================================
 
--- ======================================================================
--- SEEDS — bauth.privilege_verb (T-174) + bauth.privilege_verb_conflict (T-175)
--- Catálogo canónico de 50 verbos de negocio + matriz de conflictos SoD.
--- Fuente: 1.02_MANUAL-VERBOS-v1.0.md · GAPS-DDL-PRIVILEGIOS.md G-03
--- Idempotente: ON CONFLICT DO NOTHING
--- ======================================================================
-
--- ── T-174: Verbos canónicos ────────────────────────────────────────────────────
-INSERT INTO bauth.privilege_verb (verb_id, descripcion, created_by) VALUES
--- CRUD universal — todos los dominios
-('create',          'Crear una entidad o registro nuevo',                                   'bauth-seed'),
-('update',          'Modificar datos de un registro existente',                             'bauth-seed'),
-('delete',          'Eliminar un registro (lógico o físico según módulo)',                  'bauth-seed'),
-('read',            'Leer y visualizar información',                                        'bauth-seed'),
--- Documentales
-('print',           'Imprimir documento o reporte',                                         'bauth-seed'),
-('copy',            'Copiar un registro o documento',                                       'bauth-seed'),
-('save',            'Guardar cambios temporales en borrador',                               'bauth-seed'),
-('duplicate',       'Duplicar un registro o documento completo',                            'bauth-seed'),
-('export',          'Exportar datos a formato externo',                                     'bauth-seed'),
-('import',          'Importar datos desde fuente externa',                                  'bauth-seed'),
-('append',          'Anexar información a un registro existente',                           'bauth-seed'),
-('append_to',       'Ser anexado a otro registro como componente',                          'bauth-seed'),
--- Estado y bloqueo
-('lock',            'Bloquear un objeto o registro para edición',                           'bauth-seed'),
-('unlock',          'Desbloquear un objeto o registro bloqueado',                           'bauth-seed'),
-('block_entity',    'Bloquear una entidad o usuario del sistema',                           'bauth-seed'),
-('unblock_entity',  'Desbloquear una entidad o usuario bloqueado',                          'bauth-seed'),
-('archive',         'Archivar un registro como histórico inactivo',                         'bauth-seed'),
-('close',           'Cerrar un período, proceso o documento',                               'bauth-seed'),
-('reopen',          'Reabrir un período, proceso o documento cerrado',                      'bauth-seed'),
-('void',            'Anular un documento o registro sin borrar',                            'bauth-seed'),
-('draft',           'Crear o gestionar borrador de documento',                              'bauth-seed'),
-('confirm',         'Confirmar un documento o acción pendiente',                            'bauth-seed'),
--- Contables y financieros (semántica SAP ACTVT)
-('post',            'Contabilizar/asentar en libros — irreversible sin reverso',            'bauth-seed'),
-('release',         'Liberar documento retenido para procesamiento',                        'bauth-seed'),
-('undo_release',    'Revertir la liberación de un documento',                               'bauth-seed'),
-('reverse',         'Realizar contra-asiento o reversión contable',                        'bauth-seed'),
-('display_totals',  'Ver totales agregados sin acceso a partidas individuales',             'bauth-seed'),
-('display_items',   'Ver partidas individuales de un documento contable',                   'bauth-seed'),
-('settle_rule',     'Ejecutar regla de liquidación automática',                             'bauth-seed'),
-('settle_params',   'Configurar parámetros de liquidación',                                'bauth-seed'),
-('reconcile',       'Conciliar registros contables o bancarios',                            'bauth-seed'),
--- Flujo y aprobación
-('check',           'Verificar datos, consistencia o cumplimiento de reglas',               'bauth-seed'),
-('complete',        'Completar un proceso o documento en curso',                            'bauth-seed'),
-('approve',         'Aprobar un documento o solicitud — SoD: nunca quien crea',            'bauth-seed'),
-('reject',          'Rechazar un documento o solicitud',                                    'bauth-seed'),
-('submit',          'Enviar documento para revisión o aprobación',                          'bauth-seed'),
-('validate',        'Validar datos o documentos contra reglas del negocio',                 'bauth-seed'),
--- Transferencia y asignación
-('transfer',        'Transferir recursos, fondos o responsabilidades',                      'bauth-seed'),
-('assign',          'Asignar recurso o tarea a usuario o grupo',                           'bauth-seed'),
-('share',           'Compartir acceso a un recurso con otro usuario',                       'bauth-seed'),
--- Ejecución y programación
-('execute',         'Ejecutar un proceso, tarea o comando',                                 'bauth-seed'),
-('schedule',        'Programar ejecución diferida de un proceso',                           'bauth-seed'),
-('schedule_task',   'Programar tarea automatizada del sistema',                             'bauth-seed'),
--- Delegación y suplantación — ALTO RIESGO (solo tier SU/SYS)
-('delegate',        'Delegar autorización propia a otro usuario — ALTO RIESGO',             'bauth-seed'),
-('impersonate',     'Actuar con la identidad de otro usuario — ALTO RIESGO',               'bauth-seed'),
-('delegate_access', 'Delegar acceso específico a recurso — ALTO RIESGO',                    'bauth-seed'),
-('impersonate_user','Suplantar identidad de usuario persona — ALTO RIESGO',                 'bauth-seed'),
-('emergency_access','Acceso break-glass de emergencia con dual control — ALTO RIESGO',      'bauth-seed'),
--- Comunicación y configuración
-('notify',          'Enviar notificación o alerta a usuarios o sistemas',                   'bauth-seed'),
-('configure',       'Configurar parámetros o comportamiento del sistema',                   'bauth-seed')
-ON CONFLICT (verb_id) DO NOTHING;
-
--- ── T-175: Matriz de conflictos SoD — verb_a < verb_b (orden alfabético) ─────
--- Fuente: NIST SP 800-53 AC-5 · ISO 27001 A.6.1.2 · GAPS-DDL-PRIVILEGIOS.md G-03
-INSERT INTO bauth.privilege_verb_conflict (verb_a, verb_b, tipo, descripcion, created_by) VALUES
--- SOD_ESTATICO — conflicto siempre prohibido para el mismo usuario ─────────────
-('approve',   'create',           'SOD_ESTATICO', 'Quien crea no puede aprobar lo que crea — principio maker-checker (NIST AC-5)',            'bauth-seed'),
-('approve',   'delegate',         'SOD_ESTATICO', 'Quien delega autorización no puede aprobar lo que delegó',                                 'bauth-seed'),
-('approve',   'delegate_access',  'SOD_ESTATICO', 'Quien delega acceso no puede aprobar la solicitud resultante',                             'bauth-seed'),
-('approve',   'emergency_access', 'SOD_ESTATICO', 'Break-glass excluye rol aprobador — dual control obligatorio (NIST AC-2(2))',               'bauth-seed'),
-('approve',   'impersonate',      'SOD_ESTATICO', 'Quien actúa como otro no puede aprobar durante esa sesión',                                'bauth-seed'),
-('approve',   'impersonate_user', 'SOD_ESTATICO', 'Suplantación de persona excluye rol aprobador',                                            'bauth-seed'),
-('approve',   'post',             'SOD_ESTATICO', 'Quien contabiliza no puede aprobar el documento que asienta',                              'bauth-seed'),
-('approve',   'reconcile',        'SOD_ESTATICO', 'Quien reconcilia no puede aprobar los asientos que reconcilia',                            'bauth-seed'),
-('approve',   'reverse',          'SOD_ESTATICO', 'Quien reversa no puede haber aprobado el asiento original',                                'bauth-seed'),
-('approve',   'settle_rule',      'SOD_ESTATICO', 'Quien liquida no puede aprobar las reglas de liquidación',                                 'bauth-seed'),
-('approve',   'void',             'SOD_ESTATICO', 'Quien anula no puede ser aprobador del documento anulado',                                 'bauth-seed'),
-('create',    'post',             'SOD_ESTATICO', 'Quien crea el documento no puede contabilizarlo — maker no es checker',                    'bauth-seed'),
-('create',    'reconcile',        'SOD_ESTATICO', 'Quien crea no puede conciliar sus propios registros',                                      'bauth-seed'),
-('create',    'reverse',          'SOD_ESTATICO', 'Quien crea un asiento no puede reversarlo (ISO 27001 A.6.1.2)',                            'bauth-seed'),
-('create',    'validate',         'SOD_ESTATICO', 'Quien crea no puede validar lo que crea — ejemplo canónico G-03',                          'bauth-seed'),
-('create',    'void',             'SOD_ESTATICO', 'Quien crea no puede anular sus propios documentos',                                        'bauth-seed'),
-('post',      'reverse',          'SOD_ESTATICO', 'Quien contabiliza no puede reversar — cuatro ojos contable',                               'bauth-seed'),
--- SOD_DINAMICO — conflicto solo sobre el mismo objeto/instancia ───────────────
-('approve',   'check',            'SOD_DINAMICO', 'Quien verifica no puede aprobar el mismo documento',                                       'bauth-seed'),
-('approve',   'complete',         'SOD_DINAMICO', 'Quien completa un proceso no puede aprobarlo en la misma instancia',                       'bauth-seed'),
-('approve',   'submit',           'SOD_DINAMICO', 'Quien envía la solicitud no puede aprobarla',                                              'bauth-seed'),
-('create',    'reject',           'SOD_DINAMICO', 'Quien crea no puede rechazar su propio documento',                                         'bauth-seed'),
-('submit',    'validate',         'SOD_DINAMICO', 'Quien envía para validación no puede validar la misma solicitud',                          'bauth-seed'),
--- AFINIDAD — verbos típicamente asignados juntos, sin generar rechazo ──────────
-('approve',   'reject',           'AFINIDAD',     'Aprobador y rechazador son la misma función — pares complementarios del flujo',            'bauth-seed'),
-('assign',    'delegate',         'AFINIDAD',     'Asignar y delegar son operaciones afines de distribución de trabajo',                      'bauth-seed'),
-('block_entity','unblock_entity', 'AFINIDAD',     'Bloquear y desbloquear entidades — par operacional complementario',                        'bauth-seed'),
-('close',     'reopen',           'AFINIDAD',     'Cerrar y reabrir períodos — par de ciclo de vida complementario',                          'bauth-seed'),
-('create',    'update',           'AFINIDAD',     'Crear y editar — operaciones básicas del propietario del registro',                        'bauth-seed'),
-('delegate',  'delegate_access',  'AFINIDAD',     'Delegar y delegar acceso — variantes de la misma familia semántica',                       'bauth-seed'),
-('execute',   'notify',           'AFINIDAD',     'Ejecutar y notificar — quien ejecuta típicamente también notifica el resultado',           'bauth-seed'),
-('execute',   'schedule',         'AFINIDAD',     'Ejecutar y programar — par natural de ejecución inmediata vs diferida',                    'bauth-seed'),
-('execute',   'schedule_task',    'AFINIDAD',     'Ejecutar y programar tareas — variantes de ejecución de procesos',                         'bauth-seed'),
-('export',    'read',             'AFINIDAD',     'Exportar requiere leer — quien exporta implícitamente accede al dato',                     'bauth-seed'),
-('impersonate','impersonate_user','AFINIDAD',     'Suplantar y suplantar usuario — par de variantes de la misma familia de alto riesgo',      'bauth-seed'),
-('lock',      'unlock',           'AFINIDAD',     'Bloquear y desbloquear objetos — par operacional complementario',                          'bauth-seed'),
-('print',     'read',             'AFINIDAD',     'Imprimir requiere leer — quien imprime implícitamente accede al dato',                     'bauth-seed'),
-('release',   'undo_release',     'AFINIDAD',     'Liberar y deshacer liberación — par de ciclo documental complementario',                   'bauth-seed')
-ON CONFLICT (verb_a, verb_b) DO NOTHING;
