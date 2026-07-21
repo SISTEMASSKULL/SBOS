@@ -32,6 +32,15 @@ SET lock_timeout         = '5s';
 SET client_min_messages  = WARNING;
 
 -- ══════════════════════════════════════════════════════════════════════
+-- ROLES DE BASE DE DATOS — deben existir antes de los REVOKE/GRANT
+-- ══════════════════════════════════════════════════════════════════════
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'bauth_app_role') THEN
+        CREATE ROLE bauth_app_role;
+    END IF;
+END $$;
+
+-- ══════════════════════════════════════════════════════════════════════
 -- SCHEMAS
 -- ══════════════════════════════════════════════════════════════════════
 CREATE SCHEMA IF NOT EXISTS bauth;       -- Núcleo de identidad (idn_, ses_, aud_, risk_, pam_)
@@ -1494,7 +1503,7 @@ INSERT INTO bauth.privilege_verb_conflict (verb_a, verb_b, tipo, descripcion, cr
 ('certify',   'reassess',         'AFINIDAD',     'Certificar y reevaluar — ambos son mecanismos de revisión de accesos',                     'bauth-seed'),
 ('emit',      'sign',             'AFINIDAD',     'Emitir y firmar — quien emite documentos con validez jurídica también los firma',          'bauth-seed'),
 ('enroll',    'login',            'AFINIDAD',     'Enrolar y autenticarse — el enrolamiento es prerequisito del login con ese método',        'bauth-seed'),
-('glass',     'emergency_access', 'AFINIDAD',     'Glass y acceso_emergencia — verbos complementarios del protocolo break-glass',             'bauth-seed'),
+('emergency_access', 'glass', 'AFINIDAD',     'Glass y acceso_emergencia — verbos complementarios del protocolo break-glass',             'bauth-seed'),
 ('reassess',  'revoke',           'AFINIDAD',     'Reevaluar y revocar — el reactor CAEP reevalúa y si procede revoca',                       'bauth-seed')
 ON CONFLICT (verb_a, verb_b) DO NOTHING;
 
@@ -1578,12 +1587,14 @@ CREATE INDEX IF NOT EXISTS idx_irt_cond      ON bauth.idn_roles_template USING G
 
 -- FK deferida: idn_roles_rol_hierarchical.template_id → idn_roles_template.id
 -- Se declara aquí porque idn_roles_template se crea en este punto (T-162 precede a T-041 en el DDL)
-ALTER TABLE bauth.idn_roles_rol_hierarchical
-    ADD CONSTRAINT fk_irrh_template
-    FOREIGN KEY (template_id)
-    REFERENCES bauth.idn_roles_template(id)
-    ON DELETE SET NULL
-    DEFERRABLE INITIALLY DEFERRED;
+DO $$ BEGIN
+    ALTER TABLE bauth.idn_roles_rol_hierarchical
+        ADD CONSTRAINT fk_irrh_template
+        FOREIGN KEY (template_id)
+        REFERENCES bauth.idn_roles_template(id)
+        ON DELETE SET NULL
+        DEFERRABLE INITIALLY DEFERRED;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 COMMENT ON TABLE bauth.idn_roles_template IS
   '[XACML 3.0] [NIST RBAC N3] [ISO 27001 A.5.15] [G-06] [G-11] [A.65.02 T-162]
@@ -1621,7 +1632,7 @@ BEGIN
 END;
 $$;
 
-CREATE TRIGGER trg_irt_atom_position
+CREATE OR REPLACE TRIGGER trg_irt_atom_position
     BEFORE INSERT ON bauth.idn_roles_template
     FOR EACH ROW
     EXECUTE FUNCTION bauth.fn_irt_assign_atom_position();
@@ -1652,7 +1663,7 @@ COMMENT ON FUNCTION bauth.fn_sync_effect_from_tree() IS
    Mantiene effect en T-170 sincronizado sin JOIN adicional en el PDP.
    Solo actúa sobre grants ACTIVE/SUSPENDED del átomo modificado.';
 
-CREATE TRIGGER trg_t162_sync_effect_to_grants
+CREATE OR REPLACE TRIGGER trg_t162_sync_effect_to_grants
     AFTER UPDATE ON bauth.idn_roles_template
     FOR EACH ROW
     EXECUTE FUNCTION bauth.fn_sync_effect_from_tree();
@@ -2082,7 +2093,7 @@ COMMENT ON FUNCTION bauth.fn_sync_access_to_general() IS
    Previene access=false como falso visual de DENY cuando el árbol tiene el control.
    Invariante: access=false solo puede ocurrir cuando general=false.';
 
-CREATE TRIGGER trg_t170_sync_access_general
+CREATE OR REPLACE TRIGGER trg_t170_sync_access_general
     BEFORE INSERT OR UPDATE ON bauth.privilege_atom_grant
     FOR EACH ROW
     EXECUTE FUNCTION bauth.fn_sync_access_to_general();
@@ -2148,7 +2159,7 @@ COMMENT ON FUNCTION bauth.fn_check_sod_on_grant() IS
    Si el verbo del nuevo átomo conflictúa (SOD_ESTATICO/DINAMICO) con verbos activos
    del usuario → ROLLBACK con mensaje descriptivo. No actúa en DENY (access=false).';
 
-CREATE TRIGGER trg_t170_sod_check
+CREATE OR REPLACE TRIGGER trg_t170_sod_check
     BEFORE INSERT ON bauth.privilege_atom_grant
     FOR EACH ROW
     EXECUTE FUNCTION bauth.fn_check_sod_on_grant();
@@ -2209,7 +2220,7 @@ COMMENT ON FUNCTION bauth.fn_validate_breakglass_grant() IS
    D2: solo tier SU o tipo EMERGENCY pueden recibir grants BREAKGLASS (NIST AC-2(2)).
    D3: máximo 2 grants BREAKGLASS activos por tenant.';
 
-CREATE TRIGGER trg_validate_breakglass_grant
+CREATE OR REPLACE TRIGGER trg_validate_breakglass_grant
     BEFORE INSERT OR UPDATE OF grant_type, status
     ON bauth.privilege_atom_grant
     FOR EACH ROW EXECUTE FUNCTION bauth.fn_validate_breakglass_grant();
@@ -2221,7 +2232,7 @@ CREATE TRIGGER trg_validate_breakglass_grant
 -- before_row/after_row (no old_data/new_data). hash_chain BYTEA (no TEXT).
 -- ======================================================================
 CREATE TABLE IF NOT EXISTS bauth.privilege_atom_audit (
-    audit_id     UUID        PRIMARY KEY DEFAULT uuidv7(),
+    audit_id     UUID        NOT NULL DEFAULT uuidv7(),
     grant_id     UUID        NOT NULL,
     tenant_id    UUID        NOT NULL,
     user_id      UUID        NULL,
@@ -2234,7 +2245,9 @@ CREATE TABLE IF NOT EXISTS bauth.privilege_atom_audit (
     prev_hash    BYTEA       NULL,
     hash_chain   BYTEA       NOT NULL,
     ctx_id       TEXT        NOT NULL,
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- PK compuesta: en tablas particionadas por RANGE(created_at) el PK debe incluir la columna de partición
+    CONSTRAINT privilege_atom_audit_pkey PRIMARY KEY (audit_id, created_at)
 ) PARTITION BY RANGE (created_at);
 
 -- WORM: solo el rol del daemon bauth puede escribir; nadie puede borrar ni actualizar
@@ -2330,7 +2343,7 @@ COMMENT ON FUNCTION bauth.fn_worm_append() IS
    pg_advisory_xact_lock serializa escrituras concurrentes del mismo grant.
    Si la transacción hace ROLLBACK, el audit también — nunca quedan desincronizados.';
 
-CREATE TRIGGER trg_t170_worm
+CREATE OR REPLACE TRIGGER trg_t170_worm
     AFTER INSERT OR UPDATE ON bauth.privilege_atom_grant
     FOR EACH ROW
     EXECUTE FUNCTION bauth.fn_worm_append();
@@ -2526,7 +2539,7 @@ COMMENT ON TABLE bauth.privilege_override IS
 --   T-176 audita CÓMO SE EJERCIÓ lo otorgado en runtime (Kong escribe).
 -- Volumen: crece con cada request evaluado → candidata a particionamiento por fecha.
 CREATE TABLE IF NOT EXISTS bauth.privilege_assurance_audit (
-    id             UUID        PRIMARY KEY DEFAULT uuidv7(),
+    id             UUID        NOT NULL DEFAULT uuidv7(),
     -- Grant que se está evaluando — correlación con T-170 y T-170b en forensia
     grant_id       UUID        NOT NULL REFERENCES bauth.privilege_atom_grant(id),
     -- Identificador del recurso protegido (ruta, endpoint, objeto)
@@ -3081,6 +3094,53 @@ COMMENT ON TABLE bauth.pam_breakglass_activation IS
 
 
 -- ======================================================================
+-- T-183 — bauth.pam_credential_ref
+-- Inventario de credenciales privilegiadas — solo metadatos y ruta Vault.
+-- El valor de la credencial NUNCA se almacena aquí.
+-- ======================================================================
+CREATE TABLE IF NOT EXISTS bauth.pam_credential_ref (
+    id                  UUID        NOT NULL DEFAULT uuidv7(),
+    tenant_id           UUID        NOT NULL REFERENCES bauth.idn_tenant(tenant_id) ON DELETE CASCADE,
+    owner_id            UUID        NOT NULL,
+    owner_type          TEXT        NOT NULL,
+    credential_type     TEXT        NOT NULL,
+    vault_path          TEXT        NOT NULL,
+    target_system       TEXT        NOT NULL,
+    rotation_policy     TEXT        NOT NULL DEFAULT 'AUTO_90D',
+    last_rotated_at     TIMESTAMPTZ NULL,
+    next_rotation_at    TIMESTAMPTZ NULL,
+    rotation_count      INTEGER     NOT NULL DEFAULT 0,
+    status              TEXT        NOT NULL DEFAULT 'ACTIVE',
+    created_by          UUID        NOT NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    ctx_id              TEXT        NOT NULL,
+    CONSTRAINT pam_credential_ref_pkey PRIMARY KEY (id),
+    CONSTRAINT chk_pcref_type  CHECK (
+        credential_type IN ('PASSWORD','SSH_KEY','API_KEY','CERT','TOKEN','OAUTH_CLIENT')
+    ),
+    CONSTRAINT chk_pcref_owner CHECK (owner_type IN ('HUMAN','NHI')),
+    CONSTRAINT chk_pcref_rot   CHECK (
+        rotation_policy IN ('MANUAL','AUTO_7D','AUTO_30D','AUTO_90D','AUTO_1Y')
+    ),
+    CONSTRAINT chk_pcref_status CHECK (
+        status IN ('ACTIVE','ROTATING','REVOKED','EXPIRED')
+    )
+);
+
+CREATE INDEX IF NOT EXISTS idx_pcref_rotation ON bauth.pam_credential_ref (next_rotation_at)
+    WHERE status = 'ACTIVE' AND next_rotation_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_pcref_owner ON bauth.pam_credential_ref (owner_id, owner_type);
+
+COMMENT ON TABLE bauth.pam_credential_ref IS
+  '[NIST SP 800-53 IA-5(1)] [CIS § Credential Management] [PCI DSS 4.0 Req 8.3] [A.65.02 T-183] ✅ G-18
+   Inventario de credenciales privilegiadas. Solo metadatos y ruta en Vault (vault_path).
+   El valor real vive en Vault; esta tabla es el panel de control de la rotación.
+   owner_type=NHI conecta con T-186 idn_non_human_identity — los daemons también tienen credenciales.
+   Job de rotación usa idx_pcref_rotation para ejecutar rotación en Vault cuando next_rotation_at <= now().
+   NUNCA almacena el valor de la credencial.';
+
+
+-- ======================================================================
 -- T-184 — bauth.pam_session_record
 -- Metadatos de sesión de acceso privilegiado — CÓMO se ejerció el privilegio.
 -- Grabación real en MinIO; esta tabla almacena metadatos y referencia.
@@ -3126,53 +3186,6 @@ COMMENT ON TABLE bauth.pam_session_record IS
    duration_seconds: GENERATED ALWAYS — calculado automáticamente al escribirse ended_at.
    recording_ref: referencia al archivo de grabación en MinIO/S3 (valor = path, nunca el binario).
    jit_request_id → trazabilidad completa: evento → justificación → aprobación → sesión → comandos.';
-
-
--- ======================================================================
--- T-183 — bauth.pam_credential_ref
--- Inventario de credenciales privilegiadas — solo metadatos y ruta Vault.
--- El valor de la credencial NUNCA se almacena aquí.
--- ======================================================================
-CREATE TABLE IF NOT EXISTS bauth.pam_credential_ref (
-    id                  UUID        NOT NULL DEFAULT uuidv7(),
-    tenant_id           UUID        NOT NULL REFERENCES bauth.idn_tenant(tenant_id) ON DELETE CASCADE,
-    owner_id            UUID        NOT NULL,
-    owner_type          TEXT        NOT NULL,
-    credential_type     TEXT        NOT NULL,
-    vault_path          TEXT        NOT NULL,
-    target_system       TEXT        NOT NULL,
-    rotation_policy     TEXT        NOT NULL DEFAULT 'AUTO_90D',
-    last_rotated_at     TIMESTAMPTZ NULL,
-    next_rotation_at    TIMESTAMPTZ NULL,
-    rotation_count      INTEGER     NOT NULL DEFAULT 0,
-    status              TEXT        NOT NULL DEFAULT 'ACTIVE',
-    created_by          UUID        NOT NULL,
-    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-    ctx_id              TEXT        NOT NULL,
-    CONSTRAINT pam_credential_ref_pkey PRIMARY KEY (id),
-    CONSTRAINT chk_pcref_type  CHECK (
-        credential_type IN ('PASSWORD','SSH_KEY','API_KEY','CERT','TOKEN','OAUTH_CLIENT')
-    ),
-    CONSTRAINT chk_pcref_owner CHECK (owner_type IN ('HUMAN','NHI')),
-    CONSTRAINT chk_pcref_rot   CHECK (
-        rotation_policy IN ('MANUAL','AUTO_7D','AUTO_30D','AUTO_90D','AUTO_1Y')
-    ),
-    CONSTRAINT chk_pcref_status CHECK (
-        status IN ('ACTIVE','ROTATING','REVOKED','EXPIRED')
-    )
-);
-
-CREATE INDEX IF NOT EXISTS idx_pcref_rotation ON bauth.pam_credential_ref (next_rotation_at)
-    WHERE status = 'ACTIVE' AND next_rotation_at IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_pcref_owner ON bauth.pam_credential_ref (owner_id, owner_type);
-
-COMMENT ON TABLE bauth.pam_credential_ref IS
-  '[NIST SP 800-53 IA-5(1)] [CIS § Credential Management] [PCI DSS 4.0 Req 8.3] [A.65.02 T-183] ✅ G-18
-   Inventario de credenciales privilegiadas. Solo metadatos y ruta en Vault (vault_path).
-   El valor real vive en Vault; esta tabla es el panel de control de la rotación.
-   owner_type=NHI conecta con T-186 idn_non_human_identity — los daemons también tienen credenciales.
-   Job de rotación usa idx_pcref_rotation para ejecutar rotación en Vault cuando next_rotation_at <= now().
-   NUNCA almacena el valor de la credencial.';
 
 
 -- ======================================================================
