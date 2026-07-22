@@ -13,6 +13,8 @@
 //   Motor de Identidad (2.15 §5) · DOC-SBOS-001 N3.
 // ============================================================
 
+import 'dart:async';
+
 import '../conexion/cliente_rpc.dart';
 
 // ═══════════════════════════════════════════════════════════
@@ -387,21 +389,26 @@ class BauthApi {
     return _construirArbolBD(planos);
   }
 
-  /// Hijos directos de [parentId] para carga lazy nodo a nodo.
-  /// Si [parentId] es null, devuelve los nodos raíz.
-  /// Llama a bauth.rol_template.children (método diferencial).
+  /// Hijos directos de [parentId] — carga lazy con caché local.
+  ///
+  /// Primera llamada (parentId=null): obtiene TODOS los nodos de
+  /// bauth.rol_template.tree y construye un índice en memoria por parent_id.
+  /// Llamadas siguientes: sirven del índice sin más RPCs.
+  /// Así la UI siente carga nodo a nodo pero solo hay UN llamado al daemon.
   Future<List<NodoRolTemplateBD>> rolTemplateHijos({
     String? parentId,
     String tenantSlug = 'skull',
   }) async {
-    final params = <String, dynamic>{'tenant_slug': tenantSlug};
-    if (parentId != null) params['parent_id'] = parentId;
-    final r = await _rpc.llamar('bauth.rol_template.children', params);
-    final items = r['nodos'] as List<dynamic>? ?? [];
-    return items
-        .map((e) => NodoRolTemplateBD.fromJson(e as Map<String, dynamic>))
-        .toList();
+    _cacheArbol ??= _CacheArbolBD();
+    await _cacheArbol!.cargar(_rpc, tenantSlug);
+    return _cacheArbol!.hijos(parentId);
   }
+
+  /// Descarta el caché del árbol — la siguiente llamada recarga desde el daemon.
+  void invalidarCacheArbol() => _cacheArbol = null;
+
+  // Caché del árbol (un solo RPC, índice local por parent_id)
+  _CacheArbolBD? _cacheArbol;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -473,4 +480,54 @@ List<NodoRolTemplateBD> _construirArbolBD(List<NodoRolTemplateBD> planos) {
 void _ordenarBD(List<NodoRolTemplateBD> nodos) {
   nodos.sort((a, b) => a.path.compareTo(b.path));
   for (final n in nodos) { _ordenarBD(n.hijos); }
+}
+
+// ═══════════════════════════════════════════════════════════
+// Caché del árbol RolTemplate (índice local lazy)
+// ═══════════════════════════════════════════════════════════
+
+/// Caché de un solo RPC: carga bauth.rol_template.tree una vez
+/// y sirve los hijos por parent_id desde un índice en memoria.
+class _CacheArbolBD {
+  final Map<String?, List<NodoRolTemplateBD>> _indice = {};
+  // Completer compartido para serializar peticiones concurrentes
+  Completer<void>? _enCurso;
+  bool _cargado = false;
+
+  bool get cargado => _cargado;
+
+  /// Carga el árbol completo si aún no fue cargado.
+  /// Llamadas concurrentes esperan a la misma petición en vuelo.
+  Future<void> cargar(ClienteRpc rpc, String tenantSlug) async {
+    if (_cargado) return;
+    if (_enCurso != null) {
+      await _enCurso!.future;
+      return;
+    }
+    _enCurso = Completer<void>();
+    try {
+      final r = await rpc.llamar(
+          'bauth.rol_template.tree', {'tenant_slug': tenantSlug});
+      final items = r['nodos'] as List<dynamic>? ?? [];
+      _indice.clear();
+      for (final raw in items) {
+        final n = NodoRolTemplateBD.fromJson(raw as Map<String, dynamic>);
+        (_indice[n.parentId] ??= []).add(n);
+      }
+      for (final lista in _indice.values) {
+        lista.sort((a, b) => a.path.compareTo(b.path));
+      }
+      _cargado = true;
+      _enCurso!.complete();
+    } catch (e) {
+      final c = _enCurso!;
+      _enCurso = null; // permite reintento en próxima llamada
+      c.completeError(e);
+      rethrow;
+    }
+  }
+
+  /// Devuelve los hijos directos de [parentId] ([] si no hay ninguno).
+  List<NodoRolTemplateBD> hijos(String? parentId) =>
+      _indice[parentId] ?? const [];
 }

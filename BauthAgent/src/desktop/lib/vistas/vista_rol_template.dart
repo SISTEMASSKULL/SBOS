@@ -199,10 +199,13 @@ class _VistaRolTemplateState extends ConsumerState<VistaRolTemplate> {
           claveArbol: _claveArbolBD,
           seleccionBD: _seleccionBD,
           alSeleccionarBD: (n) => setState(() => _seleccionBD = n),
-          alRecargar: () => setState(() {
-            _claveArbolBD++;
-            _seleccionBD = null;
-          }),
+          alRecargar: () {
+            ref.read(bauthApiProvider).invalidarCacheArbol();
+            setState(() {
+              _claveArbolBD++;
+              _seleccionBD = null;
+            });
+          },
         );
       default:
         return _PlaceholderCompiladoTab(cs: cs);
