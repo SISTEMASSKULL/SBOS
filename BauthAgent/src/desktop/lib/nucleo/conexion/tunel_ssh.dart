@@ -2,22 +2,19 @@
 // bauth_desktop · nucleo/conexion/tunel_ssh.dart
 //
 // Propósito: túnel SSH integrado — conecta al servidor vía SSH
-//   y reenvía el Unix socket /tmp/bauth/bauth.sock a un puerto TCP
-//   local aleatorio. Sin terminal extra: el túnel vive dentro
-//   de la app usando dartssh2 (forwardLocalUnix).
+//   y reenvía /tmp/bauth/bauth.sock a un puerto TCP local aleatorio.
+//   Usa SSH execute + socat (más portable que direct-streamlocal).
 //
 // Flujo: SSH connect → autenticar → ServerSocket local (puerto 0)
-//        → por cada TCP entrante, abrir SSHForwardChannel al socket
-//        remoto → puente bidireccional de bytes.
+//   → por cada TCP entrante, ejecutar "socat STDIO UNIX-CONNECT:socket"
+//   → puente bidireccional stdin/stdout ↔ TCP local.
 //
-// Dependencias: dart:io, dart:async, dartssh2.
-// Estándar: ADR-020 (Interface Dual) · DOC-SBOS-001 N3.
+// Dependencias: dart:io, dart:async, dart:typed_data, dartssh2.
+// Estándar: ADR-020 · DOC-SBOS-001 N3.
 // ============================================================
 
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
-
 import 'package:dartssh2/dartssh2.dart';
 
 /// Gestiona el ciclo de vida del túnel SSH hacia /tmp/bauth/bauth.sock.
@@ -35,8 +32,8 @@ class TunelSSH {
   /// Establece la conexión SSH y abre el servidor TCP local.
   ///
   /// [host] — IP o hostname del servidor VPS (puerto SSH 22).
-  /// [usuario] — usuario SSH (ej. 'skull').
-  /// [password] — contraseña SSH (nunca se persiste).
+  /// [usuario] — usuario SSH.
+  /// [password] — contraseña SSH (nunca se persiste ni se logea).
   /// [socketRemoto] — ruta del Unix socket en el servidor.
   ///
   /// Retorna el puerto TCP local al que debe conectarse ClienteRpc.
@@ -47,30 +44,26 @@ class TunelSSH {
     String socketRemoto = '/tmp/bauth/bauth.sock',
     int puertoSSH = 22,
   }) async {
-    // 1. Cerrar túnel previo si existía
     await cerrar();
 
-    // 2. Conectar al servidor SSH
+    // Conectar y autenticar SSH
     final sock = await SSHSocket.connect(
       host,
       puertoSSH,
       timeout: const Duration(seconds: 15),
     );
-
     _cliente = SSHClient(
       sock,
       username: usuario,
       onPasswordRequest: () => password,
     );
-
-    // Espera a que la autenticación sea exitosa
     await _cliente!.authenticated;
 
-    // 3. Servidor TCP local en puerto aleatorio (0 = asignado por OS)
+    // ServerSocket local en puerto aleatorio
     _servidor = await ServerSocket.bind('127.0.0.1', 0);
     _puertoLocal = _servidor!.port;
 
-    // 4. Por cada conexión TCP entrante, abrir canal al socket Unix remoto
+    // Cada conexión TCP local → una sesión SSH con socat
     _servidor!.listen(
       (local) => _puente(local, socketRemoto),
       onError: (_) {},
@@ -79,36 +72,35 @@ class TunelSSH {
     return _puertoLocal;
   }
 
-  /// Crea un puente bidireccional entre [local] (TCP) y el socket Unix remoto.
+  /// Puente bidireccional: TCP local ↔ SSH exec socat ↔ Unix socket remoto.
+  /// socat es más portable que direct-streamlocal@openssh.com en Windows.
   Future<void> _puente(Socket local, String socketRemoto) async {
-    SSHForwardChannel? canal;
-    StreamSubscription<Uint8List>? subRemoto;
-    StreamSubscription<Uint8List>? subLocal;
+    SSHSession? session;
 
     void limpiar() {
-      subRemoto?.cancel();
-      subLocal?.cancel();
-      canal?.close();
-      local.destroy();
+      try { session?.close(); } catch (_) {}
+      try { local.destroy(); } catch (_) {}
     }
 
     try {
-      // Abre canal directo al Unix socket usando direct-streamlocal@openssh.com
-      canal = await _cliente!.forwardLocalUnix(socketRemoto);
+      // socat en el servidor hace de bridge stdin/stdout ↔ Unix socket
+      session = await _cliente!.execute(
+        'socat STDIO UNIX-CONNECT:$socketRemoto',
+      );
 
       final done = Completer<void>();
 
-      // Remote → local: datos del daemon al cliente RPC
-      subRemoto = canal.stream.listen(
+      // Daemon → cliente local
+      session.stdout.listen(
         local.add,
         onDone: () { if (!done.isCompleted) done.complete(); },
         onError: (_) { if (!done.isCompleted) done.complete(); },
         cancelOnError: true,
       );
 
-      // Local → remote: datos del cliente RPC al daemon
-      subLocal = local.listen(
-        canal.sink.add,
+      // Cliente local → daemon (convierte List<int> → Uint8List para stdin)
+      local.listen(
+        session.stdin.add,
         onDone: () { if (!done.isCompleted) done.complete(); },
         onError: (_) { if (!done.isCompleted) done.complete(); },
         cancelOnError: true,
@@ -116,7 +108,7 @@ class TunelSSH {
 
       await done.future;
     } catch (_) {
-      // Conexión terminada o canal rechazado
+      // Canal rechazado, socat no disponible, o conexión terminada
     } finally {
       limpiar();
     }
@@ -124,8 +116,8 @@ class TunelSSH {
 
   /// Cierra el túnel y libera todos los recursos.
   Future<void> cerrar() async {
-    await _servidor?.close();
-    _cliente?.close();
+    try { await _servidor?.close(); } catch (_) {}
+    try { _cliente?.close(); } catch (_) {}
     _servidor = null;
     _cliente = null;
     _puertoLocal = 0;
