@@ -415,50 +415,51 @@ class BauthApi {
 // Nodo BD y helpers de árbol
 // ═══════════════════════════════════════════════════════════
 
-/// Nodo del árbol de políticas almacenado en bauth.idn_roles_template.
-/// La estructura anidada se construye del resultado plano devuelto por la API.
+/// Nodo del árbol de role templates desde bAuth.
+/// Mapeado desde la respuesta real de bauth.role.template.list:
+///   id, parent_id, tier, hierarchy_level, loa_required, mfa_required, status
 class NodoRolTemplateBD {
   final String id;
   final String? parentId;
   final String path;
-  final String tipo;
-  final String clave;
+  final String tipo;   // tipo visual para badge: 'dominio','bloque','objeto','atributo'
+  final String clave;  // tier del template: 'SU','SYS','BIZ_N1','BIZ_N2'...
   final String nombre;
-  final String? valor;
-  final String? help;
+  final String? valor; // status: 'ACTIVE', 'INACTIVE'
+  final String? help;  // descripción de LoA y MFA
   final List<String> opciones;
   final bool effect;
   final String? verbId;
   final int? domainNumber;
-  final int depth;
+  final int depth;     // hierarchy_level - 1 (0-based)
   List<NodoRolTemplateBD> hijos;
 
   NodoRolTemplateBD.fromJson(Map<String, dynamic> j)
-      : id = j['id'] ?? '?',
-        parentId = j['parent_id'],
-        path = j['path'] ?? '',
-        tipo = j['tipo'] ?? '?',
-        clave = j['clave'] ?? '?',
-        nombre = _nombreEs(j['name']),
-        valor = j['valor'],
-        help = j['help'],
-        opciones = (j['opciones'] as List<dynamic>?)?.cast<String>() ?? [],
-        effect = j['effect'] == true,
-        verbId = j['verb_id'],
-        domainNumber = j['domain_number'] as int?,
-        depth = j['depth'] ?? 0,
+      : id = j['id'] as String? ?? '?',
+        parentId = j['parent_id'] as String?,
+        path = j['tier'] as String? ?? '',
+        tipo = _tipoParaTier(j['tier'] as String? ?? ''),
+        clave = j['tier'] as String? ?? '?',
+        nombre = j['tier'] as String? ?? '?',
+        valor = j['status'] as String?,
+        help = 'LoA ${j['loa_required']} · MFA: ${j['mfa_required']}'
+               ' · v${j['template_version']}',
+        opciones = const [],
+        effect = true,
+        verbId = null,
+        domainNumber = null,
+        depth = (j['hierarchy_level'] as int? ?? 1) - 1,
         hijos = [];
 
-  /// Extrae el nombre en español del JSONB name (ej. {"es": "Acceso Lógico"}).
-  static String _nombreEs(dynamic name) {
-    if (name is Map<String, dynamic>) {
-      final es = name['es'];
-      if (es != null) return es.toString();
-      if (name.isNotEmpty) return name.values.first.toString();
-      return '?';
-    }
-    return name?.toString() ?? '?';
-  }
+  /// Mapea tier a tipo visual para los badges del árbol.
+  static String _tipoParaTier(String tier) => switch (tier) {
+        'SU' || 'SYS' => 'dominio',
+        'BIZ_N1' || 'EXT_N0' => 'bloque',
+        'BIZ_N2' => 'objeto',
+        'BIZ_N3' || 'BIZ_N4' || 'BIZ_N5' => 'atributo',
+        'M2M' || 'VISITANTE' => 'evaluacion',
+        _ => 'objeto',
+      };
 }
 
 /// Construye árbol anidado desde lista plana usando parent_id.
@@ -486,17 +487,16 @@ void _ordenarBD(List<NodoRolTemplateBD> nodos) {
 // Caché del árbol RolTemplate (índice local lazy)
 // ═══════════════════════════════════════════════════════════
 
-/// Caché de un solo RPC: carga bauth.rol_template.tree una vez
+/// Caché de un solo RPC: carga bauth.role.template.list una vez
 /// y sirve los hijos por parent_id desde un índice en memoria.
 class _CacheArbolBD {
   final Map<String?, List<NodoRolTemplateBD>> _indice = {};
-  // Completer compartido para serializar peticiones concurrentes
   Completer<void>? _enCurso;
   bool _cargado = false;
 
   bool get cargado => _cargado;
 
-  /// Carga el árbol completo si aún no fue cargado.
+  /// Carga todos los templates si aún no fueron cargados.
   /// Llamadas concurrentes esperan a la misma petición en vuelo.
   Future<void> cargar(ClienteRpc rpc, String tenantSlug) async {
     if (_cargado) return;
@@ -506,17 +506,30 @@ class _CacheArbolBD {
     }
     _enCurso = Completer<void>();
     try {
-      final r = await rpc.llamar(
-          'bauth.rol_template.tree', {'tenant_slug': tenantSlug});
-      final items = r['nodos'] as List<dynamic>? ?? [];
+      // bauth.role.template.list existe en el daemon (verificado en VPS)
+      final r = await rpc.llamar('bauth.role.template.list');
+      final items = r['templates'] as List<dynamic>? ?? [];
+
+      // Conjunto de IDs presentes para detectar nodos huérfanos
+      final idsConocidos = <String>{
+        for (final t in items) t['id'] as String,
+      };
+
       _indice.clear();
       for (final raw in items) {
         final n = NodoRolTemplateBD.fromJson(raw as Map<String, dynamic>);
-        (_indice[n.parentId] ??= []).add(n);
+        // Si el parent_id apunta a algo fuera de la lista, promover a raíz
+        final pid = (n.parentId != null && idsConocidos.contains(n.parentId))
+            ? n.parentId
+            : null;
+        (_indice[pid] ??= []).add(n);
       }
+
+      // Ordenar cada nivel por clave para comparación visual estable
       for (final lista in _indice.values) {
-        lista.sort((a, b) => a.path.compareTo(b.path));
+        lista.sort((a, b) => a.clave.compareTo(b.clave));
       }
+
       _cargado = true;
       _enCurso!.complete();
     } catch (e) {

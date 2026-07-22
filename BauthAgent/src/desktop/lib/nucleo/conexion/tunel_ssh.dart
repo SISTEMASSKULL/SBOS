@@ -2,7 +2,7 @@
 // bauth_desktop · nucleo/conexion/tunel_ssh.dart
 //
 // Propósito: túnel SSH integrado — conecta al servidor vía SSH
-//   y reenvía el Unix socket /run/bos/bauth.sock a un puerto TCP
+//   y reenvía el Unix socket /tmp/bauth/bauth.sock a un puerto TCP
 //   local aleatorio. Sin terminal extra: el túnel vive dentro
 //   de la app usando dartssh2 (forwardLocalUnix).
 //
@@ -20,7 +20,7 @@ import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
 
-/// Gestiona el ciclo de vida del túnel SSH hacia /run/bos/bauth.sock.
+/// Gestiona el ciclo de vida del túnel SSH hacia /tmp/bauth/bauth.sock.
 class TunelSSH {
   SSHClient? _cliente;
   ServerSocket? _servidor;
@@ -44,7 +44,7 @@ class TunelSSH {
     required String host,
     required String usuario,
     required String password,
-    String socketRemoto = '/run/bos/bauth.sock',
+    String socketRemoto = '/tmp/bauth/bauth.sock',
     int puertoSSH = 22,
   }) async {
     // 1. Cerrar túnel previo si existía
@@ -98,7 +98,7 @@ class TunelSSH {
 
       final done = Completer<void>();
 
-      // Remote → local: datos del daemon al cliente WebSocket
+      // Remote → local: datos del daemon al cliente RPC
       subRemoto = canal.stream.listen(
         local.add,
         onDone: () { if (!done.isCompleted) done.complete(); },
@@ -106,7 +106,7 @@ class TunelSSH {
         cancelOnError: true,
       );
 
-      // Local → remote: datos del cliente WebSocket al daemon
+      // Local → remote: datos del cliente RPC al daemon
       subLocal = local.listen(
         canal.sink.add,
         onDone: () { if (!done.isCompleted) done.complete(); },

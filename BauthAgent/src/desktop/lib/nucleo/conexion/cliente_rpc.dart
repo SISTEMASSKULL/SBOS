@@ -1,22 +1,26 @@
 // ============================================================
 // bauth_desktop · nucleo/conexion/cliente_rpc.dart
 //
-// Propósito: cliente JSON-RPC 2.0 persistente vía WebSocket/TCP
-//   hacia bAuth. Mantiene UNA conexión, reconecta automáticamente,
-//   y expone estado de conexión para la UI.
+// Propósito: cliente JSON-RPC 2.0 persistente via TCP raw (Socket).
+//   El daemon bAuth expone /tmp/bauth/bauth.sock con protocolo
+//   JSON-RPC puro (una línea JSON por petición/respuesta, sin HTTP).
+//   El túnel SSH reenvía ese socket a un puerto TCP local; este
+//   cliente se conecta a ese puerto con Socket directo — sin
+//   overhead de WebSocket (sin HTTP upgrade, sin frames).
 //
-//   El desktop se conecta al extremo local de un túnel SSH que
-//   reenvía el Unix socket del servidor a TCP localhost:9450.
+// Protocolo:
+//   Envío:   utf8(json + "\n")
+//   Recepción: JSON objects delimitados por conteo de braces {}
 //
-// Dependencias: dart:io (WebSocket/Socket), dart:convert.
-// Estándar: JSON-RPC 2.0 · ADR-020 (Interface Dual).
+// Dependencias: dart:io, dart:async, dart:convert.
+// Estándar: JSON-RPC 2.0 · ADR-020 · DOC-SBOS-001 N3.
 // ============================================================
 
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-/// Error devuelto por el servidor JSON-RPC.
+/// Error devuelto por el servidor JSON-RPC o por el cliente.
 class RpcError implements Exception {
   final int codigo;
   final String mensaje;
@@ -35,30 +39,32 @@ enum EstadoConexion {
   error,
 }
 
-/// Cliente JSON-RPC persistente con reconexión automática.
-/// Usa WebSocket para mantener una conexión de larga duración.
+/// Cliente JSON-RPC 2.0 de baja latencia via Socket TCP.
+/// Sin HTTP/WebSocket: petición → respuesta JSON directamente sobre TCP.
 class ClienteRpc {
-  // ── Conexión ──
+  // ── Config ───────────────────────────────────────────────────
   final String _host;
   final int _puerto;
   final Duration _timeout;
 
-  WebSocket? _ws;
+  // ── Conexión ─────────────────────────────────────────────────
+  Socket? _socket;
+  final StringBuffer _buffer = StringBuffer();
   int _nextId = 1;
 
-  // ── Callbacks pendientes ──
+  // ── Pendientes ───────────────────────────────────────────────
   final Map<int, Completer<Map<String, dynamic>>> _pendientes = {};
 
-  // ── Stream de estado ──
-  final _estadoController = StreamController<EstadoConexion>.broadcast();
-  Stream<EstadoConexion> get estado => _estadoController.stream;
+  // ── Estado ───────────────────────────────────────────────────
+  final _estadoCtrl = StreamController<EstadoConexion>.broadcast();
+  Stream<EstadoConexion> get estado => _estadoCtrl.stream;
   EstadoConexion _estado = EstadoConexion.desconectado;
 
-  // ── Reconexión ──
+  // ── Reconexión ───────────────────────────────────────────────
   Timer? _reconectTimer;
   int _reintentos = 0;
   static const _maxReintentos = 10;
-  static const _reconectBase = Duration(milliseconds: 500);
+  static const _baseDelay = Duration(milliseconds: 500);
 
   ClienteRpc({
     String host = 'localhost',
@@ -72,33 +78,29 @@ class ClienteRpc {
   // Conexión
   // ═══════════════════════════════════════════════════════════
 
-  /// Inicia la conexión WebSocket al daemon.
+  /// Abre la conexión TCP al daemon (o al puerto local del túnel SSH).
+  /// Lanza excepción si falla — el llamador ve el error real.
   Future<void> conectar() async {
     if (_estado == EstadoConexion.conectando ||
         _estado == EstadoConexion.conectado) {
       return;
     }
-
     _setEstado(EstadoConexion.conectando);
-
     try {
-      final uri = 'ws://$_host:$_puerto/';
-      _ws = await WebSocket.connect(uri).timeout(_timeout);
-
-      _ws!.listen(
-        _onMensaje,
+      _socket = await Socket.connect(_host, _puerto).timeout(_timeout);
+      _socket!.listen(
+        _onDatos,
         onError: _onError,
         onDone: _onCierre,
         cancelOnError: false,
       );
-
       _setEstado(EstadoConexion.conectado);
       _reintentos = 0;
     } catch (e) {
-      _ws = null;
+      _socket = null;
       _setEstado(EstadoConexion.error);
       _programarReconexion();
-      rethrow; // propagar el error real al llamador
+      rethrow; // el error real llega al llamador
     }
   }
 
@@ -107,8 +109,9 @@ class ClienteRpc {
     _reconectTimer?.cancel();
     _reconectTimer = null;
     _rechazarPendientes('desconectado');
-    _ws?.close();
-    _ws = null;
+    _socket?.destroy();
+    _socket = null;
+    _buffer.clear();
     _setEstado(EstadoConexion.desconectado);
   }
 
@@ -116,85 +119,109 @@ class ClienteRpc {
   // JSON-RPC
   // ═══════════════════════════════════════════════════════════
 
-  /// Llama un método JSON-RPC y devuelve el `result`.
-  /// Auto-conecta si el socket no está listo (ej. primer uso tras cambio de config).
+  /// Llama un método JSON-RPC y retorna el `result`.
+  /// Auto-conecta si el socket no está listo.
   Future<Map<String, dynamic>> llamar(
     String metodo, [
     Map<String, dynamic>? params,
   ]) async {
     if (_estado != EstadoConexion.conectado) {
-      await conectar();
+      await conectar(); // rethrow si falla
     }
-    if (_ws == null || _estado != EstadoConexion.conectado) {
+    if (_socket == null || _estado != EstadoConexion.conectado) {
       throw RpcError(-32000, 'no conectado a bAuth — verifica el túnel SSH');
     }
 
     final id = _nextId++;
-    final cuerpo = <String, dynamic>{
+    final msg = <String, dynamic>{
       'jsonrpc': '2.0',
       'method': metodo,
       'id': id,
     };
-    if (params != null) cuerpo['params'] = params;
+    if (params != null) msg['params'] = params;
 
     final completer = Completer<Map<String, dynamic>>();
     _pendientes[id] = completer;
 
-    _ws!.add(utf8.encode('${jsonEncode(cuerpo)}\n'));
+    // Envío: JSON + salto de línea (sin overhead HTTP)
+    _socket!.add(utf8.encode('${jsonEncode(msg)}\n'));
 
     return completer.future.timeout(_timeout).whenComplete(() {
       _pendientes.remove(id);
     });
   }
 
-  /// Notificación JSON-RPC (sin respuesta esperada).
-  void notificar(String metodo, [Map<String, dynamic>? params]) {
-    if (_ws == null || _estado != EstadoConexion.conectado) return;
+  // ═══════════════════════════════════════════════════════════
+  // Manejadores de socket
+  // ═══════════════════════════════════════════════════════════
 
-    final cuerpo = <String, dynamic>{
-      'jsonrpc': '2.0',
-      'method': metodo,
-    };
-    if (params != null) cuerpo['params'] = params;
-
-    _ws!.add(utf8.encode('${jsonEncode(cuerpo)}\n'));
+  /// Acumula bytes y extrae objetos JSON completos por conteo de braces.
+  void _onDatos(List<int> datos) {
+    _buffer.write(utf8.decode(datos, allowMalformed: true));
+    _extraerMensajes();
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // Manejadores WebSocket
-  // ═══════════════════════════════════════════════════════════
+  /// Parsea objetos JSON del buffer usando conteo de braces {}.
+  /// Robusto ante mensajes partidos en múltiples fragmentos TCP.
+  void _extraerMensajes() {
+    final s = _buffer.toString();
+    int nivel = 0;
+    int inicio = 0;
+    bool enCadena = false;
+    bool escapeNext = false;
 
-  void _onMensaje(dynamic datos) {
-    try {
-      // bAuth puede enviar tramas de texto (String) o binarias (List<int>)
-      final String texto;
-      if (datos is String) {
-        texto = datos;
-      } else if (datos is List<int>) {
-        texto = utf8.decode(datos);
-      } else {
-        return; // tipo inesperado, ignorar
+    for (int i = 0; i < s.length; i++) {
+      final c = s[i];
+      if (escapeNext) {
+        escapeNext = false;
+        continue;
       }
-      final resp = jsonDecode(texto) as Map<String, dynamic>;
-      final id = resp['id'] as int?;
+      if (c == '\\' && enCadena) {
+        escapeNext = true;
+        continue;
+      }
+      if (c == '"') {
+        enCadena = !enCadena;
+        continue;
+      }
+      if (enCadena) continue;
 
-      if (id != null && _pendientes.containsKey(id)) {
-        final error = resp['error'];
-        if (error is Map) {
-          _pendientes[id]!.completeError(RpcError(
-            error['code'] as int? ?? -1,
-            error['message'] as String? ?? 'error desconocido',
-            error['data'],
-          ));
-        } else {
-          _pendientes[id]!.complete(
-            (resp['result'] as Map<String, dynamic>?) ?? const {},
-          );
+      if (c == '{') {
+        nivel++;
+      } else if (c == '}') {
+        nivel--;
+        if (nivel == 0) {
+          final fragmento = s.substring(inicio, i + 1);
+          try {
+            _procesarRespuesta(jsonDecode(fragmento) as Map<String, dynamic>);
+          } catch (_) {}
+          inicio = i + 1;
         }
       }
-      // Notificaciones sin id se ignoran (futuro: push events)
-    } catch (_) {
-      // Ignorar frames no-JSON (WebSocket ping/pong, etc.)
+    }
+
+    // Retener fragmento incompleto para el siguiente evento de datos
+    _buffer.clear();
+    if (inicio < s.length) {
+      _buffer.write(s.substring(inicio));
+    }
+  }
+
+  void _procesarRespuesta(Map<String, dynamic> resp) {
+    final id = resp['id'] as int?;
+    if (id == null || !_pendientes.containsKey(id)) return;
+
+    final error = resp['error'];
+    if (error is Map) {
+      _pendientes[id]!.completeError(RpcError(
+        error['code'] as int? ?? -1,
+        error['message'] as String? ?? 'error desconocido',
+        error['data'],
+      ));
+    } else {
+      _pendientes[id]!.complete(
+        (resp['result'] as Map<String, dynamic>?) ?? const {},
+      );
     }
   }
 
@@ -205,7 +232,8 @@ class ClienteRpc {
   }
 
   void _onCierre() {
-    _ws = null;
+    _socket = null;
+    _buffer.clear();
     if (_estado == EstadoConexion.conectado) {
       _setEstado(EstadoConexion.desconectado);
       _rechazarPendientes('conexión cerrada');
@@ -214,35 +242,35 @@ class ClienteRpc {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // Reconexión
+  // Reconexión exponencial
   // ═══════════════════════════════════════════════════════════
 
   void _programarReconexion() {
     if (_reintentos >= _maxReintentos) return;
     _reconectTimer?.cancel();
-    final delay = _reconectBase * (_reintentos + 1);
+    final delay = _baseDelay * (_reintentos + 1);
     _reconectTimer = Timer(delay, () {
       _reintentos++;
-      conectar();
+      conectar().catchError((_) {}); // el catch interno de conectar() ya maneja el error
     });
   }
 
   void _rechazarPendientes(String motivo) {
-    final error = RpcError(-32000, motivo);
+    final err = RpcError(-32000, motivo);
     for (final c in _pendientes.values) {
-      if (!c.isCompleted) c.completeError(error);
+      if (!c.isCompleted) c.completeError(err);
     }
     _pendientes.clear();
   }
 
   void _setEstado(EstadoConexion e) {
     _estado = e;
-    _estadoController.add(e);
+    _estadoCtrl.add(e);
   }
 
-  /// Libera recursos.
+  /// Libera todos los recursos.
   void dispose() {
     desconectar();
-    _estadoController.close();
+    _estadoCtrl.close();
   }
 }

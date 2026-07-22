@@ -396,7 +396,7 @@ class _CargandoRaiz extends StatelessWidget {
         ),
         SizedBox(height: 12 * s),
         Text(
-          'Consultando bauth.rol_template.children…',
+          'Consultando bauth.role.template.list…',
           style: TextStyle(fontSize: 11 * s, color: cs.mutedForeground),
         ),
       ],
