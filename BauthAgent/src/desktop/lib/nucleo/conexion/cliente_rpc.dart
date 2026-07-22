@@ -113,12 +113,16 @@ class ClienteRpc {
   // ═══════════════════════════════════════════════════════════
 
   /// Llama un método JSON-RPC y devuelve el `result`.
+  /// Auto-conecta si el socket no está listo (ej. primer uso tras cambio de config).
   Future<Map<String, dynamic>> llamar(
     String metodo, [
     Map<String, dynamic>? params,
   ]) async {
+    if (_estado != EstadoConexion.conectado) {
+      await conectar();
+    }
     if (_ws == null || _estado != EstadoConexion.conectado) {
-      throw RpcError(-32000, 'no conectado a bAuth');
+      throw RpcError(-32000, 'no conectado a bAuth — verifica el túnel SSH');
     }
 
     final id = _nextId++;

@@ -45,7 +45,7 @@ class _PanelConexionState extends ConsumerState<PanelConexion> {
 
   // ── Campos SSH ──────────────────────────────────────────────
   final _sshHost = TextEditingController(text: '13.140.128.230');
-  final _sshUsuario = TextEditingController(text: 'skull');
+  final _sshUsuario = TextEditingController(text: 'root');
   final _sshPassword = TextEditingController();
 
   // ── Campos Directo ──────────────────────────────────────────
