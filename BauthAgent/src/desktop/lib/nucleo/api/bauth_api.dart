@@ -144,7 +144,7 @@ class SoDResult {
 // ═══════════════════════════════════════════════════════════
 
 class BauthApi {
-  final ClienteRpc _rpc;
+  final IClienteRpc _rpc;
 
   BauthApi(this._rpc);
 
@@ -498,7 +498,7 @@ class _CacheArbolBD {
 
   /// Carga todos los templates si aún no fueron cargados.
   /// Llamadas concurrentes esperan a la misma petición en vuelo.
-  Future<void> cargar(ClienteRpc rpc, String tenantSlug) async {
+  Future<void> cargar(IClienteRpc rpc, String tenantSlug) async {
     if (_cargado) return;
     if (_enCurso != null) {
       await _enCurso!.future;

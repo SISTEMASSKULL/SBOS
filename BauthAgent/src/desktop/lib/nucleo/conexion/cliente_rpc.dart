@@ -39,9 +39,19 @@ enum EstadoConexion {
   error,
 }
 
+/// Interfaz mínima de cliente JSON-RPC 2.0.
+/// Implementada por ClienteRpc (TCP) y ClienteRpcSsh (SSH exec).
+abstract class IClienteRpc {
+  Stream<EstadoConexion> get estado;
+  Future<void> conectar();
+  void desconectar();
+  Future<Map<String, dynamic>> llamar(String metodo, [Map<String, dynamic>? params]);
+  void dispose();
+}
+
 /// Cliente JSON-RPC 2.0 de baja latencia via Socket TCP.
 /// Sin HTTP/WebSocket: petición → respuesta JSON directamente sobre TCP.
-class ClienteRpc {
+class ClienteRpc implements IClienteRpc {
   // ── Config ───────────────────────────────────────────────────
   final String _host;
   final int _puerto;
@@ -57,6 +67,7 @@ class ClienteRpc {
 
   // ── Estado ───────────────────────────────────────────────────
   final _estadoCtrl = StreamController<EstadoConexion>.broadcast();
+  @override
   Stream<EstadoConexion> get estado => _estadoCtrl.stream;
   EstadoConexion _estado = EstadoConexion.desconectado;
 
@@ -80,6 +91,7 @@ class ClienteRpc {
 
   /// Abre la conexión TCP al daemon (o al puerto local del túnel SSH).
   /// Lanza excepción si falla — el llamador ve el error real.
+  @override
   Future<void> conectar() async {
     if (_estado == EstadoConexion.conectando ||
         _estado == EstadoConexion.conectado) {
@@ -105,6 +117,7 @@ class ClienteRpc {
   }
 
   /// Cierra la conexión limpiamente.
+  @override
   void desconectar() {
     _reconectTimer?.cancel();
     _reconectTimer = null;
@@ -121,6 +134,7 @@ class ClienteRpc {
 
   /// Llama un método JSON-RPC y retorna el `result`.
   /// Auto-conecta si el socket no está listo.
+  @override
   Future<Map<String, dynamic>> llamar(
     String metodo, [
     Map<String, dynamic>? params,
@@ -269,6 +283,7 @@ class ClienteRpc {
   }
 
   /// Libera todos los recursos.
+  @override
   void dispose() {
     desconectar();
     _estadoCtrl.close();

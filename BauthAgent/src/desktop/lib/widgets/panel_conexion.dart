@@ -2,20 +2,23 @@
 // bauth_desktop · widgets/panel_conexion.dart
 //
 // Propósito: panel de conexión al daemon bAuth.
-//   Modo SSH  — la app crea el túnel internamente (dartssh2):
-//     VPS host + usuario + contraseña → forwardLocalUnix al socket.
-//     No se necesita terminal extra.
-//   Modo Directo — host:puerto convencional (ej. cuando el túnel
-//     SSH ya fue creado externamente con -L).
+//   Modo SSH  — la app crea la sesión SSH internamente (dartssh2):
+//     VPS host + usuario + contraseña → ClienteRpcSsh autenticado.
+//     Cada RPC usa SSH exec (sin bridge TCP, sin ServerSocket).
+//   Modo Directo — host:puerto TCP convencional (túnel externo).
 //
 // Ciclo: toggle modo → rellenar credenciales → Conectar
-//   → TunelSSH.iniciar() (modo SSH) → actualiza ConfigConexion
-//   → probar bauth.health.check.
+//   → TunelSSH.iniciar() (modo SSH) → clienteRpcSshProvider activo
+//   → probar bauth.health.check via SSH exec.
+//
+// Seguridad: contraseña SOLO en TextEditingController (widget state).
+//   NUNCA escrita en ConfigConexion, NUNCA persistida, NUNCA logueada.
 //
 // Dependencias: flutter_riverpod, tf_shadcn_flutter,
-//   nucleo/conexion/{config_conexion, prueba_conexion, tunel_ssh},
+//   nucleo/conexion/{config_conexion, prueba_conexion, tunel_ssh,
+//                    proveedor_conexion},
 //   widgets/{boton_primario, campo_texto}.
-// Estándar: ADR-020 · DOC-SBOS-001 N3.
+// Estándar: ADR-020 · NRS-10 · DOC-SBOS-001 N3.
 // ============================================================
 
 import 'dart:async';
@@ -25,6 +28,7 @@ import 'package:tf_shadcn_flutter/shadcn_flutter.dart';
 
 import '../nucleo/conexion/config_conexion.dart';
 import '../nucleo/conexion/prueba_conexion.dart';
+import '../nucleo/conexion/proveedor_conexion.dart';
 import '../nucleo/conexion/tunel_ssh.dart';
 import 'boton_primario.dart';
 import 'campo_texto.dart';
@@ -46,6 +50,7 @@ class _PanelConexionState extends ConsumerState<PanelConexion> {
   // ── Campos SSH ──────────────────────────────────────────────
   final _sshHost = TextEditingController(text: '13.140.128.230');
   final _sshUsuario = TextEditingController(text: 'root');
+  // Contraseña SOLO en memoria de widget — nunca en ningún otro lugar
   final _sshPassword = TextEditingController();
 
   // ── Campos Directo ──────────────────────────────────────────
@@ -71,6 +76,10 @@ class _PanelConexionState extends ConsumerState<PanelConexion> {
     _sshPassword.dispose();
     _hostDir.dispose();
     _puertoDir.dispose();
+    // Limpiar el cliente SSH del provider al destruir el panel
+    try {
+      ref.read(clienteRpcSshProvider.notifier).establecer(null);
+    } catch (_) {}
     unawaited(_tunel?.cerrar());
     super.dispose();
   }
@@ -83,20 +92,26 @@ class _PanelConexionState extends ConsumerState<PanelConexion> {
     try {
       await _tunel?.cerrar();
       _tunel = TunelSSH();
-      final port = await _tunel!.iniciar(
+      // Autenticar SSH — sin bridge TCP, sin ServerSocket
+      await _tunel!.iniciar(
         host: _sshHost.text.trim(),
         usuario: _sshUsuario.text.trim(),
         password: _sshPassword.text,
       );
-      // Apuntar ClienteRpc al puerto local del túnel
-      ref.read(configConexionProvider.notifier).fijarHost('127.0.0.1');
-      ref.read(configConexionProvider.notifier).fijarPuerto(port);
-      // Probar health.check sobre el túnel
-      if (mounted) ref.read(pruebaConexionProvider.notifier).probar();
+      // Crear cliente SSH exec y activarlo como cliente RPC
+      final clienteSsh = _tunel!.crearClienteRpc();
+      if (mounted) {
+        ref.read(clienteRpcSshProvider.notifier).establecer(clienteSsh);
+        // Probar health.check via SSH exec
+        ref.read(pruebaConexionProvider.notifier).probar();
+      }
     } catch (e) {
       _tunel = null;
-      final msg = 'SSH: ${e.toString().replaceAll('\n', ' ')}';
-      if (mounted) ref.read(pruebaConexionProvider.notifier).establecerError(msg);
+      if (mounted) {
+        ref.read(clienteRpcSshProvider.notifier).establecer(null);
+        final msg = 'SSH: ${e.toString().replaceAll('\n', ' ')}';
+        ref.read(pruebaConexionProvider.notifier).establecerError(msg);
+      }
     } finally {
       if (mounted) setState(() => _conectando = false);
     }
@@ -105,6 +120,8 @@ class _PanelConexionState extends ConsumerState<PanelConexion> {
   // ── Conexión Directa ─────────────────────────────────────────
 
   void _probarDirecto() {
+    // En modo directo, limpiar el cliente SSH y usar TCP
+    ref.read(clienteRpcSshProvider.notifier).establecer(null);
     ref.read(configConexionProvider.notifier).fijarHost(_hostDir.text.trim());
     ref.read(configConexionProvider.notifier).fijarPuerto(
         int.tryParse(_puertoDir.text) ?? 9450);
@@ -152,7 +169,7 @@ class _PanelConexionState extends ConsumerState<PanelConexion> {
               obscuro: true),
           const SizedBox(height: 16),
           BotonPrimario(
-            texto: _conectando ? 'Conectando túnel…' : 'Conectar vía SSH',
+            texto: _conectando ? 'Autenticando SSH…' : 'Conectar vía SSH',
             alPresionar: ocupado ? null : _conectarSSH,
           ),
         ] else ...[
@@ -171,9 +188,9 @@ class _PanelConexionState extends ConsumerState<PanelConexion> {
 
         const SizedBox(height: 14),
 
-        // Estado del túnel SSH (solo en modo SSH cuando hay túnel activo)
+        // Indicador SSH activo (solo en modo SSH cuando el túnel está activo)
         if (_modoSSH && _tunel != null && _tunel!.activo && !_conectando)
-          _IndicadorTunel(puerto: _tunel!.puertoLocal, cs: cs),
+          _IndicadorSsh(cs: cs),
 
         // Resultado del health check
         _Resultado(resultado: r),
@@ -250,12 +267,11 @@ class _Opcion extends StatelessWidget {
   }
 }
 
-// ── Indicador túnel activo ───────────────────────────────────
+// ── Indicador SSH activo ──────────────────────────────────────
 
-class _IndicadorTunel extends StatelessWidget {
-  final int puerto;
+class _IndicadorSsh extends StatelessWidget {
   final ColorScheme cs;
-  const _IndicadorTunel({required this.puerto, required this.cs});
+  const _IndicadorSsh({required this.cs});
 
   @override
   Widget build(BuildContext context) {
@@ -266,7 +282,7 @@ class _IndicadorTunel extends StatelessWidget {
         Icon(LucideIcons.shieldCheck, size: 12 * s, color: Colors.green.shade400),
         SizedBox(width: 5 * s),
         Text(
-          'Túnel activo → 127.0.0.1:$puerto',
+          'SSH activo — RPC vía exec',
           style: TextStyle(
             fontFamily: 'monospace',
             fontSize: 10 * s,

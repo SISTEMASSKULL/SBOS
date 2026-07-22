@@ -1,17 +1,17 @@
 // ============================================================
 // bauth_desktop · nucleo/conexion/prueba_conexion.dart
 //
-// Propósito: health check contra bAuth real usando el cliente
-//   persistente. Expone el resultado para la UI de estado.
+// Propósito: health check contra bAuth real usando el cliente activo.
+//   Usa clienteRpcActivoProvider: SSH exec si hay túnel SSH activo,
+//   TCP si está en modo directo. Expone el resultado para la UI.
 //
-// Dependencias: flutter_riverpod, cliente_rpc, config_conexion.
+// Dependencias: flutter_riverpod, proveedor_conexion.
 // Estándar: bauth.health.check (verificado VPS 2026-07-15).
 // ============================================================
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'cliente_rpc.dart';
-import 'config_conexion.dart';
+import 'proveedor_conexion.dart';
 
 /// Fase del intento de conexión.
 enum FaseConexion { inicial, probando, exitosa, fallida }
@@ -42,13 +42,13 @@ class PruebaConexionNotifier extends Notifier<ResultadoConexion> {
     state = ResultadoConexion(FaseConexion.fallida, mensaje);
   }
 
-  /// Conecta usando la ConfigConexion actual y ejecuta bauth.health.check.
+  /// Conecta usando el cliente activo y ejecuta bauth.health.check.
+  /// Usa SSH exec si hay un ClienteRpcSsh activo; TCP si no.
   Future<void> probar() async {
     state = const ResultadoConexion(FaseConexion.probando, 'Conectando…');
-    final cfg = ref.read(configConexionProvider);
-    final cliente = ClienteRpc(host: cfg.host, puerto: cfg.puerto);
+    final cliente = ref.read(clienteRpcActivoProvider);
     try {
-      await cliente.conectar();
+      await cliente.conectar(); // no-op para SSH
       final r = await cliente.llamar('bauth.health.check');
       final version = r['version'] ?? '?';
       final status = r['status'] ?? '?';
@@ -61,9 +61,9 @@ class PruebaConexionNotifier extends Notifier<ResultadoConexion> {
       );
     } catch (e) {
       state = ResultadoConexion(FaseConexion.fallida, e.toString());
-    } finally {
-      cliente.desconectar();
     }
+    // No desconectar: SSH exec no tiene estado persistente
+    //                 TCP: el cliente compartido permanece conectado para reutilizar
   }
 }
 
