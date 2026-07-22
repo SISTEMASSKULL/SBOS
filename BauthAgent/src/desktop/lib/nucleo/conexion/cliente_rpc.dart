@@ -75,7 +75,9 @@ class ClienteRpc {
   /// Inicia la conexión WebSocket al daemon.
   Future<void> conectar() async {
     if (_estado == EstadoConexion.conectando ||
-        _estado == EstadoConexion.conectado) return;
+        _estado == EstadoConexion.conectado) {
+      return;
+    }
 
     _setEstado(EstadoConexion.conectando);
 
@@ -93,8 +95,10 @@ class ClienteRpc {
       _setEstado(EstadoConexion.conectado);
       _reintentos = 0;
     } catch (e) {
+      _ws = null;
       _setEstado(EstadoConexion.error);
       _programarReconexion();
+      rethrow; // propagar el error real al llamador
     }
   }
 
@@ -162,7 +166,15 @@ class ClienteRpc {
 
   void _onMensaje(dynamic datos) {
     try {
-      final texto = utf8.decode(datos is List<int> ? datos : []);
+      // bAuth puede enviar tramas de texto (String) o binarias (List<int>)
+      final String texto;
+      if (datos is String) {
+        texto = datos;
+      } else if (datos is List<int>) {
+        texto = utf8.decode(datos);
+      } else {
+        return; // tipo inesperado, ignorar
+      }
       final resp = jsonDecode(texto) as Map<String, dynamic>;
       final id = resp['id'] as int?;
 
