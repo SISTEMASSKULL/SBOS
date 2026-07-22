@@ -31,6 +31,7 @@ import '../datos/atomlang_datos.dart';
 import '../datos/atomlang_normalizado_datos.dart';
 import '../datos/rol_template_datos.dart';
 import '../nucleo/api/bauth_api.dart';
+import '../nucleo/conexion/prueba_conexion.dart';
 import '../nucleo/conexion/proveedor_conexion.dart';
 import '../widgets/comunes/arbol_bd.dart';
 import '../widgets/comunes/arbol_sbos.dart';
@@ -318,7 +319,13 @@ class _PanelComparacion extends StatelessWidget {
             icono: LucideIcons.refreshCw,
             alTocar: alRecargar,
           ),
-          footerBD: PanelHelpBD(nodo: seleccionBD),
+          footerBD: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              PanelHelpBD(nodo: seleccionBD, alto: 65),
+              const _BarraConexionBD(),
+            ],
+          ),
           child: ArbolBD(
             key: ValueKey(claveArbol),
             cargarHijos: cargarHijos,
@@ -326,6 +333,84 @@ class _PanelComparacion extends StatelessWidget {
           ),
         )),
       ],
+    );
+  }
+}
+
+/// Barra de estado de conexión al pie del panel BD.
+/// Muestra en tiempo real el resultado del health check / error del túnel SSH.
+/// Se actualiza sola cuando cambia pruebaConexionProvider.
+class _BarraConexionBD extends ConsumerWidget {
+  const _BarraConexionBD();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final r = ref.watch(pruebaConexionProvider);
+    final cs = Theme.of(context).colorScheme;
+    final s = Theme.of(context).scaling;
+
+    final esFallida = r.fase == FaseConexion.fallida;
+    final esOK = r.fase == FaseConexion.exitosa;
+    final esProbando = r.fase == FaseConexion.probando;
+
+    final color = esFallida
+        ? cs.destructive
+        : esOK
+            ? Colors.green.shade400
+            : cs.mutedForeground;
+
+    final icono = esOK
+        ? LucideIcons.shieldCheck
+        : esProbando
+            ? LucideIcons.refreshCw
+            : LucideIcons.wifiOff;
+
+    final texto = esFallida
+        ? r.mensaje
+        : esOK
+            ? '${r.mensaje}  — si el árbol muestra error, pulsa Recargar'
+            : esProbando
+                ? 'Verificando conexión con bAuth…'
+                : 'Sin conexión  — configura el túnel SSH en el panel de conexión';
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: 10 * s, vertical: 6 * s),
+      decoration: BoxDecoration(
+        color: esFallida
+            ? cs.destructive.withValues(alpha: 0.07)
+            : cs.muted.withValues(alpha: 0.25),
+        border: Border(
+          top: BorderSide(
+            color: esFallida
+                ? cs.destructive.withValues(alpha: 0.4)
+                : cs.border,
+          ),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.only(top: 1 * s),
+            child: Icon(icono, size: 11 * s, color: color),
+          ),
+          SizedBox(width: 6 * s),
+          Expanded(
+            child: Text(
+              texto,
+              style: TextStyle(
+                fontFamily: esFallida ? 'monospace' : null,
+                fontSize: 9.5 * s,
+                color: color,
+                height: 1.45,
+              ),
+              maxLines: 5,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
