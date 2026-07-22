@@ -38,6 +38,7 @@ dependencies:
   web_socket_channel: ^3.0.3
   google_fonts: ^8.1.0
   tf_shadcn_flutter: ^0.0.53+1
+  dartssh2: ^2.22.3
 # Fija path_provider_android a la versión anterior a JNI (2.3.0+).
 # google_fonts → path_provider → path_provider_android 2.3.x arrastra jni
 # como plugin FFI de Windows, que falla sin JDK. 2.2.x usa method channels.

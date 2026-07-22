@@ -9,17 +9,21 @@
 
 import 'package:tf_shadcn_flutter/shadcn_flutter.dart';
 
-/// Campo de texto con etiqueta encima. Tipo de teclado configurable.
+/// Campo de texto con etiqueta encima. Tipo de teclado y modo contraseña configurables.
 class CampoTexto extends StatelessWidget {
   final String etiqueta;
   final TextEditingController controlador;
   final TextInputType tipo;
+
+  /// true → oculta los caracteres (campo contraseña).
+  final bool obscuro;
 
   const CampoTexto({
     super.key,
     required this.etiqueta,
     required this.controlador,
     this.tipo = TextInputType.text,
+    this.obscuro = false,
   });
 
   @override
@@ -30,7 +34,11 @@ class CampoTexto extends StatelessWidget {
       children: [
         Text(etiqueta, style: TextStyle(color: cs.mutedForeground, fontSize: 12)),
         const SizedBox(height: 6),
-        TextField(controller: controlador, keyboardType: tipo),
+        TextField(
+          controller: controlador,
+          keyboardType: tipo,
+          obscureText: obscuro,
+        ),
       ],
     );
   }

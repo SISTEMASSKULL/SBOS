@@ -11,6 +11,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'cliente_rpc.dart';
+import 'config_conexion.dart';
 
 /// Fase del intento de conexión.
 enum FaseConexion { inicial, probando, exitosa, fallida }
@@ -36,11 +37,16 @@ class PruebaConexionNotifier extends Notifier<ResultadoConexion> {
   @override
   ResultadoConexion build() => ResultadoConexion.inicial;
 
+  /// Publica un error sin ejecutar la prueba (usado por el túnel SSH).
+  void establecerError(String mensaje) {
+    state = ResultadoConexion(FaseConexion.fallida, mensaje);
+  }
+
+  /// Conecta usando la ConfigConexion actual y ejecuta bauth.health.check.
   Future<void> probar() async {
     state = const ResultadoConexion(FaseConexion.probando, 'Conectando…');
-
-    // Usar el cliente persistente en vez de crear uno nuevo por test
-    final cliente = ClienteRpc();
+    final cfg = ref.read(configConexionProvider);
+    final cliente = ClienteRpc(host: cfg.host, puerto: cfg.puerto);
     try {
       await cliente.conectar();
       final r = await cliente.llamar('bauth.health.check');
