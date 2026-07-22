@@ -226,7 +226,7 @@ class BauthApi {
     return _rpc.llamar('bauth.user.assign_role', {
       'user_uuid': userUuid,
       'role_id': roleId,
-      if (modo != null) 'mode': modo,
+      'mode': ?modo,
     });
   }
 
@@ -320,7 +320,7 @@ class BauthApi {
       'subject': sujeto,
       'resource': recurso,
       'action': verbo,
-      if (contexto != null) 'context': contexto,
+      'context': ?contexto,
     });
     return AccessResult.fromJson(r);
   }
@@ -368,4 +368,93 @@ class BauthApi {
   Future<Map<String, dynamic>> validarToken(String token) async {
     return _rpc.llamar('bauth.token.validate', {'token': token});
   }
+
+  // ── Árbol de políticas (idn_roles_template) ──────────────
+
+  /// Árbol completo de políticas para el tenant indicado.
+  /// Llama a bauth.rol_template.tree y construye la estructura anidada.
+  Future<List<NodoRolTemplateBD>> rolTemplateArbol({
+    String tenantSlug = 'skull',
+  }) async {
+    final r = await _rpc.llamar(
+      'bauth.rol_template.tree',
+      {'tenant_slug': tenantSlug},
+    );
+    final items = r['nodos'] as List<dynamic>? ?? [];
+    final planos = items
+        .map((e) => NodoRolTemplateBD.fromJson(e as Map<String, dynamic>))
+        .toList();
+    return _construirArbolBD(planos);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// Nodo BD y helpers de árbol
+// ═══════════════════════════════════════════════════════════
+
+/// Nodo del árbol de políticas almacenado en bauth.idn_roles_template.
+/// La estructura anidada se construye del resultado plano devuelto por la API.
+class NodoRolTemplateBD {
+  final String id;
+  final String? parentId;
+  final String path;
+  final String tipo;
+  final String clave;
+  final String nombre;
+  final String? valor;
+  final String? help;
+  final List<String> opciones;
+  final bool effect;
+  final String? verbId;
+  final int? domainNumber;
+  final int depth;
+  List<NodoRolTemplateBD> hijos;
+
+  NodoRolTemplateBD.fromJson(Map<String, dynamic> j)
+      : id = j['id'] ?? '?',
+        parentId = j['parent_id'],
+        path = j['path'] ?? '',
+        tipo = j['tipo'] ?? '?',
+        clave = j['clave'] ?? '?',
+        nombre = _nombreEs(j['name']),
+        valor = j['valor'],
+        help = j['help'],
+        opciones = (j['opciones'] as List<dynamic>?)?.cast<String>() ?? [],
+        effect = j['effect'] == true,
+        verbId = j['verb_id'],
+        domainNumber = j['domain_number'] as int?,
+        depth = j['depth'] ?? 0,
+        hijos = [];
+
+  /// Extrae el nombre en español del JSONB name (ej. {"es": "Acceso Lógico"}).
+  static String _nombreEs(dynamic name) {
+    if (name is Map<String, dynamic>) {
+      final es = name['es'];
+      if (es != null) return es.toString();
+      if (name.isNotEmpty) return name.values.first.toString();
+      return '?';
+    }
+    return name?.toString() ?? '?';
+  }
+}
+
+/// Construye árbol anidado desde lista plana usando parent_id.
+List<NodoRolTemplateBD> _construirArbolBD(List<NodoRolTemplateBD> planos) {
+  final mapa = {for (final n in planos) n.id: n};
+  final raices = <NodoRolTemplateBD>[];
+  for (final n in planos) {
+    if (n.parentId == null) {
+      raices.add(n);
+    } else {
+      mapa[n.parentId]?.hijos.add(n);
+    }
+  }
+  _ordenarBD(raices);
+  return raices;
+}
+
+/// Ordena nodos por path para comparación visual estable con el árbol fuente.
+void _ordenarBD(List<NodoRolTemplateBD> nodos) {
+  nodos.sort((a, b) => a.path.compareTo(b.path));
+  for (final n in nodos) { _ordenarBD(n.hijos); }
 }
