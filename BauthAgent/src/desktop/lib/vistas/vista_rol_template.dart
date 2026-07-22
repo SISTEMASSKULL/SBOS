@@ -56,10 +56,9 @@ class _VistaRolTemplateState extends ConsumerState<VistaRolTemplate> {
   bool _copiado = false;
 
   // ── Estado de comparación BD (tab 3) ──
-  List<NodoRolTemplateBD>? _arbolBD;
   NodoRolTemplateBD? _seleccionBD;
-  bool _cargandoBD = false;
-  String? _errorBD;
+  // Incrementar fuerza reconstrucción del ArbolBD (carga desde cero)
+  int _claveArbolBD = 0;
 
   /// Cambia el tab activo y limpia la selección actual.
   void _cambiarTab(int idx) {
@@ -97,31 +96,6 @@ class _VistaRolTemplateState extends ConsumerState<VistaRolTemplate> {
       _seleccion = n;
       _ruta = _calcularRuta(_arbolActivo, n, '');
     });
-  }
-
-  /// Carga el árbol desde bauth.idn_roles_template vía API JSON-RPC.
-  Future<void> _cargarDesdeDB() async {
-    setState(() {
-      _cargandoBD = true;
-      _errorBD = null;
-    });
-    try {
-      final api = ref.read(bauthApiProvider);
-      final arbol = await api.rolTemplateArbol();
-      if (mounted) {
-        setState(() {
-          _arbolBD = arbol;
-          _cargandoBD = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorBD = e.toString();
-          _cargandoBD = false;
-        });
-      }
-    }
   }
 
   /// Copia la ruta actual al portapapeles y activa el indicador visual por 2 s.
@@ -219,12 +193,15 @@ class _VistaRolTemplateState extends ConsumerState<VistaRolTemplate> {
         );
       case 3:
         return _PanelComparacion(
-          arbolBD: _arbolBD,
-          cargando: _cargandoBD,
-          error: _errorBD,
+          cargarHijos: (parentId) =>
+              ref.read(bauthApiProvider).rolTemplateHijos(parentId: parentId),
+          claveArbol: _claveArbolBD,
           seleccionBD: _seleccionBD,
           alSeleccionarBD: (n) => setState(() => _seleccionBD = n),
-          alCargar: _cargarDesdeDB,
+          alRecargar: () => setState(() {
+            _claveArbolBD++;
+            _seleccionBD = null;
+          }),
         );
       default:
         return _PlaceholderCompiladoTab(cs: cs);
@@ -300,26 +277,21 @@ class _PlaceholderCompiladoTab extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════
 
 /// Vista lado a lado: árbol Dart fuente (izq.) vs árbol live de la BD (der.).
-/// Permite verificar visualmente que el seed T-162 exportó correctamente.
+/// El árbol BD carga nodo a nodo — sin saturar la conexión.
 class _PanelComparacion extends StatelessWidget {
-  final List<NodoRolTemplateBD>? arbolBD;
-  final bool cargando;
-  final String? error;
+  final CargadorHijosBD cargarHijos;
+  final int claveArbol;
   final NodoRolTemplateBD? seleccionBD;
-  final ValueChanged<NodoRolTemplateBD> alSeleccionarBD;
-  final VoidCallback alCargar;
+  final ValueChanged<NodoRolTemplateBD?> alSeleccionarBD;
+  final VoidCallback alRecargar;
 
   const _PanelComparacion({
-    required this.arbolBD,
-    required this.cargando,
-    required this.error,
+    required this.cargarHijos,
+    required this.claveArbol,
     required this.seleccionBD,
     required this.alSeleccionarBD,
-    required this.alCargar,
+    required this.alRecargar,
   });
-
-  int _contar(List<NodoRolTemplateBD> ns) =>
-      ns.fold(0, (s, n) => s + 1 + _contar(n.hijos));
 
   int _contarFuente(List<NodoTemplate> ns) =>
       ns.fold(0, (s, n) => s + 1 + _contarFuente(n.hijos));
@@ -328,8 +300,6 @@ class _PanelComparacion extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final totalFuente = _contarFuente(arbolRolTemplate);
-    final totalBD = arbolBD != null ? _contar(arbolBD!) : null;
-    final iguales = totalBD != null && totalBD == totalFuente;
     return Row(
       children: [
         Expanded(child: _PanelArbol(
@@ -341,23 +311,18 @@ class _PanelComparacion extends StatelessWidget {
         Container(width: 1, color: cs.border),
         Expanded(child: _PanelArbol(
           titulo: 'BD · idn_roles_template',
-          subtitulo: totalBD != null
-              ? '$totalBD nodos ${iguales ? '✓ igual' : '≠ fuente ($totalFuente)'}'
-              : '—',
+          subtitulo: 'lazy nodo a nodo',
           color: Colors.teal.shade400,
           accion: BotonSbos(
-            cargando ? 'Cargando…' : 'Cargar BD',
-            icono: cargando ? null : LucideIcons.refreshCw,
-            alTocar: cargando ? null : alCargar,
+            'Recargar',
+            icono: LucideIcons.refreshCw,
+            alTocar: alRecargar,
           ),
           footerBD: PanelHelpBD(nodo: seleccionBD),
-          child: _CuerpoDerechoBD(
-            arbolBD: arbolBD,
-            cargando: cargando,
-            error: error,
-            seleccionBD: seleccionBD,
-            alSeleccionarBD: alSeleccionarBD,
-            alCargar: alCargar,
+          child: ArbolBD(
+            key: ValueKey(claveArbol),
+            cargarHijos: cargarHijos,
+            alSeleccionar: alSeleccionarBD,
           ),
         )),
       ],
@@ -418,95 +383,6 @@ class _PanelArbol extends StatelessWidget {
         Expanded(child: child),
         ?footerBD,
       ],
-    );
-  }
-}
-
-/// Cuerpo del panel derecho: loading / error / invitación / árbol BD.
-class _CuerpoDerechoBD extends StatelessWidget {
-  final List<NodoRolTemplateBD>? arbolBD;
-  final bool cargando;
-  final String? error;
-  final NodoRolTemplateBD? seleccionBD;
-  final ValueChanged<NodoRolTemplateBD> alSeleccionarBD;
-  final VoidCallback alCargar;
-
-  const _CuerpoDerechoBD({
-    required this.arbolBD,
-    required this.cargando,
-    required this.error,
-    required this.seleccionBD,
-    required this.alSeleccionarBD,
-    required this.alCargar,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final s = Theme.of(context).scaling;
-
-    if (cargando) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (error != null) {
-      return Center(
-        child: Padding(
-          padding: EdgeInsets.all(24 * s),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Icon(LucideIcons.wifiOff, size: 32 * s, color: cs.destructive.withValues(alpha: 0.7)),
-            SizedBox(height: 12 * s),
-            Text(
-              'Error al conectar con bAuth',
-              style: TextStyle(fontSize: 13 * s, fontWeight: FontWeight.w700, color: cs.foreground),
-            ),
-            SizedBox(height: 6 * s),
-            Text(
-              error!,
-              textAlign: TextAlign.center,
-              style: TextStyle(fontFamily: 'monospace', fontSize: 9.5 * s, color: cs.mutedForeground),
-            ),
-            SizedBox(height: 16 * s),
-            BotonSbos('Reintentar', icono: LucideIcons.refreshCw, alTocar: alCargar),
-          ]),
-        ),
-      );
-    }
-
-    if (arbolBD == null) {
-      return Center(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(LucideIcons.database, size: 36 * s, color: Colors.teal.shade400.withValues(alpha: 0.5)),
-          SizedBox(height: 12 * s),
-          Text(
-            'Árbol BD no cargado',
-            style: TextStyle(fontSize: 13 * s, fontWeight: FontWeight.w700, color: cs.foreground),
-          ),
-          SizedBox(height: 6 * s),
-          Text(
-            'Pulsa «Cargar BD» para leer bauth.idn_roles_template\nvía el daemon bAuth en ejecución.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 11 * s, height: 1.5, color: cs.mutedForeground),
-          ),
-          SizedBox(height: 16 * s),
-          BotonSbos('Cargar BD', icono: LucideIcons.database, alTocar: alCargar),
-        ]),
-      );
-    }
-
-    if (arbolBD!.isEmpty) {
-      return Center(
-        child: Text(
-          'Sin nodos en bauth.idn_roles_template — ejecuta el seed T-162.',
-          style: TextStyle(fontSize: 11.5 * s, color: cs.mutedForeground),
-        ),
-      );
-    }
-
-    return ArbolBD(
-      nodos: arbolBD!,
-      seleccionado: seleccionBD,
-      alSeleccionar: alSeleccionarBD,
     );
   }
 }

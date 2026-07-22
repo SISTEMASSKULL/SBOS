@@ -386,6 +386,22 @@ class BauthApi {
         .toList();
     return _construirArbolBD(planos);
   }
+
+  /// Hijos directos de [parentId] para carga lazy nodo a nodo.
+  /// Si [parentId] es null, devuelve los nodos raíz.
+  /// Llama a bauth.rol_template.children (método diferencial).
+  Future<List<NodoRolTemplateBD>> rolTemplateHijos({
+    String? parentId,
+    String tenantSlug = 'skull',
+  }) async {
+    final params = <String, dynamic>{'tenant_slug': tenantSlug};
+    if (parentId != null) params['parent_id'] = parentId;
+    final r = await _rpc.llamar('bauth.rol_template.children', params);
+    final items = r['nodos'] as List<dynamic>? ?? [];
+    return items
+        .map((e) => NodoRolTemplateBD.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
