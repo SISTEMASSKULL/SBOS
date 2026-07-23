@@ -1,5 +1,5 @@
 # A.67 — Bloque Zona de Negocios del RolTemplate
-**Versión:** 1.1.0 · **Fecha:** 2026-07-20
+**Versión:** 1.2.0 · **Fecha:** 2026-07-23
 **Bloque canónico:** `Zona de Negocios` · presente en **todos los dominios D01–D13 y D98/D99**
 **Fuente normativa:** NGAC INCITS 565-2020 · SABSA SCF · ISO/IEC 27001:2022 A.5.15 · NIST SP 800-207 · XACML 3.0
 
@@ -30,7 +30,7 @@ normativos de seguridad empresarial:
 | **NGAC INCITS 565-2020 §4** | Policy Class (PC) | Contenedor de nodos OA que define el perímetro de una política. Una zona = un PC. La membresía es un edge estructural, no una propiedad. |
 | **SABSA SCF (Sherwood Applied Business Security Architecture)** | Business Zone | Agrupación de activos de negocio bajo un conjunto común de controles de seguridad. Cada zona tiene su propia política. |
 | **ISO/IEC 27001:2022 A.5.15** | Access Control — Segregación | Las zonas de negocio son unidades de segregación de acceso. Un activo pertenece a una zona, y la zona define quién accede. |
-| **NIST SP 800-207 §3.3** | Enterprise Resource Zone | En Zero Trust, los recursos se agrupan en zonas según sensibilidad. El motor de políticas (PDP) opera por zona. |
+| **NIST SP 800-207 §3.3** | Recursos empresariales — protección individual | En ZTA no existe perímetro de red de confianza: cada recurso se protege individualmente bajo su propia política de acceso. El PDP evalúa cada solicitud usando atributos del recurso, del sujeto y del contexto (no la ubicación de red). La Zona de Negocios implementa este principio: un perímetro lógico por aplicación, evaluado solicitud por solicitud. |
 | **XACML 3.0 §5.2** | PolicySet con Target | Cada zona es un PolicySet con un Target que delimita su alcance. Solo políticas compatibles con ese target son válidas dentro. |
 | **NIST SP 800-162** | Object Attribute (OA) | En ABAC, los recursos tienen atributos de entorno que los ubican en una zona. |
 
@@ -240,7 +240,7 @@ D07 · bnotify     · network_seg  · allow   → D07.bnotify.network_seg.allow
 | NGAC INCITS 565-2020 §4 | Zona = Policy Class (PC) — nodo raíz de perímetro |
 | SABSA SCF | Business Zone — agrupación de activos bajo política común |
 | ISO/IEC 27001:2022 A.5.15 | Segregación de acceso por zona de negocio |
-| NIST SP 800-207 §3.3 | Enterprise Resource Zone (Zero Trust) |
+| NIST SP 800-207 §3.3 | Protección individual de recursos ZTA — sin perímetro de red. La Zona de Negocios es el perímetro lógico por aplicación que materializa este principio. |
 | XACML 3.0 §5.2 | PolicySet con Target — solo políticas compatibles son válidas |
 | NIST SP 800-162 | ABAC — Object Attribute ubica recurso en zona |
 | NIST AC-3 | Aplicación del control de acceso |
@@ -256,3 +256,4 @@ D07 · bnotify     · network_seg  · allow   → D07.bnotify.network_seg.allow
 |---------|-------|--------|
 | 1.0.0 | 2026-07-20 | Creación — arquitectura inicial: Zona=App, jerarquía Tryton, 5 apps D01 |
 | 1.1.0 | 2026-07-20 | **Corrección de nombre**: bloque pasa a llamarse `Zona de Negocios` (Business Zone — NGAC/SABSA/ISO 27001). Formalización de regla global: todos los dominios D01–D13/D98/D99 tienen un bloque Zona de Negocios. Regla de validación estructural: solo acepta nodos `politica` de aplicación con Z0 de identidad. Tabla de prefijos por dominio. Niveles internos por dominio (D02–D13). |
+| 1.2.0 | 2026-07-23 | **Corrección de cita NIST SP 800-207 §3.3**: eliminado el término "Enterprise Resource Zone" (no existe en el documento NIST). Reemplazado por la descripción exacta del principio ZTA: protección individual de recursos sin perímetro de red, PDP evalúa por atributos del recurso/sujeto/contexto. Corrección aplicada en §2 (tabla) y §9 (normas aplicables). |

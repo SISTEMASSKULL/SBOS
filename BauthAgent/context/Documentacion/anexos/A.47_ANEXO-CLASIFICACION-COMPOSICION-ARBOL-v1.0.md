@@ -103,6 +103,8 @@ XACML 3.0 no tiene un equivalente directo para "declaración de grupo de roles r
 | R-D98-03 | D98 no lleva badge `[POLICYSET]` ni `combining_algorithm` — es estructural, no evaluable |
 | R-D98-04 | Un rol puede pertenecer a múltiples Sets simultáneamente (relación N:M en `bauth.privilege_role_set_member` *(propuesta)*) |
 | R-D98-05 | Eliminar un Set de D98 requiere verificar que ningún Atom lo referencia — el compilador detecta la referencia huérfana |
+| R-D98-06 | `UNSET` en un nodo declara los roles que NO pueden ver ni recibir ese nodo aunque pertenezcan al SET que lo incluye. El compilador evalúa `UNSET` **con prioridad** sobre `subject.set_id`. Cada rol en `UNSET` DEBE existir en `bauth.idn_role_template` (ATOMC-E-062 si no existe) |
+| R-D98-07 | Si un rol aparece simultáneamente en `UNSET` de un nodo Y como miembro del `SET` referenciado en `subject.set_id` del mismo nodo, el compilador emite ATOMC-W-032 (contradicción explícita — `UNSET` prevalece y el rol queda excluido) |
 
 ### §3.3 Ciclo de vida de un Set (D98) vs. ciclo de vida de un Atom
 

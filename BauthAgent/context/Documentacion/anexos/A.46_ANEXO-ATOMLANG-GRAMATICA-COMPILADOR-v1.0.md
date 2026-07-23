@@ -58,7 +58,11 @@ atom_decl           = "-" "atom_id" ":" identificador ,
 (* ── Target ── *)
 target              = "subject" ":" subject ,
                       "resource" ":" resource_ref ,
-                      [ "environment" ":" "[" { atributo_ref } "]" ] ;
+                      [ "environment" ":" "[" { atributo_ref } "]" ] ,
+                      [ "UNSET"       ":" "[" rol_ref { "," rol_ref } "]" ] ;
+                      (* UNSET: roles excluidos explícitamente de ver o recibir este nodo,
+                         aunque pertenezcan al SET declarado en subject. Evaluado con
+                         prioridad sobre subject.set_id. Ver §3.2 R-D98-06/R-D98-07 en A.47 *)
 
 subject             = "kind" ":" ( "ROL" | "SET" | "ANY" ) ,
                       [ "role_id" ":" rol_ref ]            (* si kind=ROL *)
@@ -310,6 +314,7 @@ El `data_type` de cada `property_id` está registrado en `bauth.privilege_attrib
 | ATOMC-E-043 | Semantic | `value` código de moneda literal (BOB, USD, EUR, etc.) en campo CURRENCY | Moneda hardcodeada — varía por tenant/región | Reemplazar con `@bauth_config_param.moneda_legal` |
 | ATOMC-E-051 | Semantic | `effect.decision` con valor distinto de Permit/Deny | Tercer valor de Effect no existe en XACML | Usar solo `Permit` o `Deny`; matices en `obligation` |
 | ATOMC-E-061 | Emitter | `property_id` resuelto pero `data_type` desconocido en catálogo | El atributo existe pero sin tipo registrado | Registrar `data_type` en `bauth.privilege_attribute *(propuesta)*` |
+| ATOMC-E-062 | Semantic | `UNSET` contiene un `rol_ref` que no existe en `bauth.idn_role_template` | El rol excluido no está registrado | Registrar el rol o corregir el identificador en `UNSET` |
 
 ### §4.2 Warnings — compilación continúa (ATOMC-W-xxx)
 
@@ -319,6 +324,7 @@ El `data_type` de cada `property_id` está registrado en `bauth.privilege_attrib
 | ATOMC-W-012 | Semantic | Policy con 1 solo Atom y `combining_algorithm` declarado | El algoritmo no tiene efecto con un solo Atom | Verificar si falta un segundo Atom o si se puede simplificar |
 | ATOMC-W-021 | Semantic | Mismo `set_id` repetido en 2+ Atoms hermanos sin diferencia de `operator` | Posible duplicación de Rule | Revisar si los Atoms son realmente distintos |
 | ATOMC-W-031 | Semantic | Atom con `subject.kind: ROL` y el mismo rol listado en un Set del D98 | El Set ya agrupa ese rol — la Rule de rol individual puede ser redundante | Considerar usar `subject.kind: SET` apuntando al Set existente |
+| ATOMC-W-032 | Semantic | Un rol aparece en `UNSET` del nodo Y como miembro del `SET` referenciado en `subject.set_id` del mismo nodo | Contradicción explícita — `UNSET` prevalece y el rol queda excluido | Revisar si la pertenencia al SET es correcta o si `UNSET` es redundante |
 
 ### §4.3 Formato estándar del diagnóstico
 

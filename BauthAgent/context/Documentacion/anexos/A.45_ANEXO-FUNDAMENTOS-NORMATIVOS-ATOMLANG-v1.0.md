@@ -139,7 +139,7 @@ Un evaluador que ejecute la Condition antes de confirmar el Target-gate produce 
 | `NotApplicable` | XACML §7.3 | Target No-Match — el Atom no aplica a esta solicitud |
 | `Indeterminate` | XACML §7.3 | Error durante evaluación (PIP falla, atributo faltante, tipo inválido) |
 
-*Consecuencia para auditoría:* los cuatro valores deben registrarse en `bos_atom_audit` (WORM). Un `Indeterminate` no registrado es un vector de auditoría ciego — si el PIP falla al resolver un atributo, el sistema debe registrar que no pudo decidir, no fallar silenciosamente a un default.
+*Consecuencia para auditoría:* los cuatro valores deben registrarse en `privilege_atom_audit` (WORM). Un `Indeterminate` no registrado es un vector de auditoría ciego — si el PIP falla al resolver un atributo, el sistema debe registrar que no pudo decidir, no fallar silenciosamente a un default.
 
 ---
 

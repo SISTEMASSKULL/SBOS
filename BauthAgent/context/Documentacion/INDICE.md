@@ -159,6 +159,7 @@ curada para consulta sin fricción. Índice, patrón canónico y plan: [anexos/I
 | **Sustentación A.16–A.40 (25 anexos)** — verificación de código real de todos los manuales: protocolos, BitMask, frontend, superficie, OIDC, dominios, RLS, validadores, sqlx, calidad, riesgo, auditoría, DPoP, operación, IGA, atributos, aplicaciones, motor, D99, calendario, menú, datos, CAEP, CLI, producto | [INDICE-ANEXOS §2-§3.1](anexos/INDICE-ANEXOS.md) | ✅ **COBERTURA TOTAL** (36/36 manuales) |
 | **AtomLang A.45–A.51 (7 anexos)** — respaldo normativo y técnico de los manuales 2.13 y 2.14. | [INDICE-ANEXOS §2](anexos/INDICE-ANEXOS.md) | ✅ |
 | **Identidad + Motor de Roles A.52–A.63 (10 anexos)** — A.52 Tipos y Dominios · A.53 Capas Acumulativas · A.54 Catálogo Autopartes · A.55 Catálogo Automotriz · A.56 Diseño BD Identidad · A.57 Rendimiento Identidad · A.59 Tipos de Átomos (6,000, BitMask) · A.60 Ciclo Vida Átomos (DAG, merge) · A.61 Diseño BD Roles · A.62 Rendimiento Roles · A.63 Objetos Compuestos (Composite GoF, 3 árboles) | [INDICE-ANEXOS §2](anexos/INDICE-ANEXOS.md) | ✅ 2.1.0 |
+| **A.64 Maquetas Desktop** · **[A.65 — Inventario Tablas DDL](anexos/A.65_ANEXO-INVENTARIO-TABLAS-DDL-v1.0.md)** · **[A.65.01 — Guía Desarrollo Tablas](anexos/A.65.01_ANEXO-GUIA-DESARROLLO-TABLAS-DDL-v1.0.md)** · **[A.65.02 — Nueva DDL · 32 tablas base (GLOBAL/TENANT/ROLES/VERSIONADO/IDENTIDAD)](anexos/A.65.02_ANEXO-NUEVA-DDL-v1.0.md)** — inventario limpio de partida para el diseño DDL desde cero | 5.01 · 1.13 · A.65 · A.61 · A.56 | ✅ 1.0.0 |
 
 ---
 

@@ -1,12 +1,35 @@
 # A.48 — Parametrización `bauth_config_param`
 ## Tipo B+C+A — Fundamento normativo, diseño técnico y especificación del catálogo de parámetros del PIP de bAuth
 
-**Versión:** 1.0.2  
-**Fecha:** 2026-07-14  
+**Versión:** 1.1.0  
+**Fecha:** 2026-07-20  
 **Tipo de anexo:** B (normativo/industria) + C (justificación técnica) + A (SSOT del catálogo propuesto)  
 **Respalda a:** [2.13 MANUAL-ATOMLANG v2.0 §5.2](../2.13_MANUAL-ATOMLANG-LENGUAJE-v2.0.md) — vocabularios cerrados y @bauth_config_param · [2.14 MANUAL-COMPOSICION §9](../2.14_MANUAL-COMPOSICION-ARBOL-v1.0.md) — parametrización en el árbol  
 **Normas base:** NIST SP 800-162 §5 (PIP) · XACML 3.0 §7.2 (attribute retrieval) · ISO 27001:2022 A.5.15 (access control policy)  
-**Estado de implementación:** L0 — concepto definido, sin DDL aplicado
+**Estado de implementación:** L0 — concepto definido · **DDL del §5 REEMPLAZADO — ver decisión arquitectónica §1.1**
+
+---
+
+## §1.1 Decisión arquitectónica — DDL §5 REEMPLAZADO (2026-07-20)
+
+> **`bauth_config_param` no es una tabla nueva.** El DDL propuesto en §5 de este documento queda **reemplazado** por tablas ya existentes en el inventario A.65.02.
+
+**Decisión:** Los parámetros del PIP `@bauth_config_param` se almacenan en las tablas ya definidas del proyecto:
+
+| `scope` del parámetro | Tabla destino | Código A.65.02 | Por qué |
+|---|---|---|---|
+| `global` | `bglobal.global_config` | T-114 | Parámetros del sistema cross-daemon (suelo: NIST, SIN Bolivia, límites de seguridad estándar). Aplica a todos los daemons y aplicaciones. |
+| `tenant` | `bauth.idn_tenant_config` | T-009 | Parámetros específicos de la organización cliente (techo y piso que cada tenant define: `approval_threshold_*`, `moneda_legal`, `geo_drift_tolerance_km`). |
+
+**Qué cambia:**
+- La tabla `bauth.bauth_config_param` y la tabla `bauth.bauth_param_audit` del §5 **no se crearán**.
+- La cadena de precedencia global → tenant del §5.1 **sigue vigente**, pero resuelta sobre T-114 → T-009.
+- El catálogo de 20 parámetros (§3.2), la sintaxis `@bauth_config_param.*` (§4) y la gobernanza del ciclo de cambio (§6) **permanecen válidos** — solo cambia la implementación DDL.
+
+**Qué NO cambia:**
+- El compilador `atomc` sigue generando `{"type": "pip_ref", "source": "bauth_config_param", "key": "..."}` en el IR.
+- El PDP sigue resolviendo `@bauth_config_param.<clave>` en runtime.
+- Los errores ATOMC-E-042 y ATOMC-E-043 siguen siendo obligatorios.
 
 ---
 
@@ -165,9 +188,14 @@ value: "@bauth_config_param.moneda_legal"
 
 ---
 
-## §5 DDL propuesto para `bauth_config_param`
+## §5 DDL propuesto para `bauth_config_param` *(REEMPLAZADO — ver §1.1)*
 
-**Estado:** L0 — diseñado, sin aplicar. Requiere HITL antes de crear la migración.
+> ⚠️ **SUPERSEDIDO por decisión arquitectónica §1.1 (2026-07-20).**  
+> Las tablas `bauth.bauth_config_param` y `bauth.bauth_param_audit` definidas aquí **no se crearán**.  
+> Los parámetros `scope='global'` van en `bglobal.global_config` (T-114) y los `scope='tenant'` van en `bauth.idn_tenant_config` (T-009).  
+> Este §5 se conserva como **referencia del esquema de columnas y los datos seed** — sirve de guía para mapear los 20 parámetros del §3.2 a T-009 / T-114 durante la migración.
+
+**Estado original:** L0 — diseñado, sin aplicar. La migración aplica directamente a T-009 y T-114.
 
 ```sql
 -- ============================================================
@@ -317,9 +345,10 @@ Si la consulta retorna resultados, el parámetro no puede desactivarse hasta que
 | Componente | Estado | Observación |
 |---|---|---|
 | Concepto `bauth_config_param` definido | ✅ L0 | Este anexo es la definición canónica |
-| DDL `bauth_config_param` diseñado | ✅ L0 | §5 de este anexo — sin aplicar |
-| DDL `bauth_param_audit` diseñado | ✅ L0 | §5 de este anexo — sin aplicar |
-| Catálogo inicial de parámetros (20 entries) | ✅ L0 | §3.2 de este anexo — sin datos en BD |
+| DDL `bauth_config_param` + `bauth_param_audit` | ~~diseñado~~ **REEMPLAZADO** | Ver §1.1 — los datos van en T-009 y T-114 (A.65.02). No se crea tabla separada. |
+| T-009 `bauth.idn_tenant_config` como PIP tenant | ✅ Definido en A.65.02 | Parámetros `scope='tenant'`: approval thresholds, moneda, geo_drift, session timeouts |
+| T-114 `bglobal.global_config` como PIP global | ✅ Definido en A.65.02 | Parámetros `scope='global'`: NIST, SIN Bolivia, max_sessions, risk thresholds |
+| Catálogo inicial de parámetros (20 entries) | ✅ L0 | §3.2 de este anexo — mapeo a T-009/T-114 pendiente de migración HITL |
 | Resolución PIP en evaluador (PDP nativo) | ❌ L0 | Requiere `atomc` implementado primero |
 | Referenciación `@bauth_config_param.*` en `atomc` parser | ❌ L0 | Requiere `atomc` implementado |
 | ATOMC-E-042/043 enforcement | ❌ L0 | Requiere `atomc` implementado |
@@ -344,6 +373,7 @@ Si la consulta retorna resultados, el parámetro no puede desactivarse hasta que
 
 | Versión | Fecha | Descripción |
 |---------|-------|-------------|
+| 1.1.0 | 2026-07-20 | **Decisión arquitectónica:** DDL §5 (`bauth_config_param` + `bauth_param_audit`) REEMPLAZADO. Los 20 parámetros del catálogo se almacenan en tablas ya definidas: `scope='tenant'` → T-009 `bauth.idn_tenant_config`; `scope='global'` → T-114 `bglobal.global_config`. Añadido §1.1 con tabla de decisión. §5 y §7 actualizados. Cabecera de estado actualizada. El concepto PIP, el catálogo y la sintaxis `@bauth_config_param.*` permanecen sin cambio. |
 | 1.0.2 | 2026-07-14 | Actualización de cabecera: referencia a 2.13 v2.0. Sin cambios en el cuerpo. |
 | 1.0.1 | 2026-07-13 | Correcciones por revisión: reemplazadas referencias `bos_*` inventadas — `bos_atom_compiled` → `bauth.privilege_atom_compiled *(propuesto)*` en consulta SQL §2 y en inventario §3.3; `bos_rol` → `bauth.privilege_role`; `bos_resource_catalog` → `bauth.privilege_resource *(propuesta)*`. Nota: las apariciones de `bos_config_param` en §1 (párrafo justificativo) y en el historial de v1.0.0 se conservan intencionalmente — son el texto canónico que justifica por qué NO se usa ese nombre. |
 | 1.0.0 | 2026-07-13 | Primera edición. Define `bauth_config_param` como fuente PIP para valores de negocio configurables: 20 parámetros iniciales en §3.2 (AMOUNT, CURRENCY, INTEGER, NUMERIC_PERCENT, BOOLEAN), DDL completo con `bauth_param_audit` WORM, cadena de precedencia global→tenant→domain, gobernanza con rol `IAM_PARAM_ADMIN`, ciclo de cambio sin recompilación del árbol. Normas base: NIST SP 800-162 §5 (PIP authority), XACML 3.0 §7.2 (attribute retrieval), ISO 27001:2022 A.5.15 (access control policy basada en requisitos de negocio). Naming `bauth_config_param` (no `bos_config_param`) justificado en §1 párrafo final. Estado L0 — sin aplicar. |
