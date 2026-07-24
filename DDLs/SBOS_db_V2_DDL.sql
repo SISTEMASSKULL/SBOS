@@ -1340,9 +1340,21 @@ CREATE TABLE IF NOT EXISTS bauth.idn_roles_rol_hierarchical (
     is_inheritable           BOOLEAN              NOT NULL DEFAULT true,
     status                   rol_status_enum      NOT NULL DEFAULT 'ACTIVE',
     version                  TEXT                 NOT NULL DEFAULT '1.0',
-    sector_caeb              TEXT,
     ial_min                  ial_level_enum       DEFAULT 'IAL1',
-    metadata_b1              JSONB                DEFAULT '{}',
+    metadata_b1              JSONB                NOT NULL DEFAULT '{
+      "nist_rbac_level":         null,
+      "caeb_code":               null,
+      "description_long":        null,
+      "department":              null,
+      "cost_center":             null,
+      "region":                  null,
+      "territory_code":          null,
+      "job_family":              null,
+      "job_level":               null,
+      "max_subordinates":        null,
+      "required_certifications": [],
+      "reporting_line":          null
+    }'::jsonb,
     template_id              UUID,
     role_owner_id            UUID                 REFERENCES bauth.idn_identidad_entidad(entidad_id) ON DELETE SET NULL,
     category_id              UUID                 REFERENCES bauth.idn_roles_rol_category(category_id),
@@ -1381,7 +1393,23 @@ COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.tier                   IS '[E
 COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.description            IS '[JSONB] {"es":"...","en":"..."} — descripción bilingüe del rol.';
 COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.is_inheritable         IS 'true = sus privilegios se heredan a roles hijos en el DAG.';
 COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.template_id            IS 'FK DEFERRED a bauth.idn_roles_template(id) — nodo DOMAIN que rige este rol.';
-COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.metadata_b1            IS '[B1 de SBOS-ROLTEMPLATE-v6_0] Metadatos del bloque 1: {nist_rbac_level, caeb_code, description_long}.';
+COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.metadata_b1            IS
+  '[B1 de SBOS-ROLTEMPLATE-v6_0] Metadatos organizacionales del rol — estructura canónica única
+   (no duplicar en columnas separadas). Keys:
+     nist_rbac_level         INTEGER   — nivel IAL del rol (1=IAL1, 2=IAL2, 3=IAL3) · NIST SP 800-63-4
+     caeb_code               TEXT      — sector CAEB SIN Bolivia (ej: "CAEB-J") · único punto de verdad
+     description_long        JSONB     — descripción extendida {"es":"...","en":"..."} — más detallada que description
+     department              TEXT      — departamento organizacional del tenant
+     cost_center             TEXT      — centro de costo del tenant
+     region                  TEXT      — región geográfica (ej: "BO-LP")
+     territory_code          TEXT      — código de territorio
+     job_family              TEXT      — familia de puesto (ej: "technology", "finance")
+     job_level               TEXT      — nivel de puesto (I1-I5 individual / M1-M5 manager / D1-D3 director)
+     max_subordinates        INTEGER   — máximo de subordinados directos en el org chart
+     required_certifications JSONB[]   — certificaciones requeridas para portar este rol
+     reporting_line          TEXT      — rol al que reporta (code del rol superior en el org chart)
+   Los keys con null se completan durante el onboarding del tenant.
+   caeb_code y nist_rbac_level se derivan automáticamente al crear el rol.';
 COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.role_owner_id          IS '[NIST AC-2(7)] Propietario humano del rol — obligatorio para roles privilegiados.';
 COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.category_id            IS '[IGA] FK a T-191 — categoría de gobernanza (BUSINESS, PRIVILEGED, SERVICE, etc.).';
 COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.risk_classification    IS '[NIST RA-3] [ISO 27005] Clasificación de riesgo del rol: LOW, MEDIUM, HIGH, CRITICAL.';
