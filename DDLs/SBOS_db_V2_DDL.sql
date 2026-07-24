@@ -1365,22 +1365,53 @@ CREATE TABLE IF NOT EXISTS bauth.idn_roles_rol_hierarchical (
     last_reviewed_at         TIMESTAMPTZ,
     next_review_at           TIMESTAMPTZ,
     approval_required        BOOLEAN              NOT NULL DEFAULT false,
+    -- B01 §audit (G-B01-06/07) — trazabilidad del artefacto
+    created_by               UUID                 REFERENCES bauth.idn_identidad_entidad(entidad_id) ON DELETE SET NULL,
+    updated_by               UUID                 REFERENCES bauth.idn_identidad_entidad(entidad_id) ON DELETE SET NULL,
+    version_number           INTEGER              NOT NULL DEFAULT 0,
     created_at               TIMESTAMPTZ          NOT NULL DEFAULT now(),
     updated_at               TIMESTAMPTZ          NOT NULL DEFAULT now(),
+    -- B01 §digital_signature (G-B01-08) — firma del contrato del rol (motor pendiente)
+    digital_signature        JSONB                NOT NULL DEFAULT '{
+        "algorithm":            "EdDSA_Ed25519",
+        "signature":            null,
+        "signed_at":            null,
+        "signed_by":            null,
+        "certificate_id":       null,
+        "post_quantum_planned": true
+    }'::jsonb,
     UNIQUE (tenant_id, code)
 );
 
-CREATE INDEX IF NOT EXISTS idx_irrh_tenant    ON bauth.idn_roles_rol_hierarchical(tenant_id, status);
-CREATE INDEX IF NOT EXISTS idx_irrh_parent    ON bauth.idn_roles_rol_hierarchical(parent_id);
-CREATE INDEX IF NOT EXISTS idx_irrh_tier      ON bauth.idn_roles_rol_hierarchical(tenant_id, tier);
-CREATE INDEX IF NOT EXISTS idx_irrh_type      ON bauth.idn_roles_rol_hierarchical(type_id);
-CREATE INDEX IF NOT EXISTS idx_irrh_template  ON bauth.idn_roles_rol_hierarchical(template_id)    WHERE template_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_irrh_name      ON bauth.idn_roles_rol_hierarchical USING GIN (name jsonb_path_ops);
-CREATE INDEX IF NOT EXISTS idx_irrh_owner     ON bauth.idn_roles_rol_hierarchical(role_owner_id)  WHERE role_owner_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_irrh_risk      ON bauth.idn_roles_rol_hierarchical(tenant_id, risk_classification);
-CREATE INDEX IF NOT EXISTS idx_irrh_category  ON bauth.idn_roles_rol_hierarchical(category_id);
-CREATE INDEX IF NOT EXISTS idx_irrh_review    ON bauth.idn_roles_rol_hierarchical(next_review_at) WHERE next_review_at IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_irrh_label     ON bauth.idn_roles_rol_hierarchical(tenant_id, sensitivity_label);
+CREATE INDEX IF NOT EXISTS idx_irrh_tenant     ON bauth.idn_roles_rol_hierarchical(tenant_id, status);
+CREATE INDEX IF NOT EXISTS idx_irrh_parent     ON bauth.idn_roles_rol_hierarchical(parent_id);
+CREATE INDEX IF NOT EXISTS idx_irrh_tier       ON bauth.idn_roles_rol_hierarchical(tenant_id, tier);
+CREATE INDEX IF NOT EXISTS idx_irrh_type       ON bauth.idn_roles_rol_hierarchical(type_id);
+CREATE INDEX IF NOT EXISTS idx_irrh_template   ON bauth.idn_roles_rol_hierarchical(template_id)    WHERE template_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_irrh_name       ON bauth.idn_roles_rol_hierarchical USING GIN (name jsonb_path_ops);
+CREATE INDEX IF NOT EXISTS idx_irrh_owner      ON bauth.idn_roles_rol_hierarchical(role_owner_id)  WHERE role_owner_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_irrh_risk       ON bauth.idn_roles_rol_hierarchical(tenant_id, risk_classification);
+CREATE INDEX IF NOT EXISTS idx_irrh_category   ON bauth.idn_roles_rol_hierarchical(category_id);
+CREATE INDEX IF NOT EXISTS idx_irrh_review     ON bauth.idn_roles_rol_hierarchical(next_review_at) WHERE next_review_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_irrh_label      ON bauth.idn_roles_rol_hierarchical(tenant_id, sensitivity_label);
+CREATE INDEX IF NOT EXISTS idx_irrh_created_by ON bauth.idn_roles_rol_hierarchical(created_by)     WHERE created_by IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_irrh_updated_by ON bauth.idn_roles_rol_hierarchical(updated_by)     WHERE updated_by IS NOT NULL;
+
+-- Trigger B01 G-B01-06: auto-incrementa version_number en cada UPDATE real
+CREATE OR REPLACE FUNCTION bauth.fn_irrh_version_bump()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+    NEW.version_number := OLD.version_number + 1;
+    NEW.updated_at     := now();
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_irrh_version_bump
+    BEFORE UPDATE ON bauth.idn_roles_rol_hierarchical
+    FOR EACH ROW
+    WHEN (OLD.* IS DISTINCT FROM NEW.*)
+    EXECUTE FUNCTION bauth.fn_irrh_version_bump();
 
 COMMENT ON TABLE bauth.idn_roles_rol_hierarchical IS
   '[NIST RBAC N3] [ANSI INCITS 359] [SCIM RFC 7643] [IGA] [A.65.02 T-041]
@@ -1418,6 +1449,10 @@ COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.business_justification IS '[I
 COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.max_simultaneous_holders IS '[NIST AC-5] [PCI DSS 7.2] Máximo de titulares simultáneos — NULL=sin límite.';
 COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.next_review_at         IS '[IGA access review] Fecha del próximo ciclo de certificación de acceso.';
 COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.approval_required      IS '[PCI DSS 7.1] true = requiere aprobación formal antes de asignación.';
+COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.created_by             IS '[B01 §audit G-B01-07] [ISO 27001 A.8.15] Entidad que creó este rol — FK a idn_identidad_entidad.';
+COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.updated_by             IS '[B01 §audit G-B01-07] [ISO 27001 A.8.15] Última entidad que modificó este rol.';
+COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.version_number         IS '[B01 §audit G-B01-06] Contador de UPDATEs — auto-incrementado por trg_irrh_version_bump. Usado por el Motor de Versionado (T-152) para detectar cambios MAJOR/MINOR.';
+COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.digital_signature      IS '[B01 §digital_signature G-B01-08] [Ley 164 Bolivia] [EdDSA Ed25519 NIST SP 800-186 §3.2.1] Firma del contrato del rol. El Motor de Firma Dual (MANUAL-FIRMA) la popula al certificar el rol. Estructura: {algorithm, signature, signed_at, signed_by, certificate_id, post_quantum_planned}. NULL hasta que el motor esté operativo.';
 
 -- FK deferida al árbol de políticas: se agrega en sección T-162 (después de crear idn_roles_template)
 
