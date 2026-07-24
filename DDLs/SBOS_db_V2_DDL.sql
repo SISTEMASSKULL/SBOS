@@ -92,6 +92,8 @@ DO $$ BEGIN CREATE TYPE rol_tier_enum            AS ENUM ('SU','T0','T1','BIZ_N1
 DO $$ BEGIN CREATE TYPE rol_status_enum          AS ENUM ('ACTIVE','INACTIVE','DEPRECATED','ARCHIVED','SUSPENDED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE rol_account_type_enum    AS ENUM ('INDIVIDUAL','M2M','SYSTEM','GROUP','TEMPLATE','VIRTUAL','BOT','DEVICE','SERVICE','EMERGENCY'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE ial_level_enum           AS ENUM ('IAL1','IAL2','IAL3'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE risk_level_enum          AS ENUM ('LOW','MEDIUM','HIGH','CRITICAL'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE sensitivity_label_enum   AS ENUM ('PUBLIC','INTERNAL','CONFIDENTIAL','RESTRICTED','SECRET'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- --- ÁRBOL DE POLÍTICAS ---
 -- NOTA: template_node_type_enum, template_effect_enum, verb_conflict_type_enum ELIMINADOS.
@@ -145,14 +147,14 @@ RESET client_min_messages;
 -- Cada nodo EVALUATION en T-162 (idn_roles_template) recibe un atom_position
 -- único e irrevocable desde esta secuencia. Es la base del BitMask 64-bit.
 -- Una vez asignada, la posición no cambia aunque el nodo se desactive.
-CREATE SEQUENCE IF NOT EXISTS bauth.roles_atom_position_sequentialuential
+CREATE SEQUENCE IF NOT EXISTS bauth.roles_atom_position_sequential
     START WITH 1
     INCREMENT BY 1
     NO MAXVALUE
     NO CYCLE
     CACHE 1;
 
-COMMENT ON SEQUENCE bauth.roles_atom_position_sequentialuential IS
+COMMENT ON SEQUENCE bauth.roles_atom_position_sequential IS
   '[A.65.02 §PRIVILEGIOS] Secuencia única global para atom_position en idn_roles_template.
    Solo los nodos tipo EVALUATION consumen esta secuencia (via trigger trg_irt_atom_position).
    Inmutable: una posición asignada nunca se reutiliza (NIST RBAC N3 — posición de bit estable).';
@@ -1090,41 +1092,138 @@ COMMENT ON COLUMN bauth.idn_calendar_assignment.is_inherited IS 'true = asignaci
 -- ╚══════════════════════════════════════════════════════════════════════╝
 
 -- ======================================================================
+-- T-191 — bauth.idn_roles_rol_category
+-- Categorías IGA para gobernanza de ciclo de vida de roles.
+-- Agrupa roles por función (BUSINESS, IT_INFRASTRUCTURE, APPLICATION,
+-- PRIVILEGED, EMERGENCY, SERVICE, STANDARD) con ciclo de revisión propio.
+-- ======================================================================
+CREATE TABLE IF NOT EXISTS bauth.idn_roles_rol_category (
+    category_id        UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    code               TEXT        UNIQUE NOT NULL,
+    name               JSONB       NOT NULL,
+    description        JSONB,
+    is_privileged      BOOLEAN     NOT NULL DEFAULT false,
+    review_cycle_days  INTEGER     NOT NULL DEFAULT 365 CHECK (review_cycle_days > 0),
+    sort_order         INTEGER     NOT NULL DEFAULT 0,
+    is_active          BOOLEAN     NOT NULL DEFAULT true,
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+COMMENT ON TABLE bauth.idn_roles_rol_category IS
+  '[IGA best practices] [NIST AC-2(7)] [ISO 24760-2:2025] [A.65.02 T-191]
+   Categorías de gobernanza IGA para el ciclo de vida de roles.
+   review_cycle_days: frecuencia de certificación de acceso (IGA access review).
+   is_privileged: true = campaña de revisión trimestral obligatoria (NIST AC-2(7)).';
+
+INSERT INTO bauth.idn_roles_rol_category
+    (code, name, description, is_privileged, review_cycle_days, sort_order) VALUES
+  ('BUSINESS',
+   '{"es":"Negocio","en":"Business"}',
+   '{"es":"Roles operativos del proceso de negocio","en":"Business process operational roles"}',
+   false, 365, 1),
+  ('IT_INFRASTRUCTURE',
+   '{"es":"Infraestructura TI","en":"IT Infrastructure"}',
+   '{"es":"Roles técnicos: sysadmin, DBA, devops","en":"Technical roles: sysadmin, DBA, devops"}',
+   true, 90, 2),
+  ('APPLICATION',
+   '{"es":"Aplicación","en":"Application"}',
+   '{"es":"Roles específicos de un módulo o aplicación","en":"Module or application specific roles"}',
+   false, 365, 3),
+  ('PRIVILEGED',
+   '{"es":"Privilegiado","en":"Privileged"}',
+   '{"es":"Roles con privilegio elevado — PAM y certificación trimestral","en":"Elevated privilege roles — PAM and quarterly certification"}',
+   true, 90, 4),
+  ('EMERGENCY',
+   '{"es":"Emergencia","en":"Emergency"}',
+   '{"es":"Roles break-glass — uso excepcional con audit trail forzado","en":"Break-glass roles — exceptional use with forced audit trail"}',
+   true, 30, 5),
+  ('SERVICE',
+   '{"es":"Servicio","en":"Service"}',
+   '{"es":"Roles de cuentas de servicio y NHI no humanos","en":"Service account and non-human NHI roles"}',
+   true, 90, 6),
+  ('STANDARD',
+   '{"es":"Estándar","en":"Standard"}',
+   '{"es":"Roles de uso general sin clasificación especial","en":"General purpose roles without special classification"}',
+   false, 365, 7)
+ON CONFLICT (code) DO NOTHING;
+
+
+-- ======================================================================
 -- T-040 — bauth.idn_roles_rol_type
 -- Clasificación de cuentas: INDIVIDUAL, M2M, SYSTEM, BOT, DEVICE, etc.
 -- Catálogo controlado — 10 tipos definidos en A.65.02.
 -- ======================================================================
 CREATE TABLE IF NOT EXISTS bauth.idn_roles_rol_type (
-    type_id      UUID        PRIMARY KEY DEFAULT uuidv7(),
-    code         TEXT        UNIQUE NOT NULL,
-    name         JSONB       NOT NULL,
-    description  TEXT,
-    is_active    BOOLEAN     NOT NULL DEFAULT true,
-    sort_order   INTEGER     NOT NULL DEFAULT 0,
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+    type_id                          UUID        PRIMARY KEY DEFAULT uuidv7(),
+    code                             TEXT        UNIQUE NOT NULL,
+    name                             JSONB       NOT NULL,
+    description                      JSONB,
+    is_privileged                    BOOLEAN     NOT NULL DEFAULT false,
+    requires_human_owner             BOOLEAN     NOT NULL DEFAULT false,
+    default_certification_cycle_days INTEGER     NOT NULL DEFAULT 365,
+    is_active                        BOOLEAN     NOT NULL DEFAULT true,
+    sort_order                       INTEGER     NOT NULL DEFAULT 0,
+    created_at                       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 COMMENT ON TABLE bauth.idn_roles_rol_type IS
-  '[NIST RBAC N3] [ANSI INCITS 359] [A.65.02 T-040]
+  '[NIST RBAC N3] [ANSI INCITS 359] [SCIM RFC 7643] [A.65.02 T-040]
    Clasificación del tipo de cuenta para TODOS los roles en SBOS.
    10 tipos canónicos: INDIVIDUAL, M2M, SYSTEM, GROUP, TEMPLATE, VIRTUAL, BOT, DEVICE, SERVICE, EMERGENCY.
-   Permite aplicar políticas diferenciadas según el tipo de identidad que porta el rol.';
+   is_privileged: requiere revisión trimestral (NIST AC-2(7)).
+   requires_human_owner: NIST AC-2(7) — toda cuenta NHI debe tener propietario humano.
+   default_certification_cycle_days: ciclo IGA de certificación de acceso.';
 
-COMMENT ON COLUMN bauth.idn_roles_rol_type.code IS 'INDIVIDUAL, M2M, SYSTEM, GROUP, TEMPLATE, VIRTUAL, BOT, DEVICE, SERVICE, EMERGENCY.';
-COMMENT ON COLUMN bauth.idn_roles_rol_type.name IS '[JSONB] {"es":"Individual","en":"Individual"}.';
+COMMENT ON COLUMN bauth.idn_roles_rol_type.code        IS 'INDIVIDUAL, M2M, SYSTEM, GROUP, TEMPLATE, VIRTUAL, BOT, DEVICE, SERVICE, EMERGENCY.';
+COMMENT ON COLUMN bauth.idn_roles_rol_type.name        IS '[JSONB] {"es":"Individual","en":"Individual"}.';
+COMMENT ON COLUMN bauth.idn_roles_rol_type.description IS '[JSONB] Descripción bilingüe del tipo de cuenta.';
+COMMENT ON COLUMN bauth.idn_roles_rol_type.is_privileged IS '[NIST AC-2(7)] true = acceso privilegiado, revisión trimestral.';
+COMMENT ON COLUMN bauth.idn_roles_rol_type.requires_human_owner IS '[NIST AC-2(7)] true = toda cuenta de este tipo requiere propietario humano designado.';
 
 -- Seeds del catálogo de tipos
-INSERT INTO bauth.idn_roles_rol_type (code, name, sort_order) VALUES
-    ('INDIVIDUAL',  '{"es":"Individual","en":"Individual"}',  1),
-    ('M2M',         '{"es":"Máquina a Máquina","en":"Machine to Machine"}', 2),
-    ('SYSTEM',      '{"es":"Sistema","en":"System"}',         3),
-    ('GROUP',       '{"es":"Grupo","en":"Group"}',            4),
-    ('TEMPLATE',    '{"es":"Plantilla","en":"Template"}',     5),
-    ('VIRTUAL',     '{"es":"Virtual","en":"Virtual"}',        6),
-    ('BOT',         '{"es":"Bot","en":"Bot"}',                7),
-    ('DEVICE',      '{"es":"Dispositivo","en":"Device"}',     8),
-    ('SERVICE',     '{"es":"Servicio","en":"Service"}',       9),
-    ('EMERGENCY',   '{"es":"Emergencia","en":"Emergency"}',   10)
+INSERT INTO bauth.idn_roles_rol_type
+    (code, name, description, is_privileged, requires_human_owner,
+     default_certification_cycle_days, sort_order) VALUES
+  ('INDIVIDUAL',
+   '{"es":"Individual","en":"Individual"}',
+   '{"es":"Cuenta de persona física — empleado, contratista o usuario de negocio","en":"Natural person account — employee, contractor or business user"}',
+   false, false, 365, 1),
+  ('M2M',
+   '{"es":"Máquina a Máquina","en":"Machine to Machine"}',
+   '{"es":"Cuenta máquina a máquina — integraciones, APIs y pipelines automatizados","en":"Machine-to-machine account — integrations, APIs and automated pipelines"}',
+   true, true, 90, 2),
+  ('SYSTEM',
+   '{"es":"Sistema","en":"System"}',
+   '{"es":"Cuenta de proceso del sistema operativo o del ecosistema SBOS","en":"OS or SBOS ecosystem process account"}',
+   true, false, 90, 3),
+  ('GROUP',
+   '{"es":"Grupo","en":"Group"}',
+   '{"es":"Grupo lógico de cuentas con política de acceso compartida","en":"Logical group of accounts with shared access policy"}',
+   false, false, 365, 4),
+  ('TEMPLATE',
+   '{"es":"Plantilla","en":"Template"}',
+   '{"es":"Plantilla reutilizable para crear roles derivados con herencia","en":"Reusable template for creating inherited derived roles"}',
+   false, false, 365, 5),
+  ('VIRTUAL',
+   '{"es":"Virtual","en":"Virtual"}',
+   '{"es":"Cuenta virtual sin autenticación directa — representación lógica de entidad","en":"Virtual account without direct authentication — logical entity representation"}',
+   false, false, 365, 6),
+  ('BOT',
+   '{"es":"Bot","en":"Bot"}',
+   '{"es":"Proceso automatizado con identidad propia y propietario humano responsable","en":"Automated process with its own identity and a responsible human owner"}',
+   true, true, 90, 7),
+  ('DEVICE',
+   '{"es":"Dispositivo","en":"Device"}',
+   '{"es":"Dispositivo físico o lógico registrado y gobernado en el ecosistema","en":"Physical or logical device registered and governed in the ecosystem"}',
+   true, true, 90, 8),
+  ('SERVICE',
+   '{"es":"Servicio","en":"Service"}',
+   '{"es":"Cuenta de servicio de larga duración con propietario técnico designado","en":"Long-lived service account with a designated technical owner"}',
+   true, true, 90, 9),
+  ('EMERGENCY',
+   '{"es":"Emergencia","en":"Emergency"}',
+   '{"es":"Cuenta break-glass de emergencia — uso excepcional con auditoría forzada","en":"Break-glass emergency account — exceptional use with forced audit"}',
+   true, false, 30, 10)
 ON CONFLICT (code) DO NOTHING;
 
 
@@ -1133,47 +1232,94 @@ ON CONFLICT (code) DO NOTHING;
 -- Parámetros de seguridad por tier (SU, T0, T1, BIZ_N1..N5, EXT_N0, M2M, VISITANTE).
 -- ======================================================================
 CREATE TABLE IF NOT EXISTS bauth.idn_roles_rol_tier (
-    tier_id                  UUID        PRIMARY KEY DEFAULT uuidv7(),
-    tier                     rol_tier_enum UNIQUE NOT NULL,
-    display_name             JSONB       NOT NULL,
-    loa_required             INTEGER     NOT NULL CHECK (loa_required BETWEEN 1 AND 3),
-    session_timeout_minutes  INTEGER     NOT NULL DEFAULT 480,
-    max_sessions             INTEGER     NOT NULL DEFAULT 3,
-    step_up_loa              INTEGER     CHECK (step_up_loa BETWEEN 1 AND 3),
-    mfa_required             BOOLEAN     NOT NULL DEFAULT false,
-    mfa_methods_allowed      TEXT[]      DEFAULT '{}',
-    rate_limit_override      INTEGER,
-    nist_aal_reference       TEXT,
-    description              TEXT,
-    sort_order               INTEGER     NOT NULL DEFAULT 0,
-    created_at               TIMESTAMPTZ NOT NULL DEFAULT now()
+    tier_id                      UUID        PRIMARY KEY DEFAULT uuidv7(),
+    tier                         rol_tier_enum UNIQUE NOT NULL,
+    display_name                 JSONB       NOT NULL,
+    description                  JSONB,
+    loa_required                 INTEGER     NOT NULL CHECK (loa_required BETWEEN 1 AND 3),
+    session_timeout_minutes      INTEGER     NOT NULL DEFAULT 480,
+    max_sessions                 INTEGER     NOT NULL DEFAULT 3,
+    step_up_loa                  INTEGER     CHECK (step_up_loa BETWEEN 1 AND 3),
+    mfa_required                 BOOLEAN     NOT NULL DEFAULT false,
+    mfa_methods_allowed          TEXT[]      DEFAULT '{}',
+    rate_limit_override          INTEGER,
+    nist_aal_reference           TEXT,
+    is_privileged_tier           BOOLEAN     NOT NULL DEFAULT false,
+    requires_pam                 BOOLEAN     NOT NULL DEFAULT false,
+    certification_cycle_days     INTEGER     NOT NULL DEFAULT 365,
+    inactivity_lockout_days      INTEGER     NOT NULL DEFAULT 90,
+    requires_use_justification   BOOLEAN     NOT NULL DEFAULT false,
+    sort_order                   INTEGER     NOT NULL DEFAULT 0,
+    created_at                   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_irtier_tier ON bauth.idn_roles_rol_tier(tier);
 
 COMMENT ON TABLE bauth.idn_roles_rol_tier IS
-  '[NIST SP 800-63B-4 §4] [ISO 27001 A.5.15] [A.65.02 T-042]
-   Parámetros de seguridad por tier. Define el LoA requerido, timeout de sesión, MFA, y step-up.
-   11 tiers: SU (superusuario, LoA3), T0 (técnico raíz), T1 (técnico tenant),
-   BIZ_N1..N5 (negocio por jerarquía), EXT_N0 (externo), M2M (máquina), VISITANTE.';
+  '[NIST SP 800-63B-4 §4] [ISO 27001 A.5.15] [NIST AC-5] [A.65.02 T-042]
+   Parámetros de seguridad por tier. Define el LoA requerido, timeout de sesión, MFA, step-up,
+   ciclo IGA de certificación e inactividad. 11 tiers: SU (superusuario, LoA3), T0 (técnico raíz),
+   T1 (técnico tenant), BIZ_N1..N5 (negocio por jerarquía), EXT_N0 (externo), M2M, VISITANTE.';
 
-COMMENT ON COLUMN bauth.idn_roles_rol_tier.loa_required IS '[NIST 800-63B-4] Nivel de aseguramiento mínimo: 1=AAL1, 2=AAL2, 3=AAL3.';
-COMMENT ON COLUMN bauth.idn_roles_rol_tier.step_up_loa  IS '[RFC 9470] LoA requerido para step-up por contexto de riesgo.';
-COMMENT ON COLUMN bauth.idn_roles_rol_tier.mfa_methods_allowed IS 'NULL=todos, ["TOTP","WEBAUTHN"]=restricción por tier.';
+COMMENT ON COLUMN bauth.idn_roles_rol_tier.loa_required               IS '[NIST 800-63B-4] Nivel de aseguramiento mínimo: 1=AAL1, 2=AAL2, 3=AAL3.';
+COMMENT ON COLUMN bauth.idn_roles_rol_tier.step_up_loa                IS '[RFC 9470] LoA requerido para step-up por contexto de riesgo.';
+COMMENT ON COLUMN bauth.idn_roles_rol_tier.mfa_methods_allowed        IS 'NULL=todos, ["TOTP","WEBAUTHN"]=restricción por tier.';
+COMMENT ON COLUMN bauth.idn_roles_rol_tier.is_privileged_tier         IS '[NIST AC-2(7)] true = tier privilegiado, campaña IGA trimestral.';
+COMMENT ON COLUMN bauth.idn_roles_rol_tier.requires_pam               IS 'true = requiere PAM (CyberArk/Vault) — solo SU y T0.';
+COMMENT ON COLUMN bauth.idn_roles_rol_tier.certification_cycle_days   IS '[IGA] Ciclo de certificación de acceso en días.';
+COMMENT ON COLUMN bauth.idn_roles_rol_tier.inactivity_lockout_days    IS '[ISO 27001 A.5.15] Días de inactividad antes de bloqueo automático.';
+COMMENT ON COLUMN bauth.idn_roles_rol_tier.requires_use_justification IS '[NIST AC-2(7)] true = justificación obligatoria en cada uso (SU y T0).';
 
 -- Seeds del catálogo de tiers
-INSERT INTO bauth.idn_roles_rol_tier (tier, display_name, loa_required, session_timeout_minutes, max_sessions, mfa_required, sort_order) VALUES
-    ('SU',       '{"es":"Superusuario","en":"Superuser"}',           3, 60,  1, true,  1),
-    ('T0',       '{"es":"Técnico Raíz","en":"Root Technician"}',     3, 120, 1, true,  2),
-    ('T1',       '{"es":"Técnico Tenant","en":"Tenant Technician"}', 2, 240, 2, true,  3),
-    ('BIZ_N1',   '{"es":"Negocio N1","en":"Business N1"}',          2, 480, 3, true,  4),
-    ('BIZ_N2',   '{"es":"Negocio N2","en":"Business N2"}',          2, 480, 5, false, 5),
-    ('BIZ_N3',   '{"es":"Negocio N3","en":"Business N3"}',          1, 480, 5, false, 6),
-    ('BIZ_N4',   '{"es":"Negocio N4","en":"Business N4"}',          1, 480, 5, false, 7),
-    ('BIZ_N5',   '{"es":"Negocio N5","en":"Business N5"}',          1, 480, 5, false, 8),
-    ('EXT_N0',   '{"es":"Externo N0","en":"External N0"}',          1, 60,  1, false, 9),
-    ('M2M',      '{"es":"Máquina a Máquina","en":"Machine to Machine"}', 2, 3600, 10, false, 10),
-    ('VISITANTE','{"es":"Visitante","en":"Visitor"}',                1, 30,  1, false, 11)
+INSERT INTO bauth.idn_roles_rol_tier
+    (tier, display_name, description, loa_required, session_timeout_minutes,
+     max_sessions, mfa_required, sort_order,
+     is_privileged_tier, requires_pam, certification_cycle_days,
+     inactivity_lockout_days, requires_use_justification) VALUES
+  ('SU',
+   '{"es":"Superusuario","en":"Superuser"}',
+   '{"es":"Superusuario SBOS — máximo privilegio global, uso exclusivo para bootstrap y DR","en":"SBOS Superuser — maximum global privilege, exclusive use for bootstrap and DR"}',
+   3, 60, 1, true, 1, true, true, 30, 30, true),
+  ('T0',
+   '{"es":"Técnico Raíz","en":"Root Technician"}',
+   '{"es":"Técnico Raíz — administrador de infraestructura física y K8s del ecosistema","en":"Root Technician — physical infrastructure and K8s administrator of the ecosystem"}',
+   3, 120, 1, true, 2, true, true, 90, 30, true),
+  ('T1',
+   '{"es":"Técnico Tenant","en":"Tenant Technician"}',
+   '{"es":"Técnico Tenant — administrador técnico con alcance limitado al tenant","en":"Tenant Technician — technical administrator scoped to the tenant"}',
+   2, 240, 2, true, 3, true, false, 90, 60, false),
+  ('BIZ_N1',
+   '{"es":"Negocio N1","en":"Business N1"}',
+   '{"es":"Negocio N1 — dirección estratégica y representación legal de la organización","en":"Business N1 — strategic direction and legal representation of the organization"}',
+   2, 480, 3, true, 4, false, false, 180, 90, false),
+  ('BIZ_N2',
+   '{"es":"Negocio N2","en":"Business N2"}',
+   '{"es":"Negocio N2 — gerencia media y supervisión departamental","en":"Business N2 — middle management and departmental supervision"}',
+   2, 480, 5, false, 5, false, false, 365, 90, false),
+  ('BIZ_N3',
+   '{"es":"Negocio N3","en":"Business N3"}',
+   '{"es":"Negocio N3 — coordinación de equipo y gestión operativa","en":"Business N3 — team coordination and operational management"}',
+   1, 480, 5, false, 6, false, false, 365, 90, false),
+  ('BIZ_N4',
+   '{"es":"Negocio N4","en":"Business N4"}',
+   '{"es":"Negocio N4 — ejecución técnico-profesional y analítica","en":"Business N4 — technical-professional execution and analytics"}',
+   1, 480, 5, false, 7, false, false, 365, 90, false),
+  ('BIZ_N5',
+   '{"es":"Negocio N5","en":"Business N5"}',
+   '{"es":"Negocio N5 — operativo base, atención directa y tareas rutinarias","en":"Business N5 — base operations, direct service and routine tasks"}',
+   1, 480, 5, false, 8, false, false, 365, 90, false),
+  ('EXT_N0',
+   '{"es":"Externo N0","en":"External N0"}',
+   '{"es":"Externo N0 — acceso limitado de terceros, proveedores y contratistas","en":"External N0 — limited access for third parties, vendors and contractors"}',
+   1, 60, 1, false, 9, false, false, 180, 30, false),
+  ('M2M',
+   '{"es":"Máquina a Máquina","en":"Machine to Machine"}',
+   '{"es":"Máquina a Máquina — daemons, pipelines e integraciones del ecosistema","en":"Machine to Machine — daemons, pipelines and ecosystem integrations"}',
+   2, 3600, 10, false, 10, true, false, 90, 30, false),
+  ('VISITANTE',
+   '{"es":"Visitante","en":"Visitor"}',
+   '{"es":"Visitante — acceso mínimo de sólo lectura sin autenticación fuerte","en":"Visitor — minimum read-only access without strong authentication"}',
+   1, 30, 1, false, 11, false, false, 365, 7, false)
 ON CONFLICT (tier) DO NOTHING;
 
 
@@ -1182,24 +1328,33 @@ ON CONFLICT (tier) DO NOTHING;
 -- Árbol de roles del tenant (adjacency list). FK a T-040 (type), T-042 (tier), T-162 (template).
 -- ======================================================================
 CREATE TABLE IF NOT EXISTS bauth.idn_roles_rol_hierarchical (
-    id               UUID        PRIMARY KEY DEFAULT uuidv7(),
-    tenant_id        UUID        NOT NULL REFERENCES bauth.idn_tenant(tenant_id) ON DELETE CASCADE,
-    parent_id        UUID        REFERENCES bauth.idn_roles_rol_hierarchical(id) ON DELETE RESTRICT,
-    type_id          UUID        NOT NULL REFERENCES bauth.idn_roles_rol_type(type_id),
-    tier             rol_tier_enum NOT NULL DEFAULT 'BIZ_N3',
-    code             TEXT        NOT NULL,
-    name             JSONB       NOT NULL,
-    description      TEXT,
-    depth            INTEGER     NOT NULL DEFAULT 0,
-    is_inheritable   BOOLEAN     NOT NULL DEFAULT true,
-    status           rol_status_enum NOT NULL DEFAULT 'ACTIVE',
-    version          TEXT        NOT NULL DEFAULT '1.0',
-    sector_caeb      TEXT,
-    ial_min          ial_level_enum DEFAULT 'IAL1',
-    metadata_b1      JSONB       DEFAULT '{}',
-    template_id      UUID,
-    created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    id                       UUID                 PRIMARY KEY DEFAULT uuidv7(),
+    tenant_id                UUID                 NOT NULL REFERENCES bauth.idn_tenant(tenant_id) ON DELETE CASCADE,
+    parent_id                UUID                 REFERENCES bauth.idn_roles_rol_hierarchical(id) ON DELETE RESTRICT,
+    type_id                  UUID                 NOT NULL REFERENCES bauth.idn_roles_rol_type(type_id),
+    tier                     rol_tier_enum        NOT NULL DEFAULT 'BIZ_N3',
+    code                     TEXT                 NOT NULL,
+    name                     JSONB                NOT NULL,
+    description              JSONB,
+    depth                    INTEGER              NOT NULL DEFAULT 0,
+    is_inheritable           BOOLEAN              NOT NULL DEFAULT true,
+    status                   rol_status_enum      NOT NULL DEFAULT 'ACTIVE',
+    version                  TEXT                 NOT NULL DEFAULT '1.0',
+    sector_caeb              TEXT,
+    ial_min                  ial_level_enum       DEFAULT 'IAL1',
+    metadata_b1              JSONB                DEFAULT '{}',
+    template_id              UUID,
+    role_owner_id            UUID                 REFERENCES bauth.idn_identidad_entidad(entidad_id) ON DELETE SET NULL,
+    category_id              UUID                 REFERENCES bauth.idn_roles_rol_category(category_id),
+    risk_classification      risk_level_enum      NOT NULL DEFAULT 'MEDIUM',
+    sensitivity_label        sensitivity_label_enum NOT NULL DEFAULT 'INTERNAL',
+    business_justification   JSONB,
+    max_simultaneous_holders INTEGER              CHECK (max_simultaneous_holders > 0),
+    last_reviewed_at         TIMESTAMPTZ,
+    next_review_at           TIMESTAMPTZ,
+    approval_required        BOOLEAN              NOT NULL DEFAULT false,
+    created_at               TIMESTAMPTZ          NOT NULL DEFAULT now(),
+    updated_at               TIMESTAMPTZ          NOT NULL DEFAULT now(),
     UNIQUE (tenant_id, code)
 );
 
@@ -1207,20 +1362,34 @@ CREATE INDEX IF NOT EXISTS idx_irrh_tenant    ON bauth.idn_roles_rol_hierarchica
 CREATE INDEX IF NOT EXISTS idx_irrh_parent    ON bauth.idn_roles_rol_hierarchical(parent_id);
 CREATE INDEX IF NOT EXISTS idx_irrh_tier      ON bauth.idn_roles_rol_hierarchical(tenant_id, tier);
 CREATE INDEX IF NOT EXISTS idx_irrh_type      ON bauth.idn_roles_rol_hierarchical(type_id);
-CREATE INDEX IF NOT EXISTS idx_irrh_template  ON bauth.idn_roles_rol_hierarchical(template_id) WHERE template_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_irrh_template  ON bauth.idn_roles_rol_hierarchical(template_id)    WHERE template_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_irrh_name      ON bauth.idn_roles_rol_hierarchical USING GIN (name jsonb_path_ops);
+CREATE INDEX IF NOT EXISTS idx_irrh_owner     ON bauth.idn_roles_rol_hierarchical(role_owner_id)  WHERE role_owner_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_irrh_risk      ON bauth.idn_roles_rol_hierarchical(tenant_id, risk_classification);
+CREATE INDEX IF NOT EXISTS idx_irrh_category  ON bauth.idn_roles_rol_hierarchical(category_id);
+CREATE INDEX IF NOT EXISTS idx_irrh_review    ON bauth.idn_roles_rol_hierarchical(next_review_at) WHERE next_review_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_irrh_label     ON bauth.idn_roles_rol_hierarchical(tenant_id, sensitivity_label);
 
 COMMENT ON TABLE bauth.idn_roles_rol_hierarchical IS
-  '[NIST RBAC N3] [ANSI INCITS 359] [A.65.02 T-041]
-   Árbol de roles por tenant (adjacency list). Complementado por T-063 (closure table) para
-   consultas eficientes de herencia DAG-OR. template_id: FK DEFERRED a idn_roles_template
-   (árbol de políticas, T-162) — relaciona el rol con su nodo en el árbol de políticas compartido.
-   sector_caeb: sector CAEB SIN Bolivia que aplica (21 sectores: CAEB-A, CAEB-B, ..., CAEB-U).';
+  '[NIST RBAC N3] [ANSI INCITS 359] [SCIM RFC 7643] [IGA] [A.65.02 T-041]
+   Catálogo maestro de roles por tenant (adjacency list). Complementado por T-063 (closure table)
+   para consultas O(1) de herencia DAG-OR. template_id: FK DEFERRED a idn_roles_template
+   (árbol de políticas, T-162). category_id: categoría IGA (T-191). Todos los textos visibles
+   al usuario usan JSONB bilingüe {"es":"...","en":"..."}.';
 
-COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.tier       IS '[ENUM] SU, T0, T1, BIZ_N1..N5, EXT_N0, M2M, VISITANTE.';
-COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.is_inheritable IS 'true = sus privilegios se heredan a roles hijos en el DAG.';
-COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.template_id IS 'FK DEFERRED a bauth.idn_roles_template(id) — nodo DOMAIN del árbol de políticas que rige este rol.';
-COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.metadata_b1 IS '[B1 de SBOS-ROLTEMPLATE-v6_0] Metadatos del bloque 1: {nist_rbac_level, caeb_code, description_long}.';
+COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.tier                   IS '[ENUM] SU, T0, T1, BIZ_N1..N5, EXT_N0, M2M, VISITANTE.';
+COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.description            IS '[JSONB] {"es":"...","en":"..."} — descripción bilingüe del rol.';
+COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.is_inheritable         IS 'true = sus privilegios se heredan a roles hijos en el DAG.';
+COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.template_id            IS 'FK DEFERRED a bauth.idn_roles_template(id) — nodo DOMAIN que rige este rol.';
+COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.metadata_b1            IS '[B1 de SBOS-ROLTEMPLATE-v6_0] Metadatos del bloque 1: {nist_rbac_level, caeb_code, description_long}.';
+COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.role_owner_id          IS '[NIST AC-2(7)] Propietario humano del rol — obligatorio para roles privilegiados.';
+COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.category_id            IS '[IGA] FK a T-191 — categoría de gobernanza (BUSINESS, PRIVILEGED, SERVICE, etc.).';
+COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.risk_classification    IS '[NIST RA-3] [ISO 27005] Clasificación de riesgo del rol: LOW, MEDIUM, HIGH, CRITICAL.';
+COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.sensitivity_label      IS '[ISO 27001 A.5.12] [NIST AC-16] Etiqueta de confidencialidad: PUBLIC → SECRET.';
+COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.business_justification IS '[IGA] Justificación de negocio para la existencia del rol (JSONB bilingüe).';
+COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.max_simultaneous_holders IS '[NIST AC-5] [PCI DSS 7.2] Máximo de titulares simultáneos — NULL=sin límite.';
+COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.next_review_at         IS '[IGA access review] Fecha del próximo ciclo de certificación de acceso.';
+COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.approval_required      IS '[PCI DSS 7.1] true = requiere aprobación formal antes de asignación.';
 
 -- FK deferida al árbol de políticas: se agrega en sección T-162 (después de crear idn_roles_template)
 
@@ -1233,6 +1402,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_roles_rol_closure (
     ancestor_id   UUID        NOT NULL REFERENCES bauth.idn_roles_rol_hierarchical(id) ON DELETE CASCADE,
     descendant_id UUID        NOT NULL REFERENCES bauth.idn_roles_rol_hierarchical(id) ON DELETE CASCADE,
     depth         INTEGER     NOT NULL CHECK (depth >= 0),
+    is_active     BOOLEAN     NOT NULL DEFAULT true,
     PRIMARY KEY (ancestor_id, descendant_id)
 );
 
@@ -1508,12 +1678,144 @@ INSERT INTO bauth.privilege_verb_conflict (verb_a, verb_b, tipo, descripcion, cr
 ON CONFLICT (verb_a, verb_b) DO NOTHING;
 
 -- ======================================================================
+-- T-161b — bauth.idn_tipo_nodo
+-- Catálogo de tipos de nodo del árbol de políticas idn_roles_template.
+-- Fuente única de verdad para badge/abreviatura, nombres y descripciones
+-- bilingüe. FK canónica que reemplaza el CHECK chk_irt_tipo.
+-- diagnostico: solo existe en Dart (inyectado por el linter), NUNCA en BD.
+-- ======================================================================
+CREATE TABLE IF NOT EXISTS bauth.idn_tipo_nodo (
+    codigo             TEXT        PRIMARY KEY,
+    abreviatura        TEXT        NOT NULL,
+    nombre_es          TEXT        NOT NULL,
+    nombre_en          TEXT        NOT NULL,
+    descripcion_es     TEXT        NOT NULL,
+    descripcion_en     TEXT        NOT NULL,
+    -- ── Presentación visual (consumida por el cliente Flutter) ───────────────
+    -- color_key: slot de paleta del badge y acento. Valores: primary | foreground |
+    --   muted | amber | teal | violet | red | green | destructive
+    color_key          TEXT        NOT NULL DEFAULT 'muted',
+    -- color_key_valor: slot para el texto del campo 'valor' del nodo.
+    -- Puede diferir del badge (ej. atomo: badge=teal, valor=teal; regla: badge=amber, valor=muted).
+    color_key_valor    TEXT        NOT NULL DEFAULT 'muted',
+    -- font_weight: peso tipográfico (400=normal, 500=medium, 600=semibold, 700=bold).
+    font_weight        INTEGER     NOT NULL DEFAULT 600
+                       CHECK (font_weight IN (400, 500, 600, 700)),
+    -- font_size_token: token de tamaño relativo. El cliente resuelve: xs=10, sm=11, base=11.5, md=12.
+    font_size_token    TEXT        NOT NULL DEFAULT 'base'
+                       CHECK (font_size_token IN ('xs','sm','base','md')),
+    -- monospace: usar fuente monoespaciada para la clave del nodo.
+    monospace          BOOLEAN     NOT NULL DEFAULT FALSE,
+    -- letra_espaciado: multiplicador de letter-spacing (0 = sin espaciado adicional).
+    letra_espaciado    NUMERIC(4,2) NOT NULL DEFAULT 0,
+    -- mostrar_badge: si el nodo muestra su badge de tipo en el árbol.
+    mostrar_badge      BOOLEAN     NOT NULL DEFAULT TRUE,
+    -- expandido_defecto: si el nodo se expande automáticamente al cargar el árbol.
+    expandido_defecto  BOOLEAN     NOT NULL DEFAULT FALSE,
+    -- ─────────────────────────────────────────────────────────────────────────
+    activo             BOOLEAN     NOT NULL DEFAULT TRUE,
+    sort_order         INTEGER     NOT NULL DEFAULT 0
+);
+
+COMMENT ON TABLE bauth.idn_tipo_nodo IS
+  '[T-161b] Catálogo de tipos de nodo del árbol de políticas (bauth.idn_roles_template.tipo).
+   Fuente única de verdad para presentación, abreviatura y descripción bilingüe.
+   Reemplaza el CHECK chk_irt_tipo — tipo es FK textual a este catálogo.
+   diagnostico NO aparece aquí: es un tipo virtual inyectado solo por el linter Dart.';
+
+-- Seed: tipos canónicos del árbol de políticas bAuth
+-- Columnas de presentación (color_key, color_key_valor, font_weight, font_size_token,
+--   monospace, letra_espaciado, mostrar_badge, expandido_defecto) permiten que el
+--   cliente Flutter renderice el árbol SIN hardcoding — todo viene de esta tabla.
+-- Paleta de color_key: primary | foreground | muted | amber | teal | violet | red | green
+INSERT INTO bauth.idn_tipo_nodo (
+    codigo, abreviatura, nombre_es, nombre_en, descripcion_es, descripcion_en,
+    color_key, color_key_valor, font_weight, font_size_token,
+    monospace, letra_espaciado, mostrar_badge, expandido_defecto, sort_order
+) VALUES
+  ('tenant','TNT','Tenant','Tenant',
+   'Nodo raíz del árbol de políticas de un tenant. Cada tenant tiene su propio árbol independiente.',
+   'Root node of a tenant policy tree. Each tenant has its own independent tree.',
+   'primary','muted', 700,'md', FALSE,0.4, TRUE,TRUE, 10),
+
+  ('dominio','DOM','Dominio','Domain',
+   'Cabecera de un dominio de control. Agrupa bloques y políticas de un área funcional. Corresponde a los dominios D0–D99.',
+   'Control domain header. Groups blocks and policies for a functional area. Maps to domains D0–D99.',
+   'primary','muted', 700,'md', FALSE,0.4, FALSE,TRUE, 20),
+
+  ('bloque','BLQ','Bloque','Block',
+   'Agrupación intermedia de objetos y políticas dentro de un dominio. Organiza secciones lógicas sin semántica de control propia.',
+   'Intermediate grouping of objects and policies within a domain. Organizes logical sections without own control semantics.',
+   'foreground','muted', 700,'base', FALSE,0.0, FALSE,FALSE, 30),
+
+  ('objeto','OBJ','Objeto','Object',
+   'Estructura de datos JSONB. Representa una entidad de negocio o configuración. No contiene lógica de control.',
+   'JSONB data structure. Represents a business entity or configuration. Contains no control logic.',
+   'muted','muted', 600,'base', FALSE,0.0, TRUE,FALSE, 40),
+
+  ('lista','LST','Lista','List',
+   'Colección ordenada de ítems homogéneos. Usada para arrays de valores de configuración o permisos.',
+   'Ordered collection of homogeneous items. Used for arrays of configuration values or permissions.',
+   'muted','muted', 600,'base', FALSE,0.0, TRUE,FALSE, 50),
+
+  ('set_politicas','SET','Conjunto de Políticas','Policy Set',
+   'Agrupación lógica de políticas evaluadas como un conjunto bajo un algoritmo de combinación (permit-overrides, deny-overrides, etc.).',
+   'Logical grouping of policies evaluated as a set under a combining algorithm (permit-overrides, deny-overrides, etc.).',
+   'primary','muted', 600,'base', FALSE,0.0, TRUE,FALSE, 60),
+
+  ('politica','POL','Política','Policy',
+   'Conjunción de condiciones que gobiernan el acceso a un recurso. Contiene reglas y define el algoritmo de combinación.',
+   'Conjunction of conditions that govern access to a resource. Contains rules and defines the combining algorithm.',
+   'primary','muted', 600,'base', FALSE,0.0, TRUE,FALSE, 70),
+
+  ('regla','RGL','Regla','Rule',
+   'Una o más evaluaciones atómicas encadenadas con su efecto (Permit/Deny). Patrón: eval [op_lógico eval]* efecto.',
+   'One or more atomic evaluations chained with their effect (Permit/Deny). Pattern: eval [logical_op eval]* effect.',
+   'amber','muted', 600,'base', FALSE,0.0, TRUE,FALSE, 80),
+
+  ('atomo','ATM','Átomo','Atom',
+   'Evaluación atómica: propiedad / operador / valor / efecto. Unidad mínima de decisión del PDP. Ocupa una posición de bit en el BitMask.',
+   'Atomic evaluation: property / operator / value / effect. Minimum decision unit of the PDP. Occupies one bit position in the BitMask.',
+   'teal','teal', 600,'sm', FALSE,0.0, TRUE,FALSE, 90),
+
+  ('atributo','ATR','Atributo','Attribute',
+   'Hoja de datos: clave → valor libre. Almacena metadatos, parámetros de configuración o claims del contexto.',
+   'Data leaf: key → free value. Stores metadata, configuration parameters or context claims.',
+   'muted','muted', 500,'sm', TRUE,0.0, FALSE,FALSE, 100),
+
+  ('enum','ENM','Enumerado','Enum',
+   'Hoja de datos: clave → valor de conjunto fijo. El editor presenta un menú contextual con las opciones disponibles.',
+   'Data leaf: key → value from a fixed set. The editor presents a context menu with available options.',
+   'violet','violet', 600,'sm', TRUE,0.0, TRUE,FALSE, 110),
+
+  ('evento','EVT','Evento','Event',
+   'Disparador de políticas basado en eventos del sistema o del usuario. Activa evaluaciones reactivas en el motor CAEP.',
+   'Policy trigger based on system or user events. Activates reactive evaluations in the CAEP engine.',
+   'amber','muted', 600,'base', FALSE,0.0, TRUE,FALSE, 120)
+ON CONFLICT (codigo) DO UPDATE SET
+    abreviatura       = EXCLUDED.abreviatura,
+    nombre_es         = EXCLUDED.nombre_es,
+    nombre_en         = EXCLUDED.nombre_en,
+    descripcion_es    = EXCLUDED.descripcion_es,
+    descripcion_en    = EXCLUDED.descripcion_en,
+    color_key         = EXCLUDED.color_key,
+    color_key_valor   = EXCLUDED.color_key_valor,
+    font_weight       = EXCLUDED.font_weight,
+    font_size_token   = EXCLUDED.font_size_token,
+    monospace         = EXCLUDED.monospace,
+    letra_espaciado   = EXCLUDED.letra_espaciado,
+    mostrar_badge     = EXCLUDED.mostrar_badge,
+    expandido_defecto = EXCLUDED.expandido_defecto,
+    sort_order        = EXCLUDED.sort_order;
+
+-- ======================================================================
 -- T-162 — bauth.idn_roles_template
 -- Árbol de políticas PER-TENANT (G-06). Cada tenant tiene su propio árbol.
--- 9 tipos de nodo en español: dominio|bloque|objeto|lista|politica|regla|
---   evaluacion|atributo|enumerado. (diagnostico = solo Dart, nunca en BD — G-11)
+-- Tipos de nodo (FK a idn_tipo_nodo): tenant|dominio|bloque|objeto|lista|
+--   set_politicas|politica|regla|atomo|atributo|enum|evento.
+-- diagnostico = solo Dart (linter), NUNCA persiste en BD (G-11).
 -- atom_position: asignado por trigger desde roles_atom_position_sequential
---   SOLO para nodos tipo='evaluacion'. Inmutable una vez asignado.
+--   SOLO para nodos tipo='atomo'. Inmutable una vez asignado.
 -- ======================================================================
 CREATE TABLE IF NOT EXISTS bauth.idn_roles_template (
     id             UUID        PRIMARY KEY DEFAULT uuidv7(),
@@ -1521,14 +1823,18 @@ CREATE TABLE IF NOT EXISTS bauth.idn_roles_template (
     -- Bootstrap: se copia la estructura del tenant-plantilla (tipos ≠ evaluacion).
     tenant_id      UUID        NOT NULL REFERENCES bauth.idn_tenant(tenant_id) ON DELETE CASCADE,
     parent_id      UUID        REFERENCES bauth.idn_roles_template(id) ON DELETE RESTRICT,
-    tipo           TEXT        NOT NULL,
-    clave          TEXT        NOT NULL,
+    -- tipo: FK a idn_tipo_nodo (catálogo T-161b). Reemplaza el CHECK chk_irt_tipo.
+    tipo           TEXT        NOT NULL REFERENCES bauth.idn_tipo_nodo(codigo) ON UPDATE CASCADE,
+    -- clave: nombre de visualización i18n {"es": "Nombre", "en": "Name"}
+    clave          JSONB       NOT NULL,
+    -- name: descripción técnica i18n {"es": "Descripción", "en": "Description"}
     name           JSONB       NOT NULL,
     valor          TEXT        NULL,
-    help           TEXT        NULL,
+    -- help: ayuda técnica bilingüe {"es": "Ayuda ES...", "en": "English help..."}
+    help           JSONB       NULL,
     opciones       TEXT[]      NOT NULL DEFAULT '{}',
     description    TEXT,
-    -- verb_id: FK textual a privilege_verb (catálogo global G-03). Solo para tipo='evaluacion'.
+    -- verb_id: FK textual a privilege_verb (catálogo global G-03). Solo para tipo='atomo'.
     verb_id        TEXT        NULL REFERENCES bauth.privilege_verb(verb_id) ON DELETE RESTRICT,
     atom_position  BIGINT      UNIQUE,
     -- effect: boolean (true=PERMIT, false=DENY). Sincronizado a T-170 por trigger (G-12 CAMBIO 8).
@@ -1537,6 +1843,12 @@ CREATE TABLE IF NOT EXISTS bauth.idn_roles_template (
     domain_number  INTEGER,
     depth          INTEGER     NOT NULL DEFAULT 0,
     orden          INTEGER     NOT NULL DEFAULT 0,
+    -- sort_order: orden de presentación entre hermanos (10, 20, 30... por posición en el dominio)
+    sort_order     INTEGER     NOT NULL DEFAULT 0,
+    -- alias: slug técnico para AtomLang (ej: authorization, business_zone) — distinto de clave (UI)
+    alias          TEXT        NULL,
+    -- block_code: código canónico del bloque dentro del dominio (B01-B10, derivado de sort_order/10)
+    block_code     VARCHAR(10) NULL,
     path           TEXT        UNIQUE NOT NULL,
     activo         BOOLEAN     NOT NULL DEFAULT true,
     version        TEXT        NOT NULL DEFAULT '1.0',
@@ -1544,15 +1856,10 @@ CREATE TABLE IF NOT EXISTS bauth.idn_roles_template (
     valid_until    DATE,
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
-    -- 9 tipos canónicos en español (G-11 §2). diagnostico NO se persiste.
-    CONSTRAINT chk_irt_tipo CHECK (
-        tipo IN ('dominio','bloque','objeto','lista','politica','regla',
-                 'evaluacion','atributo','enumerado')
-    ),
-    -- verb_id obligatorio SOLO para evaluacion (G-03 · G-11 §4)
-    CONSTRAINT chk_irt_verb_solo_evaluacion CHECK (
-        (tipo = 'evaluacion' AND verb_id IS NOT NULL)
-        OR (tipo <> 'evaluacion' AND verb_id IS NULL)
+    -- verb_id obligatorio SOLO para atomo (G-03 · G-11 §4)
+    CONSTRAINT chk_irt_verb_solo_atomo CHECK (
+        (tipo = 'atomo' AND verb_id IS NOT NULL)
+        OR (tipo <> 'atomo' AND verb_id IS NULL)
     ),
     -- domain_number obligatorio SOLO para dominio
     CONSTRAINT chk_irt_domain_number CHECK (
@@ -1563,13 +1870,13 @@ CREATE TABLE IF NOT EXISTS bauth.idn_roles_template (
     CONSTRAINT chk_irt_valid_range CHECK (
         valid_until IS NULL OR valid_until > valid_from
     ),
-    -- atom_position SOLO para evaluacion — asignado por trigger (G-11 §4)
-    CONSTRAINT chk_irt_atom_pos_solo_evaluacion CHECK (
-        (tipo = 'evaluacion' AND atom_position IS NOT NULL)
-        OR (tipo <> 'evaluacion' AND atom_position IS NULL)
+    -- atom_position SOLO para atomo — asignado por trigger (G-11 §4)
+    CONSTRAINT chk_irt_atom_pos_solo_atomo CHECK (
+        (tipo = 'atomo' AND atom_position IS NOT NULL)
+        OR (tipo <> 'atomo' AND atom_position IS NULL)
     ),
-    -- Unicidad per-tenant (G-06): (tenant_id, parent_id, clave)
-    CONSTRAINT uq_irt_tenant_parent_clave UNIQUE (tenant_id, parent_id, clave),
+    -- Unicidad per-tenant (G-06): (tenant_id, parent_id, clave->>'es')
+    -- Nota: índice de expresión fuera de la tabla (clave es JSONB, no comparable en UNIQUE directo)
     -- Unicidad compuesta para soportar FK compuesta desde T-170/T-173 (G-12 · A.65.02.01 §6.6)
     CONSTRAINT uq_irt_id_atom_position UNIQUE (id, atom_position)
 );
@@ -1581,9 +1888,15 @@ CREATE INDEX IF NOT EXISTS idx_irt_path      ON bauth.idn_roles_template(path);
 CREATE INDEX IF NOT EXISTS idx_irt_atom_pos  ON bauth.idn_roles_template(atom_position) WHERE atom_position IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_irt_domain    ON bauth.idn_roles_template(domain_number) WHERE domain_number IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_irt_verb      ON bauth.idn_roles_template(verb_id) WHERE verb_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_irt_activo    ON bauth.idn_roles_template(activo, tipo);
-CREATE INDEX IF NOT EXISTS idx_irt_name      ON bauth.idn_roles_template USING GIN (name jsonb_path_ops);
-CREATE INDEX IF NOT EXISTS idx_irt_cond      ON bauth.idn_roles_template USING GIN (condition_expr jsonb_path_ops) WHERE condition_expr IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_irt_activo     ON bauth.idn_roles_template(activo, tipo);
+CREATE INDEX IF NOT EXISTS idx_irt_sort       ON bauth.idn_roles_template(parent_id, sort_order);
+-- Unicidad per-tenant sobre clave->>'es' (clave es JSONB i18n)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_irt_tenant_parent_clave
+    ON bauth.idn_roles_template(tenant_id, parent_id, (clave->>'es'));
+CREATE INDEX IF NOT EXISTS idx_irt_alias      ON bauth.idn_roles_template(alias) WHERE alias IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_irt_block_code ON bauth.idn_roles_template(block_code) WHERE block_code IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_irt_name       ON bauth.idn_roles_template USING GIN (name jsonb_path_ops);
+CREATE INDEX IF NOT EXISTS idx_irt_cond       ON bauth.idn_roles_template USING GIN (condition_expr jsonb_path_ops) WHERE condition_expr IS NOT NULL;
 
 -- FK deferida: idn_roles_rol_hierarchical.template_id → idn_roles_template.id
 -- Se declara aquí porque idn_roles_template se crea en este punto (T-162 precede a T-041 en el DDL)
@@ -1610,23 +1923,23 @@ COMMENT ON TABLE bauth.idn_roles_template IS
    condition_expr: JSON AST compilado por AtomLang — evaluado por el Motor de Identidad (PDP).';
 
 COMMENT ON COLUMN bauth.idn_roles_template.tenant_id     IS '[G-06] FK a idn_tenant. El árbol es per-tenant — cada empresa tiene el suyo.';
-COMMENT ON COLUMN bauth.idn_roles_template.tipo          IS '[TEXT] 9 tipos: dominio|bloque|objeto|lista|politica|regla|evaluacion|atributo|enumerado (G-11).';
+COMMENT ON COLUMN bauth.idn_roles_template.tipo          IS '[FK→idn_tipo_nodo] Tipos: tenant|dominio|bloque|objeto|lista|set_politicas|politica|regla|atomo|atributo|enum|evento (G-11). diagnostico solo en Dart.';
 COMMENT ON COLUMN bauth.idn_roles_template.clave         IS 'Identificador del nodo dentro de su padre. Parte de la UNIQUE (tenant_id, parent_id, clave).';
-COMMENT ON COLUMN bauth.idn_roles_template.atom_position IS 'Posición de bit en BitMask del dominio. BIGINT único, asignado por trigger. SOLO para evaluacion. Inmutable.';
+COMMENT ON COLUMN bauth.idn_roles_template.atom_position IS 'Posición de bit en BitMask del dominio. BIGINT único, asignado por trigger. SOLO para tipo=atomo. Inmutable.';
 COMMENT ON COLUMN bauth.idn_roles_template.effect        IS '[G-12] boolean: true=PERMIT, false=DENY. Sincronizado a privilege_atom_grant por trigger.';
 COMMENT ON COLUMN bauth.idn_roles_template.path          IS 'Camino materializado: D01.B1.P001.E001. UNIQUE. Base de lookup eficiente.';
 COMMENT ON COLUMN bauth.idn_roles_template.condition_expr IS '[AtomLang] JSON AST de la condición compilada: {"op":"AND","left":{...},"right":{...}}.';
 COMMENT ON COLUMN bauth.idn_roles_template.domain_number IS 'Número del dominio para nodos tipo=dominio: D01=1, D12=12, D13=13 (biedata), ...D37.';
-COMMENT ON COLUMN bauth.idn_roles_template.verb_id       IS '[G-03] FK textual a privilege_verb. Solo nodos tipo=evaluacion tienen verb_id. Global (sin tenant_id).';
+COMMENT ON COLUMN bauth.idn_roles_template.verb_id       IS '[G-03] FK textual a privilege_verb. Solo nodos tipo=atomo tienen verb_id. Global (sin tenant_id).';
 
--- Trigger: asignar atom_position desde secuencia SOLO a nodos tipo='evaluacion'
+-- Trigger: asignar atom_position desde secuencia SOLO a nodos tipo='atomo'
 CREATE OR REPLACE FUNCTION bauth.fn_irt_assign_atom_position()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 BEGIN
-    IF NEW.tipo = 'evaluacion' AND NEW.atom_position IS NULL THEN
+    IF NEW.tipo = 'atomo' AND NEW.atom_position IS NULL THEN
         NEW.atom_position := nextval('bauth.roles_atom_position_sequential');
-    ELSIF NEW.tipo <> 'evaluacion' AND NEW.atom_position IS NOT NULL THEN
-        RAISE EXCEPTION '[T-162] atom_position solo válida para nodos tipo=evaluacion. tipo=%', NEW.tipo;
+    ELSIF NEW.tipo <> 'atomo' AND NEW.atom_position IS NOT NULL THEN
+        RAISE EXCEPTION '[T-162] atom_position solo válida para nodos tipo=atomo. tipo=%', NEW.tipo;
     END IF;
     RETURN NEW;
 END;
@@ -1638,17 +1951,17 @@ CREATE OR REPLACE TRIGGER trg_irt_atom_position
     EXECUTE FUNCTION bauth.fn_irt_assign_atom_position();
 
 COMMENT ON FUNCTION bauth.fn_irt_assign_atom_position() IS
-  '[A.65.02 T-162] Asigna atom_position desde roles_atom_position_sequential para tipo=evaluacion.
+  '[A.65.02 T-162] Asigna atom_position desde roles_atom_position_sequential para tipo=atomo.
    Inmutable: atom_position no puede cambiarse una vez asignado (posición de bit estable — NIST RBAC N3).
-   Nodos no-evaluacion rechazan atom_position explícito.';
+   Nodos no-atomo rechazan atom_position explícito.';
 
 -- Trigger G-12 CAMBIO 8: sincronizar effect de T-162 → T-170 (privilege_atom_grant)
--- Cuando el árbol cambia el effect de un nodo evaluacion, todos los grants activos
+-- Cuando el árbol cambia el effect de un nodo atomo, todos los grants activos
 -- de ese átomo actualizan automáticamente su columna effect (espejo).
 CREATE OR REPLACE FUNCTION bauth.fn_sync_effect_from_tree()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 BEGIN
-    IF OLD.effect IS DISTINCT FROM NEW.effect AND NEW.tipo = 'evaluacion' THEN
+    IF OLD.effect IS DISTINCT FROM NEW.effect AND NEW.tipo = 'atomo' THEN
         UPDATE bauth.privilege_atom_grant
            SET effect = NEW.effect
          WHERE id_atom = NEW.id
@@ -2065,7 +2378,7 @@ COMMENT ON TABLE bauth.privilege_atom_grant IS
    FK compuesta (id_atom, atom_position) DEFERRABLE: garantiza coherencia atómica con T-162.
    REPLICA IDENTITY FULL: bauth-reactor recibe todos los cambios via WAL → actualiza Redis.';
 
-COMMENT ON COLUMN bauth.privilege_atom_grant.id_atom       IS 'FK a idn_roles_template(id). Nodo DEBE ser tipo=evaluacion (tiene atom_position).';
+COMMENT ON COLUMN bauth.privilege_atom_grant.id_atom       IS 'FK a idn_roles_template(id). Nodo DEBE ser tipo=atomo (tiene atom_position).';
 COMMENT ON COLUMN bauth.privilege_atom_grant.atom_position IS 'Copia de idn_roles_template.atom_position. Garantizado por FK compuesta DEFERRABLE.';
 COMMENT ON COLUMN bauth.privilege_atom_grant.bitmask_value IS 'Valor del bit en el RolBitMask. Precomputado al insertar para reconstruir BitMask sin JOIN.';
 COMMENT ON COLUMN bauth.privilege_atom_grant.effect        IS '[G-12] Espejo del Effect del árbol T-162. true=PERMIT, false=DENY. NUNCA editar directamente.';
@@ -2116,7 +2429,7 @@ BEGIN
     -- Obtener el verbo del átomo que se está asignando
     SELECT verb_id INTO v_verb_nuevo
     FROM bauth.idn_roles_template
-    WHERE id = NEW.id_atom AND tipo = 'evaluacion';
+    WHERE id = NEW.id_atom AND tipo = 'atomo';
 
     IF v_verb_nuevo IS NULL THEN
         RETURN NEW;
@@ -2131,7 +2444,7 @@ BEGIN
       AND pag.tenant_id = NEW.tenant_id
       AND pag.access    = true
       AND pag.status    = 'ACTIVE'
-      AND irt.tipo      = 'evaluacion'
+      AND irt.tipo      = 'atomo'
       AND irt.verb_id IS NOT NULL
       AND EXISTS (
           SELECT 1 FROM bauth.privilege_verb_conflict pvc
@@ -2182,8 +2495,8 @@ BEGIN
     -- D2: verificar tier y tipo del rol
     SELECT rt.tier::text, rty.code
       INTO v_role_tier, v_role_type
-      FROM bauth.idn_role_template rt
-      JOIN bauth.idn_role_type     rty ON rty.id = rt.type_id
+      FROM bauth.idn_roles_rol_hierarchical rt
+      JOIN bauth.idn_roles_rol_type         rty ON rty.type_id = rt.type_id
      WHERE rt.id = NEW.role_id;
 
     IF v_role_tier IS DISTINCT FROM 'SU' AND v_role_type IS DISTINCT FROM 'EMERGENCY' THEN
@@ -2559,7 +2872,7 @@ CREATE TABLE IF NOT EXISTS bauth.privilege_assurance_audit (
 );
 
 -- Índice por grant_id: correlacionar con T-170 y T-170b en forensia
-CREATE INDEX IF NOT EXISTS idx_paa_grant   ON bauth.privilege_assurance_audit (grant_id);
+CREATE INDEX IF NOT EXISTS idx_priv_assurance_grant ON bauth.privilege_assurance_audit (grant_id);
 -- Índice por session_id: reconstruir timeline de step-up de una sesión
 CREATE INDEX IF NOT EXISTS idx_paa_session ON bauth.privilege_assurance_audit (session_id);
 -- Índice por fecha: soportar particionamiento y retención
@@ -3289,10 +3602,10 @@ CREATE INDEX IF NOT EXISTS idx_pag_id_atom
     ON bauth.privilege_atom_grant(id_atom)
     WHERE status = 'ACTIVE';
 
--- Índice de búsqueda rápida de nodos evaluación activos por posición de bit
+-- Índice de búsqueda rápida de nodos átomo activos por posición de bit
 CREATE INDEX IF NOT EXISTS idx_irt_eval_active
     ON bauth.idn_roles_template(atom_position, verb_id)
-    WHERE tipo = 'evaluacion' AND activo = true;
+    WHERE tipo = 'atomo' AND activo = true;
 
 
 -- ======================================================================
