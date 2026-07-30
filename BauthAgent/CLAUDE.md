@@ -3,7 +3,7 @@
 <!-- Doc de dominio: context/BOS_V8/BOS_V8_SBOS-021-DAEMON-BAUTH.md · Registro: SBOS/paths.yml → microservicios -->
 
 ## Propósito propio
-**bAuth** — Identity Control Plane — Orquestador central de identidad. Valida credenciales en su **motor de métodos nativo** (OIDC/SAML/WebAuthn en Rust — **sin Keycloak**, ADR-010) y consulta a Vault (PKI/Ed25519) y Besu (ECDSA, dominio blockchain); aplica BitMask Dual 64-bit + DomainRegistry 12 dominios + PolicyChain + SoD + DAG, y emite JWT unificado con RolBitMask + ctx_id + firma. Doble motor de firmas (Vault Ed25519 interno + ADSIB RSA-SHA256 externo). PAP/PIP/PDP/PEP. ~147 métodos JSON-RPC.
+**bAuth** — Identity Control Plane — Orquestador central de identidad. Valida credenciales en su **motor de métodos nativo** (OIDC/SAML/WebAuthn en Rust — **sin Keycloak**, ADR-010) y consulta a Vault (PKI/Ed25519) y Besu (ECDSA, dominio blockchain); aplica BitMask Dual 64-bit + DomainRegistry 18 dominios (D00-D15+D98+D99) + PolicyChain + SoD + DAG, y emite JWT unificado con RolBitMask + ctx_id + firma. Doble motor de firmas (Vault Ed25519 interno + ADSIB RSA-SHA256 externo). PAP/PIP/PDP/PEP. ~147 métodos JSON-RPC.
 
 ## Producto que desarrolla
 Identity Control Plane — Orquestador central de identidad · **Plano:** Identidad · **Stack:** Rust 1.85+ (MUSL) — autosuficiente (las SPIs Java fueron eliminadas, ADR-010)
@@ -47,11 +47,26 @@ La salida incluye timestamp + SHA256 del comando y su resultado. Se adjunta al i
 **Vista por motor:** `context/Documentacion/MOTORES/MOTORES-INDEX.md` — los 7 motores (ADR-013), estado y orden de convergencia.  
 **Carta rectora:** `context/Documentacion/0.00_MANUAL-DIRECTRICES-IAM-ENTERPRISE.md` — todo manual se lee bajo esta carta.
 
+## Herramientas MCP — consulta rápida (antes de leer archivos)
+
+**Regla:** MCP primero, `Read` como último recurso.
+
+| Servidor | Tools | Para qué |
+|----------|-------|---------|
+| `codebase-memory-mcp` | 14 | Grafo del código Rust: `trace_path`, `search_graph`, `get_code_snippet`, `get_architecture`, `detect_changes`, `query_graph` |
+| `qex` | 5 | Búsqueda semántica en `context/Documentacion/` (50+ manuales · 70+ anexos): `search_code` en español |
+| `sequential-thinking` | 1 | Razonamiento estructurado — siempre alimentado de qex + grafo, nunca solo |
+
+Ver protocolo completo y ejemplos bAuth: `/bauth-herramientas`
+
+---
+
 ## Skills disponibles (`.claude/skills/`)
 
 | Skill | Invocar con | Cuándo |
 |-------|------------|--------|
 | `bauth-sesion` | `/bauth-sesion` | **Inicio de cada sesión** — recupera contexto SKDATA + estado motores |
+| `bauth-herramientas` | `/bauth-herramientas` | Al buscar información — protocolo MCP antes de leer archivos |
 | `bauth-motores` | `/bauth-motores` | Al trabajar en cualquiera de los 7 motores (ADR-013) |
 | `bauth-identidad` | `/bauth-identidad` | Al trabajar con D00-D15, átomos, BitMask, roles, usuarios |
 | `bauth-api` | `/bauth-api` | Al implementar/verificar métodos JSON-RPC `bauth.*` |
