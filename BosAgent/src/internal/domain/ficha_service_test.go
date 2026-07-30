@@ -3,10 +3,13 @@ package domain
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"bos/internal/installer"
+	"bos/internal/plugin"
 	"bos/internal/state"
 )
 
@@ -428,6 +431,117 @@ func TestFichaService_ExecuteSaga(t *testing.T) {
 			t.Errorf("error=%v", err)
 		}
 	})
+}
+
+// ── validateManifestStrict (F11.A.2) ─────────────────────────────
+
+func TestValidateManifestStrict_Nil(t *testing.T) {
+	if got := validateManifestStrict(nil); got != nil {
+		t.Errorf("nil → nil, got %v", got)
+	}
+}
+
+func TestValidateManifestStrict_TipoIncorrecto(t *testing.T) {
+	if got := validateManifestStrict("no es un manifest"); got != nil {
+		t.Errorf("tipo incorrecto → nil, got %v", got)
+	}
+}
+
+func TestValidateManifestStrict_StructVacio(t *testing.T) {
+	errs := validateManifestStrict(&plugin.FichaManifest{})
+	if len(errs) == 0 {
+		t.Fatal("struct vacío debe reportar errores de campos obligatorios")
+	}
+	fieldSet := make(map[string]bool)
+	for _, e := range errs {
+		fieldSet[e.Field] = true
+	}
+	if !fieldSet["identity.id"] {
+		t.Error("debe reportar identity.id faltante")
+	}
+	if !fieldSet["identity.version"] {
+		t.Error("debe reportar identity.version faltante")
+	}
+}
+
+func TestValidateManifestStrict_StructValido(t *testing.T) {
+	mf := &plugin.FichaManifest{ID: "postgresql", Version: "18.4"}
+	if errs := validateManifestStrict(mf); len(errs) != 0 {
+		t.Errorf("struct válido (sin path) → 0 errores, got %v", errs)
+	}
+}
+
+func TestValidateManifestStrict_ConArchivoDisco(t *testing.T) {
+	dir := t.TempDir()
+	_ = os.MkdirAll(filepath.Join(dir, "resources"), 0o755)
+	_ = os.WriteFile(filepath.Join(dir, "resources", "dashboard.json"), []byte(`{}`), 0o644)
+
+	validYAML := `
+identity:
+  id: test-ficha
+  server: S01
+  version: 1.0.0
+
+workload:
+  type: bash
+  runtime: host
+
+meta:
+  backend: apt
+`
+	if err := os.WriteFile(filepath.Join(dir, "manifest.yml"), []byte(validYAML), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	mf := &plugin.FichaManifest{ID: "test-ficha", Version: "1.0.0", Path: dir}
+	errs := validateManifestStrict(mf)
+	if len(errs) != 0 {
+		t.Errorf("manifest válido en disco → 0 errores, got %v", errs)
+	}
+}
+
+func TestValidateManifestStrict_YAMLInvalido(t *testing.T) {
+	dir := t.TempDir()
+
+	invalidYAML := `
+identity:
+  server: S01
+  version: 1.0.0
+
+workload:
+  type: bash
+
+meta:
+  backend: apt
+`
+	_ = os.WriteFile(filepath.Join(dir, "manifest.yml"), []byte(invalidYAML), 0o644)
+
+	mf := &plugin.FichaManifest{ID: "test", Version: "1.0", Path: dir}
+	errs := validateManifestStrict(mf)
+	if len(errs) == 0 {
+		t.Fatal("manifest sin identity.id debe reportar errores")
+	}
+	found := false
+	for _, e := range errs {
+		if e.Field == "identity.id" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("debe reportar identity.id faltante, got %v", errs)
+	}
+}
+
+func TestValidateManifestStrict_RutaSinArchivo(t *testing.T) {
+	// Path existe pero no tiene manifest.yml → fallback a validación de struct
+	dir := t.TempDir()
+	mf := &plugin.FichaManifest{ID: "redis", Version: "8.6.2", Path: dir}
+	errs := validateManifestStrict(mf)
+	// Sin archivo: fallback a struct que es válido (ID y Version presentes)
+	if len(errs) != 0 {
+		t.Errorf("sin manifest.yml + struct válido → 0 errores, got %v", errs)
+	}
 }
 
 // ── helper ───────────────────────────────────────────────────────

@@ -2,6 +2,8 @@ package domain
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"bos/internal/ficha"
 	"bos/internal/installer"
@@ -369,11 +371,60 @@ func (svc *FichaService) Validate(fichaID string) ([]ValidationResult, error) {
 	return results, nil
 }
 
-// validateManifestStrict aplica las reglas de validación SOV y SAN-10 al manifest.
-// TODO(F11.A.2): migrar a internal/ficha/parser.go cuando esté implementado.
+// validateManifestStrict aplica las reglas de validación SOV y SAN-10 al manifest (F11.A.2).
+//
+// Si la ficha tiene ruta en disco (Path != ""), lee manifest.yml y aplica
+// ficha.ParseManifestStrict (YAML + allowlist SAN-10 + dashboard.json + licencia).
+// Si la ruta no está disponible (stubs de test, fichas en memoria), valida los campos
+// básicos del struct directamente.
 func validateManifestStrict(mf interface{}) []ValidationErrorItem {
-	// Placeholder — la validación completa se implementa en internal/ficha/parser.go
-	return nil
+	fm, ok := mf.(*plugin.FichaManifest)
+	if !ok || fm == nil {
+		return nil
+	}
+
+	if fm.Path != "" {
+		manifestPath := filepath.Join(fm.Path, "manifest.yml")
+		if content, err := os.ReadFile(manifestPath); err == nil {
+			return parseResultToItems(ficha.ParseManifestStrict(string(content), fm.Path))
+		}
+	}
+
+	// Fallback: validación estructural desde los campos ya parseados.
+	return validateManifestStruct(fm)
+}
+
+// validateManifestStruct valida los campos básicos del FichaManifest cuando no hay
+// YAML en disco (fichas en memoria o stubs de test).
+func validateManifestStruct(fm *plugin.FichaManifest) []ValidationErrorItem {
+	var items []ValidationErrorItem
+	if fm.ID == "" {
+		items = append(items, ValidationErrorItem{
+			Field: "identity.id", Message: "id requerido (identity.id vacío)",
+		})
+	}
+	if fm.Version == "" {
+		items = append(items, ValidationErrorItem{
+			Field: "identity.version", Message: "version requerida (identity.version vacío)",
+		})
+	}
+	return items
+}
+
+// parseResultToItems convierte el resultado de ficha.ParseManifestStrict al tipo de dominio.
+func parseResultToItems(result *ficha.ParseResult) []ValidationErrorItem {
+	if result == nil || result.Valid {
+		return nil
+	}
+	items := make([]ValidationErrorItem, 0, len(result.Errors))
+	for _, e := range result.Errors {
+		items = append(items, ValidationErrorItem{
+			Field:   e.Section + "." + e.Field,
+			Message: e.Message,
+			Value:   e.Value,
+		})
+	}
+	return items
 }
 
 // Pause pausa una ficha (mantenimiento). Sin alertas, sin reconciliación.
