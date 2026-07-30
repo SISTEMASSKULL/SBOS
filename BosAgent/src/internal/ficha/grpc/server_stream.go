@@ -57,7 +57,7 @@ func (s *FichaServer) ResetState(ctx context.Context, req *pb.ResetStateRequest)
 }
 
 // Watch transmite eventos de ficha en tiempo real (server-streaming).
-// TODO(F11): implementar bus de eventos real usando canales Go.
+// Envía un heartbeat inicial y luego reenvía eventos del EventBus filtrando por fichaID.
 func (s *FichaServer) Watch(req *pb.WatchRequest, stream pb.FichaService_WatchServer) error {
 	s.logger.Debug("Watch iniciado", "ficha_id", req.FichaId)
 
@@ -78,20 +78,86 @@ func (s *FichaServer) Watch(req *pb.WatchRequest, stream pb.FichaService_WatchSe
 		return err
 	}
 
-	select {
-	case <-stream.Context().Done():
-		s.logger.Debug("Watch finalizado", "ficha_id", req.FichaId)
+	if s.bus == nil {
+		<-stream.Context().Done()
 		return stream.Context().Err()
+	}
+
+	id, ch := s.bus.Subscribe()
+	defer s.bus.Unsubscribe(id)
+
+	for {
+		select {
+		case evt, ok := <-ch:
+			if !ok {
+				return nil
+			}
+			if req.FichaId != "" && evt.FichaId != req.FichaId {
+				continue
+			}
+			if err := stream.Send(evt); err != nil {
+				return err
+			}
+		case <-stream.Context().Done():
+			s.logger.Debug("Watch finalizado", "ficha_id", req.FichaId)
+			return stream.Context().Err()
+		}
 	}
 }
 
-// GetLogs transmite líneas de log de ficha en tiempo real (server-streaming).
-// TODO(F11.F.2): implementar lectura real de /var/log/bos/fichas/<name>.log
+// GetLogs transmite líneas de log de ficha (server-streaming).
+// Envía las últimas N líneas históricas y, si follow=true, continúa en modo tail.
 func (s *FichaServer) GetLogs(req *pb.GetLogsRequest, stream pb.FichaService_GetLogsServer) error {
 	s.logger.Debug("GetLogs iniciado", "ficha_id", req.FichaId)
-	select {
-	case <-stream.Context().Done():
+
+	if s.logReader == nil {
+		<-stream.Context().Done()
 		return stream.Context().Err()
+	}
+
+	entries, err := s.svc.ReadLog(req.FichaId, req.TailLines, s.logReader)
+	if err != nil {
+		return status.Error(codes.Internal, err.Error())
+	}
+	for _, e := range entries {
+		if err := stream.Send(&pb.LogLine{
+			FichaId:    e.FichaID,
+			Level:      e.Level,
+			Message:    e.Message,
+			Timestamp:  timestamppb.New(e.Timestamp),
+			LineNumber:  e.LineNumber,
+		}); err != nil {
+			return err
+		}
+	}
+
+	if !req.Follow {
+		return nil
+	}
+
+	ch, err := s.svc.FollowLog(req.FichaId, s.logReader)
+	if err != nil {
+		return status.Error(codes.Internal, err.Error())
+	}
+
+	for {
+		select {
+		case e, ok := <-ch:
+			if !ok {
+				return nil
+			}
+			if err := stream.Send(&pb.LogLine{
+				FichaId:    e.FichaID,
+				Level:      e.Level,
+				Message:    e.Message,
+				Timestamp:  timestamppb.New(e.Timestamp),
+				LineNumber:  e.LineNumber,
+			}); err != nil {
+				return err
+			}
+		case <-stream.Context().Done():
+			return stream.Context().Err()
+		}
 	}
 }
 

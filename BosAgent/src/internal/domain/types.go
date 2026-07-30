@@ -14,6 +14,8 @@ type SagaOutcome struct {
 	Duration    time.Duration
 	StepCount   int
 	FailedSteps interface{} // []installer.Step — opaco al dominio
+	PrevState   string      // estado anterior a la operación (Pause/Resume/ResetState)
+	NewState    string      // estado resultante tras la operación
 }
 
 // FichaInfo describe el estado de una ficha en el sistema.

@@ -29,14 +29,24 @@ type FichaServer struct {
 	exec       *ficha.Executor    // F11.A.4 — ejecutor de 5 fases (nil = usar legacy Orchestrator)
 	discoverer *ficha.Discoverer  // F11.A.5 — descubridor de fichas (nil = usar legacy Loader)
 	catalog    domain.CatalogPort // catálogo de fichas para resolver rutas (estrategia 2)
+	bus        *EventBus          // bus de eventos para Watch() streaming
+	logReader  domain.LogPort     // lector de logs de disco para GetLogs()
 	logger     *slog.Logger
 	server     *grpc.Server
 }
 
 // NewFichaServer crea el servidor gRPC con interceptors (§17.3).
-// exec, discoverer y catalog son opcionales — si son nil se usa el legacy.
-func NewFichaServer(svc *domain.FichaService, exec *ficha.Executor, discoverer *ficha.Discoverer, catalog domain.CatalogPort, logger *slog.Logger) *FichaServer {
-	return &FichaServer{svc: svc, exec: exec, discoverer: discoverer, catalog: catalog, logger: logger}
+// exec, discoverer, catalog, bus y logReader son opcionales — si son nil se degrada graciosamente.
+func NewFichaServer(svc *domain.FichaService, exec *ficha.Executor, discoverer *ficha.Discoverer, catalog domain.CatalogPort, bus *EventBus, logReader domain.LogPort, logger *slog.Logger) *FichaServer {
+	return &FichaServer{
+		svc:        svc,
+		exec:       exec,
+		discoverer: discoverer,
+		catalog:    catalog,
+		bus:        bus,
+		logReader:  logReader,
+		logger:     logger,
+	}
 }
 
 // ListenAndServe inicia el servidor gRPC en el Unix socket dado.

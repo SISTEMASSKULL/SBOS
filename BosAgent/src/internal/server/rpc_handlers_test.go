@@ -61,7 +61,8 @@ func (c stubCatalog) Get(id string) (*plugin.FichaManifest, bool) {
 	f, ok := c.fichas[id]
 	return f, ok
 }
-func (c stubCatalog) Count() int { return len(c.fichas) }
+func (c stubCatalog) Count() int  { return len(c.fichas) }
+func (c stubCatalog) Reload() int { return len(c.fichas) }
 
 // makeRPCServer arma un Server con FichaService/BootstrapService reales
 // sobre stubs — sin daemon, sin bash, sin K8s.

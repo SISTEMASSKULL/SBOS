@@ -48,6 +48,7 @@ type PluginLoader interface {
 	List() []*plugin.FichaManifest
 	Get(id string) (*plugin.FichaManifest, bool)
 	Count() int
+	Reload() int
 }
 
 // HealthChecker es la interfaz para consultar el estado de salud de las fichas.

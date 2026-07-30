@@ -18,7 +18,7 @@ func (s *FichaServer) Pause(ctx context.Context, req *pb.PauseRequest) (*pb.Paus
 	}
 	return &pb.PauseResponse{
 		FichaId:   outcome.FichaID,
-		PrevState: "INSTALADA", // TODO: obtener del state manager
+		PrevState: outcome.PrevState,
 		Success:   outcome.Success,
 	}, nil
 }
@@ -30,7 +30,7 @@ func (s *FichaServer) Resume(ctx context.Context, req *pb.ResumeRequest) (*pb.Re
 	}
 	return &pb.ResumeResponse{
 		FichaId:  outcome.FichaID,
-		NewState: "INSTALADA", // TODO: obtener del state manager
+		NewState: outcome.NewState,
 		Success:  outcome.Success,
 	}, nil
 }

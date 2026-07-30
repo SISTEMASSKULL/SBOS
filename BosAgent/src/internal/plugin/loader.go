@@ -375,13 +375,15 @@ func (l *Loader) parseManifest(path string, m *FichaManifest) error {
 	return nil
 }
 
-// Reload re-escanea el directorio servers/. Loguea el error sin propagar.
+// Reload re-escanea el directorio servers/ y retorna el total de fichas tras el rescan.
+// Loguea el error sin propagar.
 //
 // Efectos secundarios: actualiza el mapa interno fichas.
-func (l *Loader) Reload() {
+func (l *Loader) Reload() int {
 	if _, err := l.Scan(); err != nil {
 		l.logger.Error("plugin reload failed", "err", err)
 	}
+	return l.Count()
 }
 
 // Get retorna una ficha cargada por ID.

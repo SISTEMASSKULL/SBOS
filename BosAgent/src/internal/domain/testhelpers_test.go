@@ -11,10 +11,17 @@ import (
 // ── StatePort helpers ─────────────────────────────────────────────
 
 type mockState struct {
-	readFn func() (*state.SBOSState, error)
+	readFn       func() (*state.SBOSState, error)
+	transitionFn func(fichaID string, to state.FichaState) error
 }
 
 func (m *mockState) Read() (*state.SBOSState, error) { return m.readFn() }
+func (m *mockState) Transition(fichaID string, to state.FichaState) error {
+	if m.transitionFn != nil {
+		return m.transitionFn(fichaID, to)
+	}
+	return nil
+}
 
 func emptyState() *state.SBOSState {
 	return &state.SBOSState{Fichas: map[string]*state.Ficha{}}
@@ -104,10 +111,11 @@ func failedSaga(cmd, id string, exitCode int) *installer.SagaResult {
 
 type mockCatalog struct {
 	manifests []*plugin.FichaManifest
+	reloadFn  func() int
 }
 
 func (c *mockCatalog) List() []*plugin.FichaManifest { return c.manifests }
-func (c *mockCatalog) Count() int                   { return len(c.manifests) }
+func (c *mockCatalog) Count() int                    { return len(c.manifests) }
 func (c *mockCatalog) Get(id string) (*plugin.FichaManifest, bool) {
 	for _, m := range c.manifests {
 		if m.ID == id {
@@ -115,6 +123,12 @@ func (c *mockCatalog) Get(id string) (*plugin.FichaManifest, bool) {
 		}
 	}
 	return nil, false
+}
+func (c *mockCatalog) Reload() int {
+	if c.reloadFn != nil {
+		return c.reloadFn()
+	}
+	return len(c.manifests)
 }
 
 func emptyCat() CatalogPort { return &mockCatalog{} }

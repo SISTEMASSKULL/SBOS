@@ -23,6 +23,7 @@ type InstallerPort interface {
 // StatePort es el puerto al gestor de estado que necesita FichaService.
 type StatePort interface {
 	Read() (*state.SBOSState, error)
+	Transition(fichaID string, to state.FichaState) error
 }
 
 // CatalogPort es el puerto al catálogo de fichas (plugin loader).
@@ -30,6 +31,7 @@ type CatalogPort interface {
 	List() []*plugin.FichaManifest
 	Get(id string) (*plugin.FichaManifest, bool)
 	Count() int
+	Reload() int
 }
 
 // FichaService contiene la lógica de negocio de las operaciones sobre fichas.
@@ -379,24 +381,54 @@ func (svc *FichaService) Pause(fichaID string) (*SagaOutcome, error) {
 	if fichaID == "" {
 		return nil, ErrFichaIDRequired
 	}
-	// TODO(F11.C.5): implementar transición de estado → PAUSADA vía state.Manager
+
+	st, err := svc.state.Read()
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", ErrStateUnavailable, err.Error())
+	}
+	f, ok := st.Fichas[fichaID]
+	if !ok {
+		return nil, fmt.Errorf("%w: %s", ErrFichaNotFound, fichaID)
+	}
+	prevState := string(f.State)
+
+	if err := svc.state.Transition(fichaID, state.StatePausada); err != nil {
+		return nil, fmt.Errorf("%w: pause %s: %s", ErrSagaFailed, fichaID, err.Error())
+	}
 	return &SagaOutcome{
-		FichaID: fichaID,
-		Command: "pause",
-		Success: true,
+		FichaID:   fichaID,
+		Command:   "pause",
+		Success:   true,
+		PrevState: prevState,
+		NewState:  string(state.StatePausada),
 	}, nil
 }
 
-// Resume reanuda una ficha pausada, restaurando su estado anterior.
+// Resume reanuda una ficha pausada, restaurando estado INSTALADA.
 func (svc *FichaService) Resume(fichaID string) (*SagaOutcome, error) {
 	if fichaID == "" {
 		return nil, ErrFichaIDRequired
 	}
-	// TODO(F11.C.5): implementar transición PAUSADA → estado anterior
+
+	st, err := svc.state.Read()
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", ErrStateUnavailable, err.Error())
+	}
+	f, ok := st.Fichas[fichaID]
+	if !ok {
+		return nil, fmt.Errorf("%w: %s", ErrFichaNotFound, fichaID)
+	}
+	prevState := string(f.State)
+
+	if err := svc.state.Transition(fichaID, state.StateInstalada); err != nil {
+		return nil, fmt.Errorf("%w: resume %s: %s", ErrSagaFailed, fichaID, err.Error())
+	}
 	return &SagaOutcome{
-		FichaID: fichaID,
-		Command: "resume",
-		Success: true,
+		FichaID:   fichaID,
+		Command:   "resume",
+		Success:   true,
+		PrevState: prevState,
+		NewState:  string(state.StateInstalada),
 	}, nil
 }
 
@@ -430,22 +462,26 @@ func (svc *FichaService) Scale(fichaID string, replicas int32, k8s K8sPort) (*Sc
 	}, nil
 }
 
-// Rescan re-descubre todas las fichas en servers/.
+// Rescan re-descubre todas las fichas en servers/ y retorna el delta.
 func (svc *FichaService) Rescan() (*RescanResult, error) {
 	if svc.catalog == nil {
 		return nil, ErrStateUnavailable
 	}
 	prevCount := svc.catalog.Count()
-	// TODO(F11.A.5): integrar con plugin.Loader.Reload() o ficha.Discover()
-	_ = prevCount
+	newCount := svc.catalog.Reload()
+	discovered := newCount - prevCount
+	if discovered < 0 {
+		discovered = 0
+	}
 	return &RescanResult{
-		Discovered: 0,
-		Total:      prevCount,
+		Discovered: discovered,
+		Total:      newCount,
 		Added:      nil,
 	}, nil
 }
 
 // ResetState fuerza una transición de estado para compensación de sagas.
+// La validez de la transición es verificada por state.Manager.
 func (svc *FichaService) ResetState(fichaID, targetState string) (*SagaOutcome, error) {
 	if fichaID == "" {
 		return nil, ErrFichaIDRequired
@@ -453,12 +489,26 @@ func (svc *FichaService) ResetState(fichaID, targetState string) (*SagaOutcome, 
 	if targetState == "" {
 		return nil, ErrCommandInvalid
 	}
-	// TODO(F11.B): integrar con state.Manager.Transition() para forzar transición
-	// Usado principalmente por sagas de compensación
+
+	st, err := svc.state.Read()
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", ErrStateUnavailable, err.Error())
+	}
+	var prevState string
+	if f, ok := st.Fichas[fichaID]; ok {
+		prevState = string(f.State)
+	}
+
+	target := state.FichaState(targetState)
+	if err := svc.state.Transition(fichaID, target); err != nil {
+		return nil, fmt.Errorf("%w: reset_state %s → %s: %s", ErrSagaFailed, fichaID, targetState, err.Error())
+	}
 	return &SagaOutcome{
-		FichaID: fichaID,
-		Command: "reset_state",
-		Success: true,
+		FichaID:   fichaID,
+		Command:   "reset_state",
+		Success:   true,
+		PrevState: prevState,
+		NewState:  targetState,
 	}, nil
 }
 
