@@ -214,6 +214,19 @@ func (c *Core) podStatus(ctx context.Context, name, namespace string, status *Wo
 	return status, nil
 }
 
+// GetDesiredReplicas retorna el número de réplicas deseadas de un workload.
+// Implementa grpc.K8sScalePort (F9 — gRPC Scale).
+func (c *Core) GetDesiredReplicas(namespace, kind, name string) (int32, error) {
+	ws, err := c.GetWorkloadStatus(kind, name, namespace)
+	if err != nil {
+		return 0, err
+	}
+	if ws == nil || !ws.Found {
+		return 0, nil
+	}
+	return ws.DesiredReplicas, nil
+}
+
 // isNotFound detecta errores "not found" de kubectl.
 func isNotFound(err error) bool {
 	if err == nil {

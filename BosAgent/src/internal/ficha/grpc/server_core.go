@@ -21,6 +21,13 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// K8sScalePort es el puerto mínimo para escalar workloads K8s (F9).
+// Lo implementa k8s.Core; en tests, un stub.
+type K8sScalePort interface {
+	ScaleDeployment(namespace, name string, replicas int) error
+	GetDesiredReplicas(namespace, kind, name string) (int32, error)
+}
+
 // FichaServer implementa pb.FichaServiceServer generado desde ficha.proto.
 // Embebe UnimplementedFichaServiceServer para forward-compat (§17.1).
 type FichaServer struct {
@@ -31,9 +38,13 @@ type FichaServer struct {
 	catalog    domain.CatalogPort // catálogo de fichas para resolver rutas (estrategia 2)
 	bus        *EventBus          // bus de eventos para Watch() streaming
 	logReader  domain.LogPort     // lector de logs de disco para GetLogs()
+	k8sScaler  K8sScalePort       // escaler K8s nil-safe (F9 — SetK8sScaler)
 	logger     *slog.Logger
 	server     *grpc.Server
 }
+
+// SetK8sScaler inyecta el operador K8s para escalar fichas (nil-safe).
+func (s *FichaServer) SetK8sScaler(k K8sScalePort) { s.k8sScaler = k }
 
 // NewFichaServer crea el servidor gRPC con interceptors (§17.3).
 // exec, discoverer, catalog, bus y logReader son opcionales — si son nil se degrada graciosamente.

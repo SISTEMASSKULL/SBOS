@@ -31,6 +31,7 @@ type K8sOperator interface {
 	RolloutStatus(namespace, deployment string) (string, error)
 	RolloutUndo(namespace, deployment string) error
 	SetResources(namespace, deployment, cpu, memory string) error
+	GetWorkloadStatus(kind, name, namespace string) (*k8s.WorkloadStatus, error)
 }
 
 // SetK8sOperator inyecta el operador de cluster (run_normal.go).

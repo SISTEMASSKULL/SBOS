@@ -49,6 +49,13 @@ func (s *k8sOpStub) ScaleDeployment(ns, d string, r int) error {
 func (s *k8sOpStub) RolloutStatus(ns, d string) (string, error) { s.reg("rs"); return "ok", nil }
 func (s *k8sOpStub) RolloutUndo(ns, d string) error             { s.reg("ru"); return nil }
 func (s *k8sOpStub) SetResources(ns, d, c, m string) error      { s.reg("res"); return nil }
+func (s *k8sOpStub) GetWorkloadStatus(kind, name, ns string) (*k8s.WorkloadStatus, error) {
+	s.reg("gws:" + kind + "/" + name)
+	return &k8s.WorkloadStatus{
+		Kind: kind, Name: name, Namespace: ns,
+		DesiredReplicas: 2, ReadyReplicas: 2, Found: true,
+	}, nil
+}
 
 func (s *k8sOpStub) ultima() string {
 	s.mu.Lock()

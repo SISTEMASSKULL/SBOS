@@ -14,6 +14,12 @@
 // adaptadores delgados de ORQUESTA-043 §2.
 package server
 
+import (
+	"fmt"
+
+	"bos/internal/ficha"
+)
+
 // ── bos.ficha.plan ──────────────────────────────────────────────────────
 
 // rpcFichaPlan — método: bos.ficha.plan
@@ -85,8 +91,8 @@ func (s *Server) rpcFichaValidate(req *RPCRequest) RPCResponse {
 // ── bos.ficha.scale ─────────────────────────────────────────────────────
 
 // rpcFichaScale — método: bos.ficha.scale
-// Escala una ficha K8s al número de réplicas especificado.
-// Requiere K8sPort funcional — actualmente retorna ErrInternal hasta que F9 esté completo.
+// Escala una ficha K8s (Deployment/StatefulSet) al número de réplicas especificado.
+// Requiere k8sOp inyectado + manifest con runtime: kubernetes y yaml_engine.yml con namespace.
 func (s *Server) rpcFichaScale(req *RPCRequest) RPCResponse {
 	var p struct {
 		FichaID  string `json:"ficha_id"`
@@ -95,7 +101,41 @@ func (s *Server) rpcFichaScale(req *RPCRequest) RPCResponse {
 	if err := parseParams(req.Params, &p); err != nil {
 		return rpcFail(req.ID, rpcError(ErrInvalidParams, err.Error()))
 	}
-	return rpcFail(req.ID, rpcError(ErrInternal, "bos.ficha.scale: acceso K8s no disponible (F9 pendiente)"))
+	if p.FichaID == "" {
+		return rpcFail(req.ID, rpcError(ErrInvalidParams, "ficha_id requerido"))
+	}
+	if s.k8sOp == nil {
+		return k8sNoDisponible(req.ID)
+	}
+
+	// Resolver namespace y kind desde el manifest de la ficha.
+	mf, ok := s.plugins.Get(p.FichaID)
+	if !ok {
+		return rpcFail(req.ID, rpcError(ErrFichaNotFound, "ficha no encontrada en catálogo: "+p.FichaID))
+	}
+	info, err := ficha.ParseWorkloadInfo(mf.Path)
+	if err != nil || !info.CanProbe() {
+		return rpcFail(req.ID, rpcError(ErrInternal,
+			fmt.Sprintf("scale: workload info no disponible para %s (¿runtime kubernetes con namespace?)", p.FichaID)))
+	}
+
+	// Réplicas actuales (nil-safe si el workload aún no existe).
+	var prevReplicas int32
+	if ws, wsErr := s.k8sOp.GetWorkloadStatus(info.Kind, p.FichaID, info.Namespace); wsErr == nil && ws != nil {
+		prevReplicas = ws.DesiredReplicas
+	}
+
+	if err := s.k8sOp.ScaleDeployment(info.Namespace, p.FichaID, int(p.Replicas)); err != nil {
+		return rpcFail(req.ID, rpcError(ErrInternal, "scale: "+err.Error()))
+	}
+	return rpcOK(req.ID, map[string]interface{}{
+		"ficha_id":      p.FichaID,
+		"namespace":     info.Namespace,
+		"kind":          info.Kind,
+		"prev_replicas": prevReplicas,
+		"new_replicas":  p.Replicas,
+		"success":       true,
+	})
 }
 
 // ── bos.ficha.pause ─────────────────────────────────────────────────────

@@ -5,6 +5,8 @@ package server
 import (
 	"fmt"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -292,18 +294,82 @@ func TestRPCFichaLogs_DefaultTailLines(t *testing.T) {
 	}
 }
 
-// ── bos.ficha.scale ───────────────────────────────────────────────
+// ── bos.ficha.scale (F9) ─────────────────────────────────────────
 
-func TestRPCFichaScale_F9Pendiente(t *testing.T) {
-	s := makeF11Server()
+func TestRPCFichaScale_SinK8sOp(t *testing.T) {
+	s := makeF11Server() // k8sOp=nil
 
 	resp := s.rpcFichaScale(buildRPC("bos.ficha.scale",
 		map[string]interface{}{"ficha_id": "redis", "replicas": float64(3)}))
 	if resp.Error == nil {
-		t.Fatal("scale sin K8s debe retornar error")
+		t.Fatal("scale sin k8sOp debe retornar error")
 	}
 	if resp.Error.Code != ErrInternal {
-		t.Errorf("scale: want ErrInternal, got %d", resp.Error.Code)
+		t.Errorf("scale sin k8sOp: want ErrInternal, got %d", resp.Error.Code)
+	}
+}
+
+func TestRPCFichaScale_SinFichaID(t *testing.T) {
+	s := makeF11Server()
+
+	resp := s.rpcFichaScale(buildRPC("bos.ficha.scale", map[string]interface{}{"replicas": float64(2)}))
+	if resp.Error == nil || resp.Error.Code != ErrInvalidParams {
+		t.Errorf("sin ficha_id: want InvalidParams, got %+v", resp.Error)
+	}
+}
+
+func TestRPCFichaScale_FichaInexistente(t *testing.T) {
+	s, stub := makeK8sServer()
+	s.stateMgr = queryStateStub{fichas: map[string]*state.Ficha{}}
+	s.plugins = stubCatalog{}
+	s.fichaSvc = domain.NewFichaService(stubInstaller{success: true}, s.stateMgr.(StateManager), s.plugins)
+	_ = stub
+
+	resp := s.rpcFichaScale(buildRPC("bos.ficha.scale",
+		map[string]interface{}{"ficha_id": "nada", "replicas": float64(2)}))
+	if resp.Error == nil || resp.Error.Code != ErrFichaNotFound {
+		t.Errorf("ficha inexistente: want FichaNotFound, got %+v", resp.Error)
+	}
+}
+
+func TestRPCFichaScale_OK(t *testing.T) {
+	// Preparar directorio de ficha con manifest.yml + yaml_engine.yml
+	dir := t.TempDir()
+	_ = os.WriteFile(filepath.Join(dir, "manifest.yml"), []byte(`
+identity:
+  id: redis
+  server: S01
+  version: 8.6.2
+workload:
+  type: Deployment
+  runtime: kubernetes
+meta:
+  backend: apt
+`), 0o644)
+	_ = os.WriteFile(filepath.Join(dir, "yaml_engine.yml"), []byte("namespace: sbos-data\n"), 0o644)
+
+	s, stub := makeK8sServer()
+	s.plugins = stubCatalog{fichas: map[string]*plugin.FichaManifest{
+		"redis": {ID: "redis", Version: "8.6.2", Path: dir},
+	}}
+
+	resp := s.rpcFichaScale(buildRPC("bos.ficha.scale",
+		map[string]interface{}{"ficha_id": "redis", "replicas": float64(3)}))
+	if resp.Error != nil {
+		t.Fatalf("scale OK: %v", resp.Error)
+	}
+	out := resp.Result.(map[string]interface{})
+	if out["success"] != true {
+		t.Errorf("success debe ser true: %+v", out)
+	}
+	if out["new_replicas"] != int32(3) {
+		t.Errorf("new_replicas: want 3, got %v (%T)", out["new_replicas"], out["new_replicas"])
+	}
+	if out["namespace"] != "sbos-data" {
+		t.Errorf("namespace: want sbos-data, got %v", out["namespace"])
+	}
+	if stub.ultima() == "" {
+		t.Error("k8sOp.ScaleDeployment no fue llamado")
 	}
 }
 

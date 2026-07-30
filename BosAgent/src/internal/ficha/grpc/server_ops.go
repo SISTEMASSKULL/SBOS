@@ -4,7 +4,9 @@ package grpc
 
 import (
 	"context"
+	"fmt"
 
+	"bos/internal/ficha"
 	pb "bos/proto/bos/ficha/v1"
 
 	"google.golang.org/grpc/codes"
@@ -36,7 +38,39 @@ func (s *FichaServer) Resume(ctx context.Context, req *pb.ResumeRequest) (*pb.Re
 }
 
 func (s *FichaServer) Scale(ctx context.Context, req *pb.ScaleRequest) (*pb.ScaleResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "scale requiere acceso K8s (F9)")
+	if s.k8sScaler == nil {
+		return nil, status.Error(codes.Unavailable, "escaler K8s no disponible (k8sScaler no inyectado)")
+	}
+	if s.catalog == nil {
+		return nil, status.Error(codes.Internal, "catálogo no disponible")
+	}
+
+	mf, ok := s.catalog.Get(req.FichaId)
+	if !ok {
+		return nil, status.Error(codes.NotFound, "ficha no encontrada: "+req.FichaId)
+	}
+
+	info, err := ficha.ParseWorkloadInfo(mf.Path)
+	if err != nil || !info.CanProbe() {
+		return nil, status.Error(codes.FailedPrecondition,
+			fmt.Sprintf("scale: workload info no disponible para %s (¿runtime kubernetes con namespace?)", req.FichaId))
+	}
+
+	prev, err := s.k8sScaler.GetDesiredReplicas(info.Namespace, info.Kind, req.FichaId)
+	if err != nil {
+		prev = 0 // no bloquear el scale si GetDesiredReplicas falla
+	}
+
+	if err := s.k8sScaler.ScaleDeployment(info.Namespace, req.FichaId, int(req.Replicas)); err != nil {
+		return nil, status.Error(codes.Internal, "scale: "+err.Error())
+	}
+
+	return &pb.ScaleResponse{
+		FichaId:      req.FichaId,
+		PrevReplicas: prev,
+		NewReplicas:  req.Replicas,
+		Success:      true,
+	}, nil
 }
 
 func (s *FichaServer) Status(ctx context.Context, req *pb.StatusRequest) (*pb.StatusResponse, error) {

@@ -616,3 +616,79 @@ func TestFichaServer_GetLogs_ConLogReader_SinArchivo(t *testing.T) {
 		t.Errorf("sin archivo de log: esperadas 0 líneas, obtenidas %d", stream.lineCount())
 	}
 }
+
+// ── FichaServer — Scale (F9) ──────────────────────────────────────
+
+// grpcTestScaler implementa K8sScalePort para tests.
+type grpcTestScaler struct {
+	scaleErr error
+	prevReps int32
+}
+
+func (k *grpcTestScaler) ScaleDeployment(ns, name string, replicas int) error {
+	return k.scaleErr
+}
+func (k *grpcTestScaler) GetDesiredReplicas(ns, kind, name string) (int32, error) {
+	return k.prevReps, nil
+}
+
+func TestFichaServer_Scale_SinK8sScaler(t *testing.T) {
+	srv := makeGRPCServer()
+	// k8sScaler=nil → Unavailable
+
+	ctx := context.Background()
+	_, err := srv.Scale(ctx, &pb.ScaleRequest{FichaId: "redis", Replicas: 3})
+	if err == nil {
+		t.Fatal("Scale sin k8sScaler debe retornar error")
+	}
+}
+
+func TestFichaServer_Scale_FichaSinPath(t *testing.T) {
+	srv := makeGRPCServer()
+	srv.k8sScaler = &grpcTestScaler{}
+	// catalog tiene redis con Path="" → ParseWorkloadInfo falla
+
+	ctx := context.Background()
+	_, err := srv.Scale(ctx, &pb.ScaleRequest{FichaId: "redis", Replicas: 2})
+	if err == nil {
+		t.Fatal("Scale con ficha sin path debe retornar error")
+	}
+}
+
+func TestFichaServer_Scale_OK(t *testing.T) {
+	dir := t.TempDir()
+	_ = os.WriteFile(filepath.Join(dir, "manifest.yml"), []byte(`
+identity:
+  id: redis
+  server: S01
+  version: 8.6.2
+workload:
+  type: Deployment
+  runtime: kubernetes
+meta:
+  backend: apt
+`), 0o644)
+	_ = os.WriteFile(filepath.Join(dir, "yaml_engine.yml"), []byte("namespace: sbos-data\n"), 0o644)
+
+	srv := makeGRPCServer()
+	srv.k8sScaler = &grpcTestScaler{prevReps: 2}
+	// Reemplazar catalog con uno que tenga Path real
+	srv.catalog = &grpcTestCatalog{manifests: []*plugin.FichaManifest{
+		{ID: "redis", Version: "8.6.2", Path: dir},
+	}}
+
+	ctx := context.Background()
+	resp, err := srv.Scale(ctx, &pb.ScaleRequest{FichaId: "redis", Replicas: 4})
+	if err != nil {
+		t.Fatalf("Scale OK: %v", err)
+	}
+	if !resp.Success {
+		t.Error("success debe ser true")
+	}
+	if resp.NewReplicas != 4 {
+		t.Errorf("new_replicas: want 4, got %d", resp.NewReplicas)
+	}
+	if resp.PrevReplicas != 2 {
+		t.Errorf("prev_replicas: want 2, got %d", resp.PrevReplicas)
+	}
+}
