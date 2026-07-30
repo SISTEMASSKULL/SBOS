@@ -136,7 +136,7 @@ PARTE: Bujía BOSCH FR-7DC
 
 ---
 
-## §5 Cómo se modela en `idn_identidad_entidad`
+## §5 Cómo se modela en `idn_identity_entity`
 
 ```
 t-toyota (tenant)
@@ -398,7 +398,7 @@ sistemas de los autos la heredan.
 - 30 fabricantes × 8 secciones × 40+ posiciones = **~1,200 productos** solo para Carina 97
 - 19 modelos de auto × 1,200 productos = **~22,800 referencias** en un ecosistema de 6 marcas
 - Agregar Nissan (5 modelos), Honda (4), Mazda (3) → **~50,000 referencias**
-- Todo en 2 tablas (`idn_identidad_entidad` + `idn_identidad_atributo`). Sin tablas pivote. Sin DDL.
+- Todo en 2 tablas (`idn_identity_entity` + `idn_identity_attribute`). Sin tablas pivote. Sin DDL.
 
 Cada nuevo fabricante solo necesita INSERT. Cada nuevo modelo solo necesita INSERT.
 El grafo de compatibilidad crece solo. La tienda busca por cualquier modelo y obtiene

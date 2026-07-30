@@ -218,7 +218,7 @@ Componente base (NodoTemplate)
 | **bDomain** | bsubdomain, actor, atributo | nombre, tipo (D93) | 1 | null |
 | **bSubDomain** | pos, actor, atributo | nombre, tipo (D93) | 1 | null |
 | **Pos** | actor, atributo | nombre, tipo (D93) | 1 | null |
-| **Actor** | atributo | nombre, tipo_entidad | 0 | null |
+| **Actor** | atributo | nombre, entity_type | 0 | null |
 | **Atributo** | — | category, attr_key | 0 | 1 (por entidad) |
 
 ### 5.4 Mockup del Editor de Identidad
@@ -445,12 +445,12 @@ de atributo):
 
 | Resultado | Badge | Acción |
 |---|---|---|
-| ✅ Verificado | Verde `✅ Verificado` + `verified_by: SEGIP` + `verified_at: now()` | Actualiza `idn_identidad_atributo.is_verified = true` |
+| ✅ Verificado | Verde `✅ Verificado` + `verified_by: SEGIP` + `verified_at: now()` | Actualiza `idn_identity_attribute.is_verified = true` |
 | ❌ No coincide | Rojo `❌ Rechazado` + "La CI no coincide con los registros de SEGIP" | El atributo se marca con error. No se puede subir a IAL2. |
 | ⚠ API no disponible | Amarillo `⚠ Pendiente` + "SEGIP no disponible. Reintentar más tarde." | El atributo queda sin verificar. Se agenda reintento. |
 | ⏱ Timeout | Amarillo `⚠ Timeout` + "SEGIP no respondió en 30s." | Igual que no disponible. |
 
-**JSON-RPC:** `bauth.identidad.atributo.verify(entidad_id, attr_key, type)` → `VerifyResult`
+**JSON-RPC:** `bauth.identidad.atributo.verify(entity_id, attr_key, type)` → `VerifyResult`
 **CLI equivalente:** `bauthctl identidad atributo verify jperez id_nacional CI`
 
 ---
@@ -800,7 +800,7 @@ NodeContract {
 // ACTOR
 { nodeType: "actor", editor: "identidad",
   allowedChildren: ["atributo"],
-  requiredAttrs: ["nombre", "tipo_entidad"],
+  requiredAttrs: ["nombre", "entity_type"],
   minChildren: 0, maxChildren: null,
   icon: "👤", color: "indigo",
   contextMenuActions: ["edit", "add_atributo", "asignar_rol", "add_to_userset", "copy_slug", "audit", "delete"],
@@ -933,7 +933,7 @@ función puedeSoltar(hijo: NodoTemplate, padre: NodoTemplate, modo: DragMode): b
 | | Editor de Identidad | Editor de Roles |
 |---|---|---|
 | **Qué valida** | Completitud mínima de entidad (IAL1/IAL2) | Estructura XACML |
-| **Fuente del contrato** | NodeContract + `idn_identidad_requisito` | NodeContract |
+| **Fuente del contrato** | NodeContract + `idn_identity_requirement` | NodeContract |
 | **Validación post-construcción** | Motor de Identidad (`validate` + `verify`) | atomc (`atomc check`) |
 | **Restricción cross-tenant** | ✅ No se permite | ❌ No aplica |
 
@@ -971,7 +971,7 @@ El Buscador **no es un editor.** Es una vista de consulta del Motor de Identidad
 | Vista | Normal | Vacío | Carga | Error |
 |---|---|---|---|---|
 | **Inicio** | KPIs + actividad | "No hay tenants. [Crear primer tenant]" | Skeleton cards | "⚠ No se pudo conectar. [Reintentar]" |
-| **Identidad** | Árbol con entidades | "Arrastrá un bDomain desde la paleta" + zona de drop gigante | Esqueleto de árbol 5 niveles | "⚠ Timeout en idn_identidad_entidad. [Reintentar]" |
+| **Identidad** | Árbol con entidades | "Arrastrá un bDomain desde la paleta" + zona de drop gigante | Esqueleto de árbol 5 niveles | "⚠ Timeout en idn_identity_entity. [Reintentar]" |
 | **Roles** | Árbol con políticas | "Arrastrá un Dominio desde la paleta" | Esqueleto con 12 dominios fantasma | "⚠ No se pudo cargar el árbol. [Reintentar]" |
 | **Buscador** | Resultados | Sin búsqueda: ejemplos. Sin resultados: sugerencias. | Skeleton cards con ★ | "⚠ Índice GIN en reconstrucción. [Reintentar]" |
 
@@ -1421,7 +1421,7 @@ El sidebar `🔍 Auditoría` y los botones `[🔍 Auditoría]` en los paneles ab
 │                                                                              │
 │  📊 47 eventos · Página 1 de 5 · [◀ Anterior] [Siguiente ▶]                │
 │                                                                              │
-│  Fuente: idn_identidad_atributo_history · idn_rolestpl_atom_history          │
+│  Fuente: idn_identity_attribute_history · idn_rolestpl_atom_history          │
 │          idn_user_role_history (audit trigger)                                │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```

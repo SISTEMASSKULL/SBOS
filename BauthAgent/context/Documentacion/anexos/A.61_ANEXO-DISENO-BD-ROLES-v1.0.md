@@ -40,9 +40,9 @@ Tres tablas nuevas, análogas a las del Motor de Identidad (A.56 §3):
 
 | Tabla | Análogo en Identidad | Propósito |
 |---|---|---|
-| `idn_rolestpl_atom_config` | `idn_identidad_atributo` | Atributos extensibles de átomos (norma, severidad, compilación) |
-| `idn_rolestpl_atom_history` | `idn_identidad_atributo_history` | Trazabilidad de cambios (append-only, particionado por mes) |
-| `idn_rolestpl_requisito` | `idn_identidad_requisito` | Completitud mínima por dominio y nivel |
+| `idn_rolestpl_atom_config` | `idn_identity_attribute` | Atributos extensibles de átomos (norma, severidad, compilación) |
+| `idn_rolestpl_atom_history` | `idn_identity_attribute_history` | Trazabilidad de cambios (append-only, particionado por mes) |
+| `idn_rolestpl_requisito` | `idn_identity_requirement` | Completitud mínima por dominio y nivel |
 
 ### 3.1 `idn_rolestpl_atom_config`
 
@@ -154,10 +154,10 @@ Particionado por mes. Solo toca la partición del período consultado.
 
 | | Motor de Identidad (A.56) | Motor de Roles (este anexo) |
 |---|---|---|
-| **Tabla principal** | `idn_identidad_entidad` + `idn_identidad_atributo` | `privilege_atom` + `privilege_role_atom` (existentes) |
-| **Atributos extensibles** | `idn_identidad_atributo` (EAV) | `idn_rolestpl_atom_config` (EAV) |
-| **Trazabilidad** | `idn_identidad_atributo_history` | `idn_rolestpl_atom_history` |
-| **Completitud mínima** | `idn_identidad_requisito` | `idn_rolestpl_requisito` |
+| **Tabla principal** | `idn_identity_entity` + `idn_identity_attribute` | `privilege_atom` + `privilege_role_atom` (existentes) |
+| **Atributos extensibles** | `idn_identity_attribute` (EAV) | `idn_rolestpl_atom_config` (EAV) |
+| **Trazabilidad** | `idn_identity_attribute_history` | `idn_rolestpl_atom_history` |
+| **Completitud mínima** | `idn_identity_requirement` | `idn_rolestpl_requisito` |
 | **Escala de datos** | 165M filas (1,000 empresas × 5,500 items × 30 campos) | ~3.3M filas (548 roles × 6,000 átomos) |
 | **Particionamiento** | HASH(tenant_id) en atributos, RANGE mensual en history | RANGE mensual en history. Config no necesita partición. |
 | **Índices GIN** | Sí (value_normalized, value_search) | No necesita (consultas por PK compuesta, no fuzzy) |

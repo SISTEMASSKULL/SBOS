@@ -25,7 +25,7 @@ Un farol DEPO 212-1112-L es compatible con 4 sistemas de iluminación (Toyota Ca
 Toyota Corolla, Nissan Sentra, Honda Civic). BOSCH fabrica el mismo farol (B-9876-L)
 para los mismos sistemas. TRW fabrica pastillas de freno para Carina y Corolla.
 
-Cada relación es una fila en `idn_identidad_atributo` con `attr_key = 'compatible.sistema_id'`.
+Cada relación es una fila en `idn_identity_attribute` con `attr_key = 'compatible.sistema_id'`.
 N-to-N resuelto sin tablas pivote.
 
 ---
@@ -56,7 +56,7 @@ Si hay devolución, regresa a Juan. El punto cobra % de comisión.
 ## §5 El ctx_id no cambia
 
 Estructura fija de 6 segmentos: `prefijo . tenant . bdomain . bsubdomain . pos . actor . traceparent`.
-Los valores vienen de `idn_identidad_entidad.slug`. La diversidad está en los ~40 tipos, no en la forma.
+Los valores vienen de `idn_identity_entity.slug`. La diversidad está en los ~40 tipos, no en la forma.
 Solo los ACTORES tienen ctx_id.
 
 ---

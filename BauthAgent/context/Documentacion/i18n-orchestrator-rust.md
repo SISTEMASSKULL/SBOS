@@ -316,7 +316,7 @@ account_mask = "##########"            # Bolivia: número de cuenta simple
 
 # ── Sinónimos regionales ──
 [synonyms]
-# Palabras que varían por país — alimentan idn_identidad_sinonimo
+# Palabras que varían por país — alimentan idn_identity_synonym
 "farol" = ["foco", "óptica", "luz_delantera"]          # Bolivia: farol
 # México: "foco" = ["farol", "luz_delantera", "faro"]
 # Argentina: "óptica" = ["farol", "luz", "foco"]
@@ -1176,11 +1176,11 @@ politica "validacion_nit"
 
   regla "nit_formato"
     target:
-      resource: idn_identidad_atributo.tributario
+      resource: idn_identity_attribute.tributario
       type: NIT
       verbo: validate
     condition:
-      property_id: idn_identidad_atributo.value_text
+      property_id: idn_identity_attribute.value_text
       operator: REGEX
       value: "@bauth_config_param.regex_nit_bo"
     effect:
@@ -1192,7 +1192,7 @@ politica "validacion_nit"
 
   regla "nit_enmascarar"
     target:
-      resource: idn_identidad_atributo.tributario
+      resource: idn_identity_attribute.tributario
       type: NIT
       verbo: mask
     effect:

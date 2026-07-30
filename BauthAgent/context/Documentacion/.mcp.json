@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "knowledge": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "knowledge-mcp-server",
+        "--knowledge-dir",
+        "./."
+      ]
+    },
+    "rag": {
+      "command": "rag-mcp",
+      "args": [
+        "--config",
+        "rag.config.json"
+      ]
+    }
+  }
+}

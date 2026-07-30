@@ -458,7 +458,7 @@ Referencia rápida para auditorías y verificación de cumplimiento:
 
 ### D93 — Catálogo de Identidades
 
-Define qué `tipo` es válido para cada `nivel` en `idn_identidad_entidad`, qué atributos son requeridos,
+Define qué `tipo` es válido para cada `nivel` en `idn_identity_entity`, qué atributos son requeridos,
 y qué conjuntos de membresía (USERSET) son permitidos para cada tipo de entidad. Base normativa:
 
 - **ISO 9001:2015 §3.2.4**: definición de cliente como quien recibe el producto/servicio
@@ -487,7 +487,7 @@ BitMask. Verbos: `validate` (formato), `verify` (fuente externa: SIN, SEGIP, ADS
 
 ### Gobernanza de atributos vía átomos D00
 
-Los atributos en `idn_identidad_atributo.atom_code` vinculan cada atributo con un átomo D00 en
+Los atributos en `idn_identity_attribute.atom_code` vinculan cada atributo con un átomo D00 en
 `privilege_atom`. Esto permite que el BitMask gobierne quién puede ver/editar cada
 atributo de identidad. Base normativa:
 

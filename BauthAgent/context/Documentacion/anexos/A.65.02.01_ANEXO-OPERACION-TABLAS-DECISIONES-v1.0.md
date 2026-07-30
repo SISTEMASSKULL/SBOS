@@ -129,7 +129,7 @@ Cuando `privilege_atom_grant` necesita registrar el otorgamiento del átomo a un
 - Lee `atom_position` de T-162 (nunca lo recalcula)
 - Una FK compuesta `(id_atom, atom_position) → idn_roles_template(id, atom_position)` garantiza en BD que el grant nunca puede referenciar una posición inventada o desincronizada
 
-Cuando un átomo es marcado inactivo en T-162 (`activo = false`):
+Cuando un átomo es marcado inactivo en T-162 (`is_active = false`):
 - La fila en T-162 persiste — la `atom_position` sigue fijada en la secuencia
 - Los grants existentes en `privilege_atom_grant` mantienen su `status`
 - Los JWTs con ese bit activo se invalidan vía CAEP (§7)
@@ -196,44 +196,37 @@ CREATE TABLE bauth.idn_roles_template (
     -- en todo el sistema, independientemente del tenant (el bit N identifica el mismo
     -- átomo sin ambigüedad en cualquier tenant).
     tenant_id       uuid        NOT NULL,
-    parent_id       uuid        NULL REFERENCES bauth.idn_roles_template(id) ON DELETE CASCADE,
-    clave           text        NOT NULL,
-    tipo            text        NOT NULL,
-    valor           text        NULL,
-    help            text        NULL,
-    opciones        text[]      NULL DEFAULT '{}',
-    orden           integer     NOT NULL DEFAULT 0,
-    -- atom_position: solo para nodos tipo='evaluacion'. Asignada UNA VEZ al nacer el nodo,
-    -- vía nextval('bauth.roles_atom_position_sequential'). INMUTABLE una vez asignada.
-    atom_position   integer     NULL,
-    -- verb_id: solo para nodos tipo='evaluacion'. FK a privilege_verb — el verbo debe
-    -- existir en el catálogo antes de poder usarse en el árbol. SOLO PARA VALIDACIÓN:
-    -- no estructures átomos a partir de esta FK ni la consultes en runtime.
-    verb_id         text        NULL REFERENCES bauth.privilege_verb(verb_id),
-    activo          boolean     NOT NULL DEFAULT true,
+    parent_id       uuid        NULL REFERENCES bauth.idn_roles_template(id) ON DELETE RESTRICT,
+    -- node_type: FK a idn_policy_node_type (catálogo T-161b)
+    node_type       text        NOT NULL REFERENCES bauth.idn_policy_node_type(code) ON UPDATE CASCADE,
+    label           jsonb       NOT NULL,   -- {"es":"Nombre","en":"Name"}
+    name            jsonb       NOT NULL,   -- {"es":"Desc ES","en":"Desc EN"}
+    value           text        NULL,
+    help            jsonb       NULL,       -- {"es":"Ayuda ES","en":"English help"}
+    options         text[]      NOT NULL DEFAULT '{}',
+    description     text        NULL,
+    -- atom_position: solo para nodos node_type='atom'. INMUTABLE una vez asignada.
+    atom_position   bigint      UNIQUE,
+    -- verb_id: solo para nodos node_type='atom'. FK a privilege_verb.
+    verb_id         text        NULL REFERENCES bauth.privilege_verb(verb_id) ON DELETE RESTRICT,
+    is_active       boolean     NOT NULL DEFAULT true,
     created_at      timestamptz NOT NULL DEFAULT now(),
     updated_at      timestamptz NOT NULL DEFAULT now(),
     created_by      text        NOT NULL,
     ctx_id          text        NOT NULL,
     CONSTRAINT idn_roles_template_pkey PRIMARY KEY (id),
-    -- tipo solo acepta los 10 valores canónicos del árbol bAuth
-    CONSTRAINT chk_irt_tipo CHECK (tipo IN (
-        'dominio','bloque','objeto','lista','politica',
-        'regla','evaluacion','atributo','enumerado','diagnostico'
-    )),
-    -- invariante: SOLO los nodos evaluacion tienen atom_position asignada
-    CONSTRAINT chk_irt_atom_position_solo_evaluacion CHECK (
-        (tipo = 'evaluacion' AND atom_position IS NOT NULL)
-        OR (tipo <> 'evaluacion' AND atom_position IS NULL)
+    -- invariante: SOLO los nodos node_type='atom' tienen atom_position asignada
+    CONSTRAINT chk_irt_atom_position CHECK (
+        (node_type = 'atom' AND atom_position IS NOT NULL)
+        OR (node_type <> 'atom' AND atom_position IS NULL)
     ),
-    -- invariante: SOLO los nodos evaluacion tienen verb_id asignado
-    CONSTRAINT chk_irt_verb_solo_evaluacion CHECK (
-        (tipo = 'evaluacion' AND verb_id IS NOT NULL)
-        OR (tipo <> 'evaluacion' AND verb_id IS NULL)
+    -- invariante: SOLO los nodos node_type='atom' tienen verb_id asignado
+    CONSTRAINT chk_irt_verb_solo_atom CHECK (
+        (node_type = 'atom' AND verb_id IS NOT NULL)
+        OR (node_type <> 'atom' AND verb_id IS NULL)
     ),
-    -- unicidad por tenant: dos tenants distintos pueden tener la misma clave
-    -- en el mismo nivel sin colisión (cada uno tiene su propio árbol)
-    CONSTRAINT uq_irt_clave_parent UNIQUE (tenant_id, parent_id, clave)
+    -- unicidad por tenant: label.es dentro del mismo padre
+    CONSTRAINT uq_irt_label_parent UNIQUE (tenant_id, parent_id, (label->>'es'))
 );
 
 -- ─── REGLA DE BOOTSTRAP (G-06) ───────────────────────────────────────────────

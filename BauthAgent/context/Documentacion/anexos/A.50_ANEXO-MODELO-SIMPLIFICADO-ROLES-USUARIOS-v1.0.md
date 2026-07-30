@@ -225,15 +225,15 @@ PASO 1 — DEFINIR (arquitecto de seguridad, una vez)
 ┌─────────────────────────────────────────────────────────┐
 │ Construye el árbol maestro en el dashboard.              │
 │                                                         │
-│ 1a. Identidad: crea entidades en idn_identidad_entidad             │
+│ 1a. Identidad: crea entidades en idn_identity_entity             │
 │     (tenant → bdomain → bsubdomain → pos → actor)       │
-│ 1b. Atributos: asigna atributos en idn_identidad_atributo          │
+│ 1b. Atributos: asigna atributos en idn_identity_attribute          │
 │     Motor de Identidad valida cada set()                 │
 │     (validate → verify → format)                         │
 │ 1c. Políticas: define reglas en el árbol de políticas    │
 │     Las reglas fabrican átomos (incluidos D00)           │
 │                                                         │
-│ Persiste en: idn_identidad_entidad + idn_identidad_atributo                  │
+│ Persiste en: idn_identity_entity + idn_identity_attribute                  │
 └─────────────────────────────────────────────────────────┘
 
 PASO 2 — COMPILAR (atomc, automático)
@@ -246,7 +246,7 @@ PASO 3 — ASIGNAR átomos a roles (arquitecto de identidad)
   compute_rol_bitmask() → RolBitMask precalculado
 
 PASO 4 — INSCRIBIR usuarios a roles (admin / RRHH)
-  Usuario (idn_identidad_entidad actor) → idn_user_role
+  Usuario (idn_identity_entity actor) → idn_user_role
   UserBitMask = OR(RolBitMask de roles activos)
 
 PASO 5 — EVALUAR (PDP, runtime)
@@ -257,7 +257,7 @@ PASO 5 — EVALUAR (PDP, runtime)
 
 | Motor | Opera sobre | Verbos | Fase |
 |---|---|---|---|
-| **Motor de Identidad** | idn_identidad_entidad, idn_identidad_atributo | validate, verify, format | Paso 1 (creación) |
+| **Motor de Identidad** | idn_identity_entity, idn_identity_attribute | validate, verify, format | Paso 1 (creación) |
 | **Motor BitMask** | privilege_atom, UserBitMask | read, write, approve... | Paso 5 (evaluación) |
 
 Ambos usan el mismo lenguaje AtomLang. El motor de identidad asegura datos correctos.

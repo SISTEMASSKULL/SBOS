@@ -140,8 +140,8 @@ gobernadas · árbol organizacional.
 | DIR-02 | Multi-tenancy (pool) | — | 1.12 | ✅ |
 | DIR-03 | NHI tipado (catálogo de tipos) | AC-2 | A.01 §B1 | ✅ |
 | DIR-04 | UserTemplate + validador | SCIM | A.02 / A.23 | ✅ |
-| DIR-05 | **DDL `idn_identidad_atributo` + `idn_tipo_atributo`** | RFC 7643 | A.31 / **BA7** | ⬜ |
-| DIR-06 | **Migrar 1:N del JSONB a idn_identidad_atributo** | 1.08 §3 | A.31 | ⬜ |
+| DIR-05 | **DDL `idn_identity_attribute` + `idn_tipo_atributo`** | RFC 7643 | A.31 / **BA7** | ⬜ |
+| DIR-06 | **Migrar 1:N del JSONB a idn_identity_attribute** | 1.08 §3 | A.31 | ⬜ |
 | DIR-07 | **Clasificación por atributo + enmascaramiento efectivo** | ISO A.5.12 | A.37-SD2 | 🔄 |
 | DIR-08 | **Gobernanza NHI** (ciclo de vida propio de identidades no-humanas) | PAM NHI | 0.00 §8 | ⬜ |
 | DIR-09 | **SCIM ↔ store bidireccional** | RFC 7644 | 0.00 §8 | 🔄 |
@@ -296,7 +296,7 @@ Un IAM con bypasses no puede optimizarse antes de cerrarlos.
 ### FASE 1 — Fundamentos que DESBLOQUEAN (dependencias raíz)
 Se hacen antes que los motores porque muchos dependen de ellos.
 5. **STD-07 / BA12** aplicar `bauth_44` WORM en VPS → **desbloquea** STD-06 (emisor auditoría) Y el Motor de Versionado (CORE-07, 1.13 F2).
-6. **DIR-05 / BA7** DDL `idn_identidad_atributo` + `idn_tipo_atributo` (A.42 §6) → **desbloquea** DIR-06 (migrar 1:N) y BA6 (persistencia del IAL).
+6. **DIR-05 / BA7** DDL `idn_identity_attribute` + `idn_tipo_atributo` (A.42 §6) → **desbloquea** DIR-06 (migrar 1:N) y BA6 (persistencia del IAL).
 7. **CORE-04 / BA14** seeds de átomos D2–D13 → **desbloquea** CORE-06 (evaluadores) y los planos External del pipeline (sin bits no hay qué evaluar).
 8. **DIR-10 / BA17** RLS multi-tenant (A.42 §10) — defensa en profundidad, DDL por tabla.
 > Cierre: el sustrato de datos está completo; los motores ya tienen dónde operar.
@@ -378,10 +378,10 @@ pilar (§1–§8) — es la vista única de ejecución. **Estado:** ✅ hecho ·
 | 2 | AM-10 / BA2 | DPoP real (RFC 9449, 12 pasos) | I | ⬜ | 0 | — |
 | 3 | AM-20 / BA4 | Rate-limit anti-brute-force login | I | ⬜ | 0 | — |
 | 4 | STD-07 / BA12 | Aplicar `bauth_44` WORM en VPS | VI | 🔄 | 1 | — |
-| 5 | DIR-05 / BA7 | DDL `idn_identidad_atributo` + `idn_tipo_atributo` | V | ⬜ | 1 | — |
+| 5 | DIR-05 / BA7 | DDL `idn_identity_attribute` + `idn_tipo_atributo` | V | ⬜ | 1 | — |
 | 6 | CORE-04 / BA14 | Seeds de átomos D2–D13 | Núcleo | ⬜ | 1 | — |
 | 7 | DIR-10 / BA17 | RLS multi-tenant (por tabla) | V | ⬜ | 1 | — |
-| 8 | DIR-06 | Migrar 1:N del JSONB a `idn_identidad_atributo` | V | ⬜ | 1 | #5 |
+| 8 | DIR-06 | Migrar 1:N del JSONB a `idn_identity_attribute` | V | ⬜ | 1 | #5 |
 | 8b | PLT-17 | **Gestor de Canales Protegidos** (centralizar todos los transportes) | VII | ⬜ | 1 | — |
 | 9 | STD-06 / BA11 | Emisor central de auditoría | VI | 🔄 | 2 | #4 |
 | 10 | STD-15 | Salida SIEM Wazuh operativa | VI | ⬜ | 2 | #9 |

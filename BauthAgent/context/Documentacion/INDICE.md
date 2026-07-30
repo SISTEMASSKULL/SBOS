@@ -152,14 +152,16 @@ curada para consulta sin fricción. Índice, patrón canónico y plan: [anexos/I
 
 | Anexo | Respalda a | Estado |
 |:--:|--------|:-------------:|
-| [A.01 — El Contrato RolTemplate v6.0 + átomos D00 + idn_identidad_atributo roles (§22)](anexos/A.01_ANEXO-ROLTEMPLATE-v1.0.md) — FUENTE AUTOSUFICIENTE | 1.06, 1.09, 1.13, 1.04, 2.05, 2.15 | ✅ 2.2.0 |
-| [A.02 — El Contrato UserTemplate v6.0 + idn_identidad_entidad + idn_identidad_atributo usuarios (§23)](anexos/A.02_ANEXO-USERTEMPLATE-v1.0.md) — FUENTE AUTOSUFICIENTE | 1.06, 1.08, 1.13, 2.01, 2.10, 2.15 | ✅ 1.2.0 |
+| [A.01 — El Contrato RolTemplate v6.0 + átomos D00 + idn_identity_attribute roles (§22)](anexos/A.01_ANEXO-ROLTEMPLATE-v1.0.md) — FUENTE AUTOSUFICIENTE | 1.06, 1.09, 1.13, 1.04, 2.05, 2.15 | ✅ 2.2.0 |
+| [A.02 — El Contrato UserTemplate v6.0 + idn_identity_entity + idn_identity_attribute usuarios (§23)](anexos/A.02_ANEXO-USERTEMPLATE-v1.0.md) — FUENTE AUTOSUFICIENTE | 1.06, 1.08, 1.13, 2.01, 2.10, 2.15 | ✅ 1.2.0 |
 | A.03 Catálogo de Roles (+BitMask Dual) · A.04 Cadenas DAG · A.05 Átomos de Dominio · A.06/A.07 Frameworks (+recursos) · A.08 Firma · A.09 Credenciales/IAL · A.10 Revocación · A.11 Red · A.12 Blockchain D12 · A.13 ADRs (vigencia real) · A.14 Context Plane | ver [INDICE-ANEXOS](anexos/INDICE-ANEXOS.md) §2 | ✅ (14 publicados) |
 | [A.15 — Stack Rust de Autenticación](anexos/A.15_ANEXO-STACK-RUST-AUTENTICACION-v1.0.md) — el patrón de SUSTENTACIÓN (verificación de código: cubierto/parcial/brechas específicas) | 2.1, 2.2, 2.3 | ✅ 1.0.0 ➕ |
 | **Sustentación A.16–A.40 (25 anexos)** — verificación de código real de todos los manuales: protocolos, BitMask, frontend, superficie, OIDC, dominios, RLS, validadores, sqlx, calidad, riesgo, auditoría, DPoP, operación, IGA, atributos, aplicaciones, motor, D99, calendario, menú, datos, CAEP, CLI, producto | [INDICE-ANEXOS §2-§3.1](anexos/INDICE-ANEXOS.md) | ✅ **COBERTURA TOTAL** (36/36 manuales) |
 | **AtomLang A.45–A.51 (7 anexos)** — respaldo normativo y técnico de los manuales 2.13 y 2.14. | [INDICE-ANEXOS §2](anexos/INDICE-ANEXOS.md) | ✅ |
 | **Identidad + Motor de Roles A.52–A.63 (10 anexos)** — A.52 Tipos y Dominios · A.53 Capas Acumulativas · A.54 Catálogo Autopartes · A.55 Catálogo Automotriz · A.56 Diseño BD Identidad · A.57 Rendimiento Identidad · A.59 Tipos de Átomos (6,000, BitMask) · A.60 Ciclo Vida Átomos (DAG, merge) · A.61 Diseño BD Roles · A.62 Rendimiento Roles · A.63 Objetos Compuestos (Composite GoF, 3 árboles) | [INDICE-ANEXOS §2](anexos/INDICE-ANEXOS.md) | ✅ 2.1.0 |
 | **A.64 Maquetas Desktop** · **[A.65 — Inventario Tablas DDL](anexos/A.65_ANEXO-INVENTARIO-TABLAS-DDL-v1.0.md)** · **[A.65.01 — Guía Desarrollo Tablas](anexos/A.65.01_ANEXO-GUIA-DESARROLLO-TABLAS-DDL-v1.0.md)** · **[A.65.02 — Nueva DDL · 32 tablas base (GLOBAL/TENANT/ROLES/VERSIONADO/IDENTIDAD)](anexos/A.65.02_ANEXO-NUEVA-DDL-v1.0.md)** — inventario limpio de partida para el diseño DDL desde cero | 5.01 · 1.13 · A.65 · A.61 · A.56 | ✅ 1.0.0 |
+| **[A.66 — Gaps nombres tablas DDL](anexos/A.66_ANEXO-GAPS-NOMBRES-TABLAS-DDL-v1.0.md)** · **[A.67 — Zonas de Negocio RolTemplate](anexos/A.67_ANEXO-BLOQUE-ZONAS-NEGOCIO-ROL-TEMPLATE-v1.0.md)** · **[A.68 — Catálogo propiedades átomos](anexos/A.68_CATALOGO-PROPIEDADES-ATOMOS-v1.0.md)** · **[A.69 — Revisión DDL V2 bugs](anexos/A.69_ANEXO-REVISION-DDL-V2-BUGS-v1.0.md)** | DDL · Árbol · Átomos | ✅ |
+| **[A.70 — Recursos Kubernetes de bAuth (B02 Reconcile + NetworkPolicies)](anexos/A.70_ANEXO-BAUTH-KUBERNETES-RESOURCES-v1.0.md)** — Secret, CronJob y NetworkPolicy; manifests idempotentes para reconstrucción sin fricción | B02 · K8s | ✅ 1.0.0 |
 
 ---
 

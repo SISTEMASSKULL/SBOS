@@ -1,0 +1,27 @@
+{
+  "segments": [
+    {
+      "name": "root",
+      "root": ".",
+      "include": [
+        "**/*.{ts,tsx,js,jsx,py,go,rs,java,md}"
+      ]
+    }
+  ],
+  "exclude": [
+    "**/node_modules/**",
+    "**/*.test.{ts,tsx}",
+    "**/dist/**"
+  ],
+  "embedder": {
+    "provider": "local",
+    "model": "Xenova/bge-small-en-v1.5"
+  },
+  "chunk": {
+    "maxTokens": 512,
+    "overlapLines": 8
+  },
+  "store": {
+    "path": ".rag/index.db"
+  }
+}

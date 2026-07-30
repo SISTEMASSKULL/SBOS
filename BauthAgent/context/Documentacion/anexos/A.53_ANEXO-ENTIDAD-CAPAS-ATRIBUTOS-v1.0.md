@@ -37,7 +37,7 @@ que se agregan y se quitan. La historia se preserva. Nada se borra.
 2020 ─ ROBO (siniestrado)          ← denuncia policial, seguro activado
 2021 ─ DESGUACE (desactivado)      ← partes_recicladas: motor, chasis
 
-5 dueños. 1 robo. 1 siniestro. 28 años. Mismo entidad_id. Historia completa.
+5 dueños. 1 robo. 1 siniestro. 28 años. Mismo entity_id. Historia completa.
 ```
 
 ## §3 Juan Pérez — 8 dominios, 45 años (bitácora completa)

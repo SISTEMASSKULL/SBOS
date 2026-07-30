@@ -40,18 +40,18 @@ consultas bajan a <100ms. La diferencia está en el DDL inicial, no en parches p
 
 | Componente | Qué resuelve |
 |---|---|
-| `idn_identidad_entidad` (adjacency list) | Jerarquía de 5 niveles. Sin closure table. Sin ltree. CTE recursiva estándar. |
-| `idn_identidad_atributo` (EAV) | Atributos actuales. Sin ALTER TABLE. Cada entidad define sus propios campos. |
-| `idn_identidad_atributo_history` (append-only) | Trazabilidad total. Cada cambio registrado: quién, cuándo, valor anterior/nuevo, ctx_id. Particionado por mes. ISO 27001, PCI DSS, GDPR. |
-| `idn_identidad_requisito` (completitud) | Grado mínimo de atributos por tipo de entidad y nivel (1=funcional, 2=verificado, 3=completo). NIST 800-63A IAL1/IAL2 aplicado a cualquier entidad. |
+| `idn_identity_entity` (adjacency list) | Jerarquía de 5 niveles. Sin closure table. Sin ltree. CTE recursiva estándar. |
+| `idn_identity_attribute` (EAV) | Atributos actuales. Sin ALTER TABLE. Cada entidad define sus propios campos. |
+| `idn_identity_attribute_history` (append-only) | Trazabilidad total. Cada cambio registrado: quién, cuándo, valor anterior/nuevo, ctx_id. Particionado por mes. ISO 27001, PCI DSS, GDPR. |
+| `idn_identity_requirement` (completitud) | Grado mínimo de atributos por tipo de entidad y nivel (1=funcional, 2=verificado, 3=completo). NIST 800-63A IAL1/IAL2 aplicado a cualquier entidad. |
 | Sistema de identidad como poblador exclusivo | `idn_tenant`, `org_empresa`, `org_sucursal`, `org_pos_logico` se pueblan SOLO desde el sistema de identidad. Nadie más escribe. |
 | 2 columnas generadas (`value_normalized`, `value_search`) | `value_normalized`: fuzzy (<100ms). `value_search`: full-text con sinónimos + stemming español (<50ms). Calculadas al INSERT. |
 | 7 índices (3 B-tree + 4 GIN) | Búsquedas puntuales <1ms, fuzzy <100ms, full-text <50ms. Sin índices: 4-8s. |
-| Partición por HASH(`tenant_id`) en `idn_identidad_atributo` + RANGE mensual en `idn_identidad_atributo_history` | 165M filas operativas divididas por tenant. Historial dividido por mes. |
+| Partición por HASH(`tenant_id`) en `idn_identity_attribute` + RANGE mensual en `idn_identity_attribute_history` | 165M filas operativas divididas por tenant. Historial dividido por mes. |
 
 ---
 
-## §2 `idn_identidad_entidad` — la jerarquía
+## §2 `idn_identity_entity` — la jerarquía
 
 ### 2.1 Por qué adjacency list y no ltree o nested sets
 
@@ -87,7 +87,7 @@ UUID v4: 0a1b2c3d-... (aleatorio) → índice fragmentado, 30-40% menos rendimie
 UUID v7: 01932cba-... (timestamp)  → índice ordenado, mismo rendimiento que SERIAL
 ```
 
-**Especificación para el DDL:** todas las PKs de `idn_identidad_entidad` e `idn_identidad_atributo` usan
+**Especificación para el DDL:** todas las PKs de `idn_identity_entity` e `idn_identity_attribute` usan
 `DEFAULT uuidv7()`. PostgreSQL 17+ tiene soporte nativo. Para versiones anteriores, se
 usa la extensión `pg_uuidv7`.
 
@@ -111,7 +111,7 @@ El slug es único dentro del padre. `skull-corp` solo hay uno dentro de `skull`.
 
 ---
 
-## §3 `idn_identidad_atributo` — los atributos
+## §3 `idn_identity_attribute` — los atributos
 
 ### 3.1 La estructura EAV con 5 niveles de clasificación
 
@@ -147,15 +147,15 @@ Cada atributo sabe de qué dominio viene: `'civil'`, `'laboral'`, `'autenticacio
 - `WHERE dominio_origen = 'salud'` → solo historia clínica
 - Auditoría: ¿qué dominio agregó qué atributo a qué entidad?
 
-### 3.5 `idn_identidad_atributo_history` — trazabilidad y auditoría (tabla separada)
+### 3.5 `idn_identity_attribute_history` — trazabilidad y auditoría (tabla separada)
 
-`idn_identidad_atributo` guarda el estado ACTUAL de cada atributo. Pero cada cambio debe ser
+`idn_identity_attribute` guarda el estado ACTUAL de cada atributo. Pero cada cambio debe ser
 trazable: quién modificó, cuándo, cuál era el valor anterior, cuál es el nuevo.
 Esto es obligatorio para ISO 27001 A.8.15, PCI DSS 10.3.2, y GDPR Art. 30.
 
-**Por qué tabla separada y no una columna `estado` en `idn_identidad_atributo`:**
+**Por qué tabla separada y no una columna `estado` en `idn_identity_attribute`:**
 
-- `idn_identidad_atributo` con 165M filas YA tiene bastantes. Agregarle historial la duplica.
+- `idn_identity_attribute` con 165M filas YA tiene bastantes. Agregarle historial la duplica.
 - Las consultas operativas ("dame el email actual de Juan") no compiten con consultas
   de auditoría ("¿quién cambió el email de Juan en 2019?").
 - El historial es **append-only** (solo INSERT, nunca UPDATE ni DELETE). Ideal para
@@ -166,9 +166,9 @@ Esto es obligatorio para ISO 27001 A.8.15, PCI DSS 10.3.2, y GDPR Art. 30.
 **Estructura:**
 
 ```sql
-CREATE TABLE bauth.idn_identidad_atributo_history (
+CREATE TABLE bauth.idn_identity_attribute_history (
     history_id    BIGSERIAL,
-    entidad_id    UUID NOT NULL,
+    entity_id    UUID NOT NULL,
     attr_key      TEXT NOT NULL,
     type          TEXT,
     tenant_id     UUID NOT NULL,
@@ -183,8 +183,8 @@ CREATE TABLE bauth.idn_identidad_atributo_history (
 ) PARTITION BY RANGE (changed_at);
 
 -- Particiones mensuales (se crean automáticamente con pg_partman o cron)
-CREATE TABLE idn_identidad_atributo_history2026_07
-    PARTITION OF bauth.idn_identidad_atributo_history
+CREATE TABLE idn_identity_attribute_history_2026_07
+    PARTITION OF bauth.idn_identity_attribute_history
     FOR VALUES FROM ('2026-07-01') TO ('2026-08-01');
 ```
 
@@ -195,26 +195,26 @@ CREATE OR REPLACE FUNCTION bauth.track_attribute_history()
 RETURNS TRIGGER AS $$
 BEGIN
     IF TG_OP = 'INSERT' THEN
-        INSERT INTO bauth.idn_identidad_atributo_history
-            (entidad_id, attr_key, type, tenant_id,
+        INSERT INTO bauth.idn_identity_attribute_history
+            (entity_id, attr_key, type, tenant_id,
              old_value, new_value, changed_by, change_type, ctx_id)
-        VALUES (NEW.entidad_id, NEW.attr_key, NEW.type, NEW.tenant_id,
+        VALUES (NEW.entity_id, NEW.attr_key, NEW.type, NEW.tenant_id,
                 NULL, NEW.value_text,
                 current_setting('bauth.actor_id')::uuid,
                 'INSERT', current_setting('bauth.ctx_id'));
     ELSIF TG_OP = 'UPDATE' THEN
-        INSERT INTO bauth.idn_identidad_atributo_history
-            (entidad_id, attr_key, type, tenant_id,
+        INSERT INTO bauth.idn_identity_attribute_history
+            (entity_id, attr_key, type, tenant_id,
              old_value, new_value, changed_by, change_type, ctx_id)
-        VALUES (NEW.entidad_id, NEW.attr_key, NEW.type, NEW.tenant_id,
+        VALUES (NEW.entity_id, NEW.attr_key, NEW.type, NEW.tenant_id,
                 OLD.value_text, NEW.value_text,
                 current_setting('bauth.actor_id')::uuid,
                 'UPDATE', current_setting('bauth.ctx_id'));
     ELSIF TG_OP = 'DELETE' THEN
-        INSERT INTO bauth.idn_identidad_atributo_history
-            (entidad_id, attr_key, type, tenant_id,
+        INSERT INTO bauth.idn_identity_attribute_history
+            (entity_id, attr_key, type, tenant_id,
              old_value, new_value, changed_by, change_type, ctx_id)
-        VALUES (OLD.entidad_id, OLD.attr_key, OLD.type, OLD.tenant_id,
+        VALUES (OLD.entity_id, OLD.attr_key, OLD.type, OLD.tenant_id,
                 OLD.value_text, NULL,
                 current_setting('bauth.actor_id')::uuid,
                 'DELETE', current_setting('bauth.ctx_id'));
@@ -224,7 +224,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trg_atributo_history
-    AFTER INSERT OR UPDATE OR DELETE ON bauth.idn_identidad_atributo
+    AFTER INSERT OR UPDATE OR DELETE ON bauth.idn_identity_attribute
     FOR EACH ROW EXECUTE FUNCTION bauth.track_attribute_history();
 ```
 
@@ -232,13 +232,13 @@ CREATE TRIGGER trg_atributo_history
 
 - **Trazabilidad completa**: cada cambio de cada atributo de cada entidad queda
   registrado con quién, cuándo, valor anterior y nuevo, y ctx_id.
-- **Auditoría por entidad**: `SELECT * FROM idn_identidad_atributo_history WHERE entidad_id = 'act-jperez' ORDER BY changed_at` → historial completo de cambios de Juan Pérez.
+- **Auditoría por entidad**: `SELECT * FROM idn_identity_attribute_history WHERE entity_id = 'act-jperez' ORDER BY changed_at` → historial completo de cambios de Juan Pérez.
 - **Auditoría por fecha**: `WHERE changed_at BETWEEN '2024-01-01' AND '2024-12-31'` → solo toca las 12 particiones de 2024.
 - **Cumplimiento normativo**: ISO 27001 A.8.15 (logging), PCI DSS 10.3.2 (trazabilidad de cambios), GDPR Art. 30 (registro de actividades de tratamiento).
 - **Reversión**: si un admin modifica un NIT por error, el historial tiene el valor anterior para restaurar.
 - **Detección de anomalías**: cambios masivos en un corto período → posible ataque o error.
 
-### 3.6 `idn_identidad_requisito` — grado de completitud mínimo por tipo de entidad
+### 3.6 `idn_identity_requirement` — grado de completitud mínimo por tipo de entidad
 
 Sin requisitos mínimos, cualquiera crea una PERSONA solo con nombre y el sistema se llena
 de basura. Cada tipo de entidad necesita un **grado de completitud mínimo** que el motor
@@ -248,16 +248,16 @@ NIST SP 800-63A, pero aplicado a cualquier tipo de entidad, no solo personas.
 **Estructura:**
 
 ```sql
-CREATE TABLE bauth.idn_identidad_requisito (
+CREATE TABLE bauth.idn_identity_requirement (
     id            BIGSERIAL PRIMARY KEY,
-    tipo_entidad  TEXT NOT NULL,        -- PERSONA, ORGANIZACION, VEHICULO, DISPOSITIVO...
+    entity_type  TEXT NOT NULL,        -- PERSONA, ORGANIZACION, VEHICULO, DISPOSITIVO...
     nivel         INT NOT NULL DEFAULT 1, -- 1=mínimo funcional, 2=verificado, 3=completo
     attr_key      TEXT NOT NULL,        -- attr_key requerido ('nombre','email','CI'...)
     requerido     BOOLEAN NOT NULL DEFAULT true,
     min_instances INT NOT NULL DEFAULT 1, -- cuántas instancias mínimo (1 email, 1 teléfono)
     max_instances INT,                  -- NULL = sin límite
     display_order INT NOT NULL DEFAULT 0,
-    UNIQUE (tipo_entidad, nivel, attr_key)
+    UNIQUE (entity_type, nivel, attr_key)
 );
 ```
 
@@ -265,43 +265,43 @@ CREATE TABLE bauth.idn_identidad_requisito (
 
 ```sql
 -- PERSONA nivel 1 (mínimo funcional, IAL1 equivalente)
-INSERT INTO bauth.idn_identidad_requisito VALUES
+INSERT INTO bauth.idn_identity_requirement VALUES
   ('PERSONA', 1, 'nombre', true, 1, NULL, 1),
   ('PERSONA', 1, 'email', true, 1, NULL, 2);
 
 -- PERSONA nivel 2 (verificado, IAL2 equivalente)
-INSERT INTO bauth.idn_identidad_requisito VALUES
+INSERT INTO bauth.idn_identity_requirement VALUES
   ('PERSONA', 2, 'id_nacional', true, 1, 1, 1),
   ('PERSONA', 2, 'birth_date', true, 1, 1, 2),
   ('PERSONA', 2, 'direccion', true, 1, NULL, 3),
   ('PERSONA', 2, 'telefono', true, 1, 3, 4);   -- al menos 1, máximo 3
 
 -- ORGANIZACION nivel 1
-INSERT INTO bauth.idn_identidad_requisito VALUES
+INSERT INTO bauth.idn_identity_requirement VALUES
   ('ORGANIZACION', 1, 'nombre', true, 1, NULL, 1),
   ('ORGANIZACION', 1, 'email', true, 1, NULL, 2);
 
 -- ORGANIZACION nivel 2
-INSERT INTO bauth.idn_identidad_requisito VALUES
+INSERT INTO bauth.idn_identity_requirement VALUES
   ('ORGANIZACION', 2, 'razon_social', true, 1, 1, 1),
   ('ORGANIZACION', 2, 'NIT', true, 1, 1, 2),
   ('ORGANIZACION', 2, 'direccion_fiscal', true, 1, 1, 3),
   ('ORGANIZACION', 2, 'pais', true, 1, 1, 4);
 
 -- VEHICULO nivel 1
-INSERT INTO bauth.idn_identidad_requisito VALUES
+INSERT INTO bauth.idn_identity_requirement VALUES
   ('VEHICULO', 1, 'marca', true, 1, 1, 1),
   ('VEHICULO', 1, 'modelo', true, 1, 1, 2),
   ('VEHICULO', 1, 'anio', true, 1, 1, 3);
 
 -- VEHICULO nivel 2
-INSERT INTO bauth.idn_identidad_requisito VALUES
+INSERT INTO bauth.idn_identity_requirement VALUES
   ('VEHICULO', 2, 'placa', true, 1, 1, 1),
   ('VEHICULO', 2, 'dueño', true, 1, 1, 2),
   ('VEHICULO', 2, 'seguro', true, 1, 1, 3);
 
 -- DISPOSITIVO nivel 1
-INSERT INTO bauth.idn_identidad_requisito VALUES
+INSERT INTO bauth.idn_identity_requirement VALUES
   ('DISPOSITIVO', 1, 'marca', true, 1, 1, 1),
   ('DISPOSITIVO', 1, 'modelo', true, 1, 1, 2),
   ('DISPOSITIVO', 1, 'serial', true, 1, 1, 3);
@@ -312,10 +312,10 @@ INSERT INTO bauth.idn_identidad_requisito VALUES
 ```
 bauth.entidad.create('PERSONA', 'Juan Pérez')
 
-1. Motor de identidad consulta idn_identidad_requisito:
+1. Motor de identidad consulta idn_identity_requirement:
    SELECT attr_key, min_instances, max_instances
-   FROM idn_identidad_requisito
-   WHERE tipo_entidad = 'PERSONA' AND nivel = 1 AND requerido = true;
+   FROM idn_identity_requirement
+   WHERE entity_type = 'PERSONA' AND nivel = 1 AND requerido = true;
    → nombre (1), email (1)
 
 2. Verifica que el request incluya al menos esos atributos:
@@ -346,8 +346,8 @@ Dashboard de identidad (única interfaz)
   ▼
 Sistema de identidad (bauth.entidad.create)
   │
-  ├── INSERT en idn_identidad_entidad (registro de identidad)
-  ├── INSERT en idn_identidad_atributo (atributos extensibles)
+  ├── INSERT en idn_identity_entity (registro de identidad)
+  ├── INSERT en idn_identity_attribute (atributos extensibles)
   │
   └── HOOK DE SINCRONIZACIÓN (poblador exclusivo)
         │
@@ -389,7 +389,7 @@ El Motor de Identidad (PDP de bAuth) lo invoca en dos momentos del ciclo de vida
 
 | Momento | Dónde actúa bi18n | Qué valida/ejecuta |
 |---|---|---|
-| **Escritura** | Antes del INSERT/UPDATE en `idn_identidad_atributo` | `mask` (sintaxis de estrategia), `display_format` (registrado en `format_map`), `canonicalValues` (no duplicados), `pattern` (regex compila y es segura), `input_mask` (caracteres válidos), `classification` (ISO 27001) |
+| **Escritura** | Antes del INSERT/UPDATE en `idn_identity_attribute` | `mask` (sintaxis de estrategia), `display_format` (registrado en `format_map`), `canonicalValues` (no duplicados), `pattern` (regex compila y es segura), `input_mask` (caracteres válidos), `classification` (ISO 27001) |
 | **Lectura** | Después del SELECT, antes de devolver al consumidor | `mask_value()` (PII), `format_value()` (ICU4X), `validate_enum()` (pertenencia a canonicalValues), `format_date()` (granularidad + locale del tenant) |
 
 Sin bi18n, `mask: "cualquier_cosa"` se persiste sin error y falla en runtime. Con bi18n,
@@ -494,7 +494,7 @@ DASHBOARD (admin edita)          BASE DE DATOS               POSTGRESQL
 ─────────────────────────       ───────────────              ──────────
 
 1. Admin edita sinónimos    →   2. INSERT/UPDATE/DELETE
-   en el panel D93                en bauth.idn_identidad_sinonimo
+   en el panel D93                en bauth.idn_identity_synonym
                                                              
                                  3. Trigger o cron detecta   →  4. Genera archivos .syn
                                     cambios (updated_at >        en $SHAREDIR/tsearch_data/
@@ -510,14 +510,14 @@ DASHBOARD (admin edita)          BASE DE DATOS               POSTGRESQL
 ```
 
 Los sinónimos se editan y guardan en el dashboard (dominio D93). La tabla
-`bauth.idn_identidad_sinonimo` es la **fuente de verdad**. Los archivos `.syn` que PostgreSQL lee
+`bauth.idn_identity_synonym` es la **fuente de verdad**. Los archivos `.syn` que PostgreSQL lee
 son **generados** desde la tabla, nunca editados a mano. Si hay cambios en la tabla (el
 trigger detecta `updated_at > last_sync`), el proceso regenera los archivos y recarga.
 
 **Estructura de la tabla (fuente de verdad):**
 
 ```sql
-CREATE TABLE bauth.idn_identidad_sinonimo (
+CREATE TABLE bauth.idn_identity_synonym (
     id          BIGSERIAL PRIMARY KEY,
     tenant_id   UUID,                    -- NULL = global, NOT NULL = específico del tenant
     pais        TEXT,                    -- 'BO', 'MX', 'AR', NULL = todos los países
@@ -525,7 +525,7 @@ CREATE TABLE bauth.idn_identidad_sinonimo (
     tipo        TEXT NOT NULL DEFAULT 'sinonimo',  -- 'sinonimo' | 'abreviatura'
     palabra     TEXT NOT NULL,           -- palabra normalizada (a la que se expande)
     terminos    TEXT[] NOT NULL,         -- sinónimos o abreviaturas que expanden a "palabra"
-    activo      BOOLEAN NOT NULL DEFAULT true,
+    is_active      BOOLEAN NOT NULL DEFAULT true,
     created_at  TIMESTAMPTZ DEFAULT now(),
     updated_at  TIMESTAMPTZ DEFAULT now()
 );
@@ -534,7 +534,7 @@ CREATE TABLE bauth.idn_identidad_sinonimo (
 **Sinónimos (regionales — organizados por país):**
 
 ```sql
-INSERT INTO bauth.idn_identidad_sinonimo (tenant_id, pais, industria, tipo, palabra, terminos) VALUES
+INSERT INTO bauth.idn_identity_synonym (tenant_id, pais, industria, tipo, palabra, terminos) VALUES
   -- Bolivia: "farol" es la palabra estándar
   (NULL, 'BO', 'autopartes', 'sinonimo', 'farol',   ARRAY['foco', 'óptica', 'luz_delantera']),
   -- México: "foco" es más común que "farol"
@@ -549,7 +549,7 @@ INSERT INTO bauth.idn_identidad_sinonimo (tenant_id, pais, industria, tipo, pala
 **Abreviaturas (universales o por industria — NO dependen del país):**
 
 ```sql
-INSERT INTO bauth.idn_identidad_sinonimo (tenant_id, pais, industria, tipo, palabra, terminos) VALUES
+INSERT INTO bauth.idn_identity_synonym (tenant_id, pais, industria, tipo, palabra, terminos) VALUES
   -- Abreviaturas universales de autopartes (cualquier país)
   (NULL, NULL, 'autopartes', 'abreviatura', 'delantero',  ARRAY['del', 'delant', 'frontal']),
   (NULL, NULL, 'autopartes', 'abreviatura', 'trasero',    ARRAY['tras', 'post', 'posterior']),
@@ -593,7 +593,7 @@ específicos que solo aplican a tenants de ese país.
 
 ```sql
 -- Tabla de control de sincronización
-CREATE TABLE bauth.idn_identidad_sinonimo_sync (
+CREATE TABLE bauth.idn_identity_synonym_sync (
     id              INT PRIMARY KEY DEFAULT 1,
     last_sync_at    TIMESTAMPTZ NOT NULL DEFAULT '2000-01-01',
     archivos_regenerados INT DEFAULT 0,
@@ -611,15 +611,15 @@ DECLARE
 BEGIN
     -- Solo actúa si hay cambios desde la última sync
     IF NOT EXISTS (
-        SELECT 1 FROM bauth.idn_identidad_sinonimo
-        WHERE updated_at > (SELECT last_sync_at FROM bauth.idn_identidad_sinonimo_sync)
+        SELECT 1 FROM bauth.idn_identity_synonym
+        WHERE updated_at > (SELECT last_sync_at FROM bauth.idn_identity_synonym_sync)
     ) THEN RETURN; END IF;
 
     -- Para cada combinación única de (tenant_id, pais, industria)
     FOR rec IN
         SELECT tenant_id, pais, industria,
                string_agg(palabra || ' ' || array_to_string(sinonimos, ' '), E'\n') AS contenido
-        FROM bauth.idn_identidad_sinonimo WHERE activo = true
+        FROM bauth.idn_identity_synonym WHERE is_active = true
         GROUP BY tenant_id, pais, industria
     LOOP
         file_path := CASE
@@ -640,7 +640,7 @@ BEGIN
     ALTER TEXT SEARCH DICTIONARY spanish_syn (dummy);
 
     -- Marca sync completada
-    UPDATE bauth.idn_identidad_sinonimo_sync
+    UPDATE bauth.idn_identity_synonym_sync
     SET last_sync_at = now(), archivos_regenerados = archivos_regenerados + 1;
 
     RAISE NOTICE 'Synonym sync: archivos regenerados y recargados a las %', now();
@@ -668,7 +668,7 @@ se actualizan y PostgreSQL recarga sin restart.
 | Por industria | Archivos separados manualmente | Columna industria |
 | Auditoría | No (el archivo no tiene trazabilidad) | Sí (created_at, updated_at, quién cambió) |
 | Recarga sin restart | `ALTER ... (dummy)` manual | Automático en el proceso de sync |
-| Rollback | Manual (backup del archivo) | Soft-delete (activo=false) |
+| Rollback | Manual (backup del archivo) | Soft-delete (is_active=false) |
 
 **Referencias:**
 - [PostgreSQL ALTER TEXT SEARCH DICTIONARY — recarga sin restart](https://www.postgresql.org/docs/current/sql-altertsdictionary.html)
@@ -704,7 +704,7 @@ Calculadas una vez al INSERT. Índice GIN encima. <50ms por búsqueda.
 
 | Índice | Tipo | Columnas | Qué resuelve | Tiempo |
 |---|---|---|---|---|
-| `ix_atributo_entidad` | B-tree | `(entidad_id, category, attr_key)` | "Atributos de la entidad X" | <1ms |
+| `ix_atributo_entidad` | B-tree | `(entity_id, category, attr_key)` | "Atributos de la entidad X" | <1ms |
 | `ix_atributo_atom` | B-tree parcial | `(atom_code) WHERE atom_code IS NOT NULL` | "Atributos controlados por BitMask" | <1ms |
 | `ix_atributo_exact` | B-tree | `(tenant_id, attr_key, value_normalized)` | "¿De quién es este email?" | <1ms |
 | `ix_atributo_fuzzy` | GIN | `(value_normalized gin_trgm_ops)` | "tolota" → TOYOTA/TOLOTA/TOYOTÁ | <100ms |
@@ -732,9 +732,9 @@ Usuario (México) escribe: "foco del izq tyt carina 92"
 3. bAuth ejecuta:
    SELECT e.nombre, a_marca.value_text, a_cod.value_text,
           ts_rank(s.value_search, query) AS rank
-   FROM idn_identidad_atributo s
-   JOIN idn_identidad_entidad e ON s.entidad_id = e.id AND e.tenant_id = 't-maya'
-   JOIN idn_identidad_atributo a_tipo ON e.id = a_tipo.entidad_id
+   FROM idn_identity_attribute s
+   JOIN idn_identity_entity e ON s.entity_id = e.id AND e.tenant_id = 't-maya'
+   JOIN idn_identity_attribute a_tipo ON e.id = a_tipo.entity_id
        AND a_tipo.attr_key = 'tipo' AND a_tipo.value_text = 'farol',
         to_tsquery('spanish_search', 'foco & del & izq & tyt & carina & 92') AS query
    WHERE s.tenant_id = 't-maya'
@@ -755,7 +755,7 @@ Usuario (México) escribe: "foco del izq tyt carina 92"
 
 ### 5.1 Por qué particionar por `tenant_id`
 
-Con 1,000 empresas, `idn_identidad_atributo` tendrá ~165M filas. Sin particionamiento, cada
+Con 1,000 empresas, `idn_identity_attribute` tendrá ~165M filas. Sin particionamiento, cada
 query escanea (o el índice escanea) todas. Con particionamiento HASH por `tenant_id`,
 cada query solo toca UNA partición. 16 particiones × ~10M filas cada una.
 
@@ -775,8 +775,8 @@ PostgreSQL 14+ permite `DETACH PARTITION` + `ATTACH PARTITION` sin bloquear lect
 
 | Componente | Tamaño estimado (1,000 tenants) |
 |---|---|
-| `idn_identidad_entidad` (7M filas) | ~2 GB |
-| `idn_identidad_atributo` datos (165M filas) | ~30 GB |
+| `idn_identity_entity` (7M filas) | ~2 GB |
+| `idn_identity_attribute` datos (165M filas) | ~30 GB |
 | `value_normalized` (columna generada) | ~5 GB |
 | `value_search` (columna generada) | ~8 GB |
 | Índices B-tree (3) | ~8 GB |
@@ -809,7 +809,7 @@ La lección aprendida y documentada:
 
 ## §7 Resumen: por qué este diseño sobrevive sin nosotros
 
-1. **Tres tablas.** `idn_identidad_entidad` (jerarquía) + `idn_identidad_atributo` (atributos actuales) + `idn_identidad_atributo_history` (trazabilidad, append-only, particionado por mes). PKs UUID v7 (RFC 9562).
+1. **Tres tablas.** `idn_identity_entity` (jerarquía) + `idn_identity_attribute` (atributos actuales) + `idn_identity_attribute_history` (trazabilidad, append-only, particionado por mes). PKs UUID v7 (RFC 9562).
 2. **Columnas generadas STORED.** `value_normalized` (fuzzy <100ms) + `value_search` (full-text <50ms). Sinónimos y abreviaturas administrables desde D93, generan archivos `.syn`, recarga sin restart.
 3. **Siete índices en el DDL inicial.** 3 B-tree para exactas, 4 GIN para fuzzy/full-text/JSONB/categoría.
 4. **Partición por tenant.** Cada empresa en su espacio físico. Escala horizontal a 10,000 tenants.
@@ -826,7 +826,7 @@ La lección aprendida y documentada:
 
 | Brecha | Severidad | Impacto en identidad | Solución |
 |---|---|---|---|
-| **Row-Level Security ausente** | P2 | Si un handler olvida `WHERE tenant_id`, expone catálogos de todos los tenants entre sí | Activar RLS en `idn_identidad_entidad` e `idn_identidad_atributo` |
+| **Row-Level Security ausente** | P2 | Si un handler olvida `WHERE tenant_id`, expone catálogos de todos los tenants entre sí | Activar RLS en `idn_identity_entity` e `idn_identity_attribute` |
 | **Field-level encryption ausente** | P2 | NIT, CI, datos tributarios en claro en PostgreSQL | pgcrypto + Vault para claves |
 | **DPoP es un stub** | P1 | Token robado = lectura de datos de identidad sin restricción | Implementar DPoP real (RFC 9449) |
 | **Sin Gestor de Canales** | P1 | Seguridad de transporte no uniforme | Centralizar TLS/mTLS en `src/transport/` |
@@ -838,15 +838,15 @@ y PostgreSQL las fuerza en cada query, incluso si la aplicación olvida el WHERE
 
 ```sql
 -- Activar RLS en las tablas de identidad
-ALTER TABLE bauth.idn_identidad_entidad ENABLE ROW LEVEL SECURITY;
-ALTER TABLE bauth.idn_identidad_atributo ENABLE ROW LEVEL SECURITY;
+ALTER TABLE bauth.idn_identity_entity ENABLE ROW LEVEL SECURITY;
+ALTER TABLE bauth.idn_identity_attribute ENABLE ROW LEVEL SECURITY;
 
 -- Política: cada tenant solo ve sus propias entidades
-CREATE POLICY tenant_isolacion_entidad ON bauth.idn_identidad_entidad
+CREATE POLICY tenant_isolacion_entidad ON bauth.idn_identity_entity
     FOR ALL
     USING (tenant_id = current_setting('bauth.tenant_id')::uuid);
 
-CREATE POLICY tenant_isolacion_atributo ON bauth.idn_identidad_atributo
+CREATE POLICY tenant_isolacion_atributo ON bauth.idn_identity_attribute
     FOR ALL
     USING (tenant_id = current_setting('bauth.tenant_id')::uuid);
 
@@ -873,11 +873,11 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 -- Nunca se escribe en consultas SQL (evita fuga por logs)
 
 -- Ejemplo de inserción con cifrado (la clave viene de Vault)
--- INSERT INTO idn_identidad_atributo (value_text_encrypted)
+-- INSERT INTO idn_identity_attribute (value_text_encrypted)
 -- VALUES (pgp_sym_encrypt('12345678901234', :vault_key));
 
 -- La aplicación desencripta al leer:
--- SELECT pgp_sym_decrypt(value_text_encrypted, :vault_key) FROM idn_identidad_atributo;
+-- SELECT pgp_sym_decrypt(value_text_encrypted, :vault_key) FROM idn_identity_attribute;
 ```
 
 **Qué resuelve:** un atacante con acceso directo a la BD (volcado, backup robado) ve
@@ -918,14 +918,14 @@ DESARROLLADOR (PostgreSQL)                    bAuth (PostgreSQL)
             password '***');
 
 3. IMPORT FOREIGN SCHEMA public
-   LIMIT TO (idn_identidad_entidad, idn_identidad_atributo)
+   LIMIT TO (idn_identity_entity, idn_identity_attribute)
    FROM SERVER bauth_server
    INTO ext_bauth;
 
 4. El desarrollador consulta:
    SELECT e.nombre, a.value_text AS codigo
-   FROM ext_bauth.idn_identidad_entidad e
-   JOIN ext_bauth.idn_identidad_atributo a ON e.entidad_id = a.entidad_id
+   FROM ext_bauth.idn_identity_entity e
+   JOIN ext_bauth.idn_identity_attribute a ON e.entity_id = a.entity_id
    JOIN mi_inventario.productos p ON a.value_text = p.codigo_toyota
    WHERE a.attr_key = 'codigo';
    -- PostgreSQL hace pushdown del JOIN a bAuth
@@ -951,8 +951,8 @@ bAuth (PostgreSQL)                    pg2any                     Desarrollador (
 ──────────────────                    ──────                     ─────────────────────
 
 1. CREATE PUBLICATION pub_toyota      2. CDC consumer:           3. Tablas locales:
-   FOR TABLE idn_identidad_entidad,               Lee WAL de bAuth           idn_identidad_entidad (readonly)
-   idn_identidad_atributo                         Convierte a SQL            idn_identidad_atributo (readonly)
+   FOR TABLE idn_identity_entity,               Lee WAL de bAuth           idn_identity_entity (readonly)
+   idn_identity_attribute                         Convierte a SQL            idn_identity_attribute (readonly)
    WHERE (tenant_id = 't-toyota')       del destino
                                                                4. El desarrollador:
                                         → INSERT/UPDATE/DELETE     JOIN con sus tablas
@@ -978,10 +978,10 @@ CDC. Menos carga que FDW en tiempo real.
 ```sql
 -- En bAuth:
 CREATE MATERIALIZED VIEW mv_toyota_catalog AS
-SELECT e.entidad_id, e.nombre, e.tipo,
+SELECT e.entity_id, e.nombre, e.tipo,
        a.attr_key, a.type, a.value_text, a.value_normalized
-FROM idn_identidad_entidad e
-JOIN idn_identidad_atributo a ON e.entidad_id = a.entidad_id
+FROM idn_identity_entity e
+JOIN idn_identity_attribute a ON e.entity_id = a.entity_id
 WHERE e.tenant_id = 't-toyota';
 
 -- El desarrollador consulta esta vista vía API REST (Kong)

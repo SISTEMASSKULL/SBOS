@@ -144,7 +144,7 @@ async fn verificar_proofing(
 3. **IAL3:** exige verificación presencial o supervisada equivalente + evidencia SUPERIOR.
 4. En todos: emitir `aud_event(IDENTITY_PROOFED, iso_control=["IA-12"])` con las fuentes de
    evidencia y el resultado (log inalterable — la industria lo exige, A.09 §4.bis).
-5. Persistir en la sección `identity_proofing` del UserTemplate (requiere BA7 idn_identidad_atributo o
+5. Persistir en la sección `identity_proofing` del UserTemplate (requiere BA7 idn_identity_attribute o
    columna dedicada): `{ial_logrado, tipo, evidencias, proofed_at, proofed_by, reproofing_due}`.
 6. Si la evidencia no alcanza el `objetivo` → `Err(EvidenciaInsuficiente { falta })`.
 
@@ -152,21 +152,21 @@ async fn verificar_proofing(
 
 ---
 
-## 6. BA7 — migración `idn_identidad_atributo` — SCIM RFC 7643 / ISO 24760-1 · 1.07 · A.31 · ❌ POR DESARROLLAR
+## 6. BA7 — migración `idn_identity_attribute` — SCIM RFC 7643 / ISO 24760-1 · 1.07 · A.31 · ❌ POR DESARROLLAR
 
 **No es una función: es una migración DDL.** ESTRUCTURA requerida (los campos que la norma exige):
 ```sql
 CREATE TABLE bauth.idn_tipo_atributo (         -- catálogo de tipos (email, phone, address...)
     id uuid PRIMARY KEY DEFAULT uuidv7(),
-    codigo text NOT NULL UNIQUE,                -- 'email', 'phone', 'ci'...
-    nombre_es text NOT NULL,
+    code text NOT NULL UNIQUE,                  -- 'email', 'phone', 'ci'...
+    name jsonb NOT NULL,                        -- {"es":"...","en":"..."}
     cardinalidad text NOT NULL,                 -- '1:1' | '1:N' (SCIM multivaluado)
     clasificacion text NOT NULL,               -- PUBLIC|INTERNAL|CONFIDENTIAL|RESTRICTED (ISO A.5.12)
     enmascaramiento text,                       -- política de máscara (ej. 'lastFourVisible')
     verificable boolean NOT NULL DEFAULT false, -- si admite estado verified (ISO 24760: claimed vs verified)
     norma_ref text NOT NULL                     -- SCIM/OIDC de origen
 );
-CREATE TABLE bauth.idn_identidad_atributo (              -- los valores 1:N por sujeto
+CREATE TABLE bauth.idn_identity_attribute (              -- los valores 1:N por sujeto
     id uuid PRIMARY KEY DEFAULT uuidv7(),
     sujeto_id uuid NOT NULL,                    -- FK al usuario (idn_user_template)
     tipo_id uuid NOT NULL REFERENCES bauth.idn_tipo_atributo(id),
@@ -397,7 +397,7 @@ de `src/crypto/`), sin romper (igual que ADR-011/ADR-012).
 | 3 | BA2 DPoP (§2) | función cripto | Medio (12 pasos, `ring`+`sha2` ya están) |
 | 4 | BA4 rate-limit (§4) | función + config | Medio |
 | 5 | BA11 emisor auditoría (§8) | módulo nuevo | Medio-alto |
-| 6 | BA7 idn_identidad_atributo (§6) | migración DDL | Bajo |
+| 6 | BA7 idn_identity_attribute (§6) | migración DDL | Bajo |
 | 7 | BA6 IAL (§5) | función + persistencia | Alto |
 | 8 | BA17 RLS (§10) | DDL por tabla | Bajo-medio |
 | 9 | BA13 IGA (§9) | 2 motores | Alto |
@@ -417,4 +417,4 @@ detalladas se añaden a este anexo conforme entren en desarrollo.
 
 | Versión | Fecha | Descripción |
 |---------|-------|-------------|
-| 1.0.0 | 2026-07-11 | Especificación de implementación (corrección del rumbo: el humano pidió los procesos/funciones YA DEFINIDOS por las normas, con su listado de parámetros y la explicación del cuerpo — no un andamiaje de traits, que fue interpretación previa). Fichas listas para desarrollar: BA1 (WebAuthn, ejemplo hecho), BA2 (DPoP — los 12 pasos de RFC 9449 §4.3 verificados), BA3 (pipeline fail-closed, el cambio exacto), BA4 (rate-limit login), BA6 (IAL 800-63A por nivel), BA7 (DDL idn_identidad_atributo con los campos SCIM/ISO), BA8 (firma ADSIB, pasos Ley 164/ETSI), BA11 (emisor auditoría, contenido AU-3), BA13 (motores IGA), BA17 (RLS patrón por tabla). Cada ficha: firma con parámetros explicados + cuerpo paso a paso de la norma + errores fail-closed. El orden de desarrollo con esfuerzo estimado. |
+| 1.0.0 | 2026-07-11 | Especificación de implementación (corrección del rumbo: el humano pidió los procesos/funciones YA DEFINIDOS por las normas, con su listado de parámetros y la explicación del cuerpo — no un andamiaje de traits, que fue interpretación previa). Fichas listas para desarrollar: BA1 (WebAuthn, ejemplo hecho), BA2 (DPoP — los 12 pasos de RFC 9449 §4.3 verificados), BA3 (pipeline fail-closed, el cambio exacto), BA4 (rate-limit login), BA6 (IAL 800-63A por nivel), BA7 (DDL idn_identity_attribute con los campos SCIM/ISO), BA8 (firma ADSIB, pasos Ley 164/ETSI), BA11 (emisor auditoría, contenido AU-3), BA13 (motores IGA), BA17 (RLS patrón por tabla). Cada ficha: firma con parámetros explicados + cuerpo paso a paso de la norma + errores fail-closed. El orden de desarrollo con esfuerzo estimado. |

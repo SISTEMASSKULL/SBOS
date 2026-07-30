@@ -451,7 +451,7 @@ Sin verbo, un Atom no puede distinguir entre `read`, `write`, `approve`, `delete
 ### Nuevas reglas de clasificación
 
 **Regla A-09 — D93 gobierna tipos de entidad:** el Catálogo de Identidades define qué `tipo`
-es válido para cada `nivel` en `idn_identidad_entidad`. El motor de identidad rechaza cualquier tipo
+es válido para cada `nivel` en `idn_identity_entity`. El motor de identidad rechaza cualquier tipo
 no registrado. Agregar un sector nuevo (educación, salud) es agregar su tipo a la política D93.
 
 **Regla A-10 — D94 agrupa usuarios:** el Registro de Usuarios define USERSETs que agrupan

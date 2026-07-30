@@ -1875,11 +1875,11 @@ ROL "gerente_regional" tiene tickeados:
 
 ### 22.2 Atributos del propio rol
 
-Los roles son entidades en `idn_identidad_atributo` con `entidad_tipo='role'`. Tienen atributos
+Los roles son entidades en `idn_identity_attribute` con `entidad_tipo='role'`. Tienen atributos
 extensibles sin tocar el DDL de `idn_role_template`:
 
 ```sql
-INSERT INTO bauth.idn_identidad_atributo (entidad_id, category, attr_key, type, value_text) VALUES
+INSERT INTO bauth.idn_identity_attribute (entity_id, category, attr_key, type, value_text) VALUES
   ('vendedor_senior', 'norma', 'respaldo', 'nist', 'NIST SP 800-53 AC-3/AC-6'),
   ('vendedor_senior', 'norma', 'respaldo', 'iso', 'ISO 27001:2022 A.5.15'),
   ('vendedor_senior', 'seguridad', 'loa_required', NULL, '2'),
@@ -1914,4 +1914,4 @@ mismo lenguaje AtomLang, mismos átomos.
 
 | Versión | Fecha | Descripción |
 |---------|-------|-------------|
-| 2.2.0 | 2026-07-14 | **Átomos de identidad D00 en el RolTemplate.** Nueva §22: el RolTemplate fabrica átomos D00 además de D1-D13. Atributos del propio rol en idn_identidad_atributo. Conjuntos de usuarios (D94). Conexión con el motor de identidad (2.15). |
+| 2.2.0 | 2026-07-14 | **Átomos de identidad D00 en el RolTemplate.** Nueva §22: el RolTemplate fabrica átomos D00 además de D1-D13. Atributos del propio rol en idn_identity_attribute. Conjuntos de usuarios (D94). Conexión con el motor de identidad (2.15). |

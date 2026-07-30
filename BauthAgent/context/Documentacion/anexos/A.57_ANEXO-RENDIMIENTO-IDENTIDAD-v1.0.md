@@ -14,11 +14,11 @@
 
 | Tabla | Cálculo | Filas |
 |---|---|---|
-| `idn_identidad_entidad` | 5,500 items + sus ancestros (catálogo, secciones, subsistemas, posiciones) | ~7,000 |
-| `idn_identidad_atributo` | 5,500 items × 30 campos | 165,000 |
+| `idn_identity_entity` | 5,500 items + sus ancestros (catálogo, secciones, subsistemas, posiciones) | ~7,000 |
+| `idn_identity_attribute` | 5,500 items × 30 campos | 165,000 |
 | **Total** | | **~172,000 filas** |
 
-Cada producto es UNA fila en `idn_identidad_entidad` y ~30 filas en `idn_identidad_atributo`.
+Cada producto es UNA fila en `idn_identity_entity` y ~30 filas en `idn_identity_attribute`.
 Es exactamente 30× más filas que un modelo de columnas fijas. Ese es el costo
 de la flexibilidad.
 
@@ -26,8 +26,8 @@ de la flexibilidad.
 
 | Tabla | Cálculo | Filas |
 |---|---|---|
-| `idn_identidad_entidad` | 7,000 × 1,000 | 7,000,000 |
-| `idn_identidad_atributo` | 165,000 × 1,000 | 165,000,000 |
+| `idn_identity_entity` | 7,000 × 1,000 | 7,000,000 |
+| `idn_identity_attribute` | 165,000 × 1,000 | 165,000,000 |
 | **Total** | | **~172,000,000 filas** |
 
 172 millones de filas. PostgreSQL lo maneja. Con los índices correctos y
@@ -40,7 +40,7 @@ particionamiento por `tenant_id`.
 ### 2.1 Búsqueda puntual: "atributos del producto LAP-2024-001"
 
 ```sql
-SELECT * FROM idn_identidad_atributo WHERE entidad_id = 'act-laptop-001';
+SELECT * FROM idn_identity_attribute WHERE entity_id = 'act-laptop-001';
 ```
 
 | Escala | Filas escaneadas | Tiempo (con índice) |
@@ -48,13 +48,13 @@ SELECT * FROM idn_identidad_atributo WHERE entidad_id = 'act-laptop-001';
 | 1 empresa (165K filas) | ~30 | <0.5ms |
 | 1,000 empresas (165M filas) | ~30 | <1ms |
 
-El índice `ix_atributo_entidad (entidad_id, category, attr_key)` cubre esta consulta.
+El índice `ix_atributo_entidad (entity_id, category, attr_key)` cubre esta consulta.
 Solo toca las 30 filas de ese producto. No escanea la tabla completa.
 
 ### 2.2 Búsqueda por categoría: "todos los emails de trabajo"
 
 ```sql
-SELECT * FROM idn_identidad_atributo
+SELECT * FROM idn_identity_attribute
 WHERE tenant_id = $tenant AND category = 'contacto' AND attr_key = 'email';
 ```
 
@@ -68,7 +68,7 @@ El `tenant_id` filtra primero. Solo se escanean las filas del tenant activo.
 ### 2.3 Búsqueda inversa: "¿de quién es este email?"
 
 ```sql
-SELECT * FROM idn_identidad_atributo
+SELECT * FROM idn_identity_attribute
 WHERE attr_key = 'email' AND value_text = 'jperez@skull.com';
 ```
 
@@ -84,10 +84,10 @@ Búsqueda exacta por valor.
 
 ```sql
 SELECT e.nombre, a_marca.value_text, a_stock.value_text, a_precio.value_text
-FROM idn_identidad_atributo a_compat
-JOIN idn_identidad_entidad e ON a_compat.entidad_id = e.id
-JOIN idn_identidad_atributo a_marca ON e.id = a_marca.entidad_id AND a_marca.attr_key = 'marca'
-JOIN idn_identidad_atributo a_region ON e.id = a_region.entidad_id AND a_region.attr_key = 'region'
+FROM idn_identity_attribute a_compat
+JOIN idn_identity_entity e ON a_compat.entity_id = e.id
+JOIN idn_identity_attribute a_marca ON e.id = a_marca.entity_id AND a_marca.attr_key = 'marca'
+JOIN idn_identity_attribute a_region ON e.id = a_region.entity_id AND a_region.attr_key = 'region'
 WHERE a_compat.attr_key = 'sistema_id'
   AND a_compat.value_text = 'TOY-ILUM-CARINA'
   AND a_region.value_text = 'ANDINA';
@@ -102,7 +102,7 @@ WHERE a_compat.attr_key = 'sistema_id'
 
 ## §3 Comparación con modelo de columnas fijas
 
-| | Columnas fijas | EAV (idn_identidad_atributo) |
+| | Columnas fijas | EAV (idn_identity_attribute) |
 |---|---|---|
 | **Filas para 5,500 items × 30 campos** | 5,500 | 165,000 (30× más) |
 | **Agregar un campo nuevo** | ALTER TABLE + migración + downtime | INSERT (sin downtime) |
@@ -124,46 +124,46 @@ Cada empresa (tenant) es una partición lógica. PostgreSQL particiona por HASH
 para distribuir uniformemente:
 
 ```sql
-CREATE TABLE bauth.idn_identidad_entidad (
-    entidad_id    UUID NOT NULL DEFAULT gen_random_uuid(),
+CREATE TABLE bauth.idn_identity_entity (
+    entity_id    UUID NOT NULL DEFAULT gen_random_uuid(),
     parent_id     UUID,
     tenant_id     UUID NOT NULL,       -- clave de partición
     ...
-    PRIMARY KEY (entidad_id, tenant_id)
+    PRIMARY KEY (entity_id, tenant_id)
 ) PARTITION BY HASH (tenant_id);
 
-CREATE TABLE bauth.idn_entidad_p0 PARTITION OF bauth.idn_identidad_entidad
+CREATE TABLE bauth.idn_entidad_p0 PARTITION OF bauth.idn_identity_entity
     FOR VALUES WITH (modulus 16, remainder 0);
-CREATE TABLE bauth.idn_entidad_p1 PARTITION OF bauth.idn_identidad_entidad
+CREATE TABLE bauth.idn_entidad_p1 PARTITION OF bauth.idn_identity_entity
     FOR VALUES WITH (modulus 16, remainder 1);
 -- ... hasta p15
 
-CREATE TABLE bauth.idn_identidad_atributo (
+CREATE TABLE bauth.idn_identity_attribute (
     id            UUID NOT NULL DEFAULT gen_random_uuid(),
-    entidad_id    UUID NOT NULL,
+    entity_id    UUID NOT NULL,
     tenant_id     UUID NOT NULL,       -- clave de partición, redundante con entidad pero necesario
     ...
     PRIMARY KEY (id, tenant_id)
 ) PARTITION BY HASH (tenant_id);
 
-CREATE TABLE bauth.idn_atributo_p0 PARTITION OF bauth.idn_identidad_atributo
+CREATE TABLE bauth.idn_atributo_p0 PARTITION OF bauth.idn_identity_attribute
     FOR VALUES WITH (modulus 16, remainder 0);
 -- ... hasta p15
 ```
 
-### 4.2 Por qué `tenant_id` en `idn_identidad_atributo` (columna redundante)
+### 4.2 Por qué `tenant_id` en `idn_identity_attribute` (columna redundante)
 
-`idn_identidad_atributo.entidad_id` referencia a `idn_identidad_entidad.entidad_id`, que ya tiene `tenant_id`.
+`idn_identity_attribute.entity_id` referencia a `idn_identity_entity.entity_id`, que ya tiene `tenant_id`.
 Pero para que PostgreSQL sepa qué partición usar SIN hacer JOIN, necesita `tenant_id`
-directamente en `idn_identidad_atributo`. Es una desnormalización necesaria para el particionamiento.
+directamente en `idn_identity_attribute`. Es una desnormalización necesaria para el particionamiento.
 
 ```sql
--- SIN tenant_id en idn_identidad_atributo: PostgreSQL no sabe qué partición usar
-SELECT * FROM idn_identidad_atributo WHERE entidad_id = 'act-laptop-001';
+-- SIN tenant_id en idn_identity_attribute: PostgreSQL no sabe qué partición usar
+SELECT * FROM idn_identity_attribute WHERE entity_id = 'act-laptop-001';
 -- → escanea TODAS las particiones (lento)
 
--- CON tenant_id en idn_identidad_atributo: PostgreSQL usa la partición correcta
-SELECT * FROM idn_identidad_atributo WHERE tenant_id = 't-skull' AND entidad_id = 'act-laptop-001';
+-- CON tenant_id en idn_identity_attribute: PostgreSQL usa la partición correcta
+SELECT * FROM idn_identity_attribute WHERE tenant_id = 't-skull' AND entity_id = 'act-laptop-001';
 -- → escanea SOLO la partición de SKULL (rápido)
 ```
 
@@ -186,11 +186,11 @@ Cuando la Tiendita de Barrio agrega un farol a su inventario:
 
 ```
 Tiendita (tenant = t-tiendita-barrio):
-  INSERT INTO idn_identidad_entidad (entidad_id, parent_id, tenant_id, nivel, tipo, nombre, slug)
+  INSERT INTO idn_identity_entity (entity_id, parent_id, tenant_id, nivel, tipo, nombre, slug)
   VALUES ('farol-001', 'estante-01', 't-tiendita-barrio', 'actor', 'autoparte',
           'Farol DEPO 212-1112-L', 'farol-depo-001');
 
-  INSERT INTO idn_identidad_atributo (entidad_id, tenant_id, category, attr_key, type, value_text)
+  INSERT INTO idn_identity_attribute (entity_id, tenant_id, category, attr_key, type, value_text)
   VALUES ('farol-001', 't-tiendita-barrio', 'origen', 'marca', NULL, 'DEPO'),
          ('farol-001', 't-tiendita-barrio', 'origen', 'codigo', NULL, '212-1112-L'),
          ('farol-001', 't-tiendita-barrio', 'compatible', 'sistema_id', 'referencia', 'TOY-ILUM-CARINA'),
@@ -233,14 +233,14 @@ SELECT e.nombre,
        a_region.value_text AS region,
        a_stock.value_text AS stock,
        a_precio.value_text AS precio
-FROM idn_identidad_atributo a_compat
-JOIN idn_identidad_entidad e ON a_compat.entidad_id = e.id AND e.tenant_id = 't-maya'
-JOIN idn_identidad_atributo a_marca ON e.id = a_marca.entidad_id AND a_marca.attr_key = 'marca'
-JOIN idn_identidad_atributo a_cod ON e.id = a_cod.entidad_id AND a_cod.attr_key = 'codigo'
-JOIN idn_identidad_atributo a_tipo ON e.id = a_tipo.entidad_id AND a_tipo.attr_key = 'tipo'
-JOIN idn_identidad_atributo a_region ON e.id = a_region.entidad_id AND a_region.attr_key = 'region'
-JOIN idn_identidad_atributo a_stock ON e.id = a_stock.entidad_id AND a_stock.attr_key = 'stock'
-JOIN idn_identidad_atributo a_precio ON e.id = a_precio.entidad_id AND a_precio.attr_key = 'precio'
+FROM idn_identity_attribute a_compat
+JOIN idn_identity_entity e ON a_compat.entity_id = e.id AND e.tenant_id = 't-maya'
+JOIN idn_identity_attribute a_marca ON e.id = a_marca.entity_id AND a_marca.attr_key = 'marca'
+JOIN idn_identity_attribute a_cod ON e.id = a_cod.entity_id AND a_cod.attr_key = 'codigo'
+JOIN idn_identity_attribute a_tipo ON e.id = a_tipo.entity_id AND a_tipo.attr_key = 'tipo'
+JOIN idn_identity_attribute a_region ON e.id = a_region.entity_id AND a_region.attr_key = 'region'
+JOIN idn_identity_attribute a_stock ON e.id = a_stock.entity_id AND a_stock.attr_key = 'stock'
+JOIN idn_identity_attribute a_precio ON e.id = a_precio.entity_id AND a_precio.attr_key = 'precio'
 WHERE a_compat.tenant_id = 't-maya'
   AND a_compat.attr_key = 'sistema_id'
   AND a_compat.value_text = 'TOY-ILUM-CARINA'
@@ -283,10 +283,10 @@ SELECT 'TOTAL EMPRESA' AS nivel,
        'Maya Representaciones' AS nombre,
        SUM(a_stock.value_text::int) AS stock_total,
        COUNT(DISTINCT e.id) AS items_distintos
-FROM idn_identidad_atributo a_compat
-JOIN idn_identidad_entidad e ON a_compat.entidad_id = e.id AND e.tenant_id = 't-maya'
-JOIN idn_identidad_atributo a_stock ON e.id = a_stock.entidad_id AND a_stock.attr_key = 'stock'
-JOIN idn_identidad_atributo a_tipo ON e.id = a_tipo.entidad_id AND a_tipo.attr_key = 'tipo'
+FROM idn_identity_attribute a_compat
+JOIN idn_identity_entity e ON a_compat.entity_id = e.id AND e.tenant_id = 't-maya'
+JOIN idn_identity_attribute a_stock ON e.id = a_stock.entity_id AND a_stock.attr_key = 'stock'
+JOIN idn_identity_attribute a_tipo ON e.id = a_tipo.entity_id AND a_tipo.attr_key = 'tipo'
 WHERE a_compat.tenant_id = 't-maya'
   AND a_compat.attr_key = 'sistema_id'
   AND a_compat.value_text = 'TOY-ILUM-CARINA'
@@ -299,11 +299,11 @@ SELECT 'SUCURSAL' AS nivel,
        a_region.value_text AS nombre,
        SUM(a_stock.value_text::int) AS stock_total,
        COUNT(DISTINCT e.id) AS items_distintos
-FROM idn_identidad_atributo a_compat
-JOIN idn_identidad_entidad e ON a_compat.entidad_id = e.id AND e.tenant_id = 't-maya'
-JOIN idn_identidad_atributo a_stock ON e.id = a_stock.entidad_id AND a_stock.attr_key = 'stock'
-JOIN idn_identidad_atributo a_tipo ON e.id = a_tipo.entidad_id AND a_tipo.attr_key = 'tipo'
-JOIN idn_identidad_atributo a_region ON e.id = a_region.entidad_id AND a_region.attr_key = 'region'
+FROM idn_identity_attribute a_compat
+JOIN idn_identity_entity e ON a_compat.entity_id = e.id AND e.tenant_id = 't-maya'
+JOIN idn_identity_attribute a_stock ON e.id = a_stock.entity_id AND a_stock.attr_key = 'stock'
+JOIN idn_identity_attribute a_tipo ON e.id = a_tipo.entity_id AND a_tipo.attr_key = 'tipo'
+JOIN idn_identity_attribute a_region ON e.id = a_region.entity_id AND a_region.attr_key = 'region'
 WHERE a_compat.tenant_id = 't-maya'
   AND a_compat.attr_key = 'sistema_id'
   AND a_compat.value_text = 'TOY-ILUM-CARINA'
@@ -316,21 +316,21 @@ UNION ALL
 SELECT 'DIFERENCIA' AS nivel,
        'Total empresa - Suma sucursales' AS nombre,
        (SELECT SUM(a_stock.value_text::int)
-        FROM idn_identidad_atributo a_compat
-        JOIN idn_identidad_entidad e ON a_compat.entidad_id = e.id AND e.tenant_id = 't-maya'
-        JOIN idn_identidad_atributo a_stock ON e.id = a_stock.entidad_id AND a_stock.attr_key = 'stock'
-        JOIN idn_identidad_atributo a_tipo ON e.id = a_tipo.entidad_id AND a_tipo.attr_key = 'tipo'
+        FROM idn_identity_attribute a_compat
+        JOIN idn_identity_entity e ON a_compat.entity_id = e.id AND e.tenant_id = 't-maya'
+        JOIN idn_identity_attribute a_stock ON e.id = a_stock.entity_id AND a_stock.attr_key = 'stock'
+        JOIN idn_identity_attribute a_tipo ON e.id = a_tipo.entity_id AND a_tipo.attr_key = 'tipo'
         WHERE a_compat.tenant_id = 't-maya'
           AND a_compat.attr_key = 'sistema_id'
           AND a_compat.value_text = 'TOY-ILUM-CARINA'
           AND a_tipo.value_text = 'farol')
         -
         (SELECT SUM(a_stock.value_text::int)
-         FROM idn_identidad_atributo a_compat
-         JOIN idn_identidad_entidad e ON a_compat.entidad_id = e.id AND e.tenant_id = 't-maya'
-         JOIN idn_identidad_atributo a_stock ON e.id = a_stock.entidad_id AND a_stock.attr_key = 'stock'
-         JOIN idn_identidad_atributo a_tipo ON e.id = a_tipo.entidad_id AND a_tipo.attr_key = 'tipo'
-         JOIN idn_identidad_atributo a_region ON e.id = a_region.entidad_id AND a_region.attr_key = 'region'
+         FROM idn_identity_attribute a_compat
+         JOIN idn_identity_entity e ON a_compat.entity_id = e.id AND e.tenant_id = 't-maya'
+         JOIN idn_identity_attribute a_stock ON e.id = a_stock.entity_id AND a_stock.attr_key = 'stock'
+         JOIN idn_identity_attribute a_tipo ON e.id = a_tipo.entity_id AND a_tipo.attr_key = 'tipo'
+         JOIN idn_identity_attribute a_region ON e.id = a_region.entity_id AND a_region.attr_key = 'region'
          WHERE a_compat.tenant_id = 't-maya'
            AND a_compat.attr_key = 'sistema_id'
            AND a_compat.value_text = 'TOY-ILUM-CARINA'
@@ -363,14 +363,14 @@ SELECT a_region.value_text AS sucursal,
        a_cod.value_text AS codigo,
        a_stock.value_text AS stock,
        a_precio.value_text AS precio
-FROM idn_identidad_atributo a_compat
-JOIN idn_identidad_entidad e ON a_compat.entidad_id = e.id AND e.tenant_id = 't-maya'
-JOIN idn_identidad_atributo a_marca ON e.id = a_marca.entidad_id AND a_marca.attr_key = 'marca'
-JOIN idn_identidad_atributo a_cod ON e.id = a_cod.entidad_id AND a_cod.attr_key = 'codigo'
-JOIN idn_identidad_atributo a_stock ON e.id = a_stock.entidad_id AND a_stock.attr_key = 'stock'
-JOIN idn_identidad_atributo a_precio ON e.id = a_precio.entidad_id AND a_precio.attr_key = 'precio'
-JOIN idn_identidad_atributo a_region ON e.id = a_region.entidad_id AND a_region.attr_key = 'region'
-JOIN idn_identidad_atributo a_tipo ON e.id = a_tipo.entidad_id AND a_tipo.attr_key = 'tipo'
+FROM idn_identity_attribute a_compat
+JOIN idn_identity_entity e ON a_compat.entity_id = e.id AND e.tenant_id = 't-maya'
+JOIN idn_identity_attribute a_marca ON e.id = a_marca.entity_id AND a_marca.attr_key = 'marca'
+JOIN idn_identity_attribute a_cod ON e.id = a_cod.entity_id AND a_cod.attr_key = 'codigo'
+JOIN idn_identity_attribute a_stock ON e.id = a_stock.entity_id AND a_stock.attr_key = 'stock'
+JOIN idn_identity_attribute a_precio ON e.id = a_precio.entity_id AND a_precio.attr_key = 'precio'
+JOIN idn_identity_attribute a_region ON e.id = a_region.entity_id AND a_region.attr_key = 'region'
+JOIN idn_identity_attribute a_tipo ON e.id = a_tipo.entity_id AND a_tipo.attr_key = 'tipo'
 WHERE a_compat.tenant_id = 't-maya'
   AND a_compat.attr_key = 'sistema_id'
   AND a_compat.value_text = 'TOY-ILUM-CARINA'
@@ -404,9 +404,9 @@ productos. Millones de tiendas en producción.
 
 | Magento | bAuth |
 |---|---|
-| `catalog_product_entity` (productos) | `idn_identidad_entidad` (entidades) |
-| `catalog_product_entity_varchar` (texto) | `idn_identidad_atributo` |
-| Índice `(attribute_id, store_id, entity_id)` | Índice `(category, attr_key, entidad_id)` |
+| `catalog_product_entity` (productos) | `idn_identity_entity` (entidades) |
+| `catalog_product_entity_varchar` (texto) | `idn_identity_attribute` |
+| Índice `(attribute_id, store_id, entity_id)` | Índice `(category, attr_key, entity_id)` |
 | Flat catalog (desnormalizado) | `jsonb_object_agg()` (pivot dinámico) |
 
 ### 5.2 Escala real documentada
@@ -449,7 +449,7 @@ CREATE EXTENSION IF NOT EXISTS unaccent;
 
 CREATE TABLE bauth.idn_atributo_search (
     search_id     BIGSERIAL PRIMARY KEY,
-    entidad_id    UUID NOT NULL,
+    entity_id    UUID NOT NULL,
     attr_key      TEXT NOT NULL,
     tenant_id     UUID NOT NULL,
 
@@ -482,7 +482,7 @@ CREATE INDEX ix_search_exact ON bauth.idn_atributo_search
 
 ### 6.2 Cómo se puebla — trigger automático
 
-Cada vez que se inserta o actualiza un atributo en `idn_identidad_atributo`, un trigger
+Cada vez que se inserta o actualiza un atributo en `idn_identity_attribute`, un trigger
 copia el valor a la tabla de búsqueda:
 
 ```sql
@@ -490,22 +490,22 @@ CREATE OR REPLACE FUNCTION bauth.sync_search_metadata()
 RETURNS TRIGGER AS $$
 BEGIN
     IF TG_OP = 'INSERT' THEN
-        INSERT INTO bauth.idn_atributo_search (entidad_id, attr_key, tenant_id, value_original)
-        VALUES (NEW.entidad_id, NEW.attr_key, NEW.tenant_id, NEW.value_text);
+        INSERT INTO bauth.idn_atributo_search (entity_id, attr_key, tenant_id, value_original)
+        VALUES (NEW.entity_id, NEW.attr_key, NEW.tenant_id, NEW.value_text);
     ELSIF TG_OP = 'UPDATE' THEN
         UPDATE bauth.idn_atributo_search
         SET value_original = NEW.value_text
-        WHERE entidad_id = NEW.entidad_id AND attr_key = NEW.attr_key;
+        WHERE entity_id = NEW.entity_id AND attr_key = NEW.attr_key;
     ELSIF TG_OP = 'DELETE' THEN
         DELETE FROM bauth.idn_atributo_search
-        WHERE entidad_id = OLD.entidad_id AND attr_key = OLD.attr_key;
+        WHERE entity_id = OLD.entity_id AND attr_key = OLD.attr_key;
     END IF;
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trg_atributo_search
-    AFTER INSERT OR UPDATE OR DELETE ON bauth.idn_identidad_atributo
+    AFTER INSERT OR UPDATE OR DELETE ON bauth.idn_identity_attribute
     FOR EACH ROW EXECUTE FUNCTION bauth.sync_search_metadata();
 ```
 
@@ -513,7 +513,7 @@ CREATE TRIGGER trg_atributo_search
 
 ```sql
 -- Búsqueda fuzzy: "tolota" encuentra "TOYOTA", "TOYOTÁ", "toyota"
-SELECT entidad_id, attr_key, value_original,
+SELECT entity_id, attr_key, value_original,
        similarity(value_normalized, 'tolota') AS score
 FROM bauth.idn_atributo_search
 WHERE tenant_id = 't-maya'
@@ -523,7 +523,7 @@ LIMIT 20;
 
 -- Búsqueda estricta por palabra: "farol" encuentra "Farol Delantero",
 -- "FAROL TRASERO", "faroles" (no)
-SELECT entidad_id, value_original
+SELECT entity_id, value_original
 FROM bauth.idn_atributo_search
 WHERE tenant_id = 't-maya'
   AND value_normalized <<% 'farol'         -- strict word similarity
@@ -531,7 +531,7 @@ ORDER BY similarity(value_normalized, 'farol') DESC
 LIMIT 20;
 
 -- Búsqueda full-text: "pastilla freno delantera"
-SELECT entidad_id, value_original,
+SELECT entity_id, value_original,
        ts_rank(search_vector, query) AS rank
 FROM bauth.idn_atributo_search,
      to_tsquery('spanish', 'pastilla & freno & delantera') AS query
@@ -545,9 +545,9 @@ SELECT e.nombre, a_marca.value_text AS marca, a_cod.value_text AS codigo,
        s.value_original,
        similarity(s.value_normalized, 'tolota') AS score
 FROM bauth.idn_atributo_search s
-JOIN bauth.idn_identidad_entidad e ON s.entidad_id = e.id AND e.tenant_id = 't-maya'
-JOIN bauth.idn_identidad_atributo a_marca ON e.id = a_marca.entidad_id AND a_marca.attr_key = 'marca'
-JOIN bauth.idn_identidad_atributo a_cod ON e.id = a_cod.entidad_id AND a_cod.attr_key = 'codigo'
+JOIN bauth.idn_identity_entity e ON s.entity_id = e.id AND e.tenant_id = 't-maya'
+JOIN bauth.idn_identity_attribute a_marca ON e.id = a_marca.entity_id AND a_marca.attr_key = 'marca'
+JOIN bauth.idn_identity_attribute a_cod ON e.id = a_cod.entity_id AND a_cod.attr_key = 'codigo'
 WHERE s.tenant_id = 't-maya'
   AND s.attr_key = 'marca'
   AND s.value_normalized % 'tolota'

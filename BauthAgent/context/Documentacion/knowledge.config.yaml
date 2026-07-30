@@ -1,0 +1,39 @@
+# Knowledge graph configuration
+# See: https://github.com/rossng/knowledge-mcp-server#configuration
+
+# name: "my-project"
+
+# Uncomment and customize domains to enforce strict validation:
+# domains:
+#   - technology
+#   - architecture
+#   - business
+
+# Uncomment to define project phases:
+# phases:
+#   - id: 1
+#     name: "Phase 1"
+#   - id: 2
+#     name: "Phase 2"
+
+# Uncomment to add query hints for domain classification:
+# query_hints:
+#   technology: ["api", "database", "framework"]
+
+# Uncomment to define synonym expansion:
+# synonyms:
+#   ml: ["machine learning"]
+#   ai: ["artificial intelligence"]
+
+# Embedding configuration (optional, enables semantic search):
+# Default: local model (no API key needed, runs in-process)
+# embeddings:
+#   provider: "local"                    # "local" (default) or "voyage"
+#   model: "BAAI/bge-small-en-v1.5"     # local model name (default)
+#   # cache_dir: "~/.cache/my-models"   # optional model cache override
+#
+# To use Voyage AI instead:
+# embeddings:
+#   provider: "voyage"
+#   model: "voyage-3-lite"
+#   api_key_env: "VOYAGE_API_KEY"
