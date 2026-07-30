@@ -17,47 +17,35 @@
 // Estándar: DDL T-162 · ADR-020 · DOC-SBOS-001 N3.
 // ============================================================
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tf_shadcn_flutter/shadcn_flutter.dart';
 
 import '../../nucleo/api/bauth_api.dart';
+import '../../nucleo/conexion/proveedor_conexion.dart';
+import '../../nucleo/dominio/config_tipo_nodo.dart';
+
+// ── Composición de etiqueta de nodo ──────────────────────────
+// Dominio  → "D00 · Identidad Organizacional"
+// Bloque   → "B01 · Evaluación PDP"
+// Resto    → clave tal cual
+String _etiquetaNodo(NodoRolTemplateBD n) {
+  if (n.tipo == 'dominio' && n.domainNumber != null) {
+    return 'D${n.domainNumber!.toString().padLeft(2, '0')} · ${n.clave}';
+  }
+  if (n.tipo == 'bloque' && n.blockCode != null) {
+    return '${n.blockCode} · ${n.clave}';
+  }
+  return n.clave;
+}
 
 // ── Tipo del callback de carga ────────────────────────────────
 typedef CargadorHijosBD = Future<List<NodoRolTemplateBD>> Function(
     String? parentId);
 
-// ── Helpers de presentación ───────────────────────────────────
-
-(String, Color) _infoBD(String tipo, ColorScheme cs) => switch (tipo) {
-      'dominio'    => ('DOM',   cs.primary),
-      'bloque'     => ('BLQ',   cs.foreground),
-      'objeto'     => ('OBJ',   cs.mutedForeground),
-      'lista'      => ('LISTA', cs.mutedForeground),
-      'politica'   => ('POL',   cs.primary),
-      'regla'      => ('REGLA', Colors.amber.shade600),
-      'evaluacion' => ('ATOM',  Colors.teal.shade400),
-      'atributo'   => ('ATTR',  cs.mutedForeground),
-      'enumerado'  => ('ENUM',  Colors.violet.shade400),
-      _            => ('?',     cs.mutedForeground),
-    };
-
-TextStyle _estiloBD(String tipo, bool activo, ColorScheme cs, double s) {
-  if (activo) {
-    return TextStyle(fontSize: 11.5 * s, fontWeight: FontWeight.w700, color: cs.primary);
-  }
-  return switch (tipo) {
-    'dominio'    => TextStyle(fontSize: 12 * s, fontWeight: FontWeight.w700, letterSpacing: 0.4 * s, color: cs.primary),
-    'bloque'     => TextStyle(fontSize: 11.5 * s, fontWeight: FontWeight.w700, color: cs.foreground),
-    'evaluacion' => TextStyle(fontSize: 11 * s, fontWeight: FontWeight.w600, color: Colors.teal.shade300),
-    'enumerado'  => TextStyle(fontSize: 11 * s, fontFamily: 'monospace', fontWeight: FontWeight.w600, color: Colors.violet.shade300),
-    'atributo'   => TextStyle(fontSize: 11 * s, fontFamily: 'monospace', fontWeight: FontWeight.w500, color: cs.mutedForeground),
-    _ => TextStyle(fontSize: 11.5 * s, fontWeight: FontWeight.w600, color: cs.foreground),
-  };
-}
-
 // ── Árbol lazy ────────────────────────────────────────────────
 
 /// Árbol interactivo con carga lazy — un RPC por expansión de nodo.
-class ArbolBD extends StatefulWidget {
+class ArbolBD extends ConsumerStatefulWidget {
   /// Callback que recibe parent_id (null = raíz) y retorna hijos directos.
   final CargadorHijosBD cargarHijos;
 
@@ -67,10 +55,10 @@ class ArbolBD extends StatefulWidget {
   const ArbolBD({super.key, required this.cargarHijos, this.alSeleccionar});
 
   @override
-  State<ArbolBD> createState() => _ArbolBDState();
+  ConsumerState<ArbolBD> createState() => _ArbolBDState();
 }
 
-class _ArbolBDState extends State<ArbolBD> {
+class _ArbolBDState extends ConsumerState<ArbolBD> {
   // Hijos por parent_id (null = nivel raíz)
   final Map<String?, List<NodoRolTemplateBD>> _hijos = {};
   // IDs de nodos actualmente expandidos
@@ -157,6 +145,7 @@ class _ArbolBDState extends State<ArbolBD> {
 
   @override
   Widget build(BuildContext context) {
+    final catalogo = ref.watch(catalogoTiposProvider).asData?.value ?? const {};
     if (_cargando.contains(null) && _hijos[null] == null) {
       return _CargandoRaiz();
     }
@@ -175,6 +164,7 @@ class _ArbolBDState extends State<ArbolBD> {
         final n = _visibles[i];
         return _FilaNodo(
           nodo: n,
+          config: catalogo[n.tipo] ?? kConfigDesconocido,
           expandido: _expandidos.contains(n.id),
           cargando: _cargando.contains(n.id),
           error: _errores[n.id],
@@ -195,6 +185,7 @@ class _ArbolBDState extends State<ArbolBD> {
 
 class _FilaNodo extends StatelessWidget {
   final NodoRolTemplateBD nodo;
+  final ConfigTipoNodo config;
   final bool expandido;
   final bool cargando;
   final String? error;
@@ -205,6 +196,7 @@ class _FilaNodo extends StatelessWidget {
 
   const _FilaNodo({
     required this.nodo,
+    required this.config,
     required this.expandido,
     required this.cargando,
     required this.error,
@@ -218,7 +210,7 @@ class _FilaNodo extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final s = Theme.of(context).scaling;
-    final (rotulo, color) = _infoBD(nodo.tipo, cs);
+    final color = config.colorAcentoDe(cs);
     final indent = nodo.depth * 14.0 * s;
 
     return Column(
@@ -268,17 +260,19 @@ class _FilaNodo extends StatelessWidget {
                         ),
                 ),
                 SizedBox(width: 3 * s),
-                // Badge de tipo
-                _BadgeBD(rotulo: rotulo, color: color, s: s),
-                SizedBox(width: 5 * s),
-                // Clave del nodo
+                // Etiqueta del nodo: código + clave compuestos al mostrar
                 Flexible(
                   child: Text(
-                    nodo.clave,
+                    _etiquetaNodo(nodo),
                     overflow: TextOverflow.ellipsis,
-                    style: _estiloBD(nodo.tipo, seleccionado, cs, s),
+                    style: config.estiloTextoDe(seleccionado, cs, s),
                   ),
                 ),
+                // Badge de tipo — derecha del nombre
+                if (config.showBadge) ...[
+                  SizedBox(width: 6 * s),
+                  _BadgeBD(rotulo: config.abbreviation, color: color, s: s),
+                ],
                 // Valor (si aplica)
                 if (nodo.valor != null && nodo.valor!.isNotEmpty) ...[
                   SizedBox(width: 6 * s),
@@ -291,9 +285,7 @@ class _FilaNodo extends StatelessWidget {
                       style: TextStyle(
                         fontFamily: 'monospace',
                         fontSize: 10 * s,
-                        color: nodo.tipo == 'enumerado'
-                            ? Colors.violet.shade300
-                            : cs.mutedForeground,
+                        color: config.colorValorDe(cs),
                       ),
                     ),
                   ),
@@ -396,7 +388,7 @@ class _CargandoRaiz extends StatelessWidget {
         ),
         SizedBox(height: 12 * s),
         Text(
-          'Consultando bauth.role.template.list…',
+          'Cargando árbol desde SBOSDB…',
           style: TextStyle(fontSize: 11 * s, color: cs.mutedForeground),
         ),
       ],
@@ -566,7 +558,7 @@ class PanelHelpBD extends StatelessWidget {
                   SizedBox(width: 5 * s),
                   Expanded(
                     child: Text(
-                      n.clave,
+                      _etiquetaNodo(n),
                       style: TextStyle(
                         fontSize: 11.5 * s,
                         fontWeight: FontWeight.w700,

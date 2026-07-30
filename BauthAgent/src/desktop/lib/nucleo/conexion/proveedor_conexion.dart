@@ -21,6 +21,7 @@ import 'cliente_rpc.dart';
 import 'cliente_rpc_ssh.dart';
 import 'config_conexion.dart';
 import '../api/bauth_api.dart';
+import '../dominio/config_tipo_nodo.dart';
 
 // ═══════════════════════════════════════════════════════════
 // Modo SSH exec (prioridad sobre TCP cuando está activo)
@@ -137,9 +138,17 @@ final usuariosProvider = FutureProvider.family<List<UsuarioInfo>, String>(
   },
 );
 
-/// Árbol completo de entidades (idn_identidad_entidad — 5 niveles).
+/// Árbol completo de entidades (idn_identity_entity — 5 niveles).
 /// Raíz: tenants → bdomain → bsubdomain → pos → actor.
 final arbolEntidadesProvider = FutureProvider<List<EntidadInfo>>((ref) async {
   final api = ref.watch(bauthApiProvider);
   return api.arbolEntidades();
+});
+
+/// Catálogo de tipos de nodo desde bauth.idn_policy_node_type.
+/// Cargado una vez al conectar. Provee Map<codigo, ConfigTipoNodo>.
+/// Los widgets leen de aquí — cero switch de presentación por tipo en la UI.
+final catalogoTiposProvider = FutureProvider<Map<String, ConfigTipoNodo>>((ref) async {
+  final api = ref.watch(bauthApiProvider);
+  return api.cargarCatalogoTipos();
 });

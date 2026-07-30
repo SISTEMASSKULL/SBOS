@@ -242,19 +242,19 @@ impl JsonRpcHandler for IdentidadAtributoListHandler {
             code: -32000, message: "base de datos no disponible".into(), data: None,
         })?;
 
-        let entidad_id = params.get("entidad_id").and_then(|v| v.as_str())
+        let entity_id = params.get("entity_id").and_then(|v| v.as_str())
             .ok_or_else(|| JsonRpcError {
-                code: -32602, message: "entidad_id requerido (UUID)".into(), data: None,
+                code: -32602, message: "entity_id requerido (UUID)".into(), data: None,
             })?;
-        let id = sqlx::types::Uuid::parse_str(entidad_id).map_err(|_| JsonRpcError {
-            code: -32602, message: "entidad_id inválido".into(), data: None,
+        let id = sqlx::types::Uuid::parse_str(entity_id).map_err(|_| JsonRpcError {
+            code: -32602, message: "entity_id inválido".into(), data: None,
         })?;
 
-        let category = params.get("category").and_then(|v| v.as_str());
+        let namespace = params.get("attr_namespace").and_then(|v| v.as_str());
         let attr_key = params.get("attr_key").and_then(|v| v.as_str());
         let limit = params.get("limit").and_then(|v| v.as_i64()).unwrap_or(50);
 
-        let atributos = listar_atributos(pg, id, category, attr_key, limit).await?;
+        let atributos = listar_atributos(pg, id, namespace, attr_key, limit).await?;
         Ok(serde_json::json!({"atributos": atributos, "count": atributos.len()}))
     }
 }
@@ -272,28 +272,23 @@ impl JsonRpcHandler for IdentidadAtributoGetHandler {
             code: -32000, message: "base de datos no disponible".into(), data: None,
         })?;
 
-        let entidad_id = params.get("entidad_id").and_then(|v| v.as_str())
+        let entity_id = params.get("entity_id").and_then(|v| v.as_str())
             .ok_or_else(|| JsonRpcError {
-                code: -32602, message: "entidad_id requerido (UUID)".into(), data: None,
+                code: -32602, message: "entity_id requerido (UUID)".into(), data: None,
             })?;
-        let id = sqlx::types::Uuid::parse_str(entidad_id).map_err(|_| JsonRpcError {
-            code: -32602, message: "entidad_id inválido".into(), data: None,
+        let id = sqlx::types::Uuid::parse_str(entity_id).map_err(|_| JsonRpcError {
+            code: -32602, message: "entity_id inválido".into(), data: None,
         })?;
         let attr_key = params.get("attr_key").and_then(|v| v.as_str())
             .ok_or_else(|| JsonRpcError {
                 code: -32602, message: "attr_key requerido".into(), data: None,
             })?;
-        let attr_subtype = params.get("type").and_then(|v| v.as_str());
+        let q = "SELECT attribute_id, attr_namespace, attr_key,
+                        attr_value, attr_type, verified, verified_by, created_at
+                 FROM bauth.idn_identity_attribute WHERE entity_id = $1 AND attr_key = $2
+                 ORDER BY sort_order LIMIT 1";
 
-        let mut q = String::from(
-            "SELECT id, category, attr_key, attr_subtype, value_text, value_data,
-                    is_verified, verified_by, created_at
-             FROM bauth.idn_atributo WHERE entidad_id = $1 AND attr_key = $2"
-        );
-        if attr_subtype.is_some() { q.push_str(" AND attr_subtype = $3"); }
-        q.push_str(" ORDER BY is_primary DESC, sort_order LIMIT 1");
-
-        let row = sqlx::query(&q)
+        let row = sqlx::query(q)
             .bind(id).bind(attr_key)
             .fetch_optional(pg).await.map_err(|e| JsonRpcError {
                 code: -32000, message: format!("error: {e}"), data: None,
@@ -303,14 +298,13 @@ impl JsonRpcHandler for IdentidadAtributoGetHandler {
             })?;
 
         Ok(serde_json::json!({
-            "id": row.get::<sqlx::types::Uuid, _>("id").to_string(),
-            "category": row.get::<String, _>("category"),
+            "attribute_id": row.get::<sqlx::types::Uuid, _>("attribute_id").to_string(),
+            "attr_namespace": row.get::<String, _>("attr_namespace"),
             "attr_key": row.get::<String, _>("attr_key"),
-            "attr_subtype": row.get::<Option<String>, _>("attr_subtype"),
-            "value_text": row.get::<Option<String>, _>("value_text"),
-            "value_data": row.get::<Option<serde_json::Value>, _>("value_data"),
-            "is_verified": row.get::<bool, _>("is_verified"),
-            "verified_by": row.get::<Option<String>, _>("verified_by"),
+            "attr_value": row.get::<Option<serde_json::Value>, _>("attr_value"),
+            "attr_type": row.get::<String, _>("attr_type"),
+            "verified": row.get::<bool, _>("verified"),
+            "verified_by": row.get::<Option<sqlx::types::Uuid>, _>("verified_by").map(|u| u.to_string()),
             "created_at": row.get::<chrono::DateTime<chrono::Utc>, _>("created_at"),
         }))
     }
@@ -337,13 +331,13 @@ impl JsonRpcHandler for IdentidadAtributoSearchHandler {
         let limit = params.get("limit").and_then(|v| v.as_i64()).unwrap_or(20);
 
         let mut q = String::from(
-            "SELECT entidad_id, entidad_tipo, attr_key, attr_subtype, value_text
-             FROM bauth.idn_atributo WHERE value_text ILIKE $1"
+            "SELECT entity_id, attr_namespace, attr_key, attr_value
+             FROM bauth.idn_identity_attribute WHERE attr_value::text ILIKE $1"
         );
         if let Some(ak) = attr_key {
             q.push_str(&format!(" AND attr_key = '{ak}'"));
         }
-        q.push_str(&format!(" ORDER BY value_text LIMIT {limit}"));
+        q.push_str(&format!(" ORDER BY attr_key LIMIT {limit}"));
 
         let rows = sqlx::query(&q)
             .bind(format!("%{pattern}%"))
@@ -352,11 +346,10 @@ impl JsonRpcHandler for IdentidadAtributoSearchHandler {
             })?;
 
         let results: Vec<Value> = rows.iter().map(|r| serde_json::json!({
-            "entidad_id": r.get::<sqlx::types::Uuid, _>("entidad_id").to_string(),
-            "entidad_tipo": r.get::<String, _>("entidad_tipo"),
+            "entity_id": r.get::<sqlx::types::Uuid, _>("entity_id").to_string(),
+            "attr_namespace": r.get::<String, _>("attr_namespace"),
             "attr_key": r.get::<String, _>("attr_key"),
-            "attr_subtype": r.get::<Option<String>, _>("attr_subtype"),
-            "value_text": r.get::<Option<String>, _>("value_text"),
+            "attr_value": r.get::<Option<serde_json::Value>, _>("attr_value"),
         })).collect();
 
         Ok(serde_json::json!({"results": results, "count": results.len()}))
@@ -437,27 +430,26 @@ async fn buscar_pos(pg: &sqlx::PgPool, id: sqlx::types::Uuid) -> Result<Option<V
 // ── Helpers de listado jerárquico ──
 
 async fn listar_atributos(pg: &sqlx::PgPool, entidad_id: sqlx::types::Uuid,
-    category: Option<&str>, _attr_key: Option<&str>, limit: i64) -> Result<Vec<Value>, JsonRpcError>
+    namespace: Option<&str>, _attr_key: Option<&str>, limit: i64) -> Result<Vec<Value>, JsonRpcError>
 {
     let mut q = String::from(
-        "SELECT id, category, attr_key, attr_subtype, value_text, value_data, is_verified, verified_by
-         FROM bauth.idn_atributo WHERE entidad_id = $1"
+        "SELECT attribute_id, attr_namespace, attr_key, attr_value, attr_type, verified, verified_by
+         FROM bauth.idn_identity_attribute WHERE entity_id = $1"
     );
-    if let Some(c) = category { q.push_str(&format!(" AND category = '{c}'")); }
-    q.push_str(&format!(" ORDER BY category, attr_key, sort_order LIMIT {limit}"));
+    if let Some(ns) = namespace { q.push_str(&format!(" AND attr_namespace = '{ns}'")); }
+    q.push_str(&format!(" ORDER BY attr_namespace, attr_key, sort_order LIMIT {limit}"));
 
     let rows = sqlx::query(&q).bind(entidad_id).fetch_all(pg).await
         .map_err(|e| JsonRpcError { code: -32000, message: e.to_string(), data: None })?;
 
     Ok(rows.iter().map(|r| serde_json::json!({
-        "id": r.get::<sqlx::types::Uuid, _>("id").to_string(),
-        "category": r.get::<String, _>("category"),
+        "attribute_id": r.get::<sqlx::types::Uuid, _>("attribute_id").to_string(),
+        "attr_namespace": r.get::<String, _>("attr_namespace"),
         "attr_key": r.get::<String, _>("attr_key"),
-        "attr_subtype": r.get::<Option<String>, _>("attr_subtype"),
-        "value_text": r.get::<Option<String>, _>("value_text"),
-        "value_data": r.get::<Option<serde_json::Value>, _>("value_data"),
-        "is_verified": r.get::<bool, _>("is_verified"),
-        "verified_by": r.get::<Option<String>, _>("verified_by"),
+        "attr_value": r.get::<Option<serde_json::Value>, _>("attr_value"),
+        "attr_type": r.get::<String, _>("attr_type"),
+        "verified": r.get::<bool, _>("verified"),
+        "verified_by": r.get::<Option<sqlx::types::Uuid>, _>("verified_by").map(|u| u.to_string()),
     })).collect())
 }
 

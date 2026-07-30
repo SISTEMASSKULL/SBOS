@@ -10,7 +10,7 @@
 // Dependencias: tf_shadcn_flutter, flutter_riverpod,
 //   proveedor_conexion, bauth_api.
 // Estándar: D00 Identidad Organizacional (1.06 v2.0) ·
-//   idn_identidad_entidad (5 niveles) · DOC-SBOS-001 N3.
+//   idn_identity_entity (5 niveles) · DOC-SBOS-001 N3.
 // ============================================================
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';

@@ -14,8 +14,10 @@
 // ============================================================
 
 import 'dart:async';
+import 'dart:convert';
 
 import '../conexion/cliente_rpc.dart';
+import '../dominio/config_tipo_nodo.dart';
 
 // ═══════════════════════════════════════════════════════════
 // Tipos de datos
@@ -84,7 +86,7 @@ class UsuarioInfo {
             [];
 }
 
-/// Entidad del catálogo universal de identidad (idn_identidad_entidad).
+/// Entidad del catálogo universal de identidad (idn_identity_entity).
 /// Puede ser cualquier cosa: persona, empresa, vehículo, servidor, sensor, puerta.
 /// Los 5 niveles: tenant → bdomain → bsubdomain → pos → actor.
 class EntidadInfo {
@@ -100,11 +102,11 @@ class EntidadInfo {
   final List<EntidadInfo> hijos;
 
   EntidadInfo.fromJson(Map<String, dynamic> j)
-      : entidadId = j['entidad_id'] ?? j['id'] ?? '?',
+      : entidadId = j['entity_id'] ?? j['id'] ?? '?',
         parentId = j['parent_id'],
         tenantId = j['tenant_id'] ?? '?',
-        nivel = j['nivel'] ?? '?',
-        tipo = j['tipo'] ?? '?',
+        nivel = j['level'] ?? j['nivel'] ?? '?',
+        tipo = j['entity_type'] ?? j['tipo'] ?? '?',
         nombre = j['nombre'] ?? j['name'] ?? '?',
         slug = j['slug'] ?? '?',
         isInternal = j['is_internal'] as bool?,
@@ -255,7 +257,7 @@ class BauthApi {
         .toList();
   }
 
-  // ── Entidades (idn_identidad_entidad) ────────────────────
+  // ── Entidades (idn_identity_entity) ────────────────────
   // Modelo universal: cualquier cosa es una entidad con nivel y tipo.
   // 5 niveles: tenant → bdomain → bsubdomain → pos → actor.
 
@@ -373,174 +375,148 @@ class BauthApi {
 
   // ── Árbol de políticas (idn_roles_template) ──────────────
 
-  /// Árbol completo de políticas para el tenant indicado.
-  /// Llama a bauth.rol_template.tree y construye la estructura anidada.
-  Future<List<NodoRolTemplateBD>> rolTemplateArbol({
-    String tenantSlug = 'skull',
-  }) async {
-    final r = await _rpc.llamar(
-      'bauth.rol_template.tree',
-      {'tenant_slug': tenantSlug},
-    );
-    final items = r['nodos'] as List<dynamic>? ?? [];
-    final planos = items
-        .map((e) => NodoRolTemplateBD.fromJson(e as Map<String, dynamic>))
-        .toList();
-    return _construirArbolBD(planos);
-  }
-
-  /// Hijos directos de [parentId] — carga lazy con caché local.
-  ///
-  /// Primera llamada (parentId=null): obtiene TODOS los nodos de
-  /// bauth.rol_template.tree y construye un índice en memoria por parent_id.
-  /// Llamadas siguientes: sirven del índice sin más RPCs.
-  /// Así la UI siente carga nodo a nodo pero solo hay UN llamado al daemon.
+  /// Hijos directos de [parentId] desde la BD — carga lazy nodo por nodo.
+  /// Cada llamada ejecuta una query psql ordenada por sort_order.
+  /// La BD es la única responsable del orden — Flutter solo presenta.
   Future<List<NodoRolTemplateBD>> rolTemplateHijos({
     String? parentId,
     String tenantSlug = 'skull',
   }) async {
-    _cacheArbol ??= _CacheArbolBD();
-    await _cacheArbol!.cargar(_rpc, tenantSlug);
-    return _cacheArbol!.hijos(parentId);
+    final condicion = parentId == null
+        ? 'irt.parent_id IS NULL'
+        : "irt.parent_id = '$parentId'";
+    final sql = "SELECT json_agg(t ORDER BY t.sort_order) FROM ("
+        "SELECT irt.id::text, irt.parent_id::text, irt.path, irt.node_type AS tipo,"
+        " irt.label->>'es' AS clave, irt.label->>'en' AS clave_en,"
+        " irt.name->>'es' AS nombre, irt.name->>'en' AS nombre_en,"
+        " irt.value AS valor,"
+        " irt.help->>'es' AS help, irt.help->>'en' AS help_en,"
+        " irt.effect, irt.verb_id, irt.domain_number, irt.depth, irt.sort_order,"
+        " irt.alias, irt.block_code"
+        " FROM bauth.idn_roles_template irt"
+        " WHERE $condicion"
+        " AND irt.tenant_id = ("
+        "  SELECT tenant_id FROM bauth.idn_tenant"
+        "  WHERE tenant_slug = '$tenantSlug' LIMIT 1)"
+        ") t";
+    final b64 = base64Encode(utf8.encode(sql));
+    final salida = await _rpc.ejecutarCmd(
+      "echo $b64 | base64 -d | psql '$_dsnSbos' -t -A",
+    );
+    if (salida.isEmpty || salida == 'null') return const [];
+    final decoded = jsonDecode(salida);
+    if (decoded == null) return const [];
+    return (decoded as List<dynamic>)
+        .cast<Map<String, dynamic>>()
+        .map(NodoRolTemplateBD.fromJson)
+        .toList();
   }
 
-  /// Descarta el caché del árbol — la siguiente llamada recarga desde el daemon.
-  void invalidarCacheArbol() => _cacheArbol = null;
+  /// Sin caché — cada llamada va directo a la BD.
+  void invalidarCacheArbol() {}
 
-  // Caché del árbol (un solo RPC, índice local por parent_id)
-  _CacheArbolBD? _cacheArbol;
+  // ── Catálogo de tipos de nodo (idn_policy_node_type) ─────────────
+
+  /// Carga todos los tipos desde bauth.idn_policy_node_type.
+  /// Devuelve Map<code, ConfigTipoNodo> listo para usar en widgets.
+  /// Llamar una vez al conectar y cachear en el provider.
+  Future<Map<String, ConfigTipoNodo>> cargarCatalogoTipos() async {
+    const sql = 'SELECT json_agg(t) FROM ('
+        'SELECT code, abbreviation, name_es, name_en,'
+        ' color_key, color_key_valor, font_weight, font_size_token,'
+        ' monospace, letter_spacing::float AS letter_spacing,'
+        ' show_badge, expanded_default'
+        ' FROM bauth.idn_policy_node_type WHERE is_active = true'
+        ' ORDER BY sort_order) t';
+    final b64 = base64Encode(utf8.encode(sql));
+    final salida = await _rpc.ejecutarCmd(
+      "echo $b64 | base64 -d | psql '$_dsnSbos' -t -A",
+    );
+    if (salida.isEmpty || salida == 'null') return const {};
+    final decoded = jsonDecode(salida);
+    if (decoded == null) return const {};
+    final lista = (decoded as List<dynamic>).cast<Map<String, dynamic>>();
+    return { for (final j in lista) j['code'] as String : ConfigTipoNodo.fromJson(j) };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// Helpers i18n
+// ═══════════════════════════════════════════════════════════
+
+/// Extrae español de un campo que puede ser String plano o JSONB {"es","en"}.
+String _es(dynamic v) {
+  if (v is Map) return (v['es'] ?? v['en'] ?? '?').toString();
+  return v?.toString() ?? '?';
+}
+
+/// Versión nullable — retorna null si el campo es null o vacío.
+String? _esN(dynamic v) {
+  if (v == null) return null;
+  if (v is Map) {
+    final s = (v['es'] ?? v['en'])?.toString();
+    return (s == null || s.isEmpty) ? null : s;
+  }
+  final s = v.toString();
+  return s.isEmpty ? null : s;
+}
+
+/// Extrae inglés de un campo JSONB; null si es String plano.
+String? _en(dynamic v) {
+  if (v == null) return null;
+  if (v is Map) return (v['en'] ?? v['es'])?.toString();
+  return null;
 }
 
 // ═══════════════════════════════════════════════════════════
 // Nodo BD y helpers de árbol
 // ═══════════════════════════════════════════════════════════
 
-/// Nodo del árbol de role templates desde bAuth.
-/// Mapeado desde la respuesta real de bauth.role.template.list:
-///   id, parent_id, tier, hierarchy_level, loa_required, mfa_required, status
+/// Nodo del árbol de políticas desde bauth.idn_roles_template.
+/// Campos i18n (clave, nombre, help) pueden llegar como texto plano
+/// (SQL con ->>'es') o como JSONB completo — _es/_esN/_en manejan ambos.
 class NodoRolTemplateBD {
   final String id;
   final String? parentId;
   final String path;
-  final String tipo;   // tipo visual para badge: 'dominio','bloque','objeto','atributo'
-  final String clave;  // tier del template: 'SU','SYS','BIZ_N1','BIZ_N2'...
+  final String tipo;
+  final String clave;
+  final String? claveEn;
+  final String? alias;
+  final String? blockCode;
   final String nombre;
-  final String? valor; // status: 'ACTIVE', 'INACTIVE'
-  final String? help;  // descripción de LoA y MFA
+  final String? nombreEn;
+  final String? valor;
+  final String? help;
+  final String? helpEn;
   final List<String> opciones;
   final bool effect;
   final String? verbId;
   final int? domainNumber;
-  final int depth;     // hierarchy_level - 1 (0-based)
+  final int depth;
   List<NodoRolTemplateBD> hijos;
 
   NodoRolTemplateBD.fromJson(Map<String, dynamic> j)
-      : id = j['id'] as String? ?? '?',
-        parentId = j['parent_id'] as String?,
-        path = j['tier'] as String? ?? '',
-        tipo = _tipoParaTier(j['tier'] as String? ?? ''),
-        clave = j['tier'] as String? ?? '?',
-        nombre = j['tier'] as String? ?? '?',
-        valor = j['status'] as String?,
-        help = 'LoA ${j['loa_required']} · MFA: ${j['mfa_required']}'
-               ' · v${j['template_version']}',
+      : id = j['id']?.toString() ?? '?',
+        parentId = j['parent_id']?.toString(),
+        path = j['path']?.toString() ?? '',
+        tipo = j['tipo']?.toString() ?? 'objeto',
+        clave = _es(j['clave']),
+        claveEn = _en(j['clave']) ?? j['clave_en']?.toString(),
+        alias = j['alias']?.toString(),
+        blockCode = j['block_code']?.toString(),
+        nombre = _es(j['nombre'] ?? j['clave']),
+        nombreEn = _en(j['nombre'] ?? j['clave']) ?? j['nombre_en']?.toString(),
+        valor = j['valor']?.toString(),
+        help = _esN(j['help']),
+        helpEn = _en(j['help']) ?? j['help_en']?.toString(),
         opciones = const [],
-        effect = true,
-        verbId = null,
-        domainNumber = null,
-        depth = (j['hierarchy_level'] as int? ?? 1) - 1,
+        effect = j['effect'] as bool? ?? false,
+        verbId = j['verb_id']?.toString(),
+        domainNumber = j['domain_number'] as int?,
+        depth = j['depth'] as int? ?? 0,
         hijos = [];
-
-  /// Mapea tier a tipo visual para los badges del árbol.
-  static String _tipoParaTier(String tier) => switch (tier) {
-        'SU' || 'SYS' => 'dominio',
-        'BIZ_N1' || 'EXT_N0' => 'bloque',
-        'BIZ_N2' => 'objeto',
-        'BIZ_N3' || 'BIZ_N4' || 'BIZ_N5' => 'atributo',
-        'M2M' || 'VISITANTE' => 'evaluacion',
-        _ => 'objeto',
-      };
 }
 
-/// Construye árbol anidado desde lista plana usando parent_id.
-List<NodoRolTemplateBD> _construirArbolBD(List<NodoRolTemplateBD> planos) {
-  final mapa = {for (final n in planos) n.id: n};
-  final raices = <NodoRolTemplateBD>[];
-  for (final n in planos) {
-    if (n.parentId == null) {
-      raices.add(n);
-    } else {
-      mapa[n.parentId]?.hijos.add(n);
-    }
-  }
-  _ordenarBD(raices);
-  return raices;
-}
-
-/// Ordena nodos por path para comparación visual estable con el árbol fuente.
-void _ordenarBD(List<NodoRolTemplateBD> nodos) {
-  nodos.sort((a, b) => a.path.compareTo(b.path));
-  for (final n in nodos) { _ordenarBD(n.hijos); }
-}
-
-// ═══════════════════════════════════════════════════════════
-// Caché del árbol RolTemplate (índice local lazy)
-// ═══════════════════════════════════════════════════════════
-
-/// Caché de un solo RPC: carga bauth.role.template.list una vez
-/// y sirve los hijos por parent_id desde un índice en memoria.
-class _CacheArbolBD {
-  final Map<String?, List<NodoRolTemplateBD>> _indice = {};
-  Completer<void>? _enCurso;
-  bool _cargado = false;
-
-  bool get cargado => _cargado;
-
-  /// Carga todos los templates si aún no fueron cargados.
-  /// Llamadas concurrentes esperan a la misma petición en vuelo.
-  Future<void> cargar(IClienteRpc rpc, String tenantSlug) async {
-    if (_cargado) return;
-    if (_enCurso != null) {
-      await _enCurso!.future;
-      return;
-    }
-    _enCurso = Completer<void>();
-    try {
-      // bauth.role.template.list existe en el daemon (verificado en VPS)
-      final r = await rpc.llamar('bauth.role.template.list');
-      final items = r['templates'] as List<dynamic>? ?? [];
-
-      // Conjunto de IDs presentes para detectar nodos huérfanos
-      final idsConocidos = <String>{
-        for (final t in items) t['id'] as String,
-      };
-
-      _indice.clear();
-      for (final raw in items) {
-        final n = NodoRolTemplateBD.fromJson(raw as Map<String, dynamic>);
-        // Si el parent_id apunta a algo fuera de la lista, promover a raíz
-        final pid = (n.parentId != null && idsConocidos.contains(n.parentId))
-            ? n.parentId
-            : null;
-        (_indice[pid] ??= []).add(n);
-      }
-
-      // Ordenar cada nivel por clave para comparación visual estable
-      for (final lista in _indice.values) {
-        lista.sort((a, b) => a.clave.compareTo(b.clave));
-      }
-
-      _cargado = true;
-      _enCurso!.complete();
-    } catch (e) {
-      final c = _enCurso!;
-      _enCurso = null; // permite reintento en próxima llamada
-      c.completeError(e);
-      rethrow;
-    }
-  }
-
-  /// Devuelve los hijos directos de [parentId] ([] si no hay ninguno).
-  List<NodoRolTemplateBD> hijos(String? parentId) =>
-      _indice[parentId] ?? const [];
-}
+// DSN de la BD oficial SBOSDB
+const _dsnSbos = 'postgres://postgres:postgres@localhost:15432/SBOSDB';

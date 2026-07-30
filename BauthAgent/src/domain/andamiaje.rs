@@ -239,7 +239,7 @@ pub fn registro_base_arquitectonica() -> Vec<EntradaAndamiaje> {
         EntradaAndamiaje { contrato: "BA4",  nombre: "Rate-limit anti-brute-force login",    norma: "OWASP ASVS 2.2.1",            referencia: "2.01 / A.41",  estado: PorDesarrollar },
         EntradaAndamiaje { contrato: "BA5",  nombre: "mTLS parsing X.509 + token cnf (RFC 8705)", norma: "RFC 5280 / RFC 8705",     referencia: "2.03 / A.28",  estado: AConectarOCompletar },
         EntradaAndamiaje { contrato: "BA6",  nombre: "Identity Proofing IAL 1-3",            norma: "NIST SP 800-63A",             referencia: "A.09 / A.02-U1", estado: PorDesarrollar },
-        EntradaAndamiaje { contrato: "BA7",  nombre: "DDL idn_atributo + idn_tipo_atributo", norma: "SCIM RFC 7643 / ISO 24760-1", referencia: "1.07 / A.31",  estado: PorDesarrollar },
+        EntradaAndamiaje { contrato: "BA7",  nombre: "DDL idn_identity_attribute + idn_policy_node_type", norma: "SCIM RFC 7643 / ISO 24760-1", referencia: "1.07 / A.31",  estado: PorDesarrollar },
         EntradaAndamiaje { contrato: "BA8",  nombre: "Motor de firma externo ADSIB (Ley 164)", norma: "Ley 164 / eIDAS",           referencia: "2.04 / A.08",  estado: PorDesarrollar },
         EntradaAndamiaje { contrato: "BA9",  nombre: "JWT signer a Vault PKI + rotación",    norma: "NIST 800-57",                 referencia: "2.04 / A.08",  estado: AConectarOCompletar },
         EntradaAndamiaje { contrato: "BA10", nombre: "Cablear Risk Engine al pipeline D8",   norma: "NIST 800-207 §4",             referencia: "3.01 / A.26",  estado: AConectarOCompletar },
