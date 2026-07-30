@@ -1,6 +1,6 @@
 # A.65.02 — Nueva DDL · Inventario de Tablas
 
-**Versión:** 1.6  **Fecha:** 2026-07-28  **Estado:** DISEÑO PARCIAL — 9 secciones con tablas definidas; 4 secciones pendientes (USUARIOS · AUTENTICACIÓN · FIRMA DIGITAL · FEDERACIÓN/OIDC)
+**Versión:** 1.7  **Fecha:** 2026-07-30  **Estado:** DISEÑO PARCIAL — 14 secciones con tablas definidas; 2 secciones pendientes (DISPOSITIVOS · FEDERACIÓN/OIDC parcial)
 
 ## Propósito
 
@@ -63,7 +63,7 @@ El diseño DDL (columnas, constraints, índices) se desarrolla en sesiones poste
 |--------|-------|-----------|
 | T-040 | `bauth.idn_roles_rol_type` | Catálogo de tipos de cuenta — 10 tipos (INDIVIDUAL, M2M, SYSTEM, GROUP, TEMPLATE, VIRTUAL, BOT, DEVICE, SERVICE, EMERGENCY) que clasifican todo rol del sistema |
 | T-041 | `bauth.idn_roles_rol_hierarchical` | Registro de identidad de roles — árbol de los 548 roles con jerarquía parent/child, tier, status, nombre, versión y metadatos B1. **B02:** columnas `validity_type / valid_from / valid_until / duration_interval / max_renewals / renewal_count` + trigger `trg_irrh_b02_validity`. Es el QUIÉN del sistema. |
-| T-B02L | `bauth.idn_roles_rol_lifecycle_event` | Log WORM de transiciones de estado del rol (B02 §lifecycle) — registra cada cambio de estado con `trigger_type` (MANUAL/AUTO_EXPIRY/RECONCILE/IGA_REVIEW/BREAKGLASS/BOOTSTRAP), actor, razón y snapshot de vigencia. REVOKE UPDATE/DELETE. Equivalente a T-160 para NHI. |
+| T-B02L | `bauth.idn_roles_rol_lifecycle_event` | Log WORM de transiciones de estado del rol (B02 §lifecycle) — registra cada cambio de estado con `trigger_type` (MANUAL/AUTO_EXPIRY/RECONCILE/IGA_REVIEW/BREAKGLASS/BOOTSTRAP), actor, razón y snapshot de vigencia. REVOKE UPDATE/DELETE. Equivalente a T-187 para NHI. |
 | T-042 | `bauth.idn_roles_rol_tier` | Parámetros de autenticación por tier — LOA requerido, métodos MFA disponibles, timeouts de sesión, max_sessions, step_up y referencia NIST AAL. PIP del PDP al evaluar D1/D9. |
 | T-063 | `bauth.idn_roles_rol_closure` | Closure table del DAG de herencia OR — materializa todas las rutas ancestro→descendiente para calcular la máscara BitMask acumulada en O(1) |
 | T-161b | `bauth.idn_policy_node_type` | Catálogo de tipos de nodo del árbol de políticas — fuente única de verdad para presentación (color, fuente, badge), abreviatura y descripción bilingüe. El cliente Flutter renderiza el árbol consultando esta tabla sin hardcoding. Reemplaza el CHECK chk_irt_tipo de T-162. |
@@ -155,7 +155,11 @@ El diseño DDL (columnas, constraints, índices) se desarrolla en sesiones poste
 >
 > **Estándares:** NIST SP 800-63-4 §3 (subscriber accounts), SCIM 2.0 RFC 7643/7644 (user resource schema), ISO/IEC 24760-2:2025 §6.2 (identity account lifecycle), ISO 27001 A.5.15-16 (access rights, privileged access), OWASP ASVS v5.0 §2.1 (password security)
 
-*(Tablas por definir — pendiente de sesión de diseño)*
+| Código | Tabla | Propósito |
+|--------|-------|-----------|
+| T-320 | `bauth.idn_user` | Cuenta de usuario (subscriber account) — identificador de login, estado del ciclo de vida (ACTIVE/LOCKED/SUSPENDED/DEACTIVATED), nivel IAL alcanzado, perfil SCIM 2.0, FK a `idn_identity_entity` (actor D00). Un actor D00 puede tener 0, 1 o N cuentas. Separado de la identidad D00 (evidencia del mundo real) y del authenticator (secreto de prueba). `username` UNIQUE por tenant. |
+| T-321 | `bauth.idn_user_history` | Historial WORM de cambios de cuenta — registra cada cambio de estado, nombre de usuario, IAL, email o teléfono de recuperación con hash-chain SHA-256. REVOKE UPDATE/DELETE. Particionada por mes. Cumplimiento: ISO 27001 A.8.15, NIST SP 800-63-4 §3 (audit trail de cuenta). |
+| T-322 | `bauth.idn_user_recovery` | Datos de recuperación de cuenta — email/teléfono de recuperación (cifrados AES-256-GCM en Vault), códigos de recuperación (hash SHA-256 en BD), estado de uso, fecha de último uso y fecha de expiración. Un usuario puede tener N métodos de recuperación activos. NIST SP 800-63B-4 §5.4 (memorized secret recovery). |
 
 ---
 
@@ -169,7 +173,27 @@ El diseño DDL (columnas, constraints, índices) se desarrolla en sesiones poste
 >
 > **Estándares:** NIST SP 800-63B-4 §5 (authenticator lifecycle), FIDO2/WebAuthn W3C Level 3 (passkeys AAL2/AAL3), RFC 9470 (step-up), PCI DSS 4.0 Req 8 (auth controls), ISO 27001 A.9.4, OWASP ASVS v5.0 §2.2–2.5
 
-*(Tablas por definir — pendiente de sesión de diseño)*
+**Authenticators por cuenta (estado persistente de cada método):**
+
+| Código | Tabla | Propósito |
+|--------|-------|-----------|
+| T-330 | `bauth.auth_credential` | Cabecera de authenticator por cuenta — tipo (PASSWORD/TOTP/HOTP/FIDO2/X509/RECOVERY_CODE/PUSH), estado (ACTIVE/SUSPENDED/REVOKED/EXPIRED), LoA que provee (AAL1/AAL2/AAL3), `phishing_resistant` boolean, fecha de registro y de último uso, FK a `idn_user`. Un usuario puede tener N credentials de distintos tipos. |
+| T-331 | `bauth.auth_credential_secret` | Hash de secretos de conocimiento — contraseña Argon2id (m=64MB, t=3, p=4 — NIST 800-63B-4 §5.1.1), seeds TOTP/HOTP cifrados en Vault (AES-256-GCM, vault_path no el valor). `version` para rotación sin invalidar tokens activos. REVOKE UPDATE en `bauth_app_role` — solo append de nueva versión. |
+| T-332 | `bauth.auth_credential_fido2` | Credenciales FIDO2/Passkey — public key DER, AAGUID del authenticator, sign_count (replay detection), attestation_object, BackupEligible/BackupState (passkey sync). FK a `bauth.idn_device` (attestation del dispositivo). `transport_hints TEXT[]` (usb/nfc/ble/internal). WebAuthn L3 §6.1. |
+| T-333 | `bauth.auth_credential_x509` | Certificados X.509 para mTLS — fingerprint SHA-256, subject DN, issuer DN, PEM (cifrado en Vault), serial, not_before, not_after, estado de revocación (OCSP). FK a T-351 `sig_certificate` cuando es emitido por el motor interno. RFC 8705 (mTLS client auth). |
+| T-334 | `bauth.auth_attempt_log` | Log WORM de intentos de autenticación — particionado por mes (RANGE `attempted_at`). Registra: `user_id NULL-able` (intentos de usuarios inexistentes), `method_type`, `outcome` (SUCCESS/FAILURE/LOCKOUT/STEP_UP_REQUIRED), `ip_hash` (GDPR anonimizado), `user_agent_hash`, `failure_reason`. `method_code` sin FK nativa (usuarios inexistentes). REVOKE UPDATE/DELETE. |
+
+**Framework declarativo — MethodRegistry (7 catálogos, 110+ registros):**
+
+| Código | Tabla | Propósito |
+|--------|-------|-----------|
+| T-335 | `bauth.auth_method` | Catálogo de métodos de autenticación — fuente de verdad del MethodRegistry. 47 métodos en 6 categorías (A=conocimiento, B=posesión, C=inherencia, D=federación, E=especial, F=descentralizada). Campos: `method_code PK`, `category`, `aal_provided` (AAL1/AAL2/AAL3), `phishing_resistant`, `hardware_bound`, `standards TEXT[]`, `status` (ACTIVE/DEPRECATED). Seeds: 47 filas. |
+| T-336 | `bauth.auth_policy` | Políticas de autenticación por context — MFA_REQUIRED, SESSION_DURATION, MAX_ATTEMPTS, LOCKOUT_DURATION, STEP_UP_METHODS por tier y dominio. Coexiste con T-042 (que define LOA requerido por tier); T-336 define los parámetros operacionales de cada método por contexto. |
+| T-337 | `bauth.auth_config` | Configuración de parámetros de cada método — valores de Argon2id (m/t/p), TTL TOTP (30s/60s), tolerancia TOTP (1/2 ventanas), payload máx FIDO2, OCSP TTL. Editable en runtime sin recompilar. FK a `auth_method`. |
+| T-338 | `bauth.auth_crypto_algorithm` | Catálogo de algoritmos criptográficos usados — nombre (Ed25519, RSA-SHA256, Argon2id, AES-256-GCM, ECDSA-P256, ML-KEM-768, SLH-DSA-SHA2-128f), tipo (SIGNATURE/KDF/SYMMETRIC/KEM), `is_pqc` boolean, estándar (FIPS 186-5, FIPS 205, NIST 800-186), `deprecated_at`. Motor de decisión de rotación. |
+| T-384 | `bauth.auth_federation_protocol` | Catálogo de protocolos de federación soportados — SAML_2_0, OIDC_CORE_1_0, OAUTH2_PKCE, OAUTH2_DEVICE, OAUTH2_TOKEN_EXCHANGE, CIBA, FAPI_2_0, CAEP_RFC9396. Campos: `protocol_code PK`, `spec_url`, `aal_max` (AAL máximo que puede proveer), `fal_supported TEXT[]`, `status`. Seeds: 8 protocolos. |
+| T-385 | `bauth.auth_saga_catalog` | Catálogo de sagas de autenticación — flujos orquestados multi-paso del MethodRegistry: PASSWORD_MFA, PASSWORDLESS_FIDO2, SOCIAL_BROKER, SAML_SSO, DEVICE_AUTH, STEP_UP_AAL2→AAL3, BREAKGLASS_EMERGENCY, RECOVERY_FLOW, CIBA_PUSH, TOKEN_EXCHANGE, CLIENT_CREDENTIALS, M2M_MTLS. Campos: `saga_code PK`, `steps JSONB` (secuencia de pasos y condiciones), `timeout_seconds`, `aal_required`, `aal_produced`. 12 sagas. |
+| T-386 | `bauth.auth_compliance_map` | Mapa de cobertura normativa del sistema de autenticación — qué controles de qué estándares cubre el motor. Distinto de T-098 `aud_compliance_map` que opera a nivel SISTEMA (D11); este mapea AUTENTICACIÓN: NIST 800-63B §5 (MFA obligatorio), PCI DSS 4.0 Req 8 (lockout, MFA), OWASP ASVS §2.2 (phishing-resistant). `(standard, control_id, method_codes TEXT[])`. 24 filas. |
 
 ---
 
@@ -250,7 +274,16 @@ El diseño DDL (columnas, constraints, índices) se desarrolla en sesiones poste
 >
 > **Estándares:** Ley 164 Bolivia (firma digital con validez jurídica), eIDAS 2.0 Reg. 910/2014 (qualified electronic signatures), ADSIB-FD-POLT-015 v2.3 (certificación digital Bolivia), SIN RND 102100000011 (facturación electrónica Bolivia), RFC 5280 (X.509 PKI certificates), RFC 8037 (EdDSA/Ed25519), ISO/IEC 9796-2 (digital signature schemes), PCI DSS 4.0 Req 4 (transmission security)
 
-*(Tablas por definir — pendiente de sesión de diseño)*
+| Código | Tabla | Propósito |
+|--------|-------|-----------|
+| T-350 | `bauth.sig_key` | Par de llaves criptográficas — Ed25519 interno (Vault) o RSA-2048/4096 externo (ADSIB). Campos: `key_id UUID PK`, `tenant_id`, `key_type` (INTERNAL_ED25519/EXTERNAL_RSA), `vault_path` (ruta en Vault — nunca el valor), `key_status` (ACTIVE/ROTATED/REVOKED/EXPIRED), `created_at`, `expires_at`, `next_rotation_at`. Job de rotación lee `next_rotation_at`. |
+| T-351 | `bauth.sig_certificate` | Certificados X.509 asociados a una llave — emitidos por Vault PKI (interno) o ADSIB (externo). Campos: `cert_id`, `key_id FK T-350`, `subject_dn`, `issuer_dn`, `serial_number`, `not_before`, `not_after`, `fingerprint_sha256`, `cert_pem` (cifrado en Vault — solo referencia), `ocsp_url`, `status` (ACTIVE/REVOKED/EXPIRED). FK desde T-333 y T-383. |
+| T-352 | `bauth.sig_crl` | Registro de CRL — Certificate Revocation Lists publicadas por el motor PKI interno. Campos: `crl_id`, `key_id FK T-350`, `issued_at`, `next_update`, `crl_data` (binario DER). Consulta de vigencia por `next_update`. |
+| T-353 | `bauth.sig_operation_log` | Log WORM de operaciones de firma — una fila por operación ejecutada (`sign_jwt_internal` / `sign_document_adsib` / `verify_external`). REVOKE UPDATE/DELETE. Campos: `operation_id`, `tenant_id`, `key_id`, `cert_id`, `document_hash` (SHA-256 del payload), `operation_type`, `outcome`, `ctx_id`, `executed_at`. FK a T-354 y T-355. |
+| T-354 | `bauth.sig_document_hash` | Registro WORM de hashes de documentos firmados — un documento por hash SHA-256. Permite verificar integridad sin almacenar el documento. Campos: `hash_id`, `document_hash SHA-256 UNIQUE`, `hash_algorithm`, `document_type` (JWT/PDF/XML/FACTURA/VC), `first_seen_at`. Candidato a anclaje D12 Forma A. |
+| T-355 | `bauth.sig_timestamp` | Timestamps calificados (RFC 3161) emitidos sobre operaciones de firma — vincula `operation_id` con un timestamp externo de TSA. Campos: `timestamp_id`, `operation_id FK T-353`, `tsa_url`, `token_base64`, `issued_at`, `serial_number`. Requerido por eIDAS 2.0 para firma calificada. |
+| T-356 | `bauth.sig_adsib_lifecycle` | Log WORM del ciclo de vida del certificado ADSIB — transiciones de estado (REQUESTED/ISSUED/ACTIVE/SUSPENDED/REVOKED/EXPIRED) con evidencia documental. REVOKE UPDATE/DELETE. Cumplimiento: ADSIB-FD-POLT-015 v2.3, Ley 164 Bolivia Art. 14. |
+| T-357 | `bauth.sig_document_policy` | Política de motores de firma por tenant o global — qué motor usar para qué tipo de documento: JWT→internal_ed25519, FACTURA_SIN→adsib_rsa, VC→internal_ed25519+blockchain_anchor. `policy_scope` (GLOBAL/TENANT), `document_type`, `engine` (INTERNAL/EXTERNAL/BOTH), `require_timestamp`, `require_blockchain_anchor`. |
 
 ---
 
@@ -262,7 +295,27 @@ El diseño DDL (columnas, constraints, índices) se desarrolla en sesiones poste
 >
 > **Estándares:** RFC 6749 (OAuth 2.0 Authorization Framework), RFC 7636 (PKCE), RFC 8705 (mTLS client certificate binding), RFC 9449 (DPoP — Demonstrating Proof of Possession), RFC 8693 (OAuth 2.0 Token Exchange), RFC 8628 (Device Authorization Grant), OpenID Connect Core 1.0, FAPI 2.0 Security Profile, SAML 2.0 OASIS, NIST SP 800-63-4 §6 (federation assurance levels FAL1/FAL2/FAL3)
 
-*(Tablas por definir — pendiente de sesión de diseño)*
+| Código | Tabla | Propósito |
+|--------|-------|-----------|
+| T-365 | `bauth.fed_client` | Relying parties registradas — clientes OAuth2/OIDC del OIDC Provider propio de bAuth. Campos: `client_id TEXT PK`, `tenant_id`, `client_name`, `client_secret_vault_path` (confidential clients — ruta Vault), `redirect_uris TEXT[]`, `scopes TEXT[]`, `token_endpoint_auth_method`, `require_pkce`, `require_dpop`, `fapi_profile` (FAPI_1_0/FAPI_2_0/NONE), `fal_level` (1/2/3 FK T-168). |
+| T-366 | `bauth.fed_provider_ext` | Proveedores de identidad externos — IdPs SAML 2.0 enterprise y social brokering (Google/GitHub/LinkedIn/Microsoft/Apple). Campos: `provider_id`, `tenant_id`, `provider_type` (SAML2/OIDC/SOCIAL), `issuer_url`, `metadata_url`, `client_id_vault_path`, `signing_cert_fingerprint`, `status`, `attribute_mapping JSONB`. |
+| T-367 | `bauth.fed_token_issued` | Tokens de acceso/refresco emitidos — particionado por mes (RANGE `issued_at`). Registra: `jti UUID PK`, `client_id`, `user_id`, `scopes TEXT[]`, `token_type` (ACCESS/REFRESH/ID/EXCHANGE), `expires_at`, `revoked_at`, `revocation_reason`, `dpop_jkt` (thumbprint JWK DPoP-bound), `auth_method_used`. REVOKE UPDATE/DELETE (WORM). Índice parcial en tokens activos. |
+| T-368..T-374 | *(en A.65.02.05)* | `fed_device_code`, `fed_jwks_key`, `fed_par_request`, `fed_discovery_cfg`, `fed_logout_session`, `fed_token_exchange_log`, `fed_saml_assertion_log` — 7 tablas detalladas en A.65.02.05 (secciones avanzadas de FEDERACIÓN/OIDC). |
+
+---
+
+## BILLETERA DIGITAL
+
+> **Billetera soberana de identidad digital** — almacén del actor para sus Verifiable Credentials (W3C VCDM 2.0), llaves criptográficas FIDO2/Passkey, certificados X.509 mTLS y DIDs. La billetera pertenece al actor (FK a `idn_identity_entity`) y es portable entre tenants. El **protocolo de emisión** sigue OpenID4VCI (OpenID for Verifiable Credential Issuance), el de **presentación** sigue OID4VP (OpenID for Verifiable Presentations). El actor decide qué comparte y con quién — el sistema registra cada presentación con trazabilidad forense.
+>
+> **Estándares:** W3C VCDM 2.0 Rec. 2025 (Verifiable Credentials Data Model), OID4VP (OpenID for Verifiable Presentations), OpenID4VCI (OpenID for Verifiable Credential Issuance), SD-JWT VC (selective disclosure), W3C DID Core 1.0, W3C VC Status List 2021 (revocación escalable), GDPR Art. 7.3 (retirada de consentimiento y portabilidad)
+
+| Código | Tabla | Propósito |
+|--------|-------|-----------|
+| T-380 | `bauth.wallet` | Billetera soberana del actor — una por actor D00 (`entity_id FK T-156`), portátil entre tenants. Campos: `wallet_id UUID PK`, `entity_id`, `did TEXT UNIQUE` (Decentralized Identifier del actor), `status` (ACTIVE/SUSPENDED/REVOKED), `created_at`. El DID es el identificador externo del actor en redes de confianza descentralizadas. |
+| T-381 | `bauth.wallet_item` | Ítems almacenados en la billetera — referencias tipadas a credenciales y llaves del actor: `item_type` (VC/FIDO2/X509/DID/SIG_CERT), FK polimórfica por tipo (`vc_id→T-167`, `fido2_id→T-332`, `x509_id→T-333`, `did_id→T-169`, `cert_id→T-351`), `alias` (nombre amigable), `pinned` (ítem destacado en el dashboard), `added_at`. |
+| T-382 | `bauth.wallet_presentation_log` | Log WORM de presentaciones VP — registra cada vez que el actor comparte credenciales. REVOKE UPDATE/DELETE. Campos: `presentation_id UUID PK`, `wallet_id FK T-380`, `verifier_id` (FK a `fed_client` T-365), `vp_type` (OIDC_VP/DIRECT_PRESENTATION), `credentials_shared UUID[]`, `outcome` (ACCEPTED/REJECTED/PARTIAL), `presented_at`. GDPR Art. 7.3: evidencia de qué compartió el actor con quién. |
+| T-383 | `bauth.wallet_issuance_log` | Log WORM de emisión de VCs — registra cada VC emitida por bAuth vía OpenID4VCI. REVOKE UPDATE/DELETE. Campos: `issuance_id UUID PK`, `wallet_id FK T-380`, `tenant_id`, `vc_id FK T-167 (idn_identity_vc)`, `issuer_did`, `credential_type`, `protocol` (OPENID4VCI/DIRECT_ISSUE/IMPORTED), `outcome` (ISSUED/REJECTED/PENDING), `issued_at`. |
 
 ---
 
@@ -324,7 +377,13 @@ El diseño DDL (columnas, constraints, índices) se desarrolla en sesiones poste
 >
 > **Estándares:** RFC 6962 (Certificate Transparency — Merkle inclusion proof), FIPS 202 (Keccak-256/SHA-3), NIST IR 8202 (blockchain best practices), QBFT/IBFT 2.0 (Byzantine fault-tolerant consensus ≥2/3 super-mayoría), ISO 27001:2022 A.8.15 (integridad de auditoría), W3C DID Core 1.0 (identidad descentralizada — P3), EIP-712 (structured data signing), Regulación boliviana blockchain (declaración previa requerida para Forma B — gap P2)
 
-*(Tablas a incorporar del diseño legacy con naming canónico: `blk_anchor` · `blk_merkle_batch` · `blk_merkle_leaf` · `blk_account` · `blk_reconciliation`)*
+| Código | Tabla | Propósito |
+|--------|-------|-----------|
+| T-358 | `bauth.blk_anchor` | Ancla on-chain Merkle — registra la raíz Merkle (Keccak-256) del lote de eventos auditados y el hash de transacción on-chain (Arbitrum L2 / Besu QBFT). Campos: `anchor_id UUID PK`, `merkle_root BYTEA`, `batch_id FK T-359`, `chain` (ARBITRUM/BESU_QBFT), `tx_hash TEXT`, `block_number BIGINT`, `anchored_at`. Inmutable post-INSERT. |
+| T-359 | `bauth.blk_merkle_batch` | Lote de eventos a anclar — agrupación de hasta 1M hojas (eventos de `privilege_atom_audit`) en un árbol Merkle. Campos: `batch_id UUID PK`, `tenant_id`, `leaf_count INTEGER`, `merkle_root BYTEA`, `status` (BUILDING/SEALED/ANCHORED), `sealed_at`, `anchor_id FK T-358 NULL`. Motor `domain/merkle.rs` construye el árbol y sella el lote. |
+| T-360 | `bauth.blk_merkle_leaf` | Hojas del árbol Merkle — referencias a eventos de `privilege_atom_audit` incluidos en un lote. Las columnas `merkle_batch_id`, `merkle_proof[]` y `onchain_tx_hash` viven en la propia fila de `privilege_atom_audit` (T-170b) — esta tabla solo materializa el índice leaf→batch para el binario `bos-verify`. |
+| T-361 | `bauth.blk_account` | Cuenta blockchain del tenant en Besu QBFT — dirección Ethereum, saldo de gas, estado (ACTIVE/FROZEN/DECOMMISSIONED). Un tenant puede tener N cuentas por red. Campos: `account_id UUID PK`, `tenant_id`, `chain` (BESU_QBFT), `address TEXT UNIQUE`, `status`, `created_at`. |
+| T-362 | `bauth.blk_reconciliation` | Reconciliación periódica del saldo on-chain — diferencia entre saldo declarado (`blk_account.balance`) y saldo en cadena consultado vía RPC. `SettlementEngine.sol` Besu QBFT (6 operaciones verificadas en VPS 2026-06-22: freeze/settle/revert/anti-replay). |
 
 ---
 
@@ -334,39 +393,43 @@ El diseño DDL (columnas, constraints, índices) se desarrolla en sesiones poste
 |---------|--------|--------|------|
 | GLOBAL | 8 (T-001..T-004 · T-059..T-061 · T-114) | ✅ Definidas | Catálogos de referencia (`bglobal`) |
 | TENANT | 8 (T-005..T-013) | ✅ Definidas | Infraestructura multi-tenancy (`bauth`) |
-| ROLES | 8 (T-040..T-042 · T-063 · T-161b · T-162..T-163 · T-194) | ✅ Definidas | Identidad de roles + árbol de políticas + catálogos (`bauth`) |
+| ROLES | 9 (T-040..T-042 · T-063 · T-B02L · T-161b · T-162..T-163 · T-194) | ✅ Definidas | Identidad de roles + árbol + lifecycle WORM + catálogos (`bauth`) |
 | VERSIONADO | 4 (T-152..T-155) | ✅ Definidas | Motor MVU 1.13 (`bauth`) |
 | IDENTIDAD | 14 (T-156..T-161 + T-165..T-168 + T-186..T-188 · T-190) | ✅ Definidas ✅ D00 COMPLETO | Motor D00 v2.0 + NHI — actores, atributos, proofing, consentimiento, VC, FAL (`bauth`) |
 | CALENDARIO | 9 (T-012 · T-014..T-019 · T-124..T-125) | ✅ Definidas | Infraestructura temporal (`bcalendar`) |
-| USUARIOS | — | ⏳ Pendiente | Cuentas de usuario SCIM 2.0 (`bauth`) |
-| AUTENTICACIÓN | — | ⏳ Pendiente | Motor de Métodos — 47 métodos + MFA (`bauth`) |
+| USUARIOS | 3 (T-320..T-322) | ✅ Definidas | Subscriber accounts SCIM 2.0 + historial WORM + recuperación (`bauth`) |
+| AUTENTICACIÓN | 12 (T-330..T-338 · T-384..T-386) | ✅ Definidas | Authenticators (5) + MethodRegistry declarativo (7 catálogos, 110+ seeds) (`bauth`) |
 | SESIÓN | 4 (T-181 · T-191..T-193) | ✅ Definidas | Sesiones persistentes + CAEP + SSF (`bauth`) |
 | PRIVILEGIOS | 9 (T-170 · T-170b · T-171..T-176 · T-179) | ✅ Definidas | Motor BitMask engine + excepciones (`bauth`) |
 | AUDITORÍA | 2 (T-177..T-178) | ✅ Definidas | Campañas IGA + revisiones de certificación (`bauth`) |
-| FIRMA DIGITAL (D13) | — | ⏳ Pendiente | PKI + EdDSA interno + ADSIB externo (`bauth`) |
-| FEDERACIÓN / OIDC | — | ⏳ Pendiente | OAuth2/OIDC/SAML + tokens (`bauth`) |
+| FIRMA DIGITAL (D13) | 8 (T-350..T-357) | ✅ Definidas | PKI: llaves + certificados + CRL + op_log + hashes + timestamps + ciclo ADSIB + política (`bauth`) |
+| FEDERACIÓN / OIDC | 3+7 (T-365..T-367 · T-368..T-374 en A.65.02.05) | ✅ Definidas (parcial) | OAuth2/OIDC/SAML + tokens + avanzadas en A.65.02.05 (`bauth`) |
+| BILLETERA DIGITAL | 4 (T-380..T-383) | ✅ Definidas | W3C VCDM 2.0 + OID4VP/VCI + presentación WORM + emisión WORM (`bauth`) |
 | RIESGO / ITDR | 1 (T-180) | ✅ Definidas | Política de riesgo adaptativo — `ses_risk_policy` (`bauth`) |
 | PAM | 6 (T-182 · T-182b · T-183..T-185 · T-189) | ✅ Definidas | JIT + aprobación multi-nivel + credenciales + sesión privilegiada + break-glass + secretos NHI (`bauth`) |
 | DISPOSITIVOS | — | ⏳ Pendiente | Registro de dispositivos FIDO2/ZTA (`bauth`) |
-| BLOCKCHAIN D12 | 5 | ⏳ Naming pendiente | Anclaje Merkle + liquidación Besu (`bauth`) |
-| **Total definido** | **73** | — | *4 secciones sin tablas · 9 secciones con diseño aprobado ✅ · D00 COMPLETO v2.6.0* |
+| BLOCKCHAIN D12 | 5 (T-358..T-362) | ✅ Naming canónico | Anclaje Merkle + liquidación Besu (`bauth`) |
+| **Total definido** | **109** | — | *1 sección sin tablas (DISPOSITIVOS) · 16 secciones con diseño aprobado ✅ · D00 COMPLETO v2.6.0 · v1.7* |
 
 ---
 
 ## Próximos pasos
 
-1. **HITL — definir tablas por cada sección nueva restante** (4 secciones pendientes):
-   - Orden de dependencia: USUARIOS → AUTENTICACIÓN
-   - Independientes: FIRMA DIGITAL · FEDERACIÓN/OIDC · DISPOSITIVOS · BLOCKCHAIN D12 (renaming canónico)
+1. **HITL — definir tablas de la sección restante** (1 sección pendiente):
+   - DISPOSITIVOS — registro de dispositivos FIDO2/ZTA, postura MDM, OSDP v2.2
+   - FEDERACIÓN/OIDC — 7 tablas avanzadas (T-368..T-374) en A.65.02.05
 
 2. **Implementar Fase 1 (GAPS-DDL-PRIVILEGIOS-II.md):** G-21 → G-17 → G-20 → G-13 (orden de dependencia).
    - Dependen de SESIÓN: RIESGO/ITDR · PAM
    - PRIVILEGIOS ✅ cerrado (T-170, T-170b, T-171–T-176 · doctrina en A.65.02.01 v1.5 · extensión AtomLang en A.65.02.02 · G-04 en SBOS-0XX-G04-LOA-AAL-OBLIGACIONES.md · G-06/G-09 en GAPS-DDL-PRIVILEGIOS.md)
-   - BLOCKCHAIN D12: naming canónico pendiente (5 tablas legacy)
-2. **Diseñar DDL de secciones ya inventariadas** (columnas, constraints, índices):
-   - Primero: GLOBAL → TENANT → IDENTIDAD (base de actores)
-   - Segundo: ROLES (T-040 → T-041 → T-042 → T-063 → T-162 → T-163)
-   - Tercero: VERSIONADO (depende de ROLES) · CALENDARIO (independiente)
-3. Cada tabla diseñada → migración `bauth_NN__<tabla>.sql` numerada
-4. Seeds: migrar datos de VPS legacy con `INSERT INTO new SELECT FROM old` donde aplique
-5. Validar con `verificar_afirmacion.sh` antes de declarar cualquier tabla completa
+   - BLOCKCHAIN D12 ✅ naming canónico resuelto (T-358..T-362)
+
+3. **Diseñar DDL detallado de secciones inventariadas en v1.7** (columnas, constraints, índices):
+   - Nuevas en v1.7: USUARIOS (T-320..T-322) · AUTENTICACIÓN (T-330..T-338 · T-384..T-386) · FIRMA DIGITAL (T-350..T-357) · FEDERACIÓN (T-365..T-367) · BILLETERA (T-380..T-383)
+   - Referencia DDL bosquejo: A.65.02.04 §2-6 (columnas detalladas y constraints)
+
+4. Cada tabla diseñada → migración `bauth_NN__<tabla>.sql` numerada
+
+5. Seeds: migrar datos de VPS legacy con `INSERT INTO new SELECT FROM old` donde aplique
+
+6. Validar con `verificar_afirmacion.sh` antes de declarar cualquier tabla completa

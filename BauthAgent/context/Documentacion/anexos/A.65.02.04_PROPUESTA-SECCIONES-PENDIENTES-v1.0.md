@@ -1,10 +1,11 @@
 # A.65.02.04 — Propuesta DDL Secciones Pendientes
 ## USUARIOS · AUTENTICACIÓN · FIRMA DIGITAL · BLOCKCHAIN D12 · FEDERACIÓN/OIDC · BILLETERA DIGITAL
 
-**Versión:** 2.1.0 · **Fecha:** 2026-07-30  
+**Versión:** 2.2.0 · **Fecha:** 2026-07-30  
 **Estado:** PROPUESTA — pendiente de aprobación HITL para incorporar a DDL.sql y DDL_MANUAL.md  
 **Referencia:** A.65.02_ANEXO-NUEVA-DDL-v1.0.md §USUARIOS, §AUTENTICACIÓN, §FIRMA DIGITAL, §FEDERACIÓN/OIDC, §BLOCKCHAIN D12  
-**Cambio v2.1.0:** naming unificado a inglés para todos los identificadores SQL (tablas · columnas · constraints · índices); documentación interna en español. +T-357 sig_document_policy (política motores de firma). T-368..T-374 migradas a A.65.02.05.
+**Cambio v2.1.0:** naming unificado a inglés para todos los identificadores SQL (tablas · columnas · constraints · índices); documentación interna en español. +T-357 sig_document_policy (política motores de firma). T-368..T-374 migradas a A.65.02.05.  
+**Cambio v2.2.0:** T-339..T-341 reasignados a T-384..T-386. Motivo: T-320..T-359 está reservado para los dominios D07 (`idn_red_*`) y D08 (`idn_sesion_*`) según el esquema de rangos canónico (A.65.03.01.01). Los catálogos del MethodRegistry (`auth_federation_protocol`, `auth_saga_catalog`, `auth_compliance_map`) son infraestructura de S14, no de dominio específico, y se ubican a continuación de T-383.
 
 ---
 
@@ -244,7 +245,7 @@ COMMENT ON TABLE bauth.idn_user_recovery IS
 
 ---
 
-## 2. Sección AUTENTICACIÓN — S14 (T-330..T-341)
+## 2. Sección AUTENTICACIÓN — S14 (T-330..T-338 · T-384..T-386)
 
 ### 2.1 T-330 `bauth.auth_credential` — Binding autenticador↔cuenta (PIP)
 
@@ -413,7 +414,7 @@ COMMENT ON TABLE bauth.auth_attempt_log IS
     'cegar la detección de amenazas. PCI DSS 4.0 Req 8.2.8. NIST SP 800-63B-4 §5.2.2.';
 ```
 
-### 2.6 Framework declarativo (T-335..T-341) — catálogos del MethodRegistry
+### 2.6 Framework declarativo (T-335..T-338 · T-384..T-386) — catálogos del MethodRegistry
 
 ```sql
 -- T-335: bauth.auth_method — catálogo maestro de métodos de autenticación
@@ -483,10 +484,11 @@ CREATE TABLE IF NOT EXISTS bauth.auth_crypto_algorithm (
     -- Seeds FORBIDDEN: MD5 · SHA-1 · RSA-1024 · DES · 3DES
 );
 
--- T-339..T-341: catálogos declarativos (bosquejo — desarrollo en sesión siguiente)
--- T-339 bauth.auth_federation_protocol  — OIDC · SAML2 · OAUTH2 · WS_FED
--- T-340 bauth.auth_saga_catalog         — flujos multi-paso por AAL
--- T-341 bauth.auth_compliance_map       — método → estándar → control_ref
+-- T-384..T-386: catálogos declarativos (bosquejo — desarrollo en sesión siguiente)
+-- NOTA: T-339..T-341 reservados para D07 (idn_red_*) y D08 (idn_sesion_*) — reasignados
+-- T-384 bauth.auth_federation_protocol  — OIDC · SAML2 · OAUTH2 · WS_FED
+-- T-385 bauth.auth_saga_catalog         — flujos multi-paso por AAL
+-- T-386 bauth.auth_compliance_map       — método → estándar → control_ref
 ```
 
 ---
@@ -1043,7 +1045,7 @@ CREATE TABLE IF NOT EXISTS bauth.wallet_item (
     tenant_id     UUID    NOT NULL,
     -- Tipo de ítem y tabla fuente (la billetera NO duplica datos — apunta a la fuente)
     type          TEXT    NOT NULL CONSTRAINT chk_wi_type CHECK (type IN (
-                      'VC',           -- Verifiable Credential → T-167 idn_identidad_vc
+                      'VC',           -- Verifiable Credential → T-167 idn_identity_vc
                       'FIDO2',        -- Passkey/WebAuthn → T-332 auth_credential_fido2
                       'X509_CERT',    -- Certificado cliente → T-333 auth_credential_x509
                       'DID_DOC',      -- DID Document → T-169 idn_did_document
@@ -1118,7 +1120,7 @@ CREATE TABLE IF NOT EXISTS bauth.wallet_issuance_log (
     issuance_id     UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
     wallet_id       UUID    NOT NULL REFERENCES bauth.wallet(wallet_id),
     tenant_id       UUID    NOT NULL,
-    vc_id           UUID    NOT NULL REFERENCES bauth.idn_identidad_vc(vc_id),
+    vc_id           UUID    NOT NULL REFERENCES bauth.idn_identity_vc(vc_id),
     issuer_did      TEXT    NOT NULL,
     credential_type TEXT    NOT NULL,
     protocol        TEXT    NOT NULL CONSTRAINT chk_wil_proto CHECK (protocol IN (
@@ -1155,7 +1157,7 @@ bauth.idn_tenant (T-005)
   ├── wallet (T-380) [FK a idn_identity_entity T-156]
   │       ├── wallet_item (T-381) → [T-167 VC · T-332 FIDO2 · T-333 X509 · T-169 DID · T-351 sig_cert]
   │       ├── wallet_presentation_log (T-382) [WORM] → fed_client (T-365)
-  │       └── wallet_issuance_log (T-383) [WORM] → idn_identidad_vc (T-167)
+  │       └── wallet_issuance_log (T-383) [WORM] → idn_identity_vc (T-167)
   │
   └── fed_client (T-365) → fed_token_issued (T-367) [particionado]
                           → fed_provider_ext (T-366)
@@ -1190,7 +1192,7 @@ auth_attempt_log (T-334) [WORM particionado]
 | S14 AUTENTICACIÓN | T-336 | `bauth.auth_policy` | Propuesta |
 | S14 AUTENTICACIÓN | T-337 | `bauth.auth_config` | Propuesta |
 | S14 AUTENTICACIÓN | T-338 | `bauth.auth_crypto_algorithm` | Propuesta |
-| S14 AUTENTICACIÓN | T-339..341 | `auth_federation_protocol`, `auth_saga_catalog`, `auth_compliance_map` | Bosquejo |
+| S14 AUTENTICACIÓN | T-384..386 | `auth_federation_protocol`, `auth_saga_catalog`, `auth_compliance_map` | Bosquejo |
 | S15 FIRMA DIGITAL | T-350 | `bauth.sig_key` | Propuesta |
 | S15 FIRMA DIGITAL | T-351 | `bauth.sig_certificate` | Propuesta |
 | S15 FIRMA DIGITAL | T-352 | `bauth.sig_crl` | Propuesta |
@@ -1222,7 +1224,7 @@ auth_attempt_log (T-334) [WORM particionado]
 | # | Categoría | Decisión | Opciones |
 |---|-----------|----------|----------|
 | D-US-01 | USUARIOS | ¿1 cuenta o N cuentas por actor por tenant? | A: UNIQUE(tenant,entity) — 1 cuenta (propuesta) · B: N cuentas con diferenciador |
-| D-AU-01 | AUTENTICACIÓN | ¿Seeds T-335..T-341 en SQL o YAML bootstrap? | A: Seeds SQL (propuesta) · B: YAML cargado por daemon |
+| D-AU-01 | AUTENTICACIÓN | ¿Seeds T-335..T-338 + T-384..T-386 en SQL o YAML bootstrap? | A: Seeds SQL (propuesta) · B: YAML cargado por daemon |
 | D-AU-02 | AUTENTICACIÓN | ¿T-336 y T-042 coexisten o se fusionan? | A: Separadas (propuesta) · B: T-042 extendida |
 | D-FD-01 | FIRMA DIGITAL | ¿`sig_document_hash` guarda el PEM o solo el hash? | A: Solo hash (propuesta — WORM ligero) · B: PEM completo |
 | D-FD-02 | FIRMA DIGITAL | ¿`sig_adsib_lifecycle` tabla separada o eventos en `sig_certificate`? | A: Separada (propuesta) · B: Columnas adicionales |
