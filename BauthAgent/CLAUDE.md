@@ -41,8 +41,17 @@ La salida incluye timestamp + SHA256 del comando y su resultado. Se adjunta al i
 - **Contrato BOS ↔ bAuth:** `../context/contracts/BOS-BAUTH-CONTRATOS.md` (nivel proyecto — bilateral, NO dentro de un solo daemon).
 - **Comunicación tmux:** `source scripts/agente_enviar.sh && agente_enviar <pane> "<mensaje>"` (shim → script canónico de fábrica).
 
-## Skills sugeridas (a poblar en `.claude/skills/`)
-- `bauth-bitmask-64bit`
-- `bauth-token-4capas`
-- `bauth-policychain-sod`
-- `bauth-firma-dual`
+## Documentación técnica
+
+**Índice completo:** `context/Documentacion/INDICE.md` — 50+ manuales organizados por ciclo de seguridad (1 Identificación → 7 Remediación) + 70+ anexos de respaldo.  
+**Vista por motor:** `context/Documentacion/MOTORES/MOTORES-INDEX.md` — los 7 motores (ADR-013), estado y orden de convergencia.  
+**Carta rectora:** `context/Documentacion/0.00_MANUAL-DIRECTRICES-IAM-ENTERPRISE.md` — todo manual se lee bajo esta carta.
+
+## Skills disponibles (`.claude/skills/`)
+
+| Skill | Invocar con | Cuándo |
+|-------|------------|--------|
+| `bauth-sesion` | `/bauth-sesion` | **Inicio de cada sesión** — recupera contexto SKDATA + estado motores |
+| `bauth-motores` | `/bauth-motores` | Al trabajar en cualquiera de los 7 motores (ADR-013) |
+| `bauth-identidad` | `/bauth-identidad` | Al trabajar con D00-D13, átomos, BitMask, roles, usuarios |
+| `bauth-api` | `/bauth-api` | Al implementar/verificar métodos JSON-RPC `bauth.*` |
