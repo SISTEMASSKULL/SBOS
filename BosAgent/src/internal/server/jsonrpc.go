@@ -224,6 +224,7 @@ func init() {
 		"bos.ctx.get":             (*Server).rpcCtxGet,
 		"bos.ctx.list":            (*Server).rpcCtxList,
 		"bos.ctx.tenant.suspend":  (*Server).rpcCtxTenantSuspend,
+		"bos.ctx.heartbeat":       (*Server).rpcCtxHeartbeat,
 		// bos.bootstrap.pg_auxiliar.*
 		"bos.bootstrap.pg_auxiliar_start":   (*Server).rpcPgAuxiliarStart,
 		"bos.bootstrap.pg_auxiliar_sync":    (*Server).rpcPgAuxiliarSync,

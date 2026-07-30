@@ -232,6 +232,30 @@ func (svc *Service) ListByTenant(tenantID string) ([]*SessionContext, error) {
 	return active, nil
 }
 
+// Heartbeat prolonga el TTL de un ctx_id activo (SBOS-049 §3.3).
+// Si la sesión no existe, está expirada o en estado terminal, retorna error.
+// Extiende la expiración 8 horas desde el momento del heartbeat (política estándar).
+func (svc *Service) Heartbeat(ctxID string) (*SessionContext, error) {
+	if ctxID == "" {
+		return nil, errors.New("context.Heartbeat: ctxID vacío")
+	}
+	sctx, err := svc.store.GetSession(ctxID)
+	if err != nil {
+		return nil, fmt.Errorf("context.Heartbeat: sesión no encontrada: %w", err)
+	}
+	if sctx.State.IsTerminal() {
+		return nil, fmt.Errorf("context.Heartbeat: ctx_id %q en estado terminal %s", ctxID, sctx.State)
+	}
+	if sctx.IsExpired() {
+		return nil, fmt.Errorf("context.Heartbeat: ctx_id %q expiró en %s", ctxID, sctx.ExpiresAt.Format(time.RFC3339))
+	}
+	sctx.ExpiresAt = time.Now().UTC().Add(MaxSessionTTL)
+	if err := svc.store.SaveSession(sctx); err != nil {
+		return nil, fmt.Errorf("context.Heartbeat: persistir extensión TTL: %w", err)
+	}
+	return sctx, nil
+}
+
 // ─── Context Plane — Create / Validate (M-14, unificado desde domain) ────────
 
 // Create genera un nuevo ctx_id con traceparent W3C (SBOS-049, RFC 7519).

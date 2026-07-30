@@ -526,6 +526,89 @@ func cmdDeploy(args []string) int {
 	return 0
 }
 
+// removeTenant ejecuta la saga inversa de eliminación de tenant (F10.C.12).
+// Orden inverso al deployTenant: sesiones → fichas → keycloak → vault → redis → postgresql → namespace.
+// Principio P14: cada paso continúa ante fallos parciales — se elimina lo máximo posible.
+func removeTenant(tenantID string) error {
+	fmt.Printf("Eliminando tenant: %s\n", tenantID)
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+	// [0] Invalidar todas las sesiones activas antes de tocar infraestructura
+	fmt.Println("[0/7] Invalidando sesiones activas del tenant...")
+	if err := runBosRPC("bos.ctx.tenant.suspend", map[string]interface{}{
+		"tenant_id": tenantID,
+	}); err != nil {
+		return fmt.Errorf("paso 0 (invalidar sesiones): %w", err)
+	}
+	fmt.Printf("  Sesiones de %s invalidadas\n", tenantID)
+
+	// [1/7] Fichas de aplicación (no conocidas sin seed — informar al operador)
+	fmt.Println("[1/7] Fichas de aplicacion del tenant...")
+	fmt.Println("  Nota: usa 'bosctl ficha list' para ver fichas activas y eliminarlas individualmente")
+
+	// [2/7] Realm Keycloak
+	fmt.Println("[2/7] Eliminando realm Keycloak...")
+	if err := removeFicha("keycloak", map[string]string{"TENANT_ID": tenantID}); err != nil {
+		fmt.Printf("  WARN keycloak remove: %v (continuando)\n", err)
+	} else {
+		fmt.Printf("  Realm Keycloak del tenant %s eliminado\n", tenantID)
+	}
+
+	// [3/7] Paths Vault + AppRole
+	fmt.Println("[3/7] Eliminando paths Vault...")
+	if err := removeFicha("vault", map[string]string{"TENANT_ID": tenantID}); err != nil {
+		fmt.Printf("  WARN vault remove: %v (continuando)\n", err)
+	} else {
+		fmt.Println("  Paths Vault eliminados")
+	}
+
+	// [4/7] Redis context registry del tenant
+	fmt.Println("[4/7] Limpiando Redis context registry...")
+	if err := removeFicha("redis", map[string]string{"TENANT_ID": tenantID}); err != nil {
+		fmt.Printf("  WARN redis remove: %v (continuando)\n", err)
+	} else {
+		fmt.Println("  Redis context registry limpiado")
+	}
+
+	// [5/7] Bases de datos PostgreSQL del tenant
+	fmt.Println("[5/7] Eliminando bases de datos PostgreSQL...")
+	if err := removeFicha("postgresql", map[string]string{"TENANT_ID": tenantID}); err != nil {
+		fmt.Printf("  WARN postgresql remove: %v (continuando)\n", err)
+	} else {
+		fmt.Println("  Bases de datos del tenant eliminadas")
+	}
+
+	// [6/7] Namespace K8s + NetworkPolicy
+	fmt.Println("[6/7] Eliminando namespace K8s...")
+	namespaceFicha := "sbos-ns-" + tenantID
+	if err := removeFicha(namespaceFicha, map[string]string{"TENANT_ID": tenantID}); err != nil {
+		fmt.Printf("  WARN namespace remove: %v (continuando)\n", err)
+	} else {
+		fmt.Printf("  Namespace sbos-%s eliminado\n", tenantID)
+	}
+
+	// [7/7] Verificación
+	fmt.Println("[7/7] Saga completada")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Printf("Tenant %s eliminado. Verificar residuos con 'bosctl ficha list'\n", tenantID)
+	return nil
+}
+
+// removeFicha ejecuta bos.ficha.remove con variables de entorno opcionales.
+func removeFicha(name string, env map[string]string) error {
+	socket := os.Getenv("BOS_SOCKET")
+	if socket == "" {
+		socket = paths.SocketPath
+	}
+	params := map[string]interface{}{
+		"ficha_id": name,
+	}
+	if len(env) > 0 {
+		params["env"] = env
+	}
+	return rpcCall(socket, "bos.ficha.remove", params)
+}
+
 // cmdTenant ejecuta bosctl tenant <suspend|remove|list> <tenant-id>
 func cmdTenant(args []string) int {
 	if len(args) == 0 {
@@ -539,16 +622,36 @@ func cmdTenant(args []string) int {
 			fmt.Fprintf(os.Stderr, "Uso: bosctl tenant suspend <tenant-id>\n")
 			return 1
 		}
-		fmt.Printf("Suspendiendo tenant %s...\n", args[1])
-		// TODO: invalidar ctx_id + pausar fichas (F10.C.11)
+		tenantID := args[1]
+		fmt.Printf("Suspendiendo tenant %s...\n", tenantID)
+		if err := runBosRPC("bos.ctx.tenant.suspend", map[string]interface{}{
+			"tenant_id": tenantID,
+		}); err != nil {
+			fmt.Fprintf(os.Stderr, "tenant suspend: %v\n", err)
+			return 1
+		}
+		fmt.Printf("  Tenant %s suspendido — sesiones activas invalidadas\n", tenantID)
 		return 0
 	case "remove":
 		if len(args) < 2 {
 			fmt.Fprintf(os.Stderr, "Uso: bosctl tenant remove <tenant-id>\n")
 			return 1
 		}
-		fmt.Printf("⛔ GATE: confirmacion HITL requerida para eliminar %s\n", args[1])
-		// TODO: saga inversa 7 pasos (F10.C.12)
+		tenantID := args[1]
+		fmt.Printf("ADVERTENCIA: Esta operacion eliminara permanentemente el tenant '%s'.\n", tenantID)
+		fmt.Println("Todos los datos, sesiones, credenciales y fichas seran eliminados.")
+		fmt.Printf("Esta accion es IRREVERSIBLE. Escribe el ID del tenant para confirmar: ")
+		reader := bufio.NewReader(os.Stdin)
+		confirm, _ := reader.ReadString('\n')
+		confirm = strings.TrimSpace(confirm)
+		if confirm != tenantID {
+			fmt.Println("Confirmacion incorrecta. Operacion cancelada.")
+			return 0
+		}
+		if err := removeTenant(tenantID); err != nil {
+			fmt.Fprintf(os.Stderr, "tenant remove: %v\n", err)
+			return 1
+		}
 		return 0
 	case "list":
 		fmt.Println("Tenants: (ninguno — F10.C.10 pendiente)")

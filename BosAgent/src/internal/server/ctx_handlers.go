@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"time"
 
+	"bos/internal/audit"
 	bosctx "bos/internal/context"
+	"bos/internal/paths"
 )
 
 // ── bos.ctx.device.register ───────────────────────────────────────────────
@@ -77,6 +79,9 @@ func (s *Server) rpcCtxPromote(req *RPCRequest) RPCResponse {
 	tp := ExtractTraceparent(req)
 	s.logger.Info("ctx_id promovido", "ctx_id", sctx.CtxID, "user", p.UserID,
 		"traceparent", sctx.Traceparent)
+	audit.Log(paths.AuditLog, "CONTEXT",
+		"action=promote", "ctx_id="+sctx.CtxID, "user="+sctx.UserID,
+		"tenant="+sctx.TenantID, "result=ok")
 	return rpcOK(req.ID, InjectTraceparent(map[string]interface{}{
 		"ctx_id":      sctx.CtxID,
 		"dctx_id":     sctx.DctxID,
@@ -119,6 +124,9 @@ func (s *Server) rpcCtxSwitch(req *RPCRequest) RPCResponse {
 	tp := ExtractTraceparent(req)
 	s.logger.Info("ctx_id switched", "nuevo", sctx.CtxID, "anterior", p.CtxID,
 		"traceparent", tp)
+	audit.Log(paths.AuditLog, "CONTEXT",
+		"action=switch", "ctx_id="+sctx.CtxID, "prev_ctx_id="+p.CtxID,
+		"tenant="+sctx.TenantID, "result=ok")
 	return rpcOK(req.ID, InjectTraceparent(map[string]interface{}{
 		"ctx_id":      sctx.CtxID,
 		"dctx_id":     sctx.DctxID,
@@ -151,6 +159,8 @@ func (s *Server) rpcCtxInvalidate(req *RPCRequest) RPCResponse {
 	}
 	tp := ExtractTraceparent(req)
 	s.logger.Info("ctx_id invalidado", "ctx_id", p.CtxID, "traceparent", tp)
+	audit.Log(paths.AuditLog, "CONTEXT",
+		"action=invalidate", "ctx_id="+p.CtxID, "result=ok")
 	return rpcOK(req.ID, InjectTraceparent(map[string]interface{}{
 		"ctx_id":      p.CtxID,
 		"invalidated": true,
@@ -256,8 +266,41 @@ func (s *Server) rpcCtxTenantSuspend(req *RPCRequest) RPCResponse {
 	tp := ExtractTraceparent(req)
 	s.logger.Info("tenant suspendido — ctx_ids invalidados", "tenant", p.TenantID,
 		"count", count, "traceparent", tp)
+	audit.Log(paths.AuditLog, "CONTEXT",
+		"action=tenant.suspend", "tenant="+p.TenantID,
+		fmt.Sprintf("invalidated=%d", count), "result=ok")
 	return rpcOK(req.ID, InjectTraceparent(map[string]interface{}{
 		"tenant_id":   p.TenantID,
 		"invalidated": count,
+	}, tp))
+}
+
+// ── bos.ctx.heartbeat ────────────────────────────────────────────────────
+
+// rpcCtxHeartbeat prolonga el TTL de un ctx_id activo (SBOS-049 §3.3).
+// Idempotente: múltiples heartbeats sucesivos extienden el TTL desde el momento actual.
+//
+// Params: {"ctx_id": string}
+// Returns: {"ctx_id", "expires_at", "extended": true}
+func (s *Server) rpcCtxHeartbeat(req *RPCRequest) RPCResponse {
+	var p struct {
+		CtxID string `json:"ctx_id"`
+	}
+	if err := parseParams(req.Params, &p); err != nil {
+		return rpcFail(req.ID, rpcError(ErrInvalidParams, err.Error()))
+	}
+	if p.CtxID == "" {
+		return rpcFail(req.ID, rpcError(ErrInvalidParams, "ctx_id requerido"))
+	}
+	sctx, err := s.bosCtxSvc.Heartbeat(p.CtxID)
+	if err != nil {
+		return rpcFail(req.ID, rpcError(ErrContextExpired, err.Error()))
+	}
+	tp := ExtractTraceparent(req)
+	s.logger.Debug("ctx_id heartbeat", "ctx_id", p.CtxID, "new_expiry", sctx.ExpiresAt)
+	return rpcOK(req.ID, InjectTraceparent(map[string]interface{}{
+		"ctx_id":     sctx.CtxID,
+		"expires_at": sctx.ExpiresAt,
+		"extended":   true,
 	}, tp))
 }

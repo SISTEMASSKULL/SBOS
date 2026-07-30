@@ -34,7 +34,7 @@ func ctxRPC(method string, params interface{}) (map[string]interface{}, error) {
 // cmdCtx despacha los subcomandos: bosctl ctx <list|get|invalidate|stats>
 func cmdCtx(args []string) int {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "bosctl ctx: subcomando requerido: list|get|invalidate|stats")
+		fmt.Fprintln(os.Stderr, "bosctl ctx: subcomando requerido: list|get|invalidate|heartbeat|stats")
 		return 2
 	}
 	sub := args[0]
@@ -46,6 +46,8 @@ func cmdCtx(args []string) int {
 		return cmdCtxGet(rest)
 	case "invalidate":
 		return cmdCtxInvalidate(rest)
+	case "heartbeat":
+		return cmdCtxHeartbeat(rest)
 	case "stats":
 		return cmdCtxStats(rest)
 	default:
@@ -150,6 +152,24 @@ func cmdCtxInvalidate(args []string) int {
 		}
 	}
 	return exitCode
+}
+
+// cmdCtxHeartbeat prolonga el TTL de un ctx_id activo.
+// bosctl ctx heartbeat <ctx_id>
+func cmdCtxHeartbeat(args []string) int {
+	if len(args) < 1 {
+		fmt.Fprintln(os.Stderr, "bosctl ctx heartbeat: se requiere ctx_id")
+		return 2
+	}
+	ctxID := args[0]
+	data, err := ctxRPC("bos.ctx.heartbeat", map[string]string{"ctx_id": ctxID})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "bosctl ctx heartbeat: %v\n", err)
+		return 1
+	}
+	expiresAt, _ := data["expires_at"].(string)
+	fmt.Printf("%s: TTL extendido — expira en %s\n", ctxID, expiresAt)
+	return 0
 }
 
 // cmdCtxStats muestra estadísticas del Context Plane.

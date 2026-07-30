@@ -268,3 +268,71 @@ func TestInvalidateAllByTenant_LimpiaSesiones(t *testing.T) {
 		t.Error("debe fallar con tenantID vacío")
 	}
 }
+
+// ── Tests de Heartbeat ───────────────────────────────────────────────────
+
+func promoteFixture(t *testing.T, svc *Service, tenant string) *SessionContext {
+	t.Helper()
+	dctx, err := svc.RegisterDevice("h", tenant, "n", "10.0.0.1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sctx, err := svc.Promote(dctx.DctxID, "e1", "s1", "p1", "u1", testMask, 2, testTP)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return sctx
+}
+
+func TestHeartbeat_ExtiendeExpiracion(t *testing.T) {
+	svc := newTestService()
+	sctx := promoteFixture(t, svc, "skull")
+
+	antes := sctx.ExpiresAt
+	updated, err := svc.Heartbeat(sctx.CtxID)
+	if err != nil {
+		t.Fatalf("Heartbeat: %v", err)
+	}
+	if !updated.ExpiresAt.After(antes) {
+		t.Errorf("ExpiresAt debe ser posterior al original: antes=%s ahora=%s",
+			antes, updated.ExpiresAt)
+	}
+	if updated.CtxID != sctx.CtxID {
+		t.Errorf("CtxID mismatch: %s != %s", updated.CtxID, sctx.CtxID)
+	}
+}
+
+func TestHeartbeat_CtxVacioError(t *testing.T) {
+	svc := newTestService()
+	_, err := svc.Heartbeat("")
+	if err == nil {
+		t.Error("debe fallar con ctx_id vacío")
+	}
+}
+
+func TestHeartbeat_NoExistente_Error(t *testing.T) {
+	svc := newTestService()
+	_, err := svc.Heartbeat("ctx-no-existe-xyz")
+	if err == nil {
+		t.Error("debe fallar cuando ctx_id no existe")
+	}
+}
+
+func TestHeartbeat_Idempotente(t *testing.T) {
+	svc := newTestService()
+	sctx := promoteFixture(t, svc, "skull")
+
+	r1, err := svc.Heartbeat(sctx.CtxID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r2, err := svc.Heartbeat(sctx.CtxID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// ambas llamadas deben extender el TTL
+	if !r2.ExpiresAt.After(sctx.ExpiresAt) {
+		t.Error("segundo heartbeat debe mantener TTL extendido")
+	}
+	_ = r1
+}
