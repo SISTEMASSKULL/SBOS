@@ -1,9 +1,9 @@
 # Índice de Anexos — BOS Control Plane Soberano
 ## Documentos de respaldo, comparaciones y especificaciones detalladas
 
-**Versión:** 1.0.0
+**Versión:** 1.1.0
 **Mantenido por:** bos-developer
-**Última actualización:** 2026-07-17
+**Última actualización:** 2026-07-30
 
 ---
 
@@ -16,6 +16,15 @@
 | A.03 | [Plataforma Web Multi-Tenant con Nginx](A.03_ANEXO-PLATAFORMA-WEB-MULTI-TENANT-NGINX.md) | 1.01 · FASE 18 | ✅ |
 | A.04 | Stack Canónico y Puertos (SBOS-050) | 1.01 §10 | ⬜ |
 | A.05 | Anatomía Canónica de Ficha (SBOS-019 + servers.yml) | 3.01 | ⬜ |
+| A.06 | [Kubernetes Operator Pattern en BOS](A.06_ANEXO-KUBERNETES-OPERATOR-PATTERN.md) | 3.01 §2 | ✅ |
+| A.07 | [Vault PKI y Gestión de Secretos](A.07_ANEXO-VAULT-PKI-SECRETS.md) | 1.01 · 1.04 | ✅ |
+| A.08 | [Flujo End-to-End de Operación BOS](A.08_ANEXO-FLUJO-END-TO-END.md) | 2.01 | ✅ |
+| A.09 | [Normas y Estándares Internacionales](A.09_ANEXO-NORMAS-ESTANDARES-INTERNACIONALES.md) | 1.05 | ✅ |
+| A.10 | [Observabilidad BOS](A.10_ANEXO-OBSERVABILIDAD-BOS.md) | 2.03 | ✅ |
+| A.11 | [Cadena de Instalación Completa](A.11_ANEXO-CADENA-INSTALACION.md) | 1.01 §4 · 1.02 | ✅ |
+| A.12 | [Port Manager Kardex](A.12_ANEXO-PORT-MANAGER-KARDEX.md) | 3.08 | ✅ |
+| A.13 | [VPS Prueba — Arquitectura K8s](A.13_ANEXO-VPS-PRUEBA-KUBERNETES-ARQUITECTURA.md) | — | ✅ |
+| A.14 | [Propuesta DDL — 5 Tablas Faltantes del Schema bos](A.14_PROPUESTA-DDL-BOS-TABLAS-FALTANTES.md) | 1.01 §3.7 · 3.01 · 2.02 | 🔴 HITL |
 
 ---
 
