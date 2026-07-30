@@ -25,11 +25,12 @@ import (
 	bosctx "bos/internal/context"
 	"bos/internal/domain"
 	"bos/internal/installer"
-	"bos/internal/paths"
 	"bos/internal/maintenance"
 	"bos/internal/metrics"
+	"bos/internal/paths"
 	"bos/internal/plugin"
 	"bos/internal/query"
+	"bos/internal/ratelimit"
 	"bos/internal/security"
 	"bos/internal/state"
 
@@ -122,7 +123,8 @@ type Server struct {
 	aiAgent      AIAgent                   // agente biaos (F10.8 — SetAIAgent, nil-safe)
 		releaseMgr   ReleaseChecker // SKULL Release Plane — pull-only, verificación Ed25519
 
-	logReader  domain.LogPort // lector de logs de ficha (nil-safe, inyectado via SetLogReader)
+	logReader  domain.LogPort          // lector de logs de ficha (nil-safe, inyectado via SetLogReader)
+	limiter    *ratelimit.IPLimiter    // rate limiter NRS-08 (nil-safe)
 
 	httpServer *http.Server
 	unixServer *http.Server
@@ -175,6 +177,7 @@ func NewServer(cfg Config, stateMgr StateManager, plugins PluginLoader, healthCh
 		bootstrapSvc: domain.NewBootstrapService(stateMgr),
 		bosCtxSvc:    ctxSvc,
 		pgAuxSvc:     pgAuxSvc,
+		limiter:      ratelimit.New(100, 100), // NRS-08: 100 req/s por IP, burst=100
 	}
 
 	go s.wsHub.Run()

@@ -31,6 +31,7 @@ import (
 	"sync"
 
 	"bos/internal/metrics"
+	"bos/internal/ratelimit"
 )
 
 // ── Tipos JSON-RPC 2.0 ──────────────────────────────────────────────────
@@ -82,6 +83,7 @@ const (
 	ErrGovernanceDeny   = -32005 // RBAC/Governance negó la operación
 	ErrTimeout          = -32006 // el método excedió el plazo de su categoría (F6.2)
 	ErrFichaNotFound    = -32010 // la ficha o recurso no está registrado
+	ErrRateLimit        = -32029 // rate limit excedido — demasiadas solicitudes por IP (NRS-08)
 )
 
 // ── Constructores de respuesta ──────────────────────────────────────────
@@ -112,6 +114,17 @@ func (s *Server) handleJSONRPC(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+
+	// NRS-08: rate limiting por IP — 100 req/s (token bucket).
+	// Unix sockets pasan siempre (ExtractIP retorna "" para @/vacío).
+	if s.limiter != nil && !s.limiter.Allow(ratelimit.ExtractIP(r)) {
+		w.WriteHeader(http.StatusTooManyRequests)
+		if s.metrics != nil {
+			s.metrics.Counter("bos_rpc_ratelimit_total").Inc()
+		}
+		writeJSON(w, rpcFail(nil, rpcError(ErrRateLimit, "demasiadas solicitudes — límite 100 req/s por IP")))
+		return
+	}
 
 	auth := parseRPCAuth(r)
 

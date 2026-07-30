@@ -183,13 +183,23 @@ func (s *Server) rpcCtxGet(req *RPCRequest) RPCResponse {
 	}
 	sctx, err := s.bosCtxSvc.Get(p.CtxID)
 	if err != nil {
-		return rpcFail(req.ID, rpcError(ErrFichaNotFound, err.Error()))
+		// NRS-07: respuesta idéntica para "no encontrado" y "expirado" — anti-enumeration.
+		// Kong y biedata solo necesitan saber "no válido"; nunca distinguir entre los dos casos.
+		if s.metrics != nil {
+			s.metrics.Counter("bos_ctx_validate_fail_total").Inc()
+		}
+		return rpcFail(req.ID, rpcError(ErrContextExpired, "ctx_id no válido o expirado"))
 	}
-	// F6.5 — TTL agotado → -32001: el Kong plugin y biedata deben tratar la
-	// sesión como inexistente y forzar re-autenticación.
+	// F6.5 — TTL agotado → -32001: misma respuesta que "no encontrado" (NRS-07).
 	if sctx.IsExpired() {
-		return rpcFail(req.ID, rpcError(ErrContextExpired,
-			fmt.Sprintf("ContextExpired: %s expiró en %s", p.CtxID, sctx.ExpiresAt.Format(time.RFC3339))))
+		if s.metrics != nil {
+			s.metrics.Counter("bos_ctx_validate_fail_total").Inc()
+		}
+		return rpcFail(req.ID, rpcError(ErrContextExpired, "ctx_id no válido o expirado"))
+	}
+	// NRS-09: contabilizar validaciones exitosas
+	if s.metrics != nil {
+		s.metrics.Counter("bos_ctx_validate_ok_total").Inc()
 	}
 	tp := ExtractTraceparent(req)
 	return rpcOK(req.ID, InjectTraceparent(map[string]interface{}{
