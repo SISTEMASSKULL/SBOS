@@ -188,11 +188,33 @@ func (s *Server) rpcFichaLogs(req *RPCRequest) RPCResponse {
 	if p.TailLines == 0 {
 		p.TailLines = 50
 	}
-	// TODO(F11.F.2): Implementar lectura real de /var/log/bos/fichas/<name>.log
+
+	// Sin logReader inyectado: retornar slice vacío (nil-safe, útil en tests).
+	if s.logReader == nil {
+		return rpcOK(req.ID, map[string]interface{}{
+			"ficha_id":   p.FichaID,
+			"tail_lines": p.TailLines,
+			"lines":      []map[string]interface{}{},
+		})
+	}
+
+	entries, err := s.logReader.ReadLog(p.FichaID, p.TailLines)
+	if err != nil {
+		return rpcFail(req.ID, rpcError(ErrInternal, "leer log: "+err.Error()))
+	}
+
+	lines := make([]map[string]interface{}, 0, len(entries))
+	for _, e := range entries {
+		lines = append(lines, map[string]interface{}{
+			"ts":      e.Timestamp.UTC().Format("2006-01-02T15:04:05Z"),
+			"level":   e.Level,
+			"message": e.Message,
+			"line_no": e.LineNumber,
+		})
+	}
 	return rpcOK(req.ID, map[string]interface{}{
 		"ficha_id":   p.FichaID,
 		"tail_lines": p.TailLines,
-		"lines":      []string{},
-		"note":       "lectura de logs pendiente de implementación (F11.F.2)",
+		"lines":      lines,
 	})
 }

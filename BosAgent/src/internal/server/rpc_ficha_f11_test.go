@@ -3,14 +3,31 @@
 package server
 
 import (
+	"fmt"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"bos/internal/domain"
 	"bos/internal/plugin"
 	"bos/internal/state"
 )
+
+// mockLogReader implementa domain.LogPort con entradas predefinidas.
+type mockLogReader struct {
+	entries []domain.LogEntry
+	err     error
+}
+
+func (m *mockLogReader) ReadLog(_ string, _ int32) ([]domain.LogEntry, error) {
+	return m.entries, m.err
+}
+func (m *mockLogReader) FollowLog(_ string) (<-chan domain.LogEntry, error) {
+	ch := make(chan domain.LogEntry)
+	close(ch)
+	return ch, m.err
+}
 
 // makeF11Server arma un servidor con estado realista para pruebas F11:
 // redis=INSTALADA, vault=PAUSADA, dos fichas en el catálogo.
@@ -357,5 +374,69 @@ func TestWSFichaLogTail_ArchivoInexistente(t *testing.T) {
 	resp := leer(t)
 	if !resp.OK {
 		t.Errorf("archivo inexistente debe responder OK (vacío): %+v", resp)
+	}
+}
+
+// ── bos.ficha.logs con logReader inyectado ────────────────────────────
+
+func TestRPCFichaLogs_ConLogReader(t *testing.T) {
+	s := makeF11Server()
+	ahora := time.Now().UTC().Truncate(time.Second)
+	s.SetLogReader(&mockLogReader{entries: []domain.LogEntry{
+		{FichaID: "redis", Level: "INFO", Message: "inicio ok", Timestamp: ahora, LineNumber: 1},
+		{FichaID: "redis", Level: "WARN", Message: "memoria alta", Timestamp: ahora, LineNumber: 2},
+	}})
+
+	resp := s.rpcFichaLogs(buildRPC("bos.ficha.logs",
+		map[string]interface{}{"ficha_id": "redis", "tail_lines": float64(10)}))
+	if resp.Error != nil {
+		t.Fatalf("logs con reader: %v", resp.Error)
+	}
+	out := resp.Result.(map[string]interface{})
+	lines, ok := out["lines"].([]map[string]interface{})
+	if !ok {
+		t.Fatalf("lines debe ser []map[string]interface{}, got %T", out["lines"])
+	}
+	if len(lines) != 2 {
+		t.Fatalf("esperaba 2 líneas, got %d", len(lines))
+	}
+	if lines[0]["level"] != "INFO" {
+		t.Errorf("línea 0 level: want INFO, got %v", lines[0]["level"])
+	}
+	if lines[1]["message"] != "memoria alta" {
+		t.Errorf("línea 1 message: want 'memoria alta', got %v", lines[1]["message"])
+	}
+}
+
+func TestRPCFichaLogs_LogReaderError(t *testing.T) {
+	s := makeF11Server()
+	s.SetLogReader(&mockLogReader{err: fmt.Errorf("disco lleno")})
+
+	resp := s.rpcFichaLogs(buildRPC("bos.ficha.logs",
+		map[string]interface{}{"ficha_id": "redis"}))
+	if resp.Error == nil {
+		t.Fatal("error de logReader debe propagarse")
+	}
+	if resp.Error.Code != ErrInternal {
+		t.Errorf("code: want ErrInternal, got %d", resp.Error.Code)
+	}
+}
+
+func TestRPCFichaLogs_SinLogReader(t *testing.T) {
+	s := makeF11Server()
+	// sin SetLogReader: retorna slice vacío, sin error
+
+	resp := s.rpcFichaLogs(buildRPC("bos.ficha.logs",
+		map[string]interface{}{"ficha_id": "redis"}))
+	if resp.Error != nil {
+		t.Fatalf("sin logReader: debe ser nil-safe: %v", resp.Error)
+	}
+	out := resp.Result.(map[string]interface{})
+	lines, ok := out["lines"].([]map[string]interface{})
+	if !ok {
+		t.Fatalf("lines debe ser []map[string]interface{}, got %T", out["lines"])
+	}
+	if len(lines) != 0 {
+		t.Errorf("sin logReader: esperaba 0 líneas, got %d", len(lines))
 	}
 }

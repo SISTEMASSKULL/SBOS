@@ -122,6 +122,8 @@ type Server struct {
 	aiAgent      AIAgent                   // agente biaos (F10.8 — SetAIAgent, nil-safe)
 		releaseMgr   ReleaseChecker // SKULL Release Plane — pull-only, verificación Ed25519
 
+	logReader  domain.LogPort // lector de logs de ficha (nil-safe, inyectado via SetLogReader)
+
 	httpServer *http.Server
 	unixServer *http.Server
 	logger     *slog.Logger
@@ -246,6 +248,12 @@ func (s *Server) SetK8sScanner(sc K8sScanner) {
 // Sin inyección, las fuentes de consulta usan exec directo (degradado seguro).
 func (s *Server) SetK8sQuerier(q *query.K8sQuerier) {
 	s.k8sQuerier = q
+}
+
+// SetLogReader inyecta el lector de logs de ficha (nil-safe — si no se inyecta,
+// bos.ficha.logs retorna slice vacío sin error).
+func (s *Server) SetLogReader(lr domain.LogPort) {
+	s.logReader = lr
 }
 
 // handleContextLookup responde a GET /api/v1/context/{ctx_id} para Kong (C-5).

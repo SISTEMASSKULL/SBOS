@@ -74,6 +74,15 @@ func (s *FichaServer) Watch(req *pb.WatchRequest, stream pb.FichaService_WatchSe
 			},
 		},
 	}
+	// Suscribir al bus ANTES de enviar el heartbeat para garantizar que no se
+	// pierdan eventos publicados inmediatamente después del primer Send.
+	var id int64
+	var ch <-chan *pb.FichaEvent
+	if s.bus != nil {
+		id, ch = s.bus.Subscribe()
+		defer s.bus.Unsubscribe(id)
+	}
+
 	if err := stream.Send(heartbeat); err != nil {
 		return err
 	}
@@ -82,9 +91,6 @@ func (s *FichaServer) Watch(req *pb.WatchRequest, stream pb.FichaService_WatchSe
 		<-stream.Context().Done()
 		return stream.Context().Err()
 	}
-
-	id, ch := s.bus.Subscribe()
-	defer s.bus.Unsubscribe(id)
 
 	for {
 		select {
