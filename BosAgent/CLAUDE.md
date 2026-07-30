@@ -130,16 +130,41 @@ cmd/bosctl/<cmd>.go      ← comando CLI (WebSocket RPC)
 | TLS key | `/etc/bos/tls/bos.key` (`paths.KeyFile`) |
 | Fichas | `/etc/bos/servers/` |
 
-## Documentación normativa
+## Documentación técnica
 
-**Raíz documental:** `/opt/skull/orquestador/proyectos/SBOS/context/`
+**Índice completo:** `context/Documentacion/INDICE.md` — 27 manuales + 13 anexos organizados por 6 motores.
+**Carta rectora:** `context/Documentacion/0.00_MANUAL-DIRECTRICES-BOS-CONTROL-PLANE.md` — todo manual se lee bajo esta carta.
 
-| Ruta | Contenido |
-|------|-----------|
-| `BOS_V8/BOS_V8_SBOS-018-DAEMON-BOS.md` | Especificación completa del daemon bos |
-| `BOS_V8/BOS_V8_SBOS-050-PORT-CATALOG.md` | Catálogo de puertos (norma irrenunciable) |
-| `BOS_V8/BOS_V8_SBOS-049-CONTEXT-PLANE.md` | Plano de contexto distribuido |
-| `daemons/bos/SBOS-BOOTSTRAP-MANUAL.md` | Manual de bootstrap 6 capas |
-| `daemons/bos/plandeaccion/` | Plan de reparación del daemon (Plan Maestro v3, REGISTRO-ESTADO, informes) |
-| `daemons/bos/plandeaccion/INFORME-AUDITORIA-BOSAGENT-*.md` | Informe de auditoría técnica (referencia de fases activas) |
-| `context/contracts/BOS-BAUTH-CONTRATOS.md` | Contratos de integración BOS ↔ bAuth |
+| Motor | Manuales canónicos |
+|-------|-------------------|
+| ① IAM Installer | `1.01` – `1.05` — bootstrap day 0, sagas, tenants, seguridad |
+| ② SO Observable | `2.01` – `2.04` — watchdog, capacidad, métricas, reconciliación |
+| ③ Server FICHAS | `3.01` – `3.08` — máquina 18 estados, executor, repair, port manager |
+| ④ Context Plane | `4.01` – `4.05` — ctx_id, ciclo de vida, propagación, integración bAuth |
+| ⑤ Dashboard | `5.01` – `5.04` — JSON-RPC, WebSocket, eventos, conexión |
+| ⑥ Banco de Pruebas | `6.01` — documento vivo (nunca ✅) |
+
+**Contratos:** `../context/contracts/BOS-BAUTH-CONTRATOS.md` (bilateral BOS ↔ bAuth).
+
+---
+
+## Herramientas MCP — consulta rápida (antes de leer archivos)
+
+**Regla:** MCP primero, `Read` como último recurso.
+
+| Servidor | Tools | Para qué |
+|----------|-------|---------|
+| `codebase-memory-mcp` | 14 | Grafo Go de BOS: `trace_path`, `search_graph`, `get_code_snippet`, `get_architecture`, `detect_changes`, `query_graph` — 19K nodos, 527 archivos .go |
+| `qex` | 5 | Búsqueda semántica en `context/Documentacion/` (27 manuales · 13 anexos): `search_code` en español |
+| `sequential-thinking` | 1 | Razonamiento estructurado — siempre alimentado de qex + grafo, nunca solo |
+
+Ver protocolo completo y ejemplos BOS: `/bos-herramientas`
+
+---
+
+## Skills disponibles (`.claude/skills/`)
+
+| Skill | Invocar con | Cuándo |
+|-------|------------|--------|
+| `bos-sesion` | `/bos-sesion` | **Inicio de cada sesión** — recupera contexto SKDATA + estado 6 motores |
+| `bos-herramientas` | `/bos-herramientas` | Al buscar información — protocolo MCP antes de leer archivos |
