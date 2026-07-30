@@ -53,5 +53,6 @@ La salida incluye timestamp + SHA256 del comando y su resultado. Se adjunta al i
 |-------|------------|--------|
 | `bauth-sesion` | `/bauth-sesion` | **Inicio de cada sesión** — recupera contexto SKDATA + estado motores |
 | `bauth-motores` | `/bauth-motores` | Al trabajar en cualquiera de los 7 motores (ADR-013) |
-| `bauth-identidad` | `/bauth-identidad` | Al trabajar con D00-D13, átomos, BitMask, roles, usuarios |
+| `bauth-identidad` | `/bauth-identidad` | Al trabajar con D00-D15, átomos, BitMask, roles, usuarios |
 | `bauth-api` | `/bauth-api` | Al implementar/verificar métodos JSON-RPC `bauth.*` |
+| `bauth-ddl` | `/bauth-ddl` | Al consultar/modificar el DDL de SBOS_db, seeds o schema (S1-S12) |

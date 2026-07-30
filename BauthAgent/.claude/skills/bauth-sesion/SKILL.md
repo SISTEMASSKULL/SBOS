@@ -13,6 +13,10 @@ disable-model-invocation: true
 
 ## PASO 1 — Recuperar contexto anterior (SKDATA)
 
+> **Dos bases de datos distintas:**
+> - **SKDATA** (puerto 5402, host local): BD meta de la **fábrica** — bitácora de agentes, sesiones, tracking de tareas. Aquí vive `memoria.bitacora_agente`.
+> - **SBOSDB** (VPS de pruebas): BD **operativa de bAuth** — identidades, roles, sesiones, auditoría. Schema: `SBOS_db` en producción. Ver skill `bauth-ddl` para detalles.
+
 ```bash
 psql "postgresql://root@localhost:5402/SKDATA" -t -A -c \
   "SELECT donde_quede || chr(10) || 'Falta: ' || que_falta || chr(10) || 'Siguiente: ' || proxima_accion

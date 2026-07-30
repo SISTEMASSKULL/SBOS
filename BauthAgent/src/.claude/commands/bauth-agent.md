@@ -1,6 +1,6 @@
 ---
 name: bauth-agent
-description: Agente especializado en el desarrollo del daemon bAuth del proyecto SBOS/SKULL. Usa esta skill SIEMPRE que el usuario mencione: trabajar en bAuth, desarrollar el motor BitMask, los 12 dominios de control, autenticación, autorización, DDL de skSBOS_db, seeds, roles, privilegios, dashboard Flutter, o cualquier tarea relacionada con BauthAgent. También activar cuando el usuario diga frases como "sigamos con bAuth", "estado del DDL", "qué falta de los seeds", "retomemos bAuth", "continúa con bauth", o "trabaja en la identidad". Esta skill convierte a Claude Code en el agente de ingeniería más especializado del ecosistema SBOS para el subsistema de autenticación y autorización.
+description: Agente especializado en el desarrollo del daemon bAuth del proyecto SBOS/SKULL. Usa esta skill SIEMPRE que el usuario mencione: trabajar en bAuth, desarrollar el motor BitMask, los 12 dominios de control, autenticación, autorización, DDL de SBOS_db (SBOS_db_V2_DDL.sql), seeds, roles, privilegios, dashboard Flutter, o cualquier tarea relacionada con BauthAgent. También activar cuando el usuario diga frases como "sigamos con bAuth", "estado del DDL", "qué falta de los seeds", "retomemos bAuth", "continúa con bauth", o "trabaja en la identidad". Esta skill convierte a Claude Code en el agente de ingeniería más especializado del ecosistema SBOS para el subsistema de autenticación y autorización.
 ---
 
 # CLAUDE.md — BauthAgent
@@ -63,31 +63,31 @@ Los documentos que gobiernan este sistema están en estas rutas exactas. Debes l
 
 **1. Plan de acción y especificaciones funcionales — leer toda la carpeta, archivo por archivo:**
 ```
-/opt/skull/orquestador/proyectos/desarrollo/context/sbos/Procesar/humano/daemons/bauth/plandeaccion/bauth/
+/opt/skull/orquestador/proyectos/SBOS/BauthAgent/context/plandeaccion/
 ```
 Abre cada archivo de esa carpeta. No asumas su contenido por el nombre. Léelo completo.
 
 **2. DDL canónico — fuente de verdad absoluta de la base de datos:**
 ```
-/opt/skull/orquestador/proyectos/desarrollo/sbos/BauthAgent/db/migrations/DDL_skSBOS_db.sql
+/opt/skull/orquestador/proyectos/SBOS/DDLs/SBOS_db_V2_DDL.sql
 ```
 Este archivo define cada tabla, columna, tipo, constraint, índice y función almacenada del sistema. Es el contrato técnico más duro del proyecto. Cualquier pregunta sobre estructura de datos se responde aquí.
 
 **3. Manual de la DDL — la intención detrás de cada decisión del DDL:**
 ```
-/opt/skull/orquestador/proyectos/desarrollo/sbos/BauthAgent/db/migrations/MANUAL_DB_DDL.md
+/opt/skull/orquestador/proyectos/SBOS/DDLs/SBOS_db_V2_DDL_MANUAL.md
 ```
 Este documento es inseparable del DDL. Explica por qué cada tabla existe, qué invariantes protege cada constraint, y cómo deben usarse las funciones almacenadas. No leas el DDL sin leer también este manual.
 
 **4. Registro de estado y control de avance — documento de control maestro del desarrollo:**
 ```
-/opt/skull/orquestador/proyectos/desarrollo/context/sbos/Procesar/humano/daemons/bauth/plandeaccion/bauth/REGISTRO-ESTADO.md
+/opt/skull/orquestador/proyectos/SBOS/BauthAgent/context/plandeaccion/REGISTRO-ESTADO.md
 ```
 Este documento es el punto de control central de todo el desarrollo de bAuth. Contiene todas las tareas programadas, su estado de avance, sus dependencias, y el historial de lo completado. Léelo siempre al inicio de cualquier sesión de trabajo. Es tan crítico como el DDL — un desarrollo que no consulta el registro no sabe dónde está parado.
 
 **5. Estándares de seguridad, vectores de ataque y control de acceso al entorno:**
 ```
-/opt/skull/orquestador/proyectos/desarrollo/context/sbos/Procesar/humano/daemons/bauth/plandeaccion/bauth/CLAUDE_BAUTH_SECURITY_STANDARDS.md
+/opt/skull/orquestador/proyectos/SBOS/BauthAgent/src/.claude/commands/bauth-security-standards.md
 ```
 Este documento define el cuerpo de conocimiento de seguridad que rige toda implementación de bAuth: los estándares normativos (NIST SP 800-63B-4, OWASP ASVS 5.0.0), el mapa completo de vectores de ataque que el sistema debe resistir (credential stuffing, AiTM, session hijacking, privilege escalation, harvest-now-decrypt-later, entre otros), los controles obligatorios del entorno (acceso SSH, Vault, RBAC de Kubernetes), y los principios de diseño seguro. Léelo antes de implementar cualquier componente con superficie de ataque o que toque autenticación, autorización, sesiones, criptografía, o acceso al entorno.
 
@@ -149,7 +149,7 @@ Si durante el desarrollo identificas trabajo necesario que no está en el regist
 El archivo canónico y único del registro de estado es:
 
 ```
-/opt/skull/orquestador/proyectos/desarrollo/context/sbos/Procesar/humano/daemons/bauth/plandeaccion/bauth/REGISTRO-ESTADO.md
+/opt/skull/orquestador/proyectos/SBOS/BauthAgent/context/plandeaccion/REGISTRO-ESTADO.md
 ```
 
 **Este es el único lugar donde se programan, rastrean y controlan las tareas del desarrollo de bAuth.** No existen listas de tareas paralelas, registros alternativos, ni notas dispersas que tengan validez operacional. Si una tarea no está en este archivo, no existe como trabajo válido del proyecto.
@@ -192,7 +192,7 @@ Si encuentras un vacío en la especificación — algo que los documentos no cub
 
 ### 2.2 Lectura minuciosa del DDL
 
-El DDL (`DDL_skSBOS_db.sql`) y su manual (`MANUAL_DB_DDL.md`) son el contrato más crítico del sistema. Son dos documentos inseparables: el DDL define la estructura, el manual explica la intención y el uso correcto de cada decisión. Léelos juntos, con atención forense:
+El DDL (`SBOS_db_V2_DDL.sql`) y su manual (`SBOS_db_V2_DDL_MANUAL.md`) son el contrato más crítico del sistema. Son dos documentos inseparables: el DDL define la estructura, el manual explica la intención y el uso correcto de cada decisión. Léelos juntos, con atención forense:
 
 - Cada tabla tiene una razón de existir. Entiéndela.
 - Cada columna tiene un tipo, una constraint, y una semántica. No los cambies sin justificación documentada.
@@ -324,7 +324,7 @@ bAuth no opera en aislamiento. Interactúa con otros componentes del ecosistema.
 
 ### 6.1 Lo que bAuth consume
 
-bAuth es **autosuficiente** en autenticación y autorización (ADR-010): emite y valida sus **JWT nativamente** (OIDC Provider propio — **no** Keycloak), valida los **métodos MFA nativamente** en Rust (**no** FreeRADIUS), y es su **propio directorio** de identidades (**no** FreeIPA). Sus dependencias reales de infraestructura son: **Vault** (secretos y PKI de firma), **PostgreSQL** (persistencia — `bauth_db`) y **Redis** (cache de sesiones/BitMask — hoy **desactivado**, H-019).
+bAuth es **autosuficiente** en autenticación y autorización (ADR-010): emite y valida sus **JWT nativamente** (OIDC Provider propio — **no** Keycloak), valida los **métodos MFA nativamente** en Rust (**no** FreeRADIUS), y es su **propio directorio** de identidades (**no** FreeIPA). Sus dependencias reales de infraestructura son: **Vault** (secretos y PKI de firma), **PostgreSQL** (persistencia — `SBOS_db` (VPS: `SBOSDB`)) y **Redis** (cache de sesiones/BitMask — hoy **desactivado**, H-019).
 
 Las formas exactas de esas integraciones — protocolos, formatos, endpoints, configuraciones — están en los documentos de especificación.
 

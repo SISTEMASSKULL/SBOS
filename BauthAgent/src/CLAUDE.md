@@ -29,7 +29,7 @@ recibe credenciales, las **valida en su motor de métodos nativo** (Rust — sin
 motores de autenticación externos), consulta a Vault (firma/PKI) y Besu (dominio blockchain)
 donde la operación lo requiere, aplica sus propias reglas (BitMask Dual + DomainRegistry +
 PolicyChain + SoD + DAG), y emite el JWT final con todos los claims.
-Ver `MANUAL_DB_DDL.md §41` para el flujo end-to-end completo.
+Ver `SBOS_db_V2_DDL_MANUAL.md` (`/opt/skull/orquestador/proyectos/SBOS/DDLs/`) para el flujo end-to-end completo.
 
 | Responsabilidad | Detalle |
 |---|---|
@@ -40,7 +40,7 @@ Ver `MANUAL_DB_DDL.md §41` para el flujo end-to-end completo.
 | **Condiciones nativas** | Temporal, geoespacial, validez de rol, step-up (RFC 9470) — **evaluadores de dominio nativos** en Rust (`domain/`), **no SPIs Java** (eliminadas — `src/spi/` no existe). |
 | **18 métodos auth** | Password, TOTP, HOTP, WebAuthn Passwordless, WebAuthn 2FA, Passkey, X.509 mTLS, Kerberos, Social Brokering, SAML 2.0, CIBA, Device Auth, Conditional OTP, Recovery Codes, Email OTP, Client Credentials, Token Exchange. SMS OTP deprecado. |
 | **4 LoA + Step-Up** | AAL1 → AAL2 → AAL3 con elevación temporal RFC 9470 |
-| **Reconcile loop** | Coherencia interna: estado declarado (bauth_db) vs proyecciones/cache. Drift → auto-corrección o alerta. (Ya **no** reconcilia contra KC/Tryton — eliminados.) |
+| **Reconcile loop** | Coherencia interna: estado declarado (`SBOS_db` — VPS: `SBOSDB`) vs proyecciones/cache. Drift → auto-corrección o alerta. (Ya **no** reconcilia contra KC/Tryton — eliminados.) |
 | **Doble motor firma** | Interno (Vault PKI, EdDSA Ed25519) + Externo (ADSIB/SIN Bolivia, RSA-SHA256). Ley 164. |
 | **Ciclo vida credenciales** | Registro IAL1-3, credenciales aleatorias (diceware), auto-gestión, recuperación password+MFA, revocación < 30s, revisión trimestral, privilege creep detection |
 | **Context Plane** | Policy Engine NIST SP 800-207. ctx_id con 6 capas. W3C Trace Context + OpenTelemetry Baggage. Kong PEP. |
@@ -95,7 +95,7 @@ src/
 │   └── validator.rs           # 9 verificaciones pre-registro
 ├── db/                        # Acceso a datos (PostgreSQL + Redis)
 │   ├── mod.rs
-│   ├── postgres.rs            # bauth_db, bos_rol_template, bos_user_template
+│   ├── postgres.rs            # SBOS_db (VPS: SBOSDB), bos_rol_template, bos_user_template
 │   └── redis.rs               # Cache BitmaskBundle, ctx_id sessions
 └── audit/                     # Auditoría y logging
     ├── mod.rs
@@ -184,7 +184,7 @@ source scripts/agente_enviar.sh && agente_enviar <pane> "<mensaje>"
 ## Contrato de Integración BOS ↔ bAuth
 
 **Documento canónico:** `BOS-BAUTH-CONTRATOS.md` en la raíz del proyecto SBOS
-(`/opt/skull/orquestador/proyectos/desarrollo/sbos/BOS-BAUTH-CONTRATOS.md`).
+(`/opt/skull/orquestador/proyectos/SBOS/context/contracts/BOS-BAUTH-CONTRATOS.md`).
 
 BOS y bAuth se coordinan mediante **contratos formales**. BOS abre contratos (`C-BOS-NNN`)
 cuando necesita decisiones de arquitectura, nuevos métodos, cambios de protocolo o

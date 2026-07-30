@@ -14,11 +14,15 @@ description: >
 
 ---
 
-## 1 · Los 13 Dominios de Identidad (D00–D13)
+## 1 · Los 18 Dominios de Identidad (D00–D15 + D98 + D99)
 
-**Manual:** `1.01_MANUAL-DOMINIOS-v1.0.md`
+**Manual:** `1.01_MANUAL-DOMINIOS-v1.0.md`  
+**Definición canónica de dominios y bloques:** `context/Documentacion/anexos/A.65.03.01_FORMALIZACION-DOMINIOS-BLOQUES-CANONICOS-v1.0.md`  
+**SSOT de bloques en BD:** `bauth.idn_roles_template` en SBOSDB (134 bloques · 18 dominios · depth=2 verificado 2026-07-28)
 
-Cada dominio = un plano de evaluación del PDP. Los 12 dominios de autorización + D99 (admin):
+> **Regla:** los dominios D00-D15 + D98 + D99 son la estructura actualmente en BD. La enumeración D00-D13 en documentación anterior es una versión previa — usar A.65.03.01 como referencia definitiva.
+
+Cada dominio = un plano de evaluación del PDP. Ver skill `bauth-ddl` para la estructura SQL de cada dominio.
 
 | Dominio | Tipo | Rol |
 |---------|------|-----|
