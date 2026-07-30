@@ -1,6 +1,6 @@
 # A.65.02 — Nueva DDL · Inventario de Tablas
 
-**Versión:** 1.7  **Fecha:** 2026-07-30  **Estado:** DISEÑO PARCIAL — 14 secciones con tablas definidas; 2 secciones pendientes (DISPOSITIVOS · FEDERACIÓN/OIDC parcial)
+**Versión:** 1.8  **Fecha:** 2026-07-30  **Estado:** DISEÑO COMPLETO — 17 secciones con tablas definidas; 0 secciones pendientes ✅
 
 ## Propósito
 
@@ -360,7 +360,11 @@ El diseño DDL (columnas, constraints, índices) se desarrolla en sesiones poste
 >
 > **Estándares:** FIDO2/WebAuthn W3C Level 2 (device attestation model), NIST SP 800-207 §3.2 (device compliance as ZTA signal), NIST SP 800-63B-4 §5.1 (FIDO2 passkeys at AAL2/AAL3), IEEE 802.1X (port-based network access control), OSDP v2.2 (physical access control), ISO/IEC 27001 A.6.2 (mobile device policy), ISO/IEC 24760-2:2025 §6.3 (device identity)
 
-*(Tablas por definir — pendiente de sesión de diseño)*
+| Código | Tabla | Propósito |
+|--------|-------|-----------|
+| T-390 | `bauth.auth_device` | Registro central de dispositivos — cubre dispositivos lógicos ZTA (NIST SP 800-207 §4.2), llaves FIDO2/hardware (por AAGUID), y lectores físicos OSDP v2.2 (SIA). Campos clave: `category` (DESKTOP/MOBILE/SERVER/IOT/SECURITY_KEY/OSDP_READER), `platform`, `trust_level` (TRUSTED/CONDITIONALLY_TRUSTED/UNTRUSTED/QUARANTINE), `is_managed` + `mdm_device_id`, `is_osdp` + `osdp_address` + `osdp_version` (v1.0/v2.1/v2.2), `aaguid` para matching FIDO2. Un dispositivo puede existir sin usuario (M2M/IoT/lector físico). |
+| T-391 | `bauth.auth_device_posture` | Snapshot de postura MDM/ZTA — evaluación periódica del estado de compliance de dispositivos lógicos. Campos: `disk_encrypted`, `screen_lock_enabled`, `antivirus_active`, `os_patches_current`, `is_jailbroken`, `mdm_enrolled` + `mdm_provider`, `mdm_compliance`, `risk_score` (0-100), `compliance_status` (COMPLIANT/NON_COMPLIANT/UNKNOWN/EXEMPTED), `posture_source` (MDM/EDR/AGENT/SELF_REPORTED/MANUAL), `valid_until` (4h TTL — el PDP rechaza si expiró, NIST SP 800-207 §3.3.1). `risk_score` alimenta el PIP de riesgo del motor de políticas. |
+| T-392 | `bauth.auth_device_credential_binding` | WORM. Binding dispositivo ↔ credencial — relación M:N entre T-390 y T-330. Tipos: FIDO2_RESIDENT (passkey almacenada), FIDO2_CROSS_PLATFORM (llave física YubiKey/etc.), X509_MTLS, SOFT_TOTP, PUSH_NOTIFICATION, OSDP_CARD. Permite revocar todas las credenciales de un dispositivo perdido/decomisionado con un solo UPDATE en T-390 `status=REVOKED`. El daemon propaga la revocación a T-330 en cascada. |
 
 ---
 
@@ -398,7 +402,7 @@ El diseño DDL (columnas, constraints, índices) se desarrolla en sesiones poste
 | IDENTIDAD | 14 (T-156..T-161 + T-165..T-168 + T-186..T-188 · T-190) | ✅ Definidas ✅ D00 COMPLETO | Motor D00 v2.0 + NHI — actores, atributos, proofing, consentimiento, VC, FAL (`bauth`) |
 | CALENDARIO | 9 (T-012 · T-014..T-019 · T-124..T-125) | ✅ Definidas | Infraestructura temporal (`bcalendar`) |
 | USUARIOS | 3 (T-320..T-322) | ✅ Definidas | Subscriber accounts SCIM 2.0 + historial WORM + recuperación (`bauth`) |
-| AUTENTICACIÓN | 12 (T-330..T-338 · T-384..T-386) | ✅ Definidas | Authenticators (5) + MethodRegistry declarativo (7 catálogos, 110+ seeds) (`bauth`) |
+| AUTENTICACIÓN | 12 (T-330..T-338 · T-384..T-386) | ✅ Definidas ✅ Implementadas | Authenticators (5) + MethodRegistry declarativo (7 catálogos, 34+ seeds) (`bauth`) |
 | SESIÓN | 4 (T-181 · T-191..T-193) | ✅ Definidas | Sesiones persistentes + CAEP + SSF (`bauth`) |
 | PRIVILEGIOS | 9 (T-170 · T-170b · T-171..T-176 · T-179) | ✅ Definidas | Motor BitMask engine + excepciones (`bauth`) |
 | AUDITORÍA | 2 (T-177..T-178) | ✅ Definidas | Campañas IGA + revisiones de certificación (`bauth`) |
@@ -407,16 +411,15 @@ El diseño DDL (columnas, constraints, índices) se desarrolla en sesiones poste
 | BILLETERA DIGITAL | 4 (T-380..T-383) | ✅ Definidas | W3C VCDM 2.0 + OID4VP/VCI + presentación WORM + emisión WORM (`bauth`) |
 | RIESGO / ITDR | 1 (T-180) | ✅ Definidas | Política de riesgo adaptativo — `ses_risk_policy` (`bauth`) |
 | PAM | 6 (T-182 · T-182b · T-183..T-185 · T-189) | ✅ Definidas | JIT + aprobación multi-nivel + credenciales + sesión privilegiada + break-glass + secretos NHI (`bauth`) |
-| DISPOSITIVOS | — | ⏳ Pendiente | Registro de dispositivos FIDO2/ZTA (`bauth`) |
+| DISPOSITIVOS | 3 (T-390..T-392) | ✅ Definidas ✅ Implementadas | Registro ZTA + postura MDM + binding FIDO2/OSDP WORM (`bauth`) |
 | BLOCKCHAIN D12 | 5 (T-358..T-362) | ✅ Naming canónico | Anclaje Merkle + liquidación Besu (`bauth`) |
-| **Total definido** | **109** | — | *1 sección sin tablas (DISPOSITIVOS) · 16 secciones con diseño aprobado ✅ · D00 COMPLETO v2.6.0 · v1.7* |
+| **Total definido** | **118** | — | *17 secciones ✅ · 0 pendientes · D00 COMPLETO v2.6.0 · v1.8* |
 
 ---
 
 ## Próximos pasos
 
-1. **HITL — definir tablas de la sección restante** (1 sección pendiente):
-   - DISPOSITIVOS — registro de dispositivos FIDO2/ZTA, postura MDM, OSDP v2.2
+1. **Catálogo completo** — 17 secciones con 118 tablas definidas. 0 secciones pendientes. ✅
    - FEDERACIÓN/OIDC — 7 tablas avanzadas (T-368..T-374) en A.65.02.05
 
 2. **Implementar Fase 1 (GAPS-DDL-PRIVILEGIOS-II.md):** G-21 → G-17 → G-20 → G-13 (orden de dependencia).

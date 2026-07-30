@@ -4666,6 +4666,207 @@ COMMENT ON TABLE bglobal.menu_item_atom IS
 
 
 -- ======================================================================
+-- NIVEL 18 — S14 catálogos MethodRegistry (T-384..T-386)
+-- Ref: A.65.02 v1.8 · A.65.02.04 v2.2.0 §2.6
+-- ======================================================================
+
+CREATE TABLE IF NOT EXISTS bauth.auth_federation_protocol (
+    protocol_id           UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    code                  TEXT    NOT NULL UNIQUE,
+    name                  JSONB   NOT NULL DEFAULT '{}',
+    spec_url              TEXT    NOT NULL,
+    aal_max               TEXT    NOT NULL CONSTRAINT chk_afp_aal CHECK (aal_max IN ('AAL1','AAL2','AAL3')),
+    fal_supported         TEXT[]  NOT NULL DEFAULT '{}',
+    is_phishing_resistant BOOLEAN NOT NULL DEFAULT FALSE,
+    supports_logout       BOOLEAN NOT NULL DEFAULT FALSE,
+    supports_backchannel  BOOLEAN NOT NULL DEFAULT FALSE,
+    status                TEXT    NOT NULL DEFAULT 'SUPPORTED'
+                                   CONSTRAINT chk_afp_status CHECK (status IN ('SUPPORTED','DEPRECATED','PLANNED')),
+    sort_order            INT     NOT NULL DEFAULT 0
+);
+COMMENT ON TABLE bauth.auth_federation_protocol IS
+    'T-384 · Catálogo de protocolos de federación. 8 seeds.';
+
+INSERT INTO bauth.auth_federation_protocol
+    (code, name, spec_url, aal_max, fal_supported, is_phishing_resistant, supports_logout, supports_backchannel, status, sort_order)
+VALUES
+    ('SAML_2_0',             '{"es":"SAML 2.0"}',                 'https://docs.oasis-open.org/security/saml/v2.0/',                                      'AAL2','{FAL1,FAL2}',      FALSE,TRUE, TRUE, 'SUPPORTED',10),
+    ('OIDC_CORE_1_0',        '{"es":"OpenID Connect Core 1.0"}',  'https://openid.net/specs/openid-connect-core-1_0.html',                                'AAL2','{FAL1,FAL2}',      FALSE,TRUE, TRUE, 'SUPPORTED',20),
+    ('OAUTH2_PKCE',          '{"es":"OAuth 2.0 + PKCE"}',         'https://www.rfc-editor.org/rfc/rfc7636',                                               'AAL2','{FAL1,FAL2}',      FALSE,FALSE,FALSE,'SUPPORTED',30),
+    ('OAUTH2_DEVICE',        '{"es":"OAuth 2.0 Device Auth"}',    'https://www.rfc-editor.org/rfc/rfc8628',                                               'AAL1','{FAL1}',           FALSE,FALSE,FALSE,'SUPPORTED',40),
+    ('OAUTH2_TOKEN_EXCHANGE','{"es":"OAuth 2.0 Token Exchange"}', 'https://www.rfc-editor.org/rfc/rfc8693',                                               'AAL2','{FAL1,FAL2}',      FALSE,FALSE,FALSE,'SUPPORTED',50),
+    ('CIBA',                 '{"es":"CIBA Backchannel Auth"}',    'https://openid.net/specs/openid-client-initiated-backchannel-authentication-core-1_0.html','AAL2','{FAL1,FAL2}',FALSE,FALSE,TRUE, 'SUPPORTED',60),
+    ('FAPI_2_0',             '{"es":"FAPI 2.0 Security Profile"}','https://openid.net/specs/fapi-2_0-security-profile-1_0.html',                          'AAL3','{FAL2,FAL3}',      TRUE, TRUE, TRUE, 'SUPPORTED',70),
+    ('CAEP_RFC9396',         '{"es":"CAEP / SSF (RFC 9396)"}',    'https://www.rfc-editor.org/rfc/rfc9396',                                               'AAL2','{FAL1,FAL2,FAL3}', FALSE,FALSE,TRUE, 'SUPPORTED',80)
+ON CONFLICT (code) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS bauth.auth_saga_catalog (
+    saga_id         UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    code            TEXT    NOT NULL UNIQUE,
+    name            JSONB   NOT NULL DEFAULT '{}',
+    description     JSONB   NOT NULL DEFAULT '{}',
+    steps           JSONB   NOT NULL DEFAULT '[]',
+    aal_required    TEXT    NOT NULL CONSTRAINT chk_asc_aal_req CHECK (aal_required IN ('AAL1','AAL2','AAL3')),
+    aal_produced    TEXT    NOT NULL CONSTRAINT chk_asc_aal_pro CHECK (aal_produced IN ('AAL1','AAL2','AAL3')),
+    timeout_seconds INT     NOT NULL DEFAULT 300,
+    is_emergency    BOOLEAN NOT NULL DEFAULT FALSE,
+    requires_mfa    BOOLEAN NOT NULL DEFAULT FALSE,
+    status          TEXT    NOT NULL DEFAULT 'ACTIVE'
+                             CONSTRAINT chk_asc_status CHECK (status IN ('ACTIVE','DEPRECATED','PLANNED')),
+    sort_order      INT     NOT NULL DEFAULT 0
+);
+COMMENT ON TABLE bauth.auth_saga_catalog IS 'T-385 · 12 sagas de autenticación multi-paso.';
+
+INSERT INTO bauth.auth_saga_catalog
+    (code, name, description, steps, aal_required, aal_produced, timeout_seconds, is_emergency, requires_mfa, status, sort_order)
+VALUES
+    ('PASSWORD_MFA',        '{"es":"Contraseña + MFA"}',         '{"es":"Contraseña + segundo factor"}',           '["PASSWORD","MFA_CHALLENGE","VERIFY_MFA"]',                                   'AAL1','AAL2',300,  FALSE,TRUE, 'ACTIVE',10),
+    ('PASSWORDLESS_FIDO2',  '{"es":"Sin contraseña FIDO2"}',     '{"es":"Passkey nativa anti-phishing"}',          '["FIDO2_CHALLENGE","VERIFY_ASSERTION"]',                                      'AAL1','AAL3',120,  FALSE,FALSE,'ACTIVE',20),
+    ('SOCIAL_BROKER',       '{"es":"Bróker Social/OIDC"}',       '{"es":"Redirección a IdP externo"}',             '["REDIRECT_TO_IDP","RECEIVE_CALLBACK","MAP_CLAIMS","LOCAL_ACCOUNT_LINK"]',    'AAL1','AAL2',600,  FALSE,FALSE,'ACTIVE',30),
+    ('SAML_SSO',            '{"es":"SSO SAML 2.0"}',             '{"es":"Single Sign-On vía SAML 2.0"}',           '["SP_INIT_AUTHNREQ","IDP_PROCESS","VALIDATE_ASSERTION","ESTABLISH_SESSION"]', 'AAL1','AAL2',600,  FALSE,FALSE,'ACTIVE',40),
+    ('DEVICE_AUTH',         '{"es":"Device Authorization"}',     '{"es":"RFC 8628 para dispositivos"}',            '["DEVICE_CODE_REQUEST","USER_CODE_DISPLAY","USER_AUTHORIZE","POLL_TOKEN"]',   'AAL1','AAL1',900,  FALSE,FALSE,'ACTIVE',50),
+    ('STEP_UP_AAL2_AAL3',   '{"es":"Step-Up AAL2→AAL3"}',        '{"es":"Elevación temporal LoA RFC 9470"}',       '["CURRENT_SESSION_VERIFY","CHALLENGE_AAL3","VERIFY_AAL3","GRANT_STEP_UP"]',  'AAL2','AAL3',180,  FALSE,TRUE, 'ACTIVE',60),
+    ('BREAKGLASS_EMERGENCY','{"es":"Break-Glass Emergencia"}',   '{"es":"Emergencia con alerta SIEM"}',            '["EMERGENCY_TRIGGER","DUAL_APPROVAL","GRANT_ACCESS","ALERT_SIEM"]',           'AAL2','AAL3',3600, TRUE, TRUE, 'ACTIVE',70),
+    ('RECOVERY_FLOW',       '{"es":"Recuperación de Cuenta"}',   '{"es":"Verificación + reset de credencial"}',    '["IDENTITY_VERIFY","RECOVERY_METHOD","RESET_CREDENTIAL","NOTIFY_USER"]',      'AAL1','AAL2',1800, FALSE,FALSE,'ACTIVE',80),
+    ('CIBA_PUSH',           '{"es":"CIBA Push MFA"}',            '{"es":"CIBA — push a bNotify"}',                 '["CIBA_REQUEST","PUSH_TO_DEVICE","USER_APPROVE","DELIVER_TOKEN"]',            'AAL1','AAL2',120,  FALSE,TRUE, 'ACTIVE',90),
+    ('TOKEN_EXCHANGE',      '{"es":"Token Exchange"}',           '{"es":"Intercambio RFC 8693"}',                  '["VALIDATE_SUBJECT_TOKEN","CHECK_PERMISSIONS","ISSUE_ACTOR_TOKEN"]',          'AAL1','AAL2',60,   FALSE,FALSE,'ACTIVE',100),
+    ('CLIENT_CREDENTIALS',  '{"es":"Client Credentials M2M"}',  '{"es":"M2M sin usuario"}',                       '["VALIDATE_CLIENT","CHECK_SCOPE","ISSUE_ACCESS_TOKEN"]',                      'AAL1','AAL1',30,   FALSE,FALSE,'ACTIVE',110),
+    ('M2M_MTLS',            '{"es":"M2M mTLS Certificate"}',     '{"es":"M2M con cert. cliente RFC 8705"}',        '["VALIDATE_CERT","CHECK_SCOPE","ISSUE_BOUND_TOKEN"]',                         'AAL1','AAL2',30,   FALSE,FALSE,'ACTIVE',120)
+ON CONFLICT (code) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS bauth.auth_compliance_map (
+    map_id              UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    standard            TEXT    NOT NULL,
+    control_id          TEXT    NOT NULL,
+    control_description TEXT    NOT NULL,
+    method_codes        TEXT[]  NOT NULL DEFAULT '{}',
+    saga_codes          TEXT[]  NOT NULL DEFAULT '{}',
+    coverage_level      TEXT    NOT NULL DEFAULT 'FULL'
+                                 CONSTRAINT chk_acm_cov CHECK (coverage_level IN ('FULL','PARTIAL','NOT_COVERED')),
+    notes               TEXT    NULL,
+    CONSTRAINT uq_acm_standard_control UNIQUE (standard, control_id)
+);
+COMMENT ON TABLE bauth.auth_compliance_map IS 'T-386 · Mapa normativo del motor de autenticación. 14 controles.';
+
+INSERT INTO bauth.auth_compliance_map
+    (standard, control_id, control_description, method_codes, saga_codes, coverage_level, notes)
+VALUES
+    ('NIST_SP_800_63B_4','§5.1.1','Memorized Secret — Argon2id',            '{PASSWORD}',                                        '{PASSWORD_MFA,RECOVERY_FLOW}',          'FULL','Argon2id m=64MB t=3 p=4'),
+    ('NIST_SP_800_63B_4','§5.1.3','TOTP — RFC 6238',                        '{TOTP}',                                            '{PASSWORD_MFA}',                        'FULL',NULL),
+    ('NIST_SP_800_63B_4','§5.1.7','WebAuthn L3 — FIDO2 Passkey',            '{WEBAUTHN_PASSWORDLESS,PASSKEY}',                   '{PASSWORDLESS_FIDO2}',                  'FULL','W3C WebAuthn L3'),
+    ('NIST_SP_800_63B_4','§5.2.5','Step-Up Auth — RFC 9470',                '{WEBAUTHN_2FA,X509_MTLS}',                          '{STEP_UP_AAL2_AAL3}',                   'FULL',NULL),
+    ('NIST_SP_800_63B_4','§7.2',  'Revocación < 30s',                       '{PASSWORD,TOTP,WEBAUTHN_PASSWORDLESS,X509_MTLS}',   '{RECOVERY_FLOW}',                       'FULL',NULL),
+    ('PCI_DSS_4_0','Req8.2.4',    'Lockout tras N fallos',                   '{PASSWORD}',                                        '{PASSWORD_MFA}',                        'FULL','N en T-337 auth_config'),
+    ('PCI_DSS_4_0','Req8.2.8',    'Log de todos los intentos',              '{PASSWORD,TOTP,WEBAUTHN_PASSWORDLESS}',              '{PASSWORD_MFA,PASSWORDLESS_FIDO2}',     'FULL','T-334 WORM'),
+    ('PCI_DSS_4_0','Req8.4.2',    'MFA para acceso a CDE',                  '{TOTP,WEBAUTHN_2FA,PASSKEY}',                       '{PASSWORD_MFA,STEP_UP_AAL2_AAL3}',      'FULL',NULL),
+    ('OWASP_ASVS_5_0','§2.1.1',   'Política contraseña — min 12 chars',     '{PASSWORD}',                                        '{PASSWORD_MFA,RECOVERY_FLOW}',          'FULL',NULL),
+    ('OWASP_ASVS_5_0','§2.2.1',   'Anti-phishing — cred. resistentes',      '{WEBAUTHN_PASSWORDLESS,PASSKEY,X509_MTLS}',         '{PASSWORDLESS_FIDO2,M2M_MTLS}',         'FULL',NULL),
+    ('OWASP_ASVS_5_0','§2.3.1',   'Cambio de cred. verificado',             '{PASSWORD}',                                        '{RECOVERY_FLOW}',                       'FULL',NULL),
+    ('OWASP_ASVS_5_0','§2.5.4',   'Recuperación segura — sin preguntas',    '{EMAIL_OTP,RECOVERY_CODES}',                        '{RECOVERY_FLOW}',                       'FULL','T-322'),
+    ('ISO_27001_2022','A.8.2',     'PAM — MFA obligatorio',                  '{WEBAUTHN_2FA,PASSKEY,X509_MTLS}',                  '{BREAKGLASS_EMERGENCY,STEP_UP_AAL2_AAL3}','FULL',NULL),
+    ('FIPS_140_3','Level2',        'Módulo cripto — algos APPROVED',         '{X509_MTLS,WEBAUTHN_PASSWORDLESS}',                 '{M2M_MTLS,PASSWORDLESS_FIDO2}',         'FULL','AES-256-GCM, ED25519, ML-KEM-768')
+ON CONFLICT (standard, control_id) DO NOTHING;
+
+
+-- ======================================================================
+-- NIVEL 19 — S18 DISPOSITIVOS (T-390..T-392)
+-- Ref: A.65.02 v1.8 · NIST SP 800-207 ZTA §4.2 · FIDO2 W3C · OSDP v2.2 SIA
+-- ======================================================================
+
+CREATE TABLE IF NOT EXISTS bauth.auth_device (
+    device_id     UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    tenant_id     UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id) ON DELETE CASCADE,
+    user_id       UUID    NULL REFERENCES bauth.idn_user(user_id) ON DELETE SET NULL,
+    device_key    TEXT    NOT NULL UNIQUE,
+    name          TEXT    NOT NULL,
+    category      TEXT    NOT NULL CONSTRAINT chk_ad_cat CHECK (category IN (
+                      'DESKTOP','MOBILE','TABLET','SERVER','IOT',
+                      'SECURITY_KEY','SMART_CARD','OSDP_READER','NFC_READER')),
+    platform      TEXT    NOT NULL CONSTRAINT chk_ad_plat CHECK (platform IN (
+                      'WINDOWS','LINUX','MACOS','ANDROID','IOS',
+                      'EMBEDDED','FIDO2_HW','OSDP_HW','UNKNOWN')),
+    os_version    TEXT    NULL,
+    hardware_id   TEXT    NULL,
+    aaguid        UUID    NULL,
+    trust_level   TEXT    NOT NULL DEFAULT 'UNTRUSTED'
+                          CONSTRAINT chk_ad_trust CHECK (trust_level IN (
+                              'TRUSTED','CONDITIONALLY_TRUSTED','UNTRUSTED','QUARANTINE')),
+    is_managed    BOOLEAN NOT NULL DEFAULT FALSE,
+    mdm_device_id TEXT    NULL,
+    is_osdp       BOOLEAN NOT NULL DEFAULT FALSE,
+    osdp_address  TEXT    NULL,
+    osdp_version  TEXT    NULL CONSTRAINT chk_ad_osdp CHECK (osdp_version IN ('v1.0','v2.1','v2.2') OR osdp_version IS NULL),
+    status        TEXT    NOT NULL DEFAULT 'PENDING'
+                          CONSTRAINT chk_ad_status CHECK (status IN (
+                              'PENDING','ACTIVE','SUSPENDED','REVOKED','LOST','DECOMMISSIONED')),
+    last_seen_at  TIMESTAMPTZ NULL,
+    last_seen_ip  INET    NULL,
+    registered_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    ctx_id        TEXT    NOT NULL DEFAULT 'system',
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_ad_tenant_status ON bauth.auth_device (tenant_id, status) WHERE status = 'ACTIVE';
+CREATE INDEX IF NOT EXISTS idx_ad_user          ON bauth.auth_device (user_id) WHERE user_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_ad_trust         ON bauth.auth_device (trust_level) WHERE status = 'ACTIVE';
+CREATE INDEX IF NOT EXISTS idx_ad_osdp          ON bauth.auth_device (tenant_id, osdp_address) WHERE is_osdp = TRUE;
+COMMENT ON TABLE bauth.auth_device IS
+    'T-390 · Registro central de dispositivos ZTA+FIDO2+OSDP. '
+    'NIST SP 800-207 §4.2 · FIDO2 W3C (aaguid) · OSDP v2.2 SIA.';
+
+CREATE TABLE IF NOT EXISTS bauth.auth_device_posture (
+    posture_id          UUID     NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    device_id           UUID     NOT NULL REFERENCES bauth.auth_device(device_id) ON DELETE CASCADE,
+    tenant_id           UUID     NOT NULL,
+    disk_encrypted      BOOLEAN  NOT NULL DEFAULT FALSE,
+    screen_lock_enabled BOOLEAN  NOT NULL DEFAULT FALSE,
+    antivirus_active    BOOLEAN  NOT NULL DEFAULT FALSE,
+    os_patches_current  BOOLEAN  NOT NULL DEFAULT FALSE,
+    is_jailbroken       BOOLEAN  NOT NULL DEFAULT FALSE,
+    mdm_enrolled        BOOLEAN  NOT NULL DEFAULT FALSE,
+    mdm_provider        TEXT     NULL,
+    mdm_compliance      TEXT     NOT NULL DEFAULT 'UNKNOWN'
+                                 CONSTRAINT chk_adp_mdm CHECK (mdm_compliance IN ('COMPLIANT','NON_COMPLIANT','UNKNOWN')),
+    risk_score          SMALLINT NOT NULL DEFAULT 50
+                                 CONSTRAINT chk_adp_risk CHECK (risk_score BETWEEN 0 AND 100),
+    compliance_status   TEXT     NOT NULL DEFAULT 'UNKNOWN'
+                                 CONSTRAINT chk_adp_comp CHECK (compliance_status IN ('COMPLIANT','NON_COMPLIANT','UNKNOWN','EXEMPTED')),
+    posture_source      TEXT     NOT NULL DEFAULT 'SELF_REPORTED'
+                                 CONSTRAINT chk_adp_src CHECK (posture_source IN ('MDM','EDR','AGENT','SELF_REPORTED','MANUAL')),
+    raw_report          JSONB    NULL,
+    evaluated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    valid_until         TIMESTAMPTZ NOT NULL DEFAULT (now() + INTERVAL '4 hours'),
+    ctx_id              TEXT     NOT NULL DEFAULT 'system'
+);
+CREATE INDEX IF NOT EXISTS idx_adp_device       ON bauth.auth_device_posture (device_id, evaluated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_adp_valid        ON bauth.auth_device_posture (device_id, valid_until) WHERE compliance_status = 'COMPLIANT';
+CREATE INDEX IF NOT EXISTS idx_adp_noncompliant ON bauth.auth_device_posture (tenant_id, evaluated_at DESC) WHERE compliance_status = 'NON_COMPLIANT';
+COMMENT ON TABLE bauth.auth_device_posture IS
+    'T-391 · Snapshot postura MDM/ZTA. valid_until 4h — PDP rechaza si expiró. '
+    'risk_score (0-100) alimenta PIP de riesgo. NIST SP 800-207 §3.3.1.';
+
+CREATE TABLE IF NOT EXISTS bauth.auth_device_credential_binding (
+    binding_id    UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    device_id     UUID    NOT NULL REFERENCES bauth.auth_device(device_id) ON DELETE CASCADE,
+    credential_id UUID    NOT NULL REFERENCES bauth.auth_credential(credential_id) ON DELETE CASCADE,
+    binding_type  TEXT    NOT NULL CONSTRAINT chk_adcb_type CHECK (binding_type IN (
+                              'FIDO2_RESIDENT','FIDO2_CROSS_PLATFORM','X509_MTLS',
+                              'SOFT_TOTP','PUSH_NOTIFICATION','OSDP_CARD')),
+    is_primary    BOOLEAN NOT NULL DEFAULT FALSE,
+    bound_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    revoked_at    TIMESTAMPTZ NULL,
+    ctx_id        TEXT    NOT NULL DEFAULT 'system',
+    CONSTRAINT uq_adcb_device_cred UNIQUE (device_id, credential_id)
+);
+REVOKE UPDATE, DELETE ON bauth.auth_device_credential_binding FROM bauth_app_role;
+CREATE INDEX IF NOT EXISTS idx_adcb_device     ON bauth.auth_device_credential_binding (device_id) WHERE revoked_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_adcb_credential ON bauth.auth_device_credential_binding (credential_id) WHERE revoked_at IS NULL;
+COMMENT ON TABLE bauth.auth_device_credential_binding IS
+    'T-392 · WORM. Binding dispositivo ↔ credencial. '
+    'Tipos: FIDO2_RESIDENT · FIDO2_CROSS_PLATFORM · X509_MTLS · SOFT_TOTP · PUSH_NOTIFICATION · OSDP_CARD.';
+
+
+-- ======================================================================
 -- ÍNDICES COMPLEMENTARIOS — Relaciones clave entre schemas
 -- ======================================================================
 -- Índice para lookup de grants activos por átomo (id_atom = columna canónica)
@@ -5453,14 +5654,23 @@ CREATE INDEX IF NOT EXISTS idx_irt_eval_active
 --               wallet_presentation_log (WORM particionada),
 --               wallet_issuance_log (WORM) (4)
 --
--- TOTAL tablas base (padres + no-particionadas): 106
+--   bauth AUTENTICACIÓN catálogos S14 (T-384..T-386):
+--               auth_federation_protocol (8 seeds), auth_saga_catalog (12 seeds),
+--               auth_compliance_map (14 seeds) (3)
+--
+--   bauth DISPOSITIVOS S18 (T-390..T-392):
+--               auth_device, auth_device_posture,
+--               auth_device_credential_binding (WORM) (3)
+--
+-- TOTAL tablas base (padres + no-particionadas): 112
 -- Particiones hijas: idn_identity_attribute_history×6 · privilege_atom_audit×3 ·
 --                    auth_attempt_log×3 · fed_token_issued×3 · wallet_presentation_log×2 = 17
--- TOTAL CREATE TABLE: 123
+-- TOTAL CREATE TABLE: 129
 -- Stubs (sin CREATE TABLE): T-158..T-161 (4)
 -- Secuencias: bauth.roles_atom_position_sequential (1)
 -- Triggers:   bauth.trg_irt_atom_position → fn_irt_assign_atom_position() (1)
--- Seeds:      idn_roles_rol_type (10 tipos) · idn_roles_rol_tier (11 tiers)
---             privilege_verb (50 verbos) · privilege_verb_conflict (36 pares SoD)
+-- Seeds:      idn_roles_rol_type (10) · idn_roles_rol_tier (11)
+--             privilege_verb (50) · privilege_verb_conflict (36 pares SoD)
+--             auth_federation_protocol (8) · auth_saga_catalog (12) · auth_compliance_map (14)
 -- ======================================================================
 

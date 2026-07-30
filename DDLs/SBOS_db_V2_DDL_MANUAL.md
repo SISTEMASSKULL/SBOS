@@ -1,10 +1,10 @@
 # SBOS_db_V2_DDL_MANUAL.md
 ## Manual Operativo de la Base de Datos — SBOS Identity Platform V2
 
-**Versión:** 2.8.0 · **Fecha:** 2026-07-30  
+**Versión:** 2.9.0 · **Fecha:** 2026-07-30  
 **Base de datos:** `SBOS_db` · **PostgreSQL:** 18.4 · **UUIDv7:** RFC 9562  
 **Estándar de documentación:** ISO/IEC 11179 · DAMA DMBOK v2 · ISO 24760-2:2025  
-**Sincronizado con:** `SBOS_db_V2_DDL.sql` (NIVEL 0..17) — nombres canónicos del DDL
+**Sincronizado con:** `SBOS_db_V2_DDL.sql` (NIVEL 0..19) — nombres canónicos del DDL
 
 ---
 
@@ -30,6 +30,8 @@
 | [D12 — Blockchain](#d12--blockchain-bauth) (NIVEL 15) | T-358..T-362 (blk_anchor, blk_merkle_batch, blk_merkle_leaf, blk_account, blk_reconciliation) | Merkle WORM · Arbitrum L2 · Besu QBFT |
 | [S16 — Federación / OIDC](#s16--federación--oidc-bauth) (NIVEL 16) | T-365..T-367 (fed_client, fed_provider_ext, fed_token_issued) | RFC 6749/9449 DPoP · FAPI 2.0 · SAML 2.0 |
 | [S17 — Billetera Digital](#s17--billetera-digital-bauth) (NIVEL 17) | T-380..T-383 (wallet, wallet_item, wallet_presentation_log, wallet_issuance_log) | EUDI Wallet · W3C VCDM 2.0 · OID4VP · OpenID4VCI |
+| [S14 catálogos — MethodRegistry](#s14-catálogos--methodregistry-bauth) (NIVEL 18) | T-384(`auth_federation_protocol`), T-385(`auth_saga_catalog`), T-386(`auth_compliance_map`) | 8+12+14 seeds · protocolos · sagas · cobertura normativa |
+| [S18 — Dispositivos](#s18--dispositivos-bauth) (NIVEL 19) | T-390(`auth_device`), T-391(`auth_device_posture`), T-392(`auth_device_credential_binding`) | ZTA · MDM · FIDO2 · OSDP v2.2 · WORM binding |
 
 > **⚠️ Nota v2.3.0:** S8-S12 fueron refactorizados en el DDL. Los nombres canónicos son los del DDL.
 > Tablas ausentes del DDL (pendientes de diseño):
@@ -2180,6 +2182,109 @@ FK `vc_id` → `idn_identity_vc` (T-167) — trazabilidad completa emisión → 
 
 ---
 
+## S14 catálogos — MethodRegistry (bauth)
+
+**NIVEL 18 · Tablas:** T-384, T-385, T-386  
+**Ref:** RFC 6749 · RFC 8628 · RFC 8693 · CIBA · FAPI 2.0 · NIST SP 800-63B-4
+
+Estos tres catálogos completan el MethodRegistry declarativo iniciado en NIVEL 13 (T-335..T-338). Permiten que el motor de autenticación sea completamente configurable sin recompilar.
+
+### T-384 — auth_federation_protocol
+
+Catálogo de protocolos de federación. **8 seeds activos:**
+
+| `code` | AAL máx | FAL soportado | Phishing-resistant |
+|--------|---------|--------------|-------------------|
+| `SAML_2_0` | AAL2 | FAL1/FAL2 | No |
+| `OIDC_CORE_1_0` | AAL2 | FAL1/FAL2 | No |
+| `OAUTH2_PKCE` | AAL2 | FAL1/FAL2 | No |
+| `OAUTH2_DEVICE` | AAL1 | FAL1 | No |
+| `OAUTH2_TOKEN_EXCHANGE` | AAL2 | FAL1/FAL2 | No |
+| `CIBA` | AAL2 | FAL1/FAL2 | No |
+| `FAPI_2_0` | AAL3 | FAL2/FAL3 | **Sí** |
+| `CAEP_RFC9396` | AAL2 | FAL1/FAL2/FAL3 | No |
+
+`supports_backchannel` — activa flujos de logout/revocación vía backchannel (SAML SLO, OIDC BCLO).
+
+### T-385 — auth_saga_catalog
+
+Catálogo de flujos orquestados multi-paso. **12 sagas:**
+
+`steps` (JSONB array): secuencia de nombres de pasos que el motor ejecuta en orden. El daemon lee esta columna para saber qué handlers invocar — sin código hardcodeado por flujo.
+
+`is_emergency = TRUE` solo en `BREAKGLASS_EMERGENCY` — activa alertas SIEM automáticas.
+
+`timeout_seconds`: tiempo máximo para completar el flujo (desde primer paso hasta token emitido).
+
+### T-386 — auth_compliance_map
+
+Mapa de cobertura normativa. **14 controles** de 5 estándares: NIST SP 800-63B-4, PCI DSS 4.0, OWASP ASVS 5.0, ISO 27001:2022, FIPS 140-3.
+
+`method_codes[]` + `saga_codes[]` — lista de métodos y sagas que implementan el control.  
+`coverage_level`: `FULL` / `PARTIAL` / `NOT_COVERED` — base para auditorías de compliance automáticas.
+
+---
+
+## S18 — Dispositivos (bauth)
+
+**NIVEL 19 · Tablas:** T-390, T-391, T-392  
+**Ref:** NIST SP 800-207 ZTA §4.2 · FIDO2 W3C L3 · OSDP v2.2 SIA · ISO/IEC 27001 A.6.2
+
+### Arquitectura de dispositivos en ZTA
+
+```
+auth_device (T-390)          ← Registro central: lógico + FIDO2 HW + OSDP físico
+      │
+      ├── auth_device_posture (T-391)        ← Snapshot MDM/ZTA (TTL 4h)
+      │                                           PDP verifica valid_until en cada request
+      └── auth_device_credential_binding (T-392) ← WORM: qué credenciales viven en este dispositivo
+```
+
+### T-390 — auth_device
+
+Registro central de tres tipos de dispositivos:
+
+| `category` | `platform` | Caso de uso |
+|-----------|-----------|-------------|
+| `DESKTOP` / `MOBILE` / `TABLET` | WINDOWS/LINUX/MACOS/ANDROID/IOS | ZTA empresa |
+| `SERVER` / `IOT` | LINUX/EMBEDDED | M2M/IoT/NHI |
+| `SECURITY_KEY` / `SMART_CARD` | FIDO2_HW | YubiKey, PIV |
+| `OSDP_READER` / `NFC_READER` | OSDP_HW | Lectores físicos OSDP v2.2 |
+
+`aaguid` — AAGUID del autenticador FIDO2 (matching con allowList de attestation).  
+`trust_level` — evaluado por el PDP: `TRUSTED` / `CONDITIONALLY_TRUSTED` / `UNTRUSTED` / `QUARANTINE`.  
+`is_osdp + osdp_address + osdp_version` — para lectores de acceso físico (torniquetes, puertas).
+
+**Dispositivo sin usuario:** `user_id = NULL` es válido para M2M, IoT, lectores físicos.
+
+### T-391 — auth_device_posture
+
+Snapshot de postura MDM/ZTA. **TTL 4 horas** (`valid_until`).
+
+El PDP verifica `valid_until > now()` antes de aceptar el device signal. Si expiró → dispositivo tratado como `UNKNOWN` → aplica política más restrictiva (NIST SP 800-207 §3.3.1).
+
+`risk_score` (0–100) es consumido por el PIP de riesgo del Motor de Políticas para el paso de scoring dinámico.
+
+`posture_source`: `MDM` (Microsoft Intune/Jamf) · `EDR` (CrowdStrike/SentinelOne) · `AGENT` (agente SBOS) · `SELF_REPORTED` · `MANUAL`.
+
+### T-392 — auth_device_credential_binding
+
+WORM. `REVOKE UPDATE, DELETE FROM bauth_app_role`.
+
+Binding M:N entre dispositivos (T-390) y credenciales (T-330). Permite:
+- Al perder un dispositivo: `UPDATE auth_device SET status='LOST'` → job propaga revocación a todas las credenciales del binding.
+- Audit trail inmutable: qué credencial estaba en qué dispositivo y desde cuándo.
+
+`binding_type`:
+- `FIDO2_RESIDENT` — passkey almacenada dentro del autenticador (no exportable)
+- `FIDO2_CROSS_PLATFORM` — llave de hardware externa (YubiKey, etc.)
+- `X509_MTLS` — certificado de dispositivo emitido por Vault PKI
+- `SOFT_TOTP` — seed TOTP en dispositivo móvil
+- `PUSH_NOTIFICATION` — token push para CIBA/bNotify
+- `OSDP_CARD` — tarjeta física presentada al lector OSDP
+
+---
+
 ## Apéndice D — Normas y estándares aplicados
 
 | Norma | Aplicación en SBOS_db_V2 |
@@ -2226,6 +2331,7 @@ FK `vc_id` → `idn_identity_vc` (T-167) — trazabilidad completa emisión → 
 
 | Versión | Fecha | Cambios |
 |---------|-------|---------|
+| v2.9.0 | 2026-07-30 | T-384..386 (catálogos MethodRegistry: protocolos, sagas, compliance) + S18 Dispositivos T-390..392 (ZTA/MDM/FIDO2/OSDP). 6 tablas + 34 seeds. DDL completo — 0 secciones pendientes. |
 | v2.8.0 | 2026-07-30 | S13..S17 + D12 implementados: +T-320..322 (Usuarios NIST 800-63-4), +T-330..338 (Autenticación MethodRegistry FIDO2/X.509/DPoP), +T-350..357 (Firma Digital D13 Ley 164), +T-358..362 (Blockchain Merkle/Besu/Arbitrum), +T-365..367 (Federación OIDC DPoP FAPI2), +T-380..383 (Billetera Digital EUDI OID4VP). 32 nuevas tablas. 106 tablas base + 17 particiones hijas = 123 CREATE TABLE. |
 | v2.7.0 | 2026-07-28 | GAP-D00-01..10 implementados: +T-186 (lifecycle_event JML), +T-169 (did_document), +T-187 (scim_attribute_map), +T-188 (dpia_registro); ALTER T-157 +5 cols clasificación; ALTER T-159 +risk_threshold +dirm_policy_ref; ALTER T-165 +risk_context +eidas_level; ALTER T-166 +6 cols GDPR granular; ALTER T-167 +eidas_assurance_level +eidas_vc_type; seeds mDL/VC (T-159) + seeds bdomain (T-159) |
 | v2.6.0 | 2026-07-28 | T-165..T-168 implementadas (proofing, consentimiento, VC, FAL); 25 átomos D00 (pos 292-316); triggers trg_iiattr_history, trg_iip_status_to_entity, trg_ivc_expiry_check; jobs fn_job_reproofing_check/vc_expiry_check/next_partition + OS crontab |
@@ -2233,4 +2339,4 @@ FK `vc_id` → `idn_identity_vc` (T-167) — trazabilidad completa emisión → 
 | v2.4.0 | 2026-07-24 | T-159 (idn_identity_requirement) implementada |
 | v2.3.0 | 2026-07-22 | S8-S12 refactorizados; nombres canónicos del DDL |
 
-*Fin del manual — SBOS_db_V2_DDL_MANUAL.md — v2.8.0 · 2026-07-30*
+*Fin del manual — SBOS_db_V2_DDL_MANUAL.md — v2.9.0 · 2026-07-30*

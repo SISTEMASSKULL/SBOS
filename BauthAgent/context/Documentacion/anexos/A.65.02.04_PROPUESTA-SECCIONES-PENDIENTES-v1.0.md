@@ -484,11 +484,58 @@ CREATE TABLE IF NOT EXISTS bauth.auth_crypto_algorithm (
     -- Seeds FORBIDDEN: MD5 · SHA-1 · RSA-1024 · DES · 3DES
 );
 
--- T-384..T-386: catálogos declarativos (bosquejo — desarrollo en sesión siguiente)
--- NOTA: T-339..T-341 reservados para D07 (idn_red_*) y D08 (idn_sesion_*) — reasignados
--- T-384 bauth.auth_federation_protocol  — OIDC · SAML2 · OAUTH2 · WS_FED
--- T-385 bauth.auth_saga_catalog         — flujos multi-paso por AAL
--- T-386 bauth.auth_compliance_map       — método → estándar → control_ref
+-- ── T-384 ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS bauth.auth_federation_protocol (
+    protocol_id          UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    code                 TEXT    NOT NULL UNIQUE,
+    name                 JSONB   NOT NULL DEFAULT '{}',
+    spec_url             TEXT    NOT NULL,
+    aal_max              TEXT    NOT NULL CONSTRAINT chk_afp_aal CHECK (aal_max IN ('AAL1','AAL2','AAL3')),
+    fal_supported        TEXT[]  NOT NULL DEFAULT '{}',
+    is_phishing_resistant BOOLEAN NOT NULL DEFAULT FALSE,
+    supports_logout      BOOLEAN NOT NULL DEFAULT FALSE,
+    supports_backchannel BOOLEAN NOT NULL DEFAULT FALSE,
+    status               TEXT    NOT NULL DEFAULT 'SUPPORTED'
+                                  CONSTRAINT chk_afp_status CHECK (status IN ('SUPPORTED','DEPRECATED','PLANNED')),
+    sort_order           INT     NOT NULL DEFAULT 0
+);
+-- Seeds: SAML_2_0, OIDC_CORE_1_0, OAUTH2_PKCE, OAUTH2_DEVICE, OAUTH2_TOKEN_EXCHANGE,
+--        CIBA, FAPI_2_0, CAEP_RFC9396 (8 protocolos) — ver seed en DDL canónico
+
+-- ── T-385 ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS bauth.auth_saga_catalog (
+    saga_id          UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    code             TEXT    NOT NULL UNIQUE,
+    name             JSONB   NOT NULL DEFAULT '{}',
+    description      JSONB   NOT NULL DEFAULT '{}',
+    steps            JSONB   NOT NULL DEFAULT '[]',
+    aal_required     TEXT    NOT NULL CONSTRAINT chk_asc_aal_req CHECK (aal_required IN ('AAL1','AAL2','AAL3')),
+    aal_produced     TEXT    NOT NULL CONSTRAINT chk_asc_aal_pro CHECK (aal_produced IN ('AAL1','AAL2','AAL3')),
+    timeout_seconds  INT     NOT NULL DEFAULT 300,
+    is_emergency     BOOLEAN NOT NULL DEFAULT FALSE,
+    requires_mfa     BOOLEAN NOT NULL DEFAULT FALSE,
+    status           TEXT    NOT NULL DEFAULT 'ACTIVE'
+                              CONSTRAINT chk_asc_status CHECK (status IN ('ACTIVE','DEPRECATED','PLANNED')),
+    sort_order       INT     NOT NULL DEFAULT 0
+);
+-- Seeds: 12 sagas — PASSWORD_MFA, PASSWORDLESS_FIDO2, SOCIAL_BROKER, SAML_SSO,
+--        DEVICE_AUTH, STEP_UP_AAL2_AAL3, BREAKGLASS_EMERGENCY, RECOVERY_FLOW,
+--        CIBA_PUSH, TOKEN_EXCHANGE, CLIENT_CREDENTIALS, M2M_MTLS
+
+-- ── T-386 ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS bauth.auth_compliance_map (
+    map_id               UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    standard             TEXT    NOT NULL,
+    control_id           TEXT    NOT NULL,
+    control_description  TEXT    NOT NULL,
+    method_codes         TEXT[]  NOT NULL DEFAULT '{}',
+    saga_codes           TEXT[]  NOT NULL DEFAULT '{}',
+    coverage_level       TEXT    NOT NULL DEFAULT 'FULL'
+                                  CONSTRAINT chk_acm_cov CHECK (coverage_level IN ('FULL','PARTIAL','NOT_COVERED')),
+    notes                TEXT    NULL,
+    CONSTRAINT uq_acm_standard_control UNIQUE (standard, control_id)
+);
+-- Seeds: 14 controles — NIST_SP_800_63B_4, PCI_DSS_4_0, OWASP_ASVS_5_0, ISO_27001_2022, FIPS_140_3
 ```
 
 ---
