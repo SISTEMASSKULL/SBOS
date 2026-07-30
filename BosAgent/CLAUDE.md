@@ -81,6 +81,7 @@ CGO_ENABLED=0 /home/skull/sdk/go/bin/go build ./...
 | P12 | Fichas declarativas | Dependencias del SO via manifest.yml, no install.sh |
 | P13 | Sin intervención manual | BOS provee todo; humano solo aprueba HITL |
 | P14 | Sagas con compensación | Install/Update/Repair/Remove con rollback explícito |
+| P15 | Idempotencia del instalador | **CRÍTICO:** antes de instalar, BOS DEBE detectar si es instalación nueva o actualización. En actualización: nunca destruir fichas ni recursos instalados — solo revisar y actualizar. Ver sección "Protocolo de instalación idempotente". |
 
 ## Convenciones de código
 
@@ -130,7 +131,51 @@ cmd/bosctl/<cmd>.go      ← comando CLI (WebSocket RPC)
 | TLS key | `/etc/bos/tls/bos.key` (`paths.KeyFile`) |
 | Fichas | `/etc/bos/servers/` |
 
+## Protocolo de instalación idempotente (P15) — NO NEGOCIABLE
+
+El instalador BOS SIEMPRE comienza verificando el estado previo del sistema:
+
+```
+┌─────────────────────────────────────────────────────┐
+│ INICIO: bos.installer.Install() / bos.ficha.install │
+└─────────────────────────┬───────────────────────────┘
+                          │
+              ¿Existe .sbos_state.json con fichas instaladas?
+                    /                        \
+                  SÍ                          NO
+                  │                           │
+      MODO ACTUALIZACIÓN            MODO INSTALACIÓN NUEVA
+                  │                           │
+    ┌─────────────▼───────────┐    ┌──────────▼──────────────┐
+    │ 1. Leer estado actual   │    │ 1. Instalar desde cero  │
+    │ 2. Comparar vs target   │    │ 2. Registrar en state   │
+    │ 3. Planificar diff      │    │ 3. Verificar health      │
+    │ 4. Aplicar solo cambios │    └─────────────────────────┘
+    │ 5. NO tocar lo que      │
+    │    ya funciona          │
+    │ 6. NO destruir fichas   │
+    │    ni recursos activos  │
+    └─────────────────────────┘
+```
+
+**Reglas de la actualización (modo UPDATE) — irrenunciables:**
+
+| Regla | Descripción |
+|-------|-------------|
+| **NO destructiva** | Nunca eliminar fichas instaladas, pods activos, datos, o configuraciones que funcionan |
+| **Diff antes de actuar** | Calcular qué cambió entre estado actual y target antes de aplicar cualquier cambio |
+| **Solo lo que cambió** | Aplicar únicamente los deltas — si una ficha está en estado healthy y su versión coincide, no tocarla |
+| **Compensación por fallo** | Si un paso de update falla, la saga revierte SOLO ese paso — no hace rollback del sistema completo |
+| **Fichas en operación** | Una ficha en estado `running`/`healthy` NUNCA se reinstala en un update — se verifica su versión y configuración |
+| **Dry-run obligatorio** | Antes de cualquier `kubectl apply` en modo update, ejecutar `--dry-run=server` y verificar el diff |
+
+> **Anti-pattern crítico:** un instalador que hace `remove all → install fresh` en cada update es DESTRUCTIVO y viola P15. BOS nunca hace esto.
+
+---
+
 ## Documentación técnica
+
+**Documentación OFICIAL** — fuente de verdad para todo desarrollo:
 
 **Índice completo:** `context/Documentacion/INDICE.md` — 27 manuales + 13 anexos organizados por 6 motores.
 **Carta rectora:** `context/Documentacion/0.00_MANUAL-DIRECTRICES-BOS-CONTROL-PLANE.md` — todo manual se lee bajo esta carta.
@@ -143,6 +188,12 @@ cmd/bosctl/<cmd>.go      ← comando CLI (WebSocket RPC)
 | ④ Context Plane | `4.01` – `4.05` — ctx_id, ciclo de vida, propagación, integración bAuth |
 | ⑤ Dashboard | `5.01` – `5.04` — JSON-RPC, WebSocket, eventos, conexión |
 | ⑥ Banco de Pruebas | `6.01` — documento vivo (nunca ✅) |
+
+**Documentación SECUNDARIA** — consultar cuando se genera nueva documentación o ante cualquier duda no resuelta por la documentación oficial:
+
+`context/plandeaccion/plandeaccion/bos-repair/` — 30+ documentos: auditorías técnicas, ADRs, especificaciones SBOS, contratos, estándares, plan maestro, diseños de flujos. Índice: `BOS-REPAIR-INDEX.md`.
+
+> **Jerarquía:** `context/Documentacion/` (oficial) > `bos-repair/` (consulta y generación). Si hay conflicto entre ambas, la documentación oficial prevalece.
 
 **Contratos:** `../context/contracts/BOS-BAUTH-CONTRATOS.md` (bilateral BOS ↔ bAuth).
 

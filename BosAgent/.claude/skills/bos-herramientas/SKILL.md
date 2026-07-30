@@ -275,7 +275,14 @@ ingest_traces(traces=[{
 
 ## 2 · qex — Búsqueda semántica en documentación BOS (5 tools)
 
-**Corpus BOS:** 27 manuales + 13 anexos en `context/Documentacion/` · organizados por 6 motores.
+**Corpus BOS — dos fuentes, jerarquía clara:**
+
+| Fuente | Ruta | Rol | Cuándo buscar aquí |
+|--------|------|-----|--------------------|
+| **Oficial** | `context/Documentacion/` | 27 manuales + 13 anexos · 6 motores | Siempre primero — fuente de verdad |
+| **Secundaria** | `context/plandeaccion/plandeaccion/bos-repair/` | 30+ docs: auditorías, ADRs, specs, contratos, estándares | Al generar nueva documentación · ante dudas no resueltas por la oficial |
+
+> Si hay conflicto entre ambas fuentes, **la documentación oficial prevalece.**
 
 ### `search_code` — preguntas en español sobre documentación
 
@@ -286,7 +293,7 @@ ingest_traces(traces=[{
 | `limit` | int | 10 | Resultados máximos |
 | `extension_filter` | list[str] | — | Filtrar por extensión |
 
-**Queries por motor:**
+**Queries por motor (fuente oficial):**
 
 ```python
 # Motor ① IAM Installer
@@ -294,6 +301,7 @@ search_code(query="secuencia de instalación day 0 bootstrap 6 capas")
 search_code(query="saga de instalación compensación y rollback")
 search_code(query="ciclo de vida de tenants alta baja suspensión")
 search_code(query="hardening de red NetworkPolicy y TLS")
+search_code(query="idempotencia del instalador actualización no destructiva")
 
 # Motor ② SO Observable
 search_code(query="watchdog 3 capas y rollback automático del daemon")
@@ -317,11 +325,11 @@ search_code(query="JSON-RPC métodos bos.ctx bos.ficha bos.tenant")
 search_code(query="WebSocket sobre Unix socket Interface Dual")
 search_code(query="contratos de eventos y momentos de conexión")
 
-# Búsqueda cross-motor
-search_code(query="principios de diseño P1 a P14 BOS")
+# Cross-motor
+search_code(query="principios de diseño P1 a P15 BOS")
 search_code(query="rutas canónicas del sistema bos.toml rbac roles")
 
-# Solo en documentación de BOS
+# Scoped a la documentación oficial
 search_code(
     query="flujo end-to-end de operación instalación a steady state",
     path="/opt/skull/orquestador/proyectos/SBOS/BosAgent/context/Documentacion",
@@ -329,11 +337,32 @@ search_code(
 )
 ```
 
+**Queries en la documentación secundaria (`bos-repair/`) — para generación de docs o dudas:**
+
+```python
+BOS_REPAIR = "/opt/skull/orquestador/proyectos/SBOS/BosAgent/context/plandeaccion/plandeaccion/bos-repair"
+
+# Antes de escribir documentación nueva — buscar precedentes y contexto histórico
+search_code(query="plan maestro de reparación BOS fases y estado", path=BOS_REPAIR)
+search_code(query="ADR decisiones arquitectónicas operador soberano", path=BOS_REPAIR)
+search_code(query="especificación estándares internacionales SBOS", path=BOS_REPAIR)
+search_code(query="contratos entre daemons BOS SBOS", path=BOS_REPAIR)
+search_code(query="flujo end-to-end instalación K8s tenant", path=BOS_REPAIR)
+search_code(query="auditoría técnica BOS gaps encontrados", path=BOS_REPAIR)
+search_code(query="RBAC herencia roles Ubuntu K8s privilegios", path=BOS_REPAIR)
+search_code(query="Context Plane ctx_id propagación trazabilidad SBOS049", path=BOS_REPAIR)
+search_code(query="sagas fundamentos compensación instalación", path=BOS_REPAIR)
+search_code(query="bosctl abstracción cliente Unix socket", path=BOS_REPAIR)
+
+# Índice de documentos disponibles en bos-repair
+# → leer: context/plandeaccion/plandeaccion/bos-repair/BOS-REPAIR-INDEX.md
+```
+
 ### Otros tools qex
 
 | Tool | Uso |
 |------|-----|
-| `index_codebase` | Re-indexar `context/Documentacion/` si se agregan manuales |
+| `index_codebase` | Re-indexar `context/Documentacion/` o `bos-repair/` si se agregan docs |
 | `get_indexing_status` | Ver chunks/archivos indexados |
 | `download_model` | Verificar modelo ONNX snowflake-arctic-embed-s |
 | `clear_index` | Limpiar índice de un path específico |
@@ -369,6 +398,8 @@ search_code(
 | Agregar nueva ficha | `search_code` (anatomía ficha) → `get_architecture` (estructura actual) → `sequential-thinking` (diseño manifest.yml) |
 | Refactor motor de fichas | `query_graph` (hotspots + ciclos) → `sequential-thinking` (plan) → `qex` (impacto en docs) |
 | Verificar Principio P1 | `query_graph` (rutas a kubectl) → `sequential-thinking` (analizar violaciones) |
+| Verificar idempotencia P15 | `trace_path("installer.InstallSaga", outbound)` → `search_code` (idempotencia) → `query_graph` (rutas destructivas) → `sequential-thinking` (analizar) |
+| Generar nueva documentación | `search_code` en `bos-repair/` (precedentes) → `search_code` en `Documentacion/` (estilo) → `sequential-thinking` (estructura) |
 
 ---
 
@@ -452,6 +483,60 @@ sequentialthinking(thought="La nueva ficha necesita: 1) manifest.yml con depende
 
 ---
 
+### Verificar idempotencia del instalador (P15)
+```python
+# 1. Trazar la lógica de detección nuevo/update
+search_graph(name_pattern=".*[Ii]nstall.*|.*[Uu]pdate.*|.*[Ee]xist.*", label="Function",
+             file_pattern=".*installer.*", project="bos")
+
+# 2. ¿Hay rutas que eliminan fichas en el flujo de update?
+query_graph(query="""
+  MATCH (update:Function)-[:CALLS*1..4]->(del:Function)
+  WHERE (update.name CONTAINS 'Update' OR update.name CONTAINS 'Install')
+  AND (del.name CONTAINS 'Delete' OR del.name CONTAINS 'Remove' OR del.name CONTAINS 'Destroy')
+  RETURN update.name, del.name, update.file
+""")
+
+# 3. ¿El State Manager se consulta antes de instalar? (leer antes de escribir)
+trace_path("state.Manager.Read", direction="inbound", depth=3)
+
+# 4. Documentación del protocolo de idempotencia
+search_code(query="idempotencia instalador update no destructivo fichas existentes")
+search_code(query="detección nueva instalación vs actualización estado previo", path=BOS_REPAIR)
+
+# 5. Analizar si el instalador cumple P15
+sequentialthinking(
+    thought="El grafo muestra que Install() llama a X antes de verificar estado. El State Manager se consulta en... Las rutas potencialmente destructivas son...",
+    thoughtNumber=1, totalThoughts=5, nextThoughtNeeded=True
+)
+```
+
+---
+
+### Generar nueva documentación (con bos-repair como contexto)
+```python
+BOS_REPAIR = "/opt/skull/orquestador/proyectos/SBOS/BosAgent/context/plandeaccion/plandeaccion/bos-repair"
+
+# 1. Buscar precedentes en bos-repair (contexto histórico y decisiones)
+search_code(query="<tema de la nueva doc>", path=BOS_REPAIR)
+
+# 2. Ver estilo y estructura en la documentación oficial
+search_code(query="<tema>",
+            path="/opt/skull/orquestador/proyectos/SBOS/BosAgent/context/Documentacion")
+
+# 3. Entender el código real del área a documentar
+get_architecture(project="bos", aspects=["packages"])
+search_graph(name_pattern=".*<módulo>.*", project="bos")
+
+# 4. Estructurar el nuevo documento
+sequentialthinking(
+    thought="La documentación oficial cubre X. bos-repair tiene contexto de Y. El código hace Z. El nuevo documento debe cubrir...",
+    thoughtNumber=1, totalThoughts=4, nextThoughtNeeded=True
+)
+```
+
+---
+
 ## 5 · Matriz de decisión — qué usar cuándo (BOS)
 
 | Necesidad | Herramienta | Tool |
@@ -467,6 +552,8 @@ sequentialthinking(thought="La nueva ficha necesita: 1) manifest.yml con depende
 | "Anatomía de una ficha declarativa" | `qex` | `search_code` |
 | "Estado de trabajo anterior" | `skdata-biblioteca` | `query` bitacora_agente |
 | "Diseñar nueva saga con compensaciones" | `sequential-thinking` | `sequentialthinking` |
+| "¿El instalador verifica estado antes de actuar?" | `codebase-memory-mcp` | `trace_path` + `query_graph` |
+| "Contexto histórico para generar nueva doc" | `qex` en `bos-repair/` | `search_code` con `path=BOS_REPAIR` |
 | "Strings de error exactos, TODOs" | `Grep` (bash) | — no usar MCP — |
 
 ---
@@ -482,3 +569,6 @@ sequentialthinking(thought="La nueva ficha necesita: 1) manifest.yml con depende
 | Usar `qex search_code` para buscar código Go | qex es para documentación | Para código Go: `codebase-memory-mcp search_code` o `search_graph` |
 | Buscar "en SBOS" sin especificar `project="bos"` | Resultados de todos los daemons | Siempre `project="bos"` en búsquedas de BOS |
 | Asumir que el índice está actualizado tras commits masivos | Resultados obsoletos | Verificar con `index_status` y re-indexar si hace >1 día |
+| **Instalador destructivo (viola P15)** | **Destruye fichas y recursos del usuario** | **Siempre detectar nuevo vs update. En update: diff + solo cambios. Nunca remove-all → reinstall.** |
+| Buscar contexto histórico sin revisar `bos-repair/` | Documentación desconectada de decisiones previas | `search_code` en `bos-repair/` antes de escribir nueva documentación |
+| Usar la doc secundaria (`bos-repair/`) como fuente de verdad | Puede estar desactualizada respecto a la oficial | Siempre validar contra `context/Documentacion/` — la oficial prevalece |
