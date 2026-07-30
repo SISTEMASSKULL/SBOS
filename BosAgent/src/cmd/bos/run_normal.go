@@ -14,8 +14,8 @@ import (
 
 	"bos/internal/audit"
 	"bos/internal/biaos"
-	bosctx "bos/internal/context"
 	"bos/internal/config"
+	bosctx "bos/internal/context"
 	"bos/internal/domain"
 	"bos/internal/health"
 	"bos/internal/installer"
@@ -23,6 +23,7 @@ import (
 	"bos/internal/maintenance"
 	"bos/internal/metrics"
 	"bos/internal/observer"
+	"bos/internal/paths"
 	"bos/internal/plugin"
 	"bos/internal/query"
 	"bos/internal/reconcile"
@@ -33,7 +34,6 @@ import (
 	"bos/internal/state"
 	"bos/internal/system"
 	"bos/internal/watchdog"
-	"bos/internal/paths"
 
 	"github.com/rs/zerolog/log"
 )
@@ -174,8 +174,20 @@ func runNormal(cfg *config.Config, benv *bootstrapEnv) {
 	orchestrator.SetCompensator(compensator)
 	log.Info().Interface("core_dir", install.CorePath).Msg("installer ready")
 
+	// 5.25 Crear K8s discovery — necesario para P15-A2 y para el reconcile scheduler (M2.2).
+	// Se crea aquí (antes del observer) para poder proteger fichas existentes al arrancar.
+	k8sDiscovery := reconcile.NewK8sDiscovery(install.ServersPath, k8sCore, newSlogLogger("k8s-discovery"))
+
 	// 5.5 Inicializar estados de fichas y arrancar observer loop
 	observer.InitializeFichaStates(pluginLoader, stateMgr)
+
+	// P15-A2: Si el state.json fue reconstruido desde cero, proteger fichas ya
+	// instaladas en K8s antes de arrancar el observer — evita reinstalación destructiva.
+	observer.P15ReconcileAfterRebuild(stateMgr, func() map[string]state.FichaState {
+		result := k8sDiscovery.DiscoverK8sStates()
+		return result.States
+	})
+
 	observerLoop := observer.New(observer.Config{
 		Orchestrator: orchestrator,
 		Loader:       pluginLoader,
@@ -191,7 +203,6 @@ func runNormal(cfg *config.Config, benv *bootstrapEnv) {
 
 	// 7. Inicializar reconcile scheduler con K8s discovery (M2.2)
 	reconcileInterval := cfg.ReconcileInterval()
-	k8sDiscovery := reconcile.NewK8sDiscovery(install.ServersPath, k8sCore, newSlogLogger("k8s-discovery"))
 	reconcileScheduler := reconcile.NewScheduler(stateMgr, orchestrator, reconcileInterval,
 		install.ServersPath, cfg.DriftCheck,
 		newSlogLogger("reconcile")).

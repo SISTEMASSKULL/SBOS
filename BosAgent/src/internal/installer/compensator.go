@@ -58,24 +58,33 @@ func NewCompensator(masterScript string, logger *slog.Logger) *Compensator {
 	}
 }
 
-// Predefined compensation chains for each operation.
+// Cadenas de compensación predefinidas por operación.
+//
+// P15 — reglas de compensación:
+//   - InstallCompensation: llama "remove" para limpiar una instalación fallida.
+//     "remove" es el único comando del master script que desmonta una ficha (check
+//     de gobernanza incluido). Antes usaba "uninstall" que el master script rechaza.
+//   - UpdateCompensation: vacía — el bash cmd_update() ya llama restore_ficha_resources()
+//     antes de retornar exit 3. Compensación Go adicional sería redundante y peligrosa.
+//   - RepairCompensation: vacía — el bash cmd_repair() gestiona su propio fallo;
+//     la ficha queda FALLA_INSTALACION y el operador decide.
 var (
 	InstallCompensation = CompensationChain{
 		Actions: []CompensationAction{
-			{Name: "uninstall", Handler: "uninstall", Timeout: 10 * time.Minute},
+			{Name: "remove", Handler: "remove", Timeout: 10 * time.Minute},
 		},
 	}
 
+	// UpdateCompensation sin acciones: el bash script maneja su propio rollback
+	// mediante restore_ficha_resources() — no destruir fichas instaladas (P15).
 	UpdateCompensation = CompensationChain{
-		Actions: []CompensationAction{
-			{Name: "restore_backup", Handler: "uninstall", Timeout: 10 * time.Minute},
-		},
+		Actions: []CompensationAction{},
 	}
 
+	// RepairCompensation sin acciones: el bash gestiona repair failure;
+	// la ficha queda en FALLA_INSTALACION para decisión del operador.
 	RepairCompensation = CompensationChain{
-		Actions: []CompensationAction{
-			{Name: "rollback_repair", Handler: "uninstall", Timeout: 10 * time.Minute},
-		},
+		Actions: []CompensationAction{},
 	}
 )
 

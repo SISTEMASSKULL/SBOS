@@ -21,14 +21,15 @@ import (
 
 // TestChaos_SagaInterrumpidaCompensa: master script que muere a mitad de la
 // saga (paso 1 OK, paso 2 FAIL + exit 1) → el Orchestrator reporta el fallo
-// con los pasos parseados Y ejecuta la compensación (uninstall), dejando
-// constancia verificable.
+// con los pasos parseados Y ejecuta la compensación (remove), dejando
+// constancia verificable. P15: la compensación usa "remove", no "uninstall"
+// (el master script no reconoce "uninstall"; "remove" incluye governance check).
 func TestChaos_SagaInterrumpidaCompensa(t *testing.T) {
 	dir := t.TempDir()
 	testigo := filepath.Join(dir, "compensacion-ejecutada")
 
-	// El master script simula: install muere a mitad; uninstall (la
-	// compensación) deja un archivo testigo.
+	// El master script simula: install muere a mitad; remove (la
+	// compensación de P15) deja un archivo testigo.
 	master := filepath.Join(dir, "master.sh")
 	script := `#!/bin/bash
 cmd="$1"
@@ -39,7 +40,7 @@ if [ "$cmd" = "install" ]; then
   echo "__SBOS__STEP_FAIL__ desplegar"
   exit 1
 fi
-if [ "$cmd" = "uninstall" ]; then
+if [ "$cmd" = "remove" ]; then
   touch "` + testigo + `"
   exit 0
 fi
@@ -114,13 +115,33 @@ exit 0
 	}
 }
 
-// TestSelectChain_PorComando: install/update/repair tienen cadena; otros no.
+// TestSelectChain_PorComando: install tiene cadena Go-level; update/repair tienen
+// cadenas vacías porque el bash gestiona su propio rollback interno (P15):
+//   - install falla → "remove" limpia la ficha (compensación Go).
+//   - update falla  → cmd_update() llama restore_ficha_resources() antes de exit 3 (bash).
+//   - repair falla  → cmd_repair() gestiona su propio fallo (bash).
+//
+// Comandos de lectura (status, probe) nunca tienen compensación.
 func TestSelectChain_PorComando(t *testing.T) {
-	for _, cmd := range []Command{CmdInstall, CmdUpdate, CmdRepair} {
-		if len(SelectChain(cmd).Actions) == 0 {
-			t.Errorf("%s debe tener cadena de compensación (P6)", cmd)
+	// Install debe tener exactamente 1 acción Go-level (remove)
+	installChain := SelectChain(CmdInstall)
+	if len(installChain.Actions) != 1 {
+		t.Errorf("install debe tener 1 acción de compensación Go-level (remove), got %d", len(installChain.Actions))
+	}
+	if len(installChain.Actions) == 1 && installChain.Actions[0].Handler != "remove" {
+		t.Errorf("install compensation handler debe ser 'remove', got %q", installChain.Actions[0].Handler)
+	}
+
+	// Update y Repair tienen cadenas vacías — P15: el bash gestiona rollback interno
+	for _, cmd := range []Command{CmdUpdate, CmdRepair} {
+		chain := SelectChain(cmd)
+		if len(chain.Actions) != 0 {
+			t.Errorf("%s debe tener cadena vacía (bash gestiona rollback interno — P15), got %d acciones",
+				cmd, len(chain.Actions))
 		}
 	}
+
+	// Comandos de lectura nunca tienen compensación
 	if len(ChainForSaga(Command("status")).Actions) != 0 {
 		t.Error("comandos de lectura no tienen compensación")
 	}

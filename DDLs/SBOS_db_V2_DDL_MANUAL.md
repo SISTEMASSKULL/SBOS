@@ -1,28 +1,46 @@
 # SBOS_db_V2_DDL_MANUAL.md
 ## Manual Operativo de la Base de Datos — SBOS Identity Platform V2
 
-**Versión:** 2.0.0 · **Fecha:** 2026-07-21  
+**Versión:** 2.7.0 · **Fecha:** 2026-07-28  
 **Base de datos:** `SBOS_db` · **PostgreSQL:** 18.4 · **UUIDv7:** RFC 9562  
-**Estándar de documentación:** ISO/IEC 11179 · DAMA DMBOK v2 · ISO 24760-2:2025
+**Estándar de documentación:** ISO/IEC 11179 · DAMA DMBOK v2 · ISO 24760-2:2025  
+**Sincronizado con:** `SBOS_db_V2_DDL.sql` (NIVEL 0..11) — nombres canónicos del DDL
 
 ---
 
 ## Índice de Secciones
 
-| Sección | Tablas | Descripción |
-|---------|--------|-------------|
-| [S1 — Global](#s1--catálogos-globales-bglobal) | T-001..T-004, T-059, T-060, T-061, T-114 | Catálogos ISO compartidos |
-| [S2 — Tenant](#s2--infraestructura-tenant-bauth) | T-005..T-011, T-013 | Multi-tenancy base |
-| [S3 — Calendario](#s3--calendario-bcalendar) | T-012, T-014..T-019, T-124, T-125 | Calendario fiscal y turnos |
-| [S4 — Roles](#s4--roles-bauth) | T-040, T-041, T-042, T-063 | Catálogo y jerarquía de roles |
-| [S5 — Versionado](#s5--versionado-bauth) | T-152..T-155 | Temporal constraints PG18 |
-| [S6 — Árbol de políticas](#s6--árbol-de-políticas-bauth) | T-162, T-163, T-174, T-175 | XACML/RBAC N3 PAP |
-| [S7 — Identidad D00](#s7--identidad-d00-bauth) | T-156..T-161 | Jerarquía de entidades + NHI |
-| [S8 — Privilegios](#s8--privilegios-bauth) | T-170..T-172, T-176, T-179 | Grants, overrides, SoD |
-| [S9 — Sesión](#s9--sesión-bauth) | T-181, T-191..T-193 | Sesiones activas + CAEP + SSF |
-| [S10 — Auditoría](#s10--auditoría-access-review-bauth) | T-177, T-178 | Campañas de revisión |
-| [S11 — Riesgo / ITDR](#s11--riesgo--itdr-bauth) | T-180 | Identity Threat Detection |
-| [S12 — PAM](#s12--pam-privileged-access-management-bauth) | T-182..T-185, T-189 | JIT, Break-glass, Vault |
+| Sección (DDL NIVEL) | Tablas DDL (nombres canónicos) | Descripción |
+|---------------------|-------------------------------|-------------|
+| [S1 — Global](#s1--catálogos-globales-bglobal) (NIVEL 0) | T-001..T-004, T-059, T-060, T-061, T-114 | Catálogos ISO compartidos |
+| [S2 — Tenant](#s2--infraestructura-tenant-bauth) (NIVEL 1) | T-005..T-011, T-013 | Multi-tenancy base |
+| [S3 — Calendario](#s3--calendario-bcalendar) (NIVEL 2) | T-012, T-014..T-019, T-124, T-125 | Calendario fiscal y turnos |
+| [S4 — Roles](#s4--roles-bauth) (NIVEL 3) | T-040..T-042, T-063, T-161b, T-194, T-B02L | Catálogo, jerarquía, tipos de nodo, IGA y lifecycle B02 |
+| [S5 — Versionado](#s5--versionado-bauth) (NIVEL 4) | T-152..T-155 | Motor de Versionado B01/B03 (MVU 1.13) |
+| [S6 — Árbol de políticas](#s6--árbol-de-políticas-bauth) (NIVEL 5) | T-162, T-163, T-174, T-175 | XACML/RBAC N3 PAP |
+| [S7 — Identidad D00](#s7--identidad-d00-bauth) (NIVEL 6) | T-156, T-157, ✅T-158, ✅T-159, ✅T-165, ✅T-166, ✅T-167, ✅T-168, ✅T-169, ✅T-186, ✅T-187, ✅T-188, T-160..T-161, T-190 | Jerarquía de entidades + esquema IAL + proofing + consentimiento + VC + FAL + NHI + DID + JML + SCIM + DPIA |
+| [S8 — Privilegios](#s8--privilegios-bauth) (NIVEL 7) | T-170, T-170b, T-171(`privilege_resource_atom`), T-172(`privilege_delegation`), T-173(`privilege_override`), T-176(`privilege_assurance_audit`), T-179(`privilege_exception_record`) | Grants, recursos, overrides, SoD |
+| [S9 — Sesión](#s9--sesión-bauth) (NIVEL 8) | T-181(`ses_session_log`), T-191(`ses_caep_event_log`), T-192(`ses_ssf_stream`), T-193(`ses_ssf_delivery_log`) | Sesiones + CAEP + SSF |
+| [S10 — Auditoría](#s10--auditoría-access-review-bauth) (NIVEL 9) | T-177(`aud_certification_campaign`), T-178(`aud_certification_review`) | Campañas de certificación IGA |
+| [S11 — Riesgo / ITDR](#s11--riesgo--itdr-bauth) (NIVEL 10) | T-180(`ses_risk_policy`) | Políticas de riesgo adaptativo |
+| [S12 — PAM](#s12--pam-privileged-access-management-bauth) (NIVEL 11) | T-182(`pam_jit_request`), T-182b(`pam_jit_approval`), T-183(`pam_credential_ref`), T-184(`pam_session_record`), T-185(`pam_breakglass_activation`), T-189(`pam_nhi_secret_ref`) | JIT, Break-glass, Vault, NHI |
+
+> **⚠️ Nota v2.3.0:** S8-S12 fueron refactorizados en el DDL. Los nombres canónicos son los del DDL.
+> Tablas ausentes del DDL (pendientes de diseño):
+> - `idn_identidad_dominio` (DomainRegistry D01-D37) — no tiene T-code asignado aún
+> - `pam_tree_change_proposal` (flujo PAP quórum) — S12 original T-189 en planes; reemplazada por `pam_nhi_secret_ref` en el DDL actual
+> - ✅ T-158 (`idn_identity_attribute_history`) — **IMPLEMENTADA v2.5.0** — WORM hash-chain, 6 particiones mensuales. D00-B05.
+> - ✅ T-159 (`idn_identity_requirement`) — **IMPLEMENTADA v2.4.0** — esquema de completitud IAL. D00-B03. (+`risk_threshold`, `dirm_policy_ref` v2.7.0)
+> - ✅ T-165 (`idn_identity_proofing`) — **IMPLEMENTADA v2.6.0** — Identity Proofing IAL1/IAL2/IAL3. D00-B06. (+`risk_context`, `eidas_level` v2.7.0)
+> - ✅ T-166 (`idn_identity_consent`) — **IMPLEMENTADA v2.6.0** — WORM consentimiento GDPR. D00-B07. (+`attr_scope`, `consent_purpose`, `geo_restriction`, `data_categories`, `third_party_sharing`, `retention_end_date` v2.7.0)
+> - ✅ T-167 (`idn_identity_vc`) — **IMPLEMENTADA v2.6.0** — Verifiable Credentials W3C VCDM 2.0. D00-B08. (+`eidas_assurance_level`, `eidas_vc_type` v2.7.0)
+> - ✅ T-168 (`idn_tenant_fal_config`) — **IMPLEMENTADA v2.6.0** — Federation Assurance Level por RP. D00-B09.
+> - ✅ T-169 (`idn_did_document`) — **IMPLEMENTADA v2.7.0** — Caché DID Resolver W3C DID Core v1.1. GAP-D00-05.
+> - ✅ T-186 (`idn_identidad_lifecycle_event`) — **IMPLEMENTADA v2.7.0** — JML lifecycle events (Joiner/Mover/Leaver). GAP-D00-02.
+> - ✅ T-187 (`idn_scim_attribute_map`) — **IMPLEMENTADA v2.7.0** — Mapeo SCIM 2.0 ↔ atributos locales. RFC 7643/7644. GAP-D00-08.
+> - ✅ T-188 (`idn_dpia_registro`) — **IMPLEMENTADA v2.7.0** — Registro DPIA GDPR Art. 35. GAP-D00-10.
+> - ✅ T-157 (`idn_identity_attribute`) — extendida v2.7.0: +`classification`, `mutability`, `retention_days`, `uniqueness`, `returned` (GAP-D00-01).
+> - T-160..T-161 (`idn_identidad_sinonimo`, `idn_identidad_sinonimo_sync`) — STUBS comentados en el DDL (sin CREATE TABLE)
 
 ---
 
@@ -128,12 +146,12 @@
 **¿Cuándo se alimenta?** Bootstrap del sistema + al agregar nuevas funciones al dashboard. Nunca eliminación — solo is_active=false.
 
 **Relaciones:**
-- `privilege_menu_atom(item_id)` — liga el ítem con el átomo de privilegio que lo protege
+- `bglobal.menu_item_atom(item_id)` — liga el ítem con el átomo de privilegio que lo protege (antes `privilege_menu_atom`, migrada a bglobal)
 - `menu_item_context` — liga el ítem con sus contextos de aparición (N:M)
 - `parent_id` → auto-referencia (árbol de adyacencia)
 
 **Procesos necesarios:**
-- Al crear un nuevo ítem, el administrador DEBE agregar la ligadura en `privilege_menu_atom` para que el PEP de menú lo controle.
+- Al crear un nuevo ítem, el administrador DEBE agregar la ligadura en `bglobal.menu_item_atom` para que el PEP de menú lo controle.
 
 **Código:** El frontend consulta el árbol via API `bauth.menu.build` (JSON-RPC) que devuelve solo los ítems con PERMIT en el BitmaskBundle del usuario.
 
@@ -204,9 +222,9 @@
 
 **Relaciones (20+ FKs entrantes):**
 - `idn_tenant_currencies`, `idn_tenant_languages`, `idn_tenant_verification`, `idn_tenant_config`, `idn_tenant_domain`, `idn_tenant_network` (config del tenant)
-- `idn_roles_rol_hierarchical`, `idn_identidad_entidad` (identidades del tenant)
-- `privilege_atom_grant`, `pam_jit_request`, `pam_breakglass_request` (PAM)
-- `aud_access_review_campaign`, `risk_score_event` (auditoría/riesgo)
+- `idn_roles_rol_hierarchical`, `idn_identity_entity` (identidades del tenant)
+- `privilege_atom_grant`, `pam_jit_request`, `pam_breakglass_activation` (PAM)
+- `aud_certification_campaign`, `ses_risk_policy` (auditoría/riesgo)
 - Todas las tablas bcalendar con `tenant_id`
 
 **Procesos necesarios:**
@@ -331,7 +349,7 @@ async fn pip_config_param(tenant_id: Uuid, key: &str) -> Option<String> {
 
 ---
 
-### T-013 · `bauth.idn_calendar_assignment`
+### T-013 · `bauth.idn_tenant_calendar_assignment`
 
 **Propósito:** Puente entre entidades bauth y calendarios bcalendar. Implementa herencia jerárquica: el tenant asigna un calendario, las empresas lo heredan, las sucursales lo heredan.
 
@@ -468,7 +486,7 @@ async fn pip_config_param(tenant_id: Uuid, key: &str) -> Option<String> {
 **¿Cuándo se alimenta?** Al registrar el tenant. El horario de almuerzo (12:00-14:00) es el caso más común.
 
 **Procesos necesarios:**
-- Job al inicio del break: `UPDATE idn_sesion_activa SET is_active=false WHERE user_id IN (usuarios del tenant en pausa) AND is_active=true` (si `suspend_active_sessions=true`)
+- Job al inicio del break: `UPDATE ses_session_log SET is_active=false WHERE user_id IN (usuarios del tenant en pausa) AND is_active=true` (si `suspend_active_sessions=true`)
 - Evento CAEP: `session_revoked` para notificar al frontend via SSF
 
 ---
@@ -507,7 +525,24 @@ async fn pip_config_param(tenant_id: Uuid, key: &str) -> Option<String> {
 
 **Propósito:** Árbol de roles por tenant (adjacency list). Es el catálogo de roles empresariales: 368 roles en 7 tiers, 66 plantillas base, 21 sectores CAEB. Complementado por T-063 (closure table) para herencia DAG-OR eficiente.
 
-**¿Qué registra?** Rol con su tier, tipo, código único por tenant, nombre JSONB, profundidad, estado (ACTIVE/INACTIVE/DEPRECATED/ARCHIVED/SUSPENDED), sector CAEB, versión, referencia a nodo en el árbol de políticas (template_id).
+**¿Qué registra?** Rol con su tier, tipo, código único por tenant, nombre JSONB, profundidad, estado (ACTIVE/INACTIVE/DEPRECATED/ARCHIVED/SUSPENDED/IN_REVIEW), sector CAEB, versión, referencia a nodo en el árbol de políticas (template_id).
+
+**B02 — Vigencia y ciclo de vida del rol (`[B02 §validity_period]` del contrato RolTemplate):**
+
+| Columna B02 | Tipo | Semántica |
+|---|---|---|
+| `validity_type` | `role_validity_type NOT NULL DEFAULT 'INDEFINITE'` | Tipo de vigencia: `INDEFINITE` (sin fin) / `FIXED` (fecha fin fija) / `PROJECT_BASED` (fin por hito, humano decide) / `TEMPORARY` (fin = `valid_from + duration_interval`, no extensible) / `EMERGENCY` (fin = `created_at + 72h`, NIST AC-2(2)). |
+| `valid_from` | `DATE NOT NULL DEFAULT CURRENT_DATE` | Inicio de vigencia del rol. |
+| `valid_until` | `DATE` | Fecha de expiración. Para `FIXED`: obligatorio (humano la fija). Para `TEMPORARY/EMERGENCY`: calculado por trigger `trg_irrh_b02_validity`; prohibido pasar manual. |
+| `duration_interval` | `INTERVAL` | Duración para tipos `TEMPORARY` y `EMERGENCY`. El trigger calcula `valid_until = valid_from + duration_interval`. |
+| `max_renewals` | `SMALLINT` | Límite de renovaciones (`NULL` = sin límite). Control anti privilege-creep (PCI DSS 7.2.4). |
+| `renewal_count` | `SMALLINT NOT NULL DEFAULT 0` | Contador de renovaciones ejecutadas. |
+
+**Constraint `chk_irrh_b02_validity`:** FIXED requiere `valid_until`; TEMPORARY/EMERGENCY requieren `duration_interval` y prohíben `valid_until` directo; INDEFINITE/PROJECT_BASED: sin restricción adicional.
+
+**Trigger `trg_irrh_b02_validity`:** BEFORE INSERT OR UPDATE. Calcula `valid_until` para TEMPORARY/EMERGENCY. Si `valid_until <= NOW()` y `status = 'ACTIVE'`: cambia estado a `DEPRECATED` e inserta evento en `idn_roles_rol_lifecycle_event` con `trigger_type = 'AUTO_EXPIRY'`.
+
+**ENUM `rol_status_enum`:** ahora incluye 6 valores: `ACTIVE / INACTIVE / DEPRECATED / ARCHIVED / SUSPENDED / IN_REVIEW`. El estado `IN_REVIEW` es para campañas IGA access review (ver T-194).
 
 **¿Cuándo se alimenta?** Al registrar el tenant, BOS Saga crea los roles base según el sector CAEB del cliente. El administrador crea roles adicionales.
 
@@ -550,49 +585,128 @@ WHERE rc.descendant_id = $user_role_id
 
 ---
 
+### T-161b · `bauth.idn_policy_node_type` 🌱
+
+**Propósito:** Catálogo de tipos de nodo del árbol de políticas (`idn_roles_template.tipo`). Fuente única de verdad para presentación visual (color de badge, tipografía, abreviatura) y descripción bilingüe. Reemplaza el `CHECK chk_irt_tipo` — `tipo` es FK textual a este catálogo.
+
+**¿Qué registra?** Por tipo canónico de nodo: `codigo` (PK textual, ej: `dominio`, `bloque`, `evaluacion`, `atomo`), `abbreviation`, `nombre_es/en`, `descripcion_es/en`, paleta de badge (`color_key`), paleta de texto valor (`color_key_valor`), peso tipográfico (`font_weight`: 400/500/600/700), token de tamaño (`font_size_token`: xs/sm/base/md), si usa fuente monoespaciada, `show_badge`, `expanded_default`.
+
+**Uso en Flutter:** El cliente carga este catálogo al inicializar (`BauthApi.cargarCatalogoTipos()`) y renderiza cada nodo del árbol sin ningún switch de presentación hardcodeado. Cambiar el tema del dashboard adapta colores sin tocar código Dart.
+
+**Nota:** El tipo virtual `diagnostico` (linter Dart) **no** aparece en esta tabla — se inyecta solo por el cliente como fallback de error.
+
+**¿Cuándo se alimenta?** Bootstrap (seed de tipos canónicos). Solo el administrador SBOS agrega tipos nuevos.
+
+---
+
+### T-194 · `bauth.idn_roles_iga_category` 🌱
+
+**Propósito:** Categorías de gobernanza IGA para el ciclo de vida de roles. Determina la frecuencia de certificación de acceso (`review_cycle_days`) y si el rol requiere campaña de revisión PAM trimestral (`is_privileged`). 7 categorías inmutables post-seed.
+
+**¿Qué registra?** Por categoría: `code` (UNIQUE), nombre JSONB, `is_privileged`, `review_cycle_days`:
+
+| Código | `is_privileged` | `review_cycle_days` |
+|---|---|---|
+| `BUSINESS` | false | 365 |
+| `IT_INFRASTRUCTURE` | true | 90 |
+| `APPLICATION` | false | 365 |
+| `PRIVILEGED` | true | 90 |
+| `EMERGENCY` | true | 30 |
+| `SERVICE` | false | 365 |
+| `STANDARD` | false | 365 |
+
+**Procesos:** El job de access review consulta esta tabla para determinar frecuencia y si generar campaña PAM. `is_privileged=true` → revisión trimestral obligatoria (NIST AC-2(7)).
+
+**Normas:** IGA best practices · NIST SP 800-53 AC-2(7) · ISO 24760-2:2025.
+
+**¿Necesita interfaz en el frontend?** Solo lectura — selector al configurar el `iga_category` de un rol.
+
+---
+
+### T-B02L · `bauth.idn_roles_rol_lifecycle_event` 🔒 WORM
+
+**Propósito:** Log WORM append-only de cada transición de estado del rol. Registro forense inmutable del ciclo de vida (B02 `§lifecycle`). Equivalente a T-160 para NHI. REVOKE UPDATE/DELETE desde PUBLIC y `bauth_app_role`.
+
+**¿Qué registra?** Por evento: `role_id` (FK a T-041), estados `from_status / to_status`, `trigger_type` (canal que originó la transición), `actor_id` (UUID del actor humano o `NULL` si automático), `reason` (texto libre), `validity_snapshot` (JSONB con `validity_type/valid_from/valid_until/duration_interval` al momento del evento), `ctx_id` (SBOS-049 obligatorio), `occurred_at`, `prev_hash` + `entry_hash` (cadena SHA256 — **bauth_44 ✅ aplicado VPS 2026-07-25**).
+
+**`trigger_type` posibles:**
+
+| Valor | Cuándo |
+|---|---|
+| `MANUAL` | Administrador cambia estado vía dashboard o RPC |
+| `AUTO_EXPIRY` | Trigger `trg_irrh_b02_validity` detecta `valid_until <= NOW()` |
+| `RECONCILE` | Loop de reconciliación detecta drift |
+| `IGA_REVIEW` | Campaña de access review IGA (T-194) |
+| `BREAKGLASS` | Activación de emergencia |
+| `BOOTSTRAP` | Inicialización del sistema |
+
+**Índices:** `(role_id, occurred_at DESC)` para historial por rol · `(to_status, occurred_at DESC)` para dashboard de transiciones · `(occurred_at DESC) WHERE trigger_type = 'AUTO_EXPIRY'` para monitor de expiraciones.
+
+**¿Cuándo se alimenta?** Por trigger `trg_irrh_b02_validity` en T-041 (AUTO_EXPIRY) y por el daemon en transiciones manuales. Nunca UPDATE o DELETE.
+
+**Normas:** ISO 27001 A.8.15 (audit log inmutable) · NIST AC-2(2) (acceso de emergencia temporal) · PCI DSS Req 10.2 (eventos de cambio de acceso).
+
+**¿Necesita interfaz en el frontend?** Sí — timeline de transiciones por rol en el panel de detalle de rol.
+
+---
+
 ## S5 — Versionado (bauth)
 
-### T-152 · `bauth.idn_rol_version`
+> Motor de Versionado Universal (MVU 1.13) — cuatro tablas que gobiernan el ciclo de vida de las definiciones de rol (T-041). Trabajan en conjunto: T-152 responde "¿cómo era?", T-153 gestiona "¿qué se propone?", T-154 define "¿hasta cuándo se guarda?", T-155 registra "¿qué cambió en el contrato?".
 
-**Propósito:** Versiones temporales de roles con constraint de no-solapamiento (`EXCLUDE USING GIST`). Permite auditar qué versión de un rol estaba activa en cualquier momento histórico.
+### T-152 · `bauth.idn_roles_ver_b01_audit_log` 🔒 WORM
 
-**¿Qué registra?** `(role_id, valid_range)` con exclusión: no pueden existir dos versiones del mismo rol con rangos de fecha superpuestos. `snapshot` contiene el estado completo del rol en JSONB.
+**Propósito:** Historia WORM de versiones **cerradas** de `idn_roles_rol_hierarchical` (T-041). Responde "¿cómo era el rol X el día Y?" con as-of temporal en segundos. Implementa `[B01 §audit.change_history[]]` del contrato RolTemplate.
 
-**¿Cuándo se alimenta?** Automáticamente por trigger al modificar un rol en `idn_roles_rol_hierarchical`.
+**¿Qué registra?** Por versión cerrada: snapshot JSONB completo del rol (`snapshot`), bloques normados afectados (`blocks_touched`), normas vigentes (`standard_ref`), delta de campos (`fields_changed`), tipo de cambio semántico (`MAJOR/MINOR/PATCH`), canal de cambio, actor y aprobador. `is_anchor=true` en cambios MAJOR (fotografía completa — requerida por constraint).
 
-**Código crítico:** La constraint `EXCLUDE USING GIST (role_id WITH =, valid_range WITH &&)` es el WITHOUT OVERLAPS de PG18: garantiza integridad temporal a nivel de base de datos.
+**Diseño temporal (PG18):** `UNIQUE (entity_id, sys_period WITHOUT OVERLAPS)` con `btree_gist` — garantía de no-solapamiento por motor de BD. `chk_irvb01al_closed` impide rangos abiertos (`upper_inf`). La versión vigente vive en T-041; aquí solo entran versiones cerradas.
 
----
+**Hash-chain:** `prev_hash + entry_hash` con REVOKE UPDATE/DELETE. Trigger `trg_irvb01al_worm` — función `fn_irvb01al_worm_hash()` — **aplicado en VPS 2026-07-25** (bauth_44 ✅). Cada INSERT calcula `entry_hash = SHA256(id||entity_id||sys_period||snapshot||blocks_touched||change_type||ctx_id||prev_hash)` y encadena con el hash de la última fila por `upper(sys_period) DESC`. Índices: `gist(sys_period)` para as-of, `gin(blocks_touched)` y `gin(standard_ref)` para auditorías por bloque/norma.
 
-### T-153 · `bauth.idn_policy_version`
+**¿Cuándo se alimenta?** Por trigger en T-041 al cerrar una versión. Nunca directamente. El trigger `trg_irvb01al_worm` firma cada fila con SHA256 antes de insertarla.
 
-**Propósito:** Versiones temporales de nodos del árbol de políticas T-162. Base de forensia: qué regla estaba activa al momento de un incidente de seguridad.
-
-**¿Cuándo se alimenta?** Por trigger al modificar nodos en `idn_roles_template`. El proceso pasa primero por `pam_tree_change_proposal` (T-189) con quórum.
+**¿Necesita interfaz en el frontend?** Sí — timeline "historial de versiones" del rol con diff entre versiones (`fields_changed`).
 
 ---
 
-### T-154 · `bauth.idn_rol_assignment_version`
+### T-153 · `bauth.idn_roles_ver_b03_approval_queue`
 
-**Propósito:** Versiones de asignaciones de rol a usuario. Garantiza que un usuario no pueda tener el mismo rol asignado dos veces con rangos de tiempo superpuestos.
+**Propósito:** Cola de cambios MAJOR pendientes de quórum N-de-M sobre T-041. Implementa `[B03 §approval_workflow]`: ningún cambio MAJOR se aplica directamente — espera aquí hasta alcanzar quórum. La versión vigente sigue rigiendo durante `status=PENDING`.
 
-**¿Qué registra?** (user_id, role_id, valid_range) con exclusión GIST. `grant_type`: STANDARD/JIT/BREAKGLASS.
+**¿Qué registra?** Estado propuesto completo (`proposed_state` JSONB), bloques normados afectados, impacto de seguridad, lista de roles aprobadores requeridos (`approver_roles[]`), aprobaciones recibidas (`approvals` JSONB array), deadline SLA, si fue escalado, estado (`PENDING/APPROVED/REJECTED/EXPIRED`) y resolución con nota.
 
-**¿Cuándo se alimenta?** Al asignar o revocar un rol a un usuario.
+**Dual control (NIST AC-5):** Constraint `chk_irvb03aq_dual_ctrl` prohíbe `resolved_by = proposed_by` — quien propone no puede aprobar. `required_approvers >= 1` y `<= cardinality(approver_roles)`.
 
-**Código:** Base de reportes de "¿qué roles tenía este usuario el día X?" para auditorías NIST AC-2(7).
+**Flujo:** propuesta → `PENDING` (SLA activo) → quórum alcanzado → `APPROVED` → el sistema aplica el cambio en T-041 y registra en T-152. Si vence el SLA sin quórum: `escalated=true` → alertar a supervisor.
+
+**¿Necesita interfaz en el frontend?** Sí — panel de propuestas con bandeja de aprobación para roles T1/T0.
 
 ---
 
-### T-155 · `bauth.idn_privilege_version`
+### T-154 · `bauth.idn_roles_ver_b01_retention_policy`
 
-**Propósito:** Snapshots versionados del BitmaskBundle compilado por el PrivilegeEngine para cada usuario. Permite reconstruir los privilegios exactos de un usuario en cualquier momento histórico.
+**Propósito:** Política de retención legal por entidad gobernada (clasificación C1). Define cuánto tiempo se mantiene el historial vivo (`hot_window`), cómo se compacta al archivar (`KEEP_ALL/KEEP_ANCHORS/KEEP_LAST_N`), y el piso legal irrenunciable (≥365 días — D99). `legal_hold=true` suspende toda purga ante litigio.
 
-**¿Qué registra?** `bitmask_bundle` JSONB: `{D01:"0x...", D02:"0x...", ..., D12:"0x..."}`. Un int64 por dominio representa el OR de todos los átomos activos del usuario en ese dominio.
+**¿Qué registra?** Una fila por entidad gobernada: `entity_name` (UNIQUE), `info_class` (`C1`–`C4`), `hot_window` (historia viva sin compactar), `compaction_policy`, `retention_total` con constraint `chk_irvb01rp_piso_d99 CHECK (retention_total >= INTERVAL '365 days')`, `legal_basis`, referencias normativas.
 
-**¿Cuándo se alimenta?** Cada vez que el PrivilegeEngine recompila el bundle de un usuario (cambio de rol, cambio de grant, CAEP event).
+**Seed incluido:** `idn_roles_rol_hierarchical` → 10 años (Ley 843 Bolivia Art. 44 · PCI DSS Req 10.5 · AU-11 · SOX-404 · A.5.33).
 
-**Código:** `is_current=true` = versión en Redis. Al revocar, el bundle anterior queda archivado con `valid_until` = timestamp de la revocación.
+**¿Cuándo se alimenta?** Bootstrap (seed automático). El administrador de cumplimiento agrega entidades adicionales.
+
+**¿Necesita interfaz en el frontend?** Sí — panel de gobernanza de retención (solo T0/SU).
+
+---
+
+### T-155 · `bauth.idn_roles_ver_contract_revision_log`
+
+**Propósito:** Changelog estructural del contrato RolTemplate entre versiones (ej: v5.0→v6.0). No es una copia del contrato — es el delta estructural: qué bloques cambiaron, qué campos entraron/salieron, si el cambio es `COMPATIBLE` o `BREAKING`, y qué migración DDL lo materializó. Append-only histórico.
+
+**¿Qué registra?** Transición UNIQUE `(contract_name, version_from, version_to)`: bloques afectados (`blocks_changed[]`), campos agregados/eliminados/modificados, normas afectadas (`standards_affected[]`), compatibilidad, referencia a migración DDL, razón y aprobador.
+
+**¿Cuándo se alimenta?** Al cerrar cada ciclo de versionado del contrato (publicación de nueva versión de RolTemplate). El `chk_irvcrl_diff_ver` prohíbe `version_to = version_from`.
+
+**¿Necesita interfaz en el frontend?** Solo lectura — log histórico de evolución del contrato para auditores y documentadores.
 
 ---
 
@@ -623,7 +737,7 @@ La constraint `chk_pvc_order (verb_a_id < verb_b_id)` elimina duplicados (A,B) =
 
 **Procesos necesarios:**
 - El PDP consulta esta tabla al compilar el BitmaskBundle para detectar conflictos SoD antes de emitir el JWT
-- Las excepciones SoD aprobadas viven en `privilege_sod_exception` (T-176)
+- Las excepciones SoD aprobadas viven en `privilege_exception_record` (T-179)
 
 ---
 
@@ -654,19 +768,21 @@ La constraint `chk_pvc_order (verb_a_id < verb_b_id)` elimina duplicados (A,B) =
 
 ---
 
-### T-163 · `bauth.idn_roles_template_audit` 🔒 WORM
+### T-163 · `bauth.idn_roles_template_history` 🔒 WORM
 
-**Propósito:** Registro inmutable de cambios al árbol de políticas. Todo INSERT, UPDATE o DEACTIVATE en T-162 queda registrado aquí con hash-chain SHA-256.
+**Propósito:** Registro WORM inmutable de cambios al árbol de políticas T-162. Todo INSERT, UPDATE o DEACTIVATE en T-162 queda aquí con hash-chain SHA-256. Convención uniforme con `privilege_atom_audit` (T-170b).
 
-**¿Cuándo se alimenta?** Por trigger en `idn_roles_template`. No tiene UPDATE/DELETE.
+**¿Cuándo se alimenta?** Por trigger en `idn_roles_template`. REVOKE UPDATE/DELETE desde PUBLIC y `bauth_app_role` — solo INSERT desde el daemon.
 
-**Código hash-chain:** `SHA-256(prev_hash || node_id || operation || JSONB(new_data) || created_at::text)`. El primer evento tiene `prev_hash = '000...0'`.
+**Columnas WORM:** `before_row JSONB` / `after_row JSONB` (convención uniforme — no `old_data/new_data`). `prev_hash BYTEA NULL` (primer evento = NULL). `hash_chain BYTEA NOT NULL`.
+
+**Código hash-chain:** `SHA-256(prev_hash || node_id || operation || after_row::text || created_at)`. Permite detectar eliminación o alteración de registros de auditoría.
 
 ---
 
 ## S7 — Identidad D00 (bauth)
 
-### T-156 · `bauth.idn_identidad_entidad`
+### T-156 · `bauth.idn_identity_entity`
 
 **Propósito:** Raíz del modelo D00 de identidad. Toda identidad en SBOS es una entidad aquí. La jerarquía de 5 niveles modela la estructura organizacional de cualquier empresa boliviana.
 
@@ -681,13 +797,13 @@ La constraint `chk_pvc_order (verb_a_id < verb_b_id)` elimina duplicados (A,B) =
 
 **¿Cuándo se alimenta?** BOS Saga al registrar el tenant (crea el nodo tenant). El administrador crea empresas, sucursales, puntos y actores.
 
-**Código:** `user_id` en todas las demás tablas de bauth es el `entidad_id` de un nodo tipo `actor` en esta tabla.
+**Código:** `user_id` en todas las demás tablas de bauth es el `entity_id` de un nodo tipo `actor` en esta tabla.
 
 **¿Necesita interfaz en el frontend?** Sí — árbol organizacional con gestión de entidades. Vista más importante del módulo IAM.
 
 ---
 
-### T-157 · `bauth.idn_identidad_atributo`
+### T-157 · `bauth.idn_identity_attribute`
 
 **Propósito:** Atributos de identidad por entidad. Modelo EAV controlado (namespace.key=value). Permite almacenar atributos verificables (cédula de identidad, NIT, biometría) y no verificables (preferencias), con niveles IAL distintos.
 
@@ -709,48 +825,424 @@ La constraint `chk_pvc_order (verb_a_id < verb_b_id)` elimina duplicados (A,B) =
 
 ---
 
-### T-158 · `bauth.idn_identidad_dominio`
+### T-158 · `bauth.idn_identity_attribute_history` ✅ IMPLEMENTADA (v2.5.0)
 
-**Propósito:** Registra en qué dominios del árbol de políticas (D01..D37) tiene membresía cada entidad. El DomainRegistry controla a qué subconjunto del árbol de políticas accede cada actor.
+**Bloque:** D00-B05 `atributos` · **Nivel DDL:** NIVEL 7 (después de T-157) · **Particionada RANGE (changed_at)**
 
-**¿Qué registra?** (entidad_id, domain_number) UNIQUE. Tipo de grant (STANDARD/JIT/BREAKGLASS), vigencia.
+**Propósito:** Registro WORM (Write Once Read Many) de todos los cambios en `idn_identity_attribute` (T-157). Append-only particionado por mes, con hash-chain SHA-256 por cadena `(entidad_id, attr_namespace, attr_key)`. Garantiza integridad forense: ningún cambio de atributo puede borrarse ni modificarse retroactivamente.
 
-**Código:** Al compilar el BitmaskBundle, el PrivilegeEngine solo considera dominios donde `idn_identidad_dominio.is_active=true` para el usuario. Los dominios sin membresía tienen BitmaskBundle = 0 (acceso denegado).
+**Normas que cumple:**
+- ISO 27001:2022 A.8.15 — logging de operaciones sobre datos de identidad
+- NIST SP 800-53 Rev.5 AU-9/AU-10 — integridad y no-repudio de registros de auditoría
+- PCI DSS 4.0 Req. 10.3.2 — protección de logs contra borrado/modificación
+- GDPR Art. 30 — registro de actividades de tratamiento de datos personales
+- GAP-04 (bAuth interno) — hash-chain WORM como mecanismo de no-repudio
+
+**Estructura de la tabla:**
+
+| Columna | Tipo | Restricción | Descripción |
+|---|---|---|---|
+| `history_id` | UUID | PK (con changed_at) | UUIDv7 — orden cronológico garantizado |
+| `attribute_id` | UUID | FK RESTRICT → T-157 | No borrar atributo con historial |
+| `entity_id` | UUID | NOT NULL | Denorm. de T-157 para auditoría por entidad |
+| `attr_namespace` | TEXT | NOT NULL | Espacio del atributo (core, security, etc.) |
+| `attr_key` | TEXT | NOT NULL | Clave del atributo |
+| `attr_value_old` | JSONB | NULL | Valor anterior (NULL en INSERT) |
+| `attr_value_new` | JSONB | NOT NULL | Valor nuevo |
+| `changed_by` | UUID | FK RESTRICT → T-156 | Entidad que realizó el cambio |
+| `change_reason` | TEXT | NULL | Justificación del cambio |
+| `operation` | TEXT | CHECK | `INSERT` \| `UPDATE` \| `SOFT_DELETE` |
+| `prev_hash` | TEXT | NULL | Hash fila anterior de la cadena (NULL = primera) |
+| `row_hash` | TEXT | NOT NULL | SHA-256 de la cadena completa (GAP-04) |
+| `ctx_id` | TEXT | NOT NULL | Context Plane SBOS-049 |
+| `changed_at` | TIMESTAMPTZ | NOT NULL PK | Clave de partición |
+
+**PK compuesta:** `(history_id, changed_at)` — requerida por PostgreSQL para tablas particionadas.
+
+**Fórmula hash-chain (GAP-04):**
+```
+row_hash = SHA-256(
+    history_id || atributo_id || attr_key ||
+    attr_value_new::text || changed_at::text ||
+    COALESCE(prev_hash, '')
+)
+```
+
+**Particiones (RANGE changed_at):**
+
+| Partición | Rango |
+|---|---|
+| `idn_identity_attribute_history_2026_07` | 2026-07-01 → 2026-08-01 |
+| `idn_identity_attribute_history_2026_08` | 2026-08-01 → 2026-09-01 |
+| `idn_identity_attribute_history_2026_09` | 2026-09-01 → 2026-10-01 |
+| `idn_identity_attribute_history_2026_10` | 2026-10-01 → 2026-11-01 |
+| `idn_identity_attribute_history_2026_11` | 2026-11-01 → 2026-12-01 |
+| `idn_identity_attribute_history_2026_12` | 2026-12-01 → 2027-01-01 |
+
+> Nueva partición mensual se crea mediante `CREATE TABLE … PARTITION OF` antes del primer día de cada mes.
+
+**Índices:**
+
+| Nombre | Columnas | Uso |
+|---|---|---|
+| `idn_identity_attribute_history_pkey` | `(history_id, changed_at)` | PK requerida |
+| `idx_iah_atributo_id` | `(atributo_id, changed_at)` | Historial completo de un atributo |
+| `idx_iah_entidad_ns_key` | `(entidad_id, attr_namespace, attr_key, changed_at)` | Cadena WORM por entidad+atributo |
+| `idx_iah_changed_by` | `(changed_by, changed_at)` | Auditoría por actor |
+| `idx_iah_ctx_id` | `(ctx_id, changed_at)` | Trazabilidad Context Plane |
+
+**Seguridad WORM:**
+```sql
+REVOKE UPDATE, DELETE ON bauth.idn_identity_attribute_history FROM bauth_app_role;
+```
+
+**¿Necesita semilla (seed)?** No — es una tabla de auditoría; se llena por triggers al operar T-157.
+
+**¿Necesita interfaz en el frontend?** Vista de solo lectura en panel de auditoría de identidad.
 
 ---
 
-### T-159 · `bauth.idn_nhi_identity`
+### T-159 · `bauth.idn_identity_requirement` ✅ IMPLEMENTADA (v2.4.0)
 
-**Propósito:** Non-Human Identities (NHI). Registra daemons, pipelines, bots, service accounts, y AI agents que necesitan credenciales para operar en SBOS. Son identidades que no tienen usuario humano detrás.
+**Bloque:** D00-B03 `usuario_esquema` · **Nivel DDL:** NIVEL 6 (después de T-157)
 
-**¿Qué registra?** Tipo (DAEMON/PIPELINE/BOT/SERVICE_ACCOUNT/AGENT_AI/DEVICE), propietario humano, equipo responsable, período de rotación de credenciales, scopes OAuth, ruta en Vault, score de riesgo ITDR.
+**Propósito:** Define el MOLDE formal de completitud del usuario: qué atributos son obligatorios por combinación `(entity_type, ial_level)`. Sin esta tabla, el Motor de Identidad no puede validar que un actor cumple el esquema IAL requerido antes de elevar su nivel de aseguramiento.
 
-**¿Cuándo se alimenta?** Al registrar un nuevo daemon o integración. Ej: al instalar bkernel en un servidor, se crea el NHI `bkernel-s03` con sus scopes WAL.
+**¿Qué registra?** Por cada combinación de tipo de entidad + nivel IAL:
+- `attr_namespace` + `attr_key`: el atributo requerido en `idn_identity_attribute`
+- `is_required`: si el atributo es obligatorio
+- `must_be_verified`: si `idn_identity_attribute.verified = true` es obligatorio
+- `accepted_sources`: fuentes de verificación válidas (`self`, `document`, `government`, `biometric`, `employer`, `blockchain`)
+- `validation_regex`: regex de validación del valor (ej: CI boliviana `^\d{7,8}$`)
+- `max_age_days`: antigüedad máxima del atributo para considerarlo vigente (NULL = sin límite)
+- `error_message JSONB`: mensaje bilingüe `{es, en}` devuelto al frontend
+
+**Scope:** `tenant_id = NULL` = requisito global del sistema (aplica a todos los tenants). `tenant_id NOT NULL` = override del tenant (sobreescribe el global para esa clave). La resolución es: tenant override > global.
+
+**¿Cuándo se alimenta?** Seeds en el DDL (requisitos base IAL1/IAL2/IAL3 para Bolivia). Los tenants pueden agregar requisitos adicionales vía `bauth.identity.schema.configure`.
+
+**Seeds incluidos:**
+
+| IAL | Namespace | Atributo | Verified | Fuentes |
+|-----|-----------|----------|----------|---------|
+| IAL1 | core | full_name | No | self |
+| IAL1 | contact | email | No | self |
+| IAL2 | core | full_name | Sí | document, government |
+| IAL2 | core | national_id | Sí | document, government |
+| IAL2 | contact | email | Sí | self, employer |
+| IAL3 | core | full_name | Sí | government |
+| IAL3 | core | national_id | Sí | government |
+| IAL3 | verification | biometric_ref | Sí | biometric |
+
+**Relaciones:**
+- `tenant_id` → `idn_tenant(tenant_id)` (CASCADE DELETE)
+- Referenciada por el Motor de Identidad al evaluar `pip_check_ial_completeness(entidad_id, ial_target)`
 
 **Procesos necesarios:**
-- Job de rotación: `WHERE next_rotation_at <= NOW() AND status='ACTIVE'` → rotar credencial en Vault y actualizar last/next_rotated_at
-- Certificación trimestral: crear campaña de certificación NHI (T-161) cada 90 días
-- ITDR: job de scoring que actualiza `risk_score` basado en comportamiento (accesos inusuales, escapes de scope)
+- Motor de Identidad (D00): `pip_check_ial_completeness(entidad_id, target_ial)` → consulta esta tabla, verifica contra T-157, devuelve lista de atributos faltantes o vacía si OK
+- Al crear atributo IAL2/IAL3: verificar `accepted_sources` antes de marcar `verified=true`
+
+**Nunca eliminar filas:** desactivar con `is_active = false` para mantener historicidad. La resolución del Motor de Identidad filtra `WHERE is_active = true`.
+
+**¿Necesita interfaz en el frontend?** Sí — panel de administración "Esquema de identidad" visible para administradores del tenant (T0/T1). Permite agregar requisitos adicionales sin modificar el DDL.
+
+**Normas:** NIST SP 800-63A-4 §4 · ISO/IEC 24760-2:2025 §5 · ISO 11179-3:2023
 
 ---
 
-### T-160 · `bauth.idn_nhi_lifecycle_event` 🔒 WORM
+### ⚠️ `bauth.idn_identidad_dominio` *(SIN T-CODE — AUSENTE DEL DDL)*
 
-**Propósito:** Ciclo de vida completo de cada NHI. Registro forense inmutable de cada transición de estado.
+**Estado:** el DomainRegistry (tabla que mapea entidades a dominios D01..D37) no tiene T-code asignado ni `CREATE TABLE` en el DDL. Es un gap de diseño.
 
-**¿Cuándo se alimenta?** Por trigger en `idn_nhi_identity` al cambiar status. No tiene UPDATE/DELETE.
+**Propósito planeado:** registrar en qué dominios del árbol de políticas tiene membresía cada entidad. El PrivilegeEngine filtraría el BitmaskBundle al compilar: solo considera dominios donde la entidad tiene membresía activa.
 
 ---
 
-### T-161 · `bauth.idn_nhi_certification`
+### T-159 · `bauth.idn_roles_nhi_identity`
 
-**Propósito:** Certificaciones periódicas de NHI. El propietario revisa si el NHI sigue necesitando sus scopes actuales. Obligatorio cada 90 días (NIST AC-2(7)).
+**Propósito:** Entidad raíz de toda identidad máquina gobernada del ecosistema SBOS. Registra daemons, pipelines, service accounts, bots, AI agents y workloads que necesitan credenciales. Cada NHI tiene un propietario humano accountable (`owner_id`) — quien rinde cuentas si el NHI actúa incorrectamente.
 
-**¿Qué registra?** Decisión (CERTIFY/DECOMMISSION/REDUCE_SCOPE), razón, cambios de scope propuestos, vencimiento de la certificación.
+**¿Qué registra?** Tipo (`SERVICE_ACCOUNT/WORKLOAD/AGENT/BOT/API_CLIENT/CI_CD_PIPELINE`), propietario humano y respaldo (`backup_owner_id`), referencia única del NHI en el tenant (`system_ref`, ej: `bkernel:sync-worker-01`), `last_used_at` (detecta dormancia >90 días), `review_at` (cadencia: 30d CI/CD; 90d service accounts), estado (`ACTIVE/DORMANT/DECOMMISSIONED/SUSPENDED`).
+
+**¿Cuándo se alimenta?** Al registrar un nuevo daemon o integración. Seeds IAM Installer: una fila por daemon SBOS (bkernel, biedata, bnotify, bsearch, bnexus).
+
+**Relaciones:**
+- `idn_roles_nhi_lifecycle_event` (T-160) → log WORM de ciclo de vida
+- `idn_roles_nhi_certification` (T-161) → certificaciones mensuales
+- `idn_roles_nhi_agent_identity` (T-190) → especialización para AI agents (1:1)
+
+**Procesos necesarios:**
+- Job de dormancia: `WHERE last_used_at < NOW() - INTERVAL '90 days' AND status='ACTIVE'` → alertar y marcar `DORMANT`
+- Job de revisión: `WHERE review_at <= NOW() AND status='ACTIVE'` → crear certificación en T-161
+
+---
+
+### T-160 · `bauth.idn_roles_nhi_lifecycle_event` 🔒 WORM
+
+**Propósito:** Log WORM append-only del ciclo de vida de cada NHI. Registro forense inmutable de cada transición de estado. REVOKE UPDATE/DELETE desde `bauth_app_role`.
+
+**Eventos posibles:** `PROVISIONED → CERTIFIED → ROTATED / SUSPENDED → REACTIVATED → DECOMMISSIONED`, más `OWNER_CHANGED` y `REVIEW_SCHEDULED`.
+
+**¿Cuándo se alimenta?** Por trigger en `idn_roles_nhi_identity` al cambiar `status`. Solo INSERT desde el daemon.
+
+---
+
+### T-161 · `bauth.idn_roles_nhi_certification`
+
+**Propósito:** Certificaciones periódicas mensuales de NHI por el propietario técnico (más frecuente que certificación humana trimestral — NHI cambian más rápido). Obligatorio según NIST AC-2(7).
+
+**¿Qué registra?** Período de revisión (`period_start/end`), `last_used_at` y `access_count` del período (señales clave — `access_count=0` es el indicador más fuerte para descomisionar), decisión (`CERTIFY/DECOMMISSION/REDUCE_SCOPE/ESCALATE`), justificación y revisor.
+
+---
+
+### T-190 · `bauth.idn_roles_nhi_agent_identity`
+
+**Propósito:** Especialización de `idn_roles_nhi_identity` para agentes IA autónomos. Limita los dominios que puede usar el agente — `max_permission_scope[]` actúa como techo aunque el NHI padre tenga más acceso. Registra el árbol de orquestación (`orchestrator_id` auto-referencia) para forensia de cadenas de agentes.
+
+**¿Qué registra?** Framework del agente (`agent_framework`), orquestador padre (`orchestrator_id`), dominios máximos (`max_permission_scope TEXT[]`), tipo de sesión (`EPHEMERAL/PERSISTENT`), si puede lanzar sub-agentes (`can_spawn_agents`), profundidad máxima de delegación (`max_spawn_depth`).
+
+**Constraint de coherencia:** `chk_iai_spawn` garantiza: `can_spawn_agents=false → max_spawn_depth=0` (y viceversa). `can_spawn_agents=false` por defecto — solo orquestradores explícitamente aprobados pueden crear sub-agentes.
+
+**⚠️ PENDIENTE HITL:** herencia de permisos padre→hijo vs permisos propios independientes.
+
+**Normas:** NIST AI RMF 1.0 · CSA NHI Governance 2025 · ISO 42001:2023.
+
+**¿Necesita interfaz en el frontend?** Sí — subpanel dentro del inventario NHI para agentes IA, con árbol de orquestación visualizado.
+
+---
+
+### T-165 · `bauth.idn_identity_proofing` ✅ IMPLEMENTADA (v2.6.0)
+
+**Bloque:** D00-B06 `proofing` · **Nivel DDL:** NIVEL 6 (después de T-159)
+
+**Propósito:** Proceso de identity proofing por usuario individual. Registra el IAL efectivamente alcanzado, tipo de proceso, evidencias recopiladas (FAIR/STRONG/SUPERIOR según NIST), revisor, estado y fechas de vencimiento y re-proofing.
+
+**Normas:** NIST SP 800-63A-4 §4–6 · ISO/IEC 29115:2013 · ISO 24760-2:2025 §7.2 · eIDAS 2.0 Art. 24
+
+| Columna | Tipo | Descripción |
+|---|---|---|
+| `proofing_id` | UUID PK | UUIDv7 |
+| `entity_id` | UUID FK CASCADE | Actor sujeto del proofing |
+| `tenant_id` | UUID FK CASCADE | Tenant que ejecuta el proofing |
+| `ial_achieved` | ial_level_enum | IAL efectivamente alcanzado |
+| `proofing_type` | TEXT CHECK | SELF_ASSERTED · REMOTE_UNATTENDED · REMOTE_ATTENDED · IN_PERSON · TRUSTED_REFEREE |
+| `evidence` | JSONB | Estructura `{FAIR:[...], STRONG:[...], SUPERIOR:[...]}` |
+| `evidence_count` | SMALLINT GENERATED | Suma de evidencias (columna computada) |
+| `reviewer_id` | UUID FK NULL | Obligatorio para IAL3 (IN_PERSON/TRUSTED_REFEREE) |
+| `status` | TEXT CHECK | PENDING · IN_PROGRESS · PASSED · FAILED · EXPIRED |
+| `expires_at` | TIMESTAMPTZ NULL | IAL2: 365d · IAL3: 180-730d |
+| `reproofing_at` | TIMESTAMPTZ NULL | Job: notificar via bNotify cuando `<= NOW()` |
+
+**Índices:** 5 — por entidad+status, tenant+status+IAL, reproofing_at parcial, expires_at parcial, reviewer_id parcial.
+
+**¿Necesita semilla?** No — se llena por el flujo de proofing del Motor de Identidad.
+
+**¿Necesita interfaz?** Sí — panel de verificación de identidad en perfil del actor.
+
+---
+
+### T-166 · `bauth.idn_identity_consent` ✅ IMPLEMENTADA (v2.6.0)
+
+**Bloque:** D00-B07 `consentimiento` · **Nivel DDL:** NIVEL 6 (después de T-165)
+
+**Propósito:** Registro WORM del consentimiento de privacidad por sujeto de datos. Registra otorgamiento y retirada en la misma fila. GDPR Art. 7.1: el responsable debe demostrar que el titular consintió. Sin DELETE (evidencia forense).
+
+**Normas:** GDPR Art. 6–7 · ISO/IEC 29184:2020 · Ley 1174 Bolivia Art. 12–15 · NIST SP 800-63-4 §10
+
+| Columna | Tipo | Descripción |
+|---|---|---|
+| `consent_id` | UUID PK | UUIDv7 |
+| `entity_id` | UUID FK RESTRICT | Sujeto — RESTRICT: evidencia forense |
+| `tenant_id` | UUID FK RESTRICT | Tenant responsable del tratamiento |
+| `policy_version` | TEXT | Versión de política vigente (ej: `2026-v2.1`) |
+| `processing_scope` | TEXT[] | Alcances del tratamiento consentido |
+| `legal_basis` | TEXT CHECK | CONSENT · CONTRACT · LEGAL_OBLIGATION · VITAL_INTEREST · PUBLIC_TASK · LEGITIMATE_INTEREST |
+| `granted_via` | TEXT CHECK | WEB · API · APP · IN_PERSON · EMAIL |
+| `ip_address` | INET NULL | IP de origen del consentimiento |
+| `withdrawn_at` | TIMESTAMPTZ NULL | NULL = vigente · SET = retirado |
+| `is_active` | BOOLEAN GENERATED | `withdrawn_at IS NULL` |
+
+**WORM:** `REVOKE DELETE ON … FROM bauth_app_role` — registro histórico forense.
+
+**¿Necesita semilla?** No — se llena en el flujo de onboarding del usuario.
+
+**¿Necesita interfaz?** Sí — centro de privacidad del usuario (ver/retirar consentimientos activos).
+
+---
+
+### T-167 · `bauth.idn_identity_vc` ✅ IMPLEMENTADA (v2.6.0)
+
+**Bloque:** D00-B08 `verifiable_credential` · **Nivel DDL:** NIVEL 6 (después de T-166, depende de T-165)
+
+**Propósito:** Ciclo de vida completo de Verifiable Credentials emitidas por bAuth como Issuer o verificadas como Verifier. Soporta W3C VCDM 2.0 (Rec mayo 2025) y SD-JWT VC para selective disclosure.
+
+**Normas:** W3C VC Data Model 2.0 · eIDAS 2.0 Reglamento UE 2024/1183 Art. 45 · NIST SP 800-63-4 §5 · W3C DID Core v1.1
+
+| Columna | Tipo | Descripción |
+|---|---|---|
+| `vc_id` | UUID PK | UUIDv7 |
+| `vc_uri` | TEXT UNIQUE | URN canónico o URL resolvible de la VC |
+| `vc_type` | TEXT[] | Siempre incluye `"VerifiableCredential"` |
+| `vc_format` | TEXT CHECK | VC_DATA_MODEL_1_1 · VC_DATA_MODEL_2_0 · SD_JWT_VC |
+| `issuer_did` | TEXT | DID del emisor: `did:besu:SBOS:…` |
+| `credential_subject` | JSONB | Claims del sujeto (sin PII en texto plano) |
+| `proof` | JSONB | DataIntegrityProof eddsa-rdfc-2022 vía Vault |
+| `status` | TEXT CHECK | ACTIVE · REVOKED · SUSPENDED · EXPIRED |
+| `status_list_url` | TEXT NULL | W3C VC Status List 2021 — revocación escalable |
+| `proofing_id` | UUID FK NULL SET NULL | Trazabilidad al proofing origen |
+
+**Índices:** 7 — por entidad+status, vc_uri, issuer+status, subject_did, vc_type GIN, expiry parcial, credential_subject GIN jsonb_path_ops.
+
+**¿Necesita semilla?** No — se llena al emitir o verificar VCs.
+
+**¿Necesita interfaz?** Sí — wallet de credenciales del usuario + panel de emisión/revocación del administrador.
+
+---
+
+### T-168 · `bauth.idn_tenant_fal_config` ✅ IMPLEMENTADA (v2.6.0)
+
+**Bloque:** D00-B09 `fal` · **Nivel DDL:** NIVEL 1 (después de T-011, junto a infraestructura de tenant)
+
+**Propósito:** Configuración del Federation Assurance Level (FAL) por Relying Party registrada en bAuth como IdP OIDC. Define controles de seguridad requeridos (PKCE, DPoP, mTLS) y parámetros de aserción por RP. Constraints garantizan coherencia FAL↔controles.
+
+**Normas:** NIST SP 800-63-4 §5 · OpenID Connect Core 1.0 · RFC 9449 (DPoP) · RFC 8705 (mTLS) · RFC 7636 (PKCE)
+
+| Columna | Tipo | Descripción |
+|---|---|---|
+| `fal_config_id` | UUID PK | UUIDv7 |
+| `tenant_id` | UUID FK CASCADE | Tenant propietario de la config |
+| `rp_client_id` | TEXT | client_id OIDC del RP |
+| `fal_level` | TEXT CHECK | FAL1 · FAL2 · FAL3 |
+| `require_pkce` | BOOLEAN | FAL1+: PKCE RFC 7636 obligatorio |
+| `require_dpop` | BOOLEAN | FAL2+: DPoP RFC 9449 |
+| `require_mtls` | BOOLEAN | FAL3: mTLS RFC 8705 |
+| `assertion_ttl_sec` | INTEGER | TTL del ID token (FAL3 ≤ 300s) |
+| `allowed_redirect_uris` | TEXT[] | Sin wildcards en FAL2+ |
+
+**Constraints de coherencia:** `chk_ifal_fal2_dpop` (FAL2/FAL3 requiere DPoP o mTLS) · `chk_ifal_fal3_mtls` (FAL3 requiere mTLS).
+
+**¿Necesita semilla?** No — se llena al registrar cada Relying Party.
+
+**¿Necesita interfaz?** Sí — panel de configuración de federación OIDC en administración de tenants.
+
+---
+
+### T-186 · `bauth.idn_identidad_lifecycle_event` ✅ IMPLEMENTADA (v2.7.0)
+
+**Bloque:** D00 IAM Enterprise (JML) · **Nivel DDL:** NIVEL 6 (después de T-156)
+
+**Propósito:** Registro inmutable de eventos de ciclo de vida JML (Joiner/Mover/Leaver). Cada transición laboral genera un evento que permite ajustar privilegios automáticamente y auditar todo el historial de movimientos de una entidad. Compatible con SCIM 2.0 provisioning events (RFC 7644 §3.4.3). Normas: NIST SP 800-53 AC-2(1) · IEC 62443 · ISO 27001 A.9.2.
+
+**Normas:** NIST SP 800-63-3 §4 JML · SCIM 2.0 RFC 7644 §3.4.3 · ISO 27001 A.9.2
+
+| Columna | Tipo | Descripción |
+|---|---|---|
+| `event_id` | UUID PK | UUIDv7 |
+| `entity_id` | UUID FK RESTRICT | Entidad cuya vida laboral cambia |
+| `tenant_id` | UUID FK CASCADE | Tenant de la entidad |
+| `event_type` | TEXT CHECK | HIRED · TRANSFERRED · PROMOTED · ON_LEAVE · RETURNED · TERMINATED · REACTIVATED |
+| `effective_at` | TIMESTAMPTZ | Cuándo entra en vigor el evento |
+| `triggered_by` | UUID FK RESTRICT | Actor que disparó el evento |
+| `policy_snapshot` | JSONB NULL | Estado de privilegios al momento del evento |
+| `notes` | TEXT NULL | Notas del administrador |
+| `ctx_id` | TEXT | Contexto de auditoría (SBOS-049) |
+
+**Índices:** `idx_ile_entidad` · `idx_ile_tenant_type` · `idx_ile_triggered_by`
+
+---
+
+### T-169 · `bauth.idn_did_document` ✅ IMPLEMENTADA (v2.7.0)
+
+**Bloque:** D00 IAM Enterprise (DID Resolver) · **Nivel DDL:** NIVEL 6 (después de T-156)
+
+**Propósito:** Caché de documentos DID resueltos según W3C DID Core v1.1 CR (mar 2026). Evita llamadas externas al resolver en cada operación de autenticación — el resolver bAuth consulta esta tabla primero y actualiza cuando el documento caduca (`expires_at`). Soporta métodos DID: `did:web`, `did:key`, `did:ion`, `did:ebsi`, `did:peer`.
+
+**Normas:** W3C DID Core v1.1 CR (mar 2026) · W3C DID Resolution v0.3 · eIDAS 2.0 EBSI
+
+| Columna | Tipo | Descripción |
+|---|---|---|
+| `did_id` | UUID PK | UUIDv7 |
+| `did` | TEXT UNIQUE | DID en formato canónico W3C. Ej: `did:web:example.com` |
+| `did_method` | TEXT | Método DID (web, key, ion, ebsi, peer...) |
+| `document` | JSONB | Documento DID resuelto (JSON-LD completo) |
+| `status` | TEXT CHECK | ACTIVE · DEACTIVATED · INVALID · EXPIRED |
+| `tenant_id` | UUID FK NULL | Tenant propietario (NULL = doc externo compartido) |
+| `entity_id` | UUID FK NULL | Entidad local vinculada al DID |
+| `resolved_at` | TIMESTAMPTZ | Fecha de última resolución |
+| `expires_at` | TIMESTAMPTZ NULL | Expiración de caché (NULL = estático sin expirar) |
+| `deactivated_at` | TIMESTAMPTZ NULL | Fecha de deactivation W3C |
+
+**Índices:** `idx_idd_method` · `idx_idd_tenant` · `idx_idd_entidad` · `idx_idd_status` · `idx_idd_expires`
+
+---
+
+### T-187 · `bauth.idn_scim_attribute_map` ✅ IMPLEMENTADA (v2.7.0)
+
+**Bloque:** D00 IAM Enterprise (SCIM) · **Nivel DDL:** NIVEL 6
+
+**Propósito:** Mapeo bidireccional entre atributos locales de bAuth y el esquema SCIM 2.0. Permite provisioning y sync con directorios empresariales (Azure AD, Okta, OneLogin) sin depender de Keycloak (ADR-010). Cada fila mapea 1 atributo SCIM ↔ 1 atributo local. Incluye 10 seeds de mapeo estándar para User y EnterpriseUser.
+
+**Normas:** RFC 7643 (SCIM Schema) · RFC 7644 (SCIM Protocol) · OpenID Connect Provider Metadata
+
+| Columna | Tipo | Descripción |
+|---|---|---|
+| `map_id` | UUID PK | UUIDv7 |
+| `tenant_id` | UUID FK NULL | Tenant (NULL = mapeo global por defecto) |
+| `scim_resource` | TEXT CHECK | User · Group · EnterpriseUser · ServiceAccount · CustomResource |
+| `scim_attr` | TEXT | Atributo SCIM (ej: `emails[type=work].value`) |
+| `local_namespace` | TEXT | Namespace del atributo local |
+| `local_attr_key` | TEXT | Clave del atributo local |
+| `local_table` | TEXT CHECK | Tabla fuente del atributo local |
+| `scim_mutability` | TEXT CHECK | readOnly · readWrite · immutable · writeOnly |
+| `scim_returned` | TEXT CHECK | always · never · default · request |
+| `transform_expr` | TEXT NULL | SQL expression de transformación (opcional) |
+
+**UNIQUE:** `(tenant_id, scim_resource, scim_attr)` — un atributo SCIM tiene un único mapeo por tenant.
+
+**Seeds incluidos:** 10 mapeos estándar (userName, displayName, name.*, emails, phoneNumbers, active, externalId, organization, employeeNumber).
+
+---
+
+### T-188 · `bauth.idn_dpia_registro` ✅ IMPLEMENTADA (v2.7.0)
+
+**Bloque:** D00 IAM Enterprise (DPIA) · **Nivel DDL:** NIVEL 6 (después de T-156)
+
+**Propósito:** Registro de Evaluaciones de Impacto Relativas a la Protección de Datos (DPIA) según GDPR Art. 35. Obligatorio para tratamientos de alto riesgo. Gestiona el ciclo completo: DRAFT → IN_REVIEW → APPROVED/REJECTED. Soporta consulta previa a autoridad de control (GDPR Art. 36) y revisión periódica obligatoria (GDPR Art. 35.11). Ref: WP248 rev01 + Guía AEPD 2023.
+
+**Normas:** GDPR Art. 35/36 · WP248 rev01 (WP29) · Guía AEPD DPIA 2023 · ISO 29134:2017
+
+| Columna | Tipo | Descripción |
+|---|---|---|
+| `dpia_id` | UUID PK | UUIDv7 |
+| `tenant_id` | UUID FK RESTRICT | Tenant responsable del tratamiento |
+| `titulo` | JSONB | Título multilingüe del DPIA |
+| `descripcion` | JSONB | Descripción del tratamiento multilingüe |
+| `finalidad` | TEXT | Finalidad del tratamiento (GDPR Art. 5.1.b) |
+| `categorias_datos` | TEXT[] | Categorías de datos involucradas |
+| `datos_especiales` | BOOLEAN | ¿Incluye Art. 9 datos especiales? |
+| `riesgos` | JSONB | Lista de riesgos identificados |
+| `riesgo_residual` | TEXT CHECK | LOW · MEDIUM · HIGH · VERY_HIGH |
+| `medidas_mitigacion` | JSONB | Medidas técnicas y organizativas |
+| `estado` | TEXT CHECK | DRAFT · IN_REVIEW · APPROVED · REJECTED · ARCHIVED · REQUIRES_DPA |
+| `requiere_consulta_previa` | BOOLEAN | ¿Consulta previa DPA requerida? (Art. 36) |
+| `responsable_id` | UUID FK RESTRICT | DPO o responsable del tratamiento |
+| `next_review_at` | TIMESTAMPTZ NULL | Próxima revisión periódica (Art. 35.11) |
+
+**Índices:** `idx_idpia_tenant` · `idx_idpia_estado` · `idx_idpia_responsable` · `idx_idpia_revision` · `idx_idpia_especiales`
 
 ---
 
 ## S8 — Privilegios (bauth)
+
+> **Refactorización v2.3.0:** el DDL reordenó y renombró las tablas de S8. Mapa de cambios:
+> | Manual anterior | DDL canónico (actual) | Cambio |
+> |---|---|---|
+> | T-171 `privilege_override` | T-173 `privilege_override` | Renumerado |
+> | T-172 `privilege_assurance_log` | T-176 `privilege_assurance_audit` | Renombrado |
+> | T-176 `privilege_sod_exception` | T-179 `privilege_exception_record` | Renombrado |
+> | T-179 `privilege_menu_atom` | `bglobal.menu_item_atom` | Movida a bglobal |
+> | *(nueva)* | T-171 `privilege_resource_atom` | Nueva — PAP para Kong PEP |
+> | *(nueva)* | T-172 `privilege_delegation` | Nueva — auditoría de delegaciones |
 
 ### T-170 · `bauth.privilege_atom_grant` 🔄 REPLICA
 
@@ -874,47 +1366,78 @@ Cubre únicamente los grants que **están dando acceso efectivo** y son elegible
 
 ---
 
-### T-171 · `bauth.privilege_override`
+### T-171 · `bauth.privilege_resource_atom` ⭐ NUEVA
 
-**Propósito:** Overrides de efecto de un átomo para un usuario específico. Permite excepciones controladas: DENY_TO_PERMIT (excepción aprobada a una negación) o PERMIT_TO_DENY (restricción adicional a un permiso).
+**Propósito:** Tabla PAP (Policy Administration Point) para Kong PEP. Liga recursos de red (protocolo + ruta + operación) con el átomo de control en T-162. Kong consulta esta tabla al arrancar para resolver decisiones en < 0.5 ns sin consultar bAuth en cada request.
 
-**¿Cuándo se alimenta?** Por el administrador al aprobar una excepción específica documentada. Requiere `approved_by` + `valid_until` obligatorio.
+**¿Qué registra?** `protocol_type` (WS_RPC/JSON_RPC/GRPC/UNIX_SOCKET/HTTP_EXT), `recurso`, `operacion`, `id_atom` → T-162, `domain_code` (D01-D37), `evaluation_path` (FAST/POLICY/EXTERNAL/PRECONDITION), `obligation` JSONB (`required_loa`).
+
+**Semántica:** D01-D12 → FastPath (< 0.5 ns, bit=1 en JWT basta). D13-D37 → PolicyPath (Kong consulta bAuth PDP). `obligation NOT NULL` → Kong verifica LoA contra sesión en Redis ANTES de conceder acceso.
+
+**Sin mapeo en esta tabla = DENY por defecto** (NIST SP 800-207: sin política explícita = denegado).
+
+**¿Cuándo se alimenta?** Al registrar un nuevo endpoint o método RPC. Kong recarga via CAEP `catalog_change` sobre Unix socket sin reiniciar.
+
+**¿Necesita interfaz en el frontend?** Sí — panel de configuración de recursos para administradores T0/SU.
+
+---
+
+### T-172 · `bauth.privilege_delegation` ⭐ NUEVA
+
+**Propósito:** Registro de auditoría de asignaciones de rol temporal. Responde: "¿por qué tiene este usuario este rol temporal y quién lo autorizó?". **SOLO AUDITORÍA** — la validación real vive en T-170 (grants) y en `merge_roles` Rust.
+
+**¿Qué registra?** `role_id`, `assignee_id`, `assigned_by`, `reason`, `valid_from/until`, `ctx_id`. La vigencia referenciada aquí es informativa; la vigencia real está en los átomos del rol en T-170.
+
+**Flujo atómico:** INSERT en `privilege_delegation` + INSERT en `privilege_atom_grant` en una sola TX.
+
+---
+
+### T-173 · `bauth.privilege_override` *(antes T-171)*
+
+**Propósito:** Excepciones DENY→PERMIT (o PERMIT→DENY) con quórum de aprobación. Para emergencias documentadas — no para gestión ordinaria de accesos.
+
+**¿Cuándo se alimenta?** Por el administrador al aprobar una excepción específica. Requiere `approver_id` + `valid_until` obligatorio + `reason` documentada.
 
 **Código:** El Motor de Identidad aplica overrides DESPUÉS de evaluar el grant base:
-1. Evaluar BitmaskBundle (resultado base)
-2. Buscar overrides activos para (user_id, atom_id)
+1. Evaluar BitmaskBundle (resultado base desde T-170)
+2. Buscar overrides activos para `(user_id, id_atom)` con FK compuesta deferida
 3. Si existe DENY_TO_PERMIT → forzar PERMIT aunque el bit esté en 0
 4. Si existe PERMIT_TO_DENY → forzar DENY aunque el bit esté en 1
 
----
-
-### T-172 · `bauth.privilege_assurance_log` 📦 PART
-
-**Propósito:** Log de evaluaciones de aseguramiento del PDP. Cada decisión PERMIT/STEP_UP_REQUIRED/DENIED queda registrada con el LoA presentado vs el LoA requerido. Base del ITDR (T-180) para detectar intentos de acceso con LoA insuficiente.
-
-**¿Cuándo se alimenta?** Por cada evaluación de acceso del Motor de Identidad. Alta volumetría — particionada por mes.
+**Constraint:** un solo override activo del mismo tipo por `(tenant_id, id_atom, user_id, override_type)`.
 
 ---
 
-### T-176 · `bauth.privilege_sod_exception`
+### T-176 · `bauth.privilege_assurance_audit` *(antes T-172 `privilege_assurance_log`)*
 
-**Propósito:** Excepciones aprobadas a reglas SoD. Cuando el negocio necesita que un usuario tenga dos verbos en conflicto (ej: jefe único en empresa pequeña que debe APPROVE y SIGN), puede solicitarse una excepción con quórum de aprobadores.
+**Propósito:** Auditoría de evaluaciones de obligación LoA realizadas por Kong PEP. Registra CÓMO se ejerció lo otorgado, no qué se otorgó (eso es T-170b). Una fila por request cuyo recurso en T-171 tenga `obligation IS NOT NULL`.
 
-**¿Cuándo se alimenta?** Al aprobar una solicitud de excepción SoD (flujo separado). La constraint `chk_pse_quorum` garantiza que `len(approved_by) >= approval_quorum` antes de activar.
+**¿Quién escribe?** Kong — no bAuth. Solo INSERT (REVOKE UPDATE/DELETE).
 
-**Toda excepción SoD tiene `valid_until` obligatorio.** No existen excepciones permanentes.
+**¿Qué registra?** `grant_id`, `resource_id`, `required_loa`, `presented_loa`, `outcome` (PERMIT/STEP_UP_REQUIRED/DENIED), `session_id`, `evaluated_by` (kong-pep).
+
+**Separación de responsabilidades:** T-170b audita QUÉ SE OTORGÓ y cuándo cambió el grant. T-176 audita CÓMO SE EJERCIÓ en runtime.
 
 ---
 
-### T-179 · `bauth.privilege_menu_atom`
+### T-179 · `bauth.privilege_exception_record` *(antes T-176 `privilege_sod_exception`)*
 
-**Propósito:** Liga ítems de menú (T-059) con átomos del árbol de políticas (T-162). El PEP de frontend filtra la UI: un ítem es visible si el usuario tiene PERMIT en el atom_id correspondiente según su BitmaskBundle.
+**Propósito:** Gobernanza de excepciones a políticas. Documenta el contexto de aprobación detrás de un override en T-173. El trigger SoD en T-170 consulta esta tabla antes de rechazar un INSERT por conflicto — si hay excepción activa para `(usuario, átomo)`, permite el grant.
 
-**¿Cuándo se alimenta?** Al registrar un nuevo ítem de menú (admin panel). Toda funcionalidad nueva debe estar ligada a un átomo para que quede bajo control del PDP.
+**¿Cuándo se alimenta?** Al aprobar una solicitud de excepción a una política (SoD, tier, scope). `business_reason` con mínimo 50 caracteres (ISO 27001 exige toda excepción documentada).
+
+**Campos clave:** `policy_violated`, `exception_type` (SOD_EXCEPTION/TIER_EXCEPTION/SCOPE_EXCEPTION/OTHER), `approved_by`, `valid_until`, `review_at` (≤ `valid_until`). No existen excepciones permanentes.
+
+---
+
+### `bglobal.menu_item_atom` *(antes T-179 `bauth.privilege_menu_atom`)*
+
+**Cambio:** migrada al schema `bglobal` (menú es recurso compartido, no exclusivo de bauth). Liga ítems de menú (T-059) con átomos del árbol de políticas (T-162).
+
+**¿Cuándo se alimenta?** Al registrar un nuevo ítem de menú. Toda funcionalidad nueva debe estar ligada a un átomo para quedar bajo control del PDP.
 
 **Código (frontend PEP):**
 ```typescript
-// El BitmaskBundle llega en el JWT
 const canSee = (itemCode: string): boolean => {
   const menuAtoms = menuAtomMap[itemCode]; // cargado al inicializar
   return menuAtoms.some(atomId => bitmask.hasPermit(atomId));
@@ -925,236 +1448,344 @@ const canSee = (itemCode: string): boolean => {
 
 ## S9 — Sesión (bauth)
 
-### T-181 · `bauth.idn_sesion_activa`
+> **Refactorización v2.3.0:** las tablas de S9 fueron renombradas para alinear el prefijo con el schema funcional (`ses_`) y dividir/fusionar responsabilidades.
+>
+> | Manual anterior | DDL canónico (actual) | Cambio |
+> |---|---|---|
+> | T-181 `idn_sesion_activa` | T-181 `ses_session_log` | Renombrado + fusionó T-193 |
+> | T-191 `idn_caep_event` | T-191 `ses_caep_event_log` | Renombrado |
+> | T-192 `idn_ssf_delivery` | T-192 `ses_ssf_stream` | Dividida (solo configuración) |
+> | *(parte de T-192)* | T-193 `ses_ssf_delivery_log` | Nueva — log de entregas SSF |
+> | T-193 `idn_sesion_audit` | *(fusionada en T-181)* | Eliminada como tabla separada |
 
-**Propósito:** Sesiones activas — proyección de Redis en PostgreSQL para persistencia y auditoría. La fuente operativa de sesiones es Redis (BitmaskBundle + sesión data); esta tabla es el failsafe ante falla de Redis y la fuente de auditoría permanente.
+### T-181 · `bauth.ses_session_log` *(antes `idn_sesion_activa`)* 🔒 WORM parcial
 
-**¿Qué registra?** `session_id`, usuario, tenant, rol activo, LoA, métodos de auth usados, IP, user-agent, JTI del JWT, token hash, fechas de inicio/expiración/última actividad, score de riesgo, step-up válido hasta.
+**Propósito:** Log unificado de sesiones. Combina el estado activo (proyección de Redis) con el historial de eventos de sesión. La fuente operativa sigue siendo Redis; esta tabla es el failsafe ante falla de Redis y el registro permanente de auditoría.
 
-**¿Cuándo se alimenta?** En cada autenticación exitosa. `last_activity_at` se actualiza en cada request autenticado. `step_up_valid_until` se establece al completar step-up RFC 9470.
+**¿Qué registra?** `session_id`, usuario, tenant, rol activo, LoA, métodos de auth usados, IP, user-agent, JTI del JWT, token hash, fechas de inicio/expiración/última actividad, score de riesgo, step-up válido hasta. Eventos: LOGIN, LOGOUT, STEP_UP, REVOKE, IDLE_TIMEOUT.
+
+**¿Cuándo se alimenta?** En cada autenticación exitosa y en cada evento del ciclo de vida de la sesión. `last_activity_at` se actualiza en cada request autenticado. `step_up_valid_until` al completar step-up RFC 9470.
 
 **Procesos necesarios:**
-- Job de limpieza: `WHERE expires_at < NOW() OR revoked_at IS NOT NULL` → archivar en `idn_sesion_audit` y DELETE
+- Job de limpieza: filas `expires_at < NOW()` y `revoked_at IS NOT NULL` se archivan y se purgan pasado el período de retención
 - Kong PEP: valida `jti` en Redis (cache caliente) y en esta tabla (fallback)
 
 **¿Necesita interfaz en el frontend?** Sí — "Mis sesiones activas" para el usuario + panel de sesiones para administradores.
 
 ---
 
-### T-191 · `bauth.idn_caep_event`
+### T-191 · `bauth.ses_caep_event_log` *(antes `idn_caep_event`)*
 
 **Propósito:** Eventos CAEP recibidos por bAuth desde sistemas externos o detectados internamente. CAEP (RFC 8935) es el protocolo para comunicar cambios de estado de seguridad en tiempo real.
 
-**¿Qué registra?** Tipo de evento (credential_change, session_revoked, risk_score_change, etc.), payload JSONB, origen, estado de procesamiento, resultado de la acción aplicada.
+**¿Qué registra?** Tipo de evento (credential_change, session_revoked, risk_score_change, etc.), payload JSONB, origen, estado de procesamiento (RECEIVED/APPLIED/FAILED), resultado de la acción aplicada.
 
-**¿Cuándo se alimenta?** Cuando bkernel-CDC detecta cambios relevantes (via WAL) o cuando sistemas externos envían señales CAEP. El cliente CAEP de bAuth (commit 409095b) inserta aquí.
+**¿Cuándo se alimenta?** Cuando bkernel-CDC detecta cambios relevantes via WAL, o cuando sistemas externos envían señales CAEP. El cliente CAEP de bAuth (commit 409095b) inserta aquí.
 
 **Procesos necesarios:**
 - Reactor bAuth: procesa eventos `WHERE processing_status='RECEIVED'` → aplica acción (revocar sesión, exigir step-up, etc.) → actualiza `processing_status='APPLIED'`
 
 ---
 
-### T-192 · `bauth.idn_ssf_delivery`
+### T-192 · `bauth.ses_ssf_stream` *(antes `idn_ssf_delivery` — solo config)*
 
-**Propósito:** Entrega de señales SSF (Shared Signals Framework, RFC 8936) a receptores externos. bAuth puede actuar como emisor de señales hacia otros sistemas que necesitan saber de cambios de seguridad.
+**Propósito:** Configuración de streams SSF (Shared Signals Framework, RFC 8936). Un stream es un canal de entrega de señales hacia un receptor externo. Cada stream tiene su endpoint, tipo de auth y estado de activación.
 
-**¿Cuándo se alimenta?** Cuando un evento CAEP debe notificarse a un receptor SSF registrado. El job de entrega maneja reintentos con backoff exponencial.
+**¿Cuándo se alimenta?** Al registrar un nuevo receptor SSF (ej: otro tenant bAuth, un SIEM externo).
+
+**Nota:** esta tabla es de configuración. El log de entregas individuales está en T-193.
 
 ---
 
-### T-193 · `bauth.idn_sesion_audit` 🔒 WORM 📦 PART
+### T-193 · `bauth.ses_ssf_delivery_log` *(antes parte de T-192)* 📦 PART
 
-**Propósito:** Registro inmutable de eventos de sesión: LOGIN, LOGOUT, STEP_UP, REVOKE, IDLE_TIMEOUT. Evidencia forense de todo el ciclo de vida de cada sesión.
+**Propósito:** Log de entregas de señales SSF. Cada intento de entrega (exitoso o fallido) queda registrado. El job de entrega usa este log para reintentos con backoff exponencial.
 
-**¿Cuándo se alimenta?** Por trigger en `idn_sesion_activa`. Particionada por mes. No tiene UPDATE/DELETE.
+**¿Qué registra?** `stream_id` → T-192, `event_id` → T-191, intento nro, estado (PENDING/DELIVERED/FAILED), timestamp, respuesta HTTP del receptor.
+
+**¿Cuándo se alimenta?** Por el job de entrega SSF cada vez que intenta enviar un evento a un receptor. Particionada por mes para alto volumen.
 
 ---
 
 ## S10 — Auditoría Access Review (bauth)
 
-### T-177 · `bauth.aud_access_review_campaign`
+> **Refactorización v2.3.0:** las tablas de S10 fueron renombradas a terminología de certificación ISO 27001.
+>
+> | Manual anterior | DDL canónico (actual) | Cambio |
+> |---|---|---|
+> | T-177 `aud_access_review_campaign` | T-177 `aud_certification_campaign` | Renombrado |
+> | T-178 `aud_access_review_item` | T-178 `aud_certification_review` | Renombrado |
 
-**Propósito:** Campañas de revisión periódica de accesos (User Access Review / Certification). NIST 800-53 AC-2(7) requiere que se revisen los accesos de usuarios privilegiados al menos trimestralmente.
+### T-177 · `bauth.aud_certification_campaign` *(antes `aud_access_review_campaign`)*
 
-**¿Qué registra?** Nombre, alcance (TENANT/USER/ROLE/ATOM), tipo (QUARTERLY/ANNUAL/OFFBOARDING/INCIDENT/SOD_REVIEW), fechas, recordatorios, responsable.
+**Propósito:** Campañas de certificación de accesos (Access Review / Certification). NIST 800-53 AC-2(7) requiere revisar los accesos de usuarios privilegiados al menos trimestralmente. El nombre "certification" alinea con ISO 27001 A.5.18 (revisión periódica de derechos de acceso).
 
-**¿Cuándo se alimenta?** El administrador de seguridad crea campañas. Las campañas QUARTERLY pueden generarse automáticamente por job trimestral.
+**¿Qué registra?** Nombre, alcance (TENANT/USER/ROLE/ATOM), tipo (QUARTERLY/ANNUAL/OFFBOARDING/INCIDENT/SOD_REVIEW), fechas (`starts_at`, `ends_at`), días de recordatorio, responsable.
+
+**¿Cuándo se alimenta?** El administrador de seguridad crea campañas manualmente. Las campañas QUARTERLY pueden generarse automáticamente por job trimestral.
 
 **Procesos necesarios:**
-- Al crear una campaña: el sistema genera filas en `aud_access_review_item` para cada combinación (usuario, grant) dentro del scope
+- Al crear una campaña: el sistema genera filas en `aud_certification_review` para cada combinación (usuario, grant) dentro del scope
 - Job de recordatorio: envía notificaciones via bNotify N días antes de `ends_at`
-- Job de cierre: al llegar `ends_at`, si hay ítems sin decisión y `auto_revoke_on_expiry=true` → revocar grants
+- Job de cierre: al llegar `ends_at`, si hay ítems sin decisión y `auto_revoke_on_expiry=true` → revocar grants pendientes
 
 ---
 
-### T-178 · `bauth.aud_access_review_item`
+### T-178 · `bauth.aud_certification_review` *(antes `aud_access_review_item`)*
 
-**Propósito:** Ítems individuales de revisión de acceso. Un revisor toma una decisión (CERTIFY/REVOKE/ESCALATE/DEFER) por cada ítem.
+**Propósito:** Decisiones individuales de certificación de acceso. Un revisor toma una decisión (CERTIFY/REVOKE/ESCALATE/DEFER) por cada ítem de la campaña.
 
-**¿Qué registra?** (campaign_id, user_id, grant_id o role_id o atom_id), revisor asignado, decisión, razón, fecha de decisión, deadline.
+**¿Qué registra?** `campaign_id` → T-177, `user_id`, `grant_id` o `role_id` o `atom_id`, revisor asignado, `decision`, `decision_reason`, `decided_at`, `decision_deadline`.
 
 **Procesos necesarios:**
-- Al tomar decisión REVOKE: `UPDATE privilege_atom_grant SET status='REVOKED' WHERE id=grant_id`
+- Al tomar decisión REVOKE: revocar el grant correspondiente en `privilege_atom_grant`
 - Al ESCALATE: notificar al supervisor del revisor via bNotify
-- Al DEFER: extender `decision_deadline` (máximo 1 extensión)
+- Al DEFER: extender `decision_deadline` (máximo 1 extensión por ítem)
 
-**¿Necesita interfaz en el frontend?** Sí — bandeja de revisión para cada revisor asignado.
+**¿Necesita interfaz en el frontend?** Sí — bandeja de certificación para cada revisor asignado.
 
 ---
 
 ## S11 — Riesgo / ITDR (bauth)
 
-### T-180 · `bauth.risk_score_event` 📦 PART
+> **Refactorización v2.3.0:** la semántica de S11 cambió radicalmente. La tabla ya no es un log de eventos de riesgo — es una tabla de **políticas de respuesta adaptativa** por tenant. El log de eventos de riesgo se registra en `ses_session_log` (T-181).
+>
+> | Manual anterior | DDL canónico (actual) | Cambio |
+> |---|---|---|
+> | T-180 `risk_score_event` (log de eventos) | T-180 `ses_risk_policy` (reglas de respuesta) | Renombrado + semántica cambiada |
 
-**Propósito:** ITDR (Identity Threat Detection and Response). Detecta anomalías de comportamiento y asigna un score de riesgo 0-100. Un score > 70 dispara una acción automática.
+### T-180 · `bauth.ses_risk_policy` *(antes `risk_score_event` — log de eventos)*
 
-**¿Qué registra?** Score de riesgo, factores individuales que lo componen (JSONB), acción disparada (STEP_UP/REVOKE/SUSPEND/NOTIFY/REQUIRE_MFA), si la acción fue aplicada.
+**Propósito:** Tabla de **políticas de respuesta adaptativa al riesgo** por tenant. Define QUÉ hacer cuando el PDP recibe un evento CAEP con determinadas características. Equivale al libro de reglas del ITDR (Identity Threat Detection and Response).
 
-**¿Cuándo se alimenta?** El motor de riesgo bAuth evalúa cada request autenticado y genera un evento cuando el score supera umbrales configurados.
+**¿Qué registra?** Por tenant: `event_type` (tipo de evento CAEP que dispara la regla), `condition` JSONB (expresión evaluada contra el payload del evento — ej: `{"risk_score": {">": 70}}`), `action` (STEP_UP_REQUIRED/REVOKE_SESSION/SUSPEND_USER/NOTIFY_ONLY), `scope` (ALL_SESSIONS/CURRENT_SESSION/TENANT), `enabled`.
 
-**Señales de riesgo típicas (risk_factors):**
-- `impossible_travel`: el usuario se autenticó desde Bolivia hace 5 minutos y ahora desde Europa (+40 puntos)
-- `credential_stuffing`: múltiples intentos fallidos previos al login exitoso (+30 puntos)
-- `ua_anomaly`: user-agent nuevo nunca visto para este usuario (+15 puntos)
-- `velocity`: 100 requests en 1 segundo desde la misma sesión (+20 puntos)
-- `outside_schedule`: acceso fuera del horario habitual del usuario (+10 puntos)
+**Semántica:** una fila = una regla. Ejemplo: "Si llega un evento `risk_score_change` con score > 70 → revocar sesión actual". El PDP evalúa las reglas del tenant en orden de prioridad al procesar cada evento de T-191.
 
-**Procesos necesarios:**
-- Motor de riesgo: evalúa en cada request, inserta aquí si score > umbral
-- Si score > 70: dispatcher automático → STEP_UP, REVOKE, o SUSPEND según configuración del tier
-- Actualiza `idn_sesion_activa.risk_score` con el último score
+**Separación de responsabilidades:**
+- T-180 define las **reglas** (configuración de políticas, cambia poco)
+- T-191 `ses_caep_event_log` registra los **eventos** recibidos (log, cambia mucho)
+- T-181 `ses_session_log` registra el **resultado** aplicado (estado de la sesión)
 
-**¿Necesita interfaz en el frontend?** Sí — dashboard ITDR con timeline de eventos de riesgo para administradores de seguridad.
+**¿Cuándo se alimenta?** El administrador de seguridad configura las reglas por tenant. Reglas por defecto se cargan en seed.
+
+**¿Necesita interfaz en el frontend?** Sí — editor de políticas de riesgo por tenant para administradores de seguridad.
 
 ---
 
 ## S12 — PAM Privileged Access Management (bauth)
 
+> **Refactorización v2.3.0:** las tablas de S12 fueron renombradas y renumeradas. `pam_tree_change_proposal` fue **retirada del DDL** (pendiente de diseño). Una tabla nueva fue añadida: `pam_nhi_secret_ref` (T-189).
+>
+> | Manual anterior | DDL canónico (actual) | Cambio |
+> |---|---|---|
+> | T-182 `pam_jit_request` | T-182 `pam_jit_request` | Sin cambio |
+> | T-182b `pam_jit_audit` (WORM histórico) | T-182b `pam_jit_approval` (aprobación secuencial) | Renombrado + propósito nuevo |
+> | T-183 `pam_breakglass_request` | T-185 `pam_breakglass_activation` | Renumerado + renombrado |
+> | T-184 `pam_privileged_access_log` | T-184 `pam_session_record` | Renombrado |
+> | T-185 `pam_credential_vault_ref` | T-183 `pam_credential_ref` | Renumerado + renombrado |
+> | T-189 `pam_tree_change_proposal` | *(FALTA en DDL)* | Pendiente de diseño |
+> | *(nueva)* | T-189 `pam_nhi_secret_ref` | Nueva — secretos NHI en Vault |
+
 ### T-182 · `bauth.pam_jit_request`
 
-**Propósito:** Solicitudes JIT (Just-In-Time) de acceso elevado temporal. En lugar de dar privilegios permanentes, el usuario solicita acceso cuando lo necesita, especifica la justificación y duración, y uno o más gerentes aprueban.
+**Propósito:** Solicitudes JIT (Just-In-Time) de acceso elevado temporal. En lugar de dar privilegios permanentes, el usuario solicita acceso cuando lo necesita, especifica la justificación y duración, y los aprobadores del nivel correspondiente aprueban secuencialmente.
 
-**¿Qué registra?** Solicitante, rol/átomos target, justificación, duración solicitada, estado (PENDING/APPROVED/ACTIVE/EXPIRED/REVOKED/REJECTED), aprobadores, FK al grant JIT creado.
+**¿Qué registra?** Solicitante, rol/átomos target, justificación, duración solicitada, estado (PENDING/APPROVED/ACTIVE/EXPIRED/REVOKED/REJECTED), quórum configurado, FK al grant JIT creado.
 
-**¿Cuándo se alimenta?** Cuando un usuario necesita acceso temporal elevado (ej: acceso a una base de datos de producción para debugging).
+**¿Cuándo se alimenta?** Cuando un usuario necesita acceso temporal elevado.
 
 **Flujo:**
 1. Usuario crea solicitud → status=PENDING
-2. Gerente(s) aprueban (N >= quorum) → status=APPROVED
-3. bAuth crea `privilege_atom_grant(grant_type='JIT', valid_until=now()+duration)` → status=ACTIVE
-4. Al expirar → status=EXPIRED, grant revocado automáticamente
+2. Aprobadores de Nivel 1 aprueban → notificación a Nivel 2 (si aplica)
+3. Al alcanzar quórum final → status=APPROVED
+4. bAuth crea `privilege_atom_grant(grant_type='JIT', valid_until=now()+duration)` → status=ACTIVE
+5. Al expirar → status=EXPIRED, grant revocado automáticamente
 
 **¿Necesita interfaz en el frontend?** Sí — bandeja de solicitudes JIT + panel de aprobaciones.
 
 ---
 
-### T-182b · `bauth.pam_jit_audit` 🔒 WORM
+### T-182b · `bauth.pam_jit_approval` *(antes `pam_jit_audit`)* — aprobación secuencial multi-nivel
 
-**Propósito:** Registro inmutable de cada acción en el ciclo de vida de solicitudes JIT. Hash-chain para detección de alteración forense.
+**Propósito:** Registro de aprobaciones secuenciales por nivel. Una fila por nivel de aprobación, no por aprobador individual. El Nivel N+1 solo se notifica cuando el Nivel N fue aprobado.
+
+**¿Qué registra?** `jit_request_id` → T-182, `nivel` (1, 2, 3…), `approver_id`, `decision` (APPROVED/REJECTED), `decided_at`, `notes`.
+
+**Diferencia con diseño anterior:** ya no es un WORM de auditoría histórico — es la tabla de control del flujo de aprobación. El trail de auditoría permanente vive en `privilege_atom_audit` (T-170b).
+
+**Regla:** un aprobador no puede aprobar su propia solicitud (`chk_pja_no_self`). El máximo de niveles lo define `pam_jit_request.quorum_config` JSONB.
 
 ---
 
-### T-183 · `bauth.pam_breakglass_request`
+### T-183 · `bauth.pam_credential_ref` *(antes T-185 `pam_credential_vault_ref`)*
 
-**Propósito:** Acceso de emergencia (break-glass). Para situaciones de crisis donde los procesos normales son insuficientes por urgencia. Quórum mínimo: 2 aprobadores (nunca autoaprobación).
+**Propósito:** Punteros a credenciales rotatorias en HashiCorp Vault. El secreto NUNCA se almacena en PostgreSQL. Esta tabla registra dónde vive cada credencial y cuándo debe rotarse.
 
-**¿Qué registra?** `incident_ref` (ticket de incidente), justificación, estado, aprobadores, timestamps de activación/desactivación, revisión post-incidente obligatoria.
+**¿Qué registra?** `owner_id` (HUMAN o NHI), `owner_type`, `credential_type` (PASSWORD/API_KEY/CERTIFICATE/SSH_KEY/SERVICE_TOKEN/OAUTH_TOKEN), `vault_path`, `vault_version`, `rotation_period`, `next_rotation_at`, `status`.
+
+**Procesos necesarios:**
+- Job de rotación: `WHERE next_rotation_at <= NOW() AND status='ACTIVE'` → llamar API Vault para rotar → actualizar `vault_version` y timestamps
+
+---
+
+### T-184 · `bauth.pam_session_record` *(antes `pam_privileged_access_log`)* 🔒 WORM
+
+**Propósito:** Metadatos de sesiones de acceso privilegiado (JIT o break-glass activos). Referencia a la grabación de sesión en MinIO para forensia. El contenido real de la grabación vive en MinIO, no en PostgreSQL.
+
+**¿Qué registra?** `jit_request_id` o `breakglass_id`, usuario, tenant, rol activo, `started_at`, `ended_at`, `duration_seconds` (columna GENERATED ALWAYS AS), `recording_ref` (URL MinIO), `termination_reason`.
+
+**¿Cuándo se alimenta?** Al iniciar y al cerrar cada sesión privilegiada. `duration_seconds` se calcula automáticamente.
+
+**¿Necesita interfaz en el frontend?** Sí — visor de sesiones privilegiadas para auditores.
+
+---
+
+### T-185 · `bauth.pam_breakglass_activation` *(antes T-183 `pam_breakglass_request`)*
+
+**Propósito:** Activaciones de acceso de emergencia (break-glass). Para situaciones de crisis donde los procesos normales son insuficientes por urgencia. Control dual obligatorio: mínimo 2 aprobadores, nunca autoaprobación.
+
+**¿Qué registra?** `incident_ref` (ticket de incidente obligatorio), justificación, estado (PENDING_APPROVAL/ACTIVE/DEACTIVATED/REVIEWED), `approved_by[]`, `activated_at`, `deactivated_at`, `post_review_due_at` (= `activated_at + 24h`), `reviewed_at`, `review_outcome`.
 
 **Flujo:**
 1. Usuario declara emergencia → status=PENDING_APPROVAL + alerta inmediata a equipo de seguridad
-2. 2+ personas aprueban → status=ACTIVE → grant BREAKGLASS creado (reassess=false)
-3. Al resolver el incidente → DEACTIVATE → grant revocado
-4. Revisión post-incidente < 24h → reviewed_at + review_outcome
+2. 2+ personas aprueban (AAL3 requerido — `chk_pbga_dual_control`) → status=ACTIVE → grant BREAKGLASS creado
+3. Al resolver el incidente → DEACTIVATE → grant revocado → status=DEACTIVATED
+4. Revisión post-incidente obligatoria antes de `post_review_due_at` → status=REVIEWED
 
-**¿Por qué `reassess=false`?** El grant BREAKGLASS es inmune a CAEP durante la emergencia — no se revoca automáticamente por señales de riesgo, requiere desactivación manual.
+**¿Por qué el grant BREAKGLASS ignora CAEP?** Es inmune a políticas de riesgo adaptativo durante la emergencia — no se revoca automáticamente por señales de riesgo, requiere desactivación manual explícita.
 
-**¿Necesita interfaz en el frontend?** Sí — panel de emergencias con botón de activación grande y visible + alerta a todos los administradores.
-
----
-
-### T-184 · `bauth.pam_privileged_access_log` 🔒 WORM 📦 PART
-
-**Propósito:** Log inmutable de sesiones de acceso privilegiado activo (cuando el JIT o break-glass está activo). Incluye referencia a grabación de sesión (session recording) para forensia.
-
-**¿Cuándo se alimenta?** En cada acción del usuario durante una sesión JIT o break-glass activa.
-
-**¿Necesita interfaz en el frontend?** Sí — visor de logs de acceso privilegiado para auditores.
+**¿Necesita interfaz en el frontend?** Sí — panel de emergencias con botón de activación grande + alerta a todos los administradores.
 
 ---
 
-### T-185 · `bauth.pam_credential_vault_ref`
+### T-189 · `bauth.pam_nhi_secret_ref` ⭐ NUEVA
 
-**Propósito:** Punteros a credenciales rotatorias en HashiCorp Vault. El secreto NUNCA se almacena en PostgreSQL. Esta tabla registra dónde viven las credenciales y cuándo deben rotarse.
+**Propósito:** Referencia específica de secretos para NHI (Non-Human Identities): CI/CD pipelines, service accounts, scripts automáticos. Se complementa con T-183 (`pam_credential_ref`) — esta tabla agrega los campos específicos de NHI que las credenciales humanas no necesitan.
 
-**¿Qué registra?** Propietario (HUMAN o NHI), tipo de credencial (PASSWORD/API_KEY/CERTIFICATE/SSH_KEY/SERVICE_TOKEN/OAUTH_TOKEN), ruta Vault, versión, período de rotación.
+**¿Qué agrega sobre T-183?** `nhi_agent_id` → T-190 (identidad del agente), `rotation_policy` (ON_USE para CI/CD = rotar cada vez que se usa), `max_ttl` (7-30 días vs 90 días para humanos), `last_used_at`, `usage_counter`, `consumer_systems[]`.
 
-**Procesos necesarios:**
-- Job de rotación: `WHERE next_rotation_at <= NOW() AND status='ACTIVE'` → llamar API Vault para rotar → actualizar vault_version y timestamps
+**Semántica de rotación:**
+- `SCHEDULED`: rotar según calendario (período estándar)
+- `ON_USE`: rotar inmediatamente después de cada uso (pipelines CI/CD de alto riesgo)
+- `ON_BREACH_ONLY`: rotar solo ante incidente (secrets de emergencia)
+
+**¿Necesita interfaz en el frontend?** Sí — inventario de secretos NHI con estado de rotación para administradores de seguridad.
 
 ---
 
-### T-189 · `bauth.pam_tree_change_proposal`
+### ⚠️ FALTANTE — `bauth.pam_tree_change_proposal`
 
-**Propósito:** Propuestas de cambio al árbol de políticas T-162 con quórum de aprobación. **Ningún cambio al árbol se aplica directamente.** Primero pasa por una propuesta con quórum (mínimo 2 aprobadores para cambios al PAP).
+**Estado en DDL:** **NO EXISTE** en `SBOS_db_V2_DDL.sql`. La tabla fue planeada para el flujo de aprobación de cambios al árbol de políticas (T-162) con quórum, pero aún no fue diseñada definitivamente en el DDL.
 
-**¿Qué registra?** Tipo de cambio (ADD_NODE/MODIFY_NODE/DEACTIVATE_NODE/ADD_VERB/MODIFY_VERB/ADD_SOD_RULE), nodo target, payload del cambio (JSONB completo), estado (DRAFT/PENDING_QUORUM/APPROVED/REJECTED/EXPIRED).
+**Propósito planeado:** Propuestas de cambio al árbol PAP (T-162) con quórum de aprobación. Ningún cambio al árbol de políticas se aplica directamente — pasa por propuesta + quórum.
 
-**Flujo:**
-1. Administrador crea propuesta → status=DRAFT
-2. Envía a revisión → status=PENDING_QUORUM + notificación a aprobadores
-3. Al alcanzar quórum (N >= quorum_required) → status=APPROVED
-4. bAuth aplica el cambio en T-162 → crea registro en T-163 → status=APPLIED
-
-**La clave `quorum_slug`** usa separador punto (no guión bajo): `quorum.aprobadores`. Es la convención del árbol de políticas T-162 (separador de path materializado = punto).
-
-**¿Necesita interfaz en el frontend?** Sí — panel de gestión del árbol de políticas con flujo de aprobación.
+**Estado:** pendiente de diseño. El flujo queda bloqueado hasta que esta tabla se añada al DDL.
 
 ---
 
 ## Apéndice A — Tablas WORM del sistema
 
-| Tabla | Motivo WORM | Particionada |
-|-------|-------------|--------------|
+*(Actualizado v2.3.0 — nombres canónicos del DDL)*
+
+| Tabla (DDL canónico) | Motivo WORM | Particionada |
+|----------------------|-------------|:------------:|
 | `bcalendar.cal_notification_log` | Evidencia de alarmas enviadas | No |
-| `bauth.idn_roles_template_audit` | Cambios al árbol de políticas | No |
-| `bauth.privilege_atom_audit` | Cambios en grants de privilegio | Sí (por mes) |
-| `bauth.idn_sesion_audit` | Eventos de sesión | Sí (por mes) |
-| `bauth.idn_nhi_lifecycle_event` | Ciclo de vida NHI | No |
-| `bauth.pam_jit_audit` | Ciclo de vida JIT | No |
-| `bauth.pam_privileged_access_log` | Accesos privilegiados activos | Sí (por mes) |
+| `bauth.idn_roles_template_history` (T-163) | Cambios al árbol de políticas PAP | No |
+| `bauth.idn_roles_ver_b01_audit_log` (T-152) | Historia de versiones cerradas de roles | No |
+| `bauth.privilege_atom_audit` (T-170b) | Cambios en grants de privilegio | Sí (por mes) |
+| `bauth.ses_session_log` (T-181) | Eventos del ciclo de vida de sesiones (fusionó T-193 anterior) | No |
+| `bauth.ses_ssf_delivery_log` (T-193) | Entregas de señales SSF | Sí (por mes) |
+| `bauth.privilege_assurance_audit` (T-176) | Evaluaciones de obligación LoA por Kong PEP | No |
+| `bauth.idn_roles_nhi_lifecycle_event` (T-190b) | Ciclo de vida NHI | No |
+| `bauth.pam_session_record` (T-184) | Metadatos de sesiones de acceso privilegiado | No |
+
+**Tablas eliminadas en v2.3.0:**
+- `bauth.idn_sesion_audit` → fusionada en `ses_session_log` (T-181)
+- `bauth.pam_jit_audit` → reemplazada por `pam_jit_approval` (T-182b), flujo, no WORM
+- `bauth.pam_privileged_access_log` → renombrada a `pam_session_record` (T-184)
 
 ---
 
 ## Apéndice B — Dependencias de creación
 
-El orden de creación de la DDL es:
+*(Actualizado v2.3.0 — nombres canónicos del DDL)*
+
+El orden de creación de la DDL (NIVEL 0-11) es:
 
 ```
-1. Extensiones + ENUMs + SEQUENCE
+NIVEL 0 — bglobal
+1. Extensiones + ENUMs globales + SEQUENCE
 2. bglobal.global_language, global_country, global_currency, geo_timezone (catálogos raíz)
-3. bglobal.menu_item, global_config
+3. bglobal.menu_item_atom, global_config
+
+NIVEL 1 — Tenant
 4. bauth.idn_tenant
 5. bauth.idn_tenant_currencies, languages, verification, config, domain, network
-6. bcalendar.cal_fiscal_year, cal_calendar, cal_event, cal_alarm, cal_notification_log, cal_holiday, cal_schedule, cal_overtime_policy, cal_break_policy
-7. bauth.idn_calendar_assignment
-8. bauth.idn_roles_rol_type, idn_roles_rol_tier
-9. bauth.privilege_verb, privilege_verb_conflict
-10. bauth.idn_roles_template (+trigger) [FK DEFERIDA a idn_roles_rol_hierarchical]
-11. bauth.idn_roles_rol_hierarchical [FK DEFERIDA a idn_roles_template]
-12. bauth.idn_roles_rol_closure
-13. bauth.idn_roles_template_audit
-14. bauth.idn_rol_version, idn_policy_version, idn_rol_assignment_version, idn_privilege_version
-15. bauth.idn_identidad_entidad, idn_identidad_atributo, idn_identidad_dominio
-16. bauth.idn_nhi_identity, idn_nhi_lifecycle_event, idn_nhi_certification
-17. bauth.privilege_atom_grant (+REPLICA IDENTITY FULL), privilege_atom_audit (particionada)
-18. bauth.privilege_override, privilege_assurance_log (particionada), privilege_sod_exception, privilege_menu_atom
-19. bglobal.menu_context, menu_item_context
-20. bauth.idn_sesion_activa, idn_caep_event, idn_ssf_delivery, idn_sesion_audit (particionada)
-21. bauth.aud_access_review_campaign, aud_access_review_item
-22. bauth.risk_score_event (particionada)
-23. bauth.pam_jit_request, pam_jit_audit, pam_breakglass_request
-24. bauth.pam_privileged_access_log (particionada), pam_credential_vault_ref, pam_tree_change_proposal
+
+NIVEL 2 — Calendario
+6. bcalendar.cal_fiscal_year, cal_calendar, cal_event, cal_alarm, cal_notification_log,
+           cal_holiday, cal_schedule, cal_overtime_policy, cal_break_policy
+7. bauth.idn_tenant_calendar_assignment
+
+NIVEL 3 — Roles
+8. bauth.idn_roles_iga_category [catálogo IGA — sin FKs a otras tablas bauth]
+9. bauth.idn_roles_rol_type, idn_roles_rol_tier
+
+NIVEL 4 — Versionado (ENUMs y columnas T-041)
+   [Los ENUMs de versionado se crean junto con las extensiones globales en paso 1]
+
+NIVEL 5 — Árbol de Políticas
+10. bauth.privilege_verb, privilege_verb_conflict
+11. bauth.idn_policy_node_type
+12. bauth.idn_roles_template (+triggers trg_irt_atom_position, trg_t162_sync_effect_to_grants)
+    [FK DEFERIDA a idn_roles_rol_hierarchical]
+13. bauth.idn_roles_rol_hierarchical [FK DEFERIDA a idn_roles_template]
+    + trigger B02 (trg_irrh_b02_validity)
+13b. bauth.idn_roles_rol_lifecycle_event [WORM B02]
+14. bauth.idn_roles_rol_closure
+15. bauth.idn_roles_template_history (WORM)
+16. bauth.idn_roles_ver_b01_audit_log, idn_roles_ver_b03_approval_queue,
+           idn_roles_ver_b01_retention_policy, idn_roles_ver_contract_revision_log
+
+NIVEL 6 — Identidad D00
+17. bauth.idn_identity_entity, idn_identity_attribute
+    [T-158..T-161 son STUBS sin CREATE TABLE: idn_identity_attribute_history, idn_identity_requirement, idn_identidad_sinonimo, idn_identidad_sinonimo_sync]
+18. bauth.idn_roles_nhi_identity, idn_roles_nhi_lifecycle_event,
+           idn_roles_nhi_certification, idn_roles_nhi_agent_identity
+
+NIVEL 7 — Privilegios
+19. bauth.privilege_atom_grant (+REPLICA IDENTITY FULL), privilege_atom_audit (particionada 3 meses)
+20. bauth.privilege_resource_atom (PAP → Kong PEP)
+21. bauth.privilege_delegation (auditoría delegaciones)
+22. bauth.privilege_override
+23. bauth.privilege_assurance_audit
+24. bauth.privilege_exception_record
+25. bglobal.menu_context, menu_item_context
+
+NIVEL 8 — Sesión
+26. bauth.ses_session_log
+27. bauth.ses_caep_event_log
+28. bauth.ses_ssf_stream
+29. bauth.ses_ssf_delivery_log (particionada)
+
+NIVEL 9 — Auditoría
+30. bauth.aud_certification_campaign
+31. bauth.aud_certification_review
+
+NIVEL 10 — Riesgo / ITDR
+32. bauth.ses_risk_policy
+
+NIVEL 11 — PAM
+33. bauth.pam_jit_request
+34. bauth.pam_jit_approval
+35. bauth.pam_breakglass_activation
+36. bauth.pam_credential_ref
+37. bauth.pam_session_record
+38. bauth.pam_nhi_secret_ref
 ```
+
+**Nota:** `bauth.pam_tree_change_proposal` (flujo de aprobación para cambios al árbol PAP) **no existe en el DDL actual** — pendiente de diseño.
 
 ---
 
@@ -1195,4 +1826,16 @@ La DDL resuelve esto con `DEFERRABLE INITIALLY DEFERRED` en la FK de T-041 → T
 
 ---
 
-*Fin del manual — SBOS_db_V2_DDL_MANUAL.md — v2.0.0*
+---
+
+## Historial de versiones
+
+| Versión | Fecha | Cambios |
+|---------|-------|---------|
+| v2.7.0 | 2026-07-28 | GAP-D00-01..10 implementados: +T-186 (lifecycle_event JML), +T-169 (did_document), +T-187 (scim_attribute_map), +T-188 (dpia_registro); ALTER T-157 +5 cols clasificación; ALTER T-159 +risk_threshold +dirm_policy_ref; ALTER T-165 +risk_context +eidas_level; ALTER T-166 +6 cols GDPR granular; ALTER T-167 +eidas_assurance_level +eidas_vc_type; seeds mDL/VC (T-159) + seeds bdomain (T-159) |
+| v2.6.0 | 2026-07-28 | T-165..T-168 implementadas (proofing, consentimiento, VC, FAL); 25 átomos D00 (pos 292-316); triggers trg_iiattr_history, trg_iip_status_to_entity, trg_ivc_expiry_check; jobs fn_job_reproofing_check/vc_expiry_check/next_partition + OS crontab |
+| v2.5.0 | 2026-07-25 | T-158 (idn_identity_attribute_history) WORM hash-chain + 6 particiones mensuales |
+| v2.4.0 | 2026-07-24 | T-159 (idn_identity_requirement) implementada |
+| v2.3.0 | 2026-07-22 | S8-S12 refactorizados; nombres canónicos del DDL |
+
+*Fin del manual — SBOS_db_V2_DDL_MANUAL.md — v2.7.0 · 2026-07-28*

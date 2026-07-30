@@ -13,6 +13,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// K8sProbeFunc es la firma de la función que hace probe K8s durante P15.
+// Retorna el mapa ficha_id → FichaState descubierto en el cluster.
+// Si k8sCore no está disponible (nil o sin acceso), debe retornar nil.
+type K8sProbeFunc func() map[string]state.FichaState
+
 // SystemctlFn es la firma de la función para ejecutar comandos systemctl.
 //
 // Abstracción inyectable para evitar dependencia directa de os/exec en este
@@ -65,6 +70,53 @@ func InitializeFichaStates(loader *plugin.Loader, stateMgr *state.Manager) {
 	}
 
 	log.Info().Int("count", len(fichas)).Msg("observer: estados de fichas inicializados")
+}
+
+// P15ReconcileAfterRebuild protege fichas ya instaladas cuando el state.json fue
+// reconstruido desde cero (RecoveryRebuilt). Sin esta función, el observer vería
+// todas las fichas en LISTA y las reinstalaría, destruyendo datos existentes (Gap A2).
+//
+// Flujo:
+//  1. Solo actúa si stateMgr.Recovery == RecoveryRebuilt.
+//  2. Llama probeK8s() para obtener el mapa ficha_id → FichaState real del cluster.
+//  3. Para cada ficha descubierta como INSTALADA → SetK8sDiscoveredState actualiza
+//     el estado de LISTA a INSTALADA, evitando que el observer la reinstale.
+//
+// Recibe:
+//   - stateMgr: gestor de estado (fuente de verdad de fichas).
+//   - probeK8s: función que retorna el estado real del cluster K8s.
+//     Debe retornar nil si K8s no está disponible (daemon no llamará install).
+//
+// Efectos secundarios: puede actualizar estados en stateMgr.
+//
+// Estándares: P15 (idempotencia del instalador), ADR-021, SBOS-018 P1.
+func P15ReconcileAfterRebuild(stateMgr *state.Manager, probeK8s K8sProbeFunc) {
+	if stateMgr.Recovery != state.RecoveryRebuilt {
+		return
+	}
+
+	log.Warn().Msg("P15: state.json reconstruido — ejecutando K8s discovery preventivo para proteger fichas existentes")
+
+	discovered := probeK8s()
+	if len(discovered) == 0 {
+		log.Info().Msg("P15: K8s discovery sin resultados — sin fichas que proteger")
+		return
+	}
+
+	protegidas := 0
+	for fichaID, fichaState := range discovered {
+		if err := stateMgr.SetK8sDiscoveredState(fichaID, fichaState); err != nil {
+			log.Warn().Err(err).Str("ficha", fichaID).Msg("P15: error actualizando estado K8s")
+			continue
+		}
+		if fichaState == state.StateInstalada {
+			protegidas++
+			log.Info().Str("ficha", fichaID).Msg("P15: ficha protegida — ya instalada en K8s, no se reinstalará")
+		}
+	}
+
+	log.Info().Int("protegidas", protegidas).Int("descubiertas", len(discovered)).
+		Msg("P15: K8s discovery preventivo completado")
 }
 
 // StartupReconcile verifica si K8s estaba activo antes del último reinicio del daemon

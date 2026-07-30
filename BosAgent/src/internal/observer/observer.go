@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"bos/internal/audit"
+	"bos/internal/ficha"
 	"bos/internal/installer"
 	"bos/internal/paths"
 	"bos/internal/plugin"
@@ -132,9 +133,42 @@ func (l *Loop) tick(fichaIndex map[string]*plugin.FichaManifest) {
 		return
 	}
 
+	// Fase 0 — detectar actualizaciones de versión (P15-A3)
+	// Para cada ficha INSTALADA, compara la versión del manifest con la versión instalada.
+	// Si manifest.Version > state.Version → ACTUALIZACION_DISPONIBLE (nunca reinstalar).
+	for name, fichaEntry := range st.Fichas {
+		if fichaEntry.State != state.StateInstalada {
+			continue
+		}
+		mf, ok := fichaIndex[name]
+		if !ok || mf.Version == fichaEntry.Version || fichaEntry.Version == "" {
+			continue
+		}
+		manifestVer, err1 := ficha.ParseVersion(mf.Version)
+		installedVer, err2 := ficha.ParseVersion(fichaEntry.Version)
+		if err1 != nil || err2 != nil {
+			continue
+		}
+		if manifestVer.GreaterThan(installedVer) {
+			if err := l.cfg.StateMgr.Transition(name, state.StateActualizacionDisp); err != nil {
+				log.Warn().Err(err).Str("ficha", name).Msg("observer: transición a ACTUALIZACION_DISPONIBLE falló")
+			} else {
+				log.Info().
+					Str("ficha", name).
+					Str("instalada", fichaEntry.Version).
+					Str("disponible", mf.Version).
+					Msg("observer: actualización de versión detectada — esperando aprobación")
+				audit.Log(paths.AuditLog, "OBSERVER_UPDATE_AVAILABLE",
+					"ficha="+name,
+					"instalada="+fichaEntry.Version,
+					"disponible="+mf.Version)
+			}
+		}
+	}
+
 	// Fase 1 — desbloquear fichas con dependencias satisfechas (PENDIENTE → LISTA)
-	for name, ficha := range st.Fichas {
-		if ficha.State != state.StatePendiente {
+	for name, fichaEntry := range st.Fichas {
+		if fichaEntry.State != state.StatePendiente {
 			continue
 		}
 		mf, ok := fichaIndex[name]
@@ -190,8 +224,8 @@ func (l *Loop) tick(fichaIndex map[string]*plugin.FichaManifest) {
 	}
 
 	// Fase 3 — reparar fichas DEGRADADA (solo auto_install, secuencial)
-	for name, ficha := range st.Fichas {
-		if ficha.State != state.StateDegradada && ficha.State != state.StateReparando {
+	for name, fichaEntry := range st.Fichas {
+		if fichaEntry.State != state.StateDegradada && fichaEntry.State != state.StateReparando {
 			continue
 		}
 		mf, ok := fichaIndex[name]
@@ -200,7 +234,7 @@ func (l *Loop) tick(fichaIndex map[string]*plugin.FichaManifest) {
 		}
 
 		log.Info().Str("ficha", name).Msg("observer: iniciando auto-reparación")
-		if ficha.State != state.StateReparando {
+		if fichaEntry.State != state.StateReparando {
 			// DEGRADADA → REPARANDO (ADR-021 #8→#11)
 			if err := l.cfg.StateMgr.Transition(name, state.StateReparando); err != nil {
 				log.Warn().Err(err).Str("ficha", name).Msg("observer: transición a REPARANDO falló")

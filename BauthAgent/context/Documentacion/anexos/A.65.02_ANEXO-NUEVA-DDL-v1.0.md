@@ -1,0 +1,372 @@
+# A.65.02 — Nueva DDL · Inventario de Tablas
+
+**Versión:** 1.6  **Fecha:** 2026-07-28  **Estado:** DISEÑO PARCIAL — 9 secciones con tablas definidas; 4 secciones pendientes (USUARIOS · AUTENTICACIÓN · FIRMA DIGITAL · FEDERACIÓN/OIDC)
+
+## Propósito
+
+Inventario limpio de tablas para el rediseño completo de la DDL de `bauth`.
+Partimos desde cero — las tablas marcadas ELIMINAR en A.65 v1.5 no se incluyen aquí.
+Cada entrada define: código, nombre canónico definitivo, y propósito.
+El diseño DDL (columnas, constraints, índices) se desarrolla en sesiones posteriores.
+
+## Convenciones
+
+- Todos los PKs: `uuidv7()` — orden temporal nativo, sin secuencias.
+- Schema `bglobal`: catálogos globales compartidos por todo el ecosistema SBOS.
+- Schema `bauth`: tablas propias del daemon bAuth.
+- Toda tabla con historial auditado: hash-chain WORM append-only (ISO 27001 A.8.15).
+- Tablas con historia temporal: `WITHOUT OVERLAPS` PG18 (no tablas `*_version_log`).
+
+---
+
+## GLOBAL
+
+> Catálogos de referencia compartidos por todo el ecosistema. Sin lógica de negocio. Valores ISO y parámetros de sistema.
+
+| Código | Tabla | Propósito |
+|--------|-------|-----------|
+| T-001 | `bglobal.global_language` | Catálogo ISO 639-1/3 de idiomas — fuente de verdad para la internacionalización del sistema |
+| T-002 | `bglobal.global_country` | Catálogo ISO 3166-1 de países — FK en tablas de identidad y geolocalización |
+| T-003 | `bglobal.global_currency` | Catálogo ISO 4217 de monedas — referencia para facturación y límites financieros por dominio |
+| T-004 | `bglobal.geo_timezone` | Catálogo IANA de zonas horarias — base para restricciones de validez temporal (D4/B2) |
+| T-059 | `bglobal.menu_item` | Ítems de menú de aplicación — catálogo de opciones navegables del dashboard por módulo |
+| T-060 | `bglobal.menu_context` | Contextos de menú — agrupa ítems de menú por contexto de rol y dominio |
+| T-061 | `bglobal.menu_item_atom` | Relación ítem↔átomo de privilegio — puente entre visibilidad de menú (B7 CAPA 2) y el motor BitMask |
+| T-114 | `bglobal.global_config` | Parámetros globales del sistema — configuración de infra no ligada a ningún tenant ni rol. Cubre el `scope='global'` del PIP `@bauth_config_param` (suelo del sistema: NIST, SIN Bolivia, límites de seguridad estándar). Ver A.48. |
+
+---
+
+## TENANT
+
+> Infraestructura de multi-tenancy. Cada tenant es una organización cliente aislada. Estas tablas son el piso mínimo que el Motor de Identidad (D00) crea al registrar un nuevo tenant.
+
+| Código | Tabla | Propósito |
+|--------|-------|-----------|
+| T-005 | `bauth.idn_tenant` | Ancla de gobernanza — cada tenant es una fila aquí; toda FK de la DDL arranca desde `tenant_id` |
+| T-006 | `bauth.idn_tenant_currencies` | Monedas habilitadas por tenant — determina en qué monedas opera el tenant (default: BOB) |
+| T-007 | `bauth.idn_tenant_languages` | Idiomas habilitados por tenant — determina los idiomas disponibles en el dashboard y las APIs |
+| T-008 | `bauth.idn_tenant_verification` | Estado de verificación del tenant — nivel IAL alcanzado, documentos validados, fecha de expiración |
+| T-009 | `bauth.idn_tenant_config` | Configuración específica por tenant — fuente de verdad de `@bauth_config_param` en el árbol de políticas |
+| T-010 | `bauth.idn_tenant_domain` | Dominios DNS del tenant — prefijo del `ctx_id` interno/externo (capa 1 de SBOS-049) |
+| T-011 | `bauth.idn_tenant_network` | Redes autorizadas por tenant — CIDRs permitidos para acceso; validados por el PEP en D7 |
+| T-013 | `bauth.idn_tenant_calendar_assignment` | Calendarios asignados al tenant — horarios laborales y feriados que condicionan la validez temporal de roles |
+
+> **Nota PIP — `@bauth_config_param.*`:** La sintaxis `@bauth_config_param.<clave>` en AtomLang es una referencia PIP resuelta en runtime — **no se crea ninguna tabla separada** `bauth_config_param`. El Motor de Identidad (PDP) resuelve la referencia en cascada: primero busca en **T-009** (`bauth.idn_tenant_config`, parámetros del tenant — techo y piso por organización), y si no encuentra, en **T-114** (`bglobal.global_config`, parámetros globales cross-daemon — suelo del sistema). El catálogo de 20 parámetros, la sintaxis de referencia y la gobernanza del ciclo de cambio se documentan en A.48.
+
+---
+
+## ROLES
+
+> Identidad de los roles y árbol de políticas. Dos tablas distintas: T-041 guarda el QUIÉN (548 roles con su jerarquía), T-162 guarda el QUÉ PUEDE (el árbol de políticas compartido). Son complementarias, no redundantes.
+
+| Código | Tabla | Propósito |
+|--------|-------|-----------|
+| T-040 | `bauth.idn_roles_rol_type` | Catálogo de tipos de cuenta — 10 tipos (INDIVIDUAL, M2M, SYSTEM, GROUP, TEMPLATE, VIRTUAL, BOT, DEVICE, SERVICE, EMERGENCY) que clasifican todo rol del sistema |
+| T-041 | `bauth.idn_roles_rol_hierarchical` | Registro de identidad de roles — árbol de los 548 roles con jerarquía parent/child, tier, status, nombre, versión y metadatos B1. **B02:** columnas `validity_type / valid_from / valid_until / duration_interval / max_renewals / renewal_count` + trigger `trg_irrh_b02_validity`. Es el QUIÉN del sistema. |
+| T-B02L | `bauth.idn_roles_rol_lifecycle_event` | Log WORM de transiciones de estado del rol (B02 §lifecycle) — registra cada cambio de estado con `trigger_type` (MANUAL/AUTO_EXPIRY/RECONCILE/IGA_REVIEW/BREAKGLASS/BOOTSTRAP), actor, razón y snapshot de vigencia. REVOKE UPDATE/DELETE. Equivalente a T-160 para NHI. |
+| T-042 | `bauth.idn_roles_rol_tier` | Parámetros de autenticación por tier — LOA requerido, métodos MFA disponibles, timeouts de sesión, max_sessions, step_up y referencia NIST AAL. PIP del PDP al evaluar D1/D9. |
+| T-063 | `bauth.idn_roles_rol_closure` | Closure table del DAG de herencia OR — materializa todas las rutas ancestro→descendiente para calcular la máscara BitMask acumulada en O(1) |
+| T-161b | `bauth.idn_policy_node_type` | Catálogo de tipos de nodo del árbol de políticas — fuente única de verdad para presentación (color, fuente, badge), abreviatura y descripción bilingüe. El cliente Flutter renderiza el árbol consultando esta tabla sin hardcoding. Reemplaza el CHECK chk_irt_tipo de T-162. |
+| T-162 | `bauth.idn_roles_template` | Árbol jerárquico de políticas — UN árbol compartido por todos los roles; cada nodo es dominio, bloque, política, regla, evaluación, átomo u obligación. Es la fábrica de átomos del motor BitMask. El QUÉ PUEDE el sistema. |
+| T-163 | `bauth.idn_roles_template_history` | Historial WORM del árbol de políticas — cada cambio al árbol T-162 genera una entrada inmutable aquí para trazabilidad forense |
+| T-194 | `bauth.idn_roles_iga_category` | Categorías de gobernanza IGA para el ciclo de vida de roles — determina frecuencia de certificación (`review_cycle_days`) y si requiere campaña PAM trimestral (`is_privileged`). 7 categorías: BUSINESS, IT_INFRASTRUCTURE, APPLICATION, PRIVILEGED, EMERGENCY, SERVICE, STANDARD. |
+
+---
+
+## VERSIONADO
+
+> Motor de Versionado Universal (MVU 1.13) — gobierna el ciclo de vida de las definiciones de rol. Cuatro tablas que responden juntas: ¿cómo era?, ¿qué se propone?, ¿hasta cuándo se guarda?, ¿qué cambió en el contrato?
+
+| Código | Tabla | Propósito |
+|--------|-------|-----------|
+| T-152 | `bauth.idn_roles_ver_b01_audit_log` | Historia WORM de versiones cerradas de T-041 — responde "¿cómo era el rol X el día Y?" con delta por bloque normado; ancla MAJOR con snapshot completo; no-solape `WITHOUT OVERLAPS` PG18 + btree_gist. REVOKE UPDATE/DELETE. `[B01 §audit.change_history[]]` |
+| T-153 | `bauth.idn_roles_ver_b03_approval_queue` | Cola de cambios MAJOR pendientes de quórum N-de-M sobre T-041 — la versión vigente sigue rigiendo mientras `status=PENDING`; dual control (`resolved_by ≠ proposed_by` NIST AC-5); SLA con escalación. `[B03 §approval_workflow]` |
+| T-154 | `bauth.idn_roles_ver_b01_retention_policy` | Política de retención legal por entidad C1 — `hot_window` (historia viva), `compaction_policy` (KEEP_ALL/KEEP_ANCHORS/KEEP_LAST_N), piso irrenunciable ≥ 365 días (D99); `legal_hold=true` suspende toda purga. `[B01 §audit gobernanza]` |
+| T-155 | `bauth.idn_roles_ver_contract_revision_log` | Changelog estructural del contrato RolTemplate entre versiones (v5.0→v6.0) — registra bloques cambiados, normas que entran/salen, compatibilidad BREAKING/COMPATIBLE; append-only histórico. `[Plano A — contratos]` |
+
+---
+
+## IDENTIDAD
+
+> Motor de Identidad D00 v2.0 — catálogo universal de actores y sus atributos. Reemplaza las tablas org_empresa/org_sucursal/org_pos_logico (eliminadas) con un modelo jerárquico unificado de 5 niveles.
+>
+> **Estado de completitud D00 (2026-07-28 — A.65.03.01.01_COMPLETITUD_D00.md v2.0.0):**
+> D00 **COMPLETO** — 9/9 bloques satisfechos. DDL v2.6.0 implementada en VPS SBOSDB.
+> Las 10 tablas de D00 (T-156..T-159 + T-165..T-168 + T-160..T-161) cubren todos los bloques B01-B09.
+>
+> **Decisión de diseño PENDIENTE (HITL) — modelo de metadatos de `idn_identity_attribute`:**
+> El modelo de 25 metadatos (1.07 §4.0 — SCIM 2.0, NIST SP 800-63A, GDPR, OIDC4IDA) define columnas como `classification`, `mask`, `retention`, `mutability`, `required`, `uniqueness`, `source`, `ial` que aún no están en el DDL actual. Son constantes por `(category, attr_key, type)`. Se debe elegir entre:
+> - **Opción A** — columnas directas en `idn_identity_attribute` (una por fila, redundantes pero simples).
+> - **Opción B** — tabla catálogo separada `idn_identity_attribute_catalog (category, attr_key, type, mutability, returned, uniqueness, required, ial, source, classification, mask, retention, …)` que el Motor de Identidad consulta para obtener las reglas de validación por tipo de atributo.
+> Esta decisión afecta solo el diseño de columnas, no el listado de tablas de esta sección.
+
+| Código | Tabla | Propósito |
+|--------|-------|-----------|
+| T-156 | `bauth.idn_identity_entity` | Catálogo universal de entidades — árbol de 5 niveles: `tenant → bdomain → bsubdomain → pos → actor`. Todo actor del sistema (humano, servicio, rol, dispositivo, bot) es una fila aquí. Los niveles 2/3/4 son las capas del `ctx_id` (SBOS-049 §3.1). |
+| T-157 | `bauth.idn_identity_attribute` | Atributos extensibles EAV de cualquier entidad — almacena sin ALTER TABLE: NIT, razón social, correos, teléfonos, documentos de identidad, códigos SIN, certificados. `atom_code` vincula cada atributo con el motor BitMask para gobernanza vía D00. |
+| T-158 | `bauth.idn_identity_attribute_history` | Historial WORM de cambios de atributos — append-only, particionado por mes (RANGE changed_at, 6 particiones); registra INSERT/UPDATE/SOFT_DELETE en T-157 con hash-chain SHA-256. REVOKE UPDATE/DELETE. Cumplimiento: ISO 27001 A.8.15, PCI DSS 10.3.2, GDPR Art. 30. ✅ IMPLEMENTADA v2.5.0 |
+| T-159 | `bauth.idn_identity_requirement` | Completitud mínima por tipo de entidad y nivel IAL — define qué atributos son obligatorios antes de crear una entidad según su tipo y el nivel IAL requerido (IAL1/IAL2/IAL3). Validado por el Motor de Identidad antes de cualquier INSERT. Seeds: 8 filas para Bolivia. ✅ IMPLEMENTADA v2.4.0 |
+| T-165 | `bauth.idn_identity_proofing` | Proceso de Identity Proofing por usuario (actor). Registra: tipo de proofing (SELF_ASSERTED/REMOTE/IN_PERSON/TRUSTED_REFEREE), evidencias FAIR/STRONG/SUPERIOR (NIST SP 800-63A-4 §5), IAL alcanzado, revisor (obligatorio IAL3), vigencia y fecha de re-proofing. El Motor de Identidad consulta la fila más reciente status=PASSED para determinar el IAL actual del actor. ✅ IMPLEMENTADA v2.6.0 |
+| T-166 | `bauth.idn_identity_consent` | Registro WORM del consentimiento de privacidad por sujeto de datos. Otorgamiento y retirada en la misma fila; REVOKE DELETE (evidencia forense). Bases legales: CONSENT/CONTRACT/LEGAL_OBLIGATION/VITAL_INTEREST/PUBLIC_TASK/LEGITIMATE_INTEREST (GDPR Art. 6). Ley 1174 Bolivia Art. 12-15. ✅ IMPLEMENTADA v2.6.0 |
+| T-167 | `bauth.idn_identity_vc` | Ciclo de vida de Verifiable Credentials emitidas por bAuth (Issuer) o verificadas (Verifier). Formatos: W3C VCDM 2.0 (Rec mayo 2025), VCDM 1.1 (legacy), SD-JWT VC (selective disclosure). Soporte W3C VC Status List 2021 para revocación escalable. Trazabilidad al proofing origen vía FK T-165. ✅ IMPLEMENTADA v2.6.0 |
+| T-168 | `bauth.idn_tenant_fal_config` | Configuración del Federation Assurance Level (FAL) por Relying Party — FAL1 (aserción firmada) · FAL2 (DPoP bound) · FAL3 (mTLS holder-of-key). Constraints garantizan coherencia FAL↔controles (FAL2→DPoP/mTLS · FAL3→mTLS obligatorio). Motor OIDC consulta esta tabla al construir el authorization_endpoint response. ✅ IMPLEMENTADA v2.6.0 |
+| T-160 | `bauth.idn_identidad_sinonimo` | Sinónimos y abreviaturas para búsqueda difusa — fuente de verdad de archivos `.syn` de PostgreSQL para el motor de búsqueda D93. Administrable desde el dashboard. |
+| T-161 | `bauth.idn_identidad_sinonimo_sync` | Control de sincronización de diccionarios — registra cuándo se regeneraron los archivos `.syn`; evita recarga innecesaria cuando no hubo cambios en T-160 desde el último sync. |
+
+> **NHI — Identidades No-Humanas (G-21..G-24 · GAPS-DDL-PRIVILEGIOS-II.md):**
+> Los daemons de SBOS y cualquier identidad máquina del ecosistema son NHI gobernadas aquí.
+> `idn_roles_nhi_identity` es la entidad raíz; `idn_roles_nhi_lifecycle_event` e `idn_roles_nhi_certification`
+> son su ciclo de vida y evidencia de revisión periódica. `idn_roles_nhi_agent_identity` especializa los NHI
+> de tipo agente IA autónomo con control de scope y profundidad de orquestación.
+
+| Código | Tabla | Propósito |
+|--------|-------|-----------|
+| T-186 | `bauth.idn_roles_nhi_identity` | Entidad raíz de toda identidad máquina — daemons, pipelines CI/CD, bots, agents IA. `system_ref` es el identificador único por tenant; `owner_id` = humano responsable (accountability). `last_used_at` actualizado en cada autenticación del NHI; `review_at` define cadencia de revisión (30d CI/CD · 90d service account). Seeds: un NHI por daemon SBOS activo al inicializar el tenant. ✅ G-21 |
+| T-187 | `bauth.idn_roles_nhi_lifecycle_event` | Log WORM de eventos del ciclo de vida de un NHI — PROVISIONED, CERTIFIED, ROTATED, SUSPENDED, REACTIVATED, DECOMMISSIONED, OWNER_CHANGED. Un trigger en T-186 inserta automáticamente en cada cambio de estado. Fuente forense del historial completo del NHI. ✅ G-22 |
+| T-188 | `bauth.idn_roles_nhi_certification` | Certificación periódica mensual del NHI — evidencia de que el propietario técnico revisó el NHI, verificó su uso (`access_count`) y tomó una decisión (CERTIFY / DECOMMISSION / REDUCE_SCOPE). `decision='DECOMMISSION'` dispara la baja en T-186. ✅ G-22 |
+| T-190 | `bauth.idn_roles_nhi_agent_identity` | Especialización de NHI para agentes IA autónomos — extiende T-186 con `max_permission_scope` (techo de dominios del agente), `orchestrator_id` (padre en la cadena), `can_spawn_agents` + `max_spawn_depth`. ⚠️ BLOQUEADO por decisión HITL pendiente: herencia de permisos padre→hijo. ✅ G-24 |
+
+---
+
+## CALENDARIO
+
+> Infraestructura temporal del sistema. Schema `bcalendar` — tablas que gobiernan años fiscales, horarios laborales, días festivos y eventos que condicionan la validez de roles (D4/B2) y ventanas de transacciones financieras (D3).
+> La asignación de un calendario a un tenant/empresa vive en `bauth.idn_tenant_calendar_assignment` (T-013, sección TENANT).
+
+| Código | Tabla | Propósito |
+|--------|-------|-----------|
+| T-012 | `bcalendar.cal_fiscal_year` | Años fiscales por tenant — define el inicio y fin del año fiscal para cierres contables y ventanas de autorización financiera |
+| T-014 | `bcalendar.cal_calendar` | Calendarios laborales — cada calendario nombrado (ej. "Bolivia Estándar") con su zona horaria y reglas base; D4/B2 enlaza un calendario a cada rol |
+| T-015 | `bcalendar.cal_event` | Eventos de calendario — fechas especiales que afectan ventanas de acceso o procesamiento (cierre mensual, auditoría anual) |
+| T-016 | `bcalendar.cal_alarm` | Alarmas de eventos — D4 `review_date` dispara alerta 30 días antes del vencimiento del rol para revisión de acceso |
+| T-017 | `bcalendar.cal_notification_log` | Log de notificaciones de calendario — registro de alertas enviadas vía bNotify para trazabilidad de revisiones periódicas |
+| T-018 | `bcalendar.cal_holiday` | Días festivos y no laborables — fuente de verdad de feriados bolivianos + feriados propios del tenant; D3 `transaction_schedule` depende de días hábiles reales |
+| T-019 | `bcalendar.cal_schedule` | Horarios laborales — ventanas horarias por tenant/turno (09:00–16:00); D3 y D1 los consultan para restricciones de operación |
+| T-124 | `bcalendar.cal_overtime_policy` | Políticas de horas extra — define si el acceso fuera de horario requiere override de emergencia (D3) y qué aprobaciones activa |
+| T-125 | `bcalendar.cal_break_policy` | Políticas de descanso — ventanas de pausa que suspenden sesiones activas; soporte de D4 temporal y gestión de sesión D1 |
+
+---
+
+## USUARIOS
+
+> Registro de cuentas de usuario (subscriber accounts). **Separado de las entidades D00** (`idn_identity_entity` — jerarquía organizacional) — aquí vive la cuenta digital del actor: identificador de login, estado del ciclo de vida (ACTIVE / LOCKED / SUSPENDED / DEACTIVATED), nivel IAL alcanzado, perfil SCIM 2.0, datos de recuperación y vínculos con el actor D00 y los roles asignados.
+>
+> Un actor D00 puede tener 0, 1 o N cuentas de usuario. Esta distinción sigue el modelo NIST SP 800-63-4 §3 que separa la **identidad** (evidencia del mundo real → D00), el **subscriber account** (cuenta digital → esta sección) y el **authenticator** (dispositivo/secreto de prueba → sección AUTENTICACIÓN). Una cuenta puede estar vinculada a múltiples tenants con roles distintos sin duplicar la identidad.
+>
+> **Estándares:** NIST SP 800-63-4 §3 (subscriber accounts), SCIM 2.0 RFC 7643/7644 (user resource schema), ISO/IEC 24760-2:2025 §6.2 (identity account lifecycle), ISO 27001 A.5.15-16 (access rights, privileged access), OWASP ASVS v5.0 §2.1 (password security)
+
+*(Tablas por definir — pendiente de sesión de diseño)*
+
+---
+
+## AUTENTICACIÓN
+
+> El **Motor de Métodos** (`MethodRegistry`, patrón PAM — A.44 §1) es el punto ÚNICO de validación: ningún componente del daemon valida un método fuera de él. El universo de autenticación 2026 comprende **47 métodos** en 6 categorías (A=conocimiento, B=posesión, C=inherencia, D=federación, E=flujos especiales, F=identidad descentralizada — 2.02 §2). Implementados hoy: 9 (19%); meta mínima: 24 (parity Keycloak); meta completa: 38 (parity Okta/Ping).
+>
+> Esta sección de la DDL almacena el **estado persistente** de cada authenticator por cuenta: hashes Argon2id, seeds TOTP/HOTP cifrados (AES-256-GCM), credenciales FIDO2/Passkey (public key DER + AAGUID), certificados X.509 mTLS (fingerprint SHA-256), bindings SAML 2.0, social brokering tokens, Push Ed25519 public keys, recovery codes (SHA-256), intentos fallidos, lockout progresivo y ciclo de vida completo (registro, activación, suspensión, revocación < 30s, revisión trimestral). Incluye el **framework declarativo** (7 tablas: `auth_method`, `auth_policy`, `auth_config`, `crypto_algorithm`, `federation_protocol`, `saga_catalog`, `compliance_map` — 110+ registros que gobiernan el motor sin recompilar el daemon — 2.01 §7).
+>
+> Esta sección es la fuente de verdad del **PIP** del PDP al evaluar el LoA disponible y los requisitos de step-up (RFC 9470). Los datos son binarios/criptográficos — **bi18n no aplica** aquí.
+>
+> **Estándares:** NIST SP 800-63B-4 §5 (authenticator lifecycle), FIDO2/WebAuthn W3C Level 3 (passkeys AAL2/AAL3), RFC 9470 (step-up), PCI DSS 4.0 Req 8 (auth controls), ISO 27001 A.9.4, OWASP ASVS v5.0 §2.2–2.5
+
+*(Tablas por definir — pendiente de sesión de diseño)*
+
+---
+
+## SESIÓN
+
+> Gestión de sesiones activas y su ciclo de vida completo. Almacena el `ctx_id` de 6 capas (SBOS-049 §3.1), el usuario autenticado, el LoA alcanzado (AAL1/AAL2/AAL3), los métodos de autenticación utilizados, la expiración, el estado de revocación y los tokens de acceso/refresco emitidos. Soporte de SSO multi-aplicación con sincronización de revocación en tiempo real vía CAEP.
+>
+> El motor **CAEP** (RFC 9396 — Continuous Access Evaluation Protocol) emite eventos de sesión a esta sección cuando el contexto de seguridad cambia: `credential_change`, `token_claims_change`, `session_revoked`, `assurance_level_change`, `ip_change`. El PDP evalúa estos eventos en tiempo real sin esperar la expiración del JWT (sub-segundo). Integra con la sección RIESGO/ITDR para elevar automáticamente el LoA requerido ante señales de amenaza.
+>
+> **Estándares:** SBOS-049 §3.1 (Context Plane — ctx_id 6 capas), CAEP RFC 9396 (Continuous Access Evaluation Protocol), OpenID Connect Session Management 1.0, OAuth 2.0 Token Introspection RFC 7662, NIST SP 800-207 §3.3 (Zero Trust session management), NIST SP 800-63B-4 §7 (session management and reauthentication)
+
+| Código | Tabla | Propósito |
+|--------|-------|-----------|
+| T-181 | `bauth.ses_session_log` | Esqueleto persistente de sesión en PostgreSQL — complementa Redis (store activo) con historial que sobrevive reinicios. Registra: usuario, método auth, `loa_initial`, `loa_peak` (LoA máximo alcanzado en la sesión, incluyendo step-up), IP, user_agent, `started_at`, `terminated_at`, `termination_reason`. Redis no persiste — esta tabla es la fuente de forensia histórica. Candidata a particionamiento por mes. ✅ G-16 |
+| T-191 | `bauth.ses_caep_event_log` | Log WORM de eventos CAEP entrantes — registra cada evento recibido de transmitters externos (IdPs federados, MDMs, SIEMs): tipo, subject, transmitter, payload JSONB completo, estado de procesamiento (RECEIVED/PROCESSING/APPLIED/FAILED/IGNORED), `grants_affected[]` (UUIDs de T-170 afectados). Evidencia forense de qué señal disparó cada revocación. Candidata a particionamiento por fecha en deployments con múltiples transmitters. ✅ G-25 |
+| T-192 | `bauth.ses_ssf_stream` | Configuración de streams SSF para transmisión de eventos CAEP — reemplaza la config hardcodeada en TOML/ENV con filas editables en runtime. Por stream: receiver_name, endpoint, delivery_method (PUSH/POLL), event_types[], `auth_vault_path` (referencia al token de auth en Vault — nunca el valor). El daemon carga esta tabla al arrancar y recarga vía CAEP sobre Unix socket. ✅ G-26 |
+| T-193 | `bauth.ses_ssf_delivery_log` | Log WORM de intentos de entrega por stream SSF — una fila por intento. Registra: stream_id, event_type, delivered_at, delivery_status (SUCCESS/FAILED/RETRYING/ABANDONED), http_status, retry_count, error_message. Índice parcial en filas FAILED/RETRYING para el job de reintento. ✅ G-26 |
+
+---
+
+## PRIVILEGIOS
+
+> Motor BitMask engine — registro permanente de átomos de privilegio, asignaciones rol/usuario, mapeo de recursos para Kong (PEP) y estado operacional de delegaciones y excepciones. Estas tablas son la materialización en BD del modelo NIST RBAC Nivel 3 Constrained bajo el patrón XACML 3.0 PAP/PDP/PEP/PIP.
+>
+> **Separación conceptual con la sección ROLES:**
+> - **T-162** (ROLES) define el árbol de políticas — QUÉ es cada átomo, su jerarquía D01→bloque→política→módulo→evaluación, sus efectos PERMIT/DENY, sus obligaciones. Es la fuente de política.
+> - **PRIVILEGIOS** custodia la posición de bit permanente de cada átomo, las asignaciones rol/usuario, el mapeo recurso→átomo para el PEP (Kong) y el estado operacional en runtime.
+>
+> **Decisiones de diseño — ver A.65.02.01 para el análisis completo.**
+>
+> **Fábrica de átomos (flujo vigente — A.65.02.01 v1.2):** `T-162 (política + atom_position vía SEQUENCE roles_atom_position_sequential) → FK compuesta en T-170 → RolBitMask → JWT → Kong verifica bit`
+>
+> **Corrección arquitectónica (A.65.02.01 v1.2):** `atom_position` vive en T-162 (columna en nodos `tipo='evaluacion'`), no en T-170. T-170 la lee vía FK compuesta — nunca la genera. T-170b (`privilege_atom_audit`) es la tabla WORM separada de T-170 para cumplir ISO 27001 A.8.15.
+>
+> **SoD (G-03):** conflictividad entre verbos declarada en T-174/T-175. Trigger en T-170 verifica SoD en cada INSERT. Ambas tablas son **solo validación** — no participan en el BitMask ni en autenticación.
+>
+> **Estándares:** ANSI INCITS 359-2004 §4 (RBAC N3 Constrained), XACML 3.0 OASIS (PAP/PDP/PEP/PIP), NIST SP 800-53 Rev.5 AC-2/AC-3/AC-6 (account management, enforcement, least privilege), NIST SP 800-207 §2.1 (Zero Trust — todo recurso requiere decisión explícita), ISO/IEC 24760-2:2025 §7 (authorization model), OpenID AuthZEN 1.0 (API estándar PEP↔PDP — gap P2), RFC 9068 (JWT Profile OAuth 2.0)
+
+| Código | Tabla | Propósito |
+|--------|-------|-----------|
+| T-170 | `bauth.privilege_atom_grant` | Grants **per-user**: una fila por usuario por átomo — no existen filas de rol. SET/UNSET de AtomLang materializa N filas individuales (una por usuario); UNSET cambia solo la fila del usuario excluido sin tocar las demás. Lee `atom_position` de T-162 vía FK compuesta — nunca la genera. Incluye `tenant_id` (aislamiento multi-tenant), `valid_from`/`valid_until` (acceso JIT, NIST AC-2(6)). **`grant_type text DEFAULT 'STANDARD' CHECK ('STANDARD'\|'JIT'\|'BREAKGLASS')`** (G-20 D1): clasificador semántico del grant — `STANDARD` es el caso ordinario; `JIT` para grants temporales del flujo JIT (T-182/T-182b); `BREAKGLASS` para grants de emergencia (solo tier SU/EMERGENCY, requiere AAL3 + aprobación dual, máx. 2 por tenant). Distinto de `reassess`: `grant_type` clasifica el origen; `reassess` gobierna la inmunidad CAEP. Trigger `trg_validate_breakglass_grant` impone reglas D1/D2/D3. Índice parcial `idx_pag_grant_type_breakglass`. Cuatro índices IGA (G-09): `idx_pag_atom_access` (átomo→usuarios), `idx_pag_user_entitlement` (usuario→átomos, offboarding), `idx_pag_tenant_sweep` (tenant→certificación), `idx_pag_valid_until` (expiración NIST AC-2(6)). REPLICA IDENTITY FULL para daemon WAL `bauth-reactor`. |
+| T-170b | `bauth.privilege_atom_audit` | Tabla WORM append-only: hash-chain SHA-256 de cada INSERT/UPDATE en T-170. Separada de T-170 para garantizar inmutabilidad real (ISO 27001 A.8.15). REVOKE UPDATE/DELETE en `bauth_app_role`. Trigger `fn_worm_append` con `pg_advisory_xact_lock`. |
+| T-171 | `bauth.privilege_resource_atom` | Mapeo PAP per-tenant (G-06): `(tenant_id + tipo_protocolo + recurso + operación)` → `id_atom`. Columna `obligation JSONB NULL` (G-04): si NOT NULL, Kong verifica `required_loa` contra sesión activa antes de PERMIT. UNIQUE `(tenant_id, tipo_protocolo, recurso, operacion)`. Cargado en memoria al arrancar; recargado vía CAEP sobre Unix socket. |
+| T-172 | `bauth.privilege_delegation` | **Solo auditoría y trazabilidad** (G-08): registro de asignaciones de rol auxiliar temporal. La delegación real es asignación de rol por admin → T-170 + merge_roles Rust. T-172 responde "¿quién autorizó esta asignación y por qué?". Campos: `role_id`, `assignee_id`, `assigned_by`, `reason`, `valid_from`/`valid_until`. Sin `depth_limit` ni `chain_root`. Pendiente: widget de delegación en bAuth Desktop. DDL en A.65.02.01 §6.5. |
+| T-173 | `bauth.privilege_override` | Excepciones DENY→PERMIT / PERMIT→DENY per-tenant (G-06). `tenant_id NOT NULL`, `approver_id` + `reason` obligatorios, `audit_event_id` forense, `valid_until` obligatorio. Partial unique: un override activo por (tenant, átomo, usuario, tipo). DDL en A.65.02.01 §6.6. |
+| T-174 | `bauth.privilege_verb` | Catálogo de verbos válidos del sistema. **Solo validación** — FK referenciada por `idn_roles_template.verb_id`. No participa en BitMask ni autenticación. Verbo debe existir aquí antes de usarse en cualquier átomo del árbol. |
+| T-175 | `bauth.privilege_verb_conflict` | Matriz de conflictividad entre pares de verbos (SOD_ESTATICO / SOD_DINAMICO / AFINIDAD). **Solo validación** — consultada por trigger SoD en T-170 y compilador AtomLang. FK nativas a T-174. Cada par almacenado una sola vez (`verb_a < verb_b`). |
+| T-176 | `bauth.privilege_assurance_audit` | Auditoría de evaluación de obligaciones de LoA (decisión G-04 · SBOS-0XX-G04-LOA-AAL-OBLIGACIONES.md). Poblada exclusivamente por Kong (PEP) — no por bAuth. Registra por request: `grant_id`, `resource_id`, `required_loa`, `presented_loa`, `outcome` (PERMIT/STEP_UP_REQUIRED/DENIED), `session_id`. Separada de T-170b: T-170b audita *qué se otorgó*; T-176 audita *cómo se ejerció*. Volumen por request → candidata a particionamiento por fecha y retención propia. |
+| T-179 | `bauth.privilege_exception_record` | Gobernanza de excepciones a políticas — documenta el CONTEXTO de aprobación detrás de un override en T-173: política violada, tipo (SOD/TIER/SCOPE), justificación de negocio (≥ 50 chars), aprobador, `valid_until` y `review_at` obligatorios. El trigger SoD en T-170 consulta esta tabla antes de rechazar un INSERT — si existe excepción activa para el par (usuario, átomo), permite el grant. Job diario expira y revoca excepciones vencidas. ✅ G-14 |
+
+---
+
+## AUDITORÍA
+
+> Log de eventos de seguridad append-only WORM con hash-chain, particionado por mes. Centraliza toda la trazabilidad del sistema: autenticaciones exitosas/fallidas, autorizaciones evaluadas (PERMIT/DENY), cambios de privilegios y roles, operaciones sobre identidades, revisiones periódicas de acceso IGA (access certification campaigns), resultados de recertificación de roles, exportación a SIEM (Wazuh syslog UDP) y evidencia de cumplimiento normativo.
+>
+> El log es la fuente primaria para la **forensia** (quién hizo qué, cuándo y desde dónde) y para las **auditorías ISO 27001 / PCI DSS**. Cada evento tiene: `subject_id`, `action`, `resource`, `outcome`, `ctx_id`, `timestamp`, `ip`, `device_id`, y el hash de la entrada anterior (hash-chain WORM). La retención mínima se rige por `idn_roles_ver_b01_retention_policy` (Ley 843 Bolivia: 10 años, PCI DSS: 12 meses mínimo).
+>
+> **Estándares:** ISO 27001:2022 A.8.15 (information system audit logging), PCI DSS 4.0 Req 10 (log management and review), NIST SP 800-53 Rev. 5 AU-2/AU-3/AU-12 (event logging, content, monitoring), SOX Section 404 (internal controls evidence), GDPR Art. 30 (records of processing activities), NIST SP 800-53 AC-6(9) (privileged function use logging)
+
+| Código | Tabla | Propósito |
+|--------|-------|-----------|
+| T-177 | `bauth.aud_certification_campaign` | Cabecera de campaña de certificación de accesos IGA — define alcance (TENANT/USER/ROLE/ATOM), tipo (QUARTERLY/ANNUAL/OFFBOARDING/INCIDENT/SOD_REVIEW), ventana (started_at → due_date) y responsable. WORM: INSERT only; cierre → `status='COMPLETED'`. Job cron la crea trimestralmente para todos los tenants. Fuente que dispara revisiones en T-178. ✅ G-13 |
+| T-178 | `bauth.aud_certification_review` | Evidencia auditable de revisión IGA — una fila por (campaña, grant) con la decisión del revisor (CERTIFY/REVOKE/ESCALATE/DEFER). `decision='REVOKE'` escribe `revocation_at` y dispara UPDATE en T-170 `status='REVOKED'`. Esta tabla es la que presenta el auditor ISO 27001 como prueba de revisión periódica de accesos (A.8.2). ✅ G-13 |
+
+---
+
+## FIRMA DIGITAL
+
+> Ciclo de vida de certificados y llaves criptográficas del **doble motor de firma** (`SBOS-BAUTH-DIGITAL-SIGNATURE-ENGINES.md` v1.0). Este es el plano de control **D13 — Firma Digital Externa** del DomainRegistry (36 átomos diseñados: 5929–5964, módulos `chain`/`did`/`legalsg`, `min_trust=Critical`, `blockchain_anchored=1` — 1.01 §6). Gestiona dos motores independientes y complementarios:
+>
+> — **Motor interno (Vault Ed25519 — `domain/signature.rs`):** pares de llaves EdDSA, certificados PKI internos emitidos por Vault, firma de JWTs (`sign_jwt_internal`), estado de revocación (OCSP), rotación de llaves programada.  
+> — **Motor externo (ADSIB RSA-SHA256 — D13):** certificados emitidos por ADSIB/SIN Bolivia con validez jurídica (Ley 164), log de operaciones de firma forense (`sign_document_adsib`), timestamps calificados, OCSP stapling, cadena de custodia de documentos firmados.
+>
+> Los documentos firmados con D13 pueden además anclarse en **D12 Blockchain** (Forma A) para verificabilidad externa — los átomos D13 llevan `blockchain_anchored=1` precisamente por esto. Los dos dominios se complementan: D13 prueba la voluntad jurídica, D12 prueba que el registro no fue alterado (1.01 §9).
+>
+> Almacena también el registro de documentos firmados por su hash SHA-256, los CRL activos, y el historial de revocación certificada.
+>
+> **Estándares:** Ley 164 Bolivia (firma digital con validez jurídica), eIDAS 2.0 Reg. 910/2014 (qualified electronic signatures), ADSIB-FD-POLT-015 v2.3 (certificación digital Bolivia), SIN RND 102100000011 (facturación electrónica Bolivia), RFC 5280 (X.509 PKI certificates), RFC 8037 (EdDSA/Ed25519), ISO/IEC 9796-2 (digital signature schemes), PCI DSS 4.0 Req 4 (transmission security)
+
+*(Tablas por definir — pendiente de sesión de diseño)*
+
+---
+
+## FEDERACIÓN / OIDC
+
+> Registro de relying parties y proveedores de identidad externos del **OIDC Provider propio de bAuth** (ADR-010 — el único emisor de tokens del ecosistema). Gestiona el catálogo de clientes OAuth2/OIDC (scopes, redirect URIs, configuración PKCE, DPoP binding, FAPI 2.0 security profile), proveedores federados externos (SAML 2.0 IdP enterprise, social brokering: Google/GitHub/LinkedIn), tokens de acceso emitidos con su estado de revocación, refresh tokens con rotación forzada, tokens de intercambio (RFC 8693), y sesiones de Device Authorization Grant (RFC 8628).
+>
+> Incluye también la configuración del OIDC Discovery endpoint (`.well-known/openid-configuration`) y los JWKs públicos para verificación externa.
+>
+> **Estándares:** RFC 6749 (OAuth 2.0 Authorization Framework), RFC 7636 (PKCE), RFC 8705 (mTLS client certificate binding), RFC 9449 (DPoP — Demonstrating Proof of Possession), RFC 8693 (OAuth 2.0 Token Exchange), RFC 8628 (Device Authorization Grant), OpenID Connect Core 1.0, FAPI 2.0 Security Profile, SAML 2.0 OASIS, NIST SP 800-63-4 §6 (federation assurance levels FAL1/FAL2/FAL3)
+
+*(Tablas por definir — pendiente de sesión de diseño)*
+
+---
+
+## RIESGO / ITDR
+
+> Motor de riesgo adaptativo e **Identity Threat Detection & Response (ITDR)**. Registra señales de comportamiento por sesión (velocidad geográfica, anomalía de dispositivo, hora inusual, frecuencia de requests), scores de riesgo calculados por el motor PDP, eventos de amenaza de identidad detectados (credential stuffing, AiTM/adversary-in-the-middle, impossible travel, privilege escalation, brute force) y los triggers de step-up RFC 9470 disparados en respuesta.
+>
+> Integra bidireccional con la sección SESIÓN vía **CAEP** (RFC 9396): ante amenaza confirmada, ITDR emite un evento `session_revoked` que el PDP procesa en tiempo real para invalidar la sesión activa. Cuando el score supera el umbral configurado por tier, el PDP eleva el LoA requerido o bloquea la sesión sin intervención humana (Zero Trust continuous verification).
+>
+> **Estándares:** NIST SP 800-207 §2.1 (Zero Trust — continuous verification of all requests), MITRE ATT&CK for Enterprise TA0006 (Credential Access techniques), CAEP RFC 9396 (risk signals and continuous evaluation), ISO/IEC 27035:2023 (incident management), NIST SP 800-63B-4 §5.2.2 (phishing-resistant authentication requirements), IDPro IAM Reference Architecture v2 — RCTX (Risk Context domain)
+
+| Código | Tabla | Propósito |
+|--------|-------|-----------|
+| T-180 | `bauth.ses_risk_policy` | Reglas de política de riesgo adaptativo por tenant — define QUÉ HACE el PDP al recibir un evento CAEP específico. Cada regla: `trigger_event` (6 tipos CAEP), `condition` JSONB (ej. `{"risk_score": {"gte": 70}}`), `action` (STEP_UP/REVOKE/SUSPEND/NOTIFY/REQUIRE_MFA), `required_loa` (solo si STEP_UP), `priority` (menor = mayor prioridad). El PDP evalúa en orden de prioridad y aplica la primera regla que coincide. Reemplaza reglas hardcodeadas en el daemon — editable en runtime sin recompilar. Seeds por defecto en bootstrap del tenant según tier. ✅ G-15 |
+
+---
+
+## PAM
+
+> Gestión de Acceso Privilegiado (Privileged Access Management) para los tiers EMERGENCY (T0) y SYS (T1). Cubre el ciclo de vida completo de las cuentas privilegiadas: sesiones elevadas **JIT (Just-In-Time)** con ventana temporal limitada, vaulting de credenciales privilegiadas y secretos de servicio M2M (llaves API, certificados de servicio, tokens de larga duración), grabación de sesiones administrativas (session recording con hash de integridad), y workflows de aprobación **N-de-M quórum** obligatorio para activar cuentas de emergencia (break-glass).
+>
+> El **quórum N-de-M** (bloque B3 del árbol de políticas T-162) se aplica a: activación de cuentas EMERGENCY, elevación SU temporal, y acceso a recursos de nivel crítico. Ninguna sesión privilegiada puede iniciarse sin aprobación registrada en esta sección.
+>
+> **Estándares:** NIST SP 800-53 Rev. 5 AC-6(9) (auditing of privileged function use), NIST SP 800-53 AC-17 (remote access controls), NIST SP 800-207 §3.3 (ZTA privileged access), ISO 27001 A.5.18 (access rights management), IEC 62443-2-1 (industrial PAM), CIS Control 5 (account management), NIST SP 800-53 AC-2(4) (automated audit actions for privileged accounts)
+
+| Código | Tabla | Propósito |
+|--------|-------|-----------|
+| T-182 | `bauth.pam_jit_request` | Solicitud de acceso temporal privilegiado (Zero Standing Privilege) — cabecera del workflow JIT. Estados: PENDING → APPROVED → ACTIVE → EXPIRED/REVOKED. `justification` ≥ 50 chars obligatorio; `requested_duration` ≤ `max_duration` del tier. `niveles_requeridos` define cuántos niveles de aprobación secuencial exige el tier del acceso solicitado. Al completarse todos los niveles en T-182b → daemon crea grant en T-170 con `valid_from`/`valid_until`. Job de expiración revisa cada minuto filas `status='ACTIVE'` con `valid_until < now()`. WORM: INSERT only. ✅ G-17 |
+| T-182b | `bauth.pam_jit_approval` | **Aprobación secuencial multi-nivel** de solicitudes JIT — una fila por nivel de aprobación requerido. Nivel 1 es notificado primero; el Nivel 2 solo es notificado cuando Nivel 1 aprueba. `required_role` define qué rol puede decidir en ese nivel. Si cualquier nivel rechaza → la solicitud queda REJECTED y los niveles superiores nunca son notificados. Índice parcial en filas sin decisión para el job notificador. Permite 1, 2 o N aprobadores sin cambiar el DDL — solo se agrega una fila de nivel. ✅ G-17 |
+| T-183 | `bauth.pam_credential_ref` | Referencias a credenciales privilegiadas en Vault — inventario de metadatos de rotación. NUNCA almacena el valor de la credencial; solo la ruta en Vault (`vault_path`). Cubre humanos Y NHI (`owner_type=NHI` conecta con T-186 `idn_roles_nhi_identity`). Job de rotación lee el índice `idx_pcref_rotation` y ejecuta rotación en Vault cuando `next_rotation_at <= now()`. ✅ G-18 |
+| T-184 | `bauth.pam_session_record` | Metadatos de sesión de acceso privilegiado — registra CÓMO se ejerció el privilegio: recurso, tipo de acceso (SSH/RDP/API/CONSOLE/DB/CLI/VAULT), credencial usada, duración (GENERATED ALWAYS), comandos ejecutados, referencia a grabación en MinIO. `jit_request_id` vincula con el JIT que habilitó la sesión. Solo escritura del daemon — el frontend es solo lectura. ✅ G-19 |
+| T-185 | `bauth.pam_breakglass_activation` | Ciclo de vida completo de activaciones break-glass (grants `grant_type='BREAKGLASS'` en T-170, G-20 D1). Ciclo: `PENDING_APPROVAL → ACTIVE → DEACTIVATED → REVIEWED`. Dual control obligatorio: `approver_id`/`approved_at` — el estado `ACTIVE` solo se alcanza cuando un segundo SU distinto al activador aprueba (`chk_pbga_dual_control`). `auth_method text CHECK('MTLS_X509'\|'WEBAUTHN_ROAMING'\|'WEBAUTHN_PLATFORM')` registra el método AAL3 usado — el PDP verifica que el método sea declarado en el RolTemplate B4 de la cuenta EMERGENCY. `auth_loa IN (2,3)`: normalmente 3; solo 2 cuando se usa el alternativo degradado `WEBAUTHN_PLATFORM` (compensado con dual control). `post_review_due_at = activated_at + 24h` (NIST AC-2(4)) — índice `idx_pbga_review_pending` alimenta el job de alertas al CISO. TTL de activación: 4h (job `breakglass_expiry.rs` auto-desactiva). Máx. 2 grants BREAKGLASS activos por tenant (D3 — trigger en T-170). 5 métodos JSON-RPC: `solicitar`, `aprobar`, `listar`, `desactivar`, `revisar`. ✅ G-20 |
+| T-189 | `bauth.pam_nhi_secret_ref` | Referencias a secretos de NHI en Vault — igual que T-183 pero para secretos de alta frecuencia de rotación (7-30 días vs 90 días). `rotation_policy='ON_USE'` rota en cada uso (patrón para pipelines CI/CD). NUNCA almacena el valor del secreto. Al descomisionar un NHI → todos sus secretos pasan a `status='REVOKED'`. ✅ G-23 |
+
+---
+
+## DISPOSITIVOS
+
+> Registro de dispositivos confiables y su postura de compliance (Zero Trust device verification). Almacena: attestation FIDO2 de dispositivos (`aaguid`, `attestation_certificate`, `trust_model` — Basic/AttCA/ECDAA), certificados X.509 de dispositivo emitidos por Vault, postura MDM (compliant/non-compliant/unknown), vínculos usuario↔dispositivo con historial de revocación, y políticas de acceso condicional por postura de dispositivo (compliant-required, managed-required, domain-joined).
+>
+> El PEP del Context Plane verifica la postura del dispositivo antes de autorizar el JWT en cada request (NIST SP 800-207 device-based signal). Las credenciales FIDO2/Passkeys de la sección AUTENTICACIÓN referencian los dispositivos registrados aquí para validar la attestation antes de activar el authenticator. Soporte de **OSDP v2.2** para control de acceso físico (lectores de tarjeta, torniquetes).
+>
+> **Estándares:** FIDO2/WebAuthn W3C Level 2 (device attestation model), NIST SP 800-207 §3.2 (device compliance as ZTA signal), NIST SP 800-63B-4 §5.1 (FIDO2 passkeys at AAL2/AAL3), IEEE 802.1X (port-based network access control), OSDP v2.2 (physical access control), ISO/IEC 27001 A.6.2 (mobile device policy), ISO/IEC 24760-2:2025 §6.3 (device identity)
+
+*(Tablas por definir — pendiente de sesión de diseño)*
+
+---
+
+## BLOCKCHAIN D12
+
+> El plano de control **D12** del DomainRegistry — capa de confianza verificable de bAuth. Código implementado: `src/domain/blockchain.rs` (evaluador D12 en el pipeline External-Path) y `src/domain/merkle.rs` (motor Merkle Keccak-256/RFC 6962, 8/8 tests verificados). Opera en **dos formas complementarias** (5.02 MANUAL-BLOCKCHAIN-D12):
+>
+> — **Forma A — Ancla de auditoría (refuerzo de D11):** eventos críticos de auditoría se agrupan en lotes → árbol Merkle (Keccak-256, hasta 1M hojas, domain separation RFC 6962) → raíz anclada on-chain en Arbitrum (pública, verificable externamente sin confiar en bAuth). El binario `bos-verify` (MUSL 1.2MB, cero dependencias runtime) verifica inclusión offline. Patrón: Certificate Transparency RFC 6962 aplicado a identidad.  
+> — **Forma B — Motor de liquidación (refuerzo de D3):** liquidación de valor entre entidades sobre Besu QBFT privado (4 validadores, finalidad inmediata ~1000 TPS). Contrato `SettlementEngine.sol` **probado** en VPS real (6 operaciones en bloques #38-42: freeze/settle/revert/anti-replay verificados, B29 2026-06-22).
+>
+> Las **5 tablas `blk_*`** están diseñadas en el DDL legacy (`sbos_00:3733`), verificadas en VPS (Capa 2) y operativas: `blk_anchor`, `blk_merkle_batch`, `blk_merkle_leaf`, `blk_account`, `blk_reconciliation`. La integración con D11 se materializa en columnas Merkle dentro de la propia fila de `privilege_atom_audit` (`merkle_batch_id`, `merkle_proof[]`, `onchain_tx_hash`) — el anclaje no es una tabla aparte, es un atributo del evento. Las tablas se incorporan a esta nueva DDL con revisión de naming canónico.
+>
+> **Nota:** D12 (anclaje/liquidación) y D13 (firma legal ADSIB) se complementan — un documento D13 puede anclarse en D12 Forma A para verificabilidad temporal; D12 no reemplaza la firma (eso es D13) ni el BitMask (eso es D1, variante C descartada por latencia). bi18n no aplica — los hashes y direcciones blockchain son binarios.
+>
+> **Estándares:** RFC 6962 (Certificate Transparency — Merkle inclusion proof), FIPS 202 (Keccak-256/SHA-3), NIST IR 8202 (blockchain best practices), QBFT/IBFT 2.0 (Byzantine fault-tolerant consensus ≥2/3 super-mayoría), ISO 27001:2022 A.8.15 (integridad de auditoría), W3C DID Core 1.0 (identidad descentralizada — P3), EIP-712 (structured data signing), Regulación boliviana blockchain (declaración previa requerida para Forma B — gap P2)
+
+*(Tablas a incorporar del diseño legacy con naming canónico: `blk_anchor` · `blk_merkle_batch` · `blk_merkle_leaf` · `blk_account` · `blk_reconciliation`)*
+
+---
+
+## Resumen de tablas por sección
+
+| Sección | Tablas | Estado | Tipo |
+|---------|--------|--------|------|
+| GLOBAL | 8 (T-001..T-004 · T-059..T-061 · T-114) | ✅ Definidas | Catálogos de referencia (`bglobal`) |
+| TENANT | 8 (T-005..T-013) | ✅ Definidas | Infraestructura multi-tenancy (`bauth`) |
+| ROLES | 8 (T-040..T-042 · T-063 · T-161b · T-162..T-163 · T-194) | ✅ Definidas | Identidad de roles + árbol de políticas + catálogos (`bauth`) |
+| VERSIONADO | 4 (T-152..T-155) | ✅ Definidas | Motor MVU 1.13 (`bauth`) |
+| IDENTIDAD | 14 (T-156..T-161 + T-165..T-168 + T-186..T-188 · T-190) | ✅ Definidas ✅ D00 COMPLETO | Motor D00 v2.0 + NHI — actores, atributos, proofing, consentimiento, VC, FAL (`bauth`) |
+| CALENDARIO | 9 (T-012 · T-014..T-019 · T-124..T-125) | ✅ Definidas | Infraestructura temporal (`bcalendar`) |
+| USUARIOS | — | ⏳ Pendiente | Cuentas de usuario SCIM 2.0 (`bauth`) |
+| AUTENTICACIÓN | — | ⏳ Pendiente | Motor de Métodos — 47 métodos + MFA (`bauth`) |
+| SESIÓN | 4 (T-181 · T-191..T-193) | ✅ Definidas | Sesiones persistentes + CAEP + SSF (`bauth`) |
+| PRIVILEGIOS | 9 (T-170 · T-170b · T-171..T-176 · T-179) | ✅ Definidas | Motor BitMask engine + excepciones (`bauth`) |
+| AUDITORÍA | 2 (T-177..T-178) | ✅ Definidas | Campañas IGA + revisiones de certificación (`bauth`) |
+| FIRMA DIGITAL (D13) | — | ⏳ Pendiente | PKI + EdDSA interno + ADSIB externo (`bauth`) |
+| FEDERACIÓN / OIDC | — | ⏳ Pendiente | OAuth2/OIDC/SAML + tokens (`bauth`) |
+| RIESGO / ITDR | 1 (T-180) | ✅ Definidas | Política de riesgo adaptativo — `ses_risk_policy` (`bauth`) |
+| PAM | 6 (T-182 · T-182b · T-183..T-185 · T-189) | ✅ Definidas | JIT + aprobación multi-nivel + credenciales + sesión privilegiada + break-glass + secretos NHI (`bauth`) |
+| DISPOSITIVOS | — | ⏳ Pendiente | Registro de dispositivos FIDO2/ZTA (`bauth`) |
+| BLOCKCHAIN D12 | 5 | ⏳ Naming pendiente | Anclaje Merkle + liquidación Besu (`bauth`) |
+| **Total definido** | **73** | — | *4 secciones sin tablas · 9 secciones con diseño aprobado ✅ · D00 COMPLETO v2.6.0* |
+
+---
+
+## Próximos pasos
+
+1. **HITL — definir tablas por cada sección nueva restante** (4 secciones pendientes):
+   - Orden de dependencia: USUARIOS → AUTENTICACIÓN
+   - Independientes: FIRMA DIGITAL · FEDERACIÓN/OIDC · DISPOSITIVOS · BLOCKCHAIN D12 (renaming canónico)
+
+2. **Implementar Fase 1 (GAPS-DDL-PRIVILEGIOS-II.md):** G-21 → G-17 → G-20 → G-13 (orden de dependencia).
+   - Dependen de SESIÓN: RIESGO/ITDR · PAM
+   - PRIVILEGIOS ✅ cerrado (T-170, T-170b, T-171–T-176 · doctrina en A.65.02.01 v1.5 · extensión AtomLang en A.65.02.02 · G-04 en SBOS-0XX-G04-LOA-AAL-OBLIGACIONES.md · G-06/G-09 en GAPS-DDL-PRIVILEGIOS.md)
+   - BLOCKCHAIN D12: naming canónico pendiente (5 tablas legacy)
+2. **Diseñar DDL de secciones ya inventariadas** (columnas, constraints, índices):
+   - Primero: GLOBAL → TENANT → IDENTIDAD (base de actores)
+   - Segundo: ROLES (T-040 → T-041 → T-042 → T-063 → T-162 → T-163)
+   - Tercero: VERSIONADO (depende de ROLES) · CALENDARIO (independiente)
+3. Cada tabla diseñada → migración `bauth_NN__<tabla>.sql` numerada
+4. Seeds: migrar datos de VPS legacy con `INSERT INTO new SELECT FROM old` donde aplique
+5. Validar con `verificar_afirmacion.sh` antes de declarar cualquier tabla completa
