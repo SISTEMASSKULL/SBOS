@@ -30,7 +30,7 @@ Alineación con los 7 principios de Zero Trust:
 ### 1.2 ISA-95 / IEC 62264 — Enterprise-Control System Integration
 
 SBOS implementa los Niveles 3 y 4 de forma nativa:
-- **Nivel 3 (Manufacturing Operations):** BOS + bAuth + bkernel — contexto, identidad, eventos
+- **Nivel 3 (Manufacturing Operations):** BOS + bAuth +— contexto, identidad, eventos
 - **Nivel 4 (Business Logistics):** Tryton ERP, SmartTax, apps de negocio
 
 ### 1.3 ITIL 4 — Infrastructure and Platform Management
@@ -159,7 +159,6 @@ Cada decisión de arquitectura del BOS está respaldada por al menos un estánda
 | UUIDv7 PKs | RFC 9562 |
 | LoA 1-4 | RFC 9470 · NIST 800-63B |
 | Operator Pattern level-based | CNCF Operator White Paper · controller-runtime |
-| Headless-first (DTC-01) | GitOps Principles · ITIL 4 §Automation |
 
 ---
 

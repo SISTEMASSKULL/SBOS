@@ -250,7 +250,7 @@ let domains: Vec<(String,i64)> = sqlx::query_as(
 | `fin_*` | 8 | D3 (financiero) | fin_transaction_type, fin_sod_rule, fin_limit, fin_decision_matrix, fin_approval_chain... |
 | `fis_*` | 7 | D2 (físico) | fis_access_zone, fis_controller, fis_device, fis_location, fis_zone_method_requirement... |
 | `geo_*` | 5 | D6 (geoespacial) | geo_fence, geo_trust_tier, geo_velocity_policy, geo_location_log... |
-| `ses_*` | 5 | D8 (contexto) | ses_context, ses_context_switch, ses_risk_policy, ses_caep_config, ses_superuser_context |
+| `ses_*` | 5 | D8 (contexto) | ses_context, ses_context_switch, ses_ses_risk_policy, ses_caep_config, ses_superuser_context |
 | `aud_*` | 6 | D11 (auditoría) | aud_event, aud_review, aud_ghost_account, aud_policy_change, aud_compliance_map... |
 | `blk_*` | 5 | D12 (blockchain) | blk_anchor, blk_merkle_batch, blk_merkle_leaf, blk_account, blk_reconciliation |
 | `dlg_*` | 1 | D10 (delegación) | dlg_delegation |

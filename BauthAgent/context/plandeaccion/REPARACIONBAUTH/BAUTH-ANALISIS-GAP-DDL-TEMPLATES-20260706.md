@@ -58,7 +58,7 @@ El DDL define las siguientes tablas relevantes para los templates:
 | `bauth.fin_limit` | 2149 | Bloque 8 — límites financieros |
 | `bauth.fin_sod_rule` | 2909 | Bloque 12 — SoD rules |
 | `bauth.dlg_delegation` | 3490 | Bloque 10 — delegación |
-| `bauth.ses_risk_policy` | 4471 | Bloque 13 User — risk score |
+| `bauth.ses_ses_risk_policy` | 4471 | Bloque 13 User — risk score |
 
 La BD tiene las piezas de soporte. El problema está en los gaps de la tabla principal
 y en la ausencia de D00.
@@ -653,7 +653,7 @@ ANSI/INCITS 359-2004.
 
 **Tablas nuevas requeridas:**
 - `bauth.ses_context_config` — estructura del ctx_id, W3C traceparent, OTel baggage
-- `bauth.ses_risk_policy` — evaluación de riesgo en tiempo real (geo_velocity, device_change)
+- `bauth.ses_ses_risk_policy` — evaluación de riesgo en tiempo real (geo_velocity, device_change)
 - `bauth.ses_caep_config` — eventos CAEP: session-revoked, token-claims-change
 
 #### D9 — Credenciales (Más avanzado — NIST 800-63B-4)
@@ -692,7 +692,7 @@ D10 (Delegación), D12 (Blockchain).
 ```
 FASE A — ALTA (requieren HITL antes de DDL):
   1. Resolver inconsistencia de numeración D4/D5 en catálogo (HITL Iván)
-  2. D8 ses_context_config + ses_risk_policy → desbloquea SBOS-049
+  2. D8 ses_context_config + ses_ses_risk_policy → desbloquea SBOS-049
   3. D1 ath_auth_flow + ath_step_up_rule → desbloquea RFC 9470 step-up
   4. D1 zone_application_map + zone_field_restriction → desbloquea Tryton 5 capas
   5. D9 ath_phishing_policy → cumplimiento NIST 800-63B-4 AAL2+
@@ -842,7 +842,7 @@ las siguientes **YA EXISTEN** en SBOS_db verificado hoy:
 | `fis_emergency_config` | 0 | Override emergencia física |
 | `fis_zone_method_requirement` | 0 | Requisitos por zona física |
 | `net_ztna_policy` | 0 | Política ZTNA |
-| `ses_risk_policy` | 0 | Política de riesgo de sesión |
+| `ses_ses_risk_policy` | 0 | Política de riesgo de sesión |
 | `ses_caep_config` | 0 | Eventos CAEP |
 | `geo_velocity_policy` | 0 | Velocidad de viaje |
 | `zone_button_rule` | 0 | Reglas de botones |

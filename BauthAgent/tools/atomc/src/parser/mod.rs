@@ -162,6 +162,7 @@ fn parse_target(raw: crate::lexer::RawTarget) -> Target {
                 value: parse_value_ref(e.value),
             })
             .collect(),
+        unset: raw.unset,
     }
 }
 

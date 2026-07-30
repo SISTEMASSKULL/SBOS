@@ -1,0 +1,124 @@
+# ===================================================================
+# blocks_map.toml — Clasificación de campos T-041 para versionado
+#
+# Fuente canónica: 1.09 §11.2 adaptado a columnas reales de
+# bauth.idn_roles_rol_hierarchical (T-041).
+#
+# change_type válidos: MAJOR · MINOR · PATCH
+# Campos ausentes de esta tabla = sistema/operacional; ignorados.
+# NIST SP 800-53 CM-3 · ISO 27001 A.8.32 · ANSI INCITS 359-2004
+# ===================================================================
+
+# ── MAJOR — cambios con impacto en control de acceso y privilegio ─
+
+[[campo]]
+nombre = "tier"
+bloque = "B4_acceso_y_privilegio"
+change_type = "MAJOR"
+standard_ref = ["NIST AC-2", "NIST AC-6", "INCITS-359-§5.1", "ISO-27001-A.5.15"]
+
+[[campo]]
+nombre = "type_id"
+bloque = "B4_acceso_y_privilegio"
+change_type = "MAJOR"
+standard_ref = ["NIST AC-2", "INCITS-359"]
+
+[[campo]]
+nombre = "ial_min"
+bloque = "B4_acceso_y_privilegio"
+change_type = "MAJOR"
+standard_ref = ["NIST-SP800-63B-§4", "ISO-29115:2013"]
+
+[[campo]]
+nombre = "risk_classification"
+bloque = "B4_acceso_y_privilegio"
+change_type = "MAJOR"
+standard_ref = ["ISO-27001-A.8.2", "NIST-RA-2"]
+
+[[campo]]
+nombre = "sensitivity_label"
+bloque = "B4_acceso_y_privilegio"
+change_type = "MAJOR"
+standard_ref = ["ISO-27001-A.8.2", "NIST-RA-2"]
+
+[[campo]]
+nombre = "approval_required"
+bloque = "B3_aprobacion_cambios"
+change_type = "MAJOR"
+standard_ref = ["NIST-AC-5", "NIST-CM-3", "ISO-27001-A.5.3"]
+
+# ── MINOR — cambios que extienden o ajustan sin romper ───────────
+
+[[campo]]
+nombre = "max_simultaneous_holders"
+bloque = "B5_politica_asignacion"
+change_type = "MINOR"
+standard_ref = ["NIST-AC-2", "ISO-27001-A.5.15"]
+
+[[campo]]
+nombre = "validity_type"
+bloque = "B2_vigencia"
+change_type = "MINOR"
+standard_ref = ["NIST-AC-2-g4", "ISO-24760-2:2025"]
+
+[[campo]]
+nombre = "valid_from"
+bloque = "B2_vigencia"
+change_type = "MINOR"
+standard_ref = ["NIST-AC-2-g4"]
+
+[[campo]]
+nombre = "valid_until"
+bloque = "B2_vigencia"
+change_type = "MINOR"
+standard_ref = ["NIST-AC-2-g4"]
+
+[[campo]]
+nombre = "duration_interval"
+bloque = "B2_vigencia"
+change_type = "MINOR"
+standard_ref = ["NIST-AC-2-g4"]
+
+[[campo]]
+nombre = "max_renewals"
+bloque = "B2_vigencia"
+change_type = "MINOR"
+standard_ref = ["NIST-AC-2-g4"]
+
+# ── PATCH — correcciones descriptivas sin impacto funcional ──────
+
+[[campo]]
+nombre = "name"
+bloque = "B1_identidad"
+change_type = "PATCH"
+standard_ref = ["INCITS-359-§5.1"]
+
+[[campo]]
+nombre = "description"
+bloque = "B1_identidad"
+change_type = "PATCH"
+standard_ref = ["INCITS-359-§5.1"]
+
+[[campo]]
+nombre = "code"
+bloque = "B1_identidad"
+change_type = "PATCH"
+standard_ref = ["INCITS-359-§5.1"]
+
+[[campo]]
+nombre = "metadata_b1"
+bloque = "B1_identidad"
+change_type = "PATCH"
+standard_ref = ["INCITS-359-§5.1"]
+
+[[campo]]
+nombre = "business_justification"
+bloque = "B1_identidad"
+change_type = "PATCH"
+standard_ref = ["ISO-27001-A.5.15"]
+
+[[campo]]
+nombre = "is_inheritable"
+bloque = "B4_acceso_y_privilegio"
+change_type = "PATCH"
+standard_ref = ["NIST-RBAC-§4.3", "INCITS-359"]

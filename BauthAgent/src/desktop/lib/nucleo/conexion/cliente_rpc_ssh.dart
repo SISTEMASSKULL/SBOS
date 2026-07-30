@@ -83,6 +83,25 @@ class ClienteRpcSsh implements IClienteRpc {
     );
   }
 
+  /// Ejecuta un comando de shell en el servidor y devuelve stdout completo.
+  /// Útil para consultas directas (psql, bash) sin pasar por el daemon.
+  @override
+  Future<String> ejecutarCmd(String cmd) async {
+    final SSHSession session;
+    try {
+      session = await _ssh.execute(cmd);
+    } catch (e) {
+      throw RpcError(-32000, 'Error al abrir sesión SSH exec: $e');
+    }
+    final stdoutB = BytesBuilder();
+    await Future.wait([
+      session.stdout.forEach(stdoutB.add),
+      session.stderr.drain<void>(),
+    ]);
+    try { session.close(); } catch (_) {}
+    return utf8.decode(stdoutB.toBytes(), allowMalformed: true).trim();
+  }
+
   Future<Map<String, dynamic>> _ejecutar(String cmd) async {
     final SSHSession session;
     try {

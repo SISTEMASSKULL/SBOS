@@ -122,7 +122,7 @@
 | 2961 | `ses_context` | Migrada | Sesiones ctx_id 6-capas SBOS-049 + W3C traceparent | — |
 | 3027 | `ses_context_switch` | Migrada | Historial cambios de contexto operativo | — |
 | 3063 | `ses_superuser_context` | Migrada | Break-glass SU. Sesión 4h max. Vault 2-of-3 | — |
-| 4418 | `ses_risk_policy` | Nueva | Riesgo sesión tiempo real: factores, thresholds, acciones | — |
+| 4418 | `ses_ses_risk_policy` | Nueva | Riesgo sesión tiempo real: factores, thresholds, acciones | — |
 | 4445 | `ses_caep_config` | Nueva | OpenID CAEP 1.0: session-revoked, credential-change | — |
 | 4680 | `ctx_transfer_log` | Nueva | Transferencias ctx_id vía QR/NFC/BLE/WebSocket | 🔴 |
 | 4704 | `qr_challenge_registry` | Nueva | Challenges QR. Anti-replay. TTL 120s | 🔴 |

@@ -77,8 +77,8 @@ Usuario solicita acceso
 ### 2.2 SEVERIDAD (SeverityLevel)
 **Valores:** critical, high, medium, low, normal, minimal  
 **Estándar:** NIST SP 800-30 (Risk Assessment), ISO 27005 (Risk Management), PCI DSS 4.0 (Risk Ranking)  
-**Propósito:** Clasifica el impacto de eventos de seguridad. Alimenta `ses_risk_policy.threshold_*` y `aud_event.severity`  
-**Consumidor DDL:** `ses_risk_policy.threshold_critical/high/medium/low`, `fin_sod_rule.risk_level`  
+**Propósito:** Clasifica el impacto de eventos de seguridad. Alimenta `ses_ses_risk_policy.threshold_*` y `aud_event.severity`  
+**Consumidor DDL:** `ses_ses_risk_policy.threshold_critical/high/medium/low`, `fin_sod_rule.risk_level`  
 **Evaluador bAuth:** RiskScoringEngine — si score > threshold_critical → TERMINATE_SESSION  
 **Impacto en autenticación:** Un evento `critical` fuerza step-up a AAL3 o terminación inmediata de sesión
 
@@ -117,8 +117,8 @@ Usuario solicita acceso
 ### 2.7 ACCION (SecurityAction)
 **Valores:** block, deny, allow, alert, monitor, log, warn, encrypt, delete, read, restrict  
 **Estándar:** NIST SP 800-53 AC-3 (Access Enforcement), OWASP ASVS V4.1 (Access Control)  
-**Propósito:** Acciones de respuesta ante eventos de seguridad. Alimenta `ses_risk_policy.action_*`  
-**Consumidor DDL:** `ses_risk_policy.action_low/medium/high/critical`, `geo_velocity_policy.on_violation`  
+**Propósito:** Acciones de respuesta ante eventos de seguridad. Alimenta `ses_ses_risk_policy.action_*`  
+**Consumidor DDL:** `ses_ses_risk_policy.action_low/medium/high/critical`, `geo_velocity_policy.on_violation`  
 **Evaluador bAuth:** RiskScoringEngine + DomainShortCircuit — `block` detiene evaluación inmediatamente  
 **Impacto en autenticación:** `block` en velocity check → sesión terminada, requiere reautenticación completa
 
@@ -126,7 +126,7 @@ Usuario solicita acceso
 **Valores:** manager, supervisor, securityTeam, legalTeam, dataOwner, owner  
 **Estándar:** NIST SP 800-53 AC-5 (Separation of Duties), SOX §404 (Approval Chains)  
 **Propósito:** Entidades responsables de aprobación. Alimenta `fin_decision_matrix.nivel_*_rol`  
-**Consumidor DDL:** `fin_decision_matrix`, `fin_approval_level`, `ses_risk_policy.notification_roles`  
+**Consumidor DDL:** `fin_decision_matrix`, `fin_approval_level`, `ses_ses_risk_policy.notification_roles`  
 **Evaluador bAuth:** FinancialEvaluator (D3) — verifica que el aprobador tiene el rol requerido  
 **Impacto en autenticación:** Una transacción > $10K requiere aprobación de `manager` + `securityTeam`
 
@@ -210,12 +210,12 @@ VALIDACIÓN PRE-REGISTRO (9 verificaciones V01-V09):
 | Categoría Framework | Tabla DDL que la consume | Evaluador bAuth | Estándar | ¿Implementado? |
 |---------------------|-------------------------|-----------------|----------|:---:|
 | ReviewFrequency | `aud_review`, `idn_tier_policy` | AuditDomainEvaluator (D11) | ISO 27001 A.9.2.5 | ✅ |
-| SeverityLevel | `ses_risk_policy`, `fin_sod_rule` | RiskScoringEngine (D8) | NIST SP 800-30 | ✅ |
+| SeverityLevel | `ses_ses_risk_policy`, `fin_sod_rule` | RiskScoringEngine (D8) | NIST SP 800-30 | ✅ |
 | DataClassification | `zone_data_policy`, `log_zone` | LogicalEvaluator (D1) | ISO 27001 A.8.2 | ✅ |
 | CryptoAlgorithm | `bos_crypto_algorithm`, `sec_key_inventory` | Vault PKI (infra) | FIPS 140-3 | ✅ |
 | TLSProtocol | `idn_tenant_domain.ssl_config` | NetworkEvaluator (D7) | NIST SP 800-52 | ✅ |
 | AuthFactorType | `ath_method.method_type` | CredentialEvaluator (D9) | NIST 800-63B §5.1 | ✅ |
-| SecurityAction | `ses_risk_policy.action_*` | DomainShortCircuit | NIST 800-53 AC-3 | ✅ |
+| SecurityAction | `ses_ses_risk_policy.action_*` | DomainShortCircuit | NIST 800-53 AC-3 | ✅ |
 | ApproverRole | `fin_decision_matrix` | FinancialEvaluator (D3) | SOX §404 | ✅ |
 | LifecycleState | `ath_policy_d*.is_active` | PolicyEngine | ISO 27001 A.8.9 | ✅ |
 | DurationUnit | `idn_tenant.session_ttl_max` | ContextEvaluator (D8) | NIST 800-63B §7 | ✅ |

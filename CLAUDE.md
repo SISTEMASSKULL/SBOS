@@ -71,6 +71,7 @@ doctrina ni se auditan a sí mismos.
 - **Puertos (SBOS-050):** rango daemons 9400–9499; BD solo ClusterIP; deny-all salvo 22/80/443.
 - **systemd en el host** (no pods K8s). K8s solo aloja infraestructura (PostgreSQL, Redis, Keycloak, Vault, Kong).
 - **Normas irrenunciables:** SBOS-047 (ISO 27001), 049 (Context Plane), 050 (Port Catalog).
+- **Herramientas MCP obligatorias:** `codebase-memory-mcp` (grafo de código, 14 tools) + `qex` (búsqueda semántica, 5 tools). Usarlas antes de leer archivos. Manual: `../fabrica/context-fabrica/protocolos/HERRAMIENTAS-MCP.md`.
 - **Formato de documentos: Markdown (.md) obligatorio.** Todo documento, demo, informe o especificación se genera en `.md`. HTML solo a pedido explícito del humano. Por defecto, siempre `.md`.
 - **C12 — AA-1 Evidencia obligatoria:** toda afirmación verificable (compila, existe, retorna N) DEBE adjuntar salida de `verificar_afirmacion.sh` con timestamp + SHA256. Sin evidencia = RECHAZO. Herramienta: `../fabrica/scripts/verificar_afirmacion.sh`.
 

@@ -214,7 +214,7 @@
 | Dato requerido | Tabla existente | Estado | Acción |
 |---|---|---|---|
 | ctx_id_scope, ctx_id_compliance | — | 🔴 | **Falta tabla `bauth.ses_context_config`** |
-| session_risk (risk_factors, thresholds, actions) | — | 🔴 | **Falta tabla `bauth.ses_risk_policy`** |
+| session_risk (risk_factors, thresholds, actions) | — | 🔴 | **Falta tabla `bauth.ses_ses_risk_policy`** |
 | context_switching granular | — | 🔴 | **Falta** |
 | caep_events[] | — | 🔴 | **Falta tabla `bauth.ses_caep_config`** |
 | force_logout_on[] | — | 🔴 | **Falta** |
@@ -389,7 +389,7 @@
 | 26 | `bauth.net_device_trust_policy` | D7 | MEDIA | Scoring de confianza de dispositivo |
 | 27 | `bauth.net_ztna_policy` | D7 | MEDIA | Política ZTNA |
 | 28 | `bauth.ses_context_config` | D8 | **ALTA** | Config de ctx_id SBOS-049 |
-| 29 | `bauth.ses_risk_policy` | D8 | **ALTA** | Políticas de riesgo de sesión |
+| 29 | `bauth.ses_ses_risk_policy` | D8 | **ALTA** | Políticas de riesgo de sesión |
 | 30 | `bauth.ses_caep_config` | D8 | MEDIA | Eventos CAEP |
 | 31 | `bauth.ath_phishing_policy` | D9 | **ALTA** | Política anti-phishing |
 | 32 | `bauth.ath_rotation_policy` | D9 | BAJA | Rotación de credenciales |
@@ -435,7 +435,7 @@ FASE A — ALTA (Core AAL2/AAL3):
   3. CREATE ath_step_up_rule
   4. CREATE zone_application_map + zone_field_restriction + zone_button_rule + zone_record_rule
   5. CREATE fin_sod_rule
-  6. CREATE ses_context_config + ses_risk_policy
+  6. CREATE ses_context_config + ses_ses_risk_policy
   7. CREATE ath_phishing_policy
   8. CREATE sod_incompatible_role + sod_incompatible_function
   9. ALTER idn_role_template (5 columnas)

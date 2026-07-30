@@ -32,10 +32,8 @@ func main() {
 		os.Exit(cmdDashboard(args))
 	case "status":
 		os.Exit(cmdStatus(args))
-	case "preview", "theme-preview":
-		os.Exit(cmdThemePreview(args))
 	case "setup", "install":
-		os.Exit(cmdInstallUI(args))
+		os.Exit(cmdSetup(args))
 	case "release":
 		os.Exit(cmdRelease(args))
 	case "remove":

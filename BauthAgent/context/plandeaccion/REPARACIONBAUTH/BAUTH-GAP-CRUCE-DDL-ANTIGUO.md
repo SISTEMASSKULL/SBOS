@@ -47,7 +47,7 @@ Solo 9 gaps reales requieren tablas totalmente nuevas. El resto es MIGRACIÓN, n
 | 26 | `net_device_trust_policy` | ✅ **`bos_device_registry`** | ✅ | **EXISTE.** `device_type`, `status`, `certificate_serial`, `metadata` |
 | 27 | `net_ztna_policy` | — | 🔴 | **NUEVA** — ZTNA no en viejo DDL |
 | 28 | `ses_context_config` | ✅ **`bos_context_sessions`** | ✅ | **EXISTE.** `ctx_id`, `dctx_id`, 6 capas, `traceparent`, `tracestate`, `device_id`, `session_kc`, `loa_current`, `ruta_canonica`, `bos_contexts` |
-| 29 | `ses_risk_policy` | — | 🔴 | **NUEVA** |
+| 29 | `ses_ses_risk_policy` | — | 🔴 | **NUEVA** |
 | 30 | `ses_caep_config` | — | 🔴 | **NUEVA** — OpenID CAEP 1.0 es Sept 2025, muy nuevo |
 | 31 | `ath_phishing_policy` | `bos_auth_policy` (parcial) | 🟡 | Parcial en JSONB de políticas |
 | 32 | `ath_rotation_policy` | ✅ **`bos_key_rotation_log`** + **`bos_credential_policy`** | ✅ | **EXISTE.** `rota_por_tiempo`, `ttl_max_dias`, `rota_post_compromiso` |
@@ -94,7 +94,7 @@ Solo 9 gaps reales requieren tablas totalmente nuevas. El resto es MIGRACIÓN, n
 | 9 | `cal_overtime_policy` | D4 | BAJA |
 | 10 | `cal_break_policy` | D4 | BAJA |
 | 11 | `net_ztna_policy` | D7 | MEDIA |
-| 12 | `ses_risk_policy` | D8 | ALTA |
+| 12 | `ses_ses_risk_policy` | D8 | ALTA |
 | 13 | `ses_caep_config` | D8 | MEDIA |
 | 14 | `blk_did_registry` | D12 | BAJA |
 | 15 | `blk_besu_node` | D12 | BAJA |

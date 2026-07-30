@@ -47,6 +47,11 @@ abstract class IClienteRpc {
   void desconectar();
   Future<Map<String, dynamic>> llamar(String metodo, [Map<String, dynamic>? params]);
   void dispose();
+
+  /// Ejecuta un comando de shell en el servidor y devuelve stdout.
+  /// Solo disponible en implementaciones SSH — lanza [UnsupportedError] en TCP.
+  Future<String> ejecutarCmd(String cmd) =>
+      Future.error(UnsupportedError('ejecutarCmd no soportado por este cliente'));
 }
 
 /// Cliente JSON-RPC 2.0 de baja latencia via Socket TCP.
@@ -281,6 +286,11 @@ class ClienteRpc implements IClienteRpc {
     _estado = e;
     _estadoCtrl.add(e);
   }
+
+  /// No disponible en cliente TCP — solo implementado en ClienteRpcSsh.
+  @override
+  Future<String> ejecutarCmd(String cmd) =>
+      Future.error(UnsupportedError('ejecutarCmd no soportado en cliente TCP'));
 
   /// Libera todos los recursos.
   @override

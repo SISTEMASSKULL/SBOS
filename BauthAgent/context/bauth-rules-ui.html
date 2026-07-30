@@ -370,7 +370,7 @@ html, body { height: 100%; font-family: var(--sans); font-size: 14px; background
           <div class="nav-dot"></div>geo_velocity_policy
         </div>
         <div class="nav-item" onclick="show('risk')" id="nav-risk">
-          <div class="nav-dot"></div>ses_risk_policy
+          <div class="nav-dot"></div>ses_ses_risk_policy
         </div>
         <div class="nav-item" onclick="show('conflict')" id="nav-conflict">
           <div class="nav-dot"></div>conflict_interest
@@ -805,7 +805,7 @@ html, body { height: 100%; font-family: var(--sans); font-size: 14px; background
       </div>
     </div>
 
-    <!-- ── SCREEN: ses_risk_policy (SINGLETON) ── -->
+    <!-- ── SCREEN: ses_ses_risk_policy (SINGLETON) ── -->
     <div class="screen" id="screen-risk">
       <div class="screen-head">
         <div>
@@ -819,7 +819,7 @@ html, body { height: 100%; font-family: var(--sans); font-size: 14px; background
       </div>
 
       <div class="settings-card">
-        <div class="settings-card-head"><h3>ses_risk_policy — Umbrales y acciones</h3><span class="badge badge-active">activa</span></div>
+        <div class="settings-card-head"><h3>ses_ses_risk_policy — Umbrales y acciones</h3><span class="badge badge-active">activa</span></div>
         <div class="settings-body">
           <div class="settings-row" style="flex-direction:column; align-items:flex-start; gap:10px">
             <div class="settings-label-main">Distribución de niveles (score 0 – 100)</div>
@@ -1159,7 +1159,7 @@ const screens = {
 const bcTitles = {
   'btn-rule':'zone_button_rule','data-pol':'zone_data_policy',
   'rec-rule':'zone_record_rule','ztna':'net_ztna_policy',
-  'velocity':'geo_velocity_policy','risk':'ses_risk_policy',
+  'velocity':'geo_velocity_policy','risk':'ses_ses_risk_policy',
   'conflict':'conflict_interest_policy','visitor':'visitor_access_policy',
   'emergency':'emergency_override_policy'
 };

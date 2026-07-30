@@ -193,7 +193,7 @@ para países, idiomas, zonas horarias y monedas. Ningún agente los hardcodea.
 | D5 — Biométrico | — | (absorbido en privilege_atom tipo REGLA) | Parámetros biométricos |
 | D6 — Geoespacial | `geo_` | geo_fence, geo_trust_tier, geo_velocity_policy, geo_location_log | Geocercas, confianza |
 | D7 — Red | `net_` | net_device, net_ztna_policy | Dispositivos de red, ZTNA |
-| D8 — Contexto | `ses_` | ses_context, ses_context_switch, ses_risk_policy, ses_caep_config | Sesiones, riesgo |
+| D8 — Contexto | `ses_` | ses_context, ses_context_switch, ses_ses_risk_policy, ses_caep_config | Sesiones, riesgo |
 | D9 — Credenciales | `ath_` | ath_method, ath_login_attempt, ath_mfa_enrollment, ath_binding, ath_password_history, ath_recovery_method, etc. | Métodos, MFA, recovery |
 | D10 — Delegación | `dlg_` | dlg_delegation | Delegación temporal |
 | D11 — Auditoría | `aud_` | aud_event, aud_review, aud_compliance_map, aud_ghost_account | Eventos WORM, compliance |
@@ -758,7 +758,7 @@ Con el modelo atómico, la administración de contexto se simplifica:
 
 ```
 ACTUAL:
-  ses_context + ses_context_switch + ses_risk_policy + ses_caep_config
+  ses_context + ses_context_switch + ses_ses_risk_policy + ses_caep_config
   + ses_superuser_context + Redis DB0 manual
 
 NUEVO:
@@ -768,7 +768,7 @@ NUEVO:
   + privilege_role_atom (valores de reglas de sesión por rol)
 
   ❌ ses_context_switch   → absorbido por ctx.transfer
-  ❌ ses_risk_policy      → absorbido por átomos REGLA + RiskEngine
+  ❌ ses_ses_risk_policy      → absorbido por átomos REGLA + RiskEngine
   ❌ ses_caep_config      → absorbido por átomos REGLA D8
   ❌ ses_superuser_context → absorbido por ctx_id + identity atoms
 ```
@@ -1653,7 +1653,7 @@ VALUES
 |-------|-----------|-----------|
 | `ses_context` | Contexto de sesión activo: ctx_id, identity atoms, estado, timestamps | NIST SP 800-63B §7 |
 | `ses_context_switch` | Historial de cambios de contexto (empresa/sucursal) | NIST SP 800-63B §7.3 |
-| `ses_risk_policy` | Política de riesgo: umbral para Step-Up, fuentes de riesgo | CAEP, NIST SP 800-207 |
+| `ses_ses_risk_policy` | Política de riesgo: umbral para Step-Up, fuentes de riesgo | CAEP, NIST SP 800-207 |
 | `ses_caep_config` | Configuración CAEP: streams, suscriptores, eventos | CAEP RFC draft |
 
 #### Átomos REGLA en `privilege_atom` (D8, parametrizan por rol)

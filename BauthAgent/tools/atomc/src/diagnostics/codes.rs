@@ -25,12 +25,14 @@
 //     ATOMC-E-043  código de moneda literal en campo CURRENCY
 //     ATOMC-E-051  effect.decision ≠ Permit/Deny
 //     ATOMC-E-061  property_id resuelto pero data_type desconocido
+//     ATOMC-E-062  UNSET contiene rol_ref que no existe en bauth.idn_role_template
 //
 //   Warnings (compilación continúa):
 //     ATOMC-W-011  condition ausente (no declarado)
 //     ATOMC-W-012  Policy con 1 solo Atom y combining_algorithm declarado
 //     ATOMC-W-021  mismo set_id repetido en Atoms hermanos
 //     ATOMC-W-031  subject.kind=ROL y el rol ya está en un Set de D98
+//     ATOMC-W-032  rol en UNSET también en membresía SET → contradicción, UNSET prevalece
 //
 // Estándar: A.46 §4 · 2.13 §6.3 · DOC-SBOS-001 N3.
 // ============================================================
@@ -193,6 +195,24 @@ pub fn decision_invalida(file: &str, atom_id: &str, encontrada: &str) -> Diagnos
     }
 }
 
+/// ATOMC-E-062 — rol_ref dentro de UNSET no existe en bauth.idn_role_template.
+/// Regla: R-D98-06 (A.47 §3.2). El compilador no puede emitir si el rol no está registrado.
+#[allow(dead_code)]
+pub fn unset_rol_no_registrado(file: &str, atom_id: &str, rol_ref: &str, field_path: &str) -> Diagnostic {
+    Diagnostic {
+        level: Level::Error,
+        code: "ATOMC-E-062".into(),
+        message: format!(
+            "UNSET contiene '{rol_ref}' que no existe en bauth.idn_role_template"
+        ),
+        file: file.into(),
+        atom_id: Some(atom_id.into()),
+        field_path: Some(field_path.into()),
+        phase: Phase::Semantic,
+        norm_ref: "A.47 §3.2 R-D98-06".into(),
+    }
+}
+
 // ──── Constructores de warning ────────────────────────────────
 
 #[allow(dead_code)]
@@ -224,5 +244,24 @@ pub fn combining_algorithm_redundante(file: &str, policy_id: &str) -> Diagnostic
         field_path: Some("combining_algorithm".into()),
         phase: Phase::Semantic,
         norm_ref: "A.46 §2.2 G-01".into(),
+    }
+}
+
+/// ATOMC-W-032 — un rol aparece simultáneamente en UNSET y en la membresía del SET
+/// referenciado por subject.set_id. Contradicción: UNSET prevalece sobre SET (R-D98-07).
+/// La compilación continúa pero el árbol emitido excluirá al rol.
+#[allow(dead_code)]
+pub fn contradiccion_unset_set(file: &str, atom_id: &str, rol_ref: &str, set_id: &str) -> Diagnostic {
+    Diagnostic {
+        level: Level::Warning,
+        code: "ATOMC-W-032".into(),
+        message: format!(
+            "'{rol_ref}' está en UNSET y también en la membresía del SET '{set_id}' — UNSET prevalece (R-D98-07)"
+        ),
+        file: file.into(),
+        atom_id: Some(atom_id.into()),
+        field_path: Some("target.unset".into()),
+        phase: Phase::Semantic,
+        norm_ref: "A.47 §3.2 R-D98-07".into(),
     }
 }

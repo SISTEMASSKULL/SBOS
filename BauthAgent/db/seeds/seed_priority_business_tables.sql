@@ -216,7 +216,7 @@ INSERT INTO bauth.aud_compliance_map (standard, control_id, control_name, descri
 ('ISO_27001:2022', 'A.8.2', 'Privileged Access Rights', 'Gestión y restricción de derechos de acceso privilegiado.', 'SU, SYS, break-glass', 'partial'),
 ('ISO_27001:2022', 'A.8.9', 'Configuration Management', 'Gestión de cambios en configuraciones de seguridad con registro auditado.', 'aud_policy_change, cfg_policy_library', 'implemented'),
 ('ISO_27001:2022', 'A.8.15', 'Logging', 'Registro de eventos de seguridad con trazabilidad completa.', 'aud_event, ctx_id', 'implemented'),
-('ISO_27001:2022', 'A.8.16', 'Monitoring Activities', 'Monitoreo continuo de eventos de seguridad.', 'ses_risk_policy, ath_risk_evaluation', 'planned'),
+('ISO_27001:2022', 'A.8.16', 'Monitoring Activities', 'Monitoreo continuo de eventos de seguridad.', 'ses_ses_risk_policy, ath_risk_evaluation', 'planned'),
 
 -- NIST SP 800-53 Rev.5
 ('NIST_800-53_Rev5', 'AC-2', 'Account Management', 'Gestión completa del ciclo de vida de cuentas de usuario.', 'idn_user_template, JmlEngine', 'implemented'),

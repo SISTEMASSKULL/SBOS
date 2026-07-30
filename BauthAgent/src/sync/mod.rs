@@ -1,6 +1,8 @@
-//! bauth::sync — Reconcile Loop extendido (B45.D03)
+//! bauth::sync — Reconcile Loop extendido (B45.D03) + F4 Retención
 //! Cada 60s: drift políticas, revalidación contextos, invalidación sesiones,
 //! y emisión de eventos CAEP hacia bNotify (C-BAUTH-004 — SSF Transmitter).
+
+pub mod retention;  // F4: job de retención/compactación T-152 (B01 §gobernanza)
 
 use crate::db::AppContext;
 use crate::domain::caep::EventoCaep;

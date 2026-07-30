@@ -1637,11 +1637,11 @@ COMMENT ON COLUMN bcalendar.cal_fiscal_year.updated_at IS '[ISO 27001 A.8.15] Ú
 -- ╚══════════════════════════════════════════════════════════════════════╝
 
 -- ======================================================================
--- 014 — bauth.idn_calendar_assignment (NUEVA)
+-- 014 — bauth.idn_tenant_calendar_assignment (NUEVA)
 -- Tabla puente: asigna calendarios a entidades bauth (tenant/empresa/sucursal/usuario).
 -- Soporta herencia jerárquica y RBAC (OWNER/EDITOR/VIEWER).
 -- ======================================================================
-CREATE TABLE IF NOT EXISTS bauth.idn_calendar_assignment (
+CREATE TABLE IF NOT EXISTS bauth.idn_tenant_calendar_assignment (
     assignment_id    UUID        PRIMARY KEY DEFAULT uuidv7(),
     calendar_id      UUID        NOT NULL,
     owner_type       calendar_owner_type_enum NOT NULL,
@@ -1654,19 +1654,19 @@ CREATE TABLE IF NOT EXISTS bauth.idn_calendar_assignment (
     UNIQUE (calendar_id, owner_type, owner_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_ica_calendar ON bauth.idn_calendar_assignment(calendar_id);
-CREATE INDEX IF NOT EXISTS idx_ica_owner    ON bauth.idn_calendar_assignment(owner_type, owner_id);
+CREATE INDEX IF NOT EXISTS idx_ica_calendar ON bauth.idn_tenant_calendar_assignment(calendar_id);
+CREATE INDEX IF NOT EXISTS idx_ica_owner    ON bauth.idn_tenant_calendar_assignment(owner_type, owner_id);
 
-COMMENT ON TABLE bauth.idn_calendar_assignment IS
+COMMENT ON TABLE bauth.idn_tenant_calendar_assignment IS
   'Tabla puente: asigna calendarios bcalendar a entidades bauth.
    owner_type: TENANT, COMPANY, BRANCH, USER.
    Herencia: tenant asigna → empresa hereda (is_inherited=true) → sucursal hereda.
    RBAC: OWNER (gestiona), EDITOR (modifica eventos), VIEWER (solo lectura).';
-COMMENT ON COLUMN bauth.idn_calendar_assignment.calendar_id IS 'FK UUID → bcalendar.cal_calendar.';
-COMMENT ON COLUMN bauth.idn_calendar_assignment.owner_type IS '[ENUM] TENANT, COMPANY, BRANCH, USER.';
-COMMENT ON COLUMN bauth.idn_calendar_assignment.owner_id IS 'UUID de la entidad dueña: tenant_id, company_id, sucursal_id, user_id.';
-COMMENT ON COLUMN bauth.idn_calendar_assignment.role IS '[ENUM] OWNER, EDITOR, VIEWER.';
-COMMENT ON COLUMN bauth.idn_calendar_assignment.is_inherited IS 'true = heredado del nivel superior. false = asignación directa.';
+COMMENT ON COLUMN bauth.idn_tenant_calendar_assignment.calendar_id IS 'FK UUID → bcalendar.cal_calendar.';
+COMMENT ON COLUMN bauth.idn_tenant_calendar_assignment.owner_type IS '[ENUM] TENANT, COMPANY, BRANCH, USER.';
+COMMENT ON COLUMN bauth.idn_tenant_calendar_assignment.owner_id IS 'UUID de la entidad dueña: tenant_id, company_id, sucursal_id, user_id.';
+COMMENT ON COLUMN bauth.idn_tenant_calendar_assignment.role IS '[ENUM] OWNER, EDITOR, VIEWER.';
+COMMENT ON COLUMN bauth.idn_tenant_calendar_assignment.is_inherited IS 'true = heredado del nivel superior. false = asignación directa.';
 
 
 -- ======================================================================
@@ -1695,7 +1695,7 @@ CREATE INDEX IF NOT EXISTS idx_ccal_tenant ON bcalendar.cal_calendar(tenant_id, 
 COMMENT ON TABLE bcalendar.cal_calendar IS
   '[RFC 4791 VCALENDAR] Colección de calendarios. Tipos: WORK, FISCAL, PROCESS, COMPLIANCE, HOLIDAY, MAINTENANCE.
    Un tenant puede tener N calendarios. is_system=true → calendario predefinido por SBOS.';
-COMMENT ON COLUMN bcalendar.cal_calendar.calendar_id IS '[RFC 9562] UUIDv7 PK. FK referenciada por idn_calendar_assignment y cal_event.';
+COMMENT ON COLUMN bcalendar.cal_calendar.calendar_id IS '[RFC 9562] UUIDv7 PK. FK referenciada por idn_tenant_calendar_assignment y cal_event.';
 COMMENT ON COLUMN bcalendar.cal_calendar.calendar_type IS '[ENUM] WORK, FISCAL, PROCESS, COMPLIANCE, HOLIDAY, MAINTENANCE.';
 COMMENT ON COLUMN bcalendar.cal_calendar.timezone IS '[IANA TZ] Zona horaria del calendario. Las ocurrencias se expanden en esta TZ.';
 
@@ -1846,7 +1846,7 @@ CREATE INDEX IF NOT EXISTS idx_csch_tenant ON bcalendar.cal_schedule(tenant_id);
 
 COMMENT ON TABLE bcalendar.cal_schedule IS
   '[RFC 7953 VAVAILABILITY] Horarios de trabajo y turnos. Reemplaza bos_schedule.
-   Heredable: se asigna vía idn_calendar_assignment a tenant/empresa/sucursal.
+   Heredable: se asigna vía idn_tenant_calendar_assignment a tenant/empresa/sucursal.
    access_outside_schedule: BLOCKED (denegar), PERMITTED, REQUIRES_APPROVAL, READ_ONLY.';
 
 
@@ -4406,8 +4406,8 @@ COMMENT ON TABLE bauth.net_ztna_policy IS
   '[D7 Red] [NIST SP 800-207 ZTA] Política Zero Trust Network Access: default DENY,
    allowed_services explícitos, microsegmentación opcional.';
 
--- T-326 — bauth.ses_risk_policy (NUEVA)
-CREATE TABLE IF NOT EXISTS bauth.ses_risk_policy (
+-- T-326 — bauth.ses_ses_risk_policy (NUEVA)
+CREATE TABLE IF NOT EXISTS bauth.ses_ses_risk_policy (
     policy_id           UUID        PRIMARY KEY DEFAULT uuidv7(),
     risk_factors        TEXT[]      NOT NULL DEFAULT '{}',
     threshold_low       INTEGER     DEFAULT 30,
@@ -4428,7 +4428,7 @@ CREATE TABLE IF NOT EXISTS bauth.ses_risk_policy (
         action_critical IN ('TERMINATE_SESSION','LOCK_ACCOUNT')
     )
 );
-COMMENT ON TABLE bauth.ses_risk_policy IS
+COMMENT ON TABLE bauth.ses_ses_risk_policy IS
   '[D8 Contexto] Políticas de riesgo de sesión en tiempo real. Define factores de riesgo,
    thresholds y acciones por nivel (NONE, LOG, REQUIRE_STEP_UP, TERMINATE_SESSION, LOCK_ACCOUNT).';
 
@@ -5223,8 +5223,8 @@ COMMENT ON COLUMN bauth.net_ztna_policy.default_action IS '[NIST SP 800-207 ZTA]
 COMMENT ON COLUMN bauth.net_ztna_policy.allowed_services IS 'Servicios permitidos: {tryton, keycloak, superset}.';
 COMMENT ON COLUMN bauth.net_ztna_policy.microsegmentation IS 'TRUE = segmentacion fina entre servicios. FALSE = flat network.';
 COMMENT ON COLUMN bauth.net_ztna_policy.require_just_in_time IS 'TRUE = acceso JIT. El servicio solo se expone cuando se necesita.';
-COMMENT ON COLUMN bauth.ses_risk_policy.risk_factors IS '{geo_velocity, device_change, time_anomaly, behavior_anomaly, network_change, failed_auth_spike}.';
-COMMENT ON COLUMN bauth.ses_risk_policy.action_critical IS 'TERMINATE_SESSION o LOCK_ACCOUNT. Para riesgo >=95.';
+COMMENT ON COLUMN bauth.ses_ses_risk_policy.risk_factors IS '{geo_velocity, device_change, time_anomaly, behavior_anomaly, network_change, failed_auth_spike}.';
+COMMENT ON COLUMN bauth.ses_ses_risk_policy.action_critical IS 'TERMINATE_SESSION o LOCK_ACCOUNT. Para riesgo >=95.';
 COMMENT ON COLUMN bauth.ses_caep_config.caep_event IS '[OpenID CAEP 1.0] session-revoked, token-claims-change, assurance-level-change, credential-change, device-compliance-change.';
 COMMENT ON COLUMN bauth.ses_caep_config.endpoint_url IS 'URL del endpoint que recibe los eventos CAEP.';
 COMMENT ON COLUMN bauth.ses_caep_config.shared_secret_hash IS 'SHA-256 del shared secret para firmar eventos CAEP.';

@@ -623,6 +623,26 @@ async fn main() {
         for (method_name, handler) in server::handlers::role_lifecycle::all_role_lifecycle_handlers(db.pg.clone()) {
             dispatcher.register(&method_name, handler);
         }
+        // F3: Versionado B01 (T-152) + ciclo de vida B02 (T-B02L) + motor 9 pasos
+        {
+            use crate::domain::versioning::{blocks::MapaBloques, policy::ConfigB3};
+            use std::sync::Arc;
+            let blocks_ruta = "/etc/bos/blocks_map.toml";
+            let b3_ruta = "/etc/bos/b3_defaults.toml";
+            let mapa = MapaBloques::desde_toml(blocks_ruta)
+                .unwrap_or_else(|e| { tracing::warn!(error=%e, "blocks_map.toml no cargado; usando vacío"); MapaBloques::desde_str("").unwrap() });
+            let b3 = ConfigB3::desde_toml(b3_ruta)
+                .unwrap_or_else(|_| ConfigB3::desde_str("required_approvers=2\nsla_horas=48\napprover_roles=[\"bauth.admin\"]\n").unwrap());
+            for (method_name, handler) in server::handlers::versioning::all_versioning_handlers(
+                db.pg.clone(), Arc::new(mapa), Arc::new(b3),
+            ) {
+                dispatcher.register(&method_name, handler);
+            }
+        }
+        // B03: Approval workflow — quórum N-de-M para cambios MAJOR (T-153)
+        for (method_name, handler) in server::handlers::approval::all_approval_handlers(db.pg.clone()) {
+            dispatcher.register(&method_name, handler);
+        }
     }
 
     // B48.T40-T42: Protocolos (necesitan signer)

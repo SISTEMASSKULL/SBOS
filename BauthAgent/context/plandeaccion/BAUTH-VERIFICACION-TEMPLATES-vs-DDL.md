@@ -17,7 +17,7 @@
 | 5 | `biometric` | D5 | `ath_method` (biométricos), `ath_binding`, `ath_mfa_enrollment`, `user_client_device`, `ath_consent` | ✅ 9 tabs |
 | 6 | `geospatial` | D6 | `global_country`, `geo_timezone`, `geo_trust_tier`, `geo_velocity_policy`, `geo_fence`, `geo_location_log`, `geo_evaluation_log` | ✅ 8 tabs |
 | 7 | `network` | D7 | `net_device`, `net_ztna_policy`, `idn_tenant_network`, `certificate_pin_config`, `device_attestation_log` | ✅ 5 tabs |
-| 8 | `session_context` | D8 | `ses_context/context_switch/superuser_context`, `ses_risk_policy`, `ses_caep_config`, `ctx_transfer_log`, `qr_challenge_registry`, `emergency_override_policy` | ✅ 8 tabs |
+| 8 | `session_context` | D8 | `ses_context/context_switch/superuser_context`, `ses_ses_risk_policy`, `ses_caep_config`, `ctx_transfer_log`, `qr_challenge_registry`, `emergency_override_policy` | ✅ 8 tabs |
 | 9 | `credential_policy` | D9 | 46 tablas: `ath_method/policy/config/credential_policy/password_history/password_screening/mfa_enrollment/recovery_method/recovery_challenge/binding/revocation/login_attempt/consent/rotation_log/token_delivery/enrollment_log/federation_protocol`, `ath_auth_flow/flow_method`, `ath_step_up_rule`, `ath_policy_d1..d12`, `ath_config_d1..d12` | ✅ 46 tabs |
 | 10 | `delegation` | D10 | `dlg_delegation` | ✅ |
 | 11 | `audit` | D11 | `aud_event/review/ghost_account/policy_change/policy_version/compliance_map` | ✅ 7 tabs |
@@ -40,7 +40,7 @@
 | 4 | `keycloak_credentials` | D9 | 46 tablas `ath_*`, `ath_federation_protocol` | ✅ |
 | 5 | `physical_credentials` | D2 | `fis_device`, `fis_access_zone`, `fis_zone_member`, `user_client_device`, `ath_consent` | ✅ |
 | 6 | `device_registry` | D5/D7 | `user_client_device`, `net_device`, `device_attestation_log`, `mobile_heartbeat_log`, `push_token_registry`, `certificate_pin_config` | ✅ |
-| 7 | `session_state` | D8 | `ses_context/context_switch/superuser_context`, `ses_risk_policy`, `ses_caep_config`, `ctx_transfer_log`, `qr_challenge_registry` | ✅ |
+| 7 | `session_state` | D8 | `ses_context/context_switch/superuser_context`, `ses_ses_risk_policy`, `ses_caep_config`, `ctx_transfer_log`, `qr_challenge_registry` | ✅ |
 | 8 | `location_profile` | D6 | `geo_trust_tier`, `geo_fence`, `geo_location_log`, `geo_velocity_policy`, `geo_evaluation_log`, `global_country` | ✅ |
 | 9 | `temporal_profile` | D4 | `cal_schedule/calendar/holiday`, `cal_overtime_policy`, `cal_break_policy`, `cal_event` | ✅ |
 | 10 | `network_profile` | D7 | `idn_tenant_network`, `net_device`, `net_ztna_policy`, `certificate_pin_config` | ✅ |

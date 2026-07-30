@@ -90,6 +90,10 @@ pub struct Target {
     pub subject: Subject,
     pub resource: String,
     pub environment: Vec<AttributeRef>,
+    /// Roles excluidos explícitamente de este nodo aunque pertenezcan al SET
+    /// del subject. Prioridad sobre subject.set_id. R-D98-06/R-D98-07 (A.47 §3.2).
+    #[serde(default)]
+    pub unset: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

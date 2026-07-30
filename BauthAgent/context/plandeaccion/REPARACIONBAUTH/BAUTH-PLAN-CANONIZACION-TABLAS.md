@@ -551,7 +551,7 @@ Esto permite identificar instantáneamente a qué dominio pertenece una tabla.
 | **fin_** | Financiero | FINancial | `fin_transaction_type`, `fin_sod_rule`, `fin_limit`, `fin_decision_matrix`, `fin_approval_chain`, etc. | Se mantiene |
 | **fis_** | Físico | FISical | `fis_access_zone`, `fis_controller`, `fis_device`, `fis_location`, etc. | Se mantiene |
 | **geo_** | Geoespacial | GEOspatial | `geo_fence`, `geo_trust_tier`, `geo_velocity_policy`, etc. | Se mantiene |
-| **ses_** | Sesiones | SESsion | `ses_context`, `ses_context_switch`, `ses_risk_policy`, `ses_caep_config`, `ses_superuser_context` | Se mantiene |
+| **ses_** | Sesiones | SESsion | `ses_context`, `ses_context_switch`, `ses_ses_risk_policy`, `ses_caep_config`, `ses_superuser_context` | Se mantiene |
 | **aud_** | Auditoría | AUDit | `aud_event`, `aud_review`, `aud_ghost_account`, `aud_policy_change`, `aud_compliance_map`, etc. | Se mantiene |
 | **blk_** | Blockchain | BLocKchain | `blk_anchor`, `blk_merkle_batch`, `blk_merkle_leaf`, `blk_account`, `blk_reconciliation` | Se mantiene |
 | **dlg_** | Delegación | DeLeGation | `dlg_delegation` | Se mantiene |

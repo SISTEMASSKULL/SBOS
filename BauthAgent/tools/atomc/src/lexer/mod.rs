@@ -82,6 +82,11 @@ pub struct RawTarget {
     pub resource: String,
     #[serde(default)]
     pub environment: Vec<RawAttributeRef>,
+    /// Roles excluidos explícitamente de este nodo aunque pertenezcan al SET
+    /// declarado en subject. Evaluado con prioridad sobre subject.set_id.
+    /// Reglas: R-D98-06 / R-D98-07 (A.47 §3.2). Validación: ATOMC-E-062 / ATOMC-W-032.
+    #[serde(default)]
+    pub unset: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -209,6 +214,9 @@ fn check_target(target: &RawTarget, file: &str, bag: &mut DiagnosticBag) {
     check_id(&target.resource, "target.resource", file, bag);
     for env in &target.environment {
         check_id(&env.property_id, "target.environment.property_id", file, bag);
+    }
+    for (i, role_ref) in target.unset.iter().enumerate() {
+        check_id(role_ref, &format!("target.unset[{i}]"), file, bag);
     }
 }
 

@@ -777,7 +777,7 @@ Leyenda: **✅ EXISTE Y POBLADA** · **⚠ EXISTE INCOMPLETA O SIN CONECTAR** ·
 | Dato del bloque | Tabla fuente | Estado | Filas | Observación |
 |----------------|-------------|--------|-------|-------------|
 | Configuración CAEP | `bauth.ses_caep_config` | ✅ | — | signals_enabled[], revoke_on_anomaly |
-| Políticas de riesgo | `bauth.ses_risk_policy` | ✅ | — | risk_engine_provider, thresholds |
+| Políticas de riesgo | `bauth.ses_ses_risk_policy` | ✅ | — | risk_engine_provider, thresholds |
 | Contexto de sesión | `bauth.ses_context` | ✅ | — | 28 columnas, muy completo |
 | Cambios de contexto | `bauth.ses_context_switch` | ✅ | — | |
 | Configuración D8 / Políticas D8 | `bauth.ath_config_d8` / `ath_policy_d8` | ✅ | — | |
@@ -832,7 +832,7 @@ Leyenda: **✅ EXISTE Y POBLADA** · **⚠ EXISTE INCOMPLETA O SIN CONECTAR** ·
 | Infraestructura física D2 | `fis_location`, `fis_device`, `fis_zone_member` | Completa |
 | Finanzas D3 | `fin_limit`, `fin_decision_matrix`, `fin_approval_chain` | Completa |
 | Geoespacial D6 | `geo_fence`, `geo_velocity_policy`, `geo_trust_tier` | Completa |
-| Contexto D8 | `ses_caep_config`, `ses_risk_policy`, `ses_context` | Completa |
+| Contexto D8 | `ses_caep_config`, `ses_ses_risk_policy`, `ses_context` | Completa |
 | Credenciales D9 | `ath_credential_policy`, `ath_revocation`, `ath_rotation_log` | Completa |
 | Auditoría D11 | `aud_event`, `aud_compliance_map`, `aud_review` | Completa |
 | Blockchain D12 | `blk_account`, `blk_anchor`, `bos_crypto_algorithm` | Completa |

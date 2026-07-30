@@ -87,6 +87,10 @@ pub async fn count_policies(pg: &sqlx::PgPool) -> Result<i64, DbError> {
     Ok(count)
 }
 
+pub mod versioning;     // F3: escritura WORM a T-152 (B01) y T-B02L (B02)
+pub mod approval;       // B03: cola de aprobación quórum N-de-M (T-153)
+pub mod version_store;  // F3: transición atómica 9 pasos + queries as-of/history/diff
+
 // ─── Queries de roles (B1.T07) ─────────────────────────────
 
 /// Posición de átomo asignada a un rol (de bos_role_atom).

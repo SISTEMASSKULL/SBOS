@@ -51,5 +51,6 @@ pub mod rule_engine;    // B45: RuleEngine — validación de valores contra cfg
 pub mod calendar_alarm; // B47.C01: Cron Job poll_cal_alarms() — alarma→bnotify→WORM log
 pub mod caep;           // C-BAUTH-004: eventos CAEP (SSF) hacia bNotify — tipos puros
 pub mod andamiaje;      // La base arquitectónica: contratos BA1-BA20 (A.41 §11) — fail-closed
+pub mod versioning;     // F3: tipos puros para versionado B01 (T-152) + B02 (T-B02L)
 
 // Re-export del nuevo motor BitMask Dual

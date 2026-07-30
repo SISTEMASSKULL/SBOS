@@ -1,0 +1,31 @@
+# ===================================================================
+# b3_defaults.toml — Configuración por defecto del bloque B3
+#
+# Parámetros de quórum N-de-M para cambios MAJOR cuando el rol
+# no tiene una política B3 específica en su metadata_b1.
+#
+# NIST SP 800-53 AC-5 (Separation of Duties)
+# NIST SP 800-53 CM-3 (Configuration Change Control)
+# ISO 27001:2022 A.5.3 (Segregation of Duties)
+# ===================================================================
+
+# Número mínimo de aprobadores para alcanzar quórum
+required_approvers = 2
+
+# Horas de SLA desde la creación de la propuesta hasta expiración
+sla_horas = 48
+
+# Horas de SLA adicional antes de escalar (None = sin escalado)
+escalation_horas = 96
+
+# Roles autorizados para votar propuestas MAJOR
+approver_roles = [
+    "bauth.admin",
+    "iga.reviewer",
+    "security.officer",
+]
+
+# Roles al que se escala cuando sla_horas + escalation_horas vence
+escalation_to = [
+    "bauth.superuser",
+]

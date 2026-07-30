@@ -181,11 +181,11 @@ INSERT INTO bauth.net_ztna_policy (default_action, allowed_services, microsegmen
 ('DENY', '{postgresql,redis,vault,keycloak,tryton,kong,bkernel,biedata,bsearch,bhnexus}', true, true, 300);
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- 13. ses_risk_policy — Política de riesgo de sesión
+-- 13. ses_ses_risk_policy — Política de riesgo de sesión
 -- ═══════════════════════════════════════════════════════════════════════════
-TRUNCATE bauth.ses_risk_policy RESTART IDENTITY CASCADE;
+TRUNCATE bauth.ses_ses_risk_policy RESTART IDENTITY CASCADE;
 
-INSERT INTO bauth.ses_risk_policy (risk_factors, threshold_low, threshold_medium, threshold_high, threshold_critical, action_low, action_medium, action_high, action_critical) VALUES
+INSERT INTO bauth.ses_ses_risk_policy (risk_factors, threshold_low, threshold_medium, threshold_high, threshold_critical, action_low, action_medium, action_high, action_critical) VALUES
 ('{ip_change,geo_velocity,device_change,outside_schedule,new_device,impossible_travel,failed_mfa,unusual_hour}', 30, 60, 80, 95, 'NONE', 'REQUIRE_STEP_UP', 'REQUIRE_STEP_UP', 'TERMINATE_SESSION');
 
 -- ═══════════════════════════════════════════════════════════════════════════

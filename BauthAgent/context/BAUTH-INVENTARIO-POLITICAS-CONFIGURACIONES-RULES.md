@@ -345,7 +345,7 @@ Las siguientes tablas de reglas existen en schema `bauth` pero tienen 0 registro
 | `zone_record_rule` | Reglas de registros Tryton (ir.rule SQL) |
 | `net_ztna_policy` | Políticas ZTNA por segmento de red |
 | `geo_velocity_policy` | Políticas de velocidad geográfica por tier |
-| `ses_risk_policy` | Políticas de riesgo de sesión contextual |
+| `ses_ses_risk_policy` | Políticas de riesgo de sesión contextual |
 | `visitor_access_policy` | Políticas de acceso para visitantes |
 | `emergency_override_policy` | Políticas de break-glass / emergencia |
 | `conflict_interest_policy` | Políticas de conflicto de interés |
@@ -378,7 +378,7 @@ Cada una es el **parámetro global de un motor específico**. No son listas — 
 |---|---|---|
 | `net_ztna_policy` | El interruptor global ZTNA: acción por defecto (`DENY`), servicios permitidos, si microsegmentación está activa, intervalo de re-verificación. | PrivilegeEngine D7 |
 | `geo_velocity_policy` | Umbrales del detector de impossible travel: velocidad máxima (900 km/h), tolerancia, ventana de tiempo, acción al detectar violación (`REQUIRE_STEP_UP` / `TERMINATE_SESSION`). | GeoEngine D6 |
-| `ses_risk_policy` | Los 4 umbrales de riesgo de sesión (0–30 bajo, 30–60 medio, 60–80 alto, 80–95 crítico) y la acción de cada nivel. | SessionRiskEngine D8 |
+| `ses_ses_risk_policy` | Los 4 umbrales de riesgo de sesión (0–30 bajo, 30–60 medio, 60–80 alto, 80–95 crítico) y la acción de cada nivel. | SessionRiskEngine D8 |
 | `conflict_interest_policy` | Política global de conflicto de interés: grados de relación restringidos, frecuencia de declaración anual, método de verificación. | ComplianceEngine D10/D3 |
 
 ---
@@ -401,7 +401,7 @@ No son configuración — son **registros que se crean y revocan durante la oper
 | `zone_button_rule` | Mencionada en sincronización Tryton (`BAUTH-CRUD-ROLES-USUARIOS.md` capa `ir.model.button`) — **sin handler JSON-RPC propio definido** |
 | `zone_data_policy` | Mencionada como output del sync Tryton — **sin handler JSON-RPC propio definido** |
 | `zone_record_rule` | Mencionada como output del sync Tryton capa `ir.rule` — **sin handler JSON-RPC propio definido** |
-| `ses_risk_policy` | Marcada como **"absorbida por átomos REGLA + RiskEngine"** (`BAUTH-ARQUITECTURA-ATOMICA-FINAL.md` línea 771) — sin CRUD propio en diseño actual |
+| `ses_ses_risk_policy` | Marcada como **"absorbida por átomos REGLA + RiskEngine"** (`BAUTH-ARQUITECTURA-ATOMICA-FINAL.md` línea 771) — sin CRUD propio en diseño actual |
 | `net_ztna_policy` | Aparece en árbol de señales de confianza — **sin átomo ni handler asignado** |
 | `geo_velocity_policy` | Diseñada como átomo `D6.bauth.geo.geo_velocity_max_kmh` en `privilege_atom` — **conflicto de diseño no resuelto** entre tabla directa vs átomo de rol |
 | `visitor_access_policy` | **Sin planificación**. Tabla y FK a `qr_challenge_registry` existen, flujo de creación/revocación no está en ningún documento |
@@ -415,7 +415,7 @@ No son configuración — son **registros que se crean y revocan durante la oper
 **Trabajo 1 — Seeds de singletons** (simples, 1 INSERT cada uno):
 - `net_ztna_policy` — valores ZTNA canónicos (default DENY, microsegmentación, verificación 300 s)
 - `geo_velocity_policy` — impossible travel 900 km/h, tolerancia 10 km, ventana 5 min, on_violation = REQUIRE_STEP_UP
-- `ses_risk_policy` — umbrales 30/60/80/95, acciones NONE/REQUIRE_STEP_UP/REQUIRE_STEP_UP/TERMINATE_SESSION
+- `ses_ses_risk_policy` — umbrales 30/60/80/95, acciones NONE/REQUIRE_STEP_UP/REQUIRE_STEP_UP/TERMINATE_SESSION
 - `conflict_interest_policy` — 2 grados, declaración ANNUAL, verificación COMPLIANCE_REVIEW
 
 **Trabajo 2 — Seeds de zona** (requieren `log_zone` y `privilege_application` pobladas primero):
@@ -1041,7 +1041,7 @@ NO HAY DELETE : fallback hardcodeado 900 km/h si se desactiva
 
 ---
 
-### `ses_risk_policy`
+### `ses_ses_risk_policy`
 
 **Qué almacena:** singleton global de umbrales del motor de riesgo de sesión.
 **Siempre hay exactamente una fila activa.**
@@ -1300,7 +1300,7 @@ zone_data_policy         Admin      PEP     Admin      Admin       SU only
 zone_record_rule         Admin      PEP     Admin      Admin       SU only
 net_ztna_policy          seed only  Motor   SU+AAL3    peligroso   nunca
 geo_velocity_policy      seed only  Motor   SU+AAL3    peligroso   nunca
-ses_risk_policy          seed only  Motor   SU+AAL3    peligroso   nunca
+ses_ses_risk_policy          seed only  Motor   SU+AAL3    peligroso   nunca
 conflict_interest_policy seed only  Motor   SU+AAL3    —           nunca
 visitor_access_policy    Empleado   Admin   Anfitrión  automático  nunca
 emergency_override_policy SU+dual   SU      SU+AAL3    automático  nunca

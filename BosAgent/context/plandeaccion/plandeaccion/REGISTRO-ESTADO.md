@@ -533,7 +533,7 @@ la API `bos.GetContext()` que resuelve las 9 dimensiones del contexto en una sol
 
 | ID | Átomo | E | Estado | Commit | Notas | Rev |
 |---|---|---|---|---|---|---|
-| **F5.I.11a** | Crear `bauth.ses_risk_policy`. Factores de riesgo, thresholds, acciones por nivel. | 0.5d | 🔴 | — | T-326. Columnas: `policy_id UUIDv7 PK`, `risk_factors TEXT[]`, `threshold_low INTEGER`, `threshold_medium INTEGER`, `threshold_high INTEGER`, `threshold_critical INTEGER`, `action_low TEXT`, `action_medium TEXT`, `action_high TEXT`, `action_critical TEXT`. | ☐ |
+| **F5.I.11a** | Crear `bauth.ses_ses_risk_policy`. Factores de riesgo, thresholds, acciones por nivel. | 0.5d | 🔴 | — | T-326. Columnas: `policy_id UUIDv7 PK`, `risk_factors TEXT[]`, `threshold_low INTEGER`, `threshold_medium INTEGER`, `threshold_high INTEGER`, `threshold_critical INTEGER`, `action_low TEXT`, `action_medium TEXT`, `action_high TEXT`, `action_critical TEXT`. | ☐ |
 | **F5.I.11b** | Crear `bauth.ses_caep_config`. Eventos OpenID CAEP 1.0: session-revoked, token-claims-change, assurance-level-change, credential-change. | 0.5d | 🔴 | — | T-327. Columnas: `config_id UUIDv7 PK`, `caep_event TEXT`, `is_enabled BOOLEAN`, `endpoint_url TEXT`, `shared_secret_hash BYTEA`, `retry_max INTEGER`, `retry_delay_seconds INTEGER`. | ☐ |
 
 #### 5.I.12 — D7 Red y D14 SoD

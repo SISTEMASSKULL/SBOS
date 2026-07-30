@@ -33,7 +33,7 @@ Catálogo con rutas de cada uno: `paths.yml → microservicios`.
 - **Context Plane (SBOS-049):** `ctx_id` obligatorio en toda operación — logs, auditoría, requests (ISO 27001 A.8.15).
 - **Puertos (SBOS-050):** rango daemons 9400–9499; BD solo ClusterIP; deny-all salvo 22/80/443.
 - **systemd en el host** (no pods K8s). K8s solo aloja infraestructura (PostgreSQL, Redis, Keycloak, Vault, Kong).
-- **Naming + 3 capas:** `<componente>.<modulo>.<operacion>`; servidor Domain/RPC/Transport (ORQUESTA-043).
+- **R7 — Todo daemon es una ficha:** solo el BOS instala. Cada daemon genera y mantiene su propia ficha en `servers/SNN-<servidor>/<daemon>/` con `manifest.yml` + `task_catalog.sh` + `PROPOSITO.md` + `<daemon>.service` + binario compilado. El daemon tiene el mismo ciclo de vida que cualquier aplicación: install, update, repair, remove. Ver `sbos-fichas` skill §R7 para las 8 obligaciones (O1-O8).
 
 ## Cómo colaboran (fin común, no implementación)
 Un daemon consulta a otro por su **contrato** (JSON-RPC / `PROPOSITO.md`), nunca su código interno.

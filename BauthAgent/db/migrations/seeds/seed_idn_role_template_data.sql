@@ -293,7 +293,7 @@ UPDATE bauth.idn_role_template r SET
     'context', (
       WITH risk AS (
         SELECT jsonb_build_object('risk_factors', risk_factors, 'threshold_high', threshold_high, 'action_critical', action_critical) AS policy
-        FROM bauth.ses_risk_policy WHERE is_active = true LIMIT 1
+        FROM bauth.ses_ses_risk_policy WHERE is_active = true LIMIT 1
       ),
       caep AS (
         SELECT jsonb_agg(jsonb_build_object('event', caep_event, 'enabled', is_enabled)) AS events

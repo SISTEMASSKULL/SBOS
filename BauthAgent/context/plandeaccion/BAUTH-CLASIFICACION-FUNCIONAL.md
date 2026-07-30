@@ -350,7 +350,7 @@ Cada RolTemplate se valida contra 16 bloques con campos obligatorios según el s
 | `biometric` | availableMethods, fmrThreshold, livenessRequired, enrollmentSupervised | ath_method (bio), ath_policy_d5 |
 | `geospatial` | availableGeoFences, trustTiers, velocityPolicy, allowedCountries | geo_fence, geo_trust_tier |
 | `network` | availableNetworks, ztnaPolicy, vpnRequired, mTLSRequired, deviceTrustMin | idn_tenant_network, net_ztna_policy |
-| `context` | sessionTtlSeconds, inactivityTimeout, maxContexts, caepEvents, riskPolicy | ses_risk_policy, ses_caep_config |
+| `context` | sessionTtlSeconds, inactivityTimeout, maxContexts, caepEvents, riskPolicy | ses_ses_risk_policy, ses_caep_config |
 | `credentials` | availableMethods, requiredMethods, appliedPolicies, stepUpRules, minAal | ath_method, ath_policy_d9, idn_tier_policy |
 | `delegation` | enabled, maxDurationDays, maxChainDepth, autoRevokeOnExpiry | dlg_delegation |
 | `audit` | level, retentionDays, hashChainRequired, reviewFrequency, complianceControls | aud_compliance_map |

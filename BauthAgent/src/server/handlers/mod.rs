@@ -60,3 +60,5 @@ pub mod kong_oauth;        // B48.T50-T52: Kong PEP + OAuth2-Proxy + Rate-limiti
 pub mod device_identity;   // B48.T63-T66: Device register/attest/transfer/trust
 pub mod identidad_crud;    // Motor de Identidad: list/get/hijos/atributo.*
 pub mod role_lifecycle;    // B10.T76-T89: Role lifecycle, impact, search, bulk, rollback, batch (panel1,1b,4,9,9b,10,11,12,13,78)
+pub mod versioning;        // F3: B01 version.record/history + B02 lifecycle.record/history (T-152 + T-B02L)
+pub mod approval;          // B03: quórum N-de-M para cambios MAJOR (T-153) — propose/vote/list/get

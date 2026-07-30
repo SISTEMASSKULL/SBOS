@@ -1,8 +1,8 @@
 # Documentación Técnica — BOS Control Plane Soberano
 
-**Versión:** 2.0.0
+**Versión:** 2.1.0
 **Mantenido por:** bos-developer
-**Última actualización:** 2026-07-17
+**Última actualización:** 2026-07-18
 
 ---
 
@@ -29,8 +29,8 @@ orden de lectura.
 | Rol | N° | Manual | Depende de | Estado |
 |-----|:--:|--------|------------|:------:|
 | **DEFINE** | 1.01 | [IAM Installer](1.01_MANUAL-IAM-INSTALLER.md) | 0.00 | ✅ 3.0.0 |
-| Fortalece | 1.02 | [Sagas de Instalación](1.02_MANUAL-IAM-INSTALLER-SAGAS.md) | 1.01 | ✅ 1.0.0 |
-| Fortalece | 1.03 | [Ciclo de Vida de Tenants](1.03_MANUAL-IAM-INSTALLER-TENANTS.md) | 1.02 | ✅ 1.0.0 |
+| Fortalece | 1.02 | [Sagas de Instalación](1.02_MANUAL-IAM-INSTALLER-SAGAS.md) | 1.01 | ✅ 3.0.0 |
+| Fortalece | 1.03 | [Ciclo de Vida de Tenants](1.03_MANUAL-IAM-INSTALLER-TENANTS.md) | 1.02 | ✅ 2.0.0 |
 | Fortalece | 1.04 | [Seguridad de Red  ](1.04_MANUAL-IAM-INSTALLER-SEGURIDAD.md) | 1.01 | ✅ 1.0.0 |
 | Fortalece | 1.05 | [Estándares y Certificación](1.05_MANUAL-IAM-INSTALLER-ESTANDARES.md) | 1.04 | ✅ 1.0.0 |
 
@@ -62,6 +62,7 @@ orden de lectura.
 | Fortalece | 3.05 | [Versionado y Dashboard](3.05_MANUAL-SERVER-FICHAS-VERSIONADO.md) | 3.01 | ✅ 1.0.0 |
 | Fortalece | 3.06 | [CLI bosctl ficha](3.06_MANUAL-SERVER-FICHAS-CLI.md) | 3.02 | ✅ 1.0.0 |
 | Fortalece | 3.07 | [Catálogo de Fichas](3.07_MANUAL-SERVER-FICHAS-CATALOGO.md) | 3.01 | ✅ 1.0.0 |
+| **DEFINE** | 3.08 | [Port Manager](3.08_MANUAL-PORT-MANAGER.md) | 3.01, 3.02 | ✅ 1.0.0 |
 
 ---
 
@@ -71,7 +72,7 @@ orden de lectura.
 
 | Rol | N° | Manual | Depende de | Estado |
 |-----|:--:|--------|------------|:------:|
-| **DEFINE** | 4.01 | [Context Plane](4.01_MANUAL-CONTEXT-PLANE.md) | 1.01 | ✅ 1.0.0 |
+| **DEFINE** | 4.01 | [Context Plane](4.01_MANUAL-CONTEXT-PLANE.md) | 1.01 | ✅ 2.0.0 |
 | Fortalece | 4.02 | [Ciclo de Vida ctx_id](4.02_MANUAL-CONTEXT-PLANE-CICLO.md) | 4.01 | ✅ 1.0.0 |
 | Fortalece | 4.03 | [Seguridad del Contexto](4.03_MANUAL-CONTEXT-PLANE-SEGURIDAD.md) | 4.02 | ✅ 1.0.0 |
 | Fortalece | 4.04 | [Propagación y Trazabilidad](4.04_MANUAL-CONTEXT-PLANE-PROPAGACION.md) | 4.01 | ✅ 1.0.0 |
@@ -107,7 +108,7 @@ orden de lectura.
 | N° | Anexo | Fortalece al motor | Estado |
 |:--:|-------|:------------------:|:------:|
 | A.01 | [Estado del Arte — Planos de Control 2026](Anexos/A.01_ANEXO-INDUSTRIA-CONTROL-PLANES.md) | ① | ✅ |
-| A.02 | [Estructura del Servidor de Producción](Anexos/A.02_ANEXO-ESTRUCTURA-SERVIDOR-PRODUCCION.md) | ① | ✅ |
+| A.02 | [Estructura del Servidor de Producción](Anexos/A.02_ANEXO-ESTRUCTURA-SERVIDOR-PRODUCCION.md) | ① | ✅ 2.2.0 |
 | A.03 | [Plataforma Web Multi-Tenant con Nginx](Anexos/A.03_ANEXO-PLATAFORMA-WEB-MULTI-TENANT-NGINX.md) | ① | ✅ |
 | A.04 | [Stack Canónico y Puertos (SBOS-050)](Anexos/A.04_ANEXO-STACK-CANONICO-PUERTOS.md) | ① | ✅ 1.0.0 |
 | A.05 | [Anatomía Canónica de Ficha](Anexos/A.05_ANEXO-ANATOMIA-FICHA.md) | ③ | ✅ 1.0.0 |
@@ -115,20 +116,26 @@ orden de lectura.
 | A.07 | [Vault PKI, AppRole y Secretos](Anexos/A.07_ANEXO-VAULT-PKI-SECRETS.md) | ① | ✅ 1.0.0 |
 | A.08 | [Flujo End-to-End de Operación](Anexos/A.08_ANEXO-FLUJO-END-TO-END.md) | ② | ✅ 1.0.0 |
 | A.09 | [Normas y Estándares Internacionales](Anexos/A.09_ANEXO-NORMAS-ESTANDARES-INTERNACIONALES.md) | TODOS | ✅ 1.0.0 |
+| A.10 | [Observabilidad del BOS](Anexos/A.10_ANEXO-OBSERVABILIDAD-BOS.md) | ②⑤ | ✅ 1.0.0 |
+| A.11 | [Cadena Completa de Instalación](Anexos/A.11_ANEXO-CADENA-INSTALACION.md) | ① | ✅ 4.0.0 |
+| A.12 | [Motor de Asignación de Puertos y Kardex](Anexos/A.12_ANEXO-PORT-MANAGER-KARDEX.md) | ③ | ✅ 4.0.0 |
+| A.13 | [Arquitectura K8s de la VPS de Prueba](Anexos/A.13_ANEXO-VPS-PRUEBA-KUBERNETES-ARQUITECTURA.md) | ①⑥ | ✅ 1.0.0 |
 
 ---
 
 ## Estado del corpus
 
-| Motor | Total | ✅ 1.0.0 | 🟡 | ⬜ |
-|-------|:----:|:--------:|:---:|:--:|
-| ① IAM Installer | 5 + 7 anexos | 5 + 7 | 0 | 0 |
-| ② SO Observable | 4 | 4 | 0 | 0 |
-| ③ Server FICHAS | 7 | 7 | 0 | 0 |
-| ④ Context Plane | 5 | 5 | 0 | 0 |
-| ⑤ Dashboard | 4 | 4 | 0 | 0 |
-| ⑥ Banco de Pruebas | 1 | 0 | 1 | 0 |
-| **TOTAL** | **26 + 5** | **30** | **1** | **0** |
+| Motor | Manuales | Anexos | ✅ Completado | 🟡 Vivo | ⬜ Pendiente |
+|-------|:--------:|:------:|:------------:|:------:|:----------:|
+| ① IAM Installer | 5 | 7 | 12 | 0 | 0 |
+| ② SO Observable | 4 | 1 | 5 | 0 | 0 |
+| ③ Server FICHAS | 8 | 3 | 11 | 0 | 0 |
+| ④ Context Plane | 5 | 0 | 5 | 0 | 0 |
+| ⑤ Dashboard | 4 | 1 | 5 | 0 | 0 |
+| ⑥ Banco de Pruebas | 1 | 0 | 0 | 1 | 0 |
+| **TOTAL** | **27** | **13** | **38** | **1** | **0** |
+
+**Nota:** A.09 aplica a TODOS los motores. A.10 aplica a ② y ⑤. A.12 aplica a ③.
 
 ---
 

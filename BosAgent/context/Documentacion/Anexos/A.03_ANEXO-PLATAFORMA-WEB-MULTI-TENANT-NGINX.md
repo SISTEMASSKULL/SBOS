@@ -274,7 +274,7 @@ VPS única — mismo hardware
 ### FASE GA (500 tenants, ~2000 dominios)
 ```
 VPS original + NUEVA VPS edge
-├── VPS 1 (datos): S00, S01, S03... (PG, Redis, Keycloak, daemons)
+├── VPS 1 (datos): S00, S01, S03... (PG, Redis, bauth, daemons)
 ├── VPS 2 (edge): S16-webserver ENTERO
 │   ├── nodeSelector: {tipo: webserver}
 │   ├── nginx: 2 pods (HA)

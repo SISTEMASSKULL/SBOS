@@ -3,16 +3,15 @@
 //
 // Propósito: VISTA «Rol Template» — árbol completo de los 14 dominios.
 //   Panel lateral izquierdo: vocabulario AtomLang v1 (referencia de lenguaje).
-//   Panel central — 4 tabs:
-//     Tab 0 · Árbol Fuente    — árbol SOURCE humano (RolTemplate v6.0, sin tocar)
+//   Panel central — 3 tabs:
+//     Tab 0 · Árbol Fuente    — vista lado a lado: árbol Dart fuente (izq.)
+//                               vs árbol live BD idn_roles_template (der.).
 //     Tab 1 · Árbol AtomLang  — árbol normalizado (snake_case) + ANALIZADO:
 //                               nodos TipoNodo.diagnostico inyectados donde
 //                               el árbol viola reglas del lenguaje AtomLang.
 //                               Funciona como un linter inline (ATOMC-E/W-xxx).
 //     Tab 2 · Árbol Compilado — placeholder (fase 3 — atomc → bos_atom_compiled)
-//     Tab 3 · Comparación BD  — vista lado a lado: árbol fuente vs árbol BD vivo
-//                               desde bauth.idn_roles_template.
-//   Panel de ayuda + barra de ruta con copia al portapapeles (tabs 0-2).
+//   Barra de ruta con copia al portapapeles y panel de ayuda (tab 1).
 //   Barra de diagnósticos en Tab 1: muestra conteo total de errores/avisos.
 // Dependencias: tf_shadcn_flutter, flutter/services, flutter_riverpod,
 //   datos/{arbol_datos, rol_template_datos, atomlang_datos,
@@ -143,7 +142,6 @@ class _VistaRolTemplateState extends ConsumerState<VistaRolTemplate> {
                           'Árbol Fuente',
                           'Árbol AtomLang',
                           'Árbol Compilado',
-                          'Comparación BD',
                         ],
                         activa: _tabArbol,
                         alSeleccionar: _cambiarTab,
@@ -152,8 +150,8 @@ class _VistaRolTemplateState extends ConsumerState<VistaRolTemplate> {
                       Expanded(child: _contenidoTab(cs)),
                       // ── Barra diagnósticos (solo Tab AtomLang) ────────────
                       if (_tabArbol == 1) _BarraDiagnosticos(cs: cs),
-                      // ── Barra de ruta + panel de ayuda (tabs 0-2) ─────────
-                      if (_tabArbol < 3) ...[
+                      // ── Barra de ruta + panel de ayuda (solo tab AtomLang) ──
+                      if (_tabArbol == 1) ...[
                         _BarraRuta(
                           ruta: _ruta,
                           copiado: _copiado,
@@ -181,18 +179,6 @@ class _VistaRolTemplateState extends ConsumerState<VistaRolTemplate> {
   Widget _contenidoTab(ColorScheme cs) {
     switch (_tabArbol) {
       case 0:
-        return ArbolTemplate(
-          nodos: arbolRolTemplate,
-          seleccionado: _seleccion,
-          alSeleccionar: _seleccionar,
-        );
-      case 1:
-        return ArbolTemplate(
-          nodos: arbolNormalizado,
-          seleccionado: _seleccion,
-          alSeleccionar: _seleccionar,
-        );
-      case 3:
         return _PanelComparacion(
           cargarHijos: (parentId) =>
               ref.read(bauthApiProvider).rolTemplateHijos(parentId: parentId),
@@ -206,6 +192,12 @@ class _VistaRolTemplateState extends ConsumerState<VistaRolTemplate> {
               _seleccionBD = null;
             });
           },
+        );
+      case 1:
+        return ArbolTemplate(
+          nodos: arbolNormalizado,
+          seleccionado: _seleccion,
+          alSeleccionar: _seleccionar,
         );
       default:
         return _PlaceholderCompiladoTab(cs: cs);
@@ -281,8 +273,9 @@ class _PlaceholderCompiladoTab extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════
 
 /// Vista lado a lado: árbol Dart fuente (izq.) vs árbol live de la BD (der.).
-/// El árbol BD carga nodo a nodo — sin saturar la conexión.
-class _PanelComparacion extends StatelessWidget {
+/// El árbol BD solo se monta cuando hay conexión SSH activa — previene el
+/// cuelgue de 10 min que ocurre cuando TCP intenta conectar a localhost:9450.
+class _PanelComparacion extends ConsumerWidget {
   final CargadorHijosBD cargarHijos;
   final int claveArbol;
   final NodoRolTemplateBD? seleccionBD;
@@ -301,9 +294,12 @@ class _PanelComparacion extends StatelessWidget {
       ns.fold(0, (s, n) => s + 1 + _contarFuente(n.hijos));
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
     final totalFuente = _contarFuente(arbolRolTemplate);
+    final conexion = ref.watch(pruebaConexionProvider);
+    final conectado = conexion.fase == FaseConexion.exitosa;
+
     return Row(
       children: [
         Expanded(child: _PanelArbol(
@@ -315,27 +311,73 @@ class _PanelComparacion extends StatelessWidget {
         Container(width: 1, color: cs.border),
         Expanded(child: _PanelArbol(
           titulo: 'BD · idn_roles_template',
-          subtitulo: 'lazy nodo a nodo',
+          subtitulo: conectado ? 'expandido automático' : 'sin conexión',
           color: Colors.teal.shade400,
-          accion: BotonSbos(
-            'Recargar',
-            icono: LucideIcons.refreshCw,
-            alTocar: alRecargar,
-          ),
+          accion: conectado
+              ? BotonSbos(
+                  'Recargar',
+                  icono: LucideIcons.refreshCw,
+                  alTocar: alRecargar,
+                )
+              : null,
           footerBD: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              PanelHelpBD(nodo: seleccionBD, alto: 65),
+              if (conectado) PanelHelpBD(nodo: seleccionBD, alto: 65),
               const _BarraConexionBD(),
             ],
           ),
-          child: ArbolBD(
-            key: ValueKey(claveArbol),
-            cargarHijos: cargarHijos,
-            alSeleccionar: alSeleccionarBD,
-          ),
+          child: conectado
+              ? ArbolBD(
+                  key: ValueKey(claveArbol),
+                  cargarHijos: cargarHijos,
+                  alSeleccionar: alSeleccionarBD,
+                )
+              : const _PlaceholderSinConexionBD(),
         )),
       ],
+    );
+  }
+}
+
+/// Placeholder para el panel BD cuando no hay conexión SSH activa.
+class _PlaceholderSinConexionBD extends StatelessWidget {
+  const _PlaceholderSinConexionBD();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final s = Theme.of(context).scaling;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            LucideIcons.wifiOff,
+            size: 32 * s,
+            color: cs.mutedForeground.withValues(alpha: 0.35),
+          ),
+          SizedBox(height: 12 * s),
+          Text(
+            'Sin conexión a bAuth',
+            style: TextStyle(
+              fontSize: 13 * s,
+              fontWeight: FontWeight.w700,
+              color: cs.foreground,
+            ),
+          ),
+          SizedBox(height: 6 * s),
+          Text(
+            'Configura el túnel SSH en el panel lateral\ny pulsa "Conectar vía SSH".',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 11 * s,
+              height: 1.55,
+              color: cs.mutedForeground,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

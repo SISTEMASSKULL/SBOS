@@ -525,7 +525,7 @@ SBOS identifica **cuatro entidades maestras** (golden records) que gobiernan tod
 
 ---
 
-## 3.11 — bauth.idn_calendar_assignment (014) · Línea 1632
+## 3.11 — bauth.idn_tenant_calendar_assignment (014) · Línea 1632
 **Propósito:** Tabla puente que asigna calendarios a entidades bauth (tenant, empresa, sucursal, usuario). Soporta herencia jerárquica y RBAC (OWNER/EDITOR/VIEWER).
 **⚠️ Crítica:** Sin esta tabla, ningún tenant puede usar calendarios. Es el punto de acoplamiento entre bcalendar y bauth.
 
@@ -557,7 +557,7 @@ TENANT asigna cal_fiscal_2026 → OWNER, is_inherited=false
 
 | # | Columna | Tipo | Obligatorio | Significado | Cómo se obtiene | Ejemplo |
 |---|---------|------|-------------|-------------|-----------------|---------|
-| 1 | `calendar_id` | UUID | Sí (PK) | UUIDv7 interno. FK referenciada por idn_calendar_assignment y cal_event | Automático | — |
+| 1 | `calendar_id` | UUID | Sí (PK) | UUIDv7 interno. FK referenciada por idn_tenant_calendar_assignment y cal_event | Automático | — |
 | 2 | `tenant_id` | UUID | Sí (FK) | Tenant dueño | FK → idn_tenant | — |
 | 3 | `name` | TEXT | Sí | Nombre del calendario. UNIQUE por tenant | Operador/sistema | `Fiscal 2026` |
 | 4 | `calendar_type` | ENUM | Sí | WORK, FISCAL, PROCESS, COMPLIANCE, HOLIDAY, MAINTENANCE | Define comportamiento | `FISCAL` |
@@ -664,7 +664,7 @@ Las alarmas encontradas se envían a Novu vía JSON-RPC 2.0 sobre Unix socket `/
 ---
 
 ## 3.17 — bcalendar.cal_schedule (020) · Línea 1817
-**Propósito:** Horarios de trabajo y turnos (RFC 7953 VAVAILABILITY). Heredable vía idn_calendar_assignment. Reemplaza `bos_schedule`.
+**Propósito:** Horarios de trabajo y turnos (RFC 7953 VAVAILABILITY). Heredable vía idn_tenant_calendar_assignment. Reemplaza `bos_schedule`.
 
 | # | Columna | Tipo | Obligatorio | Significado | Cómo se obtiene | Ejemplo |
 |---|---------|------|-------------|-------------|-----------------|---------|
@@ -1602,7 +1602,7 @@ Generado por `064_idn_user_template_data.sql`. Cada sección tiene dominio, DDL 
 | 4 | `keycloakCredentials` | **D9** | `ath_method`, `idn_tier_policy`, `ath_step_up_rule` | Métodos auth disponibles/seleccionados, MFA, passkeys, recovery, step-up rules |
 | 5 | `physicalCredentials` | **D2** | `fis_device`, `fis_access_zone` | Tarjetas, zonas físicas, biometría, duress code, escolta |
 | 6 | `deviceRegistry` | **D5/D7** | `user_client_device`, `mobile_app_config` | Plataformas, dispositivos vinculados, atestación, jailbreak detection |
-| 7 | `sessionState` | **D8** | `ses_context`, `ses_risk_policy`, `ses_caep_config` | Sesiones, timeout, step-up triggers, CAEP, context ID |
+| 7 | `sessionState` | **D8** | `ses_context`, `ses_ses_risk_policy`, `ses_caep_config` | Sesiones, timeout, step-up triggers, CAEP, context ID |
 | 8 | `locationProfile` | **D6** | `geo_trust_tier`, `geo_fence`, `geo_velocity_policy` | País, trust tiers, geo-cercas, velocidad máxima, GDPR residencia |
 | 9 | `temporalProfile` | **D4** | `cal_schedule`, `cal_holiday`, `cal_overtime_policy`, `cal_break_policy` | Horario, horas extra, breaks, feriados, año fiscal |
 | 10 | `networkProfile` | **D7** | `idn_tenant_network`, `net_ztna_policy` | Redes, VPN, mTLS, ZTNA, servicios permitidos |
@@ -2269,7 +2269,7 @@ WHERE context_key = 'assurance_level';
 | 011 | `idn_tenant_domain` | 1349 | Dominios web verificados con certificado SSL. DNS verification, expiry tracking. |
 | 012 | `idn_tenant_network` | 1496 | CIDRs, gateways, DNS, tipo de red (LAN/WAN/VPN/DMZ). **Define desde dónde se pueden conectar los usuarios del tenant.** |
 | 013 | `cal_fiscal_year` (bcal) | 1555 | Años fiscales: OPEN→CLOSED→ARCHIVED. Base para reportes financieros, retención fiscal (Ley 2492: 7 años). |
-| 014 | `idn_calendar_assignment` | 1644 | Asignación de calendarios a tenant/empresa/sucursal. Puente N:M. |
+| 014 | `idn_tenant_calendar_assignment` | 1644 | Asignación de calendarios a tenant/empresa/sucursal. Puente N:M. |
 | 015 | `cal_calendar` (bcal) | 1676 | Colecciones RFC 4791: WORK, FISCAL, PROCESS, COMPLIANCE. Agrupan eventos. |
 | 016 | `cal_event` (bcal) | 1707 | Eventos RFC 5545 VEVENT con rrule sin expandir. Citas, reuniones, vencimientos. |
 | 017 | `cal_alarm` (bcal) | 1744 | Alarmas RFC 5545 VALARM. Notificaciones antes de eventos. |
@@ -2314,7 +2314,7 @@ WHERE context_key = 'assurance_level';
 | # | Tabla | Línea | Propósito |
 |---|-------|:---:|------|
 | 037 | `cal_fiscal_year` (bcal) | 1555 | Años fiscales (ya listado en §17.2) |
-| 038 | `idn_calendar_assignment` | 1644 | Asignación calendarios (ya listado) |
+| 038 | `idn_tenant_calendar_assignment` | 1644 | Asignación calendarios (ya listado) |
 | 039 | `cal_calendar` (bcal) | 1676 | Colecciones de eventos (ya listado) |
 | 040 | `cal_event` (bcal) | 1707 | Eventos con recurrencia (ya listado) |
 | 041 | `cal_alarm` (bcal) | 1744 | Alarmas (ya listado) |
@@ -2370,7 +2370,7 @@ WHERE context_key = 'assurance_level';
 | 063 | `ses_context` | 3129 | **Contexto operativo activo.** ctx_id, tenant, empresa, sucursal, POS, user. SBOS-049 §2. |
 | 064 | `ses_context_switch` | 3137 | **Registro de cambios de contexto.** De empresa A→empresa B, de sucursal X→sucursal Y. Auditoría. |
 | 065 | `ses_superuser_context` | 3144 | **Contexto de superusuario elevado.** Auditoría completa, expiración automática, requiere justificación. |
-| 066 | `ses_risk_policy` | 3152 | **Políticas de riesgo de sesión.** Factores: geo_velocity, device_change, time_anomaly, behavior_anomaly. |
+| 066 | `ses_ses_risk_policy` | 3152 | **Políticas de riesgo de sesión.** Factores: geo_velocity, device_change, time_anomaly, behavior_anomaly. |
 | 067 | `ses_caep_config` | 3164 | **Configuración CAEP 1.0 (Continuous Access Evaluation Profile).** Eventos: session-revoked, token-claims-change, assurance-level-change. |
 
 ### 17.10 — DOMINIO D9: CREDENCIALES (prefijo ath_)
@@ -2576,7 +2576,7 @@ H-RBAC con herencia automática. Produce BitMask para el JWT.
 |---------------|----------------------|------|
 | Contexto operativo activo | `ses_context` | ctx_id, tenant, empresa, sucursal, POS. SBOS-049 §2 |
 | Evaluación de riesgo en tiempo real | `ath_risk_evaluation` | Score, factores, resultado (ALLOW/DENY/STEP_UP) |
-| Políticas de riesgo de sesión | `ses_risk_policy` | geo_velocity, device_change, time_anomaly, behavior_anomaly |
+| Políticas de riesgo de sesión | `ses_ses_risk_policy` | geo_velocity, device_change, time_anomaly, behavior_anomaly |
 | Step-Up dinámico | `ath_step_up_rule` | trigger_event + required_loa + max_age. RFC 9470 |
 | Verificación continua post-login | `ses_caep_config` | CAEP 1.0: session-revoked, assurance-level-change |
 | Geo-validación en tiempo real | `geo_location_log` → `geo_evaluation_log` | Ubicación → evaluación → ALLOW/DENY/STEP_UP |
@@ -2640,7 +2640,7 @@ Cada dominio de soberanía (D1-D12) tiene un método de control, tablas propias,
 | **D8** | Contexto/Sesión | Pre-BitMask | `ses_*` (5 tablas), `ath_step_up_rule`, `ses_caep_config` | 5 | ✅ |
 | **D9** | Credenciales | Pre-BitMask | `ath_*` (46 tablas), `idp_*`, `push_token_registry` | 12 | ✅ |
 | **D10** | Delegación | Policy-Path | `dlg_delegation`, `emergency_override_policy` | 4 | ✅ |
-| **D11** | Auditoría | Policy-Path | `aud_*` (6 tablas), `ses_risk_policy` | 4 | ✅ |
+| **D11** | Auditoría | Policy-Path | `aud_*` (6 tablas), `ses_ses_risk_policy` | 4 | ✅ |
 | **D12** | Blockchain | External-Path | `blk_*` (5 tablas) | 6 | ✅ |
 | **SEC** | Seguridad General | N/A | `sec_key_*` (3 tablas), `bos_crypto_algorithm` | 52 | — |
 
@@ -3385,7 +3385,7 @@ de negocio y se alimenta de tablas específicas.
 | **Historial de contextos** | `idn_user_template.bos_contexts` + `ses_context_switch` | READ | Línea de tiempo de cambios de contexto del usuario |
 | **Transferencia de contexto** | `ctx_transfer_log` + `ses_context_transfer_log` | READ | Auditoría SBOS-049 §5. Quién transfirió a quién |
 | **Elevación a superusuario** | `ses_superuser_context` | READ/WRITE | Requiere justificación. Expira automáticamente. Auditoría completa |
-| **Políticas de riesgo de sesión** | `ses_risk_policy` | READ/WRITE | Factores de riesgo y acciones (TERMINATE_SESSION, LOCK_ACCOUNT, STEP_UP) |
+| **Políticas de riesgo de sesión** | `ses_ses_risk_policy` | READ/WRITE | Factores de riesgo y acciones (TERMINATE_SESSION, LOCK_ACCOUNT, STEP_UP) |
 | **Configuración CAEP** | `ses_caep_config` | READ/WRITE | Eventos: session-revoked, token-claims-change, assurance-level-change |
 
 **KPIs del Panel 8:**
@@ -4505,7 +4505,7 @@ modelo XACML 3.0 (PEP/PDP/PIP) y NIST SP 800-207 (Zero Trust Architecture):
 | **D5** | External-Path | Sensor biométrico + liveness check | `device_attestation_log` | BiometricEvaluator | <200ms |
 | **D6** | External-Path | `ST_Contains(geo_fence, user.location)` | `geo_fence`, `geo_velocity_policy`, `geo_trust_tier` | GeoSpatialEvaluator | <50ms |
 | **D7** | Policy+External | Kong valida IP/CIDR + BitMask capacity | `net_ztna_policy`, `idn_tenant_network` | NetworkEvaluator | <1ms |
-| **D8** | External-Path | `Redis GET ctx:{id}` | `ses_context`, `ses_risk_policy`, `ses_caep_config` | ContextEvaluator | <5ms |
+| **D8** | External-Path | `Redis GET ctx:{id}` | `ses_context`, `ses_ses_risk_policy`, `ses_caep_config` | ContextEvaluator | <5ms |
 | **D9** | Policy-Path | `SELECT * FROM ath_policy_d9 WHERE...` | `ath_policy_d9`, `ath_credential_policy`, `ath_step_up_rule` | CredentialEvaluator | <5ms |
 | **D10** | Policy-Path | `SELECT * FROM dlg_delegation WHERE...` | `dlg_delegation`, `emergency_override_policy` | DelegationEvaluator | <5ms |
 | **D11** | Policy-Path | `SELECT * FROM aud_compliance_map WHERE...` | `aud_event`, `aud_review`, `aud_compliance_map` | AuditEvaluator | <5ms |
@@ -5684,3 +5684,96 @@ cargo build --release --target x86_64-unknown-linux-musl: ✅ 4.0MB static-pie
 bauth.service: ✅ systemd Type=simple, User=bauth, LimitNOFILE=8192
 Socket:        ✅ /tmp/bauth/bauth.sock (0660 bosagent)
 ```
+
+---
+
+## 43. NUEVAS TABLAS D01 — Control de Acceso Lógico (GAP-D01-01 y GAP-D01-02)
+
+**Fecha:** 2026-07-29 · **Normas:** ISO 27001:2022 A.9.2.2 · NIST SP 800-53 R5 AC-2 · SCIM 2.0 RFC 7643 §4 · PCI DSS 4.0 Req 7.2
+
+Esta sección documenta las dos tablas añadidas para cerrar los gaps B04 y B05 del dominio D01 (Control de Acceso Lógico). Implementadas en VPS SBOSDB el 2026-07-29.
+
+---
+
+### 43.1 — T-500: `bauth.idn_registro_atributo_schema` (PIP D01-B04 / D98-B01)
+
+**Propósito:** Policy Information Point (PIP) para control de acceso a nivel de campo. Define el esquema canónico de atributos de identidad: qué atributos existen, de qué tipo son, su clasificación de seguridad, y cómo deben devolverse. Permite que `idn_identidad_atributo` (T-157) sea extensible sin hardcode y que el PDP pueda aplicar enmascaramiento por clasificación.
+
+**Decisión arquitectónica (D-07):** El control de acceso a nivel de campo (autorización de leer/escribir un campo) vive como átomos en el árbol T-162 (`skull.D01.fields.<tabla>.<campo>.<verbo>`). Esta tabla NO es de autorización — es el catálogo de metadatos del campo (PIP), usado por el motor de evaluación para aplicar el enmascaramiento apropiado.
+
+| Columna | Tipo | Propósito |
+|---------|------|-----------|
+| `schema_id` | UUID PK | Identificador del esquema |
+| `tenant_id` | UUID NULL | NULL = esquema global del sistema |
+| `attr_name` | TEXT | Nombre canónico del atributo (ej: `givenName`, `nit`, `ci`) |
+| `scim_urn` | TEXT NULL | URN SCIM 2.0 si el atributo tiene correspondencia SCIM |
+| `display_name` | JSONB | Nombre en múltiples idiomas `{"es":"Nombre","en":"First Name"}` |
+| `tipo_dato` | TEXT | STRING / INTEGER / DECIMAL / BOOLEAN / DATE / DATETIME / UUID / JSON / BINARY |
+| `requerido` | BOOLEAN | ¿El atributo es obligatorio? |
+| `multi_valor` | BOOLEAN | ¿Puede tener múltiples valores? (SCIM 2.0 §4.1) |
+| `longitud_max` | INTEGER NULL | Longitud máxima para STRING |
+| `patron_regex` | TEXT NULL | Expresión regular de validación |
+| `clasificacion` | TEXT | PUBLIC / INTERNAL / CONFIDENTIAL / PII / SENSITIVE_PII |
+| `mutabilidad` | TEXT | READ_ONLY / READ_WRITE / WRITE_ONLY / IMMUTABLE (SCIM 2.0 §4.1) |
+| `returned` | TEXT | ALWAYS / NEVER / DEFAULT / REQUEST (SCIM 2.0 §4.1) |
+| `display_mask` | TEXT NULL | Función de enmascaramiento para PII (ej: `mask_last4`, `mask_all`) |
+| `estandar_ref` | TEXT NULL | Referencia al estándar (ej: `NIST SP 800-63A §2.1`) |
+| `activo` | BOOLEAN | Soft-delete del esquema |
+| `ctx_id` | TEXT | Context Plane SBOS-049 |
+| `created_at` | TIMESTAMPTZ | Creación |
+
+**UNIQUE:** `(tenant_id, attr_name)` — un atributo por nombre por tenant (o global con NULL tenant).
+
+**Flujo de uso en evaluación de campo:**
+1. Usuario solicita atributo `nit`
+2. PEP → PDP: evalúa átomo `skull.D01.fields.idn_identidad_atributo.nit.read`
+3. Si PERMIT: PIP consulta T-500 para obtener `clasificacion` y `display_mask`
+4. Si `clasificacion = PII` y el actor no tiene loa ≥ AAL2: aplicar `display_mask`
+5. Si `returned = NEVER`: excluir del response
+
+---
+
+### 43.2 — T-201: `bauth.idn_acceso_contrato` (D01-B05)
+
+**Propósito:** Registro de gobernanza de accesos. Documenta QUÉ PASÓ y POR QUÉ se otorgó acceso a un rol o átomo específico. Satisface los requisitos de auditoría de ISO 27001 A.9.2.2 (acceso formal documentado), NIST AC-2 (gestión de cuentas con justificación), PCI DSS 4.0 Req 7.2 (acceso documentado a datos de pago), y SOX §404 (control interno de acceso).
+
+**Decisión arquitectónica (D-07):** Esta tabla es legítima porque registra QUÉ PASÓ (gobernanza), no define QUÉ PUEDE HACER (eso es árbol T-162). La autorización está en los átomos; el contrato es el registro del acto de gobernanza que autorizó la asignación.
+
+| Columna | Tipo | Propósito |
+|---------|------|-----------|
+| `contrato_id` | UUID PK | Identificador del contrato |
+| `tenant_id` | UUID | Tenant propietario del acceso |
+| `tipo` | TEXT | ACCESO_ROL / ACCESO_ATOMICO / ACCESO_TEMPORAL / ACCESO_EMERGENCIA / ACCESO_DELEGADO |
+| `beneficiario_id` | UUID | Entidad que recibe el acceso (FK a idn_identidad_entidad) |
+| `role_id` | UUID NULL | Rol otorgado (XOR con id_atom) |
+| `id_atom` | UUID NULL | Átomo otorgado (XOR con role_id) — CONSTRAINT chk_iac_subject garantiza al menos uno |
+| `estado` | TEXT | BORRADOR / ACTIVO / SUSPENDIDO / EXPIRADO / REVOCADO |
+| `justificacion_negocio` | TEXT | Justificación obligatoria del acceso |
+| `politica_ref` | TEXT NULL | Referencia a la política que respalda el acceso |
+| `solicitante_id` | UUID | Quien solicitó el acceso |
+| `aprobador_id` | UUID | Quien aprobó el acceso |
+| `aprobado_at` | TIMESTAMPTZ NULL | Momento de aprobación |
+| `valid_from` | TIMESTAMPTZ | Inicio de vigencia |
+| `valid_until` | TIMESTAMPTZ NULL | Fin de vigencia (NULL = indefinido) |
+| `proxima_revision` | TIMESTAMPTZ NULL | Próxima revisión periódica (NIST AC-2(7)) |
+| `revisor_id` | UUID NULL | Revisor asignado para la próxima revisión |
+| `version_number` | INTEGER | Número de versión (incrementado por trigger WORM) |
+| `hash_anterior` | TEXT NULL | Hash del estado anterior para cadena de custodia |
+| `ctx_id` | TEXT | Context Plane SBOS-049 |
+| `created_at` | TIMESTAMPTZ | Creación |
+| `updated_at` | TIMESTAMPTZ | Última actualización |
+
+**CONSTRAINT chk_iac_subject:** `role_id IS NOT NULL OR id_atom IS NOT NULL` — siempre debe tener sujeto de acceso.
+
+**Trigger WORM `trg_iac_protect_active`:** Una vez que `estado != 'BORRADOR'`, los campos de gobernanza (`tipo`, `beneficiario_id`, `role_id`, `id_atom`, `justificacion_negocio`, `politica_ref`, `solicitante_id`, `aprobador_id`, `aprobado_at`, `valid_from`) son inmutables. Cualquier intento de modificarlos lanza `check_violation`. El trigger también incrementa `version_number` en cada UPDATE.
+
+**Relación con T-170:** `privilege_atom_grant.contrato_id UUID NULL` apunta a esta tabla. Un grant puede (no debe obligatoriamente) estar respaldado por un contrato. La FK es `ON DELETE SET NULL` — si se elimina el contrato, el grant persiste pero pierde la trazabilidad de gobernanza.
+
+**6 índices:** tenant+estado, beneficiario+estado, solicitante, aprobador, valid_from+valid_until (solo ACTIVO), proxima_revision (solo no-null ACTIVO).
+
+**Ciclo de vida típico:**
+1. Solicitante crea contrato con `estado = BORRADOR`
+2. Aprobador revisa y actualiza a `ACTIVO` (trigger WORM se activa desde este punto)
+3. Al otorgar el grant en T-170, se registra `privilege_atom_grant.contrato_id`
+4. En `proxima_revision`: revisor certifica o revoca → `estado = REVOCADO`
+5. Al revocar: actualizar grant en T-170 a `status = REVOKED`

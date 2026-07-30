@@ -47,7 +47,7 @@ pasa por Keycloak. Nadie más valida passwords, OTPs, WebAuthn ni tokens federad
 | 17 | BACKUP_CODES | Hash SHA-256. Un solo uso. KC compara contra 10 hashes. |
 | 18 | RECOVERY_EMAIL | Enlace de recuperación. KC verifica email ownership. |
 | 19 | STEP_UP_CONDITIONAL | **bAuth evalúa condición** (amount > 5000) → **KC ejecuta auth step-up** (AAL3). |
-| 20 | RISK_BASED_AUTH | **bAuth calcula risk score** (ses_risk_policy) → **KC aplica acción** (allow/step_up/deny). |
+| 20 | RISK_BASED_AUTH | **bAuth calcula risk score** (ses_ses_risk_policy) → **KC aplica acción** (allow/step_up/deny). |
 | 21 | BASIC_AUTH | HTTP Basic. KC valida contra BD. ⚠️ Deprecado. |
 | 22 | BEARER_TOKEN_STATIC | Token estático. KC valida en BD. ⚠️ Deprecado. |
 | 23 | PUSH_NOTIFICATION | FCM/APNs push. SPI custom en KC. Usuario aprueba en app. |

@@ -965,7 +965,7 @@
 ## SECCIÓN 7 — `session_state` — ESTADO DE SESIÓN
 
 **Dominio:** D8 · **Estándar:** SBOS-049 · W3C Trace Context · NIST SP 800-63B-4 §7 · OpenID CAEP 1.0
-**DDL:** `ses_context` · `ses_context_switch` · `ses_superuser_context` · `ses_risk_policy` · `ses_caep_config`
+**DDL:** `ses_context` · `ses_context_switch` · `ses_superuser_context` · `ses_ses_risk_policy` · `ses_caep_config`
   · `ctx_transfer_log` · `qr_challenge_registry`
 
 ```json
@@ -1571,7 +1571,7 @@
 | 4 | `keycloak_credentials` | D9 | 50+ | 46 tablas `ath_*` |
 | 5 | `physical_credentials` | D2 | 25+ | `fis_device`, `fis_access_zone`, `user_client_device` |
 | 6 | `device_registry` | D5/D7 | 25+ | `user_client_device`, `net_device`, `device_attestation_log`, `mobile_heartbeat_log` |
-| 7 | `session_state` | D8 | 30+ | `ses_*`, `ctx_transfer_log`, `qr_challenge_registry`, `ses_risk_policy` |
+| 7 | `session_state` | D8 | 30+ | `ses_*`, `ctx_transfer_log`, `qr_challenge_registry`, `ses_ses_risk_policy` |
 | 8 | `location_profile` | D6 | 25+ | `geo_*`, `geo_fence`, `geo_location_log`, `geo_velocity_policy` |
 | 9 | `temporal_profile` | D4 | 30+ | `cal_*`, `cal_overtime_policy`, `cal_break_policy`, `cal_holiday` |
 | 10 | `network_profile` | D7 | 20+ | `net_*`, `idn_tenant_network`, `certificate_pin_config` |
