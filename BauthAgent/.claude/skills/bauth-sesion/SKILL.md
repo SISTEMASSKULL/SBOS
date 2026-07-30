@@ -50,12 +50,11 @@ cat context/Documentacion/MOTORES/MOTORES-INDEX.md
 3. Métodos → completar 9 → 18
 4. Firma ADSIB + Auditoría → cablear emisor
 
-## PASO 3 — Plan de acción activo
+## PASO 3 — Plan de trabajo de sesión
 
-```bash
-ls context/plandeaccion/REPARACIONBAUTH/ 2>/dev/null | head -20
-# Abrir el documento de plan más reciente si hay uno activo
-```
+> El REGISTRO-ESTADO legacy (`context/plandeaccion/`) fue eliminado de la formalización.
+> Confirmar con el humano cuál es el documento activo de control de tareas para esta sesión.
+> Toda tarea se registra antes de ejecutarse, con evidencia verificable (AA-1) y fecha.
 
 ## PASO 4 — Reportar al humano
 

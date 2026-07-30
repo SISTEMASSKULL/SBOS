@@ -1,10 +1,10 @@
 ---
 name: bauth-identidad
 description: >
-  El modelo de identidad y autorización de bAuth: dominios D00-D13, átomos (permisos
-  atómicos), BitMask 64-bit, roles (DAG + SoD), usuarios, Context Plane y multi-tenancy.
-  Úsala cuando trabajes con el almacén de identidad, árbol de privilegios, asignación
-  de roles, validación de atributos o política AtomLang.
+  El modelo de identidad y autorización de bAuth: dominios D00-D15 + D98 + D99 (18 total),
+  átomos (permisos atómicos), BitMask 64-bit, roles (DAG + SoD), usuarios, Context Plane
+  y multi-tenancy. Úsala cuando trabajes con el almacén de identidad, árbol de privilegios,
+  asignación de roles, validación de atributos o política AtomLang.
 ---
 
 # Skill — bAuth: Modelo de Identidad y Autorización

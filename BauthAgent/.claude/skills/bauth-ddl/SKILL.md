@@ -1,8 +1,9 @@
 ---
 name: bauth-ddl
 description: >
-  La base de datos de bAuth: DDL V2 de SBOS_db, sus 12 secciones (S1-S12), los 190+
-  tablas, convenciones de diseño, y la definición canónica de dominios/bloques (D00-D15).
+  La base de datos de bAuth: DDL V2 de SBOS_db, sus 12 secciones (S1-S12), 190+ tablas,
+  inventario de diseño A.65.02 (T-NNN con nombre y propósito), convenciones de diseño,
+  y la definición canónica de dominios/bloques (D00-D15 + D98 + D99 via A.65.03.01).
   Úsala cuando vayas a consultar, modificar o verificar el esquema de la base de datos
   de bAuth, trabajar con seeds/migrations, o entender la estructura de almacenamiento
   de identidades, roles, políticas, sesiones o auditoría.
@@ -22,9 +23,10 @@ description: >
 |---------|--------------|-----|
 | DDL completo | `/opt/skull/orquestador/proyectos/SBOS/DDLs/SBOS_db_V2_DDL.sql` | Esquema SQL ejecutable — fuente de verdad estructural |
 | Manual del DDL | `/opt/skull/orquestador/proyectos/SBOS/DDLs/SBOS_db_V2_DDL_MANUAL.md` | La intención detrás de cada decisión — **leer junto al DDL** |
+| Inventario de diseño | `context/Documentacion/anexos/A.65.02_ANEXO-NUEVA-DDL-v1.0.md` | Inventario canónico de tablas V2 — T-NNN con nombre definitivo + propósito (v1.6, 2026-07-28) |
 | Dominios y bloques | `context/Documentacion/anexos/A.65.03.01_FORMALIZACION-DOMINIOS-BLOQUES-CANONICOS-v1.0.md` | 134 bloques · 18 dominios — SSOT normativo de bloques |
 
-**Regla:** nunca consultar el DDL sin leer también el manual. El DDL define la estructura; el manual define la intención y los invariantes que los constraints protegen.
+**Regla:** nunca consultar el DDL sin leer también el manual. El DDL define la estructura; el manual define la intención y los invariantes que los constraints protegen. A.65.02 es el inventario de diseño que explica el PARA QUÉ de cada tabla.
 
 ---
 
@@ -118,7 +120,41 @@ El trabajo pendiente es poblar los átomos (depth≥3), no crear los bloques.
 
 ---
 
-## 6 · Tablas clave para bAuth
+## 6 · Inventario de diseño DDL (A.65.02)
+
+**Documento:** `context/Documentacion/anexos/A.65.02_ANEXO-NUEVA-DDL-v1.0.md` (v1.6 · 2026-07-28)  
+**Estado:** DISEÑO PARCIAL — 9 secciones con tablas definidas · 4 secciones pendientes (USUARIOS · AUTENTICACIÓN · FIRMA DIGITAL · FEDERACIÓN/OIDC)
+
+A.65.02 es el inventario limpio del rediseño completo del DDL. Cada entrada incluye código T-NNN, nombre canónico definitivo y propósito. **Es el "para qué" de cada tabla**; el DDL SQL es el "cómo".
+
+| Sección | Estado | Tablas | Notas clave |
+|---------|--------|--------|-------------|
+| GLOBAL | ✅ | T-001..T-004, T-059..T-061, T-114 | Schema `bglobal` — catálogos compartidos |
+| TENANT | ✅ | T-005..T-013 | Schema `btenant` — multi-tenancy raíz |
+| ROLES | ✅ | T-040..T-042, T-063, T-161b, T-162, T-163, T-194, T-B02L | T-162 = árbol de políticas (QUÉ PUEDE); T-170 = grants por usuario (no por rol) |
+| VERSIONADO | ✅ | T-152..T-155 | `WITHOUT OVERLAPS` PG18 para temporal |
+| IDENTIDAD | ✅ | T-156..T-168, T-186..T-190 | `atom_position` vive en T-162, no en T-170 |
+| CALENDARIO | ✅ | T-012, T-014..T-019, T-124..T-125 | Integración bcalendar |
+| USUARIOS | ⏳ pendiente | — | Diseño en progreso |
+| AUTENTICACIÓN | ⏳ pendiente | — | Diseño en progreso |
+| SESIÓN | ✅ | T-181, T-191..T-193 | Context Plane + ctx_id |
+| PRIVILEGIOS | ✅ | T-170, T-170b, T-171..T-176, T-179 | T-170 = grants por usuario; SoD solo en T-174/T-175 |
+| AUDITORÍA | ✅ | T-177..T-178 | WORM append-only |
+| FIRMA DIGITAL | ⏳ pendiente | — | ADSIB RSA-SHA256, Ley 164 |
+| FEDERACIÓN/OIDC | ⏳ pendiente | — | IdP externo |
+| RIESGO/ITDR | ✅ | T-180 | Scoring de anomalías |
+| PAM | ✅ | T-182, T-182b, T-183..T-185, T-189 | Check-out de credenciales críticas |
+
+**Decisiones arquitectónicas clave en A.65.02 (no inferir del DDL SQL):**
+- `atom_position` está en **T-162** (árbol de políticas — QUÉ PUEDE), NO en T-170.
+- **T-170** (`bauth.privilege_atom_grant`) es grants por usuario, NO por rol.
+- **SoD** es validación pura en T-174/T-175 — no es una tabla de asignación.
+- Schema `bglobal` para catálogos compartidos entre todos los tenants.
+- Schema `bauth` para tablas propias de bAuth.
+
+---
+
+## 7 · Tablas clave para bAuth
 
 ```sql
 -- Bloques de dominios (SSOT de blocks)
@@ -144,7 +180,7 @@ bauth.audit_event              -- Log WORM de todos los eventos de identidad
 
 ---
 
-## 7 · Cómo trabajar con el DDL
+## 8 · Cómo trabajar con el DDL
 
 ```bash
 # Verificar conexión a SBOSDB (VPS pruebas)
