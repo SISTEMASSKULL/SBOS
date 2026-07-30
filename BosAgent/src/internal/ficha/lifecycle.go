@@ -88,13 +88,24 @@ type TaskDirResolver func(fichaID string) string
 //
 // Cuando exec no es nil, las operaciones de ejecución (rollback, cleanup, repair)
 // delegan en el Executor real. Si es nil, usan simulación (tests y desarrollo).
+// K8sLabelQuerier permite listar nombres de recursos K8s con un label dado.
+// Pendiente: k8s.Core no tiene ListByLabel aún — se inyecta nil hasta que se agregue.
+// En tests, usar un stub que implemente la interfaz.
+type K8sLabelQuerier interface {
+	ListByLabel(kind, namespace, label string) ([]string, error)
+}
+
 type Lifecycle struct {
 	sm              *StateMachine
 	logger          *slog.Logger
 	timeouts        map[LifecycleOp]time.Duration
 	exec            *Executor        // ejecutor de 5 fases (nil = simulación)
 	resolveTaskDir  TaskDirResolver  // resuelve fichaID → taskDir (nil = sin catálogo)
+	k8sLabels       K8sLabelQuerier  // nil-safe: si nil, verifyNoResidue omite la verificación K8s
 }
+
+// SetK8sLabelQuerier inyecta el cliente K8s para verificación de residuos.
+func (l *Lifecycle) SetK8sLabelQuerier(q K8sLabelQuerier) { l.k8sLabels = q }
 
 // NewLifecycle crea un orquestador de ciclo de vida con la máquina de estados
 // y los timeouts por defecto definidos en ADR-021.

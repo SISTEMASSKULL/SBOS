@@ -118,9 +118,17 @@ func (s *FichaServer) Describe(ctx context.Context, req *pb.DescribeRequest) (*p
 	if single == nil {
 		return nil, status.Error(codes.NotFound, "ficha no encontrada: "+req.FichaId)
 	}
+
+	versions := map[string]string{}
+	if s.catalog != nil {
+		if mf, ok := s.catalog.Get(req.FichaId); ok && mf.Version != "" {
+			versions["current"] = mf.Version
+		}
+	}
+
 	return &pb.DescribeResponse{
 		Ficha:            mapFicha(single),
-		Versions:         nil, // TODO: obtener del plugin.Loader
+		Versions:         versions,
 		AutoCapabilities: defaultAutoCapabilities(),
 	}, nil
 }

@@ -502,9 +502,38 @@ func cmdFichaLogs(args []string) int {
 	}
 
 	fichaID := fs.Arg(0)
-	fmt.Printf("📄 Logs de %s (ultimas %d lineas) — /var/log/bos/fichas/%s.log\n", fichaID, *tail, fichaID)
-	fmt.Println("   (lectura de logs pendiente — F11.F.2)")
-	fmt.Println("   Use: tail -f /var/log/bos/fichas/" + fichaID + ".log")
+
+	rawParams, _ := json.Marshal(map[string]interface{}{
+		"ficha_id":   fichaID,
+		"tail_lines": *tail,
+	})
+	resp, err := doRPCCall("bos.ficha.logs", rawParams)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "bosctl ficha logs: %v\n", err)
+		return 6
+	}
+	if resp.Error != nil {
+		fmt.Fprintf(os.Stderr, "bosctl ficha logs: error %d: %s\n", resp.Error.Code, resp.Error.Message)
+		return 1
+	}
+
+	data, _ := json.Marshal(resp.Result)
+	var result struct {
+		FichaID string `json:"ficha_id"`
+		Lines   []struct {
+			Ts      string `json:"ts"`
+			Level   string `json:"level"`
+			Message string `json:"message"`
+			LineNo  int    `json:"line_no"`
+		} `json:"lines"`
+	}
+	if err := json.Unmarshal(data, &result); err != nil || len(result.Lines) == 0 {
+		fmt.Printf("(sin entradas de log para %s)\n", fichaID)
+		return 0
+	}
+	for _, e := range result.Lines {
+		fmt.Printf("[%s] %-5s %s\n", e.Ts, e.Level, e.Message)
+	}
 	return 0
 }
 

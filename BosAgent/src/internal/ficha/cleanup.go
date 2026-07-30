@@ -18,6 +18,8 @@ package ficha
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -141,19 +143,32 @@ func (l *Lifecycle) ExecuteCleanup(fichaID string) *CleanupResult {
 }
 
 // verifyNoResidue verifica que no queden artefactos de la ficha en el sistema.
-// Consulta K8s API y filesystem para detectar recursos huérfanos etiquetados
-// con bos-ficha=<fichaID>.
+// Consulta K8s API (via k8sLabels) y filesystem para detectar recursos huérfanos
+// etiquetados con bos-ficha=<fichaID>.
 //
 // Retorna lista de artefactos huérfanos encontrados (vacío = sistema limpio).
 func (l *Lifecycle) verifyNoResidue(fichaID string) []string {
 	var residue []string
-	_ = fichaID
+	label := "bos-ficha=" + fichaID
 
-	// TODO(F9): verificar contra K8s API:
-	//   - kubectl get pods -l bos-ficha=<fichaID>
-	//   - kubectl get pvc -l bos-ficha=<fichaID>
-	//   - kubectl get configmap -l bos-ficha=<fichaID>
-	//   - ls /etc/bos/<fichaID>/
+	if l.k8sLabels != nil {
+		for _, kind := range []string{"pods", "pvc", "configmap"} {
+			names, err := l.k8sLabels.ListByLabel(kind, "", label)
+			if err != nil {
+				l.logger.Warn("verifyNoResidue: error consultando K8s",
+					"kind", kind, "label", label, "err", err)
+				continue
+			}
+			for _, n := range names {
+				residue = append(residue, kind+"/"+n)
+			}
+		}
+	}
+
+	etcDir := filepath.Join("/etc/bos", fichaID)
+	if info, err := os.Stat(etcDir); err == nil && info.IsDir() {
+		residue = append(residue, "fs:"+etcDir)
+	}
 
 	return residue
 }

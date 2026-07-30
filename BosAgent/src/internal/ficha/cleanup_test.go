@@ -1,6 +1,7 @@
 package ficha
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -79,6 +80,63 @@ func TestExecuteCleanup_FichaID(t *testing.T) {
 		result := lc.ExecuteCleanup(id)
 		if result.FichaID != id {
 			t.Errorf("FichaID: esperado %s, obtenido %s", id, result.FichaID)
+		}
+	}
+}
+
+// stubK8sLabels es un stub de K8sLabelQuerier para tests.
+type stubK8sLabels struct {
+	residues map[string][]string // kind → nombres de recursos
+	err      error               // error a retornar (nil = sin error)
+}
+
+func (s *stubK8sLabels) ListByLabel(kind, _, _ string) ([]string, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	return s.residues[kind], nil
+}
+
+func TestVerifyNoResidue_ConK8sResiduos(t *testing.T) {
+	lc := NewLifecycle(nil)
+	lc.SetK8sLabelQuerier(&stubK8sLabels{
+		residues: map[string][]string{
+			"pods":      {"pod-keycloak-1"},
+			"pvc":       {"pvc-keycloak-data"},
+			"configmap": {},
+		},
+	})
+	result := lc.ExecuteCleanup("keycloak")
+
+	if result.Success {
+		t.Error("cleanup con residuos K8s debe reportar Success=false")
+	}
+	found := map[string]bool{}
+	for _, r := range result.Residue {
+		found[r] = true
+	}
+	if !found["pods/pod-keycloak-1"] {
+		t.Errorf("residuo 'pods/pod-keycloak-1' no encontrado: %v", result.Residue)
+	}
+	if !found["pvc/pvc-keycloak-data"] {
+		t.Errorf("residuo 'pvc/pvc-keycloak-data' no encontrado: %v", result.Residue)
+	}
+}
+
+func TestVerifyNoResidue_K8sError_Continua(t *testing.T) {
+	lc := NewLifecycle(nil)
+	lc.SetK8sLabelQuerier(&stubK8sLabels{
+		err: fmt.Errorf("K8s no disponible"),
+	})
+	// error en K8s → se loguea y continúa (no panics, residue vacío de K8s)
+	result := lc.ExecuteCleanup("vault")
+	if result == nil {
+		t.Fatal("resultado no puede ser nil")
+	}
+	// No hay residuos K8s (se skipearon por error) ni de filesystem
+	for _, r := range result.Residue {
+		if r == "pods/" || r == "pvc/" || r == "configmap/" {
+			t.Errorf("residuo inválido con error K8s: %s", r)
 		}
 	}
 }
