@@ -123,34 +123,173 @@ El trabajo pendiente es poblar los átomos (depth≥3), no crear los bloques.
 ## 6 · Inventario de diseño DDL (A.65.02)
 
 **Documento:** `context/Documentacion/anexos/A.65.02_ANEXO-NUEVA-DDL-v1.0.md` (v1.6 · 2026-07-28)  
-**Estado:** DISEÑO PARCIAL — 9 secciones con tablas definidas · 4 secciones pendientes (USUARIOS · AUTENTICACIÓN · FIRMA DIGITAL · FEDERACIÓN/OIDC)
+**Estado:** DISEÑO PARCIAL — 9 secciones completas · 4 pendientes (USUARIOS · AUTENTICACIÓN · FIRMA DIGITAL · FEDERACIÓN/OIDC)
 
-A.65.02 es el inventario limpio del rediseño completo del DDL. Cada entrada incluye código T-NNN, nombre canónico definitivo y propósito. **Es el "para qué" de cada tabla**; el DDL SQL es el "cómo".
+A.65.02 es el inventario limpio del rediseño completo del DDL. Código T-NNN + nombre canónico definitivo + propósito. **Es el "para qué" de cada tabla**; el DDL SQL es el "cómo".
 
-| Sección | Estado | Tablas | Notas clave |
-|---------|--------|--------|-------------|
-| GLOBAL | ✅ | T-001..T-004, T-059..T-061, T-114 | Schema `bglobal` — catálogos compartidos |
-| TENANT | ✅ | T-005..T-013 | Schema `btenant` — multi-tenancy raíz |
-| ROLES | ✅ | T-040..T-042, T-063, T-161b, T-162, T-163, T-194, T-B02L | T-162 = árbol de políticas (QUÉ PUEDE); T-170 = grants por usuario (no por rol) |
-| VERSIONADO | ✅ | T-152..T-155 | `WITHOUT OVERLAPS` PG18 para temporal |
-| IDENTIDAD | ✅ | T-156..T-168, T-186..T-190 | `atom_position` vive en T-162, no en T-170 |
-| CALENDARIO | ✅ | T-012, T-014..T-019, T-124..T-125 | Integración bcalendar |
-| USUARIOS | ⏳ pendiente | — | Diseño en progreso |
-| AUTENTICACIÓN | ⏳ pendiente | — | Diseño en progreso |
-| SESIÓN | ✅ | T-181, T-191..T-193 | Context Plane + ctx_id |
-| PRIVILEGIOS | ✅ | T-170, T-170b, T-171..T-176, T-179 | T-170 = grants por usuario; SoD solo en T-174/T-175 |
-| AUDITORÍA | ✅ | T-177..T-178 | WORM append-only |
-| FIRMA DIGITAL | ⏳ pendiente | — | ADSIB RSA-SHA256, Ley 164 |
-| FEDERACIÓN/OIDC | ⏳ pendiente | — | IdP externo |
-| RIESGO/ITDR | ✅ | T-180 | Scoring de anomalías |
-| PAM | ✅ | T-182, T-182b, T-183..T-185, T-189 | Check-out de credenciales críticas |
+### GLOBAL — `bglobal.*` — catálogos ISO y parámetros del sistema
 
-**Decisiones arquitectónicas clave en A.65.02 (no inferir del DDL SQL):**
-- `atom_position` está en **T-162** (árbol de políticas — QUÉ PUEDE), NO en T-170.
-- **T-170** (`bauth.privilege_atom_grant`) es grants por usuario, NO por rol.
-- **SoD** es validación pura en T-174/T-175 — no es una tabla de asignación.
-- Schema `bglobal` para catálogos compartidos entre todos los tenants.
-- Schema `bauth` para tablas propias de bAuth.
+| T | Tabla | Propósito |
+|---|-------|-----------|
+| T-001 | `bglobal.global_language` | Catálogo ISO 639-1/3 de idiomas |
+| T-002 | `bglobal.global_country` | Catálogo ISO 3166-1 de países |
+| T-003 | `bglobal.global_currency` | Catálogo ISO 4217 de monedas |
+| T-004 | `bglobal.geo_timezone` | Catálogo IANA de zonas horarias |
+| T-059 | `bglobal.menu_item` | Ítems de menú del dashboard por módulo |
+| T-060 | `bglobal.menu_context` | Agrupa ítems de menú por contexto de rol/dominio |
+| T-061 | `bglobal.menu_item_atom` | Puente menú ↔ motor BitMask (visibilidad B7 CAPA 2) |
+| T-114 | `bglobal.global_config` | Parámetros globales del sistema — `scope='global'` del PIP `@bauth_config_param` |
+
+### TENANT — `bauth.idn_tenant*` — multi-tenancy raíz
+
+| T | Tabla | Propósito |
+|---|-------|-----------|
+| T-005 | `bauth.idn_tenant` | Ancla de gobernanza — toda FK del DDL arranca desde `tenant_id` |
+| T-006 | `bauth.idn_tenant_currencies` | Monedas habilitadas por tenant |
+| T-007 | `bauth.idn_tenant_languages` | Idiomas disponibles en el dashboard y APIs |
+| T-008 | `bauth.idn_tenant_verification` | Nivel IAL alcanzado por el tenant (documentos validados) |
+| T-009 | `bauth.idn_tenant_config` | Configuración por tenant — fuente del PIP `@bauth_config_param` (techo/piso por organización) |
+| T-010 | `bauth.idn_tenant_domain` | Dominios DNS del tenant — prefijo del `ctx_id` (SBOS-049 §3.1) |
+| T-011 | `bauth.idn_tenant_network` | CIDRs permitidos por tenant — validados por PEP en D7 |
+| T-013 | `bauth.idn_tenant_calendar_assignment` | Calendarios asignados al tenant — condicionan validez temporal de roles |
+
+> **PIP `@bauth_config_param`**: resuelto en cascada: primero T-009 (tenant), luego T-114 (global). No hay tabla `bauth_config_param` separada.
+
+### ROLES — `bauth.idn_roles_*` — identidad de roles y árbol de políticas
+
+| T | Tabla | Propósito |
+|---|-------|-----------|
+| T-040 | `bauth.idn_roles_rol_type` | Catálogo de tipos de cuenta: 10 tipos (INDIVIDUAL · M2M · SYSTEM · GROUP · TEMPLATE · VIRTUAL · BOT · DEVICE · SERVICE · EMERGENCY) |
+| T-041 | `bauth.idn_roles_rol_hierarchical` | Árbol de 548 roles con jerarquía parent/child, tier, status, versión. **El QUIÉN del sistema.** B02: vigencia + trigger `trg_irrh_b02_validity` |
+| T-042 | `bauth.idn_roles_rol_tier` | Parámetros de autenticación por tier — LOA requerido, métodos MFA, timeouts, max_sessions, step-up, AAL |
+| T-063 | `bauth.idn_roles_rol_closure` | Closure table del DAG de herencia — materializa rutas ancestro→descendiente para máscara BitMask acumulada en O(1) |
+| T-161b | `bauth.idn_roles_template_tipo_nodo` | Catálogo de tipos de nodo del árbol de políticas — color, fuente, badge para Flutter (reemplaza CHECK en T-162) |
+| T-162 | `bauth.idn_roles_template` | **Árbol jerárquico de políticas** — UN árbol compartido: dominio·bloque·política·regla·evaluación·átomo·obligación. Contiene `atom_position`. **El QUÉ PUEDE el sistema.** |
+| T-163 | `bauth.idn_roles_template_history` | Historial WORM del árbol T-162 — trazabilidad forense de cada cambio |
+| T-194 | `bauth.idn_roles_iga_category` | Categorías IGA: 7 tipos (BUSINESS · IT_INFRA · APPLICATION · PRIVILEGED · EMERGENCY · SERVICE · STANDARD). Define `review_cycle_days` y `is_privileged` |
+| T-B02L | `bauth.idn_roles_rol_lifecycle_event` | Log WORM de transiciones de estado del rol (MANUAL/AUTO_EXPIRY/RECONCILE/IGA_REVIEW/BREAKGLASS/BOOTSTRAP) |
+
+### VERSIONADO — `bauth.idn_roles_ver_*` — Motor de Versionado Universal (MVU 1.13)
+
+| T | Tabla | Propósito |
+|---|-------|-----------|
+| T-152 | `bauth.idn_roles_ver_b01_audit_log` | Historia WORM de versiones cerradas de T-041. `WITHOUT OVERLAPS` PG18 + btree_gist. REVOKE UPDATE/DELETE |
+| T-153 | `bauth.idn_roles_ver_b03_approval_queue` | Cola de cambios MAJOR pendientes de quórum N-de-M — dual control (`resolved_by ≠ proposed_by`) |
+| T-154 | `bauth.idn_roles_ver_b01_retention_policy` | Política de retención legal — `hot_window`, `compaction_policy`, piso ≥ 365 días. `legal_hold=true` suspende purga |
+| T-155 | `bauth.idn_roles_ver_contract_revision_log` | Changelog estructural del contrato RolTemplate (v5.0→v6.0) — append-only histórico |
+
+### IDENTIDAD — `bauth.idn_identidad_*` — Motor de Identidad D00 v2.0
+
+| T | Tabla | Propósito |
+|---|-------|-----------|
+| T-156 | `bauth.idn_identidad_entidad` | Catálogo universal de actores — árbol 5 niveles: `tenant→bdomain→bsubdomain→pos→actor` |
+| T-157 | `bauth.idn_identidad_atributo` | Atributos EAV extensibles — NIT, razón social, correos, teléfonos, documentos, códigos SIN. `atom_code` vincula con BitMask |
+| T-158 | `bauth.idn_identidad_atributo_history` | Historial WORM de cambios de atributos — hash-chain SHA-256, particionado por mes. REVOKE UPDATE/DELETE ✅ |
+| T-159 | `bauth.idn_identidad_requisito` | Completitud mínima por tipo de entidad y nivel IAL — 8 seeds Bolivia ✅ |
+| T-160 | `bauth.idn_identidad_sinonimo` | Sinónimos/abreviaturas para búsqueda difusa — archivos `.syn` de PostgreSQL |
+| T-161 | `bauth.idn_identidad_sinonimo_sync` | Control de sincronización de diccionarios `.syn` |
+| T-165 | `bauth.idn_identidad_proofing` | Identity Proofing por actor — tipo, evidencias FAIR/STRONG/SUPERIOR (NIST SP 800-63A-4), IAL alcanzado ✅ |
+| T-166 | `bauth.idn_identidad_consentimiento` | WORM de consentimiento GDPR + Ley 1174 Bolivia. REVOKE DELETE ✅ |
+| T-167 | `bauth.idn_identidad_vc` | Ciclo de vida de Verifiable Credentials — W3C VCDM 2.0, SD-JWT VC, VC Status List 2021 ✅ |
+| T-168 | `bauth.idn_tenant_fal_config` | Configuración FAL por Relying Party — FAL1/FAL2 (DPoP)/FAL3 (mTLS) ✅ |
+
+**NHI — Identidades No-Humanas (daemons, pipelines, agentes IA):**
+
+| T | Tabla | Propósito |
+|---|-------|-----------|
+| T-186 | `bauth.idn_roles_nhi_identity` | Entidad raíz de toda identidad máquina. `owner_id` = humano responsable. Seeds: un NHI por daemon SBOS ✅ G-21 |
+| T-187 | `bauth.idn_roles_nhi_lifecycle_event` | Log WORM de eventos NHI — PROVISIONED/CERTIFIED/ROTATED/SUSPENDED/DECOMMISSIONED ✅ G-22 |
+| T-188 | `bauth.idn_roles_nhi_certification` | Certificación periódica mensual del NHI — evidencia de revisión del propietario ✅ G-22 |
+| T-190 | `bauth.idn_roles_nhi_agent_identity` | NHI para agentes IA — `max_permission_scope`, `orchestrator_id`, `can_spawn_agents`, `max_spawn_depth`. ⚠️ BLOQUEADO: herencia padre→hijo (HITL pendiente) ✅ G-24 |
+
+### CALENDARIO — `bcalendar.*` — infraestructura temporal
+
+| T | Tabla | Propósito |
+|---|-------|-----------|
+| T-012 | `bcalendar.cal_fiscal_year` | Años fiscales por tenant |
+| T-014 | `bcalendar.cal_calendar` | Calendarios laborales — nombre, zona horaria, reglas base |
+| T-015 | `bcalendar.cal_event` | Eventos especiales que afectan ventanas de acceso |
+| T-016 | `bcalendar.cal_alarm` | Alarmas D4 — alerta 30 días antes del vencimiento del rol |
+| T-017 | `bcalendar.cal_notification_log` | Log de notificaciones de calendario vía bNotify |
+| T-018 | `bcalendar.cal_holiday` | Días festivos bolivianos + propios del tenant |
+| T-019 | `bcalendar.cal_schedule` | Horarios laborales (ventanas horarias por tenant/turno) |
+| T-124 | `bcalendar.cal_overtime_policy` | Políticas de horas extra — override de emergencia en D3 |
+| T-125 | `bcalendar.cal_break_policy` | Políticas de descanso — suspensión de sesiones activas |
+
+### USUARIOS — pendiente de diseño
+
+*(Tablas por definir — separación NIST SP 800-63-4 §3: identity D00 · subscriber account aquí · authenticator en AUTENTICACIÓN)*
+
+### AUTENTICACIÓN — pendiente de diseño
+
+*(47 métodos en 6 categorías — 9 implementados hoy. Incluirá framework declarativo de 7 tablas: `auth_method`, `auth_policy`, `auth_config`, `crypto_algorithm`, `federation_protocol`, `saga_catalog`, `compliance_map`)*
+
+### SESIÓN — `bauth.ses_*` — Context Plane y ciclo de vida de sesiones
+
+| T | Tabla | Propósito |
+|---|-------|-----------|
+| T-181 | `bauth.ses_session_log` | Historial forense de sesiones — complementa Redis (store activo). `loa_initial`, `loa_peak`, `termination_reason` ✅ G-16 |
+| T-191 | `bauth.ses_caep_event_log` | Log WORM de eventos CAEP entrantes — `grants_affected[]`, estado procesamiento ✅ G-25 |
+| T-192 | `bauth.ses_ssf_stream` | Configuración de streams SSF — endpoint, delivery_method, `auth_vault_path` (nunca el secreto) ✅ G-26 |
+| T-193 | `bauth.ses_ssf_delivery_log` | Log WORM de intentos de entrega por stream SSF ✅ G-26 |
+
+### PRIVILEGIOS — `bauth.privilege_*` — Motor BitMask (PAP/PDP/PEP/PIP)
+
+| T | Tabla | Propósito |
+|---|-------|-----------|
+| T-170 | `bauth.privilege_atom_grant` | Grants **per-user** (no por rol) — una fila por usuario×átomo. Lee `atom_position` de T-162 vía FK compuesta. `grant_type`: STANDARD · JIT · BREAKGLASS ✅ G-09/G-20 |
+| T-170b | `bauth.privilege_atom_audit` | WORM append-only hash-chain de cada INSERT/UPDATE en T-170 (ISO 27001 A.8.15). REVOKE UPDATE/DELETE |
+| T-171 | `bauth.privilege_resource_atom` | Mapeo PAP per-tenant: `(tenant_id + protocolo + recurso + operación)` → `id_atom`. Obligation JSONB si requiere LoA ✅ G-06 |
+| T-172 | `bauth.privilege_delegation` | Solo auditoría y trazabilidad de delegaciones — quién autorizó qué asignación y por qué ✅ G-08 |
+| T-173 | `bauth.privilege_override` | Excepciones DENY→PERMIT/PERMIT→DENY per-tenant. `approver_id`+`reason`+`valid_until` obligatorios ✅ G-06 |
+| T-174 | `bauth.privilege_verb` | Catálogo de verbos válidos. **Solo validación** — FK de `idn_roles_template.verb_id`. No participa en BitMask |
+| T-175 | `bauth.privilege_verb_conflict` | Matriz de conflictividad SoD entre pares de verbos. **Solo validación** — consultada por trigger T-170 y compilador AtomLang |
+| T-176 | `bauth.privilege_assurance_audit` | Auditoría de evaluaciones de LoA — poblada por Kong (PEP). T-170b audita qué se otorgó; T-176 audita cómo se ejerció ✅ G-04 |
+| T-179 | `bauth.privilege_exception_record` | Gobernanza de excepciones a políticas — contexto de aprobación detrás de cada override en T-173. Job diario expira excepciones vencidas ✅ G-14 |
+
+### AUDITORÍA — `bauth.aud_*` — WORM forense IGA
+
+| T | Tabla | Propósito |
+|---|-------|-----------|
+| T-177 | `bauth.aud_certification_campaign` | Campaña de certificación IGA — scope (TENANT/USER/ROLE/ATOM), tipo (QUARTERLY/ANNUAL…), ventana y responsable. WORM ✅ G-13 |
+| T-178 | `bauth.aud_certification_review` | Evidencia auditable por (campaña, grant) — decisión CERTIFY/REVOKE/ESCALATE/DEFER. `decision='REVOKE'` actualiza T-170 ✅ G-13 |
+
+### FIRMA DIGITAL — pendiente de diseño
+
+*(Motor interno Vault Ed25519 + Motor externo ADSIB RSA-SHA256, Ley 164 Bolivia. Los átomos D13 llevan `blockchain_anchored=1` para anclaje en D12 Besu)*
+
+### FEDERACIÓN / OIDC — pendiente de diseño
+
+*(OIDC Provider propio de bAuth — ADR-010. Relying parties, IdPs federados, OAuth2 tokens, PKCE, DPoP, FAPI 2.0)*
+
+### RIESGO / ITDR — `bauth.ses_risk_*` / `bauth.ses_*`
+
+| T | Tabla | Propósito |
+|---|-------|-----------|
+| T-180 | `bauth.ses_risk_policy` | Reglas de política de riesgo adaptativo por tenant — `trigger_event` × `condition` JSONB × `action` (STEP_UP/REVOKE/SUSPEND/NOTIFY/REQUIRE_MFA). Editable en runtime sin recompilar ✅ G-15 |
+
+### PAM — `bauth.pam_*` — Gestión de Acceso Privilegiado
+
+| T | Tabla | Propósito |
+|---|-------|-----------|
+| T-182 | `bauth.pam_jit_request` | Solicitud JIT (Zero Standing Privilege) — workflow: PENDING→APPROVED→ACTIVE→EXPIRED/REVOKED. `justification` ≥ 50 chars. WORM ✅ G-17 |
+| T-182b | `bauth.pam_jit_approval` | Aprobación secuencial multi-nivel — una fila por nivel. Nivel 2 notificado solo cuando Nivel 1 aprueba ✅ G-17 |
+| T-183 | `bauth.pam_credential_ref` | Referencias a credenciales privilegiadas en Vault — NUNCA el valor. Cubre humanos y NHI ✅ G-18 |
+| T-184 | `bauth.pam_session_record` | Metadatos de sesión privilegiada — tipo de acceso, comandos, referencia a grabación en MinIO ✅ G-19 |
+| T-185 | `bauth.pam_breakglass_activation` | Ciclo de vida break-glass — dual control obligatorio, AAL3, TTL 4h, máx. 2 BREAKGLASS activos por tenant ✅ G-20 |
+| T-189 | `bauth.pam_nhi_secret_ref` | Referencias a secretos NHI en Vault — rotación 7-30 días. `rotation_policy='ON_USE'` para pipelines CI/CD ✅ G-23 |
+
+---
+
+**Decisiones arquitectónicas (A.65.02 — no inferir del DDL SQL):**
+- `atom_position` está en **T-162** (árbol de políticas) vía SEQUENCE `roles_atom_position_sequential` — **no** en T-170.
+- **T-170** es grants **per-user**, no per-rol. SET/UNSET de AtomLang materializa filas individuales.
+- **SoD** (G-03) es solo validación en T-174/T-175 — trigger en T-170 verifica al INSERT. No participa en BitMask.
+- **T-170b** es WORM separado de T-170 para garantizar inmutabilidad real (ISO 27001 A.8.15).
+- **T-176** audita cómo se ejerció el privilegio (Kong); **T-170b** audita qué se otorgó (bAuth) — son distintos.
+- Schema `bglobal` para catálogos compartidos por todo el ecosistema SBOS.
+- **`@bauth_config_param`**: no es tabla — es referencia PIP resuelta en cascada T-009 → T-114.
+- **Decisión HITL pendiente** en IDENTIDAD: modelo de 25 metadatos de `idn_identidad_atributo` (Opción A: columnas directas · Opción B: tabla catálogo separada).
 
 ---
 
