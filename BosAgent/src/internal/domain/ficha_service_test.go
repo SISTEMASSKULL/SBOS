@@ -1,6 +1,8 @@
 package domain
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -431,6 +433,148 @@ func TestFichaService_ExecuteSaga(t *testing.T) {
 			t.Errorf("error=%v", err)
 		}
 	})
+}
+
+// ── diffFichaFiles (F11.D.2) ─────────────────────────────────────
+
+func sha256hex(data string) string {
+	h := sha256.Sum256([]byte(data))
+	return hex.EncodeToString(h[:])
+}
+
+func TestDiffFichaFiles_SinPath(t *testing.T) {
+	mf := &plugin.FichaManifest{ID: "redis", Files: map[string]string{"a.yml": "abc"}}
+	if items := diffFichaFiles(mf); items != nil {
+		t.Errorf("sin Path → nil, got %v", items)
+	}
+}
+
+func TestDiffFichaFiles_FilesVacio(t *testing.T) {
+	mf := &plugin.FichaManifest{ID: "redis", Path: "/tmp", Files: nil}
+	if items := diffFichaFiles(mf); items != nil {
+		t.Errorf("Files vacío → nil, got %v", items)
+	}
+}
+
+func TestDiffFichaFiles_SinDrift(t *testing.T) {
+	dir := t.TempDir()
+	content := "manifest content"
+	_ = os.WriteFile(filepath.Join(dir, "manifest.yml"), []byte(content), 0o644)
+	hash := sha256hex(content)
+
+	mf := &plugin.FichaManifest{
+		ID:   "redis",
+		Path: dir,
+		Files: map[string]string{"manifest.yml": hash},
+	}
+	items := diffFichaFiles(mf)
+	if len(items) != 0 {
+		t.Errorf("sin drift → 0 items, got %v", items)
+	}
+}
+
+func TestDiffFichaFiles_ConDriftChanged(t *testing.T) {
+	dir := t.TempDir()
+	_ = os.WriteFile(filepath.Join(dir, "manifest.yml"), []byte("contenido nuevo"), 0o644)
+
+	mf := &plugin.FichaManifest{
+		ID:   "redis",
+		Path: dir,
+		Files: map[string]string{"manifest.yml": "hashviejo000000000000000000000000"},
+	}
+	items := diffFichaFiles(mf)
+	if len(items) == 0 {
+		t.Fatal("hash distinto → debe detectar drift changed")
+	}
+	if items[0].Path != "manifest.yml" {
+		t.Errorf("path: want manifest.yml, got %s", items[0].Path)
+	}
+	if items[0].Declared != "hashviejo000000000000000000000000" {
+		t.Errorf("declared hash incorrecto: %s", items[0].Declared)
+	}
+}
+
+func TestDiffFichaFiles_ConDriftMissing(t *testing.T) {
+	dir := t.TempDir()
+	// No creamos el archivo — está declarado pero falta en disco.
+
+	mf := &plugin.FichaManifest{
+		ID:   "redis",
+		Path: dir,
+		Files: map[string]string{"task_catalog.sh": "abc123"},
+	}
+	items := diffFichaFiles(mf)
+	if len(items) == 0 {
+		t.Fatal("archivo faltante → debe detectar drift missing")
+	}
+	if items[0].Actual != "" {
+		t.Errorf("archivo faltante: actual debe ser vacío, got %q", items[0].Actual)
+	}
+}
+
+func TestFichaService_Diff_Individual(t *testing.T) {
+	dir := t.TempDir()
+	content := "task content"
+	_ = os.WriteFile(filepath.Join(dir, "task_catalog.sh"), []byte(content), 0o644)
+
+	cat := &mockCatalog{manifests: []*plugin.FichaManifest{
+		{ID: "redis", Path: dir, Files: map[string]string{"task_catalog.sh": sha256hex(content)}},
+	}}
+	svc := newSvc(okIns(), okState(), cat)
+
+	single, summary, err := svc.Diff("redis")
+	if err != nil {
+		t.Fatalf("Diff individual: %v", err)
+	}
+	if summary != nil {
+		t.Error("individual: summary debe ser nil")
+	}
+	if single.FichaID != "redis" {
+		t.Errorf("FichaID: %s", single.FichaID)
+	}
+	if single.HasDrift {
+		t.Errorf("sin drift esperado, items: %v", single.Items)
+	}
+}
+
+func TestFichaService_Diff_ConDrift(t *testing.T) {
+	dir := t.TempDir()
+	_ = os.WriteFile(filepath.Join(dir, "manifest.yml"), []byte("nuevo contenido"), 0o644)
+
+	cat := &mockCatalog{manifests: []*plugin.FichaManifest{
+		{ID: "vault", Path: dir, Files: map[string]string{"manifest.yml": "hashanteriornovalido"}},
+	}}
+	svc := newSvc(okIns(), okState(), cat)
+
+	single, _, err := svc.Diff("vault")
+	if err != nil {
+		t.Fatalf("Diff con drift: %v", err)
+	}
+	if !single.HasDrift {
+		t.Fatal("debe detectar drift")
+	}
+	if len(single.Items) == 0 {
+		t.Error("debe tener al menos un DriftItem")
+	}
+}
+
+func TestFichaService_Diff_Resumen(t *testing.T) {
+	cat := &mockCatalog{manifests: []*plugin.FichaManifest{
+		{ID: "redis", Path: "", Files: nil}, // sin path → sin drift
+		{ID: "vault", Path: "", Files: nil},
+	}}
+	svc := newSvc(okIns(), okState(), cat)
+
+	single, summary, err := svc.Diff("")
+	if err != nil {
+		t.Fatalf("Diff resumen: %v", err)
+	}
+	if single != nil {
+		t.Error("resumen: single debe ser nil")
+	}
+	if summary.TotalFichas != 2 {
+		t.Errorf("TotalFichas: want 2, got %d", summary.TotalFichas)
+	}
 }
 
 // ── validateManifestStrict (F11.A.2) ─────────────────────────────
