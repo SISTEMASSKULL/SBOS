@@ -166,35 +166,30 @@ func (d *Discoverer) Discover() (*DiscoveryResult, error) {
 		return result.Fichas[i].ID < result.Fichas[j].ID
 	})
 
-	// Calcular conteos
+	// Calcular conteos: valid = sin warnings ni errors; warnings = contrato faltante;
+	// errors = f.Valid == false (ContractInvalid en examineFicha).
 	for _, f := range result.Fichas {
 		result.Total++
 		if f.IsNew {
 			result.New++
 		}
-		if f.Valid {
-			hasWarnings := false
-			for _, c := range f.Contracts {
-				if c.Status == ContractMissing {
-					hasWarnings = true
-					break
-				}
-				if c.Status == ContractInvalid {
-					result.Errors++
-					break
-				}
-			}
-			if hasWarnings {
-				result.Warnings++
-			} else {
-				result.Valid++
-			}
-		} else {
+		if !f.Valid {
 			result.Errors++
+			continue
+		}
+		hasWarnings := false
+		for _, c := range f.Contracts {
+			if c.Status == ContractMissing {
+				hasWarnings = true
+				break
+			}
+		}
+		if hasWarnings {
+			result.Warnings++
+		} else {
+			result.Valid++
 		}
 	}
-	// Ajustar: valid + warnings + errors = total
-	result.Valid = result.Total - result.Warnings - result.Errors
 
 	result.Duration = time.Since(start)
 	d.logger.Info("discovery completado",

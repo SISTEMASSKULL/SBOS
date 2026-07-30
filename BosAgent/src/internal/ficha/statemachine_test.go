@@ -36,7 +36,9 @@ func TestStateMachine_CanUpdate(t *testing.T) {
 func TestStateMachine_CanRepair(t *testing.T) {
 	sm := NewStateMachine()
 
-	validStates := []FichaState{StateDegradada, StateErrorFisico, StateErrorLogico}
+	// StateInstalada permite repair preventivo (mantenimiento sin esperar degradación),
+	// consistente con ValidTransitions[StateInstalada] → StateReparando.
+	validStates := []FichaState{StateDegradada, StateErrorFisico, StateErrorLogico, StateInstalada}
 	for _, state := range sm.AllStates() {
 		expected := containsState(validStates, state)
 		if sm.CanRepair(state) != expected {
@@ -221,14 +223,21 @@ func TestStateMachine_BeginOperations(t *testing.T) {
 		t.Errorf("BeginUpdate(INSTALADA): esperado ACTUALIZANDO, obtenido %s", next)
 	}
 
-	// Repair
+	// Repair — flujo normal y repair preventivo desde INSTALADA
 	next, err = sm.BeginRepair(StateDegradada)
 	if err != nil || next != StateReparando {
 		t.Errorf("BeginRepair(DEGRADADA): esperado REPARANDO, obtenido %s err=%v", next, err)
 	}
-	_, err = sm.BeginRepair(StateInstalada)
+	// INSTALADA puede ir a REPARANDO (repair preventivo sin esperar degradación),
+	// consistente con ValidTransitions[StateInstalada] → StateReparando.
+	next, err = sm.BeginRepair(StateInstalada)
+	if err != nil || next != StateReparando {
+		t.Errorf("BeginRepair(INSTALADA): esperado REPARANDO (repair preventivo), obtenido %s err=%v", next, err)
+	}
+	// PENDIENTE no puede repararse
+	_, err = sm.BeginRepair(StatePendiente)
 	if err == nil {
-		t.Error("BeginRepair(INSTALADA) debe fallar")
+		t.Error("BeginRepair(PENDIENTE) debe fallar")
 	}
 
 	// Remove

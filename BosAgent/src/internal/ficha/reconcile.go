@@ -98,13 +98,21 @@ type Reconciler struct {
 	healthChecker *HealthChecker
 	executor      *Executor
 
-	dataProvider DataProvider                 // proveedor de datos para runCycle()
-	policies     map[string]ReconcilePolicy   // ficha_id → política (poblado desde manifest)
+	dataProvider DataProvider               // proveedor de datos para runCycle()
+	policies     map[string]ReconcilePolicy // ficha_id → política (poblado desde manifest)
 	interval     time.Duration
 	logger       *slog.Logger
 
 	// Observer llamado tras cada acción de reconciliación
 	observer func(action ReconcileAction)
+
+	// Reintentos de reparación por ficha (Gap M-2: 3 reintentos → ERROR_NO_CORREGIBLE).
+	mu                sync.Mutex
+	repairAttempts    map[string]int
+	maxRepairAttempts int
+	// escalationFn es llamado cuando se agotan los maxRepairAttempts para una ficha.
+	// El caller (servidor) debe usar esto para transicionar a ERROR_NO_CORREGIBLE y emitir HITL.
+	escalationFn func(fichaID string, attempts int)
 }
 
 // NewReconciler crea un reconciliador.
@@ -123,12 +131,14 @@ func NewReconciler(
 		logger = slog.Default()
 	}
 	return &Reconciler{
-		driftDetector: drift,
-		healthChecker: health,
-		executor:      exec,
-		policies:      make(map[string]ReconcilePolicy),
-		interval:      interval,
-		logger:        logger,
+		driftDetector:     drift,
+		healthChecker:     health,
+		executor:          exec,
+		policies:          make(map[string]ReconcilePolicy),
+		interval:          interval,
+		logger:            logger,
+		repairAttempts:    make(map[string]int),
+		maxRepairAttempts: DefaultRepairMaxAttempts,
 	}
 }
 
@@ -154,6 +164,13 @@ func (r *Reconciler) GetPolicy(fichaID string) ReconcilePolicy {
 // SetObserver registra un callback llamado tras cada acción de reconciliación.
 func (r *Reconciler) SetObserver(obs func(action ReconcileAction)) {
 	r.observer = obs
+}
+
+// SetEscalationFn registra la función de escalación para cuando se agotan los
+// reintentos de reparación automática. El caller debe transicionar la ficha
+// a ERROR_NO_CORREGIBLE y emitir una solicitud HITL.
+func (r *Reconciler) SetEscalationFn(fn func(fichaID string, attempts int)) {
+	r.escalationFn = fn
 }
 
 // Run ejecuta el ciclo de reconciliación en un loop infinito.
@@ -254,7 +271,7 @@ func (r *Reconciler) runCycleWithData(fichas map[string]DriftInput, healthDefs m
 			wg.Add(1)
 			go func(fichaID, fichaPath string) {
 				defer wg.Done()
-				r.executeRepair(fichaID, fichaPath, &action)
+				r.executeRepair(fichaID, fichaPath)
 			}(report.FichaID, report.FichaPath)
 		}
 
@@ -324,34 +341,59 @@ func (r *Reconciler) decideAction(fichaID string, policy ReconcilePolicy, trigge
 	return action
 }
 
-// executeRepair ejecuta la reparación automática de una ficha.
-func (r *Reconciler) executeRepair(fichaID, fichaPath string, action *ReconcileAction) {
-	r.logger.Info("iniciando reparación automática", "ficha", fichaID)
+// executeRepair ejecuta la reparación automática de una ficha con reintentos.
+// Implementa el ciclo: hasta maxRepairAttempts intentos → si todos fallan →
+// llama escalationFn (el caller debe transicionar a ERROR_NO_CORREGIBLE y emitir HITL).
+// En éxito, resetea el contador de reintentos para la ficha.
+func (r *Reconciler) executeRepair(fichaID, fichaPath string) {
+	r.mu.Lock()
+	r.repairAttempts[fichaID]++
+	attempt := r.repairAttempts[fichaID]
+	r.mu.Unlock()
 
-	// TODO(F11.A.4): integrar con Executor.Execute() cuando resolveTaskDir funcione
+	r.logger.Info("reparación automática",
+		"ficha", fichaID,
+		"attempt", attempt,
+		"max", r.maxRepairAttempts,
+	)
+
 	result, err := r.executor.Execute(fichaID, "repair", fichaPath)
-	if err != nil {
-		r.logger.Error("reparación automática falló",
-			"ficha", fichaID,
-			"err", err,
-		)
-		// TODO(F11.B.4): 3 reintentos → ERROR_NO_CORREGIBLE → HITL
+	if err != nil || !result.Success {
+		if err != nil {
+			r.logger.Error("reparación automática falló", "ficha", fichaID, "err", err)
+		} else {
+			r.logger.Error("reparación automática falló",
+				"ficha", fichaID,
+				"error", result.Error,
+				"phases", len(result.Phases),
+			)
+		}
+
+		if attempt >= r.maxRepairAttempts {
+			r.logger.Error("reintentos de reparación agotados — escalando a HITL",
+				"ficha", fichaID,
+				"attempts", attempt,
+			)
+			r.mu.Lock()
+			delete(r.repairAttempts, fichaID) // reset para futuras reparaciones
+			r.mu.Unlock()
+			if r.escalationFn != nil {
+				r.escalationFn(fichaID, attempt)
+			}
+		}
 		return
 	}
 
-	if result.Success {
-		r.logger.Info("reparación automática exitosa",
-			"ficha", fichaID,
-			"duration", result.Duration,
-		)
-		action.AutoRepair = true
-	} else {
-		r.logger.Error("reparación automática falló",
-			"ficha", fichaID,
-			"error", result.Error,
-			"phases", len(result.Phases),
-		)
-	}
+	// Éxito: resetear contador
+	r.mu.Lock()
+	delete(r.repairAttempts, fichaID)
+	r.mu.Unlock()
+
+	r.logger.Info("reparación automática exitosa",
+		"ficha", fichaID,
+		"attempt", attempt,
+		"duration", result.Duration,
+	)
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────

@@ -99,9 +99,15 @@ func TestLifecycle_BeginRepair(t *testing.T) {
 		t.Errorf("esperado REPARANDO, obtenido %s", next)
 	}
 
-	_, err = lc.BeginRepair(StateInstalada)
+	// INSTALADA permite repair preventivo (consistente con ValidTransitions).
+	next, err = lc.BeginRepair(StateInstalada)
+	if err != nil || next != StateReparando {
+		t.Errorf("BeginRepair(INSTALADA) debe ser REPARANDO (repair preventivo): next=%s err=%v", next, err)
+	}
+	// LISTA no puede repararse
+	_, err = lc.BeginRepair(StateLista)
 	if err == nil {
-		t.Error("BeginRepair(INSTALADA) debe fallar")
+		t.Error("BeginRepair(LISTA) debe fallar")
 	}
 }
 

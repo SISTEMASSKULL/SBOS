@@ -98,9 +98,11 @@ func (sm *StateMachine) CanUpdate(state FichaState) bool {
 }
 
 // CanRepair retorna true si la ficha puede repararse desde este estado.
+// StateInstalada se incluye para permitir repair preventivo (mantenimiento sin
+// esperar degradación), consistente con ValidTransitions[StateInstalada].
 func (sm *StateMachine) CanRepair(state FichaState) bool {
 	switch state {
-	case StateDegradada, StateErrorFisico, StateErrorLogico:
+	case StateDegradada, StateErrorFisico, StateErrorLogico, StateInstalada:
 		return true
 	}
 	return false
