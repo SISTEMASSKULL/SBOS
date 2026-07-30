@@ -311,19 +311,29 @@ func (svc *FichaService) Plan() (*PlanResult, error) {
 	}, nil
 }
 
-// Diff compara el estado declarado con el estado real para detectar drift.
+// Diff compara el estado declarado (hashes de manifest scan) con el estado real en disco (F11.D.2).
+// Retorna (resultado individual, nil, nil) o (nil, resumen, nil) según fichaID.
 func (svc *FichaService) Diff(fichaID string) (*DiffResult, *DiffSummary, error) {
 	if fichaID == "" {
-		// Resumen de todas las fichas
 		manifests := svc.catalog.List()
 		summary := &DiffSummary{
-			TotalFichas:   len(manifests),
-			DriftedFichas: 0,
-			OkFichas:      len(manifests),
-			Drifts:        make([]DiffResult, 0),
+			TotalFichas: len(manifests),
+			Drifts:      make([]DiffResult, 0, len(manifests)),
 		}
-		// TODO(ctx-plane): Comparar hashes de manifiesto vs estado real
-		// cuando el Context Plane (F5) y el health checker (F11.D.1) estén operativos
+		for _, mf := range manifests {
+			items := diffFichaFiles(mf)
+			dr := DiffResult{
+				FichaID:  mf.ID,
+				HasDrift: len(items) > 0,
+				Items:    items,
+			}
+			summary.Drifts = append(summary.Drifts, dr)
+			if dr.HasDrift {
+				summary.DriftedFichas++
+			} else {
+				summary.OkFichas++
+			}
+		}
 		return nil, summary, nil
 	}
 
@@ -332,13 +342,37 @@ func (svc *FichaService) Diff(fichaID string) (*DiffResult, *DiffSummary, error)
 		return nil, nil, fmt.Errorf("%w: %s", ErrFichaNotFound, fichaID)
 	}
 
-	_ = mf // TODO(F11.D.2): comparar mf.Files (hashes) vs estado vivo del sistema
-	result := &DiffResult{
+	items := diffFichaFiles(mf)
+	return &DiffResult{
 		FichaID:  fichaID,
-		HasDrift: false,
-		Items:    make([]DriftItem, 0),
+		HasDrift: len(items) > 0,
+		Items:    items,
+	}, nil, nil
+}
+
+// diffFichaFiles compara los hashes conocidos de mf.Files contra el estado actual en disco.
+// Si mf.Path == "" o Files está vacío (stubs de test), retorna nil (sin drift detectable).
+func diffFichaFiles(mf *plugin.FichaManifest) []DriftItem {
+	if mf.Path == "" || len(mf.Files) == 0 {
+		return nil
 	}
-	return result, nil, nil
+	detector := ficha.NewDriftDetector(mf.Path, nil)
+	report, err := detector.Detect(mf.ID, mf.Path, mf.Files)
+	if err != nil || report == nil {
+		return nil
+	}
+	items := make([]DriftItem, 0)
+	for _, item := range report.Items {
+		if item.Status == ficha.DriftOK {
+			continue
+		}
+		items = append(items, DriftItem{
+			Path:     item.Path,
+			Declared: item.Declared,
+			Actual:   item.Actual,
+		})
+	}
+	return items
 }
 
 // Validate ejecuta validación estricta del manifest de una ficha (o todas).
