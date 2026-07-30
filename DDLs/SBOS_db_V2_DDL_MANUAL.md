@@ -1,10 +1,10 @@
 # SBOS_db_V2_DDL_MANUAL.md
 ## Manual Operativo de la Base de Datos — SBOS Identity Platform V2
 
-**Versión:** 2.7.0 · **Fecha:** 2026-07-28  
+**Versión:** 2.8.0 · **Fecha:** 2026-07-30  
 **Base de datos:** `SBOS_db` · **PostgreSQL:** 18.4 · **UUIDv7:** RFC 9562  
 **Estándar de documentación:** ISO/IEC 11179 · DAMA DMBOK v2 · ISO 24760-2:2025  
-**Sincronizado con:** `SBOS_db_V2_DDL.sql` (NIVEL 0..11) — nombres canónicos del DDL
+**Sincronizado con:** `SBOS_db_V2_DDL.sql` (NIVEL 0..17) — nombres canónicos del DDL
 
 ---
 
@@ -24,6 +24,12 @@
 | [S10 — Auditoría](#s10--auditoría-access-review-bauth) (NIVEL 9) | T-177(`aud_certification_campaign`), T-178(`aud_certification_review`) | Campañas de certificación IGA |
 | [S11 — Riesgo / ITDR](#s11--riesgo--itdr-bauth) (NIVEL 10) | T-180(`ses_risk_policy`) | Políticas de riesgo adaptativo |
 | [S12 — PAM](#s12--pam-privileged-access-management-bauth) (NIVEL 11) | T-182(`pam_jit_request`), T-182b(`pam_jit_approval`), T-183(`pam_credential_ref`), T-184(`pam_session_record`), T-185(`pam_breakglass_activation`), T-189(`pam_nhi_secret_ref`) | JIT, Break-glass, Vault, NHI |
+| [S13 — Usuarios](#s13--usuarios-bauth) (NIVEL 12) | T-320(`idn_user`), T-321(`idn_user_history`), T-322(`idn_user_recovery`) | Subscriber Account NIST SP 800-63-4 · SCIM 2.0 |
+| [S14 — Autenticación](#s14--autenticación-bauth) (NIVEL 13) | T-330..T-338 (auth_credential, _secret, _fido2, _x509, _attempt_log, auth_method, auth_policy, auth_config, auth_crypto_algorithm) | MethodRegistry declarativo · FIDO2 · X.509 · Catálogo |
+| [S15 — Firma Digital D13](#s15--firma-digital-d13-bauth) (NIVEL 14) | T-350..T-357 (sig_key, sig_certificate, sig_crl, sig_timestamp, sig_operation_log, sig_document_hash, sig_adsib_lifecycle, sig_document_policy) | Ley 164 Bolivia · ADSIB · eIDAS 2.0 · RFC 5280 |
+| [D12 — Blockchain](#d12--blockchain-bauth) (NIVEL 15) | T-358..T-362 (blk_anchor, blk_merkle_batch, blk_merkle_leaf, blk_account, blk_reconciliation) | Merkle WORM · Arbitrum L2 · Besu QBFT |
+| [S16 — Federación / OIDC](#s16--federación--oidc-bauth) (NIVEL 16) | T-365..T-367 (fed_client, fed_provider_ext, fed_token_issued) | RFC 6749/9449 DPoP · FAPI 2.0 · SAML 2.0 |
+| [S17 — Billetera Digital](#s17--billetera-digital-bauth) (NIVEL 17) | T-380..T-383 (wallet, wallet_item, wallet_presentation_log, wallet_issuance_log) | EUDI Wallet · W3C VCDM 2.0 · OID4VP · OpenID4VCI |
 
 > **⚠️ Nota v2.3.0:** S8-S12 fueron refactorizados en el DDL. Los nombres canónicos son los del DDL.
 > Tablas ausentes del DDL (pendientes de diseño):
@@ -1799,6 +1805,381 @@ La DDL resuelve esto con `DEFERRABLE INITIALLY DEFERRED` en la FK de T-041 → T
 
 ---
 
+## S13 — Usuarios (bauth)
+
+**NIVEL 12 · Tablas:** T-320, T-321, T-322  
+**Ref:** NIST SP 800-63-4 §3 · SCIM 2.0 RFC 7643/7644 · OWASP ASVS v5.0 §2.5
+
+### Arquitectura de tres capas NIST SP 800-63-4
+
+```
+T-156 idn_identity_entity    ← Capa 1: Identidad organizacional (quién es)
+T-320 idn_user               ← Capa 2: Subscriber Account (cómo accede, por tenant)
+T-330 auth_credential        ← Capa 3: Authenticator (con qué se autentica)
+```
+
+Un mismo `entity_id` puede tener cuentas en distintos tenants. La cuenta es el objeto de login; la identidad es el objeto de identidad.
+
+### T-320 — idn_user
+
+| Columna | Tipo | Descripción |
+|---------|------|-------------|
+| `user_id` | UUID PK | UUIDv7 — identificador único de cuenta |
+| `tenant_id` | UUID FK → idn_tenant | Tenant al que pertenece esta cuenta |
+| `entity_id` | UUID FK → idn_identity_entity | Identidad organizacional subyacente (T-156) |
+| `username` | TEXT | Nombre de usuario único por tenant |
+| `status` | TEXT | `PENDING_ACTIVATION` / `ACTIVE` / `LOCKED` / `SUSPENDED` / `DEACTIVATED` / `ARCHIVED` |
+| `registration_method` | TEXT | `ADMIN` / `SELF_SERVICE` / `PROVISIONED` / `FEDERATED` |
+| `ial_achieved` | TEXT | Nivel de proofing alcanzado: `IAL1` / `IAL2` / `IAL3` |
+| `loa_min` | TEXT | LoA mínimo requerido para login: `AAL1` / `AAL2` / `AAL3` |
+| `failed_attempts` | INT | Contador de fallos consecutivos (reset en éxito) |
+| `lockout_until` | TIMESTAMPTZ | Hasta cuándo está bloqueada la cuenta (NULL = no bloqueada) |
+| `password_changed_at` | TIMESTAMPTZ | Última vez que se cambió la contraseña |
+| `must_change_password` | BOOLEAN | Fuerza cambio de clave en próximo login |
+| `last_login_at` | TIMESTAMPTZ | Timestamp del último login exitoso |
+| `last_login_ip` | INET | IP del último login exitoso |
+| `scim_external_id` | TEXT | ID externo SCIM para provisionamiento federado |
+| `wallet_id` | UUID | FK futura a billetera digital (T-380) |
+
+**Índices:** `(tenant_id, status)` filtrado a ACTIVE/LOCKED · `entity_id` · `lockout_until` WHERE NOT NULL
+
+**Invariantes:**
+- UNIQUE `(tenant_id, username)` — username único por tenant
+- UNIQUE `(tenant_id, entity_id)` — una entidad = una cuenta por tenant
+- `failed_attempts` NUNCA se decrementa manualmente; solo se resetea a 0 en login exitoso
+- Bloqueo por intentos: el PrivilegeEngine actualiza `failed_attempts` y `lockout_until`
+
+### T-321 — idn_user_history
+
+WORM hash-chain. Audit log de cambios en T-320. `REVOKE UPDATE, DELETE FROM bauth_app_role`.
+
+Campos clave: `field` · `old_value` (JSONB) · `new_value` (JSONB) · `changed_by` · `reason` · `prev_hash`.
+
+**Inmutabilidad:** cada inserción encadena el `prev_hash` del registro anterior para detectar manipulaciones.
+
+### T-322 — idn_user_recovery
+
+Métodos de recuperación de cuenta: `BACKUP_EMAIL` · `BACKUP_PHONE` · `TRUSTED_CONTACT` · `ADMIN_OVERRIDE`.
+
+`value_hash` almacena SHA-256 del valor — nunca el valor en claro. Cumple OWASP ASVS v5.0 §2.5.
+
+---
+
+## S14 — Autenticación (bauth)
+
+**NIVEL 13 · Tablas:** T-330..T-338  
+**Ref:** NIST SP 800-63B-4 · FIDO2 W3C L3 · RFC 9449 DPoP · RFC 9470 Step-Up · PCI DSS 4.0 Req 8
+
+### T-330 — auth_credential
+
+Binding autenticador ↔ cuenta. **No almacena secretos** (→ T-331/332/333).
+
+| Columna clave | Descripción |
+|--------------|-------------|
+| `method_code` | Referencia al catálogo T-335 (`auth_method.code`) |
+| `status` | `PENDING_ACTIVATION` / `ACTIVE` / `SUSPENDED` / `REVOKED` / `EXPIRED` |
+| `loa_provided` | AAL que provee este autenticador |
+| `is_phishing_resistant` | `TRUE` para FIDO2/WebAuthn — activa rutas de mayor privilegio |
+| `is_primary` | El autenticador principal (solo uno por método activo) |
+| `valid_from` / `valid_until` | Ventana de validez del autenticador |
+| `revoked_at` + `revocation_reason` | Revocación en < 30s (NIST SP 800-63B §7.2) |
+
+### T-331 — auth_credential_secret
+
+Secretos cifrados Vault transit. `REVOKE UPDATE (secret)`.
+
+- **Tipos:** `ARGON2ID_HASH` · `TOTP_SEED_ENC` · `HOTP_SEED_ENC` · `RECOVERY_CODE_HASH` · `PUSH_PUBKEY_ED25519`
+- **Argon2id:** `m=64MB, t=3, p=4` (NIST SP 800-63B-4 §5.1.1 — MemHard KDF)
+- `vault_key_version` — versión de la clave de cifrado Vault; permite rotación
+
+### T-332 — auth_credential_fido2
+
+Registro completo de credenciales FIDO2/Passkey (W3C WebAuthn L3).
+
+`sign_count` anti-replay §6.1 — incrementa en cada autenticación. Si el contador recibido ≤ `sign_count` almacenado → sospecha de clonación.
+
+`backup_eligible` / `backup_state` — soporte de Passkey sincronizados (multi-dispositivo).
+
+### T-333 — auth_credential_x509
+
+Certificados X.509 para mTLS (RFC 8705). Distingue origen:
+- `VAULT_INTERNAL` — PKI interna SBOS Root CA
+- `ADSIB_EXTERNA` — certificados Ley 164 Bolivia con validez jurídica
+- `ENTERPRISE_PKI` — PKI corporativa del tenant
+- `SELF_SIGNED` — solo para desarrollo (prohibido en producción)
+
+`oid_adsib` + `is_adsib_qualified` — marcador de certificado calificado ADSIB. `ocsp_url` para verificación de revocación en tiempo real.
+
+### T-334 — auth_attempt_log (particionada)
+
+WORM particionada por `attempted_at` (mensual). `REVOKE UPDATE, DELETE FROM bauth_app_role`.
+
+Registra TODOS los intentos: éxito, fallo, lockout, step-up requerido, credencial revocada.
+
+**ITDR (Identity Threat Detection & Response):**
+- Índice `(ip_address, attempted_at DESC)` filtrado a FAILURE/INVALID_USER → detección credential stuffing
+- Índice `(user_id, attempted_at DESC)` filtrado a FAILURE → detección brute-force por cuenta
+
+### T-335 — auth_method (MethodRegistry)
+
+Catálogo declarativo de métodos. **El sistema de autenticación NO requiere recompilación para nuevos métodos.**
+
+**6 categorías:**
+| Categoría | Descripción |
+|-----------|-------------|
+| A | Contraseña / Secreto memorizable |
+| B | OTP (TOTP, HOTP, Email OTP, SMS OTP) |
+| C | Hardware / Biometría (FIDO2, WebAuthn, Passkey) |
+| D | Certificados / PKI (X.509 mTLS) |
+| E | Federado (SAML2, OIDC, Social) |
+| F | Especiales (Kerberos, CIBA, Device Auth, Recovery) |
+
+`is_phishing_resistant` + `is_mfa_component` — metadatos para el PDP al armar challenge MFA.
+
+### T-336 — auth_policy
+
+Políticas de autenticación por contexto (tenant / dominio / recurso).
+
+`allowed_methods[]` — métodos permitidos en este contexto.  
+`required_methods[]` — al menos uno de estos debe estar presente.  
+`step_up_trigger` (JSONB) — condiciones que activan RFC 9470 Step-Up.  
+`max_session_secs` — timeout de sesión máximo para este contexto.
+
+### T-337 — auth_config
+
+Parámetros técnicos del motor en tiempo de ejecución. **Sin hardcode.**
+
+Ejemplos de claves: `lockout.max_failed_attempts` · `lockout.duration_minutes` · `totp.window_size` · `argon2.memory_kib` · `dpop.max_clock_skew_seconds`.
+
+Cada clave tiene `effective_at` — permite programar cambios futuros de configuración.
+
+### T-338 — auth_crypto_algorithm
+
+Inventario de algoritmos con estado: `APPROVED` / `DEPRECATED` / `FORBIDDEN`.
+
+**APPROVED en producción SBOS:**
+- KDF: `ARGON2ID` (identidades) · `HKDF-SHA256` (derivación)
+- Simétrico: `AES-256-GCM`
+- Firma: `ED25519` · `ECDSA-P256`
+- PQC (post-cuántico): `ML-KEM-768` · `ML-DSA-65`
+
+**FORBIDDEN (verificado):** `MD5` · `SHA-1` · `RSA-1024` · `DES` · `3DES`
+
+---
+
+## S15 — Firma Digital D13 (bauth)
+
+**NIVEL 14 · Tablas:** T-350..T-357  
+**Ref:** Ley 164 Bolivia · eIDAS 2.0 · RFC 5280 · RFC 3161 · ADSIB-FD-POLT-015 v2.3
+
+### Doble motor de firma
+
+| Motor | Algoritmo | Validez | Casos de uso |
+|-------|-----------|---------|-------------|
+| `INTERNAL_VAULT` | Ed25519 (Vault PKI) | SBOS interna + contratos digitales | JWT, tokens, documentos internos |
+| `EXTERNAL_ADSIB` | RSA-SHA256 (ADSIB Bolivia) | Jurídica Ley 164 | Facturas SIN, contratos legales, DDJJ |
+
+### T-350 — sig_key
+
+Referencias a llaves en Vault. **NUNCA contiene clave privada** (solo `vault_path` + `vault_key_version`).
+
+`purpose`: `JWT_SIGNING` · `DOCUMENT_SIGNING` · `CODE_SIGNING` · `TLS_CLIENT` · `ADSIB_BILLING` · `ADSIB_CONTRACTS`
+
+`next_rotation` — Job de rotación automática cada 90 días (Ed25519) o según ADSIB (RSA anual).
+
+### T-351 — sig_certificate
+
+Catálogo de certificados X.509 en PEM público. `cert_pem` = solo parte pública.
+
+**Jerarquía ADSIB Bolivia:** ATT → ADSIB → Persona Natural / Jurídica / Firma Automática.
+
+`ocsp_verified_at` — timestamp de última verificación OCSP en línea.
+
+### T-352 — sig_crl
+
+CRL activas descargadas de las CA. Job: ADSIB cada hora, Vault cada 24h.
+
+### T-353 — sig_operation_log
+
+WORM. Log forense de **cada acto de firma**. `REVOKE UPDATE, DELETE FROM bauth_app_role`.
+
+`merkle_batch_id` + `onchain_tx_hash` — anclaje on-chain para no repudio.
+
+### T-354 — sig_document_hash
+
+WORM. Hashes SHA-256 (+ SHA3-256 opcional) de documentos firmados.  
+`purge_after` — retención Ley 164: 8 años documentos SIN · 7 años contratos.
+
+### T-355 — sig_timestamp
+
+WORM. Timestamps calificados RFC 3161. Proveedor TSA Bolivia (ADSIB) o Vault interno.
+
+### T-356 — sig_adsib_lifecycle
+
+WORM. Ciclo de vida de certificados ADSIB. Máximo 4 reemisiones (ADSIB-FD-POLT-015 v2.3 §8).
+
+Alertas automáticas a 30d / 15d / 7d antes de vencimiento → Job: `fn_job_adsib_cert_expiry_check`.
+
+### T-357 — sig_document_policy
+
+Política de motor de firma por tipo de documento. Define:
+- `engine_required`: `INTERNAL_VAULT` / `EXTERNAL_ADSIB` / `BOTH`
+- `internal_profile` / `external_profile`: perfiles JWS/XAdES/CAdES/PAdES
+- `requires_timestamp` + `requires_blockchain_anchor`
+- `min_retention_years` — determina `purge_after` en T-354
+
+---
+
+## D12 — Blockchain (bauth)
+
+**NIVEL 15 · Tablas:** T-358..T-362  
+**Ref:** RFC 6962 (Merkle) · FIPS 202 (Keccak-256) · QBFT/IBFT 2.0 · Arbitrum One
+
+### Arquitectura de anclaje dual
+
+```
+SBOS Events → blk_merkle_leaf (T-360) → blk_merkle_batch (T-359) → Merkle Root
+                                                                          ↓
+                                                         blk_anchor (T-358) → Arbitrum L2 / Besu QBFT
+```
+
+### T-358 — blk_anchor
+
+WORM. Registra cada anclaje Merkle on-chain. `REVOKE UPDATE, DELETE FROM bauth_app_role`.
+
+**Chains:** `ARBITRUM_ONE` (L2 Ethereum, costos bajos) · `BESU_QBFT` (red privada D12, cero gas externo).
+
+`tx_hash` + `block_number` — evidencia de anclaje verificable públicamente.
+
+### T-359 — blk_merkle_batch
+
+Agrupa hojas para el cómputo del árbol Merkle. Hasta ~1M hojas por lote.
+
+Estados: `OPEN` → `CLOSED` → `COMPUTING` → `ANCHORED` / `FAILED`
+
+### T-360 — blk_merkle_leaf
+
+WORM. Cada hoja del árbol Merkle. `leaf_hash` = Keccak-256 del evento.  
+`merkle_proof[]` — array de hashes de hermanos para verificación offline con `bos-verify`.
+
+UNIQUE `(batch_id, leaf_index)` garantiza integridad del árbol.
+
+### T-361 — blk_account
+
+Cuentas Besu QBFT por entidad. `balance_cache` = CACHE — la fuente de verdad es `SettlementEngine.sol` (verificado VPS 2026-06-22).
+
+`cache_at` — timestamp del cache; si es > 15 min se considera stale y se refresca vía RPC.
+
+### T-362 — blk_reconciliation
+
+Conciliación on-chain ↔ PostgreSQL cada 15 minutos. `delta` = `balance_onchain` − `balance_prev`.
+
+`status`: `OK` / `DISCREPANCY` (alerta SIEM) / `CORRECTED` (solo con aprobación PAM JIT).
+
+---
+
+## S16 — Federación / OIDC (bauth)
+
+**NIVEL 16 · Tablas:** T-365, T-366, T-367  
+**Ref:** RFC 6749 (OAuth2) · RFC 9449 (DPoP) · RFC 8705 (mTLS) · FAPI 2.0 · NIST SP 800-63-4 §6
+
+### T-365 — fed_client
+
+Registro de clientes OAuth2/OIDC. `client_secret` NUNCA aquí — almacenado en Vault (`vault_secret_path`).
+
+**Perfiles de seguridad:**
+| Tipo | PKCE | DPoP | mTLS | Perfil |
+|------|------|------|------|--------|
+| `CONFIDENTIAL` | Recomendado | Opcional | Opcional | Estándar |
+| `PUBLIC` (SPA/móvil) | **Obligatorio** | Opcional | No | Básico |
+| `M2M` | N/A | Recomendado | **Obligatorio** | FAPI2/Avanzado |
+
+`fapi_profile`: `BASELINE` / `ADVANCED` / `FAPI2` — activa validaciones adicionales en el PEP.
+
+### T-366 — fed_provider_ext
+
+IdPs externos federados. Protocolos: `OIDC` · `SAML2` · `GOOGLE` · `GITHUB` · `LINKEDIN` · `MICROSOFT_ENTRA`.
+
+`fal`: Federation Assurance Level (NIST SP 800-63-4 §6):
+- `FAL1` — bearer token (mínimo)
+- `FAL2` — token bound (DPoP/mTLS)
+- `FAL3` — criptográficamente bound al autenticador del holder
+
+`attr_mapping` (JSONB) — mapeo de claims del IdP externo a atributos SBOS.
+
+### T-367 — fed_token_issued (particionada)
+
+Tokens emitidos: SHA-256 del token — **NUNCA el valor en claro**. Particionada por `issued_at` (mensual).
+
+**PK compuesto** `(token_id, issued_at)` — requerido por PostgreSQL para tablas particionadas por rango.
+
+`dpop_jkt` — JWK Thumbprint del par de llaves DPoP (RFC 9449 §4.2).  
+`mtls_cert_fp` — fingerprint del certificado mTLS de binding (RFC 8705).  
+
+**Revocación:** `revoked_at` + `revocation_reason`. La revocación es en < 30s (job Redis invalidation → bitmask).
+
+---
+
+## S17 — Billetera Digital (bauth)
+
+**NIVEL 17 · Tablas:** T-380, T-381, T-382, T-383  
+**Ref:** W3C VCDM 2.0 · OID4VP · OpenID4VCI · eIDAS 2.0 Art. 5a · GDPR Art. 7.3
+
+### Arquitectura EUDI Wallet soberana
+
+```
+idn_identity_entity (T-156)
+        │
+        └── wallet (T-380)          ← Billetera soberana, DID did:sbos:{tenant}:{entity}
+                │
+                ├── wallet_item (T-381)           ← Puntero a credential/cert/FIDO2/DID doc
+                ├── wallet_presentation_log (T-382)  ← WORM: log de presentaciones VP
+                └── wallet_issuance_log (T-383)      ← WORM: log de emisión VCs
+```
+
+### T-380 — wallet
+
+Billetera digital soberana. **Un entity_id = una wallet por tenant.**
+
+`did` — DID canónico SBOS: `did:sbos:{tenant_slug}:{entity_uuid}`. UNIQUE global.  
+`did_anchored` + `did_tx_hash` — anclaje on-chain del documento DID (Besu QBFT).  
+`backup_method`: `NONE` (default seguro) · `ENCRYPTED_CLOUD` (clave derivada de passkey, nube soberana).
+
+### T-381 — wallet_item
+
+Puntero a ítems de billetera. **No duplica datos** — referencia al objeto fuente por `ref_id`.
+
+| `type` | `ref_id` apunta a |
+|--------|-------------------|
+| `VC` | `idn_identity_vc.vc_id` (T-167) |
+| `FIDO2` | `auth_credential_fido2.fido2_id` (T-332) |
+| `X509_CERT` | `auth_credential_x509.x509_id` (T-333) |
+| `DID_DOC` | `idn_did_document.did_doc_id` (T-169) |
+| `SIG_CERT` | `sig_certificate.cert_id` (T-351) |
+
+`sd_enabled` — activa SD-JWT para presentaciones selectivas.  
+`public_attrs[]` — atributos que el holder ha marcado como siempre divulgables.
+
+### T-382 — wallet_presentation_log (particionada)
+
+WORM. Log de cada presentación VP (OID4VP). Particionada por `presented_at` (mensual).  
+`REVOKE UPDATE, DELETE FROM bauth_app_role`. **PK compuesto** `(presentation_id, presented_at)`.
+
+`revealed_attrs[]` — qué atributos se revelaron en presentación selectiva.  
+`verifier_did` — DID del verificador (verifiable verifier, eIDAS 2.0 §5.3).  
+`outcome`: `ACCEPTED` / `REJECTED` / `PARTIAL`.
+
+**GDPR Art. 7.3** — el titular puede solicitar log de todas sus presentaciones y revocar consentimiento.
+
+### T-383 — wallet_issuance_log
+
+WORM. Log de cada VC emitida. `REVOKE UPDATE, DELETE FROM bauth_app_role`.
+
+`protocol`: `OPENID4VCI` (estándar EUDI) · `DIRECT_ISSUE` (interno SBOS) · `IMPORTED` (migración).  
+FK `vc_id` → `idn_identity_vc` (T-167) — trazabilidad completa emisión → almacenamiento → presentación.
+
+---
+
 ## Apéndice D — Normas y estándares aplicados
 
 | Norma | Aplicación en SBOS_db_V2 |
@@ -1823,6 +2204,19 @@ La DDL resuelve esto con `DEFERRABLE INITIALLY DEFERRED` en la FK de T-041 → T
 | **Ley 2492 Bolivia** | Retención de datos 7 años (idn_tenant.data_retention_days=2555) |
 | **SIN RND 102100000011** | Facturación electrónica Bolivia (cal_fiscal_year) |
 | **PCI DSS 4.0** | Seguridad de datos de pago (privilege_atom_audit hash-chain) |
+| **NIST SP 800-63-4** | Tres capas: identity entity / subscriber account / authenticator (S13/S14) |
+| **FIDO2 / W3C WebAuthn L3** | auth_credential_fido2 (T-332): sign_count, backup state, transports |
+| **RFC 9449 (DPoP)** | fed_token_issued (T-367): dpop_jkt, sender-constrained tokens |
+| **RFC 8705 (mTLS)** | fed_client (T-365), auth_credential_x509 (T-333): certificate-bound tokens |
+| **RFC 3161** | sig_timestamp (T-355): timestamps calificados |
+| **RFC 6962** | blk_merkle_batch/leaf (T-359/360): árbol Merkle para anclaje |
+| **FAPI 2.0** | fed_client (T-365): perfiles BASELINE / ADVANCED / FAPI2 |
+| **W3C VCDM 2.0** | idn_identity_vc (T-167), wallet_item (T-381): Verifiable Credentials |
+| **OID4VP / OpenID4VCI** | wallet_presentation_log (T-382), wallet_issuance_log (T-383) |
+| **eIDAS 2.0** | wallet (T-380): EUDI Wallet soberana; T-382: verifiable verifier §5.3 |
+| **GDPR Art. 7.3 + Art. 35** | wallet_presentation_log (WORM auditaría consentimiento), T-188 DPIA |
+| **Ley 164 Bolivia** | sig_key/sig_operation_log (D13): validez jurídica firma electrónica |
+| **ADSIB-FD-POLT-015 v2.3** | sig_adsib_lifecycle (T-356): ciclo vida cert. calificado, 4 reemisiones |
 
 ---
 
@@ -1832,10 +2226,11 @@ La DDL resuelve esto con `DEFERRABLE INITIALLY DEFERRED` en la FK de T-041 → T
 
 | Versión | Fecha | Cambios |
 |---------|-------|---------|
+| v2.8.0 | 2026-07-30 | S13..S17 + D12 implementados: +T-320..322 (Usuarios NIST 800-63-4), +T-330..338 (Autenticación MethodRegistry FIDO2/X.509/DPoP), +T-350..357 (Firma Digital D13 Ley 164), +T-358..362 (Blockchain Merkle/Besu/Arbitrum), +T-365..367 (Federación OIDC DPoP FAPI2), +T-380..383 (Billetera Digital EUDI OID4VP). 32 nuevas tablas. 106 tablas base + 17 particiones hijas = 123 CREATE TABLE. |
 | v2.7.0 | 2026-07-28 | GAP-D00-01..10 implementados: +T-186 (lifecycle_event JML), +T-169 (did_document), +T-187 (scim_attribute_map), +T-188 (dpia_registro); ALTER T-157 +5 cols clasificación; ALTER T-159 +risk_threshold +dirm_policy_ref; ALTER T-165 +risk_context +eidas_level; ALTER T-166 +6 cols GDPR granular; ALTER T-167 +eidas_assurance_level +eidas_vc_type; seeds mDL/VC (T-159) + seeds bdomain (T-159) |
 | v2.6.0 | 2026-07-28 | T-165..T-168 implementadas (proofing, consentimiento, VC, FAL); 25 átomos D00 (pos 292-316); triggers trg_iiattr_history, trg_iip_status_to_entity, trg_ivc_expiry_check; jobs fn_job_reproofing_check/vc_expiry_check/next_partition + OS crontab |
 | v2.5.0 | 2026-07-25 | T-158 (idn_identity_attribute_history) WORM hash-chain + 6 particiones mensuales |
 | v2.4.0 | 2026-07-24 | T-159 (idn_identity_requirement) implementada |
 | v2.3.0 | 2026-07-22 | S8-S12 refactorizados; nombres canónicos del DDL |
 
-*Fin del manual — SBOS_db_V2_DDL_MANUAL.md — v2.7.0 · 2026-07-28*
+*Fin del manual — SBOS_db_V2_DDL_MANUAL.md — v2.8.0 · 2026-07-30*

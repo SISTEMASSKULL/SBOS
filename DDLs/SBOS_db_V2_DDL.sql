@@ -4680,9 +4680,702 @@ CREATE INDEX IF NOT EXISTS idx_irt_eval_active
 
 
 -- ======================================================================
+-- NIVEL 12 — S13 USUARIOS (T-320..T-322)
+-- Ref: A.65.02.04 v2.2.0 §1 · NIST SP 800-63-4 §3 · SCIM 2.0 RFC 7643/7644
+-- ======================================================================
+
+CREATE TABLE IF NOT EXISTS bauth.idn_user (
+    user_id              UUID         NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    tenant_id            UUID         NOT NULL
+                                      REFERENCES bauth.idn_tenant(tenant_id) ON DELETE CASCADE,
+    entity_id            UUID         NOT NULL
+                                      REFERENCES bauth.idn_identity_entity(entity_id),
+    username             TEXT         NOT NULL,
+    status               TEXT         NOT NULL DEFAULT 'PENDING_ACTIVATION'
+                                      CONSTRAINT chk_iu_status CHECK (status IN (
+                                          'PENDING_ACTIVATION','ACTIVE','LOCKED',
+                                          'SUSPENDED','DEACTIVATED','ARCHIVED')),
+    registration_method  TEXT         NOT NULL DEFAULT 'ADMIN'
+                                      CONSTRAINT chk_iu_reg_method CHECK (registration_method IN (
+                                          'ADMIN','SELF_SERVICE','PROVISIONED','FEDERATED')),
+    ial_achieved         TEXT         NULL
+                                      CONSTRAINT chk_iu_ial CHECK (ial_achieved IN ('IAL1','IAL2','IAL3')),
+    loa_min              TEXT         NOT NULL DEFAULT 'AAL1'
+                                      CONSTRAINT chk_iu_loa CHECK (loa_min IN ('AAL1','AAL2','AAL3')),
+    failed_attempts      INT          NOT NULL DEFAULT 0,
+    lockout_until        TIMESTAMPTZ  NULL,
+    password_changed_at  TIMESTAMPTZ  NULL,
+    must_change_password BOOLEAN      NOT NULL DEFAULT FALSE,
+    last_login_at        TIMESTAMPTZ  NULL,
+    last_login_ip        INET         NULL,
+    scim_external_id     TEXT         NULL,
+    wallet_id            UUID         NULL,
+    ctx_id               TEXT         NOT NULL DEFAULT 'system',
+    created_at           TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at           TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    CONSTRAINT uq_iu_username_tenant UNIQUE (tenant_id, username),
+    CONSTRAINT uq_iu_entity_tenant   UNIQUE (tenant_id, entity_id)
+);
+CREATE INDEX IF NOT EXISTS idx_iu_status  ON bauth.idn_user (tenant_id, status) WHERE status IN ('ACTIVE','LOCKED');
+CREATE INDEX IF NOT EXISTS idx_iu_entity  ON bauth.idn_user (entity_id);
+CREATE INDEX IF NOT EXISTS idx_iu_lockout ON bauth.idn_user (lockout_until) WHERE lockout_until IS NOT NULL;
+COMMENT ON TABLE bauth.idn_user IS
+    'T-320 · Subscriber Account (NIST SP 800-63-4 §3). Capa 2: cuenta digital de login por tenant. '
+    'Separada de la identidad organizacional (T-156) y de los autenticadores (T-330). '
+    'Un mismo entity_id puede tener cuentas en distintos tenants.';
+
+CREATE TABLE IF NOT EXISTS bauth.idn_user_history (
+    history_id  UUID         NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    user_id     UUID         NOT NULL REFERENCES bauth.idn_user(user_id) ON DELETE CASCADE,
+    tenant_id   UUID         NOT NULL,
+    field       TEXT         NOT NULL,
+    old_value   JSONB        NULL,
+    new_value   JSONB        NOT NULL,
+    changed_by  UUID         NULL,
+    reason      TEXT         NULL,
+    ctx_id      TEXT         NOT NULL DEFAULT 'system',
+    changed_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    prev_hash   TEXT         NULL
+);
+REVOKE UPDATE, DELETE ON bauth.idn_user_history FROM bauth_app_role;
+CREATE INDEX IF NOT EXISTS idx_iuh_user ON bauth.idn_user_history (user_id, changed_at DESC);
+COMMENT ON TABLE bauth.idn_user_history IS 'T-321 · WORM hash-chain. Historial de cambios en T-320. ISO 27001 A.8.15.';
+
+CREATE TABLE IF NOT EXISTS bauth.idn_user_recovery (
+    recovery_id UUID         NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    user_id     UUID         NOT NULL REFERENCES bauth.idn_user(user_id) ON DELETE CASCADE,
+    tenant_id   UUID         NOT NULL,
+    type        TEXT         NOT NULL
+                             CONSTRAINT chk_iur_type CHECK (type IN (
+                                 'BACKUP_EMAIL','BACKUP_PHONE','TRUSTED_CONTACT','ADMIN_OVERRIDE')),
+    value_hash  TEXT         NULL,
+    status      TEXT         NOT NULL DEFAULT 'ACTIVE'
+                             CONSTRAINT chk_iur_status CHECK (status IN ('ACTIVE','USED','REVOKED')),
+    valid_until TIMESTAMPTZ  NULL,
+    used_at     TIMESTAMPTZ  NULL,
+    ctx_id      TEXT         NOT NULL DEFAULT 'system',
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_iur_user_active ON bauth.idn_user_recovery (user_id, type) WHERE status = 'ACTIVE';
+COMMENT ON TABLE bauth.idn_user_recovery IS 'T-322 · Recuperación de cuenta. value_hash = SHA-256. OWASP ASVS v5.0 §2.5.';
+
+
+-- ======================================================================
+-- NIVEL 13 — S14 AUTENTICACIÓN (T-330..T-338)
+-- Ref: A.65.02.04 v2.2.0 §2 · NIST SP 800-63B-4 · FIDO2 W3C L3 · RFC 9470
+-- ======================================================================
+
+CREATE TABLE IF NOT EXISTS bauth.auth_credential (
+    credential_id         UUID         NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    user_id               UUID         NOT NULL REFERENCES bauth.idn_user(user_id) ON DELETE CASCADE,
+    tenant_id             UUID         NOT NULL,
+    method_code           TEXT         NOT NULL,
+    status                TEXT         NOT NULL DEFAULT 'ACTIVE'
+                                        CONSTRAINT chk_ac_status CHECK (status IN (
+                                            'PENDING_ACTIVATION','ACTIVE','SUSPENDED','REVOKED','EXPIRED')),
+    loa_provided          TEXT         NOT NULL
+                                        CONSTRAINT chk_ac_loa CHECK (loa_provided IN ('AAL1','AAL2','AAL3')),
+    is_primary            BOOLEAN      NOT NULL DEFAULT FALSE,
+    is_phishing_resistant BOOLEAN      NOT NULL DEFAULT FALSE,
+    enrolled_at           TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    valid_from            TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    valid_until           TIMESTAMPTZ  NULL,
+    last_used_at          TIMESTAMPTZ  NULL,
+    revoked_at            TIMESTAMPTZ  NULL,
+    revocation_reason     TEXT         NULL,
+    ctx_id                TEXT         NOT NULL DEFAULT 'system',
+    created_at            TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_ac_user_active ON bauth.auth_credential (user_id, method_code) WHERE status = 'ACTIVE';
+CREATE INDEX IF NOT EXISTS idx_ac_valid_until ON bauth.auth_credential (valid_until) WHERE valid_until IS NOT NULL AND status = 'ACTIVE';
+COMMENT ON TABLE bauth.auth_credential IS
+    'T-330 · Capa 3 Authenticator (NIST SP 800-63-4 §5): binding autenticador↔cuenta. '
+    'Secretos NUNCA aquí: T-331 (KDF/TOTP) · T-332 (FIDO2) · T-333 (X.509).';
+
+CREATE TABLE IF NOT EXISTS bauth.auth_credential_secret (
+    secret_id         UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    credential_id     UUID    NOT NULL UNIQUE REFERENCES bauth.auth_credential(credential_id) ON DELETE CASCADE,
+    type              TEXT    NOT NULL CONSTRAINT chk_acs_type CHECK (type IN (
+                               'ARGON2ID_HASH','TOTP_SEED_ENC','HOTP_SEED_ENC',
+                               'RECOVERY_CODE_HASH','PUSH_PUBKEY_ED25519')),
+    secret            TEXT    NOT NULL,
+    algorithm         TEXT    NOT NULL,
+    params            JSONB   NOT NULL DEFAULT '{}',
+    vault_key_version INT     NOT NULL DEFAULT 1,
+    rotated_at        TIMESTAMPTZ NULL,
+    ctx_id            TEXT    NOT NULL DEFAULT 'system',
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+REVOKE UPDATE (secret) ON bauth.auth_credential_secret FROM bauth_app_role;
+COMMENT ON TABLE bauth.auth_credential_secret IS
+    'T-331 · Secretos cifrados Vault transit. Argon2id (m=64MB,t=3,p=4). NIST SP 800-63B-4 §5.1.1.';
+
+CREATE TABLE IF NOT EXISTS bauth.auth_credential_fido2 (
+    fido2_id             UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    credential_id        UUID    NOT NULL UNIQUE REFERENCES bauth.auth_credential(credential_id) ON DELETE CASCADE,
+    credential_id_bytes  BYTEA   NOT NULL,
+    public_key_cose      BYTEA   NOT NULL,
+    aaguid               UUID    NOT NULL,
+    attestation_fmt      TEXT    NOT NULL CONSTRAINT chk_af2_fmt CHECK (attestation_fmt IN (
+                                     'packed','tpm','fido-u2f','none','apple',
+                                     'android-safetynet','android-key')),
+    attestation_data     JSONB   NOT NULL DEFAULT '{}',
+    sign_count           BIGINT  NOT NULL DEFAULT 0,
+    is_discoverable      BOOLEAN NOT NULL DEFAULT FALSE,
+    is_cross_platform    BOOLEAN NOT NULL DEFAULT FALSE,
+    backup_eligible      BOOLEAN NOT NULL DEFAULT FALSE,
+    backup_state         BOOLEAN NOT NULL DEFAULT FALSE,
+    transports           TEXT[]  NOT NULL DEFAULT '{}',
+    device_name          TEXT    NULL,
+    ctx_id               TEXT    NOT NULL DEFAULT 'system',
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+COMMENT ON TABLE bauth.auth_credential_fido2 IS
+    'T-332 · Credenciales FIDO2/Passkey (W3C WebAuthn L3). sign_count anti-replay §6.1.';
+
+CREATE TABLE IF NOT EXISTS bauth.auth_credential_x509 (
+    x509_id             UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    credential_id       UUID    NOT NULL UNIQUE REFERENCES bauth.auth_credential(credential_id) ON DELETE CASCADE,
+    origin              TEXT    NOT NULL CONSTRAINT chk_ax509_origin CHECK (origin IN (
+                                    'VAULT_INTERNAL','ADSIB_EXTERNA','ENTERPRISE_PKI','SELF_SIGNED')),
+    subject_dn          TEXT    NOT NULL,
+    issuer_dn           TEXT    NOT NULL,
+    serial_number       TEXT    NOT NULL,
+    fingerprint_sha256  TEXT    NOT NULL UNIQUE,
+    not_before          TIMESTAMPTZ NOT NULL,
+    not_after           TIMESTAMPTZ NOT NULL,
+    san                 TEXT[]  NULL,
+    key_usage           TEXT[]  NOT NULL DEFAULT '{}',
+    extended_key_usage  TEXT[]  NOT NULL DEFAULT '{}',
+    oid_adsib           TEXT    NULL,
+    is_adsib_qualified  BOOLEAN NOT NULL DEFAULT FALSE,
+    vault_path          TEXT    NULL,
+    ocsp_url            TEXT    NULL,
+    revoked_by_ca_at    TIMESTAMPTZ NULL,
+    revocation_reason   TEXT    NULL,
+    ctx_id              TEXT    NOT NULL DEFAULT 'system',
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_ax509_fingerprint ON bauth.auth_credential_x509 (fingerprint_sha256);
+CREATE INDEX IF NOT EXISTS idx_ax509_not_after   ON bauth.auth_credential_x509 (not_after) WHERE revoked_by_ca_at IS NULL;
+COMMENT ON TABLE bauth.auth_credential_x509 IS 'T-333 · X.509 mTLS (RFC 8705). ADSIB_EXTERNA = Ley 164 Bolivia.';
+
+CREATE TABLE IF NOT EXISTS bauth.auth_attempt_log (
+    attempt_id       UUID         NOT NULL DEFAULT uuidv7(),
+    tenant_id        UUID         NOT NULL,
+    user_id          UUID         NULL,
+    username_tried   TEXT         NULL,
+    method_code      TEXT         NOT NULL,
+    outcome          TEXT         NOT NULL CONSTRAINT chk_aal_outcome CHECK (outcome IN (
+                                      'SUCCESS','FAILURE','LOCKED','STEP_UP_REQUIRED',
+                                      'EXPIRED','INVALID_USER','REVOKED_CREDENTIAL')),
+    failure_reason   TEXT         NULL,
+    loa_requested    TEXT         NULL,
+    loa_achieved     TEXT         NULL,
+    ip_address       INET         NOT NULL,
+    user_agent       TEXT         NULL,
+    device_id        UUID         NULL,
+    session_id       UUID         NULL,
+    ctx_id           TEXT         NOT NULL DEFAULT 'system',
+    traceparent      TEXT         NULL,
+    attempted_at     TIMESTAMPTZ  NOT NULL DEFAULT now()
+) PARTITION BY RANGE (attempted_at);
+CREATE TABLE IF NOT EXISTS bauth.auth_attempt_log_2026_07 PARTITION OF bauth.auth_attempt_log FOR VALUES FROM ('2026-07-01') TO ('2026-08-01');
+CREATE TABLE IF NOT EXISTS bauth.auth_attempt_log_2026_08 PARTITION OF bauth.auth_attempt_log FOR VALUES FROM ('2026-08-01') TO ('2026-09-01');
+CREATE TABLE IF NOT EXISTS bauth.auth_attempt_log_2026_09 PARTITION OF bauth.auth_attempt_log FOR VALUES FROM ('2026-09-01') TO ('2026-10-01');
+REVOKE UPDATE, DELETE ON bauth.auth_attempt_log FROM bauth_app_role;
+CREATE INDEX IF NOT EXISTS idx_aal_ip_failed   ON bauth.auth_attempt_log (ip_address, attempted_at DESC) WHERE outcome IN ('FAILURE','INVALID_USER');
+CREATE INDEX IF NOT EXISTS idx_aal_user_failed ON bauth.auth_attempt_log (user_id, attempted_at DESC) WHERE outcome = 'FAILURE';
+COMMENT ON TABLE bauth.auth_attempt_log IS 'T-334 · WORM particionado. ITDR: brute-force, credential stuffing. PCI DSS 4.0 Req 8.2.8.';
+
+-- MethodRegistry declarativo (T-335..T-338)
+CREATE TABLE IF NOT EXISTS bauth.auth_method (
+    method_id             UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    code                  TEXT    NOT NULL UNIQUE,
+    category              TEXT    NOT NULL CONSTRAINT chk_am_cat CHECK (category IN ('A','B','C','D','E','F')),
+    name                  JSONB   NOT NULL,
+    description           JSONB   NOT NULL,
+    loa_provided          TEXT    NOT NULL CONSTRAINT chk_am_loa CHECK (loa_provided IN ('AAL1','AAL2','AAL3')),
+    is_phishing_resistant BOOLEAN NOT NULL DEFAULT FALSE,
+    is_mfa_component      BOOLEAN NOT NULL DEFAULT FALSE,
+    status                TEXT    NOT NULL DEFAULT 'PLANNED'
+                                   CONSTRAINT chk_am_status CHECK (status IN ('IMPLEMENTED','PLANNED','DEPRECATED','REMOVED')),
+    standards             TEXT[]  NOT NULL DEFAULT '{}',
+    sort_order            INT     NOT NULL DEFAULT 0
+);
+COMMENT ON TABLE bauth.auth_method IS 'T-335 · Catálogo maestro MethodRegistry — 47 métodos en 6 categorías (A-F).';
+
+CREATE TABLE IF NOT EXISTS bauth.auth_policy (
+    policy_id        UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    tenant_id        UUID    NULL REFERENCES bauth.idn_tenant(tenant_id),
+    name             TEXT    NOT NULL,
+    description      TEXT    NOT NULL,
+    loa_required     TEXT    NOT NULL CONSTRAINT chk_ap_loa CHECK (loa_required IN ('AAL1','AAL2','AAL3')),
+    allowed_methods  TEXT[]  NOT NULL DEFAULT '{}',
+    required_methods TEXT[]  NOT NULL DEFAULT '{}',
+    max_session_secs INT     NULL,
+    step_up_trigger  JSONB   NULL,
+    active           BOOLEAN NOT NULL DEFAULT TRUE,
+    ctx_id           TEXT    NOT NULL DEFAULT 'system',
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+COMMENT ON TABLE bauth.auth_policy IS 'T-336 · Políticas de autenticación por contexto. Complementa T-042 por tier.';
+
+CREATE TABLE IF NOT EXISTS bauth.auth_config (
+    config_id    UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    tenant_id    UUID    NULL REFERENCES bauth.idn_tenant(tenant_id),
+    key          TEXT    NOT NULL,
+    value        JSONB   NOT NULL,
+    description  TEXT    NOT NULL,
+    effective_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    ctx_id       TEXT    NOT NULL DEFAULT 'system',
+    CONSTRAINT uq_auth_config_key UNIQUE (tenant_id, key)
+);
+COMMENT ON TABLE bauth.auth_config IS 'T-337 · Parámetros técnicos del motor sin hardcode. Editable en runtime.';
+
+CREATE TABLE IF NOT EXISTS bauth.auth_crypto_algorithm (
+    algo_id        UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    code           TEXT    NOT NULL UNIQUE,
+    type           TEXT    NOT NULL CONSTRAINT chk_aca_type CHECK (type IN (
+                               'KDF','SYMMETRIC','ASYMMETRIC_SIG','ASYMMETRIC_KEM','HASH','PQC')),
+    is_pqc         BOOLEAN NOT NULL DEFAULT FALSE,
+    default_params JSONB   NOT NULL DEFAULT '{}',
+    status         TEXT    NOT NULL DEFAULT 'APPROVED'
+                            CONSTRAINT chk_aca_status CHECK (status IN ('APPROVED','DEPRECATED','FORBIDDEN')),
+    nist_ref       TEXT    NULL,
+    deprecated_at  TIMESTAMPTZ NULL
+);
+COMMENT ON TABLE bauth.auth_crypto_algorithm IS
+    'T-338 · Algoritmos criptográficos. APPROVED: ARGON2ID·AES-256-GCM·ED25519·ML-KEM-768·ML-DSA-65. '
+    'FORBIDDEN: MD5·SHA-1·RSA-1024·DES·3DES.';
+
+
+-- ======================================================================
+-- NIVEL 14 — S15 FIRMA DIGITAL D13 (T-350..T-357)
+-- Ref: A.65.02.04 v2.2.0 §3 · Ley 164 Bolivia · eIDAS 2.0 · RFC 5280
+-- ======================================================================
+
+CREATE TABLE IF NOT EXISTS bauth.sig_key (
+    key_id              UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    tenant_id           UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id) ON DELETE CASCADE,
+    engine              TEXT    NOT NULL CONSTRAINT chk_sk_engine CHECK (engine IN ('INTERNAL_VAULT','EXTERNAL_ADSIB')),
+    vault_path          TEXT    NOT NULL,
+    vault_key_version   INT     NOT NULL DEFAULT 1,
+    algorithm           TEXT    NOT NULL,
+    purpose             TEXT    NOT NULL CONSTRAINT chk_sk_purpose CHECK (purpose IN (
+                            'JWT_SIGNING','DOCUMENT_SIGNING','CODE_SIGNING',
+                            'TLS_CLIENT','ADSIB_BILLING','ADSIB_CONTRACTS')),
+    root_ca_fingerprint TEXT    NULL,
+    status              TEXT    NOT NULL DEFAULT 'ACTIVE' CONSTRAINT chk_sk_status CHECK (
+                            status IN ('ACTIVE','ROTATING','SUSPENDED','REVOKED')),
+    active_since        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at          TIMESTAMPTZ NULL,
+    next_rotation       TIMESTAMPTZ NULL,
+    rotated_at          TIMESTAMPTZ NULL,
+    ctx_id              TEXT    NOT NULL DEFAULT 'system',
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_sk_tenant_active ON bauth.sig_key (tenant_id, engine, purpose) WHERE status = 'ACTIVE';
+CREATE INDEX IF NOT EXISTS idx_sk_rotation      ON bauth.sig_key (next_rotation) WHERE status = 'ACTIVE' AND next_rotation IS NOT NULL;
+COMMENT ON TABLE bauth.sig_key IS 'T-350 · Referencias a llaves en Vault — NUNCA contiene clave privada. Motor Ed25519/RSA. Ley 164 Bolivia.';
+
+CREATE TABLE IF NOT EXISTS bauth.sig_certificate (
+    cert_id            UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    key_id             UUID    NOT NULL REFERENCES bauth.sig_key(key_id) ON DELETE CASCADE,
+    tenant_id          UUID    NOT NULL,
+    engine             TEXT    NOT NULL CONSTRAINT chk_sc_engine CHECK (engine IN ('INTERNAL_VAULT','EXTERNAL_ADSIB','ENTERPRISE_PKI')),
+    subject_dn         TEXT    NOT NULL,
+    issuer_dn          TEXT    NOT NULL,
+    serial_number      TEXT    NOT NULL,
+    fingerprint_sha256 TEXT    NOT NULL UNIQUE,
+    not_before         TIMESTAMPTZ NOT NULL,
+    not_after          TIMESTAMPTZ NOT NULL,
+    san                TEXT[]  NULL,
+    key_usage          TEXT[]  NOT NULL DEFAULT '{}',
+    cert_pem           TEXT    NOT NULL,
+    adsib_type         TEXT    NULL CONSTRAINT chk_sc_adsib CHECK (adsib_type IN ('PERSONA_NATURAL','PERSONA_JURIDICA','FIRMA_AUTOMATICA')),
+    issuer_nit         TEXT    NULL,
+    status             TEXT    NOT NULL DEFAULT 'ACTIVE' CONSTRAINT chk_sc_status CHECK (status IN ('ACTIVE','EXPIRED','REVOKED','SUSPENDED')),
+    revoked_by_ca_at   TIMESTAMPTZ NULL,
+    ocsp_url           TEXT    NULL,
+    ocsp_verified_at   TIMESTAMPTZ NULL,
+    ctx_id             TEXT    NOT NULL DEFAULT 'system',
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_sc_tenant_active ON bauth.sig_certificate (tenant_id, engine) WHERE status = 'ACTIVE';
+CREATE INDEX IF NOT EXISTS idx_sc_expiry        ON bauth.sig_certificate (not_after) WHERE status = 'ACTIVE';
+COMMENT ON TABLE bauth.sig_certificate IS 'T-351 · Catálogo X.509 — PEM público solamente. SBOS Root CA + ADSIB CA (ATT→ADSIB→Persona).';
+
+CREATE TABLE IF NOT EXISTS bauth.sig_crl (
+    crl_id        UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    issuer_dn     TEXT    NOT NULL,
+    engine        TEXT    NOT NULL CONSTRAINT chk_scrl_engine CHECK (engine IN ('INTERNAL_VAULT','EXTERNAL_ADSIB')),
+    crl_der       BYTEA   NOT NULL,
+    next_update   TIMESTAMPTZ NOT NULL,
+    downloaded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    ctx_id        TEXT    NOT NULL DEFAULT 'system'
+);
+CREATE INDEX IF NOT EXISTS idx_scrl_next_update ON bauth.sig_crl (next_update);
+COMMENT ON TABLE bauth.sig_crl IS 'T-352 · CRL activas. Job: ADSIB cada hora · Vault cada 24h.';
+
+CREATE TABLE IF NOT EXISTS bauth.sig_timestamp (
+    timestamp_id     UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    tsa_url          TEXT    NOT NULL,
+    document_hash    TEXT    NOT NULL,
+    tsa_response_der BYTEA   NOT NULL,
+    tsa_serial       TEXT    NOT NULL,
+    gen_time         TIMESTAMPTZ NOT NULL,
+    policy_oid       TEXT    NULL,
+    ctx_id           TEXT    NOT NULL DEFAULT 'system',
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+REVOKE UPDATE, DELETE ON bauth.sig_timestamp FROM bauth_app_role;
+COMMENT ON TABLE bauth.sig_timestamp IS 'T-355 · Timestamps calificados RFC 3161. WORM.';
+
+CREATE TABLE IF NOT EXISTS bauth.sig_operation_log (
+    operation_id     UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    tenant_id        UUID    NOT NULL,
+    key_id           UUID    NOT NULL REFERENCES bauth.sig_key(key_id),
+    cert_id          UUID    NULL     REFERENCES bauth.sig_certificate(cert_id),
+    engine           TEXT    NOT NULL CONSTRAINT chk_sol_engine CHECK (engine IN ('INTERNAL_VAULT','EXTERNAL_ADSIB')),
+    document_hash    TEXT    NOT NULL,
+    document_type    TEXT    NOT NULL,
+    signature_format TEXT    NOT NULL,
+    signed_by        UUID    NOT NULL,
+    signer_type      TEXT    NOT NULL CONSTRAINT chk_sol_stype CHECK (signer_type IN ('HUMAN','NHI','DAEMON')),
+    purpose          TEXT    NOT NULL,
+    outcome          TEXT    NOT NULL CONSTRAINT chk_sol_outcome CHECK (outcome IN ('SUCCESS','FAILURE','CERT_EXPIRED','CERT_REVOKED')),
+    signature_ref    TEXT    NULL,
+    error_msg        TEXT    NULL,
+    merkle_batch_id  UUID    NULL,
+    onchain_tx_hash  TEXT    NULL,
+    ctx_id           TEXT    NOT NULL DEFAULT 'system',
+    traceparent      TEXT    NULL,
+    signed_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+REVOKE UPDATE, DELETE ON bauth.sig_operation_log FROM bauth_app_role;
+CREATE INDEX IF NOT EXISTS idx_sol_tenant_at ON bauth.sig_operation_log (tenant_id, signed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sol_doc_hash  ON bauth.sig_operation_log (document_hash);
+COMMENT ON TABLE bauth.sig_operation_log IS 'T-353 · WORM. Log forense de cada acto de firma. Ley 164 Bolivia.';
+
+CREATE TABLE IF NOT EXISTS bauth.sig_document_hash (
+    document_id         UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    tenant_id           UUID    NOT NULL,
+    operation_id        UUID    NOT NULL REFERENCES bauth.sig_operation_log(operation_id),
+    hash_sha256         TEXT    NOT NULL UNIQUE,
+    hash_sha3_256       TEXT    NULL,
+    document_type       TEXT    NOT NULL,
+    title               TEXT    NULL,
+    signature_format    TEXT    NOT NULL,
+    timestamp_id        UUID    NULL REFERENCES bauth.sig_timestamp(timestamp_id),
+    blockchain_anchored BOOLEAN NOT NULL DEFAULT FALSE,
+    merkle_batch_id     UUID    NULL,
+    onchain_tx_hash     TEXT    NULL,
+    retention_years     INT     NOT NULL DEFAULT 7,
+    purge_after         TIMESTAMPTZ NOT NULL,
+    ctx_id              TEXT    NOT NULL DEFAULT 'system',
+    signed_at           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+REVOKE UPDATE, DELETE ON bauth.sig_document_hash FROM bauth_app_role;
+CREATE INDEX IF NOT EXISTS idx_sdh_hash  ON bauth.sig_document_hash (hash_sha256);
+CREATE INDEX IF NOT EXISTS idx_sdh_purge ON bauth.sig_document_hash (purge_after);
+COMMENT ON TABLE bauth.sig_document_hash IS 'T-354 · WORM. Hashes SHA-256 de documentos firmados. Retención Ley 164: 8 años facturas SIN.';
+
+CREATE TABLE IF NOT EXISTS bauth.sig_adsib_lifecycle (
+    lifecycle_id   UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    tenant_id      UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id) ON DELETE CASCADE,
+    cert_id        UUID    NOT NULL REFERENCES bauth.sig_certificate(cert_id),
+    event          TEXT    NOT NULL CONSTRAINT chk_sal_event CHECK (event IN (
+                       'ISSUED','ACTIVATED','ALERT_30D','ALERT_15D','ALERT_7D',
+                       'RENEWAL_CSR','RENEWED','EXPIRED','REVOKED_BY_CA','REISSUED')),
+    description    TEXT    NULL,
+    reissue_number INT     NULL CHECK (reissue_number <= 4),
+    ctx_id         TEXT    NOT NULL DEFAULT 'system',
+    event_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+REVOKE UPDATE, DELETE ON bauth.sig_adsib_lifecycle FROM bauth_app_role;
+CREATE INDEX IF NOT EXISTS idx_sal_tenant ON bauth.sig_adsib_lifecycle (tenant_id, event_at DESC);
+COMMENT ON TABLE bauth.sig_adsib_lifecycle IS 'T-356 · WORM. Ciclo de vida certificado ADSIB. Máx. 4 reemisiones. ADSIB-FD-POLT-015 v2.3.';
+
+CREATE TABLE IF NOT EXISTS bauth.sig_document_policy (
+    policy_id                  UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    tenant_id                  UUID    NULL REFERENCES bauth.idn_tenant(tenant_id),
+    document_type              TEXT    NOT NULL,
+    engine_required            TEXT    NOT NULL CONSTRAINT chk_sdp_eng CHECK (engine_required IN ('INTERNAL_VAULT','EXTERNAL_ADSIB','BOTH')),
+    legal_basis                TEXT    NOT NULL,
+    internal_profile           TEXT    NULL CONSTRAINT chk_sdp_int CHECK (internal_profile IN ('JWS','INT-B','INT-T','INT-LT')),
+    external_profile           TEXT    NULL CONSTRAINT chk_sdp_ext CHECK (external_profile IN ('XAdES-BES','EXT-B','EXT-T','EXT-LT','EXT-LTA')),
+    min_retention_years        INT     NOT NULL DEFAULT 7,
+    requires_timestamp         BOOLEAN NOT NULL DEFAULT FALSE,
+    requires_blockchain_anchor BOOLEAN NOT NULL DEFAULT FALSE,
+    active                     BOOLEAN NOT NULL DEFAULT TRUE,
+    ctx_id                     TEXT    NOT NULL DEFAULT 'system',
+    created_at                 TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT uq_sdp_type_tenant UNIQUE (tenant_id, document_type)
+);
+CREATE INDEX IF NOT EXISTS idx_sdp_active ON bauth.sig_document_policy (document_type) WHERE active = TRUE;
+COMMENT ON TABLE bauth.sig_document_policy IS 'T-357 · Política de motores de firma por tipo de documento. Ley 164 Art. 82.';
+
+
+-- ======================================================================
+-- NIVEL 15 — D12 BLOCKCHAIN (T-358..T-362)
+-- Ref: A.65.02.04 v2.2.0 §4 · RFC 6962 · FIPS 202 · QBFT/IBFT 2.0
+-- ======================================================================
+
+CREATE TABLE IF NOT EXISTS bauth.blk_merkle_batch (
+    batch_id     UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    merkle_root  TEXT    NULL,
+    event_from   UUID    NOT NULL,
+    event_to     UUID    NOT NULL,
+    total_leaves INT     NOT NULL,
+    status       TEXT    NOT NULL DEFAULT 'OPEN' CONSTRAINT chk_bmb_status CHECK (
+                     status IN ('OPEN','CLOSED','COMPUTING','ANCHORED','FAILED')),
+    closed_at    TIMESTAMPTZ NULL,
+    ctx_id       TEXT    NOT NULL DEFAULT 'system',
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+COMMENT ON TABLE bauth.blk_merkle_batch IS 'T-359 · Lote de eventos para árbol Merkle Keccak-256 (RFC 6962). Hasta 1M hojas.';
+
+CREATE TABLE IF NOT EXISTS bauth.blk_anchor (
+    anchor_id    UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    batch_id     UUID    NOT NULL REFERENCES bauth.blk_merkle_batch(batch_id),
+    merkle_root  TEXT    NOT NULL,
+    chain        TEXT    NOT NULL CONSTRAINT chk_ba_chain CHECK (chain IN ('ARBITRUM_ONE','BESU_QBFT')),
+    tx_hash      TEXT    NULL,
+    block_number BIGINT  NULL,
+    status       TEXT    NOT NULL DEFAULT 'PENDING' CONSTRAINT chk_ba_status CHECK (status IN ('PENDING','SENT','ANCHORED','FAILED')),
+    gas_used     BIGINT  NULL,
+    error_msg    TEXT    NULL,
+    ctx_id       TEXT    NOT NULL DEFAULT 'system',
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    anchored_at  TIMESTAMPTZ NULL
+);
+REVOKE UPDATE, DELETE ON bauth.blk_anchor FROM bauth_app_role;
+CREATE INDEX IF NOT EXISTS idx_ba_pending ON bauth.blk_anchor (status, created_at) WHERE status IN ('PENDING','SENT');
+COMMENT ON TABLE bauth.blk_anchor IS 'T-358 · WORM. Anclajes Merkle on-chain (Arbitrum L2 · Besu QBFT D12 Forma A/B).';
+
+CREATE TABLE IF NOT EXISTS bauth.blk_merkle_leaf (
+    leaf_id      UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    batch_id     UUID    NOT NULL REFERENCES bauth.blk_merkle_batch(batch_id),
+    leaf_index   INT     NOT NULL,
+    event_id     UUID    NOT NULL,
+    leaf_hash    TEXT    NOT NULL,
+    merkle_proof TEXT[]  NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_bml_batch_index ON bauth.blk_merkle_leaf (batch_id, leaf_index);
+CREATE INDEX        IF NOT EXISTS idx_bml_event       ON bauth.blk_merkle_leaf (event_id);
+REVOKE UPDATE, DELETE ON bauth.blk_merkle_leaf FROM bauth_app_role;
+COMMENT ON TABLE bauth.blk_merkle_leaf IS 'T-360 · WORM. Hojas del árbol Merkle. merkle_proof para verificación offline con bos-verify.';
+
+CREATE TABLE IF NOT EXISTS bauth.blk_account (
+    account_id    UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    tenant_id     UUID    NOT NULL,
+    entity_id     UUID    NOT NULL REFERENCES bauth.idn_identity_entity(entity_id),
+    eth_address   TEXT    NOT NULL UNIQUE,
+    status        TEXT    NOT NULL DEFAULT 'ACTIVE' CONSTRAINT chk_bac_status CHECK (status IN ('ACTIVE','FROZEN','CLOSED')),
+    balance_cache NUMERIC(20,8) NULL,
+    cache_at      TIMESTAMPTZ NULL,
+    ctx_id        TEXT    NOT NULL DEFAULT 'system',
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+COMMENT ON TABLE bauth.blk_account IS 'T-361 · Cuentas Besu QBFT. balance_cache = CACHE. Fuente: SettlementEngine.sol (verificado VPS 2026-06-22).';
+
+CREATE TABLE IF NOT EXISTS bauth.blk_reconciliation (
+    rec_id          UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    account_id      UUID    NOT NULL REFERENCES bauth.blk_account(account_id),
+    balance_onchain NUMERIC(20,8) NOT NULL,
+    balance_prev    NUMERIC(20,8) NULL,
+    delta           NUMERIC(20,8) NOT NULL,
+    status          TEXT    NOT NULL CONSTRAINT chk_br_status CHECK (status IN ('OK','DISCREPANCY','CORRECTED')),
+    ctx_id          TEXT    NOT NULL DEFAULT 'system',
+    verified_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+COMMENT ON TABLE bauth.blk_reconciliation IS 'T-362 · Conciliación on-chain ↔ PostgreSQL cada 15 min.';
+
+
+-- ======================================================================
+-- NIVEL 16 — S16 FEDERACIÓN / OIDC (T-365..T-367)
+-- Ref: A.65.02.04 v2.2.0 §5 · RFC 6749 · RFC 9449 DPoP · FAPI 2.0
+-- ======================================================================
+
+CREATE TABLE IF NOT EXISTS bauth.fed_client (
+    client_id         UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    tenant_id         UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id) ON DELETE CASCADE,
+    client_key        TEXT    NOT NULL UNIQUE,
+    name              TEXT    NOT NULL,
+    type              TEXT    NOT NULL CONSTRAINT chk_fc_type CHECK (type IN ('CONFIDENTIAL','PUBLIC','M2M')),
+    redirect_uris     TEXT[]  NOT NULL DEFAULT '{}',
+    allowed_scopes    TEXT[]  NOT NULL DEFAULT '{}',
+    grant_types       TEXT[]  NOT NULL DEFAULT '{}',
+    pkce_required     BOOLEAN NOT NULL DEFAULT TRUE,
+    dpop_required     BOOLEAN NOT NULL DEFAULT FALSE,
+    mtls_required     BOOLEAN NOT NULL DEFAULT FALSE,
+    fapi_profile      TEXT    NULL CONSTRAINT chk_fc_fapi CHECK (fapi_profile IN ('BASELINE','ADVANCED','FAPI2')),
+    at_ttl_seconds    INT     NOT NULL DEFAULT 3600,
+    rt_ttl_seconds    INT     NULL,
+    id_token_ttl      INT     NOT NULL DEFAULT 600,
+    status            TEXT    NOT NULL DEFAULT 'ACTIVE' CONSTRAINT chk_fc_status CHECK (status IN ('ACTIVE','SUSPENDED','REVOKED')),
+    vault_secret_path TEXT    NULL,
+    ctx_id            TEXT    NOT NULL DEFAULT 'system',
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_fc_client_key ON bauth.fed_client (client_key);
+COMMENT ON TABLE bauth.fed_client IS 'T-365 · Clientes OAuth2/OIDC (RFC 6749). client_secret NUNCA aquí — en Vault.';
+
+CREATE TABLE IF NOT EXISTS bauth.fed_provider_ext (
+    provider_id       UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    tenant_id         UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id) ON DELETE CASCADE,
+    name              TEXT    NOT NULL,
+    protocol          TEXT    NOT NULL CONSTRAINT chk_fpe_proto CHECK (protocol IN (
+                          'OIDC','SAML2','GOOGLE','GITHUB','LINKEDIN','MICROSOFT_ENTRA')),
+    issuer_url        TEXT    NULL,
+    discovery_url     TEXT    NULL,
+    jwks_uri          TEXT    NULL,
+    metadata_url      TEXT    NULL,
+    entity_id         TEXT    NULL,
+    sso_url           TEXT    NULL,
+    attr_mapping      JSONB   NOT NULL DEFAULT '{}',
+    fal               TEXT    NOT NULL DEFAULT 'FAL1' CONSTRAINT chk_fpe_fal CHECK (fal IN ('FAL1','FAL2','FAL3')),
+    status            TEXT    NOT NULL DEFAULT 'ACTIVE',
+    vault_secret_path TEXT    NULL,
+    ctx_id            TEXT    NOT NULL DEFAULT 'system',
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+COMMENT ON TABLE bauth.fed_provider_ext IS 'T-366 · IdPs externos (SAML2/OIDC/social). NIST SP 800-63-4 §6 FAL1/2/3.';
+
+-- PK compuesto (token_id, issued_at) requerido por particionamiento
+CREATE TABLE IF NOT EXISTS bauth.fed_token_issued (
+    token_id          UUID         NOT NULL DEFAULT uuidv7(),
+    tenant_id         UUID         NOT NULL,
+    client_id         UUID         NOT NULL REFERENCES bauth.fed_client(client_id),
+    user_id           UUID         NULL REFERENCES bauth.idn_user(user_id),
+    type              TEXT         NOT NULL CONSTRAINT chk_fti_type CHECK (type IN (
+                                       'ACCESS_TOKEN','REFRESH_TOKEN','ID_TOKEN','EXCHANGE_TOKEN')),
+    token_hash        TEXT         NOT NULL,
+    scopes            TEXT[]       NOT NULL DEFAULT '{}',
+    loa_at_issuance   TEXT         NULL CONSTRAINT chk_fti_loa CHECK (loa_at_issuance IN ('AAL1','AAL2','AAL3')),
+    dpop_jkt          TEXT         NULL,
+    mtls_cert_fp      TEXT         NULL,
+    issued_at         TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    expires_at        TIMESTAMPTZ  NOT NULL,
+    revoked_at        TIMESTAMPTZ  NULL,
+    revocation_reason TEXT         NULL,
+    session_id        UUID         NULL,
+    ctx_id            TEXT         NOT NULL DEFAULT 'system',
+    PRIMARY KEY (token_id, issued_at)
+) PARTITION BY RANGE (issued_at);
+CREATE TABLE IF NOT EXISTS bauth.fed_token_issued_2026_07 PARTITION OF bauth.fed_token_issued FOR VALUES FROM ('2026-07-01') TO ('2026-08-01');
+CREATE TABLE IF NOT EXISTS bauth.fed_token_issued_2026_08 PARTITION OF bauth.fed_token_issued FOR VALUES FROM ('2026-08-01') TO ('2026-09-01');
+CREATE TABLE IF NOT EXISTS bauth.fed_token_issued_2026_09 PARTITION OF bauth.fed_token_issued FOR VALUES FROM ('2026-09-01') TO ('2026-10-01');
+CREATE UNIQUE INDEX IF NOT EXISTS idx_fti_hash    ON bauth.fed_token_issued (token_hash, issued_at);
+CREATE INDEX        IF NOT EXISTS idx_fti_expires ON bauth.fed_token_issued (expires_at) WHERE revoked_at IS NULL;
+COMMENT ON TABLE bauth.fed_token_issued IS
+    'T-367 · Tokens emitidos: SHA-256 solamente — NUNCA el valor en claro. '
+    'DPoP (RFC 9449) + mTLS (RFC 8705). PK compuesto (token_id, issued_at) por particionamiento.';
+
+
+-- ======================================================================
+-- NIVEL 17 — S17 BILLETERA DIGITAL (T-380..T-383)
+-- Ref: A.65.02.04 v2.2.0 §6 · W3C VCDM 2.0 · OID4VP · OpenID4VCI · eIDAS 2.0
+-- ======================================================================
+
+CREATE TABLE IF NOT EXISTS bauth.wallet (
+    wallet_id            UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    tenant_id            UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id) ON DELETE CASCADE,
+    entity_id            UUID    NOT NULL REFERENCES bauth.idn_identity_entity(entity_id),
+    did                  TEXT    NOT NULL UNIQUE,
+    status               TEXT    NOT NULL DEFAULT 'ACTIVE' CONSTRAINT chk_w_status CHECK (status IN ('ACTIVE','SUSPENDED','REVOKED','ARCHIVED')),
+    backup_enabled       BOOLEAN NOT NULL DEFAULT FALSE,
+    backup_method        TEXT    NULL CONSTRAINT chk_w_backup CHECK (backup_method IN ('NONE','ENCRYPTED_CLOUD')),
+    did_anchored         BOOLEAN NOT NULL DEFAULT FALSE,
+    did_tx_hash          TEXT    NULL,
+    total_presentations  INT     NOT NULL DEFAULT 0,
+    last_presentation_at TIMESTAMPTZ NULL,
+    ctx_id               TEXT    NOT NULL DEFAULT 'system',
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT uq_wallet_entity_tenant UNIQUE (tenant_id, entity_id)
+);
+CREATE INDEX IF NOT EXISTS idx_w_entity ON bauth.wallet (entity_id);
+CREATE INDEX IF NOT EXISTS idx_w_did    ON bauth.wallet (did);
+COMMENT ON TABLE bauth.wallet IS 'T-380 · Billetera digital soberana. EUDI Wallet (eIDAS 2.0 Art. 5a). DID: did:sbos:{tenant}:{entity}.';
+
+CREATE TABLE IF NOT EXISTS bauth.wallet_item (
+    item_id       UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    wallet_id     UUID    NOT NULL REFERENCES bauth.wallet(wallet_id) ON DELETE CASCADE,
+    tenant_id     UUID    NOT NULL,
+    type          TEXT    NOT NULL CONSTRAINT chk_wi_type CHECK (type IN (
+                      'VC','FIDO2','X509_CERT','DID_DOC','SIG_CERT','NATIONAL_ID','LICENSE','PHYSICAL_PASS')),
+    ref_id        UUID    NOT NULL,
+    display_name  TEXT    NOT NULL,
+    status        TEXT    NOT NULL DEFAULT 'ACTIVE' CONSTRAINT chk_wi_status CHECK (status IN ('ACTIVE','EXPIRED','REVOKED','HIDDEN')),
+    sd_enabled    BOOLEAN NOT NULL DEFAULT FALSE,
+    public_attrs  TEXT[]  NULL,
+    added_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    valid_until   TIMESTAMPTZ NULL,
+    ctx_id        TEXT    NOT NULL DEFAULT 'system'
+);
+CREATE INDEX IF NOT EXISTS idx_wi_wallet ON bauth.wallet_item (wallet_id, type);
+CREATE INDEX IF NOT EXISTS idx_wi_ref    ON bauth.wallet_item (ref_id);
+COMMENT ON TABLE bauth.wallet_item IS 'T-381 · Ítems de billetera — apunta a la fuente de verdad, NUNCA duplica. SD-JWT VC.';
+
+-- PK compuesto (presentation_id, presented_at) requerido por particionamiento
+CREATE TABLE IF NOT EXISTS bauth.wallet_presentation_log (
+    presentation_id    UUID    NOT NULL DEFAULT uuidv7(),
+    wallet_id          UUID    NOT NULL REFERENCES bauth.wallet(wallet_id),
+    tenant_id          UUID    NOT NULL,
+    presented_items    UUID[]  NOT NULL,
+    verifier_client_id UUID    NULL REFERENCES bauth.fed_client(client_id),
+    verifier_name      TEXT    NOT NULL,
+    verifier_did       TEXT    NULL,
+    protocol           TEXT    NOT NULL CONSTRAINT chk_wpl_proto CHECK (protocol IN ('OPENID4VP','SAML_ASSERTION','DIRECT_API')),
+    revealed_attrs     TEXT[]  NULL,
+    outcome            TEXT    NOT NULL CONSTRAINT chk_wpl_outcome CHECK (outcome IN ('ACCEPTED','REJECTED','PARTIAL')),
+    rejection_reason   TEXT    NULL,
+    ctx_id             TEXT    NOT NULL DEFAULT 'system',
+    traceparent        TEXT    NULL,
+    presented_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (presentation_id, presented_at)
+) PARTITION BY RANGE (presented_at);
+CREATE TABLE IF NOT EXISTS bauth.wallet_presentation_log_2026_07 PARTITION OF bauth.wallet_presentation_log FOR VALUES FROM ('2026-07-01') TO ('2026-08-01');
+CREATE TABLE IF NOT EXISTS bauth.wallet_presentation_log_2026_08 PARTITION OF bauth.wallet_presentation_log FOR VALUES FROM ('2026-08-01') TO ('2026-09-01');
+REVOKE UPDATE, DELETE ON bauth.wallet_presentation_log FROM bauth_app_role;
+COMMENT ON TABLE bauth.wallet_presentation_log IS 'T-382 · WORM. Log de presentaciones VP (OID4VP). GDPR Art. 7.3.';
+
+CREATE TABLE IF NOT EXISTS bauth.wallet_issuance_log (
+    issuance_id     UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    wallet_id       UUID    NOT NULL REFERENCES bauth.wallet(wallet_id),
+    tenant_id       UUID    NOT NULL,
+    vc_id           UUID    NOT NULL REFERENCES bauth.idn_identity_vc(vc_id),
+    issuer_did      TEXT    NOT NULL,
+    credential_type TEXT    NOT NULL,
+    protocol        TEXT    NOT NULL CONSTRAINT chk_wil_proto CHECK (protocol IN ('OPENID4VCI','DIRECT_ISSUE','IMPORTED')),
+    outcome         TEXT    NOT NULL CONSTRAINT chk_wil_outcome CHECK (outcome IN ('ISSUED','REJECTED','PENDING')),
+    ctx_id          TEXT    NOT NULL DEFAULT 'system',
+    issued_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+REVOKE UPDATE, DELETE ON bauth.wallet_issuance_log FROM bauth_app_role;
+COMMENT ON TABLE bauth.wallet_issuance_log IS 'T-383 · WORM. Log de emisión VCs (OpenID4VCI). FK a T-167 idn_identity_vc.';
+
+
+-- ======================================================================
+-- ÍNDICES COMPLEMENTARIOS — Relaciones clave entre schemas
+-- ======================================================================
+-- Índice para lookup de grants activos por átomo (id_atom = columna canónica)
+CREATE INDEX IF NOT EXISTS idx_pag_id_atom
+    ON bauth.privilege_atom_grant(id_atom)
+    WHERE status = 'ACTIVE';
+
+-- Índice de búsqueda rápida de nodos átomo activos por posición de bit
+CREATE INDEX IF NOT EXISTS idx_irt_eval_active
+    ON bauth.idn_roles_template(atom_position, verb_id)
+    WHERE node_type = 'atom' AND is_active = true;
+
+
+-- ======================================================================
 -- FIN DDL — SBOS_db_V2_DDL.sql
 -- ======================================================================
--- Resumen de tablas creadas (alineado con A.65.02_ANEXO-NUEVA-DDL v1.3):
+-- Resumen de tablas creadas (alineado con A.65.02_ANEXO-NUEVA-DDL v1.7):
 --
 --   bglobal (T-001..T-004 · T-059..T-061 · T-114):
 --               global_language, global_country, global_currency, geo_timezone,
@@ -4693,9 +5386,9 @@ CREATE INDEX IF NOT EXISTS idx_irt_eval_active
 --               idn_tenant_verification, idn_tenant_config, idn_tenant_domain,
 --               idn_tenant_network, idn_tenant_calendar_assignment (8)
 --
---   bauth VERSIONADO — F2 DDL completo (T-152..T-155) [4 tablas activas]:
---               idn_roles_ver_b01_audit_log (T-152), idn_roles_ver_b03_approval_queue (T-153),
---               idn_roles_ver_b01_retention_policy (T-154), idn_roles_ver_contract_revision_log (T-155) (4)
+--   bauth VERSIONADO (T-152..T-155):
+--               idn_roles_ver_b01_audit_log, idn_roles_ver_b03_approval_queue,
+--               idn_roles_ver_b01_retention_policy, idn_roles_ver_contract_revision_log (4)
 --
 --   bauth ROLES (T-040..T-042 · T-063 · T-162..T-163):
 --               idn_roles_rol_type, idn_roles_rol_tier, idn_roles_rol_hierarchical,
@@ -4708,11 +5401,11 @@ CREATE INDEX IF NOT EXISTS idx_irt_eval_active
 --               privilege_resource_atom, privilege_delegation, privilege_override,
 --               privilege_assurance_audit, privilege_exception_record (9)
 --
---   bauth IDENTIDAD (T-156..T-157 · T-158..T-161 stubs · T-186..T-188 · T-190):
+--   bauth IDENTIDAD (T-156..T-157 · T-186..T-188 · T-190):
 --               idn_identity_entity, idn_identity_attribute,
 --               idn_roles_nhi_identity, idn_roles_nhi_lifecycle_event,
 --               idn_roles_nhi_certification, idn_roles_nhi_agent_identity (6)
---               [T-158..T-161: stubs sin CREATE TABLE — diseño pendiente]
+--               [T-158..T-161: stubs sin CREATE TABLE]
 --
 --   bauth SESIÓN (T-181 · T-191..T-193):
 --               ses_session_log, ses_caep_event_log,
@@ -4733,9 +5426,38 @@ CREATE INDEX IF NOT EXISTS idx_irt_eval_active
 --               cal_notification_log, cal_holiday, cal_schedule,
 --               cal_overtime_policy, cal_break_policy (9)
 --
--- TOTAL: 63 tablas base + 3 particiones de privilege_atom_audit = 66 CREATE TABLE activos
--- Stubs (sin CREATE TABLE): T-158..T-161 (4 stubs como comentarios)
--- Total en plan A.65.02: 67 = 63 activos + 4 stubs ✅
+--   bauth USUARIOS S13 (T-320..T-322):
+--               idn_user, idn_user_history (WORM), idn_user_recovery (3)
+--
+--   bauth AUTENTICACIÓN S14 (T-330..T-338):
+--               auth_credential, auth_credential_secret, auth_credential_fido2,
+--               auth_credential_x509, auth_attempt_log (WORM particionada),
+--               auth_method, auth_policy, auth_config, auth_crypto_algorithm (9)
+--
+--   bauth FIRMA DIGITAL D13 S15 (T-350..T-357):
+--               sig_key, sig_certificate, sig_crl,
+--               sig_timestamp (WORM), sig_operation_log (WORM),
+--               sig_document_hash (WORM), sig_adsib_lifecycle (WORM),
+--               sig_document_policy (8)
+--
+--   bauth BLOCKCHAIN D12 (T-358..T-362):
+--               blk_merkle_batch, blk_anchor (WORM),
+--               blk_merkle_leaf (WORM), blk_account, blk_reconciliation (5)
+--
+--   bauth FEDERACIÓN S16 (T-365..T-367):
+--               fed_client, fed_provider_ext,
+--               fed_token_issued (particionada 2026-07/08/09) (3)
+--
+--   bauth BILLETERA S17 (T-380..T-383):
+--               wallet, wallet_item,
+--               wallet_presentation_log (WORM particionada),
+--               wallet_issuance_log (WORM) (4)
+--
+-- TOTAL tablas base (padres + no-particionadas): 106
+-- Particiones hijas: idn_identity_attribute_history×6 · privilege_atom_audit×3 ·
+--                    auth_attempt_log×3 · fed_token_issued×3 · wallet_presentation_log×2 = 17
+-- TOTAL CREATE TABLE: 123
+-- Stubs (sin CREATE TABLE): T-158..T-161 (4)
 -- Secuencias: bauth.roles_atom_position_sequential (1)
 -- Triggers:   bauth.trg_irt_atom_position → fn_irt_assign_atom_position() (1)
 -- Seeds:      idn_roles_rol_type (10 tipos) · idn_roles_rol_tier (11 tiers)
