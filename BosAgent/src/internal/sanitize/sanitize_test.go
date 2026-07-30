@@ -164,3 +164,109 @@ func TestTenantIDParam(t *testing.T) {
 		t.Error("TenantIDParam no debe aceptar mayúsculas")
 	}
 }
+
+func TestEmail_Validos(t *testing.T) {
+	validos := []string{
+		"admin@skull.com",
+		"user+tag@example.org",
+		"first.last@sub.domain.io",
+	}
+	for _, s := range validos {
+		if !Email(s) {
+			t.Errorf("Email(%q) debe ser válido", s)
+		}
+	}
+}
+
+func TestEmail_Invalidos(t *testing.T) {
+	invalidos := []string{
+		"",
+		"sin-arroba",
+		"@nolocalpart.com",
+		"user@",
+		strings.Repeat("a", 255) + "@x.com", // excede 254 chars
+	}
+	for _, s := range invalidos {
+		if Email(s) {
+			t.Errorf("Email(%q) debe ser inválido", s)
+		}
+	}
+}
+
+func TestJSONPayload_Valido(t *testing.T) {
+	data := []byte(`{"ctx_id":"abc","tenant":"skull"}`)
+	if err := JSONPayload(data, 1024); err != nil {
+		t.Errorf("JSONPayload debe aceptar JSON válido: %v", err)
+	}
+}
+
+func TestJSONPayload_Invalido(t *testing.T) {
+	if err := JSONPayload([]byte(nil), 1024); err == nil {
+		t.Error("JSONPayload debe rechazar payload vacío")
+	}
+	if err := JSONPayload([]byte(`{broken`), 1024); err == nil {
+		t.Error("JSONPayload debe rechazar JSON malformado")
+	}
+	if err := JSONPayload([]byte(`{}`), 1); err == nil {
+		t.Error("JSONPayload debe rechazar payload que excede límite")
+	}
+}
+
+func TestHeaderValue_Limpio(t *testing.T) {
+	v, err := HeaderValue("  application/json  ")
+	if err != nil {
+		t.Errorf("HeaderValue debe aceptar cabecera limpia: %v", err)
+	}
+	if v != "application/json" {
+		t.Errorf("HeaderValue debe recortar espacios: %q", v)
+	}
+}
+
+func TestHeaderValue_CRLFInjection(t *testing.T) {
+	casos := []string{
+		"valor\r\nX-Injected: malicioso",
+		"valor\ninyectado",
+		"valor\x00nulo",
+	}
+	for _, s := range casos {
+		if _, err := HeaderValue(s); err == nil {
+			t.Errorf("HeaderValue(%q) debe rechazar CRLF/nulo", s)
+		}
+	}
+}
+
+func TestCrossTenantSlug_OK(t *testing.T) {
+	if err := CrossTenantSlug("skull", "skull"); err != nil {
+		t.Errorf("CrossTenantSlug mismo tenant debe ser OK: %v", err)
+	}
+}
+
+func TestCrossTenantSlug_Denegado(t *testing.T) {
+	if err := CrossTenantSlug("skull", "acme"); err == nil {
+		t.Error("CrossTenantSlug tenants distintos debe denegar")
+	}
+	if err := CrossTenantSlug("", "skull"); err == nil {
+		t.Error("CrossTenantSlug vacío debe denegar")
+	}
+}
+
+func TestCrossTenantK8sName_OK(t *testing.T) {
+	casos := []string{"skull", "skull-postgres", "skull-redis-primary"}
+	for _, name := range casos {
+		if err := CrossTenantK8sName("skull", name); err != nil {
+			t.Errorf("CrossTenantK8sName(skull, %q) debe ser OK: %v", name, err)
+		}
+	}
+}
+
+func TestCrossTenantK8sName_Denegado(t *testing.T) {
+	if err := CrossTenantK8sName("skull", "acme-postgres"); err == nil {
+		t.Error("CrossTenantK8sName debe denegar recurso de otro tenant")
+	}
+	if err := CrossTenantK8sName("skull", ""); err == nil {
+		t.Error("CrossTenantK8sName debe denegar nombre vacío")
+	}
+	if err := CrossTenantK8sName("skull", "skulls-redis"); err == nil {
+		t.Error("CrossTenantK8sName no debe aceptar prefijo que solo coincide parcialmente")
+	}
+}
