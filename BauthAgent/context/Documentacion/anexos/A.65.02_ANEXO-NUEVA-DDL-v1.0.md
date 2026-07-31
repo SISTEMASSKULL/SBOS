@@ -1,6 +1,6 @@
 # A.65.02 — Nueva DDL · Inventario de Tablas
 
-**Versión:** 1.8  **Fecha:** 2026-07-30  **Estado:** DISEÑO COMPLETO — 17 secciones con tablas definidas; 0 secciones pendientes ✅
+**Versión:** 1.9  **Fecha:** 2026-07-31  **Estado:** DISEÑO COMPLETO — 18 secciones con tablas definidas; 0 secciones pendientes ✅
 
 ## Propósito
 
@@ -391,6 +391,69 @@ El diseño DDL (columnas, constraints, índices) se desarrolla en sesiones poste
 
 ---
 
+## CONTEXT PLANE (bos)
+
+> Schema `bos` — Policy Administrator NIST SP 800-207 §3.2. Sesión de INFRAESTRUCTURA. Complementa —no duplica— las tablas de sesión de IDENTIDAD en `bauth` (S9). Redis DB1 como store activo O(1); PostgreSQL como fuente de verdad persistente. Archivo: `bos_01__control_plane.sql`.
+
+| Código | Tabla | Propósito |
+|--------|-------|-----------|
+| T-395 | `bos.ctx_registered_device` | Dispositivos pre-auth — BitMask=0, TTL 8h, heartbeat 30s. Capa INFRAESTRUCTURA (≠ `auth_device` T-390, capa IDENTIDAD). |
+| T-396 | `bos.ctx_context_session` | Sesiones post-auth — ctx_id 6 capas (SBOS-049 §3.1) con BitMask>0. TTL 12h. Redis DB1 O(1) para Kong PEP. |
+| T-397 | `bos.ctx_context_audit` | Auditoría WORM hash-chain SHA-256 de toda operación del Context Plane. 16 tipos de operación. REVOKE UPDATE/DELETE. |
+| T-398 | `bos.ctx_context_switch_log` | Historial WORM de cambios de contexto sin reautenticación. Forensia ITDR: detección de switches anómalos. |
+| T-399 | `bos.ctx_context_policy` | Políticas TTL/seguridad por tenant. Complementa `idn_tenant` (TTL identidad ≠ TTL infraestructura). |
+| T-400 | `bos.ctx_device_heartbeat` | Heartbeats de dispositivos. Alta escritura, 24h retención. Tabla separada para evitar write amplification. |
+| T-401 | `bos.ctx_context_transfer` | Transferencia WORM de contexto entre dispositivos. Tipos: USER_INITIATED, AUTO_CONTINUITY, ADMIN_TRANSFER, BREAKGLASS. |
+| T-402 | `bos.ctx_context_emergency` | Break-glass de contexto (D08-B04). Control dual NIST AC-17(3). TTL 2h fijo. Revisión post-hoc 24h. WORM. |
+
+---
+
+## BOS CONTROL PLANE — Motores FCH · INS · CAP · PRT · REL · WDG
+
+> Schema `bos` — 10 tablas para los 6 subsistemas operacionales del daemon BOS. Estas tablas proveen persistencia a los motores que no tenían cobertura en BD: máquina de estados de fichas, registro de bootstrap, observabilidad de capacidad, kardex de puertos, release plane y watchdog. Todas forman parte de `bos_01__control_plane.sql` (mismo archivo que el grupo CTX). Total schema `bos`: 18 tablas · 8 WORM · 7 grupos. **Naming 100% inglés** para tablas y columnas; comentarios en español.
+
+### Grupo FCH — Motor ③ Server FICHAS (ADR-021)
+
+| Código | Tabla | Propósito |
+|--------|-------|-----------|
+| T-NEW-1 | `bos.fch_ficha_state` | Estado actual de cada ficha declarativa — máquina de 18 estados (ADR-021). `(ficha_name, server_id)` UNIQUE. Sin `tenant_id`: las fichas son infraestructura compartida. `hashes` JSONB con SHA-256 de artefactos para drift detection. `backend` CHECK (bash\|k8s\|binary\|python). |
+| T-NEW-2 | `bos.fch_ficha_event` | Historial WORM de todos los cambios de estado de fichas — append-only, REVOKE UPDATE/DELETE. Hash-chain SHA-256 (`prev_hash`). `tenant_id` = tenant que disparó el evento (auditoría), no dueño. `actor_id + ip_address` → NIST AU-3. `saga_id` agrupa todos los eventos de una misma saga install/update/repair/remove. |
+
+### Grupo INS — Motor ① IAM Installer (ADR-040)
+
+| Código | Tabla | Propósito |
+|--------|-------|-----------|
+| T-NEW-3 | `bos.ins_bootstrap_event` | WORM del bootstrap progresivo de 6 capas (C-01..C-09). `bootstrap_run_id` agrupa un intento completo. `tenant_id` NUNCA NULL: capas 0-2 usan el tenant raíz; capas 3-5 el tenant del cliente. `layer` CHECK (0..5). `verification_code` CHECK (C-NN). REVOKE UPDATE/DELETE. |
+| T-NEW-10 | `bos.ins_saga_execution` | Tracking mutable de sagas generales del Installer — install, update, repair, remove, deploy_tenant, remove_tenant, suspend_tenant. `state` CHECK (RUNNING\|COMPLETED\|FAILED\|COMPENSATING\|COMPENSATED). `compensated_steps` JSONB array de pasos que hicieron rollback. |
+
+### Grupo CAP — Motor ② SO Observable / Capacidad (SBOS-BOS-CAP-001)
+
+| Código | Tabla | Propósito |
+|--------|-------|-----------|
+| T-NEW-4 | `bos.cap_sistema_snapshot` | Instantáneas periódicas (~60s) de 30+ métricas del sistema (Motor ② M5.1). PARTITION BY RANGE (captured_at) — partición mensual `_YYYY_MM`. Purga: DROP TABLE sobre particiones > 90 días (instantáneo). PK compuesta `(snapshot_id, captured_at)`. `scope` CHECK (GLOBAL\|TENANT). No WORM: telemetría operativa. |
+| T-NEW-5 | `bos.cap_tenant_policy` | Política de capacidad por tenant (Motor ② M5.3). UNIQUE por tenant. Fallback: Motor M5.3 usa la fila del tenant raíz si el tenant no tiene la propia. `policy_mode` CHECK (autonomous\|recommend\|block_and_alert\|emergency). Umbrales CPU/mem/disco/RPS/sesiones + horizonte de proyección. |
+
+### Grupo PRT — Port Manager · A.12 · RFC 6335 BCP 165
+
+| Código | Tabla | Propósito |
+|--------|-------|-----------|
+| T-NEW-6 | `bos.prt_port_assignment` | Kardex de puertos — inventario de activos de red (ISO 27001 A.8.20). Inmutabilidad lógica: filas nunca se eliminan, solo transicionan `assigned→released→revoked`. UNIQUE `(port, port_type, namespace)`. `port_type` CHECK (HOST_PHYSICAL\|HOST_LOGICAL\|K8S_NODE_PORT\|K8S_CLUSTER_IP\|K8S_LOAD_BALANCER). `transport` CHECK (TCP\|UDP\|SCTP\|DCCP). |
+
+### Grupo REL — Release Plane (SBOS-RELEASE-001 · Ed25519)
+
+| Código | Tabla | Propósito |
+|--------|-------|-----------|
+| T-NEW-7 | `bos.rel_release_manifest` | Catálogo de versiones disponibles por daemon y canal (canary\|early\|stable). UNIQUE `(daemon_name, version, channel)`. `artifact_sha256 + signature_ed25519` verificados antes de desplegar. `is_rollback_target` marca versiones validadas para rollback. Pull-only desde SKULL Release Server. |
+| T-NEW-8 | `bos.rel_release_event` | WORM de operaciones de actualización/rollback. `operation` CHECK (INSTALL\|UPDATE\|ROLLBACK). `triggered_by` CHECK (scheduler\|watchdog\|human). FK a `rel_release_manifest`. Registra versión anterior (`from_version`) y error en caso de falla. REVOKE UPDATE/DELETE. |
+
+### Grupo WDG — Motor ② SO Observable / Watchdog
+
+| Código | Tabla | Propósito |
+|--------|-------|-----------|
+| T-NEW-9 | `bos.wdg_watchdog_event` | WORM de verificaciones del watchdog de 3 capas. `check_layer` CHECK (ubuntu_host\|k8s_cluster\|bos_fichas). `severity` CHECK (INFO\|WARN\|ERROR\|CRITICAL). `action_taken` CHECK (auto_repair\|hitl_escalated\|daemon_restart\|rollback\|none). REVOKE UPDATE/DELETE. Watchdog corre cada 30s por capa. |
+
+---
+
 ## Resumen de tablas por sección
 
 | Sección | Tablas | Estado | Tipo |
@@ -410,10 +473,12 @@ El diseño DDL (columnas, constraints, índices) se desarrolla en sesiones poste
 | FEDERACIÓN / OIDC | 3+7 (T-365..T-367 · T-368..T-374 en A.65.02.05) | ✅ Definidas (parcial) | OAuth2/OIDC/SAML + tokens + avanzadas en A.65.02.05 (`bauth`) |
 | BILLETERA DIGITAL | 4 (T-380..T-383) | ✅ Definidas | W3C VCDM 2.0 + OID4VP/VCI + presentación WORM + emisión WORM (`bauth`) |
 | RIESGO / ITDR | 1 (T-180) | ✅ Definidas | Política de riesgo adaptativo — `ses_risk_policy` (`bauth`) |
+| **CONTEXT PLANE** | **8 (T-395..T-402)** | ✅ Definidas | **Policy Administrator NIST 800-207 — ctx_id 6 capas — 4 WORM hash-chain (`bos`)** |
 | PAM | 6 (T-182 · T-182b · T-183..T-185 · T-189) | ✅ Definidas | JIT + aprobación multi-nivel + credenciales + sesión privilegiada + break-glass + secretos NHI (`bauth`) |
 | DISPOSITIVOS | 3 (T-390..T-392) | ✅ Definidas ✅ Implementadas | Registro ZTA + postura MDM + binding FIDO2/OSDP WORM (`bauth`) |
 | BLOCKCHAIN D12 | 5 (T-358..T-362) | ✅ Naming canónico | Anclaje Merkle + liquidación Besu (`bauth`) |
-| **Total definido** | **118** | — | *17 secciones ✅ · 0 pendientes · D00 COMPLETO v2.6.0 · v1.8* |
+| **BOS CONTROL PLANE** | **10 (T-NEW-1..T-NEW-10)** | ✅ Definidas ✅ Commiteadas | **FCH 18-state + INS bootstrap/sagas + CAP snapshots/policies + PRT port kardex + REL release + WDG watchdog — schema `bos` — naming 100% inglés** |
+| **Total definido** | **128** | — | *18 secciones ✅ · 0 pendientes · D00 COMPLETO v2.6.0 · bos schema 18 tablas · v1.9* |
 
 ---
 

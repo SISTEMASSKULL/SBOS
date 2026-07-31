@@ -1,7 +1,7 @@
 # SBOS_db_V2_DDL_MANUAL.md
 ## Manual Operativo de la Base de Datos — SBOS Identity Platform V2
 
-**Versión:** 2.9.0 · **Fecha:** 2026-07-30  
+**Versión:** 2.10.0 · **Fecha:** 2026-07-30  
 **Base de datos:** `SBOS_db` · **PostgreSQL:** 18.4 · **UUIDv7:** RFC 9562  
 **Estándar de documentación:** ISO/IEC 11179 · DAMA DMBOK v2 · ISO 24760-2:2025  
 **Sincronizado con:** `SBOS_db_V2_DDL.sql` (NIVEL 0..19) — nombres canónicos del DDL
@@ -32,6 +32,8 @@
 | [S17 — Billetera Digital](#s17--billetera-digital-bauth) (NIVEL 17) | T-380..T-383 (wallet, wallet_item, wallet_presentation_log, wallet_issuance_log) | EUDI Wallet · W3C VCDM 2.0 · OID4VP · OpenID4VCI |
 | [S14 catálogos — MethodRegistry](#s14-catálogos--methodregistry-bauth) (NIVEL 18) | T-384(`auth_federation_protocol`), T-385(`auth_saga_catalog`), T-386(`auth_compliance_map`) | 8+12+14 seeds · protocolos · sagas · cobertura normativa |
 | [S18 — Dispositivos](#s18--dispositivos-bauth) (NIVEL 19) | T-390(`auth_device`), T-391(`auth_device_posture`), T-392(`auth_device_credential_binding`) | ZTA · MDM · FIDO2 · OSDP v2.2 · WORM binding |
+| [S19 — Context Plane](#s19--context-plane-bos) (NIVEL 20) | T-395(`registered_device`), T-396(`ctx_context_session`), T-397(`ctx_context_audit`), T-398(`ctx_context_switch_log`), T-399(`ctx_context_policy`), T-400(`device_heartbeat`), T-401(`ctx_context_transfer`), T-402(`ctx_context_emergency`) | Policy Administrator NIST SP 800-207 · ctx_id 6 capas · WORM hash-chain |
+| [S20 — BOS Control Plane](#s20--bos-control-plane-bos) (NIVEL 21) | T-NEW-1(`fch_ficha_state`), T-NEW-2(`fch_ficha_event`), T-NEW-3(`ins_bootstrap_event`), T-NEW-4(`cap_sistema_snapshot`), T-NEW-5(`cap_tenant_policy`), T-NEW-6(`prt_port_assignment`), T-NEW-7(`rel_release_manifest`), T-NEW-8(`rel_release_event`), T-NEW-9(`wdg_watchdog_event`), T-NEW-10(`ins_saga_execution`) | Fichas · IAM Installer · Capacidad · Port Manager · Release · Watchdog · Sagas |
 
 > **⚠️ Nota v2.3.0:** S8-S12 fueron refactorizados en el DDL. Los nombres canónicos son los del DDL.
 > Tablas ausentes del DDL (pendientes de diseño):
@@ -2285,6 +2287,293 @@ Binding M:N entre dispositivos (T-390) y credenciales (T-330). Permite:
 
 ---
 
+## S19 — Context Plane (bos)
+
+**NIVEL 20 · Tablas:** T-395..T-402  
+**Archivo:** `bos_01__control_plane.sql` · **Schema:** `bos`  
+**Ref:** NIST SP 800-207 §3.2 Policy Administrator · SBOS-049 Context Plane · ISO 27001:2022 A.9.4.2
+
+### Arquitectura Context Plane — Policy Administrator (NIST SP 800-207)
+
+```
+REGISTRO PRE-AUTH                    SESIÓN POST-AUTH
+─────────────────                    ─────────────────
+bos.ctx_registered_device (T-395)        bos.ctx_context_session (T-396)
+  dctx_id ←────────────── referencia ──→ dctx_id
+  hostname, node_k8s, ip                 ctx_id (6 capas SBOS-049)
+  state: PENDING                          entity_1_id, entity_2_id, entity_3_id, user_id
+  TTL 8h                                  bitmask > 0, loa 1-4
+  │                                       state: ACTIVE, TTL 12h
+  │                                       traceparent (W3C)
+  ├── bos.ctx_device_heartbeat (T-400)        │
+  │     cada 30s, retención 24h           ├── bos.ctx_context_audit (T-397) WORM
+  │                                       ├── bos.ctx_context_switch_log (T-398) WORM
+  └── bos.ctx_context_policy (T-399)      ├── bos.ctx_context_transfer (T-401) WORM
+        TTL, rate limit, MDM              └── bos.ctx_context_emergency (T-402) WORM
+        por tenant                              control dual, TTL 2h, revisión 24h
+```
+
+### T-395 — bos.ctx_registered_device
+
+Dispositivos registrados pre-autenticación. BitMask = 0 invariante. TTL 8h con heartbeat cada 30s. Se crea en `bos.ctx.device.register`; se promueve a `ctx_context_session` en login.
+
+**FK:** `tenant_id → bauth.idn_tenant(tenant_id)`  
+**Capa:** INFRAESTRUCTURA — complementa `bauth.auth_device` (T-390, capa de IDENTIDAD).
+
+### T-396 — bos.ctx_context_session
+
+Sesión de infraestructura post-auth. ctx_id de 6 capas (SBOS-049 §3.1). BitMask > 0 calculado por bAuth. Redis DB1 cachea para lookup O(1) < 1ms de Kong PEP. TTL 12h.
+
+**FK:** `tenant_id → idn_tenant` · `entity_1/2/3_id + user_id → idn_identity_entity` · `dctx_id → bos.ctx_registered_device`  
+**Complementa:** `bauth.ses_session_log` (T-181, capa de IDENTIDAD). 6 columnas únicas: entity_1/2/3_id, dctx_id, bitmask, traceparent.
+
+### T-397 — bos.ctx_context_audit 🔒 WORM
+
+Auditoría WORM de toda operación del Context Plane. Hash-chain SHA-256. Append-only. 16 tipos de operación. REVOKE UPDATE/DELETE.
+
+### T-398 — bos.ctx_context_switch_log 🔒 WORM
+
+Historial de cambios de contexto sin reautenticación. Detecta switches anómalos (movimiento lateral ITDR). REVOKE UPDATE/DELETE.
+
+### T-399 — bos.ctx_context_policy
+
+Políticas TTL y seguridad del Context Plane por tenant. Una fila por tenant (UNIQUE). Complementa `idn_tenant.session_ttl_max` (TTL identidad ≠ TTL infraestructura). Parámetros: device_ttl, session_ttl, heartbeat_interval, rate_limit_rps, require_mdm, auto_block_jailbreak.
+
+### T-400 — bos.ctx_device_heartbeat
+
+Heartbeats de dispositivos. Alta escritura (INSERT cada 30s por dispositivo). Retención 24h. Tabla separada de `registered_device` para evitar write amplification.
+
+### T-401 — bos.ctx_context_transfer 🔒 WORM
+
+Transferencia de contexto entre dispositivos. Tipos: USER_INITIATED, AUTO_CONTINUITY, ADMIN_TRANSFER, BREAKGLASS. REVOKE UPDATE/DELETE.
+
+### T-402 — bos.ctx_context_emergency 🔒 WORM
+
+Break-glass de contexto (D08-B04). Control dual NIST AC-17(3): quien activa ≠ quien aprueba. TTL máximo 2h fijo en DDL. Revisión post-hoc obligatoria en 24h. incident_ref externo obligatorio. REVOKE UPDATE/DELETE.
+
+---
+
+## S20 — BOS Control Plane (bos)
+
+**NIVEL 21 · Tablas:** T-NEW-1..T-NEW-10  
+**Archivo:** `bos_01__control_plane.sql` · **Schema:** `bos`  
+**Ref:** ADR-021 (18-state machine) · ADR-040 (bootstrap) · RFC 6335 BCP 165 (Port Manager) · SBOS-BOS-CAP-001 · ISO 27001:2022 A.8.9/A.8.15/A.12.4
+
+### Arquitectura BOS Control Plane — 6 grupos funcionales
+
+```
+GRUPO FCH — Motor ③ Server FICHAS
+bos.fch_ficha_state (T-NEW-1)         ← Estado actual: 18 estados ADR-021
+      └── bos.fch_ficha_event (T-NEW-2) 🔒  ← Historial WORM hash-chain SHA-256
+
+GRUPO INS — Motor ① IAM Installer
+bos.ins_bootstrap_event (T-NEW-3) 🔒  ← Bootstrap 6 capas (C-01..C-09) WORM
+bos.ins_saga_execution (T-NEW-10)     ← Tracking mutable de sagas
+
+GRUPO CAP — Motor ② SO Observable / Capacidad
+bos.cap_sistema_snapshot (T-NEW-4)    ← 30+ métricas cada ~60s · PART mensual
+bos.cap_tenant_policy (T-NEW-5)       ← Políticas por tenant · fallback a raíz
+
+GRUPO PRT — Port Manager (A.12)
+bos.prt_port_assignment (T-NEW-6)     ← Kardex RFC 6335 · inmutabilidad lógica
+
+GRUPO REL — Release Plane
+bos.rel_release_manifest (T-NEW-7)    ← Catálogo canary→early→stable Ed25519
+bos.rel_release_event (T-NEW-8) 🔒   ← Historial WORM de actualizaciones
+
+GRUPO WDG — Motor ② SO Observable / Watchdog
+bos.wdg_watchdog_event (T-NEW-9) 🔒  ← Watchdog 3 capas: host|k8s|fichas
+```
+
+---
+
+### Grupo FCH — Motor ③ Server FICHAS
+
+#### T-NEW-1 — bos.fch_ficha_state
+
+**Propósito:** Estado actual de cada ficha declarativa en la máquina de 18 estados (ADR-021). Una ficha = un componente de plataforma desacoplado de tenant. Multi-tenancy es un concepto de datos (discriminadores, RLS), no de infraestructura.
+
+**¿Qué registra?** Una fila por ficha por servidor lógico: nombre, `server_id`, versión, estado de 18 posibles, categoría 1-5, backend (`bash|k8s|binary|python`), fechas de instalación y health check, hashes SHA-256 de los artefactos (drift detection).
+
+**18 estados — CHECK constraint (ADR-021):**
+
+| Grupo | Estados |
+|-------|---------|
+| Idle | `PENDING`, `READY`, `PAUSED`, `UNINSTALLED` |
+| Instalación | `INSTALLING`, `INSTALLED`, `INSTALL_FAILED` |
+| Actualización | `UPDATE_AVAILABLE`, `UPDATE_APPROVED`, `UPDATING`, `UPDATE_FAILED` |
+| Salud | `DEGRADED`, `PHYSICAL_ERROR`, `LOGICAL_ERROR`, `REPAIRING`, `UNRECOVERABLE` |
+| Ciclo de vida | `ROLLBACK`, `CLEANUP` |
+
+**Clave natural:** `(ficha_name, server_id)` — una ficha por servidor. `hashes` JSONB contiene SHA-256 de `manifest.yml`, `yaml_engine.yml` y `task_catalog.sh` — base del drift detector.
+
+**¿Cuándo se alimenta?** BOS Installer al instalar, actualizar, reparar o remover fichas. El daemon watchdog escribe `last_health_check_at` y `health_status` cada 30s.
+
+**¿Necesita interfaz?** Sí — panel "Fichas" en `bosctl` (CLI) y JSON-RPC `bos.ficha.status`.
+
+---
+
+#### T-NEW-2 — bos.fch_ficha_event 🔒 WORM
+
+**Propósito:** Historial WORM append-only de todos los cambios de estado de fichas. Cada transición de estado en T-NEW-1 genera una fila aquí. REVOKE UPDATE/DELETE. Hash-chain SHA-256 (`prev_hash`).
+
+**¿Qué registra?** Por evento: ficha, tenant que lo disparó, actor y IP (NIST AU-3), operación, transición `from_state → to_state`, resultado (`OK|FAIL|PARTIAL|SKIPPED`), duración en ms, detalles JSONB, `saga_id` (agrupa todos los eventos de una saga completa).
+
+**Diseño:** `tenant_id` es el tenant que DISPARÓ el evento (trazabilidad de auditoría), no un "dueño" de la ficha. FK a `fch_ficha_state` — una ficha debe existir antes de tener historial.
+
+**Índice parcial:** `idx_fch_e_failures` — solo filas `result='FAIL'` para el panel de diagnóstico.
+
+**¿Cuándo se alimenta?** Por el Installer en cada paso de saga. Nunca UPDATE o DELETE.
+
+---
+
+### Grupo INS — Motor ① IAM Installer
+
+#### T-NEW-3 — bos.ins_bootstrap_event 🔒 WORM
+
+**Propósito:** Registro WORM del bootstrap progresivo de 6 capas (C-01..C-09, ADR-040). Traza cada paso desde Ubuntu virgen hasta stack SBOS completo. Hash-chain SHA-256 por `bootstrap_run_id`.
+
+**¿Qué registra?** Por paso: `bootstrap_run_id` (agrupa un intento completo), tenant, actor, nodo físico (`node_id` — NIST CM-8), capa 0-5, nombre de ficha, step, estado (`STARTED|COMPLETED|FAILED|SKIPPED|RETRYING`), código de verificación `C-NN`, resultado, detalles JSONB.
+
+**Diseño de `tenant_id`:** NUNCA es NULL.
+- Capas 0-2 (infraestructura): `tenant_id` = UUID del tenant raíz (sembrado en el seed de BD).
+- Capas 3-5 (cliente): `tenant_id` = UUID del tenant que se instala.
+
+**`verification_code`:** formato `C-01..C-09` — checkpoint de capa completada. NULL en steps intermedios. Índice parcial `idx_ins_be_vcode` para auditoría de checkpoints.
+
+**¿Cuándo se alimenta?** Por `bos.installer.Bootstrap()` en cada paso. Nunca UPDATE o DELETE.
+
+---
+
+#### T-NEW-10 — bos.ins_saga_execution
+
+**Propósito:** Tracking mutable de las sagas generales del IAM Installer (install, update, repair, remove, deploy_tenant, remove_tenant, suspend_tenant). A diferencia de T-NEW-3 (bootstrap WORM), esta tabla es mutable: el estado de la saga avanza de `RUNNING` a `COMPLETED|FAILED|COMPENSATING|COMPENSATED`.
+
+**¿Qué registra?** Una fila por saga: tipo, estado actual, paso activo, `steps_completed` (array JSON con historial de pasos), `compensated_steps` (pasos que ya hicieron rollback), `started_at`, `completed_at`, `last_error`, `ctx_id`.
+
+**Estados:** `RUNNING → COMPLETED | FAILED → COMPENSATING → COMPENSATED`
+
+**Relación con T-NEW-2:** `fch_ficha_event.saga_id` referencia el `saga_id` de esta tabla — permite ver todos los eventos de ficha asociados a una saga.
+
+**¿Cuándo se alimenta?** BOS escribe `RUNNING` al iniciar. Actualiza `steps_completed` en cada paso. En falla: transiciona a `COMPENSATING` y registra los pasos compensados.
+
+---
+
+### Grupo CAP — Motor ② SO Observable / Capacidad
+
+#### T-NEW-4 — bos.cap_sistema_snapshot 📦 PART
+
+**Propósito:** Instantáneas periódicas (~60s) de 30+ métricas del sistema para observabilidad continua y proyección de capacidad (Motor ② M5.1). **No es WORM** — es telemetría operativa con retención de 90 días.
+
+**¿Qué registra?** Snapshot del sistema con 5 subsistemas:
+
+| Subsistema | Métricas |
+|-----------|----------|
+| Context Plane | `ctx_sessions_active`, `ctx_devices_active` |
+| Redis | `redis_memory_pct`, `redis_keys_count`, `redis_ops_per_sec` |
+| PostgreSQL | `pg_connections_active/max`, `pg_db_size_bytes`, `pg_tps` |
+| Kong | `kong_rps`, `kong_latency_p99_ms`, `kong_error_rate_pct` |
+| bAuth | `bauth_cache_miss_pct`, `bauth_token_ops_sec` |
+| bkernel | `bkernel_lag_ms`, `bkernel_events_sec` |
+| K8s | `k8s_nodes_ready/total`, `k8s_pods_running/total`, CPU/mem `%` |
+| Host | `host_cpu_pct`, `host_mem_pct`, `host_disk_pct`, `host_load_avg_1m` |
+| Fichas | `units_healthy`, `units_degraded`, `units_error`, `units_total` |
+
+**Particionamiento:** `PARTITION BY RANGE (captured_at)` — una partición mensual `bos.cap_sistema_snapshot_YYYY_MM`. BOS crea la del mes siguiente el día 25 (cron interno). Purga: `DROP TABLE` sobre particiones con rango terminado hace > 90 días (instantáneo).
+
+**`scope`:** `GLOBAL` (tenant_id NULL) o `TENANT` (tenant_id NOT NULL) — constraint garantiza coherencia.
+
+**¿Cuándo se alimenta?** El observador de capacidad escribe cada ~60s. El dashboard lee para gráficas de tendencia.
+
+---
+
+#### T-NEW-5 — bos.cap_tenant_policy
+
+**Propósito:** Política de capacidad declarada por tenant (Motor ② M5.3). UNIQUE por tenant. Define umbrales de CPU/mem/disco, límites RPS de Kong, máximo de sesiones de contexto y horizon de proyección.
+
+**Fallback:** Si un tenant no tiene fila, Motor M5.3 usa la fila del tenant raíz (sembrado en el seed de SBOS_db junto a la empresa master, sucursal master y política de capacidad raíz).
+
+**`policy_mode`:**
+- `autonomous` — BOS actúa automáticamente sin HITL
+- `recommend` — BOS sugiere, humano aprueba
+- `block_and_alert` — BOS bloquea nueva admisión y notifica
+- `emergency` — protocolo completo de emergencia de capacidad
+
+**Columnas clave:**
+- `kong_tenant_rps_cap`: cap total de RPS del tenant en Kong PEP (infraestructura) — distinto de `ctx_context_policy.rate_limit_rps` (Context API) y de `bauth.idn_tenant.rate_limit_rps` (IAM).
+- `ctx_sessions_max`: techo agregado del tenant (distinto de `max_sessions_per_user`).
+- `projection_confidence` (0-1): confianza requerida para proyección de capacidad a N días.
+
+**¿Cuándo se alimenta?** BOS seed al crear el tenant. El administrador actualiza via `bosctl` / `bos.cap.policy.update`. `updated_by + effective_from` → trazabilidad NIST AU-3.
+
+---
+
+### Grupo PRT — Port Manager (A.12)
+
+#### T-NEW-6 — bos.prt_port_assignment
+
+**Propósito:** Kardex de asignaciones de puertos — implementación interna de RFC 6335 (BCP 165) dentro de SBOS. Registro de inventario de activos de red conforme ISO 27001 A.8.20. **Inmutabilidad lógica:** las filas nunca se eliminan — solo transicionan `assigned → released → revoked`.
+
+**¿Qué registra?** Por puerto: servicio, puerto (1-65535), protocolo (`TCP|UDP|SCTP|DCCP`), tipo (`HOST_PHYSICAL|HOST_LOGICAL|K8S_NODE_PORT|K8S_CLUSTER_IP|K8S_LOAD_BALANCER`), servidor lógico (`logical_server`), namespace K8s, ficha asignada (`ficha_id`), rol (`CONTROL_PLANE|DATA_PLANE|MANAGEMENT|DEBUG`), Cluster IP/External IP/DNS/Subdomain/Kong route, tipo de activo y propietario del activo, estado (`assigned|released|revoked|conflict`), timestamps de asignación, liberación y última validación.
+
+**UNIQUE:** `(port, port_type, namespace)` — un puerto dentro del mismo espacio nunca puede estar asignado dos veces.
+
+**¿Cuándo se alimenta?** BOS Port Manager en `bos.port.assign` / `bos.port.release`. El Port Manager verifica disponibilidad aquí antes de asignar cualquier puerto a una ficha.
+
+**¿Necesita interfaz?** Sí — `bosctl port list` y `bosctl port status` (A.12 — Kardex de Puertos).
+
+---
+
+### Grupo REL — Release Plane
+
+#### T-NEW-7 — bos.rel_release_manifest
+
+**Propósito:** Catálogo canónico de versiones disponibles para pull desde el SKULL Release Server. Un registro = una versión de un daemon en un canal. Solo pull — SBOS nunca empuja a este catálogo.
+
+**Canales:** `canary → early → stable` (orden de promoción). Cada versión existe primero en `canary`, se promueve a `early` tras validación, y a `stable` para despliegue en producción.
+
+**¿Qué registra?** Por versión: daemon, versión semver, canal, URL del artefacto, SHA-256 del artefacto, firma Ed25519 (verificada antes de desplegar), versión mínima de BOS requerida, release notes, flag `is_rollback_target` (versión validada a la que se puede hacer rollback), `pulled_at` (momento en que BOS descargó el manifiesto), `ctx_id`.
+
+**UNIQUE:** `(daemon_name, version, channel)` — una versión en un canal es un registro único.
+
+**Firma:** `signature_ed25519` — BOS verifica contra la clave pública del Release Server antes de aplicar cualquier actualización.
+
+---
+
+#### T-NEW-8 — bos.rel_release_event 🔒 WORM
+
+**Propósito:** Historial WORM de cada operación de actualización o rollback de daemons. REVOKE UPDATE/DELETE. Una fila por operación (`INSTALL|UPDATE|ROLLBACK`) sobre un manifiesto.
+
+**¿Qué registra?** Referencia al manifiesto (T-NEW-7), operación, estado (`STARTED|COMPLETED|FAILED|ROLLED_BACK`), quién lo disparó (`scheduler|watchdog|human`), daemon, versión, versión previa (`from_version`), error en caso de falla, actor y `ctx_id`.
+
+**¿Cuándo se alimenta?** El Release Manager de BOS en cada ciclo de actualización. El Watchdog escribe cuando dispara un rollback automático (60s TTL).
+
+---
+
+### Grupo WDG — Motor ② SO Observable / Watchdog
+
+#### T-NEW-9 — bos.wdg_watchdog_event 🔒 WORM
+
+**Propósito:** Registro WORM de cada verificación del watchdog de 3 capas (Motor ②). Cada chequeo fallido o exitoso queda aquí con el resultado y la acción tomada. REVOKE UPDATE/DELETE.
+
+**3 capas del watchdog (`check_layer`):**
+- `ubuntu_host` — capa 1: systemd, servicios del OS, conectividad
+- `k8s_cluster` — capa 2: pods, nodes, namespace health
+- `bos_fichas` — capa 3: estado de fichas declarativas (T-NEW-1)
+
+**`severity`:** `INFO | WARN | ERROR | CRITICAL`
+
+**`action_taken`:**
+- `auto_repair` — BOS inició reparación automática
+- `hitl_escalated` — escalado a humano (HITL)
+- `daemon_restart` — reinicio del daemon afectado
+- `rollback` — rollback automático del Release Plane (60s TTL)
+- `none` — verificación pasó, sin acción
+
+**¿Cuándo se alimenta?** El watchdog corre cada 30s por capa. Cada resultado genera un evento aquí. `CHECK CRITICAL` + `action_taken='rollback'` → acompañado de fila en T-NEW-8.
+
+---
+
 ## Apéndice D — Normas y estándares aplicados
 
 | Norma | Aplicación en SBOS_db_V2 |
@@ -2331,7 +2620,9 @@ Binding M:N entre dispositivos (T-390) y credenciales (T-330). Permite:
 
 | Versión | Fecha | Cambios |
 |---------|-------|---------|
-| v2.9.0 | 2026-07-30 | T-384..386 (catálogos MethodRegistry: protocolos, sagas, compliance) + S18 Dispositivos T-390..392 (ZTA/MDM/FIDO2/OSDP). 6 tablas + 34 seeds. DDL completo — 0 secciones pendientes. |
+| v2.11.0 | 2026-07-31 | S20 BOS Control Plane (`bos`): T-NEW-1..T-NEW-10. 10 tablas nuevas (4 WORM) — FCH 18-state machine, INS bootstrap/sagas, CAP snapshots/policies, PRT port kardex, REL release plane, WDG watchdog 3 capas. Total schema `bos`: 18 tablas · 8 WORM · 7 grupos. |
+| v2.10.0 | 2026-07-30 | S19 Context Plane (`bos`): T-395..402. 8 tablas (4 WORM hash-chain) — Policy Administrator NIST SP 800-207. Schema `bos` autónomo en `bos_01__control_plane.sql`. Cierra GAP D08-B04 (break-glass de contexto). |
+| v2.9.0 | 2026-07-30 | T-384..386 (catálogos MethodRegistry: protocolos, sagas, compliance) + S18 Dispositivos T-390..392 (ZTA/MDM/FIDO2/OSDP). 6 tablas + 34 seeds. |
 | v2.8.0 | 2026-07-30 | S13..S17 + D12 implementados: +T-320..322 (Usuarios NIST 800-63-4), +T-330..338 (Autenticación MethodRegistry FIDO2/X.509/DPoP), +T-350..357 (Firma Digital D13 Ley 164), +T-358..362 (Blockchain Merkle/Besu/Arbitrum), +T-365..367 (Federación OIDC DPoP FAPI2), +T-380..383 (Billetera Digital EUDI OID4VP). 32 nuevas tablas. 106 tablas base + 17 particiones hijas = 123 CREATE TABLE. |
 | v2.7.0 | 2026-07-28 | GAP-D00-01..10 implementados: +T-186 (lifecycle_event JML), +T-169 (did_document), +T-187 (scim_attribute_map), +T-188 (dpia_registro); ALTER T-157 +5 cols clasificación; ALTER T-159 +risk_threshold +dirm_policy_ref; ALTER T-165 +risk_context +eidas_level; ALTER T-166 +6 cols GDPR granular; ALTER T-167 +eidas_assurance_level +eidas_vc_type; seeds mDL/VC (T-159) + seeds bdomain (T-159) |
 | v2.6.0 | 2026-07-28 | T-165..T-168 implementadas (proofing, consentimiento, VC, FAL); 25 átomos D00 (pos 292-316); triggers trg_iiattr_history, trg_iip_status_to_entity, trg_ivc_expiry_check; jobs fn_job_reproofing_check/vc_expiry_check/next_partition + OS crontab |
@@ -2339,4 +2630,4 @@ Binding M:N entre dispositivos (T-390) y credenciales (T-330). Permite:
 | v2.4.0 | 2026-07-24 | T-159 (idn_identity_requirement) implementada |
 | v2.3.0 | 2026-07-22 | S8-S12 refactorizados; nombres canónicos del DDL |
 
-*Fin del manual — SBOS_db_V2_DDL_MANUAL.md — v2.9.0 · 2026-07-30*
+*Fin del manual — SBOS_db_V2_DDL_MANUAL.md — v2.11.0 · 2026-07-31*
