@@ -394,7 +394,7 @@ CREATE TABLE IF NOT EXISTS bos.fch_ficha_state (
     ficha_name           TEXT        NOT NULL,
     server_id            TEXT        NOT NULL,
     version              TEXT        NOT NULL DEFAULT '0.0.0',
-    state                TEXT        NOT NULL DEFAULT 'PENDIENTE',
+    state                TEXT        NOT NULL DEFAULT 'PENDING',
     category             INTEGER     NOT NULL DEFAULT 1,
     criticality          BOOLEAN     NOT NULL DEFAULT false,
     backend              TEXT        NOT NULL DEFAULT 'bash',
@@ -410,11 +410,11 @@ CREATE TABLE IF NOT EXISTS bos.fch_ficha_state (
     CONSTRAINT fch_s_pkey           PRIMARY KEY (ficha_id),
     CONSTRAINT uq_fch_s_name_server UNIQUE (ficha_name, server_id),
     CONSTRAINT chk_fch_s_state      CHECK (state IN (
-        'PENDIENTE','LISTA','INSTALANDO','INSTALADA',
-        'ACTUALIZACION_DISPONIBLE','ACTUALIZACION_APROBADA','ACTUALIZANDO',
-        'DEGRADADA','ERROR_FISICO','ERROR_LOGICO','REPARANDO',
-        'ERROR_NO_CORREGIBLE','FALLA_INSTALACION','FALLA_ACTUALIZACION',
-        'ROLLBACK','LIMPIEZA','PAUSADA','DESINSTALADA'
+        'PENDING','READY','INSTALLING','INSTALLED',
+        'UPDATE_AVAILABLE','UPDATE_APPROVED','UPDATING',
+        'DEGRADED','PHYSICAL_ERROR','LOGICAL_ERROR','REPAIRING',
+        'UNRECOVERABLE','INSTALL_FAILED','UPDATE_FAILED',
+        'ROLLBACK','CLEANUP','PAUSED','UNINSTALLED'
     )),
     CONSTRAINT chk_fch_s_backend    CHECK (backend IN ('bash','k8s','binary','python')),
     CONSTRAINT chk_fch_s_category   CHECK (category BETWEEN 1 AND 5),
@@ -424,7 +424,7 @@ CREATE TABLE IF NOT EXISTS bos.fch_ficha_state (
 CREATE INDEX IF NOT EXISTS idx_fch_s_server   ON bos.fch_ficha_state (server_id);
 CREATE INDEX IF NOT EXISTS idx_fch_s_state    ON bos.fch_ficha_state (state);
 CREATE INDEX IF NOT EXISTS idx_fch_s_degraded ON bos.fch_ficha_state (state)
-    WHERE state IN ('DEGRADADA','ERROR_FISICO','ERROR_LOGICO','ERROR_NO_CORREGIBLE');
+    WHERE state IN ('DEGRADED','PHYSICAL_ERROR','LOGICAL_ERROR','UNRECOVERABLE');
 
 COMMENT ON TABLE bos.fch_ficha_state IS
   '[T-NEW-1] [SBOS-019] [3.01 máquina 18 estados] [ISO 27001:2022 A.8.9] [NIST CM-8]
@@ -595,10 +595,10 @@ CREATE TABLE IF NOT EXISTS bos.cap_sistema_snapshot (
     host_disk_pct         NUMERIC(5,2) NULL,
     host_load_avg_1m      NUMERIC(6,2) NULL,
 
-    fichas_healthy        INTEGER      NULL,
-    fichas_degraded       INTEGER      NULL,
-    fichas_error          INTEGER      NULL,
-    fichas_total          INTEGER      NULL,
+    units_healthy         INTEGER      NULL,
+    units_degraded        INTEGER      NULL,
+    units_error           INTEGER      NULL,
+    units_total           INTEGER      NULL,
 
     extras                JSONB        NOT NULL DEFAULT '{}',
 
@@ -629,8 +629,8 @@ CREATE TABLE IF NOT EXISTS bos.cap_sistema_snapshot_2026_07
 
 CREATE INDEX IF NOT EXISTS idx_cap_sn_scope_time  ON bos.cap_sistema_snapshot (scope, captured_at DESC);
 CREATE INDEX IF NOT EXISTS idx_cap_sn_tenant_time ON bos.cap_sistema_snapshot (tenant_id, captured_at DESC) WHERE tenant_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_cap_sn_degraded    ON bos.cap_sistema_snapshot (fichas_degraded, captured_at DESC)
-    WHERE fichas_degraded > 0;
+CREATE INDEX IF NOT EXISTS idx_cap_sn_degraded    ON bos.cap_sistema_snapshot (units_degraded, captured_at DESC)
+    WHERE units_degraded > 0;
 
 COMMENT ON TABLE bos.cap_sistema_snapshot IS
   '[T-NEW-4] [SBOS-BOS-CAP-001] [2.02 M5.1] [ISO 27001:2022 A.12.4]
@@ -646,15 +646,15 @@ COMMENT ON TABLE bos.cap_sistema_snapshot IS
    Todas las métricas son NULLable: fuente caída no invalida el snapshot.';
 
 -- =============================================================================
--- T-NEW-5 — bos.cap_tenant_politica
+-- T-NEW-5 — bos.cap_tenant_policy
 -- Políticas de capacidad por tenant (Motor ② M5.3).
 -- Fallback: si el tenant no tiene fila, Motor M5.3 usa la fila del tenant raíz.
 -- El tenant raíz y su política se siembran en el seed de creación de SBOS_db.
--- GRUPO=cap · ENTIDAD=tenant · OBJETO=politica
+-- GRUPO=cap · ENTIDAD=tenant · OBJETO=policy
 -- SBOS-BOS-CAP-001 · 2.02 M5.3 · ISO 27001:2022 A.8.9 · NIST SP 800-53 CA-7
 -- =============================================================================
-CREATE TABLE IF NOT EXISTS bos.cap_tenant_politica (
-    politica_id              UUID         NOT NULL DEFAULT uuidv7(),
+CREATE TABLE IF NOT EXISTS bos.cap_tenant_policy (
+    policy_id                UUID         NOT NULL DEFAULT uuidv7(),
     tenant_id                UUID         NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
     updated_by               UUID         NULL     REFERENCES bauth.idn_identity_entity(entity_id),
     effective_from           TIMESTAMPTZ  NOT NULL DEFAULT now(),
@@ -675,8 +675,8 @@ CREATE TABLE IF NOT EXISTS bos.cap_tenant_politica (
     updated_at               TIMESTAMPTZ  NOT NULL DEFAULT now(),
     ctx_id                   TEXT         NOT NULL DEFAULT 'system',
 
-    CONSTRAINT cap_tp_pkey              PRIMARY KEY (politica_id),
-    CONSTRAINT uq_cap_tp_tenant         UNIQUE (tenant_id),
+    CONSTRAINT cap_pol_pkey             PRIMARY KEY (policy_id),
+    CONSTRAINT uq_cap_pol_tenant        UNIQUE (tenant_id),
     CONSTRAINT chk_cap_tp_mode          CHECK (policy_mode IN (
         'autonomous','recommend','block_and_alert','emergency'
     )),
@@ -693,10 +693,10 @@ CREATE TABLE IF NOT EXISTS bos.cap_tenant_politica (
     CONSTRAINT chk_cap_tp_confidence    CHECK (projection_confidence BETWEEN 0 AND 1)
 );
 
-CREATE INDEX IF NOT EXISTS idx_cap_tp_mode  ON bos.cap_tenant_politica (policy_mode);
-CREATE INDEX IF NOT EXISTS idx_cap_tp_actor ON bos.cap_tenant_politica (updated_by) WHERE updated_by IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_cap_pol_mode  ON bos.cap_tenant_policy (policy_mode);
+CREATE INDEX IF NOT EXISTS idx_cap_pol_actor ON bos.cap_tenant_policy (updated_by) WHERE updated_by IS NOT NULL;
 
-COMMENT ON TABLE bos.cap_tenant_politica IS
+COMMENT ON TABLE bos.cap_tenant_policy IS
   '[T-NEW-5] [SBOS-BOS-CAP-001] [2.02 M5.3] [ISO 27001:2022 A.8.9] [NIST SP 800-53 CA-7]
    Políticas de capacidad declaradas por tenant. UNIQUE por tenant.
    FALLBACK: si un tenant no tiene fila, Motor M5.3 usa la fila del tenant raíz
@@ -710,9 +710,9 @@ COMMENT ON TABLE bos.cap_tenant_politica IS
    ctx_sessions_max: techo AGREGADO del tenant (distinto de max_sessions_per_user).
    Notificaciones: delegadas a bnotify — no almacenar webhook_url/email aquí.
    updated_by + effective_from: trazabilidad NIST AU-3 / ISO A.8.9.';
-COMMENT ON COLUMN bos.cap_tenant_politica.policy_mode IS
+COMMENT ON COLUMN bos.cap_tenant_policy.policy_mode IS
   'autonomous=BOS actúa solo · recommend=HITL aprueba · block_and_alert=bloquea · emergency=protocolo completo.';
-COMMENT ON COLUMN bos.cap_tenant_politica.kong_tenant_rps_cap IS
+COMMENT ON COLUMN bos.cap_tenant_policy.kong_tenant_rps_cap IS
   'Cap total de RPS del tenant en Kong PEP. Capa de infraestructura. Ver ctx_context_policy.rate_limit_rps para capa Context API.';
 
 -- =============================================================================
@@ -729,19 +729,19 @@ CREATE TABLE IF NOT EXISTS bos.prt_port_assignment (
 
     -- Campos RFC 6335 obligatorios (§5 — los 8 campos del registro)
     service_name       TEXT         NOT NULL, -- "sbos-keycloak-http" (1-15 chars RFC 6335 §5.1)
-    puerto             INTEGER      NOT NULL, -- 8200
+    port               INTEGER      NOT NULL, -- 8200
     transport          TEXT         NOT NULL, -- TCP|UDP|SCTP|DCCP
-    asignado_por       TEXT         NOT NULL, -- "bos.ficha.install" (RFC 6335 field 3)
+    assigned_by        TEXT         NOT NULL, -- "bos.ficha.install" (RFC 6335 field 3)
     ficha_id           TEXT         NOT NULL, -- Contact: ficha responsable (RFC 6335 field 4)
-    descripcion        TEXT         NOT NULL, -- Description (RFC 6335 field 5)
-    referencia_doc     TEXT         NOT NULL, -- Reference (RFC 6335 field 6)
+    description        TEXT         NOT NULL, -- Description (RFC 6335 field 5)
+    doc_reference      TEXT         NOT NULL, -- Reference (RFC 6335 field 6)
 
     -- Clasificación SBOS
-    tipo_puerto        TEXT         NOT NULL, -- containerPort|ClusterIP|NodePort|hostPort|daemonPort
-    servidor_logico    TEXT         NOT NULL, -- S00..S16, S-HOST
+    port_type          TEXT         NOT NULL, -- containerPort|ClusterIP|NodePort|hostPort|daemonPort
+    logical_server     TEXT         NOT NULL, -- S00..S16, S-HOST
     namespace          TEXT         NULL,     -- namespace K8s (NULL para host/daemon)
     container_port     INTEGER      NULL,     -- puerto canónico del contenedor
-    tipo_t             SMALLINT     NOT NULL DEFAULT 0, -- 0=HTTP,1=HTTPS,2=metrics,3=health,4=admin,6=WS
+    port_role          SMALLINT     NOT NULL DEFAULT 0, -- 0=HTTP,1=HTTPS,2=metrics,3=health,4=admin,6=WS
 
     -- Identidad de red estable (capa Service — no Pods, que son efímeros)
     cluster_ip         TEXT         NULL,     -- IP del K8s Service (ClusterIP/LoadBalancer)
@@ -752,45 +752,45 @@ CREATE TABLE IF NOT EXISTS bos.prt_port_assignment (
     asset_type         TEXT         NOT NULL DEFAULT 'ficha',
     asset_id           TEXT         NULL,     -- ID del activo (ficha_id, nodo nombre, daemon nombre)
     asset_owner        TEXT         NULL,     -- Responsable (tenant, sistema)
-    labels             JSONB        NULL,     -- {"hpa":"enabled","replicas":"2-20","critico":true}
+    labels             JSONB        NULL,     -- {"hpa":"enabled","replicas":"2-20","critical":true}
 
     -- Exposición exterior
-    subdominio         TEXT         NULL,     -- auth.cliente.sbos.app
-    ruta_kong          TEXT         NULL,     -- /auth → 8200
+    subdomain          TEXT         NULL,     -- auth.cliente.sbos.app
+    kong_route         TEXT         NULL,     -- /auth → 8200
 
     -- Estado — RFC 6335 §8 (ciclo de vida: nunca borrar, solo cambiar estado)
-    estado             TEXT         NOT NULL DEFAULT 'asignado',
-    asignado_en        TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    liberado_en        TIMESTAMPTZ  NULL,
-    ultima_validacion  TIMESTAMPTZ  NULL,     -- última vez que portman.validate confirmó el registro
-    notas              TEXT         NULL,
+    status             TEXT         NOT NULL DEFAULT 'assigned',
+    assigned_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    released_at        TIMESTAMPTZ  NULL,
+    last_validated_at  TIMESTAMPTZ  NULL,     -- última vez que portman.validate confirmó el registro
+    notes              TEXT         NULL,
     ctx_id             TEXT         NOT NULL DEFAULT 'system',
 
-    CONSTRAINT prt_pa_pkey           PRIMARY KEY (port_id),
+    CONSTRAINT prt_pa_pkey              PRIMARY KEY (port_id),
     -- Un puerto+tipo+namespace no puede asignarse dos veces simultáneamente
-    CONSTRAINT uq_prt_pa_port_ns     UNIQUE (puerto, tipo_puerto, namespace),
-    CONSTRAINT chk_prt_pa_transport  CHECK (transport IN ('TCP','UDP','SCTP','DCCP')),
-    CONSTRAINT chk_prt_pa_tipo       CHECK (tipo_puerto IN (
+    CONSTRAINT uq_prt_pa_port_ns        UNIQUE (port, port_type, namespace),
+    CONSTRAINT chk_prt_pa_transport     CHECK (transport IN ('TCP','UDP','SCTP','DCCP')),
+    CONSTRAINT chk_prt_pa_port_type     CHECK (port_type IN (
         'containerPort','ClusterIP','NodePort','hostPort','daemonPort'
     )),
-    CONSTRAINT chk_prt_pa_asset      CHECK (asset_type IN (
-        'ficha','daemon','server_logico','nodo_k8s','service_k8s','ruta_kong'
+    CONSTRAINT chk_prt_pa_asset         CHECK (asset_type IN (
+        'ficha','daemon','logical_server','k8s_node','k8s_service','kong_route'
     )),
-    CONSTRAINT chk_prt_pa_estado     CHECK (estado IN ('asignado','liberado','revocado','en_conflicto')),
-    CONSTRAINT chk_prt_pa_puerto     CHECK (puerto BETWEEN 1024 AND 49151),
-    CONSTRAINT chk_prt_pa_tipo_t     CHECK (tipo_t BETWEEN 0 AND 9),
-    CONSTRAINT chk_prt_pa_libera     CHECK (
-        (estado = 'liberado' AND liberado_en IS NOT NULL) OR
-        (estado != 'liberado' AND liberado_en IS NULL)
+    CONSTRAINT chk_prt_pa_status        CHECK (status IN ('assigned','released','revoked','conflict')),
+    CONSTRAINT chk_prt_pa_port_range    CHECK (port BETWEEN 1024 AND 49151),
+    CONSTRAINT chk_prt_pa_port_role     CHECK (port_role BETWEEN 0 AND 9),
+    CONSTRAINT chk_prt_pa_release_state CHECK (
+        (status = 'released' AND released_at IS NOT NULL) OR
+        (status != 'released' AND released_at IS NULL)
     )
 );
 
 CREATE INDEX IF NOT EXISTS idx_prt_pa_ficha     ON bos.prt_port_assignment (ficha_id);
-CREATE INDEX IF NOT EXISTS idx_prt_pa_server    ON bos.prt_port_assignment (servidor_logico);
-CREATE INDEX IF NOT EXISTS idx_prt_pa_estado    ON bos.prt_port_assignment (estado) WHERE estado = 'asignado';
+CREATE INDEX IF NOT EXISTS idx_prt_pa_server    ON bos.prt_port_assignment (logical_server);
+CREATE INDEX IF NOT EXISTS idx_prt_pa_status    ON bos.prt_port_assignment (status) WHERE status = 'assigned';
 CREATE INDEX IF NOT EXISTS idx_prt_pa_service   ON bos.prt_port_assignment (service_name);
 CREATE INDEX IF NOT EXISTS idx_prt_pa_asset     ON bos.prt_port_assignment (asset_type, asset_id);
-CREATE INDEX IF NOT EXISTS idx_prt_pa_subdom    ON bos.prt_port_assignment (subdominio) WHERE subdominio IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_prt_pa_subdomain ON bos.prt_port_assignment (subdomain) WHERE subdomain IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_prt_pa_labels    ON bos.prt_port_assignment USING GIN (labels) WHERE labels IS NOT NULL;
 
 COMMENT ON TABLE bos.prt_port_assignment IS
@@ -800,16 +800,16 @@ COMMENT ON TABLE bos.prt_port_assignment IS
    INMUTABILIDAD LÓGICA: filas nunca se borran (RFC 6335 §8 "De-Assignment").
    Solo cambian de estado: asignado→liberado→revocado. liberado_en registra la fecha.
    Dos capas de identidad de red (A.12 §6.1):
-     · Service (estable): ClusterIP + puerto — guardado en Kardex.
+     · Service (estable): ClusterIP + port — guardado en Kardex.
      · Pod (efímero): Pod IP + containerPort — consultado en tiempo real vía K8s API.
-   Algoritmo A: BASE_SERVIDOR + (ficha_index×10) + tipo_t (determinístico).
-   Algoritmo B: SHA256(ficha_id:tipo:clash) % RANGO (hash fallback si bloque agotado).
+   Algoritmo A: BASE_SERVIDOR + (ficha_index×10) + port_role (determinístico).
+   Algoritmo B: SHA256(ficha_id:port_type:clash) % RANGO (hash fallback si bloque agotado).
    portman.validate (cada 300s) compara Kardex vs kubectl get svc → detecta drift.
-   puerto: rango 1024-49151 (User Ports RFC 6335). 0-1023 y 49152-65535 prohibidos.';
+   port: rango 1024-49151 (User Ports RFC 6335). 0-1023 y 49152-65535 prohibidos.';
 COMMENT ON COLUMN bos.prt_port_assignment.service_name IS
-  'Service Name RFC 6335 §5.1: "sbos-<ficha>-<tipo>", 1-15 chars, sin guiones adyacentes.';
-COMMENT ON COLUMN bos.prt_port_assignment.tipo_t IS
-  '0=HTTP, 1=HTTPS, 2=métricas, 3=healthcheck, 4=admin, 5=grpc, 6=WebSocket, 7=debug, 8=backup, 9=otro.';
+  'Service Name RFC 6335 §5.1: "sbos-<ficha>-<role>", 1-15 chars, sin guiones adyacentes.';
+COMMENT ON COLUMN bos.prt_port_assignment.port_role IS
+  '0=HTTP, 1=HTTPS, 2=metrics, 3=healthcheck, 4=admin, 5=grpc, 6=WebSocket, 7=debug, 8=backup, 9=other.';
 
 -- =============================================================================
 -- T-NEW-7 — bos.rel_release_manifest
@@ -1058,7 +1058,7 @@ COMMENT ON COLUMN bos.ins_saga_execution.saga_type IS
 --
 -- GRUPO CAP — Motor ② SO Observable / Capacidad             2 tablas ✅
 -- T-NEW-4  bos.cap_sistema_snapshot      30+ métricas cada 60s (particionado mensual + cron DROP)
--- T-NEW-5  bos.cap_tenant_politica       Políticas por tenant (fallback = fila del tenant raíz)
+-- T-NEW-5  bos.cap_tenant_policy         Políticas por tenant (fallback = fila del tenant raíz)
 --
 -- GRUPO PRT — Port Manager (A.12 / RFC 6335 BCP 165)        1 tabla  ✅
 -- T-NEW-6  bos.prt_port_assignment       Kardex de puertos (inmutabilidad lógica, RFC 6335 §8)
