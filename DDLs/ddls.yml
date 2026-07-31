@@ -151,10 +151,11 @@ estructura:
   backups/: "Respaldos comprimidos de la BD. Resguardo histórico."
   _obsoletos/: "Archivos superados (DDL_bos_schema.sql, versiones sueltas, main.sql).
                 No se borran; se conservan para trazabilidad."
-  futuro_migrations/: "Cuando un servicio pase a PRODUCCIÓN, su DDL se congela y
-                       los cambios posteriores van como migrations incrementales
-                       <servicio>_NN__<descripcion>.sql en este directorio (a crear).
-                       Hoy 100% del proyecto está en DESARROLLO → sin migrations."
+  migrations/: "Migraciones de ampliación que el humano decidió mantener separadas del
+                DDL unificado (archivos demasiado grandes para concatenar). Actualmente
+                contiene la migración de dominios D02-D15+D98+D99 de bAuth (~77 tablas).
+                Archivos activos: bauth_dominios_pendientes_v2.0.sql (commit c420dc2).
+                Cargados por inicializar_sbos_db.sh DESPUÉS del DDL unificado y de bos."
 
 # ── PUNTO DE ENTRADA ────────────────────────────────────────────────────────
 punto_de_entrada:
@@ -162,8 +163,16 @@ punto_de_entrada:
   manual: "SBOS_db_V2_DDL_MANUAL.md"
   doctrina: "ddls.yml"
   seeds: "seeds/"
-  nota: "Orquestador de carga (inicializar_sbos_db.sh) PENDIENTE de crear.
-         Hoy la carga se hace directa: psql < SBOS_db_V2_DDL.sql + seeds/*.sql"
+  orquestador: "inicializar_sbos_db.sh — CREADO (2026-08-01). Script bash que carga en orden:
+                DDL unificado → bos_01__control_plane.sql → migrations/*.sql → seeds/*.sql.
+                Verifica idempotencia (segunda pasada) y completitud (conteo por schema,
+                tablas clave, seeds críticos). Uso: ./inicializar_sbos_db.sh [DB_NAME]."
+  migrations_activas:
+    - archivo: "migrations/bauth_dominios_pendientes_v2.0.sql"
+      commit: "c420dc2"
+      dominios: "D02 D03 D04 D05 D06 D07 D09 D10 D11 D12 D13 D14 D15 D98 D99"
+      tablas: ~77
+      estado: "APLICADO en SBOSDB producción (221 tablas bauth)"
 
 # ── REGLAS PARA AGENTES DESARROLLADORES ─────────────────────────────────────
 reglas_agentes:
