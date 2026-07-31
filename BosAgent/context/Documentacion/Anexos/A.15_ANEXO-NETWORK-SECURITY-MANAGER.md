@@ -206,75 +206,83 @@ SPIRE Server (DaemonSet en K8s)
 ### 2.7 Kardex de Certificados (T-413)
 
 ```sql
--- DDL propuesto para bos.cert_inventory (T-413)
-CREATE TABLE IF NOT EXISTS bos.cert_inventory (
-    cert_id         UUID PRIMARY KEY DEFAULT uuidv7(),
-    
+-- T-413: bos.net_cert_inventory — Kardex de certificados TLS
+-- Convención de nombres DDL: grupo NET → prefijo net_ (igual que bos.net_security_events T-414)
+CREATE TABLE IF NOT EXISTS bos.net_cert_inventory (
+    cert_id            UUID         NOT NULL DEFAULT uuidv7(),
+
     -- Identidad del certificado
-    subject_cn      TEXT NOT NULL,          -- "keycloak.sbos-identity.svc"
-    subject_san     TEXT[],                 -- ["keycloak", "auth.empresa.sbos.app"]
-    issuer          TEXT NOT NULL,          -- "SBOS Intermediate CA — Workloads"
-    serial_number   TEXT,                   -- número de serie del cert
-    fingerprint_sha256 TEXT,               -- SHA-256 del cert (audit trail)
-    
+    subject_cn         TEXT         NOT NULL,           -- "keycloak.sbos-identity.svc"
+    subject_san        TEXT[]       NOT NULL DEFAULT '{}',-- ["keycloak", "auth.empresa.sbos.app"]
+    issuer             TEXT         NOT NULL,           -- "SBOS Intermediate CA — Workloads"
+    serial_number      TEXT         NULL,               -- número de serie RFC 5280 §4.1.2.2 (OCSP)
+    fingerprint_sha256 TEXT         NOT NULL,           -- SHA-256 DER (huella única del cert)
+
     -- Lifecycle
-    valid_from      TIMESTAMPTZ NOT NULL,
-    valid_until     TIMESTAMPTZ NOT NULL,
-    days_remaining  INTEGER GENERATED ALWAYS AS
-                    (EXTRACT(DAY FROM valid_until - NOW())::INTEGER) STORED,
-    
+    valid_from         TIMESTAMPTZ  NOT NULL,
+    valid_until        TIMESTAMPTZ  NOT NULL,
+    days_remaining     INTEGER      GENERATED ALWAYS AS
+                           (EXTRACT(DAY FROM (valid_until - NOW()))::INTEGER) STORED,
+
     -- Tipo y uso
-    cert_type       TEXT NOT NULL CHECK (cert_type IN (
-                        'daemon_host',      -- bos, bauth, bkernel...
-                        'ficha_k8s',        -- cert de ficha en K8s
-                        'spiffe_svid',      -- identidad de workload mTLS
-                        'external_wildcard',-- *.empresa.sbos.app
-                        'kong_tls',         -- TLS Kong Gateway
-                        'ca_internal'       -- CA raíz o intermedia SBOS
-                    )),
-    key_algorithm   TEXT DEFAULT 'ECDSA-P256',
-    key_size        INTEGER DEFAULT 256,
-    
+    cert_type          TEXT         NOT NULL CHECK (cert_type IN (
+                           'daemon_host',       -- bos, bauth, bkernel...
+                           'ficha_k8s',         -- cert de ficha en K8s (cert-manager)
+                           'spiffe_svid',       -- identidad de workload mTLS (SPIRE 24h)
+                           'external_wildcard', -- *.empresa.sbos.app (Let's Encrypt)
+                           'kong_tls',          -- TLS Kong Gateway (terminación TLS)
+                           'ca_internal'        -- CA raíz o intermedia SBOS
+                       )),
+    key_algorithm      TEXT         NOT NULL DEFAULT 'ECDSA',
+    key_size           SMALLINT     NOT NULL DEFAULT 256,
+
     -- Vínculo con el activo
-    service_name    TEXT,                   -- nombre del servicio/ficha/daemon
-    namespace       TEXT,                   -- namespace K8s (NULL para host)
-    ficha_id        TEXT,                   -- ficha responsable si aplica
-    secret_name     TEXT,                   -- Secret K8s que contiene el cert
-    host_path       TEXT,                   -- /etc/bos/tls/bos.crt si es host
-    
-    -- Gestión
-    issuer_engine   TEXT NOT NULL CHECK (issuer_engine IN (
-                        'vault_pki',        -- Vault PKI secrets engine
-                        'cert_manager',     -- cert-manager ClusterIssuer
-                        'spire',            -- SPIFFE/SPIRE
-                        'acme_le',          -- Let's Encrypt vía ACME
-                        'manual'            -- Manual (solo CA raíz)
-                    )),
-    auto_renew      BOOLEAN DEFAULT TRUE,
-    renew_before_days INTEGER DEFAULT 30,
-    
+    service_name       TEXT         NULL,               -- nombre del servicio/ficha/daemon
+    namespace          TEXT         NULL,               -- namespace K8s (NULL para host)
+    ficha_id           TEXT         NULL,               -- ficha responsable si aplica
+    secret_name        TEXT         NULL,               -- Secret K8s que contiene el cert
+    host_path          TEXT         NULL,               -- /etc/bos/tls/bos.crt si es host
+
+    -- Gestión de emisión y renovación
+    issuer_engine      TEXT         NOT NULL CHECK (issuer_engine IN (
+                           'vault_pki',    -- Vault PKI secrets engine
+                           'cert_manager', -- cert-manager ClusterIssuer
+                           'spire',        -- SPIFFE/SPIRE
+                           'acme_le',      -- Let's Encrypt vía ACME
+                           'manual'        -- Manual (solo CA raíz)
+                       )),
+    auto_renew         BOOLEAN      NOT NULL DEFAULT TRUE,
+    renew_before_days  SMALLINT     NOT NULL DEFAULT 30,
+
     -- Estado
-    status          TEXT DEFAULT 'active' CHECK (status IN (
-                        'active',           -- en uso
-                        'expiring_soon',    -- días_restantes < renew_before_days
-                        'expired',          -- caducado
-                        'revoked',          -- revocado por Vault/OCSP
-                        'superseded'        -- reemplazado por renovación
-                    )),
-    
-    -- Audit
-    issued_at       TIMESTAMPTZ DEFAULT NOW(),
-    revoked_at      TIMESTAMPTZ,
-    last_renewed_at TIMESTAMPTZ,
-    ctx_id          TEXT NOT NULL DEFAULT 'system',
-    
-    CONSTRAINT uq_cert_service_ns UNIQUE (subject_cn, namespace, cert_type)
+    status             TEXT         NOT NULL DEFAULT 'active' CHECK (status IN (
+                           'active',           -- en uso
+                           'expiring_soon',    -- days_remaining < renew_before_days
+                           'expired',          -- caducado
+                           'revoked',          -- revocado por Vault/OCSP
+                           'superseded'        -- reemplazado por renovación
+                       )),
+
+    -- Audit trail
+    issued_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(), -- cuándo fue emitido
+    revoked_at         TIMESTAMPTZ  NULL,
+    last_renewed_at    TIMESTAMPTZ  NULL,                   -- última renovación exitosa
+    last_checked_at    TIMESTAMPTZ  NULL,
+    ctx_id             TEXT         NOT NULL DEFAULT 'system',
+
+    CONSTRAINT net_ci_pkey              PRIMARY KEY (cert_id),
+    CONSTRAINT uq_net_ci_fingerprint    UNIQUE (fingerprint_sha256),
+    CONSTRAINT chk_net_ci_validity      CHECK (valid_until > valid_from),
+    CONSTRAINT chk_net_ci_revoke_state  CHECK (
+        (status = 'revoked' AND revoked_at IS NOT NULL) OR
+        (status != 'revoked' AND revoked_at IS NULL)
+    )
 );
 
-CREATE INDEX idx_cert_expiry    ON bos.cert_inventory(valid_until) WHERE status = 'active';
-CREATE INDEX idx_cert_ficha     ON bos.cert_inventory(ficha_id);
-CREATE INDEX idx_cert_type      ON bos.cert_inventory(cert_type);
-CREATE INDEX idx_cert_expiring  ON bos.cert_inventory(days_remaining) WHERE status = 'active';
+CREATE INDEX IF NOT EXISTS idx_net_ci_expiry    ON bos.net_cert_inventory(valid_until) WHERE status = 'active';
+CREATE INDEX IF NOT EXISTS idx_net_ci_ficha     ON bos.net_cert_inventory(ficha_id);
+CREATE INDEX IF NOT EXISTS idx_net_ci_cert_type ON bos.net_cert_inventory(cert_type);
+CREATE INDEX IF NOT EXISTS idx_net_ci_expiring  ON bos.net_cert_inventory(days_remaining) WHERE status = 'active';
 ```
 
 ### 2.8 API JSON-RPC — `bos.certman.*`
@@ -1456,34 +1464,24 @@ RESULTADO: postgresql instalada, puerto asignado, certificado emitido,
 
 ---
 
-## 9. DDL propuesto — Nuevas tablas
+## 9. DDL — Tablas implementadas (grupo NET)
 
-```sql
--- T-413: Kardex de Certificados (ver §2.7 para DDL completo)
--- T-414: Log de eventos de seguridad de red
-CREATE TABLE IF NOT EXISTS bos.net_security_events (
-    event_id     UUID PRIMARY KEY DEFAULT uuidv7(),
-    event_time   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    event_type   TEXT NOT NULL CHECK (event_type IN (
-                     'port_assigned', 'port_released', 'port_conflict',
-                     'cert_issued', 'cert_renewed', 'cert_expiring', 'cert_revoked',
-                     'fw_rule_added', 'fw_rule_removed', 'netpol_synced',
-                     'ips_block', 'ips_unblock', 'port_scan_detected',
-                     'crowdsec_ban', 'fail2ban_ban', 'ddos_detected'
-                 )),
-    severity     TEXT DEFAULT 'info' CHECK (severity IN ('info', 'warn', 'high', 'critical')),
-    source       TEXT,        -- 'portman' | 'certman' | 'fwman' | 'ips' | 'crowdsec'
-    ficha_id     TEXT,
-    src_ip       TEXT,        -- IP origen (para eventos IPS)
-    details      JSONB,       -- detalles del evento
-    ctx_id       TEXT NOT NULL DEFAULT 'system'
-);
+Las dos tablas del grupo NET están en `DDLs/bos_01__control_plane.sql` (commit `3fc8a9e`).
+El DDL canónico es la fuente de verdad; este anexo documenta el diseño y el razonamiento.
 
-CREATE INDEX idx_net_events_time     ON bos.net_security_events(event_time DESC);
-CREATE INDEX idx_net_events_type     ON bos.net_security_events(event_type);
-CREATE INDEX idx_net_events_severity ON bos.net_security_events(severity) WHERE severity IN ('high','critical');
-CREATE INDEX idx_net_events_src_ip   ON bos.net_security_events(src_ip) WHERE src_ip IS NOT NULL;
-```
+| Código | Tabla | DDL completo |
+|--------|-------|-------------|
+| T-413  | `bos.net_cert_inventory` | ver §2.7 de este anexo |
+| T-414  | `bos.net_security_events` | particionada por RANGE(event_time), 27 event_types, `src_ip INET` |
+
+**Diferencias del DDL real vs el diseño inicial de este anexo:**
+
+| Campo / Decisión | Diseño inicial | DDL canónico | Motivo |
+|-----------------|---------------|--------------|--------|
+| Nombre T-413 | `bos.cert_inventory` | `bos.net_cert_inventory` | Convención grupo NET (`net_*`) |
+| UNIQUE T-413 | `(subject_cn, namespace, cert_type)` | `fingerprint_sha256` | Huella = identidad real del cert; un mismo CN puede tener varios certs válidos simultáneos |
+| `src_ip` T-414 | `TEXT` | `INET` | Tipo nativo PG — soporta búsquedas por red (`inet '10.0.0.0/8'`) |
+| T-414 particionado | No | Sí — RANGE(event_time) mensual | Retención 90 días sin lock de tabla completa |
 
 ---
 

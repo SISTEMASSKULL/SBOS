@@ -737,7 +737,7 @@ CREATE TABLE IF NOT EXISTS bos.prt_port_assignment (
     doc_reference      TEXT         NOT NULL, -- Reference (RFC 6335 field 6)
 
     -- Clasificación SBOS
-    port_type          TEXT         NOT NULL, -- containerPort|ClusterIP|NodePort|hostPort|daemonPort
+    port_type          TEXT         NOT NULL, -- HOST_PHYSICAL|HOST_LOGICAL|K8S_NODE_PORT|K8S_CLUSTER_IP|K8S_LOAD_BALANCER
     logical_server     TEXT         NOT NULL, -- S00..S16, S-HOST
     namespace          TEXT         NULL,     -- namespace K8s (NULL para host/daemon)
     container_port     INTEGER      NULL,     -- puerto canónico del contenedor
@@ -1049,6 +1049,7 @@ CREATE TABLE IF NOT EXISTS bos.net_cert_inventory (
     subject_cn         TEXT         NOT NULL,                        -- Common Name
     subject_san        TEXT[]       NOT NULL DEFAULT '{}',           -- Subject Alternative Names
     issuer             TEXT         NOT NULL,                        -- Nombre del emisor (CA)
+    serial_number      TEXT         NULL,                            -- RFC 5280 §4.1.2.2 — para OCSP
     fingerprint_sha256 TEXT         NOT NULL,                        -- SHA-256 del certificado DER
 
     -- Vigencia
@@ -1077,15 +1078,17 @@ CREATE TABLE IF NOT EXISTS bos.net_cert_inventory (
 
     -- Estado — ciclo de vida
     status             TEXT         NOT NULL DEFAULT 'active',       -- ver CHECK
+    issued_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),          -- cuándo fue emitido (≠ valid_from)
     revoked_at         TIMESTAMPTZ  NULL,
     revocation_reason  TEXT         NULL,
+    last_renewed_at    TIMESTAMPTZ  NULL,                            -- última renovación exitosa
     last_checked_at    TIMESTAMPTZ  NULL,
     ctx_id             TEXT         NOT NULL DEFAULT 'system',
 
     CONSTRAINT net_ci_pkey              PRIMARY KEY (cert_id),
     CONSTRAINT uq_net_ci_fingerprint    UNIQUE (fingerprint_sha256),
     CONSTRAINT chk_net_ci_cert_type     CHECK (cert_type IN (
-        'daemon_host','ficha_k8s','spiffe_svid','external_wildcard','ca_internal'
+        'daemon_host','ficha_k8s','spiffe_svid','external_wildcard','kong_tls','ca_internal'
     )),
     CONSTRAINT chk_net_ci_issuer_engine CHECK (issuer_engine IN (
         'vault_pki','cert_manager','spire','acme_le','manual'
