@@ -1058,9 +1058,8 @@ CREATE TABLE IF NOT EXISTS bos.net_cert_inventory (
     -- Vigencia
     valid_from         TIMESTAMPTZ  NOT NULL,
     valid_until        TIMESTAMPTZ  NOT NULL,
-    days_remaining     INTEGER      GENERATED ALWAYS AS (
-                           EXTRACT(DAY FROM (valid_until - NOW()))::INTEGER
-                       ) STORED,
+    -- days_remaining: calculado en queries como EXTRACT(DAY FROM (valid_until - NOW()))::INTEGER
+    --                 NO se almacena — NOW() no es IMMUTABLE en PostgreSQL GENERATED columns.
 
     -- Clasificación
     cert_type          TEXT         NOT NULL,                        -- ver CHECK

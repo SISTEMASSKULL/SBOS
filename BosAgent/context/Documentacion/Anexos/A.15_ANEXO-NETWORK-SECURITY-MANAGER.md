@@ -221,8 +221,8 @@ CREATE TABLE IF NOT EXISTS bos.net_cert_inventory (
     -- Lifecycle
     valid_from         TIMESTAMPTZ  NOT NULL,
     valid_until        TIMESTAMPTZ  NOT NULL,
-    days_remaining     INTEGER      GENERATED ALWAYS AS
-                           (EXTRACT(DAY FROM (valid_until - NOW()))::INTEGER) STORED,
+    -- days_remaining: calculado en queries como EXTRACT(DAY FROM (valid_until - NOW()))::INTEGER
+    --                 NOW() no es IMMUTABLE — no puede usarse en GENERATED ALWAYS AS STORED.
 
     -- Tipo y uso
     cert_type          TEXT         NOT NULL CHECK (cert_type IN (
@@ -282,7 +282,6 @@ CREATE TABLE IF NOT EXISTS bos.net_cert_inventory (
 CREATE INDEX IF NOT EXISTS idx_net_ci_expiry    ON bos.net_cert_inventory(valid_until) WHERE status = 'active';
 CREATE INDEX IF NOT EXISTS idx_net_ci_ficha     ON bos.net_cert_inventory(ficha_id);
 CREATE INDEX IF NOT EXISTS idx_net_ci_cert_type ON bos.net_cert_inventory(cert_type);
-CREATE INDEX IF NOT EXISTS idx_net_ci_expiring  ON bos.net_cert_inventory(days_remaining) WHERE status = 'active';
 ```
 
 ### 2.8 API JSON-RPC — `bos.certman.*`
