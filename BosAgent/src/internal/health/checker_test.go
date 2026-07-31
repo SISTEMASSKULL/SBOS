@@ -108,8 +108,8 @@ initial_delay_seconds: 60
 	require.NoError(t, err)
 	defer stateMgr.Close()
 
-	require.NoError(t, stateMgr.Transition("keycloak", state.StateInstalando))
-	require.NoError(t, stateMgr.Transition("keycloak", state.StateInstalada))
+	require.NoError(t, stateMgr.Transition("keycloak", state.StateInstalling))
+	require.NoError(t, stateMgr.Transition("keycloak", state.StateInstalled))
 
 	st, err := stateMgr.Read()
 	require.NoError(t, err)
@@ -132,7 +132,7 @@ func TestProbeConfig_MissingManifest(t *testing.T) {
 	require.NoError(t, err)
 	defer stateMgr.Close()
 
-	require.NoError(t, stateMgr.Transition("ghost", state.StateInstalando))
+	require.NoError(t, stateMgr.Transition("ghost", state.StateInstalling))
 	st, _ := stateMgr.Read()
 	st.Fichas["ghost"].Server = "identityserver"
 
@@ -150,7 +150,7 @@ func TestProbeConfig_NoHealthSection(t *testing.T) {
 	require.NoError(t, err)
 	defer stateMgr.Close()
 
-	require.NoError(t, stateMgr.Transition("noprobe", state.StateInstalando))
+	require.NoError(t, stateMgr.Transition("noprobe", state.StateInstalling))
 	st, _ := stateMgr.Read()
 	st.Fichas["noprobe"].Server = "identityserver"
 
@@ -173,8 +173,8 @@ check_timeout_seconds: 5
 	require.NoError(t, err)
 	defer stateMgr.Close()
 
-	require.NoError(t, stateMgr.Transition("nginx", state.StateInstalando))
-	require.NoError(t, stateMgr.Transition("nginx", state.StateInstalada))
+	require.NoError(t, stateMgr.Transition("nginx", state.StateInstalling))
+	require.NoError(t, stateMgr.Transition("nginx", state.StateInstalled))
 	st, _ := stateMgr.Read()
 	st.Fichas["nginx"].Server = "hostserver"
 
@@ -199,8 +199,8 @@ consecutive_failures_threshold: 5
 	require.NoError(t, err)
 	defer stateMgr.Close()
 
-	require.NoError(t, stateMgr.Transition("degraded-svc", state.StateInstalando))
-	require.NoError(t, stateMgr.Transition("degraded-svc", state.StateInstalada))
+	require.NoError(t, stateMgr.Transition("degraded-svc", state.StateInstalling))
+	require.NoError(t, stateMgr.Transition("degraded-svc", state.StateInstalled))
 	st, _ := stateMgr.Read()
 	st.Fichas["degraded-svc"].Server = "hostserver"
 
@@ -226,8 +226,8 @@ consecutive_failures_threshold: 3
 	require.NoError(t, err)
 	defer stateMgr.Close()
 
-	require.NoError(t, stateMgr.Transition("down-svc", state.StateInstalando))
-	require.NoError(t, stateMgr.Transition("down-svc", state.StateInstalada))
+	require.NoError(t, stateMgr.Transition("down-svc", state.StateInstalling))
+	require.NoError(t, stateMgr.Transition("down-svc", state.StateInstalled))
 	st, _ := stateMgr.Read()
 	st.Fichas["down-svc"].Server = "hostserver"
 
@@ -261,8 +261,8 @@ consecutive_failures_threshold: 3
 	require.NoError(t, err)
 	defer stateMgr.Close()
 
-	require.NoError(t, stateMgr.Transition("recover-svc", state.StateInstalando))
-	require.NoError(t, stateMgr.Transition("recover-svc", state.StateInstalada))
+	require.NoError(t, stateMgr.Transition("recover-svc", state.StateInstalling))
+	require.NoError(t, stateMgr.Transition("recover-svc", state.StateInstalled))
 	st, _ := stateMgr.Read()
 	st.Fichas["recover-svc"].Server = "hostserver"
 
@@ -286,8 +286,8 @@ func TestCheckOne_UnknownWithoutProbe(t *testing.T) {
 	require.NoError(t, err)
 	defer stateMgr.Close()
 
-	require.NoError(t, stateMgr.Transition("orphan", state.StateInstalando))
-	require.NoError(t, stateMgr.Transition("orphan", state.StateInstalada))
+	require.NoError(t, stateMgr.Transition("orphan", state.StateInstalling))
+	require.NoError(t, stateMgr.Transition("orphan", state.StateInstalled))
 	st, _ := stateMgr.Read()
 	st.Fichas["orphan"].Server = "unknown-server"
 
@@ -317,8 +317,8 @@ consecutive_failures_threshold: 10
 	defer stateMgr.Close()
 
 	for _, name := range []string{"a", "b"} {
-		require.NoError(t, stateMgr.Transition(name, state.StateInstalando))
-		require.NoError(t, stateMgr.Transition(name, state.StateInstalada))
+		require.NoError(t, stateMgr.Transition(name, state.StateInstalling))
+		require.NoError(t, stateMgr.Transition(name, state.StateInstalled))
 	}
 
 	runner := newMockRunner()
@@ -351,8 +351,8 @@ check_timeout_seconds: 5
 	require.NoError(t, err)
 	defer stateMgr.Close()
 
-	require.NoError(t, stateMgr.Transition("fresh", state.StateInstalando))
-	require.NoError(t, stateMgr.Transition("fresh", state.StateInstalada))
+	require.NoError(t, stateMgr.Transition("fresh", state.StateInstalling))
+	require.NoError(t, stateMgr.Transition("fresh", state.StateInstalled))
 
 	// Server IS persisted to disk via state meta — but state.Ficha doesn't have Server
 	// CheckNow reads from disk, which won't have Server. Verify it returns empty/results.
@@ -381,8 +381,8 @@ consecutive_failures_threshold: 5
 	require.NoError(t, err)
 	defer stateMgr.Close()
 
-	require.NoError(t, stateMgr.Transition("reset-me", state.StateInstalando))
-	require.NoError(t, stateMgr.Transition("reset-me", state.StateInstalada))
+	require.NoError(t, stateMgr.Transition("reset-me", state.StateInstalling))
+	require.NoError(t, stateMgr.Transition("reset-me", state.StateInstalled))
 	st, _ := stateMgr.Read()
 	st.Fichas["reset-me"].Server = "hostserver"
 
@@ -473,8 +473,8 @@ check_timeout_seconds: 1
 	require.NoError(t, err)
 	defer stateMgr.Close()
 
-	require.NoError(t, stateMgr.Transition("slow-svc", state.StateInstalando))
-	require.NoError(t, stateMgr.Transition("slow-svc", state.StateInstalada))
+	require.NoError(t, stateMgr.Transition("slow-svc", state.StateInstalling))
+	require.NoError(t, stateMgr.Transition("slow-svc", state.StateInstalled))
 	st, _ := stateMgr.Read()
 	st.Fichas["slow-svc"].Server = "hostserver"
 
@@ -499,8 +499,8 @@ check_command: "echo ok"
 	require.NoError(t, err)
 	defer stateMgr.Close()
 
-	require.NoError(t, stateMgr.Transition("def-svc", state.StateInstalando))
-	require.NoError(t, stateMgr.Transition("def-svc", state.StateInstalada))
+	require.NoError(t, stateMgr.Transition("def-svc", state.StateInstalling))
+	require.NoError(t, stateMgr.Transition("def-svc", state.StateInstalled))
 	st, _ := stateMgr.Read()
 	st.Fichas["def-svc"].Server = "hostserver"
 
@@ -525,8 +525,8 @@ check_command: "false"
 	require.NoError(t, err)
 	defer stateMgr.Close()
 
-	require.NoError(t, stateMgr.Transition("def-thresh", state.StateInstalando))
-	require.NoError(t, stateMgr.Transition("def-thresh", state.StateInstalada))
+	require.NoError(t, stateMgr.Transition("def-thresh", state.StateInstalling))
+	require.NoError(t, stateMgr.Transition("def-thresh", state.StateInstalled))
 	st, _ := stateMgr.Read()
 	st.Fichas["def-thresh"].Server = "hostserver"
 

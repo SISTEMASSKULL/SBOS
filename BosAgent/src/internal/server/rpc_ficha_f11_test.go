@@ -36,7 +36,7 @@ func (m *mockLogReader) FollowLog(_ string) (<-chan domain.LogEntry, error) {
 func makeF11Server() *Server {
 	st := queryStateStub{fichas: map[string]*state.Ficha{
 		"redis": fichaOK("redis", "8.6.2"),
-		"vault": {Name: "vault", Version: "2.0.1", State: state.StatePausada, HealthStatus: "OK"},
+		"vault": {Name: "vault", Version: "2.0.1", State: state.StatePaused, HealthStatus: "OK"},
 	}}
 	cat := stubCatalog{fichas: map[string]*plugin.FichaManifest{
 		"redis": {ID: "redis", Version: "8.6.2", AutoInstall: true},

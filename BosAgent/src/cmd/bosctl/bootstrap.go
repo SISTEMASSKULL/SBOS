@@ -567,17 +567,17 @@ func cmdBootstrapReset(args []string) int {
 // stateToIconBootstrap convierte un estado de ficha (ADR-021) a ícono Unicode para TUI bootstrap.
 func stateToIconBootstrap(state string) string {
 	switch strings.ToUpper(state) {
-	case "INSTALADA", "INSTALADA -- OK", "INSTALADA_OK":
+	case "INSTALLED", "INSTALADA -- OK", "INSTALADA_OK":
 		return "✓"
-	case "INSTALANDO", "ACTUALIZANDO", "REPARANDO":
+	case "INSTALLING", "UPDATING", "REPAIRING":
 		return "⟳"
-	case "DEGRADADA", "INSTALADA -- ALERTA", "INSTALADA_ALERTA":
+	case "DEGRADED", "INSTALADA -- ALERTA", "INSTALADA_ALERTA":
 		return "!"
-	case "FALLA_INSTALACION", "FALLA_ACTUALIZACION", "ERROR_LOGICO", "ERROR_FISICO":
+	case "INSTALL_FAILED", "UPDATE_FAILED", "LOGICAL_ERROR", "PHYSICAL_ERROR":
 		return "✗"
-	case "PENDIENTE", "LISTA":
+	case "PENDING", "READY":
 		return "○"
-	case "DESINSTALADA":
+	case "UNINSTALLED":
 		return " "
 	default:
 		return "?"

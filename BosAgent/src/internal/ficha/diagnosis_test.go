@@ -97,9 +97,9 @@ func TestClassifyState(t *testing.T) {
 		cat  ErrorCategory
 		want FichaState
 	}{
-		{ErrPhysical, StateErrorFisico},
-		{ErrLogical, StateErrorLogico},
-		{ErrUnknown, StateErrorLogico}, // default conservador
+		{ErrPhysical, StatePhysicalError},
+		{ErrLogical, StateLogicalError},
+		{ErrUnknown, StateLogicalError}, // default conservador
 	}
 
 	for _, tc := range cases {
@@ -120,7 +120,7 @@ func TestEscalateToHITL(t *testing.T) {
 	if req.FichaID != "postgresql" {
 		t.Errorf("FichaID: %s", req.FichaID)
 	}
-	if req.State != StateErrorNoCorregible {
+	if req.State != StateUnrecoverable {
 		t.Errorf("State: esperado ERROR_NO_CORREGIBLE, obtenido %s", req.State)
 	}
 	if req.Attempts != 3 {

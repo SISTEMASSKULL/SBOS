@@ -9,16 +9,16 @@ func TestLifecycle_BeginInstall(t *testing.T) {
 	lc := NewLifecycle(nil)
 
 	// Desde LISTA: debe permitir
-	next, err := lc.BeginInstall(StateLista)
+	next, err := lc.BeginInstall(StateReady)
 	if err != nil {
 		t.Errorf("BeginInstall(LISTA): %v", err)
 	}
-	if next != StateInstalando {
+	if next != StateInstalling {
 		t.Errorf("esperado INSTALANDO, obtenido %s", next)
 	}
 
 	// Desde INSTALADA: debe fallar (ya instalada)
-	_, err = lc.BeginInstall(StateInstalada)
+	_, err = lc.BeginInstall(StateInstalled)
 	if err == nil {
 		t.Error("BeginInstall(INSTALADA) debe fallar")
 	}
@@ -29,13 +29,13 @@ func TestLifecycle_EvaluateInstall(t *testing.T) {
 
 	// Éxito → INSTALADA
 	result := lc.EvaluateInstall(true, false)
-	if result.NewState != StateInstalada {
+	if result.NewState != StateInstalled {
 		t.Errorf("éxito debe ser INSTALADA, obtenido %s", result.NewState)
 	}
 
 	// Fallo sin versión anterior → LIMPIEZA
 	result = lc.EvaluateInstall(false, false)
-	if result.NewState != StateLimpieza {
+	if result.NewState != StateCleanup {
 		t.Errorf("fallo sin backup debe ser LIMPIEZA, obtenido %s", result.NewState)
 	}
 	if !result.NeedsCleanup {
@@ -55,15 +55,15 @@ func TestLifecycle_EvaluateInstall(t *testing.T) {
 func TestLifecycle_BeginUpdate(t *testing.T) {
 	lc := NewLifecycle(nil)
 
-	next, err := lc.BeginUpdate(StateInstalada)
+	next, err := lc.BeginUpdate(StateInstalled)
 	if err != nil {
 		t.Errorf("BeginUpdate(INSTALADA): %v", err)
 	}
-	if next != StateActualizando {
+	if next != StateUpdating {
 		t.Errorf("esperado ACTUALIZANDO, obtenido %s", next)
 	}
 
-	_, err = lc.BeginUpdate(StatePendiente)
+	_, err = lc.BeginUpdate(StatePending)
 	if err == nil {
 		t.Error("BeginUpdate(PENDIENTE) debe fallar")
 	}
@@ -74,7 +74,7 @@ func TestLifecycle_EvaluateUpdate(t *testing.T) {
 
 	// Éxito → INSTALADA
 	result := lc.EvaluateUpdate(true)
-	if result.NewState != StateInstalada {
+	if result.NewState != StateInstalled {
 		t.Errorf("éxito debe ser INSTALADA, obtenido %s", result.NewState)
 	}
 
@@ -91,21 +91,21 @@ func TestLifecycle_EvaluateUpdate(t *testing.T) {
 func TestLifecycle_BeginRepair(t *testing.T) {
 	lc := NewLifecycle(nil)
 
-	next, err := lc.BeginRepair(StateDegradada)
+	next, err := lc.BeginRepair(StateDegraded)
 	if err != nil {
 		t.Errorf("BeginRepair(DEGRADADA): %v", err)
 	}
-	if next != StateReparando {
+	if next != StateRepairing {
 		t.Errorf("esperado REPARANDO, obtenido %s", next)
 	}
 
 	// INSTALADA permite repair preventivo (consistente con ValidTransitions).
-	next, err = lc.BeginRepair(StateInstalada)
-	if err != nil || next != StateReparando {
+	next, err = lc.BeginRepair(StateInstalled)
+	if err != nil || next != StateRepairing {
 		t.Errorf("BeginRepair(INSTALADA) debe ser REPARANDO (repair preventivo): next=%s err=%v", next, err)
 	}
 	// LISTA no puede repararse
-	_, err = lc.BeginRepair(StateLista)
+	_, err = lc.BeginRepair(StateReady)
 	if err == nil {
 		t.Error("BeginRepair(LISTA) debe fallar")
 	}
@@ -116,31 +116,31 @@ func TestLifecycle_EvaluateRepair(t *testing.T) {
 
 	// Éxito → INSTALADA
 	result := lc.EvaluateRepair(true, 1, 3)
-	if result.NewState != StateInstalada {
+	if result.NewState != StateInstalled {
 		t.Errorf("éxito debe ser INSTALADA, obtenido %s", result.NewState)
 	}
 
 	// Fallo intento 1 de 3 → reintentar
 	result = lc.EvaluateRepair(false, 1, 3)
-	if result.NewState != StateReparando {
+	if result.NewState != StateRepairing {
 		t.Errorf("intento 1/3 debe ser REPARANDO, obtenido %s", result.NewState)
 	}
 
 	// Fallo intento 2 de 3 → reintentar
 	result = lc.EvaluateRepair(false, 2, 3)
-	if result.NewState != StateReparando {
+	if result.NewState != StateRepairing {
 		t.Errorf("intento 2/3 debe ser REPARANDO, obtenido %s", result.NewState)
 	}
 
 	// Fallo intento 3 de 3 → ERROR_NO_CORREGIBLE
 	result = lc.EvaluateRepair(false, 3, 3)
-	if result.NewState != StateErrorNoCorregible {
+	if result.NewState != StateUnrecoverable {
 		t.Errorf("intento 3/3 debe ser ERROR_NO_CORREGIBLE, obtenido %s", result.NewState)
 	}
 
 	// Excede máximo
 	result = lc.EvaluateRepair(false, 5, 3)
-	if result.NewState != StateErrorNoCorregible {
+	if result.NewState != StateUnrecoverable {
 		t.Errorf("intento 5/3 debe ser ERROR_NO_CORREGIBLE, obtenido %s", result.NewState)
 	}
 }
@@ -148,15 +148,15 @@ func TestLifecycle_EvaluateRepair(t *testing.T) {
 func TestLifecycle_BeginRemove(t *testing.T) {
 	lc := NewLifecycle(nil)
 
-	next, err := lc.BeginRemove(StateInstalada)
+	next, err := lc.BeginRemove(StateInstalled)
 	if err != nil {
 		t.Errorf("BeginRemove(INSTALADA): %v", err)
 	}
-	if next != StateDesinstalada {
+	if next != StateUninstalled {
 		t.Errorf("esperado DESINSTALADA, obtenido %s", next)
 	}
 
-	_, err = lc.BeginRemove(StatePendiente)
+	_, err = lc.BeginRemove(StatePending)
 	if err == nil {
 		t.Error("BeginRemove(PENDIENTE) debe fallar")
 	}
@@ -186,13 +186,13 @@ func TestLifecycle_Timeouts(t *testing.T) {
 }
 
 func TestVersionLabel(t *testing.T) {
-	if VersionLabel("18.4.0") != "INSTALADA_v18.4.0" {
-		t.Errorf("esperado INSTALADA_v18.4.0, obtenido %s", VersionLabel("18.4.0"))
+	if VersionLabel("18.4.0") != "INSTALLED_v18.4.0" {
+		t.Errorf("esperado INSTALLED_v18.4.0, obtenido %s", VersionLabel("18.4.0"))
 	}
-	if VersionLabel("") != "INSTALADA" {
+	if VersionLabel("") != "INSTALLED" {
 		t.Error("versión vacía debe ser INSTALADA")
 	}
-	if VersionLabel("latest") != "INSTALADA" {
+	if VersionLabel("latest") != "INSTALLED" {
 		t.Error("latest debe ser INSTALADA")
 	}
 }
@@ -202,7 +202,7 @@ func TestLifecycle_CompleteInstall(t *testing.T) {
 
 	// Éxito
 	state, compensated := lc.CompleteInstall(true, false)
-	if state != StateInstalada || compensated {
+	if state != StateInstalled || compensated {
 		t.Error("éxito: INSTALADA, sin compensación")
 	}
 
@@ -214,7 +214,7 @@ func TestLifecycle_CompleteInstall(t *testing.T) {
 
 	// Fallo sin backup → LIMPIEZA
 	state, compensated = lc.CompleteInstall(false, false)
-	if state != StateLimpieza || compensated {
+	if state != StateCleanup || compensated {
 		t.Error("fallo sin backup: LIMPIEZA, sin compensación inmediata")
 	}
 }
@@ -226,7 +226,7 @@ func TestLifecycle_UpdateAvailability(t *testing.T) {
 	available, state := lc.UpdateAvailability(
 		Version{1, 0, 0}, Version{2, 0, 0},
 	)
-	if !available || state != StateActualizacionDisp {
+	if !available || state != StateUpdateAvailable {
 		t.Errorf("2.0.0 > 1.0.0 debe estar disponible, obtenido %v/%s", available, state)
 	}
 
@@ -250,7 +250,7 @@ func TestLifecycle_UpdateAvailability(t *testing.T) {
 	available, state = lc.UpdateAvailability(
 		Version{1, 0, 0}, Version{1, 5, 0},
 	)
-	if !available || state != StateActualizacionDisp {
+	if !available || state != StateUpdateAvailable {
 		t.Error("MINOR bump debe estar disponible")
 	}
 }
@@ -262,7 +262,7 @@ func TestLifecycle_ApproveUpdate(t *testing.T) {
 	state, err := lc.ApproveUpdate(
 		Version{1, 0, 0}, Version{1, 1, 0}, true,
 	)
-	if err != nil || state != StateActualizacionAprobada {
+	if err != nil || state != StateUpdateApproved {
 		t.Errorf("MINOR debe aprobarse: state=%s err=%v", state, err)
 	}
 
@@ -286,7 +286,7 @@ func TestLifecycle_ApproveUpdate(t *testing.T) {
 func TestLifecycle_RejectUpdate(t *testing.T) {
 	lc := NewLifecycle(nil)
 	state := lc.RejectUpdate()
-	if state != StateInstalada {
+	if state != StateInstalled {
 		t.Errorf("rechazar debe volver a INSTALADA, obtenido %s", state)
 	}
 }
@@ -296,7 +296,7 @@ func TestLifecycle_CompleteUpdate(t *testing.T) {
 
 	// Éxito
 	state, needsRollback := lc.CompleteUpdate(true, Version{1, 0, 0})
-	if state != StateInstalada || needsRollback {
+	if state != StateInstalled || needsRollback {
 		t.Error("update exitoso: INSTALADA, sin rollback")
 	}
 
@@ -318,21 +318,21 @@ func TestLifecycle_Degrade(t *testing.T) {
 
 	// Alcanza umbral
 	state, err := lc.Degrade(3, 3)
-	if err != nil || state != StateDegradada {
+	if err != nil || state != StateDegraded {
 		t.Errorf("3 fallos debe degradar: state=%s err=%v", state, err)
 	}
 }
 
 func TestLifecycle_RecoverAfterRepair(t *testing.T) {
 	lc := NewLifecycle(nil)
-	if lc.RecoverAfterRepair() != StateInstalada {
+	if lc.RecoverAfterRepair() != StateInstalled {
 		t.Error("recover debe ser INSTALADA")
 	}
 }
 
 func TestLifecycle_CleanupComplete(t *testing.T) {
 	lc := NewLifecycle(nil)
-	if lc.CleanupComplete() != StatePendiente {
+	if lc.CleanupComplete() != StatePending {
 		t.Error("cleanup debe devolver a PENDIENTE")
 	}
 }
@@ -340,10 +340,10 @@ func TestLifecycle_CleanupComplete(t *testing.T) {
 func TestLifecycle_RollbackComplete(t *testing.T) {
 	lc := NewLifecycle(nil)
 
-	if lc.RollbackComplete(true) != StateInstalada {
+	if lc.RollbackComplete(true) != StateInstalled {
 		t.Error("rollback exitoso → INSTALADA")
 	}
-	if lc.RollbackComplete(false) != StateErrorNoCorregible {
+	if lc.RollbackComplete(false) != StateUnrecoverable {
 		t.Error("rollback fallido → ERROR_NO_CORREGIBLE (HITL)")
 	}
 }
@@ -444,13 +444,13 @@ func TestLifecycle_Diagnose_Unknown(t *testing.T) {
 func TestLifecycle_ClassifyState(t *testing.T) {
 	lc := NewLifecycle(nil)
 
-	if lc.ClassifyState(ErrorDiagnosis{Category: ErrPhysical}) != StateErrorFisico {
+	if lc.ClassifyState(ErrorDiagnosis{Category: ErrPhysical}) != StatePhysicalError {
 		t.Error("physical → ERROR_FISICO")
 	}
-	if lc.ClassifyState(ErrorDiagnosis{Category: ErrLogical}) != StateErrorLogico {
+	if lc.ClassifyState(ErrorDiagnosis{Category: ErrLogical}) != StateLogicalError {
 		t.Error("logical → ERROR_LOGICO")
 	}
-	if lc.ClassifyState(ErrorDiagnosis{Category: ErrUnknown}) != StateErrorLogico {
+	if lc.ClassifyState(ErrorDiagnosis{Category: ErrUnknown}) != StateLogicalError {
 		t.Error("unknown → ERROR_LOGICO (default seguro)")
 	}
 }
@@ -464,7 +464,7 @@ func TestLifecycle_HITLRequest(t *testing.T) {
 	if req.FichaID != "postgresql" {
 		t.Errorf("ficha debe ser postgresql, obtenido %s", req.FichaID)
 	}
-	if req.State != StateErrorNoCorregible {
+	if req.State != StateUnrecoverable {
 		t.Errorf("estado debe ser ERROR_NO_CORREGIBLE, obtenido %s", req.State)
 	}
 	if req.Attempts != 3 {
@@ -494,38 +494,38 @@ func TestLifecycle_FullErrorFlow(t *testing.T) {
 
 	// 1. Health check falla → instalar está OK pero health degradado
 	state, _ := lc.Degrade(3, 3)
-	if state != StateDegradada {
+	if state != StateDegraded {
 		t.Fatalf("3 fallos deben degradar, obtenido %s", state)
 	}
 
 	// 2. Iniciar reparación
 	next, err := lc.BeginRepair(state)
-	if err != nil || next != StateReparando {
+	if err != nil || next != StateRepairing {
 		t.Fatalf("BeginRepair(DEGRADADA): %s err=%v", next, err)
 	}
 
 	// 3. Diagnosticar — es error lógico
 	diag := lc.Diagnose("ERROR: configuration invalid: missing required field 'port'", "command")
 	classified := lc.ClassifyState(diag)
-	if classified != StateErrorLogico {
+	if classified != StateLogicalError {
 		t.Errorf("config error → ERROR_LOGICO, obtenido %s", classified)
 	}
 
 	// 4. Reintento 1 — falla
 	result := lc.EvaluateRepair(false, 1, 3)
-	if result.NewState != StateReparando {
+	if result.NewState != StateRepairing {
 		t.Error("intento 1 debe reintentar")
 	}
 
 	// 5. Reintento 3 — HITL
 	result = lc.EvaluateRepair(false, 3, 3)
-	if result.NewState != StateErrorNoCorregible {
+	if result.NewState != StateUnrecoverable {
 		t.Error("intento 3 debe requerir HITL")
 	}
 
 	// 6. Escalar
 	req := lc.EscalateToHITL("keycloak", diag, 3, 3)
-	if req.State != StateErrorNoCorregible {
+	if req.State != StateUnrecoverable {
 		t.Error("HITL debe ser ERROR_NO_CORREGIBLE")
 	}
 }
@@ -619,7 +619,7 @@ func TestLifecycle_ExecuteRepair_Success(t *testing.T) {
 	if !result.Success {
 		t.Errorf("debe recuperarse en 2do intento, pero falló: %v", result.Attempts)
 	}
-	if result.FinalState != StateInstalada {
+	if result.FinalState != StateInstalled {
 		t.Errorf("final debe ser INSTALADA, obtenido %s", result.FinalState)
 	}
 	if result.TotalAttempts != 2 {
@@ -637,7 +637,7 @@ func TestLifecycle_ExecuteRepair_Exhausted(t *testing.T) {
 	if result.Success {
 		t.Error("crash no debe ser recuperable")
 	}
-	if result.FinalState != StateErrorNoCorregible {
+	if result.FinalState != StateUnrecoverable {
 		t.Errorf("final debe ser ERROR_NO_CORREGIBLE, obtenido %s", result.FinalState)
 	}
 	if result.TotalAttempts != 3 {
@@ -655,7 +655,7 @@ func TestLifecycle_ExecuteRepair_CustomMaxAttempts(t *testing.T) {
 	if result.Success {
 		t.Error("con 1 intento no debe recuperarse")
 	}
-	if result.FinalState != StateErrorNoCorregible {
+	if result.FinalState != StateUnrecoverable {
 		t.Errorf("final debe ser ERROR_NO_CORREGIBLE, obtenido %s", result.FinalState)
 	}
 	if result.TotalAttempts != 1 {
@@ -667,7 +667,7 @@ func TestLifecycle_TransitionalStates_Complete(t *testing.T) {
 	lc := NewLifecycle(nil)
 
 	// Verificar que los 3 estados transicionales tienen íconos y descripciones
-	for _, state := range []FichaState{StateReparando, StateRollback, StateLimpieza} {
+	for _, state := range []FichaState{StateRepairing, StateRollback, StateCleanup} {
 		icon := StateIcon(state)
 		if icon == "❓" {
 			t.Errorf("estado %s debe tener ícono", state)
@@ -715,7 +715,7 @@ func TestDegradedHandler_AttemptRepair_Recoverable(t *testing.T) {
 
 	// Error de configuración (recuperable) — éxito en 2do intento
 	ok, state := dh.AttemptRepair("ERROR: configuration invalid: port missing")
-	if ok || state != StateReparando {
+	if ok || state != StateRepairing {
 		t.Logf("intento 1: ok=%v state=%s (esperado: reintentar)", ok, state)
 	}
 
@@ -724,7 +724,7 @@ func TestDegradedHandler_AttemptRepair_Recoverable(t *testing.T) {
 	if !ok {
 		t.Error("2do intento debe ser exitoso (simulación)")
 	}
-	if state != StateInstalada {
+	if state != StateInstalled {
 		t.Errorf("debe recuperar a INSTALADA, obtenido %s", state)
 	}
 	if dh.state.RepairAttempts != 2 {
@@ -748,7 +748,7 @@ func TestDegradedHandler_AttemptRepair_Exhausted(t *testing.T) {
 			if ok {
 				t.Error("intento 3 no debe ser exitoso")
 			}
-			if state != StateErrorNoCorregible {
+			if state != StateUnrecoverable {
 				t.Errorf("intento 3: esperado ERROR_NO_CORREGIBLE, obtenido %s", state)
 			}
 		}
@@ -765,7 +765,7 @@ func TestDegradedHandler_AttemptRepair_NonRecoverable(t *testing.T) {
 	if ok {
 		t.Error("crash no debe ser recuperable")
 	}
-	if state != StateErrorNoCorregible {
+	if state != StateUnrecoverable {
 		t.Errorf("crash debe ser ERROR_NO_CORREGIBLE, obtenido %s", state)
 	}
 }
@@ -776,7 +776,7 @@ func TestDegradedHandler_Recover(t *testing.T) {
 	dh.EnterDegraded(3, 3)
 
 	state := dh.Recover()
-	if state != StateInstalada {
+	if state != StateInstalled {
 		t.Errorf("recover debe ser INSTALADA, obtenido %s", state)
 	}
 }
@@ -792,7 +792,7 @@ func TestDegradedHandler_Escalate(t *testing.T) {
 	if req.FichaID != "postgresql" {
 		t.Errorf("ficha debe ser postgresql, obtenido %s", req.FichaID)
 	}
-	if req.State != StateErrorNoCorregible {
+	if req.State != StateUnrecoverable {
 		t.Errorf("estado debe ser ERROR_NO_CORREGIBLE")
 	}
 }

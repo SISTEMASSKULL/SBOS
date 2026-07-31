@@ -73,13 +73,13 @@ func buildFichasResumen(st *state.SBOSState) map[string]interface{} {
 	detalles := make([]map[string]interface{}, 0, len(st.Fichas))
 	for _, f := range st.Fichas {
 		switch f.State {
-		case state.StateInstalada:
+		case state.StateInstalled:
 			instalada++
-		case state.StateDegradada:
+		case state.StateDegraded:
 			degradada++
-		case state.StatePendiente, state.StateLista:
+		case state.StatePending, state.StateReady:
 			pendiente++
-		case state.StateErrorFisico, state.StateErrorLogico, state.StateErrorNoCorregible:
+		case state.StatePhysicalError, state.StateLogicalError, state.StateUnrecoverable:
 			errorN++
 		}
 		detalles = append(detalles, map[string]interface{}{
@@ -120,7 +120,7 @@ func fichaEstadoVista(st *state.SBOSState, fichaID string) map[string]interface{
 		}
 	}
 	return map[string]interface{}{
-		"healthy": f.State == state.StateInstalada && f.HealthStatus == "OK",
+		"healthy": f.State == state.StateInstalled && f.HealthStatus == "OK",
 		"state":   string(f.State),
 		"health":  f.HealthStatus,
 		"version": f.Version,

@@ -111,8 +111,8 @@ func (m *Manager) SetK8sDiscoveredState(name string, discovered FichaState) erro
 
 	// No pisar estados transitorios ni administrativos
 	switch ficha.State {
-	case StateInstalando, StateActualizando, StateReparando, StateRollback, StateLimpieza,
-		StatePausada, StateDesinstalada:
+	case StateInstalling, StateUpdating, StateRepairing, StateRollback, StateCleanup,
+		StatePaused, StateUninstalled:
 		return nil
 	}
 
@@ -138,10 +138,10 @@ func (m *Manager) SetLista(name string) error {
 		return err
 	}
 	ficha, ok := st.Fichas[name]
-	if !ok || ficha.State != StatePendiente {
-		return fmt.Errorf("state: ficha %s no está en PENDIENTE", name)
+	if !ok || ficha.State != StatePending {
+		return fmt.Errorf("state: ficha %s no está en PENDING", name)
 	}
-	return m.Transition(name, StateLista)
+	return m.Transition(name, StateReady)
 }
 
 // Unblock es un alias de SetLista para compatibilidad con código existente.

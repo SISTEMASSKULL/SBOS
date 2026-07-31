@@ -127,7 +127,7 @@ func (l *Lifecycle) ExecuteRepair(fichaID string, maxAttempts int, timeout time.
 		result.Attempts = append(result.Attempts, ra)
 
 		evalResult := l.EvaluateRepair(ra.Success, attempt, maxAttempts)
-		if evalResult.NewState != StateReparando {
+		if evalResult.NewState != StateRepairing {
 			result.FinalState = evalResult.NewState
 			result.Success = ra.Success
 			result.TotalAttempts = attempt

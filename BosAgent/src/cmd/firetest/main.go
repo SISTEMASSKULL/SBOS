@@ -65,8 +65,8 @@ func main() {
 		Version:  "1.0.0",
 		Hostname: "firetest",
 		Fichas: map[string]*state.Ficha{
-			"fire-svc": {Name: "fire-svc", Version: "1.0", State: state.StateInstalada, Server: "firesrv", Hashes: hashesFire},
-			"zero-svc": {Name: "zero-svc", Version: "1.0", State: state.StateInstalada, Server: "firesrv", Hashes: hashesZero},
+			"fire-svc": {Name: "fire-svc", Version: "1.0", State: state.StateInstalled, Server: "firesrv", Hashes: hashesFire},
+			"zero-svc": {Name: "zero-svc", Version: "1.0", State: state.StateInstalled, Server: "firesrv", Hashes: hashesZero},
 		},
 		Meta: map[string]string{},
 	}
@@ -177,7 +177,7 @@ func main() {
 
 	st, _ = mgr.Read()
 	check("State: fire-svc → ACTUALIZACION_DISPONIBLE",
-		st.Fichas["fire-svc"].State == state.StateActualizacionDisp,
+		st.Fichas["fire-svc"].State == state.StateUpdateAvailable,
 		string(st.Fichas["fire-svc"].State))
 
 	fmt.Println()

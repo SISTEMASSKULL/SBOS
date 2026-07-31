@@ -155,7 +155,7 @@ func (c *StatusCollector) Collect(input StatusInput) FichaStatusDetail {
 		detail.ConsecutiveFailures = c.healthTracker.ConsecutiveFailures(input.ID)
 
 		switch {
-		case detail.ConsecutiveFailures == 0 && detail.State == "INSTALADA":
+		case detail.ConsecutiveFailures == 0 && detail.State == "INSTALLED":
 			detail.HealthStatus = "healthy"
 		case detail.ConsecutiveFailures >= 3:
 			detail.HealthStatus = "down"
@@ -209,17 +209,17 @@ func (c *StatusCollector) CollectAll(inputs []StatusInput) *FichaStatusSummary {
 		summary.Fichas = append(summary.Fichas, detail)
 
 		switch {
-		case detail.State == "INSTALADA" && detail.HealthStatus == "healthy":
+		case detail.State == "INSTALLED" && detail.HealthStatus == "healthy":
 			summary.Installed++
-		case detail.State == "DEGRADADA" || detail.ConsecutiveFailures > 0:
+		case detail.State == "DEGRADED" || detail.ConsecutiveFailures > 0:
 			summary.Degraded++
-		case detail.State == "ERROR_FISICO" || detail.State == "ERROR_LOGICO" ||
-			detail.State == "ERROR_NO_CORREGIBLE" || detail.State == "FALLA_INSTALACION" ||
-			detail.State == "FALLA_ACTUALIZACION":
+		case detail.State == "PHYSICAL_ERROR" || detail.State == "LOGICAL_ERROR" ||
+			detail.State == "UNRECOVERABLE" || detail.State == "INSTALL_FAILED" ||
+			detail.State == "UPDATE_FAILED":
 			summary.Error++
-		case detail.State == "PENDIENTE" || detail.State == "LISTA":
+		case detail.State == "PENDING" || detail.State == "READY":
 			summary.Pending++
-		case detail.State == "PAUSADA":
+		case detail.State == "PAUSED":
 			summary.Paused++
 		default:
 			summary.Installed++
@@ -295,15 +295,15 @@ func (d *FichaStatusDetail) DetailText() string {
 	// Encabezado con color
 	stateIcon := "✅"
 	switch {
-	case d.State == "DEGRADADA" || d.HealthStatus == "degraded":
+	case d.State == "DEGRADED" || d.HealthStatus == "degraded":
 		stateIcon = "🟡"
-	case d.State == "ERROR_FISICO" || d.State == "ERROR_LOGICO" || d.State == "ERROR_NO_CORREGIBLE":
+	case d.State == "PHYSICAL_ERROR" || d.State == "LOGICAL_ERROR" || d.State == "UNRECOVERABLE":
 		stateIcon = "🔴"
-	case d.State == "PAUSADA":
+	case d.State == "PAUSED":
 		stateIcon = "⏸️"
-	case d.State == "INSTALANDO" || d.State == "REPARANDO" || d.State == "ACTUALIZANDO":
+	case d.State == "INSTALLING" || d.State == "REPAIRING" || d.State == "UPDATING":
 		stateIcon = "⏳"
-	case d.State == "PENDIENTE" || d.State == "LISTA":
+	case d.State == "PENDING" || d.State == "READY":
 		stateIcon = "⬜"
 	}
 

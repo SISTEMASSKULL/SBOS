@@ -234,7 +234,7 @@ func (s *Scheduler) reconcile() []DriftResult {
 	// Reparación por salud (camino legacy para DEGRADED/ALERTA).
 	// inFlight evita reparación doble si hash-based ya inició goroutine para el mismo ficha.
 	for name, ficha := range st.Fichas {
-		if ficha.HealthStatus == "DEGRADED" || ficha.State == state.StateDegradada {
+		if ficha.HealthStatus == "DEGRADED" || ficha.State == state.StateDegraded {
 			if s.installer != nil && s.autoRepair {
 				go func(fichaName string) {
 					if _, loaded := s.inFlight.LoadOrStore(fichaName, true); loaded {

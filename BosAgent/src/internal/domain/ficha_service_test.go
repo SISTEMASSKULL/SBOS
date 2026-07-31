@@ -251,8 +251,8 @@ func TestFichaService_Status(t *testing.T) {
 	st := &mockState{
 		readFn: func() (*state.SBOSState, error) {
 			return stateWith(map[string]state.FichaState{
-				"postgresql": state.StateInstalada,
-				"redis":      state.StateInstalando,
+				"postgresql": state.StateInstalled,
+				"redis":      state.StateInstalling,
 			}), nil
 		},
 	}
@@ -271,7 +271,7 @@ func TestFichaService_Status(t *testing.T) {
 		if single.ID != "postgresql" {
 			t.Errorf("ID=%q", single.ID)
 		}
-		if single.State != string(state.StateInstalada) {
+		if single.State != string(state.StateInstalled) {
 			t.Errorf("State=%q, quería INSTALADA -- OK", single.State)
 		}
 	})
@@ -290,10 +290,10 @@ func TestFichaService_Status(t *testing.T) {
 		if len(all) != 2 {
 			t.Errorf("len(all)=%d, quería 2", len(all))
 		}
-		if pg := all["postgresql"]; pg == nil || pg.State != string(state.StateInstalada) {
+		if pg := all["postgresql"]; pg == nil || pg.State != string(state.StateInstalled) {
 			t.Errorf("postgresql state incorrecto: %v", pg)
 		}
-		if r := all["redis"]; r == nil || r.State != string(state.StateInstalando) {
+		if r := all["redis"]; r == nil || r.State != string(state.StateInstalling) {
 			t.Errorf("redis state incorrecto: %v", r)
 		}
 	})

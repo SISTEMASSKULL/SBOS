@@ -941,18 +941,18 @@ func handleWS(m *Model, ev WsEventMsg) tea.Cmd {
 			}
 			fd := FichaOrCreate(m, fichaID)
 			switch st {
-			case "INSTALADA":
+			case "INSTALLED":
 				if fd.Status != FichaDone {
 					fd.Status = FichaDone
 					m.FichasOK++
 					AddLog(m, LogEntry{Ts: now, Level: LogOK, Ficha: fichaID,
 						Msg: fichaID + " — ya instalada (sincronizado)"})
 				}
-			case "FALLA_INSTALACION":
+			case "INSTALL_FAILED":
 				if fd.Status != FichaFailed {
 					fd.Status = FichaFailed
 				}
-			case "INSTALANDO":
+			case "INSTALLING":
 				if fd.Status != FichaActive {
 					fd.Status = FichaActive
 					fd.StartTime = now

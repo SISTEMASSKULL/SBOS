@@ -27,7 +27,7 @@ func (queryStateStub) SetHealth(string, string) error            { return nil }
 
 func fichaOK(name, version string) *state.Ficha {
 	return &state.Ficha{Name: name, Version: version,
-		State: state.StateInstalada, HealthStatus: "OK"}
+		State: state.StateInstalled, HealthStatus: "OK"}
 }
 
 // makeQueryServer arma un Server con estado de fichas y Context Plane en
@@ -104,7 +104,7 @@ func TestQuerySystem_RegistradaEnDispatcher(t *testing.T) {
 func TestQueryRepair_CausaProbable(t *testing.T) {
 	s := makeQueryServer(map[string]*state.Ficha{
 		"nextcloud": {Name: "nextcloud", Version: "30.0",
-			State: state.StateDegradada, HealthStatus: "FAIL"},
+			State: state.StateDegraded, HealthStatus: "FAIL"},
 	})
 
 	resp := s.rpcQueryRepair(buildRPC("bos.query.repair", map[string]string{
@@ -181,7 +181,7 @@ func TestQueryVdi_SemaforoVerde(t *testing.T) {
 	s2 := makeQueryServer(map[string]*state.Ficha{
 		"nextcloud": fichaOK("nextcloud", "30.0"),
 		"guacamole": {Name: "guacamole", Version: "1.6",
-			State: state.StateDegradada, HealthStatus: "FAIL"},
+			State: state.StateDegraded, HealthStatus: "FAIL"},
 		"fedora-logico": fichaOK("fedora-logico", "1.0"),
 	})
 	resp2 := s2.rpcQueryVdi(buildRPC("bos.query.vdi", nil))
@@ -292,7 +292,7 @@ func TestQueryNode_TodosReady(t *testing.T) {
 	// saga completa — estructura aunque k8s degrade
 	s := makeQueryServer(map[string]*state.Ficha{
 		"postgresql": {Name: "postgresql", Version: "18.4",
-			State: state.StateInstalada, HealthStatus: "OK", Criticality: true},
+			State: state.StateInstalled, HealthStatus: "OK", Criticality: true},
 	})
 	resp := s.rpcQueryNode(buildRPC("bos.query.node", map[string]string{"node": "node-01"}))
 	if resp.Error != nil {

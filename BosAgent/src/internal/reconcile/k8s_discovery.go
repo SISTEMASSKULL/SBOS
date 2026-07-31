@@ -109,7 +109,7 @@ func (d *K8sDiscovery) DiscoverK8sStates() *K8sDiscoveryResult {
 		"probed", result.Probed,
 		"skipped", result.Skipped,
 		"errors", result.Errors,
-		"instaladas", countState(result.States, state.StateInstalada),
+		"instaladas", countState(result.States, state.StateInstalled),
 	)
 	return result
 }
@@ -149,7 +149,7 @@ func (d *K8sDiscovery) probeOne(fichaPath string, result *K8sDiscoveryResult) {
 	result.States[info.FichaID] = fichaState
 	result.Probed++
 
-	if fichaState == state.StateInstalada {
+	if fichaState == state.StateInstalled {
 		d.logger.Info("k8s_discovery: ficha INSTALADA",
 			"ficha", info.FichaID,
 			"kind", info.Kind,
@@ -172,13 +172,13 @@ func (d *K8sDiscovery) probeOne(fichaPath string, result *K8sDiscoveryResult) {
 func workloadStatusToFichaState(ws *k8s.WorkloadStatus) state.FichaState {
 	switch {
 	case ws.IsReady():
-		return state.StateInstalada
+		return state.StateInstalled
 	case ws.IsDegraded():
-		return state.StateDegradada
+		return state.StateDegraded
 	case ws.Found:
-		return state.StateErrorFisico
+		return state.StatePhysicalError
 	default:
-		return state.StatePendiente
+		return state.StatePending
 	}
 }
 

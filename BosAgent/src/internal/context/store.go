@@ -98,8 +98,8 @@ func (s *PGRedisStore) AutoMigrate(ctx context.Context) error {
 // contextStateStr convierte ContextState al string del ENUM bos_context_state_enum.
 func contextStateStr(s ContextState) string {
 	switch s {
-	case StatePendiente:
-		return "PENDIENTE"
+	case StatePending:
+		return "PENDING"
 	case StateActivo:
 		return "ACTIVO"
 	case StateSuspendido:
@@ -113,15 +113,15 @@ func contextStateStr(s ContextState) string {
 	case StateArchivado:
 		return "ARCHIVADO"
 	default:
-		return "PENDIENTE"
+		return "PENDING"
 	}
 }
 
 // contextStateFromStr convierte el string del ENUM bos_context_state_enum a ContextState.
 func contextStateFromStr(s string) ContextState {
 	switch s {
-	case "PENDIENTE":
-		return StatePendiente
+	case "PENDING":
+		return StatePending
 	case "ACTIVO":
 		return StateActivo
 	case "SUSPENDIDO":
@@ -135,7 +135,7 @@ func contextStateFromStr(s string) ContextState {
 	case "ARCHIVADO":
 		return StateArchivado
 	default:
-		return StatePendiente
+		return StatePending
 	}
 }
 

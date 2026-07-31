@@ -27,10 +27,10 @@ func (m *Manager) Transition(name string, to FichaState) error {
 	if !ok {
 		// Auto-create vía INSTALANDO: registra la ficha como LISTA y valida
 		// la transición LISTA→INSTALANDO. Usado principalmente en tests.
-		if to != StateInstalando {
+		if to != StateInstalling {
 			return fmt.Errorf("state: ficha %s not found for transition to %s", name, to)
 		}
-		ficha = &Ficha{Name: name, State: StateLista}
+		ficha = &Ficha{Name: name, State: StateReady}
 		st.Fichas[name] = ficha
 	}
 
@@ -102,7 +102,7 @@ func (m *Manager) SetHealth(name string, status string) error {
 // SetDriftDetected transiciona una ficha a ACTUALIZACION_DISPONIBLE
 // cuando se detecta drift en resources/ o hay una nueva versión disponible.
 func (m *Manager) SetDriftDetected(name string) error {
-	return m.Transition(name, StateActualizacionDisp)
+	return m.Transition(name, StateUpdateAvailable)
 }
 
 // SetPendiente fuerza una ficha a PENDIENTE independientemente del estado actual.
@@ -122,7 +122,7 @@ func (m *Manager) SetPendiente(name string) error {
 		return fmt.Errorf("state: ficha %s not found", name)
 	}
 
-	ficha.State = StatePendiente
+	ficha.State = StatePending
 	ficha.UpdatedAt = time.Now()
 	st.UpdatedAt = time.Now()
 

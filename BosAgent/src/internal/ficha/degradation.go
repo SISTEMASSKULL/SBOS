@@ -148,7 +148,7 @@ func (dh *DegradedHandler) AttemptRepair(errorOutput string) (bool, FichaState) 
 			"ficha", dh.state.FichaID,
 			"cause", diag.Cause,
 		)
-		return false, StateErrorNoCorregible
+		return false, StateUnrecoverable
 	}
 
 	// Intentar reparación: Executor real o simulación
@@ -182,7 +182,7 @@ func (dh *DegradedHandler) AttemptRepair(errorOutput string) (bool, FichaState) 
 			"ficha", dh.state.FichaID,
 			"attempt", dh.state.RepairAttempts,
 		)
-		return true, StateInstalada
+		return true, StateInstalled
 	}
 
 	// Falló — ¿quedan reintentos disponibles?
@@ -192,10 +192,10 @@ func (dh *DegradedHandler) AttemptRepair(errorOutput string) (bool, FichaState) 
 			"ficha", dh.state.FichaID,
 			"attempts", dh.state.RepairAttempts,
 		)
-		return false, StateErrorNoCorregible
+		return false, StateUnrecoverable
 	}
 
-	return false, StateReparando
+	return false, StateRepairing
 }
 
 // Recover transiciona de DEGRADADA a INSTALADA tras reparación exitosa.
@@ -206,7 +206,7 @@ func (dh *DegradedHandler) Recover() FichaState {
 		"degraded_duration", time.Since(dh.state.DegradedSince).Round(time.Second),
 		"repair_attempts", dh.state.RepairAttempts,
 	)
-	return StateInstalada
+	return StateInstalled
 }
 
 // Escalate escala a HITL cuando la reparación agota todos los reintentos.

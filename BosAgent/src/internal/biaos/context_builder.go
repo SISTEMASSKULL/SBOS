@@ -48,7 +48,7 @@ func BuildContext(mgr *state.Manager) *AIContext {
 				backend = "-"
 			}
 			line := fmt.Sprintf("%s v=%s state=%s backend=%s", name, f.Version, f.State, backend)
-			if f.State == state.StateInstalada || f.State == state.StateDegradada {
+			if f.State == state.StateInstalled || f.State == state.StateDegraded {
 				active = append(active, line)
 			} else {
 				blocked = append(blocked, line)

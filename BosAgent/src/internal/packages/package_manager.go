@@ -123,7 +123,7 @@ func (m *Manager) Install(pkg, backendFlag string) *InstallResult {
 
 	// Persist backend to state file for immediate availability (reload-safe via meta.backend in manifest).
 	if sm, err := state.NewManager("/etc/bos/.sbos_state.json"); err == nil {
-		_ = sm.Register(fichaID, state.StateLista, version, false, "hostserver", 4, be.Name())
+		_ = sm.Register(fichaID, state.StateReady, version, false, "hostserver", 4, be.Name())
 		sm.Close()
 	}
 

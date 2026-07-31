@@ -63,7 +63,7 @@ func TestAttemptRepair_NoRecuperable(t *testing.T) {
 	if ok {
 		t.Error("segfault no es recuperable")
 	}
-	if state != StateErrorNoCorregible {
+	if state != StateUnrecoverable {
 		t.Errorf("esperado ERROR_NO_CORREGIBLE, obtenido %s", state)
 	}
 }
@@ -78,7 +78,7 @@ func TestAttemptRepair_AgotaReintentos(t *testing.T) {
 	if ok {
 		t.Error("primer intento no debe ser exitoso (error desconocido)")
 	}
-	if state == StateErrorNoCorregible && dh.state.RepairAttempts < dh.state.MaxAttempts {
+	if state == StateUnrecoverable && dh.state.RepairAttempts < dh.state.MaxAttempts {
 		t.Error("no debe escalar antes de agotar intentos")
 	}
 
@@ -87,7 +87,7 @@ func TestAttemptRepair_AgotaReintentos(t *testing.T) {
 	if ok2 {
 		t.Error("segundo intento no debe ser exitoso")
 	}
-	if state2 != StateErrorNoCorregible {
+	if state2 != StateUnrecoverable {
 		t.Errorf("al agotar 2 intentos: esperado ERROR_NO_CORREGIBLE, obtenido %s", state2)
 	}
 }
@@ -123,7 +123,7 @@ func TestRecover(t *testing.T) {
 	dh.state.RepairAttempts = 1
 
 	state := dh.Recover()
-	if state != StateInstalada {
+	if state != StateInstalled {
 		t.Errorf("Recover: esperado INSTALADA, obtenido %s", state)
 	}
 }
@@ -139,7 +139,7 @@ func TestEscalate(t *testing.T) {
 	if req.FichaID != "postgresql" {
 		t.Errorf("FichaID: %s", req.FichaID)
 	}
-	if req.State != StateErrorNoCorregible {
+	if req.State != StateUnrecoverable {
 		t.Errorf("State: %s", req.State)
 	}
 	if req.Attempts != 3 {

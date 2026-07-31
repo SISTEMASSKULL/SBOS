@@ -222,7 +222,7 @@ func TestHealthChecker_DegradationNotification(t *testing.T) {
 	if len(notifications) != 1 {
 		t.Fatalf("2do fallo debe notificar (1 notificación), obtenido %d", len(notifications))
 	}
-	if notifications[0].newState != "DEGRADADA" {
+	if notifications[0].newState != "DEGRADED" {
 		t.Errorf("esperado DEGRADADA, obtenido %s", notifications[0].newState)
 	}
 }

@@ -30,7 +30,7 @@ func TestRegisterDevice_RetornaContextoOS(t *testing.T) {
 	if dctx.BitMask != 0 {
 		t.Errorf("BitMask debe ser 0 (pre-auth), got %d", dctx.BitMask)
 	}
-	if dctx.State != StatePendiente {
+	if dctx.State != StatePending {
 		t.Errorf("estado inicial debe ser PENDIENTE, got %s", dctx.State)
 	}
 

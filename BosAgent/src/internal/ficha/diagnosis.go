@@ -139,11 +139,11 @@ func (l *Lifecycle) Diagnose(errorOutput string, healthType string) ErrorDiagnos
 func (l *Lifecycle) ClassifyState(diag ErrorDiagnosis) FichaState {
 	switch diag.Category {
 	case ErrPhysical:
-		return StateErrorFisico
+		return StatePhysicalError
 	case ErrLogical:
-		return StateErrorLogico
+		return StateLogicalError
 	default:
-		return StateErrorLogico
+		return StateLogicalError
 	}
 }
 
@@ -174,7 +174,7 @@ type HITLRequest struct {
 func (l *Lifecycle) EscalateToHITL(fichaID string, diag ErrorDiagnosis, attempts, maxAttempts int) HITLRequest {
 	req := HITLRequest{
 		FichaID:     fichaID,
-		State:       StateErrorNoCorregible,
+		State:       StateUnrecoverable,
 		Diagnosis:   diag,
 		Attempts:    attempts,
 		MaxAttempts: maxAttempts,

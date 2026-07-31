@@ -16,7 +16,7 @@ func TestExecuteRepair_Simulacion_Falla3Reintentos(t *testing.T) {
 	if result.Success {
 		t.Error("segfault no es recuperable — no debe tener éxito")
 	}
-	if result.FinalState != StateErrorNoCorregible {
+	if result.FinalState != StateUnrecoverable {
 		t.Errorf("esperado ERROR_NO_CORREGIBLE, obtenido %s", result.FinalState)
 	}
 	if result.TotalAttempts < 1 {
@@ -29,7 +29,7 @@ func TestExecuteRepair_Simulacion_ConfigRecuperable(t *testing.T) {
 
 	// Error de configuración: recuperable en 2do intento (simulación)
 	result := lc.ExecuteRepair("keycloak", 3, 0, "invalid config value")
-	if result.FinalState != StateInstalada {
+	if result.FinalState != StateInstalled {
 		t.Errorf("config recoverable: esperado INSTALADA en 2do intento, obtenido %s", result.FinalState)
 	}
 	if !result.Success {
@@ -46,7 +46,7 @@ func TestExecuteRepair_Simulacion_AgotaReintentos(t *testing.T) {
 	// maxAttempts=1 garantiza agotamiento: intento 1 falla (la simulación
 	// solo tiene éxito en intento==2, que nunca llega con maxAttempts=1).
 	result := lc.ExecuteRepair("vault", 1, 0, "unknown failure XYZ")
-	if result.FinalState != StateErrorNoCorregible {
+	if result.FinalState != StateUnrecoverable {
 		t.Errorf("reintentos agotados: esperado ERROR_NO_CORREGIBLE, obtenido %s", result.FinalState)
 	}
 	if result.Success {

@@ -199,7 +199,7 @@ func (m *RepairManager) runPhaseBOS(result *ManagerResult) {
 
 	// Repair each degraded ficha
 	for name, ficha := range st.Fichas {
-		if ficha.State == state.StateDegradada || ficha.State == state.StateErrorLogico {
+		if ficha.State == state.StateDegraded || ficha.State == state.StateLogicalError {
 			m.logger.Info("repair phase 3: repairing ficha", "ficha", name, "state", string(ficha.State))
 
 			if m.dryRun {
@@ -212,8 +212,8 @@ func (m *RepairManager) runPhaseBOS(result *ManagerResult) {
 			}
 
 			// Transition to REPARANDO
-			if ficha.State != state.StateReparando {
-				_ = m.stateMgr.Transition(name, state.StateReparando)
+			if ficha.State != state.StateRepairing {
+				_ = m.stateMgr.Transition(name, state.StateRepairing)
 			}
 
 			if m.bosRepairer != nil {
@@ -221,14 +221,14 @@ func (m *RepairManager) runPhaseBOS(result *ManagerResult) {
 				repairSteps = append(repairSteps, steps...)
 				if err != nil || !ok {
 					m.logger.Warn("repair phase 3: ficha repair failed — reverting to ALERTA", "ficha", name, "err", err)
-					_ = m.stateMgr.Transition(name, state.StateDegradada)
+					_ = m.stateMgr.Transition(name, state.StateDegraded)
 					repairSteps = append(repairSteps, RepairStep{
 						Action: fmt.Sprintf("repair-ficha-%s", name),
 						Status: "fail",
 						Error:  fmt.Sprintf("repair failed: %v", err),
 					})
 				} else {
-					_ = m.stateMgr.Transition(name, state.StateInstalada)
+					_ = m.stateMgr.Transition(name, state.StateInstalled)
 					m.logger.Info("repair phase 3: ficha repaired OK", "ficha", name)
 				}
 			}

@@ -85,8 +85,8 @@ func silentLogger() *slog.Logger {
 // makeGRPCServer crea un FichaServer de prueba con redis=INSTALADA y vault=PAUSADA.
 func makeGRPCServer() *FichaServer {
 	st := &grpcTestState{fichas: map[string]*state.Ficha{
-		"redis": {Name: "redis", Version: "8.6.2", State: state.StateInstalada, HealthStatus: "OK"},
-		"vault": {Name: "vault", Version: "2.0.1", State: state.StatePausada, HealthStatus: "OK"},
+		"redis": {Name: "redis", Version: "8.6.2", State: state.StateInstalled, HealthStatus: "OK"},
+		"vault": {Name: "vault", Version: "2.0.1", State: state.StatePaused, HealthStatus: "OK"},
 	}}
 	cat := &grpcTestCatalog{manifests: []*plugin.FichaManifest{
 		{ID: "redis", Version: "8.6.2"},
@@ -366,7 +366,7 @@ func TestFichaServer_Pause_OK(t *testing.T) {
 	if !resp.Success {
 		t.Error("Success debe ser true")
 	}
-	if resp.PrevState != "INSTALADA" {
+	if resp.PrevState != "INSTALLED" {
 		t.Errorf("PrevState: got %q, want INSTALADA", resp.PrevState)
 	}
 }
@@ -388,7 +388,7 @@ func TestFichaServer_Resume_OK(t *testing.T) {
 	if !resp.Success {
 		t.Error("Success debe ser true")
 	}
-	if resp.NewState != "INSTALADA" {
+	if resp.NewState != "INSTALLED" {
 		t.Errorf("NewState: got %q, want INSTALADA", resp.NewState)
 	}
 }
@@ -489,7 +489,7 @@ func TestFichaServer_ResetState_OK(t *testing.T) {
 	srv := makeGRPCServer()
 	resp, err := srv.ResetState(context.Background(), &pb.ResetStateRequest{
 		FichaId:     "redis",
-		TargetState: "DEGRADADA",
+		TargetState: "DEGRADED",
 	})
 	if err != nil {
 		t.Fatalf("ResetState: %v", err)

@@ -15,74 +15,74 @@ type FichaState string
 const (
 	// ── Estados estables (visibles en UI y monitoreados por BOS) ────────
 
-	// StatePendiente: ficha declarada, dependencias verificándose. (#1)
-	StatePendiente FichaState = "PENDIENTE"
-	// StateLista: dependencias OK, esperando turno en DAG topológico. (#2)
-	StateLista FichaState = "LISTA"
-	// StateInstalada: pod Running + health OK + hashes registrados. (#4)
-	StateInstalada FichaState = "INSTALADA"
-	// StateActualizacionDisp: nueva versión detectada, no evaluada aún. (#5)
-	StateActualizacionDisp FichaState = "ACTUALIZACION_DISPONIBLE"
-	// StateActualizacionAprobada: BOS evaluó → tests OK → sin degradación. (#6)
-	StateActualizacionAprobada FichaState = "ACTUALIZACION_APROBADA"
-	// StateDegradada: funciona con capacidad reducida, intenta auto-reparar. (#8)
-	StateDegradada FichaState = "DEGRADADA"
-	// StateErrorFisico: causa externa — disco, red, CPU, memoria. (#9)
-	StateErrorFisico FichaState = "ERROR_FISICO"
-	// StateErrorLogico: causa interna — config, deps, schema drift. (#10)
-	StateErrorLogico FichaState = "ERROR_LOGICO"
-	// StateErrorNoCorregible: reintentos agotados, requiere HITL. (#12)
-	StateErrorNoCorregible FichaState = "ERROR_NO_CORREGIBLE"
-	// StateFallaInstalacion: saga install falló, evaluar rollback. (#13)
-	StateFallaInstalacion FichaState = "FALLA_INSTALACION"
-	// StateFallaActualizacion: saga update falló, evaluar rollback. (#14)
-	StateFallaActualizacion FichaState = "FALLA_ACTUALIZACION"
-	// StatePausada: admin suspendió (mantenimiento), no genera alertas. (#17)
-	StatePausada FichaState = "PAUSADA"
-	// StateDesinstalada: removida del sistema. PV puede persistir (Retain). (#18)
-	StateDesinstalada FichaState = "DESINSTALADA"
+	// StatePending: ficha declarada, dependencias verificándose. (#1)
+	StatePending FichaState = "PENDING"
+	// StateReady: dependencias OK, esperando turno en DAG topológico. (#2)
+	StateReady FichaState = "READY"
+	// StateInstalled: pod Running + health OK + hashes registrados. (#4)
+	StateInstalled FichaState = "INSTALLED"
+	// StateUpdateAvailable: nueva versión detectada, no evaluada aún. (#5)
+	StateUpdateAvailable FichaState = "UPDATE_AVAILABLE"
+	// StateUpdateApproved: BOS evaluó → tests OK → sin degradación. (#6)
+	StateUpdateApproved FichaState = "UPDATE_APPROVED"
+	// StateDegraded: funciona con capacidad reducida, intenta auto-reparar. (#8)
+	StateDegraded FichaState = "DEGRADED"
+	// StatePhysicalError: causa externa — disco, red, CPU, memoria. (#9)
+	StatePhysicalError FichaState = "PHYSICAL_ERROR"
+	// StateLogicalError: causa interna — config, deps, schema drift. (#10)
+	StateLogicalError FichaState = "LOGICAL_ERROR"
+	// StateUnrecoverable: reintentos agotados, requiere HITL. (#12)
+	StateUnrecoverable FichaState = "UNRECOVERABLE"
+	// StateInstallFailed: saga install falló, evaluar rollback. (#13)
+	StateInstallFailed FichaState = "INSTALL_FAILED"
+	// StateUpdateFailed: saga update falló, evaluar rollback. (#14)
+	StateUpdateFailed FichaState = "UPDATE_FAILED"
+	// StatePaused: admin suspendió (mantenimiento), no genera alertas. (#17)
+	StatePaused FichaState = "PAUSED"
+	// StateUninstalled: removida del sistema. PV puede persistir (Retain). (#18)
+	StateUninstalled FichaState = "UNINSTALLED"
 
 	// ── Estados transicionales (BOS está activamente ejecutando) ────────
 
-	// StateInstalando: saga install en progreso (timeout 30min). (#3)
-	StateInstalando FichaState = "INSTALANDO"
-	// StateActualizando: saga update en progreso (timeout 15min). (#7)
-	StateActualizando FichaState = "ACTUALIZANDO"
-	// StateReparando: diagnóstico + repair en progreso (timeout 10min). (#11)
-	StateReparando FichaState = "REPARANDO"
+	// StateInstalling: saga install en progreso (timeout 30min). (#3)
+	StateInstalling FichaState = "INSTALLING"
+	// StateUpdating: saga update en progreso (timeout 15min). (#7)
+	StateUpdating FichaState = "UPDATING"
+	// StateRepairing: diagnóstico + repair en progreso (timeout 10min). (#11)
+	StateRepairing FichaState = "REPAIRING"
 	// StateRollback: restaurando versión anterior estable. (#15)
 	StateRollback FichaState = "ROLLBACK"
-	// StateLimpieza: eliminando artefactos de operación fallida. (#16)
-	StateLimpieza FichaState = "LIMPIEZA"
+	// StateCleanup: eliminando artefactos de operación fallida. (#16)
+	StateCleanup FichaState = "CLEANUP"
 )
 
 // StableStates retorna los 13 estados estables (visibles en UI y API).
 func StableStates() []FichaState {
 	return []FichaState{
-		StatePendiente, StateLista, StateInstalada,
-		StateActualizacionDisp, StateActualizacionAprobada,
-		StateDegradada, StateErrorFisico, StateErrorLogico,
-		StateErrorNoCorregible, StateFallaInstalacion, StateFallaActualizacion,
-		StatePausada, StateDesinstalada,
+		StatePending, StateReady, StateInstalled,
+		StateUpdateAvailable, StateUpdateApproved,
+		StateDegraded, StatePhysicalError, StateLogicalError,
+		StateUnrecoverable, StateInstallFailed, StateUpdateFailed,
+		StatePaused, StateUninstalled,
 	}
 }
 
 // TransitionalStates retorna los 5 estados transicionales.
 func TransitionalStates() []FichaState {
 	return []FichaState{
-		StateInstalando, StateActualizando, StateReparando,
-		StateRollback, StateLimpieza,
+		StateInstalling, StateUpdating, StateRepairing,
+		StateRollback, StateCleanup,
 	}
 }
 
 // IsStable retorna true si el estado es estable (no transitorio).
 func (s FichaState) IsStable() bool {
 	switch s {
-	case StatePendiente, StateLista, StateInstalada,
-		StateActualizacionDisp, StateActualizacionAprobada,
-		StateDegradada, StateErrorFisico, StateErrorLogico,
-		StateErrorNoCorregible, StateFallaInstalacion, StateFallaActualizacion,
-		StatePausada, StateDesinstalada:
+	case StatePending, StateReady, StateInstalled,
+		StateUpdateAvailable, StateUpdateApproved,
+		StateDegraded, StatePhysicalError, StateLogicalError,
+		StateUnrecoverable, StateInstallFailed, StateUpdateFailed,
+		StatePaused, StateUninstalled:
 		return true
 	}
 	return false
@@ -91,8 +91,8 @@ func (s FichaState) IsStable() bool {
 // IsTransitional retorna true si BOS está activamente trabajando en este estado.
 func (s FichaState) IsTransitional() bool {
 	switch s {
-	case StateInstalando, StateActualizando, StateReparando,
-		StateRollback, StateLimpieza:
+	case StateInstalling, StateUpdating, StateRepairing,
+		StateRollback, StateCleanup:
 		return true
 	}
 	return false
@@ -101,54 +101,54 @@ func (s FichaState) IsTransitional() bool {
 // IsError retorna true si el estado representa un error que requiere atención.
 func (s FichaState) IsError() bool {
 	switch s {
-	case StateErrorFisico, StateErrorLogico, StateErrorNoCorregible,
-		StateFallaInstalacion, StateFallaActualizacion:
+	case StatePhysicalError, StateLogicalError, StateUnrecoverable,
+		StateInstallFailed, StateUpdateFailed:
 		return true
 	}
 	return false
 }
 
 // IsHealthy retorna true si la ficha está operativa sin alertas.
-func (s FichaState) IsHealthy() bool { return s == StateInstalada }
+func (s FichaState) IsHealthy() bool { return s == StateInstalled }
 
 // ValidTransitions define las transiciones permitidas entre los 18 estados.
 // Toda transición no listada aquí es rechazada por Transition().
 var ValidTransitions = map[FichaState][]FichaState{
 	// ── Pre-install ─────────────────────────────────────────────────────
-	StatePendiente: {StateLista},      // deps satisfechas
-	StateLista:     {StateInstalando}, // DAG otorga slot
+	StatePending: {StateReady},      // deps satisfechas
+	StateReady:     {StateInstalling}, // DAG otorga slot
 
 	// ── Flujo de instalación ─────────────────────────────────────────────
-	StateInstalando:       {StateInstalada, StateFallaInstalacion},
-	StateFallaInstalacion: {StateLimpieza, StateInstalando}, // limpiar o reintentar
-	StateLimpieza:         {StateLista, StatePendiente},     // listo o re-evaluar
+	StateInstalling:       {StateInstalled, StateInstallFailed},
+	StateInstallFailed: {StateCleanup, StateInstalling}, // limpiar o reintentar
+	StateCleanup:         {StateReady, StatePending},     // listo o re-evaluar
 
 	// ── Instalada estable → ramas ────────────────────────────────────────
-	StateInstalada: {
-		StateActualizacionDisp, StateActualizando,
-		StateDegradada, StateReparando,
-		StatePausada, StateDesinstalada,
+	StateInstalled: {
+		StateUpdateAvailable, StateUpdating,
+		StateDegraded, StateRepairing,
+		StatePaused, StateUninstalled,
 	},
 
 	// ── Flujo de actualización ────────────────────────────────────────────
-	StateActualizacionDisp:     {StateActualizacionAprobada, StateInstalada},
-	StateActualizacionAprobada: {StateActualizando},
-	StateActualizando:          {StateInstalada, StateFallaActualizacion, StateRollback},
-	StateFallaActualizacion:    {StateRollback, StateInstalada},
-	StateRollback:              {StateInstalada, StateErrorNoCorregible},
+	StateUpdateAvailable:     {StateUpdateApproved, StateInstalled},
+	StateUpdateApproved: {StateUpdating},
+	StateUpdating:          {StateInstalled, StateUpdateFailed, StateRollback},
+	StateUpdateFailed:    {StateRollback, StateInstalled},
+	StateRollback:              {StateInstalled, StateUnrecoverable},
 
 	// ── Degradada y reparación ────────────────────────────────────────────
-	StateDegradada:   {StateReparando, StateErrorFisico, StateErrorLogico},
-	StateErrorFisico: {StateReparando},
-	StateErrorLogico: {StateReparando},
-	StateReparando:   {StateInstalada, StateDegradada, StateErrorNoCorregible},
+	StateDegraded:   {StateRepairing, StatePhysicalError, StateLogicalError},
+	StatePhysicalError: {StateRepairing},
+	StateLogicalError: {StateRepairing},
+	StateRepairing:   {StateInstalled, StateDegraded, StateUnrecoverable},
 
 	// ── Error fatal (requiere HITL) ───────────────────────────────────────
-	StateErrorNoCorregible: {StateReparando, StateDesinstalada, StateLimpieza},
+	StateUnrecoverable: {StateRepairing, StateUninstalled, StateCleanup},
 
 	// ── Administración ────────────────────────────────────────────────────
-	StatePausada:      {StateInstalada, StateDesinstalada},
-	StateDesinstalada: {},
+	StatePaused:      {StateInstalled, StateUninstalled},
+	StateUninstalled: {},
 }
 
 // Ficha representa un componente instalado en el archivo de estado.

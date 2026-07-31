@@ -157,7 +157,7 @@ func (l *Lifecycle) BeginInstall(currentState FichaState) (FichaState, error) {
 // success=false y hasPreviousVersion=false → LIMPIEZA (primera instalación).
 func (l *Lifecycle) CompleteInstall(success bool, hasPreviousVersion bool) (FichaState, bool) {
 	if success {
-		return StateInstalada, false
+		return StateInstalled, false
 	}
 
 	if hasPreviousVersion {
@@ -166,14 +166,14 @@ func (l *Lifecycle) CompleteInstall(success bool, hasPreviousVersion bool) (Fich
 	}
 
 	l.logger.Warn("instalación fallida — iniciando limpieza (sin versión anterior)")
-	return StateLimpieza, false
+	return StateCleanup, false
 }
 
 // EvaluateInstall determina el estado resultante de una instalación.
 // Encapsula la lógica de decisión install→INSTALADA|ROLLBACK|LIMPIEZA.
 func (l *Lifecycle) EvaluateInstall(success bool, hasPreviousVersion bool) InstallResult {
 	if success {
-		return InstallResult{NewState: StateInstalada}
+		return InstallResult{NewState: StateInstalled}
 	}
 
 	if hasPreviousVersion {
@@ -184,7 +184,7 @@ func (l *Lifecycle) EvaluateInstall(success bool, hasPreviousVersion bool) Insta
 	}
 
 	return InstallResult{
-		NewState:     StateLimpieza,
+		NewState:     StateCleanup,
 		NeedsCleanup: true,
 	}
 }
@@ -207,7 +207,7 @@ func (l *Lifecycle) BeginUpdate(currentState FichaState) (FichaState, error) {
 // success=false → ROLLBACK (siempre, porque update presupone versión anterior).
 func (l *Lifecycle) EvaluateUpdate(success bool) InstallResult {
 	if success {
-		return InstallResult{NewState: StateInstalada}
+		return InstallResult{NewState: StateInstalled}
 	}
 	return InstallResult{
 		NewState:      StateRollback,
@@ -234,7 +234,7 @@ func (l *Lifecycle) BeginRepair(currentState FichaState) (FichaState, error) {
 // success=false y attempt < maxAttempts → REPARANDO (reintentar).
 func (l *Lifecycle) EvaluateRepair(success bool, attempt int, maxAttempts int) InstallResult {
 	if success {
-		return InstallResult{NewState: StateInstalada}
+		return InstallResult{NewState: StateInstalled}
 	}
 
 	if attempt >= maxAttempts {
@@ -242,14 +242,14 @@ func (l *Lifecycle) EvaluateRepair(success bool, attempt int, maxAttempts int) I
 			"attempts", attempt,
 			"max_attempts", maxAttempts,
 		)
-		return InstallResult{NewState: StateErrorNoCorregible}
+		return InstallResult{NewState: StateUnrecoverable}
 	}
 
 	l.logger.Warn("reparación fallida — reintentando",
 		"attempt", attempt,
 		"max_attempts", maxAttempts,
 	)
-	return InstallResult{NewState: StateReparando}
+	return InstallResult{NewState: StateRepairing}
 }
 
 // ── Eliminación ────────────────────────────────────────────────────────
@@ -293,9 +293,9 @@ func (l *Lifecycle) UpdateAvailability(current, target Version) (bool, FichaStat
 			"current", current.String(),
 			"target", target.String(),
 		)
-		return true, StateActualizacionDisp
+		return true, StateUpdateAvailable
 	}
-	return false, StateInstalada
+	return false, StateInstalled
 }
 
 // ApproveUpdate evalúa si la actualización puede aplicarse de forma segura.
@@ -308,12 +308,12 @@ func (l *Lifecycle) ApproveUpdate(current, target Version, currentHealthOK bool)
 			"target", target.String(),
 			"reason", err.Error(),
 		)
-		return StateActualizacionDisp, fmt.Errorf("actualización no compatible: %w", err)
+		return StateUpdateAvailable, fmt.Errorf("actualización no compatible: %w", err)
 	}
 
 	if !currentHealthOK {
 		l.logger.Warn("actualización rechazada por health degradado")
-		return StateActualizacionDisp, fmt.Errorf("health actual no es OK — repare antes de actualizar")
+		return StateUpdateAvailable, fmt.Errorf("health actual no es OK — repare antes de actualizar")
 	}
 
 	l.logger.Info("actualización aprobada",
@@ -322,14 +322,14 @@ func (l *Lifecycle) ApproveUpdate(current, target Version, currentHealthOK bool)
 		"needs_migration", NeedsMigration(current, target),
 		"needs_backup", NeedsBackup(current, target),
 	)
-	return StateActualizacionAprobada, nil
+	return StateUpdateApproved, nil
 }
 
 // RejectUpdate revierte ACTUALIZACION_DISP a INSTALADA cuando el operador
 // decide no aplicar la actualización.
 func (l *Lifecycle) RejectUpdate() FichaState {
 	l.logger.Info("actualización rechazada por el operador")
-	return StateInstalada
+	return StateInstalled
 }
 
 // CompleteUpdate finaliza la actualización con el resultado de la saga.
@@ -338,7 +338,7 @@ func (l *Lifecycle) RejectUpdate() FichaState {
 func (l *Lifecycle) CompleteUpdate(success bool, prevVersion Version) (FichaState, bool) {
 	if success {
 		l.logger.Info("actualización completada exitosamente")
-		return StateInstalada, false
+		return StateInstalled, false
 	}
 
 	l.logger.Warn("actualización fallida — iniciando rollback",
@@ -353,20 +353,20 @@ func (l *Lifecycle) CompleteUpdate(success bool, prevVersion Version) (FichaStat
 // fallan consecutivamente por encima del umbral configurado.
 func (l *Lifecycle) Degrade(consecutiveFailures int, threshold int) (FichaState, error) {
 	if consecutiveFailures < threshold {
-		return StateInstalada, fmt.Errorf("no se cumplen las condiciones para degradar (%d < %d fallos)",
+		return StateInstalled, fmt.Errorf("no se cumplen las condiciones para degradar (%d < %d fallos)",
 			consecutiveFailures, threshold)
 	}
 	l.logger.Warn("ficha degradada por health failures",
 		"consecutive_failures", consecutiveFailures,
 		"threshold", threshold,
 	)
-	return StateDegradada, nil
+	return StateDegraded, nil
 }
 
 // RecoverAfterRepair transiciona de REPARANDO a INSTALADA tras reparación exitosa.
 func (l *Lifecycle) RecoverAfterRepair() FichaState {
 	l.logger.Info("ficha recuperada tras reparación exitosa")
-	return StateInstalada
+	return StateInstalled
 }
 
 // ── Flujo de limpieza y rollback ────────────────────────────────────────
@@ -375,7 +375,7 @@ func (l *Lifecycle) RecoverAfterRepair() FichaState {
 // dejándola disponible para una nueva instalación.
 func (l *Lifecycle) CleanupComplete() FichaState {
 	l.logger.Info("limpieza completada — ficha vuelve a PENDIENTE")
-	return StatePendiente
+	return StatePending
 }
 
 // RollbackComplete finaliza el rollback tras restaurar backup de la versión N-1.
@@ -384,21 +384,21 @@ func (l *Lifecycle) CleanupComplete() FichaState {
 func (l *Lifecycle) RollbackComplete(success bool) FichaState {
 	if success {
 		l.logger.Info("rollback exitoso — versión anterior restaurada")
-		return StateInstalada
+		return StateInstalled
 	}
 	l.logger.Error("rollback fallido — requiere intervención humana")
-	return StateErrorNoCorregible
+	return StateUnrecoverable
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
 // VersionLabel construye la etiqueta de versión para el estado INSTALADA_vX.Y.Z.
-// Si version es vacía o "latest", retorna solo "INSTALADA".
+// Si version es vacía o "latest", retorna solo "INSTALLED".
 func VersionLabel(version string) string {
 	if version == "" || version == "latest" {
-		return "INSTALADA"
+		return "INSTALLED"
 	}
-	return fmt.Sprintf("INSTALADA_v%s", version)
+	return fmt.Sprintf("INSTALLED_v%s", version)
 }
 
 // SetExecutor inyecta el Ejecutor de 5 fases y el resolvedor de rutas en el orquestador.

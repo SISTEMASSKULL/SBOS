@@ -58,9 +58,9 @@ func TestBootstrapService_Start(t *testing.T) {
 		st := &mockState{
 			readFn: func() (*state.SBOSState, error) {
 				return stateWith(map[string]state.FichaState{
-					"sbos-bootstrap-os": state.StateInstalada,
-					"postgresql":        state.StateInstalada,
-					"redis":             state.StateLista,
+					"sbos-bootstrap-os": state.StateInstalled,
+					"postgresql":        state.StateInstalled,
+					"redis":             state.StateReady,
 				}), nil
 			},
 		}
@@ -80,7 +80,7 @@ func TestBootstrapService_Start(t *testing.T) {
 		st := &mockState{
 			readFn: func() (*state.SBOSState, error) {
 				return stateWith(map[string]state.FichaState{
-					"postgresql": state.StateInstalando,
+					"postgresql": state.StateInstalling,
 				}), nil
 			},
 		}
@@ -139,14 +139,14 @@ func TestBootstrapService_Verify(t *testing.T) {
 
 	t.Run("8/8 — todas INSTALADA_OK → Certified=true", func(t *testing.T) {
 		fichas := map[string]state.FichaState{
-			"sbos-bootstrap-os":  state.StateInstalada,
-			"sbos-bootstrap-k8s": state.StateInstalada,
-			"sbos-bootstrap-cni": state.StateInstalada,
-			"postgresql":         state.StateInstalada,
-			"redis":              state.StateInstalada,
-			"vault":              state.StateInstalada,
-			"keycloak":           state.StateInstalada,
-			"kong":               state.StateInstalada,
+			"sbos-bootstrap-os":  state.StateInstalled,
+			"sbos-bootstrap-k8s": state.StateInstalled,
+			"sbos-bootstrap-cni": state.StateInstalled,
+			"postgresql":         state.StateInstalled,
+			"redis":              state.StateInstalled,
+			"vault":              state.StateInstalled,
+			"keycloak":           state.StateInstalled,
+			"kong":               state.StateInstalled,
 		}
 		st := &mockState{readFn: func() (*state.SBOSState, error) { return stateWith(fichas), nil }}
 		result, err := newBootstrapSvc(st).Verify()
@@ -168,11 +168,11 @@ func TestBootstrapService_Verify(t *testing.T) {
 
 	t.Run("5/8 — vault/keycloak/kong pendientes", func(t *testing.T) {
 		fichas := map[string]state.FichaState{
-			"sbos-bootstrap-os":  state.StateInstalada,
-			"sbos-bootstrap-k8s": state.StateInstalada,
-			"sbos-bootstrap-cni": state.StateInstalada,
-			"postgresql":         state.StateInstalada,
-			"redis":              state.StateInstalada,
+			"sbos-bootstrap-os":  state.StateInstalled,
+			"sbos-bootstrap-k8s": state.StateInstalled,
+			"sbos-bootstrap-cni": state.StateInstalled,
+			"postgresql":         state.StateInstalled,
+			"redis":              state.StateInstalled,
 		}
 		st := &mockState{readFn: func() (*state.SBOSState, error) { return stateWith(fichas), nil }}
 		result, err := newBootstrapSvc(st).Verify()
@@ -200,14 +200,14 @@ func TestBootstrapService_Verify(t *testing.T) {
 
 	t.Run("ficha DEGRADADA no certifica", func(t *testing.T) {
 		fichas := map[string]state.FichaState{
-			"sbos-bootstrap-os": state.StateDegradada,
+			"sbos-bootstrap-os": state.StateDegraded,
 		}
 		st := &mockState{readFn: func() (*state.SBOSState, error) { return stateWith(fichas), nil }}
 		result, _ := newBootstrapSvc(st).Verify()
 		if result.Criterios[0].OK {
 			t.Error("C-01 debería ser false cuando está DEGRADADA")
 		}
-		if !containsSubstr(result.Criterios[0].Detalle, "DEGRADADA") {
+		if !containsSubstr(result.Criterios[0].Detalle, "DEGRADED") {
 			t.Errorf("Detalle=%q debería mencionar 'DEGRADADA'", result.Criterios[0].Detalle)
 		}
 	})
@@ -246,10 +246,10 @@ func TestBootstrapService_Status(t *testing.T) {
 
 	t.Run("progress = completados/total", func(t *testing.T) {
 		fichas := map[string]state.FichaState{
-			"a": state.StateInstalada,
-			"b": state.StateInstalada,
-			"c": state.StateLista,
-			"d": state.StatePendiente,
+			"a": state.StateInstalled,
+			"b": state.StateInstalled,
+			"c": state.StateReady,
+			"d": state.StatePending,
 		}
 		st := &mockState{readFn: func() (*state.SBOSState, error) { return stateWith(fichas), nil }}
 		result, err := newBootstrapSvc(st).Status()
@@ -276,9 +276,9 @@ func TestBootstrapService_Status(t *testing.T) {
 
 	t.Run("conteo alerta e instalando", func(t *testing.T) {
 		fichas := map[string]state.FichaState{
-			"a": state.StateDegradada,
-			"b": state.StateInstalando,
-			"c": state.StateInstalada,
+			"a": state.StateDegraded,
+			"b": state.StateInstalling,
+			"c": state.StateInstalled,
 		}
 		st := &mockState{readFn: func() (*state.SBOSState, error) { return stateWith(fichas), nil }}
 		result, err := newBootstrapSvc(st).Status()
@@ -307,8 +307,8 @@ func TestBootstrapService_Status(t *testing.T) {
 func TestBootstrapService_Resume(t *testing.T) {
 	t.Run("delega a Status correctamente", func(t *testing.T) {
 		fichas := map[string]state.FichaState{
-			"postgresql": state.StateInstalada,
-			"redis":      state.StateLista,
+			"postgresql": state.StateInstalled,
+			"redis":      state.StateReady,
 		}
 		st := &mockState{readFn: func() (*state.SBOSState, error) { return stateWith(fichas), nil }}
 		result, err := newBootstrapSvc(st).Resume()
@@ -336,19 +336,19 @@ func TestBootstrapService_Resume(t *testing.T) {
 
 func TestCountByState(t *testing.T) {
 	st := stateWith(map[string]state.FichaState{
-		"a": state.StateInstalada,
-		"b": state.StateInstalada,
-		"c": state.StateInstalando,
-		"d": state.StatePendiente,
+		"a": state.StateInstalled,
+		"b": state.StateInstalled,
+		"c": state.StateInstalling,
+		"d": state.StatePending,
 	})
 	checks := []struct {
 		target state.FichaState
 		want   int
 	}{
-		{state.StateInstalada, 2},
-		{state.StateInstalando, 1},
-		{state.StatePendiente, 1},
-		{state.StateLista, 0},
+		{state.StateInstalled, 2},
+		{state.StateInstalling, 1},
+		{state.StatePending, 1},
+		{state.StateReady, 0},
 	}
 	for _, tc := range checks {
 		got := countByState(st, tc.target)
@@ -356,7 +356,7 @@ func TestCountByState(t *testing.T) {
 			t.Errorf("countByState(%v)=%d, quería %d", tc.target, got, tc.want)
 		}
 	}
-	if countByState(emptyState(), state.StateInstalada) != 0 {
+	if countByState(emptyState(), state.StateInstalled) != 0 {
 		t.Error("countByState en estado vacío debería ser 0")
 	}
 }

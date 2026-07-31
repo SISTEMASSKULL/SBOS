@@ -151,22 +151,22 @@ func (s *Server) dependientesDe(fichaID string) []string {
 // (ADR-021). Heurística de primer nivel — biaos la refinará con logs en F10.
 func causaProbable(f *state.Ficha) string {
 	switch f.State {
-	case state.StateErrorFisico:
+	case state.StatePhysicalError:
 		return "recurso físico insuficiente (disco/red/CPU/memoria) — revisar el nodo"
-	case state.StateErrorLogico:
+	case state.StateLogicalError:
 		return "configuración, dependencias o schema drift — revisar manifest y deps"
-	case state.StateErrorNoCorregible:
+	case state.StateUnrecoverable:
 		return "reintentos agotados — requiere intervención humana (HITL)"
-	case state.StateDegradada:
+	case state.StateDegraded:
 		if f.HealthStatus != "OK" {
 			return "servicio degradado — probe de salud fallando (health=" + f.HealthStatus + ")"
 		}
 		return "capacidad reducida — replicas listas por debajo de lo deseado"
-	case state.StateFallaInstalacion:
+	case state.StateInstallFailed:
 		return "saga install falló — evaluar rollback o limpieza"
-	case state.StateFallaActualizacion:
+	case state.StateUpdateFailed:
 		return "saga update falló — evaluar rollback a versión anterior"
-	case state.StateInstalada:
+	case state.StateInstalled:
 		if f.HealthStatus != "OK" {
 			return "estado INSTALADA con probe inconsistente — verificar endpoint"
 		}
@@ -183,7 +183,7 @@ func buildRecomendacion(fichaID string, out map[string]interface{}) map[string]i
 		"rpc_ejecutar": fmt.Sprintf(`bosctl rpc bos.ficha.repair '{"ficha_id":"%s"}'`, fichaID),
 	}
 	if estado, ok := out["estado_actual"].(map[string]interface{}); ok {
-		if estado["state"] == string(state.StateInstalada) && estado["health"] == "OK" {
+		if estado["state"] == string(state.StateInstalled) && estado["health"] == "OK" {
 			rec["accion"] = "ninguna"
 			rec["rpc_ejecutar"] = ""
 			rec["motivo"] = "la ficha está INSTALADA y saludable — reparar no aporta"

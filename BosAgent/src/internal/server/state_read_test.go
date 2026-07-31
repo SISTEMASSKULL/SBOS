@@ -25,7 +25,7 @@ func (stubStateManager) Read() (*state.SBOSState, error) {
 			"postgresql": {
 				Name:    "postgresql",
 				Version: "18.4",
-				State:   state.StateInstalada,
+				State:   state.StateInstalled,
 				Hashes: map[string]string{
 					"manifest.yml": "a3f8c2d1e9b4567890abcdef1234567890abcdef1234567890abcdef12345678",
 				},

@@ -33,34 +33,34 @@ type FichaState string
 
 const (
 	// ── Estados pre-install ──────────────────────────────────────────
-	StatePendiente FichaState = "PENDIENTE" // ficha declarada, verificando deps
-	StateLista     FichaState = "LISTA"     // deps OK, esperando turno en DAG
+	StatePending FichaState = "PENDING" // ficha declarada, verificando deps
+	StateReady     FichaState = "READY"     // deps OK, esperando turno en DAG
 
 	// ── Estados de instalación ───────────────────────────────────────
-	StateInstalando       FichaState = "INSTALANDO"        // saga install en progreso (30min)
-	StateInstalada        FichaState = "INSTALADA"         // pod Running + health OK
-	StateFallaInstalacion FichaState = "FALLA_INSTALACION" // saga install falló
+	StateInstalling       FichaState = "INSTALLING"        // saga install en progreso (30min)
+	StateInstalled        FichaState = "INSTALLED"         // pod Running + health OK
+	StateInstallFailed FichaState = "INSTALL_FAILED" // saga install falló
 
 	// ── Estados de actualización ─────────────────────────────────────
-	StateActualizacionDisp     FichaState = "ACTUALIZACION_DISPONIBLE" // nueva versión detectada
-	StateActualizacionAprobada FichaState = "ACTUALIZACION_APROBADA"   // tests OK, sin degradación
-	StateActualizando          FichaState = "ACTUALIZANDO"             // saga update en progreso (15min)
-	StateFallaActualizacion    FichaState = "FALLA_ACTUALIZACION"      // saga update falló
+	StateUpdateAvailable     FichaState = "UPDATE_AVAILABLE" // nueva versión detectada
+	StateUpdateApproved FichaState = "UPDATE_APPROVED"   // tests OK, sin degradación
+	StateUpdating          FichaState = "UPDATING"             // saga update en progreso (15min)
+	StateUpdateFailed    FichaState = "UPDATE_FAILED"      // saga update falló
 
 	// ── Estados de error ────────────────────────────────────────────
-	StateDegradada         FichaState = "DEGRADADA"          // funciona reducido, auto-repara
-	StateErrorFisico       FichaState = "ERROR_FISICO"       // disco/red/CPU/memoria
-	StateErrorLogico       FichaState = "ERROR_LOGICO"        // config/deps/schema drift
-	StateErrorNoCorregible FichaState = "ERROR_NO_CORREGIBLE" // reintentos agotados → HITL
+	StateDegraded         FichaState = "DEGRADED"          // funciona reducido, auto-repara
+	StatePhysicalError       FichaState = "PHYSICAL_ERROR"       // disco/red/CPU/memoria
+	StateLogicalError       FichaState = "LOGICAL_ERROR"        // config/deps/schema drift
+	StateUnrecoverable FichaState = "UNRECOVERABLE" // reintentos agotados → HITL
 
 	// ── Estados transicionales ───────────────────────────────────────
-	StateReparando FichaState = "REPARANDO" // diagnóstico + repair (10min)
+	StateRepairing FichaState = "REPAIRING" // diagnóstico + repair (10min)
 	StateRollback  FichaState = "ROLLBACK"  // restaurando versión anterior
-	StateLimpieza  FichaState = "LIMPIEZA"  // eliminando artefactos, sin residuos
+	StateCleanup  FichaState = "CLEANUP"  // eliminando artefactos, sin residuos
 
 	// ── Estados administrativos ──────────────────────────────────────
-	StatePausada      FichaState = "PAUSADA"      // admin suspendió (mantenimiento)
-	StateDesinstalada FichaState = "DESINSTALADA" // removida del sistema
+	StatePaused      FichaState = "PAUSED"      // admin suspendió (mantenimiento)
+	StateUninstalled FichaState = "UNINSTALLED" // removida del sistema
 )
 
 // ── Máquina de estados ────────────────────────────────────────────────
@@ -80,9 +80,9 @@ func NewStateMachine() *StateMachine {
 // CanInstall retorna true si la ficha puede instalarse desde este estado.
 func (sm *StateMachine) CanInstall(state FichaState) bool {
 	switch state {
-	case StatePendiente, StateLista,
-		StateFallaInstalacion, // reintentar tras fallo
-		StateLimpieza:         // tras limpiar artefactos
+	case StatePending, StateReady,
+		StateInstallFailed, // reintentar tras fallo
+		StateCleanup:         // tras limpiar artefactos
 		return true
 	}
 	return false
@@ -91,18 +91,18 @@ func (sm *StateMachine) CanInstall(state FichaState) bool {
 // CanUpdate retorna true si la ficha puede actualizarse desde este estado.
 func (sm *StateMachine) CanUpdate(state FichaState) bool {
 	switch state {
-	case StateInstalada, StateActualizacionDisp, StateActualizacionAprobada:
+	case StateInstalled, StateUpdateAvailable, StateUpdateApproved:
 		return true
 	}
 	return false
 }
 
 // CanRepair retorna true si la ficha puede repararse desde este estado.
-// StateInstalada se incluye para permitir repair preventivo (mantenimiento sin
-// esperar degradación), consistente con ValidTransitions[StateInstalada].
+// StateInstalled se incluye para permitir repair preventivo (mantenimiento sin
+// esperar degradación), consistente con ValidTransitions[StateInstalled].
 func (sm *StateMachine) CanRepair(state FichaState) bool {
 	switch state {
-	case StateDegradada, StateErrorFisico, StateErrorLogico, StateInstalada:
+	case StateDegraded, StatePhysicalError, StateLogicalError, StateInstalled:
 		return true
 	}
 	return false
@@ -111,10 +111,10 @@ func (sm *StateMachine) CanRepair(state FichaState) bool {
 // CanRemove retorna true si la ficha puede eliminarse desde este estado.
 func (sm *StateMachine) CanRemove(state FichaState) bool {
 	switch state {
-	case StateInstalada, StateDegradada, StateErrorFisico, StateErrorLogico,
-		StateActualizacionDisp, StateActualizacionAprobada,
-		StateFallaInstalacion, StateFallaActualizacion,
-		StatePausada, StateErrorNoCorregible:
+	case StateInstalled, StateDegraded, StatePhysicalError, StateLogicalError,
+		StateUpdateAvailable, StateUpdateApproved,
+		StateInstallFailed, StateUpdateFailed,
+		StatePaused, StateUnrecoverable:
 		return true
 	}
 	return false
@@ -122,17 +122,17 @@ func (sm *StateMachine) CanRemove(state FichaState) bool {
 
 // CanPause retorna true si la ficha puede pausarse desde este estado.
 func (sm *StateMachine) CanPause(state FichaState) bool {
-	return state == StateInstalada
+	return state == StateInstalled
 }
 
 // CanResume retorna true si la ficha puede reanudarse desde este estado.
 func (sm *StateMachine) CanResume(state FichaState) bool {
-	return state == StatePausada
+	return state == StatePaused
 }
 
 // CanScale retorna true si la ficha puede escalarse desde este estado.
 func (sm *StateMachine) CanScale(state FichaState) bool {
-	return state == StateInstalada
+	return state == StateInstalled
 }
 
 // ── Determinación de estado siguiente ─────────────────────────────────
@@ -140,36 +140,36 @@ func (sm *StateMachine) CanScale(state FichaState) bool {
 // NextAfterInstall retorna el estado resultante de una operación de instalación.
 func (sm *StateMachine) NextAfterInstall(success bool) FichaState {
 	if success {
-		return StateInstalada
+		return StateInstalled
 	}
-	return StateFallaInstalacion
+	return StateInstallFailed
 }
 
 // NextAfterUpdate retorna el estado resultante de una operación de actualización.
 func (sm *StateMachine) NextAfterUpdate(success bool) FichaState {
 	if success {
-		return StateInstalada
+		return StateInstalled
 	}
-	return StateFallaActualizacion
+	return StateUpdateFailed
 }
 
 // NextAfterRepair retorna el estado resultante de una operación de reparación.
 func (sm *StateMachine) NextAfterRepair(success bool) FichaState {
 	if success {
-		return StateInstalada
+		return StateInstalled
 	}
-	return StateErrorNoCorregible
+	return StateUnrecoverable
 }
 
 // NextAfterRemove retorna el estado resultante de una operación de eliminación.
 func (sm *StateMachine) NextAfterRemove() FichaState {
-	return StateDesinstalada
+	return StateUninstalled
 }
 
 // NextAfterHealthFailure retorna el estado tras fallos consecutivos de health.
 func (sm *StateMachine) NextAfterHealthFailure(from FichaState, consecutiveFailures int, threshold int) FichaState {
 	if consecutiveFailures >= threshold {
-		return StateDegradada
+		return StateDegraded
 	}
 	return from // aún no llega al umbral
 }
@@ -177,31 +177,31 @@ func (sm *StateMachine) NextAfterHealthFailure(from FichaState, consecutiveFailu
 // NextAfterRollback retorna el estado resultante de un rollback exitoso.
 func (sm *StateMachine) NextAfterRollback(success bool) FichaState {
 	if success {
-		return StateInstalada // restaurado a versión N-1
+		return StateInstalled // restaurado a versión N-1
 	}
-	return StateErrorNoCorregible // rollback falló → HITL
+	return StateUnrecoverable // rollback falló → HITL
 }
 
 // NextAfterCleanup retorna el estado tras limpieza de artefactos.
 func (sm *StateMachine) NextAfterCleanup() FichaState {
-	return StatePendiente // vuelve a empezar
+	return StatePending // vuelve a empezar
 }
 
 // StableStates retorna los 13 estados estables.
 func (sm *StateMachine) StableStates() []FichaState {
 	return []FichaState{
-		StatePendiente, StateLista, StateInstalada,
-		StateActualizacionDisp, StateActualizacionAprobada,
-		StateDegradada, StateErrorFisico, StateErrorLogico,
-		StateErrorNoCorregible, StateFallaInstalacion, StateFallaActualizacion,
-		StatePausada, StateDesinstalada,
+		StatePending, StateReady, StateInstalled,
+		StateUpdateAvailable, StateUpdateApproved,
+		StateDegraded, StatePhysicalError, StateLogicalError,
+		StateUnrecoverable, StateInstallFailed, StateUpdateFailed,
+		StatePaused, StateUninstalled,
 	}
 }
 
 // TransitionalStates retorna los 5 estados transicionales.
 func (sm *StateMachine) TransitionalStates() []FichaState {
 	return []FichaState{
-		StateInstalando, StateActualizando, StateReparando, StateRollback, StateLimpieza,
+		StateInstalling, StateUpdating, StateRepairing, StateRollback, StateCleanup,
 	}
 }
 
@@ -210,7 +210,7 @@ func (sm *StateMachine) TransitionalStates() []FichaState {
 // IsStable retorna true si el estado es estable (no transicional).
 func (sm *StateMachine) IsStable(state FichaState) bool {
 	switch state {
-	case StateInstalando, StateActualizando, StateReparando, StateRollback, StateLimpieza:
+	case StateInstalling, StateUpdating, StateRepairing, StateRollback, StateCleanup:
 		return false
 	}
 	return true
@@ -224,8 +224,8 @@ func (sm *StateMachine) IsTransitional(state FichaState) bool {
 // IsError retorna true si el estado representa un error.
 func (sm *StateMachine) IsError(state FichaState) bool {
 	switch state {
-	case StateErrorFisico, StateErrorLogico, StateErrorNoCorregible,
-		StateFallaInstalacion, StateFallaActualizacion:
+	case StatePhysicalError, StateLogicalError, StateUnrecoverable,
+		StateInstallFailed, StateUpdateFailed:
 		return true
 	}
 	return false
@@ -233,13 +233,13 @@ func (sm *StateMachine) IsError(state FichaState) bool {
 
 // IsHealthy retorna true si la ficha está operativa sin alertas.
 func (sm *StateMachine) IsHealthy(state FichaState) bool {
-	return state == StateInstalada
+	return state == StateInstalled
 }
 
 // IsOperational retorna true si la ficha está funcionando (aunque degradada).
 func (sm *StateMachine) IsOperational(state FichaState) bool {
 	switch state {
-	case StateInstalada, StateDegradada:
+	case StateInstalled, StateDegraded:
 		return true
 	}
 	return false
@@ -248,7 +248,7 @@ func (sm *StateMachine) IsOperational(state FichaState) bool {
 // NeedsHITL retorna true si el estado requiere intervención humana.
 func (sm *StateMachine) NeedsHITL(state FichaState) bool {
 	switch state {
-	case StateErrorNoCorregible:
+	case StateUnrecoverable:
 		return true
 	}
 	return false
@@ -260,24 +260,24 @@ func (sm *StateMachine) NeedsHITL(state FichaState) bool {
 // Coincide exactamente con state.Manager.ValidTransitions.
 func (sm *StateMachine) ValidTransitions() map[FichaState][]FichaState {
 	return map[FichaState][]FichaState{
-		StatePendiente:             {StateLista},
-		StateLista:                 {StateInstalando},
-		StateInstalando:            {StateInstalada, StateFallaInstalacion},
-		StateFallaInstalacion:      {StateLimpieza, StateInstalando},
-		StateLimpieza:              {StateLista, StatePendiente},
-		StateInstalada:             {StateActualizacionDisp, StateActualizando, StateDegradada, StateReparando, StatePausada, StateDesinstalada},
-		StateActualizacionDisp:     {StateActualizacionAprobada, StateInstalada},
-		StateActualizacionAprobada: {StateActualizando},
-		StateActualizando:          {StateInstalada, StateFallaActualizacion, StateRollback},
-		StateFallaActualizacion:    {StateRollback, StateInstalada},
-		StateRollback:              {StateInstalada, StateErrorNoCorregible},
-		StateDegradada:             {StateReparando, StateErrorFisico, StateErrorLogico},
-		StateErrorFisico:           {StateReparando},
-		StateErrorLogico:           {StateReparando},
-		StateReparando:             {StateInstalada, StateDegradada, StateErrorNoCorregible},
-		StateErrorNoCorregible:     {StateReparando, StateDesinstalada, StateLimpieza},
-		StatePausada:               {StateInstalada, StateDesinstalada},
-		StateDesinstalada:          {},
+		StatePending:             {StateReady},
+		StateReady:                 {StateInstalling},
+		StateInstalling:            {StateInstalled, StateInstallFailed},
+		StateInstallFailed:      {StateCleanup, StateInstalling},
+		StateCleanup:              {StateReady, StatePending},
+		StateInstalled:             {StateUpdateAvailable, StateUpdating, StateDegraded, StateRepairing, StatePaused, StateUninstalled},
+		StateUpdateAvailable:     {StateUpdateApproved, StateInstalled},
+		StateUpdateApproved: {StateUpdating},
+		StateUpdating:          {StateInstalled, StateUpdateFailed, StateRollback},
+		StateUpdateFailed:    {StateRollback, StateInstalled},
+		StateRollback:              {StateInstalled, StateUnrecoverable},
+		StateDegraded:             {StateRepairing, StatePhysicalError, StateLogicalError},
+		StatePhysicalError:           {StateRepairing},
+		StateLogicalError:           {StateRepairing},
+		StateRepairing:             {StateInstalled, StateDegraded, StateUnrecoverable},
+		StateUnrecoverable:     {StateRepairing, StateUninstalled, StateCleanup},
+		StatePaused:               {StateInstalled, StateUninstalled},
+		StateUninstalled:          {},
 	}
 }
 
@@ -349,46 +349,46 @@ func IsValidState(s string) bool {
 // AllStates retorna los 18 estados en orden de ciclo de vida.
 func (sm *StateMachine) AllStates() []FichaState {
 	return []FichaState{
-		StatePendiente, StateLista,
-		StateInstalando, StateInstalada, StateFallaInstalacion,
-		StateActualizacionDisp, StateActualizacionAprobada, StateActualizando, StateFallaActualizacion,
-		StateDegradada, StateErrorFisico, StateErrorLogico,
-		StateReparando, StateErrorNoCorregible,
-		StateRollback, StateLimpieza,
-		StatePausada, StateDesinstalada,
+		StatePending, StateReady,
+		StateInstalling, StateInstalled, StateInstallFailed,
+		StateUpdateAvailable, StateUpdateApproved, StateUpdating, StateUpdateFailed,
+		StateDegraded, StatePhysicalError, StateLogicalError,
+		StateRepairing, StateUnrecoverable,
+		StateRollback, StateCleanup,
+		StatePaused, StateUninstalled,
 	}
 }
 
 // StateIcon retorna un ícono representativo para cada estado.
 func StateIcon(state FichaState) string {
 	switch state {
-	case StatePendiente:
+	case StatePending:
 		return "⬜"
-	case StateLista:
+	case StateReady:
 		return "🔵"
-	case StateInstalando, StateActualizando, StateReparando:
+	case StateInstalling, StateUpdating, StateRepairing:
 		return "⏳"
-	case StateInstalada:
+	case StateInstalled:
 		return "🟢"
-	case StateActualizacionDisp:
+	case StateUpdateAvailable:
 		return "🔔"
-	case StateActualizacionAprobada:
+	case StateUpdateApproved:
 		return "✅"
-	case StateDegradada:
+	case StateDegraded:
 		return "🟡"
-	case StateErrorFisico, StateErrorLogico:
+	case StatePhysicalError, StateLogicalError:
 		return "🔴"
-	case StateErrorNoCorregible:
+	case StateUnrecoverable:
 		return "🚨"
-	case StateFallaInstalacion, StateFallaActualizacion:
+	case StateInstallFailed, StateUpdateFailed:
 		return "❌"
 	case StateRollback:
 		return "↩️"
-	case StateLimpieza:
+	case StateCleanup:
 		return "🧹"
-	case StatePausada:
+	case StatePaused:
 		return "⏸️"
-	case StateDesinstalada:
+	case StateUninstalled:
 		return "💀"
 	}
 	return "❓"
@@ -397,41 +397,41 @@ func StateIcon(state FichaState) string {
 // StateDescription retorna una descripción humana del estado.
 func StateDescription(state FichaState) string {
 	switch state {
-	case StatePendiente:
+	case StatePending:
 		return "Ficha declarada, dependencias verificándose"
-	case StateLista:
+	case StateReady:
 		return "Dependencias OK, esperando turno en DAG"
-	case StateInstalando:
+	case StateInstalling:
 		return "Saga de instalación en progreso (timeout 30min)"
-	case StateInstalada:
+	case StateInstalled:
 		return "Pod Running + health OK + hashes registrados"
-	case StateActualizacionDisp:
+	case StateUpdateAvailable:
 		return "Nueva versión detectada, no evaluada"
-	case StateActualizacionAprobada:
+	case StateUpdateApproved:
 		return "Tests OK, sin degradación del sistema"
-	case StateActualizando:
+	case StateUpdating:
 		return "Saga de actualización en progreso (timeout 15min)"
-	case StateDegradada:
+	case StateDegraded:
 		return "Funciona con capacidad reducida, auto-reparando"
-	case StateErrorFisico:
+	case StatePhysicalError:
 		return "Error externo: disco, red, CPU, memoria"
-	case StateErrorLogico:
+	case StateLogicalError:
 		return "Error interno: config, dependencias, schema drift"
-	case StateReparando:
+	case StateRepairing:
 		return "Diagnóstico + repair en progreso (timeout 10min)"
-	case StateErrorNoCorregible:
+	case StateUnrecoverable:
 		return "Reintentos agotados — requiere intervención humana"
-	case StateFallaInstalacion:
+	case StateInstallFailed:
 		return "Saga install falló — evaluar rollback/limpieza"
-	case StateFallaActualizacion:
+	case StateUpdateFailed:
 		return "Saga update falló — evaluar rollback"
 	case StateRollback:
 		return "Restaurando versión anterior estable"
-	case StateLimpieza:
+	case StateCleanup:
 		return "Eliminando artefactos — sin residuos"
-	case StatePausada:
+	case StatePaused:
 		return "Suspendida por administrador (mantenimiento)"
-	case StateDesinstalada:
+	case StateUninstalled:
 		return "Removida del sistema"
 	}
 	return "Estado desconocido"
@@ -445,7 +445,7 @@ func (sm *StateMachine) BeginInstall(current FichaState) (FichaState, error) {
 	if !sm.CanInstall(current) {
 		return current, fmt.Errorf("no se puede instalar desde %s", current)
 	}
-	return StateInstalando, nil
+	return StateInstalling, nil
 }
 
 // BeginUpdate inicia la transición de actualización.
@@ -453,7 +453,7 @@ func (sm *StateMachine) BeginUpdate(current FichaState) (FichaState, error) {
 	if !sm.CanUpdate(current) {
 		return current, fmt.Errorf("no se puede actualizar desde %s", current)
 	}
-	return StateActualizando, nil
+	return StateUpdating, nil
 }
 
 // BeginRepair inicia la transición de reparación.
@@ -461,7 +461,7 @@ func (sm *StateMachine) BeginRepair(current FichaState) (FichaState, error) {
 	if !sm.CanRepair(current) {
 		return current, fmt.Errorf("no se puede reparar desde %s (debe estar DEGRADADA/ERROR_FISICO/ERROR_LOGICO)", current)
 	}
-	return StateReparando, nil
+	return StateRepairing, nil
 }
 
 // BeginRemove inicia la transición de eliminación.
@@ -469,5 +469,5 @@ func (sm *StateMachine) BeginRemove(current FichaState) (FichaState, error) {
 	if !sm.CanRemove(current) {
 		return current, fmt.Errorf("no se puede eliminar desde %s", current)
 	}
-	return StateDesinstalada, nil
+	return StateUninstalled, nil
 }

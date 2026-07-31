@@ -52,7 +52,7 @@ func Rollback(mgr *state.Manager, fichaID, targetVersion string) error {
 	}
 
 	// Strategy B: user-defined ficha — set to DESINSTALANDO so observer reinstalls.
-	return mgr.Transition(fichaID, state.StateDesinstalada)
+	return mgr.Transition(fichaID, state.StateUninstalled)
 }
 
 func rollbackPackage(pkgName, targetVersion, backend string) error {

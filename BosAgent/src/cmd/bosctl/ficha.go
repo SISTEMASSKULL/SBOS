@@ -367,13 +367,13 @@ func cmdFichaDescribe(args []string) int {
 	// ── Salida detallada ──────────────────────────────────────────
 	stateIcon := "✅"
 	switch single.State {
-	case "DEGRADADA":
+	case "DEGRADED":
 		stateIcon = "🟡"
-	case "ERROR_FISICO", "ERROR_LOGICO", "ERROR_NO_CORREGIBLE":
+	case "PHYSICAL_ERROR", "LOGICAL_ERROR", "UNRECOVERABLE":
 		stateIcon = "🔴"
-	case "PAUSADA":
+	case "PAUSED":
 		stateIcon = "⏸️"
-	case "INSTALANDO", "REPARANDO", "ACTUALIZANDO":
+	case "INSTALLING", "REPAIRING", "UPDATING":
 		stateIcon = "⏳"
 	}
 

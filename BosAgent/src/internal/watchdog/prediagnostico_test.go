@@ -17,7 +17,7 @@ func wdTest() *UnifiedWatchdog {
 
 func snapConFallo(ficha string) Snapshot {
 	return Snapshot{BOS: []repair.HealthCheck{
-		{Name: ficha, Pass: false, Detail: "DEGRADADA"},
+		{Name: ficha, Pass: false, Detail: "DEGRADED"},
 		{Name: "redis", Pass: true},
 	}}
 }

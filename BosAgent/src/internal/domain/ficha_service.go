@@ -477,7 +477,7 @@ func (svc *FichaService) Pause(fichaID string) (*SagaOutcome, error) {
 	}
 	prevState := string(f.State)
 
-	if err := svc.state.Transition(fichaID, state.StatePausada); err != nil {
+	if err := svc.state.Transition(fichaID, state.StatePaused); err != nil {
 		return nil, fmt.Errorf("%w: pause %s: %s", ErrSagaFailed, fichaID, err.Error())
 	}
 	return &SagaOutcome{
@@ -485,7 +485,7 @@ func (svc *FichaService) Pause(fichaID string) (*SagaOutcome, error) {
 		Command:   "pause",
 		Success:   true,
 		PrevState: prevState,
-		NewState:  string(state.StatePausada),
+		NewState:  string(state.StatePaused),
 	}, nil
 }
 
@@ -505,7 +505,7 @@ func (svc *FichaService) Resume(fichaID string) (*SagaOutcome, error) {
 	}
 	prevState := string(f.State)
 
-	if err := svc.state.Transition(fichaID, state.StateInstalada); err != nil {
+	if err := svc.state.Transition(fichaID, state.StateInstalled); err != nil {
 		return nil, fmt.Errorf("%w: resume %s: %s", ErrSagaFailed, fichaID, err.Error())
 	}
 	return &SagaOutcome{
@@ -513,7 +513,7 @@ func (svc *FichaService) Resume(fichaID string) (*SagaOutcome, error) {
 		Command:   "resume",
 		Success:   true,
 		PrevState: prevState,
-		NewState:  string(state.StateInstalada),
+		NewState:  string(state.StateInstalled),
 	}, nil
 }
 

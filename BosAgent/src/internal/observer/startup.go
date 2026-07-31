@@ -53,12 +53,12 @@ func InitializeFichaStates(loader *plugin.Loader, stateMgr *state.Manager) {
 	}
 
 	for _, f := range fichas {
-		initialState := state.StatePendiente
+		initialState := state.StatePending
 		if f.AutoInstall {
 			if len(f.Dependencies) > 0 {
-				initialState = state.StatePendiente
+				initialState = state.StatePending
 			} else {
-				initialState = state.StateLista
+				initialState = state.StateReady
 			}
 		}
 
@@ -109,7 +109,7 @@ func P15ReconcileAfterRebuild(stateMgr *state.Manager, probeK8s K8sProbeFunc) {
 			log.Warn().Err(err).Str("ficha", fichaID).Msg("P15: error actualizando estado K8s")
 			continue
 		}
-		if fichaState == state.StateInstalada {
+		if fichaState == state.StateInstalled {
 			protegidas++
 			log.Info().Str("ficha", fichaID).Msg("P15: ficha protegida — ya instalada en K8s, no se reinstalará")
 		}
@@ -149,7 +149,7 @@ func StartupReconcile(stateMgr *state.Manager, healthChecker *health.Checker, sy
 	}
 
 	k8sFicha, ok := st.Fichas["sbos-bootstrap-k8s"]
-	if !ok || (k8sFicha.State != state.StateInstalada && k8sFicha.State != state.StateDegradada) {
+	if !ok || (k8sFicha.State != state.StateInstalled && k8sFicha.State != state.StateDegraded) {
 		log.Info().Msg("startup reconcile: K8s no instalado previamente — el loop observer lo manejará")
 		return
 	}

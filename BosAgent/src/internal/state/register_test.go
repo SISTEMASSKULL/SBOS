@@ -15,11 +15,11 @@ func TestRegister_SetBackend_SetVersion(t *testing.T) {
 	}
 	defer mgr.Close()
 
-	if err := mgr.Register("redis", StateLista, "8.6.2", true, "dataserver", 1, "helm"); err != nil {
+	if err := mgr.Register("redis", StateReady, "8.6.2", true, "dataserver", 1, "helm"); err != nil {
 		t.Fatalf("Register: %v", err)
 	}
 	// idempotente: segundo registro del mismo nombre no falla ni duplica
-	if err := mgr.Register("redis", StatePendiente, "9.0.0", false, "otro", 2, "apt"); err != nil {
+	if err := mgr.Register("redis", StatePending, "9.0.0", false, "otro", 2, "apt"); err != nil {
 		t.Fatalf("Register duplicado debe ser no-op: %v", err)
 	}
 

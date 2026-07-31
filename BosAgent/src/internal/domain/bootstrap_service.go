@@ -53,7 +53,7 @@ func (svc *BootstrapService) Start(mode string) (*BootstrapStartResult, error) {
 		return nil, fmt.Errorf("%w: %s", ErrStateUnavailable, err.Error())
 	}
 
-	if countByState(st, state.StateInstalando) > 0 {
+	if countByState(st, state.StateInstalling) > 0 {
 		return nil, ErrBootstrapInProgress
 	}
 
@@ -61,7 +61,7 @@ func (svc *BootstrapService) Start(mode string) (*BootstrapStartResult, error) {
 		BootstrapID: fmt.Sprintf("bs-%d", time.Now().Unix()),
 		Mode:        mode,
 		Total:       len(st.Fichas),
-		Completados: countByState(st, state.StateInstalada),
+		Completados: countByState(st, state.StateInstalled),
 	}, nil
 }
 
@@ -86,12 +86,12 @@ func (svc *BootstrapService) Verify() (*VerifyResult, error) {
 			continue
 		}
 		switch ficha.State {
-		case state.StateInstalada:
+		case state.StateInstalled:
 			criterios[i].OK = true
-			criterios[i].Detalle = c.fichaID + " INSTALADA"
+			criterios[i].Detalle = c.fichaID + " INSTALLED"
 			passed++
-		case state.StateDegradada:
-			criterios[i].Detalle = c.fichaID + " DEGRADADA — funcionalidad reducida"
+		case state.StateDegraded:
+			criterios[i].Detalle = c.fichaID + " DEGRADED — funcionalidad reducida"
 		default:
 			criterios[i].Detalle = fmt.Sprintf("%s en estado %s — requiere completar bootstrap", c.fichaID, ficha.State)
 		}
@@ -120,7 +120,7 @@ func (svc *BootstrapService) Status() (*BootstrapStatus, error) {
 	}
 
 	total := len(st.Fichas)
-	completados := countByState(st, state.StateInstalada)
+	completados := countByState(st, state.StateInstalled)
 
 	var progress float64
 	if total > 0 {
@@ -131,10 +131,10 @@ func (svc *BootstrapService) Status() (*BootstrapStatus, error) {
 		Progress:    progress,
 		Total:       total,
 		Completados: completados,
-		Instalando:  countByState(st, state.StateInstalando),
-		Alerta:      countByState(st, state.StateDegradada),
-		Pendientes:  countByState(st, state.StateLista),
-		Bloqueadas:  countByState(st, state.StatePendiente),
+		Instalando:  countByState(st, state.StateInstalling),
+		Alerta:      countByState(st, state.StateDegraded),
+		Pendientes:  countByState(st, state.StateReady),
+		Bloqueadas:  countByState(st, state.StatePending),
 	}, nil
 }
 

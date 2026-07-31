@@ -113,7 +113,7 @@ func TestLoop_InstalaFichaYSeDetiene(t *testing.T) {
 	InitializeFichaStates(loader, stateMgr)
 
 	st, _ := stateMgr.Read()
-	if st.Fichas["ficha-a"].State != state.StateLista {
+	if st.Fichas["ficha-a"].State != state.StateReady {
 		t.Fatalf("auto_install sin deps debe arrancar LISTA, got %s", st.Fichas["ficha-a"].State)
 	}
 
@@ -130,7 +130,7 @@ func TestLoop_InstalaFichaYSeDetiene(t *testing.T) {
 	deadline := time.After(3 * time.Second)
 	for {
 		st, _ := stateMgr.Read()
-		if st.Fichas["ficha-a"].State == state.StateInstalada {
+		if st.Fichas["ficha-a"].State == state.StateInstalled {
 			break
 		}
 		select {
@@ -168,7 +168,7 @@ func TestLoop_FallaInstalacion(t *testing.T) {
 	deadline := time.After(3 * time.Second)
 	for {
 		st, _ := stateMgr.Read()
-		if st.Fichas["ficha-a"].State == state.StateFallaInstalacion {
+		if st.Fichas["ficha-a"].State == state.StateInstallFailed {
 			return // ✅
 		}
 		select {
@@ -202,13 +202,13 @@ func TestInitializeFichaStates_EstadosIniciales(t *testing.T) {
 	InitializeFichaStates(loader, stateMgr)
 
 	st, _ := stateMgr.Read()
-	if got := st.Fichas["base"].State; got != state.StateLista {
+	if got := st.Fichas["base"].State; got != state.StateReady {
 		t.Errorf("base (auto, sin deps): want LISTA, got %s", got)
 	}
-	if got := st.Fichas["dependiente"].State; got != state.StatePendiente {
+	if got := st.Fichas["dependiente"].State; got != state.StatePending {
 		t.Errorf("dependiente (auto, con deps): want PENDIENTE, got %s", got)
 	}
-	if got := st.Fichas["opcional"].State; got != state.StatePendiente {
+	if got := st.Fichas["opcional"].State; got != state.StatePending {
 		t.Errorf("opcional (sin auto): want PENDIENTE, got %s", got)
 	}
 }
@@ -228,7 +228,7 @@ func TestStartupReconcile_Ramas(t *testing.T) {
 	StartupReconcile(stateMgr, nil, func(action, service string) error { return nil })
 
 	// rama 2: K8s INSTALADA + kubelet inactivo → CheckNow inmediato (sin jitter)
-	if err := stateMgr.Register("sbos-bootstrap-k8s", state.StateInstalada,
+	if err := stateMgr.Register("sbos-bootstrap-k8s", state.StateInstalled,
 		"1.32", true, "hostserver", 1, "bash"); err != nil {
 		t.Fatal(err)
 	}

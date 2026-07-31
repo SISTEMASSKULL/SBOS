@@ -47,8 +47,8 @@ func main() {
 		Version:  "1.0.0",
 		Hostname: "sbos-k8s-test",
 		Fichas: map[string]*state.Ficha{
-			"app-a": {Name: "app-a", Version: "1.0", State: state.StateInstalada, Server: "srv", Hashes: hashesA},
-			"app-b": {Name: "app-b", Version: "1.0", State: state.StateInstalada, Server: "srv", Hashes: hashesB},
+			"app-a": {Name: "app-a", Version: "1.0", State: state.StateInstalled, Server: "srv", Hashes: hashesA},
+			"app-b": {Name: "app-b", Version: "1.0", State: state.StateInstalled, Server: "srv", Hashes: hashesB},
 		},
 		Meta: map[string]string{},
 	}
@@ -98,7 +98,7 @@ func main() {
 		fmt.Printf("  %-10s → state=%s health=%s\n", name, f.State, f.HealthStatus)
 	}
 
-	if st.Fichas["app-a"].State == state.StateActualizacionDisp {
+	if st.Fichas["app-a"].State == state.StateUpdateAvailable {
 		fmt.Println("  ✓ app-a en ACTUALIZACION_DISPONIBLE")
 	} else {
 		fmt.Printf("  ✗ app-a debería estar ACTUALIZACION_DISPONIBLE, está %s\n", st.Fichas["app-a"].State)

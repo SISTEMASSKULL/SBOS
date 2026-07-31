@@ -137,7 +137,7 @@ func (l *Loop) tick(fichaIndex map[string]*plugin.FichaManifest) {
 	// Para cada ficha INSTALADA, compara la versión del manifest con la versión instalada.
 	// Si manifest.Version > state.Version → ACTUALIZACION_DISPONIBLE (nunca reinstalar).
 	for name, fichaEntry := range st.Fichas {
-		if fichaEntry.State != state.StateInstalada {
+		if fichaEntry.State != state.StateInstalled {
 			continue
 		}
 		mf, ok := fichaIndex[name]
@@ -150,7 +150,7 @@ func (l *Loop) tick(fichaIndex map[string]*plugin.FichaManifest) {
 			continue
 		}
 		if manifestVer.GreaterThan(installedVer) {
-			if err := l.cfg.StateMgr.Transition(name, state.StateActualizacionDisp); err != nil {
+			if err := l.cfg.StateMgr.Transition(name, state.StateUpdateAvailable); err != nil {
 				log.Warn().Err(err).Str("ficha", name).Msg("observer: transición a ACTUALIZACION_DISPONIBLE falló")
 			} else {
 				log.Info().
@@ -168,7 +168,7 @@ func (l *Loop) tick(fichaIndex map[string]*plugin.FichaManifest) {
 
 	// Fase 1 — desbloquear fichas con dependencias satisfechas (PENDIENTE → LISTA)
 	for name, fichaEntry := range st.Fichas {
-		if fichaEntry.State != state.StatePendiente {
+		if fichaEntry.State != state.StatePending {
 			continue
 		}
 		mf, ok := fichaIndex[name]
@@ -194,7 +194,7 @@ func (l *Loop) tick(fichaIndex map[string]*plugin.FichaManifest) {
 			"version="+next.Version)
 
 		// LISTA → INSTALANDO (ADR-021 #2→#3)
-		if err := l.cfg.StateMgr.Transition(next.ID, state.StateInstalando); err != nil {
+		if err := l.cfg.StateMgr.Transition(next.ID, state.StateInstalling); err != nil {
 			log.Warn().Err(err).Str("ficha", next.ID).Msg("observer: transición a INSTALANDO falló")
 			return
 		}
@@ -203,12 +203,12 @@ func (l *Loop) tick(fichaIndex map[string]*plugin.FichaManifest) {
 		if err != nil || !result.Success {
 			log.Error().Err(err).Str("ficha", next.ID).Int("exit", result.ExitCode).Msg("observer: instalación falló")
 			// INSTALANDO → FALLA_INSTALACION (ADR-021 #3→#13)
-			_ = l.cfg.StateMgr.Transition(next.ID, state.StateFallaInstalacion)
+			_ = l.cfg.StateMgr.Transition(next.ID, state.StateInstallFailed)
 			return
 		}
 
 		// INSTALANDO → INSTALADA (ADR-021 #3→#4)
-		if err := l.cfg.StateMgr.Transition(next.ID, state.StateInstalada); err != nil {
+		if err := l.cfg.StateMgr.Transition(next.ID, state.StateInstalled); err != nil {
 			log.Warn().Err(err).Str("ficha", next.ID).Msg("observer: transición a INSTALADA falló")
 		}
 
@@ -225,7 +225,7 @@ func (l *Loop) tick(fichaIndex map[string]*plugin.FichaManifest) {
 
 	// Fase 3 — reparar fichas DEGRADADA (solo auto_install, secuencial)
 	for name, fichaEntry := range st.Fichas {
-		if fichaEntry.State != state.StateDegradada && fichaEntry.State != state.StateReparando {
+		if fichaEntry.State != state.StateDegraded && fichaEntry.State != state.StateRepairing {
 			continue
 		}
 		mf, ok := fichaIndex[name]
@@ -234,9 +234,9 @@ func (l *Loop) tick(fichaIndex map[string]*plugin.FichaManifest) {
 		}
 
 		log.Info().Str("ficha", name).Msg("observer: iniciando auto-reparación")
-		if fichaEntry.State != state.StateReparando {
+		if fichaEntry.State != state.StateRepairing {
 			// DEGRADADA → REPARANDO (ADR-021 #8→#11)
-			if err := l.cfg.StateMgr.Transition(name, state.StateReparando); err != nil {
+			if err := l.cfg.StateMgr.Transition(name, state.StateRepairing); err != nil {
 				log.Warn().Err(err).Str("ficha", name).Msg("observer: transición a REPARANDO falló")
 				continue
 			}
@@ -246,12 +246,12 @@ func (l *Loop) tick(fichaIndex map[string]*plugin.FichaManifest) {
 		if err != nil || !result.Success {
 			// Repair fallido → volver a DEGRADADA para reintentar en siguiente tick
 			log.Error().Err(err).Str("ficha", name).Msg("observer: reparación falló — volviendo a DEGRADADA")
-			_ = l.cfg.StateMgr.Transition(name, state.StateDegradada)
+			_ = l.cfg.StateMgr.Transition(name, state.StateDegraded)
 			continue
 		}
 
 		// REPARANDO → INSTALADA (ADR-021 #11→#4)
-		_ = l.cfg.StateMgr.Transition(name, state.StateInstalada)
+		_ = l.cfg.StateMgr.Transition(name, state.StateInstalled)
 		log.Info().Str("ficha", name).Msg("observer: reparación exitosa")
 	}
 }
@@ -287,7 +287,7 @@ func FindNextAutoInstall(st *state.SBOSState, index map[string]*plugin.FichaMani
 		if !ok {
 			continue
 		}
-		if ficha.State != state.StateLista {
+		if ficha.State != state.StateReady {
 			continue
 		}
 		if !DepsSatisfied(mf.Dependencies, st) {
@@ -326,7 +326,7 @@ func DepsSatisfied(deps []string, st *state.SBOSState) bool {
 		if !ok {
 			return false
 		}
-		if ficha.State != state.StateInstalada {
+		if ficha.State != state.StateInstalled {
 			return false
 		}
 	}

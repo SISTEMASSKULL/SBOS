@@ -30,68 +30,68 @@ func seedFicha(t *testing.T, m *Manager, name string, target FichaState) {
 	t.Helper()
 
 	// Auto-create: LISTA → INSTALANDO (ver Transition para la lógica de auto-create)
-	require.NoError(t, m.Transition(name, StateInstalando))
+	require.NoError(t, m.Transition(name, StateInstalling))
 
 	switch target {
-	case StateInstalando:
+	case StateInstalling:
 		return
 
-	case StateInstalada:
-		require.NoError(t, m.Transition(name, StateInstalada))
+	case StateInstalled:
+		require.NoError(t, m.Transition(name, StateInstalled))
 
-	case StateDegradada:
-		require.NoError(t, m.Transition(name, StateInstalada))
-		require.NoError(t, m.Transition(name, StateDegradada))
+	case StateDegraded:
+		require.NoError(t, m.Transition(name, StateInstalled))
+		require.NoError(t, m.Transition(name, StateDegraded))
 
-	case StateActualizacionDisp:
-		require.NoError(t, m.Transition(name, StateInstalada))
-		require.NoError(t, m.Transition(name, StateActualizacionDisp))
+	case StateUpdateAvailable:
+		require.NoError(t, m.Transition(name, StateInstalled))
+		require.NoError(t, m.Transition(name, StateUpdateAvailable))
 
-	case StateActualizacionAprobada:
-		require.NoError(t, m.Transition(name, StateInstalada))
-		require.NoError(t, m.Transition(name, StateActualizacionDisp))
-		require.NoError(t, m.Transition(name, StateActualizacionAprobada))
+	case StateUpdateApproved:
+		require.NoError(t, m.Transition(name, StateInstalled))
+		require.NoError(t, m.Transition(name, StateUpdateAvailable))
+		require.NoError(t, m.Transition(name, StateUpdateApproved))
 
-	case StateActualizando:
-		require.NoError(t, m.Transition(name, StateInstalada))
-		require.NoError(t, m.Transition(name, StateActualizacionDisp))
-		require.NoError(t, m.Transition(name, StateActualizacionAprobada))
-		require.NoError(t, m.Transition(name, StateActualizando))
+	case StateUpdating:
+		require.NoError(t, m.Transition(name, StateInstalled))
+		require.NoError(t, m.Transition(name, StateUpdateAvailable))
+		require.NoError(t, m.Transition(name, StateUpdateApproved))
+		require.NoError(t, m.Transition(name, StateUpdating))
 
-	case StateReparando:
-		require.NoError(t, m.Transition(name, StateInstalada))
-		require.NoError(t, m.Transition(name, StateDegradada))
-		require.NoError(t, m.Transition(name, StateReparando))
+	case StateRepairing:
+		require.NoError(t, m.Transition(name, StateInstalled))
+		require.NoError(t, m.Transition(name, StateDegraded))
+		require.NoError(t, m.Transition(name, StateRepairing))
 
-	case StateErrorFisico:
-		require.NoError(t, m.Transition(name, StateInstalada))
-		require.NoError(t, m.Transition(name, StateDegradada))
-		require.NoError(t, m.Transition(name, StateErrorFisico))
+	case StatePhysicalError:
+		require.NoError(t, m.Transition(name, StateInstalled))
+		require.NoError(t, m.Transition(name, StateDegraded))
+		require.NoError(t, m.Transition(name, StatePhysicalError))
 
-	case StateErrorLogico:
-		require.NoError(t, m.Transition(name, StateInstalada))
-		require.NoError(t, m.Transition(name, StateDegradada))
-		require.NoError(t, m.Transition(name, StateErrorLogico))
+	case StateLogicalError:
+		require.NoError(t, m.Transition(name, StateInstalled))
+		require.NoError(t, m.Transition(name, StateDegraded))
+		require.NoError(t, m.Transition(name, StateLogicalError))
 
-	case StateFallaInstalacion:
-		require.NoError(t, m.Transition(name, StateFallaInstalacion))
+	case StateInstallFailed:
+		require.NoError(t, m.Transition(name, StateInstallFailed))
 
-	case StateLimpieza:
-		require.NoError(t, m.Transition(name, StateFallaInstalacion))
-		require.NoError(t, m.Transition(name, StateLimpieza))
+	case StateCleanup:
+		require.NoError(t, m.Transition(name, StateInstallFailed))
+		require.NoError(t, m.Transition(name, StateCleanup))
 
-	case StateLista:
+	case StateReady:
 		// LISTA es el estado inicial antes de INSTALANDO.
 		// Para volver a LISTA desde INSTALANDO: fallo → limpieza → lista.
-		require.NoError(t, m.Transition(name, StateFallaInstalacion))
-		require.NoError(t, m.Transition(name, StateLimpieza))
-		require.NoError(t, m.Transition(name, StateLista))
+		require.NoError(t, m.Transition(name, StateInstallFailed))
+		require.NoError(t, m.Transition(name, StateCleanup))
+		require.NoError(t, m.Transition(name, StateReady))
 
-	case StateDesinstalada:
-		require.NoError(t, m.Transition(name, StateInstalada))
-		require.NoError(t, m.Transition(name, StateDesinstalada))
+	case StateUninstalled:
+		require.NoError(t, m.Transition(name, StateInstalled))
+		require.NoError(t, m.Transition(name, StateUninstalled))
 
-	case StatePendiente:
+	case StatePending:
 		// PENDIENTE es forzado por SetPendiente (bypassa ValidTransitions)
 		require.NoError(t, m.SetPendiente(name))
 
@@ -120,7 +120,7 @@ func TestNewManager_OpensExisting(t *testing.T) {
 	path := tempStateFile(t)
 
 	m1 := newTestManager(t, path)
-	require.NoError(t, m1.Transition("test-ficha", StateInstalando))
+	require.NoError(t, m1.Transition("test-ficha", StateInstalling))
 	m1.Close()
 
 	m2 := newTestManager(t, path)
@@ -129,7 +129,7 @@ func TestNewManager_OpensExisting(t *testing.T) {
 
 	f, ok := st.Fichas["test-ficha"]
 	require.True(t, ok)
-	assert.Equal(t, StateInstalando, f.State)
+	assert.Equal(t, StateInstalling, f.State)
 	m2.Close()
 }
 
@@ -139,11 +139,11 @@ func TestStableStates(t *testing.T) {
 	stable := StableStates()
 	assert.Len(t, stable, 13)
 	for _, s := range []FichaState{
-		StatePendiente, StateLista, StateInstalada,
-		StateActualizacionDisp, StateActualizacionAprobada,
-		StateDegradada, StateErrorFisico, StateErrorLogico,
-		StateErrorNoCorregible, StateFallaInstalacion, StateFallaActualizacion,
-		StatePausada, StateDesinstalada,
+		StatePending, StateReady, StateInstalled,
+		StateUpdateAvailable, StateUpdateApproved,
+		StateDegraded, StatePhysicalError, StateLogicalError,
+		StateUnrecoverable, StateInstallFailed, StateUpdateFailed,
+		StatePaused, StateUninstalled,
 	} {
 		assert.Contains(t, stable, s, "stable debería contener %s", s)
 	}
@@ -153,8 +153,8 @@ func TestTransitionalStates(t *testing.T) {
 	trans := TransitionalStates()
 	assert.Len(t, trans, 5)
 	for _, s := range []FichaState{
-		StateInstalando, StateActualizando, StateReparando,
-		StateRollback, StateLimpieza,
+		StateInstalling, StateUpdating, StateRepairing,
+		StateRollback, StateCleanup,
 	} {
 		assert.Contains(t, trans, s, "transitional debería contener %s", s)
 	}
@@ -177,19 +177,19 @@ func TestIsTransitional(t *testing.T) {
 
 func TestIsError(t *testing.T) {
 	for _, s := range []FichaState{
-		StateErrorFisico, StateErrorLogico, StateErrorNoCorregible,
-		StateFallaInstalacion, StateFallaActualizacion,
+		StatePhysicalError, StateLogicalError, StateUnrecoverable,
+		StateInstallFailed, StateUpdateFailed,
 	} {
 		assert.True(t, s.IsError(), "%s debería ser error", s)
 	}
-	assert.False(t, StateInstalada.IsError())
-	assert.False(t, StateDegradada.IsError())
+	assert.False(t, StateInstalled.IsError())
+	assert.False(t, StateDegraded.IsError())
 }
 
 func TestIsHealthy(t *testing.T) {
-	assert.True(t, StateInstalada.IsHealthy())
-	assert.False(t, StateDegradada.IsHealthy())
-	assert.False(t, StateErrorLogico.IsHealthy())
+	assert.True(t, StateInstalled.IsHealthy())
+	assert.False(t, StateDegraded.IsHealthy())
+	assert.False(t, StateLogicalError.IsHealthy())
 }
 
 // ── Valid Transitions (via seedFicha)→───────────────────────
@@ -207,109 +207,109 @@ func TestTransition_ValidPaths(t *testing.T) {
 		{
 			"install_ok",
 			[]step{
-				{StateInstalando, "LISTA→INSTALANDO (auto-create)"},
-				{StateInstalada, "install exitoso"},
+				{StateInstalling, "LISTA→INSTALANDO (auto-create)"},
+				{StateInstalled, "install exitoso"},
 			},
 		},
 		{
 			"install_falla_limpieza_lista",
 			[]step{
-				{StateInstalando, "auto-create"},
-				{StateFallaInstalacion, "saga falló"},
-				{StateLimpieza, "limpiando artefactos"},
-				{StateLista, "listo para reintentar"},
+				{StateInstalling, "auto-create"},
+				{StateInstallFailed, "saga falló"},
+				{StateCleanup, "limpiando artefactos"},
+				{StateReady, "listo para reintentar"},
 			},
 		},
 		{
 			"install_falla_reintento",
 			[]step{
-				{StateInstalando, "auto-create"},
-				{StateFallaInstalacion, "saga falló"},
-				{StateInstalando, "reintento"},
-				{StateInstalada, "reintento exitoso"},
+				{StateInstalling, "auto-create"},
+				{StateInstallFailed, "saga falló"},
+				{StateInstalling, "reintento"},
+				{StateInstalled, "reintento exitoso"},
 			},
 		},
 		{
 			"degradada_reparando_ok",
 			[]step{
-				{StateInstalando, "auto-create"},
-				{StateInstalada, "ok"},
-				{StateDegradada, "health check falla"},
-				{StateReparando, "reparando"},
-				{StateInstalada, "recuperado"},
+				{StateInstalling, "auto-create"},
+				{StateInstalled, "ok"},
+				{StateDegraded, "health check falla"},
+				{StateRepairing, "reparando"},
+				{StateInstalled, "recuperado"},
 			},
 		},
 		{
 			"degradada_error_fisico_reparando",
 			[]step{
-				{StateInstalando, "auto-create"},
-				{StateInstalada, "ok"},
-				{StateDegradada, "degradado"},
-				{StateErrorFisico, "causa física confirmada"},
-				{StateReparando, "reparando"},
+				{StateInstalling, "auto-create"},
+				{StateInstalled, "ok"},
+				{StateDegraded, "degradado"},
+				{StatePhysicalError, "causa física confirmada"},
+				{StateRepairing, "reparando"},
 			},
 		},
 		{
 			"degradada_error_logico_reparando",
 			[]step{
-				{StateInstalando, "auto-create"},
-				{StateInstalada, "ok"},
-				{StateDegradada, "degradado"},
-				{StateErrorLogico, "causa lógica confirmada"},
-				{StateReparando, "reparando"},
+				{StateInstalling, "auto-create"},
+				{StateInstalled, "ok"},
+				{StateDegraded, "degradado"},
+				{StateLogicalError, "causa lógica confirmada"},
+				{StateRepairing, "reparando"},
 			},
 		},
 		{
 			"update_flow_completo",
 			[]step{
-				{StateInstalando, "auto-create"},
-				{StateInstalada, "ok"},
-				{StateActualizacionDisp, "drift detectado"},
-				{StateActualizacionAprobada, "evaluación OK"},
-				{StateActualizando, "actualizando"},
-				{StateInstalada, "actualizado"},
+				{StateInstalling, "auto-create"},
+				{StateInstalled, "ok"},
+				{StateUpdateAvailable, "drift detectado"},
+				{StateUpdateApproved, "evaluación OK"},
+				{StateUpdating, "actualizando"},
+				{StateInstalled, "actualizado"},
 			},
 		},
 		{
 			"update_falla_rollback_ok",
 			[]step{
-				{StateInstalando, "auto-create"},
-				{StateInstalada, "ok"},
-				{StateActualizacionDisp, "drift"},
-				{StateActualizacionAprobada, "aprobado"},
-				{StateActualizando, "actualizando"},
-				{StateFallaActualizacion, "falla update"},
+				{StateInstalling, "auto-create"},
+				{StateInstalled, "ok"},
+				{StateUpdateAvailable, "drift"},
+				{StateUpdateApproved, "aprobado"},
+				{StateUpdating, "actualizando"},
+				{StateUpdateFailed, "falla update"},
 				{StateRollback, "rollback"},
-				{StateInstalada, "rollback exitoso"},
+				{StateInstalled, "rollback exitoso"},
 			},
 		},
 		{
 			"error_no_corregible_hitl_reintento",
 			[]step{
-				{StateInstalando, "auto-create"},
-				{StateInstalada, "ok"},
-				{StateDegradada, "degradado"},
-				{StateReparando, "reparando"},
-				{StateErrorNoCorregible, "reintentos agotados"},
-				{StateReparando, "HITL interviene"},
-				{StateInstalada, "recuperado"},
+				{StateInstalling, "auto-create"},
+				{StateInstalled, "ok"},
+				{StateDegraded, "degradado"},
+				{StateRepairing, "reparando"},
+				{StateUnrecoverable, "reintentos agotados"},
+				{StateRepairing, "HITL interviene"},
+				{StateInstalled, "recuperado"},
 			},
 		},
 		{
 			"pausada_y_reanuda",
 			[]step{
-				{StateInstalando, "auto-create"},
-				{StateInstalada, "ok"},
-				{StatePausada, "admin pausa"},
-				{StateInstalada, "admin reanuda"},
+				{StateInstalling, "auto-create"},
+				{StateInstalled, "ok"},
+				{StatePaused, "admin pausa"},
+				{StateInstalled, "admin reanuda"},
 			},
 		},
 		{
 			"desinstalar",
 			[]step{
-				{StateInstalando, "auto-create"},
-				{StateInstalada, "ok"},
-				{StateDesinstalada, "desinstalada"},
+				{StateInstalling, "auto-create"},
+				{StateInstalled, "ok"},
+				{StateUninstalled, "desinstalada"},
 			},
 		},
 	}
@@ -340,21 +340,21 @@ func TestTransition_InvalidPaths(t *testing.T) {
 		badTo FichaState
 	}{
 		// Saltos prohibidos desde INSTALANDO
-		{"instalando→pendiente", StateInstalando, StatePendiente},
-		{"instalando→actualizacion_disp", StateInstalando, StateActualizacionDisp},
-		{"instalando→instalada_directo_desde_falla", StateFallaInstalacion, StateInstalada},
+		{"instalando→pendiente", StateInstalling, StatePending},
+		{"instalando→actualizacion_disp", StateInstalling, StateUpdateAvailable},
+		{"instalando→instalada_directo_desde_falla", StateInstallFailed, StateInstalled},
 		// Saltos prohibidos desde INSTALADA
-		{"instalada→instalando", StateInstalada, StateInstalando},
-		{"instalada→error_logico_directo", StateInstalada, StateErrorLogico},
-		{"instalada→lista_directo", StateInstalada, StateLista},
+		{"instalada→instalando", StateInstalled, StateInstalling},
+		{"instalada→error_logico_directo", StateInstalled, StateLogicalError},
+		{"instalada→lista_directo", StateInstalled, StateReady},
 		// Saltos prohibidos desde estados de error
-		{"error_logico→instalada", StateErrorLogico, StateInstalada},
-		{"error_fisico→instalada", StateErrorFisico, StateInstalada},
+		{"error_logico→instalada", StateLogicalError, StateInstalled},
+		{"error_fisico→instalada", StatePhysicalError, StateInstalled},
 		// ACTUALIZACION_DISPONIBLE no puede saltar directo a ACTUALIZANDO
-		{"actualizacion_disp→actualizando_sin_aprobar", StateActualizacionDisp, StateActualizando},
+		{"actualizacion_disp→actualizando_sin_aprobar", StateUpdateAvailable, StateUpdating},
 		// DESINSTALADA es estado final — ninguna transición posible
-		{"desinstalada→lista", StateDesinstalada, StateLista},
-		{"desinstalada→instalando", StateDesinstalada, StateInstalando},
+		{"desinstalada→lista", StateUninstalled, StateReady},
+		{"desinstalada→instalando", StateUninstalled, StateInstalling},
 	}
 
 	for _, tc := range tests {
@@ -375,7 +375,7 @@ func TestTransition_InvalidPaths(t *testing.T) {
 func TestRegisterHashes(t *testing.T) {
 	path := tempStateFile(t)
 	m := newTestManager(t, path)
-	seedFicha(t, m, "ficha-a", StateInstalada)
+	seedFicha(t, m, "ficha-a", StateInstalled)
 
 	hashes := map[string]string{
 		"manifest.yml": "sha256:abc123def456",
@@ -401,7 +401,7 @@ func TestRegisterHashes_NotFound(t *testing.T) {
 func TestSetHealth(t *testing.T) {
 	path := tempStateFile(t)
 	m := newTestManager(t, path)
-	seedFicha(t, m, "svc", StateInstalada)
+	seedFicha(t, m, "svc", StateInstalled)
 
 	require.NoError(t, m.SetHealth("svc", "degraded"))
 	st, _ := m.Read()
@@ -425,12 +425,12 @@ func TestSetHealth_NotFound(t *testing.T) {
 func TestSetDriftDetected(t *testing.T) {
 	path := tempStateFile(t)
 	m := newTestManager(t, path)
-	seedFicha(t, m, "pkg", StateInstalada)
+	seedFicha(t, m, "pkg", StateInstalled)
 
 	require.NoError(t, m.SetDriftDetected("pkg"))
 
 	st, _ := m.Read()
-	assert.Equal(t, StateActualizacionDisp, st.Fichas["pkg"].State)
+	assert.Equal(t, StateUpdateAvailable, st.Fichas["pkg"].State)
 }
 
 // ── Block / Unblock ─────────────────────────────────────────
@@ -438,46 +438,46 @@ func TestSetDriftDetected(t *testing.T) {
 func TestSetBlocked(t *testing.T) {
 	path := tempStateFile(t)
 	m := newTestManager(t, path)
-	seedFicha(t, m, "dep", StateInstalando)
+	seedFicha(t, m, "dep", StateInstalling)
 
 	err := m.SetBlocked("dep")
 	assert.NoError(t, err)
 
 	st, _ := m.Read()
-	assert.Equal(t, StatePendiente, st.Fichas["dep"].State)
+	assert.Equal(t, StatePending, st.Fichas["dep"].State)
 }
 
 func TestSetBlocked_FromOK(t *testing.T) {
 	path := tempStateFile(t)
 	m := newTestManager(t, path)
-	seedFicha(t, m, "dep", StateInstalada)
+	seedFicha(t, m, "dep", StateInstalled)
 
 	err := m.SetBlocked("dep")
 	assert.NoError(t, err)
 
 	st, _ := m.Read()
-	assert.Equal(t, StatePendiente, st.Fichas["dep"].State)
+	assert.Equal(t, StatePending, st.Fichas["dep"].State)
 }
 
 func TestUnblock(t *testing.T) {
 	path := tempStateFile(t)
 	m := newTestManager(t, path)
-	seedFicha(t, m, "dep", StatePendiente)
+	seedFicha(t, m, "dep", StatePending)
 
 	require.NoError(t, m.Unblock("dep"))
 
 	st, _ := m.Read()
-	assert.Equal(t, StateLista, st.Fichas["dep"].State)
+	assert.Equal(t, StateReady, st.Fichas["dep"].State)
 }
 
 func TestUnblock_NotBlocked(t *testing.T) {
 	path := tempStateFile(t)
 	m := newTestManager(t, path)
-	seedFicha(t, m, "dep", StateInstalada)
+	seedFicha(t, m, "dep", StateInstalled)
 
 	err := m.Unblock("dep")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "PENDIENTE")
+	assert.Contains(t, err.Error(), "PENDING")
 }
 
 // ── Metadata ────────────────────────────────────────────────
@@ -497,13 +497,13 @@ func TestTransitionUpdatesTimestamps(t *testing.T) {
 	path := tempStateFile(t)
 	m := newTestManager(t, path)
 
-	require.NoError(t, m.Transition("ts", StateInstalando))
+	require.NoError(t, m.Transition("ts", StateInstalling))
 	st1, _ := m.Read()
 	t1 := st1.UpdatedAt
 
 	time.Sleep(10 * time.Millisecond)
 
-	require.NoError(t, m.Transition("ts", StateInstalada))
+	require.NoError(t, m.Transition("ts", StateInstalled))
 	st2, _ := m.Read()
 	t2 := st2.UpdatedAt
 
@@ -521,7 +521,7 @@ func TestStateSerialization(t *testing.T) {
 			"svc": {
 				Name:    "svc",
 				Version: "2.0",
-				State:   StateInstalada,
+				State:   StateInstalled,
 				Hashes:  map[string]string{"k": "v"},
 			},
 		},
@@ -534,7 +534,7 @@ func TestStateSerialization(t *testing.T) {
 	var s2 SBOSState
 	require.NoError(t, json.Unmarshal(b, &s2))
 	assert.Equal(t, "svc", s2.Fichas["svc"].Name)
-	assert.Equal(t, StateInstalada, s2.Fichas["svc"].State)
+	assert.Equal(t, StateInstalled, s2.Fichas["svc"].State)
 }
 
 // ── Concurrent access ───────────────────────────────────────
@@ -542,7 +542,7 @@ func TestStateSerialization(t *testing.T) {
 func TestConcurrentReads(t *testing.T) {
 	path := tempStateFile(t)
 	m := newTestManager(t, path)
-	seedFicha(t, m, "c", StateInstalada)
+	seedFicha(t, m, "c", StateInstalled)
 
 	var wg sync.WaitGroup
 	errs := make(chan error, 10)
@@ -571,7 +571,7 @@ func TestCloseAllowsReopen(t *testing.T) {
 	path := tempStateFile(t)
 
 	m1 := newTestManager(t, path)
-	require.NoError(t, m1.Transition("x", StateInstalando))
+	require.NoError(t, m1.Transition("x", StateInstalling))
 	require.NoError(t, m1.Close())
 
 	m2, err := NewManager(path)
@@ -585,20 +585,20 @@ func TestTransition_AutoCreateForInstalando(t *testing.T) {
 	path := tempStateFile(t)
 	m := newTestManager(t, path)
 
-	err := m.Transition("new-app", StateInstalando)
+	err := m.Transition("new-app", StateInstalling)
 	require.NoError(t, err)
 
 	st, _ := m.Read()
 	f, ok := st.Fichas["new-app"]
 	require.True(t, ok)
-	assert.Equal(t, StateInstalando, f.State)
+	assert.Equal(t, StateInstalling, f.State)
 }
 
 func TestTransition_AutoCreateFailsForNonInstalando(t *testing.T) {
 	path := tempStateFile(t)
 	m := newTestManager(t, path)
 
-	err := m.Transition("ghost", StateInstalada)
+	err := m.Transition("ghost", StateInstalled)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
@@ -608,7 +608,7 @@ func TestTransition_AutoCreateFailsForNonInstalando(t *testing.T) {
 func TestValidTransitions_TodosEstablesDefinidos(t *testing.T) {
 	// Todo estado estable (excepto DESINSTALADA que es final) debe tener transiciones.
 	for _, from := range StableStates() {
-		if from == StateDesinstalada {
+		if from == StateUninstalled {
 			continue // estado final, sin transiciones salientes
 		}
 		_, ok := ValidTransitions[from]

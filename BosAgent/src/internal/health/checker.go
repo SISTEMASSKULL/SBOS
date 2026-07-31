@@ -193,7 +193,7 @@ func (c *Checker) checkAll() map[string]Status {
 	for name, ficha := range st.Fichas {
 		// Skip blocked fichas — they are not installed and have no
 		// meaningful health probes to run.
-		if ficha.State == state.StatePendiente {
+		if ficha.State == state.StatePending {
 			continue
 		}
 		status := c.checkOne(name, st)

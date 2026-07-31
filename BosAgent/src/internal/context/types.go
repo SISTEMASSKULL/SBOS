@@ -22,7 +22,7 @@ const (
 type ContextState int
 
 const (
-	StatePendiente  ContextState = iota // registrado, aún no validado
+	StatePending  ContextState = iota // registrado, aún no validado
 	StateActivo                         // validado, operativo
 	StateSuspendido                     // suspendido por admin (tenant o usuario)
 	StateBloqueado                      // bloqueado por política de seguridad
@@ -33,8 +33,8 @@ const (
 
 func (s ContextState) String() string {
 	switch s {
-	case StatePendiente:
-		return "PENDIENTE"
+	case StatePending:
+		return "PENDING"
 	case StateActivo:
 		return "ACTIVO"
 	case StateSuspendido:
@@ -107,7 +107,7 @@ func NewDeviceContext(hostname, tenantID, nodeK8s, ip string) (*DeviceContext, e
 		NodeK8s:   nodeK8s,
 		IP:        ip,
 		BitMask:   0,
-		State:     StatePendiente,
+		State:     StatePending,
 		CreatedAt: now,
 		UpdatedAt: now,
 		ExpiresAt: now.Add(MaxDeviceTTL),

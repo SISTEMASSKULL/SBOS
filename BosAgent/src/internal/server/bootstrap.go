@@ -89,12 +89,12 @@ func (s *Server) wsHandleBootstrapStart(client *Client, req *Request) {
 	for fichaID, ficha := range st.Fichas {
 		var pasos []state.FichaState
 		switch ficha.State {
-		case state.StateInstalando:
+		case state.StateInstalling:
 			// Huérfana: el saga que la instalaba ya no corre — tratar como fallo
-			pasos = []state.FichaState{state.StateFallaInstalacion, state.StateLimpieza, state.StateLista}
+			pasos = []state.FichaState{state.StateInstallFailed, state.StateCleanup, state.StateReady}
 			s.logger.Warn("ficha huérfana en INSTALANDO — reseteando a LISTA", "ficha", fichaID)
-		case state.StateFallaInstalacion:
-			pasos = []state.FichaState{state.StateLimpieza, state.StateLista}
+		case state.StateInstallFailed:
+			pasos = []state.FichaState{state.StateCleanup, state.StateReady}
 		default:
 			continue
 		}
@@ -123,7 +123,7 @@ func (s *Server) wsHandleBootstrapStart(client *Client, req *Request) {
 	}
 
 	total := len(st.Fichas)
-	completados := fichaCountByState(st, state.StateInstalada)
+	completados := fichaCountByState(st, state.StateInstalled)
 
 	// El observer loop en main.go gestiona la instalación automática.
 	// Este handler reporta el estado de activación del motor.
@@ -147,11 +147,11 @@ func (s *Server) wsHandleBootstrapStatus(client *Client, req *Request) {
 	}
 
 	total := len(st.Fichas)
-	completados := fichaCountByState(st, state.StateInstalada)
-	instalando := fichaCountByState(st, state.StateInstalando)
-	alertas := fichaCountByState(st, state.StateDegradada)
-	bloqueadas := fichaCountByState(st, state.StatePendiente)
-	pendientes := fichaCountByState(st, state.StateLista)
+	completados := fichaCountByState(st, state.StateInstalled)
+	instalando := fichaCountByState(st, state.StateInstalling)
+	alertas := fichaCountByState(st, state.StateDegraded)
+	bloqueadas := fichaCountByState(st, state.StatePending)
+	pendientes := fichaCountByState(st, state.StateReady)
 
 	var progress float64
 	if total > 0 {
@@ -186,7 +186,7 @@ func (s *Server) wsHandleBootstrapStatus(client *Client, req *Request) {
 			Version: f.Version,
 			Health:  f.HealthStatus,
 		})
-		if f.State == state.StateInstalando && currentFicha == "" {
+		if f.State == state.StateInstalling && currentFicha == "" {
 			currentFicha = id
 		}
 	}
@@ -250,7 +250,7 @@ func (s *Server) wsHandleBootstrapResume(client *Client, req *Request) {
 		return
 	}
 
-	completados := fichaCountByState(st, state.StateInstalada)
+	completados := fichaCountByState(st, state.StateInstalled)
 	total := len(st.Fichas)
 
 	s.wsHub.sendResponse(client, req.ID, true, map[string]interface{}{
@@ -282,9 +282,9 @@ func (s *Server) wsHandleBootstrapReset(client *Client, req *Request) {
 	for id, f := range st.Fichas {
 		// Solo reiniciar fichas en estado de error o transitorio, nunca INSTALADA -- OK
 		switch f.State {
-		case state.StateDegradada, state.StateInstalando,
-			state.StateErrorLogico, state.StateReparando:
-			if err := s.stateMgr.Transition(id, state.StateLista); err != nil {
+		case state.StateDegraded, state.StateInstalling,
+			state.StateLogicalError, state.StateRepairing:
+			if err := s.stateMgr.Transition(id, state.StateReady); err != nil {
 				s.logger.Warn("reset: transición fallida", "ficha", id, "err", err)
 			} else {
 				resetCount++

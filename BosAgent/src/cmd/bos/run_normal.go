@@ -325,13 +325,13 @@ func runNormal(cfg *config.Config, benv *bootstrapEnv) {
 		var inst, deg, errN, pend int64
 		for _, f := range st.Fichas {
 			switch f.State {
-			case state.StateInstalada:
+			case state.StateInstalled:
 				inst++
-			case state.StateDegradada:
+			case state.StateDegraded:
 				deg++
-			case state.StateErrorFisico, state.StateErrorLogico, state.StateErrorNoCorregible:
+			case state.StatePhysicalError, state.StateLogicalError, state.StateUnrecoverable:
 				errN++
-			case state.StatePendiente, state.StateLista:
+			case state.StatePending, state.StateReady:
 				pend++
 			}
 		}

@@ -13,7 +13,7 @@ func TestContextState_7EstadosDefinidos(t *testing.T) {
 		estado ContextState
 		nombre string
 	}{
-		{StatePendiente, "PENDIENTE"},
+		{StatePending, "PENDING"},
 		{StateActivo, "ACTIVO"},
 		{StateSuspendido, "SUSPENDIDO"},
 		{StateBloqueado, "BLOQUEADO"},
@@ -37,7 +37,7 @@ func TestContextState_7EstadosDefinidos(t *testing.T) {
 		}
 	}
 	// estados no terminales
-	noTerminales := []ContextState{StatePendiente, StateActivo, StateSuspendido, StateBloqueado}
+	noTerminales := []ContextState{StatePending, StateActivo, StateSuspendido, StateBloqueado}
 	for _, s := range noTerminales {
 		if s.IsTerminal() {
 			t.Errorf("estado %s NO debe ser terminal", s)
@@ -133,7 +133,7 @@ func TestDeviceContext_BitMaskCero(t *testing.T) {
 	}
 
 	// estado inicial
-	if dctx.State != StatePendiente {
+	if dctx.State != StatePending {
 		t.Errorf("estado inicial debe ser PENDIENTE, got %s", dctx.State)
 	}
 

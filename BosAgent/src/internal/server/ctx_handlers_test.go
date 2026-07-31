@@ -82,7 +82,7 @@ func TestRPC_CtxDeviceRegister_RetornaEnMenos2s(t *testing.T) {
 		t.Error("dctx_id debe ser no vacío")
 	}
 	state, _ := data["state"].(string)
-	if state != "PENDIENTE" {
+	if state != "PENDING" {
 		t.Errorf("estado inicial debe ser PENDIENTE, got %s", state)
 	}
 

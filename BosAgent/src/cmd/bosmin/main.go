@@ -134,11 +134,11 @@ func registerFichasFromDisk(mgr *state.Manager, serversPath string) {
 			}
 
 			// Register new ficha
-			if err := mgr.Transition(fichaName, state.StateInstalando); err != nil {
+			if err := mgr.Transition(fichaName, state.StateInstalling); err != nil {
 				slog.Warn("register failed", "err", err, "ficha", fichaName)
 				continue
 			}
-			if err := mgr.Transition(fichaName, state.StateInstalada); err != nil {
+			if err := mgr.Transition(fichaName, state.StateInstalled); err != nil {
 				slog.Warn("register OK transition failed", "err", err, "ficha", fichaName)
 				continue
 			}

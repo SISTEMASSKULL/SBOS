@@ -210,7 +210,7 @@ func (h *HealthChecker) Check(fichaID string, def HealthDef) HealthResult {
 	// Registrar en el tracker y notificar si aplica
 	degraded := h.tracker.Record(fichaID, result.Healthy, def.FailureThreshold)
 	if degraded && h.notifier != nil {
-		h.notifier(fichaID, "DEGRADADA",
+		h.notifier(fichaID, "DEGRADED",
 			fmt.Sprintf("%d fallos consecutivos de health check (threshold=%d)",
 				h.tracker.ConsecutiveFailures(fichaID), def.FailureThreshold))
 	}

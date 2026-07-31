@@ -170,16 +170,16 @@ func (s *Server) rpcHealthCheck(req *RPCRequest) RPCResponse {
 			"ficha_id": p.FichaID,
 			"state":    single.State,
 			"health":   single.Health,
-			"healthy":  single.State == string(state.StateInstalada),
+			"healthy":  single.State == string(state.StateInstalled),
 		})
 	}
 
 	ok, alerta, total := 0, 0, len(all)
 	for _, f := range all {
 		switch f.State {
-		case string(state.StateInstalada):
+		case string(state.StateInstalled):
 			ok++
-		case string(state.StateDegradada):
+		case string(state.StateDegraded):
 			alerta++
 		}
 	}

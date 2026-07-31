@@ -49,5 +49,5 @@
 //	mgr, err := state.NewManager(paths.StateFile)
 //	defer mgr.Close()
 //	st, _ := mgr.Read()
-//	_ = mgr.Transition("postgresql", state.StateInstalada)
+//	_ = mgr.Transition("postgresql", state.StateInstalled)
 package state

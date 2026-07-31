@@ -17,7 +17,7 @@ func TestStatusCollector_Collect(t *testing.T) {
 		Version:        "18.4.0",
 		Category:       1,
 		Criticality:    true,
-		State:          "INSTALADA",
+		State:          "INSTALLED",
 		WorkloadType:   "StatefulSet",
 		ExecutionOrder: 100,
 		Dependencies:   []string{"sbos-bootstrap-k8s"},
@@ -34,7 +34,7 @@ func TestStatusCollector_Collect(t *testing.T) {
 	if detail.ID != "postgresql" {
 		t.Errorf("esperado postgresql, obtenido %s", detail.ID)
 	}
-	if detail.State != "INSTALADA" {
+	if detail.State != "INSTALLED" {
 		t.Errorf("esperado INSTALADA, obtenido %s", detail.State)
 	}
 	if detail.HealthStatus != "healthy" {
@@ -59,7 +59,7 @@ func TestStatusCollector_DegradedHealth(t *testing.T) {
 
 	input := StatusInput{
 		ID:             "redis",
-		State:          "INSTALADA",
+		State:          "INSTALLED",
 		Criticality:    true,
 		HealthType:     "command",
 	}
@@ -82,7 +82,7 @@ func TestStatusCollector_OneFailureDegraded(t *testing.T) {
 
 	input := StatusInput{
 		ID:          "app",
-		State:       "INSTALADA",
+		State:       "INSTALLED",
 		Criticality: false,
 	}
 
@@ -110,7 +110,7 @@ func TestStatusCollector_WithDrift(t *testing.T) {
 
 	input := StatusInput{
 		ID:          "drift-test",
-		State:       "INSTALADA",
+		State:       "INSTALLED",
 		FichaPath:   fichaDir,
 		KnownHashes: knownHashes,
 	}
@@ -129,13 +129,13 @@ func TestStatusCollector_CollectAll(t *testing.T) {
 	collector := NewStatusCollector(nil, nil, nil)
 
 	inputs := []StatusInput{
-		{ID: "pg", State: "INSTALADA", Criticality: true},
-		{ID: "rd", State: "INSTALADA", Criticality: true},
-		{ID: "kc", State: "DEGRADADA", Criticality: true},
-		{ID: "ng", State: "INSTALADA", Criticality: false},
-		{ID: "vl", State: "PENDIENTE", Criticality: true},
-		{ID: "mn", State: "PAUSADA", Criticality: false},
-		{ID: "err", State: "ERROR_FISICO", Criticality: true},
+		{ID: "pg", State: "INSTALLED", Criticality: true},
+		{ID: "rd", State: "INSTALLED", Criticality: true},
+		{ID: "kc", State: "DEGRADED", Criticality: true},
+		{ID: "ng", State: "INSTALLED", Criticality: false},
+		{ID: "vl", State: "PENDING", Criticality: true},
+		{ID: "mn", State: "PAUSED", Criticality: false},
+		{ID: "err", State: "PHYSICAL_ERROR", Criticality: true},
 	}
 
 	summary := collector.CollectAll(inputs)
@@ -163,7 +163,7 @@ func TestStatusCollector_CollectAll(t *testing.T) {
 func TestFichaStatusDetail_TableRow(t *testing.T) {
 	detail := FichaStatusDetail{
 		ID:            "postgresql",
-		State:         "INSTALADA",
+		State:         "INSTALLED",
 		Version:       "18.4.0",
 		HealthStatus:  "healthy",
 		HasDrift:      false,
@@ -182,7 +182,7 @@ func TestFichaStatusDetail_TableRow(t *testing.T) {
 func TestFichaStatusDetail_DetailText(t *testing.T) {
 	detail := FichaStatusDetail{
 		ID:             "postgresql",
-		State:          "INSTALADA",
+		State:          "INSTALLED",
 		Version:        "18.4.0",
 		Server:         "S01",
 		WorkloadType:   "StatefulSet",

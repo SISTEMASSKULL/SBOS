@@ -160,7 +160,7 @@ func TestReconcile_NoDriftWhenHashesMatch(t *testing.T) {
 		"app": {
 			Name:    "app",
 			Version: "1.0",
-			State:   state.StateInstalada,
+			State:   state.StateInstalled,
 			Server:  "svr",
 			Hashes:  freshHashes,
 		},
@@ -187,7 +187,7 @@ func TestReconcile_DetectsDriftWhenHashChanges(t *testing.T) {
 		"app": {
 			Name:    "app",
 			Version: "1.0",
-			State:   state.StateInstalada,
+			State:   state.StateInstalled,
 			Server:  "svr",
 			Hashes:  oldHashes,
 		},
@@ -202,7 +202,7 @@ func TestReconcile_DetectsDriftWhenHashChanges(t *testing.T) {
 
 	// State should transition to ACTUALIZACION_DISPONIBLE
 	st, _ := mgr.Read()
-	assert.Equal(t, state.StateActualizacionDisp, st.Fichas["app"].State)
+	assert.Equal(t, state.StateUpdateAvailable, st.Fichas["app"].State)
 }
 
 func TestReconcile_SkipsFichaWithoutServer(t *testing.T) {
@@ -212,7 +212,7 @@ func TestReconcile_SkipsFichaWithoutServer(t *testing.T) {
 		"noserver": {
 			Name:    "noserver",
 			Version: "1.0",
-			State:   state.StateInstalada,
+			State:   state.StateInstalled,
 			Server:  "",
 			Hashes:  map[string]string{},
 		},
@@ -237,7 +237,7 @@ func TestReconcile_AutoRepairEnabled(t *testing.T) {
 		"app": {
 			Name:    "app",
 			Version: "1.0",
-			State:   state.StateInstalada,
+			State:   state.StateInstalled,
 			Server:  "svr",
 			Hashes:  oldHashes,
 		},
@@ -266,7 +266,7 @@ func TestReconcile_AutoRepairDisabled(t *testing.T) {
 		"app": {
 			Name:    "app",
 			Version: "1.0",
-			State:   state.StateInstalada,
+			State:   state.StateInstalled,
 			Server:  "svr",
 			Hashes:  oldHashes,
 		},
@@ -295,7 +295,7 @@ func TestReconcile_UpdatesStoredHashes(t *testing.T) {
 		"app": {
 			Name:    "app",
 			Version: "1.0",
-			State:   state.StateInstalada,
+			State:   state.StateInstalled,
 			Server:  "svr",
 			Hashes:  oldHashes,
 		},

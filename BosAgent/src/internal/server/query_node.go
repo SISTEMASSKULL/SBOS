@@ -81,7 +81,7 @@ func (s *Server) impactoDrainSource() query.Source {
 func buildImpactoDrain(st *state.SBOSState) map[string]interface{} {
 	criticas := []string{}
 	for _, f := range st.Fichas {
-		if f.Criticality && f.State == state.StateInstalada {
+		if f.Criticality && f.State == state.StateInstalled {
 			criticas = append(criticas, f.Name)
 		}
 	}

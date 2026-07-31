@@ -69,7 +69,7 @@ func (c stubCatalog) Reload() int { return len(c.fichas) }
 func makeRPCServer(installOK bool) *Server {
 	st := queryStateStub{fichas: map[string]*state.Ficha{
 		"redis":      fichaOK("redis", "8.6.2"),
-		"postgresql": {Name: "postgresql", Version: "18.4", State: state.StateDegradada, HealthStatus: "FAIL"},
+		"postgresql": {Name: "postgresql", Version: "18.4", State: state.StateDegraded, HealthStatus: "FAIL"},
 	}}
 	cat := stubCatalog{fichas: map[string]*plugin.FichaManifest{
 		"redis": {ID: "redis", Version: "8.6.2", AutoInstall: true},

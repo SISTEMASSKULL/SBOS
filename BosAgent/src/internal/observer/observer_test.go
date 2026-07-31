@@ -46,8 +46,8 @@ func TestDepsSatisfied_TodosInstalados(t *testing.T) {
 	t.Parallel()
 	st := &state.SBOSState{
 		Fichas: map[string]*state.Ficha{
-			"postgresql": fichaConEstado(state.StateInstalada),
-			"redis":      fichaConEstado(state.StateInstalada),
+			"postgresql": fichaConEstado(state.StateInstalled),
+			"redis":      fichaConEstado(state.StateInstalled),
 		},
 	}
 	if !DepsSatisfied([]string{"postgresql", "redis"}, st) {
@@ -61,8 +61,8 @@ func TestDepsSatisfied_FaltaUno(t *testing.T) {
 	t.Parallel()
 	st := &state.SBOSState{
 		Fichas: map[string]*state.Ficha{
-			"postgresql": fichaConEstado(state.StateInstalada),
-			"redis":      fichaConEstado(state.StatePendiente), // ← no satisfecha
+			"postgresql": fichaConEstado(state.StateInstalled),
+			"redis":      fichaConEstado(state.StatePending), // ← no satisfecha
 		},
 	}
 	if DepsSatisfied([]string{"postgresql", "redis"}, st) {
@@ -90,7 +90,7 @@ func TestFindNextAutoInstall_RetornaNilSinCandidatos(t *testing.T) {
 	t.Parallel()
 	st := &state.SBOSState{
 		Fichas: map[string]*state.Ficha{
-			"postgresql": fichaConEstado(state.StatePendiente),
+			"postgresql": fichaConEstado(state.StatePending),
 		},
 	}
 	index := map[string]*plugin.FichaManifest{
@@ -107,9 +107,9 @@ func TestFindNextAutoInstall_EligePrimerPorOrden(t *testing.T) {
 	t.Parallel()
 	st := &state.SBOSState{
 		Fichas: map[string]*state.Ficha{
-			"keycloak":   fichaConEstado(state.StateLista),
-			"postgresql": fichaConEstado(state.StateLista),
-			"redis":      fichaConEstado(state.StateLista),
+			"keycloak":   fichaConEstado(state.StateReady),
+			"postgresql": fichaConEstado(state.StateReady),
+			"redis":      fichaConEstado(state.StateReady),
 		},
 	}
 	index := map[string]*plugin.FichaManifest{
@@ -132,7 +132,7 @@ func TestFindNextAutoInstall_IgnoraNoAutoInstall(t *testing.T) {
 	t.Parallel()
 	st := &state.SBOSState{
 		Fichas: map[string]*state.Ficha{
-			"ficha-opcional": fichaConEstado(state.StateLista),
+			"ficha-opcional": fichaConEstado(state.StateReady),
 		},
 	}
 	index := map[string]*plugin.FichaManifest{
@@ -149,8 +149,8 @@ func TestFindNextAutoInstall_IgnoraDepNoSatisfecha(t *testing.T) {
 	t.Parallel()
 	st := &state.SBOSState{
 		Fichas: map[string]*state.Ficha{
-			"keycloak":   fichaConEstado(state.StateLista),
-			"postgresql": fichaConEstado(state.StatePendiente), // dep de keycloak, no satisfecha
+			"keycloak":   fichaConEstado(state.StateReady),
+			"postgresql": fichaConEstado(state.StatePending), // dep de keycloak, no satisfecha
 		},
 	}
 	index := map[string]*plugin.FichaManifest{

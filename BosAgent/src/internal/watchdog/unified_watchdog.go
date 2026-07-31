@@ -398,7 +398,7 @@ func (w *UnifiedWatchdog) checkBOSFichas() []repair.HealthCheck {
 
 	var results []repair.HealthCheck
 	for name, ficha := range st.Fichas {
-		if ficha.State == state.StatePendiente {
+		if ficha.State == state.StatePending {
 			continue
 		}
 		status := health.Status(ficha.HealthStatus)

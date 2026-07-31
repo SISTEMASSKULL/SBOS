@@ -139,8 +139,8 @@ func TestBuildContext_YFormat(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer mgr.Close()
-	mgr.Register("redis", state.StateInstalada, "8.6.2", true, "dataserver", 1, "helm")
-	mgr.Register("vault", state.StatePendiente, "2.0.1", true, "secserver", 1, "helm")
+	mgr.Register("redis", state.StateInstalled, "8.6.2", true, "dataserver", 1, "helm")
+	mgr.Register("vault", state.StatePending, "2.0.1", true, "secserver", 1, "helm")
 
 	ctx := BuildContext(mgr)
 	if ctx == nil || ctx.Hostname == "" || ctx.Timestamp == "" {

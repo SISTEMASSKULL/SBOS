@@ -146,19 +146,19 @@ var headerSep = func(s string) string { return s }
 // stateToIcon convierte un estado de ficha (ADR-021) a un ícono ASCII de 4 caracteres para la TUI.
 func stateToIcon(state string) string {
 	switch state {
-	case "INSTALADA", "INSTALADA -- OK":
+	case "INSTALLED", "INSTALADA -- OK":
 		return "[OK]"
-	case "DEGRADADA", "INSTALADA -- ALERTA":
+	case "DEGRADED", "INSTALADA -- ALERTA":
 		return "[!!]"
-	case "INSTALANDO", "ACTUALIZANDO", "REPARANDO":
+	case "INSTALLING", "UPDATING", "REPAIRING":
 		return "[>>]"
-	case "ACTUALIZACION_DISPONIBLE":
+	case "UPDATE_AVAILABLE":
 		return "[UP]"
-	case "PENDIENTE", "LISTA":
+	case "PENDING", "READY":
 		return "[--]"
-	case "FALLA_INSTALACION", "FALLA_ACTUALIZACION", "ERROR_LOGICO", "ERROR_FISICO":
+	case "INSTALL_FAILED", "UPDATE_FAILED", "LOGICAL_ERROR", "PHYSICAL_ERROR":
 		return "[ER]"
-	case "DESINSTALADA":
+	case "UNINSTALLED":
 		return "[  ]"
 	default:
 		return "[??]"
