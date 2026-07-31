@@ -758,12 +758,15 @@ CREATE TABLE IF NOT EXISTS bos.prt_port_assignment (
     subdomain          TEXT         NULL,     -- auth.cliente.sbos.app
     kong_route         TEXT         NULL,     -- /auth → 8200
 
+    -- Motor de asignación
+    algorithm          TEXT         NOT NULL DEFAULT 'A',   -- A | A+N2 | B | hitl
+
     -- Estado — RFC 6335 §8 (ciclo de vida: nunca borrar, solo cambiar estado)
     status             TEXT         NOT NULL DEFAULT 'assigned',
     assigned_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
     released_at        TIMESTAMPTZ  NULL,
     last_validated_at  TIMESTAMPTZ  NULL,     -- última vez que portman.validate confirmó el registro
-    notes              TEXT         NULL,
+    notes              TEXT         NULL,     -- notas libres del operador
     ctx_id             TEXT         NOT NULL DEFAULT 'system',
 
     CONSTRAINT prt_pa_pkey              PRIMARY KEY (port_id),

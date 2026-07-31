@@ -91,19 +91,18 @@ func (k *PgKardex) Insert(row KardexRow) error {
 		INSERT INTO bos.prt_port_assignment (
 			service_name, port, transport, port_type,
 			logical_server, namespace, ficha_id, assigned_by,
-			description, doc_reference, status,
-			assigned_at, ctx_id, notes
+			description, doc_reference, algorithm, status,
+			assigned_at, ctx_id
 		) VALUES (
 			$1, $2, $3, $4,
 			$5, $6, $7, $8,
-			$9, $10, 'assigned',
-			NOW(), $11, $12
+			$9, $10, $11, 'assigned',
+			NOW(), $12
 		)`,
 		row.ServiceName, row.Port, row.Transport, row.PortType,
 		row.LogicalServer, row.Namespace, row.FichaID, row.AssignedBy,
-		row.Description, row.DocReference,
+		row.Description, row.DocReference, row.Algorithm,
 		row.CtxID,
-		fmt.Sprintf("algoritmo:%s", row.Algorithm),
 	)
 	if err != nil {
 		return fmt.Errorf("kardex insert puerto %d: %w", row.Port, err)
@@ -147,7 +146,7 @@ func (k *PgKardex) ListByFicha(fichaID string) ([]KardexRow, error) {
 			COALESCE(logical_server,''), namespace, COALESCE(ficha_id,''),
 			COALESCE(assigned_by,''), COALESCE(description,''),
 			COALESCE(doc_reference,''), status,
-			COALESCE(notes,''), assigned_at,
+			COALESCE(algorithm,'A'), assigned_at,
 			released_at, last_validated_at, ctx_id
 		FROM bos.prt_port_assignment
 		WHERE ficha_id = $1
@@ -171,7 +170,7 @@ func (k *PgKardex) ListAll(limit int) ([]KardexRow, error) {
 			COALESCE(logical_server,''), namespace, COALESCE(ficha_id,''),
 			COALESCE(assigned_by,''), COALESCE(description,''),
 			COALESCE(doc_reference,''), status,
-			COALESCE(notes,''), assigned_at,
+			COALESCE(algorithm,'A'), assigned_at,
 			released_at, last_validated_at, ctx_id
 		FROM bos.prt_port_assignment
 		ORDER BY assigned_at DESC
@@ -192,7 +191,7 @@ func (k *PgKardex) GetByPort(port int, portType, namespace string) (*KardexRow, 
 			COALESCE(logical_server,''), namespace, COALESCE(ficha_id,''),
 			COALESCE(assigned_by,''), COALESCE(description,''),
 			COALESCE(doc_reference,''), status,
-			COALESCE(notes,''), assigned_at,
+			COALESCE(algorithm,'A'), assigned_at,
 			released_at, last_validated_at, ctx_id
 		FROM bos.prt_port_assignment
 		WHERE port = $1 AND port_type = $2 AND namespace = $3 AND status = 'assigned'
@@ -224,13 +223,12 @@ type rowScanner interface {
 
 func scanRow(r rowScanner) (*KardexRow, error) {
 	row := KardexRow{}
-	var notes string
 	var relAt, valAt *time.Time
 	err := r.Scan(
 		&row.PortID, &row.ServiceName, &row.Port, &row.Transport, &row.PortType,
 		&row.LogicalServer, &row.Namespace, &row.FichaID,
 		&row.AssignedBy, &row.Description, &row.DocReference, &row.Status,
-		&notes, &row.AssignedAt,
+		&row.Algorithm, &row.AssignedAt,
 		&relAt, &valAt, &row.CtxID,
 	)
 	if err == sql.ErrNoRows {
@@ -239,7 +237,6 @@ func scanRow(r rowScanner) (*KardexRow, error) {
 	if err != nil {
 		return nil, fmt.Errorf("kardex scan: %w", err)
 	}
-	row.Algorithm = notes
 	row.ReleasedAt = relAt
 	row.LastValidatedAt = valAt
 	return &row, nil
@@ -247,19 +244,17 @@ func scanRow(r rowScanner) (*KardexRow, error) {
 
 func scanSQLRow(rows *sql.Rows) (KardexRow, error) {
 	row := KardexRow{}
-	var notes string
 	var relAt, valAt *time.Time
 	err := rows.Scan(
 		&row.PortID, &row.ServiceName, &row.Port, &row.Transport, &row.PortType,
 		&row.LogicalServer, &row.Namespace, &row.FichaID,
 		&row.AssignedBy, &row.Description, &row.DocReference, &row.Status,
-		&notes, &row.AssignedAt,
+		&row.Algorithm, &row.AssignedAt,
 		&relAt, &valAt, &row.CtxID,
 	)
 	if err != nil {
 		return KardexRow{}, fmt.Errorf("kardex scanRow: %w", err)
 	}
-	row.Algorithm = notes
 	row.ReleasedAt = relAt
 	row.LastValidatedAt = valAt
 	return row, nil
