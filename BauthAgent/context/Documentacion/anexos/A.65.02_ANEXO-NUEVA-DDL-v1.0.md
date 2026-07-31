@@ -416,41 +416,41 @@ El diseño DDL (columnas, constraints, índices) se desarrolla en sesiones poste
 
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
-| T-NEW-1 | `bos.fch_ficha_state` | Estado actual de cada ficha declarativa — máquina de 18 estados (ADR-021). `(ficha_name, server_id)` UNIQUE. Sin `tenant_id`: las fichas son infraestructura compartida. `hashes` JSONB con SHA-256 de artefactos para drift detection. `backend` CHECK (bash\|k8s\|binary\|python). |
-| T-NEW-2 | `bos.fch_ficha_event` | Historial WORM de todos los cambios de estado de fichas — append-only, REVOKE UPDATE/DELETE. Hash-chain SHA-256 (`prev_hash`). `tenant_id` = tenant que disparó el evento (auditoría), no dueño. `actor_id + ip_address` → NIST AU-3. `saga_id` agrupa todos los eventos de una misma saga install/update/repair/remove. |
+| T-403 | `bos.fch_ficha_state` | Estado actual de cada ficha declarativa — máquina de 18 estados (ADR-021). `(ficha_name, server_id)` UNIQUE. Sin `tenant_id`: las fichas son infraestructura compartida. `hashes` JSONB con SHA-256 de artefactos para drift detection. `backend` CHECK (bash\|k8s\|binary\|python). |
+| T-404 | `bos.fch_ficha_event` | Historial WORM de todos los cambios de estado de fichas — append-only, REVOKE UPDATE/DELETE. Hash-chain SHA-256 (`prev_hash`). `tenant_id` = tenant que disparó el evento (auditoría), no dueño. `actor_id + ip_address` → NIST AU-3. `saga_id` agrupa todos los eventos de una misma saga install/update/repair/remove. |
 
 ### Grupo INS — Motor ① IAM Installer (ADR-040)
 
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
-| T-NEW-3 | `bos.ins_bootstrap_event` | WORM del bootstrap progresivo de 6 capas (C-01..C-09). `bootstrap_run_id` agrupa un intento completo. `tenant_id` NUNCA NULL: capas 0-2 usan el tenant raíz; capas 3-5 el tenant del cliente. `layer` CHECK (0..5). `verification_code` CHECK (C-NN). REVOKE UPDATE/DELETE. |
-| T-NEW-10 | `bos.ins_saga_execution` | Tracking mutable de sagas generales del Installer — install, update, repair, remove, deploy_tenant, remove_tenant, suspend_tenant. `state` CHECK (RUNNING\|COMPLETED\|FAILED\|COMPENSATING\|COMPENSATED). `compensated_steps` JSONB array de pasos que hicieron rollback. |
+| T-405 | `bos.ins_bootstrap_event` | WORM del bootstrap progresivo de 6 capas (C-01..C-09). `bootstrap_run_id` agrupa un intento completo. `tenant_id` NUNCA NULL: capas 0-2 usan el tenant raíz; capas 3-5 el tenant del cliente. `layer` CHECK (0..5). `verification_code` CHECK (C-NN). REVOKE UPDATE/DELETE. |
+| T-412 | `bos.ins_saga_execution` | Tracking mutable de sagas generales del Installer — install, update, repair, remove, deploy_tenant, remove_tenant, suspend_tenant. `state` CHECK (RUNNING\|COMPLETED\|FAILED\|COMPENSATING\|COMPENSATED). `compensated_steps` JSONB array de pasos que hicieron rollback. |
 
 ### Grupo CAP — Motor ② SO Observable / Capacidad (SBOS-BOS-CAP-001)
 
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
-| T-NEW-4 | `bos.cap_sistema_snapshot` | Instantáneas periódicas (~60s) de 30+ métricas del sistema (Motor ② M5.1). PARTITION BY RANGE (captured_at) — partición mensual `_YYYY_MM`. Purga: DROP TABLE sobre particiones > 90 días (instantáneo). PK compuesta `(snapshot_id, captured_at)`. `scope` CHECK (GLOBAL\|TENANT). No WORM: telemetría operativa. |
-| T-NEW-5 | `bos.cap_tenant_policy` | Política de capacidad por tenant (Motor ② M5.3). UNIQUE por tenant. Fallback: Motor M5.3 usa la fila del tenant raíz si el tenant no tiene la propia. `policy_mode` CHECK (autonomous\|recommend\|block_and_alert\|emergency). Umbrales CPU/mem/disco/RPS/sesiones + horizonte de proyección. |
+| T-406 | `bos.cap_sistema_snapshot` | Instantáneas periódicas (~60s) de 30+ métricas del sistema (Motor ② M5.1). PARTITION BY RANGE (captured_at) — partición mensual `_YYYY_MM`. Purga: DROP TABLE sobre particiones > 90 días (instantáneo). PK compuesta `(snapshot_id, captured_at)`. `scope` CHECK (GLOBAL\|TENANT). No WORM: telemetría operativa. |
+| T-407 | `bos.cap_tenant_policy` | Política de capacidad por tenant (Motor ② M5.3). UNIQUE por tenant. Fallback: Motor M5.3 usa la fila del tenant raíz si el tenant no tiene la propia. `policy_mode` CHECK (autonomous\|recommend\|block_and_alert\|emergency). Umbrales CPU/mem/disco/RPS/sesiones + horizonte de proyección. |
 
 ### Grupo PRT — Port Manager · A.12 · RFC 6335 BCP 165
 
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
-| T-NEW-6 | `bos.prt_port_assignment` | Kardex de puertos — inventario de activos de red (ISO 27001 A.8.20). Inmutabilidad lógica: filas nunca se eliminan, solo transicionan `assigned→released→revoked`. UNIQUE `(port, port_type, namespace)`. `port_type` CHECK (HOST_PHYSICAL\|HOST_LOGICAL\|K8S_NODE_PORT\|K8S_CLUSTER_IP\|K8S_LOAD_BALANCER). `transport` CHECK (TCP\|UDP\|SCTP\|DCCP). |
+| T-408 | `bos.prt_port_assignment` | Kardex de puertos — inventario de activos de red (ISO 27001 A.8.20). Inmutabilidad lógica: filas nunca se eliminan, solo transicionan `assigned→released→revoked`. UNIQUE `(port, port_type, namespace)`. `port_type` CHECK (HOST_PHYSICAL\|HOST_LOGICAL\|K8S_NODE_PORT\|K8S_CLUSTER_IP\|K8S_LOAD_BALANCER). `transport` CHECK (TCP\|UDP\|SCTP\|DCCP). |
 
 ### Grupo REL — Release Plane (SBOS-RELEASE-001 · Ed25519)
 
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
-| T-NEW-7 | `bos.rel_release_manifest` | Catálogo de versiones disponibles por daemon y canal (canary\|early\|stable). UNIQUE `(daemon_name, version, channel)`. `artifact_sha256 + signature_ed25519` verificados antes de desplegar. `is_rollback_target` marca versiones validadas para rollback. Pull-only desde SKULL Release Server. |
-| T-NEW-8 | `bos.rel_release_event` | WORM de operaciones de actualización/rollback. `operation` CHECK (INSTALL\|UPDATE\|ROLLBACK). `triggered_by` CHECK (scheduler\|watchdog\|human). FK a `rel_release_manifest`. Registra versión anterior (`from_version`) y error en caso de falla. REVOKE UPDATE/DELETE. |
+| T-409 | `bos.rel_release_manifest` | Catálogo de versiones disponibles por daemon y canal (canary\|early\|stable). UNIQUE `(daemon_name, version, channel)`. `artifact_sha256 + signature_ed25519` verificados antes de desplegar. `is_rollback_target` marca versiones validadas para rollback. Pull-only desde SKULL Release Server. |
+| T-410 | `bos.rel_release_event` | WORM de operaciones de actualización/rollback. `operation` CHECK (INSTALL\|UPDATE\|ROLLBACK). `triggered_by` CHECK (scheduler\|watchdog\|human). FK a `rel_release_manifest`. Registra versión anterior (`from_version`) y error en caso de falla. REVOKE UPDATE/DELETE. |
 
 ### Grupo WDG — Motor ② SO Observable / Watchdog
 
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
-| T-NEW-9 | `bos.wdg_watchdog_event` | WORM de verificaciones del watchdog de 3 capas. `check_layer` CHECK (ubuntu_host\|k8s_cluster\|bos_fichas). `severity` CHECK (INFO\|WARN\|ERROR\|CRITICAL). `action_taken` CHECK (auto_repair\|hitl_escalated\|daemon_restart\|rollback\|none). REVOKE UPDATE/DELETE. Watchdog corre cada 30s por capa. |
+| T-411 | `bos.wdg_watchdog_event` | WORM de verificaciones del watchdog de 3 capas. `check_layer` CHECK (ubuntu_host\|k8s_cluster\|bos_fichas). `severity` CHECK (INFO\|WARN\|ERROR\|CRITICAL). `action_taken` CHECK (auto_repair\|hitl_escalated\|daemon_restart\|rollback\|none). REVOKE UPDATE/DELETE. Watchdog corre cada 30s por capa. |
 
 ---
 
@@ -477,7 +477,7 @@ El diseño DDL (columnas, constraints, índices) se desarrolla en sesiones poste
 | PAM | 6 (T-182 · T-182b · T-183..T-185 · T-189) | ✅ Definidas | JIT + aprobación multi-nivel + credenciales + sesión privilegiada + break-glass + secretos NHI (`bauth`) |
 | DISPOSITIVOS | 3 (T-390..T-392) | ✅ Definidas ✅ Implementadas | Registro ZTA + postura MDM + binding FIDO2/OSDP WORM (`bauth`) |
 | BLOCKCHAIN D12 | 5 (T-358..T-362) | ✅ Naming canónico | Anclaje Merkle + liquidación Besu (`bauth`) |
-| **BOS CONTROL PLANE** | **10 (T-NEW-1..T-NEW-10)** | ✅ Definidas ✅ Commiteadas | **FCH 18-state + INS bootstrap/sagas + CAP snapshots/policies + PRT port kardex + REL release + WDG watchdog — schema `bos` — naming 100% inglés** |
+| **BOS CONTROL PLANE** | **10 (T-403..T-412)** | ✅ Definidas ✅ Commiteadas | **FCH 18-state + INS bootstrap/sagas + CAP snapshots/policies + PRT port kardex + REL release + WDG watchdog — schema `bos` — naming 100% inglés** |
 | **Total definido** | **128** | — | *18 secciones ✅ · 0 pendientes · D00 COMPLETO v2.6.0 · bos schema 18 tablas · v1.9* |
 
 ---

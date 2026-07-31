@@ -382,7 +382,7 @@ COMMENT ON COLUMN bos.ctx_context_emergency.review_outcome       IS 'JUSTIFIED |
 
 
 -- =============================================================================
--- T-NEW-1 — bos.fch_ficha_state
+-- T-403 — bos.fch_ficha_state
 -- Estado actual de cada ficha declarativa (máquina de 18 estados, ADR-021).
 -- Fichas = componentes de plataforma compartidos por todos los tenants.
 -- Sin tenant_id: la multi-tenancy es un concepto de datos, no de infraestructura.
@@ -427,7 +427,7 @@ CREATE INDEX IF NOT EXISTS idx_fch_s_degraded ON bos.fch_ficha_state (state)
     WHERE state IN ('DEGRADED','PHYSICAL_ERROR','LOGICAL_ERROR','UNRECOVERABLE');
 
 COMMENT ON TABLE bos.fch_ficha_state IS
-  '[T-NEW-1] [SBOS-019] [3.01 máquina 18 estados] [ISO 27001:2022 A.8.9] [NIST CM-8]
+  '[T-403] [SBOS-019] [3.01 máquina 18 estados] [ISO 27001:2022 A.8.9] [NIST CM-8]
    Estado actual de cada ficha declarativa. Máquina de 18 estados (ADR-021).
    Sin tenant_id: las fichas son componentes de plataforma compartidos (Motor ③).
    Multi-tenancy = concepto de datos (discriminadores, RLS), no de infraestructura.
@@ -436,7 +436,7 @@ COMMENT ON TABLE bos.fch_ficha_state IS
    installed_by / updated_by: trazabilidad NIST AU-3 / ISO A.8.9.';
 
 -- =============================================================================
--- T-NEW-2 — bos.fch_ficha_event
+-- T-404 — bos.fch_ficha_event
 -- Historial WORM de todos los cambios de estado de fichas.
 -- WORM: REVOKE UPDATE, DELETE. Hash-chain SHA-256 para inmutabilidad.
 -- tenant_id = tenant que disparó el evento (auditoría), no dueño de la ficha.
@@ -476,7 +476,7 @@ CREATE INDEX IF NOT EXISTS idx_fch_e_saga     ON bos.fch_ficha_event (saga_id)  
 CREATE INDEX IF NOT EXISTS idx_fch_e_failures ON bos.fch_ficha_event (ficha_name, executed_at DESC) WHERE result = 'FAIL';
 
 COMMENT ON TABLE bos.fch_ficha_event IS
-  '[T-NEW-2] [ISO 27001:2022 A.8.15] [NIST SP 800-53 AU-2, AU-3, AU-12]
+  '[T-404] [ISO 27001:2022 A.8.15] [NIST SP 800-53 AU-2, AU-3, AU-12]
    Historial WORM de todos los cambios de estado de fichas. REVOKE UPDATE/DELETE.
    Hash-chain SHA-256 (prev_hash) para inmutabilidad verificable.
    tenant_id: tenant que DISPARÓ el evento (origen de auditoría), no dueño de la ficha.
@@ -485,7 +485,7 @@ COMMENT ON TABLE bos.fch_ficha_event IS
    operation: nombre del paso en la saga (ej. "install.preflight", "repair.verify").';
 
 -- =============================================================================
--- T-NEW-3 — bos.ins_bootstrap_event
+-- T-405 — bos.ins_bootstrap_event
 -- Historial WORM del bootstrap progresivo de 6 capas (Motor ① IAM Installer).
 -- WORM: REVOKE UPDATE, DELETE. Hash-chain SHA-256.
 -- tenant_id NOT NULL: el tenant raíz siempre existe (seed de BD).
@@ -532,7 +532,7 @@ CREATE INDEX IF NOT EXISTS idx_ins_be_vcode    ON bos.ins_bootstrap_event (verif
 CREATE INDEX IF NOT EXISTS idx_ins_be_failures ON bos.ins_bootstrap_event (result, layer) WHERE result = 'FAIL';
 
 COMMENT ON TABLE bos.ins_bootstrap_event IS
-  '[T-NEW-3] [ISO 27001:2022 A.8.15] [NIST SP 800-53 AU-3, CM-8] [ADR-040] [1.01 §4]
+  '[T-405] [ISO 27001:2022 A.8.15] [NIST SP 800-53 AU-3, CM-8] [ADR-040] [1.01 §4]
    Registro WORM del bootstrap progresivo. 6 capas (0=OS → 5=Hardening).
    tenant_id NUNCA es NULL: el tenant raíz (seed #1) existe desde la creación de la BD
    y gobierna a todos los demás tenants. Provee el contexto de plataforma en capas 0-2.
@@ -547,7 +547,7 @@ COMMENT ON COLUMN bos.ins_bootstrap_event.bootstrap_run_id  IS 'UUID generado al
 COMMENT ON COLUMN bos.ins_bootstrap_event.verification_code IS 'C-01..C-09: código de verificación de capa completada. NULL si es step intermedio.';
 
 -- =============================================================================
--- T-NEW-4 — bos.cap_sistema_snapshot
+-- T-406 — bos.cap_sistema_snapshot
 -- Instantáneas periódicas (~60s) de 30+ métricas del sistema (Motor ② M5.1).
 -- NO WORM: datos de observabilidad operativa, no de auditoría de acceso.
 -- Particionado mensual PARTITION BY RANGE (captured_at).
@@ -633,7 +633,7 @@ CREATE INDEX IF NOT EXISTS idx_cap_sn_degraded    ON bos.cap_sistema_snapshot (u
     WHERE units_degraded > 0;
 
 COMMENT ON TABLE bos.cap_sistema_snapshot IS
-  '[T-NEW-4] [SBOS-BOS-CAP-001] [2.02 M5.1] [ISO 27001:2022 A.12.4]
+  '[T-406] [SBOS-BOS-CAP-001] [2.02 M5.1] [ISO 27001:2022 A.12.4]
    Instantáneas periódicas (~60s) de 30+ métricas del sistema. NO WORM.
    PARTICIONADO MENSUAL (PARTITION BY RANGE captured_at):
      · bos.cap_sistema_snapshot_YYYY_MM — una partición por mes
@@ -646,7 +646,7 @@ COMMENT ON TABLE bos.cap_sistema_snapshot IS
    Todas las métricas son NULLable: fuente caída no invalida el snapshot.';
 
 -- =============================================================================
--- T-NEW-5 — bos.cap_tenant_policy
+-- T-407 — bos.cap_tenant_policy
 -- Políticas de capacidad por tenant (Motor ② M5.3).
 -- Fallback: si el tenant no tiene fila, Motor M5.3 usa la fila del tenant raíz.
 -- El tenant raíz y su política se siembran en el seed de creación de SBOS_db.
@@ -697,7 +697,7 @@ CREATE INDEX IF NOT EXISTS idx_cap_pol_mode  ON bos.cap_tenant_policy (policy_mo
 CREATE INDEX IF NOT EXISTS idx_cap_pol_actor ON bos.cap_tenant_policy (updated_by) WHERE updated_by IS NOT NULL;
 
 COMMENT ON TABLE bos.cap_tenant_policy IS
-  '[T-NEW-5] [SBOS-BOS-CAP-001] [2.02 M5.3] [ISO 27001:2022 A.8.9] [NIST SP 800-53 CA-7]
+  '[T-407] [SBOS-BOS-CAP-001] [2.02 M5.3] [ISO 27001:2022 A.8.9] [NIST SP 800-53 CA-7]
    Políticas de capacidad declaradas por tenant. UNIQUE por tenant.
    FALLBACK: si un tenant no tiene fila, Motor M5.3 usa la fila del tenant raíz
    (tenant_id = UUID del tenant raíz, sembrado en seed de SBOS_db junto a
@@ -716,7 +716,7 @@ COMMENT ON COLUMN bos.cap_tenant_policy.kong_tenant_rps_cap IS
   'Cap total de RPS del tenant en Kong PEP. Capa de infraestructura. Ver ctx_context_policy.rate_limit_rps para capa Context API.';
 
 -- =============================================================================
--- T-NEW-6 — bos.prt_port_assignment
+-- T-408 — bos.prt_port_assignment
 -- Kardex de asignaciones de puertos — implementación RFC 6335 (BCP 165) dentro de SBOS.
 -- Inventario de activos de red ISO 27001 A.8.20 / NIST CM-8.
 -- Inmutabilidad lógica: filas nunca se borran — transicionan asignado→liberado→revocado.
@@ -794,7 +794,7 @@ CREATE INDEX IF NOT EXISTS idx_prt_pa_subdomain ON bos.prt_port_assignment (subd
 CREATE INDEX IF NOT EXISTS idx_prt_pa_labels    ON bos.prt_port_assignment USING GIN (labels) WHERE labels IS NOT NULL;
 
 COMMENT ON TABLE bos.prt_port_assignment IS
-  '[T-NEW-6] [A.12 §6.5] [RFC 6335 BCP 165] [ISO 27001:2022 A.8.20] [NIST CM-8, CM-8(3)]
+  '[T-408] [A.12 §6.5] [RFC 6335 BCP 165] [ISO 27001:2022 A.8.20] [NIST CM-8, CM-8(3)]
    Kardex de asignaciones de puertos — lo que IANA hace para internet, este Kardex lo hace
    para el SBOS (RFC 6335 §1). Inventario de activos de red ISO 27001 A.8.20.
    INMUTABILIDAD LÓGICA: filas nunca se borran (RFC 6335 §8 "De-Assignment").
@@ -812,7 +812,7 @@ COMMENT ON COLUMN bos.prt_port_assignment.port_role IS
   '0=HTTP, 1=HTTPS, 2=metrics, 3=healthcheck, 4=admin, 5=grpc, 6=WebSocket, 7=debug, 8=backup, 9=other.';
 
 -- =============================================================================
--- T-NEW-7 — bos.rel_release_manifest
+-- T-409 — bos.rel_release_manifest
 -- Catálogo de releases disponibles por canal (canary→early→stable).
 -- Pull-only desde SKULL Release Server. Firma Ed25519 + SHA-256.
 -- No WORM: un manifest puede ser promovido a otro canal (UPDATE de channel).
@@ -846,7 +846,7 @@ CREATE INDEX IF NOT EXISTS idx_rel_rm_channel  ON bos.rel_release_manifest (chan
 CREATE INDEX IF NOT EXISTS idx_rel_rm_rollback ON bos.rel_release_manifest (daemon_name, is_rollback_target) WHERE is_rollback_target = true;
 
 COMMENT ON TABLE bos.rel_release_manifest IS
-  '[T-NEW-7] [SBOS-RELEASE-001] [ISO 27001:2022 A.8.32] [NIST CM-3] [ITIL 4 Change Enablement]
+  '[T-409] [SBOS-RELEASE-001] [ISO 27001:2022 A.8.32] [NIST CM-3] [ITIL 4 Change Enablement]
    Catálogo de releases disponibles por canal. Pull-only desde SKULL Release Server.
    El Release Plane (subsistema 10 de run_normal.go) consulta esta tabla para decidir
    si hay actualizaciones disponibles en el canal asignado al daemon.
@@ -859,7 +859,7 @@ COMMENT ON COLUMN bos.rel_release_manifest.channel IS
   'canary=primero (puede ser inestable) · early=probado parcialmente · stable=producción garantizada.';
 
 -- =============================================================================
--- T-NEW-8 — bos.rel_release_event
+-- T-410 — bos.rel_release_event
 -- Historial WORM de todas las actualizaciones y rollbacks de daemons.
 -- WORM: REVOKE UPDATE, DELETE. Hash-chain SHA-256.
 -- GRUPO=rel · ENTIDAD=release · OBJETO=event
@@ -900,7 +900,7 @@ CREATE INDEX IF NOT EXISTS idx_rel_re_actor   ON bos.rel_release_event (actor_id
 CREATE INDEX IF NOT EXISTS idx_rel_re_fail    ON bos.rel_release_event (daemon_name, result) WHERE result != 'OK';
 
 COMMENT ON TABLE bos.rel_release_event IS
-  '[T-NEW-8] [ISO 27001:2022 A.8.32] [NIST CM-3] [ITIL 4 Change Enablement] WORM 🔒
+  '[T-410] [ISO 27001:2022 A.8.32] [NIST CM-3] [ITIL 4 Change Enablement] WORM 🔒
    Historial inmutable de todas las actualizaciones y rollbacks de daemons SBOS.
    triggered_by: scheduler=poll automático · watchdog=rollback automático (60s) · human=HITL.
    rollback_reason: causa del rollback automático (e.g., "health_fail_60s", "crash_loop").
@@ -909,7 +909,7 @@ COMMENT ON TABLE bos.rel_release_event IS
    prev_hash + REVOKE garantizan inmutabilidad forense para auditorías de cambio.';
 
 -- =============================================================================
--- T-NEW-9 — bos.wdg_watchdog_event
+-- T-411 — bos.wdg_watchdog_event
 -- Historial WORM del Watchdog Unificado — 3 capas cada 30s (Motor ② SO Observable).
 -- WORM: REVOKE UPDATE, DELETE. Hash-chain SHA-256.
 -- Capa 1: Ubuntu host (disco, RAM). Capa 2: K8s (nodos, pods). Capa 3: fichas BOS.
@@ -955,7 +955,7 @@ CREATE INDEX IF NOT EXISTS idx_wdg_we_tenant    ON bos.wdg_watchdog_event (tenan
 CREATE INDEX IF NOT EXISTS idx_wdg_we_activos   ON bos.wdg_watchdog_event (detected_at DESC) WHERE resolved_at IS NULL;
 
 COMMENT ON TABLE bos.wdg_watchdog_event IS
-  '[T-NEW-9] [ISO 27001:2022 A.8.16] [NIST AU-2, AU-12] [ITIL 4 Incident Management] WORM 🔒
+  '[T-411] [ISO 27001:2022 A.8.16] [NIST AU-2, AU-12] [ITIL 4 Incident Management] WORM 🔒
    Historial inmutable del Watchdog Unificado (internal/watchdog/unified_watchdog.go).
    3 capas verificadas cada 30s:
      Capa 1 ubuntu_host: disco > 80%, RAM > 85%, load avg, swap
@@ -969,7 +969,7 @@ COMMENT ON COLUMN bos.wdg_watchdog_event.condition IS
   'Condición detectada: disk_high, ram_high, load_high, node_not_ready, pod_crash_loop, pod_oom, ficha_degraded, ficha_error, daemon_unresponsive, etc.';
 
 -- =============================================================================
--- T-NEW-10 — bos.ins_saga_execution
+-- T-412 — bos.ins_saga_execution
 -- Tracking mutable de sagas generales (install/update/repair/remove/deploy_tenant).
 -- No aplica a bootstrap (que usa ins_bootstrap_event).
 -- Mutable: state cambia durante la ejecución. No WORM.
@@ -1021,7 +1021,7 @@ CREATE INDEX IF NOT EXISTS idx_ins_se_type     ON bos.ins_saga_execution (saga_t
 CREATE INDEX IF NOT EXISTS idx_ins_se_failed   ON bos.ins_saga_execution (saga_type, error_step) WHERE state IN ('FAILED','COMPENSATED');
 
 COMMENT ON TABLE bos.ins_saga_execution IS
-  '[T-NEW-10] [ISO 27001:2022 A.8.32] [ITIL 4 Change Enablement] [Google SRE]
+  '[T-412] [ISO 27001:2022 A.8.32] [ITIL 4 Change Enablement] [Google SRE]
    Tracking de sagas generales del IAM Installer. No aplica a bootstrap (usa ins_bootstrap_event).
    Sagas cubiertas: install/update/repair/remove de fichas + deploy_tenant/remove_tenant/suspend_tenant.
    MUTABLE: state se actualiza a medida que la saga progresa. La decisión de no hacerlo WORM
@@ -1048,27 +1048,27 @@ COMMENT ON COLUMN bos.ins_saga_execution.saga_type IS
 -- T-402    bos.ctx_context_emergency     Break-glass de contexto (control dual) WORM 🔒
 --
 -- GRUPO FCH — Motor ③ Server FICHAS                          2 tablas ✅
--- T-NEW-1  bos.fch_ficha_state           Estado actual fichas (18 estados, sin tenant_id)
--- T-NEW-2  bos.fch_ficha_event           Historial WORM de eventos de fichas 🔒
+-- T-403  bos.fch_ficha_state           Estado actual fichas (18 estados, sin tenant_id)
+-- T-404  bos.fch_ficha_event           Historial WORM de eventos de fichas 🔒
 --
 -- GRUPO INS — Motor ① IAM Installer                          3 tablas ✅
--- T-NEW-3  bos.ins_bootstrap_event       Bootstrap 6 capas WORM 🔒 (capas 0-2: sin tenant aún)
--- T-NEW-10 bos.ins_saga_execution        Tracking mutable de sagas generales (install/update/repair/remove/tenant)
---          [T-NEW-3 cubre bootstrap · T-NEW-10 cubre el resto de las sagas del Installer]
+-- T-405  bos.ins_bootstrap_event       Bootstrap 6 capas WORM 🔒 (capas 0-2: sin tenant aún)
+-- T-412 bos.ins_saga_execution        Tracking mutable de sagas generales (install/update/repair/remove/tenant)
+--          [T-405 cubre bootstrap · T-412 cubre el resto de las sagas del Installer]
 --
 -- GRUPO CAP — Motor ② SO Observable / Capacidad             2 tablas ✅
--- T-NEW-4  bos.cap_sistema_snapshot      30+ métricas cada 60s (particionado mensual + cron DROP)
--- T-NEW-5  bos.cap_tenant_policy         Políticas por tenant (fallback = fila del tenant raíz)
+-- T-406  bos.cap_sistema_snapshot      30+ métricas cada 60s (particionado mensual + cron DROP)
+-- T-407  bos.cap_tenant_policy         Políticas por tenant (fallback = fila del tenant raíz)
 --
 -- GRUPO PRT — Port Manager (A.12 / RFC 6335 BCP 165)        1 tabla  ✅
--- T-NEW-6  bos.prt_port_assignment       Kardex de puertos (inmutabilidad lógica, RFC 6335 §8)
+-- T-408  bos.prt_port_assignment       Kardex de puertos (inmutabilidad lógica, RFC 6335 §8)
 --
 -- GRUPO REL — Release Plane (SBOS-RELEASE-001)              2 tablas ✅
--- T-NEW-7  bos.rel_release_manifest      Catálogo de releases por canal (canary→early→stable)
--- T-NEW-8  bos.rel_release_event         Historial WORM de actualizaciones y rollbacks 🔒
+-- T-409  bos.rel_release_manifest      Catálogo de releases por canal (canary→early→stable)
+-- T-410  bos.rel_release_event         Historial WORM de actualizaciones y rollbacks 🔒
 --
 -- GRUPO WDG — Motor ② SO Observable / Watchdog              1 tabla  ✅
--- T-NEW-9  bos.wdg_watchdog_event        Watchdog 3 capas WORM 🔒 (host|k8s|fichas)
+-- T-411  bos.wdg_watchdog_event        Watchdog 3 capas WORM 🔒 (host|k8s|fichas)
 --
 -- FKs a bauth: idn_tenant(tenant_id) · idn_identity_entity(entity_id)
 -- FKs intra-bos: fch_ficha_event → fch_ficha_state

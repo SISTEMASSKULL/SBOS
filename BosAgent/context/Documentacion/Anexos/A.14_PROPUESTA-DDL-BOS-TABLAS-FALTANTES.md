@@ -4,13 +4,13 @@
 **Versión:** 6.0.0
 **Fecha:** 2026-07-31
 **Autor:** bos-developer — SBOS
-**Estado:** ✅ COMMITEADO — commits `762a7ad` (T-NEW-1..5) + `1d2e7c2` (T-NEW-6..10) + correcciones naming
+**Estado:** ✅ COMMITEADO — commits `762a7ad` (T-403..5) + `1d2e7c2` (T-408..10) + correcciones naming
 **Archivo DDL:** `DDLs/bos_01__control_plane.sql`
 **Referencia:** `1.01_MANUAL-IAM-INSTALLER.md §3.7` · `3.01_MANUAL-SERVER-FICHAS.md`
 · `2.02_MANUAL-SO-OBSERVABLE-CAPACIDAD.md` · `A.12_ANEXO-PORT-MANAGER-KARDEX.md`
 
 **Cambios v6.0.0 (respecto v5.0.0):**
-- T-NEW-6..10 añadidas al DDL: Port Manager, Release Plane (×2), Watchdog, Sagas generales
+- T-408..10 añadidas al DDL: Port Manager, Release Plane (×2), Watchdog, Sagas generales
 - **Correcciones de naming** — todos los nombres de tablas y columnas ahora en inglés:
   - `bos.cap_tenant_politica` → `bos.cap_tenant_policy` · `politica_id` → `policy_id`
   - 18 estados máquina fichas: PENDIENTE→PENDING, DEGRADADA→DEGRADED, etc.
@@ -82,8 +82,8 @@ bos.<GROUP>_<ENTITY>_<object>
 
 | Tabla | T# | WORM | Propósito |
 |---|:---:|:---:|---|
-| `bos.fch_ficha_state` | T-NEW-1 | — | Estado actual fichas (máquina 18 estados, sin tenant_id) |
-| `bos.fch_ficha_event` | T-NEW-2 | 🔒 | Historial WORM de eventos de fichas |
+| `bos.fch_ficha_state` | T-403 | — | Estado actual fichas (máquina 18 estados, sin tenant_id) |
+| `bos.fch_ficha_event` | T-404 | 🔒 | Historial WORM de eventos de fichas |
 
 ### Máquina de 18 estados (ADR-021) — valores en inglés
 
@@ -125,8 +125,8 @@ El `tenant_id` en `fch_ficha_event` indica quién disparó el evento, no el due�
 
 | Tabla | T# | WORM | Propósito |
 |---|:---:|:---:|---|
-| `bos.ins_bootstrap_event` | T-NEW-3 | 🔒 | Bootstrap progresivo 6 capas. Capas 0-2: tenant raíz |
-| `bos.ins_saga_execution` | T-NEW-10 | — | Tracking mutable de sagas (install/update/repair/remove/tenant) |
+| `bos.ins_bootstrap_event` | T-405 | 🔒 | Bootstrap progresivo 6 capas. Capas 0-2: tenant raíz |
+| `bos.ins_saga_execution` | T-412 | — | Tracking mutable de sagas (install/update/repair/remove/tenant) |
 
 **Diseño `ins_bootstrap_event`:** `tenant_id NOT NULL` siempre. El tenant raíz
 (seed #1) gobierna las capas 0-2. `bootstrap_run_id` agrupa todos los eventos
@@ -150,8 +150,8 @@ registra los pasos revertidos en orden inverso.
 
 | Tabla | T# | WORM | Propósito |
 |---|:---:|:---:|---|
-| `bos.cap_sistema_snapshot` | T-NEW-4 | — | 30+ métricas cada 60s (particionado mensual) |
-| `bos.cap_tenant_policy` | T-NEW-5 | — | Políticas por tenant (fallback = fila del tenant raíz) |
+| `bos.cap_sistema_snapshot` | T-406 | — | 30+ métricas cada 60s (particionado mensual) |
+| `bos.cap_tenant_policy` | T-407 | — | Políticas por tenant (fallback = fila del tenant raíz) |
 
 **Correcciones v6.0.0:**
 - `bos.cap_tenant_politica` → `bos.cap_tenant_policy`
@@ -184,7 +184,7 @@ del tenant raíz como fallback global para tenants sin política configurada.
 
 | Tabla | T# | WORM | Propósito |
 |---|:---:|:---:|---|
-| `bos.prt_port_assignment` | T-NEW-6 | — | Kardex de puertos. Inmutabilidad lógica (RFC 6335 §8) |
+| `bos.prt_port_assignment` | T-408 | — | Kardex de puertos. Inmutabilidad lógica (RFC 6335 §8) |
 
 ### Columnas (v6.0.0 — todas en inglés)
 
@@ -232,8 +232,8 @@ Solo cambian de estado: `assigned → released → revoked`.
 
 | Tabla | T# | WORM | Propósito |
 |---|:---:|:---:|---|
-| `bos.rel_release_manifest` | T-NEW-7 | — | Catálogo de releases por canal (canary→early→stable) |
-| `bos.rel_release_event` | T-NEW-8 | 🔒 | Historial de actualizaciones y rollbacks |
+| `bos.rel_release_manifest` | T-409 | — | Catálogo de releases por canal (canary→early→stable) |
+| `bos.rel_release_event` | T-410 | 🔒 | Historial de actualizaciones y rollbacks |
 
 **`rel_release_manifest`:** No WORM (el canal puede cambiar: canary→stable). Contiene
 `artifact_sha256` (64 hex chars) y `signature_ed25519` verificados antes de instalar.
@@ -252,7 +252,7 @@ intento fallido (result='FAIL') como el rollback subsecuente en eventos separado
 
 | Tabla | T# | WORM | Propósito |
 |---|:---:|:---:|---|
-| `bos.wdg_watchdog_event` | T-NEW-9 | 🔒 | Watchdog 3 capas: host, k8s_cluster, bos_fichas |
+| `bos.wdg_watchdog_event` | T-411 | 🔒 | Watchdog 3 capas: host, k8s_cluster, bos_fichas |
 
 **3 capas de verificación (cada 30s):**
 - `ubuntu_host`: disco > 80%, RAM > 85%, load avg, swap
@@ -284,31 +284,31 @@ GRUPO CTX — Motor ④ Context Plane                          8 tablas ✅
 
 GRUPO FCH — Motor ③ Server FICHAS                          2 tablas ✅
 ──────────────────────────────────────────────────────────────────────────
-  bos.fch_ficha_state          T-NEW-1  — Estado actual 18 estados
-  bos.fch_ficha_event          T-NEW-2  — Historial WORM 🔒
+  bos.fch_ficha_state          T-403  — Estado actual 18 estados
+  bos.fch_ficha_event          T-404  — Historial WORM 🔒
 
 GRUPO INS — Motor ① IAM Installer                          2 tablas ✅
 ──────────────────────────────────────────────────────────────────────────
-  bos.ins_bootstrap_event      T-NEW-3  — Bootstrap 6 capas WORM 🔒
-  bos.ins_saga_execution       T-NEW-10 — Sagas generales (mutable)
+  bos.ins_bootstrap_event      T-405  — Bootstrap 6 capas WORM 🔒
+  bos.ins_saga_execution       T-412 — Sagas generales (mutable)
 
 GRUPO CAP — Motor ② SO Observable / Capacidad             2 tablas ✅
 ──────────────────────────────────────────────────────────────────────────
-  bos.cap_sistema_snapshot     T-NEW-4  — 30+ métricas cada 60s (particionado)
-  bos.cap_tenant_policy        T-NEW-5  — Políticas por tenant (← v6: renombrada)
+  bos.cap_sistema_snapshot     T-406  — 30+ métricas cada 60s (particionado)
+  bos.cap_tenant_policy        T-407  — Políticas por tenant (← v6: renombrada)
 
 GRUPO PRT — Port Manager (RFC 6335 BCP 165)               1 tabla  ✅
 ──────────────────────────────────────────────────────────────────────────
-  bos.prt_port_assignment      T-NEW-6  — Kardex de puertos (lógicamente inmutable)
+  bos.prt_port_assignment      T-408  — Kardex de puertos (lógicamente inmutable)
 
 GRUPO REL — Release Plane (SBOS-RELEASE-001)              2 tablas ✅
 ──────────────────────────────────────────────────────────────────────────
-  bos.rel_release_manifest     T-NEW-7  — Catálogo releases por canal
-  bos.rel_release_event        T-NEW-8  — Actualizaciones/rollbacks WORM 🔒
+  bos.rel_release_manifest     T-409  — Catálogo releases por canal
+  bos.rel_release_event        T-410  — Actualizaciones/rollbacks WORM 🔒
 
 GRUPO WDG — Motor ② SO Observable / Watchdog              1 tabla  ✅
 ──────────────────────────────────────────────────────────────────────────
-  bos.wdg_watchdog_event       T-NEW-9  — Watchdog 3 capas WORM 🔒
+  bos.wdg_watchdog_event       T-411  — Watchdog 3 capas WORM 🔒
 ──────────────────────────────────────────────────────────────────────────
 ```
 

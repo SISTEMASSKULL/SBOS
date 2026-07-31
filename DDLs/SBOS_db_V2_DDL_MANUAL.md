@@ -33,7 +33,7 @@
 | [S14 catálogos — MethodRegistry](#s14-catálogos--methodregistry-bauth) (NIVEL 18) | T-384(`auth_federation_protocol`), T-385(`auth_saga_catalog`), T-386(`auth_compliance_map`) | 8+12+14 seeds · protocolos · sagas · cobertura normativa |
 | [S18 — Dispositivos](#s18--dispositivos-bauth) (NIVEL 19) | T-390(`auth_device`), T-391(`auth_device_posture`), T-392(`auth_device_credential_binding`) | ZTA · MDM · FIDO2 · OSDP v2.2 · WORM binding |
 | [S19 — Context Plane](#s19--context-plane-bos) (NIVEL 20) | T-395(`registered_device`), T-396(`ctx_context_session`), T-397(`ctx_context_audit`), T-398(`ctx_context_switch_log`), T-399(`ctx_context_policy`), T-400(`device_heartbeat`), T-401(`ctx_context_transfer`), T-402(`ctx_context_emergency`) | Policy Administrator NIST SP 800-207 · ctx_id 6 capas · WORM hash-chain |
-| [S20 — BOS Control Plane](#s20--bos-control-plane-bos) (NIVEL 21) | T-NEW-1(`fch_ficha_state`), T-NEW-2(`fch_ficha_event`), T-NEW-3(`ins_bootstrap_event`), T-NEW-4(`cap_sistema_snapshot`), T-NEW-5(`cap_tenant_policy`), T-NEW-6(`prt_port_assignment`), T-NEW-7(`rel_release_manifest`), T-NEW-8(`rel_release_event`), T-NEW-9(`wdg_watchdog_event`), T-NEW-10(`ins_saga_execution`) | Fichas · IAM Installer · Capacidad · Port Manager · Release · Watchdog · Sagas |
+| [S20 — BOS Control Plane](#s20--bos-control-plane-bos) (NIVEL 21) | T-403(`fch_ficha_state`), T-404(`fch_ficha_event`), T-405(`ins_bootstrap_event`), T-406(`cap_sistema_snapshot`), T-407(`cap_tenant_policy`), T-408(`prt_port_assignment`), T-409(`rel_release_manifest`), T-410(`rel_release_event`), T-411(`wdg_watchdog_event`), T-412(`ins_saga_execution`) | Fichas · IAM Installer · Capacidad · Port Manager · Release · Watchdog · Sagas |
 
 > **⚠️ Nota v2.3.0:** S8-S12 fueron refactorizados en el DDL. Los nombres canónicos son los del DDL.
 > Tablas ausentes del DDL (pendientes de diseño):
@@ -2355,7 +2355,7 @@ Break-glass de contexto (D08-B04). Control dual NIST AC-17(3): quien activa ≠ 
 
 ## S20 — BOS Control Plane (bos)
 
-**NIVEL 21 · Tablas:** T-NEW-1..T-NEW-10  
+**NIVEL 21 · Tablas:** T-403..T-412  
 **Archivo:** `bos_01__control_plane.sql` · **Schema:** `bos`  
 **Ref:** ADR-021 (18-state machine) · ADR-040 (bootstrap) · RFC 6335 BCP 165 (Port Manager) · SBOS-BOS-CAP-001 · ISO 27001:2022 A.8.9/A.8.15/A.12.4
 
@@ -2363,33 +2363,33 @@ Break-glass de contexto (D08-B04). Control dual NIST AC-17(3): quien activa ≠ 
 
 ```
 GRUPO FCH — Motor ③ Server FICHAS
-bos.fch_ficha_state (T-NEW-1)         ← Estado actual: 18 estados ADR-021
-      └── bos.fch_ficha_event (T-NEW-2) 🔒  ← Historial WORM hash-chain SHA-256
+bos.fch_ficha_state (T-403)         ← Estado actual: 18 estados ADR-021
+      └── bos.fch_ficha_event (T-404) 🔒  ← Historial WORM hash-chain SHA-256
 
 GRUPO INS — Motor ① IAM Installer
-bos.ins_bootstrap_event (T-NEW-3) 🔒  ← Bootstrap 6 capas (C-01..C-09) WORM
-bos.ins_saga_execution (T-NEW-10)     ← Tracking mutable de sagas
+bos.ins_bootstrap_event (T-405) 🔒  ← Bootstrap 6 capas (C-01..C-09) WORM
+bos.ins_saga_execution (T-412)     ← Tracking mutable de sagas
 
 GRUPO CAP — Motor ② SO Observable / Capacidad
-bos.cap_sistema_snapshot (T-NEW-4)    ← 30+ métricas cada ~60s · PART mensual
-bos.cap_tenant_policy (T-NEW-5)       ← Políticas por tenant · fallback a raíz
+bos.cap_sistema_snapshot (T-406)    ← 30+ métricas cada ~60s · PART mensual
+bos.cap_tenant_policy (T-407)       ← Políticas por tenant · fallback a raíz
 
 GRUPO PRT — Port Manager (A.12)
-bos.prt_port_assignment (T-NEW-6)     ← Kardex RFC 6335 · inmutabilidad lógica
+bos.prt_port_assignment (T-408)     ← Kardex RFC 6335 · inmutabilidad lógica
 
 GRUPO REL — Release Plane
-bos.rel_release_manifest (T-NEW-7)    ← Catálogo canary→early→stable Ed25519
-bos.rel_release_event (T-NEW-8) 🔒   ← Historial WORM de actualizaciones
+bos.rel_release_manifest (T-409)    ← Catálogo canary→early→stable Ed25519
+bos.rel_release_event (T-410) 🔒   ← Historial WORM de actualizaciones
 
 GRUPO WDG — Motor ② SO Observable / Watchdog
-bos.wdg_watchdog_event (T-NEW-9) 🔒  ← Watchdog 3 capas: host|k8s|fichas
+bos.wdg_watchdog_event (T-411) 🔒  ← Watchdog 3 capas: host|k8s|fichas
 ```
 
 ---
 
 ### Grupo FCH — Motor ③ Server FICHAS
 
-#### T-NEW-1 — bos.fch_ficha_state
+#### T-403 — bos.fch_ficha_state
 
 **Propósito:** Estado actual de cada ficha declarativa en la máquina de 18 estados (ADR-021). Una ficha = un componente de plataforma desacoplado de tenant. Multi-tenancy es un concepto de datos (discriminadores, RLS), no de infraestructura.
 
@@ -2413,9 +2413,9 @@ bos.wdg_watchdog_event (T-NEW-9) 🔒  ← Watchdog 3 capas: host|k8s|fichas
 
 ---
 
-#### T-NEW-2 — bos.fch_ficha_event 🔒 WORM
+#### T-404 — bos.fch_ficha_event 🔒 WORM
 
-**Propósito:** Historial WORM append-only de todos los cambios de estado de fichas. Cada transición de estado en T-NEW-1 genera una fila aquí. REVOKE UPDATE/DELETE. Hash-chain SHA-256 (`prev_hash`).
+**Propósito:** Historial WORM append-only de todos los cambios de estado de fichas. Cada transición de estado en T-403 genera una fila aquí. REVOKE UPDATE/DELETE. Hash-chain SHA-256 (`prev_hash`).
 
 **¿Qué registra?** Por evento: ficha, tenant que lo disparó, actor y IP (NIST AU-3), operación, transición `from_state → to_state`, resultado (`OK|FAIL|PARTIAL|SKIPPED`), duración en ms, detalles JSONB, `saga_id` (agrupa todos los eventos de una saga completa).
 
@@ -2429,7 +2429,7 @@ bos.wdg_watchdog_event (T-NEW-9) 🔒  ← Watchdog 3 capas: host|k8s|fichas
 
 ### Grupo INS — Motor ① IAM Installer
 
-#### T-NEW-3 — bos.ins_bootstrap_event 🔒 WORM
+#### T-405 — bos.ins_bootstrap_event 🔒 WORM
 
 **Propósito:** Registro WORM del bootstrap progresivo de 6 capas (C-01..C-09, ADR-040). Traza cada paso desde Ubuntu virgen hasta stack SBOS completo. Hash-chain SHA-256 por `bootstrap_run_id`.
 
@@ -2445,15 +2445,15 @@ bos.wdg_watchdog_event (T-NEW-9) 🔒  ← Watchdog 3 capas: host|k8s|fichas
 
 ---
 
-#### T-NEW-10 — bos.ins_saga_execution
+#### T-412 — bos.ins_saga_execution
 
-**Propósito:** Tracking mutable de las sagas generales del IAM Installer (install, update, repair, remove, deploy_tenant, remove_tenant, suspend_tenant). A diferencia de T-NEW-3 (bootstrap WORM), esta tabla es mutable: el estado de la saga avanza de `RUNNING` a `COMPLETED|FAILED|COMPENSATING|COMPENSATED`.
+**Propósito:** Tracking mutable de las sagas generales del IAM Installer (install, update, repair, remove, deploy_tenant, remove_tenant, suspend_tenant). A diferencia de T-405 (bootstrap WORM), esta tabla es mutable: el estado de la saga avanza de `RUNNING` a `COMPLETED|FAILED|COMPENSATING|COMPENSATED`.
 
 **¿Qué registra?** Una fila por saga: tipo, estado actual, paso activo, `steps_completed` (array JSON con historial de pasos), `compensated_steps` (pasos que ya hicieron rollback), `started_at`, `completed_at`, `last_error`, `ctx_id`.
 
 **Estados:** `RUNNING → COMPLETED | FAILED → COMPENSATING → COMPENSATED`
 
-**Relación con T-NEW-2:** `fch_ficha_event.saga_id` referencia el `saga_id` de esta tabla — permite ver todos los eventos de ficha asociados a una saga.
+**Relación con T-404:** `fch_ficha_event.saga_id` referencia el `saga_id` de esta tabla — permite ver todos los eventos de ficha asociados a una saga.
 
 **¿Cuándo se alimenta?** BOS escribe `RUNNING` al iniciar. Actualiza `steps_completed` en cada paso. En falla: transiciona a `COMPENSATING` y registra los pasos compensados.
 
@@ -2461,7 +2461,7 @@ bos.wdg_watchdog_event (T-NEW-9) 🔒  ← Watchdog 3 capas: host|k8s|fichas
 
 ### Grupo CAP — Motor ② SO Observable / Capacidad
 
-#### T-NEW-4 — bos.cap_sistema_snapshot 📦 PART
+#### T-406 — bos.cap_sistema_snapshot 📦 PART
 
 **Propósito:** Instantáneas periódicas (~60s) de 30+ métricas del sistema para observabilidad continua y proyección de capacidad (Motor ② M5.1). **No es WORM** — es telemetría operativa con retención de 90 días.
 
@@ -2487,7 +2487,7 @@ bos.wdg_watchdog_event (T-NEW-9) 🔒  ← Watchdog 3 capas: host|k8s|fichas
 
 ---
 
-#### T-NEW-5 — bos.cap_tenant_policy
+#### T-407 — bos.cap_tenant_policy
 
 **Propósito:** Política de capacidad declarada por tenant (Motor ② M5.3). UNIQUE por tenant. Define umbrales de CPU/mem/disco, límites RPS de Kong, máximo de sesiones de contexto y horizon de proyección.
 
@@ -2510,7 +2510,7 @@ bos.wdg_watchdog_event (T-NEW-9) 🔒  ← Watchdog 3 capas: host|k8s|fichas
 
 ### Grupo PRT — Port Manager (A.12)
 
-#### T-NEW-6 — bos.prt_port_assignment
+#### T-408 — bos.prt_port_assignment
 
 **Propósito:** Kardex de asignaciones de puertos — implementación interna de RFC 6335 (BCP 165) dentro de SBOS. Registro de inventario de activos de red conforme ISO 27001 A.8.20. **Inmutabilidad lógica:** las filas nunca se eliminan — solo transicionan `assigned → released → revoked`.
 
@@ -2526,7 +2526,7 @@ bos.wdg_watchdog_event (T-NEW-9) 🔒  ← Watchdog 3 capas: host|k8s|fichas
 
 ### Grupo REL — Release Plane
 
-#### T-NEW-7 — bos.rel_release_manifest
+#### T-409 — bos.rel_release_manifest
 
 **Propósito:** Catálogo canónico de versiones disponibles para pull desde el SKULL Release Server. Un registro = una versión de un daemon en un canal. Solo pull — SBOS nunca empuja a este catálogo.
 
@@ -2540,11 +2540,11 @@ bos.wdg_watchdog_event (T-NEW-9) 🔒  ← Watchdog 3 capas: host|k8s|fichas
 
 ---
 
-#### T-NEW-8 — bos.rel_release_event 🔒 WORM
+#### T-410 — bos.rel_release_event 🔒 WORM
 
 **Propósito:** Historial WORM de cada operación de actualización o rollback de daemons. REVOKE UPDATE/DELETE. Una fila por operación (`INSTALL|UPDATE|ROLLBACK`) sobre un manifiesto.
 
-**¿Qué registra?** Referencia al manifiesto (T-NEW-7), operación, estado (`STARTED|COMPLETED|FAILED|ROLLED_BACK`), quién lo disparó (`scheduler|watchdog|human`), daemon, versión, versión previa (`from_version`), error en caso de falla, actor y `ctx_id`.
+**¿Qué registra?** Referencia al manifiesto (T-409), operación, estado (`STARTED|COMPLETED|FAILED|ROLLED_BACK`), quién lo disparó (`scheduler|watchdog|human`), daemon, versión, versión previa (`from_version`), error en caso de falla, actor y `ctx_id`.
 
 **¿Cuándo se alimenta?** El Release Manager de BOS en cada ciclo de actualización. El Watchdog escribe cuando dispara un rollback automático (60s TTL).
 
@@ -2552,14 +2552,14 @@ bos.wdg_watchdog_event (T-NEW-9) 🔒  ← Watchdog 3 capas: host|k8s|fichas
 
 ### Grupo WDG — Motor ② SO Observable / Watchdog
 
-#### T-NEW-9 — bos.wdg_watchdog_event 🔒 WORM
+#### T-411 — bos.wdg_watchdog_event 🔒 WORM
 
 **Propósito:** Registro WORM de cada verificación del watchdog de 3 capas (Motor ②). Cada chequeo fallido o exitoso queda aquí con el resultado y la acción tomada. REVOKE UPDATE/DELETE.
 
 **3 capas del watchdog (`check_layer`):**
 - `ubuntu_host` — capa 1: systemd, servicios del OS, conectividad
 - `k8s_cluster` — capa 2: pods, nodes, namespace health
-- `bos_fichas` — capa 3: estado de fichas declarativas (T-NEW-1)
+- `bos_fichas` — capa 3: estado de fichas declarativas (T-403)
 
 **`severity`:** `INFO | WARN | ERROR | CRITICAL`
 
@@ -2570,7 +2570,7 @@ bos.wdg_watchdog_event (T-NEW-9) 🔒  ← Watchdog 3 capas: host|k8s|fichas
 - `rollback` — rollback automático del Release Plane (60s TTL)
 - `none` — verificación pasó, sin acción
 
-**¿Cuándo se alimenta?** El watchdog corre cada 30s por capa. Cada resultado genera un evento aquí. `CHECK CRITICAL` + `action_taken='rollback'` → acompañado de fila en T-NEW-8.
+**¿Cuándo se alimenta?** El watchdog corre cada 30s por capa. Cada resultado genera un evento aquí. `CHECK CRITICAL` + `action_taken='rollback'` → acompañado de fila en T-410.
 
 ---
 
@@ -2620,7 +2620,7 @@ bos.wdg_watchdog_event (T-NEW-9) 🔒  ← Watchdog 3 capas: host|k8s|fichas
 
 | Versión | Fecha | Cambios |
 |---------|-------|---------|
-| v2.11.0 | 2026-07-31 | S20 BOS Control Plane (`bos`): T-NEW-1..T-NEW-10. 10 tablas nuevas (4 WORM) — FCH 18-state machine, INS bootstrap/sagas, CAP snapshots/policies, PRT port kardex, REL release plane, WDG watchdog 3 capas. Total schema `bos`: 18 tablas · 8 WORM · 7 grupos. |
+| v2.11.0 | 2026-07-31 | S20 BOS Control Plane (`bos`): T-403..T-412. 10 tablas nuevas (4 WORM) — FCH 18-state machine, INS bootstrap/sagas, CAP snapshots/policies, PRT port kardex, REL release plane, WDG watchdog 3 capas. Total schema `bos`: 18 tablas · 8 WORM · 7 grupos. |
 | v2.10.0 | 2026-07-30 | S19 Context Plane (`bos`): T-395..402. 8 tablas (4 WORM hash-chain) — Policy Administrator NIST SP 800-207. Schema `bos` autónomo en `bos_01__control_plane.sql`. Cierra GAP D08-B04 (break-glass de contexto). |
 | v2.9.0 | 2026-07-30 | T-384..386 (catálogos MethodRegistry: protocolos, sagas, compliance) + S18 Dispositivos T-390..392 (ZTA/MDM/FIDO2/OSDP). 6 tablas + 34 seeds. |
 | v2.8.0 | 2026-07-30 | S13..S17 + D12 implementados: +T-320..322 (Usuarios NIST 800-63-4), +T-330..338 (Autenticación MethodRegistry FIDO2/X.509/DPoP), +T-350..357 (Firma Digital D13 Ley 164), +T-358..362 (Blockchain Merkle/Besu/Arbitrum), +T-365..367 (Federación OIDC DPoP FAPI2), +T-380..383 (Billetera Digital EUDI OID4VP). 32 nuevas tablas. 106 tablas base + 17 particiones hijas = 123 CREATE TABLE. |
