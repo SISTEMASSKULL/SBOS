@@ -716,32 +716,364 @@ COMMENT ON COLUMN bos.cap_tenant_politica.kong_tenant_rps_cap IS
   'Cap total de RPS del tenant en Kong PEP. Capa de infraestructura. Ver ctx_context_policy.rate_limit_rps para capa Context API.';
 
 -- =============================================================================
--- RESUMEN — 13 tablas · 6 WORM · schema bos · 4 grupos funcionales
+-- T-NEW-6 — bos.prt_port_assignment
+-- Kardex de asignaciones de puertos — implementación RFC 6335 (BCP 165) dentro de SBOS.
+-- Inventario de activos de red ISO 27001 A.8.20 / NIST CM-8.
+-- Inmutabilidad lógica: filas nunca se borran — transicionan asignado→liberado→revocado.
+-- No WORM técnico (UPDATE de estado permitido). Integridad referencial RFC 6335 §8.
+-- GRUPO=prt · ENTIDAD=port · OBJETO=assignment
+-- A.12 §6.5 · RFC 6335 · ISO 27001 A.8.20 · NIST SP 800-53 CM-8, CM-8(3)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bos.prt_port_assignment (
+    port_id            UUID         NOT NULL DEFAULT uuidv7(),
+
+    -- Campos RFC 6335 obligatorios (§5 — los 8 campos del registro)
+    service_name       TEXT         NOT NULL, -- "sbos-keycloak-http" (1-15 chars RFC 6335 §5.1)
+    puerto             INTEGER      NOT NULL, -- 8200
+    transport          TEXT         NOT NULL, -- TCP|UDP|SCTP|DCCP
+    asignado_por       TEXT         NOT NULL, -- "bos.ficha.install" (RFC 6335 field 3)
+    ficha_id           TEXT         NOT NULL, -- Contact: ficha responsable (RFC 6335 field 4)
+    descripcion        TEXT         NOT NULL, -- Description (RFC 6335 field 5)
+    referencia_doc     TEXT         NOT NULL, -- Reference (RFC 6335 field 6)
+
+    -- Clasificación SBOS
+    tipo_puerto        TEXT         NOT NULL, -- containerPort|ClusterIP|NodePort|hostPort|daemonPort
+    servidor_logico    TEXT         NOT NULL, -- S00..S16, S-HOST
+    namespace          TEXT         NULL,     -- namespace K8s (NULL para host/daemon)
+    container_port     INTEGER      NULL,     -- puerto canónico del contenedor
+    tipo_t             SMALLINT     NOT NULL DEFAULT 0, -- 0=HTTP,1=HTTPS,2=metrics,3=health,4=admin,6=WS
+
+    -- Identidad de red estable (capa Service — no Pods, que son efímeros)
+    cluster_ip         TEXT         NULL,     -- IP del K8s Service (ClusterIP/LoadBalancer)
+    external_ip        TEXT         NULL,     -- IP externa si aplica (MetalLB VIP, WireGuard)
+    dns_name           TEXT         NULL,     -- FQDN (keycloak.sbos-identity.svc.cluster.local)
+
+    -- Activo asociado — ISO 27001 A.8.20 (inventario de activos de red)
+    asset_type         TEXT         NOT NULL DEFAULT 'ficha',
+    asset_id           TEXT         NULL,     -- ID del activo (ficha_id, nodo nombre, daemon nombre)
+    asset_owner        TEXT         NULL,     -- Responsable (tenant, sistema)
+    labels             JSONB        NULL,     -- {"hpa":"enabled","replicas":"2-20","critico":true}
+
+    -- Exposición exterior
+    subdominio         TEXT         NULL,     -- auth.cliente.sbos.app
+    ruta_kong          TEXT         NULL,     -- /auth → 8200
+
+    -- Estado — RFC 6335 §8 (ciclo de vida: nunca borrar, solo cambiar estado)
+    estado             TEXT         NOT NULL DEFAULT 'asignado',
+    asignado_en        TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    liberado_en        TIMESTAMPTZ  NULL,
+    ultima_validacion  TIMESTAMPTZ  NULL,     -- última vez que portman.validate confirmó el registro
+    notas              TEXT         NULL,
+    ctx_id             TEXT         NOT NULL DEFAULT 'system',
+
+    CONSTRAINT prt_pa_pkey           PRIMARY KEY (port_id),
+    -- Un puerto+tipo+namespace no puede asignarse dos veces simultáneamente
+    CONSTRAINT uq_prt_pa_port_ns     UNIQUE (puerto, tipo_puerto, namespace),
+    CONSTRAINT chk_prt_pa_transport  CHECK (transport IN ('TCP','UDP','SCTP','DCCP')),
+    CONSTRAINT chk_prt_pa_tipo       CHECK (tipo_puerto IN (
+        'containerPort','ClusterIP','NodePort','hostPort','daemonPort'
+    )),
+    CONSTRAINT chk_prt_pa_asset      CHECK (asset_type IN (
+        'ficha','daemon','server_logico','nodo_k8s','service_k8s','ruta_kong'
+    )),
+    CONSTRAINT chk_prt_pa_estado     CHECK (estado IN ('asignado','liberado','revocado','en_conflicto')),
+    CONSTRAINT chk_prt_pa_puerto     CHECK (puerto BETWEEN 1024 AND 49151),
+    CONSTRAINT chk_prt_pa_tipo_t     CHECK (tipo_t BETWEEN 0 AND 9),
+    CONSTRAINT chk_prt_pa_libera     CHECK (
+        (estado = 'liberado' AND liberado_en IS NOT NULL) OR
+        (estado != 'liberado' AND liberado_en IS NULL)
+    )
+);
+
+CREATE INDEX IF NOT EXISTS idx_prt_pa_ficha     ON bos.prt_port_assignment (ficha_id);
+CREATE INDEX IF NOT EXISTS idx_prt_pa_server    ON bos.prt_port_assignment (servidor_logico);
+CREATE INDEX IF NOT EXISTS idx_prt_pa_estado    ON bos.prt_port_assignment (estado) WHERE estado = 'asignado';
+CREATE INDEX IF NOT EXISTS idx_prt_pa_service   ON bos.prt_port_assignment (service_name);
+CREATE INDEX IF NOT EXISTS idx_prt_pa_asset     ON bos.prt_port_assignment (asset_type, asset_id);
+CREATE INDEX IF NOT EXISTS idx_prt_pa_subdom    ON bos.prt_port_assignment (subdominio) WHERE subdominio IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_prt_pa_labels    ON bos.prt_port_assignment USING GIN (labels) WHERE labels IS NOT NULL;
+
+COMMENT ON TABLE bos.prt_port_assignment IS
+  '[T-NEW-6] [A.12 §6.5] [RFC 6335 BCP 165] [ISO 27001:2022 A.8.20] [NIST CM-8, CM-8(3)]
+   Kardex de asignaciones de puertos — lo que IANA hace para internet, este Kardex lo hace
+   para el SBOS (RFC 6335 §1). Inventario de activos de red ISO 27001 A.8.20.
+   INMUTABILIDAD LÓGICA: filas nunca se borran (RFC 6335 §8 "De-Assignment").
+   Solo cambian de estado: asignado→liberado→revocado. liberado_en registra la fecha.
+   Dos capas de identidad de red (A.12 §6.1):
+     · Service (estable): ClusterIP + puerto — guardado en Kardex.
+     · Pod (efímero): Pod IP + containerPort — consultado en tiempo real vía K8s API.
+   Algoritmo A: BASE_SERVIDOR + (ficha_index×10) + tipo_t (determinístico).
+   Algoritmo B: SHA256(ficha_id:tipo:clash) % RANGO (hash fallback si bloque agotado).
+   portman.validate (cada 300s) compara Kardex vs kubectl get svc → detecta drift.
+   puerto: rango 1024-49151 (User Ports RFC 6335). 0-1023 y 49152-65535 prohibidos.';
+COMMENT ON COLUMN bos.prt_port_assignment.service_name IS
+  'Service Name RFC 6335 §5.1: "sbos-<ficha>-<tipo>", 1-15 chars, sin guiones adyacentes.';
+COMMENT ON COLUMN bos.prt_port_assignment.tipo_t IS
+  '0=HTTP, 1=HTTPS, 2=métricas, 3=healthcheck, 4=admin, 5=grpc, 6=WebSocket, 7=debug, 8=backup, 9=otro.';
+
+-- =============================================================================
+-- T-NEW-7 — bos.rel_release_manifest
+-- Catálogo de releases disponibles por canal (canary→early→stable).
+-- Pull-only desde SKULL Release Server. Firma Ed25519 + SHA-256.
+-- No WORM: un manifest puede ser promovido a otro canal (UPDATE de channel).
+-- GRUPO=rel · ENTIDAD=release · OBJETO=manifest
+-- SBOS-RELEASE-001 · ISO 27001 A.8.32 · NIST CM-3 · ITIL 4 Change Enablement
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bos.rel_release_manifest (
+    manifest_id         UUID         NOT NULL DEFAULT uuidv7(),
+    daemon_name         TEXT         NOT NULL, -- bos, bauth, bkernel, biedata, bsearch, bnexus, bnotify
+    version             TEXT         NOT NULL, -- SemVer MAJOR.MINOR.PATCH
+    channel             TEXT         NOT NULL, -- canary|early|stable
+    artifact_url        TEXT         NOT NULL, -- URL del binario en SKULL Release Server
+    artifact_sha256     TEXT         NOT NULL, -- SHA-256 del artefacto descargado
+    signature_ed25519   TEXT         NOT NULL, -- Firma Ed25519 del release server (verifica autenticidad)
+    min_bos_version     TEXT         NULL,     -- versión mínima de BOS requerida para instalar
+    release_notes       TEXT         NULL,     -- resumen de cambios
+    is_rollback_target  BOOLEAN      NOT NULL DEFAULT false,  -- si este release es válido para rollback
+    published_at        TIMESTAMPTZ  NOT NULL, -- cuándo el release server lo publicó
+    pulled_at           TIMESTAMPTZ  NOT NULL DEFAULT now(),  -- cuándo BOS lo descubrió
+    ctx_id              TEXT         NOT NULL DEFAULT 'system',
+
+    CONSTRAINT rel_rm_pkey              PRIMARY KEY (manifest_id),
+    CONSTRAINT uq_rel_rm_daemon_ver_ch  UNIQUE (daemon_name, version, channel),
+    CONSTRAINT chk_rel_rm_channel       CHECK (channel IN ('canary','early','stable')),
+    CONSTRAINT chk_rel_rm_sha256        CHECK (artifact_sha256 ~ '^[0-9a-f]{64}$'),
+    CONSTRAINT chk_rel_rm_semver        CHECK (version ~ '^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$')
+);
+
+CREATE INDEX IF NOT EXISTS idx_rel_rm_daemon   ON bos.rel_release_manifest (daemon_name, channel, pulled_at DESC);
+CREATE INDEX IF NOT EXISTS idx_rel_rm_channel  ON bos.rel_release_manifest (channel, published_at DESC);
+CREATE INDEX IF NOT EXISTS idx_rel_rm_rollback ON bos.rel_release_manifest (daemon_name, is_rollback_target) WHERE is_rollback_target = true;
+
+COMMENT ON TABLE bos.rel_release_manifest IS
+  '[T-NEW-7] [SBOS-RELEASE-001] [ISO 27001:2022 A.8.32] [NIST CM-3] [ITIL 4 Change Enablement]
+   Catálogo de releases disponibles por canal. Pull-only desde SKULL Release Server.
+   El Release Plane (subsistema 10 de run_normal.go) consulta esta tabla para decidir
+   si hay actualizaciones disponibles en el canal asignado al daemon.
+   Canales: canary (primero, menos estable) → early → stable (producción).
+   signature_ed25519: verificada con la clave pública del release server antes de instalar.
+   artifact_sha256: verificado tras la descarga para garantizar integridad.
+   is_rollback_target: true = el watchdog puede usar este release para rollback automático.
+   Pull-only: BOS nunca empuja al release server. Conexión unidireccional (soberanía).';
+COMMENT ON COLUMN bos.rel_release_manifest.channel IS
+  'canary=primero (puede ser inestable) · early=probado parcialmente · stable=producción garantizada.';
+
+-- =============================================================================
+-- T-NEW-8 — bos.rel_release_event
+-- Historial WORM de todas las actualizaciones y rollbacks de daemons.
+-- WORM: REVOKE UPDATE, DELETE. Hash-chain SHA-256.
+-- GRUPO=rel · ENTIDAD=release · OBJETO=event
+-- ISO 27001 A.8.32 (Change Management) · NIST CM-3 · ITIL 4 Change Enablement
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bos.rel_release_event (
+    event_id       UUID        NOT NULL DEFAULT uuidv7(),
+    manifest_id    UUID        NOT NULL REFERENCES bos.rel_release_manifest(manifest_id),
+    daemon_name    TEXT        NOT NULL,
+    from_version   TEXT        NULL,      -- NULL si es primera instalación
+    to_version     TEXT        NOT NULL,
+    channel        TEXT        NOT NULL,
+    operation      TEXT        NOT NULL,  -- INSTALL|UPDATE|ROLLBACK
+    triggered_by   TEXT        NOT NULL DEFAULT 'scheduler', -- scheduler|watchdog|human
+    actor_id       UUID        NULL       REFERENCES bauth.idn_identity_entity(entity_id),
+    ip_address     INET        NULL,
+    result         TEXT        NOT NULL DEFAULT 'OK',
+    rollback_reason TEXT       NULL,      -- motivo si es ROLLBACK (e.g., "health_fail_60s")
+    duration_ms    INTEGER     NULL,
+    details        JSONB       NOT NULL DEFAULT '{}',
+    executed_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    prev_hash      TEXT        NULL,
+    ctx_id         TEXT        NOT NULL DEFAULT 'system',
+
+    CONSTRAINT rel_re_pkey         PRIMARY KEY (event_id),
+    CONSTRAINT chk_rel_re_op       CHECK (operation IN ('INSTALL','UPDATE','ROLLBACK')),
+    CONSTRAINT chk_rel_re_trigger  CHECK (triggered_by IN ('scheduler','watchdog','human')),
+    CONSTRAINT chk_rel_re_result   CHECK (result IN ('OK','FAIL','PARTIAL')),
+    CONSTRAINT chk_rel_re_channel  CHECK (channel IN ('canary','early','stable')),
+    CONSTRAINT chk_rel_re_details  CHECK (jsonb_typeof(details) = 'object')
+);
+
+REVOKE UPDATE, DELETE ON bos.rel_release_event FROM PUBLIC;
+
+CREATE INDEX IF NOT EXISTS idx_rel_re_daemon  ON bos.rel_release_event (daemon_name, executed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_rel_re_op      ON bos.rel_release_event (operation, executed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_rel_re_actor   ON bos.rel_release_event (actor_id, executed_at DESC) WHERE actor_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_rel_re_fail    ON bos.rel_release_event (daemon_name, result) WHERE result != 'OK';
+
+COMMENT ON TABLE bos.rel_release_event IS
+  '[T-NEW-8] [ISO 27001:2022 A.8.32] [NIST CM-3] [ITIL 4 Change Enablement] WORM 🔒
+   Historial inmutable de todas las actualizaciones y rollbacks de daemons SBOS.
+   triggered_by: scheduler=poll automático · watchdog=rollback automático (60s) · human=HITL.
+   rollback_reason: causa del rollback automático (e.g., "health_fail_60s", "crash_loop").
+   El watchdog (subsistema 9) ejecuta rollback si el daemon nuevo falla en 60s — este evento
+   registra tanto el intento de actualización (result=FAIL) como el rollback subsecuente.
+   prev_hash + REVOKE garantizan inmutabilidad forense para auditorías de cambio.';
+
+-- =============================================================================
+-- T-NEW-9 — bos.wdg_watchdog_event
+-- Historial WORM del Watchdog Unificado — 3 capas cada 30s (Motor ② SO Observable).
+-- WORM: REVOKE UPDATE, DELETE. Hash-chain SHA-256.
+-- Capa 1: Ubuntu host (disco, RAM). Capa 2: K8s (nodos, pods). Capa 3: fichas BOS.
+-- GRUPO=wdg · ENTIDAD=watchdog · OBJETO=event
+-- ISO 27001 A.8.16 (Monitoring) · NIST AU-2, AU-12 · ITIL 4 Incident Management
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bos.wdg_watchdog_event (
+    event_id       UUID        NOT NULL DEFAULT uuidv7(),
+    check_layer    TEXT        NOT NULL,  -- ubuntu_host|k8s_cluster|bos_fichas
+    severity       TEXT        NOT NULL,  -- INFO|WARN|ERROR|CRITICAL
+    resource_type  TEXT        NOT NULL,  -- host|node|pod|ficha|daemon
+    resource_id    TEXT        NULL,      -- nombre del recurso afectado
+    tenant_id      UUID        NULL       REFERENCES bauth.idn_tenant(tenant_id),
+    condition      TEXT        NOT NULL,  -- qué se detectó: disk_high, node_not_ready, ficha_degraded…
+    metric_value   NUMERIC(10,4) NULL,    -- valor medido (e.g., 87.3 para disco al 87.3%)
+    threshold      NUMERIC(10,4) NULL,    -- umbral que se superó
+    action_taken   TEXT        NULL,      -- auto_repair|hitl_escalated|daemon_restart|rollback|none
+    action_result  TEXT        NULL,      -- OK|FAIL|PENDING
+    details        JSONB       NOT NULL DEFAULT '{}',
+    detected_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    resolved_at    TIMESTAMPTZ NULL,      -- NULL si sigue activo
+    prev_hash      TEXT        NULL,
+    ctx_id         TEXT        NOT NULL DEFAULT 'system',
+
+    CONSTRAINT wdg_we_pkey          PRIMARY KEY (event_id),
+    CONSTRAINT chk_wdg_we_layer     CHECK (check_layer IN ('ubuntu_host','k8s_cluster','bos_fichas')),
+    CONSTRAINT chk_wdg_we_severity  CHECK (severity IN ('INFO','WARN','ERROR','CRITICAL')),
+    CONSTRAINT chk_wdg_we_resource  CHECK (resource_type IN ('host','node','pod','ficha','daemon')),
+    CONSTRAINT chk_wdg_we_action    CHECK (action_taken IN (
+        'auto_repair','hitl_escalated','daemon_restart','rollback','none'
+    ) OR action_taken IS NULL),
+    CONSTRAINT chk_wdg_we_result    CHECK (action_result IN ('OK','FAIL','PENDING') OR action_result IS NULL),
+    CONSTRAINT chk_wdg_we_details   CHECK (jsonb_typeof(details) = 'object')
+);
+
+REVOKE UPDATE, DELETE ON bos.wdg_watchdog_event FROM PUBLIC;
+
+CREATE INDEX IF NOT EXISTS idx_wdg_we_layer     ON bos.wdg_watchdog_event (check_layer, detected_at DESC);
+CREATE INDEX IF NOT EXISTS idx_wdg_we_severity  ON bos.wdg_watchdog_event (severity, detected_at DESC)
+    WHERE severity IN ('ERROR','CRITICAL');
+CREATE INDEX IF NOT EXISTS idx_wdg_we_resource  ON bos.wdg_watchdog_event (resource_id, detected_at DESC) WHERE resource_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_wdg_we_tenant    ON bos.wdg_watchdog_event (tenant_id, detected_at DESC) WHERE tenant_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_wdg_we_activos   ON bos.wdg_watchdog_event (detected_at DESC) WHERE resolved_at IS NULL;
+
+COMMENT ON TABLE bos.wdg_watchdog_event IS
+  '[T-NEW-9] [ISO 27001:2022 A.8.16] [NIST AU-2, AU-12] [ITIL 4 Incident Management] WORM 🔒
+   Historial inmutable del Watchdog Unificado (internal/watchdog/unified_watchdog.go).
+   3 capas verificadas cada 30s:
+     Capa 1 ubuntu_host: disco > 80%, RAM > 85%, load avg, swap
+     Capa 2 k8s_cluster: nodos NotReady, pods CrashLoop/OOMKilled, PVCs pendientes
+     Capa 3 bos_fichas: fichas en DEGRADADA/ERROR_*, health checks fallidos
+   action_taken: lo que el watchdog hizo (auto_repair → llama bos.query.repair, rollback → Release Plane).
+   resolved_at: cuándo el watchdog confirmó que el problema desapareció (NULL = aún activo).
+   Los eventos CRITICAL sin resolved_at son la señal de HITL al operador.
+   ISO 27001 A.8.16: monitoreo continuo de actividades + registro de alertas.';
+COMMENT ON COLUMN bos.wdg_watchdog_event.condition IS
+  'Condición detectada: disk_high, ram_high, load_high, node_not_ready, pod_crash_loop, pod_oom, ficha_degraded, ficha_error, daemon_unresponsive, etc.';
+
+-- =============================================================================
+-- T-NEW-10 — bos.ins_saga_execution
+-- Tracking mutable de sagas generales (install/update/repair/remove/deploy_tenant).
+-- No aplica a bootstrap (que usa ins_bootstrap_event).
+-- Mutable: state cambia durante la ejecución. No WORM.
+-- Los pasos individuales y sus compensaciones se registran en fch_ficha_event (saga_id FK).
+-- GRUPO=ins · ENTIDAD=saga · OBJETO=execution
+-- ISO 27001 A.8.32 (Change Management) · ITIL 4 Change Enablement · SRE (Google)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bos.ins_saga_execution (
+    saga_id           UUID        NOT NULL DEFAULT uuidv7(),
+    saga_type         TEXT        NOT NULL,  -- install|update|repair|remove|deploy_tenant|remove_tenant
+    ficha_name        TEXT        NULL,      -- NULL si es saga a nivel tenant (deploy_tenant)
+    server_id         TEXT        NULL,      -- servidor lógico donde se ejecuta la saga
+    tenant_id         UUID        NULL       REFERENCES bauth.idn_tenant(tenant_id),
+    actor_id          UUID        NULL       REFERENCES bauth.idn_identity_entity(entity_id),
+    ip_address        INET        NULL,
+    from_version      TEXT        NULL,      -- versión antes del cambio (NULL si es install)
+    to_version        TEXT        NULL,      -- versión objetivo (NULL si es remove)
+    state             TEXT        NOT NULL DEFAULT 'RUNNING',
+    current_step      SMALLINT    NULL,      -- paso actual (1-based)
+    total_steps       SMALLINT    NULL,      -- total de pasos de la saga
+    started_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    completed_at      TIMESTAMPTZ NULL,
+    duration_ms       INTEGER     NULL,      -- calculado al completar
+    error_step        SMALLINT    NULL,      -- en qué paso falló (NULL si OK)
+    error_message     TEXT        NULL,
+    compensated_steps JSONB       NULL,      -- ["step3","step2","step1"] orden de compensación
+    details           JSONB       NOT NULL DEFAULT '{}',
+    ctx_id            TEXT        NOT NULL DEFAULT 'system',
+
+    CONSTRAINT ins_se_pkey         PRIMARY KEY (saga_id),
+    CONSTRAINT chk_ins_se_type     CHECK (saga_type IN (
+        'install','update','repair','remove','deploy_tenant','remove_tenant','suspend_tenant'
+    )),
+    CONSTRAINT chk_ins_se_state    CHECK (state IN (
+        'RUNNING','COMPLETED','FAILED','COMPENSATING','COMPENSATED'
+    )),
+    CONSTRAINT chk_ins_se_steps    CHECK (
+        current_step IS NULL OR (current_step >= 1 AND current_step <= total_steps)
+    ),
+    CONSTRAINT chk_ins_se_details  CHECK (jsonb_typeof(details) = 'object'),
+    CONSTRAINT chk_ins_se_compen   CHECK (compensated_steps IS NULL OR jsonb_typeof(compensated_steps) = 'array')
+);
+
+CREATE INDEX IF NOT EXISTS idx_ins_se_ficha    ON bos.ins_saga_execution (ficha_name, started_at DESC) WHERE ficha_name IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_ins_se_tenant   ON bos.ins_saga_execution (tenant_id, started_at DESC) WHERE tenant_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_ins_se_actor    ON bos.ins_saga_execution (actor_id, started_at DESC) WHERE actor_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_ins_se_state    ON bos.ins_saga_execution (state, started_at DESC) WHERE state IN ('RUNNING','COMPENSATING');
+CREATE INDEX IF NOT EXISTS idx_ins_se_type     ON bos.ins_saga_execution (saga_type, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ins_se_failed   ON bos.ins_saga_execution (saga_type, error_step) WHERE state IN ('FAILED','COMPENSATED');
+
+COMMENT ON TABLE bos.ins_saga_execution IS
+  '[T-NEW-10] [ISO 27001:2022 A.8.32] [ITIL 4 Change Enablement] [Google SRE]
+   Tracking de sagas generales del IAM Installer. No aplica a bootstrap (usa ins_bootstrap_event).
+   Sagas cubiertas: install/update/repair/remove de fichas + deploy_tenant/remove_tenant/suspend_tenant.
+   MUTABLE: state se actualiza a medida que la saga progresa. La decisión de no hacerlo WORM
+   es intencional — el estado en curso necesita actualizarse (RUNNING→COMPLETED/FAILED/COMPENSATING).
+   Trazabilidad de pasos: fch_ficha_event.saga_id FK referencia a este saga_id para agrupar
+   todos los eventos de ficha generados por esta saga.
+   compensated_steps: array JSON de steps revertidos en orden ["step3","step2","step1"].
+   error_step: qué paso falló (para diagnóstico y reintentos selectivos).
+   Los estados RUNNING y COMPENSATING que llevan > 2h sin completed_at son candidatos a HITL.';
+COMMENT ON COLUMN bos.ins_saga_execution.saga_type IS
+  'install/update/repair/remove=saga de ficha · deploy_tenant/remove_tenant/suspend_tenant=saga de tenant.';
+
+-- =============================================================================
+-- RESUMEN — 18 tablas · 8 WORM · schema bos · 7 grupos funcionales
 -- =============================================================================
 -- GRUPO CTX — Motor ④ Context Plane                          8 tablas ✅
--- T-395  bos.ctx_registered_device       Dispositivos pre-auth (BitMask=0, TTL 8h)
--- T-396  bos.ctx_context_session         Sesiones post-auth (ctx_id 6 capas, TTL 12h)
--- T-397  bos.ctx_context_audit           Auditoría WORM 🔒 (hash-chain SHA-256)
--- T-398  bos.ctx_context_switch_log      Historial WORM de cambios de contexto 🔒
--- T-399  bos.ctx_context_policy          Políticas TTL/seguridad por tenant
--- T-400  bos.ctx_device_heartbeat        Heartbeats (24h retención, alta escritura)
--- T-401  bos.ctx_context_transfer        Transferencia entre dispositivos WORM 🔒
--- T-402  bos.ctx_context_emergency       Break-glass de contexto (control dual) WORM 🔒
+-- T-395    bos.ctx_registered_device     Dispositivos pre-auth (BitMask=0, TTL 8h)
+-- T-396    bos.ctx_context_session       Sesiones post-auth (ctx_id 6 capas, TTL 12h)
+-- T-397    bos.ctx_context_audit         Auditoría WORM 🔒 (hash-chain SHA-256)
+-- T-398    bos.ctx_context_switch_log    Historial WORM de cambios de contexto 🔒
+-- T-399    bos.ctx_context_policy        Políticas TTL/seguridad por tenant
+-- T-400    bos.ctx_device_heartbeat      Heartbeats (24h retención, alta escritura)
+-- T-401    bos.ctx_context_transfer      Transferencia entre dispositivos WORM 🔒
+-- T-402    bos.ctx_context_emergency     Break-glass de contexto (control dual) WORM 🔒
 --
 -- GRUPO FCH — Motor ③ Server FICHAS                          2 tablas ✅
 -- T-NEW-1  bos.fch_ficha_state           Estado actual fichas (18 estados, sin tenant_id)
 -- T-NEW-2  bos.fch_ficha_event           Historial WORM de eventos de fichas 🔒
 --
--- GRUPO INS — Motor ① IAM Installer                          1 tabla  ✅
--- T-NEW-3  bos.ins_bootstrap_event       Bootstrap 6 capas WORM 🔒 (tenant raíz = capas 0-2)
+-- GRUPO INS — Motor ① IAM Installer                          3 tablas ✅
+-- T-NEW-3  bos.ins_bootstrap_event       Bootstrap 6 capas WORM 🔒 (capas 0-2: sin tenant aún)
+-- T-NEW-10 bos.ins_saga_execution        Tracking mutable de sagas generales (install/update/repair/remove/tenant)
+--          [T-NEW-3 cubre bootstrap · T-NEW-10 cubre el resto de las sagas del Installer]
 --
 -- GRUPO CAP — Motor ② SO Observable / Capacidad             2 tablas ✅
--- T-NEW-4  bos.cap_sistema_snapshot      30+ métricas cada 60s (particionado mensual)
--- T-NEW-5  bos.cap_tenant_politica       Políticas por tenant (fallback = tenant raíz)
+-- T-NEW-4  bos.cap_sistema_snapshot      30+ métricas cada 60s (particionado mensual + cron DROP)
+-- T-NEW-5  bos.cap_tenant_politica       Políticas por tenant (fallback = fila del tenant raíz)
+--
+-- GRUPO PRT — Port Manager (A.12 / RFC 6335 BCP 165)        1 tabla  ✅
+-- T-NEW-6  bos.prt_port_assignment       Kardex de puertos (inmutabilidad lógica, RFC 6335 §8)
+--
+-- GRUPO REL — Release Plane (SBOS-RELEASE-001)              2 tablas ✅
+-- T-NEW-7  bos.rel_release_manifest      Catálogo de releases por canal (canary→early→stable)
+-- T-NEW-8  bos.rel_release_event         Historial WORM de actualizaciones y rollbacks 🔒
+--
+-- GRUPO WDG — Motor ② SO Observable / Watchdog              1 tabla  ✅
+-- T-NEW-9  bos.wdg_watchdog_event        Watchdog 3 capas WORM 🔒 (host|k8s|fichas)
 --
 -- FKs a bauth: idn_tenant(tenant_id) · idn_identity_entity(entity_id)
 -- FKs intra-bos: fch_ficha_event → fch_ficha_state
 --               ctx_registered_device → ctx_context_session → audit/switch/transfer/emergency
+--               rel_release_event → rel_release_manifest
 -- SEED obligatorio (orden): idn_tenant raíz → idn_identity_entity empresa master
 --   → idn_identity_entity sucursal master → cap_tenant_politica raíz
 -- =============================================================================
