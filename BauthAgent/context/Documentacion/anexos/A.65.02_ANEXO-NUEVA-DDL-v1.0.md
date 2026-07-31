@@ -408,9 +408,21 @@ El diseño DDL (columnas, constraints, índices) se desarrolla en sesiones poste
 
 ---
 
-## BOS CONTROL PLANE — Motores FCH · INS · CAP · PRT · REL · WDG
+## BIBLIOTECA DE REFERENCIA (bauth)
 
-> Schema `bos` — 10 tablas para los 6 subsistemas operacionales del daemon BOS. Estas tablas proveen persistencia a los motores que no tenían cobertura en BD: máquina de estados de fichas, registro de bootstrap, observabilidad de capacidad, kardex de puertos, release plane y watchdog. Todas forman parte de `bos_01__control_plane.sql` (mismo archivo que el grupo CTX). Total schema `bos`: 18 tablas · 8 WORM · 7 grupos. **Naming 100% inglés** para tablas y columnas; comentarios en español.
+> Tabla T-999 — Catálogo unificado de políticas, reglas, configuraciones y métodos. **SOLO LECTURA — sin lógica de negocio.** 16 fuentes normativas. 13 dominios D1-D12+SEC. REVOKE UPDATE/DELETE.
+
+| Código | Tabla | Propósito |
+|--------|-------|-----------|
+| T-999 | `bauth.cfg_policy_library` | Biblioteca jerárquica de referencia. Estructura: section→group→policy→config. 16 fuentes normativas, 13 dominios D1-D12+SEC. 29 columnas de clasificación. REVOKE UPDATE/DELETE. |
+| T-999b | `bauth.framework_raw` | Carga de JSON fuente para CTE recursivo. 16 fuentes normativas (NIST, ISO, FIDO2, OAuth, PCI DSS, SOC2, etc.). Una fila por fuente con content JSONB. |
+| T-999c | `bauth.cfg_key_translation` | Mapeo ~221 claves JSON inglés→español para traducción automática de `content_es` vía `translate_keys_en_es()`. |
+| — | `bauth.jsonb_explode(jsonb)` | Función IMMUTABLE: descompone nodos JSONB (objetos→jsonb_each, arrays→jsonb_array_elements) para CTE recursivo. |
+| — | `bauth.translate_keys_en_es(jsonb)` | Función IMMUTABLE: recorre JSONB recursivamente y traduce claves usando `cfg_key_translation`. Usa camelCase y snake_case decomposition. |
+
+## BOS CONTROL PLANE — Motores FCH · INS · CAP · PRT · NET · REL · WDG
+
+> Schema `bos` — 12 tablas para los 7 subsistemas operacionales del daemon BOS. Estas tablas proveen persistencia a los motores que no tenían cobertura en BD: máquina de estados de fichas, registro de bootstrap, observabilidad de capacidad, kardex de puertos, Network Security Manager, release plane y watchdog. Todas forman parte de `bos_01__control_plane.sql` (mismo archivo que el grupo CTX). Total schema `bos`: 20 tablas · 8 WORM · 8 grupos. **Naming 100% inglés** para tablas y columnas; comentarios en español.
 
 ### Grupo FCH — Motor ③ Server FICHAS (ADR-021)
 
@@ -438,6 +450,13 @@ El diseño DDL (columnas, constraints, índices) se desarrolla en sesiones poste
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
 | T-408 | `bos.prt_port_assignment` | Kardex de puertos — inventario de activos de red (ISO 27001 A.8.20). Inmutabilidad lógica: filas nunca se eliminan, solo transicionan `assigned→released→revoked`. UNIQUE `(port, port_type, namespace)`. `port_type` CHECK (HOST_PHYSICAL\|HOST_LOGICAL\|K8S_NODE_PORT\|K8S_CLUSTER_IP\|K8S_LOAD_BALANCER). `transport` CHECK (TCP\|UDP\|SCTP\|DCCP). |
+
+### Grupo NET — Network Security Manager · A.15 · A.12
+
+| Código | Tabla | Propósito |
+|--------|-------|-----------|
+| T-413 | `bos.net_cert_inventory` | Kardex de certificados TLS — ISO 27001 A.8.24. Un registro por certificado activo: daemons host (Vault PKI), fichas K8s (cert-manager), SVIDs SPIFFE/SPIRE (24h), externos (Let's Encrypt). `days_remaining` GENERATED ALWAYS (sin trigger). UNIQUE `(fingerprint_sha256)`. `cert_type` CHECK (daemon_host\|ficha_k8s\|spiffe_svid\|external_wildcard\|kong_tls\|ca_internal). `issued_at` ≠ `valid_from`. `last_renewed_at` para trazabilidad de renovaciones. Inmutabilidad lógica: active→expiring_soon→expired→revoked. |
+| T-414 | `bos.net_security_events` | Log de eventos de seguridad de red — ISO 27001 A.8.21 / NIST SP 800-41. PARTITION BY RANGE(event_time) — partición mensual + default. 27 `event_type` CHECK (port_assigned/released/conflict · cert_issued/renewed/expiring/revoked · fw_rule_added/removed/netpol_synced/fw_drift_detected · ips_block/unblock/port_scan_detected · crowdsec_ban/unban · fail2ban_ban/unban · ddos_detected · brute_force_detected · replay_detected). `src_ip INET` — búsquedas por red nativas. `source` CHECK (portman\|certman\|fwman\|ips\|crowdsec\|fail2ban\|psad\|bos_daemon). Alta escritura: miles de eventos/día. Retención 90 días. |
 
 ### Grupo REL — Release Plane (SBOS-RELEASE-001 · Ed25519)
 
@@ -474,11 +493,12 @@ El diseño DDL (columnas, constraints, índices) se desarrolla en sesiones poste
 | BILLETERA DIGITAL | 4 (T-380..T-383) | ✅ Definidas | W3C VCDM 2.0 + OID4VP/VCI + presentación WORM + emisión WORM (`bauth`) |
 | RIESGO / ITDR | 1 (T-180) | ✅ Definidas | Política de riesgo adaptativo — `ses_risk_policy` (`bauth`) |
 | **CONTEXT PLANE** | **8 (T-395..T-402)** | ✅ Definidas | **Policy Administrator NIST 800-207 — ctx_id 6 capas — 4 WORM hash-chain (`bos`)** |
+| **BIBLIOTECA REFERENCIA** | **3+2 (T-999, T-999b, T-999c + 2 funciones)** | ✅ Definida | **`cfg_policy_library` + `framework_raw` + `cfg_key_translation` + `jsonb_explode()` + `translate_keys_en_es()` — SOLO LECTURA (`bauth`)** |
 | PAM | 6 (T-182 · T-182b · T-183..T-185 · T-189) | ✅ Definidas | JIT + aprobación multi-nivel + credenciales + sesión privilegiada + break-glass + secretos NHI (`bauth`) |
 | DISPOSITIVOS | 3 (T-390..T-392) | ✅ Definidas ✅ Implementadas | Registro ZTA + postura MDM + binding FIDO2/OSDP WORM (`bauth`) |
 | BLOCKCHAIN D12 | 5 (T-358..T-362) | ✅ Naming canónico | Anclaje Merkle + liquidación Besu (`bauth`) |
-| **BOS CONTROL PLANE** | **10 (T-403..T-412)** | ✅ Definidas ✅ Commiteadas | **FCH 18-state + INS bootstrap/sagas + CAP snapshots/policies + PRT port kardex + REL release + WDG watchdog — schema `bos` — naming 100% inglés** |
-| **Total definido** | **128** | — | *18 secciones ✅ · 0 pendientes · D00 COMPLETO v2.6.0 · bos schema 18 tablas · v1.9* |
+| **BOS CONTROL PLANE** | **12 (T-403..T-414)** | ✅ Definidas ✅ Commiteadas | **FCH 18-state + INS bootstrap/sagas + CAP snapshots/policies + PRT port kardex + NET cert/security + REL release + WDG watchdog — schema `bos` — naming 100% inglés** |
+| **Total definido** | **130** | — | *18 secciones ✅ · 0 pendientes · D00 COMPLETO v2.6.0 · bos schema 20 tablas · v2.0* |
 
 ---
 
@@ -501,3 +521,50 @@ El diseño DDL (columnas, constraints, índices) se desarrolla en sesiones poste
 5. Seeds: migrar datos de VPS legacy con `INSERT INTO new SELECT FROM old` donde aplique
 
 6. Validar con `verificar_afirmacion.sh` antes de declarar cualquier tabla completa
+
+---
+
+## Catálogo de Seeds (25 archivos)
+
+**Convención:** `<schema>_<T-CODE>__<nombre_tabla>.sql`  
+**Idempotencia:** TRUNCATE + INSERT (legacy) o INSERT + ON CONFLICT DO NOTHING (nuevos)  
+**Directorio:** `DDLs/seeds/`
+
+### bglobal (4 seeds)
+
+| Archivo | Tabla | Filas | Descripción |
+|---------|-------|:-----:|-------------|
+| `bglobal_T001__global_language.sql` | `global_language` | ~120 | Idiomas del mundo (BCP 47, ISO 639) |
+| `bglobal_T002__global_country.sql` | `global_country` | 196 | Países ISO 3166-1 + datos demográficos |
+| `bglobal_T004__geo_timezone.sql` | `geo_timezone` | ~400 | Zonas horarias IANA |
+| `bglobal_T060__menu_context.sql` | `menu_context` | ~200 | Contextos de menú y ENUMs del sistema |
+
+### bcalendar (3 seeds)
+
+| Archivo | Tabla | Filas | Descripción |
+|---------|-------|:-----:|-------------|
+| `bcalendar_T012__cal_calendar.sql` | `cal_calendar` | ~5 | Calendarios base (Bolivia, estándar) |
+| `bcalendar_T014__cal_schedule.sql` | `cal_schedule` | ~10 | Horarios y turnos |
+| `bcalendar_T015__cal_holiday_complete.sql` | `cal_holiday` | ~50 | Feriados Bolivia + regionales |
+
+### bauth (17 seeds)
+
+| Archivo | Tabla | Filas | Descripción |
+|---------|-------|:-----:|-------------|
+| `bauth_T005__idn_tenant.sql` | `idn_tenant` | 1 | Tenant skull (Sistemas SKULL) |
+| `bauth_T040__idn_roles_rol_type.sql` | `idn_roles_rol_type` | 10 | Tipos de cuenta (INDIVIDUAL, M2M, SYSTEM...) |
+| `bauth_T042__idn_roles_rol_tier.sql` | `idn_roles_rol_tier` | 11 | Tiers de seguridad (SU, T0, T1, BIZ_N1..N5...) |
+| `bauth_T154__idn_roles_ver_b01_retention_policy.sql` | `idn_roles_ver_b01_retention_policy` | 1 | Política de retención legal |
+| `bauth_T156__idn_identity_entity.sql` | `idn_identity_entity` | 1 | Entidad skull (BAUTH_SYSTEM) |
+| `bauth_T159__idn_identity_requirement.sql` | `idn_identity_requirement` | 54 | Requisitos de identidad por tipo IAL |
+| `bauth_T161b__idn_policy_node_type.sql` | `idn_policy_node_type` | 12 | Tipos de nodo del árbol (tenant, domain, block...) |
+| `bauth_T162__idn_roles_template.sql` | `idn_roles_template` | 179 | Árbol de políticas RolTemplate v6.0 |
+| `bauth_T168__idn_tenant_fal_config.sql` | `idn_tenant_fal_config` | 1 | Federation Assurance Level config |
+| `bauth_T174__privilege_verb.sql` | `privilege_verb` | 64 | Verbos de privilegio atómicos |
+| `bauth_T175__privilege_verb_conflict.sql` | `privilege_verb_conflict` | 53 | Matriz de conflictos SoD |
+| `bauth_T187__idn_scim_attribute_map.sql` | `idn_scim_attribute_map` | 10 | Mapeo SCIM 2.0 ↔ atributos locales |
+| `bauth_T194__idn_roles_iga_category.sql` | `idn_roles_iga_category` | 7 | Categorías IGA (BUSINESS, PRIVILEGED...) |
+| `bauth_T384__auth_federation_protocol.sql` | `auth_federation_protocol` | 8 | Protocolos de federación (SAML, OIDC, FAPI...) |
+| `bauth_T385__auth_saga_catalog.sql` | `auth_saga_catalog` | 12 | Catálogo de sagas de autenticación |
+| `bauth_T386__auth_compliance_map.sql` | `auth_compliance_map` | 14 | Mapa de cumplimiento normativo |
+| `bauth_T999__cfg_policy_library.sql` | `cfg_key_translation` | 221 | Traducción inglés→español + seed framework |
