@@ -276,6 +276,14 @@ func init() {
 		// bos.capacity.* — Control de admisión dinámico (M1-CAP)
 		"bos.capacity.check":  (*Server).rpcCapacityCheck,
 		"bos.capacity.status": (*Server).rpcCapacityStatus,
+		// bos.portman.* — Motor de Asignación de Puertos SBOS-050 (A.12)
+		"bos.portman.assign":   (*Server).rpcPortmanAssign,
+		"bos.portman.lookup":   (*Server).rpcPortmanLookup,
+		"bos.portman.release":  (*Server).rpcPortmanRelease,
+		"bos.portman.check":    (*Server).rpcPortmanCheck,
+		"bos.portman.list":     (*Server).rpcPortmanList,
+		"bos.portman.validate": (*Server).rpcPortmanValidate,
+		"bos.portman.export":   (*Server).rpcPortmanExport,
 		// system.*
 		"system.listMethods": (*Server).rpcSystemListMethods,
 	}

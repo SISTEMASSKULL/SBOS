@@ -125,6 +125,7 @@ type Server struct {
 
 	logReader  domain.LogPort          // lector de logs de ficha (nil-safe, inyectado via SetLogReader)
 	limiter    *ratelimit.IPLimiter    // rate limiter NRS-08 (nil-safe)
+	portman    PortManager             // Motor de puertos SBOS-050 (nil-safe, lazy init via BOS_PG_DSN)
 
 	httpServer *http.Server
 	unixServer *http.Server
@@ -257,6 +258,13 @@ func (s *Server) SetK8sQuerier(q *query.K8sQuerier) {
 // bos.ficha.logs retorna slice vacío sin error).
 func (s *Server) SetLogReader(lr domain.LogPort) {
 	s.logReader = lr
+}
+
+// SetPortManager inyecta el Motor de Puertos (SBOS-050).
+// Opcional — si no se inyecta, los handlers bos.portman.* crean una conexión
+// lazy usando BOS_PG_DSN al primer uso.
+func (s *Server) SetPortManager(pm PortManager) {
+	s.portman = pm
 }
 
 // handleContextLookup responde a GET /api/v1/context/{ctx_id} para Kong (C-5).

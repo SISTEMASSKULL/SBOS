@@ -112,6 +112,8 @@ func main() {
 		os.Exit(cmdTenant(args))
 	case "bootstrap":
 		os.Exit(cmdBootstrap(args))
+	case "port":
+		os.Exit(cmdPort(args))
 	case "rpc":
 		os.Exit(cmdRPC(args))
 	case "system-install":
