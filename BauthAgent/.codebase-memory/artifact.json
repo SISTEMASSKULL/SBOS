@@ -1,0 +1,11 @@
+{
+    "schema_version": 2,
+    "commit": "e72508e16a2d1446c0a002fb69378f56a2043b49",
+    "indexed_at": "2026-07-21T23:16:59Z",
+    "project": "bauth",
+    "nodes": 29189,
+    "edges": 44601,
+    "original_size": 24379392,
+    "compressed_size": 4796925,
+    "compression_level": 9
+}

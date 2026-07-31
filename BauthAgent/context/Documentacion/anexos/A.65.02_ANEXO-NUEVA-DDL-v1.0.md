@@ -493,7 +493,11 @@ El diseño DDL (columnas, constraints, índices) se desarrolla en sesiones poste
 | BILLETERA DIGITAL | 4 (T-380..T-383) | ✅ Definidas | W3C VCDM 2.0 + OID4VP/VCI + presentación WORM + emisión WORM (`bauth`) |
 | RIESGO / ITDR | 1 (T-180) | ✅ Definidas | Política de riesgo adaptativo — `ses_risk_policy` (`bauth`) |
 | **CONTEXT PLANE** | **8 (T-395..T-402)** | ✅ Definidas | **Policy Administrator NIST 800-207 — ctx_id 6 capas — 4 WORM hash-chain (`bos`)** |
-| **BIBLIOTECA REFERENCIA** | **3+2 (T-999, T-999b, T-999c + 2 funciones)** | ✅ Definida | **`cfg_policy_library` + `framework_raw` + `cfg_key_translation` + `jsonb_explode()` + `translate_keys_en_es()` — SOLO LECTURA (`bauth`)** |
+| **BIBLIOTECA REFERENCIA** | **3+2 (T-999, T-999b, T-999c + 2 funciones)** | ✅ Definida | **`cfg_policy_library` + `framework_raw` + `cfg_key_translation` + `jsonb_explode()` + `translate_keys_en_es()` (`bauth`)** |
+| **REVOCACIÓN** | **1 (T-364)** | ✅ Definida | **`idn_credencial_revocacion` — D09-B05 · PCI DSS Req 8.2.8 (`bauth`)** |
+| **INTROSPECCIÓN** | **1 (T-368)** | ✅ Definida | **`idn_credencial_introspeccion` — D09-B09 · RFC 7662 (`bauth`)** |
+| **PAM INVENTARIO** | **1 (T-460)** | ✅ Definida | **`pam_cuenta_privilegiada` — D14-B01 · CIS Controls v8 §5.1 (`bauth`)** |
+| **MONITOREO** | **1 (VIEW)** | ✅ Definida | **`mv_audit_dashboard` — D11-B04 · 5 métricas unificadas (`bauth`)** |
 | PAM | 6 (T-182 · T-182b · T-183..T-185 · T-189) | ✅ Definidas | JIT + aprobación multi-nivel + credenciales + sesión privilegiada + break-glass + secretos NHI (`bauth`) |
 | DISPOSITIVOS | 3 (T-390..T-392) | ✅ Definidas ✅ Implementadas | Registro ZTA + postura MDM + binding FIDO2/OSDP WORM (`bauth`) |
 | BLOCKCHAIN D12 | 5 (T-358..T-362) | ✅ Naming canónico | Anclaje Merkle + liquidación Besu (`bauth`) |

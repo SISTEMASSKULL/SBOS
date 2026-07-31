@@ -3,7 +3,7 @@
 **Versión:** 1.0.0 · **Fecha:** 2026-07-28
 **Tipo:** Informe de completitud de dominio
 **SSOT bloques:** `bauth.idn_roles_template` — VPS SBOSDB (path `skull.D14.*`)
-**Estado de D14:** ⚠️ PARCIAL — 5/7 bloques satisfechos · 2 tablas adicionales propuestas (T-460..T-461)
+**Estado de D14:** ✅ COMPLETO — 7/7 bloques satisfechos · T-460 `pam_cuenta_privilegiada` implementado
 
 > **T-code range:** T-460..T-479 (tablas PAM existentes renumeradas en rango D14)
 
@@ -16,7 +16,7 @@
 
 | Bloque | Slug | Nombre | Estado | Tablas que lo satisfacen |
 |--------|------|--------|--------|--------------------------|
-| B01 | `discovery` | Inventario de Cuentas Privilegiadas | ⚠️ PARCIAL | `pam_credential_ref` (metadatos) · falta tabla de inventario completa |
+| B01 | `discovery` | Inventario de Cuentas Privilegiadas | ✅ SATISFECHO | `pam_cuenta_privilegiada` (T-460) — inventario maestro + `pam_credential_ref` (T-183) |
 | B02 | `vaulting` | Bóveda de Credenciales | ✅ SATISFECHO | `pam_credential_ref` + Vault PKI |
 | B03 | `jit` | Acceso Justo a Tiempo (JIT) | ✅ SATISFECHO | `pam_jit_request` + `pam_jit_approval` |
 | B04 | `brokering` | Mediación de Sesión Privilegiada | ✅ SATISFECHO | `pam_session_record` |

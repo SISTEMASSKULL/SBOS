@@ -1,0 +1,11 @@
+{
+    "schema_version": 2,
+    "commit": "e72508e16a2d1446c0a002fb69378f56a2043b49",
+    "indexed_at": "2026-07-22T01:05:36Z",
+    "project": "bi18n",
+    "nodes": 3194,
+    "edges": 6685,
+    "original_size": 5439488,
+    "compressed_size": 1136484,
+    "compression_level": 9
+}

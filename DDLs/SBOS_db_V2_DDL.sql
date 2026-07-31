@@ -231,23 +231,45 @@ COMMENT ON COLUMN bglobal.global_language.preferred_value IS '[IANA] Reemplazo s
 -- Catálogo ISO 3166-1. Natural key: iso_alpha2 CHAR(2) UNIQUE.
 -- ======================================================================
 CREATE TABLE IF NOT EXISTS bglobal.global_country (
-    country_id       UUID        PRIMARY KEY DEFAULT uuidv7(),
-    iso_alpha2       CHAR(2)     UNIQUE NOT NULL,
-    iso_alpha3       CHAR(3)     UNIQUE NOT NULL,
-    iso_numeric      CHAR(3)     UNIQUE NOT NULL,
-    name             JSONB       NOT NULL,
-    official_name    JSONB,
-    region           TEXT,
-    subregion        TEXT,
-    capital          TEXT,
-    flag_emoji       TEXT,
-    phone_prefix     TEXT,
-    tld              TEXT,
-    currency_code    CHAR(3),
-    timezone_primary TEXT,
-    is_active        BOOLEAN     NOT NULL DEFAULT true,
-    created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+    country_id          UUID        PRIMARY KEY DEFAULT uuidv7(),
+    iso_alpha2          CHAR(2)     UNIQUE NOT NULL,
+    iso_alpha3          CHAR(3)     UNIQUE NOT NULL,
+    iso_numeric         CHAR(3)     UNIQUE NOT NULL,
+    name                JSONB,
+    official_name       JSONB,
+    name_common         TEXT,
+    name_official       TEXT,
+    name_native         TEXT,
+    demonym             TEXT,
+    demonym_native      TEXT,
+    un_m49              INTEGER,
+    itu_calling_code    TEXT,
+    icao_code           TEXT,
+    continent           TEXT,
+    region              TEXT,
+    subregion           TEXT,
+    capital             TEXT,
+    capital_coords      TEXT,
+    lat                 NUMERIC,
+    lon                 NUMERIC,
+    area_km2            NUMERIC,
+    landlocked          BOOLEAN,
+    borders             TEXT[],
+    population          BIGINT,
+    population_year     INTEGER,
+    gini_coefficient    NUMERIC,
+    languages           TEXT[],
+    timezones           TEXT[],
+    flag_emoji          TEXT,
+    independence_status TEXT,
+    wikidata_id         TEXT,
+    phone_prefix        TEXT,
+    tld                 TEXT,
+    currency_code       CHAR(3),
+    timezone_primary    TEXT,
+    is_active           BOOLEAN     NOT NULL DEFAULT true,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_gcty_alpha2   ON bglobal.global_country(iso_alpha2);
@@ -1386,7 +1408,7 @@ INSERT INTO bauth.idn_roles_rol_tier
    '{"es":"Máquina a Máquina","en":"Machine to Machine"}',
    '{"es":"Máquina a Máquina — daemons, pipelines e integraciones del ecosistema","en":"Machine to Machine — daemons, pipelines and ecosystem integrations"}',
    2, 3600, 10, false, 10, true, false, 90, 30, false),
-  ('VISITOR',
+  ('VISITANTE',
    '{"es":"Visitante","en":"Visitor"}',
    '{"es":"Visitante — acceso mínimo de sólo lectura sin autenticación fuerte","en":"Visitor — minimum read-only access without strong authentication"}',
    1, 30, 1, false, 11, false, false, 365, 7, false)
@@ -1450,7 +1472,31 @@ CREATE TABLE IF NOT EXISTS bauth.idn_roles_rol_hierarchical (
         "certificate_id":       null,
         "post_quantum_planned": true
     }'::jsonb,
-    UNIQUE (tenant_id, code)
+    -- B02 §validity_period — NIST AC-2(d) · ISO 27001 A.5.18
+    validity_type            bauth.role_validity_type NOT NULL DEFAULT 'INDEFINITE',
+    valid_from               DATE                     NOT NULL DEFAULT CURRENT_DATE,
+    valid_until              DATE,
+    duration_interval        INTERVAL,
+    max_renewals             SMALLINT CHECK (max_renewals IS NULL OR max_renewals > 0),
+    renewal_count            SMALLINT NOT NULL DEFAULT 0,
+    -- MVU — Motor de Versionado Universal
+    sys_since                TIMESTAMPTZ            NOT NULL DEFAULT now(),
+    change_channel           bauth.ver_channel_enum NOT NULL DEFAULT 'BOOTSTRAP',
+    change_reason            TEXT,
+    security_impact          risk_level_enum,
+    approved_by              UUID REFERENCES bauth.idn_identity_entity(entity_id) ON DELETE SET NULL,
+    approved_at              TIMESTAMPTZ,
+    UNIQUE (tenant_id, code),
+    CONSTRAINT chk_irrh_b02_validity CHECK (
+        (validity_type = 'FIXED'
+            AND valid_until IS NOT NULL)
+        OR
+        (validity_type IN ('TEMPORARY','EMERGENCY')
+            AND duration_interval IS NOT NULL
+            AND valid_until IS NULL)
+        OR
+        (validity_type IN ('INDEFINITE','PROJECT_BASED'))
+    )
 );
 
 CREATE INDEX IF NOT EXISTS idx_irrh_tenant     ON bauth.idn_roles_rol_hierarchical(tenant_id, status);
@@ -1477,6 +1523,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS trg_irrh_version_bump ON bauth.idn_roles_rol_hierarchical;
 CREATE TRIGGER trg_irrh_version_bump
     BEFORE UPDATE ON bauth.idn_roles_rol_hierarchical
     FOR EACH ROW
@@ -1526,34 +1573,6 @@ COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.digital_signature      IS '[B
 
 -- FK deferida al árbol de políticas: se agrega en sección T-162 (después de crear idn_roles_template)
 
--- ======================================================================
--- B02 §validity_period — Vigencia y ciclo de vida del rol (G-B02-01/02/03/04)
--- NIST AC-2(d) · NIST AC-2(2) · ISO 27001 A.5.18 §c · ANSI INCITS 359-2004 §4.3
--- Eje de NEGOCIO — distinto del eje registral/versionado (sys_period T-152).
--- ======================================================================
-
--- P3 — Columnas B02 en T-041
-ALTER TABLE bauth.idn_roles_rol_hierarchical
-    ADD COLUMN IF NOT EXISTS validity_type     bauth.role_validity_type NOT NULL DEFAULT 'INDEFINITE',
-    ADD COLUMN IF NOT EXISTS valid_from        DATE                     NOT NULL DEFAULT CURRENT_DATE,
-    ADD COLUMN IF NOT EXISTS valid_until       DATE,
-    ADD COLUMN IF NOT EXISTS duration_interval INTERVAL,
-    ADD COLUMN IF NOT EXISTS max_renewals      SMALLINT CHECK (max_renewals IS NULL OR max_renewals > 0),
-    ADD COLUMN IF NOT EXISTS renewal_count     SMALLINT NOT NULL DEFAULT 0;
-
--- P4 — CHECK tipo↔fecha (integridad estructural del contrato B02)
-ALTER TABLE bauth.idn_roles_rol_hierarchical
-    ADD CONSTRAINT chk_irrh_b02_validity CHECK (
-        (validity_type = 'FIXED'
-            AND valid_until IS NOT NULL)
-        OR
-        (validity_type IN ('TEMPORARY','EMERGENCY')
-            AND duration_interval IS NOT NULL
-            AND valid_until IS NULL)   -- valid_until lo calcula el trigger
-        OR
-        (validity_type IN ('INDEFINITE','PROJECT_BASED'))  -- valid_until opcional
-    );
-
 -- Índice parcial para rol de expiración (reconcile loop / job de vencimiento)
 CREATE INDEX IF NOT EXISTS idx_irrh_b02_expiry
     ON bauth.idn_roles_rol_hierarchical (valid_until, status)
@@ -1599,6 +1618,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS trg_irrh_b02_validity ON bauth.idn_roles_rol_hierarchical;
 CREATE TRIGGER trg_irrh_b02_validity
     BEFORE INSERT OR UPDATE OF validity_type, valid_from, valid_until, duration_interval, status
     ON bauth.idn_roles_rol_hierarchical
@@ -1668,6 +1688,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS trg_irle_worm ON bauth.idn_roles_rol_lifecycle_event;
 CREATE TRIGGER trg_irle_worm
     BEFORE INSERT ON bauth.idn_roles_rol_lifecycle_event
     FOR EACH ROW
@@ -1680,7 +1701,8 @@ CREATE TRIGGER trg_irle_worm
 -- Llamado por: K8s CronJob bauth-b02-reconcile en sbos-security (cada 5 min)
 -- NIST AC-2(2) · ISO 27001 A.5.18 §c
 -- ======================================================================
-CREATE FUNCTION bauth.fn_b02_reconcile_expiry(
+DROP FUNCTION IF EXISTS bauth.fn_b02_reconcile_expiry;
+CREATE OR REPLACE FUNCTION bauth.fn_b02_reconcile_expiry(
     p_ctx_id TEXT DEFAULT 'system.b02.reconcile'
 )
 RETURNS TABLE (
@@ -1811,15 +1833,6 @@ DO $$ BEGIN CREATE TYPE bauth.ver_channel_enum          AS ENUM ('API','CLI','BO
 DO $$ BEGIN CREATE TYPE bauth.ver_proposal_status_enum  AS ENUM ('PENDING','APPROVED','REJECTED','EXPIRED','CANCELLED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE bauth.ver_compaction_enum       AS ENUM ('KEEP_ALL','KEEP_ANCHORS','KEEP_LAST_N');        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
--- Columnas del motor en T-041 (version_number + trigger ya existen — B01 completado)
-ALTER TABLE bauth.idn_roles_rol_hierarchical
-    ADD COLUMN IF NOT EXISTS sys_since       TIMESTAMPTZ            NOT NULL DEFAULT now(),
-    ADD COLUMN IF NOT EXISTS change_channel  bauth.ver_channel_enum NOT NULL DEFAULT 'BOOTSTRAP',
-    ADD COLUMN IF NOT EXISTS change_reason   TEXT,
-    ADD COLUMN IF NOT EXISTS security_impact risk_level_enum,
-    ADD COLUMN IF NOT EXISTS approved_by     UUID REFERENCES bauth.idn_identity_entity(entity_id) ON DELETE SET NULL,
-    ADD COLUMN IF NOT EXISTS approved_at     TIMESTAMPTZ;
-
 -- ======================================================================
 -- T-152 — bauth.idn_roles_ver_b01_audit_log
 -- [B01 §audit.change_history[]] WORM de versiones cerradas de T-041.
@@ -1890,6 +1903,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS trg_irvb01al_worm ON bauth.idn_roles_ver_b01_audit_log;
 CREATE TRIGGER trg_irvb01al_worm
     BEFORE INSERT ON bauth.idn_roles_ver_b01_audit_log
     FOR EACH ROW
@@ -2456,12 +2470,14 @@ CREATE INDEX IF NOT EXISTS idx_irt_cond       ON bauth.idn_roles_template USING 
 -- FK deferida: idn_roles_rol_hierarchical.template_id → idn_roles_template.id
 -- Se declara aquí porque idn_roles_template se crea en este punto (T-162 precede a T-041 en el DDL)
 DO $$ BEGIN
-    ALTER TABLE bauth.idn_roles_rol_hierarchical
-        ADD CONSTRAINT fk_irrh_template
-        FOREIGN KEY (template_id)
-        REFERENCES bauth.idn_roles_template(id)
-        ON DELETE SET NULL
-        DEFERRABLE INITIALLY DEFERRED;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_irrh_template' AND conrelid = 'bauth.idn_roles_rol_hierarchical'::regclass) THEN
+        ALTER TABLE bauth.idn_roles_rol_hierarchical
+            ADD CONSTRAINT fk_irrh_template
+            FOREIGN KEY (template_id)
+            REFERENCES bauth.idn_roles_template(id)
+            ON DELETE SET NULL
+            DEFERRABLE INITIALLY DEFERRED;
+    END IF;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 COMMENT ON TABLE bauth.idn_roles_template IS
@@ -3407,7 +3423,12 @@ CREATE TABLE IF NOT EXISTS bauth.privilege_atom_grant (
     )
 );
 
-ALTER TABLE bauth.privilege_atom_grant REPLICA IDENTITY FULL;
+-- REPLICA IDENTITY FULL para CDC/WAL. Idempotente: solo si no está ya configurado.
+DO $$ BEGIN
+    IF (SELECT relreplident FROM pg_class WHERE relname = 'privilege_atom_grant' AND relnamespace = 'bauth'::regnamespace) <> 'f' THEN
+        ALTER TABLE bauth.privilege_atom_grant REPLICA IDENTITY FULL;
+    END IF;
+END $$;
 
 -- Índices G-09 (4 direcciones IGA) + G-12 (reassess elegibles)
 CREATE INDEX IF NOT EXISTS idx_pag_user       ON bauth.privilege_atom_grant(user_id, status);
@@ -5673,4 +5694,278 @@ CREATE INDEX IF NOT EXISTS idx_irt_eval_active
 --             privilege_verb (50) · privilege_verb_conflict (36 pares SoD)
 --             auth_federation_protocol (8) · auth_saga_catalog (12) · auth_compliance_map (14)
 -- ======================================================================
+
+
+-- =============================================================================
+-- T-999 — bauth.cfg_policy_library
+-- Biblioteca de Referencia de Políticas, Reglas y Átomos.
+-- ÚNICO PROPÓSITO: consulta. SOLO LECTURA. Sin lógica de negocio.
+-- 16 fuentes de normas (NIST, ISO, FIDO2, OAuth, PCI DSS, SOC2, etc.).
+-- 13 dominios D1-D12+SEC. Clasificación jerárquica con CTE recursivo.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bauth.cfg_policy_library (
+    section_id          serial PRIMARY KEY,
+    section_name        text NOT NULL,
+    parent_path         text,
+    json_path           text NOT NULL,
+    depth               integer DEFAULT 1 NOT NULL CHECK (depth >= 1),
+    order_index         integer DEFAULT 1 NOT NULL CHECK (order_index >= 1),
+    array_index         bigint DEFAULT 0 CHECK (array_index >= 0),
+    node_type           text NOT NULL CHECK (node_type IN ('section','group','policy','config')),
+    semantic_type       text CHECK (semantic_type IN ('policy','configuration','method','standard','guideline','group')),
+    domain_map          text[],
+    source              text NOT NULL,
+    standard_ref        text,
+    industry_source     text,
+    compliance_ref      text[],
+    content             jsonb NOT NULL,
+    content_en          jsonb NOT NULL,
+    content_es          jsonb NOT NULL,
+    help_text           jsonb,
+    description         text,
+    enforcement         text CHECK (enforcement IN ('mandatory','recommended','optional')),
+    risk_level          text CHECK (risk_level IN ('critical','high','medium','low')),
+    lifecycle           text CHECK (lifecycle IN ('active','deprecated','draft','proposed')),
+    applicability       text[],
+    assurance_level     text CHECK (assurance_level IN ('AAL1','AAL2','AAL3')),
+    auth_factor         text CHECK (auth_factor IN ('knowledge','possession','inherence','context','multi')),
+    phishing_resistant  boolean,
+    session_timeout     integer,
+    mfa_required        boolean,
+    created_at          timestamptz DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_cfg_library_json_path ON bauth.cfg_policy_library (json_path);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_cfg_library_section_parent_source ON bauth.cfg_policy_library (section_name, COALESCE(parent_path, ''), source);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_cfg_library_json_path_source ON bauth.cfg_policy_library (json_path, source);
+CREATE INDEX IF NOT EXISTS idx_cfg_library_parent ON bauth.cfg_policy_library (parent_path, source);
+CREATE INDEX IF NOT EXISTS idx_cfg_library_node_type ON bauth.cfg_policy_library (node_type);
+CREATE INDEX IF NOT EXISTS idx_cfg_library_source ON bauth.cfg_policy_library (source);
+CREATE INDEX IF NOT EXISTS idx_cfg_library_domain ON bauth.cfg_policy_library USING gin (domain_map);
+CREATE INDEX IF NOT EXISTS idx_cfg_library_semantic ON bauth.cfg_policy_library (semantic_type);
+CREATE INDEX IF NOT EXISTS idx_cfg_library_enforcement ON bauth.cfg_policy_library (enforcement);
+CREATE INDEX IF NOT EXISTS idx_cfg_library_risk ON bauth.cfg_policy_library (risk_level);
+CREATE INDEX IF NOT EXISTS idx_cfg_library_assurance ON bauth.cfg_policy_library (assurance_level);
+CREATE INDEX IF NOT EXISTS idx_cfg_library_lifecycle ON bauth.cfg_policy_library (lifecycle);
+
+REVOKE UPDATE, DELETE ON bauth.cfg_policy_library FROM PUBLIC;
+
+COMMENT ON TABLE bauth.cfg_policy_library IS
+  '[T-999] Biblioteca unificada de referencia: políticas, reglas, configuraciones y métodos.
+   SOLO LECTURA. 16 fuentes normativas. 13 dominios D1-D12+SEC.
+   Clasificación: node_type (section/group/policy/config), semantic_type (policy/configuration/method/standard/guideline/group).
+   Poblada desde bauth.framework_raw vía CTE recursivo. REVOKE UPDATE/DELETE.';
+
+COMMENT ON COLUMN bauth.cfg_policy_library.json_path      IS 'Ruta completa en el JSON fuente. Identificador único global.';
+COMMENT ON COLUMN bauth.cfg_policy_library.node_type      IS 'Estructura JSON: section, group, policy, config.';
+COMMENT ON COLUMN bauth.cfg_policy_library.semantic_type  IS 'Significado de negocio: policy, configuration, method, standard, guideline, group.';
+COMMENT ON COLUMN bauth.cfg_policy_library.domain_map     IS 'Dominios D1-D12+SEC. Array texto para indexación GIN.';
+COMMENT ON COLUMN bauth.cfg_policy_library.source         IS 'Fuente normativa: nist_sp_800_63b_rev4, iso_27001_2022, fido2_ctap_2.2, etc.';
+COMMENT ON COLUMN bauth.cfg_policy_library.compliance_ref IS 'IDs de controles: PCI DSS 4.0 Req 7.2.4, ISO 27001:2022 A.8.5, NIST 800-53 AC-2.';
+COMMENT ON COLUMN bauth.cfg_policy_library.content        IS 'JSONB original de la política/regla/configuración.';
+COMMENT ON COLUMN bauth.cfg_policy_library.content_en     IS 'JSONB con claves en inglés.';
+COMMENT ON COLUMN bauth.cfg_policy_library.content_es     IS 'JSONB con claves traducidas al español (translate_keys_en_es).';
+COMMENT ON COLUMN bauth.cfg_policy_library.help_text      IS 'Ayuda contextual multilingüe generada automáticamente.';
+COMMENT ON COLUMN bauth.cfg_policy_library.enforcement    IS 'Nivel de exigencia: mandatory, recommended, optional.';
+COMMENT ON COLUMN bauth.cfg_policy_library.risk_level     IS 'Nivel de riesgo NIST RMF: critical, high, medium, low.';
+COMMENT ON COLUMN bauth.cfg_policy_library.lifecycle      IS 'Ciclo de vida IAM: active, deprecated, draft, proposed.';
+
+
+-- =============================================================================
+-- T-999b — bauth.framework_raw · bauth.cfg_key_translation
+-- Soporte de T-999: carga de fuentes JSON y traducción de claves.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bauth.framework_raw (
+    id          serial PRIMARY KEY,
+    source_name text NOT NULL UNIQUE,
+    content     jsonb NOT NULL,
+    loaded_at   timestamptz DEFAULT now()
+);
+COMMENT ON TABLE bauth.framework_raw IS
+  '[T-999b] JSON fuente para CTE recursivo que descompone en cfg_policy_library. 16 fuentes normativas.';
+
+CREATE TABLE IF NOT EXISTS bauth.cfg_key_translation (
+    key_en  text PRIMARY KEY,
+    key_es  text NOT NULL
+);
+COMMENT ON TABLE bauth.cfg_key_translation IS
+  '[T-999c] Mapeo ~221 claves JSON inglés→español para content_es en cfg_policy_library.';
+
+-- Función: descompone nodos JSONB (objetos→jsonb_each, arrays→jsonb_array_elements)
+CREATE OR REPLACE FUNCTION bauth.jsonb_explode(node jsonb)
+RETURNS TABLE(child_key text, child_value jsonb, child_ordinality bigint)
+LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE AS $$
+BEGIN
+    IF jsonb_typeof(node) = 'object' THEN
+        RETURN QUERY SELECT k, v, 0::bigint FROM jsonb_each(node) AS e(k, v);
+    ELSIF jsonb_typeof(node) = 'array' THEN
+        RETURN QUERY SELECT '[' || o::text || ']', v, o
+                     FROM jsonb_array_elements(node) WITH ORDINALITY AS e(v, o);
+    END IF;
+END;
+$$;
+COMMENT ON FUNCTION bauth.jsonb_explode(jsonb) IS 'Descompone nodo JSONB en filas (key, value, ordinality).';
+
+-- Función: traduce claves JSON recursivamente inglés→español usando cfg_key_translation
+CREATE OR REPLACE FUNCTION bauth.translate_keys_en_es(node jsonb)
+RETURNS jsonb LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE AS $$
+DECLARE
+    result jsonb := '{}';
+    child_record record;
+    translated_key text;
+    child_value jsonb;
+    translated_parts text[];
+    part text;
+BEGIN
+    IF jsonb_typeof(node) = 'object' THEN
+        FOR child_record IN SELECT * FROM jsonb_each(node) LOOP
+            SELECT kt.key_es INTO translated_key FROM bauth.cfg_key_translation kt WHERE kt.key_en = child_record.key;
+            IF translated_key IS NULL THEN
+                translated_parts := '{}';
+                FOR part IN SELECT w[1] FROM regexp_matches(child_record.key, '([A-Z][a-z]+|[a-z]+)', 'g') AS w LOOP
+                    SELECT COALESCE(kt2.key_es, lower(part)) INTO part FROM (SELECT 1) AS d
+                    LEFT JOIN bauth.cfg_key_translation kt2 ON kt2.key_en = lower(part);
+                    translated_parts := array_append(translated_parts, part);
+                END LOOP;
+                IF array_length(translated_parts, 1) > 1 THEN
+                    translated_key := array_to_string(translated_parts, '');
+                END IF;
+            END IF;
+            IF translated_key IS NULL THEN
+                translated_parts := '{}';
+                FOR part IN SELECT w FROM regexp_split_to_table(child_record.key, '_') AS w LOOP
+                    SELECT COALESCE(kt3.key_es, part) INTO part FROM (SELECT 1) AS d
+                    LEFT JOIN bauth.cfg_key_translation kt3 ON kt3.key_en = part;
+                    translated_parts := array_append(translated_parts, part);
+                END LOOP;
+                IF array_length(translated_parts, 1) > 1 THEN translated_key := array_to_string(translated_parts, '_'); END IF;
+            END IF;
+            IF translated_key IS NULL THEN translated_key := child_record.key; END IF;
+            child_value := bauth.translate_keys_en_es(child_record.value);
+            result := result || jsonb_build_object(translated_key, child_value);
+        END LOOP;
+        RETURN result;
+    ELSIF jsonb_typeof(node) = 'array' THEN
+        result := '[]';
+        FOR child_record IN SELECT * FROM jsonb_array_elements(node) WITH ORDINALITY AS elem(value, idx) ORDER BY idx LOOP
+            child_value := bauth.translate_keys_en_es(child_record.value);
+            result := result || jsonb_build_array(child_value);
+        END LOOP;
+        RETURN result;
+    ELSE
+        RETURN node;
+    END IF;
+END;
+$$;
+COMMENT ON FUNCTION bauth.translate_keys_en_es(jsonb) IS 'Recorre JSONB recursivamente y traduce claves usando bauth.cfg_key_translation.';
+
+
+-- =============================================================================
+-- T-364 — bauth.idn_credencial_revocacion (D09-B05)
+-- Catálogo persistente de credenciales revocadas. Failsafe ante reinicio de Redis.
+-- NIST SP 800-63B-4 §5.2.6 · PCI DSS 4.0 Req 8.2.8 · ISO 27001:2022 A.5.17
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bauth.idn_credencial_revocacion (
+    revocacion_id   UUID PRIMARY KEY DEFAULT uuidv7(),
+    credential_id   UUID NOT NULL REFERENCES bauth.auth_credential(credential_id),
+    tenant_id       UUID NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
+    motivo          TEXT NOT NULL,
+    revocado_por    UUID REFERENCES bauth.idn_identity_entity(entity_id),
+    revocado_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    caep_event_id   UUID REFERENCES bauth.ses_caep_event_log(id),
+    jti_invalidados UUID[] NOT NULL DEFAULT '{}',
+    ctx_id          TEXT NOT NULL DEFAULT 'system',
+    CONSTRAINT chk_idcr_motivo CHECK (motivo IN (
+        'COMPROMISED','LOST_DEVICE','USER_REQUEST','ADMIN_REVOKE','EXPIRED','ROTATION'))
+);
+CREATE INDEX IF NOT EXISTS idx_idcr_credential ON bauth.idn_credencial_revocacion(credential_id, revocado_at DESC);
+CREATE INDEX IF NOT EXISTS idx_idcr_tenant    ON bauth.idn_credencial_revocacion(tenant_id, revocado_at DESC);
+COMMENT ON TABLE bauth.idn_credencial_revocacion IS
+  '[T-364] [D09-B05] [NIST SP 800-63B-4 §5.2.6] [PCI DSS 4.0 Req 8.2.8] [ISO 27001:2022 A.5.17]
+   Catálogo persistente de credenciales revocadas. Kong PEP consulta Redis O(1); esta tabla es el failsafe.
+   jti_invalidados: lista de JWT IDs invalidados. caep_event_id: trazabilidad CAEP.';
+
+
+-- =============================================================================
+-- T-368 — bauth.idn_credencial_introspeccion (D09-B09)
+-- Log de introspecciones de token. RFC 7662 §2. Auditoría forense.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bauth.idn_credencial_introspeccion (
+    introspection_id UUID PRIMARY KEY DEFAULT uuidv7(),
+    token_jti        TEXT NOT NULL,
+    credential_id    UUID REFERENCES bauth.auth_credential(credential_id),
+    tenant_id        UUID NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
+    client_id        UUID REFERENCES bauth.fed_client(client_id),
+    scope_solicitado TEXT[],
+    resultado        JSONB NOT NULL,
+    consulta_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    ip_origen        INET,
+    ctx_id           TEXT NOT NULL DEFAULT 'system'
+);
+CREATE INDEX IF NOT EXISTS idx_idci_token ON bauth.idn_credencial_introspeccion(token_jti, consulta_at DESC);
+CREATE INDEX IF NOT EXISTS idx_idci_tenant ON bauth.idn_credencial_introspeccion(tenant_id, consulta_at DESC);
+COMMENT ON TABLE bauth.idn_credencial_introspeccion IS
+  '[T-368] [D09-B09] [RFC 7662 §2] [NIST SP 800-63B-4 §7]
+   Log de introspecciones de token. Una fila por consulta de resource server.';
+
+
+-- =============================================================================
+-- T-460 — bauth.pam_cuenta_privilegiada (D14-B01)
+-- Inventario maestro de cuentas privilegiadas. CIS Controls v8 §5.1.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bauth.pam_cuenta_privilegiada (
+    cuenta_id   UUID PRIMARY KEY DEFAULT uuidv7(),
+    tenant_id   UUID NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
+    tipo        TEXT NOT NULL,
+    nombre      TEXT NOT NULL,
+    sistema     TEXT NOT NULL,
+    owner_id    UUID REFERENCES bauth.idn_identity_entity(entity_id),
+    criticidad  TEXT NOT NULL DEFAULT 'MEDIUM',
+    ultima_rotacion TIMESTAMPTZ,
+    estado      TEXT NOT NULL DEFAULT 'ACTIVE',
+    ctx_id      TEXT NOT NULL DEFAULT 'system',
+    UNIQUE (tenant_id, nombre, sistema),
+    CONSTRAINT chk_pcp_tipo CHECK (tipo IN (
+        'LOCAL_ADMIN','DOMAIN_ADMIN','SERVICE_ACCOUNT','SHARED','ROOT',
+        'API_KEY','CERTIFICATE','SSH_KEY','DATABASE_DBA','CLOUD_ADMIN')),
+    CONSTRAINT chk_pcp_criticidad CHECK (criticidad IN ('LOW','MEDIUM','HIGH','CRITICAL')),
+    CONSTRAINT chk_pcp_estado CHECK (estado IN ('ACTIVE','INACTIVE','DECOMMISSIONED'))
+);
+COMMENT ON TABLE bauth.pam_cuenta_privilegiada IS
+  '[T-460] [D14-B01] [NIST SP 800-53 R5 AC-2(7)] [CIS Controls v8 §5.1]
+   Inventario maestro de cuentas privilegiadas del tenant. Catálogo de referencia.';
+
+
+-- =============================================================================
+-- T-189 addendum — columnas de rotación NHI (D15-B05)
+-- last_rotated_at + next_rotation_at + rotation_count ya existen en DDL y VPS.
+-- =============================================================================
+ALTER TABLE bauth.pam_nhi_secret_ref
+    ADD COLUMN IF NOT EXISTS rotation_attempts INTEGER NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS last_rotation_status TEXT;
+COMMENT ON COLUMN bauth.pam_nhi_secret_ref.rotation_attempts IS '[D15-B05] Contador de intentos de rotación — éxito y fallo.';
+COMMENT ON COLUMN bauth.pam_nhi_secret_ref.last_rotation_status IS '[D15-B05] SUCCESS/FAILED/SKIPPED — resultado del último intento.';
+
+
+-- =============================================================================
+-- mv_audit_dashboard — Dashboard de Monitoreo Unificado (D11-B04)
+-- VIEW materializada. Refresh cada 5 min.
+-- =============================================================================
+CREATE MATERIALIZED VIEW IF NOT EXISTS bauth.mv_audit_dashboard AS
+SELECT 'active_sessions' as metric, count(*) as cnt, count(DISTINCT user_id) as users
+FROM bauth.ses_session_log WHERE terminated_at IS NULL
+UNION ALL
+SELECT 'caep_events_24h', count(*), count(DISTINCT subject_id)
+FROM bauth.ses_caep_event_log WHERE received_at > now() - INTERVAL '24 hours'
+UNION ALL
+SELECT 'context_switches_24h', count(*), count(DISTINCT user_id)
+FROM bos.ctx_context_switch_log WHERE switched_at > now() - INTERVAL '24 hours'
+UNION ALL
+SELECT 'emergency_active', count(*), 0
+FROM bos.ctx_context_emergency WHERE state = 'ACTIVATED'
+UNION ALL
+SELECT 'revocations_24h', count(*), count(DISTINCT credential_id)
+FROM bauth.idn_credencial_revocacion WHERE revocado_at > now() - INTERVAL '24 hours';
+COMMENT ON MATERIALIZED VIEW bauth.mv_audit_dashboard IS
+  '[D11-B04] Dashboard unificado de monitoreo. 5 métricas: sesiones activas, CAEP 24h, switches 24h, emergencias activas, revocaciones 24h. Refresh: 5 min.';
 

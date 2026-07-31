@@ -1,7 +1,7 @@
 # SBOS_db_V2_DDL_MANUAL.md
 ## Manual Operativo de la Base de Datos — SBOS Identity Platform V2
 
-**Versión:** 2.11.0 · **Fecha:** 2026-07-31  
+**Versión:** 2.12.0 · **Fecha:** 2026-07-31  
 **Base de datos:** `SBOS_db` · **PostgreSQL:** 18.4 · **UUIDv7:** RFC 9562  
 **Estándar de documentación:** ISO/IEC 11179 · DAMA DMBOK v2 · ISO 24760-2:2025  
 **Sincronizado con:** `SBOS_db_V2_DDL.sql` (NIVEL 0..19) — nombres canónicos del DDL
@@ -2677,7 +2677,8 @@ bos.wdg_watchdog_event (T-411) 🔒  ← Watchdog 3 capas: host|k8s|fichas
 | v2.13.0 | 2026-07-31 | T-408: columna `algorithm TEXT DEFAULT 'A'` (antes almacenado en `notes` como hack). T-413: `days_remaining` eliminado como `GENERATED ALWAYS AS` — `NOW()` no es IMMUTABLE; se calcula en query. T-413: añadidos `serial_number`, `issued_at`, `last_renewed_at`, `revocation_reason`; `kong_tls` agregado a cert_type CHECK. Todos los documentos (A.15, 3.08, A.65.02) sincronizados. VPS SBOSDB aplicado. |
 | v2.12.0 | 2026-07-31 | T-408 `prt_port_assignment`: corrección CHECK `port_type` — valores alineados con código Go (`HOST_PHYSICAL\|HOST_LOGICAL\|K8S_NODE_PORT\|K8S_CLUSTER_IP\|K8S_LOAD_BALANCER`). T-413 `net_cert_inventory`: Kardex de certificados TLS (ISO 27001 A.8.24). T-414 `net_security_events`: log de eventos de seguridad de red (ISO 27001 A.8.21), particionado mensual por `event_time`, 27 event_types, src_ip tipo INET. Total schema `bos`: 20 tablas · 8 WORM · 8 grupos. |
 | v2.11.0 | 2026-07-31 | S20 BOS Control Plane (`bos`): T-403..T-412. 10 tablas nuevas (4 WORM) — FCH 18-state machine, INS bootstrap/sagas, CAP snapshots/policies, PRT port kardex, REL release plane, WDG watchdog 3 capas. Total schema `bos`: 18 tablas · 8 WORM · 7 grupos. |
-| v2.11.0 | 2026-07-31 | T-999 `cfg_policy_library`: biblioteca de referencia de políticas, reglas y átomos. SOLO LECTURA. 16 fuentes, 13 dominios, 29 columnas de clasificación. REVOKE UPDATE/DELETE. |
+| v2.12.0 | 2026-07-31 | Cierre de gaps D09/D11/D14/D15: T-364 `idn_credencial_revocacion`, T-368 `idn_credencial_introspeccion`, T-460 `pam_cuenta_privilegiada`, columnas rotación NHI en T-189, VIEW `mv_audit_dashboard`. 3 tablas + 1 VIEW. |
+| v2.11.0 | 2026-07-31 | T-999 `cfg_policy_library`: biblioteca de referencia. 16 fuentes, 13 dominios, 29 columnas. REVOKE UPDATE/DELETE. |
 | v2.10.0 | 2026-07-30 | S19 Context Plane (`bos`): T-395..402. 8 tablas (4 WORM hash-chain) — Policy Administrator NIST SP 800-207. Schema `bos` autónomo en `bos_01__control_plane.sql`. Cierra GAP D08-B04. |
 | v2.9.0 | 2026-07-30 | T-384..386 (catálogos MethodRegistry: protocolos, sagas, compliance) + S18 Dispositivos T-390..392 (ZTA/MDM/FIDO2/OSDP). 6 tablas + 34 seeds. |
 | v2.8.0 | 2026-07-30 | S13..S17 + D12 implementados: +T-320..322 (Usuarios NIST 800-63-4), +T-330..338 (Autenticación MethodRegistry FIDO2/X.509/DPoP), +T-350..357 (Firma Digital D13 Ley 164), +T-358..362 (Blockchain Merkle/Besu/Arbitrum), +T-365..367 (Federación OIDC DPoP FAPI2), +T-380..383 (Billetera Digital EUDI OID4VP). 32 nuevas tablas. 106 tablas base + 17 particiones hijas = 123 CREATE TABLE. |

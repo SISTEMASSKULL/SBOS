@@ -415,3 +415,11 @@ Solo sobreviven:
 ---
 
 **Total tablas:** 155 (151 originales + 4 MVU) · **Secciones:** VERSIONADO eliminada — T-152/153/154/155 integradas en ROLES · **Nuevas `[N]`:** 13 (incluye T-162) · **Particiones:** 6 · **Revisión especial `[?]`:** 5
+
+---
+
+## BIBLIOTECA DE REFERENCIA
+
+| Código | Tabla | Tipo | Descripción | Recomendación | Razón | Decisión | Observación |
+|--------|-------|------|-------------|---------------|-------|----------|-------------|
+| T-999 | `bauth.cfg_policy_library` | `[N]` | Biblioteca unificada de políticas, reglas, configuraciones y métodos de autenticación. SOLO LECTURA. 16 fuentes normativas, 13 dominios D1-D12+SEC, 29 columnas de clasificación. REVOKE UPDATE/DELETE | **CONSERVAR** | Catálogo de referencia — el dashboard, PDP y compiladores AtomLang consultan esta tabla. No participa en BitMask ni autenticación. | CONSERVAR | Poblada desde `framework_raw` vía CTE recursivo |

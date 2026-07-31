@@ -1,0 +1,16 @@
+-- bauth_T187__idn_scim_attribute_map.sql — Seed generado de VPS SBOSDB
+-- Filas: 10 · Idempotente: ON CONFLICT DO NOTHING
+SET lock_timeout = '5s';
+
+INSERT INTO bauth.idn_scim_attribute_map VALUES ('019faa10-bef3-79c8-b7be-7786ded6108d', NULL, 'User', 'userName', 'identity', 'username', 'idn_identidad_atributo', 'immutable', 'always', NULL, true, 'system', '2026-07-28 18:50:52.018331+00', '2026-07-28 18:50:52.018331+00') ON CONFLICT DO NOTHING;
+INSERT INTO bauth.idn_scim_attribute_map VALUES ('019faa10-bef6-79f2-88a5-bfce3c11bfb4', NULL, 'User', 'displayName', 'identity', 'display_name', 'idn_identidad_atributo', 'readWrite', 'default', NULL, true, 'system', '2026-07-28 18:50:52.018331+00', '2026-07-28 18:50:52.018331+00') ON CONFLICT DO NOTHING;
+INSERT INTO bauth.idn_scim_attribute_map VALUES ('019faa10-bef6-7afa-8954-4fbe38b1963c', NULL, 'User', 'name.givenName', 'identity', 'first_name', 'idn_identidad_atributo', 'readWrite', 'default', NULL, true, 'system', '2026-07-28 18:50:52.018331+00', '2026-07-28 18:50:52.018331+00') ON CONFLICT DO NOTHING;
+INSERT INTO bauth.idn_scim_attribute_map VALUES ('019faa10-bef6-7b44-9b1a-2645d03b5d41', NULL, 'User', 'name.familyName', 'identity', 'last_name', 'idn_identidad_atributo', 'readWrite', 'default', NULL, true, 'system', '2026-07-28 18:50:52.018331+00', '2026-07-28 18:50:52.018331+00') ON CONFLICT DO NOTHING;
+INSERT INTO bauth.idn_scim_attribute_map VALUES ('019faa10-bef6-7b72-818f-8e770ec1ea45', NULL, 'User', 'emails[type=work].value', 'contact', 'email_work', 'idn_identidad_atributo', 'readWrite', 'default', NULL, true, 'system', '2026-07-28 18:50:52.018331+00', '2026-07-28 18:50:52.018331+00') ON CONFLICT DO NOTHING;
+INSERT INTO bauth.idn_scim_attribute_map VALUES ('019faa10-bef6-7b90-b13e-176748baa68c', NULL, 'User', 'phoneNumbers[type=work].value', 'contact', 'phone_work', 'idn_identidad_atributo', 'readWrite', 'request', NULL, true, 'system', '2026-07-28 18:50:52.018331+00', '2026-07-28 18:50:52.018331+00') ON CONFLICT DO NOTHING;
+INSERT INTO bauth.idn_scim_attribute_map VALUES ('019faa10-bef6-7bae-885a-80da57ed3df4', NULL, 'User', 'active', 'identity', 'account_active', 'idn_identidad_entidad', 'readWrite', 'always', NULL, true, 'system', '2026-07-28 18:50:52.018331+00', '2026-07-28 18:50:52.018331+00') ON CONFLICT DO NOTHING;
+INSERT INTO bauth.idn_scim_attribute_map VALUES ('019faa10-bef6-7bcd-be2a-1373eaf3595e', NULL, 'User', 'externalId', 'identity', 'external_id', 'idn_identidad_atributo', 'readWrite', 'default', NULL, true, 'system', '2026-07-28 18:50:52.018331+00', '2026-07-28 18:50:52.018331+00') ON CONFLICT DO NOTHING;
+INSERT INTO bauth.idn_scim_attribute_map VALUES ('019faa10-bef6-7be6-af55-a562a12ae65c', NULL, 'EnterpriseUser', 'organization', 'organization', 'org_name', 'idn_identidad_atributo', 'readWrite', 'default', NULL, true, 'system', '2026-07-28 18:50:52.018331+00', '2026-07-28 18:50:52.018331+00') ON CONFLICT DO NOTHING;
+INSERT INTO bauth.idn_scim_attribute_map VALUES ('019faa10-bef6-7c01-b69e-875f23a5c1cc', NULL, 'EnterpriseUser', 'employeeNumber', 'hr', 'employee_number', 'idn_identidad_atributo', 'readWrite', 'default', NULL, true, 'system', '2026-07-28 18:50:52.018331+00', '2026-07-28 18:50:52.018331+00') ON CONFLICT DO NOTHING;
+
+SELECT 'T187__idn_scim_attribute_map: ' || 10 || ' filas' AS resultado;

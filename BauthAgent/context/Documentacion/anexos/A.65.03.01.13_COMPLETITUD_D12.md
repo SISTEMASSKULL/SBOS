@@ -1,29 +1,28 @@
 # A.65.03.01.13 — Informe de Completitud: D12 Anclaje Blockchain
 
-**Versión:** 1.0.0 · **Fecha:** 2026-07-28
+**Versión:** 1.1.0 · **Fecha:** 2026-07-31
 **Tipo:** Informe de completitud de dominio
 **SSOT bloques:** `bauth.idn_roles_template` — VPS SBOSDB (path `skull.D12.*`)
-**Estado de D12:** ❌ SIN IMPLEMENTAR — 0/7 bloques con tablas propias · 6 tablas propuestas (T-420..T-425)
+**Estado de D12:** ⚠️ PARCIAL — 3/7 bloques satisfechos · 5 tablas VPS (`blk_*`) + `idn_did_document` (D00)
 
-> **Contexto:** bAuth usa Hyperledger Besu (QBFT) para anclaje de hashes de identidad. El nodo Besu vive en la infraestructura K8s del tenant; bAuth solo registra los metadatos del anclaje en SBOSDB y el wallet de firma ECDSA.
-> **T-code range:** T-420..T-439 (prefijo `idn_blockchain_*`)
+> **Actualización v1.1.0:** D12 tiene 5 tablas `blk_*` implementadas en VPS (T-358..T-362): blk_anchor, blk_merkle_batch, blk_merkle_leaf, blk_account, blk_reconciliation. Cubren anchoring (B01), merkle (B04) y parcialmente transactions (B02). Estado corregido: SIN IMPLEMENTAR→PARCIAL.
 
 ---
 
 ## 1. Estado global de D12
 
 **Dominio:** Anclaje Blockchain (Hyperledger Besu QBFT · EIP-712 · W3C DID · Merkle)
-**Total bloques:** 7 | **Tablas propias:** 0 | **Átomos:** 0
+**Total bloques:** 7 | **Tablas VPS:** 6 (5 blk_* + 1 idn_did_document) | **Átomos:** 0
 
-| Bloque | Slug | Nombre | Estado | T-code propuesto |
-|--------|------|--------|--------|-----------------|
-| B01 | `anchoring` | Anclaje Hash Merkle | ❌ FALTANTE | T-420 |
-| B02 | `transactions` | Transacciones Besu | ❌ FALTANTE | T-421 |
-| B03 | `wallet` | Gestión de Cartera Blockchain | ❌ FALTANTE | T-422 |
-| B04 | `merkle` | Pruebas de Inclusión Merkle | ❌ FALTANTE | T-423 |
-| B05 | `did` | Identidades Descentralizadas (DID) | ⚠️ PARCIAL | `idn_did_document` (T-169, D00) |
-| B06 | `consensus` | Consenso QBFT | ❌ FALTANTE | T-424 |
-| B07 | `business_zone` | Registro de Zona de Negocio (Blockchain) | árbol ✅ | — |
+| Bloque | Slug | Nombre | Estado | Tablas que lo satisfacen |
+|--------|------|--------|--------|--------------------------|
+| B01 | `anchoring` | Anclaje Hash Merkle | ✅ SATISFECHO | `blk_anchor` (T-358) — registro de anclajes on-chain |
+| B02 | `transactions` | Transacciones Besu | ⚠️ PARCIAL | `blk_account` (T-361) + `blk_reconciliation` (T-362) — falta log de tx individuales |
+| B03 | `wallet` | Gestión de Cartera Blockchain | ❌ FALTANTE | Sin tabla dedicada — la wallet Besu es externa |
+| B04 | `merkle` | Pruebas de Inclusión Merkle | ✅ SATISFECHO | `blk_merkle_batch` (T-359) + `blk_merkle_leaf` (T-360) — árbol Merkle Keccak-256 |
+| B05 | `did` | Identidades Descentralizadas (DID) | ⚠️ PARCIAL | `idn_did_document` (T-169, D00) — DID resolver cache. Falta DID CRUD operations. |
+| B06 | `consensus` | Consenso QBFT | ❌ FALTANTE | Sin tabla dedicada — el consenso es del nodo Besu, no de bAuth |
+| B07 | `business_zone` | Registro de Zona de Negocio (Blockchain) | árbol ✅ | `idn_roles_template` (T-162) |
 
 ---
 
@@ -217,4 +216,5 @@ COMMENT ON TABLE bauth.idn_blockchain_nodo IS
 
 | Versión | Fecha | Descripción |
 |---------|-------|-------------|
+| 1.1.0 | 2026-07-31 | 5 tablas blk_* verificadas en VPS (T-358..T-362). B01 (anchoring) + B04 (merkle) satisfechos. Estado corregido: SIN IMPLEMENTAR→PARCIAL (3/7). |
 | 1.0.0 | 2026-07-28 | Versión inicial. 1/7 bloques parcial (B05 via T-169). DDL propuesto T-420..T-424. 5 gaps. Madurez D12: L0-L1. |

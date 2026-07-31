@@ -1,32 +1,31 @@
 # A.65.03.01.10 — Informe de Completitud: D09 Gestión de Credenciales
 
-**Versión:** 1.0.0 · **Fecha:** 2026-07-28
+**Versión:** 1.2.0 · **Fecha:** 2026-07-31
 **Tipo:** Informe de completitud de dominio
 **SSOT bloques:** `bauth.idn_roles_template` — VPS SBOSDB (path `skull.D09.*`)
-**Estado de D09:** ❌ SIN IMPLEMENTAR — 0/10 bloques con tablas propias en S11 · 9 tablas propuestas (T-360..T-368)
+**Estado de D09:** ⚠️ PARCIAL — 7/10 bloques satisfechos · B05 (T-364) + B09 (T-368) implementados · 3 bloques pendientes (B01, B04, B06)
 
-> **Nota:** Las políticas de credenciales (password, MFA) ya existen en `idn_identity_requirement` (D00/T-159). D09 añade: el motor de gestión de ciclo de vida, revocación en < 30s y certificados X.509.
-> **T-code range:** T-360..T-379 (prefijo `idn_credencial_*`)
+> **Actualización v1.2.0:** T-364 `idn_credencial_revocacion` (B05) y T-368 `idn_credencial_introspeccion` (B09) implementados en VPS. 25 tablas auth_* totales.
 
 ---
 
 ## 1. Estado global de D09
 
 **Dominio:** Gestión de Credenciales (18 métodos de autenticación · revocación < 30s · X.509 · FIDO2)
-**Total bloques:** 10 | **Tablas propias:** 0 directas | **Átomos:** 0
+**Total bloques:** 10 | **Tablas VPS:** 23 (S14 + S18 + catálogos) | **Átomos:** 0
 
-| Bloque | Slug | Nombre | Estado | T-code propuesto |
-|--------|------|--------|--------|-----------------|
-| B01 | `password` | Política de Contraseña | ⚠️ PARCIAL | idn_identity_requirement (D00) + T-360 |
-| B02 | `mfa` | Autenticación Multi-Factor | ❌ FALTANTE | T-361 |
-| B03 | `certificates` | Certificados X.509 | ❌ FALTANTE | T-362 |
-| B04 | `tokens` | Tokens de Acceso | ❌ FALTANTE | T-363 |
-| B05 | `revocation` | Revocación de Credencial | ❌ FALTANTE | T-364 |
-| B06 | `recovery` | Recuperación de Cuenta | ❌ FALTANTE | T-365 |
-| B07 | `binding` | Vinculación de Autenticador | ❌ FALTANTE | T-366 |
-| B08 | `passkey` | Claves de Acceso FIDO2 | ❌ FALTANTE | T-367 |
-| B09 | `introspection` | Introspección de Token | ❌ FALTANTE | T-368 |
-| B10 | `business_zone` | Registro de Zona de Negocio | árbol ✅ | — |
+| Bloque | Slug | Nombre | Estado | Tablas que lo satisfacen |
+|--------|------|--------|--------|--------------------------|
+| B01 | `password` | Política de Contraseña | ⚠️ PARCIAL | `idn_identity_requirement` (T-159, D00) + `auth_credential_secret` (T-331, Argon2id) |
+| B02 | `mfa` | Autenticación Multi-Factor | ✅ SATISFECHO | `auth_credential` (T-330) + `auth_credential_secret` (T-331, TOTP/HOTP) + `auth_credential_fido2` (T-332) |
+| B03 | `certificates` | Certificados X.509 | ✅ SATISFECHO | `auth_credential_x509` (T-333) — Vault PKI + ADSIB + Enterprise PKI |
+| B04 | `tokens` | Tokens de Acceso | ⚠️ PARCIAL | `fed_token_issued` (T-367, S16) — falta gestión de ciclo de vida |
+| B05 | `revocation` | Revocación de Credencial | ✅ SATISFECHO | `idn_credencial_revocacion` (T-364) — catálogo persistente + `ses_caep_event_log` (T-191) |
+| B06 | `recovery` | Recuperación de Cuenta | ⚠️ PARCIAL | `idn_user_recovery` (T-322, S13) — métodos de recuperación |
+| B07 | `binding` | Vinculación de Autenticador | ✅ SATISFECHO | `auth_device_credential_binding` (T-392, WORM) + `auth_credential` (T-330) |
+| B08 | `passkey` | Claves de Acceso FIDO2 | ✅ SATISFECHO | `auth_credential_fido2` (T-332) — WebAuthn L3 + discoverable credentials |
+| B09 | `introspection` | Introspección de Token | ✅ SATISFECHO | `idn_credencial_introspeccion` (T-368) — log RFC 7662 |
+| B10 | `business_zone` | Registro de Zona de Negocio | árbol ✅ | `idn_roles_template` (T-162) |
 
 ---
 
@@ -309,4 +308,5 @@ La introspección se implementa en el motor de bAuth (Rust) consultando `idn_cre
 
 | Versión | Fecha | Descripción |
 |---------|-------|-------------|
+| 1.1.0 | 2026-07-31 | S14+S18 implementan 23 tablas auth_* en VPS. 5/10 bloques satisfechos (mfa, certificates, binding, passkey + B10 árbol). Estado corregido: SIN IMPLEMENTAR→PARCIAL. |
 | 1.0.0 | 2026-07-28 | Versión inicial. 0/10 bloques con tablas propias (B10 en árbol). DDL propuesto T-360..T-367. 6 gaps IAM Enterprise P1/P2. Madurez D09: L0-L2. |

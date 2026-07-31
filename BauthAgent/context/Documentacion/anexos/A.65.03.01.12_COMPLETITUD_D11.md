@@ -1,28 +1,28 @@
 # A.65.03.01.12 — Informe de Completitud: D11 Auditoría y Cumplimiento
 
-**Versión:** 1.0.0 · **Fecha:** 2026-07-28
+**Versión:** 1.2.0 · **Fecha:** 2026-07-31
 **Tipo:** Informe de completitud de dominio
 **SSOT bloques:** `bauth.idn_roles_template` — VPS SBOSDB (path `skull.D11.*`)
-**Estado de D11:** ⚠️ PARCIAL — 3/7 bloques satisfechos · 4 tablas adicionales propuestas (T-400..T-403)
+**Estado de D11:** ✅ COMPLETO — 7/7 bloques satisfechos · B02 (job retención) + B04 (mv_audit_dashboard) cerrados
 
-> **T-code range:** T-400..T-419 (prefijo nuevas tablas `idn_auditoria_*`)
+> **Actualización v1.2.0:** D11 alcanza 100% de cobertura. B02: job SQL mensual de purga. B04: VIEW materializada `mv_audit_dashboard`. 7/7 bloques con tablas/VIEWs/jobs.
 
 ---
 
 ## 1. Estado global de D11
 
 **Dominio:** Auditoría y Cumplimiento (ISO 27001 A.8.15 · SOX §802 · GDPR Art. 5(e) · Wazuh SIEM)
-**Total bloques:** 7 | **Tablas propias:** 2 implementadas | **Átomos:** 0
+**Total bloques:** 7 | **Tablas VPS:** 10 (4 ses_* + 2 aud_* + 3 bos ctx_* + 1 privilege_atom_audit) | **Átomos:** 0
 
 | Bloque | Slug | Nombre | Estado | Tablas que lo satisfacen |
 |--------|------|--------|--------|--------------------------|
-| B01 | `events` | Captura de Eventos | ⚠️ PARCIAL | `privilege_atom_audit` (WORM D01) · falta tabla unificada |
-| B02 | `retention` | Política de Retención | ❌ FALTANTE | — T-400 propuesto |
-| B03 | `integrity` | Integridad de Cadena Hash | ✅ SATISFECHO | `privilege_atom_audit` hash-chain SHA-256 |
-| B04 | `monitoring` | Monitoreo Activo | ❌ FALTANTE | — T-401 propuesto |
-| B05 | `export` | Exportación al SIEM | ❌ FALTANTE | — T-402 propuesto |
-| B06 | `review` | Revisión Periódica de Auditoría | ✅ SATISFECHO | `aud_certification_campaign` + `aud_certification_review` |
-| B07 | `business_zone` | Registro de Zona de Negocio (Auditoría) | árbol ✅ | `idn_roles_template` |
+| B01 | `events` | Captura de Eventos | ✅ SATISFECHO | `privilege_atom_audit` (T-170b, WORM D01) + `ses_session_log` (T-181) + `bos.ctx_context_audit` (T-397, WORM) |
+| B02 | `retention` | Política de Retención | ✅ CERRADO | Job SQL mensual (día 28) — purga tablas WORM según `idn_roles_ver_b01_retention_policy`. Particionado mensual. |
+| B03 | `integrity` | Integridad de Cadena Hash | ✅ SATISFECHO | `privilege_atom_audit` hash-chain SHA-256 + `bos.ctx_context_audit.prev_hash` + `bos.ctx_context_switch_log.prev_hash` |
+| B04 | `monitoring` | Monitoreo Activo | ✅ SATISFECHO | `mv_audit_dashboard` — VIEW materializada con 5 métricas: sesiones, CAEP, switches, emergencias, revocaciones |
+| B05 | `export` | Exportación al SIEM | ✅ SATISFECHO | `ses_ssf_stream` (T-192) + `ses_ssf_delivery_log` (T-193) — SSF delivery a Wazuh/bNotify |
+| B06 | `review` | Revisión Periódica de Auditoría | ✅ SATISFECHO | `aud_certification_campaign` (T-177) + `aud_certification_review` (T-178) |
+| B07 | `business_zone` | Registro de Zona de Negocio (Auditoría) | árbol ✅ | `idn_roles_template` (T-162) |
 
 ---
 
@@ -263,4 +263,5 @@ COMMENT ON TABLE bauth.idn_auditoria_siem_destino IS
 
 | Versión | Fecha | Descripción |
 |---------|-------|-------------|
+| 1.1.0 | 2026-07-31 | Schema bos + SSF elevan D11 de 3/7 a 5/7. B01 (eventos) cubierto por ctx_context_audit. B05 (export SIEM) cubierto por ses_ssf_stream. 10 tablas VPS. |
 | 1.0.0 | 2026-07-28 | Versión inicial. 3/7 bloques satisfechos (B03, B06, B07). DDL propuesto T-400..T-403. 5 gaps IAM Enterprise. |

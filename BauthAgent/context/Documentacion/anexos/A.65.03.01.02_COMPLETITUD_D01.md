@@ -1,12 +1,12 @@
 # A.65.03.01.02 — Informe de Completitud: D01 Control de Acceso Lógico
 
-**Versión:** 1.8.0 · **Fecha:** 2026-07-30
+**Versión:** 1.9.0 · **Fecha:** 2026-07-31
 **Tipo:** Informe de completitud de dominio
 **SSOT bloques:** `bauth.idn_roles_template` — VPS SBOSDB (path `skull.D01.*`)
-**SSOT DDL:** `SBOS_db_V2_DDL.sql` v2.0.0 + `SBOS_db_V2_DDL_MANUAL.md` v2.7.0
-**Estado de D01:** ⚠️ PARCIAL — 7/9 bloques satisfechos · **5/5 gaps IAM Enterprise cerrados** ✅ · Catálogo de átomos completo ✅ · Implementación ⏸ vía árbol roles template
+**SSOT DDL:** `SBOS_db_V2_DDL.sql` v2.11.0 + `SBOS_db_V2_DDL_MANUAL.md` v2.11.0
+**Estado de D01:** ⚠️ PARCIAL — 7/9 bloques con pre-condiciones DDL satisfechas · B04+B05: DDL COMPLETO, átomos SUSPENDIDOS (frontend AtomLang) · 5/5 gaps IAM Enterprise cerrados ✅
 
-> **Metodología:** ver A.65.03.01.01 §1. Criterios C1–C7 aplicados a cada bloque.
+> **Actualización v1.9.0:** B04 (fields) y B05 (contracts) tienen todas las pre-condiciones DDL satisfechas (tablas, FKs, triggers). Los átomos depth=3+ se crearán vía constructor AtomLang (dashboard Flutter + `atomc`) al momento de la puesta en marcha — NO por SQL manual. Ver INFORME-GAPS-BAUTH-v1.0.md GA01 y GA02.
 > **T-code range:** T-200..T-219 (prefijo `idn_acceso_*`)
 
 ---
@@ -27,8 +27,8 @@ Ver A.65.03.01.01 §1 — metodología, criterios C1–C7 y tabla de estados. No
 | B01 | `authorization` | Evaluación PDP | ✅ SATISFECHO | `privilege_atom_grant` + `privilege_resource_atom` + `privilege_atom_audit` |
 | B02 | `roles` | Gestión Ciclo de Vida de Roles | ✅ SATISFECHO | `idn_roles_rol_hierarchical` + `idn_roles_rol_lifecycle_event` (D00/S4) |
 | B03 | `zones` | Cumplimiento de Zonas de Aplicación | ✅ SATISFECHO | `idn_roles_template` (árbol de políticas — `business_zone` depth=2) |
-| B04 | `fields` | Acceso a Nivel de Campo | ⚠️ PARCIAL | T-500 ✅ VPS · árbol T-162 nodo B04 ✅ · átomos depth=3+ pendientes · T-171 obligations pendientes · **T-200 descartado** |
-| B05 | `contracts` | Contratos de Acceso | ⚠️ PARCIAL | T-201 ✅ VPS · trigger WORM ✅ · FK `privilege_atom_grant.contrato_id` ✅ · átomos B05 pendientes |
+| B04 | `fields` | Acceso a Nivel de Campo | ✅ DDL COMPLETO | T-500 ✅ VPS · T-162 nodo B04 ✅ · T-171 obligations ✅ · átomos depth=3+ ⏸ (frontend AtomLang) |
+| B05 | `contracts` | Contratos de Acceso | ✅ DDL COMPLETO | T-201 ✅ VPS · trigger WORM ✅ · FK `contrato_id` ✅ · átomos depth=3+ ⏸ (frontend AtomLang) |
 | B06 | `session` | Sesión Lógica | ✅ SATISFECHO | `ses_session_log` (D08) + `ctx_id` obligatorio SBOS-049 |
 | B07 | `certification` | Recertificación de Accesos | ✅ SATISFECHO | `aud_certification_campaign` + `aud_certification_review` |
 | B08 | `dynamic_policy` | Política Dinámica ABAC | ⚠️ PARCIAL | `ses_risk_policy` — cubre riesgo adaptativo; falta evaluador ABAC completo |
@@ -952,5 +952,6 @@ D01 está en **L2-L3** para los criterios de autorización central (BitMask, RBA
 | 1.4.0 | 2026-07-30 | GAP-D01-01 CERRADO. Decisión arquitectónica final: campo × verbo = átomo en T-162 únicamente. T-500 NO es mecanismo de control de acceso para B04 (su propósito es schema registry del modelo EAV D00 y se actualiza en sincronía con el árbol, no como entidad independiente). Ejemplos de árbol corregidos: atributos EAV reales (`core.national_id`, `fiscal.nit`) en lugar de columnas inventadas (`salario`, `numero_ci`). Átomos SUSPENDIDOS hasta interfaz AtomLang. §6 reescrito. §14, §15.2, §15.3 actualizados. |
 | 1.5.0 | 2026-07-30 | GAP-D01-02 CERRADO. Principio arquitectónico formalizado: los átomos NO se insertan manualmente — se crean exclusivamente desde el árbol funcional de roles template (interfaz AtomLang/atomc); triggers/procesos propagan los cambios del árbol a las tablas derivadas (T-171, etc.). T-201 ✅ VPS (ya implementada desde v1.2.0). §7.5 veredicto B05 actualizado a CERRADO. §12.2 heading corregido. Checklist §14 y scorecard §15.3 actualizados. Madurez: Field-Access ⏸ L1 · Contratos ⏸ L2. |
 | 1.6.0 | 2026-07-30 | GAP-D01-03 CERRADO. T-203 `idn_acceso_abac_policy` DESCARTADA: viola D-07 (define QUÉ PUEDE HACER → va en árbol T-162). Las condiciones ABAC se expresan en `condition_expr JSONB` del átomo correspondiente, compiladas por AtomLang, evaluadas por el PDP en runtime. Las condiciones temporales (`env.time`, horarios) pertenecen a D04 (Temporal), no a ABAC genérico en D01. T-180 `ses_risk_policy` cubre riesgo adaptativo ortogonal (reacciona a eventos, no define autorización). GAP-D01-04 reformulado: átomos con `condition_expr` para cada bloque D01, pendientes de validación vía árbol. §10 B08 reescrito. §12.3 marcado como DESCARTADO. §13.1, §14, §15 actualizados. Principio central: el árbol de roles template es la única fuente de verdad — muchas tablas propuestas eran duplicación y dispersión de información. |
+| 1.9.0 | 2026-07-31 | B04+B05 DDL completo. Átomos SUSPENDIDOS (frontend AtomLang). Ver INFORME-GAPS GA01/GA02. |
 | 1.8.0 | 2026-07-30 | GAP-D01-05 CERRADO. T-202 `idn_acceso_zona_policy` DESCARTADA: viola D-07 (la intersección de zonas define autorización → árbol). La zona compuesta ya está resuelta nativamente por el AND del BitMask — un recurso en múltiples zonas simplemente requiere átomos de cada zona; el PDP los evalúa como AND implícito. No hay brecha real. §5 B03 actualizado. §15.2 GAP-D01-05 expandido. §15.3 scorecard: 5/5 gaps cerrados. §15.4 veredicto actualizado. **D01 cierra su ciclo IAM Enterprise completo: todos los gaps P1/P2/P3 resueltos arquitecturalmente.** |
 | 1.7.0 | 2026-07-30 | GAP-D01-04 CERRADO arquitectónicamente. Catálogo completo de ~35 átomos D01 especificado en §14.4: 9 bloques × 3-5 verbos con paths canónicos `skull.D01.<bloque>.<verbo>`, `condition_expr` clave por bloque (AAL3 para override, SoD para contracts.approve, sensitivity check para fields.write, AAL3+dual para dynamic_policy.configure). Seed obsoleta `idn_acceso_field_policy` eliminada de §14.5 (T-200 descartada). §14.6 actualizado: Átomos D01 ⏸ catálogo ✅ / implementación vía árbol. Nota B08 aclarada: átomos de `dynamic_policy` controlan QUIÉN puede modificar `condition_expr` (meta-control), no son la política ABAC en sí. Score: 4/5 gaps IAM Enterprise cerrados arquitecturalmente; solo GAP-D01-05 (P3) pendiente. |

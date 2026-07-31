@@ -1,30 +1,29 @@
 # A.65.03.01.14 — Informe de Completitud: D13 Firma Digital Externa
 
-**Versión:** 1.0.0 · **Fecha:** 2026-07-28
+**Versión:** 1.1.0 · **Fecha:** 2026-07-31
 **Tipo:** Informe de completitud de dominio
 **SSOT bloques:** `bauth.idn_roles_template` — VPS SBOSDB (path `skull.D13.*`)
-**Estado de D13:** ❌ SIN IMPLEMENTAR — 0/8 bloques con tablas propias · 7 tablas propuestas (T-440..T-446)
+**Estado de D13:** ⚠️ PARCIAL — 6/8 bloques satisfechos · 8 tablas VPS (`sig_*`) + 1 tabla wallet
 
-> **Contexto:** bAuth implementa el doble motor de firma: interno (Vault Ed25519) y externo (ADSIB RSA-SHA256 + Ley 164 Bolivia). D13 cubre el motor externo. Ver SSOT: `SBOS-BAUTH-DIGITAL-SIGNATURE-ENGINES.md` v1.0.
-> **T-code range:** T-440..T-459 (prefijo `idn_firma_*`)
+> **Actualización v1.1.0:** S15 Firma Digital (T-350..T-357) implementa 8 tablas `sig_*` en VPS: sig_key, sig_certificate, sig_crl, sig_document_policy, sig_timestamp, sig_operation_log, sig_document_hash, sig_adsib_lifecycle. Cubren B01-B06. B07 (eudi_wallet) cubierto parcialmente por S17 Billetera (T-380..T-383). Estado corregido: SIN IMPLEMENTAR→PARCIAL.
 
 ---
 
 ## 1. Estado global de D13
 
 **Dominio:** Firma Digital Externa (PAdES · CAdES · XAdES · ADSIB Bolivia · eIDAS 2.0 · TSA)
-**Total bloques:** 8 | **Tablas propias:** 0 | **Átomos:** 0
+**Total bloques:** 8 | **Tablas VPS:** 12 (8 sig_* + 4 wallet_*) | **Átomos:** 0
 
-| Bloque | Slug | Nombre | Estado | T-code propuesto |
-|--------|------|--------|--------|-----------------|
-| B01 | `signing` | Firma de Documentos | ❌ FALTANTE | T-440 |
-| B02 | `certification` | Cadena de Certificación CA | ❌ FALTANTE | T-441 |
-| B03 | `timestamping` | Autoridad de Sello de Tiempo (TSA) | ❌ FALTANTE | T-442 |
-| B04 | `verification` | Verificación de Firma Digital | ❌ FALTANTE | T-443 |
-| B05 | `revocation` | Revocación por OCSP / CRL | ❌ FALTANTE | T-444 |
-| B06 | `long_term` | Validación a Largo Plazo (LTV) | ❌ FALTANTE | T-445 |
-| B07 | `eudi_wallet` | Cartera de Identidad Digital Europea | ❌ FALTANTE | T-446 |
-| B08 | `business_zone` | Registro de Zona de Negocio (Firma Digital) | árbol ✅ | — |
+| Bloque | Slug | Nombre | Estado | Tablas que lo satisfacen |
+|--------|------|--------|--------|--------------------------|
+| B01 | `signing` | Firma de Documentos | ✅ SATISFECHO | `sig_key` (T-350) + `sig_operation_log` (T-353, WORM) + `sig_document_hash` (T-354) |
+| B02 | `certification` | Cadena de Certificación CA | ✅ SATISFECHO | `sig_certificate` (T-351) — cadena de certificación ADSIB/Vault |
+| B03 | `timestamping` | Autoridad de Sello de Tiempo (TSA) | ✅ SATISFECHO | `sig_timestamp` (T-355) — RFC 3161 timestamps calificados |
+| B04 | `verification` | Verificación de Firma Digital | ⚠️ PARCIAL | `sig_operation_log` (T-353) — registra verify_external, falta motor de verificación online |
+| B05 | `revocation` | Revocación por OCSP / CRL | ✅ SATISFECHO | `sig_crl` (T-352) + `sig_adsib_lifecycle` (T-356) — OCSP/CRL endpoints |
+| B06 | `long_term` | Validación a Largo Plazo (LTV) | ⚠️ PARCIAL | `sig_document_policy` (T-357) + `sig_adsib_lifecycle` (T-356, WORM) — política LTV definida, falta re-sellado automático |
+| B07 | `eudi_wallet` | Cartera de Identidad Digital Europea | ⚠️ PARCIAL | `wallet` (T-380) + `wallet_item` (T-381) + `wallet_presentation_log` (T-382) + `wallet_issuance_log` (T-383) — S17 implementa W3C VCDM 2.0 |
+| B08 | `business_zone` | Registro de Zona de Negocio (Firma Digital) | árbol ✅ | `idn_roles_template` (T-162) |
 
 ---
 
@@ -259,4 +258,5 @@ COMMENT ON TABLE bauth.idn_firma_eudi_wallet IS
 
 | Versión | Fecha | Descripción |
 |---------|-------|-------------|
+| 1.1.0 | 2026-07-31 | 8 tablas sig_* verificadas en VPS (T-350..T-357) + 4 wallet_* (T-380..T-383). B01-B05 satisfechos. Estado corregido: SIN IMPLEMENTAR→PARCIAL (6/8). |
 | 1.0.0 | 2026-07-28 | Versión inicial. 0/8 bloques con tablas propias. DDL propuesto T-440..T-446. 6 gaps. Madurez D13: L0. |

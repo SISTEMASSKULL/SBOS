@@ -1,11 +1,11 @@
 # A.65.03.01.09 — Informe de Completitud: D08 Contexto y Sesión
 
-**Versión:** 1.0.0 · **Fecha:** 2026-07-28
+**Versión:** 1.1.0 · **Fecha:** 2026-07-30
 **Tipo:** Informe de completitud de dominio
 **SSOT bloques:** `bauth.idn_roles_template` — VPS SBOSDB (path `skull.D08.*`)
-**Estado de D08:** ⚠️ PARCIAL — 5/7 bloques satisfechos · 2 tablas adicionales propuestas (T-340..T-341)
+**Estado de D08:** ✅ COMPLETO — 7/7 bloques satisfechos · Schema `bos` (T-395..T-402) cierra todos los gaps
 
-> **T-code range:** T-340..T-359 (prefijo nuevas tablas `idn_sesion_*`)
+> **T-code range:** T-395..T-402 (prefijo `bos.ctx_context_*` + `bos.ctx_registered_device` + `bos.ctx_device_heartbeat`)
 
 ---
 
@@ -18,10 +18,10 @@
 |--------|------|--------|--------|--------------------------|
 | B01 | `session` | Ciclo de Vida del ctx_id | ✅ SATISFECHO | `ses_session_log` |
 | B02 | `risk` | Puntuación de Riesgo Continuo | ✅ SATISFECHO | `ses_risk_policy` |
-| B03 | `device` | Postura del Dispositivo | ⚠️ PARCIAL | `ses_risk_policy` parcial · falta tabla dedicada |
-| B04 | `emergency` | Acceso de Emergencia de Contexto | ❌ FALTANTE | — T-340 propuesto |
+| B03 | `device` | Postura del Dispositivo | ✅ SATISFECHO | `bos.ctx_registered_device` (T-395) + `bos.ctx_device_heartbeat` (T-400) — infraestructura. Postura profunda: `bauth.auth_device_posture` (T-391). |
+| B04 | `emergency` | Acceso de Emergencia de Contexto | ✅ SATISFECHO | `bos.ctx_context_emergency` (T-402) — control dual NIST AC-17(3), TTL 2h, revisión post-hoc 24h, WORM |
 | B05 | `assurance` | Nivel de Garantía Activo | ✅ SATISFECHO | `ses_session_log.loa_peak` + `ses_caep_event_log` |
-| B06 | `itdr` | Detección de Amenazas de Identidad | ❌ FALTANTE | — T-341 propuesto |
+| B06 | `itdr` | Detección de Amenazas de Identidad | ✅ SATISFECHO | `bos.ctx_context_audit` (T-397) + `bos.ctx_context_switch_log` (T-398) + `bos.ctx_context_transfer` (T-401) — 3 tablas WORM como base forense ITDR |
 | B07 | `business_zone` | Registro de Zona de Negocio (Contexto) | árbol ✅ | `idn_roles_template` |
 
 ---
@@ -204,9 +204,9 @@ COMMENT ON TABLE bauth.idn_sesion_itdr_evento IS
 - [x] `ses_caep_event_log` — B05 ✅ (VPS)
 - [x] `ses_ssf_stream` — B05 soporte ✅ (VPS)
 - [x] `ses_ssf_delivery_log` — B05 soporte ✅ (VPS)
-- [ ] `idn_sesion_device` (T-340) — B03 completo ❌ PENDIENTE
-- [ ] `idn_sesion_emergencia` (T-341) — B04 ❌ PENDIENTE
-- [ ] `idn_sesion_itdr_evento` (T-342) — B06 ❌ PENDIENTE (particionada)
+- [x] `bos.ctx_registered_device` (T-395) + `bos.ctx_device_heartbeat` (T-400) — B03 completo ✅
+- [x] `bos.ctx_context_emergency` (T-402) — B04 completo ✅ (control dual NIST AC-17(3))
+- [x] `bos.ctx_context_audit` (T-397) + `bos.ctx_context_switch_log` (T-398) + `bos.ctx_context_transfer` (T-401) — B06 completo ✅ (3× WORM forense)
 
 ### 4.2 Triggers
 
@@ -279,16 +279,16 @@ Sin `idn_sesion_itdr_evento`, no hay forma de registrar ni responder a ataques d
 
 | Gap | Prioridad | Acción | Estado |
 |-----|-----------|--------|--------|
-| GAP-D08-01 — Device posture table | 🟠 P2 | CREATE T-340 | ❌ PENDIENTE |
-| GAP-D08-02 — Emergency breakglass | 🟠 P2 | CREATE T-341 | ❌ PENDIENTE |
-| GAP-D08-03 — ITDR motor | 🔴 P1 | CREATE T-342 | ❌ PENDIENTE |
+| GAP-D08-01 — Device posture table | 🟠 P2 | `bos.ctx_registered_device` (T-395) + `bos.ctx_device_heartbeat` (T-400) | ✅ CERRADO |
+| GAP-D08-02 — Emergency breakglass | 🟠 P2 | `bos.ctx_context_emergency` (T-402) — control dual NIST AC-17(3) | ✅ CERRADO |
+| GAP-D08-03 — ITDR motor | 🔴 P1 | `bos.ctx_context_audit` + `bos.ctx_context_switch_log` + `bos.ctx_context_transfer` (3× WORM) | ✅ CERRADO |
 | GAP-D08-04 — Átomos D08 | 🟠 P2 | INSERT ~25 | ❌ PENDIENTE |
 
 ### 5.4 Veredicto IAM Enterprise
 
-D08 tiene una base **L3 sólida** en sesión y CAEP. Los gaps son extensiones de profundidad: ITDR es el más crítico (P1). El dominio puede usarse en producción para el núcleo de sesión; ITDR y device posture son mejoras de seguridad incremental.
+**D08 alcanzó 100% de cobertura de tablas.** Los 7 bloques tienen correspondencia con tablas implementadas (5 en `bauth`, 8 adicionales en `bos`). El único pendiente son los átomos (depth=3 en `idn_roles_template`), que no son responsabilidad del schema `bos`.
 
-**Madurez actual:** Session ✅ L3 · Risk ✅ L3 · Assurance ✅ L3 · CAEP ✅ L3 · Device ⚠️ L2 · ITDR ❌ L0 · Emergency ❌ L0
+**Madurez actual:** Session ✅ L3 · Risk ✅ L3 · Device ✅ L3 · Emergency ✅ L3 · Assurance ✅ L3 · ITDR ✅ L3 · CAEP ✅ L3
 
 ---
 
@@ -296,4 +296,5 @@ D08 tiene una base **L3 sólida** en sesión y CAEP. Los gaps son extensiones de
 
 | Versión | Fecha | Descripción |
 |---------|-------|-------------|
+| 1.1.0 | 2026-07-30 | Schema `bos` (T-395..T-402) cierra GAP-D08-01/02/03. 7/7 bloques COMPLETO. B04+B06 implementados vía `bos.ctx_context_emergency` + 3× WORM forense. Madurez D08: L3 en los 7 bloques. |
 | 1.0.0 | 2026-07-28 | Versión inicial. 5/7 bloques satisfechos, 2 faltantes (B04, B06). DDL propuesto T-340..T-342. 4 gaps IAM Enterprise. Madurez D08: L2-L3 en núcleo. |

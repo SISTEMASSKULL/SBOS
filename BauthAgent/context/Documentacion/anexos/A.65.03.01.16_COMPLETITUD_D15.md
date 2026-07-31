@@ -3,7 +3,7 @@
 **Versión:** 1.0.0 · **Fecha:** 2026-07-28
 **Tipo:** Informe de completitud de dominio
 **SSOT bloques:** `bauth.idn_roles_template` — VPS SBOSDB (path `skull.D15.*`)
-**Estado de D15:** ⚠️ PARCIAL — 6/8 bloques satisfechos · 2 tablas adicionales propuestas (T-480..T-481)
+**Estado de D15:** ✅ COMPLETO — 8/8 bloques satisfechos · B05 (rotación) implementado en T-189 · B06 (attestation) vía `idn_roles_nhi_certification`
 
 > **T-code range:** T-480..T-499
 
