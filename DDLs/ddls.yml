@@ -85,18 +85,15 @@ convencion_de_nombres:
     separador: "__ (doble guion bajo) separa el prefijo del objeto. Idiomático Flyway."
     objeto: "Nombre de la tabla (seed) o descripción corta en snake_case (migración)."
   ejemplos:
-    - "bos_01__control_plane.sql            (migración — schema bos)"
-    - "bglobal_01__global_country.sql       (seed — schema bglobal)"
+    - "SBOS_db_V2_DDL.sql                   (DDL unificado — schemas bglobal, bauth, bcalendar)"
+    - "bos_01__control_plane.sql            (PENDIENTE — schema bos, Context Plane)"
+    - "bglobal_01__global_country.sql       (seed activo — schema bglobal)"
     - "bauth_16__ath_config_d1.sql          (seed — schema bauth)"
-    - "bcalendar_01__cal_calendar.sql       (seed — schema bcalendar)"
-    - "btax_01__factura_sin.sql             (futuro — sin reservar nada)"
+    - "bcalendar_01__cal_calendar.sql       (seed activo — schema bcalendar)"
   casos_especiales:
-    nucleo_unido: "sbos_00__esquema_base.sql — ÚNICO archivo multi-schema (los 3
-                   schemas core juntos por FK circulares, ver seccion nucleo_unido).
-                   Prefijo 'sbos' = core del proyecto; 00 = se carga primero."
-    referencias: "<servicio>_00__referencia.sql — PUNTERO de lectura, NO crea nada
-                  (solo comentarios). Dice dónde están declaradas las tablas de ese
-                  servicio dentro de sbos_00, con columnas, índices y ejemplos."
+    ddl_unificado: "SBOS_db_V2_DDL.sql — ÚNICO archivo multi-schema (bglobal, bauth,
+                   bcalendar juntos por FK circulares). Sección ddl_unificado arriba."
+    seeds_reales: "9 archivos en seeds/: bglobal_01..04, bcalendar_01..03, T016, T162"
     catalogos_framework: "bauth_fw_NN__<fuente>.sql — los 16 catálogos de normas
                           (NIST, ISO, OAuth, FIDO2…) que alimentan bauth.framework_raw."
 
@@ -117,51 +114,56 @@ versionado:
 # El orden de carga ENTRE servicios vive AQUÍ (un solo lugar), no en el nombre.
 # inicializar_sbos_db.sh carga los servicios en este orden; dentro de cada uno, por su NN.
 servicios:
-  bglobal:   "Catálogos globales ISO 4217/639/3166, timezone, menús (global_ geo_timezone menu_)"
-  bos:       "BOS IAM Installer — Control Plane (+ bos_privilege, bos_blockchain)"
-  bauth:     "Núcleo de identidad (idn_ ath_ ses_ fin_ aud_ sec_ geo_trust cfg_ privilege_ org_ framework_)"
-  bcalendar: "Calendario fiscal multi-nivel (cal_)"
-orden_de_servicios: [bglobal, bos, bauth, bcalendar]
+  bglobal:   "[ACTIVO] Catálogos globales ISO 4217/639/3166, timezone, menús (global_ geo_timezone menu_) — schema en SBOS_db_V2_DDL.sql"
+  bauth:     "[ACTIVO] Núcleo de identidad (idn_ ath_ ses_ fin_ aud_ sec_ pam_ geo_trust cfg_ privilege_ org_ framework_) — schema en SBOS_db_V2_DDL.sql"
+  bcalendar: "[ACTIVO] Calendario fiscal multi-nivel (cal_) — schema en SBOS_db_V2_DDL.sql"
+  bos:       "[ACTIVO] BOS IAM Installer — Context Plane + NetMan. Schema en bos_01__control_plane.sql (20 tablas: T-395..T-414). Se carga DESPUÉS del DDL unificado (FKs a bauth.idn_tenant + idn_identity_entity). Grupos: CTX(8) · FCH(2) · INS(2) · CAP(2) · PRT(1) · NET(2) · REL(2) · WDG(1)."
+orden_de_carga: [bglobal, bauth, bcalendar]  -- orden real en SBOS_db_V2_DDL.sql (entrelazado por FK circulares)
+orden_planificado: [bglobal, bos, bauth, bcalendar]  -- cuando bos tenga schema
 # Futuros: bkernel, biedata, bsearch, bnexus, bnotify, btax… se agregan aquí.
 
-# ── NÚCLEO UNIDO — la única excepción a "un archivo por servicio" ────────────
+# ── DDL UNIFICADO — la única excepción a "un archivo por servicio" ────────────
 # No es desorden: es una necesidad técnica verificada contra la BD real.
-nucleo_unido:
-  archivo: "migrations/sbos_00__esquema_base.sql"
-  contiene: "Los 3 schemas core (bglobal, bcalendar, bauth) — 179 tablas al ejecutarse."
+ddl_unificado:
+  archivo: "SBOS_db_V2_DDL.sql"
+  manual: "SBOS_db_V2_DDL_MANUAL.md"
+  schemas: [bglobal, bauth, bcalendar]
+  tablas: 129  -- CREATE TABLE (incluye particiones); ~109 T-codes únicos
+  linea_referencia: 5676
   por_que_no_se_separa: "Tienen CLAVES FORÁNEAS CIRCULARES entre sí:
       bcalendar.cal_* y bglobal.menu_* → bauth.idn_tenant ; bauth.* → bglobal.global_country.
       No existe orden 'un schema completo, luego el siguiente' que satisfaga el ciclo.
       Separarlo produjo 60 errores en BD auxiliar. El orden entrelazado del archivo
       unido SÍ resuelve las FK. Por eso se mantiene UNIDO e INTACTO — no se toca."
-  legibilidad: "Para saber qué hay dentro sin abrirlo: los punteros de lectura
-                bglobal_00__referencia.sql y bcalendar_00__referencia.sql listan sus
-                tablas, líneas, columnas, índices y ejemplos (solo comentarios)."
-  regla: "NO se separa. Tablas bauth nuevas SIN FK circular con bglobal/bcalendar
-          SÍ pueden ir en un bauth_NN__ aparte (como bauth_20/30)."
+  regla: "NO se separa. Schemas NUEVOS sin FK circular con el unificado
+          (ej: bos) SÍ pueden ir en su propio archivo <servicio>_NN__*.sql."
 
 # ── ESTRUCTURA DE DIRECTORIOS (plana — sin subcarpetas por schema) ──────────
 # Decisión del humano: entrar a una carpeta por cada schema es confuso. El
 # servicio va en el NOMBRE del archivo, no en la ruta.
 estructura:
-  raiz: "inicializar_sbos_db.sh (orquestador único) + ddls.yml (esta doctrina) + README.md"
-  migrations/: "DDLs de estructura: sbos_00__esquema_base.sql (núcleo unido) +
-                bos_01, bauth_10/20/30 (complementos) + <servicio>_00__referencia.sql
-                (punteros de lectura, no crean nada)."
-  seeds/:      "Todos los seeds (datos), planos: <servicio>_NN__<tabla>.sql y los
-                catálogos bauth_fw_NN__<fuente>.sql. Sin subcarpetas."
-  resources/:  "Herramientas que NO se cargan en la BD: JSON de extracción para
-                emergencias y scripts de despliegue (deploy_production.sh)."
-  db_backup.tar.gz: "Respaldo original comprimido (169 archivos). Resguardo histórico."
-  _obsoletos/: "Archivos superados (main.sql, versiones sueltas, orquestadores viejos,
-                tablas duplicadas). No se borran; se conservan para trazabilidad."
+  raiz: "SBOS_db_V2_DDL.sql (DDL unificado) + SBOS_db_V2_DDL_MANUAL.md (manual) +
+         ddls.yml (esta doctrina) + README.md"
+  seeds/: "Todos los seeds (datos), planos: <servicio>_NN__<tabla>.sql.
+           9 archivos actuales: bglobal (4), bcalendar (3), bauth (2)."
+  resources/: "Herramientas que NO se cargan en la BD: JSON de extracción para
+               emergencias y scripts de despliegue (deploy_production.sh)."
+  backups/: "Respaldos comprimidos de la BD. Resguardo histórico."
+  _obsoletos/: "Archivos superados (DDL_bos_schema.sql, versiones sueltas, main.sql).
+                No se borran; se conservan para trazabilidad."
+  futuro_migrations/: "Cuando un servicio pase a PRODUCCIÓN, su DDL se congela y
+                       los cambios posteriores van como migrations incrementales
+                       <servicio>_NN__<descripcion>.sql en este directorio (a crear).
+                       Hoy 100% del proyecto está en DESARROLLO → sin migrations."
 
 # ── PUNTO DE ENTRADA ────────────────────────────────────────────────────────
 punto_de_entrada:
-  orquestador: "inicializar_sbos_db.sh"
-  invocacion: "SBOS_DSN=\"postgresql://user@host:5432/SBOS_db\" ./inicializar_sbos_db.sh"
-  fases: "1) DDLs (migrations, orden de dependencia)  2) catálogos de normas
-          3) seeds (cada uno independiente, en orden). Idempotente en las 3."
+  archivo_principal: "SBOS_db_V2_DDL.sql"
+  manual: "SBOS_db_V2_DDL_MANUAL.md"
+  doctrina: "ddls.yml"
+  seeds: "seeds/"
+  nota: "Orquestador de carga (inicializar_sbos_db.sh) PENDIENTE de crear.
+         Hoy la carga se hace directa: psql < SBOS_db_V2_DDL.sql + seeds/*.sql"
 
 # ── REGLAS PARA AGENTES DESARROLLADORES ─────────────────────────────────────
 reglas_agentes:

@@ -1,7 +1,7 @@
 # SBOS_db_V2_DDL_MANUAL.md
 ## Manual Operativo de la Base de Datos — SBOS Identity Platform V2
 
-**Versión:** 2.10.0 · **Fecha:** 2026-07-30  
+**Versión:** 2.11.0 · **Fecha:** 2026-07-31  
 **Base de datos:** `SBOS_db` · **PostgreSQL:** 18.4 · **UUIDv7:** RFC 9562  
 **Estándar de documentación:** ISO/IEC 11179 · DAMA DMBOK v2 · ISO 24760-2:2025  
 **Sincronizado con:** `SBOS_db_V2_DDL.sql` (NIVEL 0..19) — nombres canónicos del DDL
@@ -33,7 +33,8 @@
 | [S14 catálogos — MethodRegistry](#s14-catálogos--methodregistry-bauth) (NIVEL 18) | T-384(`auth_federation_protocol`), T-385(`auth_saga_catalog`), T-386(`auth_compliance_map`) | 8+12+14 seeds · protocolos · sagas · cobertura normativa |
 | [S18 — Dispositivos](#s18--dispositivos-bauth) (NIVEL 19) | T-390(`auth_device`), T-391(`auth_device_posture`), T-392(`auth_device_credential_binding`) | ZTA · MDM · FIDO2 · OSDP v2.2 · WORM binding |
 | [S19 — Context Plane](#s19--context-plane-bos) (NIVEL 20) | T-395(`registered_device`), T-396(`ctx_context_session`), T-397(`ctx_context_audit`), T-398(`ctx_context_switch_log`), T-399(`ctx_context_policy`), T-400(`device_heartbeat`), T-401(`ctx_context_transfer`), T-402(`ctx_context_emergency`) | Policy Administrator NIST SP 800-207 · ctx_id 6 capas · WORM hash-chain |
-| [S20 — BOS Control Plane](#s20--bos-control-plane-bos) (NIVEL 21) | T-403(`fch_ficha_state`), T-404(`fch_ficha_event`), T-405(`ins_bootstrap_event`), T-406(`cap_sistema_snapshot`), T-407(`cap_tenant_policy`), T-408(`prt_port_assignment`), T-409(`rel_release_manifest`), T-410(`rel_release_event`), T-411(`wdg_watchdog_event`), T-412(`ins_saga_execution`) | Fichas · IAM Installer · Capacidad · Port Manager · Release · Watchdog · Sagas |
+| [S20 — Biblioteca de Referencia](#s20--biblioteca-de-referencia-bauth) (NIVEL 21) | T-999(`cfg_policy_library`) | Biblioteca unificada de políticas, reglas y átomos — SOLO LECTURA · 16 fuentes · 13 dominios |
+| [S20 — BOS Control Plane](#s20--bos-control-plane-bos) (NIVEL 21) | T-403(`fch_ficha_state`), T-404(`fch_ficha_event`), T-405(`ins_bootstrap_event`), T-406(`cap_sistema_snapshot`), T-407(`cap_tenant_policy`), T-408(`prt_port_assignment`), T-409(`rel_release_manifest`), T-410(`rel_release_event`), T-411(`wdg_watchdog_event`), T-412(`ins_saga_execution`), T-413(`net_cert_inventory`), T-414(`net_security_events`) | Fichas · IAM Installer · Capacidad · Port Manager · NetMan (certs + eventos) · Release · Watchdog · Sagas |
 
 > **⚠️ Nota v2.3.0:** S8-S12 fueron refactorizados en el DDL. Los nombres canónicos son los del DDL.
 > Tablas ausentes del DDL (pendientes de diseño):
@@ -2518,9 +2519,45 @@ bos.wdg_watchdog_event (T-411) 🔒  ← Watchdog 3 capas: host|k8s|fichas
 
 **UNIQUE:** `(port, port_type, namespace)` — un puerto dentro del mismo espacio nunca puede estar asignado dos veces.
 
-**¿Cuándo se alimenta?** BOS Port Manager en `bos.port.assign` / `bos.port.release`. El Port Manager verifica disponibilidad aquí antes de asignar cualquier puerto a una ficha.
+**¿Cuándo se alimenta?** BOS Port Manager (`bos.portman.assign` / `bos.portman.release`). El Motor verifica disponibilidad aquí en 3 capas antes de asignar cualquier puerto a una ficha.
 
-**¿Necesita interfaz?** Sí — `bosctl port list` y `bosctl port status` (A.12 — Kardex de Puertos).
+**¿Necesita interfaz?** Sí — `bosctl port list`, `bosctl port lookup`, `bosctl port validate` (A.12 — Kardex de Puertos, A.15 §1).
+
+**Implementado en:** `internal/portman/kardex.go` — `PgKardex` struct, commit `380cd69`.
+
+---
+
+### Grupo NET — Network Security Manager
+
+#### T-413 — bos.net_cert_inventory
+
+**Propósito:** Kardex de certificados TLS del entorno SBOS — ISO 27001:2022 A.8.24 (inventario de claves y certificados). Cubre todos los certificados: daemons en el host, fichas K8s, SVIDs SPIFFE/SPIRE y certs externos (Let's Encrypt). **Inmutabilidad lógica:** las filas nunca se eliminan — transicionan `active → expiring_soon → expired → revoked → superseded`.
+
+**¿Qué registra?** Por certificado: CN, SAN[], emisor, fingerprint SHA-256, vigencia (valid_from/valid_until), `days_remaining` (columna GENERATED siempre actualizada), tipo (`daemon_host|ficha_k8s|spiffe_svid|external_wildcard|ca_internal`), algoritmo y tamaño de clave, servicio/namespace/ficha al que sirve, ruta en el host o nombre del Secret K8s, motor de emisión (`vault_pki|cert_manager|spire|acme_le|manual`), configuración de auto-renovación, estado y ctx_id.
+
+**UNIQUE:** `(fingerprint_sha256)` — un certificado con idéntico fingerprint no puede registrarse dos veces.
+
+**Columna GENERATED:** `days_remaining = EXTRACT(DAY FROM (valid_until - NOW()))` — sin trigger, siempre fresca.
+
+**¿Cuándo se alimenta?** CERTMAN en `bos.certman.issue` / `bos.certman.revoke`. El watcher (`bos.certman.watch`) actualiza `last_checked_at` y cambia `status` a `expiring_soon` cuando `days_remaining < renew_before_days`.
+
+**¿Necesita interfaz?** Sí — `bosctl cert list --expiring-in 30`, `bosctl cert status`, `bosctl cert export` (A.15 §2.8, §3.7).
+
+---
+
+#### T-414 — bos.net_security_events (particionada)
+
+**Propósito:** Log de eventos de seguridad de red de todos los motores NetMan — ISO 27001 A.8.21 / NIST SP 800-41. Alta escritura en producción (miles de eventos/día). **Particionado mensual** por `event_time` para retención de 90 días sin degradación de rendimiento.
+
+**Fuentes:** `portman` (asignación/liberación de puertos) · `certman` (emisión/revocación de certs) · `fwman` (reglas/NetworkPolicy) · `ips` (bloqueos CrowdSec, fail2ban, psad) · `bos_daemon` (replay_detected, brute_force).
+
+**¿Qué registra?** Por evento: tipo (ver CHECK), severidad (`info|warn|high|critical`), fuente, ficha/servicio/namespace afectados, IP origen (`INET` nativo PostgreSQL para búsquedas por red), puerto destino, detalles libres en JSONB y ctx_id.
+
+**event_type:** `port_assigned|port_released|port_conflict|port_validated` · `cert_issued|cert_renewed|cert_expiring|cert_revoked` · `fw_rule_added|fw_rule_removed|netpol_synced|fw_drift_detected` · `ips_block|ips_unblock|port_scan_detected|crowdsec_ban|crowdsec_unban|fail2ban_ban|fail2ban_unban|ddos_detected|brute_force_detected|replay_detected`
+
+**Retención:** El daemon BOS crea particiones mensuales y elimina las que superan 90 días (via cron K8s Job).
+
+**¿Necesita interfaz?** Sí — `bosctl ips alerts --last 24h --severity high` (A.15 §4.4, §7.7).
 
 ---
 
@@ -2574,6 +2611,23 @@ bos.wdg_watchdog_event (T-411) 🔒  ← Watchdog 3 capas: host|k8s|fichas
 
 ---
 
+## S20 — Biblioteca de Referencia (bauth)
+
+**NIVEL 21 · Tabla:** T-999  
+**Archivo:** `SBOS_db_V2_DDL.sql` (incluida en el unificado)  
+**Propósito:** Biblioteca unificada de políticas, reglas, configuraciones y métodos de autenticación. **SOLO LECTURA — sin lógica de negocio.** Fuente de referencia para el dashboard, el PDP y los compiladores AtomLang.
+
+### T-999 — bauth.cfg_policy_library
+
+**Estructura jerárquica:** `section → group → policy → config` con CTE recursivo desde `framework_raw`.  
+**16 fuentes normativas:** NIST SP 800-63B-4, FIDO2 CTAP 2.2, NIST PQC 2025, OAuth 2.1, Zero Trust NSA 2026, ISO 27001:2022, Industry Enterprise, PCI DSS 4.0, D3 Financiero, D4 Temporal, D6 Geo, D10 Delegación, CIS K8s 1.8, AWS IAM, SOC2 Type II.  
+**13 dominios:** D1-D12 + SEC.  
+**29 columnas** de clasificación: `node_type`, `semantic_type`, `domain_map`, `source`, `standard_ref`, `compliance_ref`, `enforcement`, `risk_level`, `lifecycle`, `assurance_level`, `auth_factor`, `phishing_resistant`, `mfa_required`.  
+**Contenido multilingüe:** `content` (original), `content_en` (inglés), `content_es` (español vía `translate_keys_en_es()`).  
+**REVOKE UPDATE/DELETE** — tabla de referencia inmutable en runtime.
+
+---
+
 ## Apéndice D — Normas y estándares aplicados
 
 | Norma | Aplicación en SBOS_db_V2 |
@@ -2620,8 +2674,10 @@ bos.wdg_watchdog_event (T-411) 🔒  ← Watchdog 3 capas: host|k8s|fichas
 
 | Versión | Fecha | Cambios |
 |---------|-------|---------|
+| v2.12.0 | 2026-07-31 | T-408 `prt_port_assignment`: corrección CHECK `port_type` — valores ahora alineados con el código Go (`HOST_PHYSICAL\|HOST_LOGICAL\|K8S_NODE_PORT\|K8S_CLUSTER_IP\|K8S_LOAD_BALANCER`). El DDL anterior tenía camelCase (`containerPort\|ClusterIP\|...`) que violaba el constraint con cualquier INSERT del portman. T-413 `net_cert_inventory`: Kardex de certificados TLS (ISO 27001 A.8.24) — `days_remaining` GENERATED, partición por cert_type, motor de emisión Vault PKI/cert-manager/SPIRE/ACME. T-414 `net_security_events`: log de eventos de seguridad de red (ISO 27001 A.8.21), particionado mensual por `event_time`, 27 event_types, src_ip tipo INET. Total schema `bos`: 20 tablas · 8 WORM · 8 grupos. |
 | v2.11.0 | 2026-07-31 | S20 BOS Control Plane (`bos`): T-403..T-412. 10 tablas nuevas (4 WORM) — FCH 18-state machine, INS bootstrap/sagas, CAP snapshots/policies, PRT port kardex, REL release plane, WDG watchdog 3 capas. Total schema `bos`: 18 tablas · 8 WORM · 7 grupos. |
-| v2.10.0 | 2026-07-30 | S19 Context Plane (`bos`): T-395..402. 8 tablas (4 WORM hash-chain) — Policy Administrator NIST SP 800-207. Schema `bos` autónomo en `bos_01__control_plane.sql`. Cierra GAP D08-B04 (break-glass de contexto). |
+| v2.11.0 | 2026-07-31 | T-999 `cfg_policy_library`: biblioteca de referencia de políticas, reglas y átomos. SOLO LECTURA. 16 fuentes, 13 dominios, 29 columnas de clasificación. REVOKE UPDATE/DELETE. |
+| v2.10.0 | 2026-07-30 | S19 Context Plane (`bos`): T-395..402. 8 tablas (4 WORM hash-chain) — Policy Administrator NIST SP 800-207. Schema `bos` autónomo en `bos_01__control_plane.sql`. Cierra GAP D08-B04. |
 | v2.9.0 | 2026-07-30 | T-384..386 (catálogos MethodRegistry: protocolos, sagas, compliance) + S18 Dispositivos T-390..392 (ZTA/MDM/FIDO2/OSDP). 6 tablas + 34 seeds. |
 | v2.8.0 | 2026-07-30 | S13..S17 + D12 implementados: +T-320..322 (Usuarios NIST 800-63-4), +T-330..338 (Autenticación MethodRegistry FIDO2/X.509/DPoP), +T-350..357 (Firma Digital D13 Ley 164), +T-358..362 (Blockchain Merkle/Besu/Arbitrum), +T-365..367 (Federación OIDC DPoP FAPI2), +T-380..383 (Billetera Digital EUDI OID4VP). 32 nuevas tablas. 106 tablas base + 17 particiones hijas = 123 CREATE TABLE. |
 | v2.7.0 | 2026-07-28 | GAP-D00-01..10 implementados: +T-186 (lifecycle_event JML), +T-169 (did_document), +T-187 (scim_attribute_map), +T-188 (dpia_registro); ALTER T-157 +5 cols clasificación; ALTER T-159 +risk_threshold +dirm_policy_ref; ALTER T-165 +risk_context +eidas_level; ALTER T-166 +6 cols GDPR granular; ALTER T-167 +eidas_assurance_level +eidas_vc_type; seeds mDL/VC (T-159) + seeds bdomain (T-159) |

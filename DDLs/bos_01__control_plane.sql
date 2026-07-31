@@ -771,7 +771,7 @@ CREATE TABLE IF NOT EXISTS bos.prt_port_assignment (
     CONSTRAINT uq_prt_pa_port_ns        UNIQUE (port, port_type, namespace),
     CONSTRAINT chk_prt_pa_transport     CHECK (transport IN ('TCP','UDP','SCTP','DCCP')),
     CONSTRAINT chk_prt_pa_port_type     CHECK (port_type IN (
-        'containerPort','ClusterIP','NodePort','hostPort','daemonPort'
+        'HOST_PHYSICAL','HOST_LOGICAL','K8S_NODE_PORT','K8S_CLUSTER_IP','K8S_LOAD_BALANCER'
     )),
     CONSTRAINT chk_prt_pa_asset         CHECK (asset_type IN (
         'ficha','daemon','logical_server','k8s_node','k8s_service','kong_route'
@@ -1035,7 +1035,172 @@ COMMENT ON COLUMN bos.ins_saga_execution.saga_type IS
   'install/update/repair/remove=saga de ficha · deploy_tenant/remove_tenant/suspend_tenant=saga de tenant.';
 
 -- =============================================================================
--- RESUMEN — 18 tablas · 8 WORM · schema bos · 7 grupos funcionales
+-- T-413 — bos.net_cert_inventory
+-- Kardex de certificados TLS — ISO 27001:2022 A.8.24 (inventario de claves y certs).
+-- Un registro por certificado activo: daemons host, fichas K8s, SVIDs SPIFFE, externos.
+-- Inmutabilidad lógica: filas nunca se borran — transicionan active→expiring_soon→expired→revoked.
+-- GRUPO=net · ENTIDAD=cert · OBJETO=inventory
+-- A.15 §2.7 · RFC 8555 (ACME) · ISO 27001 A.8.24 · NIST SP 800-53 SC-12
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bos.net_cert_inventory (
+    cert_id            UUID         NOT NULL DEFAULT uuidv7(),
+
+    -- Identidad del certificado
+    subject_cn         TEXT         NOT NULL,                        -- Common Name
+    subject_san        TEXT[]       NOT NULL DEFAULT '{}',           -- Subject Alternative Names
+    issuer             TEXT         NOT NULL,                        -- Nombre del emisor (CA)
+    fingerprint_sha256 TEXT         NOT NULL,                        -- SHA-256 del certificado DER
+
+    -- Vigencia
+    valid_from         TIMESTAMPTZ  NOT NULL,
+    valid_until        TIMESTAMPTZ  NOT NULL,
+    days_remaining     INTEGER      GENERATED ALWAYS AS (
+                           EXTRACT(DAY FROM (valid_until - NOW()))::INTEGER
+                       ) STORED,
+
+    -- Clasificación
+    cert_type          TEXT         NOT NULL,                        -- ver CHECK
+    key_algorithm      TEXT         NOT NULL DEFAULT 'ECDSA',        -- ECDSA|RSA
+    key_size           SMALLINT     NOT NULL DEFAULT 256,            -- bits: 256|384|2048|4096
+
+    -- Ubicación del certificado
+    service_name       TEXT         NULL,                            -- ficha o daemon al que sirve
+    namespace          TEXT         NULL,                            -- namespace K8s (NULL=host)
+    ficha_id           TEXT         NULL,                            -- ficha asociada
+    secret_name        TEXT         NULL,                            -- K8s Secret con el cert
+    host_path          TEXT         NULL,                            -- ruta en el host (/etc/bos/tls/)
+
+    -- Motor de emisión
+    issuer_engine      TEXT         NOT NULL,                        -- ver CHECK
+    auto_renew         BOOLEAN      NOT NULL DEFAULT TRUE,
+    renew_before_days  SMALLINT     NOT NULL DEFAULT 30,
+
+    -- Estado — ciclo de vida
+    status             TEXT         NOT NULL DEFAULT 'active',       -- ver CHECK
+    revoked_at         TIMESTAMPTZ  NULL,
+    revocation_reason  TEXT         NULL,
+    last_checked_at    TIMESTAMPTZ  NULL,
+    ctx_id             TEXT         NOT NULL DEFAULT 'system',
+
+    CONSTRAINT net_ci_pkey              PRIMARY KEY (cert_id),
+    CONSTRAINT uq_net_ci_fingerprint    UNIQUE (fingerprint_sha256),
+    CONSTRAINT chk_net_ci_cert_type     CHECK (cert_type IN (
+        'daemon_host','ficha_k8s','spiffe_svid','external_wildcard','ca_internal'
+    )),
+    CONSTRAINT chk_net_ci_issuer_engine CHECK (issuer_engine IN (
+        'vault_pki','cert_manager','spire','acme_le','manual'
+    )),
+    CONSTRAINT chk_net_ci_key_algo      CHECK (key_algorithm IN ('ECDSA','RSA','Ed25519')),
+    CONSTRAINT chk_net_ci_status        CHECK (status IN (
+        'active','expiring_soon','expired','revoked','superseded'
+    )),
+    CONSTRAINT chk_net_ci_validity      CHECK (valid_until > valid_from),
+    CONSTRAINT chk_net_ci_revoke_state  CHECK (
+        (status = 'revoked' AND revoked_at IS NOT NULL) OR
+        (status != 'revoked' AND revoked_at IS NULL)
+    )
+);
+
+CREATE INDEX IF NOT EXISTS idx_net_ci_status    ON bos.net_cert_inventory (status)
+    WHERE status IN ('active','expiring_soon');
+CREATE INDEX IF NOT EXISTS idx_net_ci_expiry    ON bos.net_cert_inventory (valid_until)
+    WHERE status = 'active';
+CREATE INDEX IF NOT EXISTS idx_net_ci_ficha     ON bos.net_cert_inventory (ficha_id)
+    WHERE ficha_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_net_ci_engine    ON bos.net_cert_inventory (issuer_engine);
+CREATE INDEX IF NOT EXISTS idx_net_ci_type      ON bos.net_cert_inventory (cert_type);
+
+COMMENT ON TABLE bos.net_cert_inventory IS
+  '[T-413] [A.15 §2.7] [RFC 8555] [ISO 27001:2022 A.8.24] [NIST SC-12]
+   Kardex de certificados TLS del entorno SBOS — daemons host, fichas K8s,
+   SVIDs SPIFFE/SPIRE y certs externos. Inventario de claves ISO 27001 A.8.24.
+   days_remaining es columna generada — siempre actualizada sin trigger.
+   INMUTABILIDAD LÓGICA: filas nunca se borran — transicionan active→revoked.';
+
+COMMENT ON COLUMN bos.net_cert_inventory.cert_type IS
+  'daemon_host=cert de daemon BOS en el host (Vault PKI 90d) |
+   ficha_k8s=cert de ficha en K8s (cert-manager 90d) |
+   spiffe_svid=identidad de workload SPIFFE/SPIRE (24h) |
+   external_wildcard=cert externo Let''s Encrypt (acme.sh 90d) |
+   ca_internal=CA interna SBOS (3 años o 10 años para Root CA)';
+
+COMMENT ON COLUMN bos.net_cert_inventory.issuer_engine IS
+  'vault_pki=Vault PKI secrets engine (daemons host) |
+   cert_manager=cert-manager K8s CRD (fichas K8s) |
+   spire=SPIRE Server SVID (mTLS entre pods) |
+   acme_le=acme.sh + Let''s Encrypt (certs externos) |
+   manual=cert creado manualmente (solo en emergencia, requiere HITL)';
+
+-- =============================================================================
+-- T-414 — bos.net_security_events
+-- Log de eventos de seguridad de red — ISO 27001 A.8.21 / NIST SP 800-41.
+-- Alta escritura (miles de eventos/día en producción). Retención: 90 días.
+-- Fuentes: PORTMAN · CERTMAN · FWMAN · IPS · CrowdSec · fail2ban · psad.
+-- GRUPO=net · ENTIDAD=security · OBJETO=events
+-- A.15 §4.3 · ISO 27001 A.8.21 · NIST SP 800-41 · CIS K8s Benchmark v1.10
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bos.net_security_events (
+    event_id     UUID         NOT NULL DEFAULT uuidv7(),
+    event_time   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+
+    event_type   TEXT         NOT NULL,   -- ver CHECK
+    severity     TEXT         NOT NULL DEFAULT 'info',  -- ver CHECK
+    source       TEXT         NOT NULL,   -- 'portman'|'certman'|'fwman'|'ips'|'crowdsec'|'fail2ban'|'psad'
+
+    -- Contexto de la ficha / servicio afectado
+    ficha_id     TEXT         NULL,
+    service_name TEXT         NULL,
+    namespace    TEXT         NULL,
+
+    -- Red
+    src_ip       INET         NULL,       -- IP origen (para eventos IPS/firewall)
+    dst_port     INTEGER      NULL,       -- puerto destino
+
+    -- Detalles del evento
+    details      JSONB        NULL,       -- payload libre por event_type
+    ctx_id       TEXT         NOT NULL DEFAULT 'system',
+
+    CONSTRAINT net_se_pkey          PRIMARY KEY (event_id),
+    CONSTRAINT chk_net_se_type      CHECK (event_type IN (
+        -- PORTMAN
+        'port_assigned','port_released','port_conflict','port_validated',
+        -- CERTMAN
+        'cert_issued','cert_renewed','cert_expiring','cert_revoked',
+        -- FWMAN
+        'fw_rule_added','fw_rule_removed','netpol_synced','fw_drift_detected',
+        -- IPS
+        'ips_block','ips_unblock','port_scan_detected',
+        'crowdsec_ban','crowdsec_unban','fail2ban_ban','fail2ban_unban',
+        'ddos_detected','brute_force_detected','replay_detected'
+    )),
+    CONSTRAINT chk_net_se_severity  CHECK (severity IN ('info','warn','high','critical')),
+    CONSTRAINT chk_net_se_source    CHECK (source IN (
+        'portman','certman','fwman','ips','crowdsec','fail2ban','psad','bos_daemon'
+    ))
+) PARTITION BY RANGE (event_time);
+
+-- Partición inicial — el daemon BOS crea particiones mensuales automáticamente
+CREATE TABLE IF NOT EXISTS bos.net_security_events_default
+    PARTITION OF bos.net_security_events DEFAULT;
+
+CREATE INDEX IF NOT EXISTS idx_net_se_time     ON bos.net_security_events (event_time DESC);
+CREATE INDEX IF NOT EXISTS idx_net_se_type     ON bos.net_security_events (event_type);
+CREATE INDEX IF NOT EXISTS idx_net_se_severity ON bos.net_security_events (severity)
+    WHERE severity IN ('high','critical');
+CREATE INDEX IF NOT EXISTS idx_net_se_src_ip   ON bos.net_security_events (src_ip)
+    WHERE src_ip IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_net_se_ficha    ON bos.net_security_events (ficha_id)
+    WHERE ficha_id IS NOT NULL;
+
+COMMENT ON TABLE bos.net_security_events IS
+  '[T-414] [A.15 §4.3] [ISO 27001:2022 A.8.21] [NIST SP 800-41] [CIS K8s v1.10]
+   Log de eventos de seguridad de red de todos los motores NetMan.
+   Alta escritura — particionado mensual por event_time (RANGE).
+   Retención: 90 días. El daemon BOS crea particiones mensuales y elimina las vencidas.
+   src_ip usa tipo INET (PostgreSQL nativo) para búsquedas por red.';
+
+-- =============================================================================
+-- RESUMEN — 20 tablas · 8 WORM · schema bos · 8 grupos funcionales
 -- =============================================================================
 -- GRUPO CTX — Motor ④ Context Plane                          8 tablas ✅
 -- T-395    bos.ctx_registered_device     Dispositivos pre-auth (BitMask=0, TTL 8h)
@@ -1062,6 +1227,10 @@ COMMENT ON COLUMN bos.ins_saga_execution.saga_type IS
 --
 -- GRUPO PRT — Port Manager (A.12 / RFC 6335 BCP 165)        1 tabla  ✅
 -- T-408  bos.prt_port_assignment       Kardex de puertos (inmutabilidad lógica, RFC 6335 §8)
+--
+-- GRUPO NET — Network Security Manager (A.15)               2 tablas ✅
+-- T-413  bos.net_cert_inventory        Kardex de certificados TLS (ISO 27001 A.8.24)
+-- T-414  bos.net_security_events       Log de eventos de seguridad de red (particionado mensual)
 --
 -- GRUPO REL — Release Plane (SBOS-RELEASE-001)              2 tablas ✅
 -- T-409  bos.rel_release_manifest      Catálogo de releases por canal (canary→early→stable)
