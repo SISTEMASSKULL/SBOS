@@ -2515,7 +2515,7 @@ bos.wdg_watchdog_event (T-411) 🔒  ← Watchdog 3 capas: host|k8s|fichas
 
 **Propósito:** Kardex de asignaciones de puertos — implementación interna de RFC 6335 (BCP 165) dentro de SBOS. Registro de inventario de activos de red conforme ISO 27001 A.8.20. **Inmutabilidad lógica:** las filas nunca se eliminan — solo transicionan `assigned → released → revoked`.
 
-**¿Qué registra?** Por puerto: servicio, puerto (1-65535), protocolo (`TCP|UDP|SCTP|DCCP`), tipo (`HOST_PHYSICAL|HOST_LOGICAL|K8S_NODE_PORT|K8S_CLUSTER_IP|K8S_LOAD_BALANCER`), servidor lógico (`logical_server`), namespace K8s, ficha asignada (`ficha_id`), rol (`CONTROL_PLANE|DATA_PLANE|MANAGEMENT|DEBUG`), Cluster IP/External IP/DNS/Subdomain/Kong route, tipo de activo y propietario del activo, estado (`assigned|released|revoked|conflict`), timestamps de asignación, liberación y última validación.
+**¿Qué registra?** Por puerto: servicio, puerto (1-65535), protocolo (`TCP|UDP|SCTP|DCCP`), tipo (`HOST_PHYSICAL|HOST_LOGICAL|K8S_NODE_PORT|K8S_CLUSTER_IP|K8S_LOAD_BALANCER`), servidor lógico (`logical_server`), namespace K8s, ficha asignada (`ficha_id`), rol (`CONTROL_PLANE|DATA_PLANE|MANAGEMENT|DEBUG`), Cluster IP/External IP/DNS/Subdomain/Kong route, tipo de activo y propietario del activo, algoritmo de negociación (`algorithm`, default `'A'`), estado (`assigned|released|revoked|conflict`), timestamps de asignación, liberación y última validación.
 
 **UNIQUE:** `(port, port_type, namespace)` — un puerto dentro del mismo espacio nunca puede estar asignado dos veces.
 
@@ -2533,13 +2533,13 @@ bos.wdg_watchdog_event (T-411) 🔒  ← Watchdog 3 capas: host|k8s|fichas
 
 **Propósito:** Kardex de certificados TLS del entorno SBOS — ISO 27001:2022 A.8.24 (inventario de claves y certificados). Cubre todos los certificados: daemons en el host, fichas K8s, SVIDs SPIFFE/SPIRE y certs externos (Let's Encrypt). **Inmutabilidad lógica:** las filas nunca se eliminan — transicionan `active → expiring_soon → expired → revoked → superseded`.
 
-**¿Qué registra?** Por certificado: CN, SAN[], emisor, fingerprint SHA-256, vigencia (valid_from/valid_until), `days_remaining` (columna GENERATED siempre actualizada), tipo (`daemon_host|ficha_k8s|spiffe_svid|external_wildcard|ca_internal`), algoritmo y tamaño de clave, servicio/namespace/ficha al que sirve, ruta en el host o nombre del Secret K8s, motor de emisión (`vault_pki|cert_manager|spire|acme_le|manual`), configuración de auto-renovación, estado y ctx_id.
+**¿Qué registra?** Por certificado: CN, SAN[], emisor, número de serie RFC 5280 (`serial_number`, para OCSP), fingerprint SHA-256, vigencia (valid_from/valid_until), tipo (`daemon_host|ficha_k8s|spiffe_svid|external_wildcard|kong_tls|ca_internal`), algoritmo y tamaño de clave, servicio/namespace/ficha al que sirve, ruta en el host o nombre del Secret K8s, motor de emisión (`vault_pki|cert_manager|spire|acme_le|manual`), configuración de auto-renovación, `issued_at` (≠ `valid_from`), `last_renewed_at`, estado y ctx_id.
 
 **UNIQUE:** `(fingerprint_sha256)` — un certificado con idéntico fingerprint no puede registrarse dos veces.
 
-**Columna GENERATED:** `days_remaining = EXTRACT(DAY FROM (valid_until - NOW()))` — sin trigger, siempre fresca.
+**days_remaining:** calculado en query como `EXTRACT(DAY FROM (valid_until - NOW()))::INTEGER` — `NOW()` no es IMMUTABLE, no puede usarse en `GENERATED ALWAYS AS STORED`.
 
-**¿Cuándo se alimenta?** CERTMAN en `bos.certman.issue` / `bos.certman.revoke`. El watcher (`bos.certman.watch`) actualiza `last_checked_at` y cambia `status` a `expiring_soon` cuando `days_remaining < renew_before_days`.
+**¿Cuándo se alimenta?** CERTMAN en `bos.certman.issue` / `bos.certman.revoke`. El watcher (`bos.certman.watch`) actualiza `last_checked_at` y cambia `status` a `expiring_soon` cuando `EXTRACT(DAY FROM (valid_until - NOW())) < renew_before_days`.
 
 **¿Necesita interfaz?** Sí — `bosctl cert list --expiring-in 30`, `bosctl cert status`, `bosctl cert export` (A.15 §2.8, §3.7).
 
@@ -2674,7 +2674,8 @@ bos.wdg_watchdog_event (T-411) 🔒  ← Watchdog 3 capas: host|k8s|fichas
 
 | Versión | Fecha | Cambios |
 |---------|-------|---------|
-| v2.12.0 | 2026-07-31 | T-408 `prt_port_assignment`: corrección CHECK `port_type` — valores ahora alineados con el código Go (`HOST_PHYSICAL\|HOST_LOGICAL\|K8S_NODE_PORT\|K8S_CLUSTER_IP\|K8S_LOAD_BALANCER`). El DDL anterior tenía camelCase (`containerPort\|ClusterIP\|...`) que violaba el constraint con cualquier INSERT del portman. T-413 `net_cert_inventory`: Kardex de certificados TLS (ISO 27001 A.8.24) — `days_remaining` GENERATED, partición por cert_type, motor de emisión Vault PKI/cert-manager/SPIRE/ACME. T-414 `net_security_events`: log de eventos de seguridad de red (ISO 27001 A.8.21), particionado mensual por `event_time`, 27 event_types, src_ip tipo INET. Total schema `bos`: 20 tablas · 8 WORM · 8 grupos. |
+| v2.13.0 | 2026-07-31 | T-408: columna `algorithm TEXT DEFAULT 'A'` (antes almacenado en `notes` como hack). T-413: `days_remaining` eliminado como `GENERATED ALWAYS AS` — `NOW()` no es IMMUTABLE; se calcula en query. T-413: añadidos `serial_number`, `issued_at`, `last_renewed_at`, `revocation_reason`; `kong_tls` agregado a cert_type CHECK. Todos los documentos (A.15, 3.08, A.65.02) sincronizados. VPS SBOSDB aplicado. |
+| v2.12.0 | 2026-07-31 | T-408 `prt_port_assignment`: corrección CHECK `port_type` — valores alineados con código Go (`HOST_PHYSICAL\|HOST_LOGICAL\|K8S_NODE_PORT\|K8S_CLUSTER_IP\|K8S_LOAD_BALANCER`). T-413 `net_cert_inventory`: Kardex de certificados TLS (ISO 27001 A.8.24). T-414 `net_security_events`: log de eventos de seguridad de red (ISO 27001 A.8.21), particionado mensual por `event_time`, 27 event_types, src_ip tipo INET. Total schema `bos`: 20 tablas · 8 WORM · 8 grupos. |
 | v2.11.0 | 2026-07-31 | S20 BOS Control Plane (`bos`): T-403..T-412. 10 tablas nuevas (4 WORM) — FCH 18-state machine, INS bootstrap/sagas, CAP snapshots/policies, PRT port kardex, REL release plane, WDG watchdog 3 capas. Total schema `bos`: 18 tablas · 8 WORM · 7 grupos. |
 | v2.11.0 | 2026-07-31 | T-999 `cfg_policy_library`: biblioteca de referencia de políticas, reglas y átomos. SOLO LECTURA. 16 fuentes, 13 dominios, 29 columnas de clasificación. REVOKE UPDATE/DELETE. |
 | v2.10.0 | 2026-07-30 | S19 Context Plane (`bos`): T-395..402. 8 tablas (4 WORM hash-chain) — Policy Administrator NIST SP 800-207. Schema `bos` autónomo en `bos_01__control_plane.sql`. Cierra GAP D08-B04. |
