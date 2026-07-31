@@ -25,6 +25,7 @@
 | A.12 | [Port Manager Kardex](A.12_ANEXO-PORT-MANAGER-KARDEX.md) | 3.08 | ✅ |
 | A.13 | [VPS Prueba — Arquitectura K8s](A.13_ANEXO-VPS-PRUEBA-KUBERNETES-ARQUITECTURA.md) | — | ✅ |
 | A.14 | [Propuesta DDL — 5 Tablas Faltantes del Schema bos](A.14_PROPUESTA-DDL-BOS-TABLAS-FALTANTES.md) | 1.01 §3.7 · 3.01 · 2.02 | 🔴 HITL |
+| A.15 | [Network Security Manager — Firewall · Certificados · Puertos · IPS · Zero Trust](A.15_ANEXO-NETWORK-SECURITY-MANAGER.md) | 3.08 · 1.04 · 1.05 | ✅ |
 
 ---
 
