@@ -2735,18 +2735,64 @@ COMMENT ON COLUMN bauth.idn_identity_requirement.error_message     IS 'Mensaje d
 
 
 -- ======================================================================
--- T-160 — bauth.idn_identidad_sinonimo  [STUB — diseño pendiente]
--- Sinónimos y abreviaturas para búsqueda difusa. Fuente de verdad para archivos .syn de PG.
+-- T-160 — bauth.idn_identity_synonym
+-- Sinónimos y abreviaturas para búsqueda difusa de identidades.
+-- Fuente de verdad de archivos .syn de PostgreSQL para D93 (bsearch).
+-- NIST SP 800-63A-4 §4.2 · Administrable desde el dashboard.
 -- ======================================================================
--- TODO: implementar estructura canónica cuando se diseñe la sección IDENTIDAD completa.
--- Administrable desde el dashboard; alimenta al motor de búsqueda D93 (bsearch).
+CREATE TABLE IF NOT EXISTS bauth.idn_identity_synonym (
+    synonym_id      UUID        PRIMARY KEY DEFAULT uuidv7(),
+    tenant_id       UUID        NULL REFERENCES bauth.idn_tenant(tenant_id) ON DELETE CASCADE,
+    canonical_form  TEXT        NOT NULL,
+    synonym_text    TEXT        NOT NULL,
+    language_code   TEXT        NOT NULL DEFAULT 'es',
+    synonym_type    TEXT        NOT NULL DEFAULT 'ABBREVIATION'
+                    CHECK (synonym_type IN ('ABBREVIATION','ALIAS','COLLOQUIAL','FORMAL','LEGAL')),
+    source          TEXT        NOT NULL DEFAULT 'MANUAL',
+    is_active       BOOLEAN     NOT NULL DEFAULT true,
+    ctx_id          TEXT        NOT NULL DEFAULT 'system',
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT uq_idsyn_canonical_synonym UNIQUE (tenant_id, canonical_form, synonym_text, language_code)
+);
+CREATE INDEX IF NOT EXISTS idx_idsyn_canonical ON bauth.idn_identity_synonym (canonical_form);
+CREATE INDEX IF NOT EXISTS idx_idsyn_tenant    ON bauth.idn_identity_synonym (tenant_id, is_active);
+COMMENT ON TABLE bauth.idn_identity_synonym IS
+'IDENTIDAD | Sinónimos y abreviaturas para búsqueda difusa de identidades — fuente de verdad de
+los archivos .syn de PostgreSQL consumidos por el motor de búsqueda D93 (bsearch). Cada fila
+asocia un sinónimo al texto canónico: "empresa"→"organización", "RUT"→"NIT", etc.
+tenant_id=NULL = sinónimo global válido en todos los tenants. El daemon bAuth regenera los
+archivos .syn cuando cambia esta tabla (estado coordinado con T-161 idn_identity_synonym_sync).
+Estándar: NIST SP 800-63A-4 §4.2. T-160.';
 
 -- ======================================================================
--- T-161 — bauth.idn_identidad_sinonimo_sync  [STUB — diseño pendiente]
--- Control de sincronización de diccionarios .syn. Evita recarga innecesaria.
+-- T-161 — bauth.idn_identity_synonym_sync
+-- Control de sincronización de diccionarios .syn de PostgreSQL.
+-- Registra cuándo se regeneraron desde T-160; evita recarga innecesaria.
 -- ======================================================================
--- TODO: implementar estructura canónica cuando se diseñe la sección IDENTIDAD completa.
--- Registra cuándo se regeneraron los archivos .syn desde T-160.
+CREATE TABLE IF NOT EXISTS bauth.idn_identity_synonym_sync (
+    sync_id         UUID        PRIMARY KEY DEFAULT uuidv7(),
+    entity_type     TEXT        NOT NULL
+                    CHECK (entity_type IN ('PERSON','ORGANIZATION','LOCATION','ROLE','ATTRIBUTE')),
+    language_code   TEXT        NOT NULL DEFAULT 'es',
+    last_sync_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    source_hash     TEXT        NOT NULL,
+    syn_file_path   TEXT        NOT NULL,
+    status          TEXT        NOT NULL DEFAULT 'SYNCED'
+                    CHECK (status IN ('SYNCED','PENDING','FAILED','BUILDING')),
+    row_count       INTEGER     NOT NULL DEFAULT 0 CHECK (row_count >= 0),
+    error_detail    TEXT,
+    ctx_id          TEXT        NOT NULL DEFAULT 'system',
+    CONSTRAINT uq_idss_entity_lang UNIQUE (entity_type, language_code)
+);
+COMMENT ON TABLE bauth.idn_identity_synonym_sync IS
+'IDENTIDAD | Control de sincronización de diccionarios .syn para búsqueda difusa. Registra el
+estado de cada archivo .syn generado desde T-160 (idn_identity_synonym): cuándo fue la última
+regeneración (last_sync_at), hash del contenido fuente (source_hash — para detectar cambios
+sin releer T-160 completo), ruta en disco (syn_file_path) y estado (SYNCED/PENDING/FAILED).
+El daemon bAuth consulta esta tabla antes de regenerar un archivo: si source_hash no cambió
+desde last_sync_at, omite la regeneración. UNIQUE por (entity_type, language_code).
+Estándar: PostgreSQL Full-Text Search Dictionary Management §12.6. T-161.';
 
 
 -- ======================================================================
@@ -6484,6 +6530,92 @@ COMMENT ON COLUMN bauth.cfg_policy_library.risk_level     IS 'Nivel de riesgo NI
 COMMENT ON COLUMN bauth.cfg_policy_library.lifecycle      IS 'Ciclo de vida IAM: active, deprecated, draft, proposed.';
 
 
+-- ======================================================================
+-- T-999b — bauth.framework_raw
+-- Tabla fuente de los 16 JSON normativos para el CTE recursivo de T-999.
+-- Una fila por fuente normativa con content JSONB original sin procesar.
+-- ISO 27001:2022 A.5.1 · NIST SP 800-53 PM-9.
+-- ======================================================================
+CREATE TABLE IF NOT EXISTS bauth.framework_raw (
+    raw_id          UUID        PRIMARY KEY DEFAULT uuidv7(),
+    source_name     TEXT        NOT NULL UNIQUE,
+    source_version  TEXT        NOT NULL,
+    source_type     TEXT        NOT NULL DEFAULT 'NORMATIVE'
+                    CHECK (source_type IN ('NORMATIVE','STANDARD','FRAMEWORK','GUIDELINE','REGULATION')),
+    domain_scope    TEXT[],
+    content         JSONB       NOT NULL,
+    loaded_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    checksum_sha256 TEXT        NOT NULL,
+    is_active       BOOLEAN     NOT NULL DEFAULT true
+);
+CREATE INDEX IF NOT EXISTS idx_fwraw_source  ON bauth.framework_raw (source_name, source_version);
+CREATE INDEX IF NOT EXISTS idx_fwraw_content ON bauth.framework_raw USING GIN (content jsonb_path_ops);
+COMMENT ON TABLE bauth.framework_raw IS
+'BIBLIOTECA | Tabla fuente para el CTE recursivo que pobla bauth.cfg_policy_library (T-999).
+Almacena los JSON originales (sin procesar) de 16 fuentes normativas: NIST SP 800-63B-4,
+ISO 27001:2022, FIDO2/CTAP 2.2, OAuth 2.0 (RFC 6749/8705/9449), OWASP ASVS 5.0, PCI DSS 4.0,
+SOC2 TSC 2023, NIST SP 800-207 (Zero Trust), ISO 24760-2:2025, Ley 164 Bolivia, entre otras.
+Una fila por fuente. El seed bauth_T999__cfg_policy_library.sql carga esta tabla y luego ejecuta
+el CTE que descompone cada JSONB en filas de cfg_policy_library (T-999).
+checksum_sha256 permite detectar actualizaciones de los frameworks fuente.
+Estándar: ISO 27001:2022 A.5.1 (políticas de seguridad de la información). T-999b.';
+
+-- ======================================================================
+-- T-999c — bauth.cfg_key_translation
+-- Diccionario de ~221 claves inglés→español para translate_keys_en_es().
+-- Precalcula content_es en cfg_policy_library (T-999) durante la carga.
+-- ======================================================================
+CREATE TABLE IF NOT EXISTS bauth.cfg_key_translation (
+    translation_id  UUID        PRIMARY KEY DEFAULT uuidv7(),
+    key_en          TEXT        NOT NULL UNIQUE,
+    key_es          TEXT        NOT NULL,
+    context         TEXT        NOT NULL DEFAULT 'GENERAL'
+                    CHECK (context IN ('GENERAL','POLICY','AUTH','IDENTITY','ROLES','FINANCIAL','AUDIT','SECURITY')),
+    is_active       BOOLEAN     NOT NULL DEFAULT true,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_cfgkt_key_en ON bauth.cfg_key_translation (key_en) WHERE is_active;
+COMMENT ON TABLE bauth.cfg_key_translation IS
+'BIBLIOTECA | Diccionario de traducción inglés→español para la función translate_keys_en_es(jsonb).
+Contiene ~221 mapeos de claves JSON técnicas: "authMethod"→"metodo_autenticacion",
+"sessionTimeout"→"tiempo_sesion", etc. La función usa esta tabla para generar la columna
+content_es de cfg_policy_library (T-999) durante la carga del seed.
+Soporte: camelCase decomposition y snake_case decomposition para variantes de clave.
+Estándar: ISO 24760-2:2025 §3 (terminología IAM multilingüe). T-999c.';
+
+-- Función de traducción de claves JSONB (requiere T-999c cargada)
+CREATE OR REPLACE FUNCTION bauth.translate_keys_en_es(p_jsonb JSONB)
+RETURNS JSONB
+LANGUAGE plpgsql
+STABLE
+AS $$
+DECLARE
+    v_result   JSONB := '{}';
+    v_key      TEXT;
+    v_key_es   TEXT;
+    v_value    JSONB;
+BEGIN
+    IF p_jsonb IS NULL OR jsonb_typeof(p_jsonb) <> 'object' THEN
+        RETURN p_jsonb;
+    END IF;
+    FOR v_key, v_value IN SELECT key, value FROM jsonb_each(p_jsonb) LOOP
+        SELECT key_es INTO v_key_es
+        FROM bauth.cfg_key_translation
+        WHERE key_en = v_key AND is_active;
+        v_key_es := COALESCE(v_key_es, v_key);
+        IF jsonb_typeof(v_value) = 'object' THEN
+            v_value := bauth.translate_keys_en_es(v_value);
+        END IF;
+        v_result := v_result || jsonb_build_object(v_key_es, v_value);
+    END LOOP;
+    RETURN v_result;
+END;
+$$;
+COMMENT ON FUNCTION bauth.translate_keys_en_es(JSONB) IS
+'Traduce claves de un JSONB recursivamente de inglés a español usando cfg_key_translation (T-999c).
+STABLE: lee la tabla de traducción. Precalcula content_es en cfg_policy_library. T-999c.';
+
+
 -- =============================================================================
 -- T-364 — bauth.idn_credencial_revocacion (D09-B05)
 -- Catálogo persistente de credenciales revocadas. Failsafe ante reinicio de Redis.
@@ -6609,6 +6741,51 @@ final (no se borra para mantener historial).
 WORM: no — estado, criticidad y ultima_rotacion son mutables operacionalmente.
 Particionada: no.
 Estándar: NIST SP 800-53 R5 AC-2(7)/AC-6(9), CIS Controls v8 §5.1 (inventario cuentas privilegiadas), ISO 27001:2022 A.8.2. T-460.';
+
+
+-- ======================================================================
+-- T-546 — bauth.idn_nhi_identity (D15 NHI Governance)
+-- Registro canónico de Identidades No Humanas en el plano de identidad.
+-- Complementa T-186 (idn_roles_nhi_identity) en el plano de roles.
+-- Cubre: M2M, bots, API clients, daemons, scripts, pipelines, dispositivos.
+-- NIST SP 800-53 IA-2(7)/AC-2(7) · ISO 27001 A.5.16 · CSA NHI Governance 2025.
+-- ======================================================================
+CREATE TABLE IF NOT EXISTS bauth.idn_nhi_identity (
+    nhi_id          UUID        PRIMARY KEY DEFAULT uuidv7(),
+    tenant_id       UUID        NOT NULL REFERENCES bauth.idn_tenant(tenant_id) ON DELETE CASCADE,
+    nhi_type        TEXT        NOT NULL
+                    CHECK (nhi_type IN ('M2M','BOT','API_CLIENT','DAEMON','SCRIPT','PIPELINE','DEVICE')),
+    display_name    TEXT        NOT NULL,
+    system_ref      TEXT        NOT NULL,
+    description     TEXT,
+    owner_id        UUID        REFERENCES bauth.idn_identity_entity(entity_id),
+    parent_nhi_id   UUID        REFERENCES bauth.idn_nhi_identity(nhi_id),
+    role_nhi_ref    UUID        REFERENCES bauth.idn_roles_nhi_identity(id),
+    status          TEXT        NOT NULL DEFAULT 'ACTIVE'
+                    CHECK (status IN ('ACTIVE','SUSPENDED','DECOMMISSIONED','PENDING_REVIEW')),
+    risk_level      TEXT        NOT NULL DEFAULT 'MEDIUM'
+                    CHECK (risk_level IN ('CRITICAL','HIGH','MEDIUM','LOW')),
+    last_activity   TIMESTAMPTZ,
+    certified_at    TIMESTAMPTZ,
+    review_due_at   TIMESTAMPTZ,
+    ctx_id          TEXT        NOT NULL DEFAULT 'system',
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT uq_inhi546_tenant_ref UNIQUE (tenant_id, system_ref)
+);
+CREATE INDEX IF NOT EXISTS idx_inhi546_status ON bauth.idn_nhi_identity (tenant_id, status);
+CREATE INDEX IF NOT EXISTS idx_inhi546_owner  ON bauth.idn_nhi_identity (owner_id);
+CREATE INDEX IF NOT EXISTS idx_inhi546_review ON bauth.idn_nhi_identity (review_due_at) WHERE status = 'ACTIVE';
+COMMENT ON TABLE bauth.idn_nhi_identity IS
+'IDENTIDAD NHI | Registro canónico de Identidades No Humanas en el plano de identidad (D15
+NHI Governance). Complementa T-186 (idn_roles_nhi_identity) que opera en el plano de roles.
+Cubre: M2M (Machine-to-Machine), bots, API clients, daemons del ecosistema, scripts autónomos,
+pipelines CI/CD y dispositivos IoT. Cada NHI tiene un tenant propietario, tipo funcional,
+referencia de sistema única (system_ref), propietario humano responsable (owner_id) y nivel
+de riesgo que determina la frecuencia de certificación (CRITICAL=30d, HIGH=90d, MEDIUM=180d).
+role_nhi_ref vincula al registro de roles en T-186 cuando el NHI tiene asignaciones RBAC.
+parent_nhi_id permite jerarquías de NHI (daemon padre → subprocesos hijos).
+Estándar: NIST SP 800-53 IA-2(7)/AC-2(7), ISO 27001 A.5.16, CSA NHI Governance 2025. T-546.';
 
 
 -- =============================================================================
