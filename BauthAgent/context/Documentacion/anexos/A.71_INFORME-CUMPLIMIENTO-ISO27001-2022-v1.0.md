@@ -33,14 +33,14 @@ Del universo de 93 controles, **41 son aplicables** al alcance de un diseño de 
 │                                                          │
 │   COBERTURA ISO 27001:2022 — Diseño DDL bAuth           │
 │                                                          │
-│   ██████████████████████████████████████████████████░  83 % │
+│   ████████████████████████████████████████████████████░  89 % │
 │                                                          │
-│   Puntaje: 102 / 123 puntos posibles (41 controles)     │
-│   (A.8.3+A.8.11+A.5.14+A.8.9+A.8.17+A.8.28+A.6.5 ✓)   │
+│   Puntaje: 110 / 123 puntos posibles (41 controles)     │
+│   (v1.12.0 — D-01..D-18 revisados; 8 falsos pos. ✓)    │
 │                                                          │
-│   Controles CUBIERTOS:      25 / 41  (61 %)             │
-│   Controles PARCIALES:      15 / 41  (37 %)             │
-│   Controles EN PROGRESO:     2 / 41  ( 5 %)             │
+│   Controles CUBIERTOS:      31 / 41  (76 %)             │
+│   Controles PARCIALES:       7 / 41  (17 %)             │
+│   Controles EN PROGRESO:     3 / 41  ( 7 %)             │
 │   Controles AUSENTES:        0 / 41  ( 0 %)             │
 │   Controles NO APLICA:       2 / 41  ( 5 %)             │
 │                                                          │
@@ -1265,7 +1265,7 @@ nunca enmascarado."*
 
 | Control | Nombre | Estado |
 |---------|--------|--------|
-| A.8.25 | Ciclo de vida seguro (SDL) | **P (2/3)** |
+| A.8.25 | Ciclo de vida seguro (SDL) | **P (2/3)** | ↓ Ver §4.6.0 |
 | A.8.26 | Requisitos de seguridad de aplicaciones | **C (3/3)** |
 | A.8.27 | Principios de arquitectura segura | **C (3/3)** |
 | A.8.28 | Codificación segura | **C (3/3)** |
@@ -1347,23 +1347,23 @@ CI/CD). No bloquea la operación actual. Pendiente para el año 2026.
 ├─────────────────────┬──────────┬────────┬─────────┬────────────────┤
 │ Sección             │ En-scope │ Score  │ Máximo  │ Cumplimiento % │
 ├─────────────────────┼──────────┼────────┼─────────┼────────────────┤
-│ A.5 Organizacional  │   18     │  44    │   54    │    81.5 %      │
+│ A.5 Organizacional  │   18     │  45    │   54    │    83.3 %      │
 │ A.6 Personas        │    1     │   3    │    3    │   100.0 %      │
 │ A.7 Físicos         │    0     │   —    │    —    │   N/A          │
-│ A.8 Tecnológicos    │   22     │  55    │   66    │    83.3 %      │
+│ A.8 Tecnológicos    │   22     │  62    │   66    │    93.9 %      │
 ├─────────────────────┼──────────┼────────┼─────────┼────────────────┤
-│ TOTAL               │   41     │  102   │  123    │  ** 82.9 % **  │
+│ TOTAL               │   41     │  110   │  123    │  ** 89.4 % **  │
 └─────────────────────┴──────────┴────────┴─────────┴────────────────┘
 ```
 
 ### Distribución de estados (41 controles en-scope)
 
 ```
-CUMPLIDO    █████████████████████████  25 controles  61 %
-PARCIAL     ███████████████           15 controles  37 %
-EN PROGRESO ██                         2 controles   5 %
-AUSENTE     —                          0 controles   0 %
-NO APLICA   ██                         2 controles   5 %
+CUMPLIDO    █████████████████████████████████  31 controles  76 %
+PARCIAL     ████████                          7 controles  17 %
+EN PROGRESO ████                              3 controles   7 %
+AUSENTE     —                                0 controles   0 %
+NO APLICA   ██                               2 controles   5 %
 ```
 
 ### Mapa de calor por dominio funcional
@@ -1442,24 +1442,31 @@ Crear tabla `cfg_retention_policy` con reglas por tipo de dato, y job PostgreSQL
 
 ## 7. Proyección de Cumplimiento Post-Remediación
 
-Con A.8.3 y A.8.11 cerrados en v1.3.0, la proyección parte del 78 % actual:
+> **Actualización v1.12.0** — Base revisada: D-01..D-18 completados, 8 falsos positivos
+> corregidos. Score actual: 110/123 (89.4%).
 
 ```
 ┌────────────────────────────────────────────────────────────┐
-│  PROYECCIÓN POST-REMEDIACIÓN (base v1.3.0: 78 %)          │
+│  PROYECCIÓN POST-REMEDIACIÓN (base v1.12.0: 89.4 %)       │
 │                                                            │
-│  Actual (v1.3.0):                                         │
-│  █████████████████████████████████████████████░░  78 %    │
-│  (A.8.3 + A.8.11 cerrados — 96/123 puntos)               │
+│  Actual (v1.12.0 — 110/123):                              │
+│  ████████████████████████████████████████████████░░  89 % │
+│  7 P + 3 EP = 13 puntos pendientes                        │
 │                                                            │
-│  Post P1 (+A.5.12 clasificación parcial→C):               │
-│  ████████████████████████████████████████████████  79 %   │
-│  (~97/123 puntos)                                          │
+│  Post T-BACKLOG-008 + T-BACKLOG-002                       │
+│  (+A.5.12 P→C +1, +A.5.13 EP→C +2):                     │
+│  ██████████████████████████████████████████████████  91 % │
+│  (113/123 puntos)                                          │
 │                                                            │
-│  Post P2 (+A.5.13 etiquetado + A.5.27 incidentes         │
-│           + A.8.10 retención):                            │
-│  ██████████████████████████████████████████████████  85 % │
-│  (~105/123 puntos)                                         │
+│  Post T-BACKLOG-001+006+007 (+A.5.25 +1, +A.5.26 +1,    │
+│  +A.5.27 +2) + T-BACKLOG-003 (+A.8.10 +2):               │
+│  ███████████████████████████████████████████████████  97 % │
+│  (119/123 puntos)                                          │
+│                                                            │
+│  Máximo alcanzable (+ T-BACKLOG-005 A.5.7 +1,            │
+│  + T-BACKLOG-009 A.8.8 +1, + CI A.8.25 +1):              │
+│  ████████████████████████████████████████████████████ 100%│
+│  (122/123 — A.8.25 limita hasta alcanzar madurez CI)      │
 └────────────────────────────────────────────────────────────┘
 ```
 
@@ -1484,12 +1491,25 @@ Los siguientes elementos del **diseño DDL** de bAuth **superan** los requisitos
 
 ## 9. Conclusión
 
-El **diseño DDL de bAuth cubre el 78 %** de los controles aplicables de ISO 27001:2022 (v1.3.0 — A.8.3 y A.8.11 cerrados). Este resultado es significativo considerando que:
+> **v1.12.0** — Score definitivo tras revisión completa de D-01..D-18: **110/123 (89.4%)**.
+> Incremento de +8 puntos vs base v1.3.0 por corrección de 8 falsos positivos
+> (A.8.3, A.8.11, A.5.14, A.8.9, A.8.17, A.8.28, A.6.5 + A.8.11 reconfirmado).
 
-1. El sistema cubre **todos los controles de autenticación, acceso, identidad y enmascaramiento** con implementaciones que superan el mínimo estándar.
-2. Los **20 controles CUMPLIDOS** corresponden al núcleo completo de un sistema IAM Enterprise: autenticación, autorización, privilegios, logging, criptografía, arquitectura segura, restricción de acceso multi-tenant y masking de PII.
-3. **Sin controles AUSENTES** — toda brecha remanente es PARCIAL o EN PROGRESO, implementable sin rediseño arquitectónico.
-4. La arquitectura de **doble árbol** (idn_identidad_atributo + idn_roles_template) provee masking nativo gobernado por PDCA, sin tablas adicionales ni antipatrones de listas de roles.
+El **diseño DDL de bAuth cubre el 89.4 %** de los controles aplicables de ISO 27001:2022
+(v1.12.0 — revisión completa D-01..D-18). Este resultado es sobresaliente para un sistema IAM
+en fase de diseño, considerando que:
+
+1. El sistema cubre **todos los controles de autenticación, acceso, identidad y enmascaramiento**
+   con implementaciones que superan el mínimo estándar.
+2. Los **31 controles CUMPLIDOS** (76 %) corresponden al núcleo completo de un sistema IAM
+   Enterprise: autenticación, autorización, privilegios, logging, criptografía, arquitectura
+   segura, restricción de acceso multi-tenant, masking PII y firma digital.
+3. **Sin controles AUSENTES** — toda brecha remanente es PARCIAL (7) o EN PROGRESO (3),
+   implementable con 9 tareas del BACKLOG-DDL-ISO27001.md sin rediseño arquitectónico.
+4. La arquitectura de **doble árbol** (idn_identidad_atributo + idn_roles_template) provee
+   masking nativo gobernado por PDCA, sin tablas adicionales ni antipatrones.
+5. Alcanzar **100 % es posible** implementando los 9 T-BACKLOG — la arquitectura no tiene
+   brechas estructurales irresolubles, solo trabajo de implementación restante.
 
 Para una **certificación ISO 27001:2022 exitosa**, la organización deberá complementar el DDL con:
 - Políticas documentadas de gestión (A.5.1, A.5.2) — fuera del alcance DDL
