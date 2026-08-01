@@ -128,7 +128,7 @@ ddl_unificado:
   archivo: "SBOS_db_V2_DDL.sql"
   manual: "SBOS_db_V2_DDL_MANUAL.md"
   schemas: [bglobal, bauth, bcalendar]
-  tablas: 129  -- CREATE TABLE (incluye particiones); ~109 T-codes únicos
+  tablas: 134  -- CREATE TABLE (incluye particiones); actualizado 2026-08-01
   linea_referencia: 5676
   por_que_no_se_separa: "Tienen CLAVES FORÁNEAS CIRCULARES entre sí:
       bcalendar.cal_* y bglobal.menu_* → bauth.idn_tenant ; bauth.* → bglobal.global_country.
@@ -171,7 +171,7 @@ punto_de_entrada:
     - archivo: "migrations/bauth_dominios_pendientes_v2.0.sql"
       commit: "c420dc2"
       dominios: "D02 D03 D04 D05 D06 D07 D09 D10 D11 D12 D13 D14 D15 D98 D99"
-      tablas: ~77
+      tablas: 102
       estado: "APLICADO en SBOSDB producción (221 tablas bauth)"
 
 # ── REGLAS PARA AGENTES DESARROLLADORES ─────────────────────────────────────
