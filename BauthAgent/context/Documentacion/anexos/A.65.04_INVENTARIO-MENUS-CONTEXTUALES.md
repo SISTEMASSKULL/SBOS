@@ -608,7 +608,6 @@ Los valores de cada menú viven en `bglobal.menu_item` como registros hijos (`de
 
 | Tabla.Columna | MC | Code del menú |
 |---------------|-----|---------------|
-
 | `bauth.aud_certification_campaign.campaign_type` | MC-0033 | `campana_tipo` |
 | `bauth.aud_certification_campaign.scope` | MC-0031 | `campana_alcance` |
 | `bauth.aud_certification_campaign.status` | MC-0032 | `campana_estado` |
