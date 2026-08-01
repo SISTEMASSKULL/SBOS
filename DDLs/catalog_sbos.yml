@@ -1,0 +1,1989 @@
+# =============================================================================
+# catalog_sbos.yml — Catálogo de tablas SBOS_db por área funcional
+# GENERADO AUTOMÁTICAMENTE — no editar a mano
+# Comando: python3 gen_catalog.py
+# =============================================================================
+generado_en: "2026-08-01T03:20:29Z"
+fuente: "pg_description de SBOSDB @ localhost:15432"
+total_tablas_padre: 206
+tablas_documentadas: 184
+cobertura_score_alto: "89%"
+
+# Cómo usar este catálogo:
+#   1. Busca el área funcional del subdominio que te interesa
+#   2. Lee el campo 'resumen' para entender el propósito de la tabla
+#   3. El campo 'fqn' (schema.tabla) es el nombre completo en SQL
+#   4. El campo 't_code' es el código T-NNN del DDL Manual
+#
+# Para documentación detallada en BD:
+#   SELECT obj_description('schema.tabla'::regclass, 'pg_class');
+
+tablas:
+  - schema: bauth
+    tabla: aud_certification_campaign
+    fqn: bauth.aud_certification_campaign
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "AUDITORÍA IGA | Cabecera de campaña de certificación periódica de accesos (Identity Governance & Administration). Una fila por campaña: define tipo (QUARTERLY/ANNUAL/OFFBOARDING/INCIDENT/SOD_REVIEW),"
+
+  - schema: bauth
+    tabla: aud_certification_review
+    fqn: bauth.aud_certification_review
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "AUDITORÍA IGA | Evidencia auditable de revisión de accesos — una fila por (campaña, grant) revisado. Para cada grant del alcance de la campaña (T-177), el revisor registra su decisión: CERTIFY (acceso"
+
+  - schema: bauth
+    tabla: auth_attempt_log_2026_07
+    fqn: bauth.auth_attempt_log_2026_07
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: auth_attempt_log_2026_08
+    fqn: bauth.auth_attempt_log_2026_08
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: auth_attempt_log_2026_09
+    fqn: bauth.auth_attempt_log_2026_09
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: auth_compliance_map
+    fqn: bauth.auth_compliance_map
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "AUTENTICACIÓN | Mapa de cumplimiento normativo del motor de autenticación — vincula cada control de estándar (NIST, PCI DSS, OWASP, ISO, FIPS) con los métodos y sagas que cubren ese control, permitien"
+
+  - schema: bauth
+    tabla: auth_config
+    fqn: bauth.auth_config
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "AUTENTICACIÓN | Parámetros técnicos del motor de autenticación sin hardcode — almacena todos los valores configurables de bAuth en pares clave-valor JSONB con vigencia desde effective_at, permitiendo"
+
+  - schema: bauth
+    tabla: auth_credential
+    fqn: bauth.auth_credential
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "AUTENTICACIÓN | Capa 3 — Authenticator binding (NIST SP 800-63-4 §5.1): registro del vínculo entre un autenticador y la cuenta de usuario (T-320 idn_user). No contiene secretos — es el directorio de q"
+
+  - schema: bauth
+    tabla: auth_credential_fido2
+    fqn: bauth.auth_credential_fido2
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "AUTENTICACIÓN | Credenciales FIDO2/Passkey — datos del autenticador WebAuthn necesarios para verificar las aserciones de autenticación del dispositivo. Una fila por credential enrollada. Campos clave:"
+
+  - schema: bauth
+    tabla: auth_credential_secret
+    fqn: bauth.auth_credential_secret
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "AUTENTICACIÓN | Secretos cifrados de credenciales de conocimiento — almacena hashes y semillas cifradas NUNCA en claro. Tipos: ARGON2ID_HASH (hash de contraseña con Argon2id m=64MB t=3 p=4, parámetros"
+
+  - schema: bauth
+    tabla: auth_credential_x509
+    fqn: bauth.auth_credential_x509
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "AUTENTICACIÓN | Metadatos de certificados X.509 para autenticación mTLS y firma digital calificada. Almacena el certificado público y sus metadatos de verificación — la clave privada reside SIEMPRE en"
+
+  - schema: bauth
+    tabla: auth_crypto_algorithm
+    fqn: bauth.auth_crypto_algorithm
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "AUTENTICACIÓN | Registro de algoritmos criptográficos con estado de aprobación NIST — catálogo local CAVP que define qué algoritmos están APPROVED (seguros), DEPRECATED (en transición) o FORBIDDEN (pr"
+
+  - schema: bauth
+    tabla: auth_device
+    fqn: bauth.auth_device
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DISPOSITIVOS ZTA | Registro central de dispositivos del ecosistema SBOS — implementa el componente Device Trust de Zero Trust Architecture. Cubre 9 categorías: equipos de usuario (DESKTOP/MOBILE/ TABL"
+
+  - schema: bauth
+    tabla: auth_device_credential_binding
+    fqn: bauth.auth_device_credential_binding
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DISPOSITIVOS ZTA | Registro WORM de la ligadura entre un dispositivo (T-390) y un autenticador (T-330 auth_credential). Implementa el concepto 'bound credential' de NIST SP 800-63B-4: una credencial l"
+
+  - schema: bauth
+    tabla: auth_device_posture
+    fqn: bauth.auth_device_posture
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DISPOSITIVOS ZTA | Snapshot de postura de seguridad del dispositivo — evaluación periódica de cumplimiento de controles de seguridad del endpoint. Fuente de decisión para el PDP de Zero Trust: si vali"
+
+  - schema: bauth
+    tabla: auth_federation_protocol
+    fqn: bauth.auth_federation_protocol
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "AUTENTICACIÓN | Catálogo de protocolos de federación de identidad soportados por el MethodRegistry de bAuth — define las capacidades técnicas de cada protocolo: AAL máximo alcanzable (aal_max), nivele"
+
+  - schema: bauth
+    tabla: auth_method
+    fqn: bauth.auth_method
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "AUTENTICACIÓN | Catálogo declarativo del MethodRegistry — define los 47 métodos de autenticación en 6 categorías (A-F) con su nivel de aseguramiento (LoA), resistencia a phishing, componente MFA y est"
+
+  - schema: bauth
+    tabla: auth_policy
+    fqn: bauth.auth_policy
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "AUTENTICACIÓN | Políticas de autenticación por contexto — define el LoA mínimo requerido, los métodos permitidos y requeridos, el TTL de sesión y las condiciones de step-up para cada contexto de auten"
+
+  - schema: bauth
+    tabla: auth_saga_catalog
+    fqn: bauth.auth_saga_catalog
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "AUTENTICACIÓN | Catálogo de las 12 sagas de autenticación multi-paso del MethodRegistry — cada saga define la secuencia de pasos, el AAL requerido para iniciarla, el AAL producido al completarla, y si"
+
+  - schema: bauth
+    tabla: blk_account
+    fqn: bauth.blk_account
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "BLOCKCHAIN | Registro de cuentas blockchain Besu QBFT vinculadas a entidades SBOS — una fila por dirección Ethereum (eth_address UNIQUE) perteneciente a una entidad (entity_id T-157). Actúa como el di"
+
+  - schema: bauth
+    tabla: blk_anchor
+    fqn: bauth.blk_anchor
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "BLOCKCHAIN | Registro WORM de anclajes Merkle on-chain — cada fila documenta un anclaje de la raíz Merkle de un batch de eventos en una red blockchain (Arbitrum L2 para escala, Besu QBFT privado para"
+
+  - schema: bauth
+    tabla: blk_merkle_batch
+    fqn: bauth.blk_merkle_batch
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "BLOCKCHAIN | Lote (batch) de eventos de auditoría para procesamiento del árbol Merkle — agrupa hasta 1 millón de event_ids (hojas del árbol) antes de calcular la raíz Merkle Keccak-256 y anclarla en b"
+
+  - schema: bauth
+    tabla: blk_merkle_leaf
+    fqn: bauth.blk_merkle_leaf
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "BLOCKCHAIN | Hojas WORM del árbol Merkle — cada fila es un evento de auditoría (event_id) incluido en un batch, con su hash de hoja (Keccak-256) y la prueba de inclusión (merkle_proof[]) que permite v"
+
+  - schema: bauth
+    tabla: blk_reconciliation
+    fqn: bauth.blk_reconciliation
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "BLOCKCHAIN | Registro de conciliaciones periódicas on-chain ↔ PostgreSQL — verifica que el saldo de cada cuenta Besu en la red coincide con el balance_cache de blk_account, y documenta discrepancias y"
+
+  - schema: bauth
+    tabla: cfg_key_translation
+    fqn: bauth.cfg_key_translation
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "CONFIGURACIÓN | Diccionario de ~221 términos técnicos IAM inglés→español — usado por la función bauth.translate_keys_en_es() para generar el campo content_es de cfg_policy_library (T-999). Mapea térmi"
+
+  - schema: bauth
+    tabla: cfg_policy_library
+    fqn: bauth.cfg_policy_library
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "CONFIGURACIÓN | Biblioteca unificada de referencia de políticas, reglas, métodos de autenticación y controles normativos — tabla de solo lectura que descompone y normaliza 16 fuentes normativas JSON ("
+
+  - schema: bauth
+    tabla: fed_client
+    fqn: bauth.fed_client
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "FEDERACIÓN OIDC | Registro de clientes OAuth2/OIDC — cada aplicación o servicio que delega autenticación en bAuth tiene una fila aquí (client_key UNIQUE). Tipos: CONFIDENTIAL (SPA/backend que puede gu"
+
+  - schema: bauth
+    tabla: fed_provider_ext
+    fqn: bauth.fed_provider_ext
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "FEDERACIÓN | Catálogo de proveedores de identidad externos (IdPs) configurados por cada tenant — permite a los usuarios autenticarse con una cuenta externa (Google Workspace, Microsoft Entra ID, GitHu"
+
+  - schema: bauth
+    tabla: fed_token_issued_2026_07
+    fqn: bauth.fed_token_issued_2026_07
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: fed_token_issued_2026_08
+    fqn: bauth.fed_token_issued_2026_08
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: fed_token_issued_2026_09
+    fqn: bauth.fed_token_issued_2026_09
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: framework_raw
+    fqn: bauth.framework_raw
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "CONFIGURACIÓN | Almacén de las 16 fuentes normativas JSON brutas que alimentan cfg_policy_library (T-999) — cada fila es un framework completo en JSONB (source_name UNIQUE como clave de carga). Las 16"
+
+  - schema: bauth
+    tabla: idn_access_contract
+    fqn: bauth.idn_access_contract
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "PRIVILEGIOS D01 | Contrato de acceso: registro de gobernanza que documenta QUÉ acceso se otorgó, POR QUÉ (business_justification) y QUIÉN aprobó (approver_id ≠ requester_id — NIST AC-5 dual control)."
+
+  - schema: bauth
+    tabla: idn_attribute_schema
+    fqn: bauth.idn_attribute_schema
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "PIP D98 | Policy Information Point: esquema canónico de todos los atributos de identidad del ecosistema (D98-B01). Permite que idn_identity_attribute (T-157) sea extensible sin hardcode: cada atributo"
+
+  - schema: bauth
+    tabla: idn_audit_alert_rule
+    fqn: bauth.idn_audit_alert_rule
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "AUDITORÍA IGA | Reglas de alerta sobre el flujo de eventos de auditoría — define condiciones (umbral de eventos en ventana de tiempo) que disparan notificaciones a canales SIEM o bNotify al detectar a"
+
+  - schema: bauth
+    tabla: idn_audit_event_log_2026_07
+    fqn: bauth.idn_audit_event_log_2026_07
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: idn_audit_event_log_2026_08
+    fqn: bauth.idn_audit_event_log_2026_08
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: idn_audit_event_log_2026_09
+    fqn: bauth.idn_audit_event_log_2026_09
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: idn_audit_event_log_default
+    fqn: bauth.idn_audit_event_log_default
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: idn_audit_retention_policy
+    fqn: bauth.idn_audit_retention_policy
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "AUDITORÍA IGA | Políticas de retención de logs de auditoría por tipo de evento y tenant — define cuántos días se conservan los registros, la base legal y la acción al vencer (DELETE, ARCHIVE, ANONYMIZ"
+
+  - schema: bauth
+    tabla: idn_audit_siem_target
+    fqn: bauth.idn_audit_siem_target
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "AUDITORÍA IGA | Destinos SIEM configurados — define los endpoints (Wazuh, Elastic, Kafka, webhooks) a los que bAuth envía eventos de auditoría en tiempo real con el formato y filtros correspondientes."
+
+  - schema: bauth
+    tabla: idn_biometric_enrollment
+    fqn: bauth.idn_biometric_enrollment
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D05) | Registro de enrolamientos biométricos por actor y modalidad — almacena la ruta Vault al template (NUNCA el template en BD), calidad y liveness de la muestra, y estado del enro"
+
+  - schema: bauth
+    tabla: idn_biometric_identification_log_default
+    fqn: bauth.idn_biometric_identification_log_default
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: idn_biometric_pad_policy
+    fqn: bauth.idn_biometric_pad_policy
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D05) | Política de detección de ataques de presentación (PAD) por modalidad — define umbral de liveness, número de intentos antes de bloqueo y acción ante fallo (DENY/STEP_UP/QUARANT"
+
+  - schema: bauth
+    tabla: idn_biometric_quality_policy
+    fqn: bauth.idn_biometric_quality_policy
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D05) | Política de calidad mínima de muestra biométrica por modalidad y tenant — define el umbral mínimo de calidad y máximo de intentos de captura antes de rechazar el enrolamiento."
+
+  - schema: bauth
+    tabla: idn_biometric_revocation
+    fqn: bauth.idn_biometric_revocation
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D05) | Registro de revocaciones de templates biométricos con confirmación explícita del borrado en Vault — garantiza que el template (categoría especial GDPR Art. 9) se elimina físic"
+
+  - schema: bauth
+    tabla: idn_biometric_verification_log_2026_07
+    fqn: bauth.idn_biometric_verification_log_2026_07
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: idn_biometric_verification_log_2026_08
+    fqn: bauth.idn_biometric_verification_log_2026_08
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: idn_biometric_verification_log_default
+    fqn: bauth.idn_biometric_verification_log_default
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: idn_blockchain_anchor_ext
+    fqn: bauth.idn_blockchain_anchor_ext
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "BLOCKCHAIN | Extensión del ancla blockchain (blk_anchor T-358) — agrega contexto semántico al ancla: tipo del evento fuente (PRIVILEGE_GRANT, AUDIT_BATCH, etc.) y prueba de inclusión Merkle en el batc"
+
+  - schema: bauth
+    tabla: idn_blockchain_merkle_proof
+    fqn: bauth.idn_blockchain_merkle_proof
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "BLOCKCHAIN | Pruebas de inclusión Merkle para eventos incluidos en un batch blockchain — permite demostrar criptográficamente que un evento específico está en una raíz Merkle anclada on-chain sin reve"
+
+  - schema: bauth
+    tabla: idn_blockchain_node
+    fqn: bauth.idn_blockchain_node
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "BLOCKCHAIN | Nodos de la red Besu QBFT privada del ecosistema SBOS — registra estado, dirección Ethereum, conectividad y si el nodo es validador activo del consenso tolerante a fallos. Fuente: registr"
+
+  - schema: bauth
+    tabla: idn_blockchain_transaction
+    fqn: bauth.idn_blockchain_transaction
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "BLOCKCHAIN | Registro de transacciones en la red Besu QBFT privada — documenta cada llamada a contrato inteligente (liquidación, freeze, deploy) con tx_hash, gas consumido y estado de confirmación. Fu"
+
+  - schema: bauth
+    tabla: idn_blockchain_wallet
+    fqn: bauth.idn_blockchain_wallet
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "BLOCKCHAIN | Wallet blockchain por tenant — almacena la dirección Besu/EVM y el path en Vault de la clave privada (NUNCA la clave en BD), con el saldo actual para operaciones de settlement. Fuente: cr"
+
+  - schema: bauth
+    tabla: idn_credencial_introspeccion
+    fqn: bauth.idn_credencial_introspeccion
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "AUTENTICACIÓN | Log de introspecciones de token según RFC 7662 — registra cada vez que un resource server consulta a bAuth si un token (JWT) está activo y cuáles son sus claims actuales. Una fila por"
+
+  - schema: bauth
+    tabla: idn_credencial_revocacion
+    fqn: bauth.idn_credencial_revocacion
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "AUTENTICACIÓN | Catálogo persistente de credenciales revocadas — failsafe ante reinicio de Redis. El flujo normal de revocación escribe en Redis (lista negra O(1) consultada por Kong PEP y el motor de"
+
+  - schema: bauth
+    tabla: idn_credential_password_history
+    fqn: bauth.idn_credential_password_history
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "AUTENTICACIÓN | Historial inmutable de hashes de contraseñas anteriores por usuario — permite verificar que una nueva contraseña no repite las últimas N (NIST 800-63B-4 §5.1.1.2: mínimo 5 anteriores)."
+
+  - schema: bauth
+    tabla: idn_credential_token_issued_2026_07
+    fqn: bauth.idn_credential_token_issued_2026_07
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: idn_credential_token_issued_2026_08
+    fqn: bauth.idn_credential_token_issued_2026_08
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: idn_credential_token_issued_2026_09
+    fqn: bauth.idn_credential_token_issued_2026_09
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: idn_credential_token_issued_default
+    fqn: bauth.idn_credential_token_issued_default
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: idn_delegation_chain
+    fqn: bauth.idn_delegation_chain
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D10) | Cadena de delegaciones transitivas — registra el árbol de re-delegaciones (hasta depth=5) para detectar y prevenir ciclos de delegación que crearían escaladas de privilegio. F"
+
+  - schema: bauth
+    tabla: idn_delegation_grant
+    fqn: bauth.idn_delegation_grant
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D10) | Delegaciones de identidad entre actores — permite que un actor (grantor) otorgue a otro (grantee) capacidad de actuar en su nombre mediante impersonación, agencia, proxy o int"
+
+  - schema: bauth
+    tabla: idn_delegation_rar_request
+    fqn: bauth.idn_delegation_rar_request
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D10) | Solicitudes de autorización enriquecida (Rich Authorization Request RFC 9396) — permite que un cliente especifique con detalle el tipo, acción y recurso exactos a los que soli"
+
+  - schema: bauth
+    tabla: idn_delegation_renewal
+    fqn: bauth.idn_delegation_renewal
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D10) | Registro de renovaciones de delegaciones — documenta cada extensión de validez de un grant con el aprobador y la nueva fecha límite, respetando el máximo de renovaciones (max_"
+
+  - schema: bauth
+    tabla: idn_delegation_restriction
+    fqn: bauth.idn_delegation_restriction
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D10) | Restricciones adicionales sobre el alcance de una delegación — permite limitar IP permitidas, horas, recursos específicos o requerir aprobación adicional más allá del grant ba"
+
+  - schema: bauth
+    tabla: idn_delegation_usage_log_2026_07
+    fqn: bauth.idn_delegation_usage_log_2026_07
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: idn_delegation_usage_log_2026_08
+    fqn: bauth.idn_delegation_usage_log_2026_08
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: idn_delegation_usage_log_default
+    fqn: bauth.idn_delegation_usage_log_default
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: idn_did_document
+    fqn: bauth.idn_did_document
+    estado: IN_PROGRESS
+    score: 3/6
+    es_particion: false
+    resumen: "[T-169] [GAP-D00-05] [W3C DID Core v1.1 CR mar 2026] Caché de documentos DID resueltos.    Permite resolver DIDs sin llamada externa en cada operación. El resolver bAuth actualiza    esta tabla cuando"
+
+  - schema: bauth
+    tabla: idn_dpia_registro
+    fqn: bauth.idn_dpia_registro
+    estado: IN_PROGRESS
+    score: 3/6
+    es_particion: false
+    resumen: "[T-188] [GAP-D00-10] [GDPR Art. 35 — Reg UE 2016/679] Registro de Evaluaciones de Impacto    Relativas a la Protección de Datos (DPIA). Obligatorio para tratamientos de alto riesgo.    Incluye inventa"
+
+  - schema: bauth
+    tabla: idn_financial_approval
+    fqn: bauth.idn_financial_approval
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D03) | Solicitud de aprobación dual para operaciones financieras que superan el límite configurado — implementa quorum de aprobadores (≥2) con ventana de expiración de 24h. Fuente: c"
+
+  - schema: bauth
+    tabla: idn_financial_approval_vote
+    fqn: bauth.idn_financial_approval_vote
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D03) | Votos individuales de los aprobadores en una solicitud de aprobación dual — cada fila es la decisión de un aprobador con su razón y timestamp; constraint UNIQUE (approval_id,"
+
+  - schema: bauth
+    tabla: idn_financial_fraud_alert
+    fqn: bauth.idn_financial_fraud_alert
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D03) | Alertas de anomalía financiera detectadas por el motor de análisis de bAuth (montos inusuales, patrones temporales, violaciones SoD) que requieren investigación humana asignad"
+
+  - schema: bauth
+    tabla: idn_financial_invoice_auth
+    fqn: bauth.idn_financial_invoice_auth
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D03) | Registro de autorizaciones de facturas electrónicas SIN (Bolivia) — vincula el CUF/CUFD con la operación de firma digital correspondiente para trazabilidad fiscal completa. Fu"
+
+  - schema: bauth
+    tabla: idn_financial_limit
+    fqn: bauth.idn_financial_limit
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D03) | Límites transaccionales por actor/rol/cliente — define montos máximos, límites diarios/mensuales y si se requiere doble aprobación para operaciones financieras autorizadas por"
+
+  - schema: bauth
+    tabla: idn_financial_reconciliation
+    fqn: bauth.idn_financial_reconciliation
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D03) | Registro de conciliaciones financieras periódicas entre dos sistemas — documenta discrepancias contables detectadas y su resolución para cumplimiento SOX y auditoría interna."
+
+  - schema: bauth
+    tabla: idn_financial_report
+    fqn: bauth.idn_financial_report
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D03) | Registro de reportes financieros de control (SOX 302/404, PCI DSS, informes de incidentes) con hash SHA-256 del archivo para verificación de integridad. Fuente: generado por e"
+
+  - schema: bauth
+    tabla: idn_financial_sod_rule
+    fqn: bauth.idn_financial_sod_rule
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D03) | Reglas estáticas de Separación de Deberes financiero — define pares de operaciones que un mismo actor no puede ejecutar (MUTUALLY_EXCLUSIVE) o que requieren secuencia u aproba"
+
+  - schema: bauth
+    tabla: idn_financial_tpp_consent
+    fqn: bauth.idn_financial_tpp_consent
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D03) | Consentimientos a terceros proveedores de pago (TPP) para acceder a datos financieros del usuario — implementa flujo FAPI 2.0 con DPoP obligatorio y alcances granulares por op"
+
+  - schema: bauth
+    tabla: idn_geospatial_data_residency
+    fqn: bauth.idn_geospatial_data_residency
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D06) | Política de soberanía y residencia de datos geográfica por tenant — define países permitidos/bloqueados para autenticación y procesamiento, cumpliendo GDPR transferencias inte"
+
+  - schema: bauth
+    tabla: idn_geospatial_device_fleet
+    fqn: bauth.idn_geospatial_device_fleet
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D06) | Flota de dispositivos móviles con trazabilidad geoespacial — vincula cada dispositivo a su última ubicación conocida y la geocerca asignada para logística y seguridad de activ"
+
+  - schema: bauth
+    tabla: idn_geospatial_geofence
+    fqn: bauth.idn_geospatial_geofence
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D06) | Geocercas de control de acceso — define zonas geográficas (círculo, polígono, país, región) con la acción a tomar según si el actor está dentro o fuera al hacer una solicitud."
+
+  - schema: bauth
+    tabla: idn_geospatial_location_log_2026_07
+    fqn: bauth.idn_geospatial_location_log_2026_07
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: idn_geospatial_location_log_2026_08
+    fqn: bauth.idn_geospatial_location_log_2026_08
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: idn_geospatial_location_log_default
+    fqn: bauth.idn_geospatial_location_log_default
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: idn_geospatial_velocity_event
+    fqn: bauth.idn_geospatial_velocity_event
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D06) | Eventos de viaje imposible detectados — registra casos donde la velocidad calculada entre dos ubicaciones del mismo actor supera el máximo configurado; evidencia forense de po"
+
+  - schema: bauth
+    tabla: idn_geospatial_velocity_policy
+    fqn: bauth.idn_geospatial_velocity_policy
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D06) | Política de detección de viaje imposible por tenant — define la velocidad máxima de desplazamiento geográfico permitida entre dos autenticaciones consecutivas (defecto 900 km/"
+
+  - schema: bauth
+    tabla: idn_global_admin
+    fqn: bauth.idn_global_admin
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "META-REGISTRO (D99) | Registro de administradores globales del sistema con AAL3 obligatorio y control granular de capacidades (super, seguridad, auditoría, soporte). Fuente: seed inicial SUPER_ADMIN;"
+
+  - schema: bauth
+    tabla: idn_global_compliance_control
+    fqn: bauth.idn_global_compliance_control
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "META-REGISTRO (D99) | Mapa de controles de cumplimiento normativo activos: ISO 27001, SOX, GDPR, PCI DSS, NIST — permite auditorías de gap y generación de evidencia exportable para auditores externos."
+
+  - schema: bauth
+    tabla: idn_global_crypto_params
+    fqn: bauth.idn_global_crypto_params
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "META-REGISTRO (D99) | Catálogo global de algoritmos criptográficos con estado de aprobación, equivalente del NIST CAVP para el ecosistema SBOS — define qué algoritmos están aprobados, deprecados o pro"
+
+  - schema: bauth
+    tabla: idn_global_hitl_exception
+    fqn: bauth.idn_global_hitl_exception
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "META-REGISTRO (D99) | Registro HITL de excepciones a políticas prohibidas (algoritmos deprecados, acceso de emergencia, downgrades de cripto). Toda excepción requiere justificación ≥100 chars y aproba"
+
+  - schema: bauth
+    tabla: idn_global_notification
+    fqn: bauth.idn_global_notification
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "META-REGISTRO (D99) | Cola de notificaciones de sistema dirigidas a administradores globales o tenants: alertas de seguridad, vencimientos de certificados, avisos de compliance y alertas de capacidad."
+
+  - schema: bauth
+    tabla: idn_global_sbom
+    fqn: bauth.idn_global_sbom
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "META-REGISTRO (D99) | Software Bill of Materials — inventario de componentes del ecosistema SBOS con estado de vulnerabilidades CVE y nivel de riesgo; requisito EU Cyber Resilience Act y NTIA SBOM 202"
+
+  - schema: bauth
+    tabla: idn_identidad_lifecycle_event
+    fqn: bauth.idn_identidad_lifecycle_event
+    estado: IN_PROGRESS
+    score: 4/6
+    es_particion: false
+    resumen: "[T-186] [GAP-D00-02] [NIST SP 800-63-3 §4 JML] Registro de eventos de ciclo de vida de identidad    (Joiner/Mover/Leaver). Fuente de verdad para auditar transiciones laborales y ajuste automático    d"
+
+  - schema: bauth
+    tabla: idn_identity_attribute
+    fqn: bauth.idn_identity_attribute
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "IDENTIDAD D00 | Atributos de identidad por entidad (modelo EAV controlado). Cada fila es un par (attr_namespace, attr_key) = attr_value JSONB para una entidad T-156. Namespaces: core (nombre, CI, fech"
+
+  - schema: bauth
+    tabla: idn_identity_attribute_history_2026_07
+    fqn: bauth.idn_identity_attribute_history_2026_07
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: idn_identity_attribute_history_2026_08
+    fqn: bauth.idn_identity_attribute_history_2026_08
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: idn_identity_attribute_history_2026_09
+    fqn: bauth.idn_identity_attribute_history_2026_09
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: idn_identity_attribute_history_2026_10
+    fqn: bauth.idn_identity_attribute_history_2026_10
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: idn_identity_attribute_history_2026_11
+    fqn: bauth.idn_identity_attribute_history_2026_11
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: idn_identity_attribute_history_2026_12
+    fqn: bauth.idn_identity_attribute_history_2026_12
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: idn_identity_consent
+    fqn: bauth.idn_identity_consent
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "IDENTIDAD D00 | Registro del consentimiento de privacidad por sujeto de datos (D00-B07). Cada fila documenta: policy_version vigente, processing_scope (qué datos y para qué), legal_basis (CONSENT/CONT"
+
+  - schema: bauth
+    tabla: idn_identity_entity
+    fqn: bauth.idn_identity_entity
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "IDENTIDAD D00 | Raíz del modelo de identidad SBOS. Toda entidad del ecosistema (tenant, empresa, sucursal, punto de venta, persona) es un nodo en esta tabla. Jerarquía 5 niveles: tenant > bdomain (emp"
+
+  - schema: bauth
+    tabla: idn_identity_proofing
+    fqn: bauth.idn_identity_proofing
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "IDENTIDAD D00 | Registro del proceso de verificación de identidad (identity proofing) por actor. Cada fila representa un ciclo de proofing con su tipo (SELF_ASSERTED, REMOTE_UNATTENDED, REMOTE_ATTENDE"
+
+  - schema: bauth
+    tabla: idn_identity_requirement
+    fqn: bauth.idn_identity_requirement
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "IDENTIDAD D00 | Esquema formal de completitud de identidad: define qué atributos son obligatorios por combinación (entity_type, ial_level). El Motor de Identidad consulta esta tabla ANTES de elevar el"
+
+  - schema: bauth
+    tabla: idn_identity_vc
+    fqn: bauth.idn_identity_vc
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "IDENTIDAD D00 | Ciclo de vida de Verifiable Credentials (VC) emitidas o recibidas por bAuth (D00-B08). bAuth actúa como Issuer: emite VCs de IAL verificado, roles certificados y atributos con firma Ed"
+
+  - schema: bauth
+    tabla: idn_network_connection_policy
+    fqn: bauth.idn_network_connection_policy
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D07) | Política de conexión TLS/mTLS/DPoP/PKCE por tenant — define versión mínima TLS, rangos IP permitidos/bloqueados, cipher suites y rate limit para conexiones entrantes al plano"
+
+  - schema: bauth
+    tabla: idn_network_context_propagation
+    fqn: bauth.idn_network_context_propagation
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D07) | Configuración de propagación del ctx_id entre servicios SBOS — define el formato de header (W3C traceparent, SBOS custom, OTEL baggage) y los campos incluidos para cada par or"
+
+  - schema: bauth
+    tabla: idn_network_dlp_policy
+    fqn: bauth.idn_network_dlp_policy
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D07) | Política de Data Loss Prevention — define reglas de inspección de payload y headers para detectar patrones sensibles (NIT, tarjetas, datos biométricos) y tomar acción (LOG, BL"
+
+  - schema: bauth
+    tabla: idn_network_dpop_binding
+    fqn: bauth.idn_network_dpop_binding
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D07) | Bindings DPoP sender-constrained — registra cada proof de posesión de clave pública (JWK thumbprint) vinculado a un access token, haciendo el token no-transferible a otro clie"
+
+  - schema: bauth
+    tabla: idn_network_posture_policy
+    fqn: bauth.idn_network_posture_policy
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D07) | Política de postura de dispositivo Zero Trust — define si el dispositivo debe estar gestionado (MDM), su score de riesgo máximo permitido, y si se permite BYOD antes de autori"
+
+  - schema: bauth
+    tabla: idn_network_rate_policy
+    fqn: bauth.idn_network_rate_policy
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D07) | Políticas de rate limiting por scope (global/tenant/cliente/usuario/IP) aplicadas en Kong PEP — define ventana deslizante, burst y acción al exceder el límite (THROTTLE, BLOCK"
+
+  - schema: bauth
+    tabla: idn_network_segment
+    fqn: bauth.idn_network_segment
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D07) | Catálogo de segmentos de red con nivel de confianza ZTA — mapea rangos CIDR a zonas (DMZ, interna, confiable, aislada, cuarentena) para tomar decisiones de acceso basadas en e"
+
+  - schema: bauth
+    tabla: idn_nhi_rotation_policy
+    fqn: bauth.idn_nhi_rotation_policy
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D15) | Política de rotación de secretos de identidades no-humanas (NHI) por tipo — define la frecuencia de rotación, el patrón ON_USE para CI/CD, y la acción ante fallo de rotación a"
+
+  - schema: bauth
+    tabla: idn_nhi_svid
+    fqn: bauth.idn_nhi_svid
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D15) | SPIFFE SVID (Verifiable Identity Document) para daemons SBOS — almacena el SPIFFE ID y el path Vault del certificado X.509 o JWT SVID (NUNCA el certificado en BD). Fuente: gen"
+
+  - schema: bauth
+    tabla: idn_physical_access_credential
+    fqn: bauth.idn_physical_access_credential
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D02) | Credenciales físicas de acceso (RFID, PIV, biométricas, NFC) vinculadas a identidades digitales — es el puente entre el mundo físico y el plano IAM de bAuth. Fuente: emitida p"
+
+  - schema: bauth
+    tabla: idn_physical_access_emergency
+    fqn: bauth.idn_physical_access_emergency
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D02) | Registro de activaciones de modo de emergencia física (incendio, intrusión, médica, evacuación) que cambian el modo de operación de puertas afectadas (FAIL_SAFE/FAIL_SECURE)."
+
+  - schema: bauth
+    tabla: idn_physical_access_evacuation
+    fqn: bauth.idn_physical_access_evacuation
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D02) | Registro de mustering (confirmación de evacuación) — anota si cada entidad fue confirmada en el punto de reunión; es evidencia forense de rendición de cuentas en emergencias."
+
+  - schema: bauth
+    tabla: idn_physical_access_event_log_2026_07
+    fqn: bauth.idn_physical_access_event_log_2026_07
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: idn_physical_access_event_log_2026_08
+    fqn: bauth.idn_physical_access_event_log_2026_08
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: idn_physical_access_event_log_default
+    fqn: bauth.idn_physical_access_event_log_default
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: idn_physical_access_location
+    fqn: bauth.idn_physical_access_location
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D02) | Catálogo jerárquico de instalaciones físicas con nivel de seguridad (1-5) — soporta árbol edificio→piso→sala→datacenter para modelar la topología física de la organización. Fu"
+
+  - schema: bauth
+    tabla: idn_physical_access_presence
+    fqn: bauth.idn_physical_access_presence
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D02) | Estado de presencia actual (dentro/fuera) de cada entidad por instalación — tabla mutable que se actualiza en cada evento de entrada/salida para soportar anti-passback y contr"
+
+  - schema: bauth
+    tabla: idn_physical_access_reader
+    fqn: bauth.idn_physical_access_reader
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D02) | Registro de lectores de acceso físico con protocolo (OSDP v2, Wiegand), dirección y estado de conectividad — permite detectar lectores offline y gestionar firmware remotamente"
+
+  - schema: bauth
+    tabla: idn_physical_access_visit
+    fqn: bauth.idn_physical_access_visit
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D02) | Registro de visitas de personas externas — vincula visitante a anfitrión, instalación y rango horario; datos post-visita se anonimizan a los 30 días cumpliendo GDPR minimizaci"
+
+  - schema: bauth
+    tabla: idn_policy_node_type
+    fqn: bauth.idn_policy_node_type
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "ÁRBOL DE POLÍTICAS | Catálogo de tipos de nodo del árbol de políticas (FK canónica para idn_roles_template.node_type). Define para cada tipo: badge, abreviatura, nombre/descripción bilingüe, paleta de"
+
+  - schema: bauth
+    tabla: idn_registry_atom_catalog
+    fqn: bauth.idn_registry_atom_catalog
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "META-REGISTRO (D98) | Catálogo de átomos del motor BitMask — cada fila es un átomo de permiso con su posición en el BitMask 64-bit, dominio de pertenencia y estado de implementación; fuente de verdad"
+
+  - schema: bauth
+    tabla: idn_registry_attribute_schema
+    fqn: bauth.idn_registry_attribute_schema
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "META-REGISTRO (D98) | Schema registry de atributos EAV — define el catálogo de atributos de identidad permitidos con su tipo, mutabilidad, IAL mínimo requerido y reglas de privacidad (mask_display, re"
+
+  - schema: bauth
+    tabla: idn_registry_bitmask_version
+    fqn: bauth.idn_registry_bitmask_version
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "META-REGISTRO (D98) | Snapshots diarios del árbol BitMask completo — cada fila es una fotografía del estado del espacio de permisos en un momento dado, permitiendo reconstrucción forense de privilegio"
+
+  - schema: bauth
+    tabla: idn_roles_iga_category
+    fqn: bauth.idn_roles_iga_category
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "ROLES | Categorías IGA (Identity Governance & Administration) para la gobernanza del ciclo de vida de roles — agrupa roles por función (BUSINESS, IT, APPLICATION, PRIVILEGED, EMERGENCY, SERVICE) con c"
+
+  - schema: bauth
+    tabla: idn_roles_nhi_agent_identity
+    fqn: bauth.idn_roles_nhi_agent_identity
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "IDENTIDAD NHI | Especialización de idn_roles_nhi_identity (T-186) para agentes IA autónomos del ecosistema SBOS (ORQUESTA, BauthAgent, etc.). Extiende el NHI con capacidades específicas de IA: max_per"
+
+  - schema: bauth
+    tabla: idn_roles_nhi_certification
+    fqn: bauth.idn_roles_nhi_certification
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "IDENTIDAD NHI | Registro de certificaciones periódicas de identidades máquina (T-186). El propietario técnico (reviewer_id) decide por cada NHI y período: CERTIFY (continúa), DECOMMISSION (baja), REDU"
+
+  - schema: bauth
+    tabla: idn_roles_nhi_identity
+    fqn: bauth.idn_roles_nhi_identity
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "IDENTIDAD NHI | Entidad raíz de toda identidad máquina gobernada: SERVICE_ACCOUNT, WORKLOAD, AGENT, BOT, API_CLIENT, CI_CD_PIPELINE. Registro único por (tenant_id, system_ref). Cada NHI tiene owner_id"
+
+  - schema: bauth
+    tabla: idn_roles_nhi_lifecycle_event
+    fqn: bauth.idn_roles_nhi_lifecycle_event
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "IDENTIDAD NHI | Log WORM append-only del ciclo de vida de cada identidad máquina (T-186). Registra transiciones: PROVISIONED→CERTIFIED→ROTATED/SUSPENDED→REACTIVATED→DECOMMISSIONED y eventos administra"
+
+  - schema: bauth
+    tabla: idn_roles_rol_closure
+    fqn: bauth.idn_roles_rol_closure
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "ROLES | Closure table de la jerarquía DAG-OR de roles (patrón Tropashko). Cada fila representa un par (ancestor, descendant) con la profundidad: depth=0 reflexivo (rol consigo mismo), depth=1 hijo dir"
+
+  - schema: bauth
+    tabla: idn_roles_rol_hierarchical
+    fqn: bauth.idn_roles_rol_hierarchical
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "ROLES | Catálogo maestro de roles por tenant en estructura adjacency-list (árbol DAG-OR). Es el corazón del motor NIST RBAC N3: cada fila es un rol con tier, tipo, política de vigencia (B02), metadato"
+
+  - schema: bauth
+    tabla: idn_roles_rol_lifecycle_event
+    fqn: bauth.idn_roles_rol_lifecycle_event
+    estado: DONE
+    score: 5/6
+    es_particion: false
+    resumen: "ROLES | Log append-only (WORM) de todas las transiciones de estado de los roles (7 estados formales: DEFINIDO→ACTIVO→SUSPENDIDO→DEPRECADO→ARCHIVADO y vías de revisión IGA). Cada fila es inmutable: reg"
+
+  - schema: bauth
+    tabla: idn_roles_rol_tier
+    fqn: bauth.idn_roles_rol_tier
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "ROLES | Catálogo de parámetros de seguridad por tier (jerarquía de privilegio) para los 11 niveles del ecosistema: SU (LoA3, PAM obligatorio), T0, T1, BIZ_N1..N5, EXT_N0, M2M y VISITANTE. Cada fila de"
+
+  - schema: bauth
+    tabla: idn_roles_rol_type
+    fqn: bauth.idn_roles_rol_type
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "ROLES | Catálogo controlado de 10 tipos de cuenta para todos los roles del ecosistema SBOS: INDIVIDUAL, M2M, SYSTEM, GROUP, TEMPLATE, VIRTUAL, BOT, DEVICE, SERVICE, EMERGENCY. Gobierna si el rol es pr"
+
+  - schema: bauth
+    tabla: idn_roles_template
+    fqn: bauth.idn_roles_template
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "ÁRBOL DE POLÍTICAS | Árbol de políticas PER-TENANT (G-06): cada tenant tiene su propio árbol con la estructura domain > block > object/list > policy > rule > atom. Nodo atom = un permiso atómico con a"
+
+  - schema: bauth
+    tabla: idn_roles_template_history
+    fqn: bauth.idn_roles_template_history
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "ÁRBOL DE POLÍTICAS | Registro WORM inmutable de todos los cambios al árbol de políticas T-162. Cada fila captura: node_id, operation (INSERT/UPDATE/DEACTIVATE), before_row y after_row como JSONB, chan"
+
+  - schema: bauth
+    tabla: idn_roles_ver_b01_audit_log
+    fqn: bauth.idn_roles_ver_b01_audit_log
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "VERSIONADO | Historial WORM de versiones cerradas de idn_roles_rol_hierarchical (T-041). Cada fila es un snapshot inmutable del estado del rol al cierre de un período temporal (sys_period TSTZRANGE WI"
+
+  - schema: bauth
+    tabla: idn_roles_ver_b01_retention_policy
+    fqn: bauth.idn_roles_ver_b01_retention_policy
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "VERSIONADO | Tabla de políticas de retención legal del historial de versiones (T-152) por entidad. Define: ventana caliente (hot_window), política de compactación (KEEP_ALL/KEEP_ANCHORS/KEEP_LAST_N),"
+
+  - schema: bauth
+    tabla: idn_roles_ver_b03_approval_queue
+    fqn: bauth.idn_roles_ver_b03_approval_queue
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "VERSIONADO | Cola de aprobación de cambios MAJOR en roles (B03 §approval_workflow). Cada fila es una propuesta de cambio de tier, plantilla o política de un rol que requiere quórum N-de-M (NIST CM-3,"
+
+  - schema: bauth
+    tabla: idn_roles_ver_contract_revision_log
+    fqn: bauth.idn_roles_ver_contract_revision_log
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "VERSIONADO | Changelog estructural del contrato RolTemplate entre versiones. Registra cada transición (version_from → version_to) del contrato de bloques B01-B14, indicando bloques modificados, campos"
+
+  - schema: bauth
+    tabla: idn_scim_attribute_map
+    fqn: bauth.idn_scim_attribute_map
+    estado: IN_PROGRESS
+    score: 3/6
+    es_particion: false
+    resumen: "[T-187] [GAP-D00-08] [RFC 7643/7644 SCIM 2.0] Mapeo bidireccional entre atributos locales bAuth    y el esquema SCIM 2.0. Permite provisioning y sync con directorios empresariales (Azure AD,    Okta,"
+
+  - schema: bauth
+    tabla: idn_signature_ca_chain
+    fqn: bauth.idn_signature_ca_chain
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "FIRMA DIGITAL | Cadena de certificación CA de confianza — registra los certificados CA (root, intermediate, issuing, ADSIB, Vault PKI) con fingerprint, validez y ruta en Vault (NUNCA el PEM en BD). Fu"
+
+  - schema: bauth
+    tabla: idn_signature_eudi_wallet
+    fqn: bauth.idn_signature_eudi_wallet
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "FIRMA DIGITAL | Integración con EUDI Wallet (eIDAS 2.0) — vincula la identidad digital del sistema con una cartera de identidad europea, permitiendo usar credenciales verificables (VCs) del EUDI para"
+
+  - schema: bauth
+    tabla: idn_signature_ltv_evidence
+    fqn: bauth.idn_signature_ltv_evidence
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "FIRMA DIGITAL | Evidencia LTV (Long-Term Validation) WORM — captura el estado completo de validación (cadena de certs, respuestas OCSP, CRLs) en el momento de la firma, permitiendo validar la firma dé"
+
+  - schema: bauth
+    tabla: idn_signature_request
+    fqn: bauth.idn_signature_request
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "FIRMA DIGITAL | Solicitud de firma digital — orquesta la firma de un documento mediante el motor interno (Ed25519/Vault) o externo (ADSIB RSA-SHA256) con el formato solicitado (PAdES/CAdES/XAdES/JAdES"
+
+  - schema: bauth
+    tabla: idn_signature_revocation_cache
+    fqn: bauth.idn_signature_revocation_cache
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "FIRMA DIGITAL | Cache de estado de revocación de certificados OCSP/CRL — evita consultar OCSP/CRL en cada verificación almacenando el estado en BD con TTL (next_update), mejorando disponibilidad del s"
+
+  - schema: bauth
+    tabla: idn_signature_timestamp
+    fqn: bauth.idn_signature_timestamp
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "FIRMA DIGITAL | Timestamp calificado RFC 3161 de una Autoridad de Sellado de Tiempo (TSA) — acredita que el documento existía en el momento del sellado; esencial para validez legal a largo plazo (PAdE"
+
+  - schema: bauth
+    tabla: idn_signature_verification_log
+    fqn: bauth.idn_signature_verification_log
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "FIRMA DIGITAL | Log WORM de verificaciones de firma — registra cada comprobación de validez de firma (VALID, INVALID, EXPIRED, REVOKED) con estado de certificado, cadena y timestamp para auditoría for"
+
+  - schema: bauth
+    tabla: idn_temporal_calendar
+    fqn: bauth.idn_temporal_calendar
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D04) | Asociación entre ventanas de tiempo y calendarios bcalendar — permite que una ventana excluya automáticamente feriados nacionales o weekends del calendario fiscal. Fuente: cre"
+
+  - schema: bauth
+    tabla: idn_temporal_exception
+    fqn: bauth.idn_temporal_exception
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D04) | Excepciones temporales aprobadas que modifican (extienden, reducen, bloquean o añaden guardia) la ventana de acceso normal de un actor — requieren justificación ≥20 chars y ap"
+
+  - schema: bauth
+    tabla: idn_temporal_period
+    fqn: bauth.idn_temporal_period
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D04) | Períodos de activación temporal de roles — vincula un actor a una ventana de tiempo y un role_id para un rango de fechas concreto, implementando acceso Just-In-Time (JIT). Fue"
+
+  - schema: bauth
+    tabla: idn_temporal_shift
+    fqn: bauth.idn_temporal_shift
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D04) | Catálogo de turnos de trabajo con tipo de rotación y duración — permite modelar guardias fijas, rotativas o flexibles vinculadas a ventanas de tiempo del módulo GTRBAC. Fuente"
+
+  - schema: bauth
+    tabla: idn_temporal_shift_assignment
+    fqn: bauth.idn_temporal_shift_assignment
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D04) | Asignación de un turno concreto a un actor específico con rango de fechas de validez — materializa la asociación entre el horario corporativo y la identidad del empleado. Fuen"
+
+  - schema: bauth
+    tabla: idn_temporal_window
+    fqn: bauth.idn_temporal_window
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "DOMINIOS CONTROL (D04) | Ventanas de tiempo de acceso GTRBAC — define intervalos horarios en que un rol está activo, con soporte de días de semana y zona horaria, implementando control de acceso sensi"
+
+  - schema: bauth
+    tabla: idn_tenant
+    fqn: bauth.idn_tenant
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "TENANT | Ancla de gobernanza del sistema multi-tenant SBOS — TODA FK de la DDL arranca desde tenant_id; define el ciclo de vida de cada organización cliente (7 estados), su nivel de aislamiento y polí"
+
+  - schema: bauth
+    tabla: idn_tenant_calendar_assignment
+    fqn: bauth.idn_tenant_calendar_assignment
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "CALENDARIO | Tabla puente que asigna calendarios bcalendar a entidades bauth (tenant, empresa, sucursal, usuario) — implementa herencia jerárquica: el tenant asigna y sus subentidades heredan con is_i"
+
+  - schema: bauth
+    tabla: idn_tenant_config
+    fqn: bauth.idn_tenant_config
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "TENANT | Configuración regional y parámetros PIP del tenant — relación 1:1 con idn_tenant; define locale, zona horaria, moneda, formato de fecha/hora, tema visual y el JSONB de parámetros que el PDP u"
+
+  - schema: bauth
+    tabla: idn_tenant_currencies
+    fqn: bauth.idn_tenant_currencies
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "TENANT | Monedas habilitadas por tenant con tasa de cambio actualizable — define la moneda funcional del tenant (is_default=true) y las adicionales para facturación multi-moneda; la tasa se sincroniza"
+
+  - schema: bauth
+    tabla: idn_tenant_domain
+    fqn: bauth.idn_tenant_domain
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "TENANT | Dominios DNS del tenant — el dominio primary define la capa 1 del ctx_id (SBOS-049) y el prefijo ctx_prefix que identifica el tenant en toda trazabilidad del Context Plane; soporta múltiples"
+
+  - schema: bauth
+    tabla: idn_tenant_fal_config
+    fqn: bauth.idn_tenant_fal_config
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "TENANT | Configuración del Federation Assurance Level (FAL) por Relying Party registrada en bAuth como IdP — FAL1: aserción firmada, FAL2: token bound a canal (DPoP), FAL3: hardware-binding (mTLS); lo"
+
+  - schema: bauth
+    tabla: idn_tenant_languages
+    fqn: bauth.idn_tenant_languages
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "TENANT | Idiomas habilitados por tenant con su estado de traducción — define el idioma default (is_default=true) y los idiomas activos para la interfaz multi-idioma; referencia FK real a global_langua"
+
+  - schema: bauth
+    tabla: idn_tenant_network
+    fqn: bauth.idn_tenant_network
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "TENANT | Redes y CIDRs autorizados por tenant para control de acceso Zero Trust — el PEP (Kong) valida en D07 que la IP del request pertenezca a al menos un CIDR activo del tenant antes de autorizar l"
+
+  - schema: bauth
+    tabla: idn_tenant_verification
+    fqn: bauth.idn_tenant_verification
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "TENANT | Verificación KYC/IAL del tenant con 5 pasos secuenciales — documenta el proceso de proofing (IDENTITY_CHECK→LEGAL_CHECK→TECHNICAL_SETUP→SECURITY_REVIEW→FINAL_APPROVAL) y el nivel IAL alcanzad"
+
+  - schema: bauth
+    tabla: idn_user
+    fqn: bauth.idn_user
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "USUARIOS | Subscriber Account (NIST SP 800-63-4 §3.1) — Capa 2 del modelo de identidad en capas: la cuenta de login digital del tenant. Separada por diseño de: (1) identidad organizacional T-156 idn_i"
+
+  - schema: bauth
+    tabla: idn_user_history
+    fqn: bauth.idn_user_history
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "USUARIOS | Historial WORM hash-chain de todos los cambios en cuentas de usuario (T-320). Cada modificación de cualquier campo de idn_user genera una fila aquí con: field (qué campo cambió), old_value"
+
+  - schema: bauth
+    tabla: idn_user_recovery
+    fqn: bauth.idn_user_recovery
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "USUARIOS | Métodos de recuperación de cuenta — alternativas de verificación de identidad cuando el usuario pierde acceso a su autenticador principal. Tipos: BACKUP_EMAIL (correo secundario verificado)"
+
+  - schema: bauth
+    tabla: pam_breakglass_activation
+    fqn: bauth.pam_breakglass_activation
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "PAM BREAKGLASS | Ciclo de vida completo de activaciones de acceso de emergencia (break-glass). Cuando un incidente crítico requiere acceso de superusuario inmediato fuera del workflow JIT normal, este"
+
+  - schema: bauth
+    tabla: pam_credential_ref
+    fqn: bauth.pam_credential_ref
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "PAM | Inventario de credenciales privilegiadas — panel de control de rotación, NO almacén de secretos. El valor real de la credencial reside SIEMPRE en Vault (vault_path es la ruta al secret en Vault,"
+
+  - schema: bauth
+    tabla: pam_cuenta_privilegiada
+    fqn: bauth.pam_cuenta_privilegiada
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "PAM | Inventario maestro de cuentas privilegiadas del tenant — catálogo de referencia que lista todas las cuentas con privilegios elevados del sistema, desde cuentas de dominio (LOCAL_ADMIN/ DOMAIN_AD"
+
+  - schema: bauth
+    tabla: pam_jit_approval
+    fqn: bauth.pam_jit_approval
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "PAM JIT | Aprobaciones secuenciales multi-nivel de una solicitud JIT (T-182). Una fila por nivel de aprobación por solicitud (UNIQUE request_id + level). Implementa la cadena de aprobación: el Nivel 1"
+
+  - schema: bauth
+    tabla: pam_jit_request
+    fqn: bauth.pam_jit_request
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "PAM JIT | Cabecera de solicitud de acceso temporal privilegiado (Zero Standing Privilege). Implementa el patrón PAM JIT donde el usuario no tiene privilegios de forma permanente — los solicita, justif"
+
+  - schema: bauth
+    tabla: pam_nhi_secret_ref
+    fqn: bauth.pam_nhi_secret_ref
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "PAM NHI | Referencias a secretos de identidades no humanas (daemons, bots, pipelines, agentes) en Vault. Complementa T-183 (pam_credential_ref para humanos) con rotación más frecuente y el patrón ON_U"
+
+  - schema: bauth
+    tabla: pam_session_record
+    fqn: bauth.pam_session_record
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "PAM | Metadatos de sesión de acceso privilegiado — registra CÓMO se ejerció el privilegio, no QUIÉN lo tiene. Separación de responsabilidades: T-170 (privilege_atom_grant) audita QUÉ acceso fue otorga"
+
+  - schema: bauth
+    tabla: pam_session_recording
+    fqn: bauth.pam_session_recording
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "PAM | Referencia trazable a grabaciones de sesiones privilegiadas — almacena el path de almacenamiento (MinIO/S3/NFS) y el hash SHA-256 del archivo de grabación; el video nunca se almacena en BD. Fuen"
+
+  - schema: bauth
+    tabla: privilege_assurance_audit
+    fqn: bauth.privilege_assurance_audit
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "PRIVILEGIOS | Auditoría de evaluaciones de obligación LoA realizadas por Kong PEP. Cada fila es una evaluación: el grant_id que se está ejerciendo, el resource_id protegido, required_loa (de T-171.obl"
+
+  - schema: bauth
+    tabla: privilege_atom_audit_2026_07
+    fqn: bauth.privilege_atom_audit_2026_07
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: privilege_atom_audit_2026_08
+    fqn: bauth.privilege_atom_audit_2026_08
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: privilege_atom_audit_2026_09
+    fqn: bauth.privilege_atom_audit_2026_09
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: privilege_atom_grant
+    fqn: bauth.privilege_atom_grant
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "PRIVILEGIOS | Grant de átomos de privilegio por usuario (modelo per-user — G-09). Cada fila es la asignación de un átomo (id_atom de T-162) a un usuario específico en un tenant. Modelo 5 columnas G-12"
+
+  - schema: bauth
+    tabla: privilege_delegation
+    fqn: bauth.privilege_delegation
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "PRIVILEGIOS D10 | Registro de auditoría de asignaciones de rol temporal entre usuarios. SOLO AUDITORÍA — no contiene validaciones: las validaciones de acceso viven en T-170 (privilege_atom_grant) y en"
+
+  - schema: bauth
+    tabla: privilege_exception_record
+    fqn: bauth.privilege_exception_record
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "PRIVILEGIOS | Registro de gobernanza de excepciones a políticas (D01 excepción formal). Documenta el CONTEXTO de aprobación detrás de un override en T-173: qué política se violó (policy_violated), el"
+
+  - schema: bauth
+    tabla: privilege_override
+    fqn: bauth.privilege_override
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "PRIVILEGIOS | Excepciones de acceso temporales aprobadas con quórum para situaciones que requieren desviarse de la política normal. Dos tipos: DENY_TO_PERMIT (el usuario tenía DENY o sin grant — se le"
+
+  - schema: bauth
+    tabla: privilege_resource_atom
+    fqn: bauth.privilege_resource_atom
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "PRIVILEGIOS | PAP (Policy Administration Point) para Kong PEP: resuelve la tupla (protocol_type, resource, operation) → id_atom de T-162 sin consultar bAuth en runtime. Permite a Kong decidir PERMIT/D"
+
+  - schema: bauth
+    tabla: privilege_verb
+    fqn: bauth.privilege_verb
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "PRIVILEGIOS | Catálogo de verbos atómicos del sistema. LISTA DE VALIDACIÓN ÚNICAMENTE — no participa en la construcción del RolBitMask ni en la evaluación PDP en runtime. Solo es consultada al crear/m"
+
+  - schema: bauth
+    tabla: privilege_verb_conflict
+    fqn: bauth.privilege_verb_conflict
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "PRIVILEGIOS | Matriz de conflictos SoD (Separation of Duties) entre verbos atómicos. LISTA DE VALIDACIÓN ÚNICAMENTE — no participa en BitMask ni en PDP en runtime. Su único rol en tiempo de ejecución:"
+
+  - schema: bauth
+    tabla: ses_caep_event_log
+    fqn: bauth.ses_caep_event_log
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "SESIÓN | Log WORM append-only de cada evento CAEP recibido por el receptor bAuth (SSF Receiver). Captura: event_type (session-revoked, credential-change, risk-level-change, etc.), subject_id, transmit"
+
+  - schema: bauth
+    tabla: ses_risk_policy
+    fqn: bauth.ses_risk_policy
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "RIESGO ADAPTATIVO | Reglas de política de respuesta a eventos CAEP por tenant — tabla de decisión del PDP para Identity Threat Detection and Response (ITDR). Cada fila define: qué evento CAEP dispara"
+
+  - schema: bauth
+    tabla: ses_session_log
+    fqn: bauth.ses_session_log
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "SESIÓN | Esqueleto persistente mínimo de sesión para forensia post-incidente y cumplimiento. Redis es la fuente de autoridad de sesión activa (< 1ms). Esta tabla complementa Redis con historia que sob"
+
+  - schema: bauth
+    tabla: ses_ssf_delivery_log
+    fqn: bauth.ses_ssf_delivery_log
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "SESIÓN | Log WORM append-only de cada intento de entrega de un evento CAEP a un stream SSF (T-192). Una fila por intento: stream_id, caep_event_id (FK al evento original en T-191), event_type, deliver"
+
+  - schema: bauth
+    tabla: ses_ssf_stream
+    fqn: bauth.ses_ssf_stream
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "SESIÓN | Configuración de streams SSF (Shared Signals Framework) para transmisión de eventos CAEP a receivers externos. bAuth actúa como SSF Transmitter: publica eventos de sesión, credencial y riesgo"
+
+  - schema: bauth
+    tabla: sig_adsib_lifecycle
+    fqn: bauth.sig_adsib_lifecycle
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "FIRMA DIGITAL | Log WORM del ciclo de vida de certificados ADSIB — registra cada evento (emisión, alertas de vencimiento, renovación, reemisión, revocación) con su fecha; máximo 4 reemisiones por cert"
+
+  - schema: bauth
+    tabla: sig_certificate
+    fqn: bauth.sig_certificate
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "FIRMA DIGITAL | Catálogo X.509 de certificados públicos — almacena el PEM del certificado público (nunca la clave privada); cubre SBOS Root CA, ADSIB CA (cadena ATT→ADSIB→Persona), y certificados de e"
+
+  - schema: bauth
+    tabla: sig_crl
+    fqn: bauth.sig_crl
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "FIRMA DIGITAL | Certificate Revocation Lists (CRL) activas descargadas de los CAs del sistema — permite verificar la revocación de certificados X.509 sin consultar OCSP en tiempo real para cada autent"
+
+  - schema: bauth
+    tabla: sig_document_hash
+    fqn: bauth.sig_document_hash
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "FIRMA DIGITAL | Registro WORM de hashes SHA-256 (y SHA3-256 opcional) de documentos firmados — permite verificar la integridad del documento en cualquier punto del período de retención sin almacenar e"
+
+  - schema: bauth
+    tabla: sig_document_policy
+    fqn: bauth.sig_document_policy
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "FIRMA DIGITAL | Política del motor de firma por tipo de documento — define si se requiere el motor interno (Vault Ed25519), el externo (ADSIB RSA), o ambos; el perfil de firma (JWS/PAdES/CAdES/XAdES),"
+
+  - schema: bauth
+    tabla: sig_key
+    fqn: bauth.sig_key
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "FIRMA DIGITAL | Referencias a llaves criptográficas almacenadas en Vault — NUNCA contiene claves privadas en BD; solo la ruta Vault (vault_path) y metadatos de propósito, algoritmo y estado de rotació"
+
+  - schema: bauth
+    tabla: sig_operation_log
+    fqn: bauth.sig_operation_log
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "FIRMA DIGITAL | Log WORM forense de cada acto de firma digital — registra qué se firmó (hash SHA-256), quién firmó (signed_by), con qué llave y motor, el formato resultante, y el ancla blockchain opci"
+
+  - schema: bauth
+    tabla: sig_timestamp
+    fqn: bauth.sig_timestamp
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "FIRMA DIGITAL | Timestamps calificados (RFC 3161) obtenidos de Autoridades de Sellado de Tiempo (TSA) acreditadas — proveen prueba criptográfica irrefutable de que un documento existía en un momento e"
+
+  - schema: bauth
+    tabla: wallet
+    fqn: bauth.wallet
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "WALLET | Billetera digital soberana por entidad — contenedor de credenciales verificables (VCs), certificados FIDO2/X.509 y documentos digitales con DID propio (did:sbos:{tenant}:{entity}); implementa"
+
+  - schema: bauth
+    tabla: wallet_issuance_log
+    fqn: bauth.wallet_issuance_log
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "WALLET | Log WORM de emisión de Verifiable Credentials a wallets — registra cada issuance de una VC (via OpenID4VCI, emisión directa o importación) con el DID del emisor, el tipo de credencial y el re"
+
+  - schema: bauth
+    tabla: wallet_item
+    fqn: bauth.wallet_item
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "WALLET | Ítem individual en la billetera digital — cada documento o credencial que el usuario tiene disponible en su wallet. Una fila por ítem. Tipos: VC (Verifiable Credential W3C VCDM 2.0), FIDO2 (a"
+
+  - schema: bauth
+    tabla: wallet_presentation_log_2026_07
+    fqn: bauth.wallet_presentation_log_2026_07
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bauth
+    tabla: wallet_presentation_log_2026_08
+    fqn: bauth.wallet_presentation_log_2026_08
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bcalendar
+    tabla: cal_alarm
+    fqn: bcalendar.cal_alarm
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "CALENDARIO | Alarmas/disparadores de notificación vinculados a eventos del calendario — puente entre bcalendar y bNotify; cada alarma define cuándo y por qué canal notificar antes o después del dtstar"
+
+  - schema: bcalendar
+    tabla: cal_break_policy
+    fqn: bcalendar.cal_break_policy
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "CALENDARIO | Políticas de pausa (almuerzo, descanso) — define ventanas horarias en que las sesiones pueden suspenderse automáticamente y si se requiere re-autenticación al reanudar; el evaluador D04 l"
+
+  - schema: bcalendar
+    tabla: cal_calendar
+    fqn: bcalendar.cal_calendar
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "CALENDARIO | Colección de calendarios por tenant — cada calendario es un contenedor de eventos con un tipo (WORK, FISCAL, PROCESS, COMPLIANCE, HOLIDAY, MAINTENANCE), zona horaria IANA y color para la"
+
+  - schema: bcalendar
+    tabla: cal_event
+    fqn: bcalendar.cal_event
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "CALENDARIO | Evento maestro con soporte de recurrencia RFC 5545 — una serie recurrente se almacena como una sola fila con el rrule TEXT; las ocurrencias se materializan on-demand; el evaluador tempora"
+
+  - schema: bcalendar
+    tabla: cal_fiscal_year
+    fqn: bcalendar.cal_fiscal_year
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "CALENDARIO | Años fiscales con 12 períodos contables mensuales (JSONB) — permite operar la gestión corriente y anteriores simultáneamente; cada período puede cerrarse independientemente. Soporte multi"
+
+  - schema: bcalendar
+    tabla: cal_holiday
+    fqn: bcalendar.cal_holiday
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "CALENDARIO | Catálogo de feriados fijos y móviles por país y tenant — define los días no hábiles para GTRBAC y el evaluador temporal de roles; incluye feriados nacionales, departamentales y propios de"
+
+  - schema: bcalendar
+    tabla: cal_notification_log
+    fqn: bcalendar.cal_notification_log
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "CALENDARIO | Log WORM de notificaciones de calendario enviadas vía bNotify — registra cada intento de envío (SENT, FAILED, RETRY) con el canal, plantilla usada y resultado; evidencia de auditoría de c"
+
+  - schema: bcalendar
+    tabla: cal_overtime_policy
+    fqn: bcalendar.cal_overtime_policy
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "CALENDARIO | Políticas de horas extra — define los límites de overtime diario/semanal y si el acceso fuera del horario normal requiere override con aprobación de manager y LoA elevado (D04 árbol de po"
+
+  - schema: bcalendar
+    tabla: cal_schedule
+    fqn: bcalendar.cal_schedule
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "CALENDARIO | Horarios de trabajo y disponibilidad por tenant — define las ventanas operativas normales (días de semana + hora inicio/fin) que el evaluador temporal D04 usa para controlar el acceso den"
+
+  - schema: bglobal
+    tabla: geo_timezone
+    fqn: bglobal.geo_timezone
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "GLOBAL | Catálogo IANA de zonas horarias — define cada zona con su offset UTC, observancia de DST y ciudad principal; es la fuente canónica para bcalendar y el evaluador temporal GTRBAC (D04) al calcu"
+
+  - schema: bglobal
+    tabla: global_config
+    fqn: bglobal.global_config
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "GLOBAL | Parámetros globales cross-daemon del sistema SBOS — es el SUELO del PIP @bauth_config_param; el Motor de Identidad (PDP) busca primero en idn_tenant_config (T-009) y cae aquí si la clave no e"
+
+  - schema: bglobal
+    tabla: global_country
+    fqn: bglobal.global_country
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "GLOBAL | Catálogo canónico de países ISO 3166-1 — define cada país con códigos alpha-2/alpha-3/numérico, coordenadas geográficas, moneda, zona horaria y metadatos demográficos para formularios, GDPR y"
+
+  - schema: bglobal
+    tabla: global_currency
+    fqn: bglobal.global_currency
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "GLOBAL | Catálogo de monedas ISO 4217 — define el código, símbolo, décimales y país emisor de cada moneda; es la fuente canónica para idn_tenant_currencies y determina la precisión aritmética en módul"
+
+  - schema: bglobal
+    tabla: global_language
+    fqn: bglobal.global_language
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "GLOBAL | Catálogo canónico de idiomas BCP 47 para todo el ecosistema SBOS — fuente única de locales válidos (es-BO, en-US, qu-BO, ay-BO), con metadatos IANA, CLDR y direccionalidad de escritura. Fuent"
+
+  - schema: bglobal
+    tabla: menu_context
+    fqn: bglobal.menu_context
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "MENÚ | Catálogo de contextos de menú — define los tipos de contenedor de navegación de la UI del ecosistema SBOS. Cada fila es un contexto en el que pueden existir ítems de menú (T-059 menu_item): sid"
+
+  - schema: bglobal
+    tabla: menu_item
+    fqn: bglobal.menu_item
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "GLOBAL | Árbol de ítems de menú del dashboard SBOS con estructura adjacency list (parent_id self-referencing) — define la jerarquía completa de navegación con rutas, íconos y visibilidad por módulo IA"
+
+  - schema: bglobal
+    tabla: menu_item_atom
+    fqn: bglobal.menu_item_atom
+    estado: DONE
+    score: 6/6
+    es_particion: false
+    resumen: "MENÚ | Puente entre ítems de menú (T-059 menu_item) y el motor BitMask de privilegios — implementa la visibilidad de menú basada en privilegios: un ítem solo aparece en la UI si el usuario tiene el át"
+
+  - schema: bos
+    tabla: cap_sistema_snapshot_2026_07
+    fqn: bos.cap_sistema_snapshot_2026_07
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bos
+    tabla: cap_tenant_policy
+    fqn: bos.cap_tenant_policy
+    estado: IN_PROGRESS
+    score: 3/6
+    es_particion: false
+    resumen: "[T-407] [SBOS-BOS-CAP-001] [2.02 M5.3] [ISO 27001:2022 A.8.9] [NIST SP 800-53 CA-7]    Políticas de capacidad declaradas por tenant. UNIQUE por tenant.    FALLBACK: si un tenant no tiene fila, Motor M"
+
+  - schema: bos
+    tabla: ctx_context_audit
+    fqn: bos.ctx_context_audit
+    estado: IN_PROGRESS
+    score: 4/6
+    es_particion: false
+    resumen: "[T-397] [ISO 27001:2022 A.8.15] [NIST SP 800-53 AU-12] [PCI DSS 4.0 Req 10.2.1]    Auditoría WORM de toda operación del Context Plane. Hash-chain SHA-256. REVOKE UPDATE/DELETE."
+
+  - schema: bos
+    tabla: ctx_context_emergency
+    fqn: bos.ctx_context_emergency
+    estado: IN_PROGRESS
+    score: 4/6
+    es_particion: false
+    resumen: "[T-402] [D08-B04] [NIST SP 800-53 R5.2 AC-17(3)] [ISO 27001:2022 A.5.29] [NIST CP-2(8)]    Break-glass de contexto. Control dual: activated_by ≠ approved_by. TTL 2h fijo. Revisión 24h. WORM."
+
+  - schema: bos
+    tabla: ctx_context_policy
+    fqn: bos.ctx_context_policy
+    estado: IN_PROGRESS
+    score: 3/6
+    es_particion: false
+    resumen: "[T-399] [ISO 27001:2022 A.9.4.2] [NIST SP 800-207 §3.3] [SBOS-049 §8]    Políticas de TTL y seguridad del Context Plane. CAPA DE INFRAESTRUCTURA.    NO duplica bauth.idn_tenant.session_ttl_max (TTL de"
+
+  - schema: bos
+    tabla: ctx_context_session
+    fqn: bos.ctx_context_session
+    estado: IN_PROGRESS
+    score: 3/6
+    es_particion: false
+    resumen: "[T-396] [SBOS-049 §5] [NIST SP 800-207 §3.2] [NIST SP 800-63B-4 §7] [RFC 9470]    Sesión de infraestructura post-auth. ctx_id 6 capas con BitMask > 0.    CAPA DE INFRAESTRUCTURA — complementa bauth.se"
+
+  - schema: bos
+    tabla: ctx_context_switch_log
+    fqn: bos.ctx_context_switch_log
+    estado: IN_PROGRESS
+    score: 4/6
+    es_particion: false
+    resumen: "[T-398] [SBOS-049 §6] [NIST SP 800-63B-4 §7.2] [ISO 27001:2022 A.8.15]    Historial WORM de cambios de contexto sin reautenticación. Forensia ITDR."
+
+  - schema: bos
+    tabla: ctx_context_transfer
+    fqn: bos.ctx_context_transfer
+    estado: IN_PROGRESS
+    score: 4/6
+    es_particion: false
+    resumen: "[T-401] [SBOS-049 §10] [NIST SP 800-63B-4 §7.2]    Transferencia de contexto entre dispositivos. WORM.    Tipos: USER_INITIATED, AUTO_CONTINUITY, ADMIN_TRANSFER, BREAKGLASS."
+
+  - schema: bos
+    tabla: ctx_device_heartbeat
+    fqn: bos.ctx_device_heartbeat
+    estado: IN_PROGRESS
+    score: 3/6
+    es_particion: false
+    resumen: "[T-400] [NIST SP 800-207 §3.3] [ISO 27001:2022 A.9.4.2]    Heartbeats de dispositivos. Alta escritura, baja consulta. Retención: 24h."
+
+  - schema: bos
+    tabla: ctx_registered_device
+    fqn: bos.ctx_registered_device
+    estado: IN_PROGRESS
+    score: 3/6
+    es_particion: false
+    resumen: "[T-395] [SBOS-049 §16.1] [NIST SP 800-207 §3.3] [ISO 27001:2022 A.9.4.2]    Dispositivos registrados en el Context Plane. Capa de INFRAESTRUCTURA.    BitMask = 0 invariante (pre-auth). TTL 8h. Heartbe"
+
+  - schema: bos
+    tabla: fch_ficha_event
+    fqn: bos.fch_ficha_event
+    estado: IN_PROGRESS
+    score: 4/6
+    es_particion: false
+    resumen: "[T-404] [ISO 27001:2022 A.8.15] [NIST SP 800-53 AU-2, AU-3, AU-12]    Historial WORM de todos los cambios de estado de fichas. REVOKE UPDATE/DELETE.    Hash-chain SHA-256 (prev_hash) para inmutabilida"
+
+  - schema: bos
+    tabla: fch_ficha_state
+    fqn: bos.fch_ficha_state
+    estado: IN_PROGRESS
+    score: 3/6
+    es_particion: false
+    resumen: "[T-403] [SBOS-019] [3.01 máquina 18 estados] [ISO 27001:2022 A.8.9] [NIST CM-8]    Estado actual de cada ficha declarativa. Máquina de 18 estados (ADR-021).    Sin tenant_id: las fichas son componente"
+
+  - schema: bos
+    tabla: ins_bootstrap_event
+    fqn: bos.ins_bootstrap_event
+    estado: IN_PROGRESS
+    score: 4/6
+    es_particion: false
+    resumen: "[T-405] [ISO 27001:2022 A.8.15] [NIST SP 800-53 AU-3, CM-8] [ADR-040] [1.01 §4]    Registro WORM del bootstrap progresivo. 6 capas (0=OS → 5=Hardening).    tenant_id NUNCA es NULL: el tenant raíz (see"
+
+  - schema: bos
+    tabla: ins_saga_execution
+    fqn: bos.ins_saga_execution
+    estado: IN_PROGRESS
+    score: 4/6
+    es_particion: false
+    resumen: "[T-412] [ISO 27001:2022 A.8.32] [ITIL 4 Change Enablement] [Google SRE]    Tracking de sagas generales del IAM Installer. No aplica a bootstrap (usa ins_bootstrap_event).    Sagas cubiertas: install/u"
+
+  - schema: bos
+    tabla: net_cert_inventory
+    fqn: bos.net_cert_inventory
+    estado: IN_PROGRESS
+    score: 3/6
+    es_particion: false
+    resumen: "[T-413] [A.15 §2.7] [RFC 8555] [ISO 27001:2022 A.8.24] [NIST SC-12]    Kardex de certificados TLS del entorno SBOS — daemons host, fichas K8s,    SVIDs SPIFFE/SPIRE y certs externos. Inventario de cla"
+
+  - schema: bos
+    tabla: net_security_events_default
+    fqn: bos.net_security_events_default
+    estado: DONE
+    score: 6/6
+    es_particion: true
+    resumen: "(sin documentación)"
+
+  - schema: bos
+    tabla: prt_port_assignment
+    fqn: bos.prt_port_assignment
+    estado: IN_PROGRESS
+    score: 3/6
+    es_particion: false
+    resumen: "[T-408] [A.12 §6.5] [RFC 6335 BCP 165] [ISO 27001:2022 A.8.20] [NIST CM-8, CM-8(3)]    Kardex de asignaciones de puertos — lo que IANA hace para internet, este Kardex lo hace    para el SBOS (RFC 6335"
+
+  - schema: bos
+    tabla: rel_release_event
+    fqn: bos.rel_release_event
+    estado: IN_PROGRESS
+    score: 4/6
+    es_particion: false
+    resumen: "[T-410] [ISO 27001:2022 A.8.32] [NIST CM-3] [ITIL 4 Change Enablement] WORM 🔒    Historial inmutable de todas las actualizaciones y rollbacks de daemons SBOS.    triggered_by: scheduler=poll automátic"
+
+  - schema: bos
+    tabla: rel_release_manifest
+    fqn: bos.rel_release_manifest
+    estado: IN_PROGRESS
+    score: 3/6
+    es_particion: false
+    resumen: "[T-409] [SBOS-RELEASE-001] [ISO 27001:2022 A.8.32] [NIST CM-3] [ITIL 4 Change Enablement]    Catálogo de releases disponibles por canal. Pull-only desde SKULL Release Server.    El Release Plane (subs"
+
+  - schema: bos
+    tabla: wdg_watchdog_event
+    fqn: bos.wdg_watchdog_event
+    estado: IN_PROGRESS
+    score: 4/6
+    es_particion: false
+    resumen: "[T-411] [ISO 27001:2022 A.8.16] [NIST AU-2, AU-12] [ITIL 4 Incident Management] WORM 🔒    Historial inmutable del Watchdog Unificado (internal/watchdog/unified_watchdog.go).    3 capas verificadas cad"
+

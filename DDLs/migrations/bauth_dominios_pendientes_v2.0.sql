@@ -1805,7 +1805,749 @@ BEGIN
     ON CONFLICT (user_id) DO NOTHING;
 END $$;
 
+-- ===========================================================================
+-- SECCIÓN 19: DOCUMENTACIÓN ESTRATIFICADA — COMMENT ON TABLE
+-- Estándar 6 elementos (§3.1 PROPUESTA-DOCUMENTACION-ESTRATIFICADA.md):
+--   [1] ÁREA | Propósito  [2] Fuente:  [3] Administración:
+--   [4] WORM: sí/no  [5] Particionada: sí/no  [6] Estándar: ... T-NNN
+-- Estado: [DOC:REVIEW] — escrito en SQL; pendiente verificación en SBOSDB_copia
+-- ===========================================================================
+
+-- ── D99 ADMIN GLOBAL ────────────────────────────────────────────────────────
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_global_admin IS
+'META-REGISTRO (D99) | Registro de administradores globales del sistema con AAL3 obligatorio y control granular de capacidades (super, seguridad, auditoría, soporte).
+Fuente: seed inicial SUPER_ADMIN; altas posteriores vía RPC bauth.admin.create con HITL y doble firma por SUPER_ADMIN activo.
+Administración: solo SUPER_ADMIN puede otorgar/revocar; cambios requieren aprobación dual y ctx_id; revisión trimestral obligatoria según ISO 27001 A.8.2; máximo 5 admins activos por tenant.
+WORM: no — status y last_auth_at se actualizan; revocaciones quedan en idn_audit_event_log.
+Particionada: no.
+Estándar: ISO 27001 A.8.2, NIST AC-2(7), NIST AC-6(5), RFC 9449, OWASP ASVS 5.0 §2.2. T-510.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_global_crypto_params IS
+'META-REGISTRO (D99) | Catálogo global de algoritmos criptográficos con estado de aprobación, equivalente del NIST CAVP para el ecosistema SBOS — define qué algoritmos están aprobados, deprecados o prohibidos.
+Fuente: seed de despliegue con algoritmos NIST/FIPS vigentes; actualizaciones solo vía migración DDL con HITL cuando NIST publica nuevas directrices (FIPS 203/204/205 PQC agosto 2024).
+Administración: tabla de referencia inmutable en producción — ningún código de aplicación modifica estas filas directamente; cambios de estado requieren migración explícita y revisión de seguridad; algoritmos PROHIBITED causan DENY inmediato.
+WORM: no (actualizaciones de estado de algoritmos son necesarias al cambiar normativa).
+Particionada: no.
+Estándar: NIST SP 800-131A R2, FIPS 140-3, FIPS 203 (ML-KEM), FIPS 204 (ML-DSA), FIPS 205 (SLH-DSA), NIST SP 800-227. T-513.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_global_notification IS
+'META-REGISTRO (D99) | Cola de notificaciones de sistema dirigidas a administradores globales o tenants: alertas de seguridad, vencimientos de certificados, avisos de compliance y alertas de capacidad.
+Fuente: daemons bAuth/bos y jobs crontab insertan al detectar condiciones de alerta; RPC bauth.notify.create permite inserción manual con privilegio SECURITY_ADMIN.
+Administración: registros se marcan is_read=true tras lectura; expirados depurados por job diario; los de severity=CRITICAL se conservan 30 días post-lectura incluso si expirados.
+WORM: no.
+Particionada: no.
+Estándar: ISO 27001 A.6.8, NIST IR-6 (Incident Response Reporting), NIST AU-6. T-511.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_global_hitl_exception IS
+'META-REGISTRO (D99) | Registro HITL de excepciones a políticas prohibidas (algoritmos deprecados, acceso de emergencia, downgrades de cripto). Toda excepción requiere justificación ≥100 chars y aprobador SECURITY_ADMIN con AAL3.
+Fuente: solicitud humana vía RPC bauth.hitl.request; el aprobador responde vía RPC bauth.hitl.approve con AAL3 obligatorio.
+Administración: excepciones aprobadas se revisan automáticamente en review_at (valid_until - 7 días); vencidas cambian a EXPIRED por job; ninguna excepción se elimina (registro histórico permanente).
+WORM: no (cambios de estado necesarios para la gobernanza del ciclo de vida).
+Particionada: no.
+Estándar: NIST SP 800-53 CA-3, ISO 27001 A.5.31, NIST AI RMF 1.0 §3.6. T-512.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_global_compliance_control IS
+'META-REGISTRO (D99) | Mapa de controles de cumplimiento normativo activos: ISO 27001, SOX, GDPR, PCI DSS, NIST — permite auditorías de gap y generación de evidencia exportable para auditores externos.
+Fuente: seed inicial con controles del stack tecnológico; actualización manual por AUDIT_ADMIN tras cada auditoría externa o cambio normativo; status=GAP activa alerta automática.
+Administración: revisión anual obligatoria (next_review_at); el propietario de cada control es un idn_global_admin activo; el campo evidence_location apunta a artefactos verificables.
+WORM: no.
+Particionada: no.
+Estándar: ISO 27001:2022 A.5.35-36, SOX §302/§404, GDPR Art. 24, PCI DSS 4.0 §12.3. T-514.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_global_sbom IS
+'META-REGISTRO (D99) | Software Bill of Materials — inventario de componentes del ecosistema SBOS con estado de vulnerabilidades CVE y nivel de riesgo; requisito EU Cyber Resilience Act y NTIA SBOM 2021.
+Fuente: pipeline CI/CD actualiza vía RPC tras cada build; escaneos de seguridad semanales insertan/actualizan CVEs detectados con syft/grype.
+Administración: job semanal de seguridad actualiza last_scanned_at y risk_level; componentes con risk_level=CRITICAL generan notificación idn_global_notification automática y bloquean el despliegue.
+WORM: no.
+Particionada: no.
+Estándar: NTIA SBOM 2021, EU Cyber Resilience Act (CRA) Art. 13, NIST SSDF SP 800-218. T-515.';
+
+-- ── D07 RED / ZTA ────────────────────────────────────────────────────────────
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_network_connection_policy IS
+'DOMINIOS CONTROL (D07) | Política de conexión TLS/mTLS/DPoP/PKCE por tenant — define versión mínima TLS, rangos IP permitidos/bloqueados, cipher suites y rate limit para conexiones entrantes al plano de identidad.
+Fuente: creada por SECURITY_ADMIN del tenant vía RPC bauth.network.policy.create; seed con política restrictiva por defecto (TLS 1.3, PKCE obligatorio) para cada nuevo tenant.
+Administración: políticas ACTIVE aplicadas en Kong PEP; cambios requieren ctx_id y recargan caché de Kong en <30s; políticas DRAFT no se aplican; solo una política ACTIVE por tenant.
+WORM: no.
+Particionada: no.
+Estándar: RFC 8705 (mTLS), NIST SP 800-52 R2 (TLS), RFC 9449 (DPoP), FAPI 2.0 §5. T-195.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_network_dpop_binding IS
+'DOMINIOS CONTROL (D07) | Bindings DPoP sender-constrained — registra cada proof de posesión de clave pública (JWK thumbprint) vinculado a un access token, haciendo el token no-transferible a otro cliente.
+Fuente: insertado por el motor de emisión de tokens en bAuth cada vez que el cliente presenta un DPoP proof válido (RFC 9449 §4); nunca actualizado — INSERT-only por diseño.
+Administración: tabla WORM; bindings usados (is_used=true) se archivan por job diario; los expirados con is_used=false se eliminan tras 24h; el JTI es único globalmente (constraint).
+WORM: sí — un binding de un solo uso no puede modificarse; hacerlo permitiría ataques de replay.
+Particionada: no.
+Estándar: RFC 9449 §4 (DPoP), FAPI 2.0 §5.3.2, OWASP ASVS 5.0 §13.2.5. T-196.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_network_rate_policy IS
+'DOMINIOS CONTROL (D07) | Políticas de rate limiting por scope (global/tenant/cliente/usuario/IP) aplicadas en Kong PEP — define ventana deslizante, burst y acción al exceder el límite (THROTTLE, BLOCK, NOTIFY).
+Fuente: creada por SECURITY_ADMIN vía RPC bauth.network.rate.create; seed con políticas globales conservadoras aplicables a todos los tenants.
+Administración: políticas ACTIVE leídas por Kong al iniciar; cambios requieren recarga en Kong; endpoint_pattern acepta glob patterns; el scope IP aplica por hash de IP (GDPR).
+WORM: no.
+Particionada: no.
+Estándar: OWASP API Security 2023 API6 (Unrestricted Resource Consumption), NIST SI-10, RFC 6585. T-197.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_network_posture_policy IS
+'DOMINIOS CONTROL (D07) | Política de postura de dispositivo Zero Trust — define si el dispositivo debe estar gestionado (MDM), su score de riesgo máximo permitido, y si se permite BYOD antes de autorizar una sesión.
+Fuente: creada por SECURITY_ADMIN del tenant; evaluada por el motor PDP de bAuth en cada solicitud de sesión; una política por tenant (constraint UNIQUE).
+Administración: la postura se re-evalúa tras posture_ttl_minutes; dispositivos que no cumplen reciben la acción definida (DENY, STEP_UP, CHALLENGE); DRAFT no se evalúa.
+WORM: no.
+Particionada: no.
+Estándar: NIST SP 800-207 §3.3 (ZTA device trust), NIST SP 800-124 R2 (MDM), CIS Controls v8 §4. T-198.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_network_segment IS
+'DOMINIOS CONTROL (D07) | Catálogo de segmentos de red con nivel de confianza ZTA — mapea rangos CIDR a zonas (DMZ, interna, confiable, aislada, cuarentena) para tomar decisiones de acceso basadas en el origen.
+Fuente: configurado por SECURITY_ADMIN del tenant al definir la topología de red; actualizado cuando la arquitectura de red cambia o se añaden nuevos segmentos.
+Administración: segmentos TRUSTED requieren mTLS; los de QUARANTINE bloquean todas las operaciones excepto remediation; revisión semestral del mapa de segmentos recomendada.
+WORM: no.
+Particionada: no.
+Estándar: NIST SP 800-207 §2.1 (ZTA), ISO 27001 A.8.22 (Segregación de redes). T-199.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_network_dlp_policy IS
+'DOMINIOS CONTROL (D07) | Política de Data Loss Prevention — define reglas de inspección de payload y headers para detectar patrones sensibles (NIT, tarjetas, datos biométricos) y tomar acción (LOG, BLOCK, REDACT, QUARANTINE).
+Fuente: creada por SECURITY_ADMIN del tenant; los patrones de sensitive_patterns son expresiones regulares aplicadas por Kong PEP en tránsito.
+Administración: políticas ACTIVE leídas por Kong; REDACT ofusca en tránsito sin almacenar; QUARANTINE retiene la request para revisión manual por AUDIT_ADMIN.
+WORM: no.
+Particionada: no.
+Estándar: NIST SP 800-53 R5 SI-3/SI-12, ISO 27001 A.8.12, GDPR Art. 25. T-200.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_network_context_propagation IS
+'DOMINIOS CONTROL (D07) | Configuración de propagación del ctx_id entre servicios SBOS — define el formato de header (W3C traceparent, SBOS custom, OTEL baggage) y los campos incluidos para cada par origen→destino.
+Fuente: configurado en el despliegue por bos al instalar un nuevo servicio; seed con configuraciones estándar W3C para cada par de daemons del ecosistema.
+Administración: leído en el arranque de cada daemon; cambios requieren reinicio del servicio destino; el campo encrypt_payload está reservado para datos sensibles en tránsito entre servicios.
+WORM: no.
+Particionada: no.
+Estándar: SBOS-049 (Context Plane), W3C Trace Context v2, OTEL Baggage v1.0, RFC 9232. T-201.';
+
+-- ── D09 CREDENCIALES ─────────────────────────────────────────────────────────
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_credential_password_history IS
+'AUTENTICACIÓN | Historial inmutable de hashes de contraseñas anteriores por usuario — permite verificar que una nueva contraseña no repite las últimas N (NIST 800-63B-4 §5.1.1.2: mínimo 5 anteriores).
+Fuente: insertado automáticamente por el motor de cambio de contraseña en bAuth cada vez que el usuario cambia su contraseña con éxito; nunca actualizado.
+Administración: tabla WORM — solo INSERT; depuración trimestral elimina registros más antiguos que la política del tenant (por defecto 12 meses), conservando siempre los últimos 5 por usuario.
+WORM: sí — el historial de contraseñas es evidencia de cumplimiento NIST; modificarlo falsificaría el registro de reutilización.
+Particionada: no.
+Estándar: NIST SP 800-63B-4 §5.1.1.2, OWASP ASVS 5.0 §2.1.7. T-202.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_credential_token_issued IS
+'SESIÓN | Registro de todos los tokens emitidos por bAuth (ACCESS, REFRESH, ID, EXCHANGE, DEVICE) con ciclo de vida completo, binding DPoP y nivel de aseguramiento (LoA 1-3).
+Fuente: insertado por el motor de emisión de tokens en bAuth en cada grant exitoso; la revocación actualiza revoked_at y revocation_reason (no se elimina el registro).
+Administración: particionada mensualmente para retención eficiente; particiones antiguas archivadas/eliminadas según idn_audit_retention_policy; el jti debe verificarse aquí antes de aceptar cualquier token.
+WORM: no (revocación requiere UPDATE de revoked_at).
+Particionada: sí — por issued_at, mensual; nueva partición creada por job al inicio de cada mes.
+Estándar: RFC 6749 §4 (Access Token), RFC 9449 (DPoP binding), NIST SP 800-63B-4 §7.1. T-363.';
+
+-- ── D02 ACCESO FÍSICO ────────────────────────────────────────────────────────
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_physical_access_credential IS
+'DOMINIOS CONTROL (D02) | Credenciales físicas de acceso (RFID, PIV, biométricas, NFC) vinculadas a identidades digitales — es el puente entre el mundo físico y el plano IAM de bAuth.
+Fuente: emitida por SECURITY_ADMIN del tenant vía RPC bauth.physical.credential.issue; requiere entity_id existente con verificación IAL2+ completada.
+Administración: credenciales ACTIVE permiten acceso en allowed_location_ids; revocación efectiva en <5 minutos por invalidación de caché en lectores OSDP; EXPIRED rechazadas automáticamente.
+WORM: no (ciclo de vida: ACTIVE→SUSPENDED→REVOKED).
+Particionada: no.
+Estándar: NIST SP 800-116 R2, FIPS 201-3 (PIV), ISO 24727-3, SIA OSDP v2.2.2. T-228.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_physical_access_location IS
+'DOMINIOS CONTROL (D02) | Catálogo jerárquico de instalaciones físicas con nivel de seguridad (1-5) — soporta árbol edificio→piso→sala→datacenter para modelar la topología física de la organización.
+Fuente: configurado por SECURITY_ADMIN del tenant al definir la planta física; actualizado cuando la topología cambia (nuevas sedes, remodelaciones, cambios de nivel de seguridad).
+Administración: árbol construido con parent_id (auto-referencia); max_capacity gestiona anti-passback; locations MAINTENANCE rechazan nuevas entradas pero permiten salida.
+WORM: no.
+Particionada: no.
+Estándar: ISO 27001 A.7.1 (Perímetros de seguridad física), IEC 60839-11-5. T-220.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_physical_access_reader IS
+'DOMINIOS CONTROL (D02) | Registro de lectores de acceso físico con protocolo (OSDP v2, Wiegand), dirección y estado de conectividad — permite detectar lectores offline y gestionar firmware remotamente.
+Fuente: registrado por el instalador vía RPC bauth.physical.reader.register al integrar el hardware; el lector envía heartbeats periódicos actualizando last_heartbeat e is_online.
+Administración: lectores OFFLINE generan alerta en idn_global_notification; firmware_version actualizado tras cada actualización OTA; readers MAINTENANCE aceptan heartbeats pero rechazan credenciales.
+WORM: no.
+Particionada: no.
+Estándar: SIA OSDP v2.2.2 §6, IEC 60839-11-5 §6, ISO 27001 A.7.2. T-221.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_physical_access_presence IS
+'DOMINIOS CONTROL (D02) | Estado de presencia actual (dentro/fuera) de cada entidad por instalación — tabla mutable que se actualiza en cada evento de entrada/salida para soportar anti-passback y control de aforo.
+Fuente: actualizada automáticamente por el motor de control de acceso en bAuth al procesar eventos de idn_physical_access_event_log; nunca insertada directamente por la aplicación cliente.
+Administración: el trigger garantiza no-presencias-fantasma; max_capacity de la location se comprueba antes de registrar ENTRY; emergencias activan override de anti-passback.
+WORM: no (estado mutable por diseño del control de aforo).
+Particionada: no.
+Estándar: NIST SP 800-116 R2 §4.2 (control de aforo), IEC 60839-11-1 §5.6. T-222.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_physical_access_event_log IS
+'DOMINIOS CONTROL (D02) | Log forense de todos los eventos de acceso físico (ENTRY, EXIT, DENIED, ALARM, FORCED, ANTIPASSBACK) con resultado y ctx_id para trazabilidad IAM completa.
+Fuente: insertado por el motor de control de acceso en bAuth al procesar cada señal de un lector OSDP; el lector envía el evento y bAuth lo registra con contexto de identidad.
+Administración: particionada mensualmente; particiones antiguas archivadas por job de retención; entradas FORCED y ALARM generan alerta de seguridad inmediata en idn_global_notification.
+WORM: no.
+Particionada: sí — por logged_at, mensual; nueva partición al inicio de cada mes.
+Estándar: IEC 60839-11-1 §6.4, ISO 27001 A.7.2, NIST SP 800-116 R2 §4. T-223.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_physical_access_visit IS
+'DOMINIOS CONTROL (D02) | Registro de visitas de personas externas — vincula visitante a anfitrión, instalación y rango horario; datos post-visita se anonimizan a los 30 días cumpliendo GDPR minimización.
+Fuente: creada por el anfitrión (host_id) vía RPC bauth.physical.visit.schedule; actual_entry_at/actual_exit_at actualizados automáticamente al pasar por los lectores con el badge_number temporal.
+Administración: visitas COMPLETED se anonimizan a los 30 días post-salida (GDPR Art. 5(1)(c)); badge_number es temporal e invalido al salir; NO_SHOW se registra si scheduled_until pasa sin entrada.
+WORM: no.
+Particionada: no.
+Estándar: ISO 27001 A.7.2, GDPR Art. 5(1)(c) (minimización), NIST SP 800-116 R2. T-224.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_physical_access_emergency IS
+'DOMINIOS CONTROL (D02) | Registro de activaciones de modo de emergencia física (incendio, intrusión, médica, evacuación) que cambian el modo de operación de puertas afectadas (FAIL_SAFE/FAIL_SECURE).
+Fuente: activada por personal autorizado vía RPC bauth.physical.emergency.activate o por sensor automático integrado; desactivación requiere confirmación de personal de seguridad con AAL2.
+Administración: mientras emergency activa (deactivated_at IS NULL), las puertas operan en door_mode definido; FAIL_SAFE abre puertas (evacuación), FAIL_SECURE las cierra (intrusión).
+WORM: no (se actualiza al desactivar).
+Particionada: no.
+Estándar: NIST SP 800-116 R2 §5.4, NFPA 101:2021 §7.7. T-225.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_physical_access_evacuation IS
+'DOMINIOS CONTROL (D02) | Registro de mustering (confirmación de evacuación) — anota si cada entidad fue confirmada en el punto de reunión; es evidencia forense de rendición de cuentas en emergencias.
+Fuente: insertado automáticamente por bAuth al activar una emergency_id para cada entidad con presencia activa en la instalación; actualizado cuando el personal de seguridad confirma físicamente la presencia.
+Administración: tabla de evidencia forense — ningún registro se elimina; entidades no confirmadas tras 30 min generan alerta CRITICAL en idn_global_notification.
+WORM: sí — evidencia de mustering de emergencia; nunca se modifica ni elimina (trazabilidad forense y responsabilidad legal).
+Particionada: no.
+Estándar: ISO 27001 A.7.4, NFPA 101:2021 §7.7, NIST SP 800-116 R2 §5.4. T-226.';
+
+-- ── D03 FINANCIERO ────────────────────────────────────────────────────────────
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_financial_limit IS
+'DOMINIOS CONTROL (D03) | Límites transaccionales por actor/rol/cliente — define montos máximos, límites diarios/mensuales y si se requiere doble aprobación para operaciones financieras autorizadas por bAuth.
+Fuente: creado por FINANCE_ADMIN del tenant vía RPC bauth.financial.limit.create; revisado y actualizado anualmente o al cambiar políticas de control interno.
+Administración: evaluado por el PDP de bAuth en cada solicitud de operación financiera; si amount excede dual_approval_threshold, se crea automáticamente una idn_financial_approval; límites DRAFT no se evalúan.
+WORM: no.
+Particionada: no.
+Estándar: PCI DSS 4.0 Req 8.2, NIST AC-2(6), COSO 2013 CC6.3. T-240.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_financial_approval IS
+'DOMINIOS CONTROL (D03) | Solicitud de aprobación dual para operaciones financieras que superan el límite configurado — implementa quorum de aprobadores (≥2) con ventana de expiración de 24h.
+Fuente: creada automáticamente por bAuth cuando una operación supera dual_approval_threshold; también vía RPC bauth.financial.approval.create para operaciones que requieren aprobación explícita.
+Administración: quorum verificado contra idn_financial_approval_vote; al alcanzar required_quorum el status pasa a APPROVED automáticamente; job depura EXPIRED sin votos suficientes.
+WORM: no.
+Particionada: no.
+Estándar: SOX §302/§404, COSO 2013 CC6.3, ISO 37001 §8.4 (Anti-bribery). T-241.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_financial_approval_vote IS
+'DOMINIOS CONTROL (D03) | Votos individuales de los aprobadores en una solicitud de aprobación dual — cada fila es la decisión de un aprobador con su razón y timestamp; constraint UNIQUE (approval_id, approver_id) previene doble voto.
+Fuente: insertado por cada aprobador vía RPC bauth.financial.vote.submit con AAL2 mínimo; un aprobador no puede votar su propia solicitud (SoD aplicada por el motor).
+Administración: al completarse el quorum, bAuth cierra la idn_financial_approval automáticamente; votos ABSTAIN pueden reconsiderarse antes del cierre de la solicitud.
+WORM: no.
+Particionada: no.
+Estándar: SOX §302, COSO 2013 CC6.3, NIST AC-5 (Separation of Duties). T-248.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_financial_sod_rule IS
+'DOMINIOS CONTROL (D03) | Reglas estáticas de Separación de Deberes financiero — define pares de operaciones que un mismo actor no puede ejecutar (MUTUALLY_EXCLUSIVE) o que requieren secuencia u aprobación adicional.
+Fuente: configurado por AUDIT_ADMIN del tenant; reglas mantenidas en código fuente y cargadas vía seed para asegurar consistencia entre entornos y auditoría reproducible.
+Administración: evaluado por el motor SoD de bAuth antes de cualquier operación financiera; conflictos generan DENY con código SoD en el audit log con trazabilidad completa.
+WORM: no.
+Particionada: no.
+Estándar: NIST AC-5 (Separation of Duties), SOX §404, COSO 2013 CC6.3, ISACA COBIT 2019. T-242.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_financial_invoice_auth IS
+'DOMINIOS CONTROL (D03) | Registro de autorizaciones de facturas electrónicas SIN (Bolivia) — vincula el CUF/CUFD con la operación de firma digital correspondiente para trazabilidad fiscal completa.
+Fuente: creado por el módulo de facturación integrado vía RPC bauth.financial.invoice.authorize al emitir una factura al SIN; signature_op_id vincula con sig_operation_log.
+Administración: los CUF son únicos por régimen/emisor/número; status CONTINGENCY activa modo offline del SIN; facturas REJECTED deben anularse con nueva emisión; retención 10 años según Ley 2492.
+WORM: no.
+Particionada: no.
+Estándar: SIN RND 102100000011, Ley 164 Bolivia Art. 9-11, DS 4583 Bolivia. T-243.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_financial_report IS
+'DOMINIOS CONTROL (D03) | Registro de reportes financieros de control (SOX 302/404, PCI DSS, informes de incidentes) con hash SHA-256 del archivo para verificación de integridad.
+Fuente: generado por el módulo de reportes de bAuth o importado desde sistemas externos vía RPC bauth.financial.report.register; hash calculado al momento de importar.
+Administración: reportes APPROVED son inmutables post-aprobación; los ARCHIVED se conservan según SOX §802 (7 años mínimo); un reporte no se modifica — se crea una nueva versión.
+WORM: no (ciclo DRAFT→REVIEW→APPROVED→PUBLISHED→ARCHIVED es necesario).
+Particionada: no.
+Estándar: SOX §302/§404, IFRS 7, PCI DSS 4.0 §12.3, ISO 19600. T-244.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_financial_fraud_alert IS
+'DOMINIOS CONTROL (D03) | Alertas de anomalía financiera detectadas por el motor de análisis de bAuth (montos inusuales, patrones temporales, violaciones SoD) que requieren investigación humana asignada.
+Fuente: generado automáticamente por el motor de detección de fraude al analizar transacciones; también por el motor SoD al detectar conflictos no resueltos en idn_financial_sod_rule.
+Administración: alertas CRITICAL generan notificación inmediata; investigador asignado cierra la alerta con result; sin investigar tras 72h escala automáticamente a nivel superior.
+WORM: no (se actualiza durante la investigación).
+Particionada: no.
+Estándar: PCI DSS 4.0 Req 10.7, ISO 37001 §8.6, NIST SP 800-53 SI-4. T-245.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_financial_reconciliation IS
+'DOMINIOS CONTROL (D03) | Registro de conciliaciones financieras periódicas entre dos sistemas — documenta discrepancias contables detectadas y su resolución para cumplimiento SOX y auditoría interna.
+Fuente: creado por el job de conciliación de bAuth (diaria/mensual/trimestral/anual) o manualmente por FINANCE_ADMIN vía RPC bauth.financial.reconcile.run.
+Administración: diferencias > 0 cambian status a WITH_DIFFERENCES y generan alerta; status APPROVED valida que las diferencias fueron investigadas y justificadas por el responsable.
+WORM: no.
+Particionada: no.
+Estándar: ISO 20022 §5, COSO 2013 CC6.6, SOX §404. T-246.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_financial_tpp_consent IS
+'DOMINIOS CONTROL (D03) | Consentimientos a terceros proveedores de pago (TPP) para acceder a datos financieros del usuario — implementa flujo FAPI 2.0 con DPoP obligatorio y alcances granulares por operación.
+Fuente: creado por el flujo de autorización OAuth 2.0 / FAPI 2.0 cuando el usuario consiente a una aplicación TPP desde el portal de identidad; dpop_required=true por defecto (no negociable).
+Administración: consentimientos activos evaluados por el PDP antes de emitir tokens al TPP; expirados rechazados automáticamente; el usuario puede revocar en cualquier momento vía autogestión en el portal.
+WORM: no.
+Particionada: no.
+Estándar: PSD2 Art. 98, FAPI 2.0 §5, RFC 9449 (DPoP), Open Banking UK §7. T-247.';
+
+-- ── D04 TEMPORAL (GTRBAC) ────────────────────────────────────────────────────
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_temporal_window IS
+'DOMINIOS CONTROL (D04) | Ventanas de tiempo de acceso GTRBAC — define intervalos horarios en que un rol está activo, con soporte de días de semana y zona horaria, implementando control de acceso sensible al tiempo.
+Fuente: creado por SECURITY_ADMIN del tenant vía RPC bauth.temporal.window.create; asociado a períodos, turnos y excepciones mediante tablas relacionadas.
+Administración: evaluado por el evaluador temporal del PDP de bAuth en cada solicitud; zona horaria obligatoria (defecto: America/La_Paz); ventanas is_active=false no se evalúan.
+WORM: no.
+Particionada: no.
+Estándar: GTRBAC §3.2 (Generalized Temporal RBAC), NIST AC-3(7), ISO 27001 A.5.18. T-260.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_temporal_period IS
+'DOMINIOS CONTROL (D04) | Períodos de activación temporal de roles — vincula un actor a una ventana de tiempo y un role_id para un rango de fechas concreto, implementando acceso Just-In-Time (JIT).
+Fuente: creado por SECURITY_ADMIN al asignar acceso temporal; auto_activate=true activa el rol automáticamente al entrar en el período sin intervención manual.
+Administración: el job de activación/desactivación evalúa valid_from/valid_until periódicamente; períodos vencidos se conservan como histórico de acceso JIT para auditoría.
+WORM: no.
+Particionada: no.
+Estándar: GTRBAC §4, NIST AC-3(7) (RBAC con tiempo), ISO 27001 A.5.18. T-261.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_temporal_calendar IS
+'DOMINIOS CONTROL (D04) | Asociación entre ventanas de tiempo y calendarios bcalendar — permite que una ventana excluya automáticamente feriados nacionales o weekends del calendario fiscal.
+Fuente: creado por SECURITY_ADMIN al vincular una ventana a un calendario; un calendario puede estar vinculado a múltiples ventanas.
+Administración: el evaluador temporal de bAuth consulta bcalendar.cal_holiday al evaluar si el día actual es hábil; si exclude_holidays=true y hoy es feriado, la ventana no aplica.
+WORM: no.
+Particionada: no.
+Estándar: GTRBAC §4.1 (calendarios de trabajo), ISO 8601:2019. T-262.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_temporal_shift IS
+'DOMINIOS CONTROL (D04) | Catálogo de turnos de trabajo con tipo de rotación y duración — permite modelar guardias fijas, rotativas o flexibles vinculadas a ventanas de tiempo del módulo GTRBAC.
+Fuente: configurado por HR_ADMIN del tenant al definir los turnos de la organización; usado como plantilla para asignaciones individuales en idn_temporal_shift_assignment.
+Administración: turnos is_active=false no se evalúan; rotation_type GUARD es para seguridad física con cobertura 24h sin gaps; ROTATING incluye lógica de alternancia automática.
+WORM: no.
+Particionada: no.
+Estándar: GTRBAC §5, NIST AC-2(2) (Temporary Access), ISO 27001 A.5.18. T-263.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_temporal_shift_assignment IS
+'DOMINIOS CONTROL (D04) | Asignación de un turno concreto a un actor específico con rango de fechas de validez — materializa la asociación entre el horario corporativo y la identidad del empleado.
+Fuente: creado por HR_ADMIN o SECURITY_ADMIN vía RPC bauth.temporal.shift.assign; el assigned_by debe tener privilegio de administración de turnos del tenant.
+Administración: registros vencidos (valid_until < NOW()) no se evalúan por el PDP; histórico conservado para auditoría de asignaciones JIT; entity_id puede ser humano o NHI.
+WORM: no.
+Particionada: no.
+Estándar: GTRBAC §5, NIST AC-2(2), ISO 27001 A.5.18. T-264.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_temporal_exception IS
+'DOMINIOS CONTROL (D04) | Excepciones temporales aprobadas que modifican (extienden, reducen, bloquean o añaden guardia) la ventana de acceso normal de un actor — requieren justificación ≥20 chars y aprobador AAL2.
+Fuente: creado por el actor o su supervisor vía RPC bauth.temporal.exception.request; el aprobador confirma vía RPC con AAL2 antes de que sea evaluada por el motor.
+Administración: evaluadas como override sobre la ventana original; vencidas no se evalúan pero se conservan como histórico de decisiones de excepción de acceso.
+WORM: no.
+Particionada: no.
+Estándar: NIST AC-17(1) (acceso remoto fuera de horario), ISO 27001 A.5.18, GTRBAC §6. T-265.';
+
+-- ── D05 BIOMÉTRICO ────────────────────────────────────────────────────────────
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_biometric_enrollment IS
+'DOMINIOS CONTROL (D05) | Registro de enrolamientos biométricos por actor y modalidad — almacena la ruta Vault al template (NUNCA el template en BD), calidad y liveness de la muestra, y estado del enrolamiento.
+Fuente: creado por el proceso de enrolamiento IAL2/IAL3 en bAuth; la muestra se captura, evalúa con el algoritmo de calidad, el template se almacena en Vault y solo la ruta queda aquí.
+Administración: un actor puede tener múltiples enrolamientos por modalidad; solo status=ACTIVE es considerado por el PDP; revocación activa limpieza del template en Vault (confirmada en idn_biometric_revocation).
+WORM: no (ciclo de vida: ACTIVE→SUSPENDED→REVOKED→EXPIRED).
+Particionada: no.
+Estándar: NIST SP 800-76-2 §4, ISO/IEC 30107-1:2023, ISO/IEC 24745:2022. T-280.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_biometric_verification_log IS
+'DOMINIOS CONTROL (D05) | Log de verificaciones biométricas 1:1 (match contra template enrolado) con scores de match y liveness — permite análisis de tendencia y detección de ataques de presentación (PAD).
+Fuente: insertado por el motor de verificación biométrica de bAuth en cada autenticación biométrica; la IP se anonimiza en ingesta (GDPR Art. 5(1)(c)); nunca se almacena el template.
+Administración: particionada mensualmente; retención según idn_audit_retention_policy tipo BIOMETRIC (365 días + anonimización); scores NO_MATCH repetidos activan alerta PAD automática.
+WORM: no.
+Particionada: sí — por verified_at, mensual; nueva partición al inicio de cada mes.
+Estándar: ISO/IEC 30107-3:2023, NIST SP 800-76-2 §5, GDPR Art. 5(1)(c). T-281.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_biometric_pad_policy IS
+'DOMINIOS CONTROL (D05) | Política de detección de ataques de presentación (PAD) por modalidad — define umbral de liveness, número de intentos antes de bloqueo y acción ante fallo (DENY/STEP_UP/QUARANTINE).
+Fuente: seed con políticas por defecto por modalidad; actualizable por SECURITY_ADMIN del tenant vía RPC bauth.biometric.pad.update; una política por tenant+modalidad (constraint UNIQUE).
+Administración: evaluada en cada verificación biométrica; LEVEL_3 requiere algoritmo anti-spoofing certificado ISO/IEC 30107-3; QUARANTINE retiene request para análisis forense.
+WORM: no.
+Particionada: no.
+Estándar: ISO/IEC 30107-3:2023 §5, FIDO2 §8.8 (Authenticator Attestation), NIST SP 800-76-2 §6. T-282.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_biometric_identification_log IS
+'DOMINIOS CONTROL (D05) | Log de búsquedas biométricas 1:N (identificación — quién es esta persona) — separado del log de verificación 1:1 por mayor impacto de privacidad; uso restringido a roles IAL3.
+Fuente: insertado por el motor de identificación de bAuth en flujos de acceso físico sin credencial o de investigación forense; uso restringido a personal de seguridad con privilegio explícito.
+Administración: particionada; búsquedas 1:N tienen implicaciones GDPR mayores (dato biométrico = categoría especial Art. 9); resultado MULTIPLE_MATCH requiere resolución humana obligatoria.
+WORM: no.
+Particionada: sí — por searched_at, mensual.
+Estándar: ISO/IEC 19794-2:2011 §6, GDPR Art. 9 (categoría especial), NIST SP 800-76-2. T-283.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_biometric_quality_policy IS
+'DOMINIOS CONTROL (D05) | Política de calidad mínima de muestra biométrica por modalidad y tenant — define el umbral mínimo de calidad y máximo de intentos de captura antes de rechazar el enrolamiento.
+Fuente: seed con valores mínimos del estándar por modalidad; el SECURITY_ADMIN del tenant puede elevar (no reducir) los umbrales vía RPC bauth.biometric.quality.update.
+Administración: evaluada durante el enrolamiento y cada verificación; muestras bajo min_quality son rechazadas incluso si el match score es alto (defensa en profundidad).
+WORM: no.
+Particionada: no.
+Estándar: ISO/IEC 29794-1:2024 §5, NIST SP 800-76-2 §3, ISO/IEC 30107-3:2023. T-284.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_biometric_revocation IS
+'DOMINIOS CONTROL (D05) | Registro de revocaciones de templates biométricos con confirmación explícita del borrado en Vault — garantiza que el template (categoría especial GDPR Art. 9) se elimina físicamente al revocar.
+Fuente: creado por el proceso de revocación de bAuth al revocar un enrolamiento; vault_wipe_confirmed se actualiza a true cuando Vault confirma el borrado del template.
+Administración: sin vault_wipe_confirmed=true la revocación no está completa (riesgo GDPR Art. 17); job nocturno detecta revocaciones sin confirmación y las escala a SECURITY_ADMIN.
+WORM: no (vault_wipe_confirmed y vault_wipe_at requieren actualización post-borrado en Vault).
+Particionada: no.
+Estándar: ISO/IEC 24745:2022 §6, GDPR Art. 17 (derecho al olvido), NIST SP 800-76-2 §6. T-285.';
+
+-- ── D06 GEOESPACIAL ──────────────────────────────────────────────────────────
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_geospatial_geofence IS
+'DOMINIOS CONTROL (D06) | Geocercas de control de acceso — define zonas geográficas (círculo, polígono, país, región) con la acción a tomar según si el actor está dentro o fuera al hacer una solicitud.
+Fuente: creado por SECURITY_ADMIN del tenant vía RPC bauth.geo.fence.create; el geojson se valida como RFC 7946 válido al insertar; estado DRAFT no se evalúa.
+Administración: geocercas ACTIVE evaluadas por el PDP en cada solicitud de autenticación con contexto de ubicación; evaluación sincrónica <5ms; DISABLED suspende sin borrar.
+WORM: no.
+Particionada: no.
+Estándar: RFC 7946 §3.1 (GeoJSON), OGC GeoSPARQL 1.1, NIST AC-3(11) (Location-based Access). T-300.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_geospatial_location_log IS
+'DOMINIOS CONTROL (D06) | Log de ubicaciones geoespaciales de actores durante sesiones autenticadas — la IP siempre se almacena anonimizada (ip_hash) cumpliendo GDPR Art. 5(1)(c) minimización de datos.
+Fuente: insertado por el motor de sesión de bAuth cuando el cliente envía su ubicación GPS/WiFi/IP-GeoIP; también por el sistema de acceso físico al registrar presencia en instalación.
+Administración: particionada mensualmente; retención 90 días para análisis de viaje imposible; anonimización completa a los 7 días post-retención; nunca se almacena la IP en claro.
+WORM: no.
+Particionada: sí — por captured_at, mensual.
+Estándar: RFC 7946 §3, NIST AC-3(11), GDPR Art. 5(1)(c). T-301.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_geospatial_velocity_policy IS
+'DOMINIOS CONTROL (D06) | Política de detección de viaje imposible por tenant — define la velocidad máxima de desplazamiento geográfico permitida entre dos autenticaciones consecutivas (defecto 900 km/h para incluir vuelos).
+Fuente: seed con política conservadora por defecto; configurable por SECURITY_ADMIN del tenant; exactamente una política por tenant (constraint UNIQUE).
+Administración: evaluada por el motor geoespacial de bAuth entre cada par de ubicaciones consecutivas; violaciones generan idn_geospatial_velocity_event y aplican la acción definida.
+WORM: no.
+Particionada: no.
+Estándar: NIST SI-4(13) (análisis de comportamiento), OWASP ASVS 5.0 §2.2.9. T-302.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_geospatial_velocity_event IS
+'DOMINIOS CONTROL (D06) | Eventos de viaje imposible detectados — registra casos donde la velocidad calculada entre dos ubicaciones del mismo actor supera el máximo configurado; evidencia forense de posible compromiso de credenciales.
+Fuente: insertado automáticamente por el motor geoespacial de bAuth al detectar una violación; referencia los dos location_log.id (sin FK directa por ser tabla particionada).
+Administración: eventos sin investigar tras 24h escalan a CRITICAL; el investigador marca is_investigated=true con el resultado determinado (falso positivo o compromiso real).
+WORM: no (se actualiza durante investigación).
+Particionada: no.
+Estándar: NIST SI-4(13), OWASP ASVS 5.0 §2.2.9. T-303.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_geospatial_data_residency IS
+'DOMINIOS CONTROL (D06) | Política de soberanía y residencia de datos geográfica por tenant — define países permitidos/bloqueados para autenticación y procesamiento, cumpliendo GDPR transferencias internacionales y Ley 1174 Bolivia.
+Fuente: configurado durante el onboarding del tenant; exactamente una política por tenant (constraint UNIQUE); cambios requieren HITL por impacto en usuarios en tránsito internacional.
+Administración: evaluada por el PDP en cada solicitud; violaciones aplican violation_action; requires_sovereign_vpn fuerza el uso de la VPN soberana; exempt_entity_ids para usuarios exentos justificados.
+WORM: no.
+Particionada: no.
+Estándar: GDPR Art. 44-49 (transferencias internacionales), Ley 1174 Bolivia, NIST SP 800-53 SA-9(5). T-304.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_geospatial_device_fleet IS
+'DOMINIOS CONTROL (D06) | Flota de dispositivos móviles con trazabilidad geoespacial — vincula cada dispositivo a su última ubicación conocida y la geocerca asignada para logística y seguridad de activos físicos.
+Fuente: registrado por el sistema MDM al inscribir un nuevo dispositivo; la ubicación se actualiza en cada heartbeat del agente de dispositivo instalado en el equipo.
+Administración: dispositivos sin heartbeat en 48h se marcan INACTIVE automáticamente; inside_geofence recalculado en cada actualización de ubicación; usado por PAM para validar ubicación aprobada del operador.
+WORM: no.
+Particionada: no.
+Estándar: ISO 6709:2022 (notación geográfica), NIST SP 800-124 R2 (MDM), NIST AC-3(11). T-305.';
+
+-- ── D10 DELEGACIÓN ────────────────────────────────────────────────────────────
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_delegation_grant IS
+'DOMINIOS CONTROL (D10) | Delegaciones de identidad entre actores — permite que un actor (grantor) otorgue a otro (grantee) capacidad de actuar en su nombre mediante impersonación, agencia, proxy o intercambio de tokens con validez temporal.
+Fuente: creado por el grantor vía RPC bauth.delegation.grant con AAL2; el sistema verifica SoD (grantee no puede recibir lo que el grantor no tiene); auto-prohibición de self-grant por CHECK constraint.
+Administración: evaluada por el PDP en cada solicitud del grantee; revocación efectiva en <30s por invalidación de caché; grants vencidos se conservan como histórico de delegaciones para auditoría SOX.
+WORM: no (status evoluciona durante el ciclo de vida).
+Particionada: no.
+Estándar: RFC 8693 §3 (Token Exchange), NIST AC-2(5), ANSI INCITS 359-2004 §4.5. T-415.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_delegation_renewal IS
+'DOMINIOS CONTROL (D10) | Registro de renovaciones de delegaciones — documenta cada extensión de validez de un grant con el aprobador y la nueva fecha límite, respetando el máximo de renovaciones (max_renewals).
+Fuente: creado por el proceso de renovación vía RPC bauth.delegation.renew, verificando que renewals_used < max_renewals antes de insertar; actualiza valid_until en idn_delegation_grant.
+Administración: cada renovación incrementa renewals_used en el grant; grants con max_renewals=0 no pueden renovarse; el histórico de renovaciones es evidencia de uso extendido de delegaciones.
+WORM: no.
+Particionada: no.
+Estándar: RFC 8693 §4.2 (Token Refresh Delegation), NIST AC-2(5). T-416.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_delegation_restriction IS
+'DOMINIOS CONTROL (D10) | Restricciones adicionales sobre el alcance de una delegación — permite limitar IP permitidas, horas, recursos específicos o requerir aprobación adicional más allá del grant base.
+Fuente: creadas opcionalmente por el grantor al crear el grant; los parámetros JSONB definen los valores concretos por tipo de restricción (ej: IP whitelist, ventana horaria, resource limit).
+Administración: evaluadas por el PDP en cada uso del grant delegado; SCOPE_LIMIT restringe el subconjunto de scopes del grant original; APPROVAL_REQUIRED fuerza un flujo adicional de confirmación.
+WORM: no.
+Particionada: no.
+Estándar: NIST AC-5 (SoD en delegaciones), ISO 27001 A.5.3, RFC 9396 (RAR). T-417.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_delegation_chain IS
+'DOMINIOS CONTROL (D10) | Cadena de delegaciones transitivas — registra el árbol de re-delegaciones (hasta depth=5) para detectar y prevenir ciclos de delegación que crearían escaladas de privilegio.
+Fuente: actualizado automáticamente por el motor de delegación de bAuth al crear un grant derivado de otro grant existente; root_grant_id apunta siempre al grant original de la cadena.
+Administración: depth > 5 es rechazado por CHECK constraint; el motor verifica la cadena completa al evaluar un token delegado; útil en investigaciones forenses de uso transitivo de permisos.
+WORM: no.
+Particionada: no.
+Estándar: RFC 8693 §2 (cadenas de delegación), ANSI INCITS 359-2004 §4.5. T-418.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_delegation_usage_log IS
+'DOMINIOS CONTROL (D10) | Log WORM de uso de delegaciones activas — registra cada acción ejecutada por el grantee usando un grant delegado, con resultado PERMIT/DENY e IP anonimizada.
+Fuente: insertado por el PDP de bAuth en cada evaluación de acceso que involucra un token delegado; la IP se anonimiza en ingesta cumpliendo GDPR.
+Administración: tabla WORM particionada mensualmente; retención según política de auditoría; evidencia forense para demostrar uso apropiado de delegaciones en auditorías SOX y GDPR.
+WORM: sí — el log de uso de delegaciones no puede modificarse; es evidencia forense del comportamiento del grantee.
+Particionada: sí — por logged_at, mensual.
+Estándar: ISO 27001 A.8.15, NIST AU-2, SOX §302. T-419.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_delegation_rar_request IS
+'DOMINIOS CONTROL (D10) | Solicitudes de autorización enriquecida (Rich Authorization Request RFC 9396) — permite que un cliente especifique con detalle el tipo, acción y recurso exactos a los que solicita acceso delegado.
+Fuente: insertado por el motor de autorización de bAuth al procesar una solicitud OAuth 2.0 con parámetro authorization_details; expira en 10 minutos si no se aprueba.
+Administración: el authorization_details JSONB se valida contra el schema del tipo declarado; status APPROVED emite el token con claims RAR incluidos; REJECTED con razón en audit log.
+WORM: no.
+Particionada: no.
+Estándar: RFC 9396 §3 (RAR), OAuth 2.0 RFC 6749, FAPI 2.0. T-420.';
+
+-- ── D11 AUDITORÍA Y SIEM ─────────────────────────────────────────────────────
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_audit_retention_policy IS
+'AUDITORÍA IGA | Políticas de retención de logs de auditoría por tipo de evento y tenant — define cuántos días se conservan los registros, la base legal y la acción al vencer (DELETE, ARCHIVE, ANONYMIZE, KEEP).
+Fuente: seed con políticas globales por defecto (SOX=7 años, GDPR=30 días, AUTH=180 días); tenants pueden crear políticas más restrictivas pero no menos que la global (tenant_id=NULL).
+Administración: el job nightly de purga consulta esta tabla antes de eliminar/archivar cualquier log; tenant_id=NULL es la política global que aplica cuando no hay política específica del tenant.
+WORM: no.
+Particionada: no.
+Estándar: SOX §802, GDPR Art. 5(1)(e) (limitación de almacenamiento), NIST AU-11. T-421.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_audit_alert_rule IS
+'AUDITORÍA IGA | Reglas de alerta sobre el flujo de eventos de auditoría — define condiciones (umbral de eventos en ventana de tiempo) que disparan notificaciones a canales SIEM o bNotify al detectar anomalías.
+Fuente: seed con reglas estándar (X intentos fallidos en Y minutos, elevación de privilegio, etc.); añadibles por AUDIT_ADMIN vía RPC bauth.audit.alert.create.
+Administración: reglas ACTIVE evaluadas en tiempo real por el motor de análisis de logs; false_positive_threshold suprime alertas repetidas del mismo origen; reglas inactivas no consumen recursos.
+WORM: no.
+Particionada: no.
+Estándar: NIST AU-6 (análisis de auditoría), ISO 27001 A.8.16 (monitoreo de actividades). T-422.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_audit_siem_target IS
+'AUDITORÍA IGA | Destinos SIEM configurados — define los endpoints (Wazuh, Elastic, Kafka, webhooks) a los que bAuth envía eventos de auditoría en tiempo real con el formato y filtros correspondientes.
+Fuente: seed con Wazuh local (UDP 514, formato WAZUH) por defecto; SIEM externos configurados por AUDIT_ADMIN vía RPC bauth.audit.siem.register.
+Administración: destinos ACTIVE reciben todos los eventos del event_filter (vacío = todos); last_sent_at actualizado tras cada envío exitoso; fallos de entrega generan alerta local inmediata.
+WORM: no.
+Particionada: no.
+Estándar: NIST AU-9(2) (protección de auditoría remota), ISO 27001 A.8.15, CEF/LEEF standards. T-423.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_audit_event_log IS
+'AUDITORÍA IGA | Log de auditoría unificado multi-dominio WORM con hash chain — registra todos los eventos de los 18 dominios (D00-D99) con hash SHA-256 encadenado que garantiza integridad forense.
+Fuente: insertado por cada subsistema de bAuth al procesar una operación; hash_actual calculado por trigger a partir del evento + prev_hash; la IP siempre llega anonimizada (ip_hash).
+Administración: tabla particionada mensualmente WORM (REVOKE UPDATE DELETE); el hash chain hace detectable cualquier alteración forense; archivado según idn_audit_retention_policy al vencer cada período.
+WORM: sí — append-only con hash chain SHA-256; modificar una fila rompe todos los hashes posteriores, siendo evidencia irrefutable de manipulación.
+Particionada: sí — por logged_at, mensual.
+Estándar: ISO 27001 A.8.15, GDPR Art. 5(1)(f), NIST AU-2, SOX §802. T-424.';
+
+-- ── D12 BLOCKCHAIN ────────────────────────────────────────────────────────────
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_blockchain_anchor_ext IS
+'BLOCKCHAIN | Extensión del ancla blockchain (blk_anchor T-358) — agrega contexto semántico al ancla: tipo del evento fuente (PRIVILEGE_GRANT, AUDIT_BATCH, etc.) y prueba de inclusión Merkle en el batch.
+Fuente: creado automáticamente por el job de anclaje blockchain de bAuth al anclar un batch de eventos; referencia siempre un blk_anchor existente.
+Administración: tabla WORM — las extensiones de anclas blockchain son evidencia forense inmutable; external_verification_url permite verificación pública en el explorador de red Besu.
+WORM: sí — la extensión de un ancla blockchain no puede modificarse; refleja la inmutabilidad del registro distribuido en la BD local.
+Particionada: no.
+Estándar: Hyperledger Besu §6, RFC 6962 §2 (Certificate Transparency), NIST SP 800-208 §3. T-425.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_blockchain_transaction IS
+'BLOCKCHAIN | Registro de transacciones en la red Besu QBFT privada — documenta cada llamada a contrato inteligente (liquidación, freeze, deploy) con tx_hash, gas consumido y estado de confirmación.
+Fuente: insertado por el motor blockchain de bAuth al enviar una transacción a Besu; status CONFIRMED actualizado por el listener de bloques cuando la TX alcanza finalidad QBFT.
+Administración: transacciones PENDING sin confirmar tras 5 minutos generan alerta; REVERTED indica fallo en contrato inteligente; el job de reconciliación detecta inconsistencias entre BD y la red.
+WORM: no (status y block_number se actualizan al confirmar).
+Particionada: no.
+Estándar: Hyperledger Besu §4, EIP-712 (Structured Data Signing), QBFT RFC 8812. T-426.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_blockchain_wallet IS
+'BLOCKCHAIN | Wallet blockchain por tenant — almacena la dirección Besu/EVM y el path en Vault de la clave privada (NUNCA la clave en BD), con el saldo actual para operaciones de settlement.
+Fuente: creado automáticamente por bAuth al incorporar un nuevo tenant con funcionalidad blockchain; la clave privada generada en Vault nunca sale de Vault (vault_key_path = referencia solo).
+Administración: un wallet por tenant (UNIQUE tenant_id); balance_wei actualizado por el listener de bloques; wallets FROZEN no pueden enviar TX; DECOMMISSIONED es estado terminal irreversible.
+WORM: no (balance y status se actualizan en ciclo de vida normal).
+Particionada: no.
+Estándar: BIP-32 (HD wallets), BIP-39 (mnemonics), BIP-44 (derivation paths), EIP-712. T-427.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_blockchain_merkle_proof IS
+'BLOCKCHAIN | Pruebas de inclusión Merkle para eventos incluidos en un batch blockchain — permite demostrar criptográficamente que un evento específico está en una raíz Merkle anclada on-chain sin revelar otros eventos.
+Fuente: generado por el motor de Merkle de bAuth al crear cada batch; cada leaf corresponde a un evento de idn_audit_event_log hash-encadenado.
+Administración: la verificación se ejecuta con leaf_hash + proof_path + proof_directions → root_hash; is_verified se marca true al verificar exitosamente; son la base de demostración forense de integridad.
+WORM: no (is_verified se actualiza post-verificación).
+Particionada: no.
+Estándar: RFC 6962 §2.1.1 (Merkle Trees), NIST SP 800-208 §3. T-428.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_blockchain_node IS
+'BLOCKCHAIN | Nodos de la red Besu QBFT privada del ecosistema SBOS — registra estado, dirección Ethereum, conectividad y si el nodo es validador activo del consenso tolerante a fallos.
+Fuente: registrado por bos al desplegar un nuevo nodo en la red; el heartbeat (last_heartbeat, last_block_number, peers_count) es actualizado por el monitor de nodos de bAuth periódicamente.
+Administración: nodos OFFLINE >5 minutos generan alerta CRITICAL; un validador OFFLINE reduce la tolerancia a fallos QBFT (f=(n-1)/3); se requieren ≥4 validadores para tolerancia f≥1.
+WORM: no.
+Particionada: no.
+Estándar: Hyperledger Besu §4, EIP-225 (Clique/QBFT), Istanbul BFT RFC 8812. T-429.';
+
+-- ── D13 FIRMA DIGITAL ─────────────────────────────────────────────────────────
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_signature_request IS
+'FIRMA DIGITAL | Solicitud de firma digital — orquesta la firma de un documento mediante el motor interno (Ed25519/Vault) o externo (ADSIB RSA-SHA256) con el formato solicitado (PAdES/CAdES/XAdES/JAdES) y soporte de timestamp calificado.
+Fuente: creada por la aplicación solicitante vía RPC bauth.signature.request con el hash SHA-256 del documento; bAuth nunca recibe el documento en claro, solo su hash SHA-256.
+Administración: solicitudes PENDING procesadas por el motor de firma en orden; requires_timestamp=true dispara contacto con TSA; FAILED requiere re-solicitud con nuevo ctx_id.
+WORM: no (status evoluciona: PENDING→SIGNING→SIGNED/FAILED/CANCELLED).
+Particionada: no.
+Estándar: PAdES EN 319 132, Ley 164 Bolivia Art. 9, ETSI EN 319 102-1. T-440.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_signature_ca_chain IS
+'FIRMA DIGITAL | Cadena de certificación CA de confianza — registra los certificados CA (root, intermediate, issuing, ADSIB, Vault PKI) con fingerprint, validez y ruta en Vault (NUNCA el PEM en BD).
+Fuente: cargado por bAuth al configurar un motor de firma; certificados ADSIB importados al contratar el servicio; los de Vault PKI generados automáticamente al inicializar el PKI.
+Administración: job diario verifica not_after de todos los CAs activos y alerta con 90/30/7 días de anticipación; is_trusted=false deshabilita la CA sin eliminarla (histórico de validación PKI).
+WORM: no.
+Particionada: no.
+Estándar: RFC 5280 §6 (X.509 Path Validation), ADSIB-FD-POLT-015 v2.3. T-441.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_signature_timestamp IS
+'FIRMA DIGITAL | Timestamp calificado RFC 3161 de una Autoridad de Sellado de Tiempo (TSA) — acredita que el documento existía en el momento del sellado; esencial para validez legal a largo plazo (PAdES-T).
+Fuente: obtenido automáticamente por bAuth del TSA configurado durante el proceso de firma cuando requires_timestamp=true; el token_base64 es el TSTInfo original de la TSA.
+Administración: token_base64 es inmutable; el job de verificación periódico confirma que el certificado del TSA no está revocado; es prerrequisito para generar idn_signature_ltv_evidence.
+WORM: no.
+Particionada: no.
+Estándar: RFC 3161 §2 (Time-Stamp Protocol), Ley 164 Bolivia Art. 20, ETSI EN 319 421. T-442.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_signature_verification_log IS
+'FIRMA DIGITAL | Log WORM de verificaciones de firma — registra cada comprobación de validez de firma (VALID, INVALID, EXPIRED, REVOKED) con estado de certificado, cadena y timestamp para auditoría forense.
+Fuente: insertado por el motor de verificación de bAuth cada vez que se verifica una firma, sea por la aplicación o por el job de verificación periódica de firmas en custodia.
+Administración: tabla WORM; verificaciones INVALID escaladas automáticamente; este log es la evidencia de que la firma fue válida en un momento específico (crítico para LTV post-expiración del cert).
+WORM: sí — el log de verificaciones de firma es evidencia forense de validez en el tiempo; modificarlo falsificaría la historia de validación.
+Particionada: no.
+Estándar: ETSI EN 319 102-1 §5, RFC 5280 (Certificate Validation), PAdES EN 319 132. T-443.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_signature_revocation_cache IS
+'FIRMA DIGITAL | Cache de estado de revocación de certificados OCSP/CRL — evita consultar OCSP/CRL en cada verificación almacenando el estado en BD con TTL (next_update), mejorando disponibilidad del sistema.
+Fuente: actualizado por el motor de verificación de bAuth tras cada consulta OCSP/CRL exitosa; el status se invalida automáticamente cuando se supera next_update.
+Administración: el job de pre-fetch nocturno actualiza el cache de los certificados activos antes de que expire; REVOKED nunca se re-verifica como GOOD; check_source identifica origen del estado.
+WORM: no (status se actualiza cuando cambia la revocación).
+Particionada: no.
+Estándar: RFC 6960 (OCSP), RFC 5280 §5 (CRL Distribution Points), ETSI EN 319 102-1 §5.2. T-444.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_signature_ltv_evidence IS
+'FIRMA DIGITAL | Evidencia LTV (Long-Term Validation) WORM — captura el estado completo de validación (cadena de certs, respuestas OCSP, CRLs) en el momento de la firma, permitiendo validar la firma décadas después aunque los certs hayan expirado.
+Fuente: generado automáticamente por bAuth cuando requires_lts=true en la solicitud de firma, tras obtener el timestamp calificado; es una fotografía forense inmutable del estado PKI al momento de la firma.
+Administración: tabla WORM; valid_until estima cuándo re-archivar la evidencia (antes de que expire el último timestamp); firmas PAdES-LTA re-archivan automáticamente según ETSI EN 319 102-2 §5.6.
+WORM: sí — la evidencia LTV es una foto del estado PKI en un instante; modificarla invalidaría la capacidad de validación a largo plazo de la firma digital.
+Particionada: no.
+Estándar: ETSI EN 319 102-2 §5.6 (LTV), RFC 3161 §3, PAdES-LT/LTA. T-445.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_signature_eudi_wallet IS
+'FIRMA DIGITAL | Integración con EUDI Wallet (eIDAS 2.0) — vincula la identidad digital del sistema con una cartera de identidad europea, permitiendo usar credenciales verificables (VCs) del EUDI para firmas y autenticaciones transfronterizas.
+Fuente: creado cuando el usuario vincula su EUDI Wallet mediante el flujo de vinculación eIDAS 2.0 en el portal de identidad de bAuth.
+Administración: un entity_id puede tener una wallet por proveedor (UNIQUE entity_id+wallet_provider); SUSPENDED bloquea el uso sin revocar la vinculación; PENDING durante la verificación de la wallet.
+WORM: no.
+Particionada: no.
+Estándar: EU 2024/1183 (eIDAS 2.0 Regulation), ARF 1.4 (Architecture Reference Framework), ETSI EN 319 411. T-446.';
+
+-- ── D14 PAM ───────────────────────────────────────────────────────────────────
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.pam_session_recording IS
+'PAM | Referencia trazable a grabaciones de sesiones privilegiadas — almacena el path de almacenamiento (MinIO/S3/NFS) y el hash SHA-256 del archivo de grabación; el video nunca se almacena en BD.
+Fuente: creado automáticamente por el motor PAM de bAuth al iniciar la grabación de una sesión privilegiada; el hash se calcula al cerrar la grabación y se almacena aquí junto con la ruta.
+Administración: el archivo de grabación está en el storage externo (is_encrypted=true obligatorio); retain_until define cuándo puede eliminarse según la política (SOX: 7 años para sesiones de alto privilegio).
+WORM: no (el hash se actualiza cuando la grabación se completa y cifra en el storage).
+Particionada: no.
+Estándar: NIST AU-14 (Session Audit), CIS Controls v8 §8.11, PCI DSS 4.0 Req 10.2. T-461.';
+
+-- ── D15 NHI ───────────────────────────────────────────────────────────────────
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_nhi_rotation_policy IS
+'DOMINIOS CONTROL (D15) | Política de rotación de secretos de identidades no-humanas (NHI) por tipo — define la frecuencia de rotación, el patrón ON_USE para CI/CD, y la acción ante fallo de rotación automática.
+Fuente: seed con políticas por defecto por tipo de NHI; actualizable por SECURITY_ADMIN del tenant vía RPC bauth.nhi.rotation.policy.update; una política por tenant+tipo (UNIQUE).
+Administración: el job de rotación automática de bAuth consulta esta tabla para determinar qué NHIs rotar; pre_notice_days genera alerta anticipada; fail_action=SUSPEND_NHI es la más segura pero puede impactar en producción.
+WORM: no.
+Particionada: no.
+Estándar: NIST SP 800-57 Pt1 R5 §5.3, CIS Controls v8 §4.4, OWASP ASVS 5.0 §2.10. T-480.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_nhi_svid IS
+'DOMINIOS CONTROL (D15) | SPIFFE SVID (Verifiable Identity Document) para daemons SBOS — almacena el SPIFFE ID y el path Vault del certificado X.509 o JWT SVID (NUNCA el certificado en BD).
+Fuente: generado automáticamente por el motor SPIFFE de bAuth al registrar un nuevo daemon; el SVID X.509 se emite por el PKI de Vault y se almacena allí; solo la ruta queda en BD.
+Administración: los SVIDs se rotan automáticamente según idn_nhi_rotation_policy; status ROTATED indica SVID reemplazado pero conservado para auditoría; REVOKED indica compromiso del daemon.
+WORM: no (status evoluciona en el ciclo de vida del SVID).
+Particionada: no.
+Estándar: SPIFFE Spec v1.0 §8 (SVID), NIST SP 800-204A §4, X.509 RFC 5280. T-481.';
+
+-- ── D98 META-REGISTRO ────────────────────────────────────────────────────────
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_registry_attribute_schema IS
+'META-REGISTRO (D98) | Schema registry de atributos EAV — define el catálogo de atributos de identidad permitidos con su tipo, mutabilidad, IAL mínimo requerido y reglas de privacidad (mask_display, retention_days).
+Fuente: seed con atributos estándar SCIM (nombre, email, teléfono, NIT, etc.); operador puede registrar atributos personalizados (category=CUSTOM) con aprobación HITL del Bibliotecario.
+Administración: WRITE_ONCE no se modifican post-registro (ej: fecha de nacimiento IAL3); mask_display=true ofusca en respuestas SCIM; is_active=false depreca el atributo sin eliminar datos existentes.
+WORM: no.
+Particionada: no.
+Estándar: SCIM 2.0 RFC 7643 §4, ISO/IEC 24760-1:2019 §5. T-500.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_registry_atom_catalog IS
+'META-REGISTRO (D98) | Catálogo de átomos del motor BitMask — cada fila es un átomo de permiso con su posición en el BitMask 64-bit, dominio de pertenencia y estado de implementación; fuente de verdad del espacio de permisos.
+Fuente: auto-poblado por trigger en idn_roles_template (H-06) cuando se registra un nuevo átomo; la bit_position es asignada automáticamente preservando la alineación del BitMask.
+Administración: is_implemented=false indica átomo planificado sin código Rust correspondiente; deprecated_at marca el retiro del átomo (roles con ese bit quedan con bit inactivo); NUNCA se elimina un átomo registrado (rompe BitMask histórico).
+WORM: no (is_implemented y deprecated_at se actualizan durante el ciclo de vida del átomo).
+Particionada: no.
+Estándar: NIST SP 800-162 §4.2 (ABAC), ANSI INCITS 359-2004 (RBAC Standard). T-501.';
+
+-- [DOC:REVIEW]
+COMMENT ON TABLE bauth.idn_registry_bitmask_version IS
+'META-REGISTRO (D98) | Snapshots diarios del árbol BitMask completo — cada fila es una fotografía del estado del espacio de permisos en un momento dado, permitiendo reconstrucción forense de privilegios en cualquier fecha pasada.
+Fuente: generado automáticamente por el job diario de bAuth (DAILY_JOB) que toma snapshot del catálogo de átomos y calcula el hash SHA-256 del estado completo del árbol.
+Administración: los snapshots se conservan según idn_audit_retention_policy; version_tag sigue formato ISO 8601 de la fecha del snapshot; domain_counts almacena conteo de átomos activos por dominio en JSONB.
+WORM: no (cada snapshot es un nuevo INSERT; una vez insertado no se modifica).
+Particionada: no.
+Estándar: ISO 9001:2015 §7.5 (registros controlados), ISO/IEC 24760-2:2025. T-502.';
+
 -- =============================================================================
 -- FIN: bAuth Dominios Pendientes v2.0 — tablas y columnas en inglés
 -- Comentarios SQL y documentación en español (regla SBOS)
+-- SECCIÓN 19 — Documentación estratificada de 78 tablas padre añadida.
+-- Estado: [DOC:REVIEW] — pendiente verificación en SBOSDB_copia con verificar_documentacion.sh
 -- =============================================================================

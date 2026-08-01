@@ -214,10 +214,12 @@ CREATE INDEX IF NOT EXISTS idx_glang_scope           ON bglobal.global_language(
 CREATE INDEX IF NOT EXISTS idx_glang_name            ON bglobal.global_language USING GIN (name jsonb_path_ops);
 
 COMMENT ON TABLE bglobal.global_language IS
-  '[BCP 47] [RFC 5646] [ISO 639-1/2/3] [ISO 15924] [IANA Language Subtag Registry] [Unicode CLDR 46]
-   Catálogo canónico de idiomas para todo el ecosistema SBOS.
-   PK: language_id UUIDv7. Natural key: locale UNIQUE NOT NULL.
-   Referenciado por: idn_tenant_languages(locale), idn_tenant_config(locale_default).';
+'GLOBAL | Catálogo canónico de idiomas BCP 47 para todo el ecosistema SBOS — fuente única de locales válidos (es-BO, en-US, qu-BO, ay-BO), con metadatos IANA, CLDR y direccionalidad de escritura.
+Fuente: seed inicial (2800+ idiomas de IANA Language Subtag Registry + CLDR 46); actualización vía migración DDL cuando IANA publica nuevas versiones; no se insertan idiomas en runtime.
+Administración: tabla de referencia global — ningún daemon modifica filas en producción; cambios requieren migración con HITL; is_active=true para los 6 locales activos iniciales del SBOS.
+WORM: no (is_active se actualiza al activar/desactivar un idioma).
+Particionada: no.
+Estándar: BCP 47 (RFC 5646), ISO 639-1/2/3, ISO 15924, IANA Language Subtag Registry, Unicode CLDR 46. T-001.';
 
 COMMENT ON COLUMN bglobal.global_language.locale      IS '[BCP 47] Tag canónico: es-BO, en-US, zh-Hans-CN, qu-BO, ay-BO.';
 COMMENT ON COLUMN bglobal.global_language.name        IS '[CLDR 46] JSONB nombres multi-locale: {"es":"Español","en":"Spanish","native":"Español"}.';
@@ -278,8 +280,12 @@ CREATE INDEX IF NOT EXISTS idx_gcty_region          ON bglobal.global_country(re
 CREATE INDEX IF NOT EXISTS idx_gcty_name            ON bglobal.global_country USING GIN (name jsonb_path_ops);
 
 COMMENT ON TABLE bglobal.global_country IS
-  '[ISO 3166-1:2020] Catálogo canónico de países. PK: country_id UUIDv7. Natural key: iso_alpha2 UNIQUE.
-   Referenciado por: idn_tenant(country), global_currency(issuer_country), geo_timezone(country_code).';
+'GLOBAL | Catálogo canónico de países ISO 3166-1 — define cada país con códigos alpha-2/alpha-3/numérico, coordenadas geográficas, moneda, zona horaria y metadatos demográficos para formularios, GDPR y cumplimiento de residencia de datos.
+Fuente: seed inicial (249 países ISO 3166-1 activos + territorios dependientes); actualización vía migración DDL cuando ISO publica revisiones anuales; BO es el país default del sistema.
+Administración: tabla de referencia global — ningún daemon modifica filas en producción; is_active=false para países sancionados o sin soporte; referenciada por idn_tenant(country) y global_currency.
+WORM: no (is_active puede actualizarse al aplicar sanciones o activar nuevos territorios).
+Particionada: no.
+Estándar: ISO 3166-1:2020, ISO 3166-2:2020, UN M.49 (regiones estadísticas), GDPR Art. 44 (transferencias internacionales). T-002.';
 
 COMMENT ON COLUMN bglobal.global_country.iso_alpha2 IS '[ISO 3166-1 alpha-2] BO, US, AR, BR, CL, PE.';
 COMMENT ON COLUMN bglobal.global_country.name       IS '[CLDR] JSONB: {"es":"Bolivia","en":"Bolivia","native":"Bolivia"}.';
@@ -316,8 +322,12 @@ CREATE INDEX IF NOT EXISTS idx_gcur_country         ON bglobal.global_currency(i
 CREATE INDEX IF NOT EXISTS idx_gcur_name            ON bglobal.global_currency USING GIN (name jsonb_path_ops);
 
 COMMENT ON TABLE bglobal.global_currency IS
-  '[ISO 4217:2015] Catálogo de monedas. PK: currency_id UUIDv7. Natural key: currency_code CHAR(3).
-   Referenciado por: idn_tenant_currencies(currency_code), idn_tenant_config(currency_default).';
+'GLOBAL | Catálogo de monedas ISO 4217 — define el código, símbolo, décimales y país emisor de cada moneda; es la fuente canónica para idn_tenant_currencies y determina la precisión aritmética en módulos financieros y facturación SIN.
+Fuente: seed inicial (180 monedas ISO 4217 activas + criptomonedas) al despliegue; actualización vía migración DDL cuando ISO publica revisiones o cuando el BCB publica nuevos tipos de cambio de referencia.
+Administración: tabla de referencia global — ningún daemon modifica filas en runtime; withdrawn_at marca monedas retiradas (ej: EUR pre-adopción); exchange_rate_api apunta a la API del BCB para consultas de tipo de cambio.
+WORM: no (is_active se actualiza al retirar o activar monedas).
+Particionada: no.
+Estándar: ISO 4217:2015, NIC 21/IAS 21 (conversión de moneda extranjera), BCB Bolivia (tipos de cambio oficiales). T-003.';
 
 COMMENT ON COLUMN bglobal.global_currency.currency_code  IS '[ISO 4217] BOB, USD, EUR, ARS, BRL.';
 COMMENT ON COLUMN bglobal.global_currency.name           IS '[CLDR] {"es":{"singular":"Boliviano","plural":"Bolivianos"},"en":{"singular":"Bolivian Boliviano"}}.';
@@ -353,8 +363,12 @@ CREATE INDEX IF NOT EXISTS idx_tz_dst             ON bglobal.geo_timezone(observ
 CREATE INDEX IF NOT EXISTS idx_tz_name            ON bglobal.geo_timezone USING GIN (name jsonb_path_ops);
 
 COMMENT ON TABLE bglobal.geo_timezone IS
-  '[IANA TZ Database] [ISO 6709] Catálogo de zonas horarias. PK: timezone_uuid UUIDv7. Natural key: timezone_id.
-   Referenciado por: idn_tenant_config(timezone_default), bcalendar.cal_calendar(timezone).';
+'GLOBAL | Catálogo IANA de zonas horarias — define cada zona con su offset UTC, observancia de DST y ciudad principal; es la fuente canónica para bcalendar y el evaluador temporal GTRBAC (D04) al calcular ventanas de acceso.
+Fuente: seed inicial (600+ entradas de la IANA TZ Database 2024e); actualización vía migración DDL al publicar nuevas versiones IANA (1-4 veces/año); America/La_Paz es la zona default del SBOS.
+Administración: tabla de referencia global — ningún daemon modifica filas en runtime; observes_dst=true requiere que el evaluador temporal aplique el offset DST en períodos correspondientes.
+WORM: no (is_active y utc_offset_min se actualizan cuando IANA cambia una zona).
+Particionada: no.
+Estándar: IANA TZ Database (tzdata), ISO 6709:2022 (notación geográfica), RFC 5545 VTIMEZONE §3.6.5. T-004.';
 
 COMMENT ON COLUMN bglobal.geo_timezone.timezone_id IS '[IANA] America/La_Paz, America/New_York, Asia/Shanghai, Europe/Madrid.';
 COMMENT ON COLUMN bglobal.geo_timezone.utc_offset_min IS '[IANA] Offset en minutos: -240 (La_Paz), 480 (Shanghai). Útil para aritmética.';
@@ -385,10 +399,12 @@ CREATE INDEX IF NOT EXISTS idx_mitem_code      ON bglobal.menu_item(code);
 CREATE INDEX IF NOT EXISTS idx_mitem_sort      ON bglobal.menu_item(depth, sort_order);
 
 COMMENT ON TABLE bglobal.menu_item IS
-  '[A.65.02 T-059] Árbol de ítems de menú. parent_id self-referencing (adjacency list).
-   code = identificador único del ítem: dashboard.home, iam.roles.list.
-   label = JSONB multi-idioma: {"es":"Roles","en":"Roles"}.
-   Referenciado por: menu_context, menu_item_atom.';
+'GLOBAL | Árbol de ítems de menú del dashboard SBOS con estructura adjacency list (parent_id self-referencing) — define la jerarquía completa de navegación con rutas, íconos y visibilidad por módulo IAM.
+Fuente: seed inicial con el árbol de menú del sistema SBOS (dashboard, iam.roles, iam.users, config); nuevos módulos añaden ítems vía migración DDL con HITL; ningún dato insertado en runtime por usuarios.
+Administración: tabla de referencia — code es el identificador técnico estable (ej: iam.roles.create); label JSONB multi-idioma vía bi18n; is_active=false oculta el ítem del menú sin eliminar sus asignaciones de átomo.
+WORM: no (is_active y sort_order actualizables al reorganizar la navegación).
+Particionada: no.
+Estándar: ISO 9241-11:2018 (usabilidad), WCAG 2.2 (accesibilidad de menús), ARIA roles navigation. T-059.';
 
 COMMENT ON COLUMN bglobal.menu_item.code  IS 'Identificador único del ítem: dashboard.home, iam.roles.create.';
 COMMENT ON COLUMN bglobal.menu_item.label IS '[JSONB] {"es":"Inicio","en":"Home"}. Multi-idioma vía bi18n.';
@@ -420,12 +436,12 @@ CREATE INDEX IF NOT EXISTS idx_gcfg_scope  ON bglobal.global_config(scope, param
 CREATE INDEX IF NOT EXISTS idx_gcfg_key    ON bglobal.global_config(param_key);
 
 COMMENT ON TABLE bglobal.global_config IS
-  '[A.65.02 T-114] [NIST SP 800-53 CM-6] Parámetros globales cross-daemon del sistema SBOS.
-   Es el SUELO del PIP @bauth_config_param: el Motor de Identidad (PDP) busca primero en
-   idn_tenant_config (T-009, parámetros del tenant); si no encuentra, cae aquí.
-   is_overridable=true: el tenant puede sobrescribir este parámetro en T-009.
-   is_overridable=false: el parámetro es un piso de seguridad no modificable por el tenant.
-   Catálogo de ~20 parámetros documentado en A.48.';
+'GLOBAL | Parámetros globales cross-daemon del sistema SBOS — es el SUELO del PIP @bauth_config_param; el Motor de Identidad (PDP) busca primero en idn_tenant_config (T-009) y cae aquí si la clave no está definida por el tenant.
+Fuente: seed inicial con ~20 parámetros canónicos (max_sessions, loa_default, argon2id_t, session_ttl_max) documentados en A.48; cambios solo vía migración DDL con HITL por SECURITY_ADMIN.
+Administración: is_overridable=true = tenant puede sobrescribir en idn_tenant_config (T-009); is_overridable=false = piso de seguridad inviolable que el tenant no puede rebajar; ningún daemon escribe aquí en runtime.
+WORM: no (param_value actualizable al cambiar parámetros globales de seguridad con HITL).
+Particionada: no.
+Estándar: NIST SP 800-53 CM-6 (Configuration Settings), NIST SP 800-53 CM-7 (Least Functionality). T-114.';
 
 COMMENT ON COLUMN bglobal.global_config.param_key      IS 'Clave del parámetro: max_sessions, loa_default, argon2id_t, session_ttl_max.';
 COMMENT ON COLUMN bglobal.global_config.param_value    IS 'Valor como TEXT. El Motor de Identidad convierte según value_type.';
@@ -514,12 +530,12 @@ CREATE INDEX IF NOT EXISTS idx_itnt_slug     ON bauth.idn_tenant(tenant_slug);
 CREATE INDEX IF NOT EXISTS idx_itnt_created  ON bauth.idn_tenant(created_at DESC);
 
 COMMENT ON TABLE bauth.idn_tenant IS
-  '[ISO 27001 A.8.2] [NIST 800-53 AC-2] [SBOS-049 §4] [GDPR Art.32]
-   Ancla de gobernanza del sistema multi-tenant SBOS. TODA FK de la DDL arranca desde tenant_id.
-   El Motor de Identidad (D00) crea una fila aquí al registrar un nuevo tenant.
-   REPARACIONES ADR-010: realm_kc/realm_kc_ext, namespace_k8s, kong_consumer_id,
-   database_name/database_schema eliminados — infra KC/K8s pertenece a BOS, no a bauth.
-   vault_path: única referencia de infra que permanece (Vault PKI es nativo de bauth).';
+'TENANT | Ancla de gobernanza del sistema multi-tenant SBOS — TODA FK de la DDL arranca desde tenant_id; define el ciclo de vida de cada organización cliente (7 estados), su nivel de aislamiento y políticas de seguridad propias.
+Fuente: creado por BOS (Instalador IAM) vía RPC bos.tenant.create durante el proceso de onboarding; bAuth registra el tenant_id en su plano de identidad al confirmar la instalación; el seed crea el tenant SKULL interno (is_internal=true) al inicializar SBOS.
+Administración: solo bOS puede crear tenants; bAuth suspende/activa; purge_after controla el borrado definitivo tras SOFT_DELETED (30 días por defecto); TERMINATED es irreversible y no puede volverse ACTIVE; mfa_required se evalúa en cada autenticación; revisión trimestral de tenants según ISO 27001 A.8.2.
+WORM: no (ciclo de vida de 7 estados requiere actualización de status y timestamps).
+Particionada: no.
+Estándar: ISO 27001 A.8.2 (clasificación de activos), NIST SP 800-53 AC-2 (gestión de cuentas), SBOS-049 §4, GDPR Art. 32 (seguridad por diseño). T-005.';
 
 COMMENT ON COLUMN bauth.idn_tenant.tenant_id           IS '[RFC 9562] PK UUIDv7. 20+ FKs entrantes.';
 COMMENT ON COLUMN bauth.idn_tenant.tenant_slug         IS 'Identificador público para URLs/APIs: skull, acme, inka. UNIQUE.';
@@ -556,8 +572,12 @@ CREATE INDEX IF NOT EXISTS idx_itcu_tenant   ON bauth.idn_tenant_currencies(tena
 CREATE INDEX IF NOT EXISTS idx_itcu_default  ON bauth.idn_tenant_currencies(tenant_id) WHERE is_default = true;
 
 COMMENT ON TABLE bauth.idn_tenant_currencies IS
-  '[ISO 4217] Monedas habilitadas por tenant con tasa de cambio.
-   Natural key: (tenant_id, currency_code) UNIQUE. exchange_source: BCB, ECB, MANUAL.';
+'TENANT | Monedas habilitadas por tenant con tasa de cambio actualizable — define la moneda funcional del tenant (is_default=true) y las adicionales para facturación multi-moneda; la tasa se sincroniza con el BCB u otras fuentes.
+Fuente: creado automáticamente por bAuth al onboarding del tenant (moneda default=BOB para Bolivia); FINANCE_ADMIN añade monedas adicionales vía RPC bauth.tenant.currency.enable.
+Administración: solo una moneda default por tenant (constraint UNIQUE + is_default); exchange_rate actualizado por job diario desde BCB; exchange_source: BCB (oficial), ECB (Europa), MANUAL (fixed); is_active=false desactiva sin eliminar el histórico.
+WORM: no (exchange_rate y exchange_updated_at se actualizan periódicamente).
+Particionada: no.
+Estándar: ISO 4217:2015, NIC 21/IAS 21 §8 (moneda funcional), BCB Bolivia Resolución Directorio 142/2023. T-006.';
 
 COMMENT ON COLUMN bauth.idn_tenant_currencies.exchange_rate IS 'DECIMAL(18,8) — precisión financiera. Tasa vs moneda default del tenant.';
 COMMENT ON COLUMN bauth.idn_tenant_currencies.ctx_id        IS '[SBOS-049 §4] Contexto operativo.';
@@ -585,8 +605,12 @@ CREATE INDEX IF NOT EXISTS idx_itla_tenant  ON bauth.idn_tenant_languages(tenant
 CREATE INDEX IF NOT EXISTS idx_itla_default ON bauth.idn_tenant_languages(tenant_id) WHERE is_default = true;
 
 COMMENT ON TABLE bauth.idn_tenant_languages IS
-  '[BCP 47] [RFC 5646] [Unicode CLDR] Idiomas habilitados por tenant.
-   translation_provider: sbos_i18n (bi18n daemon), external_api, custom_file.';
+'TENANT | Idiomas habilitados por tenant con su estado de traducción — define el idioma default (is_default=true) y los idiomas activos para la interfaz multi-idioma; referencia FK real a global_language(locale) validando cada locale.
+Fuente: creado automáticamente al onboarding del tenant (es-BO como idioma default); ADMIN del tenant añade idiomas adicionales vía RPC bauth.tenant.language.enable.
+Administración: solo un idioma default por tenant (constraint); translation_status=COMPLETE garantiza que bi18n daemon puede servir todas las cadenas; PARTIAL activa fallback a es-BO; is_active=false quita el idioma del selector.
+WORM: no (is_active y translation_status se actualizan cuando las traducciones cambian).
+Particionada: no.
+Estándar: BCP 47 (RFC 5646), Unicode CLDR 46, ISO 639-3. T-007.';
 
 
 -- ======================================================================
@@ -616,10 +640,12 @@ CREATE INDEX IF NOT EXISTS idx_itvr_status  ON bauth.idn_tenant_verification(sta
 CREATE INDEX IF NOT EXISTS idx_itvr_expires ON bauth.idn_tenant_verification(expires_at) WHERE expires_at IS NOT NULL;
 
 COMMENT ON TABLE bauth.idn_tenant_verification IS
-  '[NIST SP 800-63A IAL1-3] [ISO 27001 A.8.2]
-   Verificación KYC del tenant. 5 pasos secuenciales; al completar FINAL_APPROVAL
-   el tenant alcanza un level IAL que queda registrado en ial_achieved.
-   REPARACIÓN v2: +ial_achieved (IAL1/IAL2/IAL3 alcanzado), +expires_at (documentos con vencimiento).';
+'TENANT | Verificación KYC/IAL del tenant con 5 pasos secuenciales — documenta el proceso de proofing (IDENTITY_CHECK→LEGAL_CHECK→TECHNICAL_SETUP→SECURITY_REVIEW→FINAL_APPROVAL) y el nivel IAL alcanzado al completarlo.
+Fuente: creado automáticamente por bAuth al registrar un nuevo tenant con PENDING_VERIFICATION; BOS orquesta los 5 pasos en orden; cada paso actualiza status y registra evidencia en el campo evidence JSONB.
+Administración: UNIQUE (tenant_id, step) — un registro por paso; al completar FINAL_APPROVAL bAuth actualiza idn_tenant.status=ACTIVE y registra ial_achieved; evidencias con vencimiento (documentos KYC) alertadas antes de expires_at.
+WORM: no (status de cada paso se actualiza durante el proceso KYC).
+Particionada: no.
+Estándar: NIST SP 800-63A IAL1-3 (identity assurance levels), ISO 27001 A.8.2, GDPR Art. 6(1)(b). T-008.';
 
 COMMENT ON COLUMN bauth.idn_tenant_verification.step           IS '[NIST 800-63A] IDENTITY_CHECK → LEGAL_CHECK → TECHNICAL_SETUP → SECURITY_REVIEW → FINAL_APPROVAL.';
 COMMENT ON COLUMN bauth.idn_tenant_verification.ial_achieved   IS '[NIST 800-63A] IAL1 (declarativo), IAL2 (remoto), IAL3 (presencial). NULL = aún no alcanzado.';
@@ -686,11 +712,12 @@ CREATE INDEX IF NOT EXISTS idx_itcfg_locale   ON bauth.idn_tenant_config USING G
 CREATE INDEX IF NOT EXISTS idx_itcfg_params   ON bauth.idn_tenant_config USING GIN (params_policy jsonb_path_ops);
 
 COMMENT ON TABLE bauth.idn_tenant_config IS
-  '[BCP 47] [ISO 4217] [IANA TZ] [ISO 8601] [SBOS-049]
-   Configuración regional y parámetros PIP del tenant. Relación 1:1 con idn_tenant.
-   params_policy: fuente de verdad de @bauth_config_param.* del árbol de políticas (T-162).
-   El PDP resuelve la referencia: idn_tenant_config (tenant) → bglobal.global_config (sistema).
-   REPARACIÓN v2: +params_policy JSONB para soportar el PIP del Motor de Identidad.';
+'TENANT | Configuración regional y parámetros PIP del tenant — relación 1:1 con idn_tenant; define locale, zona horaria, moneda, formato de fecha/hora, tema visual y el JSONB de parámetros que el PDP usa al evaluar @bauth_config_param.*.
+Fuente: creado automáticamente al registrar un nuevo tenant con los defaults de Bolivia (es-BO, America/La_Paz, BOB); el ADMIN del tenant actualiza sus preferencias regionales vía portal de configuración.
+Administración: UNIQUE tenant_id (1:1 con idn_tenant); params_policy JSONB es leído por el PDP en cada evaluación del árbol T-162; el PDP busca primero aquí y cae a bglobal.global_config (piso del sistema) si la clave no existe.
+WORM: no (configuración regional actualizable libremente por el tenant).
+Particionada: no.
+Estándar: BCP 47 (RFC 5646), ISO 4217:2015, IANA TZ Database, ISO 8601:2019, SBOS-049 §4. T-009.';
 
 COMMENT ON COLUMN bauth.idn_tenant_config.params_policy IS
   '[SBOS-049] [A.48] JSONB de parámetros de política del tenant.
@@ -743,11 +770,12 @@ CREATE INDEX IF NOT EXISTS idx_itdo_dns      ON bauth.idn_tenant_domain USING GI
 CREATE INDEX IF NOT EXISTS idx_itdo_security ON bauth.idn_tenant_domain USING GIN (security_config jsonb_path_ops);
 
 COMMENT ON TABLE bauth.idn_tenant_domain IS
-  '[RFC 952/1123] [RFC 8446/8555] [SBOS-049 §3.1]
-   Dominios DNS del tenant. El dominio primary es la capa 1 del ctx_id (SBOS-049).
-   ctx_prefix: segmento que este dominio aporta al ctx_id: skull.sbos.bo.
-   REPARACIONES ADR-010/v2: nginx_config, k8s_hpa_config, health_config eliminados
-   (configuración de infraestructura K8s/NGINX pertenece a BOS, no a bauth).';
+'TENANT | Dominios DNS del tenant — el dominio primary define la capa 1 del ctx_id (SBOS-049) y el prefijo ctx_prefix que identifica el tenant en toda trazabilidad del Context Plane; soporta múltiples dominios (web, API, admin, correo).
+Fuente: creado por bOS al configurar el dominio del tenant durante el onboarding; el ADMIN del tenant puede añadir dominios adicionales vía RPC bauth.tenant.domain.register; el dominio primary no puede eliminarse.
+Administración: solo un dominio is_primary por tenant (constraint); deploy_status y health_status actualizados por bOS al desplegar; dns_config y ssl_config contienen toda la configuración DNS/TLS en JSONB versionado.
+WORM: no (deploy_status y health_status se actualizan en ciclo de vida normal de despliegue).
+Particionada: no.
+Estándar: RFC 952/1123 (nomenclatura DNS), RFC 8446 (TLS 1.3), RFC 8555 (ACME/Let''s Encrypt), SBOS-049 §3.1. T-010.';
 
 COMMENT ON COLUMN bauth.idn_tenant_domain.ctx_prefix   IS '[SBOS-049 §3.1] Prefijo de ctx_id para este dominio: skull.sbos.bo. Capa 1 del Context Plane.';
 COMMENT ON COLUMN bauth.idn_tenant_domain.dns_config   IS '[JSONB] [RFC 1035] {provider, record_type, target, records[], verified_at}.';
@@ -781,9 +809,12 @@ CREATE INDEX IF NOT EXISTS idx_itnw_tenant  ON bauth.idn_tenant_network(tenant_i
 CREATE INDEX IF NOT EXISTS idx_itnw_cidr    ON bauth.idn_tenant_network USING GIST (cidr inet_ops);
 
 COMMENT ON TABLE bauth.idn_tenant_network IS
-  '[RFC 4632] [RFC 1918] [NIST 800-207 ZTA]
-   Redes y CIDRs autorizados por tenant. Validados por el PEP (Kong) en D7.
-   El Motor de Identidad verifica que el IP del request esté en al menos un CIDR activo.';
+'TENANT | Redes y CIDRs autorizados por tenant para control de acceso Zero Trust — el PEP (Kong) valida en D07 que la IP del request pertenezca a al menos un CIDR activo del tenant antes de autorizar la operación.
+Fuente: configurado por SECURITY_ADMIN del tenant durante el onboarding; puede actualizarse al agregar nuevas sedes, VPNs o redes de acceso remoto; {}=sin restricción de red (solo para tenants en modo desarrollo).
+Administración: el índice GIST (inet_ops) optimiza la búsqueda de CIDRs; redes de tipo MANAGEMENT solo accesibles desde is_internal=true; VPN requiere que el gateway sea el endpoint de salida de la VPN soberana SBOS.
+WORM: no (is_active y vlan_id actualizables al reorganizar la topología de red).
+Particionada: no.
+Estándar: RFC 4632 (CIDR), RFC 1918 (direcciones privadas), NIST SP 800-207 §2.1 (Zero Trust network access). T-011.';
 
 COMMENT ON COLUMN bauth.idn_tenant_network.cidr IS '[RFC 4632] Rango CIDR: 10.0.1.0/24, 192.168.0.0/16. GIST index para inet_ops.';
 
@@ -832,10 +863,12 @@ CREATE INDEX IF NOT EXISTS idx_ifal_level
     WHERE is_active = true;
 
 COMMENT ON TABLE bauth.idn_tenant_fal_config IS
-  '[NIST SP 800-63-4 §5] [OpenID Connect Core 1.0 §3.3] [RFC 9449 (DPoP)] [RFC 8705 (mTLS)] [D00-B09]
-   Configuración del Federation Assurance Level por Relying Party registrada en bAuth como IdP.
-   FAL1: aserción firmada · FAL2: aserción bound a canal (DPoP) · FAL3: hardware-binding (mTLS).
-   Los CHECKs garantizan coherencia: FAL2→DPoP o mTLS · FAL3→mTLS obligatorio.';
+'TENANT | Configuración del Federation Assurance Level (FAL) por Relying Party registrada en bAuth como IdP — FAL1: aserción firmada, FAL2: token bound a canal (DPoP), FAL3: hardware-binding (mTLS); los CHECKs garantizan coherencia criptográfica.
+Fuente: registrado por el ADMIN del tenant al integrar una nueva aplicación RP vía RPC bauth.federation.rp.register; dpop_required y mtls_required se configuran según el nivel de aseguramiento requerido por la RP.
+Administración: UNIQUE (tenant_id, rp_client_id); cambios de FAL level requieren re-aprobación de SECURITY_ADMIN; is_active=false desactiva la integración sin revocar el historial de tokens emitidos; max_clock_skew_sec controla la tolerancia de reloj entre bAuth y la RP.
+WORM: no (is_active y nivel FAL actualizables durante el ciclo de vida de la integración).
+Particionada: no.
+Estándar: NIST SP 800-63-4 §5 (FAL), OpenID Connect Core 1.0 §3.3, RFC 9449 (DPoP), RFC 8705 (mTLS). T-168.';
 COMMENT ON COLUMN bauth.idn_tenant_fal_config.fal_level IS '[NIST SP 800-63-4 §5] FAL1=signed assertion · FAL2=bound assertion (DPoP) · FAL3=holder-of-key (mTLS+hardware).';
 COMMENT ON COLUMN bauth.idn_tenant_fal_config.require_pkce IS '[RFC 7636] FAL1+: PKCE previene authorization code interception. S256 obligatorio.';
 COMMENT ON COLUMN bauth.idn_tenant_fal_config.require_dpop IS '[RFC 9449] FAL2+: DPoP vincula el access token al par de claves del cliente.';
@@ -886,10 +919,14 @@ CREATE INDEX IF NOT EXISTS idx_cfy_current  ON bcalendar.cal_fiscal_year(tenant_
 CREATE INDEX IF NOT EXISTS idx_cfy_status   ON bcalendar.cal_fiscal_year(status, tenant_id);
 
 COMMENT ON TABLE bcalendar.cal_fiscal_year IS
-  '[SIN Bolivia] [NIC 1/IAS 1] [NIC 8/IAS 8]
-   Años fiscales con 12 períodos contables mensuales (JSONB).
-   Multi-gestión: permite operar corriente + anteriores simultáneamente.
-   Ley 2492 Bolivia: cierre anual obligatorio; ajustes retroactivos hasta max_adjustment_months_back.';
+'CALENDARIO | Años fiscales con 12 períodos contables mensuales (JSONB) — permite operar la gestión corriente y anteriores simultáneamente; cada período puede cerrarse independientemente. Soporte multi-empresa y multi-gestión.
+Fuente: creado por FINANCE_ADMIN del tenant al iniciar cada ejercicio fiscal; el seed inicial crea la gestión corriente del año de activación con is_current=true.
+Administración: solo UNA gestión corriente activa por (tenant, company) — constraint enforced; el cierre de año actualiza is_current=false y crea la gestión siguiente; ajustes retroactivos limitados a max_adjustment_months_back.
+WORM: no (status y periods se actualizan durante el ciclo de vida fiscal).
+Particionada: no.
+Estándar: NIC 1/IAS 1 §36-40 (períodos de reporte), NIC 8/IAS 8 §42 (cambios contables), SIN Bolivia Ley 2492 (cierre anual obligatorio), NIIF 1. T-013.';
+
+
 
 COMMENT ON COLUMN bcalendar.cal_fiscal_year.periods IS '[JSONB] 12 períodos: {month, name, status}. Cada mes puede cerrarse independiente.';
 COMMENT ON COLUMN bcalendar.cal_fiscal_year.is_current IS '[NIC 1] Solo UNA gestión corriente activa por (tenant, company). Transacciones nuevas van aquí.';
@@ -919,9 +956,12 @@ CREATE TABLE IF NOT EXISTS bcalendar.cal_calendar (
 CREATE INDEX IF NOT EXISTS idx_ccal_tenant ON bcalendar.cal_calendar(tenant_id, calendar_type);
 
 COMMENT ON TABLE bcalendar.cal_calendar IS
-  '[RFC 4791 VCALENDAR] Colecciones de calendarios por tenant.
-   is_system=true = predefinido por SBOS; no puede eliminarse.
-   timezone: IANA TZ ID; las ocurrencias de cal_event se expanden en esta zona.';
+'CALENDARIO | Colección de calendarios por tenant — cada calendario es un contenedor de eventos con un tipo (WORK, FISCAL, PROCESS, COMPLIANCE, HOLIDAY, MAINTENANCE), zona horaria IANA y color para la UI.
+Fuente: creado automáticamente al onboarding del tenant con los calendarios de sistema (WORK y HOLIDAY predefinidos con is_system=true); el ADMIN del tenant puede crear calendarios adicionales vía RPC bauth.calendar.create.
+Administración: is_system=true = predefinido por SBOS, no puede eliminarse ni cambiarse el tipo; is_active=false desactiva sin borrar; timezone IANA determina cómo se expanden las ocurrencias de eventos recurrentes (cal_event).
+WORM: no.
+Particionada: no.
+Estándar: RFC 4791 §4 (CalDAV VCALENDAR), RFC 5545 §3.6 (iCalendar), ISO 8601:2019. T-014.';
 
 
 -- ======================================================================
@@ -955,9 +995,12 @@ CREATE INDEX IF NOT EXISTS idx_cev_dtstart  ON bcalendar.cal_event(dtstart, dten
 CREATE INDEX IF NOT EXISTS idx_cev_rrule    ON bcalendar.cal_event(calendar_id) WHERE rrule IS NOT NULL;
 
 COMMENT ON TABLE bcalendar.cal_event IS
-  '[RFC 5545 VEVENT] Evento maestro. Una serie = 1 fila con rrule TEXT.
-   Las ocurrencias se materializan on-demand vía rrule_plpgsql.
-   D4/B2 del árbol de políticas consulta este calendario para validez temporal de roles.';
+'CALENDARIO | Evento maestro con soporte de recurrencia RFC 5545 — una serie recurrente se almacena como una sola fila con el rrule TEXT; las ocurrencias se materializan on-demand; el evaluador temporal D04 consulta esta tabla para validar ventanas de acceso.
+Fuente: creado por el ADMIN del tenant o el usuario propietario del calendario vía RPC bauth.calendar.event.create; eventos de sistema (mantenimiento, vencimientos) insertados automáticamente por bAuth.
+Administración: status CONFIRMED es el estado operativo; TENTATIVE bloquea el slot sin confirmar; CANCELLED mantiene el registro histórico; el evaluador D04 solo considera eventos CONFIRMED en calendario WORK activo.
+WORM: no.
+Particionada: no.
+Estándar: RFC 5545 §3.6.1 (VEVENT), RFC 7953 §3.2 (VAVAILABILITY), ISO 8601:2019. T-015.';
 
 COMMENT ON COLUMN bcalendar.cal_event.rrule  IS '[RFC 5545 §3.8.5] FREQ=WEEKLY;BYDAY=MO,WE,FR. NULL=evento único.';
 COMMENT ON COLUMN bcalendar.cal_event.exdate IS '[RFC 5545 §3.8.5.1] Fechas excluidas de la recurrencia.';
@@ -985,9 +1028,12 @@ CREATE TABLE IF NOT EXISTS bcalendar.cal_alarm (
 CREATE INDEX IF NOT EXISTS idx_calrm_next ON bcalendar.cal_alarm(next_trigger_at, is_active) WHERE is_active = true;
 
 COMMENT ON TABLE bcalendar.cal_alarm IS
-  '[RFC 5545 VALARM] Disparador de notificación. Puente entre calendario y bNotify.
-   trigger_seconds negativo = antes del dtstart: -900=15min antes, -86400=1día antes.
-   next_trigger_at: calculado por rrule_plpgsql. Job polling: WHERE next_trigger_at <= NOW().';
+'CALENDARIO | Alarmas/disparadores de notificación vinculados a eventos del calendario — puente entre bcalendar y bNotify; cada alarma define cuándo y por qué canal notificar antes o después del dtstart del evento.
+Fuente: creado por el usuario al configurar recordatorios de un evento vía RPC bauth.calendar.alarm.create; alarmas de sistema (vencimiento de certificados, revisiones IGA) insertadas automáticamente por bAuth.
+Administración: trigger_seconds negativo = antes del dtstart (-900=15min antes); next_trigger_at calculado por el job de calendario al procesar el rrule; job polling: WHERE next_trigger_at <= NOW() AND is_active = true.
+WORM: no (last_triggered_at y next_trigger_at se actualizan tras cada disparo).
+Particionada: no.
+Estándar: RFC 5545 §3.6.6 (VALARM), RFC 4791 §7.4 (CalDAV alarmas). T-016.';
 
 
 -- ======================================================================
@@ -1013,8 +1059,12 @@ CREATE INDEX IF NOT EXISTS idx_cnl_event ON bcalendar.cal_notification_log(event
 REVOKE UPDATE, DELETE ON bcalendar.cal_notification_log FROM PUBLIC;
 
 COMMENT ON TABLE bcalendar.cal_notification_log IS
-  '[ISO 27001 A.8.15] [WORM] Registro inmutable de notificaciones enviadas por bNotify.
-   REVOKE UPDATE/DELETE — solo INSERT. ctx_id obligatorio (SBOS-049).';
+'CALENDARIO | Log WORM de notificaciones de calendario enviadas vía bNotify — registra cada intento de envío (SENT, FAILED, RETRY) con el canal, plantilla usada y resultado; evidencia de auditoría de comunicaciones del sistema.
+Fuente: insertado automáticamente por el job de alarmas de bAuth al disparar cada cal_alarm; la inserción registra el resultado inmediato (SENT o FAILED con error_message).
+Administración: REVOKE UPDATE/DELETE — append-only; los FAILED generan reintento por el job de alarmas hasta max_retries; ctx_id obligatorio (SBOS-049) para trazabilidad; no se borran registros — solo se archivan por retención.
+WORM: sí — el log de notificaciones es evidencia de comunicación del sistema; modificarlo falsificaría el registro de alertas enviadas.
+Particionada: no.
+Estándar: ISO 27001 A.8.15, SBOS-049 §4 (ctx_id). T-017.';
 
 
 -- ======================================================================
@@ -1040,9 +1090,14 @@ CREATE INDEX IF NOT EXISTS idx_chol_tenant ON bcalendar.cal_holiday(tenant_id, h
 CREATE INDEX IF NOT EXISTS idx_chol_date   ON bcalendar.cal_holiday(holiday_date, country_code);
 
 COMMENT ON TABLE bcalendar.cal_holiday IS
-  'Feriados por país/tenant. is_recurring=true = se repite cada año (Navidad 12-25, Año Nuevo 01-01).
-   Bolivia: feriados nacionales (Ley 26 días) + feriados departamentales + propios del tenant.
-   D3/D4 del árbol de políticas consultan esta tabla para días hábiles reales.';
+'CALENDARIO | Catálogo de feriados fijos y móviles por país y tenant — define los días no hábiles para GTRBAC y el evaluador temporal de roles; incluye feriados nacionales, departamentales y propios del tenant.
+Fuente: seed inicial con feriados nacionales bolivianos (26 días Ley), departamentales Cochabamba/La Paz/Santa Cruz, y Navidad/Año Nuevo; ADMIN del tenant añade feriados propios vía RPC bauth.calendar.holiday.create.
+Administración: is_recurring=true = se repite cada año automáticamente (feriado fijo); UNIQUE (tenant_id, holiday_date, country_code) previene duplicados; el evaluador D04 consulta esta tabla para determinar si una ventana de tiempo aplica hoy.
+WORM: no.
+Particionada: no.
+Estándar: ISO 8601:2019 (fechas), ILO Working Time Instruments §4 (días no laborables), GTRBAC §4.1 (calendarios de trabajo). T-018.';
+
+
 
 
 -- ======================================================================
@@ -1068,9 +1123,12 @@ CREATE TABLE IF NOT EXISTS bcalendar.cal_schedule (
 CREATE INDEX IF NOT EXISTS idx_csch_tenant ON bcalendar.cal_schedule(tenant_id);
 
 COMMENT ON TABLE bcalendar.cal_schedule IS
-  '[RFC 7953 VAVAILABILITY] Horarios de trabajo por tenant.
-   access_outside_schedule: BLOCKED (denegar acceso), PERMITTED, REQUIRES_APPROVAL, READ_ONLY.
-   days_of_week: {1=lunes,...,7=domingo}. D3 del árbol de políticas valida ventanas de operación.';
+'CALENDARIO | Horarios de trabajo y disponibilidad por tenant — define las ventanas operativas normales (días de semana + hora inicio/fin) que el evaluador temporal D04 usa para controlar el acceso dentro de horario vs. fuera de horario.
+Fuente: configurado por HR_ADMIN o SECURITY_ADMIN del tenant al definir los horarios de trabajo; el seed crea un horario REGULAR por defecto (L-V 08:00-18:00) al onboarding del tenant.
+Administración: access_outside_schedule define la política al detectar acceso fuera de horario (BLOCKED, PERMITTED, REQUIRES_APPROVAL, READ_ONLY); shifts JSONB permite modelar turnos en el mismo horario; is_default=true es el horario base evaluado sin asignación explícita.
+WORM: no.
+Particionada: no.
+Estándar: RFC 7953 (VAVAILABILITY), ISO 8601:2019, GTRBAC §3.1 (Generalized Temporal RBAC). T-019.';
 
 COMMENT ON COLUMN bcalendar.cal_schedule.shifts IS '[JSONB] Turnos: [{name:"Mañana",start:"06:00",end:"14:00"},{name:"Tarde",...}].';
 
@@ -1101,10 +1159,12 @@ CREATE INDEX IF NOT EXISTS idx_cotp_tenant   ON bcalendar.cal_overtime_policy(te
 CREATE INDEX IF NOT EXISTS idx_cotp_schedule ON bcalendar.cal_overtime_policy(schedule_id) WHERE schedule_id IS NOT NULL;
 
 COMMENT ON TABLE bcalendar.cal_overtime_policy IS
-  '[A.65.02 T-124] Políticas de horas extra. Define si el acceso fuera del horario normal
-   requiere override de emergencia (D3 del árbol de políticas) y qué aprobaciones activa.
-   loa_required_for_override: el PDP exige este LoA mínimo para autorizar el override.
-   applies_to_tiers: tiers a los que aplica esta política (los tiers SU/T0 no están restringidos).';
+'CALENDARIO | Políticas de horas extra — define los límites de overtime diario/semanal y si el acceso fuera del horario normal requiere override con aprobación de manager y LoA elevado (D04 árbol de políticas).
+Fuente: configurado por HR_ADMIN del tenant; el seed crea una política de overtime conservadora por defecto (2h diarias, 10h semanales, requiere aprobación); SECURITY_ADMIN puede ajustar el loa_required_for_override.
+Administración: el evaluador temporal D04 consulta esta tabla para determinar si el acceso fuera de horario está permitido o requiere workflow de aprobación; applies_to_tiers excluye SU y T0 que no tienen restricción de horario.
+WORM: no.
+Particionada: no.
+Estándar: ILO Working Time Instruments §6 (horas extra), GTRBAC §6 (excepciones temporales), NIST AC-17(1). T-124.';
 
 COMMENT ON COLUMN bcalendar.cal_overtime_policy.loa_required_for_override IS 'LoA mínimo (1/2/3) para solicitar acceso en overtime. Default 2 (AAL2).';
 COMMENT ON COLUMN bcalendar.cal_overtime_policy.applies_to_tiers IS 'Tiers sujetos a esta política: {BIZ_N1,BIZ_N2,...}. SU y T0 no restringidos.';
@@ -1136,10 +1196,12 @@ CREATE INDEX IF NOT EXISTS idx_cbkp_tenant   ON bcalendar.cal_break_policy(tenan
 CREATE INDEX IF NOT EXISTS idx_cbkp_schedule ON bcalendar.cal_break_policy(schedule_id) WHERE schedule_id IS NOT NULL;
 
 COMMENT ON TABLE bcalendar.cal_break_policy IS
-  '[A.65.02 T-125] Políticas de pausa (almuerzo, descanso).
-   suspend_active_sessions: si true, el daemon suspende sesiones activas al inicio de la pausa.
-   resume_requires_reauth: si true, el usuario debe re-autenticarse al retomar (D1 gestión de sesión).
-   Soporte de D4 temporal: el PDP consulta esta tabla para validar si el acceso está en pausa.';
+'CALENDARIO | Políticas de pausa (almuerzo, descanso) — define ventanas horarias en que las sesiones pueden suspenderse automáticamente y si se requiere re-autenticación al reanudar; el evaluador D04 la consulta para gestión de sesiones.
+Fuente: configurado por HR_ADMIN del tenant al definir los descansos obligatorios; el seed puede crear una política de almuerzo por defecto (12:00-13:00) vinculada al horario REGULAR.
+Administración: el job del evaluador temporal D04 aplica suspend_active_sessions al inicio de break_start; resume_requires_reauth fuerza re-autenticación al volver; applies_to_tiers excluye SU y T0.
+WORM: no.
+Particionada: no.
+Estándar: ILO Working Time Instruments §8 (períodos de descanso), NIST SP 800-63B-4 §7.2 (reauthentication), GTRBAC §6. T-125.';
 
 COMMENT ON COLUMN bcalendar.cal_break_policy.suspend_active_sessions IS 'true = bAuth suspende sesiones activas al inicio del break (NIST 800-63B-4 §7.2).';
 COMMENT ON COLUMN bcalendar.cal_break_policy.resume_requires_reauth  IS 'true = el usuario debe re-autenticarse al volver de pausa.';
@@ -1169,10 +1231,12 @@ CREATE INDEX IF NOT EXISTS idx_ica_calendar ON bauth.idn_tenant_calendar_assignm
 CREATE INDEX IF NOT EXISTS idx_ica_owner    ON bauth.idn_tenant_calendar_assignment(owner_type, owner_id);
 
 COMMENT ON TABLE bauth.idn_tenant_calendar_assignment IS
-  '[A.65.02 T-013] Tabla puente: asigna calendarios bcalendar a entidades bauth.
-   owner_type: TENANT, COMPANY, BRANCH, USER. owner_id: el UUID de la entidad.
-   Herencia jerárquica: tenant asigna → empresa hereda (is_inherited=true) → sucursal hereda.
-   REPARACIÓN v2: +FK real a bcalendar.cal_calendar (antes era UUID huérfano), +tenant_id FK.';
+'CALENDARIO | Tabla puente que asigna calendarios bcalendar a entidades bauth (tenant, empresa, sucursal, usuario) — implementa herencia jerárquica: el tenant asigna y sus subentidades heredan con is_inherited=true.
+Fuente: creado automáticamente por bAuth al onboarding para asignar el calendario WORK y HOLIDAY del sistema al tenant; el ADMIN puede asignar calendarios adicionales vía RPC bauth.calendar.assign.
+Administración: UNIQUE (calendar_id, owner_type, owner_id) — una asignación por entidad por calendario; role=OWNER gestiona el calendario; VIEWER solo lectura; herencia se propaga al crear subentidades.
+WORM: no.
+Particionada: no.
+Estándar: RFC 4791 §6.2 (ACL CalDAV), NIST AC-2(3) (Disable Inactive Accounts). T-013.';
 
 COMMENT ON COLUMN bauth.idn_tenant_calendar_assignment.role IS '[ENUM] OWNER (gestiona el calendario), EDITOR (modifica eventos), VIEWER (solo lectura).';
 COMMENT ON COLUMN bauth.idn_tenant_calendar_assignment.is_inherited IS 'true = asignación heredada del level superior (no directa).';
@@ -1202,10 +1266,12 @@ CREATE TABLE IF NOT EXISTS bauth.idn_roles_iga_category (
 );
 
 COMMENT ON TABLE bauth.idn_roles_iga_category IS
-  '[IGA best practices] [NIST AC-2(7)] [ISO 24760-2:2025] [A.65.02 T-191]
-   Categorías de gobernanza IGA para el ciclo de vida de roles.
-   review_cycle_days: frecuencia de certificación de acceso (IGA access review).
-   is_privileged: true = campaña de revisión trimestral obligatoria (NIST AC-2(7)).';
+'ROLES | Categorías IGA (Identity Governance & Administration) para la gobernanza del ciclo de vida de roles — agrupa roles por función (BUSINESS, IT, APPLICATION, PRIVILEGED, EMERGENCY, SERVICE) con ciclo de revisión propio por categoría.
+Fuente: seed inicial con 7 categorías canónicas del estándar SBOS al despliegue; nuevas categorías solo vía migración DDL con HITL al necesitar un tipo de rol no contemplado.
+Administración: review_cycle_days determina la frecuencia de certificación IGA (PRIVILEGED=90d, EMERGENCY=30d, BUSINESS=365d); is_privileged=true activa campaña de revisión trimestral obligatoria (NIST AC-2(7)); is_active=false archiva la categoría sin eliminar roles existentes.
+WORM: no.
+Particionada: no.
+Estándar: IGA best practices, NIST SP 800-53 AC-2(7), ISO 24760-2:2025 §5. T-191.';
 
 INSERT INTO bauth.idn_roles_iga_category
     (code, name, description, is_privileged, review_cycle_days, sort_order) VALUES
@@ -1259,12 +1325,16 @@ CREATE TABLE IF NOT EXISTS bauth.idn_roles_rol_type (
 );
 
 COMMENT ON TABLE bauth.idn_roles_rol_type IS
-  '[NIST RBAC N3] [ANSI INCITS 359] [SCIM RFC 7643] [A.65.02 T-040]
-   Clasificación del tipo de cuenta para TODOS los roles en SBOS.
-   10 tipos canónicos: INDIVIDUAL, M2M, SYSTEM, GROUP, TEMPLATE, VIRTUAL, BOT, DEVICE, SERVICE, EMERGENCY.
-   is_privileged: requiere revisión trimestral (NIST AC-2(7)).
-   requires_human_owner: NIST AC-2(7) — toda cuenta NHI debe tener propietario humano.
-   default_certification_cycle_days: ciclo IGA de certificación de acceso.';
+'ROLES | Catálogo controlado de 10 tipos de cuenta para todos los roles del ecosistema SBOS:
+INDIVIDUAL, M2M, SYSTEM, GROUP, TEMPLATE, VIRTUAL, BOT, DEVICE, SERVICE, EMERGENCY.
+Gobierna si el rol es privilegiado (revisión trimestral IGA), si requiere propietario humano
+(cuentas NHI — NIST AC-2(7)), y el ciclo de certificación de acceso IGA por tipo.
+Fuente: seed de despliegue con los 10 tipos canónicos; altas nuevas requieren migración DDL con HITL.
+Administración: catálogo de referencia inmutable en operación normal; solo actualizable vía migración
+aprobada por HITL. is_active=false desactiva sin borrar para trazabilidad histórica.
+WORM: no — is_active puede actualizarse; pero no se eliminan filas.
+Particionada: no.
+Estándar: NIST RBAC N3, ANSI INCITS 359-2004, SCIM RFC 7643, NIST AC-2(7), ISO 27001 A.5.15. T-040.';
 
 COMMENT ON COLUMN bauth.idn_roles_rol_type.code        IS 'INDIVIDUAL, M2M, SYSTEM, GROUP, TEMPLATE, VIRTUAL, BOT, DEVICE, SERVICE, EMERGENCY.';
 COMMENT ON COLUMN bauth.idn_roles_rol_type.name        IS '[JSONB] {"es":"Individual","en":"Individual"}.';
@@ -1348,10 +1418,16 @@ CREATE TABLE IF NOT EXISTS bauth.idn_roles_rol_tier (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_irtier_tier ON bauth.idn_roles_rol_tier(tier);
 
 COMMENT ON TABLE bauth.idn_roles_rol_tier IS
-  '[NIST SP 800-63B-4 §4] [ISO 27001 A.5.15] [NIST AC-5] [A.65.02 T-042]
-   Parámetros de seguridad por tier. Define el LoA is_required, timeout de sesión, MFA, step-up,
-   ciclo IGA de certificación e inactividad. 11 tiers: SU (superusuario, LoA3), T0 (técnico raíz),
-   T1 (técnico tenant), BIZ_N1..N5 (negocio por jerarquía), EXT_N0 (externo), M2M, VISITOR.';
+'ROLES | Catálogo de parámetros de seguridad por tier (jerarquía de privilegio) para los 11 niveles
+del ecosistema: SU (LoA3, PAM obligatorio), T0, T1, BIZ_N1..N5, EXT_N0, M2M y VISITANTE.
+Cada fila define: loa_required, session_timeout_minutes, mfa_required, step_up_loa, certification_
+cycle_days e inactivity_lockout_days. Controla qué tiers requieren PAM y justificación de uso.
+Fuente: seed de despliegue con los 11 tiers canónicos; los parámetros son ajustables por HITL.
+Administración: los valores de seguridad (timeouts, MFA) se ajustan mediante migración DDL aprobada;
+no se crean ni eliminan tiers en operación — son el vocabulario fijo del sistema de roles.
+WORM: no — los parámetros de seguridad deben poder ajustarse vía migración controlada.
+Particionada: no.
+Estándar: NIST SP 800-63B-4 §4, ISO 27001 A.5.15, NIST AC-5, RFC 9470 (Step-Up). T-042.';
 
 COMMENT ON COLUMN bauth.idn_roles_rol_tier.loa_required               IS '[NIST 800-63B-4] Nivel de aseguramiento mínimo: 1=AAL1, 2=AAL2, 3=AAL3.';
 COMMENT ON COLUMN bauth.idn_roles_rol_tier.step_up_loa                IS '[RFC 9470] LoA is_required para step-up por contexto de riesgo.';
@@ -1531,11 +1607,18 @@ CREATE TRIGGER trg_irrh_version_bump
     EXECUTE FUNCTION bauth.fn_irrh_version_bump();
 
 COMMENT ON TABLE bauth.idn_roles_rol_hierarchical IS
-  '[NIST RBAC N3] [ANSI INCITS 359] [SCIM RFC 7643] [IGA] [A.65.02 T-041]
-   Catálogo maestro de roles por tenant (adjacency list). Complementado por T-063 (closure table)
-   para consultas O(1) de herencia DAG-OR. template_id: FK DEFERRED a idn_roles_template
-   (árbol de políticas, T-162). category_id: categoría IGA (T-191). Todos los textos visibles
-   al usuario usan JSONB bilingüe {"es":"...","en":"..."}.';
+'ROLES | Catálogo maestro de roles por tenant en estructura adjacency-list (árbol DAG-OR).
+Es el corazón del motor NIST RBAC N3: cada fila es un rol con tier, tipo, política de vigencia
+(B02), metadatos organizacionales (B01/metadata_b1), riesgo y etiqueta de confidencialidad.
+Complementado por T-063 (closure table) para consultas O(1) de herencia; por T-152 (historial WORM
+de versiones); por T-162 (árbol de políticas). Textos visibles al usuario en JSONB bilingüe.
+Fuente: seed inicial de plantillas base 66 roles; altas de tenant vía RPC bauth.role.create.
+Administración: solo ROLE_ADMIN y superior pueden crear/modificar; cambios de tier y tipo requieren
+aprobación dual (NIST AC-5); expiración automática gestionada por trg_irrh_b02_validity y el
+reconcile loop fn_b02_reconcile_expiry. Motor de Versionado (T-152) registra cada cambio MAJOR.
+WORM: no — la tabla es mutable; el historial inmutable vive en T-152.
+Particionada: no (la tabla principal no se particiona; T-152 puede particionarse si crece).
+Estándar: NIST RBAC N3, ANSI INCITS 359-2004, SCIM RFC 7643, ISO 27001 A.5.15, NIST AC-2(7). T-041.';
 
 COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.tier                   IS '[ENUM] SU, T0, T1, BIZ_N1..N5, EXT_N0, M2M, VISITOR.';
 COMMENT ON COLUMN bauth.idn_roles_rol_hierarchical.description            IS '[JSONB] {"es":"...","en":"..."} — descripción bilingüe del rol.';
@@ -1774,11 +1857,17 @@ COMMENT ON FUNCTION bauth.fn_b02_reconcile_expiry(TEXT) IS
  colisión con inserts concurrentes. Idempotente. Llamado por K8s CronJob.';
 
 COMMENT ON TABLE bauth.idn_roles_rol_lifecycle_event IS
-  '[ANSI INCITS 359-2004 §4.3] [ISO 27001 A.8.15] [NIST AU-9] [WORM] [B02 §lifecycle]
-   Log append-only de transiciones de estado del rol (7 estados formales).
-   REVOKE UPDATE/DELETE: solo INSERT desde el daemon y desde trg_irrh_b02_validity.
-   validity_snapshot: captura el estado de vigencia al momento de la transición para forensia.
-   trigger_type MANUAL requiere actor_id; AUTO_EXPIRY lo genera trg_irrh_b02_validity.';
+'ROLES | Log append-only (WORM) de todas las transiciones de estado de los roles (7 estados formales:
+DEFINIDO→ACTIVO→SUSPENDIDO→DEPRECADO→ARCHIVADO y vías de revisión IGA). Cada fila es inmutable:
+registra role_id, from_status, to_status, trigger_type (MANUAL/AUTO_EXPIRY/RECONCILE/IGA_REVIEW/
+BREAKGLASS/BOOTSTRAP), actor_id, validity_snapshot y hash-chain SHA-256 (bauth_44).
+Fuente: creado por el daemon via trg_irrh_b02_validity (expiración automática) o RPC bauth.role.
+transition; también por el reconcile loop fn_b02_reconcile_expiry (daemon caído).
+Administración: REVOKE UPDATE, DELETE — solo INSERT permitido. Solo bauth_app_role puede insertar.
+Trigger trg_irle_worm calcula prev_hash + entry_hash en cada INSERT para garantizar inmutabilidad.
+WORM: sí — REVOKE UPDATE/DELETE aplicado; hash-chain implementado.
+Particionada: no (candidata a particionarse por occurred_at si el volumen es alto).
+Estándar: ANSI INCITS 359-2004 §4.3, ISO 27001 A.8.15, NIST AU-9, NIST AU-10. T-B02L.';
 
 COMMENT ON COLUMN bauth.idn_roles_rol_lifecycle_event.from_status      IS 'NULL en creación inicial (el rol nace en estado to_status).';
 COMMENT ON COLUMN bauth.idn_roles_rol_lifecycle_event.validity_snapshot IS 'JSON de {validity_type, valid_from, valid_until, duration_interval} al momento del evento.';
@@ -1802,13 +1891,17 @@ CREATE INDEX IF NOT EXISTS idx_irclo_anc   ON bauth.idn_roles_rol_closure(ancest
 CREATE INDEX IF NOT EXISTS idx_irclo_depth ON bauth.idn_roles_rol_closure(depth);
 
 COMMENT ON TABLE bauth.idn_roles_rol_closure IS
-  '[NIST RBAC N3 §2.3] [Tropashko closure tables] [A.65.02 T-063]
-   Closure table para herencia DAG-OR de roles. Una fila = (ancestor, descendant, depth).
-   depth=0: rol es ancestro de sí mismo (reflexividad). depth=1: hijo directo. depth>1: transitivo.
-   Mantenida por triggers en idn_roles_rol_hierarchical (INSERT/UPDATE parent_id).
-   Consulta de todos los roles heredados de un rol: WHERE ancestor_id=rol_id.
-   Consulta de todos los roles que heredan de un rol: WHERE descendant_id=rol_id.
-   Tiempo de evaluación BitMask: O(1) con JOIN en el motor (evaluación < 0.5ns).';
+'ROLES | Closure table de la jerarquía DAG-OR de roles (patrón Tropashko). Cada fila representa
+un par (ancestor, descendant) con la profundidad: depth=0 reflexivo (rol consigo mismo),
+depth=1 hijo directo, depth>1 transitivo. Permite evaluar herencia de privilegios en O(1) con
+un simple WHERE ancestor_id=rol_id, sin recursión CTE. BitMask se computa con JOIN en < 0.5ns.
+Fuente: mantenida automáticamente por triggers en idn_roles_rol_hierarchical al INSERT/UPDATE
+parent_id. No se inserta manualmente — es una proyección derivada del árbol principal.
+Administración: mantenida solo por el Motor de Roles (triggers) y el reconcile loop. No editar
+directamente; los cambios en parent_id de T-041 se propagan por trigger a esta tabla.
+WORM: no — se actualiza en cascada cuando cambia la estructura del DAG (ON DELETE CASCADE).
+Particionada: no.
+Estándar: NIST RBAC N3 §2.3, ANSI INCITS 359-2004. T-063.';
 
 COMMENT ON COLUMN bauth.idn_roles_rol_closure.ancestor_id   IS 'Rol ancestro en la jerarquía.';
 COMMENT ON COLUMN bauth.idn_roles_rol_closure.descendant_id IS 'Rol descendiente (hereda del ancestor).';
@@ -1914,7 +2007,18 @@ CREATE INDEX IF NOT EXISTS idx_irvb01al_period  ON bauth.idn_roles_ver_b01_audit
 CREATE INDEX IF NOT EXISTS idx_irvb01al_blocks  ON bauth.idn_roles_ver_b01_audit_log USING gin  (blocks_touched);
 CREATE INDEX IF NOT EXISTS idx_irvb01al_norms   ON bauth.idn_roles_ver_b01_audit_log USING gin  (standard_ref);
 CREATE INDEX IF NOT EXISTS idx_irvb01al_channel ON bauth.idn_roles_ver_b01_audit_log (change_channel);
-COMMENT ON TABLE bauth.idn_roles_ver_b01_audit_log IS '[T-152] [B01 §audit.change_history[]] [WORM] Historia WORM de versiones cerradas de T-041. As-of. 1.13 §8.3.';
+COMMENT ON TABLE bauth.idn_roles_ver_b01_audit_log IS
+'VERSIONADO | Historial WORM de versiones cerradas de idn_roles_rol_hierarchical (T-041). Cada fila
+es un snapshot inmutable del estado del rol al cierre de un período temporal (sys_period TSTZRANGE
+WITHOUT OVERLAPS). Permite consultas as-of ("¿cómo era este rol el 2026-03-01?"). MAJOR: ancla
+con snapshot completo + change_reason obligatorio + aprobación dual. MINOR: solo fields_changed.
+Fuente: creado por el Motor de Versionado (T-152) al cerrar una versión en T-041; nunca por INSERT
+directo. El trigger trg_irvb01al_worm calcula hash-chain SHA-256 en cada inserción.
+Administración: REVOKE UPDATE/DELETE — solo INSERT. Solo bauth_app_role puede insertar.
+Hash-chain impide alteración retroactiva; la columna approved_by es FOR UPDATE SKIP LOCKED.
+WORM: sí — REVOKE UPDATE/DELETE aplicado; hash-chain SHA-256 sobre cada entrada.
+Particionada: candidata por upper(sys_period) si el volumen histórico supera 10M filas.
+Estándar: ISO 27001 A.5.33, NIST AU-9, NIST AU-11, PCI DSS Req 10.5, SOX-404. T-152.';
 
 -- ======================================================================
 -- T-153 — bauth.idn_roles_ver_b03_approval_queue
@@ -1963,7 +2067,18 @@ CREATE TABLE IF NOT EXISTS bauth.idn_roles_ver_b03_approval_queue (
 CREATE INDEX IF NOT EXISTS idx_irvb03aq_entity   ON bauth.idn_roles_ver_b03_approval_queue (entity_id);
 CREATE INDEX IF NOT EXISTS idx_irvb03aq_pending  ON bauth.idn_roles_ver_b03_approval_queue (status) WHERE status = 'PENDING';
 CREATE INDEX IF NOT EXISTS idx_irvb03aq_deadline ON bauth.idn_roles_ver_b03_approval_queue (sla_deadline) WHERE status = 'PENDING';
-COMMENT ON TABLE bauth.idn_roles_ver_b03_approval_queue IS '[T-153] [B03 §approval_workflow] Cola MAJOR pendiente. Dual control AC-5. Quórum N-de-M CM-3. 1.13 §9.3.';
+COMMENT ON TABLE bauth.idn_roles_ver_b03_approval_queue IS
+'VERSIONADO | Cola de aprobación de cambios MAJOR en roles (B03 §approval_workflow). Cada fila
+es una propuesta de cambio de tier, plantilla o política de un rol que requiere quórum N-de-M
+(NIST CM-3, NIST AC-5 dual control): required_approvers aprobadores de los roles en approver_roles
+deben firmar dentro de sla_deadline o la propuesta expira. proposed_state: snapshot JSONB del
+estado propuesto. approvals: array JSONB de firmas acumuladas.
+Fuente: creada por el Motor de Versionado al detectar un cambio MAJOR; nunca manual.
+Administración: proposed_by ≠ resolved_by (control dual garantizado por chk_irvb03aq_dual_ctrl).
+El daemon bAuth evalúa el quórum en cada aprobación; al alcanzarlo aplica el cambio en T-041.
+WORM: no — el estado cambia (PENDING→APPROVED/REJECTED/EXPIRED); los votos se acumulan en approvals.
+Particionada: no.
+Estándar: NIST AC-5, NIST CM-3 (Change Control Board), ISO 27001 A.5.18, PCI DSS 6.4.2. T-153.';
 
 -- ======================================================================
 -- T-154 — bauth.idn_roles_ver_b01_retention_policy
@@ -1987,7 +2102,18 @@ CREATE TABLE IF NOT EXISTS bauth.idn_roles_ver_b01_retention_policy (
     CONSTRAINT chk_irvb01rp_class    CHECK (info_class IN ('C1','C2','C3','C4')),
     CONSTRAINT chk_irvb01rp_piso_d99 CHECK (retention_total >= INTERVAL '365 days')
 );
-COMMENT ON TABLE bauth.idn_roles_ver_b01_retention_policy IS '[T-154] [B01 §audit] Política retención legal por entidad C1. legal_hold suspende purgas. Piso D99 ≥365d. 1.13 §10.';
+COMMENT ON TABLE bauth.idn_roles_ver_b01_retention_policy IS
+'VERSIONADO | Tabla de políticas de retención legal del historial de versiones (T-152) por entidad.
+Define: ventana caliente (hot_window), política de compactación (KEEP_ALL/KEEP_ANCHORS/KEEP_LAST_N),
+retención total (retention_total), y base legal (legal_basis). Piso mínimo D99 = 365 días.
+legal_hold=true suspende toda purga automática mientras dure la medida cautelar.
+Fuente: seed de despliegue con política para idn_roles_rol_hierarchical (C1, 10 años, Ley 843 Art.44);
+altas para nuevas entidades vía migración DDL con HITL.
+Administración: el reconcile loop de retención lee esta tabla para decidir qué filas de T-152 purgar;
+solo SUPER_ADMIN puede actualizar retention_total o activar legal_hold.
+WORM: no — legal_hold y hot_window son ajustables operacionalmente.
+Particionada: no.
+Estándar: ISO 27001 A.5.33, NIST AU-11, PCI DSS Req 10.5, SOX-404, Ley 843 Bolivia Art.44. T-154.';
 INSERT INTO bauth.idn_roles_ver_b01_retention_policy
     (entity_name, info_class, hot_window, compaction_policy, retention_total, legal_basis, standard_ref, ctx_id)
 VALUES ('idn_roles_rol_hierarchical','C1',INTERVAL '2 years','KEEP_ANCHORS',INTERVAL '10 years',
@@ -2023,7 +2149,19 @@ CREATE TABLE IF NOT EXISTS bauth.idn_roles_ver_contract_revision_log (
 );
 CREATE INDEX IF NOT EXISTS idx_irvcrl_contract ON bauth.idn_roles_ver_contract_revision_log (contract_name);
 CREATE INDEX IF NOT EXISTS idx_irvcrl_compat   ON bauth.idn_roles_ver_contract_revision_log (compatibility);
-COMMENT ON TABLE bauth.idn_roles_ver_contract_revision_log IS '[T-155] [Plano A] Changelog estructural del contrato. BREAKING/COMPATIBLE. No almacena instancias. 1.13 §5.';
+COMMENT ON TABLE bauth.idn_roles_ver_contract_revision_log IS
+'VERSIONADO | Changelog estructural del contrato RolTemplate entre versiones. Registra cada
+transición (version_from → version_to) del contrato de bloques B01-B14, indicando bloques
+modificados, campos añadidos/eliminados/cambiados y compatibilidad BREAKING/COMPATIBLE.
+migration_ref apunta al script de migración aplicado. No almacena instancias de roles — solo el
+diff del contrato estructural. Es el ADR técnico de cada cambio de esquema del RolTemplate.
+Fuente: creada por HITL al aprobar un cambio de contrato; aprobación formal por approved_by.
+Administración: solo SUPER_ADMIN + arquitecto de dominio pueden insertar entradas; la restricción
+UNIQUE (contract_name, version_from, version_to) impide duplicados. Solo INSERT permitido
+operacionalmente (el changelog es una bitácora, no un estado editable).
+WORM: no formalmente (sin REVOKE), pero solo se insertan — nunca se modifica una entrada pasada.
+Particionada: no.
+Estándar: ISO 27001 A.5.33, NIST CM-3, NIST CM-9. T-155.';
 
 
 -- ╔══════════════════════════════════════════════════════════════════════╗
@@ -2048,13 +2186,18 @@ CREATE TABLE IF NOT EXISTS bauth.privilege_verb (
 );
 
 COMMENT ON TABLE bauth.privilege_verb IS
-  '[NIST SP 800-53 AC-5] [XACML 3.0 §4.3] [G-03] [A.65.02 T-174]
-   Catálogo de verbos atómicos del sistema. LISTA DE VALIDACIÓN ÚNICAMENTE.
-   NO participa en la construcción del RolBitMask ni en el PDP en runtime de autenticación.
-   Consultada solo en CRUD de idn_roles_template (FK verb_id) y privilege_verb_conflict.
-   Verbos base canónicos: create, read, update, delete, validate, approve, execute, export,
-     archive, assign, delegate, certify, sign, audit, report, config, manage, reassess.
-   PK = verb_id TEXT snake_case: leíble, estable, auto-documentado.';
+'PRIVILEGIOS | Catálogo de verbos atómicos del sistema. LISTA DE VALIDACIÓN ÚNICAMENTE — no
+participa en la construcción del RolBitMask ni en la evaluación PDP en runtime. Solo es
+consultada al crear/modificar nodos en idn_roles_template (FK verb_id) y en la matriz SoD T-175.
+18 verbos canónicos: create, read, update, delete, validate, approve, execute, export, archive,
+assign, delegate, certify, sign, audit, report, config, manage, reassess. PK TEXT snake_case.
+Fuente: seed de despliegue con los 18 verbos canónicos; altas nuevas vía migración DDL con HITL.
+Administración: catálogo global sin tenant_id (G-06 §Por qué no). Los verbos nunca se eliminan:
+is_active=false los desactiva preservando trazabilidad histórica de FKs en idn_roles_template.
+Nuevos verbos requieren análisis de impacto en la matriz SoD (T-175) antes de ser registrados.
+WORM: no — is_active puede actualizarse; verbos se desactivan, no se borran.
+Particionada: no.
+Estándar: NIST SP 800-53 AC-5, XACML 3.0 §4.3, ISO 27001 A.6.1.2, OWASP ASVS 6.1. T-174.';
 
 COMMENT ON COLUMN bauth.privilege_verb.verb_id     IS 'PK texto snake_case: [a-z][a-z0-9_]*. Ej: create, approve, sign_document.';
 COMMENT ON COLUMN bauth.privilege_verb.is_active    IS 'Los verbos nunca se eliminan — se desactivan (activo=false) para trazabilidad histórica.';
@@ -2085,15 +2228,20 @@ CREATE INDEX IF NOT EXISTS idx_pvc_verbb ON bauth.privilege_verb_conflict(verb_b
 CREATE INDEX IF NOT EXISTS idx_pvc_conflict_type ON bauth.privilege_verb_conflict(conflict_type);
 
 COMMENT ON TABLE bauth.privilege_verb_conflict IS
-  '[NIST SP 800-53 AC-5] [ISO 27001 A.6.1.2] [G-03] [A.65.02 T-175]
-   Matriz de conflictos SoD entre verbos. LISTA DE VALIDACIÓN ÚNICAMENTE.
-   NO participa en BitMask ni en PDP en runtime. Su único rol: responder
-   "¿pueden coexistir estos dos verbos para el mismo usuario?"
-   STATIC_SOD: conflicto siempre prohibido (ej: crear + aprobar).
-   DYNAMIC_SOD: prohibido solo en el mismo objeto/instancia.
-   AFINIDAD: verbos complementarios (no genera rechazo, solo sugerencia).
-   PK (verb_a, verb_b) con verb_a < verb_b: cada par almacenado una sola vez.
-   El trigger fn_check_sod_on_grant consulta en ambas direcciones.';
+'PRIVILEGIOS | Matriz de conflictos SoD (Separation of Duties) entre verbos atómicos.
+LISTA DE VALIDACIÓN ÚNICAMENTE — no participa en BitMask ni en PDP en runtime. Su único
+rol en tiempo de ejecución: responder "¿pueden coexistir estos dos verbos para el mismo usuario?"
+cuando se intenta asignar un átomo. Tres tipos: STATIC_SOD (siempre prohibido, ej: create+approve),
+DYNAMIC_SOD (prohibido solo sobre el mismo objeto/instancia), AFINIDAD (sugerencia, no rechazo).
+PK (verb_a, verb_b) con verb_a < verb_b alfabéticamente: cada par se almacena una sola vez.
+Fuente: seed de despliegue con los conflictos SoD canónicos (create+approve, sign+approve, etc.);
+altas nuevas requieren análisis de impacto y migración DDL con HITL.
+Administración: consultada por el trigger fn_check_sod_on_grant en T-170 (privilege_atom_grant).
+Solo INSERT/DELETE vía migración; si un verbo en verb_a/verb_b es desactivado en T-174, el
+conflicto queda huérfano (ON DELETE CASCADE — la FK lo elimina automáticamente).
+WORM: no — pares pueden eliminarse si se retira un verbo de T-174.
+Particionada: no.
+Estándar: NIST SP 800-53 AC-5, ISO 27001 A.6.1.2, NIST SP 800-53 AC-6(7). T-175.';
 
 COMMENT ON COLUMN bauth.privilege_verb_conflict.conflict_type IS '[TEXT] STATIC_SOD | DYNAMIC_SOD | AFINIDAD.';
 
@@ -2287,10 +2435,18 @@ CREATE TABLE IF NOT EXISTS bauth.idn_policy_node_type (
 );
 
 COMMENT ON TABLE bauth.idn_policy_node_type IS
-  '[T-161b] Catálogo de tipos de nodo del árbol de políticas (bauth.idn_roles_template.tipo).
-   Fuente única de verdad para presentación, abbreviation y descripción bilingüe.
-   Reemplaza el CHECK chk_irt_tipo — tipo es FK textual a este catálogo.
-   diagnostico NO aparece aquí: es un tipo virtual inyectado solo por el linter Dart.';
+'ÁRBOL DE POLÍTICAS | Catálogo de tipos de nodo del árbol de políticas (FK canónica para
+idn_roles_template.node_type). Define para cada tipo: badge, abreviatura, nombre/descripción
+bilingüe, paleta de color, tipografía y comportamiento visual — el cliente Flutter renderiza
+el árbol sin hardcoding consultando este catálogo. Reemplaza el CHECK chk_irt_tipo.
+El tipo "diagnostico" es virtual (inyectado solo por el linter Dart) — NUNCA persiste en BD.
+Fuente: seed de despliegue con los 12 tipos canónicos (tenant, domain, block, object, list,
+set_politicas, policy, rule, atom, attribute, enum, event); altas nuevas vía migración DDL.
+Administración: ON CONFLICT DO UPDATE — los campos de presentación (color, fuente, badge)
+son actualizables sin migración destructiva; code y abbreviation son estables (son FK vivas).
+WORM: no — parámetros de presentación se actualizan vía ON CONFLICT DO UPDATE.
+Particionada: no.
+Estándar: XACML 3.0 §4.3, NIST RBAC N3. T-161b.';
 
 -- Seed: tipos canónicos del árbol de políticas bAuth
 -- Columnas de presentación (color_key, color_key_valor, font_weight, font_size_token,
@@ -2481,17 +2637,23 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 COMMENT ON TABLE bauth.idn_roles_template IS
-  '[XACML 3.0] [NIST RBAC N3] [ISO 27001 A.5.15] [G-06] [G-11] [A.65.02 T-162]
-   Árbol de políticas PER-TENANT de bAuth. Cada tenant tiene su propio árbol (G-06).
-   Estructura: dominio (raíz, D01-D37) > bloque > objeto/lista > politica > regla > evaluacion.
-   Bootstrap: al crear tenant se copia la estructura (todos los tipos EXCEPTO evaluacion)
-     del tenant-plantilla. Las zonas de negocio llegan vacías de átomos; la empresa los define.
-   atom_position: BIGINT único desde roles_atom_position_sequential — SOLO para tipo=evaluacion.
-     Posición del bit en el BitMask del dominio. Asignada por trg_irt_atom_position; inmutable.
-   effect: boolean (true=PERMIT, false=DENY). Sincronizado automáticamente a privilege_atom_grant
-     por trigger trg_t162_sync_effect_to_grants (G-12 CAMBIO 8).
-   path: camino materializado único: D01.B1.P001.E001. Base de lookup eficiente.
-   condition_expr: JSON AST compilado por AtomLang — evaluado por el Motor de Identidad (PDP).';
+'ÁRBOL DE POLÍTICAS | Árbol de políticas PER-TENANT (G-06): cada tenant tiene su propio árbol
+con la estructura domain > block > object/list > policy > rule > atom. Nodo atom = un permiso
+atómico con atom_position (bit en el BitMask), verb_id y effect (PERMIT/DENY).
+Bootstrap: al crear un tenant se copia la estructura del tenant-plantilla (todos los tipos
+EXCEPTO atom — las zonas de negocio llegan vacías y la empresa define sus propios átomos).
+atom_position: BIGINT único asignado por trigger trg_irt_atom_position desde la secuencia
+roles_atom_position_sequential. Solo para node_type=atom. INMUTABLE una vez asignado.
+effect se sincroniza automáticamente a privilege_atom_grant por trg_t162_sync_effect_to_grants.
+condition_expr: JSON AST compilado por AtomLang — evaluado por el Motor de Identidad (PDP).
+Fuente: bootstrap por IAM Installer desde el árbol plantilla del tenant; átomos nuevos vía
+RPC bauth.policy.atom.create con aprobación dual si el árbol ya tiene grants activos.
+Administración: el Motor de Políticas (Rust) es el único escritor; el cliente Flutter y
+biedata son lectores. Cambios en path/node_type de átomos activos requieren revisión de impacto
+en BitMask (atom_position inmutable). Historial de cambios en T-163 (WORM).
+WORM: no — el árbol es mutable; el historial inmutable vive en T-163.
+Particionada: no.
+Estándar: XACML 3.0, NIST RBAC N3, ISO 27001 A.5.15, OWASP ASVS 6.1. T-162.';
 
 COMMENT ON COLUMN bauth.idn_roles_template.tenant_id     IS '[G-06] FK a idn_tenant. El árbol es per-tenant — cada empresa tiene el suyo.';
 COMMENT ON COLUMN bauth.idn_roles_template.node_type     IS '[FK→idn_policy_node_type] Tipos: tenant|dominio|bloque|objeto|lista|set_politicas|politica|regla|atomo|atributo|enum|evento (G-11). diagnostico solo en Dart.';
@@ -2580,10 +2742,19 @@ REVOKE UPDATE, DELETE ON bauth.idn_roles_template_history FROM PUBLIC;
 REVOKE UPDATE, DELETE ON bauth.idn_roles_template_history FROM bauth_app_role;
 
 COMMENT ON TABLE bauth.idn_roles_template_history IS
-  '[ISO 27001 A.8.15] [NIST SP 800-53 AU-9] [WORM] [A.65.02 T-163]
-   Registro inmutable de cambios al árbol de políticas. REVOKE UPDATE/DELETE.
-   hash_chain = SHA-256(prev_hash || node_id || operation || after_row::text || created_at).
-   Convención uniforme con T-170b: before_row/after_row, hash_chain BYTEA, prev_hash BYTEA.';
+'ÁRBOL DE POLÍTICAS | Registro WORM inmutable de todos los cambios al árbol de políticas T-162.
+Cada fila captura: node_id, operation (INSERT/UPDATE/DEACTIVATE), before_row y after_row como
+JSONB, changed_by, change_reason y hash_chain SHA-256 que encadena cada entrada a la anterior.
+Permite forensia completa: qué nodo cambió, quién, cuándo y por qué; y verificar la integridad
+de la cadena de evidencia sin requerir fuentes externas.
+Fuente: creado exclusivamente por el trigger del Motor de Políticas (Rust) al modificar T-162;
+nunca por INSERT directo. REVOKE UPDATE/DELETE garantiza inmutabilidad desde el motor de BD.
+Administración: solo INSERT permitido. Solo bauth_app_role puede insertar. Antes de desactivar
+un nodo en T-162, el Motor escribe la entrada DEACTIVATE aquí con before_row y change_reason.
+hash_chain = SHA-256(prev_hash || node_id || operation || after_row::text || created_at).
+WORM: sí — REVOKE UPDATE/DELETE desde PUBLIC y bauth_app_role.
+Particionada: no (candidata por created_at si el volumen supera 5M cambios).
+Estándar: ISO 27001 A.8.15, NIST SP 800-53 AU-9, NIST AU-10. T-163.';
 
 
 -- T-153 implementado como bauth.idn_roles_ver_b03_approval_queue — ver bloque MOTOR DE VERSIONADO F2 arriba.
@@ -2623,13 +2794,25 @@ CREATE INDEX IF NOT EXISTS idx_iie_status  ON bauth.idn_identity_entity(status, 
 CREATE INDEX IF NOT EXISTS idx_iie_name    ON bauth.idn_identity_entity USING GIN (name jsonb_path_ops);
 
 COMMENT ON TABLE bauth.idn_identity_entity IS
-  '[ISO 24760-2:2025] [NIST SP 800-63A] [A.65.02 T-156] [D00 Motor de Identidad]
-   Raíz del modelo D00. Toda identidad en SBOS es una entidad aquí: tenant, bdomain, bsubdomain, pos, actor.
-   Jerarquía de 5 niveles: tenant > bdomain (empresa) > bsubdomain (sucursal) > pos (punto de venta) > actor.
-   El actor es el nodo hoja — la identidad humana o no-humana que porta credenciales.';
+'IDENTIDAD D00 | Raíz del modelo de identidad SBOS. Toda entidad del ecosistema (tenant,
+empresa, sucursal, punto de venta, persona) es un nodo en esta tabla. Jerarquía 5 niveles:
+tenant > bdomain (empresa) > bsubdomain (sucursal) > pos (punto de venta) > actor (hoja).
+El actor es el nodo final que porta credenciales, roles y atributos verificados (IAL1-3).
+ial_min: nivel IAL mínimo requerido para operar este nodo. path: camino materializado
+(tenant.company.branch.pos.actor) recalculado por trigger al cambiar parent_id.
+Fuente: creada por el IAM Installer al desplegar el tenant raíz; actores vía RPC
+bauth.identity.entity.create con IAL mínimo IAL1.
+Administración: el Motor de Identidad es el único escritor; biedata y otros daemons son
+lectores por contrato. Cambiar parent_id requiere recalcular paths descendientes (trigger).
+Eliminar un nodo (ON DELETE CASCADE) elimina toda su jerarquía — requiere HITL.
+WORM: no — status y metadata son actualizables (SUSPENDED/ARCHIVED es el flujo de baja).
+Particionada: no.
+Estándar: ISO 24760-2:2025, NIST SP 800-63A IAL1-3, ISO 27001 A.5.16. T-156.';
 
-COMMENT ON COLUMN bauth.idn_identity_entity.level IS '[ENUM] tenant, bdomain, bsubdomain, pos, actor. 5 niveles de la jerarquía D00.';
-COMMENT ON COLUMN bauth.idn_identity_entity.path  IS 'Camino materializado: tenant.company.branch.pos.actor. Recalculado por trigger.';
+COMMENT ON COLUMN bauth.idn_identity_entity.level  IS '[ENUM] Nivel jerárquico: tenant (raíz del ecosistema del cliente), bdomain (empresa/organización), bsubdomain (sucursal/departamento), pos (punto de servicio/venta), actor (entidad hoja — persona, sistema, bot que porta credenciales y roles).';
+COMMENT ON COLUMN bauth.idn_identity_entity.path   IS 'Camino materializado en formato UUID.UUID.UUID — ej. <tenant_id>.<company_id>.<actor_id>. Recalculado automáticamente por trigger al cambiar parent_id. Usado para consultas de árbol completo eficientes (path LIKE prefix%).';
+COMMENT ON COLUMN bauth.idn_identity_entity.ial_min IS 'Identity Assurance Level mínimo requerido para que una identidad pueda operar en este nodo: IAL1 (autodeclarado), IAL2 (remoto verificado), IAL3 (presencial verificado). El Motor de Identidad rechaza vínculos con identidades de IAL inferior.';
+COMMENT ON COLUMN bauth.idn_identity_entity.metadata IS 'Metadatos libres del nodo en JSONB — datos propios del nivel (ej. para bdomain: nit, razón social; para pos: dirección física, coordenadas GPS; para actor: cargo, contacto). Schema libre por diseño; validación en capa de aplicación.';
 
 
 -- ======================================================================
@@ -2662,11 +2845,21 @@ CREATE INDEX IF NOT EXISTS idx_iiattr_value   ON bauth.idn_identity_attribute US
 CREATE INDEX IF NOT EXISTS idx_iiattr_active  ON bauth.idn_identity_attribute(entity_id, is_active) WHERE is_active = true;
 
 COMMENT ON TABLE bauth.idn_identity_attribute IS
-  '[ISO 11179 §8] [ISO 24760-1 §5.3] [NIST SP 800-63A IAL1-3] [A.65.02 T-157]
-   Atributos de identidad por entidad. Modelo EAV controlado: attr_namespace.attr_key = valor.
-   attr_namespace: core (básico), professional (laboral), verification (IAL), security (acceso).
-   verified: true = atributo verificado contra fuente externa (IAL2/IAL3 requieren verified=true).
-   source: self, document, biometric, employer, government, blockchain.';
+'IDENTIDAD D00 | Atributos de identidad por entidad (modelo EAV controlado). Cada fila es
+un par (attr_namespace, attr_key) = attr_value JSONB para una entidad T-156. Namespaces:
+core (nombre, CI, fecha_nacimiento), contact (email, teléfono), professional (cargo, empresa),
+verification (IAL ref, biometric_ref), security (MFA, recovery), fiscal (NIT, CUCE).
+verified=true significa el atributo fue verificado contra fuente externa (IAL2/IAL3 lo requieren).
+source: self=autoreportado, document=cédula verificada, biometric, employer, government, blockchain.
+Historial WORM de cambios en T-158 (particionado mensual).
+Fuente: creados por el Motor de Identidad al registrar o elevar el IAL de un actor; también
+vía RPC bauth.identity.attribute.upsert (incluye verificación de fuente IAL si aplica).
+Administración: el Motor de Identidad controla quién puede actualizar cada attr_namespace;
+is_active=false en vez de DELETE para mantener trazabilidad. El historial WORM en T-158 permite
+reconstruir el estado en cualquier fecha (as-of queries). valid_until controla vigencia del atributo.
+WORM: no — la tabla principal es mutable; el historial WORM está en T-158.
+Particionada: no.
+Estándar: ISO 11179 §8, ISO 24760-1 §5.3, NIST SP 800-63A IAL1-3. T-157.';
 
 COMMENT ON COLUMN bauth.idn_identity_attribute.attr_namespace IS 'core, professional, verification, security, contact, fiscal.';
 COMMENT ON COLUMN bauth.idn_identity_attribute.source IS '[NIST 800-63A] self=autoreportado, document=cédula verificada, biometric, employer, government.';
@@ -2765,13 +2958,19 @@ REVOKE UPDATE, DELETE ON bauth.idn_identity_attribute_history FROM bauth_app_rol
 
 -- ─── COMMENTs normativos ──────────────────────────────────────────────
 COMMENT ON TABLE bauth.idn_identity_attribute_history IS
-  '[ISO 27001:2022 A.8.15] [PCI DSS 4.0.1 Req 10.3.2] [GDPR Art. 30] [NIST AU-9] [A.65.02 T-158] [D00-B05]
-   Historial WORM append-only de cada cambio en idn_identity_attribute. Particionado por mes.
-   Hash-chain por (entity_id, attr_namespace, attr_key): encadena cada fila a la anterior.
-   row_hash = SHA-256(history_id||attribute_id||attr_key||attr_value_new||changed_at||COALESCE(prev_hash,'''')).
-   REVOKE UPDATE/DELETE desde bauth_app_role: solo INSERT desde el daemon via trigger.
-   Permite: reconstruir estado de atributo en cualquier fecha (as-of), detectar manipulación retroactiva.
-   Job mensual: crear particion del mes siguiente el dia 1 de cada mes.';
+'IDENTIDAD D00 | Historial WORM append-only de cada cambio en idn_identity_attribute (T-157).
+Particionado mensual por changed_at. Hash-chain SHA-256 por (entity_id, attr_namespace, attr_key):
+encadena cada fila a la anterior — prev_hash=NULL solo en la primera fila de esa clave.
+row_hash = SHA-256(history_id||attribute_id||attr_key||attr_value_new||changed_at||COALESCE(prev_hash,""")).
+Captura: attr_value_old (NULL en INSERT), attr_value_new, operation (INSERT/UPDATE/SOFT_DELETE),
+changed_by y change_reason. Permite as-of queries y detección de manipulación retroactiva.
+Fuente: creada exclusivamente por el trigger del Motor de Identidad al modificar T-157;
+nunca por INSERT directo. Job mensual: crea partición del mes siguiente el día 1 de cada mes.
+Administración: REVOKE UPDATE/DELETE desde bauth_app_role: solo INSERT desde el daemon.
+Solo el Motor de Identidad puede escribir; lectura libre para el Testeador y el Documentador.
+WORM: sí — REVOKE UPDATE/DELETE aplicado; hash-chain por clave de atributo.
+Particionada: sí — PARTITION BY RANGE (changed_at), granularidad mensual.
+Estándar: ISO 27001 A.8.15, PCI DSS 4.0.1 Req 10.3.2, GDPR Art.30, NIST AU-9. T-158.';
 
 COMMENT ON COLUMN bauth.idn_identity_attribute_history.attribute_id    IS 'FK RESTRICT a idn_identity_attribute. El historial persiste aunque el atributo se elimine logicamente.';
 COMMENT ON COLUMN bauth.idn_identity_attribute_history.attr_value_old IS 'NULL en INSERT (sin valor previo). Copia del valor anterior para forensia sin JOIN a T-157.';
@@ -2835,12 +3034,22 @@ CREATE INDEX IF NOT EXISTS idx_ir_namespace
     ON bauth.idn_identity_requirement(attr_namespace, attr_key);
 
 COMMENT ON TABLE bauth.idn_identity_requirement IS
-  '[NIST SP 800-63A-4 §4] [ISO 24760-2:2025 §5] [ISO 11179-3:2023] [A.65.02 T-159] [D00-B03]
-   Esquema formal de completitud: qué atributos son obligatorios por (entity_type, ial_level).
-   tenant_id=NULL = requisito global del sistema (base).
-   tenant_id NOT NULL = override del tenant (sobreescribe el global para esa clave).
-   El Motor de Identidad valida este esquema antes de elevar el ial_achieved de un actor.
-   Nunca eliminar registros — desactivar con is_active=false para mantener historicidad.';
+'IDENTIDAD D00 | Esquema formal de completitud de identidad: define qué atributos son
+obligatorios por combinación (entity_type, ial_level). El Motor de Identidad consulta esta
+tabla ANTES de elevar el ial_achieved de un actor. Si algún atributo requerido falta o no
+está verified, el motor devuelve error con el campo error_message bilingüe.
+Patrón override en dos capas: tenant_id=NULL = regla global (base del sistema); tenant_id
+NOT NULL = override del tenant que sobreescribe la regla global para esa clave específica.
+Seeds: requisitos IAL1 (nombre+email autoreportados), IAL2 (CI verificada, email verificado),
+IAL3 (CI + biometría, fuentes government/biometric).
+Fuente: seed de despliegue con requisitos IAL1/IAL2/IAL3 globales; overrides del tenant
+vía RPC bauth.identity.requirement.override con HITL (cambia umbrales de seguridad).
+Administración: solo SUPER_ADMIN y TENANT_ADMIN pueden configurar overrides; is_active=false
+en vez de DELETE — mantiene historicidad de qué se requería en cada período. El campo
+accepted_sources controla las fuentes válidas de verificación por tier IAL.
+WORM: no — is_active es editable; el override de un tenant se actualiza vía UPSERT.
+Particionada: no.
+Estándar: NIST SP 800-63A-4 §4, ISO 24760-2:2025 §5, ISO 11179-3:2023. T-159.';
 
 COMMENT ON COLUMN bauth.idn_identity_requirement.tenant_id        IS 'NULL = global (aplica a todos los tenants). NOT NULL = override específico del tenant.';
 COMMENT ON COLUMN bauth.idn_identity_requirement.entity_type      IS '[ENUM entidad_nivel] actor es el caso principal; también aplica a bdomain/bsubdomain/pos.';
@@ -2945,13 +3154,19 @@ CREATE INDEX IF NOT EXISTS idx_inhi_review  ON bauth.idn_roles_nhi_identity (rev
 CREATE INDEX IF NOT EXISTS idx_inhi_dormant ON bauth.idn_roles_nhi_identity (last_used_at) WHERE status = 'ACTIVE';
 
 COMMENT ON TABLE bauth.idn_roles_nhi_identity IS
-  '[NIST SP 800-53 IA-2/AC-2] [ISO 27001:2022 A.5.16] [Gartner IGA 2025] [A.65.02 T-186] ✅ G-21
-   Entidad raíz de toda identidad máquina gobernada del ecosistema SBOS.
-   system_ref: identificador único del NHI en el tenant (ej: bkernel:sync-worker-01).
-   owner_id: persona humana responsable — accountable si el NHI actúa incorrectamente.
-   last_used_at: actualizado en cada autenticación exitosa; detecta dormancia >90 días.
-   review_at: cuándo debe revisarse este NHI (30d para CI/CD; 90d para service accounts).
-   Seeds IAM Installer: una fila por daemon SBOS (bkernel, biedata, bnotify, bsearch, bnexus).';
+'IDENTIDAD NHI | Entidad raíz de toda identidad máquina gobernada: SERVICE_ACCOUNT, WORKLOAD,
+AGENT, BOT, API_CLIENT, CI_CD_PIPELINE. Registro único por (tenant_id, system_ref). Cada NHI
+tiene owner_id obligatorio (persona humana accountable — NIST AC-2(7)) y backup_owner_id
+opcional. last_used_at se actualiza en cada autenticación exitosa; dormancia > 90 días alerta.
+review_at: fecha del próximo ciclo de revisión (30d CI/CD, 90d service accounts). El reconcile
+loop de NHI detecta vencimientos y genera eventos en T-187.
+Fuente: seed IAM Installer crea una fila por daemon SBOS (bkernel, biedata, bnotify, bsearch,
+bnexus); actores externos vía RPC bauth.identity.nhi.provision con aprobación HITL.
+Administración: solo SUPER_ADMIN y TENANT_ADMIN pueden crear/descomisionar NHI. El cambio
+de owner_id genera evento OWNER_CHANGED en T-187. decommission_at activa baja programada.
+WORM: no — status y last_used_at son actualizables (DORMANT/DECOMMISSIONED es el flujo de baja).
+Particionada: no.
+Estándar: NIST SP 800-53 IA-2, NIST AC-2(7), ISO 27001 A.5.16, Gartner IGA 2025. T-186.';
 
 -- ======================================================================
 -- T-187 — bauth.idn_roles_nhi_lifecycle_event
@@ -2980,10 +3195,18 @@ CREATE INDEX IF NOT EXISTS idx_inle_nhi ON bauth.idn_roles_nhi_lifecycle_event (
 REVOKE UPDATE, DELETE ON bauth.idn_roles_nhi_lifecycle_event FROM bauth_app_role;
 
 COMMENT ON TABLE bauth.idn_roles_nhi_lifecycle_event IS
-  '[NIST SP 800-53 IA-5(4)] [ISO 27001:2022 A.8.2/A.8.15] [A.65.02 T-187] ✅ G-22
-   Log WORM append-only del ciclo de vida de cada NHI. Trigger automático en T-186 por cambio de estado.
-   PROVISIONED → CERTIFIED → ROTATED / SUSPENDED → REACTIVATED → DECOMMISSIONED.
-   REVOKE UPDATE/DELETE desde bauth_app_role: solo INSERT desde el daemon.';
+'IDENTIDAD NHI | Log WORM append-only del ciclo de vida de cada identidad máquina (T-186).
+Registra transiciones: PROVISIONED→CERTIFIED→ROTATED/SUSPENDED→REACTIVATED→DECOMMISSIONED
+y eventos administrativos: OWNER_CHANGED, REVIEW_SCHEDULED. event_type está verificado por
+constraint chk_inle_type. metadata JSONB captura contexto adicional (ej: certificado rotado,
+antiguo propietario). Trigger automático en T-186: cada cambio de status genera entrada aquí.
+Fuente: creado por el trigger del Motor de Identidad (Rust) al cambiar el estado de un NHI
+o por el reconcile loop de NHI al detectar dormancia/vencimiento. Nunca por INSERT directo.
+Administración: REVOKE UPDATE/DELETE desde bauth_app_role: solo INSERT desde el daemon.
+Solo el Motor de Identidad puede escribir; lectura disponible para auditorías y el Testeador.
+WORM: sí — REVOKE UPDATE/DELETE aplicado.
+Particionada: no (candidata por event_at si el volumen de NHI es alto).
+Estándar: NIST SP 800-53 IA-5(4), ISO 27001 A.8.2, ISO 27001 A.8.15. T-187.';
 
 -- ======================================================================
 -- T-188 — bauth.idn_roles_nhi_certification
@@ -3010,10 +3233,19 @@ CREATE TABLE IF NOT EXISTS bauth.idn_roles_nhi_certification (
 CREATE INDEX IF NOT EXISTS idx_inc_nhi ON bauth.idn_roles_nhi_certification (nhi_id, reviewed_at DESC);
 
 COMMENT ON TABLE bauth.idn_roles_nhi_certification IS
-  '[NIST SP 800-53 AC-2(7)] [ISO 27001:2022 A.5.16] [CIS Benchmark §Service Accounts] [A.65.02 T-188] ✅ G-22
-   Certificación periódica mensual de NHI. El propietario técnico decide: CERTIFY/DECOMMISSION/REDUCE_SCOPE/ESCALATE.
-   access_count=0 en el período es el indicador más fuerte para descomisionar.
-   Cadencia mensual (más frecuente que certificación humana trimestral — NHI cambian más rápido).';
+'IDENTIDAD NHI | Registro de certificaciones periódicas de identidades máquina (T-186). El
+propietario técnico (reviewer_id) decide por cada NHI y período: CERTIFY (continúa), DECOMMISSION
+(baja), REDUCE_SCOPE (restringe permisos) o ESCALATE (escala al TENANT_ADMIN). access_count=0
+en el período es el indicador más fuerte para recomendar DECOMMISSION (NHI dormido).
+Cadencia mensual (más corta que la certificación humana trimestral — los NHI cambian más rápido
+y sus credenciales se rotan con mayor frecuencia).
+Fuente: creada por la campaña de certificación IGA iniciada por el reconcile loop de NHI
+o por el job bauth-nhi-certification; nunca por INSERT directo del usuario.
+Administración: solo el propietario técnico (reviewer_id) del NHI puede certificar. El daemon
+valida que reviewer_id sea efectivamente el owner_id del NHI antes de aceptar la decisión.
+WORM: no — la certificación es un estado de decisión, no una bitácora de eventos.
+Particionada: no.
+Estándar: NIST SP 800-53 AC-2(7), ISO 27001 A.5.16, CIS Benchmark §Service Accounts. T-188.';
 
 -- ======================================================================
 -- T-190 — bauth.idn_roles_nhi_agent_identity
@@ -3039,12 +3271,20 @@ CREATE TABLE IF NOT EXISTS bauth.idn_roles_nhi_agent_identity (
 );
 
 COMMENT ON TABLE bauth.idn_roles_nhi_agent_identity IS
-  '[NIST AI RMF 1.0] [CSA NHI Governance 2025] [ISO 42001:2023] [A.65.02 T-190] ✅ G-24
-   Especialización de idn_roles_nhi_identity para agentes IA autónomos.
-   max_permission_scope limita qué dominios puede usar el agente aunque su NHI padre tenga más acceso.
-   can_spawn_agents=false por defecto; solo orquestradores pueden crear sub-agentes con max_spawn_depth>0.
-   orchestrator_id: árbol de orquestación padre → hijo para forensia de acciones de agente.
-   ⚠️ Pendiente HITL: decisión sobre si el hijo hereda permisos del padre o tiene permisos propios.';
+'IDENTIDAD NHI | Especialización de idn_roles_nhi_identity (T-186) para agentes IA autónomos
+del ecosistema SBOS (ORQUESTA, BauthAgent, etc.). Extiende el NHI con capacidades específicas
+de IA: max_permission_scope restringe qué dominios puede usar el agente aunque su NHI padre
+tenga más acceso; session_type (EPHEMERAL/PERSISTENT) controla la duración de la sesión;
+orchestrator_id construye el árbol padre→hijo de orquestación para forensia de acciones;
+can_spawn_agents y max_spawn_depth controlan si puede crear sub-agentes y hasta qué profundidad.
+Fuente: creada por el IAM Installer al registrar los agentes de la fábrica ORQUESTA;
+agentes ad-hoc vía RPC bauth.identity.nhi.agent.register con HITL obligatorio.
+Administración: solo SUPER_ADMIN puede crear filas; max_permission_scope es la guardia de
+mínimo privilegio del agente — NUNCA puede exceder los permisos del NHI padre.
+⚠️ Pendiente HITL: decisión sobre herencia de permisos padre→hijo vs. permisos propios independientes.
+WORM: no — max_permission_scope y session_type son ajustables operacionalmente.
+Particionada: no.
+Estándar: NIST AI RMF 1.0, ISO 42001:2023, CSA NHI Governance 2025. T-190.';
 
 
 -- T-165 — bauth.idn_identity_proofing
@@ -3097,10 +3337,20 @@ CREATE INDEX IF NOT EXISTS idx_iip_reviewer
     WHERE reviewer_id IS NOT NULL;
 
 COMMENT ON TABLE bauth.idn_identity_proofing IS
-  '[NIST SP 800-63A-4 §4-6] [ISO/IEC 29115:2013] [ISO 24760-2:2025 §7.2] [eIDAS 2.0 Art. 24] [D00-B06]
-   Proceso de identity proofing por usuario (entidad level=actor).
-   El Motor de Identidad consulta la fila más reciente con status=PASSED para determinar el IAL actual.
-   Jobs automáticos: 30d antes de expires_at → alerta + crear nueva fila PENDING.';
+'IDENTIDAD D00 | Registro del proceso de verificación de identidad (identity proofing) por actor.
+Cada fila representa un ciclo de proofing con su tipo (SELF_ASSERTED, REMOTE_UNATTENDED,
+REMOTE_ATTENDED, IN_PERSON, TRUSTED_REFEREE), evidencias (FAIR/STRONG/SUPERIOR en JSONB),
+status (PENDING→IN_PROGRESS→PASSED/FAILED/EXPIRED) y el reviewer_id obligatorio para IAL3.
+El Motor de Identidad consulta la fila más reciente con status=PASSED para determinar el IAL
+vigente del actor. evidence_count es columna generada (no editable).
+Fuente: creada por el Motor de Identidad al iniciar un ciclo de proofing desde la app del tenant;
+para IAL3 se crea una fila PENDING que es revisada por el reviewer (empleado SBOS habilitado).
+Administración: el Motor de Identidad es el único escritor. El Testeador puede leer para
+verificar el IAL vigente. Jobs automáticos: 30 días antes de expires_at → alerta via bNotify
++ crear nueva fila PENDING para mantener el IAL sin interrupción.
+WORM: no — status cambia durante el ciclo de vida (PENDING→PASSED/FAILED).
+Particionada: no.
+Estándar: NIST SP 800-63A-4 §4-6, ISO/IEC 29115:2013, ISO 24760-2:2025 §7.2, eIDAS 2.0. T-165.';
 COMMENT ON COLUMN bauth.idn_identity_proofing.ial_achieved IS '[NIST 800-63A-4] IAL alcanzado en ESTE proofing. Diferente del ial_min is_required.';
 COMMENT ON COLUMN bauth.idn_identity_proofing.proofing_type IS '[NIST 800-63A-4 §5] SELF_ASSERTED=IAL1 · REMOTE=IAL2 · IN_PERSON/TRUSTED_REFEREE=IAL3.';
 COMMENT ON COLUMN bauth.idn_identity_proofing.evidence IS '[NIST 800-63A-4 §5.2] FAIR: doc débil · STRONG: doc oficial · SUPERIOR: biometría+doc.';
@@ -3154,9 +3404,20 @@ CREATE INDEX IF NOT EXISTS idx_ic_withdrawn
 REVOKE DELETE ON bauth.idn_identity_consent FROM bauth_app_role;
 
 COMMENT ON TABLE bauth.idn_identity_consent IS
-  '[GDPR Art. 6-7] [ISO/IEC 29184:2020] [Ley 1174 Bolivia Art. 12-15] [NIST SP 800-63-4 §10] [D00-B07]
-   Registro del consentimiento de privacidad por sujeto de datos. WORM (sin DELETE).
-   GDPR Art. 7.3: retirada del consentimiento → actualizar withdrawn_at.';
+'IDENTIDAD D00 | Registro del consentimiento de privacidad por sujeto de datos (D00-B07).
+Cada fila documenta: policy_version vigente, processing_scope (qué datos y para qué),
+legal_basis (CONSENT/CONTRACT/LEGAL_OBLIGATION/etc.), granted_via (WEB/APP/IN_PERSON) e
+ip_address + user_agent para evidencia forense. is_active es columna generada (NOT DELETE —
+withdrawn_at IS NULL). La retirada (GDPR Art. 7.3) solo actualiza withdrawn_at y withdrawal_reason;
+nunca se borra el registro de consentimiento.
+Fuente: creado por el Motor de Identidad al registrar un actor o en cada actualización de
+la política de privacidad del tenant que requiere nuevo consentimiento explícito.
+Administración: REVOKE DELETE — solo INSERT y UPDATE de la columna withdrawn_at (retirada).
+Solo bAuth puede crear consentimientos; el propio sujeto puede retirarlos vía su dashboard.
+El campo legal_basis=CONSENT requiere consentimiento explícito activo para procesar los datos.
+WORM: semi-WORM — REVOKE DELETE aplicado; withdrawn_at es el único UPDATE permitido operacionalmente.
+Particionada: no.
+Estándar: GDPR Art. 6-7, ISO/IEC 29184:2020, Ley 1174 Bolivia Art. 12-15, NIST SP 800-63-4. T-166.';
 COMMENT ON COLUMN bauth.idn_identity_consent.policy_version IS '[GDPR Art. 7.1] Versión de política vigente al momento del consentimiento.';
 COMMENT ON COLUMN bauth.idn_identity_consent.processing_scope IS '[ISO 29184] Alcances: analytics, marketing, third_party_sharing.';
 COMMENT ON COLUMN bauth.idn_identity_consent.legal_basis IS '[GDPR Art. 6] Base legal. CONSENT solo cuando is_required — CONTRACT para empleados.';
@@ -3216,10 +3477,21 @@ CREATE INDEX IF NOT EXISTS idx_ivc_subject_claims
     ON bauth.idn_identity_vc USING GIN (credential_subject jsonb_path_ops);
 
 COMMENT ON TABLE bauth.idn_identity_vc IS
-  '[W3C VC Data Model 2.0 (Rec mayo 2025)] [eIDAS 2.0 Reglamento UE 2024/1183 Art. 45] [NIST SP 800-63-4 §5] [D00-B08]
-   Ciclo de vida de Verifiable Credentials emitidas o verificadas por bAuth.
-   bAuth como Issuer: VCs de IAL, roles, atributos verificados.
-   vc_format=SD_JWT_VC: selective disclosure — el sujeto revela solo los claims necesarios.';
+'IDENTIDAD D00 | Ciclo de vida de Verifiable Credentials (VC) emitidas o recibidas por bAuth
+(D00-B08). bAuth actúa como Issuer: emite VCs de IAL verificado, roles certificados y atributos
+con firma Ed25519 (Vault). Tres formatos: VC_DATA_MODEL_1_1, VC_DATA_MODEL_2_0, SD_JWT_VC
+(selective disclosure — el sujeto revela solo los claims necesarios para cada verificador).
+vc_uri: URI único de la VC (UNIQUE). issuer_did: DID del emisor (bAuth). subject_did: DID del
+sujeto (opcional). credential_subject: claims JSONB — no almacenar PII en texto plano (usar
+referencias). proof: DataIntegrityProof con eddsa-rdfc-2022 (Ed25519) vía Vault.
+status_list_url/index: soporte para W3C VC Status List 2021 (revocación escalable sin consultar bAuth).
+Fuente: emitidas por el Motor de Identidad al completar un proofing IAL o certificar un rol;
+recibidas desde emisores externos y verificadas en el flujo de autenticación OIDC.
+Administración: el Motor de Identidad (bAuth Issuer) es el único escritor. La revocación
+actualiza status=REVOKED + revocation_reason + revoked_at. Nunca se borran — solo REVOKED.
+WORM: no formalmente; pero status y campos de revocación son el único UPDATE esperado.
+Particionada: no.
+Estándar: W3C VC Data Model 2.0 (2025), eIDAS 2.0 Reglamento UE 2024/1183 Art.45, NIST SP 800-63-4. T-167.';
 COMMENT ON COLUMN bauth.idn_identity_vc.vc_uri IS '[W3C VCDM 2.0 §4.1] Identificador único. UNIQUE.';
 COMMENT ON COLUMN bauth.idn_identity_vc.vc_type IS '[W3C VCDM 2.0 §4.1] Siempre incluye "VerifiableCredential".';
 COMMENT ON COLUMN bauth.idn_identity_vc.credential_subject IS '[W3C VCDM 2.0 §4.1] Claims sobre el sujeto. No almacenar PII en texto plano.';
@@ -3265,11 +3537,20 @@ CREATE TABLE IF NOT EXISTS bauth.idn_attribute_schema (
 );
 
 COMMENT ON TABLE bauth.idn_attribute_schema IS
-  '[T-500] [D98-B01] [SCIM 2.0 RFC 7643 §4] [ISO/IEC 24760-1:2019 §5] [NIST SP 800-162 §3.3]
-   PIP (Policy Information Point): esquema canónico de atributos de identidad.
-   Define atributos válidos para idn_identity_attribute (T-157, D00).
-   classification/display_mask: soporte a control de acceso a level de campo (GAP-D01-01).
-   NULL tenant_id = esquema global del sistema.';
+'PIP D98 | Policy Information Point: esquema canónico de todos los atributos de identidad del
+ecosistema (D98-B01). Permite que idn_identity_attribute (T-157) sea extensible sin hardcode:
+cada atributo válido se define aquí con su tipo, mutabilidad, retorno, clasificación de datos
+y máscara de visualización. Patrón override: tenant_id=NULL = esquema global; tenant_id NOT NULL
+= override/extensión del tenant para ese atributo. classification=PII/SENSITIVE_PII activa
+el field-level access control (GAP-D01-01). display_mask enmascara valores sensibles (ej: CI).
+Fuente: seed de despliegue con los atributos canónicos de identidad (core, contact, professional,
+verification, security, fiscal); extensiones del tenant vía RPC bauth.attribute.schema.define.
+Administración: solo SUPER_ADMIN y SCHEMA_ADMIN pueden definir nuevos atributos globales.
+Los tenants pueden extender (tenant_id NOT NULL) sin afectar el esquema global.
+is_active=false desactiva un atributo sin borrar la FK histórica en T-157.
+WORM: no — is_active y mutability son editables vía migración controlada.
+Particionada: no.
+Estándar: SCIM 2.0 RFC 7643 §4, ISO/IEC 24760-1:2019 §5, NIST SP 800-162 §3.3. T-500.';
 
 -- ======================================================================
 -- T-201 — bauth.idn_access_contract
@@ -3315,11 +3596,20 @@ CREATE INDEX IF NOT EXISTS idx_iac_next_review  ON bauth.idn_access_contract(nex
     WHERE next_review_at IS NOT NULL AND status = 'ACTIVE';
 
 COMMENT ON TABLE bauth.idn_access_contract IS
-  '[T-201] [D01-B05] [ISO 27001:2022 A.9.2.2] [NIST SP 800-53 R5 AC-2] [PCI DSS 4.0 Req 7.2] [SOX §404]
-   Contrato de acceso: registro de gobernanza que documenta QUÉ PASÓ y POR QUÉ se otorgó acceso.
-   WORM parcial: trigger trg_iac_protect_active impide modificar campos de gobernanza una vez aprobado.
-   FK inversa: privilege_atom_grant.contract_id (nullable) apunta aquí. No usa array (anti-patrón).
-   Sujeto: role_id XOR id_atom — CONSTRAINT chk_iac_subject garantiza al menos uno definido.';
+'PRIVILEGIOS D01 | Contrato de acceso: registro de gobernanza que documenta QUÉ acceso se
+otorgó, POR QUÉ (business_justification) y QUIÉN aprobó (approver_id ≠ requester_id — NIST AC-5
+dual control). Tipos: ROLE_ACCESS, ATOM_ACCESS, TEMPORAL_ACCESS, EMERGENCY_ACCESS, DELEGATED_ACCESS.
+Sujeto del acceso: role_id XOR id_atom (chk_iac_subject garantiza al menos uno definido).
+Los grants en privilege_atom_grant.contract_id apuntan aquí como FK inversa (no array — anti-patrón).
+WORM parcial: trigger trg_iac_protect_active bloquea edición de access_type, beneficiary_id,
+requester_id, approver_id, approved_at y business_justification una vez status != DRAFT.
+Fuente: creado por el Motor de Políticas (Rust) al procesar una solicitud de acceso formal;
+contratos EMERGENCY_ACCESS pueden crearse en < 30s (NIST AC-2(j) revocación rápida).
+Administración: requester_id ≠ approver_id siempre. Solo status y next_review_at son actualizables
+post-aprobación. La revocación actualiza status=REVOKED y no borra el contrato (trazabilidad).
+WORM: parcial — campos de gobernanza bloqueados por trigger post-aprobación.
+Particionada: no.
+Estándar: ISO 27001 A.9.2.2, NIST SP 800-53 R5 AC-2, PCI DSS 4.0 Req 7.2, SOX §404. T-201.';
 
 CREATE OR REPLACE FUNCTION bauth.fn_iac_protect_active()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
@@ -3463,12 +3753,23 @@ CREATE INDEX IF NOT EXISTS idx_pag_contrato
     WHERE contract_id IS NOT NULL;
 
 COMMENT ON TABLE bauth.privilege_atom_grant IS
-  '[XACML 3.0 §5.29] [NIST RBAC N3] [ISO 27001 A.5.18] [G-12] [A.65.02 T-170]
-   Grant de átomos de privilegio por usuario (modelo per-user, no por rol genérico — G-09).
-   Modelo 5 columnas G-12: effect (espejo árbol) + general (precedencia) + local (derivado) +
-     access (override) + reassess (elegibilidad CAEP). Ver G-12 §1 para semántica completa.
-   FK compuesta (id_atom, atom_position) DEFERRABLE: garantiza coherencia atómica con T-162.
-   REPLICA IDENTITY FULL: bauth-reactor recibe todos los cambios via WAL → actualiza Redis.';
+'PRIVILEGIOS | Grant de átomos de privilegio por usuario (modelo per-user — G-09). Cada fila
+es la asignación de un átomo (id_atom de T-162) a un usuario específico en un tenant.
+Modelo 5 columnas G-12: effect (espejo del árbol T-162, sincronizado por trigger), general
+(true=árbol manda/false=grant manda), local (NOT general, GENERATED), access (override del
+grant) y reassess (elegibilidad CAEP reactiva — NULL hereda del tenant). La evaluación del
+PDP consulta esta tabla: si general=true → effect decide; si general=false → access decide.
+FK compuesta (id_atom, atom_position) DEFERRABLE: garantiza que atom_position del grant sea
+exactamente el de T-162 al completar la transacción (coherencia atómica con el BitMask).
+bitmask_value precomputado: reconstruye el RolBitMask sin JOIN a T-162 (< 0.5ns).
+REPLICA IDENTITY FULL: bauth-reactor recibe todos los cambios vía WAL → Redis Streams.
+Fuente: creado por el Motor de Roles al procesar un contrato de acceso (T-201) o una
+solicitud directa vía RPC bauth.privilege.grant; seeds iniciales de plantilla en bootstrap.
+Administración: solo el Motor de Roles puede INSERT/UPDATE; revocación actualiza status=REVOKED
+o valid_until al momento actual (< 30s NIST AC-2(j)). SoD verificado por trigger en INSERT.
+WORM: no — el grant es mutable (status, valid_until, access cambian a lo largo del ciclo).
+Particionada: no.
+Estándar: XACML 3.0 §5.29, NIST RBAC N3, ISO 27001 A.5.18, RFC 8935 (CAEP). T-170.';
 
 COMMENT ON COLUMN bauth.privilege_atom_grant.id_atom       IS 'FK a idn_roles_template(id). Nodo DEBE ser tipo=atomo (tiene atom_position).';
 COMMENT ON COLUMN bauth.privilege_atom_grant.atom_position IS 'Copia de idn_roles_template.atom_position. Garantizado por FK compuesta DEFERRABLE.';
@@ -3478,7 +3779,9 @@ COMMENT ON COLUMN bauth.privilege_atom_grant.general       IS '[G-12] true=árbo
 COMMENT ON COLUMN bauth.privilege_atom_grant.local         IS '[G-12] Derivado: NOT general. Columna GENERATED. Solo para legibilidad visual.';
 COMMENT ON COLUMN bauth.privilege_atom_grant.access        IS '[G-12] Override del grant. Forzado a true por trigger cuando general=true. Editable con general=false.';
 COMMENT ON COLUMN bauth.privilege_atom_grant.reassess      IS '[G-12][RFC 8935] Elegibilidad CAEP. NULL=default tenant. true=elegible. false=inmune (break-glass).';
-COMMENT ON COLUMN bauth.privilege_atom_grant.grant_type    IS '[ENUM] STANDARD=normal, JIT=just-in-time con valid_until, BREAKGLASS=emergencia dual-control.';
+COMMENT ON COLUMN bauth.privilege_atom_grant.grant_type    IS '[ENUM] STANDARD=asignación normal (permanente hasta revocación), JIT=just-in-time con ventana temporal válida (valid_from/valid_until), BREAKGLASS=emergencia de acceso dual-control que requiere aprobador_id obligatorio.';
+COMMENT ON COLUMN bauth.privilege_atom_grant.role_id       IS 'FK de contexto al rol conceptual de donde proviene este átomo — permite trazar de qué rol fue otorgado. NULL para átomos de asignación directa (sin rol intermediario). NO es la fuente de verdad del PDP — el PDP evalúa átomos, no roles.';
+COMMENT ON COLUMN bauth.privilege_atom_grant.contract_id   IS 'FK a T-201 idn_access_contract — el contrato de gobernanza que autorizó este grant (ISO 27001 A.9.2.2). NULL para grants de bootstrap o asignaciones sin contrato formal. Permite auditar la trazabilidad de autorización: quién autorizó, qué justificación, cuándo expira el contrato.';
 
 -- ── G-12 CAMBIO 7: Trigger — forzar access=true cuando general=true ───────────────
 -- Garantiza consistencia visual: cuando el árbol manda, access=true indica
@@ -3663,12 +3966,19 @@ CREATE INDEX IF NOT EXISTS idx_paa_grant  ON bauth.privilege_atom_audit(grant_id
 CREATE INDEX IF NOT EXISTS idx_paa_tenant ON bauth.privilege_atom_audit(tenant_id, created_at DESC);
 
 COMMENT ON TABLE bauth.privilege_atom_audit IS
-  '[ISO 27001 A.8.15] [NIST SP 800-53 AU-9] [WORM] [G-01] [A.65.02 T-170b]
-   Registro inmutable de cambios en grants. INSERT-only (WORM).
-   before_row/after_row: snapshot del grant antes y después del cambio.
-   hash_chain BYTEA: SHA-256(prev_hash||grant_id||operation||after_row||created_at).
-   prev_hash BYTEA NULL: enlace a la fila anterior — forma cadena de hash verificable.
-   Particionada por mes para alta volumetría. Poblada por trg_t170_worm (G-01).';
+'PRIVILEGIOS | Registro WORM de todos los cambios en grants de átomos (T-170). Cada fila captura
+la operación (GRANTED/REVOKED/EXPIRED/MODIFIED/STEP_UP/BREAKGLASS), el before_row y after_row
+como JSONB, el performed_by, reason y hash_chain SHA-256 encadenado (bauth_44). Permite
+reconstruir la historia completa de cualquier grant sin JOIN adicional a T-170.
+Complemento de T-176 (privilege_assurance_audit): T-170b registra qué se otorgó/cambió;
+T-176 registra cómo se ejerció en cada request en runtime.
+Fuente: creado exclusivamente por el trigger trg_t170_worm (G-01) en cada INSERT/UPDATE de T-170;
+nunca por INSERT directo. Particionada mensual — job mensual crea partición del mes siguiente.
+Administración: REVOKE UPDATE/DELETE desde PUBLIC y bauth_app_role. Solo el trigger puede escribir.
+hash_chain = SHA-256(prev_hash||grant_id||operation||after_row||created_at), calculado en TX.
+WORM: sí — REVOKE UPDATE/DELETE aplicado; hash-chain por grant_id.
+Particionada: sí — PARTITION BY RANGE (created_at), granularidad mensual.
+Estándar: ISO 27001 A.8.15, NIST SP 800-53 AU-9. T-170b.';
 
 -- Particiones iniciales (3 meses)
 CREATE TABLE IF NOT EXISTS bauth.privilege_atom_audit_2026_07
@@ -3806,13 +4116,20 @@ CREATE INDEX IF NOT EXISTS idx_pra_atom     ON bauth.privilege_resource_atom(id_
 CREATE INDEX IF NOT EXISTS idx_pra_domain   ON bauth.privilege_resource_atom(domain_code, evaluation_path);
 
 COMMENT ON TABLE bauth.privilege_resource_atom IS
-  '[XACML 3.0 PAP] [NIST SP 800-207 §3.3] [G-04] [G-06] [A.65.02 T-171 §8]
-   Tabla PAP (Policy Administration Point) para Kong PEP.
-   Permite a Kong resolver (protocol_type + resource + operation) → id_atom sin consultar bAuth.
-   Kong carga esta tabla al arrancar; recarga via CAEP catalog_change sobre Unix socket.
-   domain_code D01-D12 → FastPath (< 0.5ns). D13-D37 → PolicyPath (consulta bAuth PDP).
-   obligation NOT NULL → Kong verifica required_loa contra sesión en Redis ANTES de PERMIT.
-   Sin mapeo en esta tabla = DENY por defecto (NIST SP 800-207: sin política explícita = denegado).';
+'PRIVILEGIOS | PAP (Policy Administration Point) para Kong PEP: resuelve la tupla
+(protocol_type, resource, operation) → id_atom de T-162 sin consultar bAuth en runtime.
+Permite a Kong decidir PERMIT/DENY/STEP_UP evaluando solo el BitMask del usuario en Redis +
+el obligation (LoA requerida) de esta tabla. domain_code determina el camino de evaluación:
+D01-D12 → FastPath (< 0.5ns, solo BitMask). D13-D37 → PolicyPath (consulta bAuth PDP).
+obligation NOT NULL → Kong verifica current_loa de la sesión Redis ANTES de PERMIT (RFC 9470).
+Sin mapeo en esta tabla = DENY por defecto (sin política explícita = denegado — NIST SP 800-207).
+Fuente: seed de despliegue con los endpoints canónicos de cada daemon; altas nuevas vía
+migración DDL con HITL (añadir un endpoint sin autorización es una brecha de seguridad).
+Administración: Kong carga esta tabla al arrancar y la recarga vía evento CAEP catalog_change
+sobre Unix socket (sin reinicio). Cambios en id_atom requieren revisión de impacto en BitMask.
+WORM: no — status y obligation son actualizables para gestión de ciclo de vida del endpoint.
+Particionada: no.
+Estándar: XACML 3.0 PAP, NIST SP 800-207 §3.3, RFC 9470, ISO 27001 A.5.15. T-171.';
 
 COMMENT ON COLUMN bauth.privilege_resource_atom.obligation IS
   '[G-04] NULL=bit=1 en JWT suficiente. NOT NULL=Kong evalúa LoA antes de PERMIT.
@@ -3859,12 +4176,21 @@ CREATE INDEX IF NOT EXISTS idx_pd_valid_until
     WHERE status = 'ACTIVE';
 
 COMMENT ON TABLE bauth.privilege_delegation IS
-  '[G-08] [A.65.02.01 §6.5] [NIST SP 800-53 AC-2] [ISO 27001 A.8.2]
-   Registro de auditoría de asignaciones de rol temporal (delegaciones D10 runtime).
-   SOLO AUDITORÍA: no modificar para agregar validaciones.
-   Las validaciones viven en T-170 (privilege_atom_grant) y en merge_roles Rust.
-   La vigencia real está en los átomos del rol en T-170 — aquí es solo referencial.
-   Flujo atómico: INSERT privilege_delegation + INSERT privilege_atom_grant en una sola TX.';
+'PRIVILEGIOS D10 | Registro de auditoría de asignaciones de rol temporal entre usuarios.
+SOLO AUDITORÍA — no contiene validaciones: las validaciones de acceso viven en T-170
+(privilege_atom_grant) y en merge_roles Rust. La vigencia real de los átomos está en los
+grants de T-170; valid_from/valid_until aquí son solo referencia documental.
+Responde: "¿por qué tiene este usuario ese rol temporal y quién lo autorizó?". role_id,
+assignee_id, assigned_by, reason, valid_from, valid_until y status son todos obligatorios.
+Flujo atómico: INSERT privilege_delegation + INSERT privilege_atom_grant en una sola TX.
+Fuente: creado por el Motor de Privilegios (Rust) al procesar una solicitud de delegación;
+nunca por INSERT directo del usuario. El job de expiración actualiza status=EXPIRED cuando
+valid_until < now() y revoca los grants correspondientes en T-170.
+Administración: solo ROLE_ADMIN y superior pueden crear delegaciones; assigned_by es el admin
+que tomó la decisión y queda como responsable de la delegación.
+WORM: no — status puede actualizarse a EXPIRED o REVOKED por el reconcile loop.
+Particionada: no.
+Estándar: NIST SP 800-53 AC-2, ISO 27001 A.8.2, NIST AC-6(7). T-172.';
 
 
 -- ======================================================================
@@ -3923,13 +4249,19 @@ CREATE INDEX IF NOT EXISTS idx_po_valid_until
     WHERE status = 'ACTIVE';
 
 COMMENT ON TABLE bauth.privilege_override IS
-  '[A.65.02.01 §6.6] [ISO 27001 A.8.2] [NIST SP 800-53 AC-5]
-   Excepciones de acceso aprobadas con quórum y acotadas en tiempo.
-   DENY_TO_PERMIT: el usuario tenía DENY (o sin grant), se le concede acceso excepcional.
-   PERMIT_TO_DENY: el usuario tenía PERMIT, se le bloquea temporalmente (ej: incidente de seguridad).
-   FK compuesta (id_atom, atom_position) DEFERRABLE garantiza referencia a átomo real.
-   Un solo override activo del mismo tipo por combinación (tenant, átomo, usuario).
-   Jobs de expiración actualizan status a EXPIRED cuando valid_until < now().';
+'PRIVILEGIOS | Excepciones de acceso temporales aprobadas con quórum para situaciones que
+requieren desviarse de la política normal. Dos tipos: DENY_TO_PERMIT (el usuario tenía DENY
+o sin grant — se le concede acceso excepcional temporal) y PERMIT_TO_DENY (el usuario tenía
+PERMIT — se le bloquea por un incidente de seguridad o sanción temporal). FK compuesta
+(id_atom, atom_position) DEFERRABLE garantiza coherencia con el átomo en T-162. UNIQUE
+parcial impide más de un override activo del mismo tipo por (tenant, átomo, usuario).
+Fuente: creado por el Motor de Privilegios (Rust) al procesar una solicitud de excepción
+aprobada por HITL; nunca por INSERT directo del usuario. approver_id es el autorizador.
+Administración: requiere aprobación formal documentada en T-179 (privilege_exception_record).
+El job diario actualiza status=EXPIRED cuando valid_until < now() y revoca el override.
+WORM: no — status puede actualizarse (EXPIRED/REVOKED); valid_until no cambia post-creación.
+Particionada: no.
+Estándar: ISO 27001 A.8.2, NIST SP 800-53 AC-5, NIST AC-2(7). T-173.';
 
 
 -- ======================================================================
@@ -3974,12 +4306,19 @@ CREATE INDEX IF NOT EXISTS idx_paa_created ON bauth.privilege_assurance_audit (c
 REVOKE UPDATE, DELETE ON bauth.privilege_assurance_audit FROM bauth_app_role;
 
 COMMENT ON TABLE bauth.privilege_assurance_audit IS
-  '[G-04] [RFC 9470] [NIST SP 800-63B-4] [A.65.02.01 §DDL-T-176]
-   Auditoría de evaluaciones de obligación LoA realizada por Kong PEP.
-   Crece con cada request — separada de T-170b que crece solo al cambiar un grant.
-   La evaluación de LoA usa current_loa desde Redis (keyed por session_id), nunca desde el JWT.
-   Candidata a particionamiento por fecha (PARTITION BY RANGE created_at) con retención propia.
-   REVOKE UPDATE/DELETE: Kong solo puede insertar, nunca modificar el registro.';
+'PRIVILEGIOS | Auditoría de evaluaciones de obligación LoA realizadas por Kong PEP. Cada
+fila es una evaluación: el grant_id que se está ejerciendo, el resource_id protegido,
+required_loa (de T-171.obligation), presented_loa (de la sesión Redis, no del JWT),
+outcome (PERMIT/STEP_UP_REQUIRED/DENIED) y la sesión donde ocurrió.
+Complemento de T-170b: T-170b registra QUÉ se otorgó/cambió; T-176 registra CÓMO se
+ejerció cada grant en runtime. Crece con cada request evaluado → distinto ciclo de retención.
+Fuente: creada por Kong PEP en cada request cuyo resource en T-171 tenga obligation IS NOT NULL;
+nunca por bAuth directamente.
+Administración: REVOKE UPDATE/DELETE desde bauth_app_role — Kong solo puede insertar.
+La evaluación de LoA usa current_loa desde Redis (keyed por session_id), nunca desde el JWT.
+WORM: semi-WORM — REVOKE UPDATE/DELETE aplicado.
+Particionada: no (candidata a PARTITION BY RANGE created_at por alta volumetría).
+Estándar: RFC 9470 (Step-Up Auth), NIST SP 800-63B-4, ISO 27001 A.8.15. T-176.';
 
 
 -- ======================================================================
@@ -4025,12 +4364,20 @@ CREATE INDEX IF NOT EXISTS idx_per_tenant_active
     WHERE status = 'ACTIVE';
 
 COMMENT ON TABLE bauth.privilege_exception_record IS
-  '[A.65.02 T-179] [G-14] [ISO 27001 A.8.2] [NIST SP 800-53 AC-5]
-   Gobernanza de excepciones a políticas: documenta el CONTEXTO de aprobación detrás de un
-   override en T-173. Política violada, tipo, justificación (≥ 50 chars), aprobador,
-   valid_until y review_at son obligatorios — ISO 27001 exige toda excepción documentada.
-   El trigger SoD en T-170 consulta esta tabla antes de rechazar un INSERT por conflicto.
-   Job diario marca EXPIRED y revoca el override asociado en T-173 cuando valid_until < now().';
+'PRIVILEGIOS | Registro de gobernanza de excepciones a políticas (D01 excepción formal).
+Documenta el CONTEXTO de aprobación detrás de un override en T-173: qué política se violó
+(policy_violated), el tipo de excepción (SOD_EXCEPTION/TIER_EXCEPTION/SCOPE_EXCEPTION/OTHER),
+la justificación de negocio (≥ 50 chars obligatorios — evita textos vacíos), el aprobador
+y las fechas de vigencia y revisión. ISO 27001 exige toda excepción documentada con aprobación.
+El trigger SoD en T-170 (fn_check_sod_on_grant) consulta esta tabla ANTES de rechazar un
+INSERT por conflicto SoD: si hay excepción activa para (usuario, átomo, tipo), permite el grant.
+Fuente: creada por el Motor de Privilegios al aprobar una excepción SoD mediante HITL;
+nunca por INSERT directo del usuario. override_id y grant_id son referencias opcionales.
+Administración: solo SUPER_ADMIN puede crear excepciones SOD_EXCEPTION; los demás tipos
+requieren TENANT_ADMIN con justificación. Job diario expira y revoca en T-173 cuando due.
+WORM: no — status puede actualizarse (EXPIRED/REVOKED por el reconcile loop).
+Particionada: no.
+Estándar: ISO 27001 A.8.2, NIST SP 800-53 AC-5, PCI DSS 7.2.4. T-179.';
 
 
 -- ╔══════════════════════════════════════════════════════════════════════╗
@@ -4072,12 +4419,24 @@ CREATE INDEX IF NOT EXISTS idx_ssl_active      ON bauth.ses_session_log (tenant_
     WHERE terminated_at IS NULL;
 
 COMMENT ON TABLE bauth.ses_session_log IS
-  '[NIST SP 800-63B-4 §7] [NIST SP 800-53 AU-12] [ISO 27001:2022 A.8.15] [PCI DSS 4.0 Req 10.2.1] [A.65.02 T-181] ✅ G-16
-   Esqueleto persistente mínimo de sesión para forensia post-incidente y cumplimiento normativo.
-   Redis es la fuente de sesión activa (sub-ms). Esta tabla responde preguntas de forensia
-   que Redis no puede responder después de un reinicio o failover.
-   loa_initial: LoA al inicio; loa_peak: LoA máximo alcanzado (step-up RFC 9470).
-   termination_reason=CAEP_REVOKE: escrito por el daemon cuando CAEP receiver procesa session-revoked.';
+'SESIÓN | Esqueleto persistente mínimo de sesión para forensia post-incidente y cumplimiento.
+Redis es la fuente de autoridad de sesión activa (< 1ms). Esta tabla complementa Redis con
+historia que sobrevive reinicios y failovers. Captura: user_id, tenant_id, auth_method,
+loa_initial (LoA al inicio de la sesión), loa_peak (LoA máximo alcanzado por step-up RFC 9470),
+ip_address, user_agent, started_at, last_active_at y termination_reason.
+termination_reason=CAEP_REVOKE: escrito por el daemon cuando el CAEP receiver procesa el
+evento session-revoked — conecta el evento CAEP con la sesión terminada para forensia.
+Fuente: creada por el Motor de Sesiones (Rust) al iniciar una sesión autenticada; actualizada
+en cada step-up y al terminar. Nunca por INSERT directo del usuario.
+Administración: solo el Motor de Sesiones puede escribir. Auditoría IGA puede leer.
+La sesión en Redis y el esqueleto en esta tabla se crean en la misma TX (ACID).
+WORM: no — last_active_at, loa_peak y terminated_at se actualizan durante la sesión.
+Particionada: no (candidata por started_at si el volumen de sesiones es muy alto).
+Estándar: NIST SP 800-63B-4 §7, NIST SP 800-53 AU-12, ISO 27001 A.8.15, PCI DSS Req 10.2.1. T-181.';
+COMMENT ON COLUMN bauth.ses_session_log.loa_initial        IS 'Level of Assurance al inicio de la sesión — refleja el AAL del método de autenticación usado para abrirla (AAL1/AAL2/AAL3). Immutable: fijado al crear la sesión y no cambia aunque haya step-up posterior.';
+COMMENT ON COLUMN bauth.ses_session_log.loa_peak           IS 'LoA máximo alcanzado durante la sesión tras step-up (RFC 9470). Inicia igual a loa_initial; el Motor de Sesiones lo actualiza si el usuario completa un step-up exitoso. El PDP puede requerir loa_peak=AAL3 para operaciones críticas.';
+COMMENT ON COLUMN bauth.ses_session_log.termination_reason IS 'Razón de fin de sesión: USER_LOGOUT (cierre voluntario), ADMIN_REVOKE (cierre administrativo), TIMEOUT (inactividad), CAEP_REVOKE (señal de revocación CAEP recibida), STEP_UP_FAILED (fallo de elevación forzada), CONCURRENT_LIMIT (límite de sesiones concurrentes superado).';
+COMMENT ON COLUMN bauth.ses_session_log.auth_method        IS 'Código del método de autenticación usado para iniciar la sesión — corresponde a un código de T-335 auth_method (ej. WEBAUTHN_PASSWORDLESS, TOTP). Determina el loa_initial. El step-up posterior no cambia este campo.';
 
 
 -- ======================================================================
@@ -4121,11 +4480,21 @@ CREATE INDEX IF NOT EXISTS idx_scel_subject  ON bauth.ses_caep_event_log (subjec
 REVOKE UPDATE, DELETE ON bauth.ses_caep_event_log FROM bauth_app_role;
 
 COMMENT ON TABLE bauth.ses_caep_event_log IS
-  '[RFC 8935] [RFC 9493] [NIST SP 800-53 AU-12] [ISO 27001:2022 A.8.15] [A.65.02 T-191] ✅ G-25
-   Log WORM append-only de cada evento CAEP recibido por el receptor bAuth.
-   grants_affected: UUIDs de T-170 (privilege_atom_grant) suspendidos/revocados por el evento.
-   Conecta la señal de revocación con la acción concreta del PDP — imprescindible para forensia.
-   idx_scel_pending alimenta el job de reintento para eventos RECEIVED/PROCESSING/FAILED.';
+'SESIÓN | Log WORM append-only de cada evento CAEP recibido por el receptor bAuth (SSF Receiver).
+Captura: event_type (session-revoked, credential-change, risk-level-change, etc.), subject_id,
+transmitter_id, event_payload completo, processing_status (RECEIVED→PROCESSING→APPLIED/FAILED/IGNORED)
+y grants_affected (UUIDs de T-170 suspendidos/revocados como consecuencia del evento).
+grants_affected conecta la señal de revocación externa con la acción concreta del PDP —
+sin esta columna sería imposible forensiar qué grants fueron afectados por una señal CAEP.
+Fuente: creada por el CAEP Receiver (Rust) al recibir un JWT de evento sobre Unix socket;
+nunca por INSERT directo. El procesador async lee events con idx_scel_pending.
+Administración: REVOKE UPDATE/DELETE — solo el CAEP Receiver puede insertar. El Motor de Políticas
+actualiza processing_status al procesar (RECEIVED → APPLIED/FAILED). processed_at se llena al procesar.
+WORM: sí — REVOKE UPDATE/DELETE aplicado desde bauth_app_role.
+Particionada: no (candidata por received_at si el volumen de eventos CAEP es alto).
+Estándar: RFC 8935, RFC 9493 (CAEP), NIST SP 800-53 AU-12, ISO 27001 A.8.15. T-191.';
+COMMENT ON COLUMN bauth.ses_caep_event_log.grants_affected  IS 'Array de UUIDs de T-170 privilege_atom_grant suspendidos o revocados como consecuencia de este evento CAEP. NULL mientras el evento está en estado RECEIVED/PROCESSING. Permite auditar qué accesos concretos fueron impactados por cada señal de revocación externa.';
+COMMENT ON COLUMN bauth.ses_caep_event_log.processing_status IS 'Estado del procesamiento del evento por el Motor de Políticas: RECEIVED (recibido, en cola), PROCESSING (siendo evaluado), APPLIED (política aplicada — acción tomada), FAILED (error en procesamiento — event en cola de reintentos), IGNORED (evento recibido pero ninguna política T-180 aplicó).';
 
 
 -- ======================================================================
@@ -4153,11 +4522,19 @@ CREATE TABLE IF NOT EXISTS bauth.ses_ssf_stream (
 );
 
 COMMENT ON TABLE bauth.ses_ssf_stream IS
-  '[OpenID SSF 1.0 Final] [CAEP 1.0 §3] [A.65.02 T-192] ✅ G-26
-   Configuración de streams SSF para transmisión de eventos CAEP a receivers externos.
-   auth_vault_path: ruta en Vault del token de autenticación para ese receiver (nunca el valor).
-   El daemon carga esta tabla al arrancar y recarga vía CAEP sobre Unix socket.
-   Permite agregar un nuevo receiver (SIEM, Kong) sin recompilar ni reiniciar el daemon.';
+'SESIÓN | Configuración de streams SSF (Shared Signals Framework) para transmisión de eventos
+CAEP a receivers externos. bAuth actúa como SSF Transmitter: publica eventos de sesión,
+credencial y riesgo a SIEM (Wazuh), Kong PEP y otros receptores configurados aquí.
+Campos clave: receiver_endpoint (URL/socket del receptor), delivery_method (PUSH/POLL),
+event_types (filtro de tipos de evento), auth_vault_path (ruta en Vault del token — nunca el
+valor directamente en la BD), error_count y last_delivered_at para diagnóstico operativo.
+Fuente: creado por HITL al registrar un nuevo receptor SSF (SIEM, Kong); el daemon carga
+esta tabla al arrancar y recarga vía evento CAEP catalog_change sobre Unix socket.
+Administración: solo SUPER_ADMIN puede crear/eliminar streams. El daemon bAuth es el
+único writer de last_delivered_at y error_count. Permite agregar un receptor sin recompilar.
+WORM: no — status, error_count y last_delivered_at son actualizables operacionalmente.
+Particionada: no.
+Estándar: OpenID SSF 1.0 Final, CAEP 1.0 §3, RFC 8935. T-192.';
 
 -- ======================================================================
 -- T-193 — bauth.ses_ssf_delivery_log
@@ -4188,10 +4565,18 @@ CREATE INDEX IF NOT EXISTS idx_ssdl_failing
 REVOKE UPDATE, DELETE ON bauth.ses_ssf_delivery_log FROM bauth_app_role;
 
 COMMENT ON TABLE bauth.ses_ssf_delivery_log IS
-  '[OpenID SSF 1.0 Final] [A.65.02 T-193] ✅ G-26
-   Log WORM append-only de intentos de entrega por stream SSF. Una fila por intento.
-   Permite al admin saber si un receiver está caído (delivery_status=FAILED, retry_count alto).
-   idx_ssdl_failing alimenta el job de reintento con backoff exponencial.';
+'SESIÓN | Log WORM append-only de cada intento de entrega de un evento CAEP a un stream SSF
+(T-192). Una fila por intento: stream_id, caep_event_id (FK al evento original en T-191),
+event_type, delivered_at, delivery_status (SUCCESS/FAILED/RETRYING/ABANDONED), http_status
+y retry_count. retry_count alto + FAILED indica un receiver caído o con credenciales incorrectas.
+ABANDONED: el evento superó el máximo de reintentos — operador debe investigar.
+Fuente: creada por el SSF Transmitter (bAuth, Rust) en cada intento de entrega; nunca por
+INSERT directo del usuario. El job de reintentos lee idx_ssdl_failing con backoff exponencial.
+Administración: REVOKE UPDATE/DELETE — solo el SSF Transmitter puede insertar. El administrador
+puede leer para diagnosticar fallos; idx_ssdl_failing alimenta el dashboard de streams.
+WORM: sí — REVOKE UPDATE/DELETE aplicado.
+Particionada: no (candidata por delivered_at si el volumen de entregas es muy alto).
+Estándar: OpenID SSF 1.0 Final, RFC 8935. T-193.';
 
 
 
@@ -4239,12 +4624,21 @@ CREATE INDEX IF NOT EXISTS idx_acc_tenant_active
     WHERE status = 'ACTIVE';
 
 COMMENT ON TABLE bauth.aud_certification_campaign IS
-  '[NIST SP 800-53 AC-2(4)] [ISO 27001 A.5.18 / A.8.2] [PCI DSS 4.0 Req 7.2] [A.65.02 T-177] ✅ G-13
-   Cabecera de campaña de certificación de accesos IGA.
-   Define alcance (TENANT/USER/ROLE/ATOM), tipo (QUARTERLY/ANNUAL/OFFBOARDING/INCIDENT/SOD_REVIEW),
-   ventana (started_at → due_date) y responsable.
-   WORM: INSERT only; cierre → UPDATE status=COMPLETED.
-   Job cron la crea trimestralmente para todos los tenants activos. Fuente que dispara revisiones en T-178.';
+'AUDITORÍA IGA | Cabecera de campaña de certificación periódica de accesos (Identity Governance &
+Administration). Una fila por campaña: define tipo (QUARTERLY/ANNUAL/OFFBOARDING/INCIDENT/SOD_REVIEW),
+alcance (TENANT/USER/ROLE/ATOM con scope_id opcional), ventana de revisión (started_at → due_date),
+responsable (initiated_by) y estado (ACTIVE/COMPLETED/CANCELLED/OVERDUE). Es la cabecera del
+workflow IGA: cada campaña genera N filas en T-178 (una por grant bajo revisión). Una campaña
+SOD_REVIEW la dispara el detector de conflictos cuando detecta drift en la matriz SoD.
+Fuente: el job cron bAuth (fn_launch_quarterly_campaign) la crea automáticamente para todos los
+tenants activos; también puede crearse vía RPC bauth.iga.campaign.create por SECURITY_ADMIN.
+Administración: solo SECURITY_ADMIN y SUPER_ADMIN pueden crear/cancelar campañas; el cierre
+automático (status=COMPLETED) lo ejecuta el daemon al recibir la última decisión de T-178;
+status=OVERDUE lo escribe el job de expiración cuando due_date < now() y status=ACTIVE.
+WORM: no — status es mutable operacionalmente (ACTIVE→COMPLETED/CANCELLED/OVERDUE); la evidencia
+inmutable de cada decisión vive en T-178.
+Particionada: no (candidata por started_at si los tenants son muy numerosos).
+Estándar: NIST SP 800-53 AC-2(4)/AC-11, ISO 27001 A.5.18/A.8.2, PCI DSS 4.0 Req 7.2. T-177.';
 
 
 -- ======================================================================
@@ -4277,11 +4671,21 @@ CREATE INDEX IF NOT EXISTS idx_acr_campaign ON bauth.aud_certification_review (c
 CREATE INDEX IF NOT EXISTS idx_acr_reviewer ON bauth.aud_certification_review (reviewer_id, reviewed_at DESC);
 
 COMMENT ON TABLE bauth.aud_certification_review IS
-  '[NIST SP 800-53 AC-2(7)] [ISO 27001 A.5.18 / A.8.2] [PCI DSS 4.0 Req 7.2] [A.65.02 T-178] ✅ G-13
-   Evidencia auditable de revisión IGA — una fila por (campaña, grant).
-   decision=REVOKE escribe revocation_at y dispara UPDATE en T-170 status=REVOKED (trigger o daemon).
-   Esta tabla es la que presenta el auditor ISO 27001 como prueba de revisión periódica de accesos (A.8.2).
-   justification obligatoria cuando decision IN (REVOKE, ESCALATE).';
+'AUDITORÍA IGA | Evidencia auditable de revisión de accesos — una fila por (campaña, grant) revisado.
+Para cada grant del alcance de la campaña (T-177), el revisor registra su decisión: CERTIFY (acceso
+válido), REVOKE (eliminar acceso), ESCALATE (subir a aprobador superior con escalated_to) o DEFER
+(postponer con nueva fecha). decision=REVOKE escribe revocation_at y dispara el daemon que actualiza
+T-170 privilege_atom_grant a status=REVOKED < 24h. justification es obligatoria para REVOKE y
+ESCALATE (constraint chk_acr_justification). Esta tabla ES la prueba que presenta el CISO al auditor
+ISO 27001 para demostrar revisión periódica de accesos (A.8.2 Access Rights Review).
+Fuente: generada automáticamente al abrirse una campaña en T-177: el daemon crea una fila por cada
+grant activo en el alcance; la fila nace con decision=NULL y se actualiza cuando el revisor decide.
+Administración: los revisores escriben decision, justification y reviewed_at vía RPC
+bauth.iga.review.decide; solo SECURITY_ADMIN puede reasignar reviewer_id; las filas con
+decision=REVOKE son inmutables una vez procesadas (el revocador registra un hash WORM en T-152).
+WORM: no formalmente, pero las filas con decision son inmutables de facto por contrato de auditoría.
+Particionada: no (candidata por campaign_id si los grants son masivos).
+Estándar: NIST SP 800-53 AC-2(7)/AC-11, ISO 27001 A.5.18/A.8.2, PCI DSS 4.0 Req 7.2, SOX §302. T-178.';
 
 
 -- ╔══════════════════════════════════════════════════════════════════════╗
@@ -4329,12 +4733,29 @@ CREATE INDEX IF NOT EXISTS idx_rp_tenant_event
     WHERE is_active = true;
 
 COMMENT ON TABLE bauth.ses_risk_policy IS
-  '[NIST SP 800-207 §3.3] [NIST SP 800-53 AC-25] [CAEP 1.0 §5] [A.65.02 T-180] ✅ G-15
-   Reglas de política de riesgo adaptativo por tenant. Define QUÉ HACE el PDP al recibir un evento CAEP.
-   condition JSONB: expresión evaluada contra el payload del evento ({risk_score: {gte: 70}}).
-   priority: el PDP evalúa en orden ASC y aplica la primera regla que coincide (menor = mayor prioridad).
-   Reemplaza reglas hardcodeadas en el daemon — editable en runtime sin recompilar.
-   Seeds por defecto: REVOKE en score≥85, STEP_UP AAL2 en score≥70, SUSPEND en device incompliant.';
+'RIESGO ADAPTATIVO | Reglas de política de respuesta a eventos CAEP por tenant — tabla de decisión del PDP
+para Identity Threat Detection and Response (ITDR). Cada fila define: qué evento CAEP dispara la regla
+(trigger_event), bajo qué condición (condition JSONB evaluada contra el payload), qué acción tomar
+(action: STEP_UP/REVOKE/SUSPEND/NOTIFY/REQUIRE_MFA), y si la acción es STEP_UP cuál es el LoA
+requerido (required_loa). El PDP evalúa las reglas del tenant en orden ASC de priority y aplica la
+primera que coincide ("first-match"). Esta tabla reemplaza las reglas hardcodeadas en el daemon — es
+editable en runtime por SECURITY_ADMIN sin recompilar, lo que permite ajustar la respuesta al riesgo
+sin despliegues. condition JSONB: expresión tipo {risk_score: {gte: 70}} evaluada en Rust por el motor
+de expresiones ITDR (evalúa vs el payload del evento CAEP recibido en T-191).
+Fuente: seed de despliegue con 3 reglas por defecto para todos los tenants (REVOKE en score≥85,
+STEP_UP AAL2 en score≥70, SUSPEND en device_compliance=false); SECURITY_ADMIN puede agregar/pausar
+reglas personalizadas vía RPC bauth.itdr.policy.create.
+Administración: solo SECURITY_ADMIN y SUPER_ADMIN pueden crear/modificar/pausar reglas (is_active);
+el PDP carga la tabla al arrancar y la recarga por señal al detectar cambios; updated_at trackea la
+última modificación para invalidación de cache del PDP.
+WORM: no — is_active y condition son mutables (administración de políticas en runtime).
+Particionada: no.
+Estándar: NIST SP 800-207 §3.3, NIST SP 800-53 AC-25, RFC 8935/RFC 9493 CAEP, ISO 27001 A.8.16. T-180.';
+COMMENT ON COLUMN bauth.ses_risk_policy.condition      IS 'Expresión JSONB evaluada contra el payload del evento CAEP recibido. Sintaxis: {campo: {operador: valor}} — ej. {risk_score: {gte: 70}}, {device_compliance: {eq: false}}. Evaluada por el motor de expresiones ITDR en Rust.';
+COMMENT ON COLUMN bauth.ses_risk_policy.priority       IS 'Orden de evaluación: el PDP evalúa las reglas del tenant ASC por priority y aplica la primera que coincide. Menor número = mayor prioridad. Las reglas globales (tier_id NULL) tienen priority 1000 por convención.';
+COMMENT ON COLUMN bauth.ses_risk_policy.required_loa   IS 'LoA requerido para el step-up (AAL1/AAL2/AAL3). Solo presente cuando action=STEP_UP; NULL si la acción no requiere elevación (constraint chk_rp_loa). Determina qué saga de step-up se activa.';
+COMMENT ON COLUMN bauth.ses_risk_policy.trigger_event  IS 'Tipo de evento CAEP que activa la evaluación de esta regla — debe coincidir exactamente con el event_type recibido en T-191 ses_caep_event_log.';
+COMMENT ON COLUMN bauth.ses_risk_policy.tier_id        IS 'Tier de rol al que aplica esta regla (ej. SYS, BIZ_N1). NULL = aplica a todos los tiers del tenant. Permite reglas más estrictas para tiers de mayor privilegio.';
 
 
 -- ╔══════════════════════════════════════════════════════════════════════╗
@@ -4385,12 +4806,30 @@ CREATE INDEX IF NOT EXISTS idx_pjr_active_expiry
     WHERE status = 'ACTIVE';
 
 COMMENT ON TABLE bauth.pam_jit_request IS
-  '[NIST SP 800-53 AC-6(9)] [ISO 27001 A.5.18] [PCI DSS 4.0 Req 7.2.6] [A.65.02 T-182] ✅ G-17
-   Solicitud de acceso temporal privilegiado (Zero Standing Privilege). Cabecera del workflow JIT.
-   justification >= 50 chars obligatorio. requested_duration <= max_duration del tier.
-   niveles_requeridos: cuántos niveles de aprobación secuencial exige el tier del acceso solicitado.
-   Al completar todos los niveles en T-182b → daemon crea grant en T-170 con valid_from/valid_until.
-   Job de expiración revisa cada 60s filas status=ACTIVE con valid_until < now().';
+'PAM JIT | Cabecera de solicitud de acceso temporal privilegiado (Zero Standing Privilege). Implementa
+el patrón PAM JIT donde el usuario no tiene privilegios de forma permanente — los solicita, justifica,
+y los obtiene por tiempo limitado tras aprobación multi-nivel. Una fila por solicitud con el ciclo de
+vida completo: PENDING → APPROVED → ACTIVE → EXPIRED/REVOKED (o REJECTED desde PENDING).
+Campos clave: target_role_id (qué rol temporal), target_atoms (lista opcional de átomos específicos),
+justification (mínimo 50 chars — constraint chk_pjr_justification), requested_duration (no puede
+exceder max_duration del tier — constraint chk_pjr_duration), niveles_requeridos (cuántas aprobaciones
+secuenciales en T-182b requiere este tier), grant_id (FK a T-170 creada al aprobar), valid_from/
+valid_until (ventana de acceso activo). El job de expiración en Rust revisa cada 60s las filas
+status=ACTIVE con valid_until < now() y escribe expired_at + revoca el grant en T-170.
+Fuente: solo vía RPC bauth.jit.request.create por el requester autenticado; nunca por INSERT directo.
+El daemon valida tier, duración máxima y SoD antes de insertar; crea las N filas en T-182b
+(una por nivel requerido) y notifica al aprobador de nivel 1.
+Administración: el requester solo puede crear y leer sus propias solicitudes; los aprobadores de cada
+nivel escriben en T-182b; solo PAM_ADMIN puede revocar manualmente (revoked_by + revoked_at).
+WORM: no — el campo status es mutable a lo largo del ciclo de vida; el historial completo de
+transiciones de estado se registra en T-170b (privilege_grant_audit_log).
+Particionada: no (candidata por requested_at si el volumen JIT es alto en entornos enterprise).
+Estándar: NIST SP 800-53 AC-6(9)/AC-2(6), ISO 27001 A.5.18/A.8.2, PCI DSS 4.0 Req 7.2.6. T-182.';
+COMMENT ON COLUMN bauth.pam_jit_request.target_atoms       IS 'Array opcional de UUIDs de átomos específicos a solicitar dentro de target_role_id. NULL = solicita el rol completo. Permite JIT granular: solo los átomos necesarios.';
+COMMENT ON COLUMN bauth.pam_jit_request.niveles_requeridos IS 'Cuántos niveles de aprobación secuencial exige el tier del acceso solicitado (1-5). El daemon crea esta cantidad de filas en T-182b pam_jit_approval al insertar la solicitud.';
+COMMENT ON COLUMN bauth.pam_jit_request.max_duration       IS 'Duración máxima permitida por la política del tier del rol solicitado. La constraint chk_pjr_duration verifica requested_duration ≤ max_duration al crear la solicitud.';
+COMMENT ON COLUMN bauth.pam_jit_request.grant_id           IS 'FK a T-170 privilege_atom_grant creada al aprobar todos los niveles. NULL mientras status IN (PENDING, APPROVED, REJECTED). El grant tiene valid_from/valid_until de la ventana aprobada.';
+COMMENT ON COLUMN bauth.pam_jit_request.justification      IS 'Justificación obligatoria del acceso — mínimo 50 caracteres (constraint chk_pjr_justification). Es la evidencia forense del por qué se necesitó el acceso privilegiado.';
 
 
 -- ======================================================================
@@ -4425,12 +4864,28 @@ CREATE INDEX IF NOT EXISTS idx_pja_approver_pending
     WHERE decision IS NULL AND notified_at IS NOT NULL;
 
 COMMENT ON TABLE bauth.pam_jit_approval IS
-  '[NIST SP 800-53 AC-6(9)] [ISO 27001 A.5.18] [A.65.02 T-182b] ✅ G-17
-   Aprobación secuencial multi-level de solicitudes JIT. Una fila por level.
-   Nivel N+1 se notifica (notified_at=now()) solo cuando Nivel N tiene decision=APPROVED.
-   Cualquier level con decision=REJECTED → solicitud queda REJECTED; niveles superiores no son notificados.
-   required_role: qué rol puede decidir en ese level (ej. GERENTE_IT para level 1, CISO para level 2).
-   Permite 1, 2 o N aprobadores sin cambiar el DDL — solo se agrega una fila de level.';
+'PAM JIT | Aprobaciones secuenciales multi-nivel de una solicitud JIT (T-182). Una fila por nivel de
+aprobación por solicitud (UNIQUE request_id + level). Implementa la cadena de aprobación: el Nivel 1
+se notifica (notified_at) al crear la solicitud; el Nivel N+1 se notifica solo cuando el Nivel N
+registra decision=APPROVED — garantizando que los aprobadores no reciban notificaciones prematuras.
+Si cualquier nivel registra decision=REJECTED: la solicitud pasa a REJECTED y ningún nivel superior
+es notificado ni puede decidir. Campos clave: required_role (qué rol puede aprobar en este nivel —
+ej. GERENTE_IT en level 1, CISO en level 2), approver_id (quién decidió realmente — puede diferir
+de required_role si hay delegación), notes (justificación opcional del aprobador). La cantidad de
+niveles se configura por tier en T-182 (niveles_requeridos) — el DDL no necesita cambiar para
+agregar un nivel nuevo, solo insertar una fila adicional con el level siguiente.
+Fuente: creadas automáticamente por el daemon al crear la solicitud en T-182 — una fila por nivel
+requerido, con decision=NULL y notified_at=NULL (excepto nivel 1 que recibe notificación inmediata).
+Administración: el aprobador autorizado escribe decision + approver_id + decision_at vía RPC
+bauth.jit.approval.decide; PAM_ADMIN puede reasignar approver_id si el aprobador no está disponible.
+WORM: no — decision es NULL hasta que el aprobador actúa; una vez registrada no debe modificarse
+(integridad del proceso de aprobación), pero el DDL permite actualización para correcciones HITL.
+Particionada: no.
+Estándar: NIST SP 800-53 AC-6(9)/AC-5, ISO 27001 A.5.18, NIST SP 800-53 AR-4. T-182b.';
+COMMENT ON COLUMN bauth.pam_jit_approval.level         IS 'Número de nivel secuencial (1-N). El nivel 1 es el primer aprobador en la cadena; niveles superiores solo son notificados cuando todos los inferiores aprueban. El total de niveles se define en T-182 pam_jit_request.niveles_requeridos.';
+COMMENT ON COLUMN bauth.pam_jit_approval.required_role IS 'Código del rol que tiene autoridad para aprobar en este nivel — ej. GERENTE_IT (level 1), CISO (level 2). El motor valida que approver_id tenga este rol activo antes de aceptar la decisión. No es FK física para permitir delegación temporal.';
+COMMENT ON COLUMN bauth.pam_jit_approval.decision      IS 'Decisión del aprobador: APPROVED (concede paso al siguiente nivel) o REJECTED (cancela la solicitud completa y notifica). NULL = pendiente de decisión. Una vez escrita, el daemon no la sobreescribe — solo PAM_ADMIN puede corregir vía HITL.';
+COMMENT ON COLUMN bauth.pam_jit_approval.notified_at   IS 'Cuándo fue notificado el aprobador requerido de este nivel. NULL = aún no notificado (este nivel espera aprobación de niveles previos). El nivel 1 se notifica al crear la solicitud; niveles N+1 al aprobar el nivel N.';
 
 
 -- ======================================================================
@@ -4490,12 +4945,26 @@ CREATE INDEX IF NOT EXISTS idx_pbga_review_pending
     WHERE post_review_at IS NULL;
 
 COMMENT ON TABLE bauth.pam_breakglass_activation IS
-  '[NIST SP 800-53 AC-2(4) / AC-5 / AC-6(9)] [ISO 27001 A.5.18] [SOX §302] [A.65.02 T-185] ✅ G-20
-   Ciclo de vida de activaciones break-glass. Estados: PENDING_APPROVAL → ACTIVE → DEACTIVATED → REVIEWED.
-   Dual control (chk_pbga_dual_control): status=ACTIVE solo alcanzable cuando un segundo SU aprueba.
-   auth_method debe ser AAL3: MTLS_X509, WEBAUTHN_ROAMING, WEBAUTHN_PLATFORM.
-   post_review_due_at = activated_at + 24h (NIST AC-2(4)). TTL de activación: 4h (job breakglass_expiry.rs).
-   grant_id referencia grant con grant_type=BREAKGLASS en T-170 (invariante D1 de G-20).';
+'PAM BREAKGLASS | Ciclo de vida completo de activaciones de acceso de emergencia (break-glass). Cuando
+un incidente crítico requiere acceso de superusuario inmediato fuera del workflow JIT normal, este
+mecanismo permite la activación con dual control obligatorio y revisión post-incidente.
+Estados: PENDING_APPROVAL → ACTIVE → DEACTIVATED → REVIEWED. Invariantes de seguridad:
+(1) chk_pbga_dual_control: status=ACTIVE solo alcanzable con approver_id ≠ NULL y approved_at ≠ NULL
+— nadie puede auto-aprobarse su propio break-glass; (2) auth_method limitado a AAL3 obligatorio:
+MTLS_X509, WEBAUTHN_ROAMING, WEBAUTHN_PLATFORM — nunca password sola; (3) auth_loa ∈ {2,3}
+(chk_pbga_auth_loa); (4) post_review_due_at = activated_at + 24h (chk_pbga_review_due); el CISO
+debe revisar el incidente en 24h. TTL de activación: 4h forzado por job breakglass_expiry.rs
+(escribe deactivated_at + revoca el grant BREAKGLASS en T-170). Cada activación genera alerta SIEM
+(Wazuh) instantánea via T-191 (evento CAEP session-revoked no esperado). incident_ref enlaza al
+ticket del sistema de gestión de incidentes externo para correlación.
+Fuente: solo vía RPC bauth.pam.breakglass.activate por el usuario con rol BREAKGLASS_USER;
+el daemon valida que no exista ya una activación activa para el mismo tenant+grant (uq_pbga_active_grant).
+Administración: el daemon escribe approved_at al recibir confirmación del segundo SU; post_review_at
+y post_review_notes los escribe el CISO en la revisión post-incidente vía bauth.pam.breakglass.review.
+WORM: no — el ciclo de vida requiere mutabilidad de status; el registro completo de acciones ejercidas
+vive en T-184 pam_session_record como evidencia forense inmutable.
+Particionada: no.
+Estándar: NIST SP 800-53 AC-2(4)/AC-5/AC-6(9), ISO 27001 A.5.18/A.9.4.2, SOX §302, PCI DSS Req 8.7. T-185.';
 
 
 -- ======================================================================
@@ -4537,12 +5006,23 @@ CREATE INDEX IF NOT EXISTS idx_pcref_rotation ON bauth.pam_credential_ref (next_
 CREATE INDEX IF NOT EXISTS idx_pcref_owner ON bauth.pam_credential_ref (owner_id, owner_type);
 
 COMMENT ON TABLE bauth.pam_credential_ref IS
-  '[NIST SP 800-53 IA-5(1)] [CIS § Credential Management] [PCI DSS 4.0 Req 8.3] [A.65.02 T-183] ✅ G-18
-   Inventario de credenciales privilegiadas. Solo metadatos y ruta en Vault (vault_path).
-   El valor real vive en Vault; esta tabla es el panel de control de la rotación.
-   owner_type=NHI conecta con T-186 idn_roles_nhi_identity — los daemons también tienen credenciales.
-   Job de rotación usa idx_pcref_rotation para ejecutar rotación en Vault cuando next_rotation_at <= now().
-   NUNCA almacena el valor de la credencial.';
+'PAM | Inventario de credenciales privilegiadas — panel de control de rotación, NO almacén de secretos.
+El valor real de la credencial reside SIEMPRE en Vault (vault_path es la ruta al secret en Vault, nunca
+el valor). Esta tabla almacena solo metadatos de gestión: tipo de credencial (PASSWORD/SSH_KEY/API_KEY/
+CERT/TOKEN/OAUTH_CLIENT), owner (humano T-320 u NHI T-186 según owner_type), sistema destino
+(target_system: servidor, servicio, BD), política de rotación (rotation_policy: MANUAL/AUTO_7D/
+AUTO_30D/AUTO_90D/AUTO_1Y) y estado del ciclo de vida (ACTIVE/ROTATING/REVOKED/EXPIRED).
+El job de rotación lee idx_pcref_rotation (next_rotation_at IS NOT NULL AND status=ACTIVE AND
+next_rotation_at <= now()), obtiene la ruta Vault, genera la nueva credencial, la escribe en Vault,
+actualiza last_rotated_at + next_rotation_at + rotation_count, y notifica al sistema destino.
+Fuente: creada vía RPC bauth.pam.credential.register por PAM_ADMIN al registrar una credencial
+privilegiada nueva; también automáticamente al crear una NHI (T-186) si tiene secretos en Vault.
+Administración: PAM_ADMIN y SUPER_ADMIN pueden registrar/revocar credenciales; el job de rotación
+automatizado actualiza rotation fields; el valor NUNCA es accesible desde SQL — solo via Vault API
+con token de corta duración y auditoría de acceso. REVOCACIÓN: status=REVOKED + invalidación en Vault.
+WORM: no — status y rotation fields son mutables (ciclo de vida de credenciales).
+Particionada: no.
+Estándar: NIST SP 800-53 IA-5(1)/IA-5(6), CIS Control 5.4, PCI DSS 4.0 Req 8.3.6, ISO 27001 A.5.17. T-183.';
 
 
 -- ======================================================================
@@ -4585,12 +5065,22 @@ CREATE INDEX IF NOT EXISTS idx_psr_jit     ON bauth.pam_session_record (jit_requ
     WHERE jit_request_id IS NOT NULL;
 
 COMMENT ON TABLE bauth.pam_session_record IS
-  '[NIST SP 800-53 AU-14] [ISO 27001 A.8.15] [PCI DSS 4.0 Req 10.2.1.3] [A.65.02 T-184] ✅ G-19
-   Metadatos de sesión de acceso privilegiado — registra CÓMO se ejerció el privilegio otorgado.
-   Separación: T-170b audita QUÉ se otorgó; esta tabla audita CÓMO se ejerció.
-   duration_seconds: GENERATED ALWAYS — calculado automáticamente al escribirse ended_at.
-   recording_ref: referencia al archivo de grabación en MinIO/S3 (valor = path, nunca el binario).
-   jit_request_id → trazabilidad completa: evento → justificación → aprobación → sesión → comandos.';
+'PAM | Metadatos de sesión de acceso privilegiado — registra CÓMO se ejerció el privilegio, no QUIÉN
+lo tiene. Separación de responsabilidades: T-170 (privilege_atom_grant) audita QUÉ acceso fue otorgado;
+T-184 (esta tabla) audita CÓMO se ejerció — qué sesión, qué recurso destino, qué tipo de acceso
+(SSH/RDP/API/CONSOLE/DB/CLI/VAULT), cuántos comandos se ejecutaron (commands_count) y la referencia
+al archivo de grabación de sesión en MinIO (recording_ref — path del archivo, nunca el binario).
+Trazabilidad completa de auditoría PAM: jit_request_id → T-182 (justificación) → T-182b (aprobación)
+→ session_id T-151 (sesión SSO) → T-184 (esta fila: qué hizo) → recording_ref (evidencia forense).
+duration_seconds: GENERATED ALWAYS AS calculado automáticamente por PostgreSQL al escribirse ended_at,
+sin lógica de aplicación — campo calculado almacenado (STORED) para consultas de análisis forense.
+Fuente: creada por el proxy PAM de bAuth al abrir cada sesión privilegiada; el proxy actualiza
+commands_count en streaming y escribe ended_at + recording_ref al cerrar la sesión.
+Administración: solo el daemon PAM de bAuth escribe; PAM_ADMIN y AUDITOR pueden leer;
+recording_ref en MinIO requiere credenciales adicionales con TTL de acceso corto (no acceso directo SQL).
+WORM: no — ended_at y recording_ref se escriben al cerrar la sesión (no al abrir).
+Particionada: no (candidata por started_at si el volumen de sesiones PAM es alto).
+Estándar: NIST SP 800-53 AU-14/AU-9, ISO 27001 A.8.15, PCI DSS 4.0 Req 10.2.1.3. T-184.';
 
 
 -- ======================================================================
@@ -4629,11 +5119,27 @@ CREATE INDEX IF NOT EXISTS idx_pnsr_rotation ON bauth.pam_nhi_secret_ref (next_r
     WHERE status = 'ACTIVE' AND next_rotation_at IS NOT NULL;
 
 COMMENT ON TABLE bauth.pam_nhi_secret_ref IS
-  '[NIST SP 800-53 IA-5(1)] [CIS API Keys] [A.65.02 T-189] ✅ G-23
-   Referencias a secretos de NHI en Vault. Alta frecuencia de rotación (7-30 días vs 90 días de T-183).
-   rotation_policy=ON_USE: rota en cada uso — patrón recomendado para pipelines CI/CD.
-   Al descomisionar un NHI todos sus secretos pasan a status=REVOKED automáticamente.
-   NUNCA almacena el valor del secreto: solo la ruta (vault_path) y metadatos de rotación.';
+'PAM NHI | Referencias a secretos de identidades no humanas (daemons, bots, pipelines, agentes) en Vault.
+Complementa T-183 (pam_credential_ref para humanos) con rotación más frecuente y el patrón ON_USE
+específico para NHI (rotate-on-every-use — patrón recomendado para pipelines CI/CD). Una fila por
+secreto de cada NHI (T-186 idn_roles_nhi_identity): API_KEY, OAUTH_CLIENT, CERT, TOKEN, SSH_KEY
+o PASSWORD. vault_path: ruta al secret en Vault — el valor NUNCA se almacena en PostgreSQL.
+Políticas de rotación: AUTO_7D (alta rotación para bots externos), AUTO_30D (daemons internos),
+AUTO_90D (certificados de larga duración), MANUAL (solo bajo HITL explícito), ON_USE (se regenera en
+cada uso — máxima seguridad para pipelines con acceso a datos sensibles).
+Al descomisionar un NHI (T-186 status=DECOMMISSIONED): todos sus secretos pasan automáticamente a
+status=REVOKED y se invalidan en Vault en una transacción atómica — garantizando que ningún proceso
+antiguo puede autenticarse con credenciales de un daemon desactivado.
+Fuente: creadas automáticamente al registrar un NHI en T-186 y aprobar sus secretos en Vault;
+también por migración cuando un daemon existente adopta el ciclo de vida NHI.
+Administración: NHI_ADMIN y SUPER_ADMIN pueden registrar/revocar; el job de rotación automatizado
+usa idx_pnsr_rotation; el daemon solo lee la ruta para obtener el secreto de Vault en cada auth.
+WORM: no — rotation fields y status son mutables por diseño.
+Particionada: no.
+Estándar: NIST SP 800-53 IA-5(1), CIS Control 5.4 (API Keys), NIST SP 800-207 §3.1 NHI. T-189.';
+COMMENT ON COLUMN bauth.pam_nhi_secret_ref.vault_path      IS 'Ruta canónica al secret en Vault KV v2 — ej. "secret/data/bauth/nhi/<nhi_id>/api_key". El valor del secreto NUNCA se almacena en PostgreSQL. El daemon obtiene el secreto directamente de Vault en cada autenticación usando esta ruta.';
+COMMENT ON COLUMN bauth.pam_nhi_secret_ref.rotation_policy IS 'Política de rotación del secreto: AUTO_7D (bots externos, alta rotación), AUTO_30D (daemons internos — por defecto), AUTO_90D (certificados de larga duración), MANUAL (solo con HITL explícito), ON_USE (se regenera en cada uso — máxima seguridad para pipelines CI/CD con acceso a datos sensibles).';
+COMMENT ON COLUMN bauth.pam_nhi_secret_ref.rotation_count  IS 'Contador acumulado de rotaciones exitosas desde la creación del NHI. Útil para auditorías de cumplimiento que exigen demostrar rotación periódica. El job de rotación lo incrementa en cada rotación exitosa.';
 
 
 -- ╔══════════════════════════════════════════════════════════════════════╗
@@ -4656,9 +5162,20 @@ CREATE TABLE IF NOT EXISTS bglobal.menu_context (
 );
 
 COMMENT ON TABLE bglobal.menu_context IS
-  '[A.65.02 T-060] Contextos de menú que definen el tipo de menú y su posición en la UI.
-   code: sidebar, toolbar, contextual, quick-actions, breadcrumb.
-   Un ítem de menú se vincula a contextos vía la tabla menu_context (T-060).';
+'MENÚ | Catálogo de contextos de menú — define los tipos de contenedor de navegación de la UI del
+ecosistema SBOS. Cada fila es un contexto en el que pueden existir ítems de menú (T-059 menu_item):
+sidebar (menú lateral principal), toolbar (barra de herramientas superior), contextual (menú de clic
+derecho), quick-actions (acciones rápidas flotantes), breadcrumb (migas de pan). Permite que la UI
+del dashboard pregunte "qué ítems van en el sidebar del tenant X" sin hardcodear la lista de contextos
+en el frontend — el frontend lee los contextos activos (is_active=true) y los ítems vinculados.
+name JSONB bilingüe para internacionalización vía bi18n. menu_type_enum: HIERARCHICAL (árbol) vs FLAT.
+Fuente: seed de despliegue con los 5 contextos estándar de SBOS; HITL para agregar contextos nuevos
+(cambio de UI que requiere aprobación de diseño y arquitectura).
+Administración: solo SUPER_ADMIN y UI_ADMIN pueden crear/desactivar contextos; el frontend carga esta
+tabla al arrancar y la cachea en Redis; cambios de is_active se propagán por señal CAEP catalog_change.
+WORM: no — is_active y sort_order son mutables para ajustes de UX.
+Particionada: no.
+Estándar: WCAG 2.2 (navegación accesible), SBOS ADR-020 (Interface Dual). T-060.';
 
 
 -- ======================================================================
@@ -4680,10 +5197,23 @@ CREATE INDEX IF NOT EXISTS idx_mia_item ON bglobal.menu_item_atom(item_id) WHERE
 CREATE INDEX IF NOT EXISTS idx_mia_atom ON bglobal.menu_item_atom(atom_code) WHERE is_active = true;
 
 COMMENT ON TABLE bglobal.menu_item_atom IS
-  '[A.65.02 T-061] Puente entre ítems de menú (B7 CAPA 2) y el motor BitMask.
-   atom_code: código del átomo en el árbol de políticas T-162 (ej. "D1.admin.usuarios.listar").
-   El PEP del dashboard verifica que el usuario tenga PERMIT en atom_code antes de renderizar el ítem.
-   required_effect=PERMIT: el ítem aparece si el átomo tiene efecto PERMIT en el BitmaskBundle del usuario.';
+'MENÚ | Puente entre ítems de menú (T-059 menu_item) y el motor BitMask de privilegios — implementa
+la visibilidad de menú basada en privilegios: un ítem solo aparece en la UI si el usuario tiene el
+átomo correspondiente con el efecto requerido en su BitmaskBundle. Una fila por (ítem, átomo): un
+ítem puede requerir múltiples átomos (INSERT varias filas con el mismo item_id y distintos atom_code).
+atom_code: código canónico del átomo en el árbol de políticas T-162 (ej. "D01.admin.usuarios.listar").
+required_effect=PERMIT: el ítem es visible si el usuario tiene PERMIT en ese átomo (regla normal).
+required_effect=DENY: el ítem se oculta si el usuario tiene DENY (para ítems que solo ve el superusuario).
+El PEP del dashboard (Kong o frontend) evalúa: SELECT atom_code FROM menu_item_atom WHERE item_id=?
+AND is_active=true → verifica cada atom_code contra el BitmaskBundle cacheado del usuario en Redis.
+Fuente: seed de despliegue con los átomos de visibilidad de cada ítem del menú SBOS; UI_ADMIN puede
+agregar nuevas ligaduras ítem↔átomo vía HITL para ítems de módulos nuevos.
+Administración: solo UI_ADMIN y SUPER_ADMIN pueden modificar; is_active=false desactiva la verificación
+del átomo (el ítem se vuelve visible para todos — usar con precaución); cambios se propagan al frontend
+por señal de invalidación de cache.
+WORM: no — is_active es mutable para gestión operacional de visibilidad.
+Particionada: no.
+Estándar: NIST SP 800-53 AC-3(9) (dynamic access control), SBOS ADR-020, OWASP ASVS 5.0 §4.1. T-061.';
 
 
 -- ======================================================================
@@ -4706,7 +5236,21 @@ CREATE TABLE IF NOT EXISTS bauth.auth_federation_protocol (
     sort_order            INT     NOT NULL DEFAULT 0
 );
 COMMENT ON TABLE bauth.auth_federation_protocol IS
-    'T-384 · Catálogo de protocolos de federación. 8 seeds.';
+'AUTENTICACIÓN | Catálogo de protocolos de federación de identidad soportados por el MethodRegistry de
+bAuth — define las capacidades técnicas de cada protocolo: AAL máximo alcanzable (aal_max), niveles
+de aseguramiento de federación soportados (fal_supported), resistencia a phishing (is_phishing_resistant),
+soporte de logout federado (supports_logout) y backchannel (supports_backchannel). Los 8 protocolos
+seed son: SAML_2_0, OIDC_CORE_1_0, OAUTH2_PKCE, OAUTH2_DEVICE, OAUTH2_TOKEN_EXCHANGE, CIBA, FAPI_2_0
+y CAEP_RFC9396. is_phishing_resistant=TRUE solo en FAPI_2_0 (máxima seguridad bancaria/financiera).
+El motor de federación de bAuth consulta esta tabla para validar que el protocolo negociado por un
+cliente externo (fed_client T-396) es compatible con el nivel de aseguramiento requerido.
+Fuente: seed fijo de despliegue con los 8 protocolos canónicos; nuevos protocolos requieren migración
+DDL con HITL (cambio arquitectónico que impacta el motor de federación en Rust).
+Administración: tabla de referencia inmutable en operación normal; solo HITL de arquitectura agrega
+protocolos; status=DEPRECATED mantiene historial de protocolos retirados sin eliminar datos.
+WORM: no — status es mutable para el ciclo de vida de protocolos (SUPPORTED→DEPRECATED).
+Particionada: no.
+Estándar: RFC 7591 (OIDC), RFC 8705 (mTLS), FAPI 2.0, RFC 9493 (CAEP), SAML 2.0 OASIS. T-384.';
 
 INSERT INTO bauth.auth_federation_protocol
     (code, name, spec_url, aal_max, fal_supported, is_phishing_resistant, supports_logout, supports_backchannel, status, sort_order)
@@ -4736,7 +5280,14 @@ CREATE TABLE IF NOT EXISTS bauth.auth_saga_catalog (
                              CONSTRAINT chk_asc_status CHECK (status IN ('ACTIVE','DEPRECATED','PLANNED')),
     sort_order      INT     NOT NULL DEFAULT 0
 );
-COMMENT ON TABLE bauth.auth_saga_catalog IS 'T-385 · 12 sagas de autenticación multi-paso.';
+COMMENT ON TABLE bauth.auth_saga_catalog IS
+'AUTENTICACIÓN | Catálogo de las 12 sagas de autenticación multi-paso del MethodRegistry — cada saga define la secuencia de pasos, el AAL requerido para iniciarla, el AAL producido al completarla, y si requiere MFA o es de emergencia.
+Fuente: seed de despliegue con las 12 sagas canónicas (PASSWORD_MFA, PASSWORDLESS_FIDO2, SOCIAL_BROKER, SAML_SSO, DEVICE_AUTH, STEP_UP, BREAKGLASS, RECOVERY_FLOW, CIBA_PUSH, TOKEN_EXCHANGE, CLIENT_CREDENTIALS, M2M_MTLS); no se crean sagas en runtime.
+Administración: tabla de referencia; cambios solo vía migración DDL con HITL; el motor de autenticación de bAuth selecciona la saga según el método solicitado y el AAL de la sesión actual; DEPRECATED conserva histórico.
+WORM: no (status DEPRECATED necesario para el ciclo de vida de las sagas).
+Particionada: no.
+Estándar: RFC 9470 (Step-Up Auth), RFC 8628 (Device Auth), RFC 8693 (Token Exchange), NIST SP 800-63B-4 §7, OWASP ASVS 5.0 §2.2. T-385.';
+
 
 INSERT INTO bauth.auth_saga_catalog
     (code, name, description, steps, aal_required, aal_produced, timeout_seconds, is_emergency, requires_mfa, status, sort_order)
@@ -4767,7 +5318,14 @@ CREATE TABLE IF NOT EXISTS bauth.auth_compliance_map (
     notes               TEXT    NULL,
     CONSTRAINT uq_acm_standard_control UNIQUE (standard, control_id)
 );
-COMMENT ON TABLE bauth.auth_compliance_map IS 'T-386 · Mapa normativo del motor de autenticación. 14 controles.';
+COMMENT ON TABLE bauth.auth_compliance_map IS
+'AUTENTICACIÓN | Mapa de cumplimiento normativo del motor de autenticación — vincula cada control de estándar (NIST, PCI DSS, OWASP, ISO, FIPS) con los métodos y sagas que cubren ese control, permitiendo generación de evidencia para auditorías externas.
+Fuente: seed de despliegue con 14 controles de los 5 estándares más relevantes del stack; actualizable por AUDIT_ADMIN vía migración al añadir nuevos métodos o estándares.
+Administración: tabla de referencia documental — UNIQUE (standard, control_id); cobertura PARTIAL genera alerta de gap en idn_global_compliance_control; no_covered bloquea certificaciones que requieran ese control.
+WORM: no.
+Particionada: no.
+Estándar: NIST SP 800-63B-4, PCI DSS 4.0, OWASP ASVS 5.0, ISO 27001:2022, FIPS 140-3. T-386.';
+
 
 INSERT INTO bauth.auth_compliance_map
     (standard, control_id, control_description, method_codes, saga_codes, coverage_level, notes)
@@ -4832,8 +5390,28 @@ CREATE INDEX IF NOT EXISTS idx_ad_user          ON bauth.auth_device (user_id) W
 CREATE INDEX IF NOT EXISTS idx_ad_trust         ON bauth.auth_device (trust_level) WHERE status = 'ACTIVE';
 CREATE INDEX IF NOT EXISTS idx_ad_osdp          ON bauth.auth_device (tenant_id, osdp_address) WHERE is_osdp = TRUE;
 COMMENT ON TABLE bauth.auth_device IS
-    'T-390 · Registro central de dispositivos ZTA+FIDO2+OSDP. '
-    'NIST SP 800-207 §4.2 · FIDO2 W3C (aaguid) · OSDP v2.2 SIA.';
+'DISPOSITIVOS ZTA | Registro central de dispositivos del ecosistema SBOS — implementa el componente
+Device Trust de Zero Trust Architecture. Cubre 9 categorías: equipos de usuario (DESKTOP/MOBILE/
+TABLET), servidores (SERVER/IOT), hardware de autenticación física (SECURITY_KEY/SMART_CARD) y
+lectores de control de acceso físico (OSDP_READER/NFC_READER). Campos clave: device_key (identidad
+única del dispositivo), aaguid (UUID del modelo de autenticador FIDO2 — permite verificar en la
+FIDO MDS si el modelo es certificado), trust_level (TRUSTED/CONDITIONALLY_TRUSTED/UNTRUSTED/
+QUARANTINE — alimenta el PIP de riesgo), is_managed + mdm_device_id (para integración MDM), is_osdp
++ osdp_address + osdp_version (para lectores de acceso físico OSDP v2.2). user_id puede ser NULL
+para servidores y dispositivos compartidos. El PDP de ZTA verifica trust_level antes de autorizar:
+UNTRUSTED solo accede a recursos básicos; QUARANTINE bloquea todo acceso hasta resolución.
+Fuente: registrado vía RPC bauth.device.register al enrolar un dispositivo; lectores OSDP registrados
+automáticamente por el driver bnexus al detectarlos en el bus.
+Administración: DEVICE_ADMIN registra/suspende/revoca dispositivos; el PDP actualiza last_seen_at e
+last_seen_ip en cada autenticación exitosa; status=LOST bloquea el dispositivo inmediatamente.
+WORM: no — trust_level, status y last_seen_at son mutables por diseño.
+Particionada: no.
+Estándar: NIST SP 800-207 §4.2 (ZTA Device Component), FIDO2 W3C L3 §4.1 (AAGUID), OSDP v2.2 SIA, NIST SP 800-63B-4 §5.1.9. T-390.';
+COMMENT ON COLUMN bauth.auth_device.aaguid         IS 'AAGUID del modelo de autenticador FIDO2 (UUID asignado por el fabricante al modelo). Permite verificar en FIDO MDS3 si el modelo tiene certificación L1/L2/L3 y si no aparece en la lista de revocaciones. NULL para dispositivos no-FIDO2 (SMART_CARD, OSDP_READER, IOT).';
+COMMENT ON COLUMN bauth.auth_device.trust_level     IS 'Nivel de confianza asignado por el PDP de ZTA: TRUSTED (administrado + postura OK + certificado), CONDITIONALLY_TRUSTED (alguna condición débil), UNTRUSTED (no administrado, solo acceso básico), QUARANTINE (señales de compromiso — acceso bloqueado hasta resolución).';
+COMMENT ON COLUMN bauth.auth_device.mdm_device_id  IS 'ID del dispositivo en el sistema MDM (Microsoft Intune, Jamf, etc.). NULL si no está gestionado por MDM. Permite correlacionar con T-391 auth_device_posture.mdm_compliance para decidir trust_level.';
+COMMENT ON COLUMN bauth.auth_device.osdp_address   IS 'Dirección de bus OSDP del lector de control de acceso físico (0-127). Solo presente cuando is_osdp=TRUE. El daemon bnexus usa esta dirección para enrutar comandos al lector correcto en el bus RS-485.';
+COMMENT ON COLUMN bauth.auth_device.is_osdp        IS 'TRUE = es un lector de control de acceso físico comunicado por OSDP v2.2 (Open Supervised Device Protocol). Los lectores OSDP tienen semántica diferente: no están ligados a un user_id fijo sino a una ubicación física (osdp_address).';
 
 CREATE TABLE IF NOT EXISTS bauth.auth_device_posture (
     posture_id          UUID     NOT NULL DEFAULT uuidv7() PRIMARY KEY,
@@ -4863,8 +5441,29 @@ CREATE INDEX IF NOT EXISTS idx_adp_device       ON bauth.auth_device_posture (de
 CREATE INDEX IF NOT EXISTS idx_adp_valid        ON bauth.auth_device_posture (device_id, valid_until) WHERE compliance_status = 'COMPLIANT';
 CREATE INDEX IF NOT EXISTS idx_adp_noncompliant ON bauth.auth_device_posture (tenant_id, evaluated_at DESC) WHERE compliance_status = 'NON_COMPLIANT';
 COMMENT ON TABLE bauth.auth_device_posture IS
-    'T-391 · Snapshot postura MDM/ZTA. valid_until 4h — PDP rechaza si expiró. '
-    'risk_score (0-100) alimenta PIP de riesgo. NIST SP 800-207 §3.3.1.';
+'DISPOSITIVOS ZTA | Snapshot de postura de seguridad del dispositivo — evaluación periódica de
+cumplimiento de controles de seguridad del endpoint. Fuente de decisión para el PDP de Zero Trust:
+si valid_until < now() el PDP rechaza acceso aunque el dispositivo esté TRUSTED, forzando una
+reevaluación de postura. Controles evaluados: disk_encrypted, screen_lock_enabled, antivirus_active,
+os_patches_current, is_jailbroken (positivo = no cumple), mdm_enrolled + mdm_provider + mdm_compliance.
+posture_source: MDM (Microsoft Intune/Jamf), EDR (Crowdstrike/SentinelOne), AGENT (agente bAuth),
+SELF_REPORTED (declarado por el propio dispositivo — menor confianza) o MANUAL (admin).
+risk_score (0-100): calculado por el motor ITDR de bAuth ponderando los controles evaluados — alimenta
+el PIP de riesgo del Context Plane y puede disparar reglas en T-180 (ses_risk_policy). valid_until:
+TTL de 4h — la postura expira y debe reevaluarse periódicamente para garantizar Zero Trust continuo.
+compliance_status=EXEMPTED: dispositivos con exención temporal aprobada por SECURITY_ADMIN (ej.
+dispositivos industriales que no soportan cifrado de disco).
+Fuente: insertada por el agente MDM/EDR externo vía webhook, por el agente bAuth en el dispositivo,
+o por el evaluador de postura del daemon al recibir la conexión mTLS del dispositivo.
+Administración: el motor ITDR de bAuth evalúa automáticamente; SECURITY_ADMIN puede forzar una
+reevaluación manual o marcar EXEMPTED con justificación.
+WORM: no — cada snapshot es una fila nueva; la antigua queda histórica (sin DELETE).
+Particionada: no (candidata por evaluated_at en entornos con muchos dispositivos).
+Estándar: NIST SP 800-207 §3.3.1 (Device Policy), NIST SP 800-53 SC-28 (At-Rest Encryption). T-391.';
+COMMENT ON COLUMN bauth.auth_device_posture.risk_score        IS 'Puntuación de riesgo 0-100 calculada por el motor ITDR ponderando los controles evaluados (0=sin riesgo, 100=compromiso total). Alimenta T-180 ses_risk_policy: si supera umbral configurable, dispara step-up o revocación de sesión.';
+COMMENT ON COLUMN bauth.auth_device_posture.compliance_status IS 'Estado de cumplimiento consolidado: COMPLIANT (todos los controles OK), NON_COMPLIANT (al menos un control falla), UNKNOWN (aún no evaluado), EXEMPTED (exención aprobada por SECURITY_ADMIN — requiere justificación en raw_report).';
+COMMENT ON COLUMN bauth.auth_device_posture.posture_source    IS 'Fuente de la evaluación de postura — determina la confianza del snapshot: MDM (autoridad externa, máxima confianza), EDR (telemetría de seguridad), AGENT (agente bAuth en el dispositivo), SELF_REPORTED (declarado por el dispositivo — menor confianza), MANUAL (admin con justificación).';
+COMMENT ON COLUMN bauth.auth_device_posture.valid_until       IS 'TTL de esta evaluación de postura — por defecto now()+4h. El PDP rechaza acceso si valid_until < now() aunque compliance_status=COMPLIANT, forzando reevaluación periódica (principio Zero Trust de verificación continua, no solo al login).';
 
 CREATE TABLE IF NOT EXISTS bauth.auth_device_credential_binding (
     binding_id    UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
@@ -4883,8 +5482,24 @@ REVOKE UPDATE, DELETE ON bauth.auth_device_credential_binding FROM bauth_app_rol
 CREATE INDEX IF NOT EXISTS idx_adcb_device     ON bauth.auth_device_credential_binding (device_id) WHERE revoked_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_adcb_credential ON bauth.auth_device_credential_binding (credential_id) WHERE revoked_at IS NULL;
 COMMENT ON TABLE bauth.auth_device_credential_binding IS
-    'T-392 · WORM. Binding dispositivo ↔ credencial. '
-    'Tipos: FIDO2_RESIDENT · FIDO2_CROSS_PLATFORM · X509_MTLS · SOFT_TOTP · PUSH_NOTIFICATION · OSDP_CARD.';
+'DISPOSITIVOS ZTA | Registro WORM de la ligadura entre un dispositivo (T-390) y un autenticador
+(T-330 auth_credential). Implementa el concepto "bound credential" de NIST SP 800-63B-4: una
+credencial ligada a un dispositivo solo puede usarse desde ese dispositivo — protección fundamental
+contra phishing de credenciales y robo de autenticadores portátiles. Tipos de binding: FIDO2_RESIDENT
+(passkey nativa almacenada en el autenticador hardware), FIDO2_CROSS_PLATFORM (llave de seguridad
+portátil FIDO2), X509_MTLS (certificado cliente ligado al TPM del dispositivo), SOFT_TOTP (semilla
+TOTP instalada en el dispositivo), PUSH_NOTIFICATION (notificación push al dispositivo registrado),
+OSDP_CARD (tarjeta OSDP ligada al lector físico). is_primary=TRUE: credencial de autenticación
+principal del dispositivo — solo uno por dispositivo. revoked_at: marca la desligadura sin eliminar
+el registro (trazabilidad forense de qué autenticador estuvo ligado a qué dispositivo y cuándo).
+Fuente: creada por bAuth al completar el enrollment de un autenticador en un dispositivo (WebAuthn
+registration, mTLS binding, TOTP provisioning); nunca por INSERT directo.
+Administración: REVOKE UPDATE/DELETE aplicado; el daemon bAuth solo puede insertar; un admin con
+DEVICE_ADMIN puede revocar (escribe revoked_at); la clave UNIQUE (device_id, credential_id) impide
+duplicar el binding del mismo par dispositivo+credencial.
+WORM: sí — REVOKE UPDATE/DELETE aplicado; el historial de bindings es evidencia de acceso físico.
+Particionada: no.
+Estándar: NIST SP 800-63B-4 §5.1.9 (bound authenticators), FIDO2 W3C L3 §7.3, RFC 8705 §4. T-392.';
 
 
 -- ======================================================================
@@ -4942,9 +5557,33 @@ CREATE INDEX IF NOT EXISTS idx_iu_status  ON bauth.idn_user (tenant_id, status) 
 CREATE INDEX IF NOT EXISTS idx_iu_entity  ON bauth.idn_user (entity_id);
 CREATE INDEX IF NOT EXISTS idx_iu_lockout ON bauth.idn_user (lockout_until) WHERE lockout_until IS NOT NULL;
 COMMENT ON TABLE bauth.idn_user IS
-    'T-320 · Subscriber Account (NIST SP 800-63-4 §3). Capa 2: cuenta digital de login por tenant. '
-    'Separada de la identidad organizacional (T-156) y de los autenticadores (T-330). '
-    'Un mismo entity_id puede tener cuentas en distintos tenants.';
+'USUARIOS | Subscriber Account (NIST SP 800-63-4 §3.1) — Capa 2 del modelo de identidad en capas:
+la cuenta de login digital del tenant. Separada por diseño de: (1) identidad organizacional T-156
+idn_identidad (quién es la persona), (2) autenticadores T-330 auth_credential (cómo se autentica),
+y (3) privilegios T-041 idn_roles_rol_hierarchical (qué puede hacer). Esta separación permite que
+una entidad tenga cuentas en múltiples tenants (un_contratista que accede a varios clientes SBOS)
+sin duplicar su identidad base. Campos clave: username (único por tenant — UNIQUE tenant_id+username),
+status (PENDING_ACTIVATION→ACTIVE→LOCKED/SUSPENDED→DEACTIVATED→ARCHIVED), ial_achieved (nivel
+de proofing verificado: IAL1/IAL2/IAL3), loa_min (LoA mínimo que esta cuenta debe presentar para
+autenticarse — overridable por política de recurso), failed_attempts + lockout_until (lockout
+progresivo NIST 800-63B-4 §5.2.2), must_change_password (fuerza cambio en próximo login),
+scim_external_id (ID en IdP externo para provisioning SCIM 2.0), wallet_id (referencia a billetera
+blockchain si el tenant tiene dominio financiero D14).
+Fuente: creada por el motor de registro de bAuth (vía ADMIN, SELF_SERVICE, PROVISIONED SCIM, o
+FEDERATED por bróker OIDC/SAML); entity_id debe existir en T-156 antes de crear la cuenta.
+Administración: USER_ADMIN gestiona ciclo de vida; el daemon bAuth actualiza failed_attempts,
+lockout_until y last_login_at en cada intento; status=ARCHIVED es el estado final irreversible.
+WORM: no — el historial de cambios vive en T-321 idn_user_history (hash-chain WORM).
+Particionada: no.
+Estándar: NIST SP 800-63-4 §3.1 (Subscriber Account), SCIM 2.0 RFC 7643, ISO 24760-2:2025. T-320.';
+COMMENT ON COLUMN bauth.idn_user.ial_achieved        IS 'Identity Assurance Level verificado: IAL1 (autodeclarado), IAL2 (remoto verificado), IAL3 (presencial). NULL = proofing no realizado.';
+COMMENT ON COLUMN bauth.idn_user.loa_min             IS 'Level of Assurance mínimo que esta cuenta debe presentar (AAL1/AAL2/AAL3). Overrideable por política del recurso destino.';
+COMMENT ON COLUMN bauth.idn_user.registration_method IS 'Cómo fue creada la cuenta: ADMIN (por administrador), SELF_SERVICE (autoregistro), PROVISIONED (SCIM 2.0 de IdP externo), FEDERATED (bróker OIDC/SAML).';
+COMMENT ON COLUMN bauth.idn_user.must_change_password IS 'Si TRUE, el motor de autenticación obliga al usuario a cambiar su contraseña en el próximo login antes de emitir el token de acceso.';
+COMMENT ON COLUMN bauth.idn_user.scim_external_id    IS 'ID del usuario en el IdP externo que lo provisionó vía SCIM 2.0. NULL si no fue provisionado por SCIM.';
+COMMENT ON COLUMN bauth.idn_user.wallet_id           IS 'FK a bauth.wallet — billetera digital del usuario para credenciales verificables (D17). NULL si el tenant no tiene dominio blockchain activo.';
+COMMENT ON COLUMN bauth.idn_user.lockout_until       IS 'Hasta cuándo el usuario está bloqueado por fallos consecutivos. NULL = no bloqueado. Calculado: now() + lockout_minutes de T-337 auth_config.';
+COMMENT ON COLUMN bauth.idn_user.failed_attempts     IS 'Contador de intentos fallidos consecutivos. Se resetea a 0 en cada autenticación exitosa. Lockout cuando supera el umbral de T-337 auth_config.';
 
 CREATE TABLE IF NOT EXISTS bauth.idn_user_history (
     history_id  UUID         NOT NULL DEFAULT uuidv7() PRIMARY KEY,
@@ -4961,7 +5600,25 @@ CREATE TABLE IF NOT EXISTS bauth.idn_user_history (
 );
 REVOKE UPDATE, DELETE ON bauth.idn_user_history FROM bauth_app_role;
 CREATE INDEX IF NOT EXISTS idx_iuh_user ON bauth.idn_user_history (user_id, changed_at DESC);
-COMMENT ON TABLE bauth.idn_user_history IS 'T-321 · WORM hash-chain. Historial de cambios en T-320. ISO 27001 A.8.15.';
+COMMENT ON TABLE bauth.idn_user_history IS
+'USUARIOS | Historial WORM hash-chain de todos los cambios en cuentas de usuario (T-320). Cada
+modificación de cualquier campo de idn_user genera una fila aquí con: field (qué campo cambió),
+old_value JSONB (valor anterior), new_value JSONB (valor nuevo), changed_by (quién cambió) y
+prev_hash (SHA-256 de la fila anterior — forma la cadena de integridad). La hash-chain garantiza
+que ningún registro puede modificarse silenciosamente: cualquier alteración rompe el hash del
+siguiente eslabón, permitiendo detección forense de manipulación de auditoría.
+Fuente: insertada por trigger de auditoría de bAuth en cada UPDATE a T-320 idn_user; también en
+operaciones de ciclo de vida (suspensión, revocación, archivado) invocadas vía RPC.
+Administración: REVOKE UPDATE/DELETE — solo el trigger del daemon bAuth puede insertar; el auditor
+puede leer; el sistema de hash-chain verifica la integridad de toda la cadena de una cuenta con la
+función fn_verify_user_history_chain(user_id) que recalcula los hashes secuencialmente.
+WORM: sí — REVOKE UPDATE/DELETE aplicado; la integridad de la cadena es evidencia forense.
+Particionada: no (candidata por changed_at en entornos con muchos usuarios y alta actividad).
+Estándar: ISO 27001:2022 A.8.15, NIST SP 800-53 AU-9 (protection of audit info), GDPR Art. 30. T-321.';
+COMMENT ON COLUMN bauth.idn_user_history.field      IS 'Nombre del campo de T-320 idn_user que fue modificado — ej. "email", "status", "loa_min". Permite filtrar el historial por campo específico y construir diff granular de la cuenta.';
+COMMENT ON COLUMN bauth.idn_user_history.old_value  IS 'Valor anterior del campo en formato JSONB. JSONB permite almacenar cualquier tipo (texto, booleano, UUID, timestamp) sin pérdida de tipo. NULL si el campo no tenía valor previo (campo recién poblado).';
+COMMENT ON COLUMN bauth.idn_user_history.new_value  IS 'Valor nuevo del campo en formato JSONB. NULL si el campo fue vaciado (ej. lockout_until cleared). La comparación old_value vs new_value reconstruye el cambio exacto aplicado.';
+COMMENT ON COLUMN bauth.idn_user_history.prev_hash  IS 'SHA-256 de la fila anterior de esta cuenta en la hash-chain (hex). La primera fila de un user_id tiene prev_hash = SHA-256("genesis:"+user_id). Cualquier alteración a una fila previa rompe este hash, detectable con fn_verify_user_history_chain(user_id).';
 
 CREATE TABLE IF NOT EXISTS bauth.idn_user_recovery (
     recovery_id UUID         NOT NULL DEFAULT uuidv7() PRIMARY KEY,
@@ -4979,7 +5636,24 @@ CREATE TABLE IF NOT EXISTS bauth.idn_user_recovery (
     created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_iur_user_active ON bauth.idn_user_recovery (user_id, type) WHERE status = 'ACTIVE';
-COMMENT ON TABLE bauth.idn_user_recovery IS 'T-322 · Recuperación de cuenta. value_hash = SHA-256. OWASP ASVS v5.0 §2.5.';
+COMMENT ON TABLE bauth.idn_user_recovery IS
+'USUARIOS | Métodos de recuperación de cuenta — alternativas de verificación de identidad cuando el
+usuario pierde acceso a su autenticador principal. Tipos: BACKUP_EMAIL (correo secundario verificado),
+BACKUP_PHONE (teléfono de respaldo verificado), TRUSTED_CONTACT (contacto de confianza designado),
+ADMIN_OVERRIDE (restablecimiento manual por administrador con registro de auditoría). value_hash:
+SHA-256 del valor del método de recuperación (dirección de correo, número de teléfono) — NUNCA el
+valor en claro; el motor de bAuth verifica comparando el hash del valor presentado con value_hash.
+valid_until: fecha de expiración del método de recuperación — los métodos expirados se excluyen del
+flujo de recuperación. used_at: fecha en que se usó para recuperar la cuenta (status→USED).
+OWASP ASVS 5.0 §2.5.4 prohíbe preguntas de seguridad como método de recuperación — esta tabla
+implementa métodos conformes (backup email, backup phone, trusted contact), no preguntas.
+Fuente: registrada por el usuario durante el onboarding o autogestión de cuenta vía RPC bauth.user.
+recovery.add; ADMIN_OVERRIDE creado por USER_ADMIN con aprobación dual registrada en T-178.
+Administración: el usuario puede agregar/revocar sus propios métodos de recuperación; un método
+usado pasa a status=USED automáticamente (no se reutiliza); ADMIN_OVERRIDE requiere aprobación dual.
+WORM: no — status es mutable (ACTIVE→USED/REVOKED) por diseño del flujo de recuperación.
+Particionada: no.
+Estándar: OWASP ASVS 5.0 §2.5 (account recovery), NIST SP 800-63B-4 §6.1.2. T-322.';
 
 
 -- ======================================================================
@@ -5011,8 +5685,30 @@ CREATE TABLE IF NOT EXISTS bauth.auth_credential (
 CREATE INDEX IF NOT EXISTS idx_ac_user_active ON bauth.auth_credential (user_id, method_code) WHERE status = 'ACTIVE';
 CREATE INDEX IF NOT EXISTS idx_ac_valid_until ON bauth.auth_credential (valid_until) WHERE valid_until IS NOT NULL AND status = 'ACTIVE';
 COMMENT ON TABLE bauth.auth_credential IS
-    'T-330 · Capa 3 Authenticator (NIST SP 800-63-4 §5): binding autenticador↔cuenta. '
-    'Secretos NUNCA aquí: T-331 (KDF/TOTP) · T-332 (FIDO2) · T-333 (X.509).';
+'AUTENTICACIÓN | Capa 3 — Authenticator binding (NIST SP 800-63-4 §5.1): registro del vínculo entre
+un autenticador y la cuenta de usuario (T-320 idn_user). No contiene secretos — es el directorio
+de qué autenticadores tiene enrollados cada usuario. Los secretos viven en tablas especializadas:
+T-331 auth_credential_secret (password hash Argon2id, semilla TOTP/HOTP cifrada en Vault),
+T-332 auth_credential_fido2 (clave pública COSE del autenticador FIDO2), T-333 auth_credential_x509
+(certificado X.509 del cliente mTLS). Campos clave: method_code (código del método del MethodRegistry
+T-335), loa_provided (qué AAL provee este autenticador: AAL1/AAL2/AAL3), is_primary (el autenticador
+principal de la cuenta — solo uno por método), is_phishing_resistant (para decisiones de acceso a
+recursos de alta seguridad), valid_from/valid_until (ventana de validez), revoked_at + revocation_reason
+(auditoría de revocación). Una cuenta puede tener múltiples credenciales de distintos métodos;
+el motor de autenticación selecciona la apropiada según la política de autenticación del recurso.
+Fuente: creada por el motor de enrollment de bAuth al completar el registro de un nuevo autenticador;
+nunca por INSERT directo (el enrollment verifica el autenticador antes de registrarlo).
+Administración: el usuario puede ver sus propias credenciales; USER_ADMIN puede revocar; el job de
+expiración escribe status=EXPIRED cuando valid_until < now(); revoked_at se escribe al revocar.
+WORM: no — status, last_used_at y revoked_at son mutables por diseño del ciclo de vida.
+Particionada: no.
+Estándar: NIST SP 800-63-4 §5.1 (Authenticator types), FIDO2 W3C L3, RFC 6238 (TOTP), RFC 8705 (mTLS). T-330.';
+COMMENT ON COLUMN bauth.auth_credential.method_code           IS 'Código del método de autenticación — referencia lógica al catálogo T-335 auth_method (ej. PASSWORD, TOTP, WEBAUTHN_PASSWORDLESS). No es FK física para evitar CASCADE.';
+COMMENT ON COLUMN bauth.auth_credential.loa_provided          IS 'Level of Assurance que provee este autenticador al presentarlo exitosamente: AAL1 (knowledge), AAL2 (possession+knowledge), AAL3 (hardware resistente a phishing).';
+COMMENT ON COLUMN bauth.auth_credential.is_phishing_resistant IS 'TRUE solo para WEBAUTHN_PASSWORDLESS, PASSKEY, X509_MTLS — métodos que no pueden ser capturados por phishing. El PDP lo verifica para acceso a recursos de alta seguridad (AAL3).';
+COMMENT ON COLUMN bauth.auth_credential.is_primary            IS 'Solo un credential puede ser primario por método por usuario. El PDP selecciona el primary para el flujo de autenticación normal; los no-primary son de respaldo.';
+COMMENT ON COLUMN bauth.auth_credential.valid_until           IS 'Fecha de expiración del autenticador. NULL = no expira. El job de expiración escribe status=EXPIRED cuando valid_until < now() y notifica al usuario.';
+COMMENT ON COLUMN bauth.auth_credential.revocation_reason     IS 'Motivo de revocación en texto libre — requerido cuando revoked_at IS NOT NULL. Opciones típicas: COMPROMISED, LOST_DEVICE, USER_REQUEST, ROTATION.';
 
 CREATE TABLE IF NOT EXISTS bauth.auth_credential_secret (
     secret_id         UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
@@ -5030,7 +5726,27 @@ CREATE TABLE IF NOT EXISTS bauth.auth_credential_secret (
 );
 REVOKE UPDATE (secret) ON bauth.auth_credential_secret FROM bauth_app_role;
 COMMENT ON TABLE bauth.auth_credential_secret IS
-    'T-331 · Secretos cifrados Vault transit. Argon2id (m=64MB,t=3,p=4). NIST SP 800-63B-4 §5.1.1.';
+'AUTENTICACIÓN | Secretos cifrados de credenciales de conocimiento — almacena hashes y semillas
+cifradas NUNCA en claro. Tipos: ARGON2ID_HASH (hash de contraseña con Argon2id m=64MB t=3 p=4,
+parámetros mínimos NIST SP 800-63B-4 §5.1.1.2), TOTP_SEED_ENC (semilla TOTP cifrada con transit
+encryption de Vault), HOTP_SEED_ENC (semilla HOTP cifrada), RECOVERY_CODE_HASH (hash de códigos
+de recuperación de un solo uso), PUSH_PUBKEY_ED25519 (clave pública Ed25519 del dispositivo push).
+secret: el valor cifrado o hasheado — NUNCA el valor en claro. algorithm: nombre del algoritmo
+aplicado (ARGON2ID, AES-256-GCM-VAULT-TRANSIT). params JSONB: parámetros del algoritmo para que
+el motor de verificación pueda reproducir la operación (ej. {m:65536, t:3, p:4, salt:"..."}).
+vault_key_version: versión de la clave de cifrado en Vault transit — permite re-cifrado al rotar
+la clave maestra sin invalidar todos los secretos. La columna secret tiene REVOKE UPDATE: no puede
+modificarse directamente — el cambio de contraseña crea una fila nueva y elimina la anterior.
+Fuente: creada por el motor de enrollment de bAuth al registrar una contraseña u OTP seed; el hash
+se calcula en el daemon Rust (nunca en BD) antes de almacenar.
+Administración: REVOKE UPDATE (secret) aplicado — el daemon solo puede INSERT o DELETE, nunca UPDATE
+del secreto; rotación de clave Vault: el job de re-key lee con vault_key_version < current y re-cifra.
+WORM: no formalmente — INSERT+DELETE para cambio de contraseña (nunca UPDATE del valor).
+Particionada: no.
+Estándar: NIST SP 800-63B-4 §5.1.1.2 (Argon2id), NIST SP 800-132 (KDF), FIPS 140-3. T-331.';
+COMMENT ON COLUMN bauth.auth_credential_secret.secret            IS 'El secreto protegido — NUNCA el valor en claro. Contiene el hash Argon2id (contraseñas), la semilla cifrada con Vault transit (TOTP/HOTP), o el hash de código de recuperación. La columna tiene REVOKE UPDATE: el daemon solo puede INSERT o DELETE, nunca modificar en sitio.';
+COMMENT ON COLUMN bauth.auth_credential_secret.vault_key_version IS 'Versión de la clave de cifrado en Vault KV transit usada para cifrar este secreto. Permite re-cifrado progresivo: el job de re-key busca filas con vault_key_version < current y las re-cifra sin interrumpir el servicio.';
+COMMENT ON COLUMN bauth.auth_credential_secret.params            IS 'Parámetros del algoritmo de protección en JSONB. Para ARGON2ID: {m: 65536, t: 3, p: 4, salt: "<hex>"}. Para AES-256-GCM-VAULT-TRANSIT: {key_name: "bauth-credentials", version: N}. El motor de verificación los lee para reproducir la operación correctamente.';
 
 CREATE TABLE IF NOT EXISTS bauth.auth_credential_fido2 (
     fido2_id             UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
@@ -5053,7 +5769,32 @@ CREATE TABLE IF NOT EXISTS bauth.auth_credential_fido2 (
     created_at           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 COMMENT ON TABLE bauth.auth_credential_fido2 IS
-    'T-332 · Credenciales FIDO2/Passkey (W3C WebAuthn L3). sign_count anti-replay §6.1.';
+'AUTENTICACIÓN | Credenciales FIDO2/Passkey — datos del autenticador WebAuthn necesarios para
+verificar las aserciones de autenticación del dispositivo. Una fila por credential enrollada.
+Campos clave: credential_id_bytes (ID de la credencial en formato binario, asignado por el
+autenticador), public_key_cose (clave pública COSE del par ECDSA/EdDSA — la clave privada nunca
+sale del autenticador), aaguid (GUID del modelo de autenticador, verificable en la FIDO Metadata
+Service para confirmar que el modelo es certificado L2/L3), attestation_fmt (formato de atestación
+del fabricante), sign_count (contador anti-replay — cada uso incrementa en ≥ 1; WebAuthn §6.1 exige
+rechazar aserciones con sign_count ≤ el registrado para detectar clonado del autenticador),
+is_discoverable (passkey residente — puede autenticar sin username), is_cross_platform (llave de
+seguridad externa, no TPM del dispositivo), backup_eligible + backup_state (sync en nube de la
+passkey — importante para política: backupable=menor garantía de binding físico), transports
+(BLE/USB/NFC/INTERNAL — cómo se comunica el autenticador con el cliente).
+Fuente: creada por el motor de WebAuthn registration de bAuth al completar el ceremony de enrollment
+(parseando el attestationObject del cliente); nunca por INSERT directo.
+Administración: no modificable después del enrollment (la clave pública es inmutable); sign_count
+se actualiza en cada autenticación exitosa; la credencial se elimina al revocar el auth_credential T-330.
+WORM: no (sign_count debe actualizarse en cada uso).
+Particionada: no.
+Estándar: W3C WebAuthn L3 §6.1 (sign_count), FIDO2 CTAP 2.2, FIDO Alliance MDS3. T-332.';
+COMMENT ON COLUMN bauth.auth_credential_fido2.aaguid            IS 'AAGUID del modelo de autenticador (UUID del fabricante/modelo). Verificable en FIDO MDS3 para confirmar nivel de certificación (L1/L2/L3). NULL para autenticadores none-attestation.';
+COMMENT ON COLUMN bauth.auth_credential_fido2.sign_count        IS 'Contador monótonamente creciente. WebAuthn §6.1: el motor RECHAZA la aserción si sign_count ≤ al registrado, detectando clonado del autenticador. 0 indica autenticador que no soporta el contador.';
+COMMENT ON COLUMN bauth.auth_credential_fido2.is_discoverable   IS 'TRUE = passkey residente (almacenada en el autenticador — puede autenticar sin username). FALSE = no residente (requiere username primero).';
+COMMENT ON COLUMN bauth.auth_credential_fido2.backup_eligible   IS 'TRUE = la credencial puede sincronizarse en la nube del proveedor. Implica menor garantía de binding físico — el PDP puede requerir step-up para recursos AAL3 si backup_eligible=TRUE.';
+COMMENT ON COLUMN bauth.auth_credential_fido2.backup_state      IS 'TRUE = la credencial está actualmente sincronizada en nube. Combinado con backup_eligible para evaluar el nivel de confianza del autenticador.';
+COMMENT ON COLUMN bauth.auth_credential_fido2.credential_id_bytes IS 'ID de la credencial en bytes — asignado por el autenticador, único por origen. Se presenta en cada solicitud de autenticación para que el servidor ubique la credencial.';
+COMMENT ON COLUMN bauth.auth_credential_fido2.public_key_cose   IS 'Clave pública en formato COSE (CBOR Object Signing and Encryption) — la clave privada NUNCA sale del autenticador. El motor verifica la firma de la aserción usando esta clave.';
 
 CREATE TABLE IF NOT EXISTS bauth.auth_credential_x509 (
     x509_id             UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
@@ -5080,7 +5821,25 @@ CREATE TABLE IF NOT EXISTS bauth.auth_credential_x509 (
 );
 CREATE INDEX IF NOT EXISTS idx_ax509_fingerprint ON bauth.auth_credential_x509 (fingerprint_sha256);
 CREATE INDEX IF NOT EXISTS idx_ax509_not_after   ON bauth.auth_credential_x509 (not_after) WHERE revoked_by_ca_at IS NULL;
-COMMENT ON TABLE bauth.auth_credential_x509 IS 'T-333 · X.509 mTLS (RFC 8705). ADSIB_EXTERNA = Ley 164 Bolivia.';
+COMMENT ON TABLE bauth.auth_credential_x509 IS
+'AUTENTICACIÓN | Metadatos de certificados X.509 para autenticación mTLS y firma digital calificada.
+Almacena el certificado público y sus metadatos de verificación — la clave privada reside SIEMPRE en
+el dispositivo (TPM) o en Vault (vault_path). Orígenes: VAULT_INTERNAL (CA interna SBOS, emitida por
+el motor PKI de bAuth), ADSIB_EXTERNA (CA calificada boliviana, única con validez legal según Ley 164
+para firma de documentos con efectos jurídicos), ENTERPRISE_PKI (CA empresarial del cliente importada),
+SELF_SIGNED (solo para dev/test — rechazada en producción por política). Campos clave: fingerprint_sha256
+(UNIQUE — identifica inequívocamente cualquier certificado), san (Subject Alternative Names — para
+verificación de identidad del servidor/cliente), oid_adsib + is_adsib_qualified (OID del certificado
+ADSIB y si tiene el nivel de calificación legal), ocsp_url (endpoint para verificación de revocación
+en tiempo real — bAuth verifica OCSP antes de aceptar un certificado mTLS), revoked_by_ca_at
+(fecha de revocación por el CA externo — detectada por el job de descarga de CRL/OCSP).
+Fuente: creada por el motor de enrollment mTLS de bAuth al procesar el CSR y recibir el certificado
+del CA; también al importar un certificado ADSIB externo.
+Administración: not_after genera alerta a los 30 días de expiración; OCSP verificado periódicamente;
+revoked_by_ca_at se escribe al detectar el certificado en la CRL de T-352.
+WORM: no — revoked_by_ca_at y status son mutables por ciclo de vida del certificado.
+Particionada: no.
+Estándar: RFC 5280 §4 (X.509 v3), RFC 8705 (mTLS binding), Ley 164 Bolivia Art. 20, RFC 6960 (OCSP). T-333.';
 
 CREATE TABLE IF NOT EXISTS bauth.auth_attempt_log (
     attempt_id       UUID         NOT NULL DEFAULT uuidv7(),
@@ -5108,7 +5867,29 @@ CREATE TABLE IF NOT EXISTS bauth.auth_attempt_log_2026_09 PARTITION OF bauth.aut
 REVOKE UPDATE, DELETE ON bauth.auth_attempt_log FROM bauth_app_role;
 CREATE INDEX IF NOT EXISTS idx_aal_ip_failed   ON bauth.auth_attempt_log (ip_address, attempted_at DESC) WHERE outcome IN ('FAILURE','INVALID_USER');
 CREATE INDEX IF NOT EXISTS idx_aal_user_failed ON bauth.auth_attempt_log (user_id, attempted_at DESC) WHERE outcome = 'FAILURE';
-COMMENT ON TABLE bauth.auth_attempt_log IS 'T-334 · WORM particionado. ITDR: brute-force, credential stuffing. PCI DSS 4.0 Req 8.2.8.';
+COMMENT ON TABLE bauth.auth_attempt_log IS
+'AUTENTICACIÓN | Log WORM append-only particionado de todos los intentos de autenticación — fuente
+de verdad para ITDR (brute-force, credential stuffing, account takeover) y requisito PCI DSS.
+Una fila por intento: outcome (SUCCESS/FAILURE/LOCKED/STEP_UP_REQUIRED/EXPIRED/INVALID_USER/
+REVOKED_CREDENTIAL), loa_requested vs loa_achieved (detecta downgrade attacks), ip_address
+(detección de geografía anómala), user_agent (fingerprinting de cliente), device_id (correlación
+ZTA), traceparent (W3C Trace Context para correlación con OpenTelemetry). username_tried: el username
+presentado — NULL si no llegó a resolverse a un user_id (intentos con usernames inexistentes).
+El motor ITDR de bAuth lee idx_aal_ip_failed para detectar N fallos desde la misma IP en ventana
+deslizante (brute-force) y idx_aal_user_failed para detectar ataques de account takeover sobre un
+usuario específico. failure_reason registra el motivo específico del fallo para diagnóstico.
+Fuente: insertada por el motor de autenticación de bAuth en cada intento, exitoso o no;
+REVOKE UPDATE/DELETE — nunca se modifican ni borran intentos de auditoría.
+Administración: REVOKE UPDATE/DELETE aplicado — append-only; el job de particionado crea particiones
+mensuales automáticamente (auth_attempt_log_YYYY_MM); job de retención archiva particiones > 12 meses.
+WORM: sí — REVOKE UPDATE/DELETE aplicado; la tabla es evidencia forense de autenticación.
+Particionada: sí — PARTITION BY RANGE(attempted_at), particiones mensuales.
+Estándar: PCI DSS 4.0 Req 8.2.8 (log de intentos), NIST SP 800-53 AU-12, ISO 27001 A.8.15. T-334.';
+COMMENT ON COLUMN bauth.auth_attempt_log.outcome       IS 'Resultado del intento: SUCCESS (autenticado), FAILURE (credencial incorrecta), LOCKED (cuenta bloqueada — lockout activo), STEP_UP_REQUIRED (LoA insuficiente para el recurso solicitado), EXPIRED (credencial caducada), INVALID_USER (username inexistente), REVOKED_CREDENTIAL (credencial revocada).';
+COMMENT ON COLUMN bauth.auth_attempt_log.loa_requested IS 'Level of Assurance que exigía el recurso destino al momento del intento. Comparar con loa_achieved permite detectar downgrade attacks: si loa_requested=AAL3 y loa_achieved=AAL1, el PDP debería haber bloqueado (indica posible bug).';
+COMMENT ON COLUMN bauth.auth_attempt_log.loa_achieved  IS 'Level of Assurance realmente alcanzado en este intento. NULL si outcome=FAILURE (no se completó la autenticación). Comparar con loa_requested para verificar que el PDP no aceptó un LoA inferior al requerido.';
+COMMENT ON COLUMN bauth.auth_attempt_log.username_tried IS 'Username tal como fue presentado en el intento — antes de resolución a user_id. NULL si el request no llegó a la fase de resolución. Útil para detectar enumeration attacks: muchos INVALID_USER con patrones similares desde la misma IP.';
+COMMENT ON COLUMN bauth.auth_attempt_log.failure_reason IS 'Motivo técnico del fallo — complementa outcome para diagnóstico ITDR: WRONG_PASSWORD, EXPIRED_TOTP, INVALID_OTP_CODE, WEBAUTHN_SIGNATURE_FAILED, ACCOUNT_SUSPENDED, MAX_ATTEMPTS_EXCEEDED, etc. Texto libre del motor de autenticación.';
 
 -- MethodRegistry declarativo (T-335..T-338)
 CREATE TABLE IF NOT EXISTS bauth.auth_method (
@@ -5125,7 +5906,14 @@ CREATE TABLE IF NOT EXISTS bauth.auth_method (
     standards             TEXT[]  NOT NULL DEFAULT '{}',
     sort_order            INT     NOT NULL DEFAULT 0
 );
-COMMENT ON TABLE bauth.auth_method IS 'T-335 · Catálogo maestro MethodRegistry — 47 métodos en 6 categorías (A-F).';
+COMMENT ON TABLE bauth.auth_method IS
+'AUTENTICACIÓN | Catálogo declarativo del MethodRegistry — define los 47 métodos de autenticación en 6 categorías (A-F) con su nivel de aseguramiento (LoA), resistencia a phishing, componente MFA y estado de implementación.
+Fuente: seed de despliegue con los 47 métodos canónicos del Authentication Framework v3.0.0; el motor de bAuth consulta esta tabla al validar el método presentado por el cliente.
+Administración: tabla de referencia — cambios solo vía migración con HITL; status=REMOVED significa que el código Rust fue eliminado; status=PLANNED es el estado previo a la implementación; métodos DEPRECATED no se ofrecen al cliente pero aún se validan para sesiones históricas.
+WORM: no (status evoluciona durante el ciclo de vida del método).
+Particionada: no.
+Estándar: NIST SP 800-63B-4 §5 (tipos de autenticadores), FIDO2/WebAuthn W3C §8, RFC 6238 (TOTP), RFC 4226 (HOTP), RFC 9470 (Step-Up). T-335.';
+
 
 CREATE TABLE IF NOT EXISTS bauth.auth_policy (
     policy_id        UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
@@ -5141,7 +5929,14 @@ CREATE TABLE IF NOT EXISTS bauth.auth_policy (
     ctx_id           TEXT    NOT NULL DEFAULT 'system',
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-COMMENT ON TABLE bauth.auth_policy IS 'T-336 · Políticas de autenticación por contexto. Complementa T-042 por tier.';
+COMMENT ON TABLE bauth.auth_policy IS
+'AUTENTICACIÓN | Políticas de autenticación por contexto — define el LoA mínimo requerido, los métodos permitidos y requeridos, el TTL de sesión y las condiciones de step-up para cada contexto de autenticación (global o por tenant).
+Fuente: seed con políticas globales por defecto; políticas de tenant creadas por SECURITY_ADMIN vía RPC bauth.auth.policy.create al onboarding; tenant_id=NULL es la política global base.
+Administración: el PDP de bAuth evalúa la política más específica (tenant_id) antes que la global; allowed_methods vacío significa cualquier método del catálogo; step_up_trigger JSONB define condiciones de elevación RFC 9470.
+WORM: no.
+Particionada: no.
+Estándar: NIST SP 800-63B-4 §4 (AAL selection), RFC 9470 (Step-Up Authentication), FAPI 2.0 §4.3, ISO 27001 A.5.18. T-336.';
+
 
 CREATE TABLE IF NOT EXISTS bauth.auth_config (
     config_id    UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
@@ -5153,7 +5948,14 @@ CREATE TABLE IF NOT EXISTS bauth.auth_config (
     ctx_id       TEXT    NOT NULL DEFAULT 'system',
     CONSTRAINT uq_auth_config_key UNIQUE (tenant_id, key)
 );
-COMMENT ON TABLE bauth.auth_config IS 'T-337 · Parámetros técnicos del motor sin hardcode. Editable en runtime.';
+COMMENT ON TABLE bauth.auth_config IS
+'AUTENTICACIÓN | Parámetros técnicos del motor de autenticación sin hardcode — almacena todos los valores configurables de bAuth en pares clave-valor JSONB con vigencia desde effective_at, permitiendo cambio en runtime sin redespliegue.
+Fuente: seed con parámetros iniciales seguros (lockout_attempts=5, lockout_minutes=15, argon2id_memory=65536, etc.); SECURITY_ADMIN puede actualizar vía RPC bauth.config.set con ctx_id y privilegio CONFIG_ADMIN.
+Administración: UNIQUE (tenant_id, key) — una entrada por clave por tenant; tenant_id=NULL es el valor global; el motor bAuth recarga en caché Redis cada 5 minutos; cambios de seguridad críticos (KDF params) requieren HITL.
+WORM: no (actualizaciones de parámetros son el propósito de esta tabla).
+Particionada: no.
+Estándar: NIST SP 800-63B-4 §5.1 (parámetros de contraseña), OWASP ASVS 5.0 §2.1 (account security), PCI DSS 4.0 Req 8.2. T-337.';
+
 
 CREATE TABLE IF NOT EXISTS bauth.auth_crypto_algorithm (
     algo_id        UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
@@ -5168,8 +5970,13 @@ CREATE TABLE IF NOT EXISTS bauth.auth_crypto_algorithm (
     deprecated_at  TIMESTAMPTZ NULL
 );
 COMMENT ON TABLE bauth.auth_crypto_algorithm IS
-    'T-338 · Algoritmos criptográficos. APPROVED: ARGON2ID·AES-256-GCM·ED25519·ML-KEM-768·ML-DSA-65. '
-    'FORBIDDEN: MD5·SHA-1·RSA-1024·DES·3DES.';
+'AUTENTICACIÓN | Registro de algoritmos criptográficos con estado de aprobación NIST — catálogo local CAVP que define qué algoritmos están APPROVED (seguros), DEPRECATED (en transición) o FORBIDDEN (prohibidos) para el motor de bAuth.
+Fuente: seed con algoritmos vigentes al despliegue (APPROVED: ARGON2ID, AES-256-GCM, ED25519, ML-KEM-768/FIPS-203, ML-DSA-65/FIPS-204; FORBIDDEN: MD5, SHA-1, RSA-1024, DES, 3DES); actualización solo vía migración DDL con HITL al publicarse nuevos FIPS.
+Administración: tabla de referencia inmutable en runtime — status=FORBIDDEN rechaza operaciones en el motor Rust antes de ejecutarlas; is_pqc=true marca algoritmos post-cuánticos FIPS 203/204/205; nist_ref apunta al documento FIPS o SP correspondiente.
+WORM: no (status se actualiza al cambiar normativa NIST).
+Particionada: no.
+Estándar: NIST FIPS 140-3, FIPS 203 (ML-KEM), FIPS 204 (ML-DSA), FIPS 205 (SLH-DSA), NIST SP 800-131A R2, NIST SP 800-227. T-338.';
+
 
 
 -- ======================================================================
@@ -5199,7 +6006,14 @@ CREATE TABLE IF NOT EXISTS bauth.sig_key (
 );
 CREATE INDEX IF NOT EXISTS idx_sk_tenant_active ON bauth.sig_key (tenant_id, engine, purpose) WHERE status = 'ACTIVE';
 CREATE INDEX IF NOT EXISTS idx_sk_rotation      ON bauth.sig_key (next_rotation) WHERE status = 'ACTIVE' AND next_rotation IS NOT NULL;
-COMMENT ON TABLE bauth.sig_key IS 'T-350 · Referencias a llaves en Vault — NUNCA contiene clave privada. Motor Ed25519/RSA. Ley 164 Bolivia.';
+COMMENT ON TABLE bauth.sig_key IS
+'FIRMA DIGITAL | Referencias a llaves criptográficas almacenadas en Vault — NUNCA contiene claves privadas en BD; solo la ruta Vault (vault_path) y metadatos de propósito, algoritmo y estado de rotación. Motor doble: Ed25519 interno + RSA externo ADSIB.
+Fuente: creado por el motor de inicialización PKI de bAuth al generar una nueva llave en Vault; también al importar un certificado ADSIB externo; la clave privada nunca sale de Vault.
+Administración: rotación automática controlada por next_rotation; status=ROTATING durante el proceso de rotación; REVOKED tras compromiso; un job diario alerta sobre llaves cuyo expires_at está dentro de 30 días.
+WORM: no (status y next_rotation se actualizan durante el ciclo de vida de la llave).
+Particionada: no.
+Estándar: Ley 164 Bolivia Art. 9-11 (firma digital), ADSIB-FD-POLT-015 v2.3, NIST SP 800-57 Pt1 R5 §5.3 (clave privada en HSM/Vault). T-350.';
+
 
 CREATE TABLE IF NOT EXISTS bauth.sig_certificate (
     cert_id            UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
@@ -5226,7 +6040,14 @@ CREATE TABLE IF NOT EXISTS bauth.sig_certificate (
 );
 CREATE INDEX IF NOT EXISTS idx_sc_tenant_active ON bauth.sig_certificate (tenant_id, engine) WHERE status = 'ACTIVE';
 CREATE INDEX IF NOT EXISTS idx_sc_expiry        ON bauth.sig_certificate (not_after) WHERE status = 'ACTIVE';
-COMMENT ON TABLE bauth.sig_certificate IS 'T-351 · Catálogo X.509 — PEM público solamente. SBOS Root CA + ADSIB CA (ATT→ADSIB→Persona).';
+COMMENT ON TABLE bauth.sig_certificate IS
+'FIRMA DIGITAL | Catálogo X.509 de certificados públicos — almacena el PEM del certificado público (nunca la clave privada); cubre SBOS Root CA, ADSIB CA (cadena ATT→ADSIB→Persona), y certificados de empresa/TLS.
+Fuente: insertado automáticamente por el motor PKI de bAuth al emitir o renovar un certificado; los ADSIB son importados al contratar el servicio de firma calificada con ADSIB Bolivia.
+Administración: job diario verifica not_after y alerta con 30 días de anticipación; OCSP verificado periódicamente (ocsp_verified_at); REVOKED tras notificación del CA; fingerprint_sha256 es UNIQUE para identificar inequívocamente cualquier certificado.
+WORM: no (status y revoked_by_ca_at se actualizan durante el ciclo de vida).
+Particionada: no.
+Estándar: RFC 5280 §6 (X.509 v3), Ley 164 Bolivia Art. 20, ADSIB-FD-POLT-015 v2.3, RFC 6960 (OCSP). T-351.';
+
 
 CREATE TABLE IF NOT EXISTS bauth.sig_crl (
     crl_id        UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
@@ -5238,7 +6059,23 @@ CREATE TABLE IF NOT EXISTS bauth.sig_crl (
     ctx_id        TEXT    NOT NULL DEFAULT 'system'
 );
 CREATE INDEX IF NOT EXISTS idx_scrl_next_update ON bauth.sig_crl (next_update);
-COMMENT ON TABLE bauth.sig_crl IS 'T-352 · CRL activas. Job: ADSIB cada hora · Vault cada 24h.';
+COMMENT ON TABLE bauth.sig_crl IS
+'FIRMA DIGITAL | Certificate Revocation Lists (CRL) activas descargadas de los CAs del sistema —
+permite verificar la revocación de certificados X.509 sin consultar OCSP en tiempo real para cada
+autenticación. Una fila por CRL vigente de cada CA: INTERNAL_VAULT (CA interna SBOS, descargada
+cada 24h) y EXTERNAL_ADSIB (CA boliviana calificada, descargada cada hora por su mayor frecuencia
+de actualización). crl_der: CRL en formato DER (binario ASN.1 — formato estándar RFC 5280 §5).
+next_update: fecha hasta la que la CRL es válida según el CA — el job de descarga refresca antes
+de next_update. El motor de verificación mTLS de bAuth consulta esta tabla para revocaciones offline;
+la verificación OCSP en línea (sig_certificate.ocsp_url) es el mecanismo primario, la CRL es el
+fallback cuando OCSP no está disponible. Una CRL desactualizada (next_update < now()) genera alerta.
+Fuente: descargada automáticamente por el job de revocación de bAuth (crl_refresh_job.rs) desde los
+CRL distribution points de cada CA; no se inserta manualmente.
+Administración: el job de descarga inserta filas nuevas y elimina CRLs expiradas; PKI_ADMIN puede
+forzar una descarga manual vía RPC bauth.pki.crl.refresh para respuesta a incidentes de compromiso.
+WORM: no — filas CRL expiradas se reemplazan por las nuevas.
+Particionada: no.
+Estándar: RFC 5280 §5 (CRL), Ley 164 Bolivia Art. 20, ADSIB-FD-POLT-015 v2.3, RFC 6960 (OCSP). T-352.';
 
 CREATE TABLE IF NOT EXISTS bauth.sig_timestamp (
     timestamp_id     UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
@@ -5252,7 +6089,24 @@ CREATE TABLE IF NOT EXISTS bauth.sig_timestamp (
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 REVOKE UPDATE, DELETE ON bauth.sig_timestamp FROM bauth_app_role;
-COMMENT ON TABLE bauth.sig_timestamp IS 'T-355 · Timestamps calificados RFC 3161. WORM.';
+COMMENT ON TABLE bauth.sig_timestamp IS
+'FIRMA DIGITAL | Timestamps calificados (RFC 3161) obtenidos de Autoridades de Sellado de Tiempo
+(TSA) acreditadas — proveen prueba criptográfica irrefutable de que un documento existía en un
+momento específico (non-repudiation temporal). Una fila por timestamp emitido: tsa_url (URL del
+servicio TSA ADSIB o interno), document_hash (SHA-256 del documento sobre el que se emite el
+sello — nunca el documento en claro), tsa_response_der (respuesta binaria DER del TSA que contiene
+el sello con firma del TSA), tsa_serial (número de serie único del TSA para trazabilidad), gen_time
+(momento exacto del sello según el TSA — certificado por el CA acreditado). policy_oid: identifica
+la política de sellado del TSA (ej. para facturas SIN Bolivia el OID determina la validez jurídica).
+Los timestamps son referenciados desde sig_document_hash (T-354) para anclar documentos firmados
+con sellado temporal calificado, requerido por ETSI EN 319 102-1 para firma PAdES-LTA y XAdES-LTA.
+Fuente: obtenido por el motor de firma de bAuth al completar una firma que requiere sellado temporal;
+el TSA nunca recibe el documento, solo su hash (privacidad garantizada por RFC 3161 §2.4.1).
+Administración: REVOKE UPDATE/DELETE — solo el motor de firma de bAuth puede insertar; el auditor
+puede leer para verificación forense; los timestamps no expiran (son evidencia permanente).
+WORM: sí — REVOKE UPDATE/DELETE aplicado; el sello temporal es evidencia jurídica irrevocable.
+Particionada: no.
+Estándar: RFC 3161 (TSP), ETSI EN 319 421 (TSA Policy), Ley 164 Bolivia, ETSI EN 319 102-1. T-355.';
 
 CREATE TABLE IF NOT EXISTS bauth.sig_operation_log (
     operation_id     UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
@@ -5278,7 +6132,14 @@ CREATE TABLE IF NOT EXISTS bauth.sig_operation_log (
 REVOKE UPDATE, DELETE ON bauth.sig_operation_log FROM bauth_app_role;
 CREATE INDEX IF NOT EXISTS idx_sol_tenant_at ON bauth.sig_operation_log (tenant_id, signed_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sol_doc_hash  ON bauth.sig_operation_log (document_hash);
-COMMENT ON TABLE bauth.sig_operation_log IS 'T-353 · WORM. Log forense de cada acto de firma. Ley 164 Bolivia.';
+COMMENT ON TABLE bauth.sig_operation_log IS
+'FIRMA DIGITAL | Log WORM forense de cada acto de firma digital — registra qué se firmó (hash SHA-256), quién firmó (signed_by), con qué llave y motor, el formato resultante, y el ancla blockchain opcional para trazabilidad legal completa.
+Fuente: insertado automáticamente por el motor de firma de bAuth al completar cada operación de firma (exitosa o fallida); el documento en claro NUNCA llega a bAuth — solo su hash SHA-256.
+Administración: REVOKE UPDATE/DELETE — append-only; el job de anclaje blockchain lee las operaciones recientes para incluirlas en el árbol Merkle; FAILURE registra el motivo en error_msg para forensia.
+WORM: sí — el log de firma es evidencia legal del acto de firma según Ley 164; modificarlo invalidaría la trazabilidad forense requerida por el reglamento boliviano.
+Particionada: no.
+Estándar: Ley 164 Bolivia Art. 9 (no repudio), ETSI EN 319 102-1 §5, ISO 27001 A.8.15. T-353.';
+
 
 CREATE TABLE IF NOT EXISTS bauth.sig_document_hash (
     document_id         UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
@@ -5301,7 +6162,14 @@ CREATE TABLE IF NOT EXISTS bauth.sig_document_hash (
 REVOKE UPDATE, DELETE ON bauth.sig_document_hash FROM bauth_app_role;
 CREATE INDEX IF NOT EXISTS idx_sdh_hash  ON bauth.sig_document_hash (hash_sha256);
 CREATE INDEX IF NOT EXISTS idx_sdh_purge ON bauth.sig_document_hash (purge_after);
-COMMENT ON TABLE bauth.sig_document_hash IS 'T-354 · WORM. Hashes SHA-256 de documentos firmados. Retención Ley 164: 8 años facturas SIN.';
+COMMENT ON TABLE bauth.sig_document_hash IS
+'FIRMA DIGITAL | Registro WORM de hashes SHA-256 (y SHA3-256 opcional) de documentos firmados — permite verificar la integridad del documento en cualquier punto del período de retención sin almacenar el documento en BD; las facturas SIN tienen retención de 8 años.
+Fuente: insertado automáticamente por el motor de firma de bAuth al completar una firma exitosa; el purge_after se calcula desde retention_years al momento de insertar; el documento en claro vive fuera de la BD (almacenamiento documental).
+Administración: REVOKE UPDATE/DELETE — append-only; job de purga comprueba purge_after y marca (no borra) registros elegibles para archivo; los anclados en blockchain no se purgan hasta cumplir retención legal mínima.
+WORM: sí — los hashes de documentos firmados son evidencia de integridad post-firma; modificarlos rompería la cadena de custodia legal requerida por Ley 164 Bolivia.
+Particionada: no.
+Estándar: Ley 164 Bolivia Art. 9 + DS 1793 §18 (retención 8 años facturas SIN), ETSI EN 319 132 (PAdES), SHA-256/SHA3-256 FIPS 180-4/202. T-354.';
+
 
 CREATE TABLE IF NOT EXISTS bauth.sig_adsib_lifecycle (
     lifecycle_id   UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
@@ -5317,7 +6185,14 @@ CREATE TABLE IF NOT EXISTS bauth.sig_adsib_lifecycle (
 );
 REVOKE UPDATE, DELETE ON bauth.sig_adsib_lifecycle FROM bauth_app_role;
 CREATE INDEX IF NOT EXISTS idx_sal_tenant ON bauth.sig_adsib_lifecycle (tenant_id, event_at DESC);
-COMMENT ON TABLE bauth.sig_adsib_lifecycle IS 'T-356 · WORM. Ciclo de vida certificado ADSIB. Máx. 4 reemisiones. ADSIB-FD-POLT-015 v2.3.';
+COMMENT ON TABLE bauth.sig_adsib_lifecycle IS
+'FIRMA DIGITAL | Log WORM del ciclo de vida de certificados ADSIB — registra cada evento (emisión, alertas de vencimiento, renovación, reemisión, revocación) con su fecha; máximo 4 reemisiones por certificado según normativa ADSIB Bolivia.
+Fuente: insertado por el motor de gestión de certificados ADSIB de bAuth al ocurrir cada evento; los eventos ALERT_30D/15D/7D los genera el job diario de monitoreo de certificados.
+Administración: REVOKE UPDATE/DELETE — append-only; reissue_number≤4 enforced por CHECK; el evento REVOKED_BY_CA requiere notificación inmediata al SECURITY_ADMIN del tenant; este log es la evidencia para auditorías ADSIB y Ley 164.
+WORM: sí — el historial de eventos del certificado ADSIB es evidencia de cumplimiento del ciclo de vida normativo; modificarlo invalidaría el registro ante ADSIB.
+Particionada: no.
+Estándar: ADSIB-FD-POLT-015 v2.3 §5 (ciclo de vida), Ley 164 Bolivia Art. 18-20, RFC 5280 §4.2.1.13 (revocación). T-356.';
+
 
 CREATE TABLE IF NOT EXISTS bauth.sig_document_policy (
     policy_id                  UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
@@ -5336,7 +6211,14 @@ CREATE TABLE IF NOT EXISTS bauth.sig_document_policy (
     CONSTRAINT uq_sdp_type_tenant UNIQUE (tenant_id, document_type)
 );
 CREATE INDEX IF NOT EXISTS idx_sdp_active ON bauth.sig_document_policy (document_type) WHERE active = TRUE;
-COMMENT ON TABLE bauth.sig_document_policy IS 'T-357 · Política de motores de firma por tipo de documento. Ley 164 Art. 82.';
+COMMENT ON TABLE bauth.sig_document_policy IS
+'FIRMA DIGITAL | Política del motor de firma por tipo de documento — define si se requiere el motor interno (Vault Ed25519), el externo (ADSIB RSA), o ambos; el perfil de firma (JWS/PAdES/CAdES/XAdES), la retención mínima y si requiere timestamp calificado o ancla blockchain.
+Fuente: seed con políticas por tipo de documento (FACTURA_SIN: EXTERNAL_ADSIB+EXT-LTA+8 años, CONTRATO: BOTH+EXT-LT+10 años, JWT: INTERNAL_VAULT+JWS+1 año); configurable por SECURITY_ADMIN del tenant.
+Administración: UNIQUE (tenant_id, document_type); evaluada por el motor de firma al recibir una solicitud; active=false desactiva el tipo sin borrarlo; legal_basis documenta la norma que exige cada requisito.
+WORM: no.
+Particionada: no.
+Estándar: Ley 164 Bolivia Art. 82 (tipos de documentos digitales), ETSI EN 319 132 (PAdES), ETSI EN 319 122 (CAdES), ETSI EN 319 132-3 (XAdES). T-357.';
+
 
 
 -- ======================================================================
@@ -5356,7 +6238,23 @@ CREATE TABLE IF NOT EXISTS bauth.blk_merkle_batch (
     ctx_id       TEXT    NOT NULL DEFAULT 'system',
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-COMMENT ON TABLE bauth.blk_merkle_batch IS 'T-359 · Lote de eventos para árbol Merkle Keccak-256 (RFC 6962). Hasta 1M hojas.';
+COMMENT ON TABLE bauth.blk_merkle_batch IS
+'BLOCKCHAIN | Lote (batch) de eventos de auditoría para procesamiento del árbol Merkle — agrupa hasta
+1 millón de event_ids (hojas del árbol) antes de calcular la raíz Merkle Keccak-256 y anclarla en
+blockchain. Una fila por batch: event_from/event_to delimitan el rango de eventos incluidos,
+total_leaves cuenta las hojas del árbol, merkle_root es el hash raíz calculado por el motor Merkle,
+y status controla el ciclo de vida (OPEN: acumulando eventos → CLOSED: listo para procesar →
+COMPUTING: calculando raíz → ANCHORED: raíz enviada a blockchain en T-358 blk_anchor → FAILED:
+error en cálculo o anclaje). El job de Merkle crea un batch nuevo cada hora (o cada 100k eventos si
+el volumen es alto), cierra el batch activo y dispara el cálculo del árbol antes de anclar.
+Fuente: creado automáticamente por el job merkle_batch_job.rs de bAuth al iniciar cada ciclo de
+agrupación; nunca creado manualmente. event_from/event_to son UUIDs v7 de audit events para
+delimitar el rango sin necesidad de timestamps (UUIDs v7 son monotónicos).
+Administración: PKI_ADMIN puede inspeccionar batches FAILED para diagnóstico; un batch FAILED no se
+reintenta automáticamente — requiere HITL para decidir si re-anclar o descartar (operación crítica).
+WORM: no — status es mutable durante el ciclo de vida del batch.
+Particionada: no.
+Estándar: RFC 6962 §2 (Merkle Hash Tree), NIST SP 800-208 §3, Keccak-256 FIPS 202. T-359.';
 
 CREATE TABLE IF NOT EXISTS bauth.blk_anchor (
     anchor_id    UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
@@ -5374,7 +6272,14 @@ CREATE TABLE IF NOT EXISTS bauth.blk_anchor (
 );
 REVOKE UPDATE, DELETE ON bauth.blk_anchor FROM bauth_app_role;
 CREATE INDEX IF NOT EXISTS idx_ba_pending ON bauth.blk_anchor (status, created_at) WHERE status IN ('PENDING','SENT');
-COMMENT ON TABLE bauth.blk_anchor IS 'T-358 · WORM. Anclajes Merkle on-chain (Arbitrum L2 · Besu QBFT D12 Forma A/B).';
+COMMENT ON TABLE bauth.blk_anchor IS
+'BLOCKCHAIN | Registro WORM de anclajes Merkle on-chain — cada fila documenta un anclaje de la raíz Merkle de un batch de eventos en una red blockchain (Arbitrum L2 para escala, Besu QBFT privado para soberanía), con tx_hash y block_number para verificación pública.
+Fuente: creado por el job de anclaje blockchain de bAuth al cerrar un blk_merkle_batch y enviar la TX a la red; el job actualiza status a ANCHORED cuando la TX confirma.
+Administración: REVOKE UPDATE/DELETE — append-only; PENDING sin confirmar en >5min generan alerta; el tx_hash permite verificación pública en el explorador de la red; FAILED requiere re-anclaje del mismo batch.
+WORM: sí — un ancla blockchain es la prueba de existencia del batch en la cadena; modificar la fila invalidaría la verificabilidad externa de la integridad del batch.
+Particionada: no.
+Estándar: RFC 6962 §2 (Merkle Tree), Hyperledger Besu §4 (QBFT), NIST SP 800-208 §3 (hash-based signatures). T-358.';
+
 
 CREATE TABLE IF NOT EXISTS bauth.blk_merkle_leaf (
     leaf_id      UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
@@ -5387,7 +6292,14 @@ CREATE TABLE IF NOT EXISTS bauth.blk_merkle_leaf (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_bml_batch_index ON bauth.blk_merkle_leaf (batch_id, leaf_index);
 CREATE INDEX        IF NOT EXISTS idx_bml_event       ON bauth.blk_merkle_leaf (event_id);
 REVOKE UPDATE, DELETE ON bauth.blk_merkle_leaf FROM bauth_app_role;
-COMMENT ON TABLE bauth.blk_merkle_leaf IS 'T-360 · WORM. Hojas del árbol Merkle. merkle_proof para verificación offline con bos-verify.';
+COMMENT ON TABLE bauth.blk_merkle_leaf IS
+'BLOCKCHAIN | Hojas WORM del árbol Merkle — cada fila es un evento de auditoría (event_id) incluido en un batch, con su hash de hoja (Keccak-256) y la prueba de inclusión (merkle_proof[]) que permite verificar la pertenencia al árbol sin acceder al resto del batch.
+Fuente: insertado por el motor Merkle de bAuth al procesar un batch (blk_merkle_batch); leaf_index determina la posición en el árbol; merkle_proof se calcula al cerrar el batch y anclar.
+Administración: REVOKE UPDATE/DELETE — append-only; UNIQUE (batch_id, leaf_index) garantiza posición única en el árbol; la herramienta bos-verify usa leaf_hash + merkle_proof para verificar off-line; nunca se eliminan hojas de batches anclados.
+WORM: sí — las hojas del árbol Merkle son la base matemática de la prueba de integridad; modificarlas rompería la verificabilidad Merkle del ancla blockchain.
+Particionada: no.
+Estándar: RFC 6962 §2.1 (Merkle Hash Tree), NIST SP 800-208 §3, Keccak-256 FIPS 202. T-360.';
+
 
 CREATE TABLE IF NOT EXISTS bauth.blk_account (
     account_id    UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
@@ -5400,7 +6312,24 @@ CREATE TABLE IF NOT EXISTS bauth.blk_account (
     ctx_id        TEXT    NOT NULL DEFAULT 'system',
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-COMMENT ON TABLE bauth.blk_account IS 'T-361 · Cuentas Besu QBFT. balance_cache = CACHE. Fuente: SettlementEngine.sol (verificado VPS 2026-06-22).';
+COMMENT ON TABLE bauth.blk_account IS
+'BLOCKCHAIN | Registro de cuentas blockchain Besu QBFT vinculadas a entidades SBOS — una fila por
+dirección Ethereum (eth_address UNIQUE) perteneciente a una entidad (entity_id T-157). Actúa como el
+directorio de cuentas blockchain del ecosistema: conecta la identidad SBOS (entity_id) con la cuenta
+on-chain (eth_address), permitiendo al motor de facturación SIN y al motor de pagos emitir y verificar
+transacciones sabiendo a quién pertenece cada dirección. balance_cache: saldo en token SBOS
+consultado del contrato SettlementEngine.sol y cacheado en PostgreSQL para consultas rápidas sin
+llamar a la red Besu en cada request; cache_at indica cuándo fue la última actualización del cache.
+El job de reconciliación (T-362 blk_reconciliation) verifica cada 15 minutos que balance_cache
+coincide con el saldo on-chain real y genera alerta si hay discrepancia. eth_address es UNIQUE global
+— una dirección Ethereum no puede pertenecer a dos entidades distintas en el ecosistema.
+Fuente: creada automáticamente por bAuth al registrar una entidad con dominio blockchain (D14);
+la dirección Ethereum se genera off-chain con la clave del wallet Vault del tenant.
+Administración: BLOCKCHAIN_ADMIN puede congelar cuentas (status=FROZEN) ante incidentes; CLOSED
+es el estado final de una cuenta descomisionada; balance_cache se actualiza por el job de reconciliación.
+WORM: no — status y balance_cache son mutables operacionalmente.
+Particionada: no.
+Estándar: Hyperledger Besu §4 (QBFT), EIP-20 (tokens), ISO 20022 §5 (cuenta financiera digital). T-361.';
 
 CREATE TABLE IF NOT EXISTS bauth.blk_reconciliation (
     rec_id          UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
@@ -5412,7 +6341,14 @@ CREATE TABLE IF NOT EXISTS bauth.blk_reconciliation (
     ctx_id          TEXT    NOT NULL DEFAULT 'system',
     verified_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-COMMENT ON TABLE bauth.blk_reconciliation IS 'T-362 · Conciliación on-chain ↔ PostgreSQL cada 15 min.';
+COMMENT ON TABLE bauth.blk_reconciliation IS
+'BLOCKCHAIN | Registro de conciliaciones periódicas on-chain ↔ PostgreSQL — verifica que el saldo de cada cuenta Besu en la red coincide con el balance_cache de blk_account, y documenta discrepancias y su resolución.
+Fuente: insertado automáticamente por el job de reconciliación de bAuth (cada 15 minutos) al consultar el SettlementEngine.sol en Besu y comparar con blk_account.balance_cache; nunca insertado manualmente.
+Administración: status=DISCREPANCY genera alerta inmediata a SECURITY_ADMIN del tenant; CORRECTED indica que la discrepancia fue investigada y el cache actualizado; balance_prev permite calcular la tendencia de drift.
+WORM: no (una discrepancia puede corregirse y el registro se actualiza con CORRECTED).
+Particionada: no.
+Estándar: Hyperledger Besu §4 (estado de contratos), ISO 20022 §5 (conciliación financiera), COSO 2013 CC6.6. T-362.';
+
 
 
 -- ======================================================================
@@ -5442,7 +6378,24 @@ CREATE TABLE IF NOT EXISTS bauth.fed_client (
     created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_fc_client_key ON bauth.fed_client (client_key);
-COMMENT ON TABLE bauth.fed_client IS 'T-365 · Clientes OAuth2/OIDC (RFC 6749). client_secret NUNCA aquí — en Vault.';
+COMMENT ON TABLE bauth.fed_client IS
+'FEDERACIÓN OIDC | Registro de clientes OAuth2/OIDC — cada aplicación o servicio que delega
+autenticación en bAuth tiene una fila aquí (client_key UNIQUE). Tipos: CONFIDENTIAL (SPA/backend que
+puede guardar un secreto), PUBLIC (SPA/mobile sin secreto — PKCE obligatorio), M2M (daemon-a-daemon
+sin usuario). client_secret NUNCA se almacena en PostgreSQL — solo la ruta Vault (vault_secret_path)
+donde vive el secreto cifrado; bAuth lo recupera de Vault cuando necesita verificar client_credentials.
+Campos de seguridad: pkce_required (PKCE RFC 7636 — TRUE por defecto, previene CSRF), dpop_required
+(DPoP RFC 9449 — vincula el access token a la clave pública del cliente, previene token replay),
+mtls_required (mTLS RFC 8705 — el token está bound al certificado del cliente), fapi_profile
+(FAPI 2.0 para banca/fintech — la máxima seguridad disponible). TTL configurable por cliente:
+at_ttl_seconds (access token), rt_ttl_seconds (refresh token — NULL = sin refresh), id_token_ttl.
+Fuente: creado por OAUTH_ADMIN vía RPC bauth.oidc.client.register al onboarding de una app nueva;
+nunca por INSERT directo (el proceso de registro valida redirect_uris y allowed_scopes).
+Administración: status=SUSPENDED bloquea emisión de nuevos tokens manteniendo los existentes válidos;
+status=REVOKED invalida todos los tokens activos del cliente de forma inmediata.
+WORM: no — at_ttl_seconds y dpop_required son ajustables en runtime por OAUTH_ADMIN.
+Particionada: no.
+Estándar: RFC 6749 (OAuth 2.0), RFC 7636 (PKCE), RFC 9449 (DPoP), RFC 8705 (mTLS), FAPI 2.0. T-365.';
 
 CREATE TABLE IF NOT EXISTS bauth.fed_provider_ext (
     provider_id       UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
@@ -5463,7 +6416,25 @@ CREATE TABLE IF NOT EXISTS bauth.fed_provider_ext (
     ctx_id            TEXT    NOT NULL DEFAULT 'system',
     created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-COMMENT ON TABLE bauth.fed_provider_ext IS 'T-366 · IdPs externos (SAML2/OIDC/social). NIST SP 800-63-4 §6 FAL1/2/3.';
+COMMENT ON TABLE bauth.fed_provider_ext IS
+'FEDERACIÓN | Catálogo de proveedores de identidad externos (IdPs) configurados por cada tenant —
+permite a los usuarios autenticarse con una cuenta externa (Google Workspace, Microsoft Entra ID,
+GitHub, LinkedIn) o con un IdP empresarial (SAML 2.0, OIDC). Protocolos soportados: OIDC, SAML2,
+GOOGLE, GITHUB, LINKEDIN, MICROSOFT_ENTRA. Campos clave: issuer_url + discovery_url + jwks_uri
+(para OIDC — bAuth descarga automáticamente el JWKS del IdP para verificar tokens), entity_id +
+sso_url + metadata_url (para SAML2 — referencia al IdP del SP), attr_mapping JSONB (cómo mapear
+claims del IdP externo a atributos SBOS — ej. {sub: entity_id, email: email_principal}), fal (nivel
+de aseguramiento de federación del IdP externo: FAL1/FAL2/FAL3 según NIST SP 800-63-4 §6).
+vault_secret_path: ruta del client_secret del proveedor social en Vault (NUNCA almacenado en BD).
+El bróker de federación de bAuth redirige al IdP externo, procesa el callback, mapea los atributos
+y crea/vincula la cuenta local (FEDERATED en idn_user).
+Fuente: creada por SECURITY_ADMIN vía RPC bauth.fed.provider.register al habilitar un IdP externo
+para el tenant; requiere verificación del proveedor (test de connection) antes de activar.
+Administración: status=ACTIVE/INACTIVE; vault_secret_path se rota periódicamente; attr_mapping
+ajustable en runtime por SECURITY_ADMIN sin redespliegue.
+WORM: no — attr_mapping y status son mutables por administración normal.
+Particionada: no.
+Estándar: NIST SP 800-63-4 §6 (FAL), RFC 6749 (OIDC), SAML 2.0 OASIS, OpenID Connect Core 1.0. T-366.';
 
 -- PK compuesto (token_id, issued_at) requerido por particionamiento
 CREATE TABLE IF NOT EXISTS bauth.fed_token_issued (
@@ -5492,8 +6463,27 @@ CREATE TABLE IF NOT EXISTS bauth.fed_token_issued_2026_09 PARTITION OF bauth.fed
 CREATE UNIQUE INDEX IF NOT EXISTS idx_fti_hash    ON bauth.fed_token_issued (token_hash, issued_at);
 CREATE INDEX        IF NOT EXISTS idx_fti_expires ON bauth.fed_token_issued (expires_at) WHERE revoked_at IS NULL;
 COMMENT ON TABLE bauth.fed_token_issued IS
-    'T-367 · Tokens emitidos: SHA-256 solamente — NUNCA el valor en claro. '
-    'DPoP (RFC 9449) + mTLS (RFC 8705). PK compuesto (token_id, issued_at) por particionamiento.';
+'FEDERACIÓN OIDC | Log particionado de tokens emitidos por el OIDC Provider de bAuth — una fila por
+token emitido (ACCESS_TOKEN, REFRESH_TOKEN, ID_TOKEN, EXCHANGE_TOKEN). token_hash: SHA-256 del token
+en claro — el valor real del token NUNCA se almacena en BD (si un atacante accede a la BD no obtiene
+tokens válidos). Binding de seguridad: dpop_jkt (JSON Key Thumbprint del par DPoP RFC 9449 — el
+resource server verifica que el cliente presenta la misma clave privada usada al obtener el token),
+mtls_cert_fp (fingerprint del certificado mTLS RFC 8705 — vincula el token al certificado del cliente).
+loa_at_issuance: nivel de aseguramiento al momento de la emisión — crucial para tokens de step-up
+donde el resource server verifica que el token fue emitido con AAL3. revoked_at registra la revocación
+inline para introspección sin consultar T-364 (optimización para el flujo caliente de introspección).
+PK compuesto (token_id, issued_at) requerido por el particionamiento RANGE en issued_at.
+Fuente: insertada por el OIDC Provider de bAuth al completar cada flujo de emisión exitoso (authorization
+code, client_credentials, token_exchange, refresh_token); nunca por INSERT directo.
+Administración: tokens expirados se detectan por idx_fti_expires (job de purga por partición mensual);
+revoked_at se actualiza al revocar un token (introspección, logout, CAEP event).
+WORM: no — revoked_at es mutable por diseño del ciclo de vida del token.
+Particionada: sí — PARTITION BY RANGE(issued_at), particiones mensuales.
+Estándar: RFC 6749 (OAuth 2.0), RFC 9449 (DPoP), RFC 8705 (mTLS), RFC 7519 (JWT), FAPI 2.0. T-367.';
+COMMENT ON COLUMN bauth.fed_token_issued.token_hash      IS 'SHA-256 del valor en claro del token (hex). El token real NUNCA se almacena en BD — solo su huella. El motor de introspección recalcula SHA-256 del token presentado y busca esta columna. Si una BD es exfiltrada, los hashes son inútiles sin la pre-imagen (el token).';
+COMMENT ON COLUMN bauth.fed_token_issued.dpop_jkt        IS 'JSON Key Thumbprint (RFC 9449 §6) del par de claves DPoP del cliente — huella de la clave pública Ed25519/ES256 presentada al obtener el token. El resource server verifica que el cliente presenta prueba de posesión de la clave privada correspondiente en cada request.';
+COMMENT ON COLUMN bauth.fed_token_issued.mtls_cert_fp    IS 'SHA-256 del certificado mTLS del cliente (RFC 8705 §3) — fingerprint en hex. El resource server verifica que el certificado del canal TLS coincide con este fingerprint, vinculando el token al cliente que lo obtuvo. Presente solo cuando el flujo usó mTLS sender-constrained.';
+COMMENT ON COLUMN bauth.fed_token_issued.loa_at_issuance IS 'Level of Assurance en el momento de emisión del token: AAL1, AAL2 o AAL3. El resource server puede requerir loa_at_issuance=AAL3 para operaciones de alto riesgo (FAPI 2.0 security profile). Immutable — refleja el LoA del acto de autenticación original.';
 
 
 -- ======================================================================
@@ -5520,7 +6510,14 @@ CREATE TABLE IF NOT EXISTS bauth.wallet (
 );
 CREATE INDEX IF NOT EXISTS idx_w_entity ON bauth.wallet (entity_id);
 CREATE INDEX IF NOT EXISTS idx_w_did    ON bauth.wallet (did);
-COMMENT ON TABLE bauth.wallet IS 'T-380 · Billetera digital soberana. EUDI Wallet (eIDAS 2.0 Art. 5a). DID: did:sbos:{tenant}:{entity}.';
+COMMENT ON TABLE bauth.wallet IS
+'WALLET | Billetera digital soberana por entidad — contenedor de credenciales verificables (VCs), certificados FIDO2/X.509 y documentos digitales con DID propio (did:sbos:{tenant}:{entity}); implementa EUDI Wallet (eIDAS 2.0 Art. 5a) para interoperabilidad transfronteriza.
+Fuente: creada automáticamente por bAuth al registrar una nueva entidad (entity_id) con requisito de wallet; el DID se ancla en Besu QBFT al activar did_anchored=true.
+Administración: UNIQUE (tenant_id, entity_id); status SUSPENDED bloquea presentaciones sin revocar ítems; backup_enabled cifra en ENCRYPTED_CLOUD si el tenant lo activa; total_presentations y last_presentation_at se actualizan en cada presentación VP.
+WORM: no (status y contadores de presentaciones se actualizan normalmente).
+Particionada: no.
+Estándar: EU 2024/1183 (eIDAS 2.0 Art. 5a), W3C DID Core 1.0, OpenID4VP §4, W3C VC Data Model 2.0. T-380.';
+
 
 CREATE TABLE IF NOT EXISTS bauth.wallet_item (
     item_id       UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
@@ -5539,7 +6536,29 @@ CREATE TABLE IF NOT EXISTS bauth.wallet_item (
 );
 CREATE INDEX IF NOT EXISTS idx_wi_wallet ON bauth.wallet_item (wallet_id, type);
 CREATE INDEX IF NOT EXISTS idx_wi_ref    ON bauth.wallet_item (ref_id);
-COMMENT ON TABLE bauth.wallet_item IS 'T-381 · Ítems de billetera — apunta a la fuente de verdad, NUNCA duplica. SD-JWT VC.';
+COMMENT ON TABLE bauth.wallet_item IS
+'WALLET | Ítem individual en la billetera digital — cada documento o credencial que el usuario
+tiene disponible en su wallet. Una fila por ítem. Tipos: VC (Verifiable Credential W3C VCDM 2.0),
+FIDO2 (autenticador hardware registrado), X509_CERT (certificado de identidad digital), DID_DOC
+(documento DID), SIG_CERT (certificado de firma ADSIB), NATIONAL_ID (cédula de identidad digital),
+LICENSE (licencia de conducir u otra), PHYSICAL_PASS (pase físico OSDP). ref_id: FK a la tabla
+fuente del ítem — NUNCA duplica los datos (el ítem apunta a la SSOT; VC → idn_identity_vc T-167,
+FIDO2 → auth_credential_fido2 T-332, etc.). sd_enabled: si el ítem soporta Selective Disclosure
+(SD-JWT — el usuario puede presentar solo un subconjunto de atributos). public_attrs: lista de
+atributos que el usuario marcó como siempre visibles (sin SD); atributos no listados requieren
+consentimiento explícito en cada presentación VP. status=HIDDEN: el usuario ocultó el ítem de la
+UI pero no fue revocado.
+Fuente: creada por el motor de wallet de bAuth al agregar un ítem nuevo (emisión de VC, enrollment
+FIDO2, importación de certificado); nunca por INSERT directo del usuario.
+Administración: el usuario puede ocultar (HIDDEN) o ver ítems; status=REVOKED lo marca el emisor
+cuando la credencial subyacente es revocada; valid_until expira el ítem según la vigencia del ref_id.
+WORM: no — status es mutable (el ciclo de vida del ítem depende de la credencial subyacente).
+Particionada: no.
+Estándar: W3C VC Data Model 2.0, SD-JWT §4 (Selective Disclosure), EU 2024/1183 (eIDAS 2.0). T-381.';
+COMMENT ON COLUMN bauth.wallet_item.type         IS 'Tipo de ítem en la billetera: VC (Verifiable Credential W3C VCDM 2.0), FIDO2 (autenticador hardware), X509_CERT (certificado de identidad), DID_DOC (documento DID), SIG_CERT (certificado ADSIB para firma con Ley 164), NATIONAL_ID (cédula digital), LICENSE, PHYSICAL_PASS (pase OSDP). El tipo determina la tabla fuente de ref_id.';
+COMMENT ON COLUMN bauth.wallet_item.ref_id       IS 'FK lógica (sin constraint física) al registro fuente del ítem en su tabla de origen: VC → T-167 idn_identity_vc, FIDO2 → T-332 auth_credential_fido2, X509_CERT → T-345 auth_pki_cert, NATIONAL_ID → T-321 idn_user. El ítem NO duplica datos — es un puntero a la SSOT.';
+COMMENT ON COLUMN bauth.wallet_item.sd_enabled   IS 'TRUE = el ítem soporta Selective Disclosure (SD-JWT §4): el usuario puede presentar solo algunos atributos sin revelar los demás. FALSE = el ítem siempre se presenta completo. Aplica solo para VC y documentos de identidad con claims individuales.';
+COMMENT ON COLUMN bauth.wallet_item.public_attrs IS 'Array de nombres de atributos que el usuario marcó como públicos (siempre visibles sin consentimiento adicional). Atributos no listados requieren consentimiento explícito en cada presentación VP. NULL si sd_enabled=FALSE (no hay distinción público/privado).';
 
 -- PK compuesto (presentation_id, presented_at) requerido por particionamiento
 CREATE TABLE IF NOT EXISTS bauth.wallet_presentation_log (
@@ -5562,7 +6581,24 @@ CREATE TABLE IF NOT EXISTS bauth.wallet_presentation_log (
 CREATE TABLE IF NOT EXISTS bauth.wallet_presentation_log_2026_07 PARTITION OF bauth.wallet_presentation_log FOR VALUES FROM ('2026-07-01') TO ('2026-08-01');
 CREATE TABLE IF NOT EXISTS bauth.wallet_presentation_log_2026_08 PARTITION OF bauth.wallet_presentation_log FOR VALUES FROM ('2026-08-01') TO ('2026-09-01');
 REVOKE UPDATE, DELETE ON bauth.wallet_presentation_log FROM bauth_app_role;
-COMMENT ON TABLE bauth.wallet_presentation_log IS 'T-382 · WORM. Log de presentaciones VP (OID4VP). GDPR Art. 7.3.';
+COMMENT ON TABLE bauth.wallet_presentation_log IS
+'WALLET | Log WORM particionado de presentaciones de Verifiable Presentations (VP) — registra cada
+vez que el usuario presenta su wallet a un verificador. Una fila por presentación: presented_items
+(UUIDs de los wallet_item presentados), verifier_client_id (cliente OIDC del verificador, si registrado
+en T-365), verifier_did (DID del verificador para verificación descentralizada), protocol (protocolo
+de presentación: OPENID4VP/SAML_ASSERTION/DIRECT_API), revealed_attrs (atributos efectivamente
+revelados si SD está activo — controla qué vio el verificador), outcome (ACCEPTED/REJECTED/PARTIAL).
+GDPR Art. 7.3: el log permite al usuario ver qué datos compartió con quién y cuándo — requisito de
+transparencia. El motor de wallet actualiza wallet.total_presentations y last_presentation_at en
+la misma transacción. PK compuesto (presentation_id, presented_at) requerido por particionamiento.
+traceparent: W3C Trace Context para correlación con el log de autenticación de la sesión asociada.
+Fuente: insertada por el motor de wallet de bAuth al completar cada flujo de presentación VP,
+exitoso o rechazado; nunca por INSERT directo.
+Administración: REVOKE UPDATE/DELETE — append-only; el usuario puede leer su propio historial de
+presentaciones; AUDITOR puede leer todas para forensia; particiones mensuales se archivan tras 12 meses.
+WORM: sí — REVOKE UPDATE/DELETE aplicado; el log de presentaciones es evidencia de consentimiento.
+Particionada: sí — PARTITION BY RANGE(presented_at), particiones mensuales.
+Estándar: OpenID4VP §4, W3C VC Data Model 2.0, GDPR Art. 7.3, EU 2024/1183 (eIDAS 2.0 Art. 5a). T-382.';
 
 CREATE TABLE IF NOT EXISTS bauth.wallet_issuance_log (
     issuance_id     UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
@@ -5577,7 +6613,14 @@ CREATE TABLE IF NOT EXISTS bauth.wallet_issuance_log (
     issued_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 REVOKE UPDATE, DELETE ON bauth.wallet_issuance_log FROM bauth_app_role;
-COMMENT ON TABLE bauth.wallet_issuance_log IS 'T-383 · WORM. Log de emisión VCs (OpenID4VCI). FK a T-167 idn_identity_vc.';
+COMMENT ON TABLE bauth.wallet_issuance_log IS
+'WALLET | Log WORM de emisión de Verifiable Credentials a wallets — registra cada issuance de una VC (via OpenID4VCI, emisión directa o importación) con el DID del emisor, el tipo de credencial y el resultado, vinculado a la fuente canónica idn_identity_vc (T-167).
+Fuente: insertado por el motor de emisión de VCs de bAuth al completar cada flujo de emisión (exitoso, rechazado o pendiente); el vc_id referencia la VC en idn_identity_vc que es la SSOT de la credencial.
+Administración: REVOKE UPDATE/DELETE — append-only; REJECTED con motivo auditable; PENDING expiran por job si el flujo OID4VCI no se completa; evidencia forense de quién emitió qué credencial en qué momento.
+WORM: sí — el log de emisión de VCs es evidencia irrefutable del proceso de issuance; modificarlo implicaría falsificar el registro de cuándo y cómo fue emitida una credencial digital.
+Particionada: no.
+Estándar: OpenID4VCI §4 (credencial issuance), W3C VC Data Model 2.0, EU 2024/1183 (eIDAS 2.0 Art. 5a). T-383.';
+
 
 
 -- ======================================================================
@@ -5751,10 +6794,26 @@ CREATE INDEX IF NOT EXISTS idx_cfg_library_lifecycle ON bauth.cfg_policy_library
 REVOKE UPDATE, DELETE ON bauth.cfg_policy_library FROM PUBLIC;
 
 COMMENT ON TABLE bauth.cfg_policy_library IS
-  '[T-999] Biblioteca unificada de referencia: políticas, reglas, configuraciones y métodos.
-   SOLO LECTURA. 16 fuentes normativas. 13 dominios D1-D12+SEC.
-   Clasificación: node_type (section/group/policy/config), semantic_type (policy/configuration/method/standard/guideline/group).
-   Poblada desde bauth.framework_raw vía CTE recursivo. REVOKE UPDATE/DELETE.';
+'CONFIGURACIÓN | Biblioteca unificada de referencia de políticas, reglas, métodos de autenticación
+y controles normativos — tabla de solo lectura que descompone y normaliza 16 fuentes normativas
+JSON (framework_raw T-999b) en un árbol jerárquico plano consultable con CTE recursivo. Estructura:
+node_type (section → group → policy/config), semantic_type (policy, configuration, method, standard,
+guideline). Dominios D1-D12 + SEC cubiertos en domain_map (array GIN-indexado). Campos i18n: content
+(JSON original), content_en (claves en inglés normalizadas), content_es (claves traducidas al español
+via translate_keys_en_es()). Metadata de gobernanza: enforcement (mandatory/recommended/optional),
+risk_level (critical/high/medium/low), lifecycle (active/deprecated/draft/proposed). Campos de IAM:
+assurance_level (AAL1/AAL2/AAL3), auth_factor (knowledge/possession/inherence/context/multi),
+phishing_resistant, mfa_required, session_timeout. compliance_ref: array de IDs de controles en
+formatos estándar (PCI DSS 4.0 Req 7.2.4, NIST SP 800-53 AC-2). REVOKE UPDATE/DELETE FROM PUBLIC.
+Fuente: poblada automáticamente por el script de carga (load_framework_raw.sql + CTE recursivo)
+desde bauth.framework_raw al despliegue inicial; recargable con HITL al actualizar normas.
+Administración: REVOKE UPDATE/DELETE FROM PUBLIC — tabla de solo lectura en runtime; solo el proceso
+de inicialización puede insertar; UX del dashboard lee esta tabla para renderizar formularios de
+política sin hardcodear texto en el frontend; agents IA la consultan vía qex para contexto normativo.
+WORM: no formalmente — REVOKE UPDATE/DELETE es operacional, no jurídico; la tabla se puede
+repoblar en un despliegue nuevo.
+Particionada: no.
+Estándar: NIST SP 800-63B-4, PCI DSS 4.0, OWASP ASVS 5.0, ISO 27001:2022, FIDO2, RFC 9449. T-999.';
 
 COMMENT ON COLUMN bauth.cfg_policy_library.json_path      IS 'Ruta completa en el JSON fuente. Identificador único global.';
 COMMENT ON COLUMN bauth.cfg_policy_library.node_type      IS 'Estructura JSON: section, group, policy, config.';
@@ -5782,14 +6841,39 @@ CREATE TABLE IF NOT EXISTS bauth.framework_raw (
     loaded_at   timestamptz DEFAULT now()
 );
 COMMENT ON TABLE bauth.framework_raw IS
-  '[T-999b] JSON fuente para CTE recursivo que descompone en cfg_policy_library. 16 fuentes normativas.';
+'CONFIGURACIÓN | Almacén de las 16 fuentes normativas JSON brutas que alimentan cfg_policy_library
+(T-999) — cada fila es un framework completo en JSONB (source_name UNIQUE como clave de carga).
+Las 16 fuentes incluyen NIST SP 800-63B-4, ISO 27001:2022, FIDO2 CTAP 2.2, OAuth2/OIDC, PCI DSS 4.0,
+OWASP ASVS 5.0, RFC 9449 DPoP, RFC 8705 mTLS, FAPI 2.0, entre otros. El contenido es el JSON
+completo del framework tal como fue descargado — sin transformar; la transformación la hace el CTE
+recursivo en el proceso de carga a T-999. Permite re-procesar T-999 desde cero actualizando solo las
+fuentes que cambiaron.
+Fuente: cargada por el script de inicialización del sistema de referencia normativa de bAuth
+(load_framework_raw.sql) durante el despliegue; nuevas fuentes requieren HITL (cambio normativo).
+Administración: SECURITY_ADMIN puede agregar nuevas fuentes normativas; el proceso de re-carga
+trunca T-999 y la repuebla desde esta tabla; source_name UNIQUE previene duplicados.
+WORM: no — el JSON puede actualizarse cuando cambia la normativa fuente.
+Particionada: no.
+Estándar: NIST SP 800-63B-4, ISO 27001:2022, PCI DSS 4.0, OWASP ASVS 5.0, FAPI 2.0. T-999b.';
 
 CREATE TABLE IF NOT EXISTS bauth.cfg_key_translation (
     key_en  text PRIMARY KEY,
     key_es  text NOT NULL
 );
 COMMENT ON TABLE bauth.cfg_key_translation IS
-  '[T-999c] Mapeo ~221 claves JSON inglés→español para content_es en cfg_policy_library.';
+'CONFIGURACIÓN | Diccionario de ~221 términos técnicos IAM inglés→español — usado por la función
+bauth.translate_keys_en_es() para generar el campo content_es de cfg_policy_library (T-999).
+Mapea términos del dominio de identidad y seguridad: authentication→autenticación, assurance_level→
+nivel_de_aseguramiento, phishing_resistant→resistente_a_phishing, etc. key_en es la clave primaria.
+La función translate_keys_en_es() hace lookup primero con la clave completa, luego por palabras
+camelCase y finalmente por separación por guión bajo para cubrir términos compuestos.
+Fuente: poblada por el script de inicialización del sistema de referencia normativa; mantenida
+manualmente por el equipo de documentación al agregar nuevos términos o fuentes normativas.
+Administración: SECURITY_ADMIN puede agregar términos nuevos; key_en UNIQUE previene duplicados;
+nuevos términos son efectivos en el próximo repoblado de T-999.
+WORM: no — las traducciones pueden corregirse o ampliarse.
+Particionada: no.
+Estándar: ISO 24760-2:2025 §3 (terminología de gestión de identidad), NIST SP 800-63-4 glosario. T-999c.';
 
 -- Función: descompone nodos JSONB (objetos→jsonb_each, arrays→jsonb_array_elements)
 CREATE OR REPLACE FUNCTION bauth.jsonb_explode(node jsonb)
@@ -5881,9 +6965,28 @@ CREATE TABLE IF NOT EXISTS bauth.idn_credencial_revocacion (
 CREATE INDEX IF NOT EXISTS idx_idcr_credential ON bauth.idn_credencial_revocacion(credential_id, revocado_at DESC);
 CREATE INDEX IF NOT EXISTS idx_idcr_tenant    ON bauth.idn_credencial_revocacion(tenant_id, revocado_at DESC);
 COMMENT ON TABLE bauth.idn_credencial_revocacion IS
-  '[T-364] [D09-B05] [NIST SP 800-63B-4 §5.2.6] [PCI DSS 4.0 Req 8.2.8] [ISO 27001:2022 A.5.17]
-   Catálogo persistente de credenciales revocadas. Kong PEP consulta Redis O(1); esta tabla es el failsafe.
-   jti_invalidados: lista de JWT IDs invalidados. caep_event_id: trazabilidad CAEP.';
+'AUTENTICACIÓN | Catálogo persistente de credenciales revocadas — failsafe ante reinicio de Redis.
+El flujo normal de revocación escribe en Redis (lista negra O(1) consultada por Kong PEP y el motor
+de introspección de bAuth); esta tabla es el respaldo duradero: si Redis se reinicia y pierde la
+lista negra, el daemon bAuth repuebla Redis leyendo esta tabla al arrancar, garantizando que ninguna
+credencial revocada pueda usarse tras un reinicio del cache. Campos clave: motivo (COMPROMISED/
+LOST_DEVICE/USER_REQUEST/ADMIN_REVOKE/EXPIRED/ROTATION — auditoría de por qué fue revocada),
+jti_invalidados (array de JWT IDs emitidos con esta credencial que se invalidan simultáneamente —
+un único acto de revocación puede invalidar múltiples tokens activos), caep_event_id (FK a T-191
+si la revocación fue disparada por un evento CAEP externo — trazabilidad ITDR completa),
+revocado_por (quién ejecutó la revocación — NULL si fue automática por expiración).
+Fuente: insertada por el motor de revocación de bAuth al procesar cualquier solicitud de revocación
+(usuario, admin, CAEP event, rotación automática); simultáneamente escribe en Redis TTL.
+Administración: solo el daemon bAuth puede insertar (vía trigger/RPC); el job de purga elimina
+entradas con motivo=EXPIRED o ROTATION tras 90 días (los revocados por COMPROMISED se retienen
+indefinidamente para forensia).
+WORM: no — filas de revocación expiradas pueden purgarse con retención controlada.
+Particionada: no.
+Estándar: NIST SP 800-63B-4 §5.2.6 (revocación credencial), PCI DSS 4.0 Req 8.2.8, ISO 27001:2022 A.5.17. T-364.';
+COMMENT ON COLUMN bauth.idn_credencial_revocacion.jti_invalidados IS 'Array de UUID v4 de JWT IDs (jti claim) emitidos con esta credencial que se invalidan simultáneamente. Múltiples tokens activos de la misma credencial se invalidan en un solo acto de revocación.';
+COMMENT ON COLUMN bauth.idn_credencial_revocacion.caep_event_id  IS 'FK a T-191 ses_caep_event_log — presente si la revocación fue disparada por un evento CAEP externo (ITDR). NULL si fue una revocación manual o por expiración.';
+COMMENT ON COLUMN bauth.idn_credencial_revocacion.motivo         IS 'Razón de la revocación: COMPROMISED (seguridad), LOST_DEVICE (dispositivo perdido), USER_REQUEST (solicitud del usuario), ADMIN_REVOKE (administrativo), EXPIRED (caducó), ROTATION (rotación programada).';
+COMMENT ON COLUMN bauth.idn_credencial_revocacion.revocado_por   IS 'FK a idn_identity_entity — quién ejecutó la revocación. NULL si fue automática (expiración, rotación del job) sin intervención humana.';
 
 
 -- =============================================================================
@@ -5905,8 +7008,23 @@ CREATE TABLE IF NOT EXISTS bauth.idn_credencial_introspeccion (
 CREATE INDEX IF NOT EXISTS idx_idci_token ON bauth.idn_credencial_introspeccion(token_jti, consulta_at DESC);
 CREATE INDEX IF NOT EXISTS idx_idci_tenant ON bauth.idn_credencial_introspeccion(tenant_id, consulta_at DESC);
 COMMENT ON TABLE bauth.idn_credencial_introspeccion IS
-  '[T-368] [D09-B09] [RFC 7662 §2] [NIST SP 800-63B-4 §7]
-   Log de introspecciones de token. Una fila por consulta de resource server.';
+'AUTENTICACIÓN | Log de introspecciones de token según RFC 7662 — registra cada vez que un resource
+server consulta a bAuth si un token (JWT) está activo y cuáles son sus claims actuales. Una fila
+por consulta. token_jti: el JWT ID del token inspeccionado (no el token completo — nunca se almacena
+el bearer token). resultado JSONB: la respuesta de introspección completa ({active:true/false,
+scope: [...], sub: ..., exp: ...}). scope_solicitado: los scopes que el resource server verificó.
+client_id: qué cliente OIDC realizó la introspección (FK a T-365). ip_origen: IP del resource server.
+Este log permite forensia de qué services accedieron a qué tokens en qué momento — crítico cuando un
+token es comprometido: se puede reconstruir qué resource servers lo usaron (blast radius del compromiso).
+También permite detectar patrones de uso anómalo: un resource server que hace introspección del mismo
+token cientos de veces es señal de mal uso del endpoint (debería cachear la respuesta de introspección).
+Fuente: insertada automáticamente por el endpoint de introspección de bAuth (/oauth2/introspect RFC 7662)
+en cada llamada; nunca por INSERT directo.
+Administración: el endpoint de introspección solo acepta llamadas de clientes OIDC registrados (fed_client
+T-365); rate limiting por client_id + ip_origen para prevenir abuso; el log es de solo lectura para auditor.
+WORM: no (partición por consulta_at para retención; purga tras 30 días por volumen).
+Particionada: no (candidata por consulta_at si el volumen es muy alto).
+Estándar: RFC 7662 §2 (Token Introspection), NIST SP 800-63B-4 §7, OAuth 2.0 RFC 6749. T-368.';
 
 
 -- =============================================================================
@@ -5932,8 +7050,25 @@ CREATE TABLE IF NOT EXISTS bauth.pam_cuenta_privilegiada (
     CONSTRAINT chk_pcp_estado CHECK (estado IN ('ACTIVE','INACTIVE','DECOMMISSIONED'))
 );
 COMMENT ON TABLE bauth.pam_cuenta_privilegiada IS
-  '[T-460] [D14-B01] [NIST SP 800-53 R5 AC-2(7)] [CIS Controls v8 §5.1]
-   Inventario maestro de cuentas privilegiadas del tenant. Catálogo de referencia.';
+'PAM | Inventario maestro de cuentas privilegiadas del tenant — catálogo de referencia que lista
+todas las cuentas con privilegios elevados del sistema, desde cuentas de dominio (LOCAL_ADMIN/
+DOMAIN_ADMIN) hasta claves API (API_KEY), certificados, llaves SSH y cuentas de base de datos (DATABASE_DBA).
+Una fila por cuenta privilegiada: tipo (10 tipos — LOCAL_ADMIN/DOMAIN_ADMIN/SERVICE_ACCOUNT/SHARED/
+ROOT/API_KEY/CERTIFICATE/SSH_KEY/DATABASE_DBA/CLOUD_ADMIN), nombre, sistema destino, owner_id
+(entidad responsable), criticidad (LOW/MEDIUM/HIGH/CRITICAL — determina la frecuencia de revisión
+y el nivel de monitoreo), ultima_rotacion (fecha del último cambio de contraseña/credencial). UNIQUE
+(tenant_id, nombre, sistema) garantiza que no se duplique la misma cuenta privilegiada.
+Este inventario es el prerequisito del workflow JIT (T-182): solo las cuentas registradas aquí pueden
+ser objetivo de una solicitud JIT. Permite también el análisis de cuentas huérfanas (owner_id NULL
+→ cuenta sin responsable asignado), que generan alerta de governance.
+Fuente: creada por PAM_ADMIN al registrar una cuenta privilegiada nueva; también vía descubrimiento
+automático del scanner PAM de bAuth que detecta cuentas privilegiadas en sistemas locales.
+Administración: criticidad CRITICAL requiere revisión mensual forzada (job IGA); ultima_rotacion
+actualizada por el job de rotación de T-183 pam_credential_ref; estado DECOMMISSIONED es el estado
+final (no se borra para mantener historial).
+WORM: no — estado, criticidad y ultima_rotacion son mutables operacionalmente.
+Particionada: no.
+Estándar: NIST SP 800-53 R5 AC-2(7)/AC-6(9), CIS Controls v8 §5.1 (inventario cuentas privilegiadas), ISO 27001:2022 A.8.2. T-460.';
 
 
 -- =============================================================================
