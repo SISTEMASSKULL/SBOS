@@ -308,7 +308,9 @@ seed_count bauth  idn_audit_retention_policy "T-421 políticas retención"
 seed_count bauth  idn_tenant                "T-005 tenants"
 seed_count bauth  idn_identity_entity       "T-156 entidades identidad"
 seed_count bauth  idn_roles_template        "T-162 plantillas roles"
+seed_count bauth  idn_roles_rol_hierarchical "T-300 jerarquía de roles (548)"
 seed_count bglobal global_country           "bglobal países ISO 3166"
+seed_count bglobal menu_context            "T-060/T-061 menús contextuales (319: 58 ENUMs formales + 261 CHECKs)"
 seed_count bcalendar cal_calendar           "bcalendar calendarios"
 
 # =============================================================================
