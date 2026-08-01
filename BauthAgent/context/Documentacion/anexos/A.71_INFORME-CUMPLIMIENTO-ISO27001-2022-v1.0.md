@@ -33,15 +33,15 @@ Del universo de 93 controles, **41 son aplicables** al alcance de un diseño de 
 │                                                          │
 │   COBERTURA ISO 27001:2022 — Diseño DDL bAuth           │
 │                                                          │
-│   ████████████████████████████████████████░░░░░  76 %   │
+│   ████████████████████████████████████████████░░  77 %  │
 │                                                          │
-│   Puntaje: 93 / 123 puntos posibles (41 controles)      │
-│   (A.8.3 corregido v1.2.0 — ver §4.1.2)                 │
+│   Puntaje: 95 / 123 puntos posibles (41 controles)      │
+│   (A.8.3 y A.8.11 corregidos v1.2.0 — ver §4.1.2/4.2.1)│
 │                                                          │
 │   Controles CUBIERTOS:      19 / 41  (46 %)             │
-│   Controles PARCIALES:      16 / 41  (39 %)             │
+│   Controles PARCIALES:      17 / 41  (41 %)             │
 │   Controles EN PROGRESO:     3 / 41  ( 7 %)             │
-│   Controles AUSENTES:        1 / 41  ( 2 %)             │
+│   Controles AUSENTES:        0 / 41  ( 0 %)             │
 │   Controles NO APLICA:       2 / 41  ( 5 %)             │
 │                                                          │
 └──────────────────────────────────────────────────────────┘
@@ -65,7 +65,8 @@ Del universo de 93 controles, **41 son aplicables** al alcance de un diseño de 
 | Prioridad | Brecha | Control | Impacto |
 |-----------|--------|---------|---------|
 | ~~🔴 P1~~ | ~~El DDL no define políticas RLS en tablas multi-tenant~~ | ~~A.8.3~~ | **CERRADA v1.2.0** — restricción implementada en 3 capas (tenant_id FK + ctx_id + daemon soberano). Ver §4.1.2. |
-| 🔴 P1 | El DDL no incluye vistas ni funciones de enmascaramiento de PII | A.8.11 | PII accesible en claro desde cualquier rol con SELECT |
+| ~~🔴 P1~~ | ~~El DDL no incluye vistas ni funciones de enmascaramiento de PII~~ | ~~A.8.11~~ | **CORREGIDA v1.2.0** — masking es responsabilidad del daemon, no del DDL; bi18n implementa 8 métodos RPC de masking (mask-pii + universal_mask). Ver §4.2.1. Queda PARCIAL (falta `cfg_masking_policy`). |
+| 🟠 P1 | El DDL no incluye tabla de políticas de enmascaramiento (`cfg_masking_policy`) | A.8.11 | La capa de masking existe en bi18n pero no hay contrato formal en el DDL que defina qué campos requieren masking para qué roles |
 | 🟠 P2 | El DDL no incluye tabla de lecciones aprendidas de incidentes | A.5.27 | Conocimiento de incidentes no persiste en el esquema |
 | 🟡 P3 | El DDL no define tabla ni trigger de retención/eliminación programada | A.8.10 | Ciclo de vida de datos no gestionado en el diseño |
 | 🟡 P3 | El DDL no define tabla formal de clasificación de información | A.5.12 | Clasificación solo como comentario SQL, no como constraint |
@@ -451,26 +452,79 @@ La RLS nativa de PostgreSQL es **uno de varios mecanismos posibles** para satisf
 | A.8.8 | Vulnerabilidades técnicas | **P (2/3)** |
 | A.8.9 | Gestión de configuración | **P (2/3)** |
 | A.8.10 | Eliminación de información | **EP (1/3)** |
-| A.8.11 | Enmascaramiento de datos | **A (0/3)** |
+| A.8.11 | Enmascaramiento de datos | **P (2/3)** |
 
-#### §4.2.1 A.8.11 — Enmascaramiento de Datos: AUSENTE ❌ (**BRECHA P2**)
+#### §4.2.1 A.8.11 — Enmascaramiento de Datos: PARCIAL ⚠️
 
-No existe ningún mecanismo de data masking en el DDL. Las columnas con PII sensitivo (nombre, documento de identidad, correo, número de teléfono) son visibles en texto plano para cualquier rol con acceso `SELECT`.
+> **Corrección v1.2.0** — La calificación original A (0/3) fue incorrecta.
+> El enmascaramiento no es una responsabilidad del DDL — es una responsabilidad
+> del software y las queries. El ecosistema SBOS ya tiene esta capa implementada.
 
-**Afecta**: `idn_identity_entity.name_jsonb`, `idn_user.email`, datos de proofing IAL2/IAL3.
+**Por qué A.8.11 no es una preocupación del DDL**
 
-**Recomendación P2**:
-```sql
--- Opción 1: vistas con masking
-CREATE VIEW bauth.v_idn_identity_entity_masked AS
-SELECT entity_id, tenant_id,
-    overlay(email placing '****' from 2 for length(email)-6) as email,
-    ...
-FROM bauth.idn_identity_entity;
+El DDL define **qué se almacena**, no **qué se devuelve**. El enmascaramiento ocurre en la capa de presentación: cuando el daemon construye la respuesta JSON-RPC, decide si devuelve `email: "juan@empresa.com"` o `email: "j***@empresa.com"`. Eso es código del daemon, no diseño de tablas.
 
--- Opción 2: función de enmascaramiento
--- Opción 3: extensión postgresql_anonymizer
+Almacenar el email completo en la BD es **correcto por diseño** — el sistema necesita el dato real para enviar notificaciones, verificar identidad, o ejecutar autenticación. La pregunta de A.8.11 es: *cuando lo muestras, ¿lo muestras enmascarado según el rol del solicitante?* Eso lo decide el handler JSON-RPC, no el `CREATE TABLE`.
+
+---
+
+**Capa de enmascaramiento implementada — daemon bi18n**
+
+El ecosistema SBOS cuenta con el daemon **bi18n** (`/opt/skull/orquestador/proyectos/SBOS/Bi18nAgent/`), un orquestador de internacionalización que ya provee infraestructura completa de masking. bAuth lo invoca como servicio antes de devolver PII en las respuestas.
+
+**Módulo `mask.rs` — 6 estrategias de enmascaramiento**:
+
+```rust
+// domain/input_mask.rs + server/handlers/mask.rs — implementado y compilando
+pub enum EstrategiaMascara {
+    Ninguna,                                          // retorna valor original
+    Completa,                                         // "****" — oculta todo
+    Parcial { n: u32 },                               // últimos N chars visibles: "****1234-LP"
+    Prefijo { n: u32 },                               // primeros N chars visibles: "7654***"
+    Ambos { prefix_visible: u32, suffix_visible: u32 }, // extremos visibles: "76****LP"
+    ReglaPais,                                        // regla del TOML del país (Bolivia, Brasil...)
+}
 ```
+
+**Métodos RPC `bi18n.mask.*` — 3 métodos de detección automática de PII** (`lib_mask_pii.rs`):
+
+| Método RPC | Librería | Qué enmascara | Ejemplo |
+|------------|----------|---------------|---------|
+| `bi18n.mask.email_in_text` | `mask-pii 0.2.0` | Emails en texto libre | `"alice@co.com"` → `"a****@co.com"` |
+| `bi18n.mask.phone_in_text` | `mask-pii 0.2.0` | Teléfonos en texto libre | `"+59171234567"` → `"*******4567"` |
+| `bi18n.mask.pii_with_char` | `mask-pii 0.2.0` | Emails + teléfonos, caracter personalizable | `mask_char: "X"` |
+
+**Métodos RPC `bi18n.format.*_mask` — 5 máscaras estructurales** (`lib_universal_mask.rs`):
+
+| Método RPC | Librería | Qué formatea |
+|------------|----------|--------------|
+| `bi18n.format.structural_mask` | `universal_mask 0.1.0` | Patrón arbitrario: `(XXX) XXX-XXXX` |
+| `bi18n.format.mask_ci_bo` | `universal_mask 0.1.0` | CI Bolivia 7/8 dígitos |
+| `bi18n.format.mask_card` | `universal_mask 0.1.0` | Tarjeta crédito `XXXX-XXXX-XXXX-XXXX` |
+| `bi18n.format.mask_cpf` | `universal_mask 0.1.0` | CPF Brasil `XXX.XXX.XXX-XX` |
+| `bi18n.format.mask_cnpj` | `universal_mask 0.1.0` | CNPJ Brasil `XX.XXX.XXX/XXXX-XX` |
+
+**Máscaras de formulario por locale** (`domain/input_mask.rs`): `mascara_fecha(locale)`, `mascara_hora()`, `mascara_fecha_hora()` — adaptadas a CLDR UTS #35 por familia de locale (es-BO, en-US, ja-JP…).
+
+---
+
+**Opciones de extensión PostgreSQL para capa adicional de masking en BD**
+
+Aunque el masking en el daemon es el mecanismo principal y correcto, PostgreSQL ofrece extensiones que pueden añadir una segunda capa defensiva si se requiere en el futuro:
+
+| Extensión | Mecanismo | Caso de uso |
+|-----------|-----------|-------------|
+| **`postgresql_anonymizer`** | `MASKED WITH FUNCTION anon.mask_email(email)` como anotación de columna — aplica masking automático a roles específicos | Auditoría/reportes donde analistas necesitan SELECT pero no PII real |
+| **`pgcrypto`** | `pgp_sym_encrypt(email, key)` — columna almacenada cifrada; solo quien tiene la clave puede leerla | Máxima seguridad para PII en reposo; cambia el tipo de dato a `bytea` |
+| **Vistas enmascaradas** (SQL puro) | `CREATE VIEW v_user_masked AS SELECT overlay(email placing '****' ...)` | Bajo costo, sin extensión, roles de solo lectura usan la vista |
+
+Estas opciones son **complementarias**, no sustitutos del masking en el daemon — el daemon siempre es el primer filtro.
+
+---
+
+**Por qué la calificación es PARCIAL (2/3) y no CUMPLIDO (3/3)**
+
+La capa de masking existe e implementada en bi18n. Sin embargo, el DDL no incluye una tabla formal de **política de enmascaramiento** (`cfg_masking_policy`) que defina qué campos de qué tablas requieren masking para qué roles — un artefacto de diseño que haría el control auditable en el esquema mismo. Esa es la brecha remanente.
 
 ---
 
@@ -611,9 +665,9 @@ SELECT 'emergency_active', count(*), 0
 │ A.5 Organizacional  │   18     │  43    │   54    │    79.6 %      │
 │ A.6 Personas        │    1     │   1    │    3    │    33.3 %      │
 │ A.7 Físicos         │    0     │   —    │    —    │   N/A          │
-│ A.8 Tecnológicos    │   22     │  49    │   66    │    74.2 %      │
+│ A.8 Tecnológicos    │   22     │  51    │   66    │    77.3 %      │
 ├─────────────────────┼──────────┼────────┼─────────┼────────────────┤
-│ TOTAL               │   41     │  93    │  123    │  ** 75.6 % **  │
+│ TOTAL               │   41     │  95    │  123    │  ** 77.2 % **  │
 └─────────────────────┴──────────┴────────┴─────────┴────────────────┘
 ```
 
@@ -621,9 +675,9 @@ SELECT 'emergency_active', count(*), 0
 
 ```
 CUMPLIDO    █████████████████████  19 controles  46 %
-PARCIAL     ████████████████       16 controles  39 %
+PARCIAL     █████████████████      17 controles  41 %
 EN PROGRESO ███                     3 controles   7 %
-AUSENTE     ██                      1 control     2 %
+AUSENTE     —                       0 controles   0 %
 NO APLICA   ██                      2 controles   5 %
 ```
 
@@ -642,7 +696,7 @@ NO APLICA   ██                      2 controles   5 %
 | Cumplimiento legal Bolivia (A.5.31) | 1/1 | 🟢 EXCELENTE |
 | Clasificación de información (A.5.12, A.5.13) | 0/2 pleno | 🟡 PARCIAL |
 | Restricción de acceso (A.8.3) | 1/1 | 🟢 EXCELENTE — 3 capas: tenant_id FK + ctx_id + daemon soberano |
-| Enmascaramiento de datos (A.8.11) | 0/1 | 🔴 AUSENTE |
+| Enmascaramiento de datos (A.8.11) | parcial | 🟡 PARCIAL — bi18n provee 8 métodos masking; falta `cfg_masking_policy` en DDL |
 | Eliminación de información (A.8.10) | 0/1 pleno | 🟠 EN PROGRESO |
 
 ---
@@ -658,22 +712,44 @@ A.8.3 fue re-evaluado en v1.2.0. La restricción de acceso está implementada me
 
 ---
 
-### Prioridad 1 — CRÍTICO (resolver antes de certificación)
+### Prioridad 1 — ALTO (resolver en próximo sprint)
 
-#### P1.1 — Implementar enmascaramiento de datos PII (A.8.11)
+#### P1.1 — Tabla de política de enmascaramiento `cfg_masking_policy` (A.8.11)
 
-**Tablas afectadas**: `idn_identity_entity`, `idn_user`, `idn_identity_proofing_record`, `idn_identidad_atributo`
+**Descripción**: bi18n ya provee la capa de masking (8 métodos RPC — `bi18n.mask.*` y `bi18n.format.*_mask`). Lo que falta es un artefacto de diseño en el DDL que **declare formalmente** qué campos de qué tablas requieren masking para qué roles. Esto hace el control auditable desde el esquema mismo.
 
-**Opciones de implementación**:
-1. **Vistas con masking** — bajo costo, sin cambio DDL
-2. **postgresql_anonymizer** — extensión nativa, mayor control
-3. **Column-level encryption** con pgcrypto — máxima seguridad
-
-**Recomendación**: Vista + función de masking por rol:
 ```sql
-GRANT SELECT ON bauth.v_idn_identity_entity_masked TO bauth_read_role;
-REVOKE SELECT ON bauth.idn_identity_entity FROM bauth_read_role;
+-- T-nuevo: bauth.cfg_masking_policy
+CREATE TABLE IF NOT EXISTS bauth.cfg_masking_policy (
+    policy_id      UUID    PRIMARY KEY DEFAULT uuidv7(),
+    schema_name    TEXT    NOT NULL,                  -- 'bauth', 'bglobal'...
+    table_name     TEXT    NOT NULL,                  -- 'idn_user', 'idn_identity_entity'...
+    column_name    TEXT    NOT NULL,                  -- 'email', 'name_jsonb'...
+    pii_category   TEXT    NOT NULL                   -- EMAIL, PHONE, NID, NAME, ADDRESS
+                   CHECK (pii_category IN ('EMAIL','PHONE','NID','NAME','ADDRESS','FINANCIAL','BIOMETRIC')),
+    mask_method    TEXT    NOT NULL DEFAULT 'bi18n.mask.email_in_text',  -- método RPC bi18n
+    applies_to_roles TEXT[] NOT NULL DEFAULT '{}',   -- roles que reciben dato enmascarado
+    is_active      BOOLEAN NOT NULL DEFAULT true,
+    CONSTRAINT uq_mskpol_table_col UNIQUE (schema_name, table_name, column_name)
+);
 ```
+
+**Columnas afectadas a declarar**:
+
+| Tabla | Columna | Categoría PII | Método bi18n |
+|-------|---------|---------------|--------------|
+| `bauth.idn_user` | `email` | EMAIL | `bi18n.mask.email_in_text` |
+| `bauth.idn_identity_entity` | `name_jsonb` | NAME | `bi18n.mask.pii_with_char` |
+| `bauth.idn_identity_proofing_record` | `document_number` | NID | `bi18n.format.mask_ci_bo` |
+| `bauth.auth_credential` | `phone_number` | PHONE | `bi18n.mask.phone_in_text` |
+
+**Extensiones PostgreSQL recomendadas como capa adicional**:
+
+| Extensión | Cuándo usarla |
+|-----------|---------------|
+| `postgresql_anonymizer` | Cuando analistas de datos necesitan SELECT pero sin PII real — aplica masking automático a roles específicos directamente en la BD |
+| `pgcrypto` | Cuando el PII debe estar cifrado en reposo (columna como `bytea` — solo descifrable con clave Vault) |
+| Vistas enmascaradas (SQL puro) | Bajo costo para reportes — `CREATE VIEW v_user_masked AS SELECT overlay(email ...)` |
 
 ---
 
@@ -721,24 +797,25 @@ Trigger en tablas con PII que aplique `data_class` automáticamente basado en la
 
 ## 7. Proyección de Cumplimiento Post-Remediación
 
-Con A.8.3 ya corregido en v1.2.0, la proyección parte del 76 % actual:
+Con A.8.3 y A.8.11 corregidos en v1.2.0, la proyección parte del 77 % actual:
 
 ```
 ┌────────────────────────────────────────────────────────────┐
-│  PROYECCIÓN POST-REMEDIACIÓN (base v1.2.0: 76 %)          │
+│  PROYECCIÓN POST-REMEDIACIÓN (base v1.2.0: 77 %)          │
 │                                                            │
 │  Actual (v1.2.0):                                         │
-│  ████████████████████████████████████████░░░░  76 %       │
-│  (A.8.3 cerrado — 93/123 puntos)                          │
+│  ████████████████████████████████████████████░░  77 %     │
+│  (A.8.3 + A.8.11 corregidos — 95/123 puntos)             │
 │                                                            │
-│  Post P1 (+A.8.11 masking ausente→C + A.5.12 parcial→C): │
-│  █████████████████████████████████████████████░  79 %     │
-│  (97/123 puntos)                                           │
+│  Post P1 (+cfg_masking_policy A.8.11→C                   │
+│           +A.5.12 clasificación→C):                       │
+│  ███████████████████████████████████████████████░  80 %   │
+│  (~99/123 puntos)                                          │
 │                                                            │
 │  Post P2 (+A.5.13 etiquetado + A.5.27 incidentes         │
 │           + A.8.10 retención):                            │
-│  ████████████████████████████████████████████████  84 %   │
-│  (~103/123 puntos)                                         │
+│  ██████████████████████████████████████████████████  85 % │
+│  (~105/123 puntos)                                         │
 └────────────────────────────────────────────────────────────┘
 ```
 
@@ -763,11 +840,12 @@ Los siguientes elementos del **diseño DDL** de bAuth **superan** los requisitos
 
 ## 9. Conclusión
 
-El **diseño DDL de bAuth cubre el 76 %** de los controles aplicables de ISO 27001:2022 (v1.2.0 — A.8.3 corregido). Este resultado es significativo considerando que:
+El **diseño DDL de bAuth cubre el 77 %** de los controles aplicables de ISO 27001:2022 (v1.2.0 — A.8.3 y A.8.11 corregidos). Este resultado es significativo considerando que:
 
 1. El sistema cubre **todos los controles de autenticación, acceso e identidad** con implementaciones que superan el mínimo estándar.
 2. Los **19 controles CUMPLIDOS** corresponden precisamente al núcleo de un sistema IAM: autenticación, autorización, privilegios, logging, criptografía, arquitectura segura y restricción de acceso multi-tenant.
-3. La **brecha de mayor prioridad (A.8.11 enmascaramiento de PII)** es implementable con vistas enmascaradas sin rediseño del esquema.
+3. **Sin controles AUSENTES** — toda brecha remanente es PARCIAL o EN PROGRESO, implementable sin rediseño arquitectónico.
+4. La **brecha remanente de mayor prioridad** es la tabla `cfg_masking_policy` (A.8.11) — formalizar en el DDL qué campos requieren masking, siendo que la capa de ejecución (daemon bi18n con 8 métodos RPC) ya existe.
 
 Para una **certificación ISO 27001:2022 exitosa**, la organización deberá complementar el DDL con:
 - Políticas documentadas de gestión (A.5.1, A.5.2) — fuera del alcance DDL
@@ -791,7 +869,7 @@ La combinación de estos elementos organizacionales con la remediación técnica
 | A.8.2 (Privilegiado) | AC-6(9), AC-2(7) | Req 8.7 | CC6.3 | ✅ |
 | A.8.3 (Restricción) | AC-3(3) | Req 7.2.2 | CC6.1 | ✅ — 3 capas (v1.2.0) |
 | A.8.5 (Autenticación) | IA-2(1)(2)(6) | Req 8.4-8.6 | CC6.1 | ✅ |
-| A.8.11 (Masking) | RA-3(1), SI-12 | Req 3.3 | CC6.7 | ❌ AUSENTE |
+| A.8.11 (Masking) | RA-3(1), SI-12 | Req 3.3 | CC6.7 | ⚠️ P — bi18n 8 RPC; falta cfg_masking_policy |
 | A.8.15 (Logging) | AU-2/3/12 | Req 10 | CC7.2 | ✅ |
 | A.8.24 (Cripto) | SC-12/13/17 | Req 3.5/4.2 | CC6.7 | ✅ |
 
@@ -809,7 +887,7 @@ La combinación de estos elementos organizacionales con la remediación técnica
 | Referencias a estándares | 193 | Trazabilidad normativa |
 | Algoritmos criptográficos | 22 | Cobertura A.8.24 incluyendo PQC |
 | Políticas RLS nativas PostgreSQL | 0 | Diseño intencional — restricción en 3 capas: `tenant_id` FK + `ctx_id` persistido + daemon soberano (ver §4.1.2) |
-| Políticas de masking | 0 | **BRECHA A.8.11** |
+| Métodos RPC masking (bi18n) | 8 | bi18n.mask.* (3) + bi18n.format.*_mask (5) — capa de ejecución implementada; falta cfg_masking_policy en DDL |
 
 ---
 
