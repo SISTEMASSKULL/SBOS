@@ -240,23 +240,24 @@ A.8.10: EP(1/3) → C(3/3) = +2 puntos → score +2
 
 ---
 
-### T-BACKLOG-004 — Etiquetado automático de información via trigger (A.5.13)
+### ~~T-BACKLOG-004~~ — ~~Etiquetado automático via trigger (A.5.13)~~ — CANCELADO ✅
 
-**Estado:** PENDIENTE  
-**Prioridad:** P3 (BAJA)  
+**Estado:** CANCELADO — D-17 (2026-08-01)  
 **Control ISO:** A.5.13 — Etiquetado de información  
-**Dependencia:** REQUIERE T-BACKLOG-002 (tabla `cfg_information_classification` debe existir)  
 
-**Por qué es un gap:**  
-Actualmente no existe etiquetado ejecutable — solo comentarios SQL. Las tablas con PII
-no tienen columna `data_class` ni trigger que la aplique automáticamente.
+**Por qué se cancela:**  
+El diseño original dependía de `cfg_information_classification` (ya descartada en D-16) y
+proponía un trigger que auto-infería el label desde las columnas presentes. Ese patrón es
+frágil — el trigger no tiene contexto de negocio para inferir correctamente la categoría.
 
-**Diseño preliminar:**  
-Trigger `BEFORE INSERT OR UPDATE` en tablas con PII que establece `data_class`
-según las columnas presentes (si tiene `email` → CONFIDENTIAL, si es catálogo → PUBLIC).
+A.5.13 queda cubierto por la combinación de T-BACKLOG-008 + T-BACKLOG-002:
+- `pii_category` en T-157 (T-BACKLOG-008) **es el label** — campo adjunto a cada atributo PII
+- CHECK constraint en T-157 (T-BACKLOG-002) **es el procedimiento de etiquetado** — hace
+  obligatorio el label para namespaces sensibles (biometric / identification / fiscal / verification)
+- ISO 27002:2022 A.5.13 acepta explícitamente "campos de base de datos" como mecanismo de label
+- El daemon asigna el label explícitamente al insertar; el CHECK lo impone como invariante
 
-**Artefactos a actualizar:**  
-`DDLs/SBOS_db_V2_DDL.sql` (trigger) · `A.71` (A.5.13: EP(1/3) → C(3/3))
+**A.5.13 pasa de EP(1/3) → C(3/3) al aplicar T-BACKLOG-008 + T-BACKLOG-002.** No se requiere DDL adicional.
 
 ---
 
@@ -727,6 +728,7 @@ Para cada una: revisar con el usuario si es gap real, falso positivo, o brecha d
 | # | Control | Estado actual | Descripción breve |
 |---|---------|--------------|------------------|
 | ~~D-16~~ | ~~A.5.12 (P 2/3)~~ | **→ T-BACKLOG-002 REFORMULADO** | Arquitectura corregida — la clasificación es metadata del atributo PII (T-157), no tabla separada. Solución: CHECK constraint en T-157 (depende T-BACKLOG-008) + seed MC-INFOCLS. Ver §3.2.1 |
+| ~~D-17~~ | ~~A.5.13 (EP 1/3)~~ | **→ T-BACKLOG-004 CANCELADO** | `pii_category` (T-BACKLOG-008) es el label; `chk_attr_pii_metadata_completa` (T-BACKLOG-002) es el procedimiento de etiquetado. ISO 27002 acepta "campos de BD" como mecanismo válido. Trigger auto-inferencia descartado — frágil e incorrecto. EP→C(3/3) al aplicar T-BACKLOG-008 + T-BACKLOG-002. Ver §3.2.2 |
 | ~~D-05~~ | ~~A.5.7 (P 2/3)~~ | **→ T-BACKLOG-005** | Gap confirmado — 2 tablas `thi_*`: IOC store + correlation log |
 | ~~D-06~~ | ~~A.5.14 (P 2/3)~~ | **→ FALSO POSITIVO → C(3/3)** | Sistema cerrado: daemons en mismo host por Unix socket; biedata es el único punto de salida exterior. ctx_id + aud_event_log cubre lo interno. Actualizar A.71 §3.2.3. |
 | ~~D-07~~ | ~~A.5.25 (P 2/3)~~ | **→ T-BACKLOG-006** | Gap confirmado — tabla `inc_security_event`: triaje previo al incidente confirmado (decisión formal CONFIRMED/FALSE_POSITIVE/ESCALATED) |

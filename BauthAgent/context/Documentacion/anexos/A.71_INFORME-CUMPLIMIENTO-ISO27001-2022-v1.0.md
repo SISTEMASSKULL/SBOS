@@ -3,7 +3,7 @@
 
 | Metadato | Valor |
 |----------|-------|
-| **Versión** | 1.10.0 |
+| **Versión** | 1.11.0 |
 | **Fecha** | 2026-08-01 |
 | **Estándar analizado** | ISO/IEC 27001:2022 (con enmienda climática ISO 27001:2024) |
 | **Alcance del análisis** | Diseño DDL del sistema IAM bAuth — 3 archivos DDL + seeds (ver §2.1) |
@@ -178,7 +178,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_financial_sod_rule (
 | A.5.10 | Uso aceptable de activos | N/A | Política organizacional |
 | A.5.11 | Devolución de activos | N/A | Operacional |
 | A.5.12 | Clasificación de información | **P (2/3)** *(→ C condicionado a T-BACKLOG-008)* | ↓ Ver §3.2.1 |
-| A.5.13 | Etiquetado de información | **EP (1/3)** | ↓ Ver §3.2.2 |
+| A.5.13 | Etiquetado de información | **EP (1/3)** *(→ C condicionado a T-BACKLOG-008 + T-BACKLOG-002)* | ↓ Ver §3.2.2 |
 | A.5.14 | Transferencia de información | **C (3/3)** | ↓ Ver §3.2.3 |
 
 #### §3.2.1 A.5.12 — Clasificación de Información: PARCIAL ⚠️ *(→ CUMPLIDO al aplicar T-BACKLOG-008)*
@@ -229,9 +229,62 @@ ya existen — solo falta el constraint que los conecta.
 
 ---
 
-#### §3.2.2 A.5.13 — Etiquetado de Información: EN PROGRESO 🔶
+#### §3.2.2 A.5.13 — Etiquetado de Información: EN PROGRESO 🔶 *(→ CUMPLIDO al aplicar T-BACKLOG-008 + T-BACKLOG-002)*
 
-Los COMMENT ON TABLE usan prefijos de clasificación pero no existe etiquetado automático ejecutable ni políticas de etiquetado en el DDL. Las tablas con PII (idn_identity_entity, idn_user) no tienen columna de sensibilidad de datos.
+> **Corrección arquitectónica v1.11.0 (D-17):** T-BACKLOG-004 (trigger de auto-inferencia de
+> etiqueta) ha sido **cancelado**. El etiquetado PII se implementa mediante la combinación
+> T-BACKLOG-008 + T-BACKLOG-002 — sin trigger, sin tabla separada.
+
+**Análisis — lo que cubre el DDL actualmente:**
+
+| Mecanismo | Evidencia | Aporte |
+|-----------|-----------|--------|
+| Prefijos `COMMENT ON TABLE` | `AUTENTICACIÓN \|`, `IDENTIDAD \|`, `PAM JIT \|` en 139 tablas | Etiquetado implícito por propósito — legible, no ejecutable |
+| Separación por schema | `bauth` / `bos` / `bglobal` | Aislamiento de dominio como proxy de clasificación |
+
+**Por qué el trigger era el diseño equivocado:**
+
+Un trigger `BEFORE INSERT OR UPDATE` que infiere `pii_category` desde los nombres de columnas
+presentes es frágil y arquitectónicamente incorrecto: el daemon tiene contexto de negocio que
+el trigger no puede derivar. Ej.: una columna `valor` puede ser biométrica o fiscal dependiendo
+del `attr_namespace` — el trigger no puede saberlo con certeza.
+
+**Solución correcta — etiquetado explícito + constraint de obligatoriedad:**
+
+ISO 27002:2022 A.5.13 requiere "procedimientos de etiquetado implementados en conformidad con
+el esquema de clasificación". Ese requisito se satisface con dos mecanismos DDL:
+
+1. **`pii_category`** (T-BACKLOG-008 en T-157): **campo de label** — adjunto a cada fila de
+   `idn_identity_attribute`, el daemon lo establece explícitamente al insertar el atributo.
+   ISO 27002 acepta "campos de base de datos" como mecanismo de etiquetado válido.
+
+2. **`chk_attr_pii_metadata_completa`** (T-BACKLOG-002 en T-157): **procedimiento de etiquetado**
+   — CHECK constraint que hace obligatorio el label para namespaces sensibles
+   (`biometric`, `identification`, `fiscal`, `verification`). Sin esto, el etiquetado es
+   voluntario; con esto, es una invariante de base de datos que ninguna capa puede saltarse.
+
+```sql
+-- El label (T-BACKLOG-008):
+ALTER TABLE bauth.idn_identity_attribute ADD COLUMN pii_category pii_category_enum;
+
+-- El procedimiento de etiquetado obligatorio (T-BACKLOG-002, aplica después):
+ALTER TABLE bauth.idn_identity_attribute
+ADD CONSTRAINT chk_attr_pii_metadata_completa
+CHECK (
+    attr_namespace NOT IN ('biometric', 'identification', 'fiscal', 'verification')
+    OR (pii_category IS NOT NULL AND legal_basis IS NOT NULL)
+);
+```
+
+**Por qué es EP(1/3) ahora y C(3/3) al aplicar T-BACKLOG-008 + T-BACKLOG-002:**
+
+- EP(1/3): el etiquetado actual es solo convencional (COMMENT ON TABLE) — no hay campo
+  de label ni procedimiento ejecutable en T-157.
+- C(3/3) condicional: cuando T-BACKLOG-008 + T-BACKLOG-002 estén aplicados, `pii_category`
+  cumple el rol de label y el CHECK constraint cumple el rol de "procedimiento implementado"
+  que exige ISO 27001 A.5.13.
+
+**Remediación:** T-BACKLOG-002 (reformulado, depende de T-BACKLOG-008). T-BACKLOG-004 cancelado.
 
 ---
 
@@ -1283,25 +1336,14 @@ La brecha A.8.11 fue cerrada en v1.3.0. El diseño DDL ya contempla el enmascara
 
 ### Prioridad 1 — ALTO (resolver en próximo sprint)
 
-#### P1.1 — Tabla de clasificación formal de información (A.5.12)
+#### ~~P1.1 — Tabla de clasificación formal de información (A.5.12)~~ — SUPERSEDIDO ✅
 
-```sql
--- T-nuevo: bauth.cfg_information_classification
-CREATE TABLE IF NOT EXISTS bauth.cfg_information_classification (
-    class_id    UUID PRIMARY KEY DEFAULT uuidv7(),
-    class_code  TEXT NOT NULL UNIQUE,        -- CONFIDENTIAL, INTERNAL, PUBLIC, RESTRICTED
-    class_name  JSONB NOT NULL,              -- {es: "...", en: "..."}
-    retention_days INTEGER NOT NULL,          -- días de retención
-    masking_required BOOLEAN NOT NULL DEFAULT false,
-    encryption_at_rest BOOLEAN NOT NULL DEFAULT false,
-    handling_rules JSONB
-);
+> **v1.10.0 (D-16):** Enfoque de tabla relacional descartado. La clasificación es metadata del
+> atributo PII — la solución correcta es un CHECK constraint sobre T-157.
+> Ver §3.2.1 y T-BACKLOG-002 (reformulado) en BACKLOG-DDL-ISO27001.md.
 
--- Agregar columna a tablas con PII:
-ALTER TABLE bauth.idn_identity_entity
-    ADD COLUMN IF NOT EXISTS data_class TEXT
-    REFERENCES bauth.cfg_information_classification(class_code);
-```
+**Acción requerida:** T-BACKLOG-008 (columnas `pii_category` + `legal_basis` en T-157) →
+luego T-BACKLOG-002 (CHECK constraint `chk_attr_pii_metadata_completa`). A.5.12: P→C.
 
 ---
 
@@ -1319,9 +1361,13 @@ Crear tabla `cfg_retention_policy` con reglas por tipo de dato, y job PostgreSQL
 -- Captura: qué falló, root cause, medida correctiva, fecha implementación
 ```
 
-#### P3.3 — Etiquetado automático de información (A.5.13)
+#### ~~P3.3 — Etiquetado automático via trigger (A.5.13)~~ — CANCELADO ✅
 
-Trigger en tablas con PII que aplique `data_class` automáticamente basado en las columnas presentes.
+> **v1.11.0 (D-17):** T-BACKLOG-004 cancelado. El trigger de auto-inferencia fue descartado
+> (frágil — el trigger no tiene contexto de negocio para inferir `pii_category` correctamente).
+> A.5.13 queda cubierto por T-BACKLOG-008 (`pii_category` = label) + T-BACKLOG-002
+> (CHECK constraint = procedimiento de etiquetado obligatorio). EP→C(3/3) al aplicar ambos.
+> Ver §3.2.2.
 
 ---
 
