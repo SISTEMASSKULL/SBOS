@@ -23,120 +23,178 @@ TRUNCATE TABLE bglobal.menu_context   RESTART IDENTITY CASCADE;
 
 INSERT INTO bglobal.menu_context (code, name, menu_type, description, is_active, sort_order)
 VALUES
+  -- [MC-0005] rol_vigencia · Tabla: bauth.idn_roles_rol_hierarchical.validity_type · Kardex: A.65.04
   ('rol_vigencia', '{"es": "Vigencia del Rol", "en": "Role Validity"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0005] Kardex: A.65.04 · Tabla: bauth.idn_roles_rol_hierarchical.validity_type — Define si la validez temporal de un rol es indefinida, acotada a fechas o ligada a un contrato. Controla la expiración automática y activa el reconcile loop cuando un rol vence.', true, 10),
+  -- [MC-0001] ver_canal · Tabla: bauth.idn_roles_rol_hierarchical.change_channel, bauth.idn_roles_ver_b01_audit_log.change_channel · Kardex: A.65.04
   ('ver_canal', '{"es": "Canal de Cambio (Versionado)", "en": "Change Channel (Versioning)"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0001] Kardex: A.65.04 · Tabla: bauth.idn_roles_rol_hierarchical.change_channel, bauth.idn_roles_ver_b01_audit_log.change_channel — Identifica por qué canal llegó un cambio de versión de rol: editor humano, API, sincronización IGA o script de sistema. Trazabilidad del origen de cada modificación.', true, 20),
+  -- [MC-0002] ver_compactacion · Tabla: bauth.idn_roles_ver_b01_retention_policy.compaction_policy · Kardex: A.65.04
   ('ver_compactacion', '{"es": "Política de Compactación (Versionado)", "en": "Compaction Policy (Versioning)"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0002] Kardex: A.65.04 · Tabla: bauth.idn_roles_ver_b01_retention_policy.compaction_policy — Política de retención histórica de versiones de rol: conservar todas, solo anclas MAJOR, o únicamente las N últimas. Equilibra cumplimiento forense y espacio en disco.', true, 30),
+  -- [MC-0003] ver_estado_propuesta · Tabla: bauth.idn_roles_ver_b03_approval_queue.status · Kardex: A.65.04
   ('ver_estado_propuesta', '{"es": "Estado de Propuesta (Versionado)", "en": "Proposal Status (Versioning)"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0003] Kardex: A.65.04 · Tabla: bauth.idn_roles_ver_b03_approval_queue.status — Estado del workflow de aprobación de cambios MAJOR: pendiente de quórum, aprobado, rechazado o expirado. Controla el ciclo dual-control NIST AC-5.', true, 40),
+  -- [MC-0004] ver_tipo_cambio · Tabla: bauth.idn_roles_ver_b01_audit_log.change_type · Kardex: A.65.04
   ('ver_tipo_cambio', '{"es": "Tipo de Cambio Semver (Versionado)", "en": "Semver Change Type (Versioning)"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0004] Kardex: A.65.04 · Tabla: bauth.idn_roles_ver_b01_audit_log.change_type — Impacto semver de una modificación de rol: MAJOR (ruptura), MINOR (adición compatible) o PATCH (corrección). Determina si se exige quórum de aprobación.', true, 50),
+  -- [MC-0055] canal_alarma · Tabla: bcalendar.cal_alarm.channel, bcalendar.cal_notification_log.channel · Kardex: A.65.04
   ('canal_alarma', '{"es": "Canal de Alarma", "en": "Alarm Channel"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0055] Kardex: A.65.04 · Tabla: bcalendar.cal_alarm.channel, bcalendar.cal_notification_log.channel — Canal por el que se envía una alarma de calendario: correo electrónico, notificación push o evento interno del sistema. Configurable por evento y destinatario.', true, 60),
+  -- [MC-0006] nivel_auditoria · Tabla: bauth.idn_tenant.audit_level · Kardex: A.65.04
   ('nivel_auditoria', '{"es": "Nivel de Auditoría", "en": "Audit Level"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0006] Kardex: A.65.04 · Tabla: bauth.idn_tenant.audit_level — Granularidad del registro de auditoría por tenant: básico (accesos), estándar (operaciones) o forense (cada cambio de estado con diff completo). Determina el volumen de logs y el costo de retención.', true, 70),
+  -- [MC-0035] estado_breakglass · Tabla: bauth.pam_breakglass_activation.status · Kardex: A.65.04
   ('estado_breakglass', '{"es": "Estado de Acceso Break-Glass", "en": "Break-Glass Access Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0035] Kardex: A.65.04 · Tabla: bauth.pam_breakglass_activation.status — Fase de una activación de acceso de emergencia: pendiente de aprobación dual, activa, desactivada o revisada post-uso. Garantiza trazabilidad del acceso privilegiado de último recurso.', true, 80),
+  -- [MC-0042] caep_tipo_evento · Tabla: bauth.ses_caep_event_log.event_type · Kardex: A.65.04
   ('caep_tipo_evento', '{"es": "Tipo de Evento CAEP", "en": "CAEP Event Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0042] Kardex: A.65.04 · Tabla: bauth.ses_caep_event_log.event_type — Tipo de señal de seguridad continua (CAEP/RFC 9396): cambio de credencial, revocación de sesión, cambio de claims, nivel de aseguramiento o cambio de IP. El PDP actúa en sub-segundo.', true, 90),
+  -- [MC-0043] caep_estado_proceso · Tabla: bauth.ses_caep_event_log.proc_status · Kardex: A.65.04
   ('caep_estado_proceso', '{"es": "Estado de Procesamiento CAEP", "en": "CAEP Processing Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0043] Kardex: A.65.04 · Tabla: bauth.ses_caep_event_log.proc_status — Estado de procesamiento de un evento CAEP recibido: recibido, en proceso, aplicado, fallido o ignorado. Permite auditar por qué una señal de amenaza no produjo efecto.', true, 100),
+  -- [MC-0052] calendario_tipo_propietario · Tabla: bauth.idn_tenant_calendar_assignment.owner_type · Kardex: A.65.04
   ('calendario_tipo_propietario', '{"es": "Tipo de Propietario de Calendario", "en": "Calendar Owner Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0052] Kardex: A.65.04 · Tabla: bauth.idn_tenant_calendar_assignment.owner_type — Tipo de actor al que se asigna un calendario laboral: tenant, empresa, sucursal o rol específico. Define el alcance de las restricciones horarias en el Motor de Identidad.', true, 110),
+  -- [MC-0051] calendario_rol · Tabla: bauth.idn_tenant_calendar_assignment.role · Kardex: A.65.04
   ('calendario_rol', '{"es": "Rol en Calendario", "en": "Calendar Role"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0051] Kardex: A.65.04 · Tabla: bauth.idn_tenant_calendar_assignment.role — Función que cumple el calendario en la asignación: horario laboral base, festivos nacionales o festivos propios del tenant. Cada asignación puede combinar múltiples roles.', true, 120),
+  -- [MC-0050] tipo_calendario · Tabla: bcalendar.cal_calendar.calendar_type · Kardex: A.65.04
   ('tipo_calendario', '{"es": "Tipo de Calendario", "en": "Calendar Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0050] Kardex: A.65.04 · Tabla: bcalendar.cal_calendar.calendar_type — Categoría del calendario: laboral estándar, fiscal, académico o de mantenimiento. Determina qué reglas de validez temporal aplica el Motor de Identidad en D04.', true, 130),
+  -- [MC-0031] campana_alcance · Tabla: bauth.aud_certification_campaign.scope · Kardex: A.65.04
   ('campana_alcance', '{"es": "Alcance de Campaña IGA", "en": "IGA Campaign Scope"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0031] Kardex: A.65.04 · Tabla: bauth.aud_certification_campaign.scope — Alcance de una campaña de certificación IGA: todos los tenants, un rol específico, un usuario o un átomo de privilegio. Define qué grants deben ser revisados en el ciclo.', true, 140),
+  -- [MC-0032] campana_estado · Tabla: bauth.aud_certification_campaign.status · Kardex: A.65.04
   ('campana_estado', '{"es": "Estado de Campaña IGA", "en": "IGA Campaign Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0032] Kardex: A.65.04 · Tabla: bauth.aud_certification_campaign.status — Fase del ciclo de vida de una campaña IGA: programada, activa, esperando decisiones, completada o cancelada. Controla qué acciones puede tomar el administrador en cada fase.', true, 150),
+  -- [MC-0033] campana_tipo · Tabla: bauth.aud_certification_campaign.campaign_type · Kardex: A.65.04
   ('campana_tipo', '{"es": "Tipo de Campaña IGA", "en": "IGA Campaign Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0033] Kardex: A.65.04 · Tabla: bauth.aud_certification_campaign.campaign_type — Origen o motivo de la campaña de certificación: revisión trimestral, anual, de offboarding, post-incidente o revisión de conflictos SoD. Determina el SLA y el nivel de urgencia.', true, 160),
+  -- [MC-0044] credencial_tipo_propietario · Tabla: bauth.auth_credential.owner_type · Kardex: A.65.04
   ('credencial_tipo_propietario', '{"es": "Tipo de Propietario de Credencial", "en": "Credential Owner Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0044] Kardex: A.65.04 · Tabla: bauth.auth_credential.owner_type — Categoría del actor que posee la credencial: usuario humano o identidad no humana (NHI). Separa las políticas de rotación y revocación para humanos vs servicios automatizados.', true, 170),
+  -- [MC-0045] credencial_tipo_ref · Tabla: bauth.pam_credential_ref.credential_type · Kardex: A.65.04
   ('credencial_tipo_ref', '{"es": "Tipo de Credencial", "en": "Credential Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0045] Kardex: A.65.04 · Tabla: bauth.pam_credential_ref.credential_type — Tipo de secreto almacenado en la referencia de credencial: contraseña hash, certificado X.509, token de acceso de larga duración o clave API. Governa la política de rotación.', true, 180),
+  -- [MC-0013] dominio_estado · Tabla: bauth.idn_tenant_domain.deploy_status, bauth.idn_tenant_domain.health_status · Kardex: A.65.04
   ('dominio_estado', '{"es": "Estado de Dominio DNS/TLS", "en": "Domain DNS/TLS Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0013] Kardex: A.65.04 · Tabla: bauth.idn_tenant_domain.deploy_status, bauth.idn_tenant_domain.health_status — Estado operativo de un dominio DNS del tenant: validando, activo, expirado, con error de certificado TLS o suspendido. El Motor de Identidad bloquea el ctx_id si el dominio no está activo.', true, 190),
+  -- [MC-0014] dominio_tipo · Tabla: bauth.idn_tenant_domain.domain_type · Kardex: A.65.04
   ('dominio_tipo', '{"es": "Tipo de Dominio Web", "en": "Web Domain Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0014] Kardex: A.65.04 · Tabla: bauth.idn_tenant_domain.domain_type — Categoría del dominio web del tenant: principal, alias, de staging o de portal de empleados. Determina qué hosts son válidos en el campo redirect_uri de los clientes OIDC.', true, 200),
+  -- [MC-0016] entidad_nivel · Tabla: bauth.idn_identity_entity.level, bauth.idn_identity_requirement.entity_type · Kardex: A.65.04
   ('entidad_nivel', '{"es": "Nivel de Entidad Organizacional", "en": "Organizational Entity Level"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0016] Kardex: A.65.04 · Tabla: bauth.idn_identity_entity.level, bauth.idn_identity_requirement.entity_type — Nivel jerárquico de la entidad en el árbol organizacional D00: tenant, dominio de negocio, subdominio, posición o actor. Define la profundidad del ctx_id y las FK de gobernanza.', true, 210),
+  -- [MC-0053] anio_fiscal_estado · Tabla: bcalendar.cal_fiscal_year.status · Kardex: A.65.04
   ('anio_fiscal_estado', '{"es": "Estado del Año Fiscal", "en": "Fiscal Year Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0053] Kardex: A.65.04 · Tabla: bcalendar.cal_fiscal_year.status — Fase del año fiscal: abierto, en cierre, cerrado o bloqueado para ajustes. Las ventanas de transacciones financieras D03 no se pueden abrir si el año fiscal está cerrado.', true, 220),
+  -- [MC-0048] param_global_alcance · Tabla: bglobal.global_config.scope · Kardex: A.65.04
   ('param_global_alcance', '{"es": "Alcance del Parámetro Global", "en": "Global Parameter Scope"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0048] Kardex: A.65.04 · Tabla: bglobal.global_config.scope — Alcance de aplicación de un parámetro global del sistema: todo el ecosistema SBOS, un schema específico o solo el daemon bAuth. Determina qué componentes aplican el valor.', true, 230),
+  -- [MC-0049] param_global_tipo · Tabla: bglobal.global_config.value_type · Kardex: A.65.04
   ('param_global_tipo', '{"es": "Tipo de Valor de Parámetro Global", "en": "Global Parameter Value Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0049] Kardex: A.65.04 · Tabla: bglobal.global_config.value_type — Tipo de valor del parámetro global: entero, texto, booleano, JSON o duración. El Motor de Identidad usa el tipo para validar y convertir el valor antes de aplicarlo.', true, 240),
+  -- [MC-0029] grant_estado · Tabla: bauth.privilege_atom_grant.status · Kardex: A.65.04
   ('grant_estado', '{"es": "Estado del Grant de Privilegio", "en": "Privilege Grant Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0029] Kardex: A.65.04 · Tabla: bauth.privilege_atom_grant.status — Estado de un grant de privilegio por usuario: activo, suspendido, revocado, expirado o pendiente de certificación IGA. Solo los grants ACTIVE participan en el cálculo del BitMask.', true, 250),
+  -- [MC-0030] grant_tipo · Tabla: bauth.privilege_atom_grant.grant_type · Kardex: A.65.04
   ('grant_tipo', '{"es": "Tipo de Grant de Privilegio", "en": "Privilege Grant Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0030] Kardex: A.65.04 · Tabla: bauth.privilege_atom_grant.grant_type — Origen del grant de privilegio: STANDARD (asignación ordinaria), JIT (Just-In-Time temporal) o BREAKGLASS (emergencia con dual-control AAL3). Governa las reglas de expiración y auditoría.', true, 260),
+  -- [MC-0017] nivel_ial · Tabla: bauth.idn_identity_entity.ial_min, bauth.idn_identity_proofing.ial_achieved · Kardex: A.65.04
   ('nivel_ial', '{"es": "Nivel de Proofing de Identidad (IAL)", "en": "Identity Assurance Level (IAL)"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0017] Kardex: A.65.04 · Tabla: bauth.idn_identity_entity.ial_min, bauth.idn_identity_proofing.ial_achieved — Nivel de aseguramiento de identidad (NIST SP 800-63-4): IAL1 auto-declarado, IAL2 evidencia remota, IAL3 verificación presencial. Determina qué operaciones puede ejecutar el actor.', true, 270),
+  -- [MC-0007] nivel_aislamiento · Tabla: bauth.idn_tenant.isolation_level · Kardex: A.65.04
   ('nivel_aislamiento', '{"es": "Nivel de Aislamiento de Tenant", "en": "Tenant Isolation Level"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0007] Kardex: A.65.04 · Tabla: bauth.idn_tenant.isolation_level — Grado de separación de datos entre tenants: compartido, dedicado o air-gapped. Define si el tenant puede co-residir en tablas con otros o requiere instancias exclusivas de PostgreSQL.', true, 280),
+  -- [MC-0036] jit_estado · Tabla: bauth.pam_jit_request.status · Kardex: A.65.04
   ('jit_estado', '{"es": "Estado de Acceso Just-in-Time (JIT)", "en": "JIT Access Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0036] Kardex: A.65.04 · Tabla: bauth.pam_jit_request.status — Fase del flujo Just-In-Time de acceso privilegiado: pendiente de aprobación, aprobado, activo, expirado o revocado. El daemon crea el grant en T-170 solo al alcanzar APPROVED.', true, 290),
+  -- [MC-0020] idioma_alcance · Tabla: bglobal.global_language.scope · Kardex: A.65.04
   ('idioma_alcance', '{"es": "Alcance de Idioma (ISO 639)", "en": "Language Scope (ISO 639)"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0020] Kardex: A.65.04 · Tabla: bglobal.global_language.scope — Alcance normativo del idioma ISO 639: oficial de estado, regional, de patrimonio o de trabajo. Determina qué idiomas se ofrecen en la interfaz del tenant.', true, 300),
+  -- [MC-0021] idioma_tipo · Tabla: bglobal.global_language.language_type · Kardex: A.65.04
   ('idioma_tipo', '{"es": "Tipo de Idioma (ISO 639)", "en": "Language Type (ISO 639)"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0021] Kardex: A.65.04 · Tabla: bglobal.global_language.language_type — Clasificación lingüística del idioma: vivo, extinto, artificial o de señas. Filtra los idiomas disponibles en el perfil de usuario.', true, 310),
+  -- [MC-0056] menu_tipo · Tabla: bglobal.menu_context.menu_type · Kardex: A.65.04
   ('menu_tipo', '{"es": "Tipo de Menú", "en": "Menu Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0056] Kardex: A.65.04 · Tabla: bglobal.menu_context.menu_type — Categoría funcional del menú contextual: CONTEXTUAL (opciones de columna de BD), NAVEGACION (menú de aplicación) o CONFIGURACION (parámetros de sistema). Define cómo lo procesa el dashboard.', true, 320),
+  -- [MC-0015] red_tipo · Tabla: bauth.idn_tenant_network.network_type · Kardex: A.65.04
   ('red_tipo', '{"es": "Tipo de Red", "en": "Network Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0015] Kardex: A.65.04 · Tabla: bauth.idn_tenant_network.network_type — Tipo de red autorizada para el tenant: LAN corporativa, VPN, CIDR de datacenter o rango de IP de oficina remota. El PEP verifica que la IP de origen del request esté en una red autorizada.', true, 330),
+  -- [MC-0040] nhi_decision_cert · Tabla: bauth.idn_roles_nhi_certification.decision · Kardex: A.65.04
   ('nhi_decision_cert', '{"es": "Decisión de Certificación NHI", "en": "NHI Certification Decision"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0040] Kardex: A.65.04 · Tabla: bauth.idn_roles_nhi_certification.decision — Decisión del propietario técnico en la certificación periódica de una NHI: CERTIFY (sigue activa y en uso), DECOMMISSION (dar de baja) o REDUCE_SCOPE (reducir permisos). Exigida mensualmente.', true, 340),
+  -- [MC-0041] nhi_tipo_evento · Tabla: bauth.idn_roles_nhi_lifecycle_event.event_type · Kardex: A.65.04
   ('nhi_tipo_evento', '{"es": "Tipo de Evento de Ciclo de Vida NHI", "en": "NHI Lifecycle Event Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0041] Kardex: A.65.04 · Tabla: bauth.idn_roles_nhi_lifecycle_event.event_type — Evento en el ciclo de vida de una identidad no humana: provisionada, certificada, rotada (credencial), suspendida, reactivada, descomisionada o con cambio de propietario.', true, 350),
+  -- [MC-0038] nhi_estado · Tabla: bauth.idn_nhi_identity.status · Kardex: A.65.04
   ('nhi_estado', '{"es": "Estado de Identidad No Humana (NHI)", "en": "Non-Human Identity (NHI) Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0038] Kardex: A.65.04 · Tabla: bauth.idn_nhi_identity.status — Estado operativo de una identidad no humana: activa, suspendida, en revisión o descomisionada. Solo las NHI activas pueden autenticarse y obtener tokens.', true, 360),
+  -- [MC-0039] nhi_tipo · Tabla: bauth.idn_nhi_identity.nhi_type · Kardex: A.65.04
   ('nhi_tipo', '{"es": "Tipo de Identidad No Humana (NHI)", "en": "Non-Human Identity (NHI) Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0039] Kardex: A.65.04 · Tabla: bauth.idn_nhi_identity.nhi_type — Categoría funcional de la identidad no humana: daemon SBOS, pipeline CI/CD, bot, agente IA autónomo o dispositivo IoT. Determina la política de rotación de credenciales.', true, 370),
+  -- [MC-0037] pam_tipo_acceso · Tabla: bauth.pam_cuenta_privilegiada.access_type · Kardex: A.65.04
   ('pam_tipo_acceso', '{"es": "Tipo de Acceso Privilegiado (PAM)", "en": "Privileged Access Type (PAM)"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0037] Kardex: A.65.04 · Tabla: bauth.pam_cuenta_privilegiada.access_type — Modo de acceso privilegiado en la sesión PAM: SSH, RDP, consola BD, API admin, CLI, acceso Vault o consola K8s. Registrado en la grabación de sesión para trazabilidad forense.', true, 380),
+  -- [MC-0008] plan_nivel · Tabla: bauth.idn_tenant.plan_tier · Kardex: A.65.04
   ('plan_nivel', '{"es": "Nivel de Plan de Suscripción", "en": "Subscription Plan Tier"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0008] Kardex: A.65.04 · Tabla: bauth.idn_tenant.plan_tier — Tier del plan de suscripción del tenant: STARTER, PROFESSIONAL, ENTERPRISE o GOVERNMENT. Define los límites operativos (número de usuarios, métodos MFA, niveles de SLA y funciones disponibles).', true, 390),
+  -- [MC-0046] propuesta_estado · Tabla: bauth.idn_financial_approval.status · Kardex: A.65.04
   ('propuesta_estado', '{"es": "Estado de Propuesta de Cambio", "en": "Change Proposal Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0046] Kardex: A.65.04 · Tabla: bauth.idn_financial_approval.status — Estado de una solicitud de aprobación financiera: borrador, enviada, en revisión, aprobada, rechazada o expirada. Controla el flujo de dual-control en operaciones financieras de alto valor.', true, 400),
+  -- [MC-0012] tenant_estado_provisionamiento · Tabla: bauth.idn_tenant.provisioning_status · Kardex: A.65.04
   ('tenant_estado_provisionamiento', '{"es": "Estado de Provisionamiento de Tenant", "en": "Tenant Provisioning Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0012] Kardex: A.65.04 · Tabla: bauth.idn_tenant.provisioning_status — Fase de provisionamiento inicial del tenant: iniciando, instalando servicios, configurando identidad, completado o con error. Bloquea operaciones hasta que el provisionamiento sea completado.', true, 410),
+  -- [MC-0034] revision_decision · Tabla: bauth.aud_certification_review.decision · Kardex: A.65.04
   ('revision_decision', '{"es": "Decisión de Revisión de Acceso (IGA)", "en": "Access Review Decision (IGA)"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0034] Kardex: A.65.04 · Tabla: bauth.aud_certification_review.decision — Decisión del revisor IGA: CERTIFY (acceso correcto, sigue activo), REVOKE (revocar el grant) o ESCALATE (elevar a revisor senior). La decisión queda en evidencia auditable ISO 27001.', true, 420),
+  -- [MC-0047] riesgo_accion · Tabla: bauth.ses_risk_policy.action_on_trigger · Kardex: A.65.04
   ('riesgo_accion', '{"es": "Acción ante Riesgo de Sesión", "en": "Session Risk Action"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0047] Kardex: A.65.04 · Tabla: bauth.ses_risk_policy.action_on_trigger — Acción que ejecuta el PDP al detectar una señal de riesgo en la sesión: exigir step-up de autenticación, revocar la sesión, suspender el usuario, notificar al CISO o registrar sin actuar.', true, 430),
+  -- [MC-0028] nivel_riesgo · Tabla: bauth.idn_roles_rol_hierarchical.risk_classification · Kardex: A.65.04
   ('nivel_riesgo', '{"es": "Nivel de Riesgo", "en": "Risk Level"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0028] Kardex: A.65.04 · Tabla: bauth.idn_roles_rol_hierarchical.risk_classification — Clasificación del impacto de seguridad: BAJO (rutinario), MEDIO (impacto limitado), ALTO (puede afectar múltiples tenants) o CRÍTICO (requiere aprobación dual y revisión post-uso). Governa el quórum PAM.', true, 440),
+  -- [MC-0026] rol_tipo_cuenta · Tabla: bauth.idn_roles_template.account_type · Kardex: A.65.04
   ('rol_tipo_cuenta', '{"es": "Tipo de Cuenta de Rol", "en": "Role Account Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0026] Kardex: A.65.04 · Tabla: bauth.idn_roles_template.account_type — Categoría de la cuenta asociada al rol: INDIVIDUAL, M2M, SYSTEM, GROUP, TEMPLATE, VIRTUAL, BOT, DEVICE, SERVICE o EMERGENCY. Determina las políticas de autenticación y el ciclo de vida aplicable.', true, 450),
+  -- [MC-0024] rol_estado · Tabla: bauth.idn_roles_rol_hierarchical.status · Kardex: A.65.04
   ('rol_estado', '{"es": "Estado del Rol", "en": "Role Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0024] Kardex: A.65.04 · Tabla: bauth.idn_roles_rol_hierarchical.status — Estado del rol en su ciclo de vida: DEFINIDO, PENDIENTE_APROBACION, ACTIVO, SUSPENDIDO, EN_REVISION, DEPRECADO o RETIRADO. Solo los roles ACTIVOS pueden ser asignados y generan BitMask.', true, 460),
+  -- [MC-0025] rol_tier · Tabla: bauth.idn_roles_rol_hierarchical.tier · Kardex: A.65.04
   ('rol_tier', '{"es": "Tier de Rol (Jerarquía)", "en": "Role Tier (Hierarchy)"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0025] Kardex: A.65.04 · Tabla: bauth.idn_roles_rol_hierarchical.tier — Nivel jerárquico del rol: SU, SYS, BIZ_N1-N5, EXT_N0, M2M o VISITANTE. Determina el LoA requerido, los métodos MFA disponibles y el tiempo máximo de sesión.', true, 470),
+  -- [MC-0054] horario_estado · Tabla: bcalendar.cal_schedule.status · Kardex: A.65.04
   ('horario_estado', '{"es": "Estado de Horario", "en": "Schedule Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0054] Kardex: A.65.04 · Tabla: bcalendar.cal_schedule.status — Estado de un horario laboral del tenant: activo, en revisión, suspendido o archivado. El Motor Temporal D04 solo aplica restricciones de ventanas horarias de horarios en estado activo.', true, 480),
+  -- [MC-0027] etiqueta_sensibilidad · Tabla: bauth.idn_roles_rol_hierarchical.sensitivity_label · Kardex: A.65.04
   ('etiqueta_sensibilidad', '{"es": "Etiqueta de Sensibilidad de Datos", "en": "Data Sensitivity Label"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0027] Kardex: A.65.04 · Tabla: bauth.idn_roles_rol_hierarchical.sensitivity_label — Nivel de sensibilidad de los datos que maneja el rol: PÚBLICO, INTERNO, CONFIDENCIAL, RESTRINGIDO o SECRETO. Determina qué DLP y controles de exportación aplican el PDP y Kong PEP.', true, 490),
+  -- [MC-0057] ssf_metodo_entrega · Tabla: bauth.ses_ssf_stream.delivery_method · Kardex: A.65.04
   ('ssf_metodo_entrega', '{"es": "Método de Entrega de Eventos SSF", "en": "SSF Event Delivery Method"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0057] Kardex: A.65.04 · Tabla: bauth.ses_ssf_stream.delivery_method — Protocolo de entrega de eventos SSF al receptor CAEP externo: PUSH (el daemon envía al endpoint del receptor) o POLL (el receptor consulta periódicamente). RFC 8936.', true, 500),
+  -- [MC-0058] ssf_estado_entrega · Tabla: bauth.ses_ssf_delivery_log.delivery_status · Kardex: A.65.04
   ('ssf_estado_entrega', '{"es": "Estado de Entrega de Evento SSF", "en": "SSF Event Delivery Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0058] Kardex: A.65.04 · Tabla: bauth.ses_ssf_delivery_log.delivery_status — Estado de la entrega de un evento SSF: enviado exitosamente, fallido (con reintentos pendientes), reintentando o abandonado tras agotar reintentos. Alimenta el job de alertas de entrega.', true, 510),
+  -- [MC-0009] suscripcion_estado · Tabla: bauth.idn_tenant.subscription_status · Kardex: A.65.04
   ('suscripcion_estado', '{"es": "Estado de Suscripción de Tenant", "en": "Tenant Subscription Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0009] Kardex: A.65.04 · Tabla: bauth.idn_tenant.subscription_status — Estado de la suscripción comercial del tenant: TRIAL, ACTIVE, PAST_DUE, SUSPENDED o CANCELLED. El Motor de Identidad bloquea el login si la suscripción no está activa.', true, 520),
+  -- [MC-0010] tenant_estado · Tabla: bauth.idn_tenant.status · Kardex: A.65.04
   ('tenant_estado', '{"es": "Estado de Tenant", "en": "Tenant Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0010] Kardex: A.65.04 · Tabla: bauth.idn_tenant.status — Estado operativo del tenant: activo, suspendido temporalmente, en proceso de baja o archivado. Solo los tenants activos pueden autenticar usuarios y emitir tokens.', true, 530),
+  -- [MC-0011] tenant_tipo · Tabla: bauth.idn_tenant.tenant_type · Kardex: A.65.04
   ('tenant_tipo', '{"es": "Tipo de Tenant", "en": "Tenant Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0011] Kardex: A.65.04 · Tabla: bauth.idn_tenant.tenant_type — Categoría funcional del tenant: EMPRESA (organización cliente), GOBIERNO (entidad pública), TEST (entorno de pruebas del cliente) o INTERNAL (infraestructura propia de SBOS).', true, 540),
+  -- [MC-0022] idioma_direccion · Tabla: bglobal.global_language.direction · Kardex: A.65.04
   ('idioma_direccion', '{"es": "Dirección de Escritura del Idioma", "en": "Language Text Direction"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0022] Kardex: A.65.04 · Tabla: bglobal.global_language.direction — Dirección de escritura del idioma: LTR (izquierda a derecha), RTL (derecha a izquierda) o BIDI (bidireccional). Controla la renderización del dashboard para idiomas como árabe o hebreo.', true, 550),
+  -- [MC-0023] traduccion_estado · Tabla: bauth.idn_tenant_languages.translation_status · Kardex: A.65.04
   ('traduccion_estado', '{"es": "Estado de Traducción", "en": "Translation Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0023] Kardex: A.65.04 · Tabla: bauth.idn_tenant_languages.translation_status — Estado de la traducción del idioma en el tenant: habilitada y activa, en proceso de validación o deshabilitada. Solo los idiomas en estado activo aparecen en el selector del perfil de usuario.', true, 560),
+  -- [MC-0018] verificacion_estado · Tabla: bauth.idn_tenant_verification.status · Kardex: A.65.04
   ('verificacion_estado', '{"es": "Estado de Verificación de Tenant", "en": "Tenant Verification Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0018] Kardex: A.65.04 · Tabla: bauth.idn_tenant_verification.status — Estado del proceso de verificación de identidad del tenant: pendiente de documentos, en revisión, aprobado, rechazado o expirado (re-proofing requerido). Determina el IAL máximo alcanzable.', true, 570),
+  -- [MC-0019] verificacion_paso · Tabla: bauth.idn_tenant_verification.step · Kardex: A.65.04
   ('verificacion_paso', '{"es": "Paso del Proceso de Verificación", "en": "Verification Process Step"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0019] Kardex: A.65.04 · Tabla: bauth.idn_tenant_verification.step — Paso actual en el proceso de verificación: subida de documentos, validación automática, revisión manual, videoconferencia o resultado final. Controla el progreso en el wizard de onboarding.', true, 580);
 

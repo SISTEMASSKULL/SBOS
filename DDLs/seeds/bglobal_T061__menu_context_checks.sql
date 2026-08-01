@@ -10,526 +10,787 @@
 
 INSERT INTO bglobal.menu_context (code, name, menu_type, description, is_active, sort_order)
 VALUES
+  -- [MC-0059] auth.intento.resultado · Tabla: bauth.auth_attempt_log.outcome · Kardex: A.65.04
   ('auth.intento.resultado', '{"es": "Resultado", "en": "Outcome"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0059] Kardex: A.65.04 · Tabla: bauth.auth_attempt_log.outcome — Resultado de la operación de intento en autenticación y sesión. Registra si la operación fue exitosa o el tipo específico de fallo para forensia y métricas.', true, 1010),
+  -- [MC-0060] auth.cumplimiento.nivel_cobertura · Tabla: bauth.auth_compliance_map.coverage_level · Kardex: A.65.04
   ('auth.cumplimiento.nivel_cobertura', '{"es": "Nivel de cobertura", "en": "Coverage Level"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0060] Kardex: A.65.04 · Tabla: bauth.auth_compliance_map.coverage_level — Grado de cobertura de nivel de cobertura en autenticación y sesión. Indica qué porcentaje o conjunto de controles está cubierto por la configuración actual.', true, 1020),
+  -- [MC-0061] auth.credencial.nivel_aal · Tabla: bauth.auth_credential.loa_provided · Kardex: A.65.04
   ('auth.credencial.nivel_aal', '{"es": "Nivel de garantía (AAL)", "en": "Loa Provided"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0061] Kardex: A.65.04 · Tabla: bauth.auth_credential.loa_provided — Nivel de nivel de garantía (aal) en autenticación y sesión. Define la graduación del criterio y determina qué controles de seguridad o políticas aplican a cada nivel.', true, 1030),
+  -- [MC-0062] auth.credencial.estado · Tabla: bauth.auth_credential.status · Kardex: A.65.04
   ('auth.credencial.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0062] Kardex: A.65.04 · Tabla: bauth.auth_credential.status — Estado operativo de estado en autenticación y sesión. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 1040),
+  -- [MC-0063] auth.fido2.formato_atestacion · Tabla: bauth.auth_credential_fido2.attestation_fmt · Kardex: A.65.04
   ('auth.fido2.formato_atestacion', '{"es": "Formato de atestación", "en": "Attestation Fmt"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0063] Kardex: A.65.04 · Tabla: bauth.auth_credential_fido2.attestation_fmt — Formato de formato de atestación en autenticación y sesión. Determina cómo se procesa, valida y almacena el dato según el estándar correspondiente.', true, 1050),
+  -- [MC-0064] auth.secreto.tipo · Tabla: bauth.auth_credential_secret.type · Kardex: A.65.04
   ('auth.secreto.tipo', '{"es": "Tipo", "en": "Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0064] Kardex: A.65.04 · Tabla: bauth.auth_credential_secret.type — Categoría funcional de tipo en autenticación y sesión. La selección determina las reglas de validación, las políticas aplicables y el comportamiento del motor.', true, 1060),
+  -- [MC-0065] auth.x509.origen · Tabla: bauth.auth_credential_x509.origin · Kardex: A.65.04
   ('auth.x509.origen', '{"es": "Origen", "en": "Origin"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0065] Kardex: A.65.04 · Tabla: bauth.auth_credential_x509.origin — Origen de origen en autenticación y sesión. Identifica qué componente o proceso generó el dato, clave para trazabilidad forense y gobernanza.', true, 1070),
+  -- [MC-0066] auth.cripto.estado · Tabla: bauth.auth_crypto_algorithm.status · Kardex: A.65.04
   ('auth.cripto.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0066] Kardex: A.65.04 · Tabla: bauth.auth_crypto_algorithm.status — Estado operativo de estado en autenticación y sesión. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 1080),
+  -- [MC-0067] auth.cripto.tipo · Tabla: bauth.auth_crypto_algorithm.type · Kardex: A.65.04
   ('auth.cripto.tipo', '{"es": "Tipo", "en": "Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0067] Kardex: A.65.04 · Tabla: bauth.auth_crypto_algorithm.type — Categoría funcional de tipo en autenticación y sesión. La selección determina las reglas de validación, las políticas aplicables y el comportamiento del motor.', true, 1090),
+  -- [MC-0068] auth.dispositivo.categoria · Tabla: bauth.auth_device.category · Kardex: A.65.04
   ('auth.dispositivo.categoria', '{"es": "Categoría", "en": "Category"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0068] Kardex: A.65.04 · Tabla: bauth.auth_device.category — Categoría de categoría en autenticación y sesión. Agrupa elementos similares para aplicar políticas diferenciadas según su naturaleza funcional.', true, 1100),
+  -- [MC-0069] auth.dispositivo.version_osdp · Tabla: bauth.auth_device.osdp_version · Kardex: A.65.04
   ('auth.dispositivo.version_osdp', '{"es": "Versión OSDP (protocolo lector físico)", "en": "Osdp Version"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0069] Kardex: A.65.04 · Tabla: bauth.auth_device.osdp_version — Conjunto de valores válidos para Versión OSDP (protocolo lector físico) en autenticación y sesión. Controla la columna auth_device.osdp_version y asegura integridad referencial sin FK nativa.', true, 1110),
+  -- [MC-0070] auth.dispositivo.plataforma · Tabla: bauth.auth_device.platform · Kardex: A.65.04
   ('auth.dispositivo.plataforma', '{"es": "Plataforma", "en": "Platform"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0070] Kardex: A.65.04 · Tabla: bauth.auth_device.platform — Conjunto de valores válidos para Plataforma en autenticación y sesión. Controla la columna auth_device.platform y asegura integridad referencial sin FK nativa.', true, 1120),
+  -- [MC-0071] auth.dispositivo.estado · Tabla: bauth.auth_device.status · Kardex: A.65.04
   ('auth.dispositivo.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0071] Kardex: A.65.04 · Tabla: bauth.auth_device.status — Estado operativo de estado en autenticación y sesión. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 1130),
+  -- [MC-0072] auth.dispositivo.confianza · Tabla: bauth.auth_device.trust_level · Kardex: A.65.04
   ('auth.dispositivo.confianza', '{"es": "Nivel de confianza", "en": "Trust Level"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0072] Kardex: A.65.04 · Tabla: bauth.auth_device.trust_level — Conjunto de valores válidos para Nivel de confianza en autenticación y sesión. Controla la columna auth_device.trust_level y asegura integridad referencial sin FK nativa.', true, 1140),
+  -- [MC-0073] auth.vinculo_disp.tipo_vinculo · Tabla: bauth.auth_device_credential_binding.binding_type · Kardex: A.65.04
   ('auth.vinculo_disp.tipo_vinculo', '{"es": "Tipo de vínculo", "en": "Binding Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0073] Kardex: A.65.04 · Tabla: bauth.auth_device_credential_binding.binding_type — Conjunto de valores válidos para Tipo de vínculo en autenticación y sesión. Controla la columna auth_device_credential_binding.binding_type y asegura integridad referencial sin FK nativa.', true, 1150),
+  -- [MC-0074] auth.postura_disp.cumplimiento · Tabla: bauth.auth_device_posture.compliance_status · Kardex: A.65.04
   ('auth.postura_disp.cumplimiento', '{"es": "Estado de cumplimiento", "en": "Compliance Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0074] Kardex: A.65.04 · Tabla: bauth.auth_device_posture.compliance_status — Conjunto de valores válidos para Estado de cumplimiento en autenticación y sesión. Controla la columna auth_device_posture.compliance_status y asegura integridad referencial sin FK nativa.', true, 1160),
+  -- [MC-0075] auth.postura_disp.mdm · Tabla: bauth.auth_device_posture.mdm_compliance · Kardex: A.65.04
   ('auth.postura_disp.mdm', '{"es": "Cumplimiento MDM", "en": "Mdm Compliance"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0075] Kardex: A.65.04 · Tabla: bauth.auth_device_posture.mdm_compliance — Conjunto de valores válidos para Cumplimiento MDM en autenticación y sesión. Controla la columna auth_device_posture.mdm_compliance y asegura integridad referencial sin FK nativa.', true, 1170),
+  -- [MC-0076] auth.postura_disp.fuente_postura · Tabla: bauth.auth_device_posture.posture_source · Kardex: A.65.04
   ('auth.postura_disp.fuente_postura', '{"es": "Fuente de postura", "en": "Posture Source"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0076] Kardex: A.65.04 · Tabla: bauth.auth_device_posture.posture_source — Conjunto de valores válidos para Fuente de postura en autenticación y sesión. Controla la columna auth_device_posture.posture_source y asegura integridad referencial sin FK nativa.', true, 1180),
+  -- [MC-0077] auth.federacion.estado · Tabla: bauth.auth_federation_protocol.status · Kardex: A.65.04
   ('auth.federacion.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0077] Kardex: A.65.04 · Tabla: bauth.auth_federation_protocol.status — Estado operativo de estado en autenticación y sesión. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 1190),
+  -- [MC-0078] auth.metodo.categoria · Tabla: bauth.auth_method.category · Kardex: A.65.04
   ('auth.metodo.categoria', '{"es": "Categoría", "en": "Category"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0078] Kardex: A.65.04 · Tabla: bauth.auth_method.category — Categoría de categoría en autenticación y sesión. Agrupa elementos similares para aplicar políticas diferenciadas según su naturaleza funcional.', true, 1200),
+  -- [MC-0079] auth.metodo.estado · Tabla: bauth.auth_method.status · Kardex: A.65.04
   ('auth.metodo.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0079] Kardex: A.65.04 · Tabla: bauth.auth_method.status — Estado operativo de estado en autenticación y sesión. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 1210),
+  -- [MC-0080] auth.saga.estado · Tabla: bauth.auth_saga_catalog.status · Kardex: A.65.04
   ('auth.saga.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0080] Kardex: A.65.04 · Tabla: bauth.auth_saga_catalog.status — Estado operativo de estado en autenticación y sesión. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 1220),
+  -- [MC-0258] blk.cuenta.estado · Tabla: bauth.blk_account.status · Kardex: A.65.04
   ('blk.cuenta.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0258] Kardex: A.65.04 · Tabla: bauth.blk_account.status — Estado operativo de estado en blockchain y trazabilidad. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 1230),
+  -- [MC-0259] blk.ancla.cadena · Tabla: bauth.blk_anchor.chain · Kardex: A.65.04
   ('blk.ancla.cadena', '{"es": "Cadena", "en": "Chain"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0259] Kardex: A.65.04 · Tabla: bauth.blk_anchor.chain — Conjunto de valores válidos para Cadena en blockchain y trazabilidad. Controla la columna blk_anchor.chain y asegura integridad referencial sin FK nativa.', true, 1240),
+  -- [MC-0260] blk.ancla.estado · Tabla: bauth.blk_anchor.status · Kardex: A.65.04
   ('blk.ancla.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0260] Kardex: A.65.04 · Tabla: bauth.blk_anchor.status — Estado operativo de estado en blockchain y trazabilidad. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 1250),
+  -- [MC-0261] blk.merkle.estado · Tabla: bauth.blk_merkle_batch.status · Kardex: A.65.04
   ('blk.merkle.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0261] Kardex: A.65.04 · Tabla: bauth.blk_merkle_batch.status — Estado operativo de estado en blockchain y trazabilidad. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 1260),
+  -- [MC-0262] blk.reconciliacion.estado · Tabla: bauth.blk_reconciliation.status · Kardex: A.65.04
   ('blk.reconciliacion.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0262] Kardex: A.65.04 · Tabla: bauth.blk_reconciliation.status — Estado operativo de estado en blockchain y trazabilidad. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 1270),
+  -- [MC-0087] cfg.politica.factor_auth · Tabla: bauth.cfg_policy_library.auth_factor · Kardex: A.65.04
   ('cfg.politica.factor_auth', '{"es": "Factor de autenticación", "en": "Auth Factor"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0087] Kardex: A.65.04 · Tabla: bauth.cfg_policy_library.auth_factor — Conjunto de valores válidos para Factor de autenticación en configuración del sistema. Controla la columna cfg_policy_library.auth_factor y asegura integridad referencial sin FK nativa.', true, 1280),
+  -- [MC-0088] cfg.politica.aplicacion · Tabla: bauth.cfg_policy_library.enforcement · Kardex: A.65.04
   ('cfg.politica.aplicacion', '{"es": "Modo de aplicación", "en": "Enforcement"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0088] Kardex: A.65.04 · Tabla: bauth.cfg_policy_library.enforcement — Conjunto de valores válidos para Modo de aplicación en configuración del sistema. Controla la columna cfg_policy_library.enforcement y asegura integridad referencial sin FK nativa.', true, 1290),
+  -- [MC-0089] cfg.politica.ciclo_vida · Tabla: bauth.cfg_policy_library.lifecycle · Kardex: A.65.04
   ('cfg.politica.ciclo_vida', '{"es": "Ciclo de vida", "en": "Lifecycle"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0089] Kardex: A.65.04 · Tabla: bauth.cfg_policy_library.lifecycle — Conjunto de valores válidos para Ciclo de vida en configuración del sistema. Controla la columna cfg_policy_library.lifecycle y asegura integridad referencial sin FK nativa.', true, 1300),
+  -- [MC-0090] cfg.politica.tipo_nodo · Tabla: bauth.cfg_policy_library.node_type · Kardex: A.65.04
   ('cfg.politica.tipo_nodo', '{"es": "Tipo de nodo", "en": "Node Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0090] Kardex: A.65.04 · Tabla: bauth.cfg_policy_library.node_type — Conjunto de valores válidos para Tipo de nodo en configuración del sistema. Controla la columna cfg_policy_library.node_type y asegura integridad referencial sin FK nativa.', true, 1310),
+  -- [MC-0091] cfg.politica.nivel_riesgo · Tabla: bauth.cfg_policy_library.risk_level · Kardex: A.65.04
   ('cfg.politica.nivel_riesgo', '{"es": "Nivel de riesgo", "en": "Risk Level"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0091] Kardex: A.65.04 · Tabla: bauth.cfg_policy_library.risk_level — Conjunto de valores válidos para Nivel de riesgo en configuración del sistema. Controla la columna cfg_policy_library.risk_level y asegura integridad referencial sin FK nativa.', true, 1320),
+  -- [MC-0092] cfg.politica.tipo_semantico · Tabla: bauth.cfg_policy_library.semantic_type · Kardex: A.65.04
   ('cfg.politica.tipo_semantico', '{"es": "Tipo semántico", "en": "Semantic Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0092] Kardex: A.65.04 · Tabla: bauth.cfg_policy_library.semantic_type — Conjunto de valores válidos para Tipo semántico en configuración del sistema. Controla la columna cfg_policy_library.semantic_type y asegura integridad referencial sin FK nativa.', true, 1330),
+  -- [MC-0081] fed.cliente.perfil_fapi · Tabla: bauth.fed_client.fapi_profile · Kardex: A.65.04
   ('fed.cliente.perfil_fapi', '{"es": "Perfil FAPI", "en": "Fapi Profile"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0081] Kardex: A.65.04 · Tabla: bauth.fed_client.fapi_profile — Conjunto de valores válidos para Perfil FAPI en federación e identidad externa. Controla la columna fed_client.fapi_profile y asegura integridad referencial sin FK nativa.', true, 1340),
+  -- [MC-0082] fed.cliente.estado · Tabla: bauth.fed_client.status · Kardex: A.65.04
   ('fed.cliente.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0082] Kardex: A.65.04 · Tabla: bauth.fed_client.status — Estado operativo de estado en federación e identidad externa. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 1350),
+  -- [MC-0083] fed.cliente.tipo · Tabla: bauth.fed_client.type · Kardex: A.65.04
   ('fed.cliente.tipo', '{"es": "Tipo", "en": "Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0083] Kardex: A.65.04 · Tabla: bauth.fed_client.type — Categoría funcional de tipo en federación e identidad externa. La selección determina las reglas de validación, las políticas aplicables y el comportamiento del motor.', true, 1360),
+  -- [MC-0084] fed.proveedor.nivel_fal · Tabla: bauth.fed_provider_ext.fal · Kardex: A.65.04
   ('fed.proveedor.nivel_fal', '{"es": "Nivel FAL", "en": "Fal"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0084] Kardex: A.65.04 · Tabla: bauth.fed_provider_ext.fal — Conjunto de valores válidos para Nivel FAL en federación e identidad externa. Controla la columna fed_provider_ext.fal, idn_tenant_fal_config.fal_level y asegura integridad referencial sin FK nativa.', true, 1370),
+  -- [MC-0085] fed.proveedor.protocolo · Tabla: bauth.fed_provider_ext.protocol · Kardex: A.65.04
   ('fed.proveedor.protocolo', '{"es": "Protocolo", "en": "Protocol"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0085] Kardex: A.65.04 · Tabla: bauth.fed_provider_ext.protocol — Método o protocolo usado en proveedor de federación e identidad externa. Determina los estándares técnicos aplicables y las políticas de seguridad correspondientes.', true, 1380),
+  -- [MC-0086] fed.token.tipo · Tabla: bauth.fed_token_issued.type · Kardex: A.65.04
   ('fed.token.tipo', '{"es": "Tipo", "en": "Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0086] Kardex: A.65.04 · Tabla: bauth.fed_token_issued.type — Categoría funcional de tipo en federación e identidad externa. La selección determina las reglas de validación, las políticas aplicables y el comportamiento del motor.', true, 1390),
+  -- [MC-0094] acceso.contrato.tipo_acceso · Tabla: bauth.idn_access_contract.access_type · Kardex: A.65.04
   ('acceso.contrato.tipo_acceso', '{"es": "Tipo de acceso", "en": "Access Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0094] Kardex: A.65.04 · Tabla: bauth.idn_access_contract.access_type — Conjunto de valores válidos para Tipo de acceso en el dominio acceso. Controla la columna idn_access_contract.access_type y asegura integridad referencial sin FK nativa.', true, 1400),
+  -- [MC-0095] acceso.contrato.estado · Tabla: bauth.idn_access_contract.status · Kardex: A.65.04
   ('acceso.contrato.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0095] Kardex: A.65.04 · Tabla: bauth.idn_access_contract.status — Estado operativo de estado en el dominio acceso. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 1410),
+  -- [MC-0275] registry.attr_schema.clasificacion · Tabla: bauth.idn_attribute_schema.classification · Kardex: A.65.04
   ('registry.attr_schema.clasificacion', '{"es": "Clasificación", "en": "Classification"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0275] Kardex: A.65.04 · Tabla: bauth.idn_attribute_schema.classification — Conjunto de valores válidos para Clasificación en el dominio registry. Controla la columna idn_attribute_schema.classification, idn_identity_attribute.classification y asegura integridad referencial sin FK nativa.', true, 1420),
+  -- [MC-0276] registry.attr_schema.mutabilidad · Tabla: bauth.idn_attribute_schema.mutability · Kardex: A.65.04
   ('registry.attr_schema.mutabilidad', '{"es": "Mutabilidad", "en": "Mutability"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0276] Kardex: A.65.04 · Tabla: bauth.idn_attribute_schema.mutability — Conjunto de valores válidos para Mutabilidad en el dominio registry. Controla la columna idn_attribute_schema.mutability y asegura integridad referencial sin FK nativa.', true, 1430),
+  -- [MC-0277] registry.attr_schema.campo_retorno · Tabla: bauth.idn_attribute_schema.returned · Kardex: A.65.04
   ('registry.attr_schema.campo_retorno', '{"es": "Campo retornado", "en": "Returned"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0277] Kardex: A.65.04 · Tabla: bauth.idn_attribute_schema.returned — Conjunto de valores válidos para Campo retornado en el dominio registry. Controla la columna idn_attribute_schema.returned, idn_identity_attribute.returned y asegura integridad referencial sin FK nativa.', true, 1440),
+  -- [MC-0278] registry.attr_schema.tipo_dato · Tabla: bauth.idn_attribute_schema.data_type · Kardex: A.65.04
   ('registry.attr_schema.tipo_dato', '{"es": "Tipo de dato", "en": "Data Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0278] Kardex: A.65.04 · Tabla: bauth.idn_attribute_schema.data_type — Conjunto de valores válidos para Tipo de dato en el dominio registry. Controla la columna idn_attribute_schema.data_type y asegura integridad referencial sin FK nativa.', true, 1450),
+  -- [MC-0179] d11.auditoria.codigo_dominio · Tabla: bauth.idn_audit_event_log.domain_code · Kardex: A.65.04
   ('d11.auditoria.codigo_dominio', '{"es": "Código de dominio", "en": "Domain Code"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0179] Kardex: A.65.04 · Tabla: bauth.idn_audit_event_log.domain_code — Conjunto de valores válidos para Código de dominio en el dominio d11. Controla la columna idn_audit_event_log.domain_code, idn_audit_event_log_2026_07.domain_code y asegura integridad referencial sin FK nativa.', true, 1460),
+  -- [MC-0180] d11.auditoria.resultado · Tabla: bauth.idn_audit_event_log.outcome · Kardex: A.65.04
   ('d11.auditoria.resultado', '{"es": "Resultado", "en": "Outcome"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0180] Kardex: A.65.04 · Tabla: bauth.idn_audit_event_log.outcome — Resultado de la operación de auditoria en el dominio d11. Registra si la operación fue exitosa o el tipo específico de fallo para forensia y métricas.', true, 1470),
+  -- [MC-0181] d11.auditoria.tipo_sujeto · Tabla: bauth.idn_audit_event_log.subject_type · Kardex: A.65.04
   ('d11.auditoria.tipo_sujeto', '{"es": "Tipo de sujeto", "en": "Subject Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0181] Kardex: A.65.04 · Tabla: bauth.idn_audit_event_log.subject_type — Conjunto de valores válidos para Tipo de sujeto en el dominio d11. Controla la columna idn_audit_event_log.subject_type, idn_audit_event_log_2026_07.subject_type y asegura integridad referencial sin FK nativa.', true, 1480),
+  -- [MC-0182] d11.retencion.accion_expiracion · Tabla: bauth.idn_audit_retention_policy.expiration_action · Kardex: A.65.04
   ('d11.retencion.accion_expiracion', '{"es": "Acción al expirar", "en": "Expiration Action"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0182] Kardex: A.65.04 · Tabla: bauth.idn_audit_retention_policy.expiration_action — Conjunto de valores válidos para Acción al expirar en el dominio d11. Controla la columna idn_audit_retention_policy.expiration_action y asegura integridad referencial sin FK nativa.', true, 1490),
+  -- [MC-0183] d11.siem.formato_log · Tabla: bauth.idn_audit_siem_target.log_format · Kardex: A.65.04
   ('d11.siem.formato_log', '{"es": "Formato de log", "en": "Log Format"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0183] Kardex: A.65.04 · Tabla: bauth.idn_audit_siem_target.log_format — Formato de formato de log en el dominio d11. Determina cómo se procesa, valida y almacena el dato según el estándar correspondiente.', true, 1500),
+  -- [MC-0184] d11.siem.tipo_protocolo · Tabla: bauth.idn_audit_siem_target.protocol_type · Kardex: A.65.04
   ('d11.siem.tipo_protocolo', '{"es": "Tipo de protocolo", "en": "Protocol Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0184] Kardex: A.65.04 · Tabla: bauth.idn_audit_siem_target.protocol_type — Proveedor o protocolo de tipo de protocolo en el dominio d11. Define el integrador externo y los estándares de interoperabilidad que debe cumplir.', true, 1510),
+  -- [MC-0149] d05.inscripcion.tipo_biometrico · Tabla: bauth.idn_biometric_enrollment.biometric_type · Kardex: A.65.04
   ('d05.inscripcion.tipo_biometrico', '{"es": "Tipo biométrico", "en": "Biometric Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0149] Kardex: A.65.04 · Tabla: bauth.idn_biometric_enrollment.biometric_type — Conjunto de valores válidos para Tipo biométrico en el dominio d05. Controla la columna idn_biometric_enrollment.biometric_type, idn_biometric_pad_policy.biometric_type y asegura integridad referencial sin FK nativa.', true, 1520),
+  -- [MC-0150] d05.inscripcion.estado · Tabla: bauth.idn_biometric_enrollment.status · Kardex: A.65.04
   ('d05.inscripcion.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0150] Kardex: A.65.04 · Tabla: bauth.idn_biometric_enrollment.status — Estado operativo de estado en el dominio d05. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 1530),
+  -- [MC-0151] d05.identificacion.resultado · Tabla: bauth.idn_biometric_identification_log.result · Kardex: A.65.04
   ('d05.identificacion.resultado', '{"es": "Resultado", "en": "Result"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0151] Kardex: A.65.04 · Tabla: bauth.idn_biometric_identification_log.result — Resultado de la operación de identificacion en el dominio d05. Registra si la operación fue exitosa o el tipo específico de fallo para forensia y métricas.', true, 1540),
+  -- [MC-0152] d05.pad.accion_fallo · Tabla: bauth.idn_biometric_pad_policy.fail_action · Kardex: A.65.04
   ('d05.pad.accion_fallo', '{"es": "Acción en fallo", "en": "Fail Action"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0152] Kardex: A.65.04 · Tabla: bauth.idn_biometric_pad_policy.fail_action — Conjunto de valores válidos para Acción en fallo en el dominio d05. Controla la columna idn_biometric_pad_policy.fail_action y asegura integridad referencial sin FK nativa.', true, 1550),
+  -- [MC-0153] d05.pad.nivel_pad · Tabla: bauth.idn_biometric_pad_policy.pad_level · Kardex: A.65.04
   ('d05.pad.nivel_pad', '{"es": "Nivel PAD (anti-spoofing)", "en": "Pad Level"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0153] Kardex: A.65.04 · Tabla: bauth.idn_biometric_pad_policy.pad_level — Conjunto de valores válidos para Nivel PAD (anti-spoofing) en el dominio d05. Controla la columna idn_biometric_pad_policy.pad_level y asegura integridad referencial sin FK nativa.', true, 1560),
+  -- [MC-0154] d05.pad.estado · Tabla: bauth.idn_biometric_pad_policy.status · Kardex: A.65.04
   ('d05.pad.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0154] Kardex: A.65.04 · Tabla: bauth.idn_biometric_pad_policy.status — Estado operativo de estado en el dominio d05. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 1570),
+  -- [MC-0155] d05.revocacion_bio.motivo_revocacion · Tabla: bauth.idn_biometric_revocation.revocation_reason · Kardex: A.65.04
   ('d05.revocacion_bio.motivo_revocacion', '{"es": "Motivo de revocación", "en": "Revocation Reason"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0155] Kardex: A.65.04 · Tabla: bauth.idn_biometric_revocation.revocation_reason — Conjunto de valores válidos para Motivo de revocación en el dominio d05. Controla la columna idn_biometric_revocation.revocation_reason y asegura integridad referencial sin FK nativa.', true, 1580),
+  -- [MC-0156] d05.verificacion_bio.resultado · Tabla: bauth.idn_biometric_verification_log.outcome · Kardex: A.65.04
   ('d05.verificacion_bio.resultado', '{"es": "Resultado", "en": "Outcome"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0156] Kardex: A.65.04 · Tabla: bauth.idn_biometric_verification_log.outcome — Resultado de la operación de verificacion bio en el dominio d05. Registra si la operación fue exitosa o el tipo específico de fallo para forensia y métricas.', true, 1590),
+  -- [MC-0185] d12.ancla.tipo_evento_fuente · Tabla: bauth.idn_blockchain_anchor_ext.source_event_type · Kardex: A.65.04
   ('d12.ancla.tipo_evento_fuente', '{"es": "Tipo de evento fuente", "en": "Source Event Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0185] Kardex: A.65.04 · Tabla: bauth.idn_blockchain_anchor_ext.source_event_type — Conjunto de valores válidos para Tipo de evento fuente en el dominio d12. Controla la columna idn_blockchain_anchor_ext.source_event_type y asegura integridad referencial sin FK nativa.', true, 1600),
+  -- [MC-0186] d12.nodo.estado · Tabla: bauth.idn_blockchain_node.status · Kardex: A.65.04
   ('d12.nodo.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0186] Kardex: A.65.04 · Tabla: bauth.idn_blockchain_node.status — Estado operativo de estado en el dominio d12. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 1610),
+  -- [MC-0187] d12.transaccion.estado · Tabla: bauth.idn_blockchain_transaction.status · Kardex: A.65.04
   ('d12.transaccion.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0187] Kardex: A.65.04 · Tabla: bauth.idn_blockchain_transaction.status — Estado operativo de estado en el dominio d12. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 1620),
+  -- [MC-0188] d12.transaccion.tipo_tx · Tabla: bauth.idn_blockchain_transaction.tx_type · Kardex: A.65.04
   ('d12.transaccion.tipo_tx', '{"es": "Tipo de transacción blockchain", "en": "Tx Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0188] Kardex: A.65.04 · Tabla: bauth.idn_blockchain_transaction.tx_type — Conjunto de valores válidos para Tipo de transacción blockchain en el dominio d12. Controla la columna idn_blockchain_transaction.tx_type y asegura integridad referencial sin FK nativa.', true, 1630),
+  -- [MC-0189] d12.wallet.cadena · Tabla: bauth.idn_blockchain_wallet.chain · Kardex: A.65.04
   ('d12.wallet.cadena', '{"es": "Cadena", "en": "Chain"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0189] Kardex: A.65.04 · Tabla: bauth.idn_blockchain_wallet.chain — Conjunto de valores válidos para Cadena en el dominio d12. Controla la columna idn_blockchain_wallet.chain y asegura integridad referencial sin FK nativa.', true, 1640),
+  -- [MC-0190] d12.wallet.estado · Tabla: bauth.idn_blockchain_wallet.status · Kardex: A.65.04
   ('d12.wallet.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0190] Kardex: A.65.04 · Tabla: bauth.idn_blockchain_wallet.status — Estado operativo de estado en el dominio d12. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 1650),
+  -- [MC-0172] d09.revocacion_cred.motivo · Tabla: bauth.idn_credencial_revocacion.motivo · Kardex: A.65.04
   ('d09.revocacion_cred.motivo', '{"es": "Motivo", "en": "Motivo"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0172] Kardex: A.65.04 · Tabla: bauth.idn_credencial_revocacion.motivo — Conjunto de valores válidos para Motivo en el dominio d09. Controla la columna idn_credencial_revocacion.motivo y asegura integridad referencial sin FK nativa.', true, 1660),
+  -- [MC-0173] d09.token.motivo_revocacion · Tabla: bauth.idn_credential_token_issued.revocation_reason · Kardex: A.65.04
   ('d09.token.motivo_revocacion', '{"es": "Motivo de revocación", "en": "Revocation Reason"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0173] Kardex: A.65.04 · Tabla: bauth.idn_credential_token_issued.revocation_reason — Conjunto de valores válidos para Motivo de revocación en el dominio d09. Controla la columna idn_credential_token_issued.revocation_reason, idn_credential_token_issued_2026_07.revocation_reason y asegura integridad referencial sin FK nativa.', true, 1670),
+  -- [MC-0174] d09.token.tipo_token · Tabla: bauth.idn_credential_token_issued.token_type · Kardex: A.65.04
   ('d09.token.tipo_token', '{"es": "Tipo de token", "en": "Token Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0174] Kardex: A.65.04 · Tabla: bauth.idn_credential_token_issued.token_type — Conjunto de valores válidos para Tipo de token en el dominio d09. Controla la columna idn_credential_token_issued.token_type, idn_credential_token_issued_2026_07.token_type y asegura integridad referencial sin FK nativa.', true, 1680),
+  -- [MC-0175] d10.delegacion.tipo_delegacion · Tabla: bauth.idn_delegation_grant.delegation_type · Kardex: A.65.04
   ('d10.delegacion.tipo_delegacion', '{"es": "Tipo de delegación", "en": "Delegation Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0175] Kardex: A.65.04 · Tabla: bauth.idn_delegation_grant.delegation_type — Conjunto de valores válidos para Tipo de delegación en el dominio d10. Controla la columna idn_delegation_grant.delegation_type y asegura integridad referencial sin FK nativa.', true, 1690),
+  -- [MC-0176] d10.rar.estado · Tabla: bauth.idn_delegation_rar_request.status · Kardex: A.65.04
   ('d10.rar.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0176] Kardex: A.65.04 · Tabla: bauth.idn_delegation_rar_request.status — Estado operativo de estado en el dominio d10. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 1700),
+  -- [MC-0177] d10.restriccion.tipo_restriccion · Tabla: bauth.idn_delegation_restriction.restriction_type · Kardex: A.65.04
   ('d10.restriccion.tipo_restriccion', '{"es": "Tipo de restricción", "en": "Restriction Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0177] Kardex: A.65.04 · Tabla: bauth.idn_delegation_restriction.restriction_type — Conjunto de valores válidos para Tipo de restricción en el dominio d10. Controla la columna idn_delegation_restriction.restriction_type y asegura integridad referencial sin FK nativa.', true, 1710),
+  -- [MC-0178] d10.uso_delegacion.resultado · Tabla: bauth.idn_delegation_usage_log.outcome · Kardex: A.65.04
   ('d10.uso_delegacion.resultado', '{"es": "Resultado", "en": "Outcome"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0178] Kardex: A.65.04 · Tabla: bauth.idn_delegation_usage_log.outcome — Resultado de la operación de uso delegacion en el dominio d10. Registra si la operación fue exitosa o el tipo específico de fallo para forensia y métricas.', true, 1720),
+  -- [MC-0096] identidad.did.estado · Tabla: bauth.idn_did_document.status · Kardex: A.65.04
   ('identidad.did.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0096] Kardex: A.65.04 · Tabla: bauth.idn_did_document.status — Estado operativo de estado en el dominio identidad. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 1730),
+  -- [MC-0284] privacidad.dpia_reg.estado · Tabla: bauth.idn_dpia_registro.estado · Kardex: A.65.04
   ('privacidad.dpia_reg.estado', '{"es": "Estado", "en": "Estado"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0284] Kardex: A.65.04 · Tabla: bauth.idn_dpia_registro.estado — Estado operativo de estado en el dominio privacidad. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 1740),
+  -- [MC-0285] privacidad.dpia_reg.riesgo_residual · Tabla: bauth.idn_dpia_registro.riesgo_residual · Kardex: A.65.04
   ('privacidad.dpia_reg.riesgo_residual', '{"es": "Riesgo residual (DPIA)", "en": "Riesgo Residual"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0285] Kardex: A.65.04 · Tabla: bauth.idn_dpia_registro.riesgo_residual — Conjunto de valores válidos para Riesgo residual (DPIA) en el dominio privacidad. Controla la columna idn_dpia_registro.riesgo_residual y asegura integridad referencial sin FK nativa.', true, 1750),
+  -- [MC-0131] d03.aprobacion.tipo_operacion · Tabla: bauth.idn_financial_approval.operation_type · Kardex: A.65.04
   ('d03.aprobacion.tipo_operacion', '{"es": "Tipo de operación", "en": "Operation Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0131] Kardex: A.65.04 · Tabla: bauth.idn_financial_approval.operation_type — Conjunto de valores válidos para Tipo de operación en el dominio d03. Controla la columna idn_financial_approval.operation_type y asegura integridad referencial sin FK nativa.', true, 1760),
+  -- [MC-0132] d03.voto.decision · Tabla: bauth.idn_financial_approval_vote.decision · Kardex: A.65.04
   ('d03.voto.decision', '{"es": "Decisión", "en": "Decision"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0132] Kardex: A.65.04 · Tabla: bauth.idn_financial_approval_vote.decision — Decisión o acción en el flujo de voto del dominio el dominio d03. Define el desenlace del proceso y las acciones de seguimiento que se activan.', true, 1770),
+  -- [MC-0133] d03.fraude.tipo_alerta · Tabla: bauth.idn_financial_fraud_alert.alert_type · Kardex: A.65.04
   ('d03.fraude.tipo_alerta', '{"es": "Tipo de alerta de fraude", "en": "Alert Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0133] Kardex: A.65.04 · Tabla: bauth.idn_financial_fraud_alert.alert_type — Conjunto de valores válidos para Tipo de alerta de fraude en el dominio d03. Controla la columna idn_financial_fraud_alert.alert_type y asegura integridad referencial sin FK nativa.', true, 1780),
+  -- [MC-0134] d03.fraude.resultado · Tabla: bauth.idn_financial_fraud_alert.result · Kardex: A.65.04
   ('d03.fraude.resultado', '{"es": "Resultado", "en": "Result"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0134] Kardex: A.65.04 · Tabla: bauth.idn_financial_fraud_alert.result — Resultado de la operación de fraude en el dominio d03. Registra si la operación fue exitosa o el tipo específico de fallo para forensia y métricas.', true, 1790),
+  -- [MC-0135] d03.factura.estado_sin · Tabla: bauth.idn_financial_invoice_auth.sin_status · Kardex: A.65.04
   ('d03.factura.estado_sin', '{"es": "Estado SIN Bolivia", "en": "Sin Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0135] Kardex: A.65.04 · Tabla: bauth.idn_financial_invoice_auth.sin_status — Conjunto de valores válidos para Estado SIN Bolivia en el dominio d03. Controla la columna idn_financial_invoice_auth.sin_status y asegura integridad referencial sin FK nativa.', true, 1800),
+  -- [MC-0136] d03.limite.tipo_operacion · Tabla: bauth.idn_financial_limit.operation_type · Kardex: A.65.04
   ('d03.limite.tipo_operacion', '{"es": "Tipo de operación", "en": "Operation Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0136] Kardex: A.65.04 · Tabla: bauth.idn_financial_limit.operation_type — Conjunto de valores válidos para Tipo de operación en el dominio d03. Controla la columna idn_financial_limit.operation_type y asegura integridad referencial sin FK nativa.', true, 1810),
+  -- [MC-0137] d03.limite.alcance · Tabla: bauth.idn_financial_limit.scope · Kardex: A.65.04
   ('d03.limite.alcance', '{"es": "Alcance", "en": "Scope"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0137] Kardex: A.65.04 · Tabla: bauth.idn_financial_limit.scope — Alcance de alcance en el dominio d03. Define el rango de aplicación de la configuración y qué componentes del sistema aplican el valor.', true, 1820),
+  -- [MC-0138] d03.limite.estado · Tabla: bauth.idn_financial_limit.status · Kardex: A.65.04
   ('d03.limite.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0138] Kardex: A.65.04 · Tabla: bauth.idn_financial_limit.status — Estado operativo de estado en el dominio d03. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 1830),
+  -- [MC-0139] d03.reconciliacion.tipo_reconciliacion · Tabla: bauth.idn_financial_reconciliation.reconciliation_type · Kardex: A.65.04
   ('d03.reconciliacion.tipo_reconciliacion', '{"es": "Tipo de reconciliación", "en": "Reconciliation Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0139] Kardex: A.65.04 · Tabla: bauth.idn_financial_reconciliation.reconciliation_type — Conjunto de valores válidos para Tipo de reconciliación en el dominio d03. Controla la columna idn_financial_reconciliation.reconciliation_type y asegura integridad referencial sin FK nativa.', true, 1840),
+  -- [MC-0140] d03.reconciliacion.estado · Tabla: bauth.idn_financial_reconciliation.status · Kardex: A.65.04
   ('d03.reconciliacion.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0140] Kardex: A.65.04 · Tabla: bauth.idn_financial_reconciliation.status — Estado operativo de estado en el dominio d03. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 1850),
+  -- [MC-0141] d03.reporte.tipo_reporte · Tabla: bauth.idn_financial_report.report_type · Kardex: A.65.04
   ('d03.reporte.tipo_reporte', '{"es": "Tipo de reporte", "en": "Report Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0141] Kardex: A.65.04 · Tabla: bauth.idn_financial_report.report_type — Conjunto de valores válidos para Tipo de reporte en el dominio d03. Controla la columna idn_financial_report.report_type y asegura integridad referencial sin FK nativa.', true, 1860),
+  -- [MC-0142] d03.reporte.estado · Tabla: bauth.idn_financial_report.status · Kardex: A.65.04
   ('d03.reporte.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0142] Kardex: A.65.04 · Tabla: bauth.idn_financial_report.status — Estado operativo de estado en el dominio d03. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 1870),
+  -- [MC-0143] d03.sod.tipo_conflicto · Tabla: bauth.idn_financial_sod_rule.conflict_type · Kardex: A.65.04
   ('d03.sod.tipo_conflicto', '{"es": "Tipo de conflicto", "en": "Conflict Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0143] Kardex: A.65.04 · Tabla: bauth.idn_financial_sod_rule.conflict_type — Conjunto de valores válidos para Tipo de conflicto en el dominio d03. Controla la columna idn_financial_sod_rule.conflict_type y asegura integridad referencial sin FK nativa.', true, 1880),
+  -- [MC-0144] d03.tpp.perfil_fapi · Tabla: bauth.idn_financial_tpp_consent.fapi_profile · Kardex: A.65.04
   ('d03.tpp.perfil_fapi', '{"es": "Perfil FAPI", "en": "Fapi Profile"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0144] Kardex: A.65.04 · Tabla: bauth.idn_financial_tpp_consent.fapi_profile — Conjunto de valores válidos para Perfil FAPI en el dominio d03. Controla la columna idn_financial_tpp_consent.fapi_profile y asegura integridad referencial sin FK nativa.', true, 1890),
+  -- [MC-0145] d03.tpp.revocado_por · Tabla: bauth.idn_financial_tpp_consent.revoked_by · Kardex: A.65.04
   ('d03.tpp.revocado_por', '{"es": "Revocado por", "en": "Revoked By"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0145] Kardex: A.65.04 · Tabla: bauth.idn_financial_tpp_consent.revoked_by — Conjunto de valores válidos para Revocado por en el dominio d03. Controla la columna idn_financial_tpp_consent.revoked_by y asegura integridad referencial sin FK nativa.', true, 1900),
+  -- [MC-0157] d06.residencia.aplica_a · Tabla: bauth.idn_geospatial_data_residency.apply_to · Kardex: A.65.04
   ('d06.residencia.aplica_a', '{"es": "Aplica a", "en": "Apply To"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0157] Kardex: A.65.04 · Tabla: bauth.idn_geospatial_data_residency.apply_to — Conjunto de valores válidos para Aplica a en el dominio d06. Controla la columna idn_geospatial_data_residency.apply_to y asegura integridad referencial sin FK nativa.', true, 1910),
+  -- [MC-0158] d06.residencia.accion_violacion · Tabla: bauth.idn_geospatial_data_residency.violation_action · Kardex: A.65.04
   ('d06.residencia.accion_violacion', '{"es": "Acción en violación", "en": "Violation Action"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0158] Kardex: A.65.04 · Tabla: bauth.idn_geospatial_data_residency.violation_action — Conjunto de valores válidos para Acción en violación en el dominio d06. Controla la columna idn_geospatial_data_residency.violation_action y asegura integridad referencial sin FK nativa.', true, 1920),
+  -- [MC-0159] d06.geocerca.accion_dentro · Tabla: bauth.idn_geospatial_geofence.action_inside · Kardex: A.65.04
   ('d06.geocerca.accion_dentro', '{"es": "Acción dentro de geocerca", "en": "Action Inside"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0159] Kardex: A.65.04 · Tabla: bauth.idn_geospatial_geofence.action_inside — Conjunto de valores válidos para Acción dentro de geocerca en el dominio d06. Controla la columna idn_geospatial_geofence.action_inside y asegura integridad referencial sin FK nativa.', true, 1930),
+  -- [MC-0160] d06.geocerca.accion_fuera · Tabla: bauth.idn_geospatial_geofence.action_outside · Kardex: A.65.04
   ('d06.geocerca.accion_fuera', '{"es": "Acción fuera de geocerca", "en": "Action Outside"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0160] Kardex: A.65.04 · Tabla: bauth.idn_geospatial_geofence.action_outside — Conjunto de valores válidos para Acción fuera de geocerca en el dominio d06. Controla la columna idn_geospatial_geofence.action_outside, idn_geospatial_velocity_policy.action y asegura integridad referencial sin FK nativa.', true, 1940),
+  -- [MC-0161] d06.geocerca.tipo_geocerca · Tabla: bauth.idn_geospatial_geofence.fence_type · Kardex: A.65.04
   ('d06.geocerca.tipo_geocerca', '{"es": "Tipo de geocerca", "en": "Fence Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0161] Kardex: A.65.04 · Tabla: bauth.idn_geospatial_geofence.fence_type — Conjunto de valores válidos para Tipo de geocerca en el dominio d06. Controla la columna idn_geospatial_geofence.fence_type y asegura integridad referencial sin FK nativa.', true, 1950),
+  -- [MC-0162] d06.ubicacion.fuente_ubicacion · Tabla: bauth.idn_geospatial_location_log.location_source · Kardex: A.65.04
   ('d06.ubicacion.fuente_ubicacion', '{"es": "Fuente de ubicación", "en": "Location Source"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0162] Kardex: A.65.04 · Tabla: bauth.idn_geospatial_location_log.location_source — Conjunto de valores válidos para Fuente de ubicación en el dominio d06. Controla la columna idn_geospatial_location_log.location_source, idn_geospatial_location_log_2026_07.location_source y asegura integridad referencial sin FK nativa.', true, 1960),
+  -- [MC-0222] d99.admin.rol_admin · Tabla: bauth.idn_global_admin.admin_role · Kardex: A.65.04
   ('d99.admin.rol_admin', '{"es": "Rol de administrador global", "en": "Admin Role"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0222] Kardex: A.65.04 · Tabla: bauth.idn_global_admin.admin_role — Conjunto de valores válidos para Rol de administrador global en el dominio d99. Controla la columna idn_global_admin.admin_role y asegura integridad referencial sin FK nativa.', true, 1970),
+  -- [MC-0223] d99.cumplimiento.estado · Tabla: bauth.idn_global_compliance_control.status · Kardex: A.65.04
   ('d99.cumplimiento.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0223] Kardex: A.65.04 · Tabla: bauth.idn_global_compliance_control.status — Estado operativo de estado en el dominio d99. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 1980),
+  -- [MC-0224] d99.cripto.familia_algoritmo · Tabla: bauth.idn_global_crypto_params.algorithm_family · Kardex: A.65.04
   ('d99.cripto.familia_algoritmo', '{"es": "Familia de algoritmo", "en": "Algorithm Family"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0224] Kardex: A.65.04 · Tabla: bauth.idn_global_crypto_params.algorithm_family — Conjunto de valores válidos para Familia de algoritmo en el dominio d99. Controla la columna idn_global_crypto_params.algorithm_family y asegura integridad referencial sin FK nativa.', true, 1990),
+  -- [MC-0225] d99.hitl.tipo_entidad · Tabla: bauth.idn_global_hitl_exception.affected_entity_type · Kardex: A.65.04
   ('d99.hitl.tipo_entidad', '{"es": "Tipo de entidad afectada", "en": "Affected Entity Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0225] Kardex: A.65.04 · Tabla: bauth.idn_global_hitl_exception.affected_entity_type — Conjunto de valores válidos para Tipo de entidad afectada en el dominio d99. Controla la columna idn_global_hitl_exception.affected_entity_type y asegura integridad referencial sin FK nativa.', true, 2000),
+  -- [MC-0226] d99.hitl.tipo_excepcion · Tabla: bauth.idn_global_hitl_exception.exception_type · Kardex: A.65.04
   ('d99.hitl.tipo_excepcion', '{"es": "Tipo de excepción", "en": "Exception Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0226] Kardex: A.65.04 · Tabla: bauth.idn_global_hitl_exception.exception_type — Conjunto de valores válidos para Tipo de excepción en el dominio d99. Controla la columna idn_global_hitl_exception.exception_type y asegura integridad referencial sin FK nativa.', true, 2010),
+  -- [MC-0227] d99.hitl.estado · Tabla: bauth.idn_global_hitl_exception.status · Kardex: A.65.04
   ('d99.hitl.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0227] Kardex: A.65.04 · Tabla: bauth.idn_global_hitl_exception.status — Estado operativo de estado en el dominio d99. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 2020),
+  -- [MC-0228] d99.notificacion.tipo_notificacion · Tabla: bauth.idn_global_notification.notification_type · Kardex: A.65.04
   ('d99.notificacion.tipo_notificacion', '{"es": "Tipo de notificación", "en": "Notification Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0228] Kardex: A.65.04 · Tabla: bauth.idn_global_notification.notification_type — Conjunto de valores válidos para Tipo de notificación en el dominio d99. Controla la columna idn_global_notification.notification_type y asegura integridad referencial sin FK nativa.', true, 2030),
+  -- [MC-0229] d99.notificacion.severidad · Tabla: bauth.idn_global_notification.severity · Kardex: A.65.04
   ('d99.notificacion.severidad', '{"es": "Severidad", "en": "Severity"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0229] Kardex: A.65.04 · Tabla: bauth.idn_global_notification.severity — Conjunto de valores válidos para Severidad en el dominio d99. Controla la columna idn_global_notification.severity y asegura integridad referencial sin FK nativa.', true, 2040),
+  -- [MC-0230] d99.notificacion.alcance_destino · Tabla: bauth.idn_global_notification.target_scope · Kardex: A.65.04
   ('d99.notificacion.alcance_destino', '{"es": "Alcance del destino", "en": "Target Scope"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0230] Kardex: A.65.04 · Tabla: bauth.idn_global_notification.target_scope — Alcance de alcance del destino en el dominio d99. Define el rango de aplicación de la configuración y qué componentes del sistema aplican el valor.', true, 2050),
+  -- [MC-0231] d99.sbom.tipo_componente · Tabla: bauth.idn_global_sbom.component_type · Kardex: A.65.04
   ('d99.sbom.tipo_componente', '{"es": "Tipo de componente SBOM", "en": "Component Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0231] Kardex: A.65.04 · Tabla: bauth.idn_global_sbom.component_type — Conjunto de valores válidos para Tipo de componente SBOM en el dominio d99. Controla la columna idn_global_sbom.component_type y asegura integridad referencial sin FK nativa.', true, 2060),
+  -- [MC-0232] d99.sbom.nivel_riesgo · Tabla: bauth.idn_global_sbom.risk_level · Kardex: A.65.04
   ('d99.sbom.nivel_riesgo', '{"es": "Nivel de riesgo", "en": "Risk Level"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0232] Kardex: A.65.04 · Tabla: bauth.idn_global_sbom.risk_level — Conjunto de valores válidos para Nivel de riesgo en el dominio d99. Controla la columna idn_global_sbom.risk_level y asegura integridad referencial sin FK nativa.', true, 2070),
+  -- [MC-0097] identidad.ciclo_vida.tipo_evento · Tabla: bauth.idn_identidad_lifecycle_event.event_type · Kardex: A.65.04
   ('identidad.ciclo_vida.tipo_evento', '{"es": "Tipo de evento", "en": "Event Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0097] Kardex: A.65.04 · Tabla: bauth.idn_identidad_lifecycle_event.event_type — Conjunto de valores válidos para Tipo de evento en el dominio identidad. Controla la columna idn_identidad_lifecycle_event.event_type y asegura integridad referencial sin FK nativa.', true, 2080),
+  -- [MC-0098] identidad.atributo.mutabilidad · Tabla: bauth.idn_identity_attribute.mutability · Kardex: A.65.04
   ('identidad.atributo.mutabilidad', '{"es": "Mutabilidad", "en": "Mutability"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0098] Kardex: A.65.04 · Tabla: bauth.idn_identity_attribute.mutability — Conjunto de valores válidos para Mutabilidad en el dominio identidad. Controla la columna idn_identity_attribute.mutability y asegura integridad referencial sin FK nativa.', true, 2090),
+  -- [MC-0099] identidad.atributo.unicidad · Tabla: bauth.idn_identity_attribute.uniqueness · Kardex: A.65.04
   ('identidad.atributo.unicidad', '{"es": "Unicidad del atributo", "en": "Uniqueness"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0099] Kardex: A.65.04 · Tabla: bauth.idn_identity_attribute.uniqueness — Conjunto de valores válidos para Unicidad del atributo en el dominio identidad. Controla la columna idn_identity_attribute.uniqueness y asegura integridad referencial sin FK nativa.', true, 2100),
+  -- [MC-0100] identidad.attr_historial.operacion · Tabla: bauth.idn_identity_attribute_history.operation · Kardex: A.65.04
   ('identidad.attr_historial.operacion', '{"es": "Operación", "en": "Operation"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0100] Kardex: A.65.04 · Tabla: bauth.idn_identity_attribute_history.operation — Conjunto de valores válidos para Operación en el dominio identidad. Controla la columna idn_identity_attribute_history.operation, idn_identity_attribute_history_2026_07.operation y asegura integridad referencial sin FK nativa.', true, 2110),
+  -- [MC-0101] identidad.consentimiento.via_otorgamiento · Tabla: bauth.idn_identity_consent.granted_via · Kardex: A.65.04
   ('identidad.consentimiento.via_otorgamiento', '{"es": "Otorgado vía", "en": "Granted Via"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0101] Kardex: A.65.04 · Tabla: bauth.idn_identity_consent.granted_via — Conjunto de valores válidos para Otorgado vía en el dominio identidad. Controla la columna idn_identity_consent.granted_via y asegura integridad referencial sin FK nativa.', true, 2120),
+  -- [MC-0102] identidad.consentimiento.base_legal · Tabla: bauth.idn_identity_consent.legal_basis · Kardex: A.65.04
   ('identidad.consentimiento.base_legal', '{"es": "Base legal (GDPR)", "en": "Legal Basis"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0102] Kardex: A.65.04 · Tabla: bauth.idn_identity_consent.legal_basis — Conjunto de valores válidos para Base legal (GDPR) en el dominio identidad. Controla la columna idn_identity_consent.legal_basis y asegura integridad referencial sin FK nativa.', true, 2130),
+  -- [MC-0103] identidad.consentimiento.via_retiro · Tabla: bauth.idn_identity_consent.withdrawn_via · Kardex: A.65.04
   ('identidad.consentimiento.via_retiro', '{"es": "Retirado vía", "en": "Withdrawn Via"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0103] Kardex: A.65.04 · Tabla: bauth.idn_identity_consent.withdrawn_via — Conjunto de valores válidos para Retirado vía en el dominio identidad. Controla la columna idn_identity_consent.withdrawn_via y asegura integridad referencial sin FK nativa.', true, 2140),
+  -- [MC-0104] identidad.entidad.estado · Tabla: bauth.idn_identity_entity.status · Kardex: A.65.04
   ('identidad.entidad.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0104] Kardex: A.65.04 · Tabla: bauth.idn_identity_entity.status — Estado operativo de estado en el dominio identidad. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 2150),
+  -- [MC-0105] identidad.proofing.nivel_eidas · Tabla: bauth.idn_identity_proofing.eidas_level · Kardex: A.65.04
   ('identidad.proofing.nivel_eidas', '{"es": "Nivel eIDAS", "en": "Eidas Level"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0105] Kardex: A.65.04 · Tabla: bauth.idn_identity_proofing.eidas_level — Conjunto de valores válidos para Nivel eIDAS en el dominio identidad. Controla la columna idn_identity_proofing.eidas_level, idn_identity_vc.eidas_assurance_level y asegura integridad referencial sin FK nativa.', true, 2160),
+  -- [MC-0106] identidad.proofing.estado · Tabla: bauth.idn_identity_proofing.status · Kardex: A.65.04
   ('identidad.proofing.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0106] Kardex: A.65.04 · Tabla: bauth.idn_identity_proofing.status — Estado operativo de estado en el dominio identidad. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 2170),
+  -- [MC-0107] identidad.proofing.tipo_proofing · Tabla: bauth.idn_identity_proofing.proofing_type · Kardex: A.65.04
   ('identidad.proofing.tipo_proofing', '{"es": "Tipo de proofing", "en": "Proofing Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0107] Kardex: A.65.04 · Tabla: bauth.idn_identity_proofing.proofing_type — Conjunto de valores válidos para Tipo de proofing en el dominio identidad. Controla la columna idn_identity_proofing.proofing_type y asegura integridad referencial sin FK nativa.', true, 2180),
+  -- [MC-0108] identidad.vc.tipo_vc_eidas · Tabla: bauth.idn_identity_vc.eidas_vc_type · Kardex: A.65.04
   ('identidad.vc.tipo_vc_eidas', '{"es": "Tipo VC eIDAS", "en": "Eidas Vc Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0108] Kardex: A.65.04 · Tabla: bauth.idn_identity_vc.eidas_vc_type — Conjunto de valores válidos para Tipo VC eIDAS en el dominio identidad. Controla la columna idn_identity_vc.eidas_vc_type y asegura integridad referencial sin FK nativa.', true, 2190),
+  -- [MC-0109] identidad.vc.formato_vc · Tabla: bauth.idn_identity_vc.vc_format · Kardex: A.65.04
   ('identidad.vc.formato_vc', '{"es": "Formato VC", "en": "Vc Format"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0109] Kardex: A.65.04 · Tabla: bauth.idn_identity_vc.vc_format — Formato de formato vc en el dominio identidad. Determina cómo se procesa, valida y almacena el dato según el estándar correspondiente.', true, 2200),
+  -- [MC-0163] d07.conexion.version_tls · Tabla: bauth.idn_network_connection_policy.min_tls_version · Kardex: A.65.04
   ('d07.conexion.version_tls', '{"es": "Versión mínima TLS", "en": "Min Tls Version"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0163] Kardex: A.65.04 · Tabla: bauth.idn_network_connection_policy.min_tls_version — Conjunto de valores válidos para Versión mínima TLS en el dominio d07. Controla la columna idn_network_connection_policy.min_tls_version y asegura integridad referencial sin FK nativa.', true, 2210),
+  -- [MC-0164] d07.propagacion.formato_propagacion · Tabla: bauth.idn_network_context_propagation.propagation_format · Kardex: A.65.04
   ('d07.propagacion.formato_propagacion', '{"es": "Formato de propagación", "en": "Propagation Format"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0164] Kardex: A.65.04 · Tabla: bauth.idn_network_context_propagation.propagation_format — Formato de formato de propagación en el dominio d07. Determina cómo se procesa, valida y almacena el dato según el estándar correspondiente.', true, 2220),
+  -- [MC-0165] d07.dlp.accion_deteccion · Tabla: bauth.idn_network_dlp_policy.action_on_match · Kardex: A.65.04
   ('d07.dlp.accion_deteccion', '{"es": "Acción al detectar", "en": "Action On Match"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0165] Kardex: A.65.04 · Tabla: bauth.idn_network_dlp_policy.action_on_match — Conjunto de valores válidos para Acción al detectar en el dominio d07. Controla la columna idn_network_dlp_policy.action_on_match y asegura integridad referencial sin FK nativa.', true, 2230),
+  -- [MC-0166] d07.dpop.algoritmo · Tabla: bauth.idn_network_dpop_binding.alg · Kardex: A.65.04
   ('d07.dpop.algoritmo', '{"es": "Algoritmo criptográfico", "en": "Alg"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0166] Kardex: A.65.04 · Tabla: bauth.idn_network_dpop_binding.alg — Conjunto de valores válidos para Algoritmo criptográfico en el dominio d07. Controla la columna idn_network_dpop_binding.alg y asegura integridad referencial sin FK nativa.', true, 2240),
+  -- [MC-0167] d07.postura_red.accion_fallo · Tabla: bauth.idn_network_posture_policy.action_on_fail · Kardex: A.65.04
   ('d07.postura_red.accion_fallo', '{"es": "Acción en fallo", "en": "Action On Fail"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0167] Kardex: A.65.04 · Tabla: bauth.idn_network_posture_policy.action_on_fail — Conjunto de valores válidos para Acción en fallo en el dominio d07. Controla la columna idn_network_posture_policy.action_on_fail y asegura integridad referencial sin FK nativa.', true, 2250),
+  -- [MC-0168] d07.tasa_limite.accion_exceso · Tabla: bauth.idn_network_rate_policy.action_on_exceed · Kardex: A.65.04
   ('d07.tasa_limite.accion_exceso', '{"es": "Acción al exceder", "en": "Action On Exceed"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0168] Kardex: A.65.04 · Tabla: bauth.idn_network_rate_policy.action_on_exceed — Conjunto de valores válidos para Acción al exceder en el dominio d07. Controla la columna idn_network_rate_policy.action_on_exceed y asegura integridad referencial sin FK nativa.', true, 2260),
+  -- [MC-0169] d07.tasa_limite.alcance · Tabla: bauth.idn_network_rate_policy.scope · Kardex: A.65.04
   ('d07.tasa_limite.alcance', '{"es": "Alcance", "en": "Scope"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0169] Kardex: A.65.04 · Tabla: bauth.idn_network_rate_policy.scope — Alcance de alcance en el dominio d07. Define el rango de aplicación de la configuración y qué componentes del sistema aplican el valor.', true, 2270),
+  -- [MC-0170] d07.segmento.tipo_segmento · Tabla: bauth.idn_network_segment.segment_type · Kardex: A.65.04
   ('d07.segmento.tipo_segmento', '{"es": "Tipo de segmento", "en": "Segment Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0170] Kardex: A.65.04 · Tabla: bauth.idn_network_segment.segment_type — Conjunto de valores válidos para Tipo de segmento en el dominio d07. Controla la columna idn_network_segment.segment_type y asegura integridad referencial sin FK nativa.', true, 2280),
+  -- [MC-0171] d07.segmento.confianza · Tabla: bauth.idn_network_segment.trust_level · Kardex: A.65.04
   ('d07.segmento.confianza', '{"es": "Nivel de confianza", "en": "Trust Level"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0171] Kardex: A.65.04 · Tabla: bauth.idn_network_segment.trust_level — Conjunto de valores válidos para Nivel de confianza en el dominio d07. Controla la columna idn_network_segment.trust_level y asegura integridad referencial sin FK nativa.', true, 2290),
+  -- [MC-0213] d15.nhi_rotacion.accion_fallo · Tabla: bauth.idn_nhi_rotation_policy.fail_action · Kardex: A.65.04
   ('d15.nhi_rotacion.accion_fallo', '{"es": "Acción en fallo", "en": "Fail Action"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0213] Kardex: A.65.04 · Tabla: bauth.idn_nhi_rotation_policy.fail_action — Conjunto de valores válidos para Acción en fallo en el dominio d15. Controla la columna idn_nhi_rotation_policy.fail_action y asegura integridad referencial sin FK nativa.', true, 2300),
+  -- [MC-0214] d15.nhi_rotacion.tipo_nhi · Tabla: bauth.idn_nhi_rotation_policy.nhi_type · Kardex: A.65.04
   ('d15.nhi_rotacion.tipo_nhi', '{"es": "Tipo NHI", "en": "Nhi Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0214] Kardex: A.65.04 · Tabla: bauth.idn_nhi_rotation_policy.nhi_type — Conjunto de valores válidos para Tipo NHI en el dominio d15. Controla la columna idn_nhi_rotation_policy.nhi_type y asegura integridad referencial sin FK nativa.', true, 2310),
+  -- [MC-0215] d15.svid.estado · Tabla: bauth.idn_nhi_svid.status · Kardex: A.65.04
   ('d15.svid.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0215] Kardex: A.65.04 · Tabla: bauth.idn_nhi_svid.status — Estado operativo de estado en el dominio d15. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 2320),
+  -- [MC-0216] d15.svid.tipo_svid · Tabla: bauth.idn_nhi_svid.svid_type · Kardex: A.65.04
   ('d15.svid.tipo_svid', '{"es": "Tipo de SVID", "en": "Svid Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0216] Kardex: A.65.04 · Tabla: bauth.idn_nhi_svid.svid_type — Conjunto de valores válidos para Tipo de SVID en el dominio d15. Controla la columna idn_nhi_svid.svid_type y asegura integridad referencial sin FK nativa.', true, 2330),
+  -- [MC-0118] d02.credencial_fisica.tipo_credencial · Tabla: bauth.idn_physical_access_credential.credential_type · Kardex: A.65.04
   ('d02.credencial_fisica.tipo_credencial', '{"es": "Tipo de credencial", "en": "Credential Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0118] Kardex: A.65.04 · Tabla: bauth.idn_physical_access_credential.credential_type — Conjunto de valores válidos para Tipo de credencial en el dominio d02. Controla la columna idn_physical_access_credential.credential_type y asegura integridad referencial sin FK nativa.', true, 2340),
+  -- [MC-0119] d02.emergencia.modo_puerta · Tabla: bauth.idn_physical_access_emergency.door_mode · Kardex: A.65.04
   ('d02.emergencia.modo_puerta', '{"es": "Modo de puerta de emergencia", "en": "Door Mode"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0119] Kardex: A.65.04 · Tabla: bauth.idn_physical_access_emergency.door_mode — Conjunto de valores válidos para Modo de puerta de emergencia en el dominio d02. Controla la columna idn_physical_access_emergency.door_mode y asegura integridad referencial sin FK nativa.', true, 2350),
+  -- [MC-0120] d02.emergencia.tipo_emergencia · Tabla: bauth.idn_physical_access_emergency.emergency_type · Kardex: A.65.04
   ('d02.emergencia.tipo_emergencia', '{"es": "Tipo de emergencia física", "en": "Emergency Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0120] Kardex: A.65.04 · Tabla: bauth.idn_physical_access_emergency.emergency_type — Conjunto de valores válidos para Tipo de emergencia física en el dominio d02. Controla la columna idn_physical_access_emergency.emergency_type y asegura integridad referencial sin FK nativa.', true, 2360),
+  -- [MC-0121] d02.evento_fisico.tipo_credencial · Tabla: bauth.idn_physical_access_event_log.credential_type · Kardex: A.65.04
   ('d02.evento_fisico.tipo_credencial', '{"es": "Tipo de credencial", "en": "Credential Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0121] Kardex: A.65.04 · Tabla: bauth.idn_physical_access_event_log.credential_type — Conjunto de valores válidos para Tipo de credencial en el dominio d02. Controla la columna idn_physical_access_event_log.credential_type, idn_physical_access_event_log_2026_07.credential_type y asegura integridad referencial sin FK nativa.', true, 2370),
+  -- [MC-0122] d02.evento_fisico.tipo_evento · Tabla: bauth.idn_physical_access_event_log.event_type · Kardex: A.65.04
   ('d02.evento_fisico.tipo_evento', '{"es": "Tipo de evento", "en": "Event Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0122] Kardex: A.65.04 · Tabla: bauth.idn_physical_access_event_log.event_type — Conjunto de valores válidos para Tipo de evento en el dominio d02. Controla la columna idn_physical_access_event_log.event_type, idn_physical_access_event_log_2026_07.event_type y asegura integridad referencial sin FK nativa.', true, 2380),
+  -- [MC-0123] d02.evento_fisico.resultado · Tabla: bauth.idn_physical_access_event_log.outcome · Kardex: A.65.04
   ('d02.evento_fisico.resultado', '{"es": "Resultado", "en": "Outcome"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0123] Kardex: A.65.04 · Tabla: bauth.idn_physical_access_event_log.outcome — Resultado de la operación de evento fisico en el dominio d02. Registra si la operación fue exitosa o el tipo específico de fallo para forensia y métricas.', true, 2390),
+  -- [MC-0124] d02.ubicacion_fisica.tipo_ubicacion · Tabla: bauth.idn_physical_access_location.location_type · Kardex: A.65.04
   ('d02.ubicacion_fisica.tipo_ubicacion', '{"es": "Tipo de ubicación", "en": "Location Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0124] Kardex: A.65.04 · Tabla: bauth.idn_physical_access_location.location_type — Conjunto de valores válidos para Tipo de ubicación en el dominio d02. Controla la columna idn_physical_access_location.location_type y asegura integridad referencial sin FK nativa.', true, 2400),
+  -- [MC-0125] d02.ubicacion_fisica.estado · Tabla: bauth.idn_physical_access_location.status · Kardex: A.65.04
   ('d02.ubicacion_fisica.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0125] Kardex: A.65.04 · Tabla: bauth.idn_physical_access_location.status — Estado operativo de estado en el dominio d02. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 2410),
+  -- [MC-0126] d02.lector.direccion · Tabla: bauth.idn_physical_access_reader.direction · Kardex: A.65.04
   ('d02.lector.direccion', '{"es": "Dirección", "en": "Direction"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0126] Kardex: A.65.04 · Tabla: bauth.idn_physical_access_reader.direction — Conjunto de valores válidos para Dirección en el dominio d02. Controla la columna idn_physical_access_reader.direction y asegura integridad referencial sin FK nativa.', true, 2420),
+  -- [MC-0127] d02.lector.protocolo · Tabla: bauth.idn_physical_access_reader.protocol · Kardex: A.65.04
   ('d02.lector.protocolo', '{"es": "Protocolo", "en": "Protocol"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0127] Kardex: A.65.04 · Tabla: bauth.idn_physical_access_reader.protocol — Método o protocolo usado en lector de el dominio d02. Determina los estándares técnicos aplicables y las políticas de seguridad correspondientes.', true, 2430),
+  -- [MC-0128] d02.lector.tipo_lector · Tabla: bauth.idn_physical_access_reader.reader_type · Kardex: A.65.04
   ('d02.lector.tipo_lector', '{"es": "Tipo de lector", "en": "Reader Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0128] Kardex: A.65.04 · Tabla: bauth.idn_physical_access_reader.reader_type — Conjunto de valores válidos para Tipo de lector en el dominio d02. Controla la columna idn_physical_access_reader.reader_type y asegura integridad referencial sin FK nativa.', true, 2440),
+  -- [MC-0129] d02.lector.estado · Tabla: bauth.idn_physical_access_reader.status · Kardex: A.65.04
   ('d02.lector.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0129] Kardex: A.65.04 · Tabla: bauth.idn_physical_access_reader.status — Estado operativo de estado en el dominio d02. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 2450),
+  -- [MC-0130] d02.visita.estado · Tabla: bauth.idn_physical_access_visit.status · Kardex: A.65.04
   ('d02.visita.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0130] Kardex: A.65.04 · Tabla: bauth.idn_physical_access_visit.status — Estado operativo de estado en el dominio d02. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 2460),
+  -- [MC-0093] cfg.nodo_politica.tamano_fuente · Tabla: bauth.idn_policy_node_type.font_size_token · Kardex: A.65.04
   ('cfg.nodo_politica.tamano_fuente', '{"es": "Token de tamaño de fuente", "en": "Font Size Token"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0093] Kardex: A.65.04 · Tabla: bauth.idn_policy_node_type.font_size_token — Conjunto de valores válidos para Token de tamaño de fuente en configuración del sistema. Controla la columna idn_policy_node_type.font_size_token y asegura integridad referencial sin FK nativa.', true, 2470),
+  -- [MC-0279] registry.schema_attr.categoria · Tabla: bauth.idn_registry_attribute_schema.category · Kardex: A.65.04
   ('registry.schema_attr.categoria', '{"es": "Categoría", "en": "Category"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0279] Kardex: A.65.04 · Tabla: bauth.idn_registry_attribute_schema.category — Categoría de categoría en el dominio registry. Agrupa elementos similares para aplicar políticas diferenciadas según su naturaleza funcional.', true, 2480),
+  -- [MC-0280] registry.schema_attr.clasificacion · Tabla: bauth.idn_registry_attribute_schema.classification · Kardex: A.65.04
   ('registry.schema_attr.clasificacion', '{"es": "Clasificación", "en": "Classification"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0280] Kardex: A.65.04 · Tabla: bauth.idn_registry_attribute_schema.classification — Conjunto de valores válidos para Clasificación en el dominio registry. Controla la columna idn_registry_attribute_schema.classification y asegura integridad referencial sin FK nativa.', true, 2490),
+  -- [MC-0281] registry.schema_attr.tipo_dato · Tabla: bauth.idn_registry_attribute_schema.data_type · Kardex: A.65.04
   ('registry.schema_attr.tipo_dato', '{"es": "Tipo de dato", "en": "Data Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0281] Kardex: A.65.04 · Tabla: bauth.idn_registry_attribute_schema.data_type — Conjunto de valores válidos para Tipo de dato en el dominio registry. Controla la columna idn_registry_attribute_schema.data_type y asegura integridad referencial sin FK nativa.', true, 2500),
+  -- [MC-0282] registry.schema_attr.mutabilidad · Tabla: bauth.idn_registry_attribute_schema.mutability · Kardex: A.65.04
   ('registry.schema_attr.mutabilidad', '{"es": "Mutabilidad", "en": "Mutability"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0282] Kardex: A.65.04 · Tabla: bauth.idn_registry_attribute_schema.mutability — Conjunto de valores válidos para Mutabilidad en el dominio registry. Controla la columna idn_registry_attribute_schema.mutability y asegura integridad referencial sin FK nativa.', true, 2510),
+  -- [MC-0283] registry.schema_attr.fuente · Tabla: bauth.idn_registry_attribute_schema.source · Kardex: A.65.04
   ('registry.schema_attr.fuente', '{"es": "Fuente", "en": "Source"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0283] Kardex: A.65.04 · Tabla: bauth.idn_registry_attribute_schema.source — Conjunto de valores válidos para Fuente en el dominio registry. Controla la columna idn_registry_attribute_schema.source y asegura integridad referencial sin FK nativa.', true, 2520),
+  -- [MC-0217] d15.nhi_agente.tipo_sesion · Tabla: bauth.idn_roles_nhi_agent_identity.session_type · Kardex: A.65.04
   ('d15.nhi_agente.tipo_sesion', '{"es": "Tipo de sesión", "en": "Session Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0217] Kardex: A.65.04 · Tabla: bauth.idn_roles_nhi_agent_identity.session_type — Conjunto de valores válidos para Tipo de sesión en el dominio d15. Controla la columna idn_roles_nhi_agent_identity.session_type y asegura integridad referencial sin FK nativa.', true, 2530),
+  -- [MC-0218] d15.nhi_cert.decision · Tabla: bauth.idn_roles_nhi_certification.decision · Kardex: A.65.04
   ('d15.nhi_cert.decision', '{"es": "Decisión", "en": "Decision"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0218] Kardex: A.65.04 · Tabla: bauth.idn_roles_nhi_certification.decision — Decisión o acción en el flujo de nhi cert del dominio el dominio d15. Define el desenlace del proceso y las acciones de seguimiento que se activan.', true, 2540),
+  -- [MC-0219] d15.nhi_identidad.estado · Tabla: bauth.idn_roles_nhi_identity.status · Kardex: A.65.04
   ('d15.nhi_identidad.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0219] Kardex: A.65.04 · Tabla: bauth.idn_roles_nhi_identity.status — Estado operativo de estado en el dominio d15. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 2550),
+  -- [MC-0220] d15.nhi_identidad.tipo_nhi · Tabla: bauth.idn_roles_nhi_identity.nhi_type · Kardex: A.65.04
   ('d15.nhi_identidad.tipo_nhi', '{"es": "Tipo NHI", "en": "Nhi Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0220] Kardex: A.65.04 · Tabla: bauth.idn_roles_nhi_identity.nhi_type — Conjunto de valores válidos para Tipo NHI en el dominio d15. Controla la columna idn_roles_nhi_identity.nhi_type y asegura integridad referencial sin FK nativa.', true, 2560),
+  -- [MC-0221] d15.nhi_ciclo.tipo_evento · Tabla: bauth.idn_roles_nhi_lifecycle_event.event_type · Kardex: A.65.04
   ('d15.nhi_ciclo.tipo_evento', '{"es": "Tipo de evento", "en": "Event Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0221] Kardex: A.65.04 · Tabla: bauth.idn_roles_nhi_lifecycle_event.event_type — Conjunto de valores válidos para Tipo de evento en el dominio d15. Controla la columna idn_roles_nhi_lifecycle_event.event_type y asegura integridad referencial sin FK nativa.', true, 2570),
+  -- [MC-0271] rol.ciclo_vida.tipo_disparador · Tabla: bauth.idn_roles_rol_lifecycle_event.trigger_type · Kardex: A.65.04
   ('rol.ciclo_vida.tipo_disparador', '{"es": "Tipo de disparador del ciclo de vida", "en": "Trigger Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0271] Kardex: A.65.04 · Tabla: bauth.idn_roles_rol_lifecycle_event.trigger_type — Conjunto de valores válidos para Tipo de disparador del ciclo de vida en el dominio rol. Controla la columna idn_roles_rol_lifecycle_event.trigger_type y asegura integridad referencial sin FK nativa.', true, 2580),
+  -- [MC-0272] rol.template.operacion · Tabla: bauth.idn_roles_template_history.operation · Kardex: A.65.04
   ('rol.template.operacion', '{"es": "Operación", "en": "Operation"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0272] Kardex: A.65.04 · Tabla: bauth.idn_roles_template_history.operation — Conjunto de valores válidos para Operación en el dominio rol. Controla la columna idn_roles_template_history.operation y asegura integridad referencial sin FK nativa.', true, 2590),
+  -- [MC-0273] rol.ver_retencion.clase_info · Tabla: bauth.idn_roles_ver_b01_retention_policy.info_class · Kardex: A.65.04
   ('rol.ver_retencion.clase_info', '{"es": "Clase de información", "en": "Info Class"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0273] Kardex: A.65.04 · Tabla: bauth.idn_roles_ver_b01_retention_policy.info_class — Conjunto de valores válidos para Clase de información en el dominio rol. Controla la columna idn_roles_ver_b01_retention_policy.info_class y asegura integridad referencial sin FK nativa.', true, 2600),
+  -- [MC-0274] rol.ver_contrato.compatibilidad · Tabla: bauth.idn_roles_ver_contract_revision_log.compatibility · Kardex: A.65.04
   ('rol.ver_contrato.compatibilidad', '{"es": "Compatibilidad", "en": "Compatibility"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0274] Kardex: A.65.04 · Tabla: bauth.idn_roles_ver_contract_revision_log.compatibility — Conjunto de valores válidos para Compatibilidad en el dominio rol. Controla la columna idn_roles_ver_contract_revision_log.compatibility y asegura integridad referencial sin FK nativa.', true, 2610),
+  -- [MC-0114] scim.mapeo_attr.mutabilidad_scim · Tabla: bauth.idn_scim_attribute_map.scim_mutability · Kardex: A.65.04
   ('scim.mapeo_attr.mutabilidad_scim', '{"es": "Mutabilidad SCIM", "en": "Scim Mutability"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0114] Kardex: A.65.04 · Tabla: bauth.idn_scim_attribute_map.scim_mutability — Conjunto de valores válidos para Mutabilidad SCIM en el dominio scim. Controla la columna idn_scim_attribute_map.scim_mutability y asegura integridad referencial sin FK nativa.', true, 2620),
+  -- [MC-0115] scim.mapeo_attr.recurso_scim · Tabla: bauth.idn_scim_attribute_map.scim_resource · Kardex: A.65.04
   ('scim.mapeo_attr.recurso_scim', '{"es": "Recurso SCIM", "en": "Scim Resource"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0115] Kardex: A.65.04 · Tabla: bauth.idn_scim_attribute_map.scim_resource — Conjunto de valores válidos para Recurso SCIM en el dominio scim. Controla la columna idn_scim_attribute_map.scim_resource y asegura integridad referencial sin FK nativa.', true, 2630),
+  -- [MC-0116] scim.mapeo_attr.retorno_scim · Tabla: bauth.idn_scim_attribute_map.scim_returned · Kardex: A.65.04
   ('scim.mapeo_attr.retorno_scim', '{"es": "Retorno SCIM", "en": "Scim Returned"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0116] Kardex: A.65.04 · Tabla: bauth.idn_scim_attribute_map.scim_returned — Conjunto de valores válidos para Retorno SCIM en el dominio scim. Controla la columna idn_scim_attribute_map.scim_returned y asegura integridad referencial sin FK nativa.', true, 2640),
+  -- [MC-0117] scim.mapeo_attr.tabla_local · Tabla: bauth.idn_scim_attribute_map.local_table · Kardex: A.65.04
   ('scim.mapeo_attr.tabla_local', '{"es": "Tabla local", "en": "Local Table"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0117] Kardex: A.65.04 · Tabla: bauth.idn_scim_attribute_map.local_table — Conjunto de valores válidos para Tabla local en el dominio scim. Controla la columna idn_scim_attribute_map.local_table y asegura integridad referencial sin FK nativa.', true, 2650),
+  -- [MC-0191] d13.cadena_ca.tipo_ca · Tabla: bauth.idn_signature_ca_chain.ca_type · Kardex: A.65.04
   ('d13.cadena_ca.tipo_ca', '{"es": "Tipo de CA", "en": "Ca Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0191] Kardex: A.65.04 · Tabla: bauth.idn_signature_ca_chain.ca_type — Conjunto de valores válidos para Tipo de CA en el dominio d13. Controla la columna idn_signature_ca_chain.ca_type y asegura integridad referencial sin FK nativa.', true, 2660),
+  -- [MC-0192] d13.eudi_wallet.estado · Tabla: bauth.idn_signature_eudi_wallet.status · Kardex: A.65.04
   ('d13.eudi_wallet.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0192] Kardex: A.65.04 · Tabla: bauth.idn_signature_eudi_wallet.status — Estado operativo de estado en el dominio d13. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 2670),
+  -- [MC-0193] d13.solicitud_firma.tipo_documento · Tabla: bauth.idn_signature_request.document_type · Kardex: A.65.04
   ('d13.solicitud_firma.tipo_documento', '{"es": "Tipo de documento", "en": "Document Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0193] Kardex: A.65.04 · Tabla: bauth.idn_signature_request.document_type — Conjunto de valores válidos para Tipo de documento en el dominio d13. Controla la columna idn_signature_request.document_type y asegura integridad referencial sin FK nativa.', true, 2680),
+  -- [MC-0194] d13.solicitud_firma.motor · Tabla: bauth.idn_signature_request.engine · Kardex: A.65.04
   ('d13.solicitud_firma.motor', '{"es": "Motor", "en": "Engine"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0194] Kardex: A.65.04 · Tabla: bauth.idn_signature_request.engine — Conjunto de valores válidos para Motor en el dominio d13. Controla la columna idn_signature_request.engine y asegura integridad referencial sin FK nativa.', true, 2690),
+  -- [MC-0195] d13.solicitud_firma.formato_firma · Tabla: bauth.idn_signature_request.signature_format · Kardex: A.65.04
   ('d13.solicitud_firma.formato_firma', '{"es": "Formato de firma", "en": "Signature Format"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0195] Kardex: A.65.04 · Tabla: bauth.idn_signature_request.signature_format — Formato de formato de firma en el dominio d13. Determina cómo se procesa, valida y almacena el dato según el estándar correspondiente.', true, 2700),
+  -- [MC-0196] d13.solicitud_firma.estado · Tabla: bauth.idn_signature_request.status · Kardex: A.65.04
   ('d13.solicitud_firma.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0196] Kardex: A.65.04 · Tabla: bauth.idn_signature_request.status — Estado operativo de estado en el dominio d13. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 2710),
+  -- [MC-0197] d13.revocacion_cert.fuente_verificacion · Tabla: bauth.idn_signature_revocation_cache.check_source · Kardex: A.65.04
   ('d13.revocacion_cert.fuente_verificacion', '{"es": "Fuente de verificación CRL/OCSP", "en": "Check Source"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0197] Kardex: A.65.04 · Tabla: bauth.idn_signature_revocation_cache.check_source — Conjunto de valores válidos para Fuente de verificación CRL/OCSP en el dominio d13. Controla la columna idn_signature_revocation_cache.check_source y asegura integridad referencial sin FK nativa.', true, 2720),
+  -- [MC-0198] d13.revocacion_cert.estado · Tabla: bauth.idn_signature_revocation_cache.status · Kardex: A.65.04
   ('d13.revocacion_cert.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0198] Kardex: A.65.04 · Tabla: bauth.idn_signature_revocation_cache.status — Estado operativo de estado en el dominio d13. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 2730),
+  -- [MC-0199] d13.verificacion_firma.estado_cert · Tabla: bauth.idn_signature_verification_log.cert_status · Kardex: A.65.04
   ('d13.verificacion_firma.estado_cert', '{"es": "Estado del certificado", "en": "Cert Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0199] Kardex: A.65.04 · Tabla: bauth.idn_signature_verification_log.cert_status — Conjunto de valores válidos para Estado del certificado en el dominio d13. Controla la columna idn_signature_verification_log.cert_status y asegura integridad referencial sin FK nativa.', true, 2740),
+  -- [MC-0200] d13.verificacion_firma.resultado · Tabla: bauth.idn_signature_verification_log.outcome · Kardex: A.65.04
   ('d13.verificacion_firma.resultado', '{"es": "Resultado", "en": "Outcome"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0200] Kardex: A.65.04 · Tabla: bauth.idn_signature_verification_log.outcome — Resultado de la operación de verificacion firma en el dominio d13. Registra si la operación fue exitosa o el tipo específico de fallo para forensia y métricas.', true, 2750),
+  -- [MC-0146] d04.excepcion_temp.tipo_excepcion · Tabla: bauth.idn_temporal_exception.exception_type · Kardex: A.65.04
   ('d04.excepcion_temp.tipo_excepcion', '{"es": "Tipo de excepción", "en": "Exception Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0146] Kardex: A.65.04 · Tabla: bauth.idn_temporal_exception.exception_type — Conjunto de valores válidos para Tipo de excepción en el dominio d04. Controla la columna idn_temporal_exception.exception_type y asegura integridad referencial sin FK nativa.', true, 2760),
+  -- [MC-0147] d04.turno.tipo_rotacion · Tabla: bauth.idn_temporal_shift.rotation_type · Kardex: A.65.04
   ('d04.turno.tipo_rotacion', '{"es": "Tipo de rotación", "en": "Rotation Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0147] Kardex: A.65.04 · Tabla: bauth.idn_temporal_shift.rotation_type — Conjunto de valores válidos para Tipo de rotación en el dominio d04. Controla la columna idn_temporal_shift.rotation_type y asegura integridad referencial sin FK nativa.', true, 2770),
+  -- [MC-0148] d04.ventana_temporal.tipo_ventana · Tabla: bauth.idn_temporal_window.window_type · Kardex: A.65.04
   ('d04.ventana_temporal.tipo_ventana', '{"es": "Tipo de ventana temporal", "en": "Window Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0148] Kardex: A.65.04 · Tabla: bauth.idn_temporal_window.window_type — Conjunto de valores válidos para Tipo de ventana temporal en el dominio d04. Controla la columna idn_temporal_window.window_type y asegura integridad referencial sin FK nativa.', true, 2780),
+  -- [MC-0110] identidad.usuario.metodo_registro · Tabla: bauth.idn_user.registration_method · Kardex: A.65.04
   ('identidad.usuario.metodo_registro', '{"es": "Método de registro", "en": "Registration Method"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0110] Kardex: A.65.04 · Tabla: bauth.idn_user.registration_method — Conjunto de valores válidos para Método de registro en el dominio identidad. Controla la columna idn_user.registration_method y asegura integridad referencial sin FK nativa.', true, 2790),
+  -- [MC-0111] identidad.usuario.estado · Tabla: bauth.idn_user.status · Kardex: A.65.04
   ('identidad.usuario.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0111] Kardex: A.65.04 · Tabla: bauth.idn_user.status — Estado operativo de estado en el dominio identidad. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 2800),
+  -- [MC-0112] identidad.recuperacion.estado · Tabla: bauth.idn_user_recovery.status · Kardex: A.65.04
   ('identidad.recuperacion.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0112] Kardex: A.65.04 · Tabla: bauth.idn_user_recovery.status — Estado operativo de estado en el dominio identidad. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 2810),
+  -- [MC-0113] identidad.recuperacion.tipo · Tabla: bauth.idn_user_recovery.type · Kardex: A.65.04
   ('identidad.recuperacion.tipo', '{"es": "Tipo", "en": "Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0113] Kardex: A.65.04 · Tabla: bauth.idn_user_recovery.type — Categoría funcional de tipo en el dominio identidad. La selección determina las reglas de validación, las políticas aplicables y el comportamiento del motor.', true, 2820),
+  -- [MC-0201] d14.breakglass.metodo_auth · Tabla: bauth.pam_breakglass_activation.auth_method · Kardex: A.65.04
   ('d14.breakglass.metodo_auth', '{"es": "Método de autenticación privilegiada", "en": "Auth Method"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0201] Kardex: A.65.04 · Tabla: bauth.pam_breakglass_activation.auth_method — Conjunto de valores válidos para Método de autenticación privilegiada en el dominio d14. Controla la columna pam_breakglass_activation.auth_method y asegura integridad referencial sin FK nativa.', true, 2830),
+  -- [MC-0202] d14.breakglass.estado · Tabla: bauth.pam_breakglass_activation.status · Kardex: A.65.04
   ('d14.breakglass.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0202] Kardex: A.65.04 · Tabla: bauth.pam_breakglass_activation.status — Estado operativo de estado en el dominio d14. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 2840),
+  -- [MC-0203] d14.breakglass.estado._control · Tabla: bauth.pam_breakglass_activation.status · Kardex: A.65.04
   ('d14.breakglass.estado._control', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0203] Kardex: A.65.04 · Tabla: bauth.pam_breakglass_activation.status — Estado operativo de estado en el dominio d14. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 2850),
+  -- [MC-0204] d14.credencial_priv.politica_rotacion · Tabla: bauth.pam_credential_ref.rotation_policy · Kardex: A.65.04
   ('d14.credencial_priv.politica_rotacion', '{"es": "Política de rotación", "en": "Rotation Policy"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0204] Kardex: A.65.04 · Tabla: bauth.pam_credential_ref.rotation_policy — Conjunto de valores válidos para Política de rotación en el dominio d14. Controla la columna pam_credential_ref.rotation_policy y asegura integridad referencial sin FK nativa.', true, 2860),
+  -- [MC-0205] d14.credencial_priv.estado · Tabla: bauth.pam_credential_ref.status · Kardex: A.65.04
   ('d14.credencial_priv.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0205] Kardex: A.65.04 · Tabla: bauth.pam_credential_ref.status — Estado operativo de estado en el dominio d14. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 2870),
+  -- [MC-0206] d14.credencial_priv.tipo_credencial · Tabla: bauth.pam_credential_ref.credential_type · Kardex: A.65.04
   ('d14.credencial_priv.tipo_credencial', '{"es": "Tipo de credencial", "en": "Credential Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0206] Kardex: A.65.04 · Tabla: bauth.pam_credential_ref.credential_type — Conjunto de valores válidos para Tipo de credencial en el dominio d14. Controla la columna pam_credential_ref.credential_type, pam_nhi_secret_ref.secret_type y asegura integridad referencial sin FK nativa.', true, 2880),
+  -- [MC-0207] d14.cuenta_priv.estado · Tabla: bauth.pam_cuenta_privilegiada.estado · Kardex: A.65.04
   ('d14.cuenta_priv.estado', '{"es": "Estado", "en": "Estado"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0207] Kardex: A.65.04 · Tabla: bauth.pam_cuenta_privilegiada.estado — Estado operativo de estado en el dominio d14. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 2890),
+  -- [MC-0208] d14.cuenta_priv.tipo · Tabla: bauth.pam_cuenta_privilegiada.tipo · Kardex: A.65.04
   ('d14.cuenta_priv.tipo', '{"es": "Tipo", "en": "Tipo"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0208] Kardex: A.65.04 · Tabla: bauth.pam_cuenta_privilegiada.tipo — Categoría funcional de tipo en el dominio d14. La selección determina las reglas de validación, las políticas aplicables y el comportamiento del motor.', true, 2900),
+  -- [MC-0209] d14.jit.decision · Tabla: bauth.pam_jit_approval.decision · Kardex: A.65.04
   ('d14.jit.decision', '{"es": "Decisión", "en": "Decision"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0209] Kardex: A.65.04 · Tabla: bauth.pam_jit_approval.decision — Decisión o acción en el flujo de jit del dominio el dominio d14. Define el desenlace del proceso y las acciones de seguimiento que se activan.', true, 2910),
+  -- [MC-0210] d14.nhi_secreto.politica_rotacion · Tabla: bauth.pam_nhi_secret_ref.rotation_policy · Kardex: A.65.04
   ('d14.nhi_secreto.politica_rotacion', '{"es": "Política de rotación", "en": "Rotation Policy"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0210] Kardex: A.65.04 · Tabla: bauth.pam_nhi_secret_ref.rotation_policy — Conjunto de valores válidos para Política de rotación en el dominio d14. Controla la columna pam_nhi_secret_ref.rotation_policy y asegura integridad referencial sin FK nativa.', true, 2920),
+  -- [MC-0211] d14.sesion_priv.estado · Tabla: bauth.pam_session_record.status · Kardex: A.65.04
   ('d14.sesion_priv.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0211] Kardex: A.65.04 · Tabla: bauth.pam_session_record.status — Estado operativo de estado en el dominio d14. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 2930),
+  -- [MC-0212] d14.grabacion.storage.type · Tabla: bauth.pam_session_recording.storage_type · Kardex: A.65.04
   ('d14.grabacion.storage.type', '{"es": "Tipo de almacenamiento", "en": "Storage Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0212] Kardex: A.65.04 · Tabla: bauth.pam_session_recording.storage_type — Conjunto de valores válidos para Tipo de almacenamiento en el dominio d14. Controla la columna pam_session_recording.storage_type y asegura integridad referencial sin FK nativa.', true, 2940),
+  -- [MC-0233] priv.aseguramiento.resultado · Tabla: bauth.privilege_assurance_audit.outcome · Kardex: A.65.04
   ('priv.aseguramiento.resultado', '{"es": "Resultado", "en": "Outcome"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0233] Kardex: A.65.04 · Tabla: bauth.privilege_assurance_audit.outcome — Resultado de la operación de aseguramiento en privilegios y autorización. Registra si la operación fue exitosa o el tipo específico de fallo para forensia y métricas.', true, 2950),
+  -- [MC-0234] priv.atom.operacion · Tabla: bauth.privilege_atom_audit.operation · Kardex: A.65.04
   ('priv.atom.operacion', '{"es": "Operación", "en": "Operation"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0234] Kardex: A.65.04 · Tabla: bauth.privilege_atom_audit.operation — Conjunto de valores válidos para Operación en privilegios y autorización. Controla la columna privilege_atom_audit.operation, privilege_atom_audit_2026_07.operation y asegura integridad referencial sin FK nativa.', true, 2960),
+  -- [MC-0235] priv.delegacion.estado · Tabla: bauth.privilege_delegation.status · Kardex: A.65.04
   ('priv.delegacion.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0235] Kardex: A.65.04 · Tabla: bauth.privilege_delegation.status — Estado operativo de estado en privilegios y autorización. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 2970),
+  -- [MC-0236] priv.excepcion_reg.tipo_excepcion · Tabla: bauth.privilege_exception_record.exception_type · Kardex: A.65.04
   ('priv.excepcion_reg.tipo_excepcion', '{"es": "Tipo de excepción", "en": "Exception Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0236] Kardex: A.65.04 · Tabla: bauth.privilege_exception_record.exception_type — Conjunto de valores válidos para Tipo de excepción en privilegios y autorización. Controla la columna privilege_exception_record.exception_type y asegura integridad referencial sin FK nativa.', true, 2980),
+  -- [MC-0237] priv.anulacion.tipo_anulacion · Tabla: bauth.privilege_override.override_type · Kardex: A.65.04
   ('priv.anulacion.tipo_anulacion', '{"es": "Tipo de anulación", "en": "Override Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0237] Kardex: A.65.04 · Tabla: bauth.privilege_override.override_type — Conjunto de valores válidos para Tipo de anulación en privilegios y autorización. Controla la columna privilege_override.override_type y asegura integridad referencial sin FK nativa.', true, 2990),
+  -- [MC-0238] priv.recurso.ruta_eval · Tabla: bauth.privilege_resource_atom.evaluation_path · Kardex: A.65.04
   ('priv.recurso.ruta_eval', '{"es": "Ruta de evaluación", "en": "Evaluation Path"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0238] Kardex: A.65.04 · Tabla: bauth.privilege_resource_atom.evaluation_path — Conjunto de valores válidos para Ruta de evaluación en privilegios y autorización. Controla la columna privilege_resource_atom.evaluation_path y asegura integridad referencial sin FK nativa.', true, 3000),
+  -- [MC-0239] priv.recurso.estado · Tabla: bauth.privilege_resource_atom.status · Kardex: A.65.04
   ('priv.recurso.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0239] Kardex: A.65.04 · Tabla: bauth.privilege_resource_atom.status — Estado operativo de estado en privilegios y autorización. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 3010),
+  -- [MC-0240] priv.recurso.alcance_tenant · Tabla: bauth.privilege_resource_atom.tenant_scope · Kardex: A.65.04
   ('priv.recurso.alcance_tenant', '{"es": "Alcance de tenant", "en": "Tenant Scope"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0240] Kardex: A.65.04 · Tabla: bauth.privilege_resource_atom.tenant_scope — Alcance de alcance de tenant en privilegios y autorización. Define el rango de aplicación de la configuración y qué componentes del sistema aplican el valor.', true, 3020),
+  -- [MC-0241] priv.recurso.tipo_protocolo · Tabla: bauth.privilege_resource_atom.protocol_type · Kardex: A.65.04
   ('priv.recurso.tipo_protocolo', '{"es": "Tipo de protocolo", "en": "Protocol Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0241] Kardex: A.65.04 · Tabla: bauth.privilege_resource_atom.protocol_type — Proveedor o protocolo de tipo de protocolo en privilegios y autorización. Define el integrador externo y los estándares de interoperabilidad que debe cumplir.', true, 3030),
+  -- [MC-0242] priv.verbo_conflicto.tipo_conflicto · Tabla: bauth.privilege_verb_conflict.conflict_type · Kardex: A.65.04
   ('priv.verbo_conflicto.tipo_conflicto', '{"es": "Tipo de conflicto", "en": "Conflict Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0242] Kardex: A.65.04 · Tabla: bauth.privilege_verb_conflict.conflict_type — Conjunto de valores válidos para Tipo de conflicto en privilegios y autorización. Controla la columna privilege_verb_conflict.conflict_type y asegura integridad referencial sin FK nativa.', true, 3040),
+  -- [MC-0243] ses.caep.tipo_evento · Tabla: bauth.ses_caep_event_log.event_type · Kardex: A.65.04
   ('ses.caep.tipo_evento', '{"es": "Tipo de evento", "en": "Event Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0243] Kardex: A.65.04 · Tabla: bauth.ses_caep_event_log.event_type — Conjunto de valores válidos para Tipo de evento en gestión de sesiones. Controla la columna ses_caep_event_log.event_type, ses_risk_policy.trigger_event y asegura integridad referencial sin FK nativa.', true, 3050),
+  -- [MC-0244] ses.caep.tipo_sujeto · Tabla: bauth.ses_caep_event_log.subject_type · Kardex: A.65.04
   ('ses.caep.tipo_sujeto', '{"es": "Tipo de sujeto", "en": "Subject Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0244] Kardex: A.65.04 · Tabla: bauth.ses_caep_event_log.subject_type — Conjunto de valores válidos para Tipo de sujeto en gestión de sesiones. Controla la columna ses_caep_event_log.subject_type y asegura integridad referencial sin FK nativa.', true, 3060),
+  -- [MC-0245] ses.sesion.motivo_fin · Tabla: bauth.ses_session_log.termination_reason · Kardex: A.65.04
   ('ses.sesion.motivo_fin', '{"es": "Motivo de terminación", "en": "Termination Reason"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0245] Kardex: A.65.04 · Tabla: bauth.ses_session_log.termination_reason — Conjunto de valores válidos para Motivo de terminación en gestión de sesiones. Controla la columna ses_session_log.termination_reason y asegura integridad referencial sin FK nativa.', true, 3070),
+  -- [MC-0246] ses.ssf.estado · Tabla: bauth.ses_ssf_stream.status · Kardex: A.65.04
   ('ses.ssf.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0246] Kardex: A.65.04 · Tabla: bauth.ses_ssf_stream.status — Estado operativo de estado en gestión de sesiones. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 3080),
+  -- [MC-0247] sig.adsib_ciclo.event · Tabla: bauth.sig_adsib_lifecycle.event · Kardex: A.65.04
   ('sig.adsib_ciclo.event', '{"es": "Tipo de evento", "en": "Event"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0247] Kardex: A.65.04 · Tabla: bauth.sig_adsib_lifecycle.event — Conjunto de valores válidos para Tipo de evento en firma digital. Controla la columna sig_adsib_lifecycle.event y asegura integridad referencial sin FK nativa.', true, 3090),
+  -- [MC-0248] sig.certificado.tipo_adsib · Tabla: bauth.sig_certificate.adsib_type · Kardex: A.65.04
   ('sig.certificado.tipo_adsib', '{"es": "Tipo ADSIB", "en": "Adsib Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0248] Kardex: A.65.04 · Tabla: bauth.sig_certificate.adsib_type — Conjunto de valores válidos para Tipo ADSIB en firma digital. Controla la columna sig_certificate.adsib_type y asegura integridad referencial sin FK nativa.', true, 3100),
+  -- [MC-0249] sig.certificado.motor · Tabla: bauth.sig_certificate.engine · Kardex: A.65.04
   ('sig.certificado.motor', '{"es": "Motor", "en": "Engine"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0249] Kardex: A.65.04 · Tabla: bauth.sig_certificate.engine — Conjunto de valores válidos para Motor en firma digital. Controla la columna sig_certificate.engine y asegura integridad referencial sin FK nativa.', true, 3110),
+  -- [MC-0250] sig.crl.motor · Tabla: bauth.sig_crl.engine · Kardex: A.65.04
   ('sig.crl.motor', '{"es": "Motor", "en": "Engine"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0250] Kardex: A.65.04 · Tabla: bauth.sig_crl.engine — Conjunto de valores válidos para Motor en firma digital. Controla la columna sig_crl.engine, sig_key.engine y asegura integridad referencial sin FK nativa.', true, 3120),
+  -- [MC-0251] sig.doc_politica.engine.required · Tabla: bauth.sig_document_policy.engine_required · Kardex: A.65.04
   ('sig.doc_politica.engine.required', '{"es": "Motor de firma requerido", "en": "Engine Required"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0251] Kardex: A.65.04 · Tabla: bauth.sig_document_policy.engine_required — Conjunto de valores válidos para Motor de firma requerido en firma digital. Controla la columna sig_document_policy.engine_required y asegura integridad referencial sin FK nativa.', true, 3130),
+  -- [MC-0252] sig.doc_politica.external.profile · Tabla: bauth.sig_document_policy.external_profile · Kardex: A.65.04
   ('sig.doc_politica.external.profile', '{"es": "Perfil de firma externo", "en": "External Profile"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0252] Kardex: A.65.04 · Tabla: bauth.sig_document_policy.external_profile — Conjunto de valores válidos para Perfil de firma externo en firma digital. Controla la columna sig_document_policy.external_profile y asegura integridad referencial sin FK nativa.', true, 3140),
+  -- [MC-0253] sig.doc_politica.internal.profile · Tabla: bauth.sig_document_policy.internal_profile · Kardex: A.65.04
   ('sig.doc_politica.internal.profile', '{"es": "Perfil de firma interno", "en": "Internal Profile"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0253] Kardex: A.65.04 · Tabla: bauth.sig_document_policy.internal_profile — Conjunto de valores válidos para Perfil de firma interno en firma digital. Controla la columna sig_document_policy.internal_profile y asegura integridad referencial sin FK nativa.', true, 3150),
+  -- [MC-0254] sig.llave.purpose · Tabla: bauth.sig_key.purpose · Kardex: A.65.04
   ('sig.llave.purpose', '{"es": "Propósito de la llave", "en": "Purpose"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0254] Kardex: A.65.04 · Tabla: bauth.sig_key.purpose — Conjunto de valores válidos para Propósito de la llave en firma digital. Controla la columna sig_key.purpose y asegura integridad referencial sin FK nativa.', true, 3160),
+  -- [MC-0255] sig.llave.estado · Tabla: bauth.sig_key.status · Kardex: A.65.04
   ('sig.llave.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0255] Kardex: A.65.04 · Tabla: bauth.sig_key.status — Estado operativo de estado en firma digital. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 3170),
+  -- [MC-0256] sig.operacion.resultado · Tabla: bauth.sig_operation_log.outcome · Kardex: A.65.04
   ('sig.operacion.resultado', '{"es": "Resultado", "en": "Outcome"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0256] Kardex: A.65.04 · Tabla: bauth.sig_operation_log.outcome — Resultado de la operación de operacion en firma digital. Registra si la operación fue exitosa o el tipo específico de fallo para forensia y métricas.', true, 3180),
+  -- [MC-0257] sig.operacion.tipo_firmante · Tabla: bauth.sig_operation_log.signer_type · Kardex: A.65.04
   ('sig.operacion.tipo_firmante', '{"es": "Tipo de firmante", "en": "Signer Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0257] Kardex: A.65.04 · Tabla: bauth.sig_operation_log.signer_type — Conjunto de valores válidos para Tipo de firmante en firma digital. Controla la columna sig_operation_log.signer_type y asegura integridad referencial sin FK nativa.', true, 3190),
+  -- [MC-0263] vc.wallet.metodo_respaldo · Tabla: bauth.wallet.backup_method · Kardex: A.65.04
   ('vc.wallet.metodo_respaldo', '{"es": "Método de respaldo", "en": "Backup Method"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0263] Kardex: A.65.04 · Tabla: bauth.wallet.backup_method — Conjunto de valores válidos para Método de respaldo en el dominio vc. Controla la columna wallet.backup_method y asegura integridad referencial sin FK nativa.', true, 3200),
+  -- [MC-0264] vc.wallet.estado · Tabla: bauth.wallet.status · Kardex: A.65.04
   ('vc.wallet.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0264] Kardex: A.65.04 · Tabla: bauth.wallet.status — Estado operativo de estado en el dominio vc. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 3210),
+  -- [MC-0265] vc.emision.resultado · Tabla: bauth.wallet_issuance_log.outcome · Kardex: A.65.04
   ('vc.emision.resultado', '{"es": "Resultado", "en": "Outcome"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0265] Kardex: A.65.04 · Tabla: bauth.wallet_issuance_log.outcome — Resultado de la operación de emision en el dominio vc. Registra si la operación fue exitosa o el tipo específico de fallo para forensia y métricas.', true, 3220),
+  -- [MC-0266] vc.emision.protocolo · Tabla: bauth.wallet_issuance_log.protocol · Kardex: A.65.04
   ('vc.emision.protocolo', '{"es": "Protocolo", "en": "Protocol"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0266] Kardex: A.65.04 · Tabla: bauth.wallet_issuance_log.protocol — Método o protocolo usado en emision de el dominio vc. Determina los estándares técnicos aplicables y las políticas de seguridad correspondientes.', true, 3230),
+  -- [MC-0267] vc.item.estado · Tabla: bauth.wallet_item.status · Kardex: A.65.04
   ('vc.item.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0267] Kardex: A.65.04 · Tabla: bauth.wallet_item.status — Estado operativo de estado en el dominio vc. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 3240),
+  -- [MC-0268] vc.item.tipo · Tabla: bauth.wallet_item.type · Kardex: A.65.04
   ('vc.item.tipo', '{"es": "Tipo", "en": "Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0268] Kardex: A.65.04 · Tabla: bauth.wallet_item.type — Categoría funcional de tipo en el dominio vc. La selección determina las reglas de validación, las políticas aplicables y el comportamiento del motor.', true, 3250),
+  -- [MC-0269] vc.presentacion.resultado · Tabla: bauth.wallet_presentation_log.outcome · Kardex: A.65.04
   ('vc.presentacion.resultado', '{"es": "Resultado", "en": "Outcome"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0269] Kardex: A.65.04 · Tabla: bauth.wallet_presentation_log.outcome — Resultado de la operación de presentacion en el dominio vc. Registra si la operación fue exitosa o el tipo específico de fallo para forensia y métricas.', true, 3260),
+  -- [MC-0270] vc.presentacion.protocolo · Tabla: bauth.wallet_presentation_log.protocol · Kardex: A.65.04
   ('vc.presentacion.protocolo', '{"es": "Protocolo", "en": "Protocol"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0270] Kardex: A.65.04 · Tabla: bauth.wallet_presentation_log.protocol — Método o protocolo usado en presentacion de el dominio vc. Determina los estándares técnicos aplicables y las políticas de seguridad correspondientes.', true, 3270),
+  -- [MC-0286] menu.atom.efecto_requerido · Tabla: bglobal.menu_item_atom.required_effect · Kardex: A.65.04
   ('menu.atom.efecto_requerido', '{"es": "Efecto requerido", "en": "Required Effect"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0286] Kardex: A.65.04 · Tabla: bglobal.menu_item_atom.required_effect — Conjunto de valores válidos para Efecto requerido en el dominio menu. Controla la columna menu_item_atom.required_effect y asegura integridad referencial sin FK nativa.', true, 3280),
+  -- [MC-0287] bos.snapshot.alcance · Tabla: bos.cap_sistema_snapshot.scope · Kardex: A.65.04
   ('bos.snapshot.alcance', '{"es": "Alcance", "en": "Scope"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0287] Kardex: A.65.04 · Tabla: bos.cap_sistema_snapshot.scope — Alcance de alcance en el dominio bos. Define el rango de aplicación de la configuración y qué componentes del sistema aplican el valor.', true, 3290),
+  -- [MC-0288] bos.tenant_politica.modo_politica · Tabla: bos.cap_tenant_policy.policy_mode · Kardex: A.65.04
   ('bos.tenant_politica.modo_politica', '{"es": "Modo de política", "en": "Policy Mode"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0288] Kardex: A.65.04 · Tabla: bos.cap_tenant_policy.policy_mode — Conjunto de valores válidos para Modo de política en el dominio bos. Controla la columna cap_tenant_policy.policy_mode y asegura integridad referencial sin FK nativa.', true, 3300),
+  -- [MC-0289] bos.audit.operacion · Tabla: bos.ctx_context_audit.operation · Kardex: A.65.04
   ('bos.audit.operacion', '{"es": "Operación", "en": "Operation"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0289] Kardex: A.65.04 · Tabla: bos.ctx_context_audit.operation — Conjunto de valores válidos para Operación en el dominio bos. Controla la columna ctx_context_audit.operation y asegura integridad referencial sin FK nativa.', true, 3310),
+  -- [MC-0290] bos.audit.estado_anterior · Tabla: bos.ctx_context_audit.old_state · Kardex: A.65.04
   ('bos.audit.estado_anterior', '{"es": "Estado anterior", "en": "Old State"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0290] Kardex: A.65.04 · Tabla: bos.ctx_context_audit.old_state — Conjunto de valores válidos para Estado anterior en el dominio bos. Controla la columna ctx_context_audit.old_state, ctx_context_session.state y asegura integridad referencial sin FK nativa.', true, 3320),
+  -- [MC-0291] bos.emergencia.resultado_revision · Tabla: bos.ctx_context_emergency.review_outcome · Kardex: A.65.04
   ('bos.emergencia.resultado_revision', '{"es": "Resultado de revisión", "en": "Review Outcome"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0291] Kardex: A.65.04 · Tabla: bos.ctx_context_emergency.review_outcome — Conjunto de valores válidos para Resultado de revisión en el dominio bos. Controla la columna ctx_context_emergency.review_outcome y asegura integridad referencial sin FK nativa.', true, 3330),
+  -- [MC-0292] bos.emergencia.estado · Tabla: bos.ctx_context_emergency.state · Kardex: A.65.04
   ('bos.emergencia.estado', '{"es": "Estado interno", "en": "State"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0292] Kardex: A.65.04 · Tabla: bos.ctx_context_emergency.state — Estado operativo de estado interno en el dominio bos. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 3340),
+  -- [MC-0293] bos.transferencia.tipo_transferencia · Tabla: bos.ctx_context_transfer.transfer_type · Kardex: A.65.04
   ('bos.transferencia.tipo_transferencia', '{"es": "Tipo de transferencia", "en": "Transfer Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0293] Kardex: A.65.04 · Tabla: bos.ctx_context_transfer.transfer_type — Conjunto de valores válidos para Tipo de transferencia en el dominio bos. Controla la columna ctx_context_transfer.transfer_type y asegura integridad referencial sin FK nativa.', true, 3350),
+  -- [MC-0294] bos.ficha_evento.resultado · Tabla: bos.fch_ficha_event.result · Kardex: A.65.04
   ('bos.ficha_evento.resultado', '{"es": "Resultado", "en": "Result"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0294] Kardex: A.65.04 · Tabla: bos.fch_ficha_event.result — Resultado de la operación de ficha evento en el dominio bos. Registra si la operación fue exitosa o el tipo específico de fallo para forensia y métricas.', true, 3360),
+  -- [MC-0295] bos.ficha_estado.backend · Tabla: bos.fch_ficha_state.backend · Kardex: A.65.04
   ('bos.ficha_estado.backend', '{"es": "Backend de ejecución", "en": "Backend"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0295] Kardex: A.65.04 · Tabla: bos.fch_ficha_state.backend — Conjunto de valores válidos para Backend de ejecución en el dominio bos. Controla la columna fch_ficha_state.backend y asegura integridad referencial sin FK nativa.', true, 3370),
+  -- [MC-0296] bos.ficha_estado.estado · Tabla: bos.fch_ficha_state.state · Kardex: A.65.04
   ('bos.ficha_estado.estado', '{"es": "Estado interno", "en": "State"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0296] Kardex: A.65.04 · Tabla: bos.fch_ficha_state.state — Estado operativo de estado interno en el dominio bos. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 3380),
+  -- [MC-0297] bos.bootstrap.estado · Tabla: bos.ins_bootstrap_event.state · Kardex: A.65.04
   ('bos.bootstrap.estado', '{"es": "Estado interno", "en": "State"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0297] Kardex: A.65.04 · Tabla: bos.ins_bootstrap_event.state — Estado operativo de estado interno en el dominio bos. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 3390),
+  -- [MC-0298] bos.saga.estado · Tabla: bos.ins_saga_execution.state · Kardex: A.65.04
   ('bos.saga.estado', '{"es": "Estado interno", "en": "State"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0298] Kardex: A.65.04 · Tabla: bos.ins_saga_execution.state — Estado operativo de estado interno en el dominio bos. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 3400),
+  -- [MC-0299] bos.saga.tipo_saga · Tabla: bos.ins_saga_execution.saga_type · Kardex: A.65.04
   ('bos.saga.tipo_saga', '{"es": "Tipo de saga", "en": "Saga Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0299] Kardex: A.65.04 · Tabla: bos.ins_saga_execution.saga_type — Conjunto de valores válidos para Tipo de saga en el dominio bos. Controla la columna ins_saga_execution.saga_type y asegura integridad referencial sin FK nativa.', true, 3410),
+  -- [MC-0300] bos.inventario_cert.tipo_cert · Tabla: bos.net_cert_inventory.cert_type · Kardex: A.65.04
   ('bos.inventario_cert.tipo_cert', '{"es": "Tipo de certificado", "en": "Cert Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0300] Kardex: A.65.04 · Tabla: bos.net_cert_inventory.cert_type — Conjunto de valores válidos para Tipo de certificado en el dominio bos. Controla la columna net_cert_inventory.cert_type y asegura integridad referencial sin FK nativa.', true, 3420),
+  -- [MC-0301] bos.inventario_cert.motor_emisor · Tabla: bos.net_cert_inventory.issuer_engine · Kardex: A.65.04
   ('bos.inventario_cert.motor_emisor', '{"es": "Motor emisor de certificado", "en": "Issuer Engine"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0301] Kardex: A.65.04 · Tabla: bos.net_cert_inventory.issuer_engine — Conjunto de valores válidos para Motor emisor de certificado en el dominio bos. Controla la columna net_cert_inventory.issuer_engine y asegura integridad referencial sin FK nativa.', true, 3430),
+  -- [MC-0302] bos.inventario_cert.algoritmo_llave · Tabla: bos.net_cert_inventory.key_algorithm · Kardex: A.65.04
   ('bos.inventario_cert.algoritmo_llave', '{"es": "Algoritmo de llave", "en": "Key Algorithm"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0302] Kardex: A.65.04 · Tabla: bos.net_cert_inventory.key_algorithm — Conjunto de valores válidos para Algoritmo de llave en el dominio bos. Controla la columna net_cert_inventory.key_algorithm y asegura integridad referencial sin FK nativa.', true, 3440),
+  -- [MC-0303] bos.inventario_cert.estado · Tabla: bos.net_cert_inventory.status · Kardex: A.65.04
   ('bos.inventario_cert.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0303] Kardex: A.65.04 · Tabla: bos.net_cert_inventory.status — Estado operativo de estado en el dominio bos. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 3450),
+  -- [MC-0304] bos.evento_seg.severidad · Tabla: bos.net_security_events.severity · Kardex: A.65.04
   ('bos.evento_seg.severidad', '{"es": "Severidad", "en": "Severity"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0304] Kardex: A.65.04 · Tabla: bos.net_security_events.severity — Conjunto de valores válidos para Severidad en el dominio bos. Controla la columna net_security_events.severity, net_security_events_default.severity y asegura integridad referencial sin FK nativa.', true, 3460),
+  -- [MC-0305] bos.evento_seg.fuente · Tabla: bos.net_security_events.source · Kardex: A.65.04
   ('bos.evento_seg.fuente', '{"es": "Fuente", "en": "Source"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0305] Kardex: A.65.04 · Tabla: bos.net_security_events.source — Conjunto de valores válidos para Fuente en el dominio bos. Controla la columna net_security_events.source, net_security_events_default.source y asegura integridad referencial sin FK nativa.', true, 3470),
+  -- [MC-0306] bos.evento_seg.tipo_evento · Tabla: bos.net_security_events.event_type · Kardex: A.65.04
   ('bos.evento_seg.tipo_evento', '{"es": "Tipo de evento", "en": "Event Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0306] Kardex: A.65.04 · Tabla: bos.net_security_events.event_type — Conjunto de valores válidos para Tipo de evento en el dominio bos. Controla la columna net_security_events.event_type, net_security_events_default.event_type y asegura integridad referencial sin FK nativa.', true, 3480),
+  -- [MC-0307] bos.puerto.tipo_activo · Tabla: bos.prt_port_assignment.asset_type · Kardex: A.65.04
   ('bos.puerto.tipo_activo', '{"es": "Tipo de activo de red", "en": "Asset Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0307] Kardex: A.65.04 · Tabla: bos.prt_port_assignment.asset_type — Conjunto de valores válidos para Tipo de activo de red en el dominio bos. Controla la columna prt_port_assignment.asset_type y asegura integridad referencial sin FK nativa.', true, 3490),
+  -- [MC-0308] bos.puerto.tipo_puerto · Tabla: bos.prt_port_assignment.port_type · Kardex: A.65.04
   ('bos.puerto.tipo_puerto', '{"es": "Tipo de puerto", "en": "Port Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0308] Kardex: A.65.04 · Tabla: bos.prt_port_assignment.port_type — Conjunto de valores válidos para Tipo de puerto en el dominio bos. Controla la columna prt_port_assignment.port_type y asegura integridad referencial sin FK nativa.', true, 3500),
+  -- [MC-0309] bos.puerto.estado · Tabla: bos.prt_port_assignment.status · Kardex: A.65.04
   ('bos.puerto.estado', '{"es": "Estado", "en": "Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0309] Kardex: A.65.04 · Tabla: bos.prt_port_assignment.status — Estado operativo de estado en el dominio bos. Governa el ciclo de vida del registro y qué transiciones son permitidas según las reglas de negocio.', true, 3510),
+  -- [MC-0310] bos.puerto.transporte · Tabla: bos.prt_port_assignment.transport · Kardex: A.65.04
   ('bos.puerto.transporte', '{"es": "Protocolo de transporte", "en": "Transport"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0310] Kardex: A.65.04 · Tabla: bos.prt_port_assignment.transport — Conjunto de valores válidos para Protocolo de transporte en el dominio bos. Controla la columna prt_port_assignment.transport y asegura integridad referencial sin FK nativa.', true, 3520),
+  -- [MC-0311] bos.release.channel · Tabla: bos.rel_release_event.channel · Kardex: A.65.04
   ('bos.release.channel', '{"es": "Canal de liberación", "en": "Channel"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0311] Kardex: A.65.04 · Tabla: bos.rel_release_event.channel — Conjunto de valores válidos para Canal de liberación en el dominio bos. Controla la columna rel_release_event.channel, rel_release_manifest.channel y asegura integridad referencial sin FK nativa.', true, 3530),
+  -- [MC-0312] bos.release.operacion · Tabla: bos.rel_release_event.operation · Kardex: A.65.04
   ('bos.release.operacion', '{"es": "Operación", "en": "Operation"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0312] Kardex: A.65.04 · Tabla: bos.rel_release_event.operation — Conjunto de valores válidos para Operación en el dominio bos. Controla la columna rel_release_event.operation y asegura integridad referencial sin FK nativa.', true, 3540),
+  -- [MC-0313] bos.release.resultado · Tabla: bos.rel_release_event.result · Kardex: A.65.04
   ('bos.release.resultado', '{"es": "Resultado", "en": "Result"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0313] Kardex: A.65.04 · Tabla: bos.rel_release_event.result — Resultado de la operación de release en el dominio bos. Registra si la operación fue exitosa o el tipo específico de fallo para forensia y métricas.', true, 3550),
+  -- [MC-0314] bos.release.disparado_por · Tabla: bos.rel_release_event.triggered_by · Kardex: A.65.04
   ('bos.release.disparado_por', '{"es": "Disparado por", "en": "Triggered By"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0314] Kardex: A.65.04 · Tabla: bos.rel_release_event.triggered_by — Conjunto de valores válidos para Disparado por en el dominio bos. Controla la columna rel_release_event.triggered_by y asegura integridad referencial sin FK nativa.', true, 3560),
+  -- [MC-0315] bos.watchdog.accion_tomada · Tabla: bos.wdg_watchdog_event.action_taken · Kardex: A.65.04
   ('bos.watchdog.accion_tomada', '{"es": "Acción tomada", "en": "Action Taken"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0315] Kardex: A.65.04 · Tabla: bos.wdg_watchdog_event.action_taken — Conjunto de valores válidos para Acción tomada en el dominio bos. Controla la columna wdg_watchdog_event.action_taken y asegura integridad referencial sin FK nativa.', true, 3570),
+  -- [MC-0316] bos.watchdog.capa_verificacion · Tabla: bos.wdg_watchdog_event.check_layer · Kardex: A.65.04
   ('bos.watchdog.capa_verificacion', '{"es": "Capa de verificación (watchdog)", "en": "Check Layer"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0316] Kardex: A.65.04 · Tabla: bos.wdg_watchdog_event.check_layer — Conjunto de valores válidos para Capa de verificación (watchdog) en el dominio bos. Controla la columna wdg_watchdog_event.check_layer y asegura integridad referencial sin FK nativa.', true, 3580),
+  -- [MC-0317] bos.watchdog.tipo_recurso · Tabla: bos.wdg_watchdog_event.resource_type · Kardex: A.65.04
   ('bos.watchdog.tipo_recurso', '{"es": "Tipo de recurso", "en": "Resource Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0317] Kardex: A.65.04 · Tabla: bos.wdg_watchdog_event.resource_type — Conjunto de valores válidos para Tipo de recurso en el dominio bos. Controla la columna wdg_watchdog_event.resource_type y asegura integridad referencial sin FK nativa.', true, 3590),
+  -- [MC-0318] bos.watchdog.resultado_accion · Tabla: bos.wdg_watchdog_event.action_result · Kardex: A.65.04
   ('bos.watchdog.resultado_accion', '{"es": "Resultado de la acción", "en": "Action Result"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0318] Kardex: A.65.04 · Tabla: bos.wdg_watchdog_event.action_result — Conjunto de valores válidos para Resultado de la acción en el dominio bos. Controla la columna wdg_watchdog_event.action_result y asegura integridad referencial sin FK nativa.', true, 3600),
+  -- [MC-0319] bos.watchdog.severidad · Tabla: bos.wdg_watchdog_event.severity · Kardex: A.65.04
   ('bos.watchdog.severidad', '{"es": "Severidad", "en": "Severity"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
    '[MC-0319] Kardex: A.65.04 · Tabla: bos.wdg_watchdog_event.severity — Conjunto de valores válidos para Severidad en el dominio bos. Controla la columna wdg_watchdog_event.severity y asegura integridad referencial sin FK nativa.', true, 3610);
 
