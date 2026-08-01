@@ -151,7 +151,7 @@ Los valores de cada menú viven en `bglobal.menu_item` como registros hijos (`de
 | **MC-0043** | `caep_estado_proceso` | T-191 | `bauth.ses_caep_event_log.proc_status` | `caep_proc_status_enum` |
 | **MC-0044** | `credencial_tipo_propietario` | T-330 | `bauth.auth_credential.owner_type` | `credential_owner_type_enum` |
 | **MC-0045** | `credencial_tipo_ref` | T-183 | `bauth.pam_credential_ref.credential_type` | `credential_ref_type_enum` |
-| **MC-0046** | `propuesta_estado` | T-531 | `bauth.idn_financial_approval.status` | `proposal_status_enum` |
+| **MC-0046** | `propuesta_estado` | T-241 | `bauth.idn_financial_approval.status` | `proposal_status_enum` |
 | **MC-0047** | `riesgo_accion` | T-180 | `bauth.ses_risk_policy.action_on_trigger` | `risk_action_enum` |
 
 ### Financiero (D03)
@@ -281,71 +281,71 @@ Los valores de cada menú viven en `bglobal.menu_item` como registros hijos (`de
 
 | MC | code | T-ref | Origen (tabla.columna) | Constraint |
 |-----|------|-------|------------------------|------------|
-| **MC-0118** | `d02.credencial_fisica.tipo_credencial` | T-548 | `bauth.idn_physical_access_credential.credential_type` | `idn_physical_access_credential_credential_type_check` |
-| **MC-0119** | `d02.emergencia.modo_puerta` | T-549 | `bauth.idn_physical_access_emergency.door_mode` | `idn_physical_access_emergency_door_mode_check` |
-| **MC-0120** | `d02.emergencia.tipo_emergencia` | T-549 | `bauth.idn_physical_access_emergency.emergency_type` | `idn_physical_access_emergency_emergency_type_check` |
-| **MC-0121** | `d02.evento_fisico.tipo_credencial` | T-550 | `bauth.idn_physical_access_event_log.credential_type` | `idn_physical_access_event_log_credential_type_check` |
-| **MC-0122** | `d02.evento_fisico.tipo_evento` | T-550 | `bauth.idn_physical_access_event_log.event_type` | `idn_physical_access_event_log_event_type_check` |
-| **MC-0123** | `d02.evento_fisico.resultado` | T-550 | `bauth.idn_physical_access_event_log.outcome` | `idn_physical_access_event_log_outcome_check` |
-| **MC-0124** | `d02.ubicacion_fisica.tipo_ubicacion` | T-551 | `bauth.idn_physical_access_location.location_type` | `idn_physical_access_location_location_type_check` |
-| **MC-0125** | `d02.ubicacion_fisica.estado` | T-551 | `bauth.idn_physical_access_location.status` | `idn_physical_access_location_status_check` |
-| **MC-0126** | `d02.lector.direccion` | T-552 | `bauth.idn_physical_access_reader.direction` | `idn_physical_access_reader_direction_check` |
-| **MC-0127** | `d02.lector.protocolo` | T-552 | `bauth.idn_physical_access_reader.protocol` | `idn_physical_access_reader_protocol_check` |
-| **MC-0128** | `d02.lector.tipo_lector` | T-552 | `bauth.idn_physical_access_reader.reader_type` | `idn_physical_access_reader_reader_type_check` |
-| **MC-0129** | `d02.lector.estado` | T-552 | `bauth.idn_physical_access_reader.status` | `idn_physical_access_reader_status_check` |
-| **MC-0130** | `d02.visita.estado` | T-553 | `bauth.idn_physical_access_visit.status` | `idn_physical_access_visit_status_check` |
+| **MC-0118** | `d02.credencial_fisica.tipo_credencial` | T-228 | `bauth.idn_physical_access_credential.credential_type` | `idn_physical_access_credential_credential_type_check` |
+| **MC-0119** | `d02.emergencia.modo_puerta` | T-225 | `bauth.idn_physical_access_emergency.door_mode` | `idn_physical_access_emergency_door_mode_check` |
+| **MC-0120** | `d02.emergencia.tipo_emergencia` | T-225 | `bauth.idn_physical_access_emergency.emergency_type` | `idn_physical_access_emergency_emergency_type_check` |
+| **MC-0121** | `d02.evento_fisico.tipo_credencial` | T-223 | `bauth.idn_physical_access_event_log.credential_type` | `idn_physical_access_event_log_credential_type_check` |
+| **MC-0122** | `d02.evento_fisico.tipo_evento` | T-223 | `bauth.idn_physical_access_event_log.event_type` | `idn_physical_access_event_log_event_type_check` |
+| **MC-0123** | `d02.evento_fisico.resultado` | T-223 | `bauth.idn_physical_access_event_log.outcome` | `idn_physical_access_event_log_outcome_check` |
+| **MC-0124** | `d02.ubicacion_fisica.tipo_ubicacion` | T-220 | `bauth.idn_physical_access_location.location_type` | `idn_physical_access_location_location_type_check` |
+| **MC-0125** | `d02.ubicacion_fisica.estado` | T-220 | `bauth.idn_physical_access_location.status` | `idn_physical_access_location_status_check` |
+| **MC-0126** | `d02.lector.direccion` | T-221 | `bauth.idn_physical_access_reader.direction` | `idn_physical_access_reader_direction_check` |
+| **MC-0127** | `d02.lector.protocolo` | T-221 | `bauth.idn_physical_access_reader.protocol` | `idn_physical_access_reader_protocol_check` |
+| **MC-0128** | `d02.lector.tipo_lector` | T-221 | `bauth.idn_physical_access_reader.reader_type` | `idn_physical_access_reader_reader_type_check` |
+| **MC-0129** | `d02.lector.estado` | T-221 | `bauth.idn_physical_access_reader.status` | `idn_physical_access_reader_status_check` |
+| **MC-0130** | `d02.visita.estado` | T-224 | `bauth.idn_physical_access_visit.status` | `idn_physical_access_visit_status_check` |
 
 ### D03 — Financiero
 
 | MC | code | T-ref | Origen (tabla.columna) | Constraint |
 |-----|------|-------|------------------------|------------|
-| **MC-0131** | `d03.aprobacion.tipo_operacion` | T-531 | `bauth.idn_financial_approval.operation_type` | `idn_financial_approval_operation_type_check` |
-| **MC-0132** | `d03.voto.decision` | T-532 | `bauth.idn_financial_approval_vote.decision` | `idn_financial_approval_vote_decision_check` |
-| **MC-0133** | `d03.fraude.tipo_alerta` | T-533 | `bauth.idn_financial_fraud_alert.alert_type` | `idn_financial_fraud_alert_alert_type_check` |
-| **MC-0134** | `d03.fraude.resultado` | T-533 | `bauth.idn_financial_fraud_alert.result` | `idn_financial_fraud_alert_result_check` |
+| **MC-0131** | `d03.aprobacion.tipo_operacion` | T-241 | `bauth.idn_financial_approval.operation_type` | `idn_financial_approval_operation_type_check` |
+| **MC-0132** | `d03.voto.decision` | T-248 | `bauth.idn_financial_approval_vote.decision` | `idn_financial_approval_vote_decision_check` |
+| **MC-0133** | `d03.fraude.tipo_alerta` | T-245 | `bauth.idn_financial_fraud_alert.alert_type` | `idn_financial_fraud_alert_alert_type_check` |
+| **MC-0134** | `d03.fraude.resultado` | T-245 | `bauth.idn_financial_fraud_alert.result` | `idn_financial_fraud_alert_result_check` |
 | **MC-0135** | `d03.factura.estado_sin` | T-534 | `bauth.idn_financial_invoice_auth.sin_status` | `idn_financial_invoice_auth_sin_status_check` |
-| **MC-0136** | `d03.limite.tipo_operacion` | T-535 | `bauth.idn_financial_limit.operation_type` | `idn_financial_limit_operation_type_check` |
-| **MC-0137** | `d03.limite.alcance` | T-535 | `bauth.idn_financial_limit.scope` | `idn_financial_limit_scope_check` |
-| **MC-0138** | `d03.limite.estado` | T-535 | `bauth.idn_financial_limit.status` | `idn_financial_limit_status_check` |
-| **MC-0139** | `d03.reconciliacion.tipo_reconciliacion` | T-536 | `bauth.idn_financial_reconciliation.reconciliation_type` | `idn_financial_reconciliation_reconciliation_type_check` |
-| **MC-0140** | `d03.reconciliacion.estado` | T-536 | `bauth.idn_financial_reconciliation.status` | `idn_financial_reconciliation_status_check` |
-| **MC-0141** | `d03.reporte.tipo_reporte` | T-537 | `bauth.idn_financial_report.report_type` | `idn_financial_report_report_type_check` |
-| **MC-0142** | `d03.reporte.estado` | T-537 | `bauth.idn_financial_report.status` | `idn_financial_report_status_check` |
-| **MC-0143** | `d03.sod.tipo_conflicto` | T-538 | `bauth.idn_financial_sod_rule.conflict_type` | `idn_financial_sod_rule_conflict_type_check` |
-| **MC-0144** | `d03.tpp.perfil_fapi` | T-539 | `bauth.idn_financial_tpp_consent.fapi_profile` | `idn_financial_tpp_consent_fapi_profile_check` |
-| **MC-0145** | `d03.tpp.revocado_por` | T-539 | `bauth.idn_financial_tpp_consent.revoked_by` | `idn_financial_tpp_consent_revoked_by_check` |
+| **MC-0136** | `d03.limite.tipo_operacion` | T-240 | `bauth.idn_financial_limit.operation_type` | `idn_financial_limit_operation_type_check` |
+| **MC-0137** | `d03.limite.alcance` | T-240 | `bauth.idn_financial_limit.scope` | `idn_financial_limit_scope_check` |
+| **MC-0138** | `d03.limite.estado` | T-240 | `bauth.idn_financial_limit.status` | `idn_financial_limit_status_check` |
+| **MC-0139** | `d03.reconciliacion.tipo_reconciliacion` | T-246 | `bauth.idn_financial_reconciliation.reconciliation_type` | `idn_financial_reconciliation_reconciliation_type_check` |
+| **MC-0140** | `d03.reconciliacion.estado` | T-246 | `bauth.idn_financial_reconciliation.status` | `idn_financial_reconciliation_status_check` |
+| **MC-0141** | `d03.reporte.tipo_reporte` | T-244 | `bauth.idn_financial_report.report_type` | `idn_financial_report_report_type_check` |
+| **MC-0142** | `d03.reporte.estado` | T-244 | `bauth.idn_financial_report.status` | `idn_financial_report_status_check` |
+| **MC-0143** | `d03.sod.tipo_conflicto` | T-242 | `bauth.idn_financial_sod_rule.conflict_type` | `idn_financial_sod_rule_conflict_type_check` |
+| **MC-0144** | `d03.tpp.perfil_fapi` | T-247 | `bauth.idn_financial_tpp_consent.fapi_profile` | `idn_financial_tpp_consent_fapi_profile_check` |
+| **MC-0145** | `d03.tpp.revocado_por` | T-247 | `bauth.idn_financial_tpp_consent.revoked_by` | `idn_financial_tpp_consent_revoked_by_check` |
 
 ### D04 — Temporal
 
 | MC | code | T-ref | Origen (tabla.columna) | Constraint |
 |-----|------|-------|------------------------|------------|
-| **MC-0146** | `d04.excepcion_temp.tipo_excepcion` | T-557 | `bauth.idn_temporal_exception.exception_type` | `idn_temporal_exception_exception_type_check` |
-| **MC-0147** | `d04.turno.tipo_rotacion` | T-558 | `bauth.idn_temporal_shift.rotation_type` | `idn_temporal_shift_rotation_type_check` |
-| **MC-0148** | `d04.ventana_temporal.tipo_ventana` | T-559 | `bauth.idn_temporal_window.window_type` | `idn_temporal_window_window_type_check` |
+| **MC-0146** | `d04.excepcion_temp.tipo_excepcion` | T-265 | `bauth.idn_temporal_exception.exception_type` | `idn_temporal_exception_exception_type_check` |
+| **MC-0147** | `d04.turno.tipo_rotacion` | T-263 | `bauth.idn_temporal_shift.rotation_type` | `idn_temporal_shift_rotation_type_check` |
+| **MC-0148** | `d04.ventana_temporal.tipo_ventana` | T-260 | `bauth.idn_temporal_window.window_type` | `idn_temporal_window_window_type_check` |
 
 ### D05 — Biométrico
 
 | MC | code | T-ref | Origen (tabla.columna) | Constraint |
 |-----|------|-------|------------------------|------------|
-| **MC-0149** | `d05.inscripcion.tipo_biometrico` | T-519 | `bauth.idn_biometric_enrollment.biometric_type` | `idn_biometric_enrollment_biometric_type_check` |
-| **MC-0150** | `d05.inscripcion.estado` | T-519 | `bauth.idn_biometric_enrollment.status` | `idn_biometric_enrollment_status_check` |
-| **MC-0151** | `d05.identificacion.resultado` | T-520 | `bauth.idn_biometric_identification_log.result` | `idn_biometric_identification_log_result_check` |
-| **MC-0152** | `d05.pad.accion_fallo` | T-521 | `bauth.idn_biometric_pad_policy.fail_action` | `idn_biometric_pad_policy_fail_action_check` |
-| **MC-0153** | `d05.pad.nivel_pad` | T-521 | `bauth.idn_biometric_pad_policy.pad_level` | `idn_biometric_pad_policy_pad_level_check` |
-| **MC-0154** | `d05.pad.estado` | T-521 | `bauth.idn_biometric_pad_policy.status` | `idn_biometric_pad_policy_status_check` |
-| **MC-0155** | `d05.revocacion_bio.motivo_revocacion` | T-522 | `bauth.idn_biometric_revocation.revocation_reason` | `idn_biometric_revocation_revocation_reason_check` |
-| **MC-0156** | `d05.verificacion_bio.resultado` | T-523 | `bauth.idn_biometric_verification_log.outcome` | `idn_biometric_verification_log_outcome_check` |
+| **MC-0149** | `d05.inscripcion.tipo_biometrico` | T-280 | `bauth.idn_biometric_enrollment.biometric_type` | `idn_biometric_enrollment_biometric_type_check` |
+| **MC-0150** | `d05.inscripcion.estado` | T-280 | `bauth.idn_biometric_enrollment.status` | `idn_biometric_enrollment_status_check` |
+| **MC-0151** | `d05.identificacion.resultado` | T-283 | `bauth.idn_biometric_identification_log.result` | `idn_biometric_identification_log_result_check` |
+| **MC-0152** | `d05.pad.accion_fallo` | T-282 | `bauth.idn_biometric_pad_policy.fail_action` | `idn_biometric_pad_policy_fail_action_check` |
+| **MC-0153** | `d05.pad.nivel_pad` | T-282 | `bauth.idn_biometric_pad_policy.pad_level` | `idn_biometric_pad_policy_pad_level_check` |
+| **MC-0154** | `d05.pad.estado` | T-282 | `bauth.idn_biometric_pad_policy.status` | `idn_biometric_pad_policy_status_check` |
+| **MC-0155** | `d05.revocacion_bio.motivo_revocacion` | T-285 | `bauth.idn_biometric_revocation.revocation_reason` | `idn_biometric_revocation_revocation_reason_check` |
+| **MC-0156** | `d05.verificacion_bio.resultado` | T-281 | `bauth.idn_biometric_verification_log.outcome` | `idn_biometric_verification_log_outcome_check` |
 
 ### D06 — Geoespacial
 
 | MC | code | T-ref | Origen (tabla.columna) | Constraint |
 |-----|------|-------|------------------------|------------|
-| **MC-0157** | `d06.residencia.aplica_a` | T-540 | `bauth.idn_geospatial_data_residency.apply_to` | `idn_geospatial_data_residency_apply_to_check` |
-| **MC-0158** | `d06.residencia.accion_violacion` | T-540 | `bauth.idn_geospatial_data_residency.violation_action` | `idn_geospatial_data_residency_violation_action_check` |
-| **MC-0159** | `d06.geocerca.accion_dentro` | T-541 | `bauth.idn_geospatial_geofence.action_inside` | `idn_geospatial_geofence_action_inside_check` |
-| **MC-0160** | `d06.geocerca.accion_fuera` | T-541 | `bauth.idn_geospatial_geofence.action_outside` | `idn_geospatial_geofence_action_outside_check` |
-| **MC-0161** | `d06.geocerca.tipo_geocerca` | T-541 | `bauth.idn_geospatial_geofence.fence_type` | `idn_geospatial_geofence_fence_type_check` |
-| **MC-0162** | `d06.ubicacion.fuente_ubicacion` | T-542 | `bauth.idn_geospatial_location_log.location_source` | `idn_geospatial_location_log_location_source_check` |
+| **MC-0157** | `d06.residencia.aplica_a` | T-304 | `bauth.idn_geospatial_data_residency.apply_to` | `idn_geospatial_data_residency_apply_to_check` |
+| **MC-0158** | `d06.residencia.accion_violacion` | T-304 | `bauth.idn_geospatial_data_residency.violation_action` | `idn_geospatial_data_residency_violation_action_check` |
+| **MC-0159** | `d06.geocerca.accion_dentro` | T-300 | `bauth.idn_geospatial_geofence.action_inside` | `idn_geospatial_geofence_action_inside_check` |
+| **MC-0160** | `d06.geocerca.accion_fuera` | T-300 | `bauth.idn_geospatial_geofence.action_outside` | `idn_geospatial_geofence_action_outside_check` |
+| **MC-0161** | `d06.geocerca.tipo_geocerca` | T-300 | `bauth.idn_geospatial_geofence.fence_type` | `idn_geospatial_geofence_fence_type_check` |
+| **MC-0162** | `d06.ubicacion.fuente_ubicacion` | T-301 | `bauth.idn_geospatial_location_log.location_source` | `idn_geospatial_location_log_location_source_check` |
 
 ### D07 — Red / ZTA
 
@@ -366,15 +366,15 @@ Los valores de cada menú viven en `bglobal.menu_item` como registros hijos (`de
 | MC | code | T-ref | Origen (tabla.columna) | Constraint |
 |-----|------|-------|------------------------|------------|
 | **MC-0172** | `d09.revocacion_cred.motivo` | T-525 | `bauth.idn_credencial_revocacion.motivo` | `chk_idcr_motivo` |
-| **MC-0173** | `d09.token.motivo_revocacion` | T-526 | `bauth.idn_credential_token_issued.revocation_reason` | `idn_credential_token_issued_revocation_reason_check` |
-| **MC-0174** | `d09.token.tipo_token` | T-526 | `bauth.idn_credential_token_issued.token_type` | `idn_credential_token_issued_token_type_check` |
+| **MC-0173** | `d09.token.motivo_revocacion` | T-363 | `bauth.idn_credential_token_issued.revocation_reason` | `idn_credential_token_issued_revocation_reason_check` |
+| **MC-0174** | `d09.token.tipo_token` | T-363 | `bauth.idn_credential_token_issued.token_type` | `idn_credential_token_issued_token_type_check` |
 
 ### D10 — Delegación
 
 | MC | code | T-ref | Origen (tabla.columna) | Constraint |
 |-----|------|-------|------------------------|------------|
-| **MC-0175** | `d10.delegacion.tipo_delegacion` | T-527 | `bauth.idn_delegation_grant.delegation_type` | `idn_delegation_grant_delegation_type_check` |
-| **MC-0176** | `d10.rar.estado` | T-528 | `bauth.idn_delegation_rar_request.status` | `idn_delegation_rar_request_status_check` |
+| **MC-0175** | `d10.delegacion.tipo_delegacion` | T-415 | `bauth.idn_delegation_grant.delegation_type` | `idn_delegation_grant_delegation_type_check` |
+| **MC-0176** | `d10.rar.estado` | T-420 | `bauth.idn_delegation_rar_request.status` | `idn_delegation_rar_request_status_check` |
 | **MC-0177** | `d10.restriccion.tipo_restriccion` | T-417 | `bauth.idn_delegation_restriction.restriction_type` | `idn_delegation_restriction_restriction_type_check` |
 | **MC-0178** | `d10.uso_delegacion.resultado` | T-419 | `bauth.idn_delegation_usage_log.outcome` | `idn_delegation_usage_log_outcome_check` |
 
@@ -382,9 +382,9 @@ Los valores de cada menú viven en `bglobal.menu_item` como registros hijos (`de
 
 | MC | code | T-ref | Origen (tabla.columna) | Constraint |
 |-----|------|-------|------------------------|------------|
-| **MC-0179** | `d11.auditoria.codigo_dominio` | T-518 | `bauth.idn_audit_event_log.domain_code` | `idn_audit_event_log_domain_code_check` |
-| **MC-0180** | `d11.auditoria.resultado` | T-518 | `bauth.idn_audit_event_log.outcome` | `idn_audit_event_log_outcome_check` |
-| **MC-0181** | `d11.auditoria.tipo_sujeto` | T-518 | `bauth.idn_audit_event_log.subject_type` | `idn_audit_event_log_subject_type_check` |
+| **MC-0179** | `d11.auditoria.codigo_dominio` | T-424 | `bauth.idn_audit_event_log.domain_code` | `idn_audit_event_log_domain_code_check` |
+| **MC-0180** | `d11.auditoria.resultado` | T-424 | `bauth.idn_audit_event_log.outcome` | `idn_audit_event_log_outcome_check` |
+| **MC-0181** | `d11.auditoria.tipo_sujeto` | T-424 | `bauth.idn_audit_event_log.subject_type` | `idn_audit_event_log_subject_type_check` |
 | **MC-0182** | `d11.retencion.accion_expiracion` | T-421 | `bauth.idn_audit_retention_policy.expiration_action` | `idn_audit_retention_policy_expiration_action_check` |
 | **MC-0183** | `d11.siem.formato_log` | T-423 | `bauth.idn_audit_siem_target.log_format` | `idn_audit_siem_target_log_format_check` |
 | **MC-0184** | `d11.siem.tipo_protocolo` | T-423 | `bauth.idn_audit_siem_target.protocol_type` | `idn_audit_siem_target_protocol_type_check` |
@@ -393,7 +393,7 @@ Los valores de cada menú viven en `bglobal.menu_item` como registros hijos (`de
 
 | MC | code | T-ref | Origen (tabla.columna) | Constraint |
 |-----|------|-------|------------------------|------------|
-| **MC-0185** | `d12.ancla.tipo_evento_fuente` | T-524 | `bauth.idn_blockchain_anchor_ext.source_event_type` | `idn_blockchain_anchor_ext_source_event_type_check` |
+| **MC-0185** | `d12.ancla.tipo_evento_fuente` | T-425 | `bauth.idn_blockchain_anchor_ext.source_event_type` | `idn_blockchain_anchor_ext_source_event_type_check` |
 | **MC-0186** | `d12.nodo.estado` | T-429 | `bauth.idn_blockchain_node.status` | `idn_blockchain_node_status_check` |
 | **MC-0187** | `d12.transaccion.estado` | T-426 | `bauth.idn_blockchain_transaction.status` | `idn_blockchain_transaction_status_check` |
 | **MC-0188** | `d12.transaccion.tipo_tx` | T-426 | `bauth.idn_blockchain_transaction.tx_type` | `idn_blockchain_transaction_tx_type_check` |
@@ -410,8 +410,8 @@ Los valores de cada menú viven en `bglobal.menu_item` como registros hijos (`de
 | **MC-0194** | `d13.solicitud_firma.motor` | T-440 | `bauth.idn_signature_request.engine` | `idn_signature_request_engine_check` |
 | **MC-0195** | `d13.solicitud_firma.formato_firma` | T-440 | `bauth.idn_signature_request.signature_format` | `idn_signature_request_signature_format_check` |
 | **MC-0196** | `d13.solicitud_firma.estado` | T-440 | `bauth.idn_signature_request.status` | `idn_signature_request_status_check` |
-| **MC-0197** | `d13.revocacion_cert.fuente_verificacion` | T-556 | `bauth.idn_signature_revocation_cache.check_source` | `idn_signature_revocation_cache_check_source_check` |
-| **MC-0198** | `d13.revocacion_cert.estado` | T-556 | `bauth.idn_signature_revocation_cache.status` | `idn_signature_revocation_cache_status_check` |
+| **MC-0197** | `d13.revocacion_cert.fuente_verificacion` | T-444 | `bauth.idn_signature_revocation_cache.check_source` | `idn_signature_revocation_cache_check_source_check` |
+| **MC-0198** | `d13.revocacion_cert.estado` | T-444 | `bauth.idn_signature_revocation_cache.status` | `idn_signature_revocation_cache_status_check` |
 | **MC-0199** | `d13.verificacion_firma.estado_cert` | T-571 | `bauth.idn_signature_verification_log.cert_status` | `idn_signature_verification_log_cert_status_check` |
 | **MC-0200** | `d13.verificacion_firma.resultado` | T-571 | `bauth.idn_signature_verification_log.outcome` | `idn_signature_verification_log_outcome_check` |
 
@@ -430,14 +430,14 @@ Los valores de cada menú viven en `bglobal.menu_item` como registros hijos (`de
 | **MC-0209** | `d14.jit.decision` | T-182b | `bauth.pam_jit_approval.decision` | `chk_pja_decision` |
 | **MC-0210** | `d14.nhi_secreto.politica_rotacion` | T-189 | `bauth.pam_nhi_secret_ref.rotation_policy` | `chk_pnsr_rotation` |
 | **MC-0211** | `d14.sesion_priv.estado` | T-184 | `bauth.pam_session_record.status` | `chk_psr_status` |
-| **MC-0212** | `d14.grabacion.storage.type` | T-561 | `bauth.pam_session_recording.storage_type` | `pam_session_recording_storage_type_check` |
+| **MC-0212** | `d14.grabacion.storage.type` | T-461 | `bauth.pam_session_recording.storage_type` | `pam_session_recording_storage_type_check` |
 
 ### D15 — NHI
 
 | MC | code | T-ref | Origen (tabla.columna) | Constraint |
 |-----|------|-------|------------------------|------------|
-| **MC-0213** | `d15.nhi_rotacion.accion_fallo` | T-547 | `bauth.idn_nhi_rotation_policy.fail_action` | `idn_nhi_rotation_policy_fail_action_check` |
-| **MC-0214** | `d15.nhi_rotacion.tipo_nhi` | T-547 | `bauth.idn_nhi_rotation_policy.nhi_type` | `idn_nhi_rotation_policy_nhi_type_check` |
+| **MC-0213** | `d15.nhi_rotacion.accion_fallo` | T-480 | `bauth.idn_nhi_rotation_policy.fail_action` | `idn_nhi_rotation_policy_fail_action_check` |
+| **MC-0214** | `d15.nhi_rotacion.tipo_nhi` | T-480 | `bauth.idn_nhi_rotation_policy.nhi_type` | `idn_nhi_rotation_policy_nhi_type_check` |
 | **MC-0215** | `d15.svid.estado` | T-481 | `bauth.idn_nhi_svid.status` | `idn_nhi_svid_status_check` |
 | **MC-0216** | `d15.svid.tipo_svid` | T-481 | `bauth.idn_nhi_svid.svid_type` | `idn_nhi_svid_svid_type_check` |
 | **MC-0217** | `d15.nhi_agente.tipo_sesion` | T-190 | `bauth.idn_roles_nhi_agent_identity.session_type` | `chk_iai_session` |
@@ -453,12 +453,12 @@ Los valores de cada menú viven en `bglobal.menu_item` como registros hijos (`de
 | **MC-0222** | `d99.admin.rol_admin` | T-510 | `bauth.idn_global_admin.admin_role` | `idn_global_admin_admin_role_check` |
 | **MC-0223** | `d99.cumplimiento.estado` | T-514 | `bauth.idn_global_compliance_control.status` | `idn_global_compliance_control_status_check` |
 | **MC-0224** | `d99.cripto.familia_algoritmo` | T-513 | `bauth.idn_global_crypto_params.algorithm_family` | `idn_global_crypto_params_algorithm_family_check` |
-| **MC-0225** | `d99.hitl.tipo_entidad` | T-543 | `bauth.idn_global_hitl_exception.affected_entity_type` | `idn_global_hitl_exception_affected_entity_type_check` |
-| **MC-0226** | `d99.hitl.tipo_excepcion` | T-543 | `bauth.idn_global_hitl_exception.exception_type` | `idn_global_hitl_exception_exception_type_check` |
-| **MC-0227** | `d99.hitl.estado` | T-543 | `bauth.idn_global_hitl_exception.status` | `idn_global_hitl_exception_status_check` |
-| **MC-0228** | `d99.notificacion.tipo_notificacion` | T-544 | `bauth.idn_global_notification.notification_type` | `idn_global_notification_notification_type_check` |
-| **MC-0229** | `d99.notificacion.severidad` | T-544 | `bauth.idn_global_notification.severity` | `idn_global_notification_severity_check` |
-| **MC-0230** | `d99.notificacion.alcance_destino` | T-544 | `bauth.idn_global_notification.target_scope` | `idn_global_notification_target_scope_check` |
+| **MC-0225** | `d99.hitl.tipo_entidad` | T-512 | `bauth.idn_global_hitl_exception.affected_entity_type` | `idn_global_hitl_exception_affected_entity_type_check` |
+| **MC-0226** | `d99.hitl.tipo_excepcion` | T-512 | `bauth.idn_global_hitl_exception.exception_type` | `idn_global_hitl_exception_exception_type_check` |
+| **MC-0227** | `d99.hitl.estado` | T-512 | `bauth.idn_global_hitl_exception.status` | `idn_global_hitl_exception_status_check` |
+| **MC-0228** | `d99.notificacion.tipo_notificacion` | T-511 | `bauth.idn_global_notification.notification_type` | `idn_global_notification_notification_type_check` |
+| **MC-0229** | `d99.notificacion.severidad` | T-511 | `bauth.idn_global_notification.severity` | `idn_global_notification_severity_check` |
+| **MC-0230** | `d99.notificacion.alcance_destino` | T-511 | `bauth.idn_global_notification.target_scope` | `idn_global_notification_target_scope_check` |
 | **MC-0231** | `d99.sbom.tipo_componente` | T-515 | `bauth.idn_global_sbom.component_type` | `idn_global_sbom_component_type_check` |
 | **MC-0232** | `d99.sbom.nivel_riesgo` | T-515 | `bauth.idn_global_sbom.risk_level` | `idn_global_sbom_risk_level_check` |
 
@@ -542,11 +542,11 @@ Los valores de cada menú viven en `bglobal.menu_item` como registros hijos (`de
 | **MC-0276** | `registry.attr_schema.mutabilidad` | T-517 | `bauth.idn_attribute_schema.mutability` | `chk_idras_mut` |
 | **MC-0277** | `registry.attr_schema.campo_retorno` | T-517 | `bauth.idn_attribute_schema.returned` | `chk_idras_ret` |
 | **MC-0278** | `registry.attr_schema.tipo_dato` | T-517 | `bauth.idn_attribute_schema.data_type` | `chk_idras_tipo` |
-| **MC-0279** | `registry.schema_attr.categoria` | T-554 | `bauth.idn_registry_attribute_schema.category` | `idn_registry_attribute_schema_category_check` |
-| **MC-0280** | `registry.schema_attr.clasificacion` | T-554 | `bauth.idn_registry_attribute_schema.classification` | `idn_registry_attribute_schema_classification_check` |
-| **MC-0281** | `registry.schema_attr.tipo_dato` | T-554 | `bauth.idn_registry_attribute_schema.data_type` | `idn_registry_attribute_schema_data_type_check` |
-| **MC-0282** | `registry.schema_attr.mutabilidad` | T-554 | `bauth.idn_registry_attribute_schema.mutability` | `idn_registry_attribute_schema_mutability_check` |
-| **MC-0283** | `registry.schema_attr.fuente` | T-554 | `bauth.idn_registry_attribute_schema.source` | `idn_registry_attribute_schema_source_check` |
+| **MC-0279** | `registry.schema_attr.categoria` | T-500 | `bauth.idn_registry_attribute_schema.category` | `idn_registry_attribute_schema_category_check` |
+| **MC-0280** | `registry.schema_attr.clasificacion` | T-500 | `bauth.idn_registry_attribute_schema.classification` | `idn_registry_attribute_schema_classification_check` |
+| **MC-0281** | `registry.schema_attr.tipo_dato` | T-500 | `bauth.idn_registry_attribute_schema.data_type` | `idn_registry_attribute_schema_data_type_check` |
+| **MC-0282** | `registry.schema_attr.mutabilidad` | T-500 | `bauth.idn_registry_attribute_schema.mutability` | `idn_registry_attribute_schema_mutability_check` |
+| **MC-0283** | `registry.schema_attr.fuente` | T-500 | `bauth.idn_registry_attribute_schema.source` | `idn_registry_attribute_schema_source_check` |
 
 ### Privacidad — DPIA (privacidad.*)
 

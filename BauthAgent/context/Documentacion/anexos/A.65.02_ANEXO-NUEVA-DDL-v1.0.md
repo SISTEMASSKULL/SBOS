@@ -1,6 +1,6 @@
 # A.65.02 — Nueva DDL · Inventario de Tablas
 
-**Versión:** 2.0  **Fecha:** 2026-07-31  **Estado:** IMPLEMENTACIÓN COMPLETA — 77 tablas nuevas implementadas en SBOSDB; T-195..T-201, T-202, T-363, T-415..T-420, T-421..T-424, T-425..T-429, T-440..T-446, T-461, T-480..T-481, T-500..T-502, T-510..T-515 ✅
+**Versión:** 2.1  **Fecha:** 2026-08-01  **Estado:** v2.1 — nombres canónicos inglés corregidos (47 reemplazos); 8 tablas sin DDL marcadas ⚠️; T-562/T-563 nuevas. 134 tablas documentadas.
 
 ## Propósito
 
@@ -591,84 +591,85 @@ El diseño DDL (columnas, constraints, índices) se desarrolla en sesiones poste
 | T-201 | `bauth.idn_network_context_propagation` | Configuración propagación ctx_id — SBOS-049 · W3C Trace Context v2 |
 
 ### D09 — Gaps de Credenciales (T-202, T-363)
+| T-562 | `bauth.idn_credencial_introspeccion` | Log de introspección de tokens — registra cada llamada RFC 7662 `/token/introspect`: cliente, hash token evaluado, resultado (ACTIVE/INACTIVE/INVALID), campos devueltos, `ctx_id`, timestamp. Fuente forense del uso inter-servicio de tokens. ✅ IMPLEMENTADA |
 > T-202 CORREGIDO: T-360 tomado por sig_document_hash → reasignado a T-202
 
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
-| T-202 | `bauth.idn_credencial_password_history` | Historial de contraseñas — NIST SP 800-63B-4 §5.1.1.2 |
-| T-363 | `bauth.idn_credencial_token_emitido` | Registro tokens emitidos — ciclo de vida + DPoP binding · PARTICIONADA |
+| T-202 | `bauth.idn_credential_password_history` | Historial de contraseñas — NIST SP 800-63B-4 §5.1.1.2 |
+| T-363 | `bauth.idn_credential_token_issued` | Registro tokens emitidos — ciclo de vida + DPoP binding · PARTICIONADA |
 
 ### D02 — Control de Acceso Físico (T-220..T-228)
 
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
-| T-220 | `bauth.idn_acceso_fisico_instalacion` | Catálogo de instalaciones físicas — ISO 27001 A.7.1 |
-| T-221 | `bauth.idn_acceso_fisico_lector` | Lectores de acceso físico OSDP v2.2.2 |
-| T-222 | `bauth.idn_acceso_fisico_presencia` | Estado de presencia actual (anti-passback state) |
-| T-223 | `bauth.idn_acceso_fisico_presencia_log` | Log eventos acceso físico · PARTICIONADA |
-| T-224 | `bauth.idn_acceso_fisico_visita` | Registro de visitas — ISO 27001 A.7.2 |
-| T-225 | `bauth.idn_acceso_fisico_emergencia` | Acceso de emergencia físico — NIST SP 800-116 R2 §5.4 |
-| T-226 | `bauth.idn_acceso_fisico_evacuacion` | Evacuación y mustering — ISO 27001 A.7.4 |
-| T-228 | `bauth.idn_acceso_fisico_credencial` | Credenciales físicas vinculadas a identidad digital — FIPS 201-3 |
+| T-220 | `bauth.idn_physical_access_location` | Catálogo de instalaciones físicas — ISO 27001 A.7.1 |
+| T-221 | `bauth.idn_physical_access_reader` | Lectores de acceso físico OSDP v2.2.2 |
+| T-222 | `bauth.idn_physical_access_presence` | Estado de presencia actual (anti-passback state) |
+| T-223 | `bauth.idn_physical_access_event_log` | Log eventos acceso físico · PARTICIONADA |
+| T-224 | `bauth.idn_physical_access_visit` | Registro de visitas — ISO 27001 A.7.2 |
+| T-225 | `bauth.idn_physical_access_emergency` | Acceso de emergencia físico — NIST SP 800-116 R2 §5.4 |
+| T-226 | `bauth.idn_physical_access_evacuation` | Evacuación y mustering — ISO 27001 A.7.4 |
+| T-228 | `bauth.idn_physical_access_credential` | Credenciales físicas vinculadas a identidad digital — FIPS 201-3 |
 
 ### D03 — Control Financiero (T-240..T-248)
 
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
-| T-240 | `bauth.idn_financiero_limite` | Límites transaccionales por rol/actor — PCI DSS 4.0 Req 8.2 |
-| T-241 | `bauth.idn_financiero_aprobacion` | Solicitud de aprobación dual financiera — COSO 2013 CC6.3 |
-| T-242 | `bauth.idn_financiero_sod_regla` | Reglas SoD financiero — NIST AC-5 · SOX §404 |
-| T-243 | `bauth.idn_financiero_factura_autorizacion` | Autorización de factura electrónica SIN — Ley 164 Bolivia |
-| T-244 | `bauth.idn_financiero_reporte` | Reportes financieros de control — SOX §302/§404 |
-| T-245 | `bauth.idn_financiero_alerta_fraude` | Alertas de fraude financiero — PCI DSS 4.0 Req 10.7 |
-| T-246 | `bauth.idn_financiero_conciliacion` | Conciliación financiera — ISO 20022 §5 |
-| T-247 | `bauth.idn_financiero_tpp_consentimiento` | Consentimiento TPP / Open Banking — FAPI 2.0 · RFC 9449 |
-| T-248 | `bauth.idn_financiero_aprobacion_voto` | Voto individual de aprobación dual (sub-tabla de T-241) |
+| T-240 | `bauth.idn_financial_limit` | Límites transaccionales por rol/actor — PCI DSS 4.0 Req 8.2 |
+| T-241 | `bauth.idn_financial_approval` | Solicitud de aprobación dual financiera — COSO 2013 CC6.3 |
+| T-242 | `bauth.idn_financial_sod_rule` | Reglas SoD financiero — NIST AC-5 · SOX §404 | ⚠️ DDL pendiente — no implementado en SBOS_db_V2_DDL.sql
+| T-243 | `bauth.idn_financial_invoice_authorization` | Autorización de factura electrónica SIN — Ley 164 Bolivia | ⚠️ DDL pendiente — no implementado en SBOS_db_V2_DDL.sql
+| T-244 | `bauth.idn_financial_report` | Reportes financieros de control — SOX §302/§404 | ⚠️ DDL pendiente — no implementado en SBOS_db_V2_DDL.sql
+| T-245 | `bauth.idn_financial_fraud_alert` | Alertas de fraude financiero — PCI DSS 4.0 Req 10.7 | ⚠️ DDL pendiente — no implementado en SBOS_db_V2_DDL.sql
+| T-246 | `bauth.idn_financial_reconciliation` | Conciliación financiera — ISO 20022 §5 | ⚠️ DDL pendiente — no implementado en SBOS_db_V2_DDL.sql
+| T-247 | `bauth.idn_financial_tpp_consent` | Consentimiento TPP / Open Banking — FAPI 2.0 · RFC 9449 |
+| T-248 | `bauth.idn_financial_approval_vote` | Voto individual de aprobación dual (sub-tabla de T-241) |
 
 ### D04 — Control Temporal GTRBAC (T-260..T-265)
 
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
-| T-260 | `bauth.idn_temporal_ventana` | Ventanas de tiempo de acceso — GTRBAC §3.2 |
-| T-261 | `bauth.idn_temporal_periodo` | Períodos temporales — GTRBAC §4 |
-| T-262 | `bauth.idn_temporal_calendario` | Asociación de calendarios a ventanas (FK → bcalendar) |
-| T-263 | `bauth.idn_temporal_turno` | Turnos de trabajo — NIST AC-2(2) |
-| T-264 | `bauth.idn_temporal_turno_asignacion` | Asignación de turno a actor |
-| T-265 | `bauth.idn_temporal_excepcion` | Excepciones temporales — NIST AC-17(1) |
+| T-260 | `bauth.idn_temporal_window` | Ventanas de tiempo de acceso — GTRBAC §3.2 |
+| T-261 | `bauth.idn_temporal_period` | Períodos temporales — GTRBAC §4 |
+| T-262 | `bauth.idn_temporal_calendar` | Asociación de calendarios a ventanas (FK → bcalendar) |
+| T-263 | `bauth.idn_temporal_shift` | Turnos de trabajo — NIST AC-2(2) |
+| T-264 | `bauth.idn_temporal_shift_assignment` | Asignación de turno a actor |
+| T-265 | `bauth.idn_temporal_exception` | Excepciones temporales — NIST AC-17(1) |
 
 ### D05 — Control Biométrico (T-280..T-285)
 
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
-| T-280 | `bauth.idn_biometrico_enrolamiento` | Enrolamiento biométrico — NIST SP 800-76-2 §4 |
-| T-281 | `bauth.idn_biometrico_verificacion_log` | Log de verificaciones biométricas · PARTICIONADA |
-| T-282 | `bauth.idn_biometrico_pad_policy` | Política PAD (Presentation Attack Detection) — ISO/IEC 30107-3:2023 |
-| T-283 | `bauth.idn_biometrico_identificacion_log` | Log identificación 1:N · PARTICIONADA |
-| T-284 | `bauth.idn_biometrico_calidad_policy` | Política de calidad de muestra — ISO/IEC 29794-1:2024 |
-| T-285 | `bauth.idn_biometrico_revocacion` | Revocación de template biométrico — ISO/IEC 24745:2022 |
+| T-280 | `bauth.idn_biometric_enrollment` | Enrolamiento biométrico — NIST SP 800-76-2 §4 |
+| T-281 | `bauth.idn_biometric_verification_log` | Log de verificaciones biométricas · PARTICIONADA |
+| T-282 | `bauth.idn_biometric_pad_policy` | Política PAD (Presentation Attack Detection) — ISO/IEC 30107-3:2023 |
+| T-283 | `bauth.idn_biometric_identification_log` | Log identificación 1:N · PARTICIONADA |
+| T-284 | `bauth.idn_biometric_quality_policy` | Política de calidad de muestra — ISO/IEC 29794-1:2024 |
+| T-285 | `bauth.idn_biometric_revocation` | Revocación de template biométrico — ISO/IEC 24745:2022 | ⚠️ DDL pendiente — no implementado en SBOS_db_V2_DDL.sql
 
 ### D06 — Control Geoespacial (T-300..T-305)
 
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
-| T-300 | `bauth.idn_geoespacial_geocerca` | Geocercas — RFC 7946 §3.1 · OGC GeoSPARQL |
-| T-301 | `bauth.idn_geoespacial_ubicacion_log` | Log de ubicaciones · PARTICIONADA · GDPR Art. 5(1)(c) |
-| T-302 | `bauth.idn_geoespacial_velocidad_policy` | Política de velocidad geográfica (viaje imposible) |
-| T-303 | `bauth.idn_geoespacial_velocidad_evento` | Eventos de viaje imposible detectados |
-| T-304 | `bauth.idn_geoespacial_residencia` | Residencia de datos y soberanía geográfica — GDPR Art. 44-49 |
-| T-305 | `bauth.idn_geoespacial_dispositivo_flota` | Flota de dispositivos móviles con trazabilidad geoespacial |
+| T-300 | `bauth.idn_geospatial_geofence` | Geocercas — RFC 7946 §3.1 · OGC GeoSPARQL |
+| T-301 | `bauth.idn_geospatial_location_log` | Log de ubicaciones · PARTICIONADA · GDPR Art. 5(1)(c) |
+| T-302 | `bauth.idn_geospatial_velocity_policy` | Política de velocidad geográfica (viaje imposible) |
+| T-303 | `bauth.idn_geospatial_velocity_event` | Eventos de viaje imposible detectados |
+| T-304 | `bauth.idn_geospatial_data_residency` | Residencia de datos y soberanía geográfica — GDPR Art. 44-49 |
+| T-305 | `bauth.idn_geospatial_device_fleet` | Flota de dispositivos móviles con trazabilidad geoespacial |
 
 ### D10 — Delegación de Identidad (T-415..T-420)
 > T-codes CORREGIDOS: T-380..T-385 tomados por BILLETERA+AUTH → reasignados a T-415..T-420
 
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
-| T-415 | `bauth.idn_delegacion_identidad` | Delegación de identidad base — RFC 8693 §3 · NIST AC-2(5) |
-| T-416 | `bauth.idn_delegacion_renovacion` | Renovación de delegación — RFC 8693 §4.2 |
+| T-415 | `bauth.idn_delegation_grant` | Delegación de identidad base — RFC 8693 §3 · NIST AC-2(5) |
+| T-416 | `bauth.idn_delegation_renewal` | Renovación de delegación — RFC 8693 §4.2 |
 | T-417 | `bauth.idn_delegation_restriction` | Restricciones sobre el scope delegado — NIST AC-5 |
-| T-418 | `bauth.idn_delegacion_cadena` | Cadena de delegación sub-delegated — ANSI INCITS 359-2004 §4.5 |
+| T-418 | `bauth.idn_delegation_chain` | Cadena de delegación sub-delegated — ANSI INCITS 359-2004 §4.5 |
 | T-419 | `bauth.idn_delegation_usage_log` | Log de uso de delegaciones · PARTICIONADA |
-| T-420 | `bauth.idn_delegacion_rar_request` | Rich Authorization Request — RFC 9396 §3 |
+| T-420 | `bauth.idn_delegation_rar_request` | Rich Authorization Request — RFC 9396 §3 |
 
 ### D11 — Gaps de Auditoría y SIEM (T-421..T-424)
 > T-codes CORREGIDOS: T-400..T-403 tomados por CONTEXT PLANE+BOS → reasignados a T-421..T-424
@@ -676,16 +677,16 @@ El diseño DDL (columnas, constraints, índices) se desarrolla en sesiones poste
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
 | T-421 | `bauth.idn_audit_retention_policy` | Política de retención de logs — SOX §802 · GDPR Art. 5(1)(e) |
-| T-422 | `bauth.idn_auditoria_regla_alerta` | Reglas de alerta de auditoría — NIST AU-6 |
+| T-422 | `bauth.idn_audit_alert_rule` | Reglas de alerta de auditoría — NIST AU-6 |
 | T-423 | `bauth.idn_audit_siem_target` | Destinos SIEM (Wazuh por defecto) — NIST AU-9(2) |
-| T-424 | `bauth.idn_auditoria_evento` | Evento de auditoría unificado multi-dominio · PARTICIONADA · WORM |
+| T-424 | `bauth.idn_audit_event_log` | Evento de auditoría unificado multi-dominio · PARTICIONADA · WORM |
 
 ### D12 — Blockchain extra (T-425..T-429)
 > T-codes CORREGIDOS: T-420..T-424 solapaban con D10 → reasignados a T-425..T-429
 
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
-| T-425 | `bauth.idn_blockchain_anclaje` | Extensión de anclaje blockchain (complementa blk_anchor T-358) |
+| T-425 | `bauth.idn_blockchain_anchor_ext` | Extensión de anclaje blockchain (complementa blk_anchor T-358) |
 | T-426 | `bauth.idn_blockchain_transaction` | Registro de transacciones Besu QBFT |
 | T-427 | `bauth.idn_blockchain_wallet` | Wallet blockchain por tenant — BIP-32/39/44 · EIP-712 |
 | T-428 | `bauth.idn_blockchain_merkle_proof` | Pruebas de inclusión Merkle — RFC 6962 §2.1.1 |
@@ -697,40 +698,40 @@ El diseño DDL (columnas, constraints, índices) se desarrolla en sesiones poste
 |--------|-------|-----------|
 | T-440 | `bauth.idn_signature_request` | Solicitud de firma digital — PAdES EN 319 132 · Ley 164 Bolivia |
 | T-441 | `bauth.idn_signature_ca_chain` | Cadena de certificación CA — RFC 5280 §6 · ADSIB |
-| T-442 | `bauth.idn_firma_timestamp` | Timestamp calificado de firma — RFC 3161 §2 · Ley 164 Bolivia |
+| T-442 | `bauth.idn_signature_timestamp` | Timestamp calificado de firma — RFC 3161 §2 · Ley 164 Bolivia |
 | T-443 | `bauth.idn_signature_verification_log` | Log de verificaciones de firma · WORM |
-| T-444 | `bauth.idn_firma_revocacion_cache` | Cache de estado de revocación OCSP/CRL — RFC 6960 |
-| T-445 | `bauth.idn_firma_ltv_evidencia` | Evidencia LTV — ETSI EN 319 102-2 §5.6 · WORM |
+| T-444 | `bauth.idn_signature_revocation_cache` | Cache de estado de revocación OCSP/CRL — RFC 6960 |
+| T-445 | `bauth.idn_signature_ltv_evidence` | Evidencia LTV — ETSI EN 319 102-2 §5.6 · WORM |
 | T-446 | `bauth.idn_signature_eudi_wallet` | Integración EUDI Wallet — eIDAS 2.0 · ARF 1.4 |
 
 ### D14 — PAM gaps (T-461)
 
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
-| T-461 | `bauth.pam_grabacion_ref` | Referencia a grabaciones de sesiones privilegiadas — NIST AU-14 |
+| T-461 | `bauth.pam_session_recording` | Referencia a grabaciones de sesiones privilegiadas — NIST AU-14 |
 
 ### D15 — NHI gaps (T-480..T-481)
 
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
-| T-480 | `bauth.idn_nhi_rotacion_policy` | Política de rotación de secretos NHI — NIST SP 800-57 Pt1 R5 |
+| T-480 | `bauth.idn_nhi_rotation_policy` | Política de rotación de secretos NHI — NIST SP 800-57 Pt1 R5 |
 | T-481 | `bauth.idn_nhi_svid` | SPIFFE SVID para daemons SBOS — SPIFFE Spec v1.0 §8 |
 
 ### D98 — Meta-Registro (T-500..T-502)
 
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
-| T-500 | `bauth.idn_registro_atributo_schema` | Schema registry de atributos EAV — SCIM 2.0 RFC 7643 |
-| T-501 | `bauth.idn_registro_atomo_catalogo` | Catálogo de átomos del motor BitMask — NIST SP 800-162 |
-| T-502 | `bauth.idn_registro_arbol_version` | Versiones del árbol BitMask — ISO 9001:2015 §7.5 |
+| T-500 | `bauth.idn_registry_attribute_schema` | Schema registry de atributos EAV — SCIM 2.0 RFC 7643 |
+| T-501 | `bauth.idn_registry_atom_catalog` | Catálogo de átomos del motor BitMask — NIST SP 800-162 |
+| T-502 | `bauth.idn_registry_bitmask_version` | Versiones del árbol BitMask — ISO 9001:2015 §7.5 |
 
 ### D99 — Admin Global Soberano (T-510..T-515)
 
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
 | T-510 | `bauth.idn_global_admin` | Administradores globales del sistema (separación tenant/super-admin) |
-| T-511 | `bauth.idn_global_notificacion` | Notificaciones globales del sistema |
-| T-512 | `bauth.idn_global_hitl_excepcion` | Excepciones HITL — NIST AI RMF 1.0 §3.6 |
+| T-511 | `bauth.idn_global_notification` | Notificaciones globales del sistema |
+| T-512 | `bauth.idn_global_hitl_exception` | Excepciones HITL — NIST AI RMF 1.0 §3.6 |
 | T-513 | `bauth.idn_global_crypto_params` | Catálogo de parámetros criptográficos — NIST SP 800-131A R2 + PQC FIPS 203/204/205 |
 | T-514 | `bauth.idn_global_compliance_control` | Mapa de controles de cumplimiento normativo |
 | T-515 | `bauth.idn_global_sbom` | SBOM — Software Bill of Materials — EU Cyber Resilience Act |
@@ -759,111 +760,75 @@ no documentadas en A.65.02 previo. Nombres canónicos en inglés (convención gl
 
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
-| T-548 | `bauth.idn_physical_access_credential` | Credenciales físicas (tarjetas, PIN, biometría física) |
-| T-549 | `bauth.idn_physical_access_emergency` | Configuración de emergencia en acceso físico |
-| T-550 | `bauth.idn_physical_access_event_log` | Registro de eventos de acceso físico |
-| T-551 | `bauth.idn_physical_access_location` | Ubicaciones físicas controladas (puertas, salas) |
-| T-552 | `bauth.idn_physical_access_reader` | Lectores de acceso físico (RFID, OSDP) |
-| T-553 | `bauth.idn_physical_access_visit` | Visitas registradas en zonas de acceso controlado |
 
 ### D03 — Control Financiero (tablas nuevas)
 
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
-| T-531 | `bauth.idn_financial_approval` | Solicitudes de aprobación financiera (quórum) |
-| T-532 | `bauth.idn_financial_approval_vote` | Votos individuales en aprobaciones financieras |
-| T-533 | `bauth.idn_financial_fraud_alert` | Alertas de fraude detectadas por el motor financiero |
 | T-534 | `bauth.idn_financial_invoice_auth` | Autorización de facturas electrónicas (SIN Bolivia) |
-| T-535 | `bauth.idn_financial_limit` | Límites operacionales financieros por rol/tenant |
-| T-536 | `bauth.idn_financial_reconciliation` | Reconciliaciones de operaciones financieras |
-| T-537 | `bauth.idn_financial_report` | Reportes financieros generados por el motor |
-| T-538 | `bauth.idn_financial_sod_rule` | Reglas SoD (Segregación de Funciones) financieras |
-| T-539 | `bauth.idn_financial_tpp_consent` | Consentimientos TPP (Third Party Provider) PSD2/FAPI |
 
 ### D04 — Control Temporal (tablas nuevas)
 
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
-| T-557 | `bauth.idn_temporal_exception` | Excepciones a ventanas temporales (acceso fuera de horario) |
-| T-558 | `bauth.idn_temporal_shift` | Turnos y rotaciones de acceso temporal |
-| T-559 | `bauth.idn_temporal_window` | Ventanas temporales de acceso permitido |
 
 ### D05 — Control Biométrico (tablas nuevas)
 
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
-| T-519 | `bauth.idn_biometric_enrollment` | Enrolamiento biométrico de identidades |
-| T-520 | `bauth.idn_biometric_identification_log` | Log de identificaciones biométricas (1:N) |
-| T-521 | `bauth.idn_biometric_pad_policy` | Políticas de PAD (Presentation Attack Detection) |
-| T-522 | `bauth.idn_biometric_revocation` | Revocación de enrolamientos biométricos |
-| T-523 | `bauth.idn_biometric_verification_log` | Log de verificaciones biométricas (1:1) |
 
 ### D06 — Control Geoespacial (tablas nuevas)
 
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
-| T-540 | `bauth.idn_geospatial_data_residency` | Restricciones de residencia de datos por región |
-| T-541 | `bauth.idn_geospatial_geofence` | Geocercas para control de acceso geoespacial |
-| T-542 | `bauth.idn_geospatial_location_log` | Log de ubicaciones geoespaciales de acceso |
 
 ### D09 — Credenciales (tablas nuevas)
 
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
 | T-525 | `bauth.idn_credencial_revocacion` | Registro de revocaciones de credenciales |
-| T-526 | `bauth.idn_credential_token_issued` | Tokens emitidos por el motor de credenciales |
 
 ### D10 — Delegación de Identidad (tablas nuevas)
 
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
-| T-527 | `bauth.idn_delegation_grant` | Grants de delegación entre identidades |
-| T-528 | `bauth.idn_delegation_rar_request` | Solicitudes RAR (Rich Authorization Request) delegadas |
 
 ### D11 — Auditoría (tablas nuevas)
 
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
-| T-518 | `bauth.idn_audit_event_log` | Log de eventos de auditoría ISO 27001 A.8.15 |
 
 ### D12 — Blockchain (tablas nuevas)
 
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
-| T-524 | `bauth.idn_blockchain_anchor_ext` | Anclas blockchain externas (Ethereum/Besu) |
 
 ### D13 — Firma Digital (tablas nuevas)
 
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
-| T-556 | `bauth.idn_signature_revocation_cache` | Cache de revocación de firmas (OCSP/CRL) |
 
 ### D14 — PAM (tablas nuevas)
 
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
 | T-560 | `bauth.pam_cuenta_privilegiada` | Cuentas privilegiadas gestionadas por el motor PAM |
-| T-561 | `bauth.pam_session_recording` | Grabaciones de sesiones privilegiadas (D14) |
 
 ### D15 — NHI (tablas nuevas)
 
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
-| T-546 | `bauth.idn_nhi_identity` | Identidades No Humanas (NHI): M2M, bots, APIs |
-| T-547 | `bauth.idn_nhi_rotation_policy` | Políticas de rotación de credenciales NHI |
+| T-546 | `bauth.idn_nhi_identity` | Identidades No Humanas (NHI): M2M, bots, APIs | ⚠️ DDL pendiente — no implementado en SBOS_db_V2_DDL.sql
 
 ### D98 — Meta-Registro (tablas nuevas)
 
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
-| T-554 | `bauth.idn_registry_attribute_schema` | Esquema canónico de atributos del registro D98 |
 
 ### D99 — Admin Global (tablas nuevas)
 
 | Código | Tabla | Propósito |
 |--------|-------|-----------|
-| T-543 | `bauth.idn_global_hitl_exception` | Excepciones HITL globales (supervisión humana obligatoria) |
-| T-544 | `bauth.idn_global_notification` | Notificaciones de sistema globales |
 
 ## Notas técnicas de implementación (migración v1.0)
 
