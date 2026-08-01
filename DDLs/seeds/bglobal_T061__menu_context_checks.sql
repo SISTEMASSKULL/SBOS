@@ -824,7 +824,7 @@ DECLARE
     v_blk_ancla_estado UUID;
 BEGIN
 
-    -- chk_aal_outcome [bauth.auth_attempt_log]
+    -- [MC-0059] T-334 | chk_aal_outcome [bauth.auth_attempt_log] | Tabla: bauth.auth_attempt_log.outcome | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('auth.intento.resultado', $j${"es": "Resultado", "en": "Outcome"}$j$, 0, false, $j${"constraint": "chk_aal_outcome", "columns": ["bauth.auth_attempt_log.outcome", "bauth.auth_attempt_log_2026_07.outcome", "bauth.auth_attempt_log_2026_08.outcome", "bauth.auth_attempt_log_2026_09.outcome"]}$j$)
     RETURNING item_id INTO v_auth_intento_resultado;
@@ -839,7 +839,7 @@ BEGIN
         (v_auth_intento_resultado, 'auth.intento.resultado.STEP_UP_REQUIRED', $j${"es": "STEP_UP_REQUIRED", "en": "STEP_UP_REQUIRED"}$j$, 1, true, 60, $j${"value": "STEP_UP_REQUIRED"}$j$),
         (v_auth_intento_resultado, 'auth.intento.resultado.SUCCESS', $j${"es": "SUCCESS", "en": "SUCCESS"}$j$, 1, true, 70, $j${"value": "SUCCESS"}$j$);
 
-    -- chk_acm_cov [bauth.auth_compliance_map]
+    -- [MC-0060] T-386 | chk_acm_cov [bauth.auth_compliance_map] | Tabla: bauth.auth_compliance_map.coverage_level | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('auth.cumplimiento.nivel_cobertura', $j${"es": "Nivel de cobertura", "en": "Coverage Level"}$j$, 0, false, $j${"constraint": "chk_acm_cov", "columns": ["bauth.auth_compliance_map.coverage_level"]}$j$)
     RETURNING item_id INTO v_auth_cumplimiento_nivel_cobertura;
@@ -850,7 +850,7 @@ BEGIN
         (v_auth_cumplimiento_nivel_cobertura, 'auth.cumplimiento.nivel_cobertura.NOT_COVERED', $j${"es": "NOT_COVERED", "en": "NOT_COVERED"}$j$, 1, true, 20, $j${"value": "NOT_COVERED"}$j$),
         (v_auth_cumplimiento_nivel_cobertura, 'auth.cumplimiento.nivel_cobertura.PARTIAL', $j${"es": "PARTIAL", "en": "PARTIAL"}$j$, 1, true, 30, $j${"value": "PARTIAL"}$j$);
 
-    -- chk_ac_loa [bauth.auth_credential]
+    -- [MC-0061] T-330 | chk_ac_loa [bauth.auth_credential] | Tabla: bauth.auth_credential.loa_provided | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('auth.credencial.nivel_aal', $j${"es": "Nivel de garantía (AAL)", "en": "Loa Provided"}$j$, 0, false, $j${"constraint": "chk_ac_loa", "columns": ["bauth.auth_credential.loa_provided", "bauth.auth_federation_protocol.aal_max", "bauth.auth_method.loa_provided", "bauth.auth_policy.loa_required", "bauth.auth_saga_catalog.aal_produced", "bauth.auth_saga_catalog.aal_required"]}$j$)
     RETURNING item_id INTO v_auth_credencial_nivel_aal;
@@ -861,7 +861,7 @@ BEGIN
         (v_auth_credencial_nivel_aal, 'auth.credencial.nivel_aal.AAL2', $j${"es": "AAL2", "en": "AAL2"}$j$, 1, true, 20, $j${"value": "AAL2"}$j$),
         (v_auth_credencial_nivel_aal, 'auth.credencial.nivel_aal.AAL3', $j${"es": "AAL3", "en": "AAL3"}$j$, 1, true, 30, $j${"value": "AAL3"}$j$);
 
-    -- chk_ac_status [bauth.auth_credential]
+    -- [MC-0062] T-330 | chk_ac_status [bauth.auth_credential] | Tabla: bauth.auth_credential.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('auth.credencial.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "chk_ac_status", "columns": ["bauth.auth_credential.status"]}$j$)
     RETURNING item_id INTO v_auth_credencial_estado;
@@ -874,7 +874,7 @@ BEGIN
         (v_auth_credencial_estado, 'auth.credencial.estado.REVOKED', $j${"es": "REVOKED", "en": "REVOKED"}$j$, 1, true, 40, $j${"value": "REVOKED"}$j$),
         (v_auth_credencial_estado, 'auth.credencial.estado.SUSPENDED', $j${"es": "SUSPENDED", "en": "SUSPENDED"}$j$, 1, true, 50, $j${"value": "SUSPENDED"}$j$);
 
-    -- chk_af2_fmt [bauth.auth_credential_fido2]
+    -- [MC-0063] T-332 | chk_af2_fmt [bauth.auth_credential_fido2] | Tabla: bauth.auth_credential_fido2.attestation_fmt | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('auth.fido2.formato_atestacion', $j${"es": "Formato de atestación", "en": "Attestation Fmt"}$j$, 0, false, $j${"constraint": "chk_af2_fmt", "columns": ["bauth.auth_credential_fido2.attestation_fmt"]}$j$)
     RETURNING item_id INTO v_auth_fido2_formato_atestacion;
@@ -889,7 +889,7 @@ BEGIN
         (v_auth_fido2_formato_atestacion, 'auth.fido2.formato_atestacion.packed', $j${"es": "packed", "en": "packed"}$j$, 1, true, 60, $j${"value": "packed"}$j$),
         (v_auth_fido2_formato_atestacion, 'auth.fido2.formato_atestacion.tpm', $j${"es": "tpm", "en": "tpm"}$j$, 1, true, 70, $j${"value": "tpm"}$j$);
 
-    -- chk_acs_type [bauth.auth_credential_secret]
+    -- [MC-0064] T-331 | chk_acs_type [bauth.auth_credential_secret] | Tabla: bauth.auth_credential_secret.type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('auth.secreto.tipo', $j${"es": "Tipo", "en": "Type"}$j$, 0, false, $j${"constraint": "chk_acs_type", "columns": ["bauth.auth_credential_secret.type"]}$j$)
     RETURNING item_id INTO v_auth_secreto_tipo;
@@ -902,7 +902,7 @@ BEGIN
         (v_auth_secreto_tipo, 'auth.secreto.tipo.RECOVERY_CODE_HASH', $j${"es": "RECOVERY_CODE_HASH", "en": "RECOVERY_CODE_HASH"}$j$, 1, true, 40, $j${"value": "RECOVERY_CODE_HASH"}$j$),
         (v_auth_secreto_tipo, 'auth.secreto.tipo.TOTP_SEED_ENC', $j${"es": "TOTP_SEED_ENC", "en": "TOTP_SEED_ENC"}$j$, 1, true, 50, $j${"value": "TOTP_SEED_ENC"}$j$);
 
-    -- chk_ax509_origin [bauth.auth_credential_x509]
+    -- [MC-0065] T-333 | chk_ax509_origin [bauth.auth_credential_x509] | Tabla: bauth.auth_credential_x509.origin | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('auth.x509.origen', $j${"es": "Origen", "en": "Origin"}$j$, 0, false, $j${"constraint": "chk_ax509_origin", "columns": ["bauth.auth_credential_x509.origin"]}$j$)
     RETURNING item_id INTO v_auth_x509_origen;
@@ -914,7 +914,7 @@ BEGIN
         (v_auth_x509_origen, 'auth.x509.origen.SELF_SIGNED', $j${"es": "SELF_SIGNED", "en": "SELF_SIGNED"}$j$, 1, true, 30, $j${"value": "SELF_SIGNED"}$j$),
         (v_auth_x509_origen, 'auth.x509.origen.VAULT_INTERNAL', $j${"es": "VAULT_INTERNAL", "en": "VAULT_INTERNAL"}$j$, 1, true, 40, $j${"value": "VAULT_INTERNAL"}$j$);
 
-    -- chk_aca_status [bauth.auth_crypto_algorithm]
+    -- [MC-0066] T-338 | chk_aca_status [bauth.auth_crypto_algorithm] | Tabla: bauth.auth_crypto_algorithm.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('auth.cripto.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "chk_aca_status", "columns": ["bauth.auth_crypto_algorithm.status"]}$j$)
     RETURNING item_id INTO v_auth_cripto_estado;
@@ -925,7 +925,7 @@ BEGIN
         (v_auth_cripto_estado, 'auth.cripto.estado.DEPRECATED', $j${"es": "DEPRECATED", "en": "DEPRECATED"}$j$, 1, true, 20, $j${"value": "DEPRECATED"}$j$),
         (v_auth_cripto_estado, 'auth.cripto.estado.FORBIDDEN', $j${"es": "FORBIDDEN", "en": "FORBIDDEN"}$j$, 1, true, 30, $j${"value": "FORBIDDEN"}$j$);
 
-    -- chk_aca_type [bauth.auth_crypto_algorithm]
+    -- [MC-0067] T-338 | chk_aca_type [bauth.auth_crypto_algorithm] | Tabla: bauth.auth_crypto_algorithm.type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('auth.cripto.tipo', $j${"es": "Tipo", "en": "Type"}$j$, 0, false, $j${"constraint": "chk_aca_type", "columns": ["bauth.auth_crypto_algorithm.type"]}$j$)
     RETURNING item_id INTO v_auth_cripto_tipo;
@@ -939,7 +939,7 @@ BEGIN
         (v_auth_cripto_tipo, 'auth.cripto.tipo.PQC', $j${"es": "PQC", "en": "PQC"}$j$, 1, true, 50, $j${"value": "PQC"}$j$),
         (v_auth_cripto_tipo, 'auth.cripto.tipo.SYMMETRIC', $j${"es": "SYMMETRIC", "en": "SYMMETRIC"}$j$, 1, true, 60, $j${"value": "SYMMETRIC"}$j$);
 
-    -- chk_ad_cat [bauth.auth_device]
+    -- [MC-0068] T-390 | chk_ad_cat [bauth.auth_device] | Tabla: bauth.auth_device.category | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('auth.dispositivo.categoria', $j${"es": "Categoría", "en": "Category"}$j$, 0, false, $j${"constraint": "chk_ad_cat", "columns": ["bauth.auth_device.category"]}$j$)
     RETURNING item_id INTO v_auth_dispositivo_categoria;
@@ -956,7 +956,7 @@ BEGIN
         (v_auth_dispositivo_categoria, 'auth.dispositivo.categoria.SMART_CARD', $j${"es": "SMART_CARD", "en": "SMART_CARD"}$j$, 1, true, 80, $j${"value": "SMART_CARD"}$j$),
         (v_auth_dispositivo_categoria, 'auth.dispositivo.categoria.TABLET', $j${"es": "TABLET", "en": "TABLET"}$j$, 1, true, 90, $j${"value": "TABLET"}$j$);
 
-    -- chk_ad_osdp [bauth.auth_device]
+    -- [MC-0069] T-390 | chk_ad_osdp [bauth.auth_device] | Tabla: bauth.auth_device.osdp_version | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('auth.dispositivo.version_osdp', $j${"es": "Versión OSDP (protocolo lector físico)", "en": "Osdp Version"}$j$, 0, false, $j${"constraint": "chk_ad_osdp", "columns": ["bauth.auth_device.osdp_version"]}$j$)
     RETURNING item_id INTO v_auth_dispositivo_version_osdp;
@@ -967,7 +967,7 @@ BEGIN
         (v_auth_dispositivo_version_osdp, 'auth.dispositivo.version_osdp.v2.1', $j${"es": "v2.1", "en": "v2.1"}$j$, 1, true, 20, $j${"value": "v2.1"}$j$),
         (v_auth_dispositivo_version_osdp, 'auth.dispositivo.version_osdp.v2.2', $j${"es": "v2.2", "en": "v2.2"}$j$, 1, true, 30, $j${"value": "v2.2"}$j$);
 
-    -- chk_ad_plat [bauth.auth_device]
+    -- [MC-0070] T-390 | chk_ad_plat [bauth.auth_device] | Tabla: bauth.auth_device.platform | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('auth.dispositivo.plataforma', $j${"es": "Plataforma", "en": "Platform"}$j$, 0, false, $j${"constraint": "chk_ad_plat", "columns": ["bauth.auth_device.platform"]}$j$)
     RETURNING item_id INTO v_auth_dispositivo_plataforma;
@@ -984,7 +984,7 @@ BEGIN
         (v_auth_dispositivo_plataforma, 'auth.dispositivo.plataforma.UNKNOWN', $j${"es": "UNKNOWN", "en": "UNKNOWN"}$j$, 1, true, 80, $j${"value": "UNKNOWN"}$j$),
         (v_auth_dispositivo_plataforma, 'auth.dispositivo.plataforma.WINDOWS', $j${"es": "WINDOWS", "en": "WINDOWS"}$j$, 1, true, 90, $j${"value": "WINDOWS"}$j$);
 
-    -- chk_ad_status [bauth.auth_device]
+    -- [MC-0071] T-390 | chk_ad_status [bauth.auth_device] | Tabla: bauth.auth_device.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('auth.dispositivo.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "chk_ad_status", "columns": ["bauth.auth_device.status"]}$j$)
     RETURNING item_id INTO v_auth_dispositivo_estado;
@@ -998,7 +998,7 @@ BEGIN
         (v_auth_dispositivo_estado, 'auth.dispositivo.estado.REVOKED', $j${"es": "REVOKED", "en": "REVOKED"}$j$, 1, true, 50, $j${"value": "REVOKED"}$j$),
         (v_auth_dispositivo_estado, 'auth.dispositivo.estado.SUSPENDED', $j${"es": "SUSPENDED", "en": "SUSPENDED"}$j$, 1, true, 60, $j${"value": "SUSPENDED"}$j$);
 
-    -- chk_ad_trust [bauth.auth_device]
+    -- [MC-0072] T-390 | chk_ad_trust [bauth.auth_device] | Tabla: bauth.auth_device.trust_level | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('auth.dispositivo.confianza', $j${"es": "Nivel de confianza", "en": "Trust Level"}$j$, 0, false, $j${"constraint": "chk_ad_trust", "columns": ["bauth.auth_device.trust_level"]}$j$)
     RETURNING item_id INTO v_auth_dispositivo_confianza;
@@ -1010,7 +1010,7 @@ BEGIN
         (v_auth_dispositivo_confianza, 'auth.dispositivo.confianza.TRUSTED', $j${"es": "TRUSTED", "en": "TRUSTED"}$j$, 1, true, 30, $j${"value": "TRUSTED"}$j$),
         (v_auth_dispositivo_confianza, 'auth.dispositivo.confianza.UNTRUSTED', $j${"es": "UNTRUSTED", "en": "UNTRUSTED"}$j$, 1, true, 40, $j${"value": "UNTRUSTED"}$j$);
 
-    -- chk_adcb_type [bauth.auth_device_credential_binding]
+    -- [MC-0073] T-392 | chk_adcb_type [bauth.auth_device_credential_binding] | Tabla: bauth.auth_device_credential_binding.binding_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('auth.vinculo_disp.tipo_vinculo', $j${"es": "Tipo de vínculo", "en": "Binding Type"}$j$, 0, false, $j${"constraint": "chk_adcb_type", "columns": ["bauth.auth_device_credential_binding.binding_type"]}$j$)
     RETURNING item_id INTO v_auth_vinculo_disp_tipo_vinculo;
@@ -1024,7 +1024,7 @@ BEGIN
         (v_auth_vinculo_disp_tipo_vinculo, 'auth.vinculo_disp.tipo_vinculo.SOFT_TOTP', $j${"es": "SOFT_TOTP", "en": "SOFT_TOTP"}$j$, 1, true, 50, $j${"value": "SOFT_TOTP"}$j$),
         (v_auth_vinculo_disp_tipo_vinculo, 'auth.vinculo_disp.tipo_vinculo.X509_MTLS', $j${"es": "X509_MTLS", "en": "X509_MTLS"}$j$, 1, true, 60, $j${"value": "X509_MTLS"}$j$);
 
-    -- chk_adp_comp [bauth.auth_device_posture]
+    -- [MC-0074] T-391 | chk_adp_comp [bauth.auth_device_posture] | Tabla: bauth.auth_device_posture.compliance_status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('auth.postura_disp.cumplimiento', $j${"es": "Estado de cumplimiento", "en": "Compliance Status"}$j$, 0, false, $j${"constraint": "chk_adp_comp", "columns": ["bauth.auth_device_posture.compliance_status"]}$j$)
     RETURNING item_id INTO v_auth_postura_disp_cumplimiento;
@@ -1036,7 +1036,7 @@ BEGIN
         (v_auth_postura_disp_cumplimiento, 'auth.postura_disp.cumplimiento.NON_COMPLIANT', $j${"es": "NON_COMPLIANT", "en": "NON_COMPLIANT"}$j$, 1, true, 30, $j${"value": "NON_COMPLIANT"}$j$),
         (v_auth_postura_disp_cumplimiento, 'auth.postura_disp.cumplimiento.UNKNOWN', $j${"es": "UNKNOWN", "en": "UNKNOWN"}$j$, 1, true, 40, $j${"value": "UNKNOWN"}$j$);
 
-    -- chk_adp_mdm [bauth.auth_device_posture]
+    -- [MC-0075] T-391 | chk_adp_mdm [bauth.auth_device_posture] | Tabla: bauth.auth_device_posture.mdm_compliance | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('auth.postura_disp.mdm', $j${"es": "Cumplimiento MDM", "en": "Mdm Compliance"}$j$, 0, false, $j${"constraint": "chk_adp_mdm", "columns": ["bauth.auth_device_posture.mdm_compliance"]}$j$)
     RETURNING item_id INTO v_auth_postura_disp_mdm;
@@ -1047,7 +1047,7 @@ BEGIN
         (v_auth_postura_disp_mdm, 'auth.postura_disp.mdm.NON_COMPLIANT', $j${"es": "NON_COMPLIANT", "en": "NON_COMPLIANT"}$j$, 1, true, 20, $j${"value": "NON_COMPLIANT"}$j$),
         (v_auth_postura_disp_mdm, 'auth.postura_disp.mdm.UNKNOWN', $j${"es": "UNKNOWN", "en": "UNKNOWN"}$j$, 1, true, 30, $j${"value": "UNKNOWN"}$j$);
 
-    -- chk_adp_src [bauth.auth_device_posture]
+    -- [MC-0076] T-391 | chk_adp_src [bauth.auth_device_posture] | Tabla: bauth.auth_device_posture.posture_source | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('auth.postura_disp.fuente_postura', $j${"es": "Fuente de postura", "en": "Posture Source"}$j$, 0, false, $j${"constraint": "chk_adp_src", "columns": ["bauth.auth_device_posture.posture_source"]}$j$)
     RETURNING item_id INTO v_auth_postura_disp_fuente_postura;
@@ -1060,7 +1060,7 @@ BEGIN
         (v_auth_postura_disp_fuente_postura, 'auth.postura_disp.fuente_postura.MDM', $j${"es": "MDM", "en": "MDM"}$j$, 1, true, 40, $j${"value": "MDM"}$j$),
         (v_auth_postura_disp_fuente_postura, 'auth.postura_disp.fuente_postura.SELF_REPORTED', $j${"es": "SELF_REPORTED", "en": "SELF_REPORTED"}$j$, 1, true, 50, $j${"value": "SELF_REPORTED"}$j$);
 
-    -- chk_afp_status [bauth.auth_federation_protocol]
+    -- [MC-0077] T-384 | chk_afp_status [bauth.auth_federation_protocol] | Tabla: bauth.auth_federation_protocol.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('auth.federacion.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "chk_afp_status", "columns": ["bauth.auth_federation_protocol.status"]}$j$)
     RETURNING item_id INTO v_auth_federacion_estado;
@@ -1071,7 +1071,7 @@ BEGIN
         (v_auth_federacion_estado, 'auth.federacion.estado.PLANNED', $j${"es": "PLANNED", "en": "PLANNED"}$j$, 1, true, 20, $j${"value": "PLANNED"}$j$),
         (v_auth_federacion_estado, 'auth.federacion.estado.SUPPORTED', $j${"es": "SUPPORTED", "en": "SUPPORTED"}$j$, 1, true, 30, $j${"value": "SUPPORTED"}$j$);
 
-    -- chk_am_cat [bauth.auth_method]
+    -- [MC-0078] T-335 | chk_am_cat [bauth.auth_method] | Tabla: bauth.auth_method.category | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('auth.metodo.categoria', $j${"es": "Categoría", "en": "Category"}$j$, 0, false, $j${"constraint": "chk_am_cat", "columns": ["bauth.auth_method.category"]}$j$)
     RETURNING item_id INTO v_auth_metodo_categoria;
@@ -1085,7 +1085,7 @@ BEGIN
         (v_auth_metodo_categoria, 'auth.metodo.categoria.E', $j${"es": "E", "en": "E"}$j$, 1, true, 50, $j${"value": "E"}$j$),
         (v_auth_metodo_categoria, 'auth.metodo.categoria.F', $j${"es": "F", "en": "F"}$j$, 1, true, 60, $j${"value": "F"}$j$);
 
-    -- chk_am_status [bauth.auth_method]
+    -- [MC-0079] T-335 | chk_am_status [bauth.auth_method] | Tabla: bauth.auth_method.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('auth.metodo.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "chk_am_status", "columns": ["bauth.auth_method.status"]}$j$)
     RETURNING item_id INTO v_auth_metodo_estado;
@@ -1097,7 +1097,7 @@ BEGIN
         (v_auth_metodo_estado, 'auth.metodo.estado.PLANNED', $j${"es": "PLANNED", "en": "PLANNED"}$j$, 1, true, 30, $j${"value": "PLANNED"}$j$),
         (v_auth_metodo_estado, 'auth.metodo.estado.REMOVED', $j${"es": "REMOVED", "en": "REMOVED"}$j$, 1, true, 40, $j${"value": "REMOVED"}$j$);
 
-    -- chk_asc_status [bauth.auth_saga_catalog]
+    -- [MC-0080] T-385 | chk_asc_status [bauth.auth_saga_catalog] | Tabla: bauth.auth_saga_catalog.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('auth.saga.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "chk_asc_status", "columns": ["bauth.auth_saga_catalog.status"]}$j$)
     RETURNING item_id INTO v_auth_saga_estado;
@@ -1108,7 +1108,7 @@ BEGIN
         (v_auth_saga_estado, 'auth.saga.estado.DEPRECATED', $j${"es": "DEPRECATED", "en": "DEPRECATED"}$j$, 1, true, 20, $j${"value": "DEPRECATED"}$j$),
         (v_auth_saga_estado, 'auth.saga.estado.PLANNED', $j${"es": "PLANNED", "en": "PLANNED"}$j$, 1, true, 30, $j${"value": "PLANNED"}$j$);
 
-    -- chk_bac_status [bauth.blk_account]
+    -- [MC-0258] T-361 | chk_bac_status [bauth.blk_account] | Tabla: bauth.blk_account.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('blk.cuenta.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "chk_bac_status", "columns": ["bauth.blk_account.status"]}$j$)
     RETURNING item_id INTO v_blk_cuenta_estado;
@@ -1119,7 +1119,7 @@ BEGIN
         (v_blk_cuenta_estado, 'blk.cuenta.estado.CLOSED', $j${"es": "CLOSED", "en": "CLOSED"}$j$, 1, true, 20, $j${"value": "CLOSED"}$j$),
         (v_blk_cuenta_estado, 'blk.cuenta.estado.FROZEN', $j${"es": "FROZEN", "en": "FROZEN"}$j$, 1, true, 30, $j${"value": "FROZEN"}$j$);
 
-    -- chk_ba_chain [bauth.blk_anchor]
+    -- [MC-0259] T-358 | chk_ba_chain [bauth.blk_anchor] | Tabla: bauth.blk_anchor.chain | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('blk.ancla.cadena', $j${"es": "Cadena", "en": "Chain"}$j$, 0, false, $j${"constraint": "chk_ba_chain", "columns": ["bauth.blk_anchor.chain"]}$j$)
     RETURNING item_id INTO v_blk_ancla_cadena;
@@ -1129,7 +1129,7 @@ BEGIN
         (v_blk_ancla_cadena, 'blk.ancla.cadena.ARBITRUM_ONE', $j${"es": "ARBITRUM_ONE", "en": "ARBITRUM_ONE"}$j$, 1, true, 10, $j${"value": "ARBITRUM_ONE"}$j$),
         (v_blk_ancla_cadena, 'blk.ancla.cadena.BESU_QBFT', $j${"es": "BESU_QBFT", "en": "BESU_QBFT"}$j$, 1, true, 20, $j${"value": "BESU_QBFT"}$j$);
 
-    -- chk_ba_status [bauth.blk_anchor]
+    -- [MC-0260] T-358 | chk_ba_status [bauth.blk_anchor] | Tabla: bauth.blk_anchor.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('blk.ancla.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "chk_ba_status", "columns": ["bauth.blk_anchor.status"]}$j$)
     RETURNING item_id INTO v_blk_ancla_estado;
@@ -1173,7 +1173,7 @@ DECLARE
     v_d11_siem_formato_log UUID;
 BEGIN
 
-    -- chk_bmb_status [bauth.blk_merkle_batch]
+    -- [MC-0261] T-359 | chk_bmb_status [bauth.blk_merkle_batch] | Tabla: bauth.blk_merkle_batch.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('blk.merkle.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "chk_bmb_status", "columns": ["bauth.blk_merkle_batch.status"]}$j$)
     RETURNING item_id INTO v_blk_merkle_estado;
@@ -1186,7 +1186,7 @@ BEGIN
         (v_blk_merkle_estado, 'blk.merkle.estado.FAILED', $j${"es": "FAILED", "en": "FAILED"}$j$, 1, true, 40, $j${"value": "FAILED"}$j$),
         (v_blk_merkle_estado, 'blk.merkle.estado.OPEN', $j${"es": "OPEN", "en": "OPEN"}$j$, 1, true, 50, $j${"value": "OPEN"}$j$);
 
-    -- chk_br_status [bauth.blk_reconciliation]
+    -- [MC-0262] T-362 | chk_br_status [bauth.blk_reconciliation] | Tabla: bauth.blk_reconciliation.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('blk.reconciliacion.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "chk_br_status", "columns": ["bauth.blk_reconciliation.status"]}$j$)
     RETURNING item_id INTO v_blk_reconciliacion_estado;
@@ -1197,7 +1197,7 @@ BEGIN
         (v_blk_reconciliacion_estado, 'blk.reconciliacion.estado.DISCREPANCY', $j${"es": "DISCREPANCY", "en": "DISCREPANCY"}$j$, 1, true, 20, $j${"value": "DISCREPANCY"}$j$),
         (v_blk_reconciliacion_estado, 'blk.reconciliacion.estado.OK', $j${"es": "OK", "en": "OK"}$j$, 1, true, 30, $j${"value": "OK"}$j$);
 
-    -- cfg_policy_library_auth_factor_check [bauth.cfg_policy_library]
+    -- [MC-0087] T-999 | cfg_policy_library_auth_factor_check [bauth.cfg_policy_library] | Tabla: bauth.cfg_policy_library.auth_factor | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('cfg.politica.factor_auth', $j${"es": "Factor de autenticación", "en": "Auth Factor"}$j$, 0, false, $j${"constraint": "cfg_policy_library_auth_factor_check", "columns": ["bauth.cfg_policy_library.auth_factor"]}$j$)
     RETURNING item_id INTO v_cfg_politica_factor_auth;
@@ -1210,7 +1210,7 @@ BEGIN
         (v_cfg_politica_factor_auth, 'cfg.politica.factor_auth.multi', $j${"es": "multi", "en": "multi"}$j$, 1, true, 40, $j${"value": "multi"}$j$),
         (v_cfg_politica_factor_auth, 'cfg.politica.factor_auth.possession', $j${"es": "possession", "en": "possession"}$j$, 1, true, 50, $j${"value": "possession"}$j$);
 
-    -- cfg_policy_library_enforcement_check [bauth.cfg_policy_library]
+    -- [MC-0088] T-999 | cfg_policy_library_enforcement_check [bauth.cfg_policy_library] | Tabla: bauth.cfg_policy_library.enforcement | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('cfg.politica.aplicacion', $j${"es": "Modo de aplicación", "en": "Enforcement"}$j$, 0, false, $j${"constraint": "cfg_policy_library_enforcement_check", "columns": ["bauth.cfg_policy_library.enforcement"]}$j$)
     RETURNING item_id INTO v_cfg_politica_aplicacion;
@@ -1221,7 +1221,7 @@ BEGIN
         (v_cfg_politica_aplicacion, 'cfg.politica.aplicacion.optional', $j${"es": "optional", "en": "optional"}$j$, 1, true, 20, $j${"value": "optional"}$j$),
         (v_cfg_politica_aplicacion, 'cfg.politica.aplicacion.recommended', $j${"es": "recommended", "en": "recommended"}$j$, 1, true, 30, $j${"value": "recommended"}$j$);
 
-    -- cfg_policy_library_lifecycle_check [bauth.cfg_policy_library]
+    -- [MC-0089] T-999 | cfg_policy_library_lifecycle_check [bauth.cfg_policy_library] | Tabla: bauth.cfg_policy_library.lifecycle | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('cfg.politica.ciclo_vida', $j${"es": "Ciclo de vida", "en": "Lifecycle"}$j$, 0, false, $j${"constraint": "cfg_policy_library_lifecycle_check", "columns": ["bauth.cfg_policy_library.lifecycle"]}$j$)
     RETURNING item_id INTO v_cfg_politica_ciclo_vida;
@@ -1233,7 +1233,7 @@ BEGIN
         (v_cfg_politica_ciclo_vida, 'cfg.politica.ciclo_vida.draft', $j${"es": "draft", "en": "draft"}$j$, 1, true, 30, $j${"value": "draft"}$j$),
         (v_cfg_politica_ciclo_vida, 'cfg.politica.ciclo_vida.proposed', $j${"es": "proposed", "en": "proposed"}$j$, 1, true, 40, $j${"value": "proposed"}$j$);
 
-    -- cfg_policy_library_node_type_check [bauth.cfg_policy_library]
+    -- [MC-0090] T-999 | cfg_policy_library_node_type_check [bauth.cfg_policy_library] | Tabla: bauth.cfg_policy_library.node_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('cfg.politica.tipo_nodo', $j${"es": "Tipo de nodo", "en": "Node Type"}$j$, 0, false, $j${"constraint": "cfg_policy_library_node_type_check", "columns": ["bauth.cfg_policy_library.node_type"]}$j$)
     RETURNING item_id INTO v_cfg_politica_tipo_nodo;
@@ -1245,7 +1245,7 @@ BEGIN
         (v_cfg_politica_tipo_nodo, 'cfg.politica.tipo_nodo.policy', $j${"es": "policy", "en": "policy"}$j$, 1, true, 30, $j${"value": "policy"}$j$),
         (v_cfg_politica_tipo_nodo, 'cfg.politica.tipo_nodo.section', $j${"es": "section", "en": "section"}$j$, 1, true, 40, $j${"value": "section"}$j$);
 
-    -- cfg_policy_library_risk_level_check [bauth.cfg_policy_library]
+    -- [MC-0091] T-999 | cfg_policy_library_risk_level_check [bauth.cfg_policy_library] | Tabla: bauth.cfg_policy_library.risk_level | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('cfg.politica.nivel_riesgo', $j${"es": "Nivel de riesgo", "en": "Risk Level"}$j$, 0, false, $j${"constraint": "cfg_policy_library_risk_level_check", "columns": ["bauth.cfg_policy_library.risk_level"]}$j$)
     RETURNING item_id INTO v_cfg_politica_nivel_riesgo;
@@ -1257,7 +1257,7 @@ BEGIN
         (v_cfg_politica_nivel_riesgo, 'cfg.politica.nivel_riesgo.low', $j${"es": "low", "en": "low"}$j$, 1, true, 30, $j${"value": "low"}$j$),
         (v_cfg_politica_nivel_riesgo, 'cfg.politica.nivel_riesgo.medium', $j${"es": "medium", "en": "medium"}$j$, 1, true, 40, $j${"value": "medium"}$j$);
 
-    -- cfg_policy_library_semantic_type_check [bauth.cfg_policy_library]
+    -- [MC-0092] T-999 | cfg_policy_library_semantic_type_check [bauth.cfg_policy_library] | Tabla: bauth.cfg_policy_library.semantic_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('cfg.politica.tipo_semantico', $j${"es": "Tipo semántico", "en": "Semantic Type"}$j$, 0, false, $j${"constraint": "cfg_policy_library_semantic_type_check", "columns": ["bauth.cfg_policy_library.semantic_type"]}$j$)
     RETURNING item_id INTO v_cfg_politica_tipo_semantico;
@@ -1271,7 +1271,7 @@ BEGIN
         (v_cfg_politica_tipo_semantico, 'cfg.politica.tipo_semantico.policy', $j${"es": "policy", "en": "policy"}$j$, 1, true, 50, $j${"value": "policy"}$j$),
         (v_cfg_politica_tipo_semantico, 'cfg.politica.tipo_semantico.standard', $j${"es": "standard", "en": "standard"}$j$, 1, true, 60, $j${"value": "standard"}$j$);
 
-    -- chk_fc_fapi [bauth.fed_client]
+    -- [MC-0081] T-365 | chk_fc_fapi [bauth.fed_client] | Tabla: bauth.fed_client.fapi_profile | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('fed.cliente.perfil_fapi', $j${"es": "Perfil FAPI", "en": "Fapi Profile"}$j$, 0, false, $j${"constraint": "chk_fc_fapi", "columns": ["bauth.fed_client.fapi_profile"]}$j$)
     RETURNING item_id INTO v_fed_cliente_perfil_fapi;
@@ -1282,7 +1282,7 @@ BEGIN
         (v_fed_cliente_perfil_fapi, 'fed.cliente.perfil_fapi.BASELINE', $j${"es": "BASELINE", "en": "BASELINE"}$j$, 1, true, 20, $j${"value": "BASELINE"}$j$),
         (v_fed_cliente_perfil_fapi, 'fed.cliente.perfil_fapi.FAPI2', $j${"es": "FAPI2", "en": "FAPI2"}$j$, 1, true, 30, $j${"value": "FAPI2"}$j$);
 
-    -- chk_fc_status [bauth.fed_client]
+    -- [MC-0082] T-365 | chk_fc_status [bauth.fed_client] | Tabla: bauth.fed_client.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('fed.cliente.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "chk_fc_status", "columns": ["bauth.fed_client.status", "bauth.idn_global_admin.status"]}$j$)
     RETURNING item_id INTO v_fed_cliente_estado;
@@ -1293,7 +1293,7 @@ BEGIN
         (v_fed_cliente_estado, 'fed.cliente.estado.REVOKED', $j${"es": "REVOKED", "en": "REVOKED"}$j$, 1, true, 20, $j${"value": "REVOKED"}$j$),
         (v_fed_cliente_estado, 'fed.cliente.estado.SUSPENDED', $j${"es": "SUSPENDED", "en": "SUSPENDED"}$j$, 1, true, 30, $j${"value": "SUSPENDED"}$j$);
 
-    -- chk_fc_type [bauth.fed_client]
+    -- [MC-0083] T-365 | chk_fc_type [bauth.fed_client] | Tabla: bauth.fed_client.type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('fed.cliente.tipo', $j${"es": "Tipo", "en": "Type"}$j$, 0, false, $j${"constraint": "chk_fc_type", "columns": ["bauth.fed_client.type"]}$j$)
     RETURNING item_id INTO v_fed_cliente_tipo;
@@ -1304,7 +1304,7 @@ BEGIN
         (v_fed_cliente_tipo, 'fed.cliente.tipo.M2M', $j${"es": "M2M", "en": "M2M"}$j$, 1, true, 20, $j${"value": "M2M"}$j$),
         (v_fed_cliente_tipo, 'fed.cliente.tipo.PUBLIC', $j${"es": "PUBLIC", "en": "PUBLIC"}$j$, 1, true, 30, $j${"value": "PUBLIC"}$j$);
 
-    -- chk_fpe_fal [bauth.fed_provider_ext]
+    -- [MC-0084] T-366 | chk_fpe_fal [bauth.fed_provider_ext] | Tabla: bauth.fed_provider_ext.fal | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('fed.proveedor.nivel_fal', $j${"es": "Nivel FAL", "en": "Fal"}$j$, 0, false, $j${"constraint": "chk_fpe_fal", "columns": ["bauth.fed_provider_ext.fal", "bauth.idn_tenant_fal_config.fal_level"]}$j$)
     RETURNING item_id INTO v_fed_proveedor_nivel_fal;
@@ -1315,7 +1315,7 @@ BEGIN
         (v_fed_proveedor_nivel_fal, 'fed.proveedor.nivel_fal.FAL2', $j${"es": "FAL2", "en": "FAL2"}$j$, 1, true, 20, $j${"value": "FAL2"}$j$),
         (v_fed_proveedor_nivel_fal, 'fed.proveedor.nivel_fal.FAL3', $j${"es": "FAL3", "en": "FAL3"}$j$, 1, true, 30, $j${"value": "FAL3"}$j$);
 
-    -- chk_fpe_proto [bauth.fed_provider_ext]
+    -- [MC-0085] T-366 | chk_fpe_proto [bauth.fed_provider_ext] | Tabla: bauth.fed_provider_ext.protocol | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('fed.proveedor.protocolo', $j${"es": "Protocolo", "en": "Protocol"}$j$, 0, false, $j${"constraint": "chk_fpe_proto", "columns": ["bauth.fed_provider_ext.protocol"]}$j$)
     RETURNING item_id INTO v_fed_proveedor_protocolo;
@@ -1329,7 +1329,7 @@ BEGIN
         (v_fed_proveedor_protocolo, 'fed.proveedor.protocolo.OIDC', $j${"es": "OIDC", "en": "OIDC"}$j$, 1, true, 50, $j${"value": "OIDC"}$j$),
         (v_fed_proveedor_protocolo, 'fed.proveedor.protocolo.SAML2', $j${"es": "SAML2", "en": "SAML2"}$j$, 1, true, 60, $j${"value": "SAML2"}$j$);
 
-    -- chk_fti_type [bauth.fed_token_issued]
+    -- [MC-0086] T-367 | chk_fti_type [bauth.fed_token_issued] | Tabla: bauth.fed_token_issued.type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('fed.token.tipo', $j${"es": "Tipo", "en": "Type"}$j$, 0, false, $j${"constraint": "chk_fti_type", "columns": ["bauth.fed_token_issued.type", "bauth.fed_token_issued_2026_07.type", "bauth.fed_token_issued_2026_08.type", "bauth.fed_token_issued_2026_09.type"]}$j$)
     RETURNING item_id INTO v_fed_token_tipo;
@@ -1341,7 +1341,7 @@ BEGIN
         (v_fed_token_tipo, 'fed.token.tipo.ID_TOKEN', $j${"es": "ID_TOKEN", "en": "ID_TOKEN"}$j$, 1, true, 30, $j${"value": "ID_TOKEN"}$j$),
         (v_fed_token_tipo, 'fed.token.tipo.REFRESH_TOKEN', $j${"es": "REFRESH_TOKEN", "en": "REFRESH_TOKEN"}$j$, 1, true, 40, $j${"value": "REFRESH_TOKEN"}$j$);
 
-    -- chk_iac_access_type [bauth.idn_access_contract]
+    -- [MC-0094] T-516 | chk_iac_access_type [bauth.idn_access_contract] | Tabla: bauth.idn_access_contract.access_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('acceso.contrato.tipo_acceso', $j${"es": "Tipo de acceso", "en": "Access Type"}$j$, 0, false, $j${"constraint": "chk_iac_access_type", "columns": ["bauth.idn_access_contract.access_type"]}$j$)
     RETURNING item_id INTO v_acceso_contrato_tipo_acceso;
@@ -1354,7 +1354,7 @@ BEGIN
         (v_acceso_contrato_tipo_acceso, 'acceso.contrato.tipo_acceso.ROLE_ACCESS', $j${"es": "ROLE_ACCESS", "en": "ROLE_ACCESS"}$j$, 1, true, 40, $j${"value": "ROLE_ACCESS"}$j$),
         (v_acceso_contrato_tipo_acceso, 'acceso.contrato.tipo_acceso.TEMP_ACCESS', $j${"es": "TEMP_ACCESS", "en": "TEMP_ACCESS"}$j$, 1, true, 50, $j${"value": "TEMP_ACCESS"}$j$);
 
-    -- chk_iac_status [bauth.idn_access_contract]
+    -- [MC-0095] T-516 | chk_iac_status [bauth.idn_access_contract] | Tabla: bauth.idn_access_contract.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('acceso.contrato.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "chk_iac_status", "columns": ["bauth.idn_access_contract.status"]}$j$)
     RETURNING item_id INTO v_acceso_contrato_estado;
@@ -1367,7 +1367,7 @@ BEGIN
         (v_acceso_contrato_estado, 'acceso.contrato.estado.REVOKED', $j${"es": "REVOKED", "en": "REVOKED"}$j$, 1, true, 40, $j${"value": "REVOKED"}$j$),
         (v_acceso_contrato_estado, 'acceso.contrato.estado.SUSPENDED', $j${"es": "SUSPENDED", "en": "SUSPENDED"}$j$, 1, true, 50, $j${"value": "SUSPENDED"}$j$);
 
-    -- chk_idras_clas [bauth.idn_attribute_schema]
+    -- [MC-0275] T-517 | chk_idras_clas [bauth.idn_attribute_schema] | Tabla: bauth.idn_attribute_schema.classification | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('registry.attr_schema.clasificacion', $j${"es": "Clasificación", "en": "Classification"}$j$, 0, false, $j${"constraint": "chk_idras_clas", "columns": ["bauth.idn_attribute_schema.classification", "bauth.idn_identity_attribute.classification"]}$j$)
     RETURNING item_id INTO v_registry_attr_schema_clasificacion;
@@ -1380,7 +1380,7 @@ BEGIN
         (v_registry_attr_schema_clasificacion, 'registry.attr_schema.clasificacion.PUBLIC', $j${"es": "PUBLIC", "en": "PUBLIC"}$j$, 1, true, 40, $j${"value": "PUBLIC"}$j$),
         (v_registry_attr_schema_clasificacion, 'registry.attr_schema.clasificacion.SENSITIVE_PII', $j${"es": "SENSITIVE_PII", "en": "SENSITIVE_PII"}$j$, 1, true, 50, $j${"value": "SENSITIVE_PII"}$j$);
 
-    -- chk_idras_mut [bauth.idn_attribute_schema]
+    -- [MC-0276] T-517 | chk_idras_mut [bauth.idn_attribute_schema] | Tabla: bauth.idn_attribute_schema.mutability | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('registry.attr_schema.mutabilidad', $j${"es": "Mutabilidad", "en": "Mutability"}$j$, 0, false, $j${"constraint": "chk_idras_mut", "columns": ["bauth.idn_attribute_schema.mutability"]}$j$)
     RETURNING item_id INTO v_registry_attr_schema_mutabilidad;
@@ -1392,7 +1392,7 @@ BEGIN
         (v_registry_attr_schema_mutabilidad, 'registry.attr_schema.mutabilidad.READ_WRITE', $j${"es": "READ_WRITE", "en": "READ_WRITE"}$j$, 1, true, 30, $j${"value": "READ_WRITE"}$j$),
         (v_registry_attr_schema_mutabilidad, 'registry.attr_schema.mutabilidad.WRITE_ONLY', $j${"es": "WRITE_ONLY", "en": "WRITE_ONLY"}$j$, 1, true, 40, $j${"value": "WRITE_ONLY"}$j$);
 
-    -- chk_idras_ret [bauth.idn_attribute_schema]
+    -- [MC-0277] T-517 | chk_idras_ret [bauth.idn_attribute_schema] | Tabla: bauth.idn_attribute_schema.returned | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('registry.attr_schema.campo_retorno', $j${"es": "Campo retornado", "en": "Returned"}$j$, 0, false, $j${"constraint": "chk_idras_ret", "columns": ["bauth.idn_attribute_schema.returned", "bauth.idn_identity_attribute.returned", "bauth.idn_registry_attribute_schema.returned"]}$j$)
     RETURNING item_id INTO v_registry_attr_schema_campo_retorno;
@@ -1404,7 +1404,7 @@ BEGIN
         (v_registry_attr_schema_campo_retorno, 'registry.attr_schema.campo_retorno.NEVER', $j${"es": "NEVER", "en": "NEVER"}$j$, 1, true, 30, $j${"value": "NEVER"}$j$),
         (v_registry_attr_schema_campo_retorno, 'registry.attr_schema.campo_retorno.REQUEST', $j${"es": "REQUEST", "en": "REQUEST"}$j$, 1, true, 40, $j${"value": "REQUEST"}$j$);
 
-    -- chk_idras_tipo [bauth.idn_attribute_schema]
+    -- [MC-0278] T-517 | chk_idras_tipo [bauth.idn_attribute_schema] | Tabla: bauth.idn_attribute_schema.data_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('registry.attr_schema.tipo_dato', $j${"es": "Tipo de dato", "en": "Data Type"}$j$, 0, false, $j${"constraint": "chk_idras_tipo", "columns": ["bauth.idn_attribute_schema.data_type"]}$j$)
     RETURNING item_id INTO v_registry_attr_schema_tipo_dato;
@@ -1421,7 +1421,7 @@ BEGIN
         (v_registry_attr_schema_tipo_dato, 'registry.attr_schema.tipo_dato.STRING', $j${"es": "STRING", "en": "STRING"}$j$, 1, true, 80, $j${"value": "STRING"}$j$),
         (v_registry_attr_schema_tipo_dato, 'registry.attr_schema.tipo_dato.UUID', $j${"es": "UUID", "en": "UUID"}$j$, 1, true, 90, $j${"value": "UUID"}$j$);
 
-    -- idn_audit_event_log_domain_code_check [bauth.idn_audit_event_log]
+    -- [MC-0179] T-424 | idn_audit_event_log_domain_code_check [bauth.idn_audit_event_log] | Tabla: bauth.idn_audit_event_log.domain_code | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d11.auditoria.codigo_dominio', $j${"es": "Código de dominio", "en": "Domain Code"}$j$, 0, false, $j${"constraint": "idn_audit_event_log_domain_code_check", "columns": ["bauth.idn_audit_event_log.domain_code", "bauth.idn_audit_event_log_2026_07.domain_code", "bauth.idn_audit_event_log_2026_08.domain_code", "bauth.idn_audit_event_log_2026_09.domain_code", "bauth.idn_audit_event_log_default.domain_code", "bauth.idn_registry_atom_catalog.domain_code"]}$j$)
     RETURNING item_id INTO v_d11_auditoria_codigo_dominio;
@@ -1447,7 +1447,7 @@ BEGIN
         (v_d11_auditoria_codigo_dominio, 'd11.auditoria.codigo_dominio.D98', $j${"es": "D98", "en": "D98"}$j$, 1, true, 170, $j${"value": "D98"}$j$),
         (v_d11_auditoria_codigo_dominio, 'd11.auditoria.codigo_dominio.D99', $j${"es": "D99", "en": "D99"}$j$, 1, true, 180, $j${"value": "D99"}$j$);
 
-    -- idn_audit_event_log_outcome_check [bauth.idn_audit_event_log]
+    -- [MC-0180] T-424 | idn_audit_event_log_outcome_check [bauth.idn_audit_event_log] | Tabla: bauth.idn_audit_event_log.outcome | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d11.auditoria.resultado', $j${"es": "Resultado", "en": "Outcome"}$j$, 0, false, $j${"constraint": "idn_audit_event_log_outcome_check", "columns": ["bauth.idn_audit_event_log.outcome", "bauth.idn_audit_event_log_2026_07.outcome", "bauth.idn_audit_event_log_2026_08.outcome", "bauth.idn_audit_event_log_2026_09.outcome", "bauth.idn_audit_event_log_default.outcome"]}$j$)
     RETURNING item_id INTO v_d11_auditoria_resultado;
@@ -1459,7 +1459,7 @@ BEGIN
         (v_d11_auditoria_resultado, 'd11.auditoria.resultado.PARTIAL', $j${"es": "PARTIAL", "en": "PARTIAL"}$j$, 1, true, 30, $j${"value": "PARTIAL"}$j$),
         (v_d11_auditoria_resultado, 'd11.auditoria.resultado.PERMIT', $j${"es": "PERMIT", "en": "PERMIT"}$j$, 1, true, 40, $j${"value": "PERMIT"}$j$);
 
-    -- idn_audit_event_log_subject_type_check [bauth.idn_audit_event_log]
+    -- [MC-0181] T-424 | idn_audit_event_log_subject_type_check [bauth.idn_audit_event_log] | Tabla: bauth.idn_audit_event_log.subject_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d11.auditoria.tipo_sujeto', $j${"es": "Tipo de sujeto", "en": "Subject Type"}$j$, 0, false, $j${"constraint": "idn_audit_event_log_subject_type_check", "columns": ["bauth.idn_audit_event_log.subject_type", "bauth.idn_audit_event_log_2026_07.subject_type", "bauth.idn_audit_event_log_2026_08.subject_type", "bauth.idn_audit_event_log_2026_09.subject_type", "bauth.idn_audit_event_log_default.subject_type"]}$j$)
     RETURNING item_id INTO v_d11_auditoria_tipo_sujeto;
@@ -1471,7 +1471,7 @@ BEGIN
         (v_d11_auditoria_tipo_sujeto, 'd11.auditoria.tipo_sujeto.SYSTEM', $j${"es": "SYSTEM", "en": "SYSTEM"}$j$, 1, true, 30, $j${"value": "SYSTEM"}$j$),
         (v_d11_auditoria_tipo_sujeto, 'd11.auditoria.tipo_sujeto.USER', $j${"es": "USER", "en": "USER"}$j$, 1, true, 40, $j${"value": "USER"}$j$);
 
-    -- idn_audit_retention_policy_expiration_action_check [bauth.idn_audit_retention_policy]
+    -- [MC-0182] T-421 | idn_audit_retention_policy_expiration_action_check [bauth.idn_audit_retention_policy] | Tabla: bauth.idn_audit_retention_policy.expiration_action | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d11.retencion.accion_expiracion', $j${"es": "Acción al expirar", "en": "Expiration Action"}$j$, 0, false, $j${"constraint": "idn_audit_retention_policy_expiration_action_check", "columns": ["bauth.idn_audit_retention_policy.expiration_action"]}$j$)
     RETURNING item_id INTO v_d11_retencion_accion_expiracion;
@@ -1483,7 +1483,7 @@ BEGIN
         (v_d11_retencion_accion_expiracion, 'd11.retencion.accion_expiracion.DELETE', $j${"es": "DELETE", "en": "DELETE"}$j$, 1, true, 30, $j${"value": "DELETE"}$j$),
         (v_d11_retencion_accion_expiracion, 'd11.retencion.accion_expiracion.KEEP', $j${"es": "KEEP", "en": "KEEP"}$j$, 1, true, 40, $j${"value": "KEEP"}$j$);
 
-    -- idn_audit_siem_target_log_format_check [bauth.idn_audit_siem_target]
+    -- [MC-0183] T-423 | idn_audit_siem_target_log_format_check [bauth.idn_audit_siem_target] | Tabla: bauth.idn_audit_siem_target.log_format | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d11.siem.formato_log', $j${"es": "Formato de log", "en": "Log Format"}$j$, 0, false, $j${"constraint": "idn_audit_siem_target_log_format_check", "columns": ["bauth.idn_audit_siem_target.log_format"]}$j$)
     RETURNING item_id INTO v_d11_siem_formato_log;
@@ -1528,7 +1528,7 @@ DECLARE
     v_privacidad_dpia_reg_riesgo_residual UUID;
 BEGIN
 
-    -- idn_audit_siem_target_protocol_type_check [bauth.idn_audit_siem_target]
+    -- [MC-0184] T-423 | idn_audit_siem_target_protocol_type_check [bauth.idn_audit_siem_target] | Tabla: bauth.idn_audit_siem_target.protocol_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d11.siem.tipo_protocolo', $j${"es": "Tipo de protocolo", "en": "Protocol Type"}$j$, 0, false, $j${"constraint": "idn_audit_siem_target_protocol_type_check", "columns": ["bauth.idn_audit_siem_target.protocol_type"]}$j$)
     RETURNING item_id INTO v_d11_siem_tipo_protocolo;
@@ -1542,7 +1542,7 @@ BEGIN
         (v_d11_siem_tipo_protocolo, 'd11.siem.tipo_protocolo.SYSLOG_TLS', $j${"es": "SYSLOG_TLS", "en": "SYSLOG_TLS"}$j$, 1, true, 50, $j${"value": "SYSLOG_TLS"}$j$),
         (v_d11_siem_tipo_protocolo, 'd11.siem.tipo_protocolo.SYSLOG_UDP', $j${"es": "SYSLOG_UDP", "en": "SYSLOG_UDP"}$j$, 1, true, 60, $j${"value": "SYSLOG_UDP"}$j$);
 
-    -- idn_biometric_enrollment_biometric_type_check [bauth.idn_biometric_enrollment]
+    -- [MC-0149] T-280 | idn_biometric_enrollment_biometric_type_check [bauth.idn_biometric_enrollment] | Tabla: bauth.idn_biometric_enrollment.biometric_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d05.inscripcion.tipo_biometrico', $j${"es": "Tipo biométrico", "en": "Biometric Type"}$j$, 0, false, $j${"constraint": "idn_biometric_enrollment_biometric_type_check", "columns": ["bauth.idn_biometric_enrollment.biometric_type", "bauth.idn_biometric_pad_policy.biometric_type", "bauth.idn_biometric_quality_policy.biometric_type"]}$j$)
     RETURNING item_id INTO v_d05_inscripcion_tipo_biometrico;
@@ -1557,7 +1557,7 @@ BEGIN
         (v_d05_inscripcion_tipo_biometrico, 'd05.inscripcion.tipo_biometrico.VEIN', $j${"es": "VEIN", "en": "VEIN"}$j$, 1, true, 60, $j${"value": "VEIN"}$j$),
         (v_d05_inscripcion_tipo_biometrico, 'd05.inscripcion.tipo_biometrico.VOICE', $j${"es": "VOICE", "en": "VOICE"}$j$, 1, true, 70, $j${"value": "VOICE"}$j$);
 
-    -- idn_biometric_enrollment_status_check [bauth.idn_biometric_enrollment]
+    -- [MC-0150] T-280 | idn_biometric_enrollment_status_check [bauth.idn_biometric_enrollment] | Tabla: bauth.idn_biometric_enrollment.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d05.inscripcion.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "idn_biometric_enrollment_status_check", "columns": ["bauth.idn_biometric_enrollment.status", "bauth.idn_delegation_grant.status", "bauth.idn_identity_vc.status", "bauth.idn_physical_access_credential.status", "bauth.sig_certificate.status"]}$j$)
     RETURNING item_id INTO v_d05_inscripcion_estado;
@@ -1569,7 +1569,7 @@ BEGIN
         (v_d05_inscripcion_estado, 'd05.inscripcion.estado.REVOKED', $j${"es": "REVOKED", "en": "REVOKED"}$j$, 1, true, 30, $j${"value": "REVOKED"}$j$),
         (v_d05_inscripcion_estado, 'd05.inscripcion.estado.SUSPENDED', $j${"es": "SUSPENDED", "en": "SUSPENDED"}$j$, 1, true, 40, $j${"value": "SUSPENDED"}$j$);
 
-    -- idn_biometric_identification_log_result_check [bauth.idn_biometric_identification_log]
+    -- [MC-0151] T-283 | idn_biometric_identification_log_result_check [bauth.idn_biometric_identification_log] | Tabla: bauth.idn_biometric_identification_log.result | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d05.identificacion.resultado', $j${"es": "Resultado", "en": "Result"}$j$, 0, false, $j${"constraint": "idn_biometric_identification_log_result_check", "columns": ["bauth.idn_biometric_identification_log.result", "bauth.idn_biometric_identification_log_default.result"]}$j$)
     RETURNING item_id INTO v_d05_identificacion_resultado;
@@ -1581,7 +1581,7 @@ BEGIN
         (v_d05_identificacion_resultado, 'd05.identificacion.resultado.MULTIPLE_MATCH', $j${"es": "MULTIPLE_MATCH", "en": "MULTIPLE_MATCH"}$j$, 1, true, 30, $j${"value": "MULTIPLE_MATCH"}$j$),
         (v_d05_identificacion_resultado, 'd05.identificacion.resultado.NOT_IDENTIFIED', $j${"es": "NOT_IDENTIFIED", "en": "NOT_IDENTIFIED"}$j$, 1, true, 40, $j${"value": "NOT_IDENTIFIED"}$j$);
 
-    -- idn_biometric_pad_policy_fail_action_check [bauth.idn_biometric_pad_policy]
+    -- [MC-0152] T-282 | idn_biometric_pad_policy_fail_action_check [bauth.idn_biometric_pad_policy] | Tabla: bauth.idn_biometric_pad_policy.fail_action | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d05.pad.accion_fallo', $j${"es": "Acción en fallo", "en": "Fail Action"}$j$, 0, false, $j${"constraint": "idn_biometric_pad_policy_fail_action_check", "columns": ["bauth.idn_biometric_pad_policy.fail_action"]}$j$)
     RETURNING item_id INTO v_d05_pad_accion_fallo;
@@ -1593,7 +1593,7 @@ BEGIN
         (v_d05_pad_accion_fallo, 'd05.pad.accion_fallo.QUARANTINE', $j${"es": "QUARANTINE", "en": "QUARANTINE"}$j$, 1, true, 30, $j${"value": "QUARANTINE"}$j$),
         (v_d05_pad_accion_fallo, 'd05.pad.accion_fallo.STEP_UP', $j${"es": "STEP_UP", "en": "STEP_UP"}$j$, 1, true, 40, $j${"value": "STEP_UP"}$j$);
 
-    -- idn_biometric_pad_policy_pad_level_check [bauth.idn_biometric_pad_policy]
+    -- [MC-0153] T-282 | idn_biometric_pad_policy_pad_level_check [bauth.idn_biometric_pad_policy] | Tabla: bauth.idn_biometric_pad_policy.pad_level | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d05.pad.nivel_pad', $j${"es": "Nivel PAD (anti-spoofing)", "en": "Pad Level"}$j$, 0, false, $j${"constraint": "idn_biometric_pad_policy_pad_level_check", "columns": ["bauth.idn_biometric_pad_policy.pad_level"]}$j$)
     RETURNING item_id INTO v_d05_pad_nivel_pad;
@@ -1604,7 +1604,7 @@ BEGIN
         (v_d05_pad_nivel_pad, 'd05.pad.nivel_pad.LEVEL_2', $j${"es": "LEVEL_2", "en": "LEVEL_2"}$j$, 1, true, 20, $j${"value": "LEVEL_2"}$j$),
         (v_d05_pad_nivel_pad, 'd05.pad.nivel_pad.LEVEL_3', $j${"es": "LEVEL_3", "en": "LEVEL_3"}$j$, 1, true, 30, $j${"value": "LEVEL_3"}$j$);
 
-    -- idn_biometric_pad_policy_status_check [bauth.idn_biometric_pad_policy]
+    -- [MC-0154] T-282 | idn_biometric_pad_policy_status_check [bauth.idn_biometric_pad_policy] | Tabla: bauth.idn_biometric_pad_policy.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d05.pad.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "idn_biometric_pad_policy_status_check", "columns": ["bauth.idn_biometric_pad_policy.status", "bauth.idn_biometric_quality_policy.status", "bauth.idn_financial_sod_rule.status", "bauth.idn_geospatial_data_residency.status", "bauth.idn_geospatial_velocity_policy.status", "bauth.idn_network_context_propagation.status"]}$j$)
     RETURNING item_id INTO v_d05_pad_estado;
@@ -1614,7 +1614,7 @@ BEGIN
         (v_d05_pad_estado, 'd05.pad.estado.ACTIVE', $j${"es": "ACTIVE", "en": "ACTIVE"}$j$, 1, true, 10, $j${"value": "ACTIVE"}$j$),
         (v_d05_pad_estado, 'd05.pad.estado.DISABLED', $j${"es": "DISABLED", "en": "DISABLED"}$j$, 1, true, 20, $j${"value": "DISABLED"}$j$);
 
-    -- idn_biometric_revocation_revocation_reason_check [bauth.idn_biometric_revocation]
+    -- [MC-0155] T-285 | idn_biometric_revocation_revocation_reason_check [bauth.idn_biometric_revocation] | Tabla: bauth.idn_biometric_revocation.revocation_reason | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d05.revocacion_bio.motivo_revocacion', $j${"es": "Motivo de revocación", "en": "Revocation Reason"}$j$, 0, false, $j${"constraint": "idn_biometric_revocation_revocation_reason_check", "columns": ["bauth.idn_biometric_revocation.revocation_reason"]}$j$)
     RETURNING item_id INTO v_d05_revocacion_bio_motivo_revocacion;
@@ -1628,7 +1628,7 @@ BEGIN
         (v_d05_revocacion_bio_motivo_revocacion, 'd05.revocacion_bio.motivo_revocacion.QUALITY_DEGRADED', $j${"es": "QUALITY_DEGRADED", "en": "QUALITY_DEGRADED"}$j$, 1, true, 50, $j${"value": "QUALITY_DEGRADED"}$j$),
         (v_d05_revocacion_bio_motivo_revocacion, 'd05.revocacion_bio.motivo_revocacion.USER_REQUEST', $j${"es": "USER_REQUEST", "en": "USER_REQUEST"}$j$, 1, true, 60, $j${"value": "USER_REQUEST"}$j$);
 
-    -- idn_biometric_verification_log_outcome_check [bauth.idn_biometric_verification_log]
+    -- [MC-0156] T-281 | idn_biometric_verification_log_outcome_check [bauth.idn_biometric_verification_log] | Tabla: bauth.idn_biometric_verification_log.outcome | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d05.verificacion_bio.resultado', $j${"es": "Resultado", "en": "Outcome"}$j$, 0, false, $j${"constraint": "idn_biometric_verification_log_outcome_check", "columns": ["bauth.idn_biometric_verification_log.outcome", "bauth.idn_biometric_verification_log_2026_07.outcome", "bauth.idn_biometric_verification_log_2026_08.outcome", "bauth.idn_biometric_verification_log_default.outcome"]}$j$)
     RETURNING item_id INTO v_d05_verificacion_bio_resultado;
@@ -1642,7 +1642,7 @@ BEGIN
         (v_d05_verificacion_bio_resultado, 'd05.verificacion_bio.resultado.QUALITY_FAIL', $j${"es": "QUALITY_FAIL", "en": "QUALITY_FAIL"}$j$, 1, true, 50, $j${"value": "QUALITY_FAIL"}$j$),
         (v_d05_verificacion_bio_resultado, 'd05.verificacion_bio.resultado.TIMEOUT', $j${"es": "TIMEOUT", "en": "TIMEOUT"}$j$, 1, true, 60, $j${"value": "TIMEOUT"}$j$);
 
-    -- idn_blockchain_anchor_ext_source_event_type_check [bauth.idn_blockchain_anchor_ext]
+    -- [MC-0185] T-425 | idn_blockchain_anchor_ext_source_event_type_check [bauth.idn_blockchain_anchor_ext] | Tabla: bauth.idn_blockchain_anchor_ext.source_event_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d12.ancla.tipo_evento_fuente', $j${"es": "Tipo de evento fuente", "en": "Source Event Type"}$j$, 0, false, $j${"constraint": "idn_blockchain_anchor_ext_source_event_type_check", "columns": ["bauth.idn_blockchain_anchor_ext.source_event_type"]}$j$)
     RETURNING item_id INTO v_d12_ancla_tipo_evento_fuente;
@@ -1655,7 +1655,7 @@ BEGIN
         (v_d12_ancla_tipo_evento_fuente, 'd12.ancla.tipo_evento_fuente.SOD_VIOLATION', $j${"es": "SOD_VIOLATION", "en": "SOD_VIOLATION"}$j$, 1, true, 40, $j${"value": "SOD_VIOLATION"}$j$),
         (v_d12_ancla_tipo_evento_fuente, 'd12.ancla.tipo_evento_fuente.VC_ISSUED', $j${"es": "VC_ISSUED", "en": "VC_ISSUED"}$j$, 1, true, 50, $j${"value": "VC_ISSUED"}$j$);
 
-    -- idn_blockchain_node_status_check [bauth.idn_blockchain_node]
+    -- [MC-0186] T-429 | idn_blockchain_node_status_check [bauth.idn_blockchain_node] | Tabla: bauth.idn_blockchain_node.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d12.nodo.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "idn_blockchain_node_status_check", "columns": ["bauth.idn_blockchain_node.status"]}$j$)
     RETURNING item_id INTO v_d12_nodo_estado;
@@ -1667,7 +1667,7 @@ BEGIN
         (v_d12_nodo_estado, 'd12.nodo.estado.OFFLINE', $j${"es": "OFFLINE", "en": "OFFLINE"}$j$, 1, true, 30, $j${"value": "OFFLINE"}$j$),
         (v_d12_nodo_estado, 'd12.nodo.estado.SYNCING', $j${"es": "SYNCING", "en": "SYNCING"}$j$, 1, true, 40, $j${"value": "SYNCING"}$j$);
 
-    -- idn_blockchain_transaction_status_check [bauth.idn_blockchain_transaction]
+    -- [MC-0187] T-426 | idn_blockchain_transaction_status_check [bauth.idn_blockchain_transaction] | Tabla: bauth.idn_blockchain_transaction.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d12.transaccion.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "idn_blockchain_transaction_status_check", "columns": ["bauth.idn_blockchain_transaction.status"]}$j$)
     RETURNING item_id INTO v_d12_transaccion_estado;
@@ -1679,7 +1679,7 @@ BEGIN
         (v_d12_transaccion_estado, 'd12.transaccion.estado.PENDING', $j${"es": "PENDING", "en": "PENDING"}$j$, 1, true, 30, $j${"value": "PENDING"}$j$),
         (v_d12_transaccion_estado, 'd12.transaccion.estado.REVERTED', $j${"es": "REVERTED", "en": "REVERTED"}$j$, 1, true, 40, $j${"value": "REVERTED"}$j$);
 
-    -- idn_blockchain_transaction_tx_type_check [bauth.idn_blockchain_transaction]
+    -- [MC-0188] T-426 | idn_blockchain_transaction_tx_type_check [bauth.idn_blockchain_transaction] | Tabla: bauth.idn_blockchain_transaction.tx_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d12.transaccion.tipo_tx', $j${"es": "Tipo de transacción blockchain", "en": "Tx Type"}$j$, 0, false, $j${"constraint": "idn_blockchain_transaction_tx_type_check", "columns": ["bauth.idn_blockchain_transaction.tx_type"]}$j$)
     RETURNING item_id INTO v_d12_transaccion_tipo_tx;
@@ -1693,7 +1693,7 @@ BEGIN
         (v_d12_transaccion_tipo_tx, 'd12.transaccion.tipo_tx.SETTLE', $j${"es": "SETTLE", "en": "SETTLE"}$j$, 1, true, 50, $j${"value": "SETTLE"}$j$),
         (v_d12_transaccion_tipo_tx, 'd12.transaccion.tipo_tx.UNFREEZE', $j${"es": "UNFREEZE", "en": "UNFREEZE"}$j$, 1, true, 60, $j${"value": "UNFREEZE"}$j$);
 
-    -- idn_blockchain_wallet_chain_check [bauth.idn_blockchain_wallet]
+    -- [MC-0189] T-427 | idn_blockchain_wallet_chain_check [bauth.idn_blockchain_wallet] | Tabla: bauth.idn_blockchain_wallet.chain | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d12.wallet.cadena', $j${"es": "Cadena", "en": "Chain"}$j$, 0, false, $j${"constraint": "idn_blockchain_wallet_chain_check", "columns": ["bauth.idn_blockchain_wallet.chain"]}$j$)
     RETURNING item_id INTO v_d12_wallet_cadena;
@@ -1703,7 +1703,7 @@ BEGIN
         (v_d12_wallet_cadena, 'd12.wallet.cadena.ARBITRUM', $j${"es": "ARBITRUM", "en": "ARBITRUM"}$j$, 1, true, 10, $j${"value": "ARBITRUM"}$j$),
         (v_d12_wallet_cadena, 'd12.wallet.cadena.BESU_QBFT', $j${"es": "BESU_QBFT", "en": "BESU_QBFT"}$j$, 1, true, 20, $j${"value": "BESU_QBFT"}$j$);
 
-    -- idn_blockchain_wallet_status_check [bauth.idn_blockchain_wallet]
+    -- [MC-0190] T-427 | idn_blockchain_wallet_status_check [bauth.idn_blockchain_wallet] | Tabla: bauth.idn_blockchain_wallet.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d12.wallet.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "idn_blockchain_wallet_status_check", "columns": ["bauth.idn_blockchain_wallet.status"]}$j$)
     RETURNING item_id INTO v_d12_wallet_estado;
@@ -1714,7 +1714,7 @@ BEGIN
         (v_d12_wallet_estado, 'd12.wallet.estado.DECOMMISSIONED', $j${"es": "DECOMMISSIONED", "en": "DECOMMISSIONED"}$j$, 1, true, 20, $j${"value": "DECOMMISSIONED"}$j$),
         (v_d12_wallet_estado, 'd12.wallet.estado.FROZEN', $j${"es": "FROZEN", "en": "FROZEN"}$j$, 1, true, 30, $j${"value": "FROZEN"}$j$);
 
-    -- chk_idcr_motivo [bauth.idn_credencial_revocacion]
+    -- [MC-0172] T-525 | chk_idcr_motivo [bauth.idn_credencial_revocacion] | Tabla: bauth.idn_credencial_revocacion.motivo | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d09.revocacion_cred.motivo', $j${"es": "Motivo", "en": "Motivo"}$j$, 0, false, $j${"constraint": "chk_idcr_motivo", "columns": ["bauth.idn_credencial_revocacion.motivo"]}$j$)
     RETURNING item_id INTO v_d09_revocacion_cred_motivo;
@@ -1728,7 +1728,7 @@ BEGIN
         (v_d09_revocacion_cred_motivo, 'd09.revocacion_cred.motivo.ROTATION', $j${"es": "ROTATION", "en": "ROTATION"}$j$, 1, true, 50, $j${"value": "ROTATION"}$j$),
         (v_d09_revocacion_cred_motivo, 'd09.revocacion_cred.motivo.USER_REQUEST', $j${"es": "USER_REQUEST", "en": "USER_REQUEST"}$j$, 1, true, 60, $j${"value": "USER_REQUEST"}$j$);
 
-    -- idn_credential_token_issued_revocation_reason_check [bauth.idn_credential_token_issued]
+    -- [MC-0173] T-363 | idn_credential_token_issued_revocation_reason_check [bauth.idn_credential_token_issued] | Tabla: bauth.idn_credential_token_issued.revocation_reason | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d09.token.motivo_revocacion', $j${"es": "Motivo de revocación", "en": "Revocation Reason"}$j$, 0, false, $j${"constraint": "idn_credential_token_issued_revocation_reason_check", "columns": ["bauth.idn_credential_token_issued.revocation_reason", "bauth.idn_credential_token_issued_2026_07.revocation_reason", "bauth.idn_credential_token_issued_2026_08.revocation_reason", "bauth.idn_credential_token_issued_2026_09.revocation_reason", "bauth.idn_credential_token_issued_default.revocation_reason"]}$j$)
     RETURNING item_id INTO v_d09_token_motivo_revocacion;
@@ -1741,7 +1741,7 @@ BEGIN
         (v_d09_token_motivo_revocacion, 'd09.token.motivo_revocacion.SUSPICIOUS_ACTIVITY', $j${"es": "SUSPICIOUS_ACTIVITY", "en": "SUSPICIOUS_ACTIVITY"}$j$, 1, true, 40, $j${"value": "SUSPICIOUS_ACTIVITY"}$j$),
         (v_d09_token_motivo_revocacion, 'd09.token.motivo_revocacion.USER_LOGOUT', $j${"es": "USER_LOGOUT", "en": "USER_LOGOUT"}$j$, 1, true, 50, $j${"value": "USER_LOGOUT"}$j$);
 
-    -- idn_credential_token_issued_token_type_check [bauth.idn_credential_token_issued]
+    -- [MC-0174] T-363 | idn_credential_token_issued_token_type_check [bauth.idn_credential_token_issued] | Tabla: bauth.idn_credential_token_issued.token_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d09.token.tipo_token', $j${"es": "Tipo de token", "en": "Token Type"}$j$, 0, false, $j${"constraint": "idn_credential_token_issued_token_type_check", "columns": ["bauth.idn_credential_token_issued.token_type", "bauth.idn_credential_token_issued_2026_07.token_type", "bauth.idn_credential_token_issued_2026_08.token_type", "bauth.idn_credential_token_issued_2026_09.token_type", "bauth.idn_credential_token_issued_default.token_type"]}$j$)
     RETURNING item_id INTO v_d09_token_tipo_token;
@@ -1754,7 +1754,7 @@ BEGIN
         (v_d09_token_tipo_token, 'd09.token.tipo_token.ID', $j${"es": "ID", "en": "ID"}$j$, 1, true, 40, $j${"value": "ID"}$j$),
         (v_d09_token_tipo_token, 'd09.token.tipo_token.REFRESH', $j${"es": "REFRESH", "en": "REFRESH"}$j$, 1, true, 50, $j${"value": "REFRESH"}$j$);
 
-    -- idn_delegation_grant_delegation_type_check [bauth.idn_delegation_grant]
+    -- [MC-0175] T-415 | idn_delegation_grant_delegation_type_check [bauth.idn_delegation_grant] | Tabla: bauth.idn_delegation_grant.delegation_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d10.delegacion.tipo_delegacion', $j${"es": "Tipo de delegación", "en": "Delegation Type"}$j$, 0, false, $j${"constraint": "idn_delegation_grant_delegation_type_check", "columns": ["bauth.idn_delegation_grant.delegation_type"]}$j$)
     RETURNING item_id INTO v_d10_delegacion_tipo_delegacion;
@@ -1766,7 +1766,7 @@ BEGIN
         (v_d10_delegacion_tipo_delegacion, 'd10.delegacion.tipo_delegacion.PROXY', $j${"es": "PROXY", "en": "PROXY"}$j$, 1, true, 30, $j${"value": "PROXY"}$j$),
         (v_d10_delegacion_tipo_delegacion, 'd10.delegacion.tipo_delegacion.TOKEN_EXCHANGE', $j${"es": "TOKEN_EXCHANGE", "en": "TOKEN_EXCHANGE"}$j$, 1, true, 40, $j${"value": "TOKEN_EXCHANGE"}$j$);
 
-    -- idn_delegation_rar_request_status_check [bauth.idn_delegation_rar_request]
+    -- [MC-0176] T-420 | idn_delegation_rar_request_status_check [bauth.idn_delegation_rar_request] | Tabla: bauth.idn_delegation_rar_request.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d10.rar.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "idn_delegation_rar_request_status_check", "columns": ["bauth.idn_delegation_rar_request.status"]}$j$)
     RETURNING item_id INTO v_d10_rar_estado;
@@ -1778,7 +1778,7 @@ BEGIN
         (v_d10_rar_estado, 'd10.rar.estado.PENDING', $j${"es": "PENDING", "en": "PENDING"}$j$, 1, true, 30, $j${"value": "PENDING"}$j$),
         (v_d10_rar_estado, 'd10.rar.estado.REJECTED', $j${"es": "REJECTED", "en": "REJECTED"}$j$, 1, true, 40, $j${"value": "REJECTED"}$j$);
 
-    -- idn_delegation_restriction_restriction_type_check [bauth.idn_delegation_restriction]
+    -- [MC-0177] T-417 | idn_delegation_restriction_restriction_type_check [bauth.idn_delegation_restriction] | Tabla: bauth.idn_delegation_restriction.restriction_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d10.restriccion.tipo_restriccion', $j${"es": "Tipo de restricción", "en": "Restriction Type"}$j$, 0, false, $j${"constraint": "idn_delegation_restriction_restriction_type_check", "columns": ["bauth.idn_delegation_restriction.restriction_type"]}$j$)
     RETURNING item_id INTO v_d10_restriccion_tipo_restriccion;
@@ -1791,7 +1791,7 @@ BEGIN
         (v_d10_restriccion_tipo_restriccion, 'd10.restriccion.tipo_restriccion.RESOURCE_LIMIT', $j${"es": "RESOURCE_LIMIT", "en": "RESOURCE_LIMIT"}$j$, 1, true, 40, $j${"value": "RESOURCE_LIMIT"}$j$),
         (v_d10_restriccion_tipo_restriccion, 'd10.restriccion.tipo_restriccion.SCOPE_LIMIT', $j${"es": "SCOPE_LIMIT", "en": "SCOPE_LIMIT"}$j$, 1, true, 50, $j${"value": "SCOPE_LIMIT"}$j$);
 
-    -- idn_delegation_usage_log_outcome_check [bauth.idn_delegation_usage_log]
+    -- [MC-0178] T-419 | idn_delegation_usage_log_outcome_check [bauth.idn_delegation_usage_log] | Tabla: bauth.idn_delegation_usage_log.outcome | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d10.uso_delegacion.resultado', $j${"es": "Resultado", "en": "Outcome"}$j$, 0, false, $j${"constraint": "idn_delegation_usage_log_outcome_check", "columns": ["bauth.idn_delegation_usage_log.outcome", "bauth.idn_delegation_usage_log_2026_07.outcome", "bauth.idn_delegation_usage_log_2026_08.outcome", "bauth.idn_delegation_usage_log_default.outcome"]}$j$)
     RETURNING item_id INTO v_d10_uso_delegacion_resultado;
@@ -1802,7 +1802,7 @@ BEGIN
         (v_d10_uso_delegacion_resultado, 'd10.uso_delegacion.resultado.ERROR', $j${"es": "ERROR", "en": "ERROR"}$j$, 1, true, 20, $j${"value": "ERROR"}$j$),
         (v_d10_uso_delegacion_resultado, 'd10.uso_delegacion.resultado.PERMIT', $j${"es": "PERMIT", "en": "PERMIT"}$j$, 1, true, 30, $j${"value": "PERMIT"}$j$);
 
-    -- chk_idd_status [bauth.idn_did_document]
+    -- [MC-0096] T-529 | chk_idd_status [bauth.idn_did_document] | Tabla: bauth.idn_did_document.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('identidad.did.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "chk_idd_status", "columns": ["bauth.idn_did_document.status"]}$j$)
     RETURNING item_id INTO v_identidad_did_estado;
@@ -1814,7 +1814,7 @@ BEGIN
         (v_identidad_did_estado, 'identidad.did.estado.EXPIRED', $j${"es": "EXPIRED", "en": "EXPIRED"}$j$, 1, true, 30, $j${"value": "EXPIRED"}$j$),
         (v_identidad_did_estado, 'identidad.did.estado.INVALID', $j${"es": "INVALID", "en": "INVALID"}$j$, 1, true, 40, $j${"value": "INVALID"}$j$);
 
-    -- chk_idpia_estado [bauth.idn_dpia_registro]
+    -- [MC-0284] T-530 | chk_idpia_estado [bauth.idn_dpia_registro] | Tabla: bauth.idn_dpia_registro.estado | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('privacidad.dpia_reg.estado', $j${"es": "Estado", "en": "Estado"}$j$, 0, false, $j${"constraint": "chk_idpia_estado", "columns": ["bauth.idn_dpia_registro.estado"]}$j$)
     RETURNING item_id INTO v_privacidad_dpia_reg_estado;
@@ -1828,7 +1828,7 @@ BEGIN
         (v_privacidad_dpia_reg_estado, 'privacidad.dpia_reg.estado.REJECTED', $j${"es": "REJECTED", "en": "REJECTED"}$j$, 1, true, 50, $j${"value": "REJECTED"}$j$),
         (v_privacidad_dpia_reg_estado, 'privacidad.dpia_reg.estado.REQUIRES_DPA', $j${"es": "REQUIRES_DPA", "en": "REQUIRES_DPA"}$j$, 1, true, 60, $j${"value": "REQUIRES_DPA"}$j$);
 
-    -- chk_idpia_riesgo [bauth.idn_dpia_registro]
+    -- [MC-0285] T-530 | chk_idpia_riesgo [bauth.idn_dpia_registro] | Tabla: bauth.idn_dpia_registro.riesgo_residual | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('privacidad.dpia_reg.riesgo_residual', $j${"es": "Riesgo residual (DPIA)", "en": "Riesgo Residual"}$j$, 0, false, $j${"constraint": "chk_idpia_riesgo", "columns": ["bauth.idn_dpia_registro.riesgo_residual"]}$j$)
     RETURNING item_id INTO v_privacidad_dpia_reg_riesgo_residual;
@@ -1872,7 +1872,7 @@ DECLARE
     v_d99_hitl_tipo_entidad UUID;
 BEGIN
 
-    -- idn_financial_approval_operation_type_check [bauth.idn_financial_approval]
+    -- [MC-0131] T-241 | idn_financial_approval_operation_type_check [bauth.idn_financial_approval] | Tabla: bauth.idn_financial_approval.operation_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d03.aprobacion.tipo_operacion', $j${"es": "Tipo de operación", "en": "Operation Type"}$j$, 0, false, $j${"constraint": "idn_financial_approval_operation_type_check", "columns": ["bauth.idn_financial_approval.operation_type"]}$j$)
     RETURNING item_id INTO v_d03_aprobacion_tipo_operacion;
@@ -1885,7 +1885,7 @@ BEGIN
         (v_d03_aprobacion_tipo_operacion, 'd03.aprobacion.tipo_operacion.PAYMENT', $j${"es": "PAYMENT", "en": "PAYMENT"}$j$, 1, true, 40, $j${"value": "PAYMENT"}$j$),
         (v_d03_aprobacion_tipo_operacion, 'd03.aprobacion.tipo_operacion.TRANSFER', $j${"es": "TRANSFER", "en": "TRANSFER"}$j$, 1, true, 50, $j${"value": "TRANSFER"}$j$);
 
-    -- idn_financial_approval_vote_decision_check [bauth.idn_financial_approval_vote]
+    -- [MC-0132] T-248 | idn_financial_approval_vote_decision_check [bauth.idn_financial_approval_vote] | Tabla: bauth.idn_financial_approval_vote.decision | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d03.voto.decision', $j${"es": "Decisión", "en": "Decision"}$j$, 0, false, $j${"constraint": "idn_financial_approval_vote_decision_check", "columns": ["bauth.idn_financial_approval_vote.decision"]}$j$)
     RETURNING item_id INTO v_d03_voto_decision;
@@ -1896,7 +1896,7 @@ BEGIN
         (v_d03_voto_decision, 'd03.voto.decision.APPROVE', $j${"es": "APPROVE", "en": "APPROVE"}$j$, 1, true, 20, $j${"value": "APPROVE"}$j$),
         (v_d03_voto_decision, 'd03.voto.decision.REJECT', $j${"es": "REJECT", "en": "REJECT"}$j$, 1, true, 30, $j${"value": "REJECT"}$j$);
 
-    -- idn_financial_fraud_alert_alert_type_check [bauth.idn_financial_fraud_alert]
+    -- [MC-0133] T-245 | idn_financial_fraud_alert_alert_type_check [bauth.idn_financial_fraud_alert] | Tabla: bauth.idn_financial_fraud_alert.alert_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d03.fraude.tipo_alerta', $j${"es": "Tipo de alerta de fraude", "en": "Alert Type"}$j$, 0, false, $j${"constraint": "idn_financial_fraud_alert_alert_type_check", "columns": ["bauth.idn_financial_fraud_alert.alert_type"]}$j$)
     RETURNING item_id INTO v_d03_fraude_tipo_alerta;
@@ -1910,7 +1910,7 @@ BEGIN
         (v_d03_fraude_tipo_alerta, 'd03.fraude.tipo_alerta.UNUSUAL_AMOUNT', $j${"es": "UNUSUAL_AMOUNT", "en": "UNUSUAL_AMOUNT"}$j$, 1, true, 50, $j${"value": "UNUSUAL_AMOUNT"}$j$),
         (v_d03_fraude_tipo_alerta, 'd03.fraude.tipo_alerta.VELOCITY_CHECK', $j${"es": "VELOCITY_CHECK", "en": "VELOCITY_CHECK"}$j$, 1, true, 60, $j${"value": "VELOCITY_CHECK"}$j$);
 
-    -- idn_financial_fraud_alert_result_check [bauth.idn_financial_fraud_alert]
+    -- [MC-0134] T-245 | idn_financial_fraud_alert_result_check [bauth.idn_financial_fraud_alert] | Tabla: bauth.idn_financial_fraud_alert.result | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d03.fraude.resultado', $j${"es": "Resultado", "en": "Result"}$j$, 0, false, $j${"constraint": "idn_financial_fraud_alert_result_check", "columns": ["bauth.idn_financial_fraud_alert.result"]}$j$)
     RETURNING item_id INTO v_d03_fraude_resultado;
@@ -1922,7 +1922,7 @@ BEGIN
         (v_d03_fraude_resultado, 'd03.fraude.resultado.FRAUD_CONFIRMED', $j${"es": "FRAUD_CONFIRMED", "en": "FRAUD_CONFIRMED"}$j$, 1, true, 30, $j${"value": "FRAUD_CONFIRMED"}$j$),
         (v_d03_fraude_resultado, 'd03.fraude.resultado.PENDING', $j${"es": "PENDING", "en": "PENDING"}$j$, 1, true, 40, $j${"value": "PENDING"}$j$);
 
-    -- idn_financial_invoice_auth_sin_status_check [bauth.idn_financial_invoice_auth]
+    -- [MC-0135] T-534 | idn_financial_invoice_auth_sin_status_check [bauth.idn_financial_invoice_auth] | Tabla: bauth.idn_financial_invoice_auth.sin_status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d03.factura.estado_sin', $j${"es": "Estado SIN Bolivia", "en": "Sin Status"}$j$, 0, false, $j${"constraint": "idn_financial_invoice_auth_sin_status_check", "columns": ["bauth.idn_financial_invoice_auth.sin_status"]}$j$)
     RETURNING item_id INTO v_d03_factura_estado_sin;
@@ -1935,7 +1935,7 @@ BEGIN
         (v_d03_factura_estado_sin, 'd03.factura.estado_sin.PENDING', $j${"es": "PENDING", "en": "PENDING"}$j$, 1, true, 40, $j${"value": "PENDING"}$j$),
         (v_d03_factura_estado_sin, 'd03.factura.estado_sin.REJECTED', $j${"es": "REJECTED", "en": "REJECTED"}$j$, 1, true, 50, $j${"value": "REJECTED"}$j$);
 
-    -- idn_financial_limit_operation_type_check [bauth.idn_financial_limit]
+    -- [MC-0136] T-240 | idn_financial_limit_operation_type_check [bauth.idn_financial_limit] | Tabla: bauth.idn_financial_limit.operation_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d03.limite.tipo_operacion', $j${"es": "Tipo de operación", "en": "Operation Type"}$j$, 0, false, $j${"constraint": "idn_financial_limit_operation_type_check", "columns": ["bauth.idn_financial_limit.operation_type"]}$j$)
     RETURNING item_id INTO v_d03_limite_tipo_operacion;
@@ -1949,7 +1949,7 @@ BEGIN
         (v_d03_limite_tipo_operacion, 'd03.limite.tipo_operacion.PAYMENT', $j${"es": "PAYMENT", "en": "PAYMENT"}$j$, 1, true, 50, $j${"value": "PAYMENT"}$j$),
         (v_d03_limite_tipo_operacion, 'd03.limite.tipo_operacion.TRANSFER', $j${"es": "TRANSFER", "en": "TRANSFER"}$j$, 1, true, 60, $j${"value": "TRANSFER"}$j$);
 
-    -- idn_financial_limit_scope_check [bauth.idn_financial_limit]
+    -- [MC-0137] T-240 | idn_financial_limit_scope_check [bauth.idn_financial_limit] | Tabla: bauth.idn_financial_limit.scope | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d03.limite.alcance', $j${"es": "Alcance", "en": "Scope"}$j$, 0, false, $j${"constraint": "idn_financial_limit_scope_check", "columns": ["bauth.idn_financial_limit.scope"]}$j$)
     RETURNING item_id INTO v_d03_limite_alcance;
@@ -1961,7 +1961,7 @@ BEGIN
         (v_d03_limite_alcance, 'd03.limite.alcance.ROLE', $j${"es": "ROLE", "en": "ROLE"}$j$, 1, true, 30, $j${"value": "ROLE"}$j$),
         (v_d03_limite_alcance, 'd03.limite.alcance.USER', $j${"es": "USER", "en": "USER"}$j$, 1, true, 40, $j${"value": "USER"}$j$);
 
-    -- idn_financial_limit_status_check [bauth.idn_financial_limit]
+    -- [MC-0138] T-240 | idn_financial_limit_status_check [bauth.idn_financial_limit] | Tabla: bauth.idn_financial_limit.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d03.limite.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "idn_financial_limit_status_check", "columns": ["bauth.idn_financial_limit.status", "bauth.idn_geospatial_geofence.status", "bauth.idn_network_connection_policy.status", "bauth.idn_network_dlp_policy.status", "bauth.idn_network_posture_policy.status"]}$j$)
     RETURNING item_id INTO v_d03_limite_estado;
@@ -1972,7 +1972,7 @@ BEGIN
         (v_d03_limite_estado, 'd03.limite.estado.DISABLED', $j${"es": "DISABLED", "en": "DISABLED"}$j$, 1, true, 20, $j${"value": "DISABLED"}$j$),
         (v_d03_limite_estado, 'd03.limite.estado.DRAFT', $j${"es": "DRAFT", "en": "DRAFT"}$j$, 1, true, 30, $j${"value": "DRAFT"}$j$);
 
-    -- idn_financial_reconciliation_reconciliation_type_check [bauth.idn_financial_reconciliation]
+    -- [MC-0139] T-246 | idn_financial_reconciliation_reconciliation_type_check [bauth.idn_financial_reconciliation] | Tabla: bauth.idn_financial_reconciliation.reconciliation_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d03.reconciliacion.tipo_reconciliacion', $j${"es": "Tipo de reconciliación", "en": "Reconciliation Type"}$j$, 0, false, $j${"constraint": "idn_financial_reconciliation_reconciliation_type_check", "columns": ["bauth.idn_financial_reconciliation.reconciliation_type"]}$j$)
     RETURNING item_id INTO v_d03_reconciliacion_tipo_reconciliacion;
@@ -1984,7 +1984,7 @@ BEGIN
         (v_d03_reconciliacion_tipo_reconciliacion, 'd03.reconciliacion.tipo_reconciliacion.MONTHLY', $j${"es": "MONTHLY", "en": "MONTHLY"}$j$, 1, true, 30, $j${"value": "MONTHLY"}$j$),
         (v_d03_reconciliacion_tipo_reconciliacion, 'd03.reconciliacion.tipo_reconciliacion.QUARTERLY', $j${"es": "QUARTERLY", "en": "QUARTERLY"}$j$, 1, true, 40, $j${"value": "QUARTERLY"}$j$);
 
-    -- idn_financial_reconciliation_status_check [bauth.idn_financial_reconciliation]
+    -- [MC-0140] T-246 | idn_financial_reconciliation_status_check [bauth.idn_financial_reconciliation] | Tabla: bauth.idn_financial_reconciliation.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d03.reconciliacion.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "idn_financial_reconciliation_status_check", "columns": ["bauth.idn_financial_reconciliation.status"]}$j$)
     RETURNING item_id INTO v_d03_reconciliacion_estado;
@@ -1997,7 +1997,7 @@ BEGIN
         (v_d03_reconciliacion_estado, 'd03.reconciliacion.estado.PENDING', $j${"es": "PENDING", "en": "PENDING"}$j$, 1, true, 40, $j${"value": "PENDING"}$j$),
         (v_d03_reconciliacion_estado, 'd03.reconciliacion.estado.WITH_DIFFERENCES', $j${"es": "WITH_DIFFERENCES", "en": "WITH_DIFFERENCES"}$j$, 1, true, 50, $j${"value": "WITH_DIFFERENCES"}$j$);
 
-    -- idn_financial_report_report_type_check [bauth.idn_financial_report]
+    -- [MC-0141] T-244 | idn_financial_report_report_type_check [bauth.idn_financial_report] | Tabla: bauth.idn_financial_report.report_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d03.reporte.tipo_reporte', $j${"es": "Tipo de reporte", "en": "Report Type"}$j$, 0, false, $j${"constraint": "idn_financial_report_report_type_check", "columns": ["bauth.idn_financial_report.report_type"]}$j$)
     RETURNING item_id INTO v_d03_reporte_tipo_reporte;
@@ -2012,7 +2012,7 @@ BEGIN
         (v_d03_reporte_tipo_reporte, 'd03.reporte.tipo_reporte.SOX_302', $j${"es": "SOX_302", "en": "SOX_302"}$j$, 1, true, 60, $j${"value": "SOX_302"}$j$),
         (v_d03_reporte_tipo_reporte, 'd03.reporte.tipo_reporte.SOX_404', $j${"es": "SOX_404", "en": "SOX_404"}$j$, 1, true, 70, $j${"value": "SOX_404"}$j$);
 
-    -- idn_financial_report_status_check [bauth.idn_financial_report]
+    -- [MC-0142] T-244 | idn_financial_report_status_check [bauth.idn_financial_report] | Tabla: bauth.idn_financial_report.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d03.reporte.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "idn_financial_report_status_check", "columns": ["bauth.idn_financial_report.status"]}$j$)
     RETURNING item_id INTO v_d03_reporte_estado;
@@ -2025,7 +2025,7 @@ BEGIN
         (v_d03_reporte_estado, 'd03.reporte.estado.PUBLISHED', $j${"es": "PUBLISHED", "en": "PUBLISHED"}$j$, 1, true, 40, $j${"value": "PUBLISHED"}$j$),
         (v_d03_reporte_estado, 'd03.reporte.estado.REVIEW', $j${"es": "REVIEW", "en": "REVIEW"}$j$, 1, true, 50, $j${"value": "REVIEW"}$j$);
 
-    -- idn_financial_sod_rule_conflict_type_check [bauth.idn_financial_sod_rule]
+    -- [MC-0143] T-242 | idn_financial_sod_rule_conflict_type_check [bauth.idn_financial_sod_rule] | Tabla: bauth.idn_financial_sod_rule.conflict_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d03.sod.tipo_conflicto', $j${"es": "Tipo de conflicto", "en": "Conflict Type"}$j$, 0, false, $j${"constraint": "idn_financial_sod_rule_conflict_type_check", "columns": ["bauth.idn_financial_sod_rule.conflict_type"]}$j$)
     RETURNING item_id INTO v_d03_sod_tipo_conflicto;
@@ -2036,7 +2036,7 @@ BEGIN
         (v_d03_sod_tipo_conflicto, 'd03.sod.tipo_conflicto.REQUIRES_APPROVAL', $j${"es": "REQUIRES_APPROVAL", "en": "REQUIRES_APPROVAL"}$j$, 1, true, 20, $j${"value": "REQUIRES_APPROVAL"}$j$),
         (v_d03_sod_tipo_conflicto, 'd03.sod.tipo_conflicto.SEQUENTIAL_ONLY', $j${"es": "SEQUENTIAL_ONLY", "en": "SEQUENTIAL_ONLY"}$j$, 1, true, 30, $j${"value": "SEQUENTIAL_ONLY"}$j$);
 
-    -- idn_financial_tpp_consent_fapi_profile_check [bauth.idn_financial_tpp_consent]
+    -- [MC-0144] T-247 | idn_financial_tpp_consent_fapi_profile_check [bauth.idn_financial_tpp_consent] | Tabla: bauth.idn_financial_tpp_consent.fapi_profile | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d03.tpp.perfil_fapi', $j${"es": "Perfil FAPI", "en": "Fapi Profile"}$j$, 0, false, $j${"constraint": "idn_financial_tpp_consent_fapi_profile_check", "columns": ["bauth.idn_financial_tpp_consent.fapi_profile"]}$j$)
     RETURNING item_id INTO v_d03_tpp_perfil_fapi;
@@ -2046,7 +2046,7 @@ BEGIN
         (v_d03_tpp_perfil_fapi, 'd03.tpp.perfil_fapi.FAPI_1_0', $j${"es": "FAPI_1_0", "en": "FAPI_1_0"}$j$, 1, true, 10, $j${"value": "FAPI_1_0"}$j$),
         (v_d03_tpp_perfil_fapi, 'd03.tpp.perfil_fapi.FAPI_2_0', $j${"es": "FAPI_2_0", "en": "FAPI_2_0"}$j$, 1, true, 20, $j${"value": "FAPI_2_0"}$j$);
 
-    -- idn_financial_tpp_consent_revoked_by_check [bauth.idn_financial_tpp_consent]
+    -- [MC-0145] T-247 | idn_financial_tpp_consent_revoked_by_check [bauth.idn_financial_tpp_consent] | Tabla: bauth.idn_financial_tpp_consent.revoked_by | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d03.tpp.revocado_por', $j${"es": "Revocado por", "en": "Revoked By"}$j$, 0, false, $j${"constraint": "idn_financial_tpp_consent_revoked_by_check", "columns": ["bauth.idn_financial_tpp_consent.revoked_by"]}$j$)
     RETURNING item_id INTO v_d03_tpp_revocado_por;
@@ -2059,7 +2059,7 @@ BEGIN
         (v_d03_tpp_revocado_por, 'd03.tpp.revocado_por.TPP', $j${"es": "TPP", "en": "TPP"}$j$, 1, true, 40, $j${"value": "TPP"}$j$),
         (v_d03_tpp_revocado_por, 'd03.tpp.revocado_por.USER', $j${"es": "USER", "en": "USER"}$j$, 1, true, 50, $j${"value": "USER"}$j$);
 
-    -- idn_geospatial_data_residency_apply_to_check [bauth.idn_geospatial_data_residency]
+    -- [MC-0157] T-304 | idn_geospatial_data_residency_apply_to_check [bauth.idn_geospatial_data_residency] | Tabla: bauth.idn_geospatial_data_residency.apply_to | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d06.residencia.aplica_a', $j${"es": "Aplica a", "en": "Apply To"}$j$, 0, false, $j${"constraint": "idn_geospatial_data_residency_apply_to_check", "columns": ["bauth.idn_geospatial_data_residency.apply_to"]}$j$)
     RETURNING item_id INTO v_d06_residencia_aplica_a;
@@ -2071,7 +2071,7 @@ BEGIN
         (v_d06_residencia_aplica_a, 'd06.residencia.aplica_a.DATA_RESIDENCY', $j${"es": "DATA_RESIDENCY", "en": "DATA_RESIDENCY"}$j$, 1, true, 30, $j${"value": "DATA_RESIDENCY"}$j$),
         (v_d06_residencia_aplica_a, 'd06.residencia.aplica_a.STORAGE', $j${"es": "STORAGE", "en": "STORAGE"}$j$, 1, true, 40, $j${"value": "STORAGE"}$j$);
 
-    -- idn_geospatial_data_residency_violation_action_check [bauth.idn_geospatial_data_residency]
+    -- [MC-0158] T-304 | idn_geospatial_data_residency_violation_action_check [bauth.idn_geospatial_data_residency] | Tabla: bauth.idn_geospatial_data_residency.violation_action | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d06.residencia.accion_violacion', $j${"es": "Acción en violación", "en": "Violation Action"}$j$, 0, false, $j${"constraint": "idn_geospatial_data_residency_violation_action_check", "columns": ["bauth.idn_geospatial_data_residency.violation_action"]}$j$)
     RETURNING item_id INTO v_d06_residencia_accion_violacion;
@@ -2083,7 +2083,7 @@ BEGIN
         (v_d06_residencia_accion_violacion, 'd06.residencia.accion_violacion.NOTIFY', $j${"es": "NOTIFY", "en": "NOTIFY"}$j$, 1, true, 30, $j${"value": "NOTIFY"}$j$),
         (v_d06_residencia_accion_violacion, 'd06.residencia.accion_violacion.QUARANTINE', $j${"es": "QUARANTINE", "en": "QUARANTINE"}$j$, 1, true, 40, $j${"value": "QUARANTINE"}$j$);
 
-    -- idn_geospatial_geofence_action_inside_check [bauth.idn_geospatial_geofence]
+    -- [MC-0159] T-300 | idn_geospatial_geofence_action_inside_check [bauth.idn_geospatial_geofence] | Tabla: bauth.idn_geospatial_geofence.action_inside | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d06.geocerca.accion_dentro', $j${"es": "Acción dentro de geocerca", "en": "Action Inside"}$j$, 0, false, $j${"constraint": "idn_geospatial_geofence_action_inside_check", "columns": ["bauth.idn_geospatial_geofence.action_inside"]}$j$)
     RETURNING item_id INTO v_d06_geocerca_accion_dentro;
@@ -2095,7 +2095,7 @@ BEGIN
         (v_d06_geocerca_accion_dentro, 'd06.geocerca.accion_dentro.NOTIFY', $j${"es": "NOTIFY", "en": "NOTIFY"}$j$, 1, true, 30, $j${"value": "NOTIFY"}$j$),
         (v_d06_geocerca_accion_dentro, 'd06.geocerca.accion_dentro.STEP_UP', $j${"es": "STEP_UP", "en": "STEP_UP"}$j$, 1, true, 40, $j${"value": "STEP_UP"}$j$);
 
-    -- idn_geospatial_geofence_action_outside_check [bauth.idn_geospatial_geofence]
+    -- [MC-0160] T-300 | idn_geospatial_geofence_action_outside_check [bauth.idn_geospatial_geofence] | Tabla: bauth.idn_geospatial_geofence.action_outside | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d06.geocerca.accion_fuera', $j${"es": "Acción fuera de geocerca", "en": "Action Outside"}$j$, 0, false, $j${"constraint": "idn_geospatial_geofence_action_outside_check", "columns": ["bauth.idn_geospatial_geofence.action_outside", "bauth.idn_geospatial_velocity_policy.action"]}$j$)
     RETURNING item_id INTO v_d06_geocerca_accion_fuera;
@@ -2107,7 +2107,7 @@ BEGIN
         (v_d06_geocerca_accion_fuera, 'd06.geocerca.accion_fuera.NOTIFY', $j${"es": "NOTIFY", "en": "NOTIFY"}$j$, 1, true, 30, $j${"value": "NOTIFY"}$j$),
         (v_d06_geocerca_accion_fuera, 'd06.geocerca.accion_fuera.STEP_UP', $j${"es": "STEP_UP", "en": "STEP_UP"}$j$, 1, true, 40, $j${"value": "STEP_UP"}$j$);
 
-    -- idn_geospatial_geofence_fence_type_check [bauth.idn_geospatial_geofence]
+    -- [MC-0161] T-300 | idn_geospatial_geofence_fence_type_check [bauth.idn_geospatial_geofence] | Tabla: bauth.idn_geospatial_geofence.fence_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d06.geocerca.tipo_geocerca', $j${"es": "Tipo de geocerca", "en": "Fence Type"}$j$, 0, false, $j${"constraint": "idn_geospatial_geofence_fence_type_check", "columns": ["bauth.idn_geospatial_geofence.fence_type"]}$j$)
     RETURNING item_id INTO v_d06_geocerca_tipo_geocerca;
@@ -2120,7 +2120,7 @@ BEGIN
         (v_d06_geocerca_tipo_geocerca, 'd06.geocerca.tipo_geocerca.POLYGON', $j${"es": "POLYGON", "en": "POLYGON"}$j$, 1, true, 40, $j${"value": "POLYGON"}$j$),
         (v_d06_geocerca_tipo_geocerca, 'd06.geocerca.tipo_geocerca.REGION', $j${"es": "REGION", "en": "REGION"}$j$, 1, true, 50, $j${"value": "REGION"}$j$);
 
-    -- idn_geospatial_location_log_location_source_check [bauth.idn_geospatial_location_log]
+    -- [MC-0162] T-301 | idn_geospatial_location_log_location_source_check [bauth.idn_geospatial_location_log] | Tabla: bauth.idn_geospatial_location_log.location_source | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d06.ubicacion.fuente_ubicacion', $j${"es": "Fuente de ubicación", "en": "Location Source"}$j$, 0, false, $j${"constraint": "idn_geospatial_location_log_location_source_check", "columns": ["bauth.idn_geospatial_location_log.location_source", "bauth.idn_geospatial_location_log_2026_07.location_source", "bauth.idn_geospatial_location_log_2026_08.location_source", "bauth.idn_geospatial_location_log_default.location_source"]}$j$)
     RETURNING item_id INTO v_d06_ubicacion_fuente_ubicacion;
@@ -2134,7 +2134,7 @@ BEGIN
         (v_d06_ubicacion_fuente_ubicacion, 'd06.ubicacion.fuente_ubicacion.MANUAL', $j${"es": "MANUAL", "en": "MANUAL"}$j$, 1, true, 50, $j${"value": "MANUAL"}$j$),
         (v_d06_ubicacion_fuente_ubicacion, 'd06.ubicacion.fuente_ubicacion.WIFI', $j${"es": "WIFI", "en": "WIFI"}$j$, 1, true, 60, $j${"value": "WIFI"}$j$);
 
-    -- idn_global_admin_admin_role_check [bauth.idn_global_admin]
+    -- [MC-0222] T-510 | idn_global_admin_admin_role_check [bauth.idn_global_admin] | Tabla: bauth.idn_global_admin.admin_role | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d99.admin.rol_admin', $j${"es": "Rol de administrador global", "en": "Admin Role"}$j$, 0, false, $j${"constraint": "idn_global_admin_admin_role_check", "columns": ["bauth.idn_global_admin.admin_role"]}$j$)
     RETURNING item_id INTO v_d99_admin_rol_admin;
@@ -2146,7 +2146,7 @@ BEGIN
         (v_d99_admin_rol_admin, 'd99.admin.rol_admin.SUPER_ADMIN', $j${"es": "SUPER_ADMIN", "en": "SUPER_ADMIN"}$j$, 1, true, 30, $j${"value": "SUPER_ADMIN"}$j$),
         (v_d99_admin_rol_admin, 'd99.admin.rol_admin.SUPPORT_ADMIN', $j${"es": "SUPPORT_ADMIN", "en": "SUPPORT_ADMIN"}$j$, 1, true, 40, $j${"value": "SUPPORT_ADMIN"}$j$);
 
-    -- idn_global_compliance_control_status_check [bauth.idn_global_compliance_control]
+    -- [MC-0223] T-514 | idn_global_compliance_control_status_check [bauth.idn_global_compliance_control] | Tabla: bauth.idn_global_compliance_control.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d99.cumplimiento.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "idn_global_compliance_control_status_check", "columns": ["bauth.idn_global_compliance_control.status"]}$j$)
     RETURNING item_id INTO v_d99_cumplimiento_estado;
@@ -2159,7 +2159,7 @@ BEGIN
         (v_d99_cumplimiento_estado, 'd99.cumplimiento.estado.PARTIAL', $j${"es": "PARTIAL", "en": "PARTIAL"}$j$, 1, true, 40, $j${"value": "PARTIAL"}$j$),
         (v_d99_cumplimiento_estado, 'd99.cumplimiento.estado.PLANNED', $j${"es": "PLANNED", "en": "PLANNED"}$j$, 1, true, 50, $j${"value": "PLANNED"}$j$);
 
-    -- idn_global_crypto_params_algorithm_family_check [bauth.idn_global_crypto_params]
+    -- [MC-0224] T-513 | idn_global_crypto_params_algorithm_family_check [bauth.idn_global_crypto_params] | Tabla: bauth.idn_global_crypto_params.algorithm_family | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d99.cripto.familia_algoritmo', $j${"es": "Familia de algoritmo", "en": "Algorithm Family"}$j$, 0, false, $j${"constraint": "idn_global_crypto_params_algorithm_family_check", "columns": ["bauth.idn_global_crypto_params.algorithm_family"]}$j$)
     RETURNING item_id INTO v_d99_cripto_familia_algoritmo;
@@ -2174,7 +2174,7 @@ BEGIN
         (v_d99_cripto_familia_algoritmo, 'd99.cripto.familia_algoritmo.SIGNATURE', $j${"es": "SIGNATURE", "en": "SIGNATURE"}$j$, 1, true, 60, $j${"value": "SIGNATURE"}$j$),
         (v_d99_cripto_familia_algoritmo, 'd99.cripto.familia_algoritmo.SYMMETRIC', $j${"es": "SYMMETRIC", "en": "SYMMETRIC"}$j$, 1, true, 70, $j${"value": "SYMMETRIC"}$j$);
 
-    -- idn_global_hitl_exception_affected_entity_type_check [bauth.idn_global_hitl_exception]
+    -- [MC-0225] T-512 | idn_global_hitl_exception_affected_entity_type_check [bauth.idn_global_hitl_exception] | Tabla: bauth.idn_global_hitl_exception.affected_entity_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d99.hitl.tipo_entidad', $j${"es": "Tipo de entidad afectada", "en": "Affected Entity Type"}$j$, 0, false, $j${"constraint": "idn_global_hitl_exception_affected_entity_type_check", "columns": ["bauth.idn_global_hitl_exception.affected_entity_type"]}$j$)
     RETURNING item_id INTO v_d99_hitl_tipo_entidad;
@@ -2220,7 +2220,7 @@ DECLARE
     v_d07_postura_red_accion_fallo UUID;
 BEGIN
 
-    -- idn_global_hitl_exception_exception_type_check [bauth.idn_global_hitl_exception]
+    -- [MC-0226] T-512 | idn_global_hitl_exception_exception_type_check [bauth.idn_global_hitl_exception] | Tabla: bauth.idn_global_hitl_exception.exception_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d99.hitl.tipo_excepcion', $j${"es": "Tipo de excepción", "en": "Exception Type"}$j$, 0, false, $j${"constraint": "idn_global_hitl_exception_exception_type_check", "columns": ["bauth.idn_global_hitl_exception.exception_type"]}$j$)
     RETURNING item_id INTO v_d99_hitl_tipo_excepcion;
@@ -2234,7 +2234,7 @@ BEGIN
         (v_d99_hitl_tipo_excepcion, 'd99.hitl.tipo_excepcion.POLICY_OVERRIDE', $j${"es": "POLICY_OVERRIDE", "en": "POLICY_OVERRIDE"}$j$, 1, true, 50, $j${"value": "POLICY_OVERRIDE"}$j$),
         (v_d99_hitl_tipo_excepcion, 'd99.hitl.tipo_excepcion.PROHIBITED_ALGO', $j${"es": "PROHIBITED_ALGO", "en": "PROHIBITED_ALGO"}$j$, 1, true, 60, $j${"value": "PROHIBITED_ALGO"}$j$);
 
-    -- idn_global_hitl_exception_status_check [bauth.idn_global_hitl_exception]
+    -- [MC-0227] T-512 | idn_global_hitl_exception_status_check [bauth.idn_global_hitl_exception] | Tabla: bauth.idn_global_hitl_exception.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d99.hitl.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "idn_global_hitl_exception_status_check", "columns": ["bauth.idn_global_hitl_exception.status"]}$j$)
     RETURNING item_id INTO v_d99_hitl_estado;
@@ -2247,7 +2247,7 @@ BEGIN
         (v_d99_hitl_estado, 'd99.hitl.estado.REJECTED', $j${"es": "REJECTED", "en": "REJECTED"}$j$, 1, true, 40, $j${"value": "REJECTED"}$j$),
         (v_d99_hitl_estado, 'd99.hitl.estado.REVOKED', $j${"es": "REVOKED", "en": "REVOKED"}$j$, 1, true, 50, $j${"value": "REVOKED"}$j$);
 
-    -- idn_global_notification_notification_type_check [bauth.idn_global_notification]
+    -- [MC-0228] T-511 | idn_global_notification_notification_type_check [bauth.idn_global_notification] | Tabla: bauth.idn_global_notification.notification_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d99.notificacion.tipo_notificacion', $j${"es": "Tipo de notificación", "en": "Notification Type"}$j$, 0, false, $j${"constraint": "idn_global_notification_notification_type_check", "columns": ["bauth.idn_global_notification.notification_type"]}$j$)
     RETURNING item_id INTO v_d99_notificacion_tipo_notificacion;
@@ -2263,7 +2263,7 @@ BEGIN
         (v_d99_notificacion_tipo_notificacion, 'd99.notificacion.tipo_notificacion.POLICY_CHANGE', $j${"es": "POLICY_CHANGE", "en": "POLICY_CHANGE"}$j$, 1, true, 70, $j${"value": "POLICY_CHANGE"}$j$),
         (v_d99_notificacion_tipo_notificacion, 'd99.notificacion.tipo_notificacion.SECURITY_ALERT', $j${"es": "SECURITY_ALERT", "en": "SECURITY_ALERT"}$j$, 1, true, 80, $j${"value": "SECURITY_ALERT"}$j$);
 
-    -- idn_global_notification_severity_check [bauth.idn_global_notification]
+    -- [MC-0229] T-511 | idn_global_notification_severity_check [bauth.idn_global_notification] | Tabla: bauth.idn_global_notification.severity | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d99.notificacion.severidad', $j${"es": "Severidad", "en": "Severity"}$j$, 0, false, $j${"constraint": "idn_global_notification_severity_check", "columns": ["bauth.idn_global_notification.severity"]}$j$)
     RETURNING item_id INTO v_d99_notificacion_severidad;
@@ -2275,7 +2275,7 @@ BEGIN
         (v_d99_notificacion_severidad, 'd99.notificacion.severidad.INFO', $j${"es": "INFO", "en": "INFO"}$j$, 1, true, 30, $j${"value": "INFO"}$j$),
         (v_d99_notificacion_severidad, 'd99.notificacion.severidad.WARNING', $j${"es": "WARNING", "en": "WARNING"}$j$, 1, true, 40, $j${"value": "WARNING"}$j$);
 
-    -- idn_global_notification_target_scope_check [bauth.idn_global_notification]
+    -- [MC-0230] T-511 | idn_global_notification_target_scope_check [bauth.idn_global_notification] | Tabla: bauth.idn_global_notification.target_scope | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d99.notificacion.alcance_destino', $j${"es": "Alcance del destino", "en": "Target Scope"}$j$, 0, false, $j${"constraint": "idn_global_notification_target_scope_check", "columns": ["bauth.idn_global_notification.target_scope"]}$j$)
     RETURNING item_id INTO v_d99_notificacion_alcance_destino;
@@ -2286,7 +2286,7 @@ BEGIN
         (v_d99_notificacion_alcance_destino, 'd99.notificacion.alcance_destino.ALL', $j${"es": "ALL", "en": "ALL"}$j$, 1, true, 20, $j${"value": "ALL"}$j$),
         (v_d99_notificacion_alcance_destino, 'd99.notificacion.alcance_destino.TENANT', $j${"es": "TENANT", "en": "TENANT"}$j$, 1, true, 30, $j${"value": "TENANT"}$j$);
 
-    -- idn_global_sbom_component_type_check [bauth.idn_global_sbom]
+    -- [MC-0231] T-515 | idn_global_sbom_component_type_check [bauth.idn_global_sbom] | Tabla: bauth.idn_global_sbom.component_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d99.sbom.tipo_componente', $j${"es": "Tipo de componente SBOM", "en": "Component Type"}$j$, 0, false, $j${"constraint": "idn_global_sbom_component_type_check", "columns": ["bauth.idn_global_sbom.component_type"]}$j$)
     RETURNING item_id INTO v_d99_sbom_tipo_componente;
@@ -2300,7 +2300,7 @@ BEGIN
         (v_d99_sbom_tipo_componente, 'd99.sbom.tipo_componente.OS_PACKAGE', $j${"es": "OS_PACKAGE", "en": "OS_PACKAGE"}$j$, 1, true, 50, $j${"value": "OS_PACKAGE"}$j$),
         (v_d99_sbom_tipo_componente, 'd99.sbom.tipo_componente.TOOL', $j${"es": "TOOL", "en": "TOOL"}$j$, 1, true, 60, $j${"value": "TOOL"}$j$);
 
-    -- idn_global_sbom_risk_level_check [bauth.idn_global_sbom]
+    -- [MC-0232] T-515 | idn_global_sbom_risk_level_check [bauth.idn_global_sbom] | Tabla: bauth.idn_global_sbom.risk_level | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d99.sbom.nivel_riesgo', $j${"es": "Nivel de riesgo", "en": "Risk Level"}$j$, 0, false, $j${"constraint": "idn_global_sbom_risk_level_check", "columns": ["bauth.idn_global_sbom.risk_level"]}$j$)
     RETURNING item_id INTO v_d99_sbom_nivel_riesgo;
@@ -2313,7 +2313,7 @@ BEGIN
         (v_d99_sbom_nivel_riesgo, 'd99.sbom.nivel_riesgo.MEDIUM', $j${"es": "MEDIUM", "en": "MEDIUM"}$j$, 1, true, 40, $j${"value": "MEDIUM"}$j$),
         (v_d99_sbom_nivel_riesgo, 'd99.sbom.nivel_riesgo.NONE', $j${"es": "NONE", "en": "NONE"}$j$, 1, true, 50, $j${"value": "NONE"}$j$);
 
-    -- chk_ile_event_type [bauth.idn_identidad_lifecycle_event]
+    -- [MC-0097] T-545 | chk_ile_event_type [bauth.idn_identidad_lifecycle_event] | Tabla: bauth.idn_identidad_lifecycle_event.event_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('identidad.ciclo_vida.tipo_evento', $j${"es": "Tipo de evento", "en": "Event Type"}$j$, 0, false, $j${"constraint": "chk_ile_event_type", "columns": ["bauth.idn_identidad_lifecycle_event.event_type"]}$j$)
     RETURNING item_id INTO v_identidad_ciclo_vida_tipo_evento;
@@ -2328,7 +2328,7 @@ BEGIN
         (v_identidad_ciclo_vida_tipo_evento, 'identidad.ciclo_vida.tipo_evento.TERMINATED', $j${"es": "TERMINATED", "en": "TERMINATED"}$j$, 1, true, 60, $j${"value": "TERMINATED"}$j$),
         (v_identidad_ciclo_vida_tipo_evento, 'identidad.ciclo_vida.tipo_evento.TRANSFERRED', $j${"es": "TRANSFERRED", "en": "TRANSFERRED"}$j$, 1, true, 70, $j${"value": "TRANSFERRED"}$j$);
 
-    -- chk_iiattr_mutability [bauth.idn_identity_attribute]
+    -- [MC-0098] T-157 | chk_iiattr_mutability [bauth.idn_identity_attribute] | Tabla: bauth.idn_identity_attribute.mutability | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('identidad.atributo.mutabilidad', $j${"es": "Mutabilidad", "en": "Mutability"}$j$, 0, false, $j${"constraint": "chk_iiattr_mutability", "columns": ["bauth.idn_identity_attribute.mutability"]}$j$)
     RETURNING item_id INTO v_identidad_atributo_mutabilidad;
@@ -2339,7 +2339,7 @@ BEGIN
         (v_identidad_atributo_mutabilidad, 'identidad.atributo.mutabilidad.READ_ONLY', $j${"es": "READ_ONLY", "en": "READ_ONLY"}$j$, 1, true, 20, $j${"value": "READ_ONLY"}$j$),
         (v_identidad_atributo_mutabilidad, 'identidad.atributo.mutabilidad.READ_WRITE', $j${"es": "READ_WRITE", "en": "READ_WRITE"}$j$, 1, true, 30, $j${"value": "READ_WRITE"}$j$);
 
-    -- chk_iiattr_uniqueness [bauth.idn_identity_attribute]
+    -- [MC-0099] T-157 | chk_iiattr_uniqueness [bauth.idn_identity_attribute] | Tabla: bauth.idn_identity_attribute.uniqueness | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('identidad.atributo.unicidad', $j${"es": "Unicidad del atributo", "en": "Uniqueness"}$j$, 0, false, $j${"constraint": "chk_iiattr_uniqueness", "columns": ["bauth.idn_identity_attribute.uniqueness"]}$j$)
     RETURNING item_id INTO v_identidad_atributo_unicidad;
@@ -2350,7 +2350,7 @@ BEGIN
         (v_identidad_atributo_unicidad, 'identidad.atributo.unicidad.NONE', $j${"es": "NONE", "en": "NONE"}$j$, 1, true, 20, $j${"value": "NONE"}$j$),
         (v_identidad_atributo_unicidad, 'identidad.atributo.unicidad.SERVER', $j${"es": "SERVER", "en": "SERVER"}$j$, 1, true, 30, $j${"value": "SERVER"}$j$);
 
-    -- chk_iah_operation [bauth.idn_identity_attribute_history]
+    -- [MC-0100] T-158 | chk_iah_operation [bauth.idn_identity_attribute_history] | Tabla: bauth.idn_identity_attribute_history.operation | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('identidad.attr_historial.operacion', $j${"es": "Operación", "en": "Operation"}$j$, 0, false, $j${"constraint": "chk_iah_operation", "columns": ["bauth.idn_identity_attribute_history.operation", "bauth.idn_identity_attribute_history_2026_07.operation", "bauth.idn_identity_attribute_history_2026_08.operation", "bauth.idn_identity_attribute_history_2026_09.operation", "bauth.idn_identity_attribute_history_2026_10.operation", "bauth.idn_identity_attribute_history_2026_11.operation"]}$j$)
     RETURNING item_id INTO v_identidad_attr_historial_operacion;
@@ -2361,7 +2361,7 @@ BEGIN
         (v_identidad_attr_historial_operacion, 'identidad.attr_historial.operacion.SOFT_DELETE', $j${"es": "SOFT_DELETE", "en": "SOFT_DELETE"}$j$, 1, true, 20, $j${"value": "SOFT_DELETE"}$j$),
         (v_identidad_attr_historial_operacion, 'identidad.attr_historial.operacion.UPDATE', $j${"es": "UPDATE", "en": "UPDATE"}$j$, 1, true, 30, $j${"value": "UPDATE"}$j$);
 
-    -- chk_ic_granted_via [bauth.idn_identity_consent]
+    -- [MC-0101] T-166 | chk_ic_granted_via [bauth.idn_identity_consent] | Tabla: bauth.idn_identity_consent.granted_via | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('identidad.consentimiento.via_otorgamiento', $j${"es": "Otorgado vía", "en": "Granted Via"}$j$, 0, false, $j${"constraint": "chk_ic_granted_via", "columns": ["bauth.idn_identity_consent.granted_via"]}$j$)
     RETURNING item_id INTO v_identidad_consentimiento_via_otorgamiento;
@@ -2374,7 +2374,7 @@ BEGIN
         (v_identidad_consentimiento_via_otorgamiento, 'identidad.consentimiento.via_otorgamiento.IN_PERSON', $j${"es": "IN_PERSON", "en": "IN_PERSON"}$j$, 1, true, 40, $j${"value": "IN_PERSON"}$j$),
         (v_identidad_consentimiento_via_otorgamiento, 'identidad.consentimiento.via_otorgamiento.WEB', $j${"es": "WEB", "en": "WEB"}$j$, 1, true, 50, $j${"value": "WEB"}$j$);
 
-    -- chk_ic_legal_basis [bauth.idn_identity_consent]
+    -- [MC-0102] T-166 | chk_ic_legal_basis [bauth.idn_identity_consent] | Tabla: bauth.idn_identity_consent.legal_basis | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('identidad.consentimiento.base_legal', $j${"es": "Base legal (GDPR)", "en": "Legal Basis"}$j$, 0, false, $j${"constraint": "chk_ic_legal_basis", "columns": ["bauth.idn_identity_consent.legal_basis"]}$j$)
     RETURNING item_id INTO v_identidad_consentimiento_base_legal;
@@ -2388,7 +2388,7 @@ BEGIN
         (v_identidad_consentimiento_base_legal, 'identidad.consentimiento.base_legal.PUBLIC_TASK', $j${"es": "PUBLIC_TASK", "en": "PUBLIC_TASK"}$j$, 1, true, 50, $j${"value": "PUBLIC_TASK"}$j$),
         (v_identidad_consentimiento_base_legal, 'identidad.consentimiento.base_legal.VITAL_INTEREST', $j${"es": "VITAL_INTEREST", "en": "VITAL_INTEREST"}$j$, 1, true, 60, $j${"value": "VITAL_INTEREST"}$j$);
 
-    -- chk_ic_withdrawn_via [bauth.idn_identity_consent]
+    -- [MC-0103] T-166 | chk_ic_withdrawn_via [bauth.idn_identity_consent] | Tabla: bauth.idn_identity_consent.withdrawn_via | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('identidad.consentimiento.via_retiro', $j${"es": "Retirado vía", "en": "Withdrawn Via"}$j$, 0, false, $j${"constraint": "chk_ic_withdrawn_via", "columns": ["bauth.idn_identity_consent.withdrawn_via"]}$j$)
     RETURNING item_id INTO v_identidad_consentimiento_via_retiro;
@@ -2402,7 +2402,7 @@ BEGIN
         (v_identidad_consentimiento_via_retiro, 'identidad.consentimiento.via_retiro.IN_PERSON', $j${"es": "IN_PERSON", "en": "IN_PERSON"}$j$, 1, true, 50, $j${"value": "IN_PERSON"}$j$),
         (v_identidad_consentimiento_via_retiro, 'identidad.consentimiento.via_retiro.WEB', $j${"es": "WEB", "en": "WEB"}$j$, 1, true, 60, $j${"value": "WEB"}$j$);
 
-    -- idn_identidad_entidad_status_check [bauth.idn_identity_entity]
+    -- [MC-0104] T-156 | idn_identidad_entidad_status_check [bauth.idn_identity_entity] | Tabla: bauth.idn_identity_entity.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('identidad.entidad.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "idn_identidad_entidad_status_check", "columns": ["bauth.idn_identity_entity.status"]}$j$)
     RETURNING item_id INTO v_identidad_entidad_estado;
@@ -2413,7 +2413,7 @@ BEGIN
         (v_identidad_entidad_estado, 'identidad.entidad.estado.ARCHIVED', $j${"es": "ARCHIVED", "en": "ARCHIVED"}$j$, 1, true, 20, $j${"value": "ARCHIVED"}$j$),
         (v_identidad_entidad_estado, 'identidad.entidad.estado.SUSPENDED', $j${"es": "SUSPENDED", "en": "SUSPENDED"}$j$, 1, true, 30, $j${"value": "SUSPENDED"}$j$);
 
-    -- chk_iip_eidas [bauth.idn_identity_proofing]
+    -- [MC-0105] T-165 | chk_iip_eidas [bauth.idn_identity_proofing] | Tabla: bauth.idn_identity_proofing.eidas_level | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('identidad.proofing.nivel_eidas', $j${"es": "Nivel eIDAS", "en": "Eidas Level"}$j$, 0, false, $j${"constraint": "chk_iip_eidas", "columns": ["bauth.idn_identity_proofing.eidas_level", "bauth.idn_identity_vc.eidas_assurance_level"]}$j$)
     RETURNING item_id INTO v_identidad_proofing_nivel_eidas;
@@ -2424,7 +2424,7 @@ BEGIN
         (v_identidad_proofing_nivel_eidas, 'identidad.proofing.nivel_eidas.LOW', $j${"es": "LOW", "en": "LOW"}$j$, 1, true, 20, $j${"value": "LOW"}$j$),
         (v_identidad_proofing_nivel_eidas, 'identidad.proofing.nivel_eidas.SUBSTANTIAL', $j${"es": "SUBSTANTIAL", "en": "SUBSTANTIAL"}$j$, 1, true, 30, $j${"value": "SUBSTANTIAL"}$j$);
 
-    -- chk_ip_status [bauth.idn_identity_proofing]
+    -- [MC-0106] T-165 | chk_ip_status [bauth.idn_identity_proofing] | Tabla: bauth.idn_identity_proofing.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('identidad.proofing.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "chk_ip_status", "columns": ["bauth.idn_identity_proofing.status"]}$j$)
     RETURNING item_id INTO v_identidad_proofing_estado;
@@ -2437,7 +2437,7 @@ BEGIN
         (v_identidad_proofing_estado, 'identidad.proofing.estado.PASSED', $j${"es": "PASSED", "en": "PASSED"}$j$, 1, true, 40, $j${"value": "PASSED"}$j$),
         (v_identidad_proofing_estado, 'identidad.proofing.estado.PENDING', $j${"es": "PENDING", "en": "PENDING"}$j$, 1, true, 50, $j${"value": "PENDING"}$j$);
 
-    -- chk_ip_type [bauth.idn_identity_proofing]
+    -- [MC-0107] T-165 | chk_ip_type [bauth.idn_identity_proofing] | Tabla: bauth.idn_identity_proofing.proofing_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('identidad.proofing.tipo_proofing', $j${"es": "Tipo de proofing", "en": "Proofing Type"}$j$, 0, false, $j${"constraint": "chk_ip_type", "columns": ["bauth.idn_identity_proofing.proofing_type"]}$j$)
     RETURNING item_id INTO v_identidad_proofing_tipo_proofing;
@@ -2450,7 +2450,7 @@ BEGIN
         (v_identidad_proofing_tipo_proofing, 'identidad.proofing.tipo_proofing.SELF_ASSERTED', $j${"es": "SELF_ASSERTED", "en": "SELF_ASSERTED"}$j$, 1, true, 40, $j${"value": "SELF_ASSERTED"}$j$),
         (v_identidad_proofing_tipo_proofing, 'identidad.proofing.tipo_proofing.TRUSTED_REFEREE', $j${"es": "TRUSTED_REFEREE", "en": "TRUSTED_REFEREE"}$j$, 1, true, 50, $j${"value": "TRUSTED_REFEREE"}$j$);
 
-    -- chk_ivc_eidas_type [bauth.idn_identity_vc]
+    -- [MC-0108] T-167 | chk_ivc_eidas_type [bauth.idn_identity_vc] | Tabla: bauth.idn_identity_vc.eidas_vc_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('identidad.vc.tipo_vc_eidas', $j${"es": "Tipo VC eIDAS", "en": "Eidas Vc Type"}$j$, 0, false, $j${"constraint": "chk_ivc_eidas_type", "columns": ["bauth.idn_identity_vc.eidas_vc_type"]}$j$)
     RETURNING item_id INTO v_identidad_vc_tipo_vc_eidas;
@@ -2463,7 +2463,7 @@ BEGIN
         (v_identidad_vc_tipo_vc_eidas, 'identidad.vc.tipo_vc_eidas.PuB-EAA', $j${"es": "PuB-EAA", "en": "PuB-EAA"}$j$, 1, true, 40, $j${"value": "PuB-EAA"}$j$),
         (v_identidad_vc_tipo_vc_eidas, 'identidad.vc.tipo_vc_eidas.QEAA', $j${"es": "QEAA", "en": "QEAA"}$j$, 1, true, 50, $j${"value": "QEAA"}$j$);
 
-    -- chk_ivc_format [bauth.idn_identity_vc]
+    -- [MC-0109] T-167 | chk_ivc_format [bauth.idn_identity_vc] | Tabla: bauth.idn_identity_vc.vc_format | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('identidad.vc.formato_vc', $j${"es": "Formato VC", "en": "Vc Format"}$j$, 0, false, $j${"constraint": "chk_ivc_format", "columns": ["bauth.idn_identity_vc.vc_format"]}$j$)
     RETURNING item_id INTO v_identidad_vc_formato_vc;
@@ -2474,7 +2474,7 @@ BEGIN
         (v_identidad_vc_formato_vc, 'identidad.vc.formato_vc.VC_DATA_MODEL_1_1', $j${"es": "VC_DATA_MODEL_1_1", "en": "VC_DATA_MODEL_1_1"}$j$, 1, true, 20, $j${"value": "VC_DATA_MODEL_1_1"}$j$),
         (v_identidad_vc_formato_vc, 'identidad.vc.formato_vc.VC_DATA_MODEL_2_0', $j${"es": "VC_DATA_MODEL_2_0", "en": "VC_DATA_MODEL_2_0"}$j$, 1, true, 30, $j${"value": "VC_DATA_MODEL_2_0"}$j$);
 
-    -- idn_network_connection_policy_min_tls_version_check [bauth.idn_network_connection_policy]
+    -- [MC-0163] T-195 | idn_network_connection_policy_min_tls_version_check [bauth.idn_network_connection_policy] | Tabla: bauth.idn_network_connection_policy.min_tls_version | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d07.conexion.version_tls', $j${"es": "Versión mínima TLS", "en": "Min Tls Version"}$j$, 0, false, $j${"constraint": "idn_network_connection_policy_min_tls_version_check", "columns": ["bauth.idn_network_connection_policy.min_tls_version"]}$j$)
     RETURNING item_id INTO v_d07_conexion_version_tls;
@@ -2484,7 +2484,7 @@ BEGIN
         (v_d07_conexion_version_tls, 'd07.conexion.version_tls.TLS_1_2', $j${"es": "TLS_1_2", "en": "TLS_1_2"}$j$, 1, true, 10, $j${"value": "TLS_1_2"}$j$),
         (v_d07_conexion_version_tls, 'd07.conexion.version_tls.TLS_1_3', $j${"es": "TLS_1_3", "en": "TLS_1_3"}$j$, 1, true, 20, $j${"value": "TLS_1_3"}$j$);
 
-    -- idn_network_context_propagation_propagation_format_check [bauth.idn_network_context_propagation]
+    -- [MC-0164] T-201 | idn_network_context_propagation_propagation_format_check [bauth.idn_network_context_propagation] | Tabla: bauth.idn_network_context_propagation.propagation_format | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d07.propagacion.formato_propagacion', $j${"es": "Formato de propagación", "en": "Propagation Format"}$j$, 0, false, $j${"constraint": "idn_network_context_propagation_propagation_format_check", "columns": ["bauth.idn_network_context_propagation.propagation_format"]}$j$)
     RETURNING item_id INTO v_d07_propagacion_formato_propagacion;
@@ -2496,7 +2496,7 @@ BEGIN
         (v_d07_propagacion_formato_propagacion, 'd07.propagacion.formato_propagacion.W3C_BAGGAGE', $j${"es": "W3C_BAGGAGE", "en": "W3C_BAGGAGE"}$j$, 1, true, 30, $j${"value": "W3C_BAGGAGE"}$j$),
         (v_d07_propagacion_formato_propagacion, 'd07.propagacion.formato_propagacion.W3C_TRACEPARENT', $j${"es": "W3C_TRACEPARENT", "en": "W3C_TRACEPARENT"}$j$, 1, true, 40, $j${"value": "W3C_TRACEPARENT"}$j$);
 
-    -- idn_network_dlp_policy_action_on_match_check [bauth.idn_network_dlp_policy]
+    -- [MC-0165] T-200 | idn_network_dlp_policy_action_on_match_check [bauth.idn_network_dlp_policy] | Tabla: bauth.idn_network_dlp_policy.action_on_match | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d07.dlp.accion_deteccion', $j${"es": "Acción al detectar", "en": "Action On Match"}$j$, 0, false, $j${"constraint": "idn_network_dlp_policy_action_on_match_check", "columns": ["bauth.idn_network_dlp_policy.action_on_match"]}$j$)
     RETURNING item_id INTO v_d07_dlp_accion_deteccion;
@@ -2508,7 +2508,7 @@ BEGIN
         (v_d07_dlp_accion_deteccion, 'd07.dlp.accion_deteccion.QUARANTINE', $j${"es": "QUARANTINE", "en": "QUARANTINE"}$j$, 1, true, 30, $j${"value": "QUARANTINE"}$j$),
         (v_d07_dlp_accion_deteccion, 'd07.dlp.accion_deteccion.REDACT', $j${"es": "REDACT", "en": "REDACT"}$j$, 1, true, 40, $j${"value": "REDACT"}$j$);
 
-    -- idn_network_dpop_binding_alg_check [bauth.idn_network_dpop_binding]
+    -- [MC-0166] T-196 | idn_network_dpop_binding_alg_check [bauth.idn_network_dpop_binding] | Tabla: bauth.idn_network_dpop_binding.alg | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d07.dpop.algoritmo', $j${"es": "Algoritmo criptográfico", "en": "Alg"}$j$, 0, false, $j${"constraint": "idn_network_dpop_binding_alg_check", "columns": ["bauth.idn_network_dpop_binding.alg"]}$j$)
     RETURNING item_id INTO v_d07_dpop_algoritmo;
@@ -2521,7 +2521,7 @@ BEGIN
         (v_d07_dpop_algoritmo, 'd07.dpop.algoritmo.PS256', $j${"es": "PS256", "en": "PS256"}$j$, 1, true, 40, $j${"value": "PS256"}$j$),
         (v_d07_dpop_algoritmo, 'd07.dpop.algoritmo.RS256', $j${"es": "RS256", "en": "RS256"}$j$, 1, true, 50, $j${"value": "RS256"}$j$);
 
-    -- idn_network_posture_policy_action_on_fail_check [bauth.idn_network_posture_policy]
+    -- [MC-0167] T-198 | idn_network_posture_policy_action_on_fail_check [bauth.idn_network_posture_policy] | Tabla: bauth.idn_network_posture_policy.action_on_fail | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d07.postura_red.accion_fallo', $j${"es": "Acción en fallo", "en": "Action On Fail"}$j$, 0, false, $j${"constraint": "idn_network_posture_policy_action_on_fail_check", "columns": ["bauth.idn_network_posture_policy.action_on_fail"]}$j$)
     RETURNING item_id INTO v_d07_postura_red_accion_fallo;
@@ -2565,7 +2565,7 @@ DECLARE
     v_registry_schema_attr_tipo_dato UUID;
 BEGIN
 
-    -- idn_network_rate_policy_action_on_exceed_check [bauth.idn_network_rate_policy]
+    -- [MC-0168] T-197 | idn_network_rate_policy_action_on_exceed_check [bauth.idn_network_rate_policy] | Tabla: bauth.idn_network_rate_policy.action_on_exceed | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d07.tasa_limite.accion_exceso', $j${"es": "Acción al exceder", "en": "Action On Exceed"}$j$, 0, false, $j${"constraint": "idn_network_rate_policy_action_on_exceed_check", "columns": ["bauth.idn_network_rate_policy.action_on_exceed"]}$j$)
     RETURNING item_id INTO v_d07_tasa_limite_accion_exceso;
@@ -2576,7 +2576,7 @@ BEGIN
         (v_d07_tasa_limite_accion_exceso, 'd07.tasa_limite.accion_exceso.NOTIFY', $j${"es": "NOTIFY", "en": "NOTIFY"}$j$, 1, true, 20, $j${"value": "NOTIFY"}$j$),
         (v_d07_tasa_limite_accion_exceso, 'd07.tasa_limite.accion_exceso.THROTTLE', $j${"es": "THROTTLE", "en": "THROTTLE"}$j$, 1, true, 30, $j${"value": "THROTTLE"}$j$);
 
-    -- idn_network_rate_policy_scope_check [bauth.idn_network_rate_policy]
+    -- [MC-0169] T-197 | idn_network_rate_policy_scope_check [bauth.idn_network_rate_policy] | Tabla: bauth.idn_network_rate_policy.scope | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d07.tasa_limite.alcance', $j${"es": "Alcance", "en": "Scope"}$j$, 0, false, $j${"constraint": "idn_network_rate_policy_scope_check", "columns": ["bauth.idn_network_rate_policy.scope"]}$j$)
     RETURNING item_id INTO v_d07_tasa_limite_alcance;
@@ -2589,7 +2589,7 @@ BEGIN
         (v_d07_tasa_limite_alcance, 'd07.tasa_limite.alcance.TENANT', $j${"es": "TENANT", "en": "TENANT"}$j$, 1, true, 40, $j${"value": "TENANT"}$j$),
         (v_d07_tasa_limite_alcance, 'd07.tasa_limite.alcance.USER', $j${"es": "USER", "en": "USER"}$j$, 1, true, 50, $j${"value": "USER"}$j$);
 
-    -- idn_network_segment_segment_type_check [bauth.idn_network_segment]
+    -- [MC-0170] T-199 | idn_network_segment_segment_type_check [bauth.idn_network_segment] | Tabla: bauth.idn_network_segment.segment_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d07.segmento.tipo_segmento', $j${"es": "Tipo de segmento", "en": "Segment Type"}$j$, 0, false, $j${"constraint": "idn_network_segment_segment_type_check", "columns": ["bauth.idn_network_segment.segment_type"]}$j$)
     RETURNING item_id INTO v_d07_segmento_tipo_segmento;
@@ -2602,7 +2602,7 @@ BEGIN
         (v_d07_segmento_tipo_segmento, 'd07.segmento.tipo_segmento.QUARANTINE', $j${"es": "QUARANTINE", "en": "QUARANTINE"}$j$, 1, true, 40, $j${"value": "QUARANTINE"}$j$),
         (v_d07_segmento_tipo_segmento, 'd07.segmento.tipo_segmento.TRUSTED', $j${"es": "TRUSTED", "en": "TRUSTED"}$j$, 1, true, 50, $j${"value": "TRUSTED"}$j$);
 
-    -- idn_network_segment_trust_level_check [bauth.idn_network_segment]
+    -- [MC-0171] T-199 | idn_network_segment_trust_level_check [bauth.idn_network_segment] | Tabla: bauth.idn_network_segment.trust_level | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d07.segmento.confianza', $j${"es": "Nivel de confianza", "en": "Trust Level"}$j$, 0, false, $j${"constraint": "idn_network_segment_trust_level_check", "columns": ["bauth.idn_network_segment.trust_level"]}$j$)
     RETURNING item_id INTO v_d07_segmento_confianza;
@@ -2613,7 +2613,7 @@ BEGIN
         (v_d07_segmento_confianza, 'd07.segmento.confianza.TRUSTED', $j${"es": "TRUSTED", "en": "TRUSTED"}$j$, 1, true, 20, $j${"value": "TRUSTED"}$j$),
         (v_d07_segmento_confianza, 'd07.segmento.confianza.UNTRUSTED', $j${"es": "UNTRUSTED", "en": "UNTRUSTED"}$j$, 1, true, 30, $j${"value": "UNTRUSTED"}$j$);
 
-    -- idn_nhi_rotation_policy_fail_action_check [bauth.idn_nhi_rotation_policy]
+    -- [MC-0213] T-480 | idn_nhi_rotation_policy_fail_action_check [bauth.idn_nhi_rotation_policy] | Tabla: bauth.idn_nhi_rotation_policy.fail_action | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d15.nhi_rotacion.accion_fallo', $j${"es": "Acción en fallo", "en": "Fail Action"}$j$, 0, false, $j${"constraint": "idn_nhi_rotation_policy_fail_action_check", "columns": ["bauth.idn_nhi_rotation_policy.fail_action"]}$j$)
     RETURNING item_id INTO v_d15_nhi_rotacion_accion_fallo;
@@ -2624,7 +2624,7 @@ BEGIN
         (v_d15_nhi_rotacion_accion_fallo, 'd15.nhi_rotacion.accion_fallo.NOTIFY', $j${"es": "NOTIFY", "en": "NOTIFY"}$j$, 1, true, 20, $j${"value": "NOTIFY"}$j$),
         (v_d15_nhi_rotacion_accion_fallo, 'd15.nhi_rotacion.accion_fallo.SUSPEND_NHI', $j${"es": "SUSPEND_NHI", "en": "SUSPEND_NHI"}$j$, 1, true, 30, $j${"value": "SUSPEND_NHI"}$j$);
 
-    -- idn_nhi_rotation_policy_nhi_type_check [bauth.idn_nhi_rotation_policy]
+    -- [MC-0214] T-480 | idn_nhi_rotation_policy_nhi_type_check [bauth.idn_nhi_rotation_policy] | Tabla: bauth.idn_nhi_rotation_policy.nhi_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d15.nhi_rotacion.tipo_nhi', $j${"es": "Tipo NHI", "en": "Nhi Type"}$j$, 0, false, $j${"constraint": "idn_nhi_rotation_policy_nhi_type_check", "columns": ["bauth.idn_nhi_rotation_policy.nhi_type"]}$j$)
     RETURNING item_id INTO v_d15_nhi_rotacion_tipo_nhi;
@@ -2638,7 +2638,7 @@ BEGIN
         (v_d15_nhi_rotacion_tipo_nhi, 'd15.nhi_rotacion.tipo_nhi.DAEMON', $j${"es": "DAEMON", "en": "DAEMON"}$j$, 1, true, 50, $j${"value": "DAEMON"}$j$),
         (v_d15_nhi_rotacion_tipo_nhi, 'd15.nhi_rotacion.tipo_nhi.SERVICE_ACCOUNT', $j${"es": "SERVICE_ACCOUNT", "en": "SERVICE_ACCOUNT"}$j$, 1, true, 60, $j${"value": "SERVICE_ACCOUNT"}$j$);
 
-    -- idn_nhi_svid_status_check [bauth.idn_nhi_svid]
+    -- [MC-0215] T-481 | idn_nhi_svid_status_check [bauth.idn_nhi_svid] | Tabla: bauth.idn_nhi_svid.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d15.svid.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "idn_nhi_svid_status_check", "columns": ["bauth.idn_nhi_svid.status"]}$j$)
     RETURNING item_id INTO v_d15_svid_estado;
@@ -2650,7 +2650,7 @@ BEGIN
         (v_d15_svid_estado, 'd15.svid.estado.REVOKED', $j${"es": "REVOKED", "en": "REVOKED"}$j$, 1, true, 30, $j${"value": "REVOKED"}$j$),
         (v_d15_svid_estado, 'd15.svid.estado.ROTATED', $j${"es": "ROTATED", "en": "ROTATED"}$j$, 1, true, 40, $j${"value": "ROTATED"}$j$);
 
-    -- idn_nhi_svid_svid_type_check [bauth.idn_nhi_svid]
+    -- [MC-0216] T-481 | idn_nhi_svid_svid_type_check [bauth.idn_nhi_svid] | Tabla: bauth.idn_nhi_svid.svid_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d15.svid.tipo_svid', $j${"es": "Tipo de SVID", "en": "Svid Type"}$j$, 0, false, $j${"constraint": "idn_nhi_svid_svid_type_check", "columns": ["bauth.idn_nhi_svid.svid_type"]}$j$)
     RETURNING item_id INTO v_d15_svid_tipo_svid;
@@ -2660,7 +2660,7 @@ BEGIN
         (v_d15_svid_tipo_svid, 'd15.svid.tipo_svid.JWT', $j${"es": "JWT", "en": "JWT"}$j$, 1, true, 10, $j${"value": "JWT"}$j$),
         (v_d15_svid_tipo_svid, 'd15.svid.tipo_svid.X509', $j${"es": "X509", "en": "X509"}$j$, 1, true, 20, $j${"value": "X509"}$j$);
 
-    -- idn_physical_access_credential_credential_type_check [bauth.idn_physical_access_credential]
+    -- [MC-0118] T-228 | idn_physical_access_credential_credential_type_check [bauth.idn_physical_access_credential] | Tabla: bauth.idn_physical_access_credential.credential_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d02.credencial_fisica.tipo_credencial', $j${"es": "Tipo de credencial", "en": "Credential Type"}$j$, 0, false, $j${"constraint": "idn_physical_access_credential_credential_type_check", "columns": ["bauth.idn_physical_access_credential.credential_type"]}$j$)
     RETURNING item_id INTO v_d02_credencial_fisica_tipo_credencial;
@@ -2675,7 +2675,7 @@ BEGIN
         (v_d02_credencial_fisica_tipo_credencial, 'd02.credencial_fisica.tipo_credencial.RFID', $j${"es": "RFID", "en": "RFID"}$j$, 1, true, 60, $j${"value": "RFID"}$j$),
         (v_d02_credencial_fisica_tipo_credencial, 'd02.credencial_fisica.tipo_credencial.SMARTCARD', $j${"es": "SMARTCARD", "en": "SMARTCARD"}$j$, 1, true, 70, $j${"value": "SMARTCARD"}$j$);
 
-    -- idn_physical_access_emergency_door_mode_check [bauth.idn_physical_access_emergency]
+    -- [MC-0119] T-225 | idn_physical_access_emergency_door_mode_check [bauth.idn_physical_access_emergency] | Tabla: bauth.idn_physical_access_emergency.door_mode | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d02.emergencia.modo_puerta', $j${"es": "Modo de puerta de emergencia", "en": "Door Mode"}$j$, 0, false, $j${"constraint": "idn_physical_access_emergency_door_mode_check", "columns": ["bauth.idn_physical_access_emergency.door_mode"]}$j$)
     RETURNING item_id INTO v_d02_emergencia_modo_puerta;
@@ -2687,7 +2687,7 @@ BEGIN
         (v_d02_emergencia_modo_puerta, 'd02.emergencia.modo_puerta.MANUAL_OVERRIDE', $j${"es": "MANUAL_OVERRIDE", "en": "MANUAL_OVERRIDE"}$j$, 1, true, 30, $j${"value": "MANUAL_OVERRIDE"}$j$),
         (v_d02_emergencia_modo_puerta, 'd02.emergencia.modo_puerta.NORMAL', $j${"es": "NORMAL", "en": "NORMAL"}$j$, 1, true, 40, $j${"value": "NORMAL"}$j$);
 
-    -- idn_physical_access_emergency_emergency_type_check [bauth.idn_physical_access_emergency]
+    -- [MC-0120] T-225 | idn_physical_access_emergency_emergency_type_check [bauth.idn_physical_access_emergency] | Tabla: bauth.idn_physical_access_emergency.emergency_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d02.emergencia.tipo_emergencia', $j${"es": "Tipo de emergencia física", "en": "Emergency Type"}$j$, 0, false, $j${"constraint": "idn_physical_access_emergency_emergency_type_check", "columns": ["bauth.idn_physical_access_emergency.emergency_type"]}$j$)
     RETURNING item_id INTO v_d02_emergencia_tipo_emergencia;
@@ -2701,7 +2701,7 @@ BEGIN
         (v_d02_emergencia_tipo_emergencia, 'd02.emergencia.tipo_emergencia.OTHER', $j${"es": "OTHER", "en": "OTHER"}$j$, 1, true, 50, $j${"value": "OTHER"}$j$),
         (v_d02_emergencia_tipo_emergencia, 'd02.emergencia.tipo_emergencia.POWER_FAILURE', $j${"es": "POWER_FAILURE", "en": "POWER_FAILURE"}$j$, 1, true, 60, $j${"value": "POWER_FAILURE"}$j$);
 
-    -- idn_physical_access_event_log_credential_type_check [bauth.idn_physical_access_event_log]
+    -- [MC-0121] T-223 | idn_physical_access_event_log_credential_type_check [bauth.idn_physical_access_event_log] | Tabla: bauth.idn_physical_access_event_log.credential_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d02.evento_fisico.tipo_credencial', $j${"es": "Tipo de credencial", "en": "Credential Type"}$j$, 0, false, $j${"constraint": "idn_physical_access_event_log_credential_type_check", "columns": ["bauth.idn_physical_access_event_log.credential_type", "bauth.idn_physical_access_event_log_2026_07.credential_type", "bauth.idn_physical_access_event_log_2026_08.credential_type", "bauth.idn_physical_access_event_log_default.credential_type"]}$j$)
     RETURNING item_id INTO v_d02_evento_fisico_tipo_credencial;
@@ -2714,7 +2714,7 @@ BEGIN
         (v_d02_evento_fisico_tipo_credencial, 'd02.evento_fisico.tipo_credencial.RFID', $j${"es": "RFID", "en": "RFID"}$j$, 1, true, 40, $j${"value": "RFID"}$j$),
         (v_d02_evento_fisico_tipo_credencial, 'd02.evento_fisico.tipo_credencial.SMARTCARD', $j${"es": "SMARTCARD", "en": "SMARTCARD"}$j$, 1, true, 50, $j${"value": "SMARTCARD"}$j$);
 
-    -- idn_physical_access_event_log_event_type_check [bauth.idn_physical_access_event_log]
+    -- [MC-0122] T-223 | idn_physical_access_event_log_event_type_check [bauth.idn_physical_access_event_log] | Tabla: bauth.idn_physical_access_event_log.event_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d02.evento_fisico.tipo_evento', $j${"es": "Tipo de evento", "en": "Event Type"}$j$, 0, false, $j${"constraint": "idn_physical_access_event_log_event_type_check", "columns": ["bauth.idn_physical_access_event_log.event_type", "bauth.idn_physical_access_event_log_2026_07.event_type", "bauth.idn_physical_access_event_log_2026_08.event_type", "bauth.idn_physical_access_event_log_default.event_type"]}$j$)
     RETURNING item_id INTO v_d02_evento_fisico_tipo_evento;
@@ -2728,7 +2728,7 @@ BEGIN
         (v_d02_evento_fisico_tipo_evento, 'd02.evento_fisico.tipo_evento.EXIT', $j${"es": "EXIT", "en": "EXIT"}$j$, 1, true, 50, $j${"value": "EXIT"}$j$),
         (v_d02_evento_fisico_tipo_evento, 'd02.evento_fisico.tipo_evento.FORCED', $j${"es": "FORCED", "en": "FORCED"}$j$, 1, true, 60, $j${"value": "FORCED"}$j$);
 
-    -- idn_physical_access_event_log_outcome_check [bauth.idn_physical_access_event_log]
+    -- [MC-0123] T-223 | idn_physical_access_event_log_outcome_check [bauth.idn_physical_access_event_log] | Tabla: bauth.idn_physical_access_event_log.outcome | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d02.evento_fisico.resultado', $j${"es": "Resultado", "en": "Outcome"}$j$, 0, false, $j${"constraint": "idn_physical_access_event_log_outcome_check", "columns": ["bauth.idn_physical_access_event_log.outcome", "bauth.idn_physical_access_event_log_2026_07.outcome", "bauth.idn_physical_access_event_log_2026_08.outcome", "bauth.idn_physical_access_event_log_default.outcome"]}$j$)
     RETURNING item_id INTO v_d02_evento_fisico_resultado;
@@ -2740,7 +2740,7 @@ BEGIN
         (v_d02_evento_fisico_resultado, 'd02.evento_fisico.resultado.GRANTED', $j${"es": "GRANTED", "en": "GRANTED"}$j$, 1, true, 30, $j${"value": "GRANTED"}$j$),
         (v_d02_evento_fisico_resultado, 'd02.evento_fisico.resultado.TIMEOUT', $j${"es": "TIMEOUT", "en": "TIMEOUT"}$j$, 1, true, 40, $j${"value": "TIMEOUT"}$j$);
 
-    -- idn_physical_access_location_location_type_check [bauth.idn_physical_access_location]
+    -- [MC-0124] T-220 | idn_physical_access_location_location_type_check [bauth.idn_physical_access_location] | Tabla: bauth.idn_physical_access_location.location_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d02.ubicacion_fisica.tipo_ubicacion', $j${"es": "Tipo de ubicación", "en": "Location Type"}$j$, 0, false, $j${"constraint": "idn_physical_access_location_location_type_check", "columns": ["bauth.idn_physical_access_location.location_type"]}$j$)
     RETURNING item_id INTO v_d02_ubicacion_fisica_tipo_ubicacion;
@@ -2755,7 +2755,7 @@ BEGIN
         (v_d02_ubicacion_fisica_tipo_ubicacion, 'd02.ubicacion_fisica.tipo_ubicacion.VEHICLE_ACCESS', $j${"es": "VEHICLE_ACCESS", "en": "VEHICLE_ACCESS"}$j$, 1, true, 60, $j${"value": "VEHICLE_ACCESS"}$j$),
         (v_d02_ubicacion_fisica_tipo_ubicacion, 'd02.ubicacion_fisica.tipo_ubicacion.WAREHOUSE', $j${"es": "WAREHOUSE", "en": "WAREHOUSE"}$j$, 1, true, 70, $j${"value": "WAREHOUSE"}$j$);
 
-    -- idn_physical_access_location_status_check [bauth.idn_physical_access_location]
+    -- [MC-0125] T-220 | idn_physical_access_location_status_check [bauth.idn_physical_access_location] | Tabla: bauth.idn_physical_access_location.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d02.ubicacion_fisica.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "idn_physical_access_location_status_check", "columns": ["bauth.idn_physical_access_location.status"]}$j$)
     RETURNING item_id INTO v_d02_ubicacion_fisica_estado;
@@ -2766,7 +2766,7 @@ BEGIN
         (v_d02_ubicacion_fisica_estado, 'd02.ubicacion_fisica.estado.INACTIVE', $j${"es": "INACTIVE", "en": "INACTIVE"}$j$, 1, true, 20, $j${"value": "INACTIVE"}$j$),
         (v_d02_ubicacion_fisica_estado, 'd02.ubicacion_fisica.estado.MAINTENANCE', $j${"es": "MAINTENANCE", "en": "MAINTENANCE"}$j$, 1, true, 30, $j${"value": "MAINTENANCE"}$j$);
 
-    -- idn_physical_access_reader_direction_check [bauth.idn_physical_access_reader]
+    -- [MC-0126] T-221 | idn_physical_access_reader_direction_check [bauth.idn_physical_access_reader] | Tabla: bauth.idn_physical_access_reader.direction | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d02.lector.direccion', $j${"es": "Dirección", "en": "Direction"}$j$, 0, false, $j${"constraint": "idn_physical_access_reader_direction_check", "columns": ["bauth.idn_physical_access_reader.direction"]}$j$)
     RETURNING item_id INTO v_d02_lector_direccion;
@@ -2777,7 +2777,7 @@ BEGIN
         (v_d02_lector_direccion, 'd02.lector.direccion.ENTRY', $j${"es": "ENTRY", "en": "ENTRY"}$j$, 1, true, 20, $j${"value": "ENTRY"}$j$),
         (v_d02_lector_direccion, 'd02.lector.direccion.EXIT', $j${"es": "EXIT", "en": "EXIT"}$j$, 1, true, 30, $j${"value": "EXIT"}$j$);
 
-    -- idn_physical_access_reader_protocol_check [bauth.idn_physical_access_reader]
+    -- [MC-0127] T-221 | idn_physical_access_reader_protocol_check [bauth.idn_physical_access_reader] | Tabla: bauth.idn_physical_access_reader.protocol | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d02.lector.protocolo', $j${"es": "Protocolo", "en": "Protocol"}$j$, 0, false, $j${"constraint": "idn_physical_access_reader_protocol_check", "columns": ["bauth.idn_physical_access_reader.protocol"]}$j$)
     RETURNING item_id INTO v_d02_lector_protocolo;
@@ -2789,7 +2789,7 @@ BEGIN
         (v_d02_lector_protocolo, 'd02.lector.protocolo.OSDP_V2_2', $j${"es": "OSDP_V2_2", "en": "OSDP_V2_2"}$j$, 1, true, 30, $j${"value": "OSDP_V2_2"}$j$),
         (v_d02_lector_protocolo, 'd02.lector.protocolo.WIEGAND', $j${"es": "WIEGAND", "en": "WIEGAND"}$j$, 1, true, 40, $j${"value": "WIEGAND"}$j$);
 
-    -- idn_physical_access_reader_reader_type_check [bauth.idn_physical_access_reader]
+    -- [MC-0128] T-221 | idn_physical_access_reader_reader_type_check [bauth.idn_physical_access_reader] | Tabla: bauth.idn_physical_access_reader.reader_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d02.lector.tipo_lector', $j${"es": "Tipo de lector", "en": "Reader Type"}$j$, 0, false, $j${"constraint": "idn_physical_access_reader_reader_type_check", "columns": ["bauth.idn_physical_access_reader.reader_type"]}$j$)
     RETURNING item_id INTO v_d02_lector_tipo_lector;
@@ -2803,7 +2803,7 @@ BEGIN
         (v_d02_lector_tipo_lector, 'd02.lector.tipo_lector.RFID', $j${"es": "RFID", "en": "RFID"}$j$, 1, true, 50, $j${"value": "RFID"}$j$),
         (v_d02_lector_tipo_lector, 'd02.lector.tipo_lector.SMARTCARD', $j${"es": "SMARTCARD", "en": "SMARTCARD"}$j$, 1, true, 60, $j${"value": "SMARTCARD"}$j$);
 
-    -- idn_physical_access_reader_status_check [bauth.idn_physical_access_reader]
+    -- [MC-0129] T-221 | idn_physical_access_reader_status_check [bauth.idn_physical_access_reader] | Tabla: bauth.idn_physical_access_reader.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d02.lector.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "idn_physical_access_reader_status_check", "columns": ["bauth.idn_physical_access_reader.status"]}$j$)
     RETURNING item_id INTO v_d02_lector_estado;
@@ -2815,7 +2815,7 @@ BEGIN
         (v_d02_lector_estado, 'd02.lector.estado.MAINTENANCE', $j${"es": "MAINTENANCE", "en": "MAINTENANCE"}$j$, 1, true, 30, $j${"value": "MAINTENANCE"}$j$),
         (v_d02_lector_estado, 'd02.lector.estado.OFFLINE', $j${"es": "OFFLINE", "en": "OFFLINE"}$j$, 1, true, 40, $j${"value": "OFFLINE"}$j$);
 
-    -- idn_physical_access_visit_status_check [bauth.idn_physical_access_visit]
+    -- [MC-0130] T-224 | idn_physical_access_visit_status_check [bauth.idn_physical_access_visit] | Tabla: bauth.idn_physical_access_visit.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d02.visita.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "idn_physical_access_visit_status_check", "columns": ["bauth.idn_physical_access_visit.status"]}$j$)
     RETURNING item_id INTO v_d02_visita_estado;
@@ -2828,7 +2828,7 @@ BEGIN
         (v_d02_visita_estado, 'd02.visita.estado.NO_SHOW', $j${"es": "NO_SHOW", "en": "NO_SHOW"}$j$, 1, true, 40, $j${"value": "NO_SHOW"}$j$),
         (v_d02_visita_estado, 'd02.visita.estado.SCHEDULED', $j${"es": "SCHEDULED", "en": "SCHEDULED"}$j$, 1, true, 50, $j${"value": "SCHEDULED"}$j$);
 
-    -- chk_itn_font_size_token [bauth.idn_policy_node_type]
+    -- [MC-0093] T-161b | chk_itn_font_size_token [bauth.idn_policy_node_type] | Tabla: bauth.idn_policy_node_type.font_size_token | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('cfg.nodo_politica.tamano_fuente', $j${"es": "Token de tamaño de fuente", "en": "Font Size Token"}$j$, 0, false, $j${"constraint": "chk_itn_font_size_token", "columns": ["bauth.idn_policy_node_type.font_size_token"]}$j$)
     RETURNING item_id INTO v_cfg_nodo_politica_tamano_fuente;
@@ -2840,7 +2840,7 @@ BEGIN
         (v_cfg_nodo_politica_tamano_fuente, 'cfg.nodo_politica.tamano_fuente.sm', $j${"es": "sm", "en": "sm"}$j$, 1, true, 30, $j${"value": "sm"}$j$),
         (v_cfg_nodo_politica_tamano_fuente, 'cfg.nodo_politica.tamano_fuente.xs', $j${"es": "xs", "en": "xs"}$j$, 1, true, 40, $j${"value": "xs"}$j$);
 
-    -- idn_registry_attribute_schema_category_check [bauth.idn_registry_attribute_schema]
+    -- [MC-0279] T-500 | idn_registry_attribute_schema_category_check [bauth.idn_registry_attribute_schema] | Tabla: bauth.idn_registry_attribute_schema.category | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('registry.schema_attr.categoria', $j${"es": "Categoría", "en": "Category"}$j$, 0, false, $j${"constraint": "idn_registry_attribute_schema_category_check", "columns": ["bauth.idn_registry_attribute_schema.category"]}$j$)
     RETURNING item_id INTO v_registry_schema_attr_categoria;
@@ -2855,7 +2855,7 @@ BEGIN
         (v_registry_schema_attr_categoria, 'registry.schema_attr.categoria.LEGAL', $j${"es": "LEGAL", "en": "LEGAL"}$j$, 1, true, 60, $j${"value": "LEGAL"}$j$),
         (v_registry_schema_attr_categoria, 'registry.schema_attr.categoria.SYSTEM', $j${"es": "SYSTEM", "en": "SYSTEM"}$j$, 1, true, 70, $j${"value": "SYSTEM"}$j$);
 
-    -- idn_registry_attribute_schema_classification_check [bauth.idn_registry_attribute_schema]
+    -- [MC-0280] T-500 | idn_registry_attribute_schema_classification_check [bauth.idn_registry_attribute_schema] | Tabla: bauth.idn_registry_attribute_schema.classification | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('registry.schema_attr.clasificacion', $j${"es": "Clasificación", "en": "Classification"}$j$, 0, false, $j${"constraint": "idn_registry_attribute_schema_classification_check", "columns": ["bauth.idn_registry_attribute_schema.classification"]}$j$)
     RETURNING item_id INTO v_registry_schema_attr_clasificacion;
@@ -2867,7 +2867,7 @@ BEGIN
         (v_registry_schema_attr_clasificacion, 'registry.schema_attr.clasificacion.PUBLIC', $j${"es": "PUBLIC", "en": "PUBLIC"}$j$, 1, true, 30, $j${"value": "PUBLIC"}$j$),
         (v_registry_schema_attr_clasificacion, 'registry.schema_attr.clasificacion.SECRET', $j${"es": "SECRET", "en": "SECRET"}$j$, 1, true, 40, $j${"value": "SECRET"}$j$);
 
-    -- idn_registry_attribute_schema_data_type_check [bauth.idn_registry_attribute_schema]
+    -- [MC-0281] T-500 | idn_registry_attribute_schema_data_type_check [bauth.idn_registry_attribute_schema] | Tabla: bauth.idn_registry_attribute_schema.data_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('registry.schema_attr.tipo_dato', $j${"es": "Tipo de dato", "en": "Data Type"}$j$, 0, false, $j${"constraint": "idn_registry_attribute_schema_data_type_check", "columns": ["bauth.idn_registry_attribute_schema.data_type"]}$j$)
     RETURNING item_id INTO v_registry_schema_attr_tipo_dato;
@@ -2916,7 +2916,7 @@ DECLARE
     v_d13_verificacion_firma_resultado UUID;
 BEGIN
 
-    -- idn_registry_attribute_schema_mutability_check [bauth.idn_registry_attribute_schema]
+    -- [MC-0282] T-500 | idn_registry_attribute_schema_mutability_check [bauth.idn_registry_attribute_schema] | Tabla: bauth.idn_registry_attribute_schema.mutability | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('registry.schema_attr.mutabilidad', $j${"es": "Mutabilidad", "en": "Mutability"}$j$, 0, false, $j${"constraint": "idn_registry_attribute_schema_mutability_check", "columns": ["bauth.idn_registry_attribute_schema.mutability"]}$j$)
     RETURNING item_id INTO v_registry_schema_attr_mutabilidad;
@@ -2927,7 +2927,7 @@ BEGIN
         (v_registry_schema_attr_mutabilidad, 'registry.schema_attr.mutabilidad.READ_WRITE', $j${"es": "READ_WRITE", "en": "READ_WRITE"}$j$, 1, true, 20, $j${"value": "READ_WRITE"}$j$),
         (v_registry_schema_attr_mutabilidad, 'registry.schema_attr.mutabilidad.WRITE_ONCE', $j${"es": "WRITE_ONCE", "en": "WRITE_ONCE"}$j$, 1, true, 30, $j${"value": "WRITE_ONCE"}$j$);
 
-    -- idn_registry_attribute_schema_source_check [bauth.idn_registry_attribute_schema]
+    -- [MC-0283] T-500 | idn_registry_attribute_schema_source_check [bauth.idn_registry_attribute_schema] | Tabla: bauth.idn_registry_attribute_schema.source | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('registry.schema_attr.fuente', $j${"es": "Fuente", "en": "Source"}$j$, 0, false, $j${"constraint": "idn_registry_attribute_schema_source_check", "columns": ["bauth.idn_registry_attribute_schema.source"]}$j$)
     RETURNING item_id INTO v_registry_schema_attr_fuente;
@@ -2940,7 +2940,7 @@ BEGIN
         (v_registry_schema_attr_fuente, 'registry.schema_attr.fuente.SYSTEM', $j${"es": "SYSTEM", "en": "SYSTEM"}$j$, 1, true, 40, $j${"value": "SYSTEM"}$j$),
         (v_registry_schema_attr_fuente, 'registry.schema_attr.fuente.USER', $j${"es": "USER", "en": "USER"}$j$, 1, true, 50, $j${"value": "USER"}$j$);
 
-    -- chk_iai_session [bauth.idn_roles_nhi_agent_identity]
+    -- [MC-0217] T-190 | chk_iai_session [bauth.idn_roles_nhi_agent_identity] | Tabla: bauth.idn_roles_nhi_agent_identity.session_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d15.nhi_agente.tipo_sesion', $j${"es": "Tipo de sesión", "en": "Session Type"}$j$, 0, false, $j${"constraint": "chk_iai_session", "columns": ["bauth.idn_roles_nhi_agent_identity.session_type"]}$j$)
     RETURNING item_id INTO v_d15_nhi_agente_tipo_sesion;
@@ -2950,7 +2950,7 @@ BEGIN
         (v_d15_nhi_agente_tipo_sesion, 'd15.nhi_agente.tipo_sesion.EPHEMERAL', $j${"es": "EPHEMERAL", "en": "EPHEMERAL"}$j$, 1, true, 10, $j${"value": "EPHEMERAL"}$j$),
         (v_d15_nhi_agente_tipo_sesion, 'd15.nhi_agente.tipo_sesion.PERSISTENT', $j${"es": "PERSISTENT", "en": "PERSISTENT"}$j$, 1, true, 20, $j${"value": "PERSISTENT"}$j$);
 
-    -- chk_inc_decision [bauth.idn_roles_nhi_certification]
+    -- [MC-0218] T-188 | chk_inc_decision [bauth.idn_roles_nhi_certification] | Tabla: bauth.idn_roles_nhi_certification.decision | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d15.nhi_cert.decision', $j${"es": "Decisión", "en": "Decision"}$j$, 0, false, $j${"constraint": "chk_inc_decision", "columns": ["bauth.idn_roles_nhi_certification.decision"]}$j$)
     RETURNING item_id INTO v_d15_nhi_cert_decision;
@@ -2962,7 +2962,7 @@ BEGIN
         (v_d15_nhi_cert_decision, 'd15.nhi_cert.decision.ESCALATE', $j${"es": "ESCALATE", "en": "ESCALATE"}$j$, 1, true, 30, $j${"value": "ESCALATE"}$j$),
         (v_d15_nhi_cert_decision, 'd15.nhi_cert.decision.REDUCE_SCOPE', $j${"es": "REDUCE_SCOPE", "en": "REDUCE_SCOPE"}$j$, 1, true, 40, $j${"value": "REDUCE_SCOPE"}$j$);
 
-    -- chk_inhi_status [bauth.idn_roles_nhi_identity]
+    -- [MC-0219] T-186 | chk_inhi_status [bauth.idn_roles_nhi_identity] | Tabla: bauth.idn_roles_nhi_identity.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d15.nhi_identidad.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "chk_inhi_status", "columns": ["bauth.idn_roles_nhi_identity.status"]}$j$)
     RETURNING item_id INTO v_d15_nhi_identidad_estado;
@@ -2974,7 +2974,7 @@ BEGIN
         (v_d15_nhi_identidad_estado, 'd15.nhi_identidad.estado.DORMANT', $j${"es": "DORMANT", "en": "DORMANT"}$j$, 1, true, 30, $j${"value": "DORMANT"}$j$),
         (v_d15_nhi_identidad_estado, 'd15.nhi_identidad.estado.SUSPENDED', $j${"es": "SUSPENDED", "en": "SUSPENDED"}$j$, 1, true, 40, $j${"value": "SUSPENDED"}$j$);
 
-    -- chk_inhi_type [bauth.idn_roles_nhi_identity]
+    -- [MC-0220] T-186 | chk_inhi_type [bauth.idn_roles_nhi_identity] | Tabla: bauth.idn_roles_nhi_identity.nhi_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d15.nhi_identidad.tipo_nhi', $j${"es": "Tipo NHI", "en": "Nhi Type"}$j$, 0, false, $j${"constraint": "chk_inhi_type", "columns": ["bauth.idn_roles_nhi_identity.nhi_type"]}$j$)
     RETURNING item_id INTO v_d15_nhi_identidad_tipo_nhi;
@@ -2988,7 +2988,7 @@ BEGIN
         (v_d15_nhi_identidad_tipo_nhi, 'd15.nhi_identidad.tipo_nhi.SERVICE_ACCOUNT', $j${"es": "SERVICE_ACCOUNT", "en": "SERVICE_ACCOUNT"}$j$, 1, true, 50, $j${"value": "SERVICE_ACCOUNT"}$j$),
         (v_d15_nhi_identidad_tipo_nhi, 'd15.nhi_identidad.tipo_nhi.WORKLOAD', $j${"es": "WORKLOAD", "en": "WORKLOAD"}$j$, 1, true, 60, $j${"value": "WORKLOAD"}$j$);
 
-    -- chk_inle_type [bauth.idn_roles_nhi_lifecycle_event]
+    -- [MC-0221] T-187 | chk_inle_type [bauth.idn_roles_nhi_lifecycle_event] | Tabla: bauth.idn_roles_nhi_lifecycle_event.event_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d15.nhi_ciclo.tipo_evento', $j${"es": "Tipo de evento", "en": "Event Type"}$j$, 0, false, $j${"constraint": "chk_inle_type", "columns": ["bauth.idn_roles_nhi_lifecycle_event.event_type"]}$j$)
     RETURNING item_id INTO v_d15_nhi_ciclo_tipo_evento;
@@ -3004,7 +3004,7 @@ BEGIN
         (v_d15_nhi_ciclo_tipo_evento, 'd15.nhi_ciclo.tipo_evento.ROTATED', $j${"es": "ROTATED", "en": "ROTATED"}$j$, 1, true, 70, $j${"value": "ROTATED"}$j$),
         (v_d15_nhi_ciclo_tipo_evento, 'd15.nhi_ciclo.tipo_evento.SUSPENDED', $j${"es": "SUSPENDED", "en": "SUSPENDED"}$j$, 1, true, 80, $j${"value": "SUSPENDED"}$j$);
 
-    -- chk_irle_trigger [bauth.idn_roles_rol_lifecycle_event]
+    -- [MC-0271] T-B02L | chk_irle_trigger [bauth.idn_roles_rol_lifecycle_event] | Tabla: bauth.idn_roles_rol_lifecycle_event.trigger_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('rol.ciclo_vida.tipo_disparador', $j${"es": "Tipo de disparador del ciclo de vida", "en": "Trigger Type"}$j$, 0, false, $j${"constraint": "chk_irle_trigger", "columns": ["bauth.idn_roles_rol_lifecycle_event.trigger_type"]}$j$)
     RETURNING item_id INTO v_rol_ciclo_vida_tipo_disparador;
@@ -3018,7 +3018,7 @@ BEGIN
         (v_rol_ciclo_vida_tipo_disparador, 'rol.ciclo_vida.tipo_disparador.MANUAL', $j${"es": "MANUAL", "en": "MANUAL"}$j$, 1, true, 50, $j${"value": "MANUAL"}$j$),
         (v_rol_ciclo_vida_tipo_disparador, 'rol.ciclo_vida.tipo_disparador.RECONCILE', $j${"es": "RECONCILE", "en": "RECONCILE"}$j$, 1, true, 60, $j${"value": "RECONCILE"}$j$);
 
-    -- idn_roles_template_history_operation_check [bauth.idn_roles_template_history]
+    -- [MC-0272] T-163 | idn_roles_template_history_operation_check [bauth.idn_roles_template_history] | Tabla: bauth.idn_roles_template_history.operation | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('rol.template.operacion', $j${"es": "Operación", "en": "Operation"}$j$, 0, false, $j${"constraint": "idn_roles_template_history_operation_check", "columns": ["bauth.idn_roles_template_history.operation"]}$j$)
     RETURNING item_id INTO v_rol_template_operacion;
@@ -3029,7 +3029,7 @@ BEGIN
         (v_rol_template_operacion, 'rol.template.operacion.INSERT', $j${"es": "INSERT", "en": "INSERT"}$j$, 1, true, 20, $j${"value": "INSERT"}$j$),
         (v_rol_template_operacion, 'rol.template.operacion.UPDATE', $j${"es": "UPDATE", "en": "UPDATE"}$j$, 1, true, 30, $j${"value": "UPDATE"}$j$);
 
-    -- chk_irvb01rp_class [bauth.idn_roles_ver_b01_retention_policy]
+    -- [MC-0273] T-154 | chk_irvb01rp_class [bauth.idn_roles_ver_b01_retention_policy] | Tabla: bauth.idn_roles_ver_b01_retention_policy.info_class | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('rol.ver_retencion.clase_info', $j${"es": "Clase de información", "en": "Info Class"}$j$, 0, false, $j${"constraint": "chk_irvb01rp_class", "columns": ["bauth.idn_roles_ver_b01_retention_policy.info_class"]}$j$)
     RETURNING item_id INTO v_rol_ver_retencion_clase_info;
@@ -3041,7 +3041,7 @@ BEGIN
         (v_rol_ver_retencion_clase_info, 'rol.ver_retencion.clase_info.C3', $j${"es": "C3", "en": "C3"}$j$, 1, true, 30, $j${"value": "C3"}$j$),
         (v_rol_ver_retencion_clase_info, 'rol.ver_retencion.clase_info.C4', $j${"es": "C4", "en": "C4"}$j$, 1, true, 40, $j${"value": "C4"}$j$);
 
-    -- chk_irvcrl_compat [bauth.idn_roles_ver_contract_revision_log]
+    -- [MC-0274] T-155 | chk_irvcrl_compat [bauth.idn_roles_ver_contract_revision_log] | Tabla: bauth.idn_roles_ver_contract_revision_log.compatibility | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('rol.ver_contrato.compatibilidad', $j${"es": "Compatibilidad", "en": "Compatibility"}$j$, 0, false, $j${"constraint": "chk_irvcrl_compat", "columns": ["bauth.idn_roles_ver_contract_revision_log.compatibility"]}$j$)
     RETURNING item_id INTO v_rol_ver_contrato_compatibilidad;
@@ -3051,7 +3051,7 @@ BEGIN
         (v_rol_ver_contrato_compatibilidad, 'rol.ver_contrato.compatibilidad.BREAKING', $j${"es": "BREAKING", "en": "BREAKING"}$j$, 1, true, 10, $j${"value": "BREAKING"}$j$),
         (v_rol_ver_contrato_compatibilidad, 'rol.ver_contrato.compatibilidad.COMPATIBLE', $j${"es": "COMPATIBLE", "en": "COMPATIBLE"}$j$, 1, true, 20, $j${"value": "COMPATIBLE"}$j$);
 
-    -- chk_isam_mutability [bauth.idn_scim_attribute_map]
+    -- [MC-0114] T-555 | chk_isam_mutability [bauth.idn_scim_attribute_map] | Tabla: bauth.idn_scim_attribute_map.scim_mutability | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('scim.mapeo_attr.mutabilidad_scim', $j${"es": "Mutabilidad SCIM", "en": "Scim Mutability"}$j$, 0, false, $j${"constraint": "chk_isam_mutability", "columns": ["bauth.idn_scim_attribute_map.scim_mutability"]}$j$)
     RETURNING item_id INTO v_scim_mapeo_attr_mutabilidad_scim;
@@ -3063,7 +3063,7 @@ BEGIN
         (v_scim_mapeo_attr_mutabilidad_scim, 'scim.mapeo_attr.mutabilidad_scim.readWrite', $j${"es": "readWrite", "en": "readWrite"}$j$, 1, true, 30, $j${"value": "readWrite"}$j$),
         (v_scim_mapeo_attr_mutabilidad_scim, 'scim.mapeo_attr.mutabilidad_scim.writeOnly', $j${"es": "writeOnly", "en": "writeOnly"}$j$, 1, true, 40, $j${"value": "writeOnly"}$j$);
 
-    -- chk_isam_resource [bauth.idn_scim_attribute_map]
+    -- [MC-0115] T-555 | chk_isam_resource [bauth.idn_scim_attribute_map] | Tabla: bauth.idn_scim_attribute_map.scim_resource | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('scim.mapeo_attr.recurso_scim', $j${"es": "Recurso SCIM", "en": "Scim Resource"}$j$, 0, false, $j${"constraint": "chk_isam_resource", "columns": ["bauth.idn_scim_attribute_map.scim_resource"]}$j$)
     RETURNING item_id INTO v_scim_mapeo_attr_recurso_scim;
@@ -3076,7 +3076,7 @@ BEGIN
         (v_scim_mapeo_attr_recurso_scim, 'scim.mapeo_attr.recurso_scim.ServiceAccount', $j${"es": "ServiceAccount", "en": "ServiceAccount"}$j$, 1, true, 40, $j${"value": "ServiceAccount"}$j$),
         (v_scim_mapeo_attr_recurso_scim, 'scim.mapeo_attr.recurso_scim.User', $j${"es": "User", "en": "User"}$j$, 1, true, 50, $j${"value": "User"}$j$);
 
-    -- chk_isam_returned [bauth.idn_scim_attribute_map]
+    -- [MC-0116] T-555 | chk_isam_returned [bauth.idn_scim_attribute_map] | Tabla: bauth.idn_scim_attribute_map.scim_returned | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('scim.mapeo_attr.retorno_scim', $j${"es": "Retorno SCIM", "en": "Scim Returned"}$j$, 0, false, $j${"constraint": "chk_isam_returned", "columns": ["bauth.idn_scim_attribute_map.scim_returned"]}$j$)
     RETURNING item_id INTO v_scim_mapeo_attr_retorno_scim;
@@ -3088,7 +3088,7 @@ BEGIN
         (v_scim_mapeo_attr_retorno_scim, 'scim.mapeo_attr.retorno_scim.never', $j${"es": "never", "en": "never"}$j$, 1, true, 30, $j${"value": "never"}$j$),
         (v_scim_mapeo_attr_retorno_scim, 'scim.mapeo_attr.retorno_scim.request', $j${"es": "request", "en": "request"}$j$, 1, true, 40, $j${"value": "request"}$j$);
 
-    -- chk_isam_table [bauth.idn_scim_attribute_map]
+    -- [MC-0117] T-555 | chk_isam_table [bauth.idn_scim_attribute_map] | Tabla: bauth.idn_scim_attribute_map.local_table | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('scim.mapeo_attr.tabla_local', $j${"es": "Tabla local", "en": "Local Table"}$j$, 0, false, $j${"constraint": "chk_isam_table", "columns": ["bauth.idn_scim_attribute_map.local_table"]}$j$)
     RETURNING item_id INTO v_scim_mapeo_attr_tabla_local;
@@ -3100,7 +3100,7 @@ BEGIN
         (v_scim_mapeo_attr_tabla_local, 'scim.mapeo_attr.tabla_local.idn_identidad_proofing', $j${"es": "idn_identidad_proofing", "en": "idn_identidad_proofing"}$j$, 1, true, 30, $j${"value": "idn_identidad_proofing"}$j$),
         (v_scim_mapeo_attr_tabla_local, 'scim.mapeo_attr.tabla_local.idn_identidad_vc', $j${"es": "idn_identidad_vc", "en": "idn_identidad_vc"}$j$, 1, true, 40, $j${"value": "idn_identidad_vc"}$j$);
 
-    -- idn_signature_ca_chain_ca_type_check [bauth.idn_signature_ca_chain]
+    -- [MC-0191] T-441 | idn_signature_ca_chain_ca_type_check [bauth.idn_signature_ca_chain] | Tabla: bauth.idn_signature_ca_chain.ca_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d13.cadena_ca.tipo_ca', $j${"es": "Tipo de CA", "en": "Ca Type"}$j$, 0, false, $j${"constraint": "idn_signature_ca_chain_ca_type_check", "columns": ["bauth.idn_signature_ca_chain.ca_type"]}$j$)
     RETURNING item_id INTO v_d13_cadena_ca_tipo_ca;
@@ -3113,7 +3113,7 @@ BEGIN
         (v_d13_cadena_ca_tipo_ca, 'd13.cadena_ca.tipo_ca.ROOT_CA', $j${"es": "ROOT_CA", "en": "ROOT_CA"}$j$, 1, true, 40, $j${"value": "ROOT_CA"}$j$),
         (v_d13_cadena_ca_tipo_ca, 'd13.cadena_ca.tipo_ca.VAULT_PKI', $j${"es": "VAULT_PKI", "en": "VAULT_PKI"}$j$, 1, true, 50, $j${"value": "VAULT_PKI"}$j$);
 
-    -- idn_signature_eudi_wallet_status_check [bauth.idn_signature_eudi_wallet]
+    -- [MC-0192] T-446 | idn_signature_eudi_wallet_status_check [bauth.idn_signature_eudi_wallet] | Tabla: bauth.idn_signature_eudi_wallet.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d13.eudi_wallet.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "idn_signature_eudi_wallet_status_check", "columns": ["bauth.idn_signature_eudi_wallet.status"]}$j$)
     RETURNING item_id INTO v_d13_eudi_wallet_estado;
@@ -3125,7 +3125,7 @@ BEGIN
         (v_d13_eudi_wallet_estado, 'd13.eudi_wallet.estado.REVOKED', $j${"es": "REVOKED", "en": "REVOKED"}$j$, 1, true, 30, $j${"value": "REVOKED"}$j$),
         (v_d13_eudi_wallet_estado, 'd13.eudi_wallet.estado.SUSPENDED', $j${"es": "SUSPENDED", "en": "SUSPENDED"}$j$, 1, true, 40, $j${"value": "SUSPENDED"}$j$);
 
-    -- idn_signature_request_document_type_check [bauth.idn_signature_request]
+    -- [MC-0193] T-440 | idn_signature_request_document_type_check [bauth.idn_signature_request] | Tabla: bauth.idn_signature_request.document_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d13.solicitud_firma.tipo_documento', $j${"es": "Tipo de documento", "en": "Document Type"}$j$, 0, false, $j${"constraint": "idn_signature_request_document_type_check", "columns": ["bauth.idn_signature_request.document_type"]}$j$)
     RETURNING item_id INTO v_d13_solicitud_firma_tipo_documento;
@@ -3140,7 +3140,7 @@ BEGIN
         (v_d13_solicitud_firma_tipo_documento, 'd13.solicitud_firma.tipo_documento.VC', $j${"es": "VC", "en": "VC"}$j$, 1, true, 60, $j${"value": "VC"}$j$),
         (v_d13_solicitud_firma_tipo_documento, 'd13.solicitud_firma.tipo_documento.XML', $j${"es": "XML", "en": "XML"}$j$, 1, true, 70, $j${"value": "XML"}$j$);
 
-    -- idn_signature_request_engine_check [bauth.idn_signature_request]
+    -- [MC-0194] T-440 | idn_signature_request_engine_check [bauth.idn_signature_request] | Tabla: bauth.idn_signature_request.engine | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d13.solicitud_firma.motor', $j${"es": "Motor", "en": "Engine"}$j$, 0, false, $j${"constraint": "idn_signature_request_engine_check", "columns": ["bauth.idn_signature_request.engine"]}$j$)
     RETURNING item_id INTO v_d13_solicitud_firma_motor;
@@ -3151,7 +3151,7 @@ BEGIN
         (v_d13_solicitud_firma_motor, 'd13.solicitud_firma.motor.EXTERNAL_ADSIB', $j${"es": "EXTERNAL_ADSIB", "en": "EXTERNAL_ADSIB"}$j$, 1, true, 20, $j${"value": "EXTERNAL_ADSIB"}$j$),
         (v_d13_solicitud_firma_motor, 'd13.solicitud_firma.motor.INTERNAL_ED25519', $j${"es": "INTERNAL_ED25519", "en": "INTERNAL_ED25519"}$j$, 1, true, 30, $j${"value": "INTERNAL_ED25519"}$j$);
 
-    -- idn_signature_request_signature_format_check [bauth.idn_signature_request]
+    -- [MC-0195] T-440 | idn_signature_request_signature_format_check [bauth.idn_signature_request] | Tabla: bauth.idn_signature_request.signature_format | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d13.solicitud_firma.formato_firma', $j${"es": "Formato de firma", "en": "Signature Format"}$j$, 0, false, $j${"constraint": "idn_signature_request_signature_format_check", "columns": ["bauth.idn_signature_request.signature_format"]}$j$)
     RETURNING item_id INTO v_d13_solicitud_firma_formato_firma;
@@ -3166,7 +3166,7 @@ BEGIN
         (v_d13_solicitud_firma_formato_firma, 'd13.solicitud_firma.formato_firma.PADES_T', $j${"es": "PADES_T", "en": "PADES_T"}$j$, 1, true, 60, $j${"value": "PADES_T"}$j$),
         (v_d13_solicitud_firma_formato_firma, 'd13.solicitud_firma.formato_firma.XADES_B', $j${"es": "XADES_B", "en": "XADES_B"}$j$, 1, true, 70, $j${"value": "XADES_B"}$j$);
 
-    -- idn_signature_request_status_check [bauth.idn_signature_request]
+    -- [MC-0196] T-440 | idn_signature_request_status_check [bauth.idn_signature_request] | Tabla: bauth.idn_signature_request.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d13.solicitud_firma.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "idn_signature_request_status_check", "columns": ["bauth.idn_signature_request.status"]}$j$)
     RETURNING item_id INTO v_d13_solicitud_firma_estado;
@@ -3179,7 +3179,7 @@ BEGIN
         (v_d13_solicitud_firma_estado, 'd13.solicitud_firma.estado.SIGNED', $j${"es": "SIGNED", "en": "SIGNED"}$j$, 1, true, 40, $j${"value": "SIGNED"}$j$),
         (v_d13_solicitud_firma_estado, 'd13.solicitud_firma.estado.SIGNING', $j${"es": "SIGNING", "en": "SIGNING"}$j$, 1, true, 50, $j${"value": "SIGNING"}$j$);
 
-    -- idn_signature_revocation_cache_check_source_check [bauth.idn_signature_revocation_cache]
+    -- [MC-0197] T-444 | idn_signature_revocation_cache_check_source_check [bauth.idn_signature_revocation_cache] | Tabla: bauth.idn_signature_revocation_cache.check_source | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d13.revocacion_cert.fuente_verificacion', $j${"es": "Fuente de verificación CRL/OCSP", "en": "Check Source"}$j$, 0, false, $j${"constraint": "idn_signature_revocation_cache_check_source_check", "columns": ["bauth.idn_signature_revocation_cache.check_source"]}$j$)
     RETURNING item_id INTO v_d13_revocacion_cert_fuente_verificacion;
@@ -3191,7 +3191,7 @@ BEGIN
         (v_d13_revocacion_cert_fuente_verificacion, 'd13.revocacion_cert.fuente_verificacion.OCSP', $j${"es": "OCSP", "en": "OCSP"}$j$, 1, true, 30, $j${"value": "OCSP"}$j$),
         (v_d13_revocacion_cert_fuente_verificacion, 'd13.revocacion_cert.fuente_verificacion.VAULT', $j${"es": "VAULT", "en": "VAULT"}$j$, 1, true, 40, $j${"value": "VAULT"}$j$);
 
-    -- idn_signature_revocation_cache_status_check [bauth.idn_signature_revocation_cache]
+    -- [MC-0198] T-444 | idn_signature_revocation_cache_status_check [bauth.idn_signature_revocation_cache] | Tabla: bauth.idn_signature_revocation_cache.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d13.revocacion_cert.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "idn_signature_revocation_cache_status_check", "columns": ["bauth.idn_signature_revocation_cache.status"]}$j$)
     RETURNING item_id INTO v_d13_revocacion_cert_estado;
@@ -3202,7 +3202,7 @@ BEGIN
         (v_d13_revocacion_cert_estado, 'd13.revocacion_cert.estado.REVOKED', $j${"es": "REVOKED", "en": "REVOKED"}$j$, 1, true, 20, $j${"value": "REVOKED"}$j$),
         (v_d13_revocacion_cert_estado, 'd13.revocacion_cert.estado.UNKNOWN', $j${"es": "UNKNOWN", "en": "UNKNOWN"}$j$, 1, true, 30, $j${"value": "UNKNOWN"}$j$);
 
-    -- idn_signature_verification_log_cert_status_check [bauth.idn_signature_verification_log]
+    -- [MC-0199] T-571 | idn_signature_verification_log_cert_status_check [bauth.idn_signature_verification_log] | Tabla: bauth.idn_signature_verification_log.cert_status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d13.verificacion_firma.estado_cert', $j${"es": "Estado del certificado", "en": "Cert Status"}$j$, 0, false, $j${"constraint": "idn_signature_verification_log_cert_status_check", "columns": ["bauth.idn_signature_verification_log.cert_status"]}$j$)
     RETURNING item_id INTO v_d13_verificacion_firma_estado_cert;
@@ -3214,7 +3214,7 @@ BEGIN
         (v_d13_verificacion_firma_estado_cert, 'd13.verificacion_firma.estado_cert.UNKNOWN', $j${"es": "UNKNOWN", "en": "UNKNOWN"}$j$, 1, true, 30, $j${"value": "UNKNOWN"}$j$),
         (v_d13_verificacion_firma_estado_cert, 'd13.verificacion_firma.estado_cert.VALID', $j${"es": "VALID", "en": "VALID"}$j$, 1, true, 40, $j${"value": "VALID"}$j$);
 
-    -- idn_signature_verification_log_outcome_check [bauth.idn_signature_verification_log]
+    -- [MC-0200] T-571 | idn_signature_verification_log_outcome_check [bauth.idn_signature_verification_log] | Tabla: bauth.idn_signature_verification_log.outcome | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d13.verificacion_firma.resultado', $j${"es": "Resultado", "en": "Outcome"}$j$, 0, false, $j${"constraint": "idn_signature_verification_log_outcome_check", "columns": ["bauth.idn_signature_verification_log.outcome"]}$j$)
     RETURNING item_id INTO v_d13_verificacion_firma_resultado;
@@ -3260,7 +3260,7 @@ DECLARE
     v_priv_recurso_ruta_eval UUID;
 BEGIN
 
-    -- idn_temporal_exception_exception_type_check [bauth.idn_temporal_exception]
+    -- [MC-0146] T-265 | idn_temporal_exception_exception_type_check [bauth.idn_temporal_exception] | Tabla: bauth.idn_temporal_exception.exception_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d04.excepcion_temp.tipo_excepcion', $j${"es": "Tipo de excepción", "en": "Exception Type"}$j$, 0, false, $j${"constraint": "idn_temporal_exception_exception_type_check", "columns": ["bauth.idn_temporal_exception.exception_type"]}$j$)
     RETURNING item_id INTO v_d04_excepcion_temp_tipo_excepcion;
@@ -3272,7 +3272,7 @@ BEGIN
         (v_d04_excepcion_temp_tipo_excepcion, 'd04.excepcion_temp.tipo_excepcion.EXTENSION', $j${"es": "EXTENSION", "en": "EXTENSION"}$j$, 1, true, 30, $j${"value": "EXTENSION"}$j$),
         (v_d04_excepcion_temp_tipo_excepcion, 'd04.excepcion_temp.tipo_excepcion.REDUCTION', $j${"es": "REDUCTION", "en": "REDUCTION"}$j$, 1, true, 40, $j${"value": "REDUCTION"}$j$);
 
-    -- idn_temporal_shift_rotation_type_check [bauth.idn_temporal_shift]
+    -- [MC-0147] T-263 | idn_temporal_shift_rotation_type_check [bauth.idn_temporal_shift] | Tabla: bauth.idn_temporal_shift.rotation_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d04.turno.tipo_rotacion', $j${"es": "Tipo de rotación", "en": "Rotation Type"}$j$, 0, false, $j${"constraint": "idn_temporal_shift_rotation_type_check", "columns": ["bauth.idn_temporal_shift.rotation_type"]}$j$)
     RETURNING item_id INTO v_d04_turno_tipo_rotacion;
@@ -3284,7 +3284,7 @@ BEGIN
         (v_d04_turno_tipo_rotacion, 'd04.turno.tipo_rotacion.GUARD', $j${"es": "GUARD", "en": "GUARD"}$j$, 1, true, 30, $j${"value": "GUARD"}$j$),
         (v_d04_turno_tipo_rotacion, 'd04.turno.tipo_rotacion.ROTATING', $j${"es": "ROTATING", "en": "ROTATING"}$j$, 1, true, 40, $j${"value": "ROTATING"}$j$);
 
-    -- idn_temporal_window_window_type_check [bauth.idn_temporal_window]
+    -- [MC-0148] T-260 | idn_temporal_window_window_type_check [bauth.idn_temporal_window] | Tabla: bauth.idn_temporal_window.window_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d04.ventana_temporal.tipo_ventana', $j${"es": "Tipo de ventana temporal", "en": "Window Type"}$j$, 0, false, $j${"constraint": "idn_temporal_window_window_type_check", "columns": ["bauth.idn_temporal_window.window_type"]}$j$)
     RETURNING item_id INTO v_d04_ventana_temporal_tipo_ventana;
@@ -3297,7 +3297,7 @@ BEGIN
         (v_d04_ventana_temporal_tipo_ventana, 'd04.ventana_temporal.tipo_ventana.TIME_OF_DAY', $j${"es": "TIME_OF_DAY", "en": "TIME_OF_DAY"}$j$, 1, true, 40, $j${"value": "TIME_OF_DAY"}$j$),
         (v_d04_ventana_temporal_tipo_ventana, 'd04.ventana_temporal.tipo_ventana.WEEKLY', $j${"es": "WEEKLY", "en": "WEEKLY"}$j$, 1, true, 50, $j${"value": "WEEKLY"}$j$);
 
-    -- chk_iu_reg_method [bauth.idn_user]
+    -- [MC-0110] T-320 | chk_iu_reg_method [bauth.idn_user] | Tabla: bauth.idn_user.registration_method | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('identidad.usuario.metodo_registro', $j${"es": "Método de registro", "en": "Registration Method"}$j$, 0, false, $j${"constraint": "chk_iu_reg_method", "columns": ["bauth.idn_user.registration_method"]}$j$)
     RETURNING item_id INTO v_identidad_usuario_metodo_registro;
@@ -3309,7 +3309,7 @@ BEGIN
         (v_identidad_usuario_metodo_registro, 'identidad.usuario.metodo_registro.PROVISIONED', $j${"es": "PROVISIONED", "en": "PROVISIONED"}$j$, 1, true, 30, $j${"value": "PROVISIONED"}$j$),
         (v_identidad_usuario_metodo_registro, 'identidad.usuario.metodo_registro.SELF_SERVICE', $j${"es": "SELF_SERVICE", "en": "SELF_SERVICE"}$j$, 1, true, 40, $j${"value": "SELF_SERVICE"}$j$);
 
-    -- chk_iu_status [bauth.idn_user]
+    -- [MC-0111] T-320 | chk_iu_status [bauth.idn_user] | Tabla: bauth.idn_user.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('identidad.usuario.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "chk_iu_status", "columns": ["bauth.idn_user.status"]}$j$)
     RETURNING item_id INTO v_identidad_usuario_estado;
@@ -3323,7 +3323,7 @@ BEGIN
         (v_identidad_usuario_estado, 'identidad.usuario.estado.PENDING_ACTIVATION', $j${"es": "PENDING_ACTIVATION", "en": "PENDING_ACTIVATION"}$j$, 1, true, 50, $j${"value": "PENDING_ACTIVATION"}$j$),
         (v_identidad_usuario_estado, 'identidad.usuario.estado.SUSPENDED', $j${"es": "SUSPENDED", "en": "SUSPENDED"}$j$, 1, true, 60, $j${"value": "SUSPENDED"}$j$);
 
-    -- chk_iur_status [bauth.idn_user_recovery]
+    -- [MC-0112] T-322 | chk_iur_status [bauth.idn_user_recovery] | Tabla: bauth.idn_user_recovery.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('identidad.recuperacion.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "chk_iur_status", "columns": ["bauth.idn_user_recovery.status"]}$j$)
     RETURNING item_id INTO v_identidad_recuperacion_estado;
@@ -3334,7 +3334,7 @@ BEGIN
         (v_identidad_recuperacion_estado, 'identidad.recuperacion.estado.REVOKED', $j${"es": "REVOKED", "en": "REVOKED"}$j$, 1, true, 20, $j${"value": "REVOKED"}$j$),
         (v_identidad_recuperacion_estado, 'identidad.recuperacion.estado.USED', $j${"es": "USED", "en": "USED"}$j$, 1, true, 30, $j${"value": "USED"}$j$);
 
-    -- chk_iur_type [bauth.idn_user_recovery]
+    -- [MC-0113] T-322 | chk_iur_type [bauth.idn_user_recovery] | Tabla: bauth.idn_user_recovery.type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('identidad.recuperacion.tipo', $j${"es": "Tipo", "en": "Type"}$j$, 0, false, $j${"constraint": "chk_iur_type", "columns": ["bauth.idn_user_recovery.type"]}$j$)
     RETURNING item_id INTO v_identidad_recuperacion_tipo;
@@ -3346,7 +3346,7 @@ BEGIN
         (v_identidad_recuperacion_tipo, 'identidad.recuperacion.tipo.BACKUP_PHONE', $j${"es": "BACKUP_PHONE", "en": "BACKUP_PHONE"}$j$, 1, true, 30, $j${"value": "BACKUP_PHONE"}$j$),
         (v_identidad_recuperacion_tipo, 'identidad.recuperacion.tipo.TRUSTED_CONTACT', $j${"es": "TRUSTED_CONTACT", "en": "TRUSTED_CONTACT"}$j$, 1, true, 40, $j${"value": "TRUSTED_CONTACT"}$j$);
 
-    -- chk_pbga_auth_method [bauth.pam_breakglass_activation]
+    -- [MC-0201] T-185 | chk_pbga_auth_method [bauth.pam_breakglass_activation] | Tabla: bauth.pam_breakglass_activation.auth_method | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d14.breakglass.metodo_auth', $j${"es": "Método de autenticación privilegiada", "en": "Auth Method"}$j$, 0, false, $j${"constraint": "chk_pbga_auth_method", "columns": ["bauth.pam_breakglass_activation.auth_method"]}$j$)
     RETURNING item_id INTO v_d14_breakglass_metodo_auth;
@@ -3357,7 +3357,7 @@ BEGIN
         (v_d14_breakglass_metodo_auth, 'd14.breakglass.metodo_auth.WEBAUTHN_PLATFORM', $j${"es": "WEBAUTHN_PLATFORM", "en": "WEBAUTHN_PLATFORM"}$j$, 1, true, 20, $j${"value": "WEBAUTHN_PLATFORM"}$j$),
         (v_d14_breakglass_metodo_auth, 'd14.breakglass.metodo_auth.WEBAUTHN_ROAMING', $j${"es": "WEBAUTHN_ROAMING", "en": "WEBAUTHN_ROAMING"}$j$, 1, true, 30, $j${"value": "WEBAUTHN_ROAMING"}$j$);
 
-    -- chk_pbga_deactivation [bauth.pam_breakglass_activation]
+    -- [MC-0202] T-185 | chk_pbga_deactivation [bauth.pam_breakglass_activation] | Tabla: bauth.pam_breakglass_activation.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d14.breakglass.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "chk_pbga_deactivation", "columns": ["bauth.pam_breakglass_activation.status"]}$j$)
     RETURNING item_id INTO v_d14_breakglass_estado;
@@ -3367,7 +3367,7 @@ BEGIN
         (v_d14_breakglass_estado, 'd14.breakglass.estado.DEACTIVATED', $j${"es": "DEACTIVATED", "en": "DEACTIVATED"}$j$, 1, true, 10, $j${"value": "DEACTIVATED"}$j$),
         (v_d14_breakglass_estado, 'd14.breakglass.estado.REVIEWED', $j${"es": "REVIEWED", "en": "REVIEWED"}$j$, 1, true, 20, $j${"value": "REVIEWED"}$j$);
 
-    -- chk_pbga_dual_control [bauth.pam_breakglass_activation]
+    -- [MC-0203] T-185 | chk_pbga_dual_control [bauth.pam_breakglass_activation] | Tabla: bauth.pam_breakglass_activation.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d14.breakglass.estado._control', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "chk_pbga_dual_control", "columns": ["bauth.pam_breakglass_activation.status"]}$j$)
     RETURNING item_id INTO v_d14_breakglass_estado__control;
@@ -3378,7 +3378,7 @@ BEGIN
         (v_d14_breakglass_estado__control, 'd14.breakglass.estado._control.PENDING_APPROVAL', $j${"es": "PENDING_APPROVAL", "en": "PENDING_APPROVAL"}$j$, 1, true, 20, $j${"value": "PENDING_APPROVAL"}$j$),
         (v_d14_breakglass_estado__control, 'd14.breakglass.estado._control.REVIEWED', $j${"es": "REVIEWED", "en": "REVIEWED"}$j$, 1, true, 30, $j${"value": "REVIEWED"}$j$);
 
-    -- chk_pcref_rot [bauth.pam_credential_ref]
+    -- [MC-0204] T-183 | chk_pcref_rot [bauth.pam_credential_ref] | Tabla: bauth.pam_credential_ref.rotation_policy | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d14.credencial_priv.politica_rotacion', $j${"es": "Política de rotación", "en": "Rotation Policy"}$j$, 0, false, $j${"constraint": "chk_pcref_rot", "columns": ["bauth.pam_credential_ref.rotation_policy"]}$j$)
     RETURNING item_id INTO v_d14_credencial_priv_politica_rotacion;
@@ -3391,7 +3391,7 @@ BEGIN
         (v_d14_credencial_priv_politica_rotacion, 'd14.credencial_priv.politica_rotacion.AUTO_90D', $j${"es": "AUTO_90D", "en": "AUTO_90D"}$j$, 1, true, 40, $j${"value": "AUTO_90D"}$j$),
         (v_d14_credencial_priv_politica_rotacion, 'd14.credencial_priv.politica_rotacion.MANUAL', $j${"es": "MANUAL", "en": "MANUAL"}$j$, 1, true, 50, $j${"value": "MANUAL"}$j$);
 
-    -- chk_pcref_status [bauth.pam_credential_ref]
+    -- [MC-0205] T-183 | chk_pcref_status [bauth.pam_credential_ref] | Tabla: bauth.pam_credential_ref.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d14.credencial_priv.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "chk_pcref_status", "columns": ["bauth.pam_credential_ref.status", "bauth.pam_nhi_secret_ref.status"]}$j$)
     RETURNING item_id INTO v_d14_credencial_priv_estado;
@@ -3403,7 +3403,7 @@ BEGIN
         (v_d14_credencial_priv_estado, 'd14.credencial_priv.estado.REVOKED', $j${"es": "REVOKED", "en": "REVOKED"}$j$, 1, true, 30, $j${"value": "REVOKED"}$j$),
         (v_d14_credencial_priv_estado, 'd14.credencial_priv.estado.ROTATING', $j${"es": "ROTATING", "en": "ROTATING"}$j$, 1, true, 40, $j${"value": "ROTATING"}$j$);
 
-    -- chk_pcref_type [bauth.pam_credential_ref]
+    -- [MC-0206] T-183 | chk_pcref_type [bauth.pam_credential_ref] | Tabla: bauth.pam_credential_ref.credential_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d14.credencial_priv.tipo_credencial', $j${"es": "Tipo de credencial", "en": "Credential Type"}$j$, 0, false, $j${"constraint": "chk_pcref_type", "columns": ["bauth.pam_credential_ref.credential_type", "bauth.pam_nhi_secret_ref.secret_type"]}$j$)
     RETURNING item_id INTO v_d14_credencial_priv_tipo_credencial;
@@ -3417,7 +3417,7 @@ BEGIN
         (v_d14_credencial_priv_tipo_credencial, 'd14.credencial_priv.tipo_credencial.SSH_KEY', $j${"es": "SSH_KEY", "en": "SSH_KEY"}$j$, 1, true, 50, $j${"value": "SSH_KEY"}$j$),
         (v_d14_credencial_priv_tipo_credencial, 'd14.credencial_priv.tipo_credencial.TOKEN', $j${"es": "TOKEN", "en": "TOKEN"}$j$, 1, true, 60, $j${"value": "TOKEN"}$j$);
 
-    -- chk_pcp_estado [bauth.pam_cuenta_privilegiada]
+    -- [MC-0207] T-560 | chk_pcp_estado [bauth.pam_cuenta_privilegiada] | Tabla: bauth.pam_cuenta_privilegiada.estado | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d14.cuenta_priv.estado', $j${"es": "Estado", "en": "Estado"}$j$, 0, false, $j${"constraint": "chk_pcp_estado", "columns": ["bauth.pam_cuenta_privilegiada.estado"]}$j$)
     RETURNING item_id INTO v_d14_cuenta_priv_estado;
@@ -3428,7 +3428,7 @@ BEGIN
         (v_d14_cuenta_priv_estado, 'd14.cuenta_priv.estado.DECOMMISSIONED', $j${"es": "DECOMMISSIONED", "en": "DECOMMISSIONED"}$j$, 1, true, 20, $j${"value": "DECOMMISSIONED"}$j$),
         (v_d14_cuenta_priv_estado, 'd14.cuenta_priv.estado.INACTIVE', $j${"es": "INACTIVE", "en": "INACTIVE"}$j$, 1, true, 30, $j${"value": "INACTIVE"}$j$);
 
-    -- chk_pcp_tipo [bauth.pam_cuenta_privilegiada]
+    -- [MC-0208] T-560 | chk_pcp_tipo [bauth.pam_cuenta_privilegiada] | Tabla: bauth.pam_cuenta_privilegiada.tipo | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d14.cuenta_priv.tipo', $j${"es": "Tipo", "en": "Tipo"}$j$, 0, false, $j${"constraint": "chk_pcp_tipo", "columns": ["bauth.pam_cuenta_privilegiada.tipo"]}$j$)
     RETURNING item_id INTO v_d14_cuenta_priv_tipo;
@@ -3446,7 +3446,7 @@ BEGIN
         (v_d14_cuenta_priv_tipo, 'd14.cuenta_priv.tipo.SHARED', $j${"es": "SHARED", "en": "SHARED"}$j$, 1, true, 90, $j${"value": "SHARED"}$j$),
         (v_d14_cuenta_priv_tipo, 'd14.cuenta_priv.tipo.SSH_KEY', $j${"es": "SSH_KEY", "en": "SSH_KEY"}$j$, 1, true, 100, $j${"value": "SSH_KEY"}$j$);
 
-    -- chk_pja_decision [bauth.pam_jit_approval]
+    -- [MC-0209] T-182b | chk_pja_decision [bauth.pam_jit_approval] | Tabla: bauth.pam_jit_approval.decision | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d14.jit.decision', $j${"es": "Decisión", "en": "Decision"}$j$, 0, false, $j${"constraint": "chk_pja_decision", "columns": ["bauth.pam_jit_approval.decision"]}$j$)
     RETURNING item_id INTO v_d14_jit_decision;
@@ -3456,7 +3456,7 @@ BEGIN
         (v_d14_jit_decision, 'd14.jit.decision.APPROVED', $j${"es": "APPROVED", "en": "APPROVED"}$j$, 1, true, 10, $j${"value": "APPROVED"}$j$),
         (v_d14_jit_decision, 'd14.jit.decision.REJECTED', $j${"es": "REJECTED", "en": "REJECTED"}$j$, 1, true, 20, $j${"value": "REJECTED"}$j$);
 
-    -- chk_pnsr_rotation [bauth.pam_nhi_secret_ref]
+    -- [MC-0210] T-189 | chk_pnsr_rotation [bauth.pam_nhi_secret_ref] | Tabla: bauth.pam_nhi_secret_ref.rotation_policy | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d14.nhi_secreto.politica_rotacion', $j${"es": "Política de rotación", "en": "Rotation Policy"}$j$, 0, false, $j${"constraint": "chk_pnsr_rotation", "columns": ["bauth.pam_nhi_secret_ref.rotation_policy"]}$j$)
     RETURNING item_id INTO v_d14_nhi_secreto_politica_rotacion;
@@ -3469,7 +3469,7 @@ BEGIN
         (v_d14_nhi_secreto_politica_rotacion, 'd14.nhi_secreto.politica_rotacion.MANUAL', $j${"es": "MANUAL", "en": "MANUAL"}$j$, 1, true, 40, $j${"value": "MANUAL"}$j$),
         (v_d14_nhi_secreto_politica_rotacion, 'd14.nhi_secreto.politica_rotacion.ON_USE', $j${"es": "ON_USE", "en": "ON_USE"}$j$, 1, true, 50, $j${"value": "ON_USE"}$j$);
 
-    -- chk_psr_status [bauth.pam_session_record]
+    -- [MC-0211] T-184 | chk_psr_status [bauth.pam_session_record] | Tabla: bauth.pam_session_record.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d14.sesion_priv.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "chk_psr_status", "columns": ["bauth.pam_session_record.status"]}$j$)
     RETURNING item_id INTO v_d14_sesion_priv_estado;
@@ -3481,7 +3481,7 @@ BEGIN
         (v_d14_sesion_priv_estado, 'd14.sesion_priv.estado.ERROR', $j${"es": "ERROR", "en": "ERROR"}$j$, 1, true, 30, $j${"value": "ERROR"}$j$),
         (v_d14_sesion_priv_estado, 'd14.sesion_priv.estado.TERMINATED', $j${"es": "TERMINATED", "en": "TERMINATED"}$j$, 1, true, 40, $j${"value": "TERMINATED"}$j$);
 
-    -- pam_session_recording_storage_type_check [bauth.pam_session_recording]
+    -- [MC-0212] T-461 | pam_session_recording_storage_type_check [bauth.pam_session_recording] | Tabla: bauth.pam_session_recording.storage_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('d14.grabacion.storage.type', $j${"es": "Tipo de almacenamiento", "en": "Storage Type"}$j$, 0, false, $j${"constraint": "pam_session_recording_storage_type_check", "columns": ["bauth.pam_session_recording.storage_type"]}$j$)
     RETURNING item_id INTO v_d14_grabacion_storage_type;
@@ -3493,7 +3493,7 @@ BEGIN
         (v_d14_grabacion_storage_type, 'd14.grabacion.storage.type.NFS', $j${"es": "NFS", "en": "NFS"}$j$, 1, true, 30, $j${"value": "NFS"}$j$),
         (v_d14_grabacion_storage_type, 'd14.grabacion.storage.type.S3', $j${"es": "S3", "en": "S3"}$j$, 1, true, 40, $j${"value": "S3"}$j$);
 
-    -- privilege_assurance_audit_outcome_check [bauth.privilege_assurance_audit]
+    -- [MC-0233] T-176 | privilege_assurance_audit_outcome_check [bauth.privilege_assurance_audit] | Tabla: bauth.privilege_assurance_audit.outcome | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('priv.aseguramiento.resultado', $j${"es": "Resultado", "en": "Outcome"}$j$, 0, false, $j${"constraint": "privilege_assurance_audit_outcome_check", "columns": ["bauth.privilege_assurance_audit.outcome"]}$j$)
     RETURNING item_id INTO v_priv_aseguramiento_resultado;
@@ -3504,7 +3504,7 @@ BEGIN
         (v_priv_aseguramiento_resultado, 'priv.aseguramiento.resultado.PERMIT', $j${"es": "PERMIT", "en": "PERMIT"}$j$, 1, true, 20, $j${"value": "PERMIT"}$j$),
         (v_priv_aseguramiento_resultado, 'priv.aseguramiento.resultado.STEP_UP_REQUIRED', $j${"es": "STEP_UP_REQUIRED", "en": "STEP_UP_REQUIRED"}$j$, 1, true, 30, $j${"value": "STEP_UP_REQUIRED"}$j$);
 
-    -- privilege_atom_audit_operation_check [bauth.privilege_atom_audit]
+    -- [MC-0234] T-170b | privilege_atom_audit_operation_check [bauth.privilege_atom_audit] | Tabla: bauth.privilege_atom_audit.operation | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('priv.atom.operacion', $j${"es": "Operación", "en": "Operation"}$j$, 0, false, $j${"constraint": "privilege_atom_audit_operation_check", "columns": ["bauth.privilege_atom_audit.operation", "bauth.privilege_atom_audit_2026_07.operation", "bauth.privilege_atom_audit_2026_08.operation", "bauth.privilege_atom_audit_2026_09.operation"]}$j$)
     RETURNING item_id INTO v_priv_atom_operacion;
@@ -3518,7 +3518,7 @@ BEGIN
         (v_priv_atom_operacion, 'priv.atom.operacion.REVOKED', $j${"es": "REVOKED", "en": "REVOKED"}$j$, 1, true, 50, $j${"value": "REVOKED"}$j$),
         (v_priv_atom_operacion, 'priv.atom.operacion.STEP_UP', $j${"es": "STEP_UP", "en": "STEP_UP"}$j$, 1, true, 60, $j${"value": "STEP_UP"}$j$);
 
-    -- chk_pd_status [bauth.privilege_delegation]
+    -- [MC-0235] T-172 | chk_pd_status [bauth.privilege_delegation] | Tabla: bauth.privilege_delegation.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('priv.delegacion.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "chk_pd_status", "columns": ["bauth.privilege_delegation.status", "bauth.privilege_exception_record.status", "bauth.privilege_override.status"]}$j$)
     RETURNING item_id INTO v_priv_delegacion_estado;
@@ -3529,7 +3529,7 @@ BEGIN
         (v_priv_delegacion_estado, 'priv.delegacion.estado.EXPIRED', $j${"es": "EXPIRED", "en": "EXPIRED"}$j$, 1, true, 20, $j${"value": "EXPIRED"}$j$),
         (v_priv_delegacion_estado, 'priv.delegacion.estado.REVOKED', $j${"es": "REVOKED", "en": "REVOKED"}$j$, 1, true, 30, $j${"value": "REVOKED"}$j$);
 
-    -- chk_per_type [bauth.privilege_exception_record]
+    -- [MC-0236] T-179 | chk_per_type [bauth.privilege_exception_record] | Tabla: bauth.privilege_exception_record.exception_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('priv.excepcion_reg.tipo_excepcion', $j${"es": "Tipo de excepción", "en": "Exception Type"}$j$, 0, false, $j${"constraint": "chk_per_type", "columns": ["bauth.privilege_exception_record.exception_type"]}$j$)
     RETURNING item_id INTO v_priv_excepcion_reg_tipo_excepcion;
@@ -3541,7 +3541,7 @@ BEGIN
         (v_priv_excepcion_reg_tipo_excepcion, 'priv.excepcion_reg.tipo_excepcion.SOD_EXCEPTION', $j${"es": "SOD_EXCEPTION", "en": "SOD_EXCEPTION"}$j$, 1, true, 30, $j${"value": "SOD_EXCEPTION"}$j$),
         (v_priv_excepcion_reg_tipo_excepcion, 'priv.excepcion_reg.tipo_excepcion.TIER_EXCEPTION', $j${"es": "TIER_EXCEPTION", "en": "TIER_EXCEPTION"}$j$, 1, true, 40, $j${"value": "TIER_EXCEPTION"}$j$);
 
-    -- chk_po_override_type [bauth.privilege_override]
+    -- [MC-0237] T-173 | chk_po_override_type [bauth.privilege_override] | Tabla: bauth.privilege_override.override_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('priv.anulacion.tipo_anulacion', $j${"es": "Tipo de anulación", "en": "Override Type"}$j$, 0, false, $j${"constraint": "chk_po_override_type", "columns": ["bauth.privilege_override.override_type"]}$j$)
     RETURNING item_id INTO v_priv_anulacion_tipo_anulacion;
@@ -3551,7 +3551,7 @@ BEGIN
         (v_priv_anulacion_tipo_anulacion, 'priv.anulacion.tipo_anulacion.DENY_TO_PERMIT', $j${"es": "DENY_TO_PERMIT", "en": "DENY_TO_PERMIT"}$j$, 1, true, 10, $j${"value": "DENY_TO_PERMIT"}$j$),
         (v_priv_anulacion_tipo_anulacion, 'priv.anulacion.tipo_anulacion.PERMIT_TO_DENY', $j${"es": "PERMIT_TO_DENY", "en": "PERMIT_TO_DENY"}$j$, 1, true, 20, $j${"value": "PERMIT_TO_DENY"}$j$);
 
-    -- chk_pra_eval_path [bauth.privilege_resource_atom]
+    -- [MC-0238] T-171 | chk_pra_eval_path [bauth.privilege_resource_atom] | Tabla: bauth.privilege_resource_atom.evaluation_path | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('priv.recurso.ruta_eval', $j${"es": "Ruta de evaluación", "en": "Evaluation Path"}$j$, 0, false, $j${"constraint": "chk_pra_eval_path", "columns": ["bauth.privilege_resource_atom.evaluation_path"]}$j$)
     RETURNING item_id INTO v_priv_recurso_ruta_eval;
@@ -3595,7 +3595,7 @@ DECLARE
     v_vc_item_tipo UUID;
 BEGIN
 
-    -- chk_pra_status [bauth.privilege_resource_atom]
+    -- [MC-0239] T-171 | chk_pra_status [bauth.privilege_resource_atom] | Tabla: bauth.privilege_resource_atom.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('priv.recurso.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "chk_pra_status", "columns": ["bauth.privilege_resource_atom.status"]}$j$)
     RETURNING item_id INTO v_priv_recurso_estado;
@@ -3606,7 +3606,7 @@ BEGIN
         (v_priv_recurso_estado, 'priv.recurso.estado.DEPRECATED', $j${"es": "DEPRECATED", "en": "DEPRECATED"}$j$, 1, true, 20, $j${"value": "DEPRECATED"}$j$),
         (v_priv_recurso_estado, 'priv.recurso.estado.INACTIVE', $j${"es": "INACTIVE", "en": "INACTIVE"}$j$, 1, true, 30, $j${"value": "INACTIVE"}$j$);
 
-    -- chk_pra_tenant_scope [bauth.privilege_resource_atom]
+    -- [MC-0240] T-171 | chk_pra_tenant_scope [bauth.privilege_resource_atom] | Tabla: bauth.privilege_resource_atom.tenant_scope | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('priv.recurso.alcance_tenant', $j${"es": "Alcance de tenant", "en": "Tenant Scope"}$j$, 0, false, $j${"constraint": "chk_pra_tenant_scope", "columns": ["bauth.privilege_resource_atom.tenant_scope"]}$j$)
     RETURNING item_id INTO v_priv_recurso_alcance_tenant;
@@ -3616,7 +3616,7 @@ BEGIN
         (v_priv_recurso_alcance_tenant, 'priv.recurso.alcance_tenant.GLOBAL', $j${"es": "GLOBAL", "en": "GLOBAL"}$j$, 1, true, 10, $j${"value": "GLOBAL"}$j$),
         (v_priv_recurso_alcance_tenant, 'priv.recurso.alcance_tenant.TENANT_SPECIFIC', $j${"es": "TENANT_SPECIFIC", "en": "TENANT_SPECIFIC"}$j$, 1, true, 20, $j${"value": "TENANT_SPECIFIC"}$j$);
 
-    -- chk_pra_tipo_protocolo [bauth.privilege_resource_atom]
+    -- [MC-0241] T-171 | chk_pra_tipo_protocolo [bauth.privilege_resource_atom] | Tabla: bauth.privilege_resource_atom.protocol_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('priv.recurso.tipo_protocolo', $j${"es": "Tipo de protocolo", "en": "Protocol Type"}$j$, 0, false, $j${"constraint": "chk_pra_tipo_protocolo", "columns": ["bauth.privilege_resource_atom.protocol_type"]}$j$)
     RETURNING item_id INTO v_priv_recurso_tipo_protocolo;
@@ -3629,7 +3629,7 @@ BEGIN
         (v_priv_recurso_tipo_protocolo, 'priv.recurso.tipo_protocolo.UNIX_SOCKET', $j${"es": "UNIX_SOCKET", "en": "UNIX_SOCKET"}$j$, 1, true, 40, $j${"value": "UNIX_SOCKET"}$j$),
         (v_priv_recurso_tipo_protocolo, 'priv.recurso.tipo_protocolo.WS_RPC', $j${"es": "WS_RPC", "en": "WS_RPC"}$j$, 1, true, 50, $j${"value": "WS_RPC"}$j$);
 
-    -- chk_pvc_conflict_type [bauth.privilege_verb_conflict]
+    -- [MC-0242] T-175 | chk_pvc_conflict_type [bauth.privilege_verb_conflict] | Tabla: bauth.privilege_verb_conflict.conflict_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('priv.verbo_conflicto.tipo_conflicto', $j${"es": "Tipo de conflicto", "en": "Conflict Type"}$j$, 0, false, $j${"constraint": "chk_pvc_conflict_type", "columns": ["bauth.privilege_verb_conflict.conflict_type"]}$j$)
     RETURNING item_id INTO v_priv_verbo_conflicto_tipo_conflicto;
@@ -3640,7 +3640,7 @@ BEGIN
         (v_priv_verbo_conflicto_tipo_conflicto, 'priv.verbo_conflicto.tipo_conflicto.DYNAMIC_SOD', $j${"es": "DYNAMIC_SOD", "en": "DYNAMIC_SOD"}$j$, 1, true, 20, $j${"value": "DYNAMIC_SOD"}$j$),
         (v_priv_verbo_conflicto_tipo_conflicto, 'priv.verbo_conflicto.tipo_conflicto.STATIC_SOD', $j${"es": "STATIC_SOD", "en": "STATIC_SOD"}$j$, 1, true, 30, $j${"value": "STATIC_SOD"}$j$);
 
-    -- chk_scel_event_type [bauth.ses_caep_event_log]
+    -- [MC-0243] T-191 | chk_scel_event_type [bauth.ses_caep_event_log] | Tabla: bauth.ses_caep_event_log.event_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('ses.caep.tipo_evento', $j${"es": "Tipo de evento", "en": "Event Type"}$j$, 0, false, $j${"constraint": "chk_scel_event_type", "columns": ["bauth.ses_caep_event_log.event_type", "bauth.ses_risk_policy.trigger_event"]}$j$)
     RETURNING item_id INTO v_ses_caep_tipo_evento;
@@ -3654,7 +3654,7 @@ BEGIN
         (v_ses_caep_tipo_evento, 'ses.caep.tipo_evento.session-revoked', $j${"es": "session-revoked", "en": "session-revoked"}$j$, 1, true, 50, $j${"value": "session-revoked"}$j$),
         (v_ses_caep_tipo_evento, 'ses.caep.tipo_evento.token-claims-change', $j${"es": "token-claims-change", "en": "token-claims-change"}$j$, 1, true, 60, $j${"value": "token-claims-change"}$j$);
 
-    -- chk_scel_subject_type [bauth.ses_caep_event_log]
+    -- [MC-0244] T-191 | chk_scel_subject_type [bauth.ses_caep_event_log] | Tabla: bauth.ses_caep_event_log.subject_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('ses.caep.tipo_sujeto', $j${"es": "Tipo de sujeto", "en": "Subject Type"}$j$, 0, false, $j${"constraint": "chk_scel_subject_type", "columns": ["bauth.ses_caep_event_log.subject_type"]}$j$)
     RETURNING item_id INTO v_ses_caep_tipo_sujeto;
@@ -3667,7 +3667,7 @@ BEGIN
         (v_ses_caep_tipo_sujeto, 'ses.caep.tipo_sujeto.token', $j${"es": "token", "en": "token"}$j$, 1, true, 40, $j${"value": "token"}$j$),
         (v_ses_caep_tipo_sujeto, 'ses.caep.tipo_sujeto.user', $j${"es": "user", "en": "user"}$j$, 1, true, 50, $j${"value": "user"}$j$);
 
-    -- chk_ssl_reason [bauth.ses_session_log]
+    -- [MC-0245] T-181 | chk_ssl_reason [bauth.ses_session_log] | Tabla: bauth.ses_session_log.termination_reason | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('ses.sesion.motivo_fin', $j${"es": "Motivo de terminación", "en": "Termination Reason"}$j$, 0, false, $j${"constraint": "chk_ssl_reason", "columns": ["bauth.ses_session_log.termination_reason"]}$j$)
     RETURNING item_id INTO v_ses_sesion_motivo_fin;
@@ -3680,7 +3680,7 @@ BEGIN
         (v_ses_sesion_motivo_fin, 'ses.sesion.motivo_fin.LOGOUT', $j${"es": "LOGOUT", "en": "LOGOUT"}$j$, 1, true, 40, $j${"value": "LOGOUT"}$j$),
         (v_ses_sesion_motivo_fin, 'ses.sesion.motivo_fin.TIMEOUT', $j${"es": "TIMEOUT", "en": "TIMEOUT"}$j$, 1, true, 50, $j${"value": "TIMEOUT"}$j$);
 
-    -- chk_sss_status [bauth.ses_ssf_stream]
+    -- [MC-0246] T-192 | chk_sss_status [bauth.ses_ssf_stream] | Tabla: bauth.ses_ssf_stream.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('ses.ssf.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "chk_sss_status", "columns": ["bauth.ses_ssf_stream.status"]}$j$)
     RETURNING item_id INTO v_ses_ssf_estado;
@@ -3692,7 +3692,7 @@ BEGIN
         (v_ses_ssf_estado, 'ses.ssf.estado.PAUSED', $j${"es": "PAUSED", "en": "PAUSED"}$j$, 1, true, 30, $j${"value": "PAUSED"}$j$),
         (v_ses_ssf_estado, 'ses.ssf.estado.TERMINATED', $j${"es": "TERMINATED", "en": "TERMINATED"}$j$, 1, true, 40, $j${"value": "TERMINATED"}$j$);
 
-    -- chk_sal_event [bauth.sig_adsib_lifecycle]
+    -- [MC-0247] T-356 | chk_sal_event [bauth.sig_adsib_lifecycle] | Tabla: bauth.sig_adsib_lifecycle.event | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('sig.adsib_ciclo.event', $j${"es": "Tipo de evento", "en": "Event"}$j$, 0, false, $j${"constraint": "chk_sal_event", "columns": ["bauth.sig_adsib_lifecycle.event"]}$j$)
     RETURNING item_id INTO v_sig_adsib_ciclo_event;
@@ -3710,7 +3710,7 @@ BEGIN
         (v_sig_adsib_ciclo_event, 'sig.adsib_ciclo.event.RENEWED', $j${"es": "RENEWED", "en": "RENEWED"}$j$, 1, true, 90, $j${"value": "RENEWED"}$j$),
         (v_sig_adsib_ciclo_event, 'sig.adsib_ciclo.event.REVOKED_BY_CA', $j${"es": "REVOKED_BY_CA", "en": "REVOKED_BY_CA"}$j$, 1, true, 100, $j${"value": "REVOKED_BY_CA"}$j$);
 
-    -- chk_sc_adsib [bauth.sig_certificate]
+    -- [MC-0248] T-351 | chk_sc_adsib [bauth.sig_certificate] | Tabla: bauth.sig_certificate.adsib_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('sig.certificado.tipo_adsib', $j${"es": "Tipo ADSIB", "en": "Adsib Type"}$j$, 0, false, $j${"constraint": "chk_sc_adsib", "columns": ["bauth.sig_certificate.adsib_type"]}$j$)
     RETURNING item_id INTO v_sig_certificado_tipo_adsib;
@@ -3721,7 +3721,7 @@ BEGIN
         (v_sig_certificado_tipo_adsib, 'sig.certificado.tipo_adsib.PERSONA_JURIDICA', $j${"es": "PERSONA_JURIDICA", "en": "PERSONA_JURIDICA"}$j$, 1, true, 20, $j${"value": "PERSONA_JURIDICA"}$j$),
         (v_sig_certificado_tipo_adsib, 'sig.certificado.tipo_adsib.PERSONA_NATURAL', $j${"es": "PERSONA_NATURAL", "en": "PERSONA_NATURAL"}$j$, 1, true, 30, $j${"value": "PERSONA_NATURAL"}$j$);
 
-    -- chk_sc_engine [bauth.sig_certificate]
+    -- [MC-0249] T-351 | chk_sc_engine [bauth.sig_certificate] | Tabla: bauth.sig_certificate.engine | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('sig.certificado.motor', $j${"es": "Motor", "en": "Engine"}$j$, 0, false, $j${"constraint": "chk_sc_engine", "columns": ["bauth.sig_certificate.engine"]}$j$)
     RETURNING item_id INTO v_sig_certificado_motor;
@@ -3732,7 +3732,7 @@ BEGIN
         (v_sig_certificado_motor, 'sig.certificado.motor.EXTERNAL_ADSIB', $j${"es": "EXTERNAL_ADSIB", "en": "EXTERNAL_ADSIB"}$j$, 1, true, 20, $j${"value": "EXTERNAL_ADSIB"}$j$),
         (v_sig_certificado_motor, 'sig.certificado.motor.INTERNAL_VAULT', $j${"es": "INTERNAL_VAULT", "en": "INTERNAL_VAULT"}$j$, 1, true, 30, $j${"value": "INTERNAL_VAULT"}$j$);
 
-    -- chk_scrl_engine [bauth.sig_crl]
+    -- [MC-0250] T-352 | chk_scrl_engine [bauth.sig_crl] | Tabla: bauth.sig_crl.engine | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('sig.crl.motor', $j${"es": "Motor", "en": "Engine"}$j$, 0, false, $j${"constraint": "chk_scrl_engine", "columns": ["bauth.sig_crl.engine", "bauth.sig_key.engine", "bauth.sig_operation_log.engine"]}$j$)
     RETURNING item_id INTO v_sig_crl_motor;
@@ -3742,7 +3742,7 @@ BEGIN
         (v_sig_crl_motor, 'sig.crl.motor.EXTERNAL_ADSIB', $j${"es": "EXTERNAL_ADSIB", "en": "EXTERNAL_ADSIB"}$j$, 1, true, 10, $j${"value": "EXTERNAL_ADSIB"}$j$),
         (v_sig_crl_motor, 'sig.crl.motor.INTERNAL_VAULT', $j${"es": "INTERNAL_VAULT", "en": "INTERNAL_VAULT"}$j$, 1, true, 20, $j${"value": "INTERNAL_VAULT"}$j$);
 
-    -- chk_sdp_eng [bauth.sig_document_policy]
+    -- [MC-0251] T-357 | chk_sdp_eng [bauth.sig_document_policy] | Tabla: bauth.sig_document_policy.engine_required | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('sig.doc_politica.engine.required', $j${"es": "Motor de firma requerido", "en": "Engine Required"}$j$, 0, false, $j${"constraint": "chk_sdp_eng", "columns": ["bauth.sig_document_policy.engine_required"]}$j$)
     RETURNING item_id INTO v_sig_doc_politica_engine_required;
@@ -3753,7 +3753,7 @@ BEGIN
         (v_sig_doc_politica_engine_required, 'sig.doc_politica.engine.required.EXTERNAL_ADSIB', $j${"es": "EXTERNAL_ADSIB", "en": "EXTERNAL_ADSIB"}$j$, 1, true, 20, $j${"value": "EXTERNAL_ADSIB"}$j$),
         (v_sig_doc_politica_engine_required, 'sig.doc_politica.engine.required.INTERNAL_VAULT', $j${"es": "INTERNAL_VAULT", "en": "INTERNAL_VAULT"}$j$, 1, true, 30, $j${"value": "INTERNAL_VAULT"}$j$);
 
-    -- chk_sdp_ext [bauth.sig_document_policy]
+    -- [MC-0252] T-357 | chk_sdp_ext [bauth.sig_document_policy] | Tabla: bauth.sig_document_policy.external_profile | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('sig.doc_politica.external.profile', $j${"es": "Perfil de firma externo", "en": "External Profile"}$j$, 0, false, $j${"constraint": "chk_sdp_ext", "columns": ["bauth.sig_document_policy.external_profile"]}$j$)
     RETURNING item_id INTO v_sig_doc_politica_external_profile;
@@ -3766,7 +3766,7 @@ BEGIN
         (v_sig_doc_politica_external_profile, 'sig.doc_politica.external.profile.EXT-T', $j${"es": "EXT-T", "en": "EXT-T"}$j$, 1, true, 40, $j${"value": "EXT-T"}$j$),
         (v_sig_doc_politica_external_profile, 'sig.doc_politica.external.profile.XAdES-BES', $j${"es": "XAdES-BES", "en": "XAdES-BES"}$j$, 1, true, 50, $j${"value": "XAdES-BES"}$j$);
 
-    -- chk_sdp_int [bauth.sig_document_policy]
+    -- [MC-0253] T-357 | chk_sdp_int [bauth.sig_document_policy] | Tabla: bauth.sig_document_policy.internal_profile | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('sig.doc_politica.internal.profile', $j${"es": "Perfil de firma interno", "en": "Internal Profile"}$j$, 0, false, $j${"constraint": "chk_sdp_int", "columns": ["bauth.sig_document_policy.internal_profile"]}$j$)
     RETURNING item_id INTO v_sig_doc_politica_internal_profile;
@@ -3778,7 +3778,7 @@ BEGIN
         (v_sig_doc_politica_internal_profile, 'sig.doc_politica.internal.profile.INT-T', $j${"es": "INT-T", "en": "INT-T"}$j$, 1, true, 30, $j${"value": "INT-T"}$j$),
         (v_sig_doc_politica_internal_profile, 'sig.doc_politica.internal.profile.JWS', $j${"es": "JWS", "en": "JWS"}$j$, 1, true, 40, $j${"value": "JWS"}$j$);
 
-    -- chk_sk_purpose [bauth.sig_key]
+    -- [MC-0254] T-350 | chk_sk_purpose [bauth.sig_key] | Tabla: bauth.sig_key.purpose | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('sig.llave.purpose', $j${"es": "Propósito de la llave", "en": "Purpose"}$j$, 0, false, $j${"constraint": "chk_sk_purpose", "columns": ["bauth.sig_key.purpose"]}$j$)
     RETURNING item_id INTO v_sig_llave_purpose;
@@ -3792,7 +3792,7 @@ BEGIN
         (v_sig_llave_purpose, 'sig.llave.purpose.JWT_SIGNING', $j${"es": "JWT_SIGNING", "en": "JWT_SIGNING"}$j$, 1, true, 50, $j${"value": "JWT_SIGNING"}$j$),
         (v_sig_llave_purpose, 'sig.llave.purpose.TLS_CLIENT', $j${"es": "TLS_CLIENT", "en": "TLS_CLIENT"}$j$, 1, true, 60, $j${"value": "TLS_CLIENT"}$j$);
 
-    -- chk_sk_status [bauth.sig_key]
+    -- [MC-0255] T-350 | chk_sk_status [bauth.sig_key] | Tabla: bauth.sig_key.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('sig.llave.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "chk_sk_status", "columns": ["bauth.sig_key.status"]}$j$)
     RETURNING item_id INTO v_sig_llave_estado;
@@ -3804,7 +3804,7 @@ BEGIN
         (v_sig_llave_estado, 'sig.llave.estado.ROTATING', $j${"es": "ROTATING", "en": "ROTATING"}$j$, 1, true, 30, $j${"value": "ROTATING"}$j$),
         (v_sig_llave_estado, 'sig.llave.estado.SUSPENDED', $j${"es": "SUSPENDED", "en": "SUSPENDED"}$j$, 1, true, 40, $j${"value": "SUSPENDED"}$j$);
 
-    -- chk_sol_outcome [bauth.sig_operation_log]
+    -- [MC-0256] T-353 | chk_sol_outcome [bauth.sig_operation_log] | Tabla: bauth.sig_operation_log.outcome | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('sig.operacion.resultado', $j${"es": "Resultado", "en": "Outcome"}$j$, 0, false, $j${"constraint": "chk_sol_outcome", "columns": ["bauth.sig_operation_log.outcome"]}$j$)
     RETURNING item_id INTO v_sig_operacion_resultado;
@@ -3816,7 +3816,7 @@ BEGIN
         (v_sig_operacion_resultado, 'sig.operacion.resultado.FAILURE', $j${"es": "FAILURE", "en": "FAILURE"}$j$, 1, true, 30, $j${"value": "FAILURE"}$j$),
         (v_sig_operacion_resultado, 'sig.operacion.resultado.SUCCESS', $j${"es": "SUCCESS", "en": "SUCCESS"}$j$, 1, true, 40, $j${"value": "SUCCESS"}$j$);
 
-    -- chk_sol_stype [bauth.sig_operation_log]
+    -- [MC-0257] T-353 | chk_sol_stype [bauth.sig_operation_log] | Tabla: bauth.sig_operation_log.signer_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('sig.operacion.tipo_firmante', $j${"es": "Tipo de firmante", "en": "Signer Type"}$j$, 0, false, $j${"constraint": "chk_sol_stype", "columns": ["bauth.sig_operation_log.signer_type"]}$j$)
     RETURNING item_id INTO v_sig_operacion_tipo_firmante;
@@ -3827,7 +3827,7 @@ BEGIN
         (v_sig_operacion_tipo_firmante, 'sig.operacion.tipo_firmante.HUMAN', $j${"es": "HUMAN", "en": "HUMAN"}$j$, 1, true, 20, $j${"value": "HUMAN"}$j$),
         (v_sig_operacion_tipo_firmante, 'sig.operacion.tipo_firmante.NHI', $j${"es": "NHI", "en": "NHI"}$j$, 1, true, 30, $j${"value": "NHI"}$j$);
 
-    -- chk_w_backup [bauth.wallet]
+    -- [MC-0263] T-380 | chk_w_backup [bauth.wallet] | Tabla: bauth.wallet.backup_method | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('vc.wallet.metodo_respaldo', $j${"es": "Método de respaldo", "en": "Backup Method"}$j$, 0, false, $j${"constraint": "chk_w_backup", "columns": ["bauth.wallet.backup_method"]}$j$)
     RETURNING item_id INTO v_vc_wallet_metodo_respaldo;
@@ -3837,7 +3837,7 @@ BEGIN
         (v_vc_wallet_metodo_respaldo, 'vc.wallet.metodo_respaldo.ENCRYPTED_CLOUD', $j${"es": "ENCRYPTED_CLOUD", "en": "ENCRYPTED_CLOUD"}$j$, 1, true, 10, $j${"value": "ENCRYPTED_CLOUD"}$j$),
         (v_vc_wallet_metodo_respaldo, 'vc.wallet.metodo_respaldo.NONE', $j${"es": "NONE", "en": "NONE"}$j$, 1, true, 20, $j${"value": "NONE"}$j$);
 
-    -- chk_w_status [bauth.wallet]
+    -- [MC-0264] T-380 | chk_w_status [bauth.wallet] | Tabla: bauth.wallet.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('vc.wallet.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "chk_w_status", "columns": ["bauth.wallet.status"]}$j$)
     RETURNING item_id INTO v_vc_wallet_estado;
@@ -3849,7 +3849,7 @@ BEGIN
         (v_vc_wallet_estado, 'vc.wallet.estado.REVOKED', $j${"es": "REVOKED", "en": "REVOKED"}$j$, 1, true, 30, $j${"value": "REVOKED"}$j$),
         (v_vc_wallet_estado, 'vc.wallet.estado.SUSPENDED', $j${"es": "SUSPENDED", "en": "SUSPENDED"}$j$, 1, true, 40, $j${"value": "SUSPENDED"}$j$);
 
-    -- chk_wil_outcome [bauth.wallet_issuance_log]
+    -- [MC-0265] T-383 | chk_wil_outcome [bauth.wallet_issuance_log] | Tabla: bauth.wallet_issuance_log.outcome | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('vc.emision.resultado', $j${"es": "Resultado", "en": "Outcome"}$j$, 0, false, $j${"constraint": "chk_wil_outcome", "columns": ["bauth.wallet_issuance_log.outcome"]}$j$)
     RETURNING item_id INTO v_vc_emision_resultado;
@@ -3860,7 +3860,7 @@ BEGIN
         (v_vc_emision_resultado, 'vc.emision.resultado.PENDING', $j${"es": "PENDING", "en": "PENDING"}$j$, 1, true, 20, $j${"value": "PENDING"}$j$),
         (v_vc_emision_resultado, 'vc.emision.resultado.REJECTED', $j${"es": "REJECTED", "en": "REJECTED"}$j$, 1, true, 30, $j${"value": "REJECTED"}$j$);
 
-    -- chk_wil_proto [bauth.wallet_issuance_log]
+    -- [MC-0266] T-383 | chk_wil_proto [bauth.wallet_issuance_log] | Tabla: bauth.wallet_issuance_log.protocol | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('vc.emision.protocolo', $j${"es": "Protocolo", "en": "Protocol"}$j$, 0, false, $j${"constraint": "chk_wil_proto", "columns": ["bauth.wallet_issuance_log.protocol"]}$j$)
     RETURNING item_id INTO v_vc_emision_protocolo;
@@ -3871,7 +3871,7 @@ BEGIN
         (v_vc_emision_protocolo, 'vc.emision.protocolo.IMPORTED', $j${"es": "IMPORTED", "en": "IMPORTED"}$j$, 1, true, 20, $j${"value": "IMPORTED"}$j$),
         (v_vc_emision_protocolo, 'vc.emision.protocolo.OPENID4VCI', $j${"es": "OPENID4VCI", "en": "OPENID4VCI"}$j$, 1, true, 30, $j${"value": "OPENID4VCI"}$j$);
 
-    -- chk_wi_status [bauth.wallet_item]
+    -- [MC-0267] T-381 | chk_wi_status [bauth.wallet_item] | Tabla: bauth.wallet_item.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('vc.item.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "chk_wi_status", "columns": ["bauth.wallet_item.status"]}$j$)
     RETURNING item_id INTO v_vc_item_estado;
@@ -3883,7 +3883,7 @@ BEGIN
         (v_vc_item_estado, 'vc.item.estado.HIDDEN', $j${"es": "HIDDEN", "en": "HIDDEN"}$j$, 1, true, 30, $j${"value": "HIDDEN"}$j$),
         (v_vc_item_estado, 'vc.item.estado.REVOKED', $j${"es": "REVOKED", "en": "REVOKED"}$j$, 1, true, 40, $j${"value": "REVOKED"}$j$);
 
-    -- chk_wi_type [bauth.wallet_item]
+    -- [MC-0268] T-381 | chk_wi_type [bauth.wallet_item] | Tabla: bauth.wallet_item.type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('vc.item.tipo', $j${"es": "Tipo", "en": "Type"}$j$, 0, false, $j${"constraint": "chk_wi_type", "columns": ["bauth.wallet_item.type"]}$j$)
     RETURNING item_id INTO v_vc_item_tipo;
@@ -3931,7 +3931,7 @@ DECLARE
     v_bos_puerto_tipo_puerto UUID;
 BEGIN
 
-    -- chk_wpl_outcome [bauth.wallet_presentation_log]
+    -- [MC-0269] T-382 | chk_wpl_outcome [bauth.wallet_presentation_log] | Tabla: bauth.wallet_presentation_log.outcome | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('vc.presentacion.resultado', $j${"es": "Resultado", "en": "Outcome"}$j$, 0, false, $j${"constraint": "chk_wpl_outcome", "columns": ["bauth.wallet_presentation_log.outcome", "bauth.wallet_presentation_log_2026_07.outcome", "bauth.wallet_presentation_log_2026_08.outcome"]}$j$)
     RETURNING item_id INTO v_vc_presentacion_resultado;
@@ -3942,7 +3942,7 @@ BEGIN
         (v_vc_presentacion_resultado, 'vc.presentacion.resultado.PARTIAL', $j${"es": "PARTIAL", "en": "PARTIAL"}$j$, 1, true, 20, $j${"value": "PARTIAL"}$j$),
         (v_vc_presentacion_resultado, 'vc.presentacion.resultado.REJECTED', $j${"es": "REJECTED", "en": "REJECTED"}$j$, 1, true, 30, $j${"value": "REJECTED"}$j$);
 
-    -- chk_wpl_proto [bauth.wallet_presentation_log]
+    -- [MC-0270] T-382 | chk_wpl_proto [bauth.wallet_presentation_log] | Tabla: bauth.wallet_presentation_log.protocol | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('vc.presentacion.protocolo', $j${"es": "Protocolo", "en": "Protocol"}$j$, 0, false, $j${"constraint": "chk_wpl_proto", "columns": ["bauth.wallet_presentation_log.protocol", "bauth.wallet_presentation_log_2026_07.protocol", "bauth.wallet_presentation_log_2026_08.protocol"]}$j$)
     RETURNING item_id INTO v_vc_presentacion_protocolo;
@@ -3953,7 +3953,7 @@ BEGIN
         (v_vc_presentacion_protocolo, 'vc.presentacion.protocolo.OPENID4VP', $j${"es": "OPENID4VP", "en": "OPENID4VP"}$j$, 1, true, 20, $j${"value": "OPENID4VP"}$j$),
         (v_vc_presentacion_protocolo, 'vc.presentacion.protocolo.SAML_ASSERTION', $j${"es": "SAML_ASSERTION", "en": "SAML_ASSERTION"}$j$, 1, true, 30, $j${"value": "SAML_ASSERTION"}$j$);
 
-    -- menu_item_atom_required_effect_check [bglobal.menu_item_atom]
+    -- [MC-0286] T-061 | menu_item_atom_required_effect_check [bglobal.menu_item_atom] | Tabla: bglobal.menu_item_atom.required_effect | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('menu.atom.efecto_requerido', $j${"es": "Efecto requerido", "en": "Required Effect"}$j$, 0, false, $j${"constraint": "menu_item_atom_required_effect_check", "columns": ["bglobal.menu_item_atom.required_effect"]}$j$)
     RETURNING item_id INTO v_menu_atom_efecto_requerido;
@@ -3963,7 +3963,7 @@ BEGIN
         (v_menu_atom_efecto_requerido, 'menu.atom.efecto_requerido.DENY', $j${"es": "DENY", "en": "DENY"}$j$, 1, true, 10, $j${"value": "DENY"}$j$),
         (v_menu_atom_efecto_requerido, 'menu.atom.efecto_requerido.PERMIT', $j${"es": "PERMIT", "en": "PERMIT"}$j$, 1, true, 20, $j${"value": "PERMIT"}$j$);
 
-    -- chk_cap_sn_scope [bos.cap_sistema_snapshot]
+    -- [MC-0287] T-406 | chk_cap_sn_scope [bos.cap_sistema_snapshot] | Tabla: bos.cap_sistema_snapshot.scope | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('bos.snapshot.alcance', $j${"es": "Alcance", "en": "Scope"}$j$, 0, false, $j${"constraint": "chk_cap_sn_scope", "columns": ["bos.cap_sistema_snapshot.scope", "bos.cap_sistema_snapshot_2026_07.scope"]}$j$)
     RETURNING item_id INTO v_bos_snapshot_alcance;
@@ -3973,7 +3973,7 @@ BEGIN
         (v_bos_snapshot_alcance, 'bos.snapshot.alcance.GLOBAL', $j${"es": "GLOBAL", "en": "GLOBAL"}$j$, 1, true, 10, $j${"value": "GLOBAL"}$j$),
         (v_bos_snapshot_alcance, 'bos.snapshot.alcance.TENANT', $j${"es": "TENANT", "en": "TENANT"}$j$, 1, true, 20, $j${"value": "TENANT"}$j$);
 
-    -- chk_cap_tp_mode [bos.cap_tenant_policy]
+    -- [MC-0288] T-407 | chk_cap_tp_mode [bos.cap_tenant_policy] | Tabla: bos.cap_tenant_policy.policy_mode | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('bos.tenant_politica.modo_politica', $j${"es": "Modo de política", "en": "Policy Mode"}$j$, 0, false, $j${"constraint": "chk_cap_tp_mode", "columns": ["bos.cap_tenant_policy.policy_mode"]}$j$)
     RETURNING item_id INTO v_bos_tenant_politica_modo_politica;
@@ -3985,7 +3985,7 @@ BEGIN
         (v_bos_tenant_politica_modo_politica, 'bos.tenant_politica.modo_politica.emergency', $j${"es": "emergency", "en": "emergency"}$j$, 1, true, 30, $j${"value": "emergency"}$j$),
         (v_bos_tenant_politica_modo_politica, 'bos.tenant_politica.modo_politica.recommend', $j${"es": "recommend", "en": "recommend"}$j$, 1, true, 40, $j${"value": "recommend"}$j$);
 
-    -- chk_ca_operation [bos.ctx_context_audit]
+    -- [MC-0289] T-397 | chk_ca_operation [bos.ctx_context_audit] | Tabla: bos.ctx_context_audit.operation | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('bos.audit.operacion', $j${"es": "Operación", "en": "Operation"}$j$, 0, false, $j${"constraint": "chk_ca_operation", "columns": ["bos.ctx_context_audit.operation"]}$j$)
     RETURNING item_id INTO v_bos_audit_operacion;
@@ -4008,7 +4008,7 @@ BEGIN
         (v_bos_audit_operacion, 'bos.audit.operacion.SESSION_SUSPEND', $j${"es": "SESSION_SUSPEND", "en": "SESSION_SUSPEND"}$j$, 1, true, 140, $j${"value": "SESSION_SUSPEND"}$j$),
         (v_bos_audit_operacion, 'bos.audit.operacion.SESSION_SWITCH', $j${"es": "SESSION_SWITCH", "en": "SESSION_SWITCH"}$j$, 1, true, 150, $j${"value": "SESSION_SWITCH"}$j$);
 
-    -- chk_ca_state [bos.ctx_context_audit]
+    -- [MC-0290] T-397 | chk_ca_state [bos.ctx_context_audit] | Tabla: bos.ctx_context_audit.old_state | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('bos.audit.estado_anterior', $j${"es": "Estado anterior", "en": "Old State"}$j$, 0, false, $j${"constraint": "chk_ca_state", "columns": ["bos.ctx_context_audit.old_state", "bos.ctx_context_session.state", "bos.ctx_registered_device.state"]}$j$)
     RETURNING item_id INTO v_bos_audit_estado_anterior;
@@ -4023,7 +4023,7 @@ BEGIN
         (v_bos_audit_estado_anterior, 'bos.audit.estado_anterior.PENDING', $j${"es": "PENDING", "en": "PENDING"}$j$, 1, true, 60, $j${"value": "PENDING"}$j$),
         (v_bos_audit_estado_anterior, 'bos.audit.estado_anterior.SUSPENDED', $j${"es": "SUSPENDED", "en": "SUSPENDED"}$j$, 1, true, 70, $j${"value": "SUSPENDED"}$j$);
 
-    -- chk_cem_review [bos.ctx_context_emergency]
+    -- [MC-0291] T-402 | chk_cem_review [bos.ctx_context_emergency] | Tabla: bos.ctx_context_emergency.review_outcome | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('bos.emergencia.resultado_revision', $j${"es": "Resultado de revisión", "en": "Review Outcome"}$j$, 0, false, $j${"constraint": "chk_cem_review", "columns": ["bos.ctx_context_emergency.review_outcome"]}$j$)
     RETURNING item_id INTO v_bos_emergencia_resultado_revision;
@@ -4034,7 +4034,7 @@ BEGIN
         (v_bos_emergencia_resultado_revision, 'bos.emergencia.resultado_revision.POLICY_VIOLATION', $j${"es": "POLICY_VIOLATION", "en": "POLICY_VIOLATION"}$j$, 1, true, 20, $j${"value": "POLICY_VIOLATION"}$j$),
         (v_bos_emergencia_resultado_revision, 'bos.emergencia.resultado_revision.UNJUSTIFIED', $j${"es": "UNJUSTIFIED", "en": "UNJUSTIFIED"}$j$, 1, true, 30, $j${"value": "UNJUSTIFIED"}$j$);
 
-    -- chk_cem_state [bos.ctx_context_emergency]
+    -- [MC-0292] T-402 | chk_cem_state [bos.ctx_context_emergency] | Tabla: bos.ctx_context_emergency.state | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('bos.emergencia.estado', $j${"es": "Estado interno", "en": "State"}$j$, 0, false, $j${"constraint": "chk_cem_state", "columns": ["bos.ctx_context_emergency.state"]}$j$)
     RETURNING item_id INTO v_bos_emergencia_estado;
@@ -4047,7 +4047,7 @@ BEGIN
         (v_bos_emergencia_estado, 'bos.emergencia.estado.REVIEWED', $j${"es": "REVIEWED", "en": "REVIEWED"}$j$, 1, true, 40, $j${"value": "REVIEWED"}$j$),
         (v_bos_emergencia_estado, 'bos.emergencia.estado.SESSION_CREATED', $j${"es": "SESSION_CREATED", "en": "SESSION_CREATED"}$j$, 1, true, 50, $j${"value": "SESSION_CREATED"}$j$);
 
-    -- chk_ct_type [bos.ctx_context_transfer]
+    -- [MC-0293] T-401 | chk_ct_type [bos.ctx_context_transfer] | Tabla: bos.ctx_context_transfer.transfer_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('bos.transferencia.tipo_transferencia', $j${"es": "Tipo de transferencia", "en": "Transfer Type"}$j$, 0, false, $j${"constraint": "chk_ct_type", "columns": ["bos.ctx_context_transfer.transfer_type"]}$j$)
     RETURNING item_id INTO v_bos_transferencia_tipo_transferencia;
@@ -4059,7 +4059,7 @@ BEGIN
         (v_bos_transferencia_tipo_transferencia, 'bos.transferencia.tipo_transferencia.BREAKGLASS', $j${"es": "BREAKGLASS", "en": "BREAKGLASS"}$j$, 1, true, 30, $j${"value": "BREAKGLASS"}$j$),
         (v_bos_transferencia_tipo_transferencia, 'bos.transferencia.tipo_transferencia.USER_INITIATED', $j${"es": "USER_INITIATED", "en": "USER_INITIATED"}$j$, 1, true, 40, $j${"value": "USER_INITIATED"}$j$);
 
-    -- chk_fch_e_result [bos.fch_ficha_event]
+    -- [MC-0294] T-404 | chk_fch_e_result [bos.fch_ficha_event] | Tabla: bos.fch_ficha_event.result | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('bos.ficha_evento.resultado', $j${"es": "Resultado", "en": "Result"}$j$, 0, false, $j${"constraint": "chk_fch_e_result", "columns": ["bos.fch_ficha_event.result", "bos.ins_bootstrap_event.result"]}$j$)
     RETURNING item_id INTO v_bos_ficha_evento_resultado;
@@ -4071,7 +4071,7 @@ BEGIN
         (v_bos_ficha_evento_resultado, 'bos.ficha_evento.resultado.PARTIAL', $j${"es": "PARTIAL", "en": "PARTIAL"}$j$, 1, true, 30, $j${"value": "PARTIAL"}$j$),
         (v_bos_ficha_evento_resultado, 'bos.ficha_evento.resultado.SKIPPED', $j${"es": "SKIPPED", "en": "SKIPPED"}$j$, 1, true, 40, $j${"value": "SKIPPED"}$j$);
 
-    -- chk_fch_s_backend [bos.fch_ficha_state]
+    -- [MC-0295] T-403 | chk_fch_s_backend [bos.fch_ficha_state] | Tabla: bos.fch_ficha_state.backend | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('bos.ficha_estado.backend', $j${"es": "Backend de ejecución", "en": "Backend"}$j$, 0, false, $j${"constraint": "chk_fch_s_backend", "columns": ["bos.fch_ficha_state.backend"]}$j$)
     RETURNING item_id INTO v_bos_ficha_estado_backend;
@@ -4083,7 +4083,7 @@ BEGIN
         (v_bos_ficha_estado_backend, 'bos.ficha_estado.backend.k8s', $j${"es": "k8s", "en": "k8s"}$j$, 1, true, 30, $j${"value": "k8s"}$j$),
         (v_bos_ficha_estado_backend, 'bos.ficha_estado.backend.python', $j${"es": "python", "en": "python"}$j$, 1, true, 40, $j${"value": "python"}$j$);
 
-    -- chk_fch_s_state [bos.fch_ficha_state]
+    -- [MC-0296] T-403 | chk_fch_s_state [bos.fch_ficha_state] | Tabla: bos.fch_ficha_state.state | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('bos.ficha_estado.estado', $j${"es": "Estado interno", "en": "State"}$j$, 0, false, $j${"constraint": "chk_fch_s_state", "columns": ["bos.fch_ficha_state.state"]}$j$)
     RETURNING item_id INTO v_bos_ficha_estado_estado;
@@ -4109,7 +4109,7 @@ BEGIN
         (v_bos_ficha_estado_estado, 'bos.ficha_estado.estado.UPDATE_FAILED', $j${"es": "UPDATE_FAILED", "en": "UPDATE_FAILED"}$j$, 1, true, 170, $j${"value": "UPDATE_FAILED"}$j$),
         (v_bos_ficha_estado_estado, 'bos.ficha_estado.estado.UPDATING', $j${"es": "UPDATING", "en": "UPDATING"}$j$, 1, true, 180, $j${"value": "UPDATING"}$j$);
 
-    -- chk_ins_be_state [bos.ins_bootstrap_event]
+    -- [MC-0297] T-405 | chk_ins_be_state [bos.ins_bootstrap_event] | Tabla: bos.ins_bootstrap_event.state | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('bos.bootstrap.estado', $j${"es": "Estado interno", "en": "State"}$j$, 0, false, $j${"constraint": "chk_ins_be_state", "columns": ["bos.ins_bootstrap_event.state"]}$j$)
     RETURNING item_id INTO v_bos_bootstrap_estado;
@@ -4122,7 +4122,7 @@ BEGIN
         (v_bos_bootstrap_estado, 'bos.bootstrap.estado.SKIPPED', $j${"es": "SKIPPED", "en": "SKIPPED"}$j$, 1, true, 40, $j${"value": "SKIPPED"}$j$),
         (v_bos_bootstrap_estado, 'bos.bootstrap.estado.STARTED', $j${"es": "STARTED", "en": "STARTED"}$j$, 1, true, 50, $j${"value": "STARTED"}$j$);
 
-    -- chk_ins_se_state [bos.ins_saga_execution]
+    -- [MC-0298] T-412 | chk_ins_se_state [bos.ins_saga_execution] | Tabla: bos.ins_saga_execution.state | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('bos.saga.estado', $j${"es": "Estado interno", "en": "State"}$j$, 0, false, $j${"constraint": "chk_ins_se_state", "columns": ["bos.ins_saga_execution.state"]}$j$)
     RETURNING item_id INTO v_bos_saga_estado;
@@ -4135,7 +4135,7 @@ BEGIN
         (v_bos_saga_estado, 'bos.saga.estado.FAILED', $j${"es": "FAILED", "en": "FAILED"}$j$, 1, true, 40, $j${"value": "FAILED"}$j$),
         (v_bos_saga_estado, 'bos.saga.estado.RUNNING', $j${"es": "RUNNING", "en": "RUNNING"}$j$, 1, true, 50, $j${"value": "RUNNING"}$j$);
 
-    -- chk_ins_se_type [bos.ins_saga_execution]
+    -- [MC-0299] T-412 | chk_ins_se_type [bos.ins_saga_execution] | Tabla: bos.ins_saga_execution.saga_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('bos.saga.tipo_saga', $j${"es": "Tipo de saga", "en": "Saga Type"}$j$, 0, false, $j${"constraint": "chk_ins_se_type", "columns": ["bos.ins_saga_execution.saga_type"]}$j$)
     RETURNING item_id INTO v_bos_saga_tipo_saga;
@@ -4150,7 +4150,7 @@ BEGIN
         (v_bos_saga_tipo_saga, 'bos.saga.tipo_saga.suspend_tenant', $j${"es": "suspend_tenant", "en": "suspend_tenant"}$j$, 1, true, 60, $j${"value": "suspend_tenant"}$j$),
         (v_bos_saga_tipo_saga, 'bos.saga.tipo_saga.update', $j${"es": "update", "en": "update"}$j$, 1, true, 70, $j${"value": "update"}$j$);
 
-    -- chk_net_ci_cert_type [bos.net_cert_inventory]
+    -- [MC-0300] T-413 | chk_net_ci_cert_type [bos.net_cert_inventory] | Tabla: bos.net_cert_inventory.cert_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('bos.inventario_cert.tipo_cert', $j${"es": "Tipo de certificado", "en": "Cert Type"}$j$, 0, false, $j${"constraint": "chk_net_ci_cert_type", "columns": ["bos.net_cert_inventory.cert_type"]}$j$)
     RETURNING item_id INTO v_bos_inventario_cert_tipo_cert;
@@ -4164,7 +4164,7 @@ BEGIN
         (v_bos_inventario_cert_tipo_cert, 'bos.inventario_cert.tipo_cert.kong_tls', $j${"es": "kong_tls", "en": "kong_tls"}$j$, 1, true, 50, $j${"value": "kong_tls"}$j$),
         (v_bos_inventario_cert_tipo_cert, 'bos.inventario_cert.tipo_cert.spiffe_svid', $j${"es": "spiffe_svid", "en": "spiffe_svid"}$j$, 1, true, 60, $j${"value": "spiffe_svid"}$j$);
 
-    -- chk_net_ci_issuer_engine [bos.net_cert_inventory]
+    -- [MC-0301] T-413 | chk_net_ci_issuer_engine [bos.net_cert_inventory] | Tabla: bos.net_cert_inventory.issuer_engine | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('bos.inventario_cert.motor_emisor', $j${"es": "Motor emisor de certificado", "en": "Issuer Engine"}$j$, 0, false, $j${"constraint": "chk_net_ci_issuer_engine", "columns": ["bos.net_cert_inventory.issuer_engine"]}$j$)
     RETURNING item_id INTO v_bos_inventario_cert_motor_emisor;
@@ -4177,7 +4177,7 @@ BEGIN
         (v_bos_inventario_cert_motor_emisor, 'bos.inventario_cert.motor_emisor.spire', $j${"es": "spire", "en": "spire"}$j$, 1, true, 40, $j${"value": "spire"}$j$),
         (v_bos_inventario_cert_motor_emisor, 'bos.inventario_cert.motor_emisor.vault_pki', $j${"es": "vault_pki", "en": "vault_pki"}$j$, 1, true, 50, $j${"value": "vault_pki"}$j$);
 
-    -- chk_net_ci_key_algo [bos.net_cert_inventory]
+    -- [MC-0302] T-413 | chk_net_ci_key_algo [bos.net_cert_inventory] | Tabla: bos.net_cert_inventory.key_algorithm | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('bos.inventario_cert.algoritmo_llave', $j${"es": "Algoritmo de llave", "en": "Key Algorithm"}$j$, 0, false, $j${"constraint": "chk_net_ci_key_algo", "columns": ["bos.net_cert_inventory.key_algorithm"]}$j$)
     RETURNING item_id INTO v_bos_inventario_cert_algoritmo_llave;
@@ -4188,7 +4188,7 @@ BEGIN
         (v_bos_inventario_cert_algoritmo_llave, 'bos.inventario_cert.algoritmo_llave.Ed25519', $j${"es": "Ed25519", "en": "Ed25519"}$j$, 1, true, 20, $j${"value": "Ed25519"}$j$),
         (v_bos_inventario_cert_algoritmo_llave, 'bos.inventario_cert.algoritmo_llave.RSA', $j${"es": "RSA", "en": "RSA"}$j$, 1, true, 30, $j${"value": "RSA"}$j$);
 
-    -- chk_net_ci_status [bos.net_cert_inventory]
+    -- [MC-0303] T-413 | chk_net_ci_status [bos.net_cert_inventory] | Tabla: bos.net_cert_inventory.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('bos.inventario_cert.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "chk_net_ci_status", "columns": ["bos.net_cert_inventory.status"]}$j$)
     RETURNING item_id INTO v_bos_inventario_cert_estado;
@@ -4201,7 +4201,7 @@ BEGIN
         (v_bos_inventario_cert_estado, 'bos.inventario_cert.estado.revoked', $j${"es": "revoked", "en": "revoked"}$j$, 1, true, 40, $j${"value": "revoked"}$j$),
         (v_bos_inventario_cert_estado, 'bos.inventario_cert.estado.superseded', $j${"es": "superseded", "en": "superseded"}$j$, 1, true, 50, $j${"value": "superseded"}$j$);
 
-    -- chk_net_se_severity [bos.net_security_events]
+    -- [MC-0304] T-414 | chk_net_se_severity [bos.net_security_events] | Tabla: bos.net_security_events.severity | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('bos.evento_seg.severidad', $j${"es": "Severidad", "en": "Severity"}$j$, 0, false, $j${"constraint": "chk_net_se_severity", "columns": ["bos.net_security_events.severity", "bos.net_security_events_default.severity"]}$j$)
     RETURNING item_id INTO v_bos_evento_seg_severidad;
@@ -4213,7 +4213,7 @@ BEGIN
         (v_bos_evento_seg_severidad, 'bos.evento_seg.severidad.info', $j${"es": "info", "en": "info"}$j$, 1, true, 30, $j${"value": "info"}$j$),
         (v_bos_evento_seg_severidad, 'bos.evento_seg.severidad.warn', $j${"es": "warn", "en": "warn"}$j$, 1, true, 40, $j${"value": "warn"}$j$);
 
-    -- chk_net_se_source [bos.net_security_events]
+    -- [MC-0305] T-414 | chk_net_se_source [bos.net_security_events] | Tabla: bos.net_security_events.source | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('bos.evento_seg.fuente', $j${"es": "Fuente", "en": "Source"}$j$, 0, false, $j${"constraint": "chk_net_se_source", "columns": ["bos.net_security_events.source", "bos.net_security_events_default.source"]}$j$)
     RETURNING item_id INTO v_bos_evento_seg_fuente;
@@ -4229,7 +4229,7 @@ BEGIN
         (v_bos_evento_seg_fuente, 'bos.evento_seg.fuente.portman', $j${"es": "portman", "en": "portman"}$j$, 1, true, 70, $j${"value": "portman"}$j$),
         (v_bos_evento_seg_fuente, 'bos.evento_seg.fuente.psad', $j${"es": "psad", "en": "psad"}$j$, 1, true, 80, $j${"value": "psad"}$j$);
 
-    -- chk_net_se_type [bos.net_security_events]
+    -- [MC-0306] T-414 | chk_net_se_type [bos.net_security_events] | Tabla: bos.net_security_events.event_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('bos.evento_seg.tipo_evento', $j${"es": "Tipo de evento", "en": "Event Type"}$j$, 0, false, $j${"constraint": "chk_net_se_type", "columns": ["bos.net_security_events.event_type", "bos.net_security_events_default.event_type"]}$j$)
     RETURNING item_id INTO v_bos_evento_seg_tipo_evento;
@@ -4259,7 +4259,7 @@ BEGIN
         (v_bos_evento_seg_tipo_evento, 'bos.evento_seg.tipo_evento.port_validated', $j${"es": "port_validated", "en": "port_validated"}$j$, 1, true, 210, $j${"value": "port_validated"}$j$),
         (v_bos_evento_seg_tipo_evento, 'bos.evento_seg.tipo_evento.replay_detected', $j${"es": "replay_detected", "en": "replay_detected"}$j$, 1, true, 220, $j${"value": "replay_detected"}$j$);
 
-    -- chk_prt_pa_asset [bos.prt_port_assignment]
+    -- [MC-0307] T-408 | chk_prt_pa_asset [bos.prt_port_assignment] | Tabla: bos.prt_port_assignment.asset_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('bos.puerto.tipo_activo', $j${"es": "Tipo de activo de red", "en": "Asset Type"}$j$, 0, false, $j${"constraint": "chk_prt_pa_asset", "columns": ["bos.prt_port_assignment.asset_type"]}$j$)
     RETURNING item_id INTO v_bos_puerto_tipo_activo;
@@ -4273,7 +4273,7 @@ BEGIN
         (v_bos_puerto_tipo_activo, 'bos.puerto.tipo_activo.kong_route', $j${"es": "kong_route", "en": "kong_route"}$j$, 1, true, 50, $j${"value": "kong_route"}$j$),
         (v_bos_puerto_tipo_activo, 'bos.puerto.tipo_activo.logical_server', $j${"es": "logical_server", "en": "logical_server"}$j$, 1, true, 60, $j${"value": "logical_server"}$j$);
 
-    -- chk_prt_pa_port_type [bos.prt_port_assignment]
+    -- [MC-0308] T-408 | chk_prt_pa_port_type [bos.prt_port_assignment] | Tabla: bos.prt_port_assignment.port_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('bos.puerto.tipo_puerto', $j${"es": "Tipo de puerto", "en": "Port Type"}$j$, 0, false, $j${"constraint": "chk_prt_pa_port_type", "columns": ["bos.prt_port_assignment.port_type"]}$j$)
     RETURNING item_id INTO v_bos_puerto_tipo_puerto;
@@ -4304,7 +4304,7 @@ DECLARE
     v_bos_watchdog_severidad UUID;
 BEGIN
 
-    -- chk_prt_pa_status [bos.prt_port_assignment]
+    -- [MC-0309] T-408 | chk_prt_pa_status [bos.prt_port_assignment] | Tabla: bos.prt_port_assignment.status | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('bos.puerto.estado', $j${"es": "Estado", "en": "Status"}$j$, 0, false, $j${"constraint": "chk_prt_pa_status", "columns": ["bos.prt_port_assignment.status"]}$j$)
     RETURNING item_id INTO v_bos_puerto_estado;
@@ -4316,7 +4316,7 @@ BEGIN
         (v_bos_puerto_estado, 'bos.puerto.estado.released', $j${"es": "released", "en": "released"}$j$, 1, true, 30, $j${"value": "released"}$j$),
         (v_bos_puerto_estado, 'bos.puerto.estado.revoked', $j${"es": "revoked", "en": "revoked"}$j$, 1, true, 40, $j${"value": "revoked"}$j$);
 
-    -- chk_prt_pa_transport [bos.prt_port_assignment]
+    -- [MC-0310] T-408 | chk_prt_pa_transport [bos.prt_port_assignment] | Tabla: bos.prt_port_assignment.transport | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('bos.puerto.transporte', $j${"es": "Protocolo de transporte", "en": "Transport"}$j$, 0, false, $j${"constraint": "chk_prt_pa_transport", "columns": ["bos.prt_port_assignment.transport"]}$j$)
     RETURNING item_id INTO v_bos_puerto_transporte;
@@ -4328,7 +4328,7 @@ BEGIN
         (v_bos_puerto_transporte, 'bos.puerto.transporte.TCP', $j${"es": "TCP", "en": "TCP"}$j$, 1, true, 30, $j${"value": "TCP"}$j$),
         (v_bos_puerto_transporte, 'bos.puerto.transporte.UDP', $j${"es": "UDP", "en": "UDP"}$j$, 1, true, 40, $j${"value": "UDP"}$j$);
 
-    -- chk_rel_re_channel [bos.rel_release_event]
+    -- [MC-0311] T-410 | chk_rel_re_channel [bos.rel_release_event] | Tabla: bos.rel_release_event.channel | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('bos.release.channel', $j${"es": "Canal de liberación", "en": "Channel"}$j$, 0, false, $j${"constraint": "chk_rel_re_channel", "columns": ["bos.rel_release_event.channel", "bos.rel_release_manifest.channel"]}$j$)
     RETURNING item_id INTO v_bos_release_channel;
@@ -4339,7 +4339,7 @@ BEGIN
         (v_bos_release_channel, 'bos.release.channel.early', $j${"es": "early", "en": "early"}$j$, 1, true, 20, $j${"value": "early"}$j$),
         (v_bos_release_channel, 'bos.release.channel.stable', $j${"es": "stable", "en": "stable"}$j$, 1, true, 30, $j${"value": "stable"}$j$);
 
-    -- chk_rel_re_op [bos.rel_release_event]
+    -- [MC-0312] T-410 | chk_rel_re_op [bos.rel_release_event] | Tabla: bos.rel_release_event.operation | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('bos.release.operacion', $j${"es": "Operación", "en": "Operation"}$j$, 0, false, $j${"constraint": "chk_rel_re_op", "columns": ["bos.rel_release_event.operation"]}$j$)
     RETURNING item_id INTO v_bos_release_operacion;
@@ -4350,7 +4350,7 @@ BEGIN
         (v_bos_release_operacion, 'bos.release.operacion.ROLLBACK', $j${"es": "ROLLBACK", "en": "ROLLBACK"}$j$, 1, true, 20, $j${"value": "ROLLBACK"}$j$),
         (v_bos_release_operacion, 'bos.release.operacion.UPDATE', $j${"es": "UPDATE", "en": "UPDATE"}$j$, 1, true, 30, $j${"value": "UPDATE"}$j$);
 
-    -- chk_rel_re_result [bos.rel_release_event]
+    -- [MC-0313] T-410 | chk_rel_re_result [bos.rel_release_event] | Tabla: bos.rel_release_event.result | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('bos.release.resultado', $j${"es": "Resultado", "en": "Result"}$j$, 0, false, $j${"constraint": "chk_rel_re_result", "columns": ["bos.rel_release_event.result"]}$j$)
     RETURNING item_id INTO v_bos_release_resultado;
@@ -4361,7 +4361,7 @@ BEGIN
         (v_bos_release_resultado, 'bos.release.resultado.OK', $j${"es": "OK", "en": "OK"}$j$, 1, true, 20, $j${"value": "OK"}$j$),
         (v_bos_release_resultado, 'bos.release.resultado.PARTIAL', $j${"es": "PARTIAL", "en": "PARTIAL"}$j$, 1, true, 30, $j${"value": "PARTIAL"}$j$);
 
-    -- chk_rel_re_trigger [bos.rel_release_event]
+    -- [MC-0314] T-410 | chk_rel_re_trigger [bos.rel_release_event] | Tabla: bos.rel_release_event.triggered_by | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('bos.release.disparado_por', $j${"es": "Disparado por", "en": "Triggered By"}$j$, 0, false, $j${"constraint": "chk_rel_re_trigger", "columns": ["bos.rel_release_event.triggered_by"]}$j$)
     RETURNING item_id INTO v_bos_release_disparado_por;
@@ -4372,7 +4372,7 @@ BEGIN
         (v_bos_release_disparado_por, 'bos.release.disparado_por.scheduler', $j${"es": "scheduler", "en": "scheduler"}$j$, 1, true, 20, $j${"value": "scheduler"}$j$),
         (v_bos_release_disparado_por, 'bos.release.disparado_por.watchdog', $j${"es": "watchdog", "en": "watchdog"}$j$, 1, true, 30, $j${"value": "watchdog"}$j$);
 
-    -- chk_wdg_we_action [bos.wdg_watchdog_event]
+    -- [MC-0315] T-411 | chk_wdg_we_action [bos.wdg_watchdog_event] | Tabla: bos.wdg_watchdog_event.action_taken | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('bos.watchdog.accion_tomada', $j${"es": "Acción tomada", "en": "Action Taken"}$j$, 0, false, $j${"constraint": "chk_wdg_we_action", "columns": ["bos.wdg_watchdog_event.action_taken"]}$j$)
     RETURNING item_id INTO v_bos_watchdog_accion_tomada;
@@ -4385,7 +4385,7 @@ BEGIN
         (v_bos_watchdog_accion_tomada, 'bos.watchdog.accion_tomada.none', $j${"es": "none", "en": "none"}$j$, 1, true, 40, $j${"value": "none"}$j$),
         (v_bos_watchdog_accion_tomada, 'bos.watchdog.accion_tomada.rollback', $j${"es": "rollback", "en": "rollback"}$j$, 1, true, 50, $j${"value": "rollback"}$j$);
 
-    -- chk_wdg_we_layer [bos.wdg_watchdog_event]
+    -- [MC-0316] T-411 | chk_wdg_we_layer [bos.wdg_watchdog_event] | Tabla: bos.wdg_watchdog_event.check_layer | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('bos.watchdog.capa_verificacion', $j${"es": "Capa de verificación (watchdog)", "en": "Check Layer"}$j$, 0, false, $j${"constraint": "chk_wdg_we_layer", "columns": ["bos.wdg_watchdog_event.check_layer"]}$j$)
     RETURNING item_id INTO v_bos_watchdog_capa_verificacion;
@@ -4396,7 +4396,7 @@ BEGIN
         (v_bos_watchdog_capa_verificacion, 'bos.watchdog.capa_verificacion.k8s_cluster', $j${"es": "k8s_cluster", "en": "k8s_cluster"}$j$, 1, true, 20, $j${"value": "k8s_cluster"}$j$),
         (v_bos_watchdog_capa_verificacion, 'bos.watchdog.capa_verificacion.ubuntu_host', $j${"es": "ubuntu_host", "en": "ubuntu_host"}$j$, 1, true, 30, $j${"value": "ubuntu_host"}$j$);
 
-    -- chk_wdg_we_resource [bos.wdg_watchdog_event]
+    -- [MC-0317] T-411 | chk_wdg_we_resource [bos.wdg_watchdog_event] | Tabla: bos.wdg_watchdog_event.resource_type | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('bos.watchdog.tipo_recurso', $j${"es": "Tipo de recurso", "en": "Resource Type"}$j$, 0, false, $j${"constraint": "chk_wdg_we_resource", "columns": ["bos.wdg_watchdog_event.resource_type"]}$j$)
     RETURNING item_id INTO v_bos_watchdog_tipo_recurso;
@@ -4409,7 +4409,7 @@ BEGIN
         (v_bos_watchdog_tipo_recurso, 'bos.watchdog.tipo_recurso.node', $j${"es": "node", "en": "node"}$j$, 1, true, 40, $j${"value": "node"}$j$),
         (v_bos_watchdog_tipo_recurso, 'bos.watchdog.tipo_recurso.pod', $j${"es": "pod", "en": "pod"}$j$, 1, true, 50, $j${"value": "pod"}$j$);
 
-    -- chk_wdg_we_result [bos.wdg_watchdog_event]
+    -- [MC-0318] T-411 | chk_wdg_we_result [bos.wdg_watchdog_event] | Tabla: bos.wdg_watchdog_event.action_result | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('bos.watchdog.resultado_accion', $j${"es": "Resultado de la acción", "en": "Action Result"}$j$, 0, false, $j${"constraint": "chk_wdg_we_result", "columns": ["bos.wdg_watchdog_event.action_result"]}$j$)
     RETURNING item_id INTO v_bos_watchdog_resultado_accion;
@@ -4420,7 +4420,7 @@ BEGIN
         (v_bos_watchdog_resultado_accion, 'bos.watchdog.resultado_accion.OK', $j${"es": "OK", "en": "OK"}$j$, 1, true, 20, $j${"value": "OK"}$j$),
         (v_bos_watchdog_resultado_accion, 'bos.watchdog.resultado_accion.PENDING', $j${"es": "PENDING", "en": "PENDING"}$j$, 1, true, 30, $j${"value": "PENDING"}$j$);
 
-    -- chk_wdg_we_severity [bos.wdg_watchdog_event]
+    -- [MC-0319] T-411 | chk_wdg_we_severity [bos.wdg_watchdog_event] | Tabla: bos.wdg_watchdog_event.severity | A.65.04
     INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
     VALUES ('bos.watchdog.severidad', $j${"es": "Severidad", "en": "Severity"}$j$, 0, false, $j${"constraint": "chk_wdg_we_severity", "columns": ["bos.wdg_watchdog_event.severity"]}$j$)
     RETURNING item_id INTO v_bos_watchdog_severidad;
