@@ -1,7 +1,7 @@
 # Manual de Documentación Estratificada — SBOSDB
 
 **Código:** SBOS-DB-DOC-001  
-**Versión:** 1.0.0  
+**Versión:** 1.1.0  
 **Fecha de emisión:** 2026-08-01  
 **Clasificación:** OPERACIONAL — uso interno por agentes y programadores  
 **Alcance:** Todos los archivos DDL del proyecto SBOS · 4 schemas · Base de datos SBOSDB  
@@ -444,6 +444,127 @@ verificar_documentacion.sh se ejecuta como hook pre-commit.
 
 ---
 
+## §10 Mapa de documentos — guía de consulta y modificación de SBOSDB
+
+Este mapa es el punto de entrada para cualquier análisis, estudio o modificación de la base de datos
+SBOSDB. Clasifica todos los documentos relevantes por propósito y señala cuáles leer antes de actuar.
+
+> **Regla:** Leer primero, actuar después. Antes de cualquier INSERT/ALTER/CREATE, consultar el
+> inventario (A.65.02) y la doctrina (ddls.yml). Antes de crear un menú contextual, consultar A.65.04.
+> Antes de modificar un control ISO 27001, consultar A.71. Antes de escribir semántica, leer el Manual.
+
+---
+
+### §10.1 Archivos DDL — fuentes de verdad de estructura
+
+| Archivo | Propósito | Cuándo leer |
+|---------|-----------|-------------|
+| `DDLs/SBOS_db_V2_DDL.sql` | DDL canónico principal — schemas `bglobal`, `bauth`, `bcalendar`. ~136 tablas padre. Fuente de verdad absoluta de estructura. | Antes de crear o modificar CUALQUIER tabla en estos schemas |
+| `DDLs/migrations/bauth_dominios_pendientes_v2.0.sql` | Migración D02–D15 + D98 + D99. 102 tablas. Commit `c420dc2`. APLICADO en SBOSDB. | Antes de trabajar con dominios de control D02–D99 |
+| `DDLs/migrations/iso27001_backlog_t520_t529.sql` | Migración ISO 27001:2022 BACKLOG. 10 tablas nuevas + ALTER T-157. Commit `634f6b5`. APLICADO en SBOSDB. | Antes de trabajar con incidentes, THI, vulnerabilidades, retención, PII |
+| `DDLs/bos_01__control_plane.sql` | Schema `bos` — Context Plane + BOS Control Plane. ~22 tablas. | Antes de trabajar con `bos.*` (ctx_id, fichas, watchdog, etc.) |
+
+### §10.2 Doctrina y conteos
+
+| Archivo | Propósito | Cuándo leer |
+|---------|-----------|-------------|
+| `DDLs/ddls.yml` | Doctrina DDL del proyecto — convención de nombres, ciclo de vida, conteo oficial de tablas (144), lista de migrations activas, orden de carga. | Al inicio de CUALQUIER sesión de trabajo en DDL |
+| `DDLs/SBOS_db_V2_DDL_MANUAL.md` | Manual operativo — intención detrás de cada tabla, decisiones de diseño, semántica de columnas, invariantes. v2.14.0. | Antes de modificar la semántica de una tabla o columna existente |
+| `DDLs/MANUAL-DOCUMENTACION-ESTRATIFICADA-SBOS_DB.md` | Este documento — estándar de COMMENT ON TABLE, roadmap de documentación, §10 este mapa. | Al iniciar cualquier tarea de documentación de tablas |
+
+### §10.3 Seeds
+
+| Archivo | Propósito | Cuándo leer |
+|---------|-----------|-------------|
+| `DDLs/seeds/bglobal_T060__menu_context.sql` | ENUMs formales (`menu_type_enum` = CONTEXTUAL/NAVIGATIONAL/CONFIGURATION/SYSTEM) — 58 entradas MC-0001..MC-0058. | Antes de agregar nuevas entradas raíz a `bglobal.menu_context` |
+| `DDLs/seeds/bglobal_T061__menu_context_checks.sql` | Menús contextuales para CHECK constraints — 261 entradas MC-0059..MC-0340 en bloques DO $$. Último código activo: MC-0340. | Antes de agregar menús para un CHECK constraint nuevo |
+| `DDLs/seeds/` | Otros seeds: `bglobal_01..04`, `bcalendar_01..03`, `bauth_16__*`, `T016`, `T162`. | Según el dominio de datos que se trabaje |
+
+### §10.4 Inventario y completitud de tablas
+
+| Archivo | Propósito | Cuándo leer |
+|---------|-----------|-------------|
+| `BauthAgent/context/Documentacion/anexos/A.65.02_ANEXO-NUEVA-DDL-v1.0.md` | Inventario completo T-NNN → tabla. Incluye D00–D99, schema bos, ISO 27001 BACKLOG (T-520..T-565). Máximo T-code activo: T-565. | Al asignar un T-code nuevo, verificar aquí que no hay conflicto |
+| `BauthAgent/context/Documentacion/anexos/A.65.03.01.01_*.md` | Completitud del dominio D00 — Identidad Organizacional | Antes de añadir tablas o átomos a D00 |
+| `BauthAgent/context/Documentacion/anexos/A.65.03.01.02_*.md` | Completitud del dominio D01 | Antes de añadir tablas a D01 |
+| `BauthAgent/context/Documentacion/anexos/A.65.03.01.03_*.md` .. `A.65.03.01.17_*.md` | Completitud D02..D15 | Antes de añadir tablas a cada dominio respectivo |
+| `BauthAgent/context/Documentacion/anexos/A.65.03.01.18_*.md` | Vista consolidada — inventario de 18 dominios, núcleo L3 (D00+D01+D08+D11+D14+D15), ~80 tablas propuestas T-200..T-515 | Visión global del modelo de identidad |
+| `BauthAgent/context/Documentacion/anexos/A.65.04_*.md` | Kardex de menús contextuales — inventario de 319+ MC-XXXX con índice inverso (columna→MC) | Antes de agregar un CHECK o ENUM, verificar si ya existe |
+
+### §10.5 Cumplimiento normativo
+
+| Archivo | Propósito | Cuándo leer |
+|---------|-----------|-------------|
+| `BauthAgent/context/Documentacion/anexos/A.71_INFORME-CUMPLIMIENTO-ISO27001-2022-v1.0.md` | Informe ISO 27001:2022 — v1.13.0 — score 122/123 (99.2%). 41 controles evaluados. Único gap real restante: A.8.25 (CI pipeline DevOps). | Antes de crear tablas relacionadas con controles ISO 27001 |
+| `BauthAgent/context/Documentacion/anexos/BACKLOG-DDL-ISO27001.md` | BACKLOG cerrado — T-BACKLOG-001..009 COMPLETADOS. Referencia histórica de qué gap cerraba cada tabla. | Para entender qué control cierra cada tabla del S21 |
+
+### §10.6 Acceso VPS para verificación contra BD real
+
+```bash
+# Conexión a SBOSDB (BD OFICIAL — NUNCA otra BD)
+psql "postgres://postgres:postgres@localhost:15432/SBOSDB"
+
+# Contar tablas por schema
+SELECT schemaname, count(*) FROM pg_tables
+WHERE schemaname IN ('bglobal','bauth','bcalendar','bos')
+GROUP BY schemaname ORDER BY schemaname;
+
+# Verificar que una tabla existe
+SELECT tablename FROM pg_tables
+WHERE schemaname='bauth' AND tablename='inc_incident';
+
+# Ver COMMENT ON TABLE de una tabla
+SELECT obj_description('bauth.inc_incident'::regclass, 'pg_class');
+
+# Listar columnas de una tabla con tipos
+SELECT a.attname, format_type(a.atttypid, a.atttypmod), a.attnotnull
+FROM pg_attribute a
+WHERE a.attrelid = 'bauth.inc_incident'::regclass
+  AND a.attnum > 0 AND NOT a.attisdropped
+ORDER BY a.attnum;
+
+# Ver CHECK constraints de una tabla
+SELECT conname, pg_get_constraintdef(oid)
+FROM pg_constraint
+WHERE conrelid = 'bauth.inc_incident'::regclass AND contype='c';
+```
+
+**Acceso SSH:**
+```bash
+ssh root@13.140.128.230   # pass: 12345678ubuntu
+psql -p 15432 -U postgres SBOSDB
+```
+
+### §10.7 Flujo de trabajo estándar para añadir una tabla nueva
+
+1. **Verificar T-code libre** en A.65.02 (próximo libre: T-566 o superior)
+2. **Verificar dominio** en A.65.03.01.NN del dominio correspondiente
+3. **Escribir `CREATE TABLE`** en el DDL correcto (DDL unificado o migrations/)
+4. **Agregar COMMENT ON TABLE** con score 6/6 (ver §3.1) y marcador `-- [DOC:DONE]`
+5. **Actualizar A.65.02** con la nueva entrada T-code → tabla
+6. **Actualizar ddls.yml** → `tablas:` (incrementar)
+7. **Actualizar SBOS_db_V2_DDL_MANUAL.md** → sección correspondiente + changelog
+8. **Si hay CHECK constraints** → agregar MC-XXXX en T061 y actualizar A.65.04
+9. **Aplicar en SBOSDB** con verificación de idempotencia (2 pasadas, 0 errores)
+10. **Commit con evidencia AA-1** (`verificar_afirmacion.sh`)
+
+### §10.8 Jerarquía de autoridad en conflicto entre documentos
+
+Si dos documentos dan información contradictoria sobre una tabla:
+
+```
+1. BD SBOSDB (pg_class/pg_constraint)    ← autoridad máxima (lo que EXISTE)
+2. DDL canónico (.sql)                   ← fuente de verdad de DISEÑO
+3. SBOS_db_V2_DDL_MANUAL.md             ← fuente de verdad de INTENCIÓN
+4. A.65.02 (inventario)                 ← fuente de verdad de ASIGNACIÓN T-code
+5. ddls.yml                             ← fuente de verdad de CONTEOS y DOCTRINA
+6. Demás manuales (A.65.03, A.71…)     ← análisis y contexto normativo
+```
+
+**Si SBOSDB y el DDL difieren:** actualizar el DDL para reflejar la BD (no al revés) y documentar la discrepancia.
+
+---
+
 ## §9 Referencias normativas
 
 | Norma | Aplica a |
@@ -461,6 +582,7 @@ verificar_documentacion.sh se ejecuta como hook pre-commit.
 
 | Versión | Fecha | Cambio |
 |---------|-------|--------|
+| 1.1.0 | 2026-08-01 | §10 Mapa de documentos — guía completa de consulta y modificación de SBOSDB (8 subsecciones: DDLs, doctrina, seeds, inventario, cumplimiento, VPS, flujo de trabajo, jerarquía de autoridad) |
 | 1.0.0 | 2026-08-01 | Documento inicial — elevado de propuesta a manual operacional |
 
 ---

@@ -128,7 +128,7 @@ ddl_unificado:
   archivo: "SBOS_db_V2_DDL.sql"
   manual: "SBOS_db_V2_DDL_MANUAL.md"
   schemas: [bglobal, bauth, bcalendar]
-  tablas: 134  -- CREATE TABLE (incluye particiones); actualizado 2026-08-01
+  tablas: 144  -- CREATE TABLE (incluye particiones); actualizado 2026-08-01 (+10 ISO 27001 backlog)
   linea_referencia: 5676
   por_que_no_se_separa: "Tienen CLAVES FORÁNEAS CIRCULARES entre sí:
       bcalendar.cal_* y bglobal.menu_* → bauth.idn_tenant ; bauth.* → bglobal.global_country.
@@ -173,6 +173,14 @@ punto_de_entrada:
       dominios: "D02 D03 D04 D05 D06 D07 D09 D10 D11 D12 D13 D14 D15 D98 D99"
       tablas: 102
       estado: "APLICADO en SBOSDB producción (221 tablas bauth)"
+    - archivo: "migrations/iso27001_backlog_t520_t529.sql"
+      commit: "634f6b5"
+      tablas_nuevas: 10
+      tablas_alteradas: "T-157 idn_identity_attribute (+pii_category, +legal_basis, +chk_attr_pii_metadata_completa)"
+      t_codes: "T-520 T-521 T-522 T-523 T-524 T-526 T-527 T-528 T-564 T-565"
+      nota_conflicto: "T-525 y T-529 ya estaban asignados; se usaron T-564 y T-565 para los reemplazos"
+      controles_iso27001: "A.5.7 · A.5.12 · A.5.25 · A.5.26 · A.5.27 · A.5.34 · A.8.8 · A.8.10"
+      estado: "APLICADO en SBOSDB producción (score A.71: 122/123 — 99.2%)"
 
 # ── REGLAS PARA AGENTES DESARROLLADORES ─────────────────────────────────────
 reglas_agentes:

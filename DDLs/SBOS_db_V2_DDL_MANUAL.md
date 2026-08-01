@@ -1,7 +1,7 @@
 # SBOS_db_V2_DDL_MANUAL.md
 ## Manual Operativo de la Base de Datos — SBOS Identity Platform V2
 
-**Versión:** 2.12.0 · **Fecha:** 2026-07-31  
+**Versión:** 2.14.0 · **Fecha:** 2026-08-01  
 **Base de datos:** `SBOS_db` · **PostgreSQL:** 18.4 · **UUIDv7:** RFC 9562  
 **Estándar de documentación:** ISO/IEC 11179 · DAMA DMBOK v2 · ISO 24760-2:2025  
 **Sincronizado con:** `SBOS_db_V2_DDL.sql` (NIVEL 0..19) — nombres canónicos del DDL
@@ -35,6 +35,7 @@
 | [S19 — Context Plane](#s19--context-plane-bos) (NIVEL 20) | T-395(`registered_device`), T-396(`ctx_context_session`), T-397(`ctx_context_audit`), T-398(`ctx_context_switch_log`), T-399(`ctx_context_policy`), T-400(`device_heartbeat`), T-401(`ctx_context_transfer`), T-402(`ctx_context_emergency`) | Policy Administrator NIST SP 800-207 · ctx_id 6 capas · WORM hash-chain |
 | [S20 — Biblioteca de Referencia](#s20--biblioteca-de-referencia-bauth) (NIVEL 21) | T-999(`cfg_policy_library`) | Biblioteca unificada de políticas, reglas y átomos — SOLO LECTURA · 16 fuentes · 13 dominios |
 | [S20 — BOS Control Plane](#s20--bos-control-plane-bos) (NIVEL 21) | T-403(`fch_ficha_state`), T-404(`fch_ficha_event`), T-405(`ins_bootstrap_event`), T-406(`cap_sistema_snapshot`), T-407(`cap_tenant_policy`), T-408(`prt_port_assignment`), T-409(`rel_release_manifest`), T-410(`rel_release_event`), T-411(`wdg_watchdog_event`), T-412(`ins_saga_execution`), T-413(`net_cert_inventory`), T-414(`net_security_events`) | Fichas · IAM Installer · Capacidad · Port Manager · NetMan (certs + eventos) · Release · Watchdog · Sagas |
+| [S21 — ISO 27001:2022 BACKLOG](#s21--iso-270012022-backlog-bauth) (NIVEL 22) | T-520(`inc_incident`), T-521(`inc_root_cause`), T-522(`inc_corrective_action`), T-523(`inc_effectiveness_review`), T-524(`cfg_retention_policy`), T-526(`thi_correlation_log`), T-527(`vul_component`), T-528(`vul_auth_impact`), T-564(`thi_indicator`), T-565(`inc_security_event`) + ALTER T-157 | Incidentes ISO A.5.27 · Triaje A.5.25 · Respuesta A.5.26 · Retención A.8.10 · Inteligencia amenazas A.5.7 (WORM) · Vulnerabilidades A.8.8 · PII A.5.12/A.5.34 |
 
 > **⚠️ Nota v2.3.0:** S8-S12 fueron refactorizados en el DDL. Los nombres canónicos son los del DDL.
 > Tablas ausentes del DDL (pendientes de diseño):
@@ -2689,12 +2690,71 @@ bos.wdg_watchdog_event (T-411) 🔒  ← Watchdog 3 capas: host|k8s|fichas
 
 ---
 
+## S21 — ISO 27001:2022 BACKLOG (`bauth`)
+
+**Archivo DDL:** `DDLs/migrations/iso27001_backlog_t520_t529.sql` (commit `634f6b5`)  
+**Controles cerrados:** A.5.7 · A.5.12 · A.5.25 · A.5.26 · A.5.27 · A.5.34 · A.8.8 · A.8.10  
+**Score A.71 tras aplicar:** 122/123 (99.2%) — 40C/1P/0EP
+
+> **Nota T-codes:** T-525 y T-529 ya estaban asignados en A.65.02 (`idn_credencial_revocacion` y
+> `idn_did_document`). Los reemplazos ISO 27001 recibieron T-564 y T-565.
+
+### Subsistema de Incidentes (A.5.25 / A.5.26 / A.5.27)
+
+| T-code | Tabla | Propósito | WORM |
+|--------|-------|-----------|:----:|
+| T-520 | `bauth.inc_incident` | Registro maestro de incidentes de seguridad. PK `incident_id UUIDv7`. CHECK `incident_type` (11 valores) + `severity` (4 valores). FK a `idn_identity_entity` (reportero). | no |
+| T-521 | `bauth.inc_root_cause` | Análisis de causa raíz por incidente. 1:1 con `inc_incident`. CHECK `cause_category` (8 valores). | no |
+| T-522 | `bauth.inc_corrective_action` | Acciones correctivas con ciclo de vida PENDING→COMPLETED. FK a `inc_incident`. CHECK `action_phase` (5 valores: CONTAINMENT/ERADICATION/RECOVERY/CORRECTIVE/TRAINING) · `status` (4) · `action_type` (11). | no |
+| T-523 | `bauth.inc_effectiveness_review` | Revisión PDCA de efectividad de la respuesta. CHECK `verdict` (EFFECTIVE/PARTIALLY_EFFECTIVE/INEFFECTIVE/PENDING). | no |
+| T-565 | `bauth.inc_security_event` | Tabla de triaje — eventos sospechosos que esperan decisión formal del analista antes de convertirse en incidentes. Referencia blanda a `source_table` (sin FK directa — tablas particionadas). CHECK `source_table` (5) · `decision` (4). | no |
+
+### Retención de Datos (A.8.10)
+
+| T-code | Tabla | Propósito | WORM |
+|--------|-------|-----------|:----:|
+| T-524 | `bauth.cfg_retention_policy` | Política de retención por tabla/columna. UNIQUE expresional en `(table_name, COALESCE(column_name, '__all__'))` — implementado como `CREATE UNIQUE INDEX` separado (COALESCE no es válido en constraint de tabla). CHECK `purge_action` (DELETE/ANONYMIZE/ARCHIVE). | no |
+
+### Inteligencia de Amenazas (A.5.7)
+
+| T-code | Tabla | Propósito | WORM |
+|--------|-------|-----------|:----:|
+| T-564 | `bauth.thi_indicator` | Catálogo de Indicadores de Compromiso (IOC). CHECK `indicator_type` (6: IPv4/IPv4_RANGE/DOMAIN/EMAIL_DOMAIN/HASH_SHA256/USER_AGENT) · `source` (5: CISA/STIX_TAXII/ISAC/INTERNAL/MANUAL) · `confidence` (3) · `category` (5) · `action` (4: BLOCK/REQUIRE_STEP_UP/MONITOR/ALERT_ONLY). | no |
+| T-526 | `bauth.thi_correlation_log` | Log WORM de correlaciones IOC ↔ intentos de autenticación. Referencia blanda `auth_attempt_ref UUID` (sin FK — `auth_attempt_log` es particionada). CHECK `action_taken` (4: BLOCKED/STEP_UP_FORCED/MONITORED/ALERTED). REVOKE UPDATE/DELETE. | **sí** |
+
+### Vulnerabilidades (A.8.8)
+
+| T-code | Tabla | Propósito | WORM |
+|--------|-------|-----------|:----:|
+| T-527 | `bauth.vul_component` | Inventario de componentes del stack bAuth. CHECK `component_type` (5: RUST_CRATE/SYSTEM_LIB/BINARY/CONFIG/PROTOCOL). UNIQUE `(component_name, component_version)`. | no |
+| T-528 | `bauth.vul_auth_impact` | Registro CVE×método_auth. FK a `vul_component` + `auth_method`. CHECK `severity` (5: CRITICAL/HIGH/MEDIUM/LOW/INFO) · `action_taken` (5). SLA por severidad: CRITICAL 24h / HIGH 7d / MEDIUM 30d / LOW 90d. | no |
+
+### Extensión PII en T-157 (A.5.12 / A.5.13 / A.5.34)
+
+**Tabla afectada:** `bauth.idn_identity_attribute` (T-157, existente)
+
+| Columna nueva | Tipo | Propósito |
+|---------------|------|-----------|
+| `pii_category` | `TEXT NULL CHECK (... IN ('EMAIL','PHONE','NID','BIOMETRIC','FINANCIAL','ADDRESS','NAME','DATE_OF_BIRTH','NONE'))` | Clasificación formal PII según GDPR Art. 4. NULL = atributo no-PII. |
+| `legal_basis` | `TEXT NULL CHECK (... IN ('CONTRACT','LEGAL_OBLIGATION','LEGITIMATE_INTEREST','CONSENT','VITAL_INTEREST'))` | Base legal de procesamiento GDPR Art. 6. NULL = atributo no-PII. |
+| `chk_attr_pii_metadata_completa` | CHECK constraint | Garantiza coherencia: si `pii_category IS NOT NULL` → `legal_basis` también debe ser NOT NULL. Implementado vía `DO $ BEGIN IF NOT EXISTS ... THEN ALTER TABLE ... ADD CONSTRAINT ... END IF; END $;` (idempotente). |
+
+### Decisiones técnicas S21
+
+1. **UNIQUE expresional con COALESCE:** PostgreSQL no permite expresiones COALESCE dentro de `CONSTRAINT ... UNIQUE (...)` en `CREATE TABLE`. Se usó `CREATE UNIQUE INDEX IF NOT EXISTS` separado. El `ON CONFLICT` referencia la expresión directamente.
+2. **FK a tablas particionadas imposible:** `auth_attempt_log` y `ses_caep_event_log` son particionadas. No se puede crear FK a PK compuesta de una tabla particionada sin incluir la partition key en la referencia. Se usan referencias blandas (`UUID NULL`) con integridad a nivel aplicación.
+3. **T-codes sin conflicto:** Los T-codes T-520..T-524, T-526..T-528 estaban libres. T-525 estaba asignado a `idn_credencial_revocacion` y T-529 a `idn_did_document` — por eso `thi_indicator` recibió T-564 e `inc_security_event` recibió T-565.
+4. **Idempotencia completa:** Toda la migración usa `CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`, `ON CONFLICT DO NOTHING`. Verificado ejecutando 2 veces consecutivas en SBOSDB: 0 errores.
+
+---
+
 ---
 
 ## Historial de versiones
 
 | Versión | Fecha | Cambios |
 |---------|-------|---------|
+| v2.14.0 | 2026-08-01 | S21 ISO 27001:2022 BACKLOG: 10 tablas nuevas (T-520..T-524, T-526..T-528, T-564, T-565) + ALTER T-157 (+pii_category, legal_basis, chk_attr_pii_metadata_completa). Controles cerrados: A.5.7/A.5.12/A.5.25/A.5.26/A.5.27/A.5.34/A.8.8/A.8.10. Score A.71: 122/123 (99.2%). T-564/T-565 por conflicto T-525/T-529 preexistentes. ddls.yml → tablas: 144. Seeds MC-0320..MC-0340 en T061. |
 | v2.13.0 | 2026-07-31 | T-408: columna `algorithm TEXT DEFAULT 'A'` (antes almacenado en `notes` como hack). T-413: `days_remaining` eliminado como `GENERATED ALWAYS AS` — `NOW()` no es IMMUTABLE; se calcula en query. T-413: añadidos `serial_number`, `issued_at`, `last_renewed_at`, `revocation_reason`; `kong_tls` agregado a cert_type CHECK. Todos los documentos (A.15, 3.08, A.65.02) sincronizados. VPS SBOSDB aplicado. |
 | v2.12.0 | 2026-07-31 | T-408 `prt_port_assignment`: corrección CHECK `port_type` — valores alineados con código Go (`HOST_PHYSICAL\|HOST_LOGICAL\|K8S_NODE_PORT\|K8S_CLUSTER_IP\|K8S_LOAD_BALANCER`). T-413 `net_cert_inventory`: Kardex de certificados TLS (ISO 27001 A.8.24). T-414 `net_security_events`: log de eventos de seguridad de red (ISO 27001 A.8.21), particionado mensual por `event_time`, 27 event_types, src_ip tipo INET. Total schema `bos`: 20 tablas · 8 WORM · 8 grupos. |
 | v2.11.0 | 2026-07-31 | S20 BOS Control Plane (`bos`): T-403..T-412. 10 tablas nuevas (4 WORM) — FCH 18-state machine, INS bootstrap/sagas, CAP snapshots/policies, PRT port kardex, REL release plane, WDG watchdog 3 capas. Total schema `bos`: 18 tablas · 8 WORM · 7 grupos. |
@@ -2709,4 +2769,4 @@ bos.wdg_watchdog_event (T-411) 🔒  ← Watchdog 3 capas: host|k8s|fichas
 | v2.4.0 | 2026-07-24 | T-159 (idn_identity_requirement) implementada |
 | v2.3.0 | 2026-07-22 | S8-S12 refactorizados; nombres canónicos del DDL |
 
-*Fin del manual — SBOS_db_V2_DDL_MANUAL.md — v2.11.0 · 2026-07-31*
+*Fin del manual — SBOS_db_V2_DDL_MANUAL.md — v2.14.0 · 2026-08-01*

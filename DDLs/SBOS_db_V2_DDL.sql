@@ -7035,7 +7035,7 @@ COMMENT ON TABLE bauth.thi_indicator IS
 Consultado en el pipeline de autenticación: si la IP/dominio/email coincide con un IOC
 activo, bAuth aplica la acción configurada (BLOCK / REQUIRE_STEP_UP / MONITOR / ALERT_ONLY).
 A diferencia de CAEP (reactivo), los IOCs son indicadores conocidos de antemano.
-Estándar: ISO 27001:2022 A.5.7, NIST SP 800-150, STIX/TAXII. T-525.';
+Estándar: ISO 27001:2022 A.5.7, NIST SP 800-150, STIX/TAXII. T-564.';
 
 -- =============================================================================
 -- T-526 — bauth.thi_correlation_log (A.5.7 — log de correlaciones IOC)
@@ -7169,5 +7169,5 @@ COMMENT ON TABLE bauth.inc_security_event IS
   → si decision=CONFIRMED → crea inc_incident (T-520)
 assessed_by + assessed_at + decision + decision_notes = registro forense del triaje.
 Sin triaje documentado, A.5.25 queda sin evidencia de proceso de decisión humana.
-Estándar: ISO 27001:2022 A.5.25, NIST SP 800-61 Rev.3 §3.2. T-529.';
+Estándar: ISO 27001:2022 A.5.25, NIST SP 800-61 Rev.3 §3.2. T-565.';
 

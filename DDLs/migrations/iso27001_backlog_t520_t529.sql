@@ -1,5 +1,5 @@
 -- =============================================================================
--- MIGRACIÓN ISO 27001:2022 BACKLOG — T-520..T-529
+-- MIGRACIÓN ISO 27001:2022 BACKLOG — T-520..T-524, T-526..T-528, T-564, T-565
 -- T-BACKLOG-001..009 implementados en SBOSDB
 -- Fecha: 2026-08-01
 -- IDEMPOTENTE: seguro de ejecutar múltiples veces
@@ -167,7 +167,7 @@ VALUES
 ON CONFLICT (table_name, COALESCE(column_name, '__all__')) DO NOTHING;
 
 -- ============================================================
--- T-BACKLOG-005 — T-525: thi_indicator + T-526: thi_correlation_log
+-- T-BACKLOG-005 — T-564: thi_indicator + T-526: thi_correlation_log
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS bauth.thi_indicator (
@@ -194,7 +194,7 @@ CREATE TABLE IF NOT EXISTS bauth.thi_indicator (
 CREATE INDEX IF NOT EXISTS idx_thi_active ON bauth.thi_indicator(indicator_type, is_active) WHERE is_active = true;
 CREATE INDEX IF NOT EXISTS idx_thi_expiry ON bauth.thi_indicator(valid_until) WHERE valid_until IS NOT NULL AND is_active = true;
 COMMENT ON TABLE bauth.thi_indicator IS
-'AMENAZAS | Catálogo de IOCs. Consultado en pipeline auth. ISO 27001:2022 A.5.7. T-525.';
+'AMENAZAS | Catálogo de IOCs. Consultado en pipeline auth. ISO 27001:2022 A.5.7. T-564.';
 
 CREATE TABLE IF NOT EXISTS bauth.thi_correlation_log (
     corr_id          UUID        NOT NULL PRIMARY KEY DEFAULT uuidv7(),
@@ -264,7 +264,7 @@ COMMENT ON TABLE bauth.vul_auth_impact IS
 'VULNERABILIDADES | Impacto CVE en 18 métodos auth. SLA: CRITICAL=24h/HIGH=7d/MEDIUM=30d/LOW=90d. ISO 27001:2022 A.8.8. T-528.';
 
 -- ============================================================
--- T-BACKLOG-006 — T-529: inc_security_event (depende de T-520)
+-- T-BACKLOG-006 — T-565: inc_security_event (depende de T-520)
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS bauth.inc_security_event (
@@ -294,7 +294,7 @@ CREATE TABLE IF NOT EXISTS bauth.inc_security_event (
 CREATE INDEX IF NOT EXISTS idx_ise_tenant  ON bauth.inc_security_event(tenant_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_ise_pending ON bauth.inc_security_event(created_at) WHERE decision IS NULL;
 COMMENT ON TABLE bauth.inc_security_event IS
-'INCIDENTES | Triaje: decisión formal del analista sobre evento sospechoso. ISO 27001:2022 A.5.25. T-529.';
+'INCIDENTES | Triaje: decisión formal del analista sobre evento sospechoso. ISO 27001:2022 A.5.25. T-565.';
 
 -- ============================================================
 -- T-BACKLOG-002: CHECK constraint en T-157 (depende de T-BACKLOG-008)

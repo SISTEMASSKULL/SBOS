@@ -4961,6 +4961,435 @@ BEGIN
 
 END $$;
 
+-- =============================================================================
+-- ISO 27001:2022 BACKLOG — MC-0320..MC-0340
+-- Tablas: T-520..T-524, T-526..T-528, T-564, T-565 + T-157 (pii_category, legal_basis)
+-- Versión: 3.2.0 — 2026-08-01
+-- =============================================================================
+
+INSERT INTO bglobal.menu_context (code, name, menu_type, description, is_active, sort_order)
+VALUES
+  -- [MC-0320] inc.incidente.tipo · Tabla: bauth.inc_incident.incident_type · Kardex: A.65.04
+  ('inc.incidente.tipo', '{"es": "Tipo de incidente", "en": "Incident Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
+   '[MC-0320] Kardex: A.65.04 · Tabla: bauth.inc_incident.incident_type — Categoría del incidente de seguridad. Determina el flujo de respuesta y las medidas correctivas a aplicar. ISO 27001:2022 A.5.27. T-520.', true, 3700),
+  -- [MC-0321] inc.incidente.severidad · Tabla: bauth.inc_incident.severity · Kardex: A.65.04
+  ('inc.incidente.severidad', '{"es": "Severidad del incidente", "en": "Incident Severity"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
+   '[MC-0321] Kardex: A.65.04 · Tabla: bauth.inc_incident.severity — Nivel de impacto del incidente. Define la urgencia de la respuesta y el escalamiento. ISO 27001:2022 A.5.27. T-520.', true, 3710),
+  -- [MC-0322] inc.causa_raiz.categoria · Tabla: bauth.inc_root_cause.cause_category · Kardex: A.65.04
+  ('inc.causa_raiz.categoria', '{"es": "Categoría de causa raíz", "en": "Root Cause Category"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
+   '[MC-0322] Kardex: A.65.04 · Tabla: bauth.inc_root_cause.cause_category — Tipo de causa raíz del incidente. Base para mejoras preventivas y corrección sistémica. ISO 27001:2022 A.5.27. T-521.', true, 3720),
+  -- [MC-0323] inc.accion.fase · Tabla: bauth.inc_corrective_action.action_phase · Kardex: A.65.04
+  ('inc.accion.fase', '{"es": "Fase de respuesta", "en": "Response Phase"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
+   '[MC-0323] Kardex: A.65.04 · Tabla: bauth.inc_corrective_action.action_phase — Fase del ciclo de respuesta a incidentes (A.5.26: CONTAINMENT/ERADICATION/RECOVERY; A.5.27: CORRECTIVE/TRAINING). T-522.', true, 3730),
+  -- [MC-0324] inc.accion.estado · Tabla: bauth.inc_corrective_action.status · Kardex: A.65.04
+  ('inc.accion.estado', '{"es": "Estado de acción correctiva", "en": "Corrective Action Status"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
+   '[MC-0324] Kardex: A.65.04 · Tabla: bauth.inc_corrective_action.status — Estado operativo de la acción correctiva. Gobierna el ciclo de vida de cada medida de remediación. ISO 27001:2022 A.5.26. T-522.', true, 3740),
+  -- [MC-0325] inc.accion.tipo · Tabla: bauth.inc_corrective_action.action_type · Kardex: A.65.04
+  ('inc.accion.tipo', '{"es": "Tipo de acción correctiva", "en": "Corrective Action Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
+   '[MC-0325] Kardex: A.65.04 · Tabla: bauth.inc_corrective_action.action_type — Tipo de medida correctiva ejecutada. Identifica la naturaleza técnica o procedimental de la remediación. ISO 27001:2022 A.5.26. T-522.', true, 3750),
+  -- [MC-0326] inc.revision.veredicto · Tabla: bauth.inc_effectiveness_review.verdict · Kardex: A.65.04
+  ('inc.revision.veredicto', '{"es": "Veredicto de efectividad", "en": "Effectiveness Verdict"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
+   '[MC-0326] Kardex: A.65.04 · Tabla: bauth.inc_effectiveness_review.verdict — Resultado de la revisión de efectividad (PDCA Check). Determina si las acciones correctivas resolvieron el problema. ISO 27001:2022 A.5.27. T-523.', true, 3760),
+  -- [MC-0327] cfg.retencion.accion · Tabla: bauth.cfg_retention_policy.purge_action · Kardex: A.65.04
+  ('cfg.retencion.accion', '{"es": "Acción de purga de datos", "en": "Data Purge Action"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
+   '[MC-0327] Kardex: A.65.04 · Tabla: bauth.cfg_retention_policy.purge_action — Tipo de purga a ejecutar al vencer la retención. DELETE elimina, ANONYMIZE anonimiza PII, ARCHIVE mueve a frío. ISO 27001:2022 A.8.10. T-524.', true, 3770),
+  -- [MC-0328] thi.indicador.tipo · Tabla: bauth.thi_indicator.indicator_type · Kardex: A.65.04
+  ('thi.indicador.tipo', '{"es": "Tipo de indicador IOC", "en": "IOC Indicator Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
+   '[MC-0328] Kardex: A.65.04 · Tabla: bauth.thi_indicator.indicator_type — Tipo de Indicador de Compromiso (IOC). Determina cómo se interpreta y evalúa el indicador en el pipeline auth. ISO 27001:2022 A.5.7. T-564.', true, 3780),
+  -- [MC-0329] thi.indicador.fuente · Tabla: bauth.thi_indicator.source · Kardex: A.65.04
+  ('thi.indicador.fuente', '{"es": "Fuente de inteligencia", "en": "Intelligence Source"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
+   '[MC-0329] Kardex: A.65.04 · Tabla: bauth.thi_indicator.source — Origen del feed de inteligencia de amenazas. Determina la confiabilidad y el proceso de validación del IOC. ISO 27001:2022 A.5.7. T-564.', true, 3790),
+  -- [MC-0330] thi.indicador.confianza · Tabla: bauth.thi_indicator.confidence · Kardex: A.65.04
+  ('thi.indicador.confianza', '{"es": "Nivel de confianza IOC", "en": "IOC Confidence Level"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
+   '[MC-0330] Kardex: A.65.04 · Tabla: bauth.thi_indicator.confidence — Nivel de confianza en la validez del IOC. Afecta la acción automática tomada durante autenticación. ISO 27001:2022 A.5.7. T-564.', true, 3800),
+  -- [MC-0331] thi.indicador.categoria · Tabla: bauth.thi_indicator.category · Kardex: A.65.04
+  ('thi.indicador.categoria', '{"es": "Categoría de amenaza", "en": "Threat Category"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
+   '[MC-0331] Kardex: A.65.04 · Tabla: bauth.thi_indicator.category — Categoría táctica de la amenaza. Clasifica el tipo de ataque que el IOC representa. ISO 27001:2022 A.5.7. T-564.', true, 3810),
+  -- [MC-0332] thi.indicador.accion · Tabla: bauth.thi_indicator.action · Kardex: A.65.04
+  ('thi.indicador.accion', '{"es": "Acción automática IOC", "en": "IOC Automatic Action"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
+   '[MC-0332] Kardex: A.65.04 · Tabla: bauth.thi_indicator.action — Acción automática cuando se detecta el IOC en pipeline auth: BLOCK, STEP_UP, MONITOR o ALERT. ISO 27001:2022 A.5.7. T-564.', true, 3820),
+  -- [MC-0333] thi.correlacion.accion · Tabla: bauth.thi_correlation_log.action_taken · Kardex: A.65.04
+  ('thi.correlacion.accion', '{"es": "Acción tomada por correlación", "en": "Correlation Action Taken"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
+   '[MC-0333] Kardex: A.65.04 · Tabla: bauth.thi_correlation_log.action_taken — Acción efectivamente ejecutada al correlacionar el IOC con un intento de autenticación. Tabla WORM. ISO 27001:2022 A.5.7. T-526.', true, 3830),
+  -- [MC-0334] vul.componente.tipo · Tabla: bauth.vul_component.component_type · Kardex: A.65.04
+  ('vul.componente.tipo', '{"es": "Tipo de componente", "en": "Component Type"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
+   '[MC-0334] Kardex: A.65.04 · Tabla: bauth.vul_component.component_type — Categoría del componente en el inventario del stack auth. Determina el proceso de escaneo y parchado aplicable. ISO 27001:2022 A.8.8. T-527.', true, 3840),
+  -- [MC-0335] vul.impacto.severidad · Tabla: bauth.vul_auth_impact.severity · Kardex: A.65.04
+  ('vul.impacto.severidad', '{"es": "Severidad CVE", "en": "CVE Severity"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
+   '[MC-0335] Kardex: A.65.04 · Tabla: bauth.vul_auth_impact.severity — Severidad CVSS de la vulnerabilidad. Determina el SLA de remediación: CRITICAL=24h, HIGH=7d, MEDIUM=30d, LOW=90d. ISO 27001:2022 A.8.8. T-528.', true, 3850),
+  -- [MC-0336] vul.impacto.accion · Tabla: bauth.vul_auth_impact.action_taken · Kardex: A.65.04
+  ('vul.impacto.accion', '{"es": "Acción ante CVE", "en": "CVE Action Taken"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
+   '[MC-0336] Kardex: A.65.04 · Tabla: bauth.vul_auth_impact.action_taken — Acción tomada ante el CVE: DISABLED_METHOD desactiva el método afectado; PATCHED aplica parche; MITIGATED mitiga; ACCEPTED acepta el riesgo. ISO 27001:2022 A.8.8. T-528.', true, 3860),
+  -- [MC-0337] inc.evento_seg.fuente · Tabla: bauth.inc_security_event.source_table · Kardex: A.65.04
+  ('inc.evento_seg.fuente', '{"es": "Tabla fuente del evento", "en": "Event Source Table"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
+   '[MC-0337] Kardex: A.65.04 · Tabla: bauth.inc_security_event.source_table — Tabla origen del evento sospechoso que llega a triaje. Permite rastrear el flujo forense desde el evento hasta la decisión del analista. ISO 27001:2022 A.5.25. T-565.', true, 3870),
+  -- [MC-0338] inc.evento_seg.decision · Tabla: bauth.inc_security_event.decision · Kardex: A.65.04
+  ('inc.evento_seg.decision', '{"es": "Decisión de triaje", "en": "Triage Decision"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
+   '[MC-0338] Kardex: A.65.04 · Tabla: bauth.inc_security_event.decision — Decisión formal del analista sobre el evento sospechoso. Cierra el triaje o escala al módulo de incidentes. ISO 27001:2022 A.5.25. T-565.', true, 3880),
+  -- [MC-0339] idn.atributo.categoria_pii · Tabla: bauth.idn_identity_attribute.pii_category · Kardex: A.65.04
+  ('idn.atributo.categoria_pii', '{"es": "Categoría PII del atributo", "en": "Attribute PII Category"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
+   '[MC-0339] Kardex: A.65.04 · Tabla: bauth.idn_identity_attribute.pii_category — Categoría formal de Información Personal Identificable (PII) del atributo. NULL indica que el atributo no es un dato personal. ISO 27001:2022 A.5.12/A.5.34. T-157.', true, 3890),
+  -- [MC-0340] idn.atributo.base_legal · Tabla: bauth.idn_identity_attribute.legal_basis · Kardex: A.65.04
+  ('idn.atributo.base_legal', '{"es": "Base legal de procesamiento", "en": "Legal Basis"}'::jsonb, 'CONTEXTUAL'::menu_type_enum,
+   '[MC-0340] Kardex: A.65.04 · Tabla: bauth.idn_identity_attribute.legal_basis — Base legal bajo la cual se procesa el atributo PII (GDPR Art.6). NULL indica atributo no-PII. ISO 27001:2022 A.5.34. T-157.', true, 3900)
+ON CONFLICT (code) DO UPDATE SET
+  name        = EXCLUDED.name,
+  description = EXCLUDED.description,
+  is_active   = EXCLUDED.is_active,
+  sort_order  = EXCLUDED.sort_order;
+
+-- ── Bloque ISO 27001 (MC-0320..MC-0340) ──────────────────────────────────────
+DO $$
+DECLARE
+    v_inc_incidente_tipo               UUID;
+    v_inc_incidente_severidad          UUID;
+    v_inc_causa_raiz_categoria         UUID;
+    v_inc_accion_fase                  UUID;
+    v_inc_accion_estado                UUID;
+    v_inc_accion_tipo                  UUID;
+    v_inc_revision_veredicto           UUID;
+    v_cfg_retencion_accion             UUID;
+    v_thi_indicador_tipo               UUID;
+    v_thi_indicador_fuente             UUID;
+    v_thi_indicador_confianza          UUID;
+    v_thi_indicador_categoria          UUID;
+    v_thi_indicador_accion             UUID;
+    v_thi_correlacion_accion           UUID;
+    v_vul_componente_tipo              UUID;
+    v_vul_impacto_severidad            UUID;
+    v_vul_impacto_accion               UUID;
+    v_inc_evento_seg_fuente            UUID;
+    v_inc_evento_seg_decision          UUID;
+    v_idn_atributo_categoria_pii       UUID;
+    v_idn_atributo_base_legal          UUID;
+BEGIN
+    -- [MC-0320] T-520 | chk_inc_type [bauth.inc_incident] | incident_type
+    INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
+    VALUES ('inc.incidente.tipo', $j${"es": "Tipo de incidente", "en": "Incident Type"}$j$, 0, false, $j${"constraint": "chk_inc_type", "columns": ["bauth.inc_incident.incident_type"]}$j$)
+    ON CONFLICT (code) DO UPDATE SET label=EXCLUDED.label, metadata=EXCLUDED.metadata
+    RETURNING item_id INTO v_inc_incidente_tipo;
+
+    INSERT INTO bglobal.menu_item (parent_id, code, label, depth, is_leaf, sort_order, metadata)
+    VALUES
+        (v_inc_incidente_tipo, 'inc.incidente.tipo.CREDENTIAL_BREACH',   $j${"es": "Brecha de credenciales",       "en": "Credential Breach"}$j$,   1, true, 10,  $j${"value": "CREDENTIAL_BREACH"}$j$),
+        (v_inc_incidente_tipo, 'inc.incidente.tipo.UNAUTHORIZED_ACCESS',  $j${"es": "Acceso no autorizado",         "en": "Unauthorized Access"}$j$,  1, true, 20,  $j${"value": "UNAUTHORIZED_ACCESS"}$j$),
+        (v_inc_incidente_tipo, 'inc.incidente.tipo.PRIVILEGE_ESCALATION', $j${"es": "Escalada de privilegios",      "en": "Privilege Escalation"}$j$, 1, true, 30,  $j${"value": "PRIVILEGE_ESCALATION"}$j$),
+        (v_inc_incidente_tipo, 'inc.incidente.tipo.DATA_EXFILTRATION',    $j${"es": "Exfiltración de datos",        "en": "Data Exfiltration"}$j$,    1, true, 40,  $j${"value": "DATA_EXFILTRATION"}$j$),
+        (v_inc_incidente_tipo, 'inc.incidente.tipo.ACCOUNT_TAKEOVER',     $j${"es": "Toma de cuenta",               "en": "Account Takeover"}$j$,     1, true, 50,  $j${"value": "ACCOUNT_TAKEOVER"}$j$),
+        (v_inc_incidente_tipo, 'inc.incidente.tipo.MFA_BYPASS',           $j${"es": "Bypass de MFA",               "en": "MFA Bypass"}$j$,           1, true, 60,  $j${"value": "MFA_BYPASS"}$j$),
+        (v_inc_incidente_tipo, 'inc.incidente.tipo.IOC_DETECTED',         $j${"es": "IOC detectado",               "en": "IOC Detected"}$j$,         1, true, 70,  $j${"value": "IOC_DETECTED"}$j$),
+        (v_inc_incidente_tipo, 'inc.incidente.tipo.POLICY_VIOLATION',     $j${"es": "Violación de política",        "en": "Policy Violation"}$j$,     1, true, 80,  $j${"value": "POLICY_VIOLATION"}$j$),
+        (v_inc_incidente_tipo, 'inc.incidente.tipo.INSIDER_THREAT',       $j${"es": "Amenaza interna",              "en": "Insider Threat"}$j$,       1, true, 90,  $j${"value": "INSIDER_THREAT"}$j$),
+        (v_inc_incidente_tipo, 'inc.incidente.tipo.CONFIGURATION_ERROR',  $j${"es": "Error de configuración",       "en": "Configuration Error"}$j$,  1, true, 100, $j${"value": "CONFIGURATION_ERROR"}$j$),
+        (v_inc_incidente_tipo, 'inc.incidente.tipo.OTHER',                $j${"es": "Otro",                         "en": "Other"}$j$,                1, true, 110, $j${"value": "OTHER"}$j$))
+    ON CONFLICT (code) DO UPDATE SET parent_id=EXCLUDED.parent_id, label=EXCLUDED.label, sort_order=EXCLUDED.sort_order, metadata=EXCLUDED.metadata;
+
+    -- [MC-0321] T-520 | chk_inc_severity [bauth.inc_incident] | severity
+    INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
+    VALUES ('inc.incidente.severidad', $j${"es": "Severidad del incidente", "en": "Incident Severity"}$j$, 0, false, $j${"constraint": "chk_inc_severity", "columns": ["bauth.inc_incident.severity"]}$j$)
+    ON CONFLICT (code) DO UPDATE SET label=EXCLUDED.label, metadata=EXCLUDED.metadata
+    RETURNING item_id INTO v_inc_incidente_severidad;
+
+    INSERT INTO bglobal.menu_item (parent_id, code, label, depth, is_leaf, sort_order, metadata)
+    VALUES
+        (v_inc_incidente_severidad, 'inc.incidente.severidad.CRITICAL', $j${"es": "Crítico",  "en": "Critical"}$j$, 1, true, 10, $j${"value": "CRITICAL"}$j$),
+        (v_inc_incidente_severidad, 'inc.incidente.severidad.HIGH',     $j${"es": "Alto",     "en": "High"}$j$,     1, true, 20, $j${"value": "HIGH"}$j$),
+        (v_inc_incidente_severidad, 'inc.incidente.severidad.MEDIUM',   $j${"es": "Medio",    "en": "Medium"}$j$,   1, true, 30, $j${"value": "MEDIUM"}$j$),
+        (v_inc_incidente_severidad, 'inc.incidente.severidad.LOW',      $j${"es": "Bajo",     "en": "Low"}$j$,      1, true, 40, $j${"value": "LOW"}$j$))
+    ON CONFLICT (code) DO UPDATE SET parent_id=EXCLUDED.parent_id, label=EXCLUDED.label, sort_order=EXCLUDED.sort_order, metadata=EXCLUDED.metadata;
+
+    -- [MC-0322] T-521 | chk_rc_category [bauth.inc_root_cause] | cause_category
+    INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
+    VALUES ('inc.causa_raiz.categoria', $j${"es": "Categoría de causa raíz", "en": "Root Cause Category"}$j$, 0, false, $j${"constraint": "chk_rc_category", "columns": ["bauth.inc_root_cause.cause_category"]}$j$)
+    ON CONFLICT (code) DO UPDATE SET label=EXCLUDED.label, metadata=EXCLUDED.metadata
+    RETURNING item_id INTO v_inc_causa_raiz_categoria;
+
+    INSERT INTO bglobal.menu_item (parent_id, code, label, depth, is_leaf, sort_order, metadata)
+    VALUES
+        (v_inc_causa_raiz_categoria, 'inc.causa_raiz.categoria.MISCONFIGURATION',   $j${"es": "Mala configuración",     "en": "Misconfiguration"}$j$,   1, true, 10, $j${"value": "MISCONFIGURATION"}$j$),
+        (v_inc_causa_raiz_categoria, 'inc.causa_raiz.categoria.MISSING_CONTROL',    $j${"es": "Control faltante",       "en": "Missing Control"}$j$,    1, true, 20, $j${"value": "MISSING_CONTROL"}$j$),
+        (v_inc_causa_raiz_categoria, 'inc.causa_raiz.categoria.HUMAN_ERROR',        $j${"es": "Error humano",           "en": "Human Error"}$j$,        1, true, 30, $j${"value": "HUMAN_ERROR"}$j$),
+        (v_inc_causa_raiz_categoria, 'inc.causa_raiz.categoria.SOFTWARE_BUG',       $j${"es": "Bug de software",        "en": "Software Bug"}$j$,       1, true, 40, $j${"value": "SOFTWARE_BUG"}$j$),
+        (v_inc_causa_raiz_categoria, 'inc.causa_raiz.categoria.SOCIAL_ENGINEERING', $j${"es": "Ingeniería social",      "en": "Social Engineering"}$j$, 1, true, 50, $j${"value": "SOCIAL_ENGINEERING"}$j$),
+        (v_inc_causa_raiz_categoria, 'inc.causa_raiz.categoria.EXTERNAL_ATTACK',    $j${"es": "Ataque externo",         "en": "External Attack"}$j$,    1, true, 60, $j${"value": "EXTERNAL_ATTACK"}$j$),
+        (v_inc_causa_raiz_categoria, 'inc.causa_raiz.categoria.POLICY_GAP',         $j${"es": "Brecha de política",     "en": "Policy Gap"}$j$,         1, true, 70, $j${"value": "POLICY_GAP"}$j$),
+        (v_inc_causa_raiz_categoria, 'inc.causa_raiz.categoria.UNKNOWN',            $j${"es": "Desconocida",            "en": "Unknown"}$j$,            1, true, 80, $j${"value": "UNKNOWN"}$j$))
+    ON CONFLICT (code) DO UPDATE SET parent_id=EXCLUDED.parent_id, label=EXCLUDED.label, sort_order=EXCLUDED.sort_order, metadata=EXCLUDED.metadata;
+
+    -- [MC-0323] T-522 | chk_ica_phase [bauth.inc_corrective_action] | action_phase
+    INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
+    VALUES ('inc.accion.fase', $j${"es": "Fase de respuesta", "en": "Response Phase"}$j$, 0, false, $j${"constraint": "chk_ica_phase", "columns": ["bauth.inc_corrective_action.action_phase"]}$j$)
+    ON CONFLICT (code) DO UPDATE SET label=EXCLUDED.label, metadata=EXCLUDED.metadata
+    RETURNING item_id INTO v_inc_accion_fase;
+
+    INSERT INTO bglobal.menu_item (parent_id, code, label, depth, is_leaf, sort_order, metadata)
+    VALUES
+        (v_inc_accion_fase, 'inc.accion.fase.CONTAINMENT',  $j${"es": "Contención",   "en": "Containment"}$j$,  1, true, 10, $j${"value": "CONTAINMENT"}$j$),
+        (v_inc_accion_fase, 'inc.accion.fase.ERADICATION',  $j${"es": "Erradicación", "en": "Eradication"}$j$,  1, true, 20, $j${"value": "ERADICATION"}$j$),
+        (v_inc_accion_fase, 'inc.accion.fase.RECOVERY',     $j${"es": "Recuperación", "en": "Recovery"}$j$,     1, true, 30, $j${"value": "RECOVERY"}$j$),
+        (v_inc_accion_fase, 'inc.accion.fase.CORRECTIVE',   $j${"es": "Correctiva",   "en": "Corrective"}$j$,   1, true, 40, $j${"value": "CORRECTIVE"}$j$),
+        (v_inc_accion_fase, 'inc.accion.fase.TRAINING',     $j${"es": "Capacitación", "en": "Training"}$j$,     1, true, 50, $j${"value": "TRAINING"}$j$))
+    ON CONFLICT (code) DO UPDATE SET parent_id=EXCLUDED.parent_id, label=EXCLUDED.label, sort_order=EXCLUDED.sort_order, metadata=EXCLUDED.metadata;
+
+    -- [MC-0324] T-522 | chk_ica_status [bauth.inc_corrective_action] | status
+    INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
+    VALUES ('inc.accion.estado', $j${"es": "Estado de acción correctiva", "en": "Corrective Action Status"}$j$, 0, false, $j${"constraint": "chk_ica_status", "columns": ["bauth.inc_corrective_action.status"]}$j$)
+    ON CONFLICT (code) DO UPDATE SET label=EXCLUDED.label, metadata=EXCLUDED.metadata
+    RETURNING item_id INTO v_inc_accion_estado;
+
+    INSERT INTO bglobal.menu_item (parent_id, code, label, depth, is_leaf, sort_order, metadata)
+    VALUES
+        (v_inc_accion_estado, 'inc.accion.estado.PENDING',     $j${"es": "Pendiente",    "en": "Pending"}$j$,     1, true, 10, $j${"value": "PENDING"}$j$),
+        (v_inc_accion_estado, 'inc.accion.estado.IN_PROGRESS', $j${"es": "En progreso",  "en": "In Progress"}$j$, 1, true, 20, $j${"value": "IN_PROGRESS"}$j$),
+        (v_inc_accion_estado, 'inc.accion.estado.COMPLETED',   $j${"es": "Completada",   "en": "Completed"}$j$,   1, true, 30, $j${"value": "COMPLETED"}$j$),
+        (v_inc_accion_estado, 'inc.accion.estado.CANCELLED',   $j${"es": "Cancelada",    "en": "Cancelled"}$j$,   1, true, 40, $j${"value": "CANCELLED"}$j$))
+    ON CONFLICT (code) DO UPDATE SET parent_id=EXCLUDED.parent_id, label=EXCLUDED.label, sort_order=EXCLUDED.sort_order, metadata=EXCLUDED.metadata;
+
+    -- [MC-0325] T-522 | chk_ica_type [bauth.inc_corrective_action] | action_type
+    INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
+    VALUES ('inc.accion.tipo', $j${"es": "Tipo de acción correctiva", "en": "Corrective Action Type"}$j$, 0, false, $j${"constraint": "chk_ica_type", "columns": ["bauth.inc_corrective_action.action_type"]}$j$)
+    ON CONFLICT (code) DO UPDATE SET label=EXCLUDED.label, metadata=EXCLUDED.metadata
+    RETURNING item_id INTO v_inc_accion_tipo;
+
+    INSERT INTO bglobal.menu_item (parent_id, code, label, depth, is_leaf, sort_order, metadata)
+    VALUES
+        (v_inc_accion_tipo, 'inc.accion.tipo.REVOKE_CREDENTIAL',    $j${"es": "Revocar credencial",       "en": "Revoke Credential"}$j$,    1, true, 10,  $j${"value": "REVOKE_CREDENTIAL"}$j$),
+        (v_inc_accion_tipo, 'inc.accion.tipo.BLOCK_IP',             $j${"es": "Bloquear IP",              "en": "Block IP"}$j$,             1, true, 20,  $j${"value": "BLOCK_IP"}$j$),
+        (v_inc_accion_tipo, 'inc.accion.tipo.SUSPEND_ACCOUNT',      $j${"es": "Suspender cuenta",         "en": "Suspend Account"}$j$,      1, true, 30,  $j${"value": "SUSPEND_ACCOUNT"}$j$),
+        (v_inc_accion_tipo, 'inc.accion.tipo.PATCH_SYSTEM',         $j${"es": "Parchear sistema",         "en": "Patch System"}$j$,         1, true, 40,  $j${"value": "PATCH_SYSTEM"}$j$),
+        (v_inc_accion_tipo, 'inc.accion.tipo.UPDATE_POLICY',        $j${"es": "Actualizar política",      "en": "Update Policy"}$j$,        1, true, 50,  $j${"value": "UPDATE_POLICY"}$j$),
+        (v_inc_accion_tipo, 'inc.accion.tipo.CHANGE_CONFIG',        $j${"es": "Cambiar configuración",    "en": "Change Config"}$j$,        1, true, 60,  $j${"value": "CHANGE_CONFIG"}$j$),
+        (v_inc_accion_tipo, 'inc.accion.tipo.NOTIFY_STAKEHOLDERS',  $j${"es": "Notificar partes",         "en": "Notify Stakeholders"}$j$,  1, true, 70,  $j${"value": "NOTIFY_STAKEHOLDERS"}$j$),
+        (v_inc_accion_tipo, 'inc.accion.tipo.TRAIN_USERS',          $j${"es": "Capacitar usuarios",       "en": "Train Users"}$j$,          1, true, 80,  $j${"value": "TRAIN_USERS"}$j$),
+        (v_inc_accion_tipo, 'inc.accion.tipo.REVIEW_ACCESS',        $j${"es": "Revisar accesos",          "en": "Review Access"}$j$,        1, true, 90,  $j${"value": "REVIEW_ACCESS"}$j$),
+        (v_inc_accion_tipo, 'inc.accion.tipo.RESET_MFA',            $j${"es": "Resetear MFA",             "en": "Reset MFA"}$j$,            1, true, 100, $j${"value": "RESET_MFA"}$j$),
+        (v_inc_accion_tipo, 'inc.accion.tipo.OTHER',                $j${"es": "Otro",                     "en": "Other"}$j$,                1, true, 110, $j${"value": "OTHER"}$j$))
+    ON CONFLICT (code) DO UPDATE SET parent_id=EXCLUDED.parent_id, label=EXCLUDED.label, sort_order=EXCLUDED.sort_order, metadata=EXCLUDED.metadata;
+
+    -- [MC-0326] T-523 | chk_ier_verdict [bauth.inc_effectiveness_review] | verdict
+    INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
+    VALUES ('inc.revision.veredicto', $j${"es": "Veredicto de efectividad", "en": "Effectiveness Verdict"}$j$, 0, false, $j${"constraint": "chk_ier_verdict", "columns": ["bauth.inc_effectiveness_review.verdict"]}$j$)
+    ON CONFLICT (code) DO UPDATE SET label=EXCLUDED.label, metadata=EXCLUDED.metadata
+    RETURNING item_id INTO v_inc_revision_veredicto;
+
+    INSERT INTO bglobal.menu_item (parent_id, code, label, depth, is_leaf, sort_order, metadata)
+    VALUES
+        (v_inc_revision_veredicto, 'inc.revision.veredicto.EFFECTIVE',           $j${"es": "Efectiva",            "en": "Effective"}$j$,           1, true, 10, $j${"value": "EFFECTIVE"}$j$),
+        (v_inc_revision_veredicto, 'inc.revision.veredicto.PARTIALLY_EFFECTIVE', $j${"es": "Parcialmente efect.", "en": "Partially Effective"}$j$, 1, true, 20, $j${"value": "PARTIALLY_EFFECTIVE"}$j$),
+        (v_inc_revision_veredicto, 'inc.revision.veredicto.INEFFECTIVE',         $j${"es": "Inefectiva",          "en": "Ineffective"}$j$,         1, true, 30, $j${"value": "INEFFECTIVE"}$j$),
+        (v_inc_revision_veredicto, 'inc.revision.veredicto.PENDING',             $j${"es": "Pendiente",           "en": "Pending"}$j$,             1, true, 40, $j${"value": "PENDING"}$j$))
+    ON CONFLICT (code) DO UPDATE SET parent_id=EXCLUDED.parent_id, label=EXCLUDED.label, sort_order=EXCLUDED.sort_order, metadata=EXCLUDED.metadata;
+
+    -- [MC-0327] T-524 | chk_rp_accion [bauth.cfg_retention_policy] | purge_action
+    INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
+    VALUES ('cfg.retencion.accion', $j${"es": "Acción de purga de datos", "en": "Data Purge Action"}$j$, 0, false, $j${"constraint": "chk_rp_accion", "columns": ["bauth.cfg_retention_policy.purge_action"]}$j$)
+    ON CONFLICT (code) DO UPDATE SET label=EXCLUDED.label, metadata=EXCLUDED.metadata
+    RETURNING item_id INTO v_cfg_retencion_accion;
+
+    INSERT INTO bglobal.menu_item (parent_id, code, label, depth, is_leaf, sort_order, metadata)
+    VALUES
+        (v_cfg_retencion_accion, 'cfg.retencion.accion.DELETE',    $j${"es": "Eliminar",    "en": "Delete"}$j$,    1, true, 10, $j${"value": "DELETE"}$j$),
+        (v_cfg_retencion_accion, 'cfg.retencion.accion.ANONYMIZE', $j${"es": "Anonimizar",  "en": "Anonymize"}$j$, 1, true, 20, $j${"value": "ANONYMIZE"}$j$),
+        (v_cfg_retencion_accion, 'cfg.retencion.accion.ARCHIVE',   $j${"es": "Archivar",    "en": "Archive"}$j$,   1, true, 30, $j${"value": "ARCHIVE"}$j$))
+    ON CONFLICT (code) DO UPDATE SET parent_id=EXCLUDED.parent_id, label=EXCLUDED.label, sort_order=EXCLUDED.sort_order, metadata=EXCLUDED.metadata;
+
+    -- [MC-0328] T-564 | chk_thi_type [bauth.thi_indicator] | indicator_type
+    INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
+    VALUES ('thi.indicador.tipo', $j${"es": "Tipo de indicador IOC", "en": "IOC Indicator Type"}$j$, 0, false, $j${"constraint": "chk_thi_type", "columns": ["bauth.thi_indicator.indicator_type"]}$j$)
+    ON CONFLICT (code) DO UPDATE SET label=EXCLUDED.label, metadata=EXCLUDED.metadata
+    RETURNING item_id INTO v_thi_indicador_tipo;
+
+    INSERT INTO bglobal.menu_item (parent_id, code, label, depth, is_leaf, sort_order, metadata)
+    VALUES
+        (v_thi_indicador_tipo, 'thi.indicador.tipo.IPv4',       $j${"es": "IPv4 exacta",     "en": "IPv4 exact"}$j$,    1, true, 10, $j${"value": "IPv4"}$j$),
+        (v_thi_indicador_tipo, 'thi.indicador.tipo.IPv4_RANGE', $j${"es": "Rango IPv4 CIDR", "en": "IPv4 CIDR range"}$j$,1, true, 20, $j${"value": "IPv4_RANGE"}$j$),
+        (v_thi_indicador_tipo, 'thi.indicador.tipo.DOMAIN',     $j${"es": "Dominio",         "en": "Domain"}$j$,        1, true, 30, $j${"value": "DOMAIN"}$j$),
+        (v_thi_indicador_tipo, 'thi.indicador.tipo.EMAIL_DOMAIN',$j${"es": "Dominio email",  "en": "Email domain"}$j$,  1, true, 40, $j${"value": "EMAIL_DOMAIN"}$j$),
+        (v_thi_indicador_tipo, 'thi.indicador.tipo.HASH_SHA256', $j${"es": "Hash SHA-256",   "en": "SHA-256 hash"}$j$,  1, true, 50, $j${"value": "HASH_SHA256"}$j$),
+        (v_thi_indicador_tipo, 'thi.indicador.tipo.USER_AGENT',  $j${"es": "User-Agent",     "en": "User-Agent"}$j$,    1, true, 60, $j${"value": "USER_AGENT"}$j$))
+    ON CONFLICT (code) DO UPDATE SET parent_id=EXCLUDED.parent_id, label=EXCLUDED.label, sort_order=EXCLUDED.sort_order, metadata=EXCLUDED.metadata;
+
+    -- [MC-0329] T-564 | chk_thi_source [bauth.thi_indicator] | source
+    INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
+    VALUES ('thi.indicador.fuente', $j${"es": "Fuente de inteligencia", "en": "Intelligence Source"}$j$, 0, false, $j${"constraint": "chk_thi_source", "columns": ["bauth.thi_indicator.source"]}$j$)
+    ON CONFLICT (code) DO UPDATE SET label=EXCLUDED.label, metadata=EXCLUDED.metadata
+    RETURNING item_id INTO v_thi_indicador_fuente;
+
+    INSERT INTO bglobal.menu_item (parent_id, code, label, depth, is_leaf, sort_order, metadata)
+    VALUES
+        (v_thi_indicador_fuente, 'thi.indicador.fuente.CISA',      $j${"es": "CISA",        "en": "CISA"}$j$,      1, true, 10, $j${"value": "CISA"}$j$),
+        (v_thi_indicador_fuente, 'thi.indicador.fuente.STIX_TAXII', $j${"es": "STIX/TAXII",  "en": "STIX/TAXII"}$j$,1, true, 20, $j${"value": "STIX_TAXII"}$j$),
+        (v_thi_indicador_fuente, 'thi.indicador.fuente.ISAC',       $j${"es": "ISAC",        "en": "ISAC"}$j$,      1, true, 30, $j${"value": "ISAC"}$j$),
+        (v_thi_indicador_fuente, 'thi.indicador.fuente.INTERNAL',   $j${"es": "Interno",     "en": "Internal"}$j$,  1, true, 40, $j${"value": "INTERNAL"}$j$),
+        (v_thi_indicador_fuente, 'thi.indicador.fuente.MANUAL',     $j${"es": "Manual",      "en": "Manual"}$j$,    1, true, 50, $j${"value": "MANUAL"}$j$))
+    ON CONFLICT (code) DO UPDATE SET parent_id=EXCLUDED.parent_id, label=EXCLUDED.label, sort_order=EXCLUDED.sort_order, metadata=EXCLUDED.metadata;
+
+    -- [MC-0330] T-564 | chk_thi_confidence [bauth.thi_indicator] | confidence
+    INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
+    VALUES ('thi.indicador.confianza', $j${"es": "Nivel de confianza IOC", "en": "IOC Confidence Level"}$j$, 0, false, $j${"constraint": "chk_thi_confidence", "columns": ["bauth.thi_indicator.confidence"]}$j$)
+    ON CONFLICT (code) DO UPDATE SET label=EXCLUDED.label, metadata=EXCLUDED.metadata
+    RETURNING item_id INTO v_thi_indicador_confianza;
+
+    INSERT INTO bglobal.menu_item (parent_id, code, label, depth, is_leaf, sort_order, metadata)
+    VALUES
+        (v_thi_indicador_confianza, 'thi.indicador.confianza.HIGH',   $j${"es": "Alto",  "en": "High"}$j$,   1, true, 10, $j${"value": "HIGH"}$j$),
+        (v_thi_indicador_confianza, 'thi.indicador.confianza.MEDIUM', $j${"es": "Medio", "en": "Medium"}$j$, 1, true, 20, $j${"value": "MEDIUM"}$j$),
+        (v_thi_indicador_confianza, 'thi.indicador.confianza.LOW',    $j${"es": "Bajo",  "en": "Low"}$j$,    1, true, 30, $j${"value": "LOW"}$j$))
+    ON CONFLICT (code) DO UPDATE SET parent_id=EXCLUDED.parent_id, label=EXCLUDED.label, sort_order=EXCLUDED.sort_order, metadata=EXCLUDED.metadata;
+
+    -- [MC-0331] T-564 | chk_thi_category [bauth.thi_indicator] | category
+    INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
+    VALUES ('thi.indicador.categoria', $j${"es": "Categoría de amenaza", "en": "Threat Category"}$j$, 0, false, $j${"constraint": "chk_thi_category", "columns": ["bauth.thi_indicator.category"]}$j$)
+    ON CONFLICT (code) DO UPDATE SET label=EXCLUDED.label, metadata=EXCLUDED.metadata
+    RETURNING item_id INTO v_thi_indicador_categoria;
+
+    INSERT INTO bglobal.menu_item (parent_id, code, label, depth, is_leaf, sort_order, metadata)
+    VALUES
+        (v_thi_indicador_categoria, 'thi.indicador.categoria.TOR_EXIT',            $j${"es": "Nodo TOR de salida",    "en": "TOR Exit Node"}$j$,          1, true, 10, $j${"value": "TOR_EXIT"}$j$),
+        (v_thi_indicador_categoria, 'thi.indicador.categoria.CREDENTIAL_STUFFING',  $j${"es": "Stuffing cred.",        "en": "Credential Stuffing"}$j$,    1, true, 20, $j${"value": "CREDENTIAL_STUFFING"}$j$),
+        (v_thi_indicador_categoria, 'thi.indicador.categoria.PHISHING',             $j${"es": "Phishing",              "en": "Phishing"}$j$,               1, true, 30, $j${"value": "PHISHING"}$j$),
+        (v_thi_indicador_categoria, 'thi.indicador.categoria.BOTNET',               $j${"es": "Botnet",                "en": "Botnet"}$j$,                 1, true, 40, $j${"value": "BOTNET"}$j$),
+        (v_thi_indicador_categoria, 'thi.indicador.categoria.BRUTE_FORCE',          $j${"es": "Fuerza bruta",          "en": "Brute Force"}$j$,            1, true, 50, $j${"value": "BRUTE_FORCE"}$j$))
+    ON CONFLICT (code) DO UPDATE SET parent_id=EXCLUDED.parent_id, label=EXCLUDED.label, sort_order=EXCLUDED.sort_order, metadata=EXCLUDED.metadata;
+
+    -- [MC-0332] T-564 | chk_thi_action [bauth.thi_indicator] | action
+    INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
+    VALUES ('thi.indicador.accion', $j${"es": "Acción automática IOC", "en": "IOC Automatic Action"}$j$, 0, false, $j${"constraint": "chk_thi_action", "columns": ["bauth.thi_indicator.action"]}$j$)
+    ON CONFLICT (code) DO UPDATE SET label=EXCLUDED.label, metadata=EXCLUDED.metadata
+    RETURNING item_id INTO v_thi_indicador_accion;
+
+    INSERT INTO bglobal.menu_item (parent_id, code, label, depth, is_leaf, sort_order, metadata)
+    VALUES
+        (v_thi_indicador_accion, 'thi.indicador.accion.BLOCK',          $j${"es": "Bloquear",           "en": "Block"}$j$,          1, true, 10, $j${"value": "BLOCK"}$j$),
+        (v_thi_indicador_accion, 'thi.indicador.accion.REQUIRE_STEP_UP',$j${"es": "Exigir step-up",     "en": "Require Step-Up"}$j$,1, true, 20, $j${"value": "REQUIRE_STEP_UP"}$j$),
+        (v_thi_indicador_accion, 'thi.indicador.accion.MONITOR',        $j${"es": "Monitorear",         "en": "Monitor"}$j$,        1, true, 30, $j${"value": "MONITOR"}$j$),
+        (v_thi_indicador_accion, 'thi.indicador.accion.ALERT_ONLY',     $j${"es": "Solo alertar",       "en": "Alert Only"}$j$,     1, true, 40, $j${"value": "ALERT_ONLY"}$j$))
+    ON CONFLICT (code) DO UPDATE SET parent_id=EXCLUDED.parent_id, label=EXCLUDED.label, sort_order=EXCLUDED.sort_order, metadata=EXCLUDED.metadata;
+
+    -- [MC-0333] T-526 | chk_tcl_action [bauth.thi_correlation_log] | action_taken
+    INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
+    VALUES ('thi.correlacion.accion', $j${"es": "Acción tomada por correlación", "en": "Correlation Action Taken"}$j$, 0, false, $j${"constraint": "chk_tcl_action", "columns": ["bauth.thi_correlation_log.action_taken"]}$j$)
+    ON CONFLICT (code) DO UPDATE SET label=EXCLUDED.label, metadata=EXCLUDED.metadata
+    RETURNING item_id INTO v_thi_correlacion_accion;
+
+    INSERT INTO bglobal.menu_item (parent_id, code, label, depth, is_leaf, sort_order, metadata)
+    VALUES
+        (v_thi_correlacion_accion, 'thi.correlacion.accion.BLOCKED',       $j${"es": "Bloqueado",       "en": "Blocked"}$j$,       1, true, 10, $j${"value": "BLOCKED"}$j$),
+        (v_thi_correlacion_accion, 'thi.correlacion.accion.STEP_UP_FORCED',$j${"es": "Step-up forzado", "en": "Step-Up Forced"}$j$, 1, true, 20, $j${"value": "STEP_UP_FORCED"}$j$),
+        (v_thi_correlacion_accion, 'thi.correlacion.accion.MONITORED',     $j${"es": "Monitoreado",     "en": "Monitored"}$j$,     1, true, 30, $j${"value": "MONITORED"}$j$),
+        (v_thi_correlacion_accion, 'thi.correlacion.accion.ALERTED',       $j${"es": "Alertado",        "en": "Alerted"}$j$,       1, true, 40, $j${"value": "ALERTED"}$j$))
+    ON CONFLICT (code) DO UPDATE SET parent_id=EXCLUDED.parent_id, label=EXCLUDED.label, sort_order=EXCLUDED.sort_order, metadata=EXCLUDED.metadata;
+
+    -- [MC-0334] T-527 | chk_vul_comp_type [bauth.vul_component] | component_type
+    INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
+    VALUES ('vul.componente.tipo', $j${"es": "Tipo de componente", "en": "Component Type"}$j$, 0, false, $j${"constraint": "chk_vul_comp_type", "columns": ["bauth.vul_component.component_type"]}$j$)
+    ON CONFLICT (code) DO UPDATE SET label=EXCLUDED.label, metadata=EXCLUDED.metadata
+    RETURNING item_id INTO v_vul_componente_tipo;
+
+    INSERT INTO bglobal.menu_item (parent_id, code, label, depth, is_leaf, sort_order, metadata)
+    VALUES
+        (v_vul_componente_tipo, 'vul.componente.tipo.RUST_CRATE',  $j${"es": "Crate Rust",   "en": "Rust Crate"}$j$,  1, true, 10, $j${"value": "RUST_CRATE"}$j$),
+        (v_vul_componente_tipo, 'vul.componente.tipo.SYSTEM_LIB',  $j${"es": "Lib sistema",  "en": "System Lib"}$j$,  1, true, 20, $j${"value": "SYSTEM_LIB"}$j$),
+        (v_vul_componente_tipo, 'vul.componente.tipo.BINARY',      $j${"es": "Binario",      "en": "Binary"}$j$,      1, true, 30, $j${"value": "BINARY"}$j$),
+        (v_vul_componente_tipo, 'vul.componente.tipo.CONFIG',      $j${"es": "Configuración","en": "Config"}$j$,      1, true, 40, $j${"value": "CONFIG"}$j$),
+        (v_vul_componente_tipo, 'vul.componente.tipo.PROTOCOL',    $j${"es": "Protocolo",    "en": "Protocol"}$j$,    1, true, 50, $j${"value": "PROTOCOL"}$j$))
+    ON CONFLICT (code) DO UPDATE SET parent_id=EXCLUDED.parent_id, label=EXCLUDED.label, sort_order=EXCLUDED.sort_order, metadata=EXCLUDED.metadata;
+
+    -- [MC-0335] T-528 | chk_vai_severity [bauth.vul_auth_impact] | severity
+    INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
+    VALUES ('vul.impacto.severidad', $j${"es": "Severidad CVE", "en": "CVE Severity"}$j$, 0, false, $j${"constraint": "chk_vai_severity", "columns": ["bauth.vul_auth_impact.severity"]}$j$)
+    ON CONFLICT (code) DO UPDATE SET label=EXCLUDED.label, metadata=EXCLUDED.metadata
+    RETURNING item_id INTO v_vul_impacto_severidad;
+
+    INSERT INTO bglobal.menu_item (parent_id, code, label, depth, is_leaf, sort_order, metadata)
+    VALUES
+        (v_vul_impacto_severidad, 'vul.impacto.severidad.CRITICAL', $j${"es": "Crítico  (SLA 24h)", "en": "Critical (SLA 24h)"}$j$, 1, true, 10, $j${"value": "CRITICAL"}$j$),
+        (v_vul_impacto_severidad, 'vul.impacto.severidad.HIGH',     $j${"es": "Alto     (SLA  7d)", "en": "High     (SLA  7d)"}$j$, 1, true, 20, $j${"value": "HIGH"}$j$),
+        (v_vul_impacto_severidad, 'vul.impacto.severidad.MEDIUM',   $j${"es": "Medio    (SLA 30d)", "en": "Medium   (SLA 30d)"}$j$, 1, true, 30, $j${"value": "MEDIUM"}$j$),
+        (v_vul_impacto_severidad, 'vul.impacto.severidad.LOW',      $j${"es": "Bajo     (SLA 90d)", "en": "Low      (SLA 90d)"}$j$, 1, true, 40, $j${"value": "LOW"}$j$),
+        (v_vul_impacto_severidad, 'vul.impacto.severidad.INFO',     $j${"es": "Informativo",         "en": "Info"}$j$,             1, true, 50, $j${"value": "INFO"}$j$))
+    ON CONFLICT (code) DO UPDATE SET parent_id=EXCLUDED.parent_id, label=EXCLUDED.label, sort_order=EXCLUDED.sort_order, metadata=EXCLUDED.metadata;
+
+    -- [MC-0336] T-528 | chk_vai_action [bauth.vul_auth_impact] | action_taken
+    INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
+    VALUES ('vul.impacto.accion', $j${"es": "Acción ante CVE", "en": "CVE Action Taken"}$j$, 0, false, $j${"constraint": "chk_vai_action", "columns": ["bauth.vul_auth_impact.action_taken"]}$j$)
+    ON CONFLICT (code) DO UPDATE SET label=EXCLUDED.label, metadata=EXCLUDED.metadata
+    RETURNING item_id INTO v_vul_impacto_accion;
+
+    INSERT INTO bglobal.menu_item (parent_id, code, label, depth, is_leaf, sort_order, metadata)
+    VALUES
+        (v_vul_impacto_accion, 'vul.impacto.accion.DISABLED_METHOD', $j${"es": "Método desactivado", "en": "Disabled Method"}$j$, 1, true, 10, $j${"value": "DISABLED_METHOD"}$j$),
+        (v_vul_impacto_accion, 'vul.impacto.accion.PATCHED',         $j${"es": "Parcheado",          "en": "Patched"}$j$,         1, true, 20, $j${"value": "PATCHED"}$j$),
+        (v_vul_impacto_accion, 'vul.impacto.accion.MITIGATED',       $j${"es": "Mitigado",           "en": "Mitigated"}$j$,       1, true, 30, $j${"value": "MITIGATED"}$j$),
+        (v_vul_impacto_accion, 'vul.impacto.accion.ACCEPTED',        $j${"es": "Riesgo aceptado",    "en": "Accepted"}$j$,        1, true, 40, $j${"value": "ACCEPTED"}$j$),
+        (v_vul_impacto_accion, 'vul.impacto.accion.PENDING',         $j${"es": "Pendiente",          "en": "Pending"}$j$,         1, true, 50, $j${"value": "PENDING"}$j$))
+    ON CONFLICT (code) DO UPDATE SET parent_id=EXCLUDED.parent_id, label=EXCLUDED.label, sort_order=EXCLUDED.sort_order, metadata=EXCLUDED.metadata;
+
+    -- [MC-0337] T-565 | chk_ise_source [bauth.inc_security_event] | source_table
+    INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
+    VALUES ('inc.evento_seg.fuente', $j${"es": "Tabla fuente del evento", "en": "Event Source Table"}$j$, 0, false, $j${"constraint": "chk_ise_source", "columns": ["bauth.inc_security_event.source_table"]}$j$)
+    ON CONFLICT (code) DO UPDATE SET label=EXCLUDED.label, metadata=EXCLUDED.metadata
+    RETURNING item_id INTO v_inc_evento_seg_fuente;
+
+    INSERT INTO bglobal.menu_item (parent_id, code, label, depth, is_leaf, sort_order, metadata)
+    VALUES
+        (v_inc_evento_seg_fuente, 'inc.evento_seg.fuente.ses_caep_event_log',   $j${"es": "CAEP event log",     "en": "CAEP event log"}$j$,   1, true, 10, $j${"value": "ses_caep_event_log"}$j$),
+        (v_inc_evento_seg_fuente, 'inc.evento_seg.fuente.auth_attempt_log',     $j${"es": "Auth attempt log",   "en": "Auth attempt log"}$j$, 1, true, 20, $j${"value": "auth_attempt_log"}$j$),
+        (v_inc_evento_seg_fuente, 'inc.evento_seg.fuente.aud_event_log',        $j${"es": "Audit event log",    "en": "Audit event log"}$j$,  1, true, 30, $j${"value": "aud_event_log"}$j$),
+        (v_inc_evento_seg_fuente, 'inc.evento_seg.fuente.thi_correlation_log',  $j${"es": "THI correlation",    "en": "THI correlation"}$j$,  1, true, 40, $j${"value": "thi_correlation_log"}$j$),
+        (v_inc_evento_seg_fuente, 'inc.evento_seg.fuente.MANUAL',               $j${"es": "Manual",             "en": "Manual"}$j$,           1, true, 50, $j${"value": "MANUAL"}$j$))
+    ON CONFLICT (code) DO UPDATE SET parent_id=EXCLUDED.parent_id, label=EXCLUDED.label, sort_order=EXCLUDED.sort_order, metadata=EXCLUDED.metadata;
+
+    -- [MC-0338] T-565 | chk_ise_decision [bauth.inc_security_event] | decision
+    INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
+    VALUES ('inc.evento_seg.decision', $j${"es": "Decisión de triaje", "en": "Triage Decision"}$j$, 0, false, $j${"constraint": "chk_ise_decision", "columns": ["bauth.inc_security_event.decision"]}$j$)
+    ON CONFLICT (code) DO UPDATE SET label=EXCLUDED.label, metadata=EXCLUDED.metadata
+    RETURNING item_id INTO v_inc_evento_seg_decision;
+
+    INSERT INTO bglobal.menu_item (parent_id, code, label, depth, is_leaf, sort_order, metadata)
+    VALUES
+        (v_inc_evento_seg_decision, 'inc.evento_seg.decision.CONFIRMED',      $j${"es": "Confirmado",        "en": "Confirmed"}$j$,      1, true, 10, $j${"value": "CONFIRMED"}$j$),
+        (v_inc_evento_seg_decision, 'inc.evento_seg.decision.FALSE_POSITIVE', $j${"es": "Falso positivo",    "en": "False Positive"}$j$, 1, true, 20, $j${"value": "FALSE_POSITIVE"}$j$),
+        (v_inc_evento_seg_decision, 'inc.evento_seg.decision.MONITORING',     $j${"es": "Monitoreando",      "en": "Monitoring"}$j$,     1, true, 30, $j${"value": "MONITORING"}$j$),
+        (v_inc_evento_seg_decision, 'inc.evento_seg.decision.ESCALATED',      $j${"es": "Escalado",          "en": "Escalated"}$j$,      1, true, 40, $j${"value": "ESCALATED"}$j$))
+    ON CONFLICT (code) DO UPDATE SET parent_id=EXCLUDED.parent_id, label=EXCLUDED.label, sort_order=EXCLUDED.sort_order, metadata=EXCLUDED.metadata;
+
+    -- [MC-0339] T-157 | chk en idn_identity_attribute | pii_category
+    INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
+    VALUES ('idn.atributo.categoria_pii', $j${"es": "Categoría PII del atributo", "en": "Attribute PII Category"}$j$, 0, false, $j${"constraint": "chk_iiattr_pii_cat", "columns": ["bauth.idn_identity_attribute.pii_category"]}$j$)
+    ON CONFLICT (code) DO UPDATE SET label=EXCLUDED.label, metadata=EXCLUDED.metadata
+    RETURNING item_id INTO v_idn_atributo_categoria_pii;
+
+    INSERT INTO bglobal.menu_item (parent_id, code, label, depth, is_leaf, sort_order, metadata)
+    VALUES
+        (v_idn_atributo_categoria_pii, 'idn.atributo.categoria_pii.EMAIL',         $j${"es": "Correo electrónico",  "en": "Email"}$j$,         1, true, 10, $j${"value": "EMAIL"}$j$),
+        (v_idn_atributo_categoria_pii, 'idn.atributo.categoria_pii.PHONE',         $j${"es": "Teléfono",           "en": "Phone"}$j$,          1, true, 20, $j${"value": "PHONE"}$j$),
+        (v_idn_atributo_categoria_pii, 'idn.atributo.categoria_pii.NID',           $j${"es": "Documento de id.",   "en": "National ID"}$j$,    1, true, 30, $j${"value": "NID"}$j$),
+        (v_idn_atributo_categoria_pii, 'idn.atributo.categoria_pii.BIOMETRIC',     $j${"es": "Biométrico",         "en": "Biometric"}$j$,      1, true, 40, $j${"value": "BIOMETRIC"}$j$),
+        (v_idn_atributo_categoria_pii, 'idn.atributo.categoria_pii.FINANCIAL',     $j${"es": "Financiero",         "en": "Financial"}$j$,      1, true, 50, $j${"value": "FINANCIAL"}$j$),
+        (v_idn_atributo_categoria_pii, 'idn.atributo.categoria_pii.ADDRESS',       $j${"es": "Dirección",          "en": "Address"}$j$,        1, true, 60, $j${"value": "ADDRESS"}$j$),
+        (v_idn_atributo_categoria_pii, 'idn.atributo.categoria_pii.NAME',          $j${"es": "Nombre",             "en": "Name"}$j$,           1, true, 70, $j${"value": "NAME"}$j$),
+        (v_idn_atributo_categoria_pii, 'idn.atributo.categoria_pii.DATE_OF_BIRTH', $j${"es": "Fecha de nacimiento","en": "Date of Birth"}$j$,  1, true, 80, $j${"value": "DATE_OF_BIRTH"}$j$),
+        (v_idn_atributo_categoria_pii, 'idn.atributo.categoria_pii.NONE',          $j${"es": "No es PII",          "en": "Not PII"}$j$,        1, true, 90, $j${"value": "NONE"}$j$))
+    ON CONFLICT (code) DO UPDATE SET parent_id=EXCLUDED.parent_id, label=EXCLUDED.label, sort_order=EXCLUDED.sort_order, metadata=EXCLUDED.metadata;
+
+    -- [MC-0340] T-157 | chk en idn_identity_attribute | legal_basis
+    INSERT INTO bglobal.menu_item (code, label, depth, is_leaf, metadata)
+    VALUES ('idn.atributo.base_legal', $j${"es": "Base legal de procesamiento", "en": "Legal Basis"}$j$, 0, false, $j${"constraint": "chk_iiattr_legal_basis", "columns": ["bauth.idn_identity_attribute.legal_basis"]}$j$)
+    ON CONFLICT (code) DO UPDATE SET label=EXCLUDED.label, metadata=EXCLUDED.metadata
+    RETURNING item_id INTO v_idn_atributo_base_legal;
+
+    INSERT INTO bglobal.menu_item (parent_id, code, label, depth, is_leaf, sort_order, metadata)
+    VALUES
+        (v_idn_atributo_base_legal, 'idn.atributo.base_legal.CONTRACT',             $j${"es": "Contrato",           "en": "Contract"}$j$,            1, true, 10, $j${"value": "CONTRACT"}$j$),
+        (v_idn_atributo_base_legal, 'idn.atributo.base_legal.LEGAL_OBLIGATION',     $j${"es": "Obligación legal",   "en": "Legal Obligation"}$j$,    1, true, 20, $j${"value": "LEGAL_OBLIGATION"}$j$),
+        (v_idn_atributo_base_legal, 'idn.atributo.base_legal.LEGITIMATE_INTEREST',  $j${"es": "Interés legítimo",   "en": "Legitimate Interest"}$j$, 1, true, 30, $j${"value": "LEGITIMATE_INTEREST"}$j$),
+        (v_idn_atributo_base_legal, 'idn.atributo.base_legal.CONSENT',              $j${"es": "Consentimiento",     "en": "Consent"}$j$,             1, true, 40, $j${"value": "CONSENT"}$j$),
+        (v_idn_atributo_base_legal, 'idn.atributo.base_legal.VITAL_INTEREST',       $j${"es": "Interés vital",      "en": "Vital Interest"}$j$,      1, true, 50, $j${"value": "VITAL_INTEREST"}$j$))
+    ON CONFLICT (code) DO UPDATE SET parent_id=EXCLUDED.parent_id, label=EXCLUDED.label, sort_order=EXCLUDED.sort_order, metadata=EXCLUDED.metadata;
+
+END $$;
+
 -- ── Verificación total acumulada ─────────────────────────────────────────────
 SELECT resumen FROM (
   SELECT 1 AS ord, 'menu_context total (ENUMs formales + CHECKs): ' || COUNT(*) AS resumen

@@ -837,4 +837,64 @@ no documentadas en A.65.02 previo. Nombres canónicos en inglés (convención gl
 - **FKs a tablas particionadas:** no FK directa — integridad a nivel aplicación (PostgreSQL no soporta FK a PK compuesta de particionada sin incluir partition key)
 - **Seeds cargados:** T-513 (22 algoritmos incluyendo ML-KEM-768, ML-DSA-65, SLH-DSA-SHA2-128s), T-421 (7 políticas de retención base), T-423 (Wazuh destino)
 - **Archivo de migración:** `DDLs/migrations/bauth_dominios_pendientes_v1.0.sql`
+
+---
+
+## TABLAS NUEVAS — ISO 27001:2022 BACKLOG (2026-08-01)
+
+Tablas implementadas para cerrar los gaps DDL identificados en A.71 v1.13.0.
+**Archivo de migración:** `DDLs/migrations/iso27001_backlog_t520_t529.sql` (commit `634f6b5`)  
+**Score A.71 tras aplicar:** 122/123 (99.2%) — 40C/1P/0EP
+
+> ⚠️ **Conflictos de T-code resueltos:** T-525 ya estaba asignado a `bauth.idn_credencial_revocacion`
+> y T-529 a `bauth.idn_did_document` en esta sección (§ "TABLAS NUEVAS — T-516..T-561" más arriba).
+> Por eso `thi_indicator` recibió **T-564** e `inc_security_event` recibió **T-565**.
+
+### Subsistema de Incidentes (controles ISO 27001 A.5.25 / A.5.26 / A.5.27)
+
+| Código | Tabla | Control | Propósito |
+|--------|-------|---------|-----------|
+| T-520 | `bauth.inc_incident` | A.5.27 | Registro maestro de incidentes de seguridad IAM — 11 tipos, 4 severidades |
+| T-521 | `bauth.inc_root_cause` | A.5.27 | Análisis de causa raíz por incidente — 8 categorías |
+| T-522 | `bauth.inc_corrective_action` | A.5.26 + A.5.27 | Acciones correctivas con fases CONTAINMENT/ERADICATION/RECOVERY/CORRECTIVE/TRAINING |
+| T-523 | `bauth.inc_effectiveness_review` | A.5.27 | Revisión PDCA de efectividad — veredicto EFFECTIVE/PARTIALLY/INEFFECTIVE/PENDING |
+| T-565 | `bauth.inc_security_event` | A.5.25 | Triaje de eventos sospechosos previo a declarar incidente — decisión formal del analista |
+
+### Retención de Datos (control ISO 27001 A.8.10)
+
+| Código | Tabla | Control | Propósito |
+|--------|-------|---------|-----------|
+| T-524 | `bauth.cfg_retention_policy` | A.8.10 | Política de retención por tabla/columna — acciones DELETE / ANONYMIZE / ARCHIVE |
+
+### Inteligencia de Amenazas (control ISO 27001 A.5.7)
+
+| Código | Tabla | Control | Propósito | WORM |
+|--------|-------|---------|-----------|:----:|
+| T-564 | `bauth.thi_indicator` | A.5.7 | Catálogo IOC — IPv4/DOMAIN/HASH_SHA256/USER_AGENT; fuentes CISA/STIX/ISAC | no |
+| T-526 | `bauth.thi_correlation_log` | A.5.7 | Log inmutable de correlaciones IOC↔autenticación — acciones BLOCK/STEP_UP | **sí** |
+
+### Vulnerabilidades (control ISO 27001 A.8.8)
+
+| Código | Tabla | Control | Propósito |
+|--------|-------|---------|-----------|
+| T-527 | `bauth.vul_component` | A.8.8 | Inventario SBOM del stack bAuth — 5 tipos: RUST_CRATE/SYSTEM_LIB/BINARY/CONFIG/PROTOCOL |
+| T-528 | `bauth.vul_auth_impact` | A.8.8 | CVE × método de autenticación — SLA: CRITICAL 24h / HIGH 7d / MEDIUM 30d / LOW 90d |
+
+### Extensión PII en T-157 (controles ISO 27001 A.5.12 / A.5.13 / A.5.34)
+
+**Tabla afectada:** `bauth.idn_identity_attribute` (T-157, existente — no es tabla nueva)
+
+| Elemento | Tipo | Propósito |
+|----------|------|-----------|
+| +`pii_category` | TEXT NULL CHECK | Categoría PII formal: EMAIL/PHONE/NID/BIOMETRIC/FINANCIAL/ADDRESS/NAME/DATE_OF_BIRTH/NONE |
+| +`legal_basis` | TEXT NULL CHECK | Base legal GDPR Art. 6: CONTRACT/LEGAL_OBLIGATION/LEGITIMATE_INTEREST/CONSENT/VITAL_INTEREST |
+| +`chk_attr_pii_metadata_completa` | CHECK CONSTRAINT | Coherencia: `pii_category NOT NULL → legal_basis NOT NULL` |
+
+### Seeds MC (T060/T061) — nuevas entradas ISO 27001
+
+| Rango | Archivo | Descripción |
+|-------|---------|-------------|
+| MC-0320..MC-0340 | `DDLs/seeds/bglobal_T061__menu_context_checks.sql` | 21 menús contextuales para los CHECK constraints de las 10 tablas nuevas + T-157 PII |
+
+Los códigos MC-0320..MC-0340 cubren: tipos de incidente, severidades, fases de respuesta, acciones correctivas, veredictos de efectividad, acciones de purga, tipos IOC, fuentes de inteligencia, tipos de componente, severidades CVE y categorías PII.
 - **Idempotencia verificada:** 2 pasadas sobre SBOSDB_copia → 0 errores · 2026-07-31
