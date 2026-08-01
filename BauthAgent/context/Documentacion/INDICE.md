@@ -163,6 +163,7 @@ curada para consulta sin fricción. Índice, patrón canónico y plan: [anexos/I
 | **[A.65.03 — Completitud 18 dominios bAuth](anexos/A.65.03.01.18_COMPLETITUD-TODOS-DOMINIOS.md)** · **[A.65.04 — Inventario Menús Contextuales MC-0001..MC-0319](anexos/A.65.04_INVENTARIO-MENUS-CONTEXTUALES.md)** — análogo del A.65.02 para `bglobal.menu_context`: 58 ENUMs + 261 CHECKs, MC-XXXX + T-XXX, índice inverso columna→MC | DDL · Seeds · UI | ✅ 1.0.0 |
 | **[A.66 — Gaps nombres tablas DDL](anexos/A.66_ANEXO-GAPS-NOMBRES-TABLAS-DDL-v1.0.md)** · **[A.67 — Zonas de Negocio RolTemplate](anexos/A.67_ANEXO-BLOQUE-ZONAS-NEGOCIO-ROL-TEMPLATE-v1.0.md)** · **[A.68 — Catálogo propiedades átomos](anexos/A.68_CATALOGO-PROPIEDADES-ATOMOS-v1.0.md)** · **[A.69 — Revisión DDL V2 bugs](anexos/A.69_ANEXO-REVISION-DDL-V2-BUGS-v1.0.md)** | DDL · Árbol · Átomos | ✅ |
 | **[A.70 — Recursos Kubernetes de bAuth (B02 Reconcile + NetworkPolicies)](anexos/A.70_ANEXO-BAUTH-KUBERNETES-RESOURCES-v1.0.md)** — Secret, CronJob y NetworkPolicy; manifests idempotentes para reconstrucción sin fricción | B02 · K8s | ✅ 1.0.0 |
+| **[A.71 — Informe de Cumplimiento ISO 27001:2022](anexos/A.71_INFORME-CUMPLIMIENTO-ISO27001-2022-v1.0.md)** — Análisis de los 93 controles Anexo A contra SBOS_db: 74 % cumplimiento global · 18 controles CUMPLIDOS · 5 brechas priorizadas P1-P3 · plan de remediación a 88-92 % | ISO 27001 · DDL | ✅ 1.0.0 |
 
 ---
 
