@@ -2490,22 +2490,31 @@ COMMENT ON COLUMN bauth.idn_identity_entity.metadata IS 'Metadatos libres del no
 -- ======================================================================
 CREATE TABLE IF NOT EXISTS bauth.idn_identity_attribute (
     attribute_id      UUID        PRIMARY KEY DEFAULT uuidv7(),
-    entity_id       UUID        NOT NULL REFERENCES bauth.idn_identity_entity(entity_id) ON DELETE CASCADE,
-    attr_namespace   TEXT        NOT NULL DEFAULT 'core',
-    attr_key         TEXT        NOT NULL,
-    attr_value       JSONB       NOT NULL,
-    attr_type        TEXT        NOT NULL DEFAULT 'TEXT',
-    verified         BOOLEAN     NOT NULL DEFAULT false,
-    verified_at      TIMESTAMPTZ,
-    verified_by      UUID,
-    source           TEXT        NOT NULL DEFAULT 'self',
-    valid_from       TIMESTAMPTZ NOT NULL DEFAULT now(),
-    valid_until      TIMESTAMPTZ,
-    is_active        BOOLEAN     NOT NULL DEFAULT true,
-    ctx_id           TEXT        NOT NULL,
-    created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (entity_id, attr_namespace, attr_key)
+    entity_id         UUID        NOT NULL REFERENCES bauth.idn_identity_entity(entity_id) ON DELETE CASCADE,
+    attr_namespace    TEXT        NOT NULL DEFAULT 'core',
+    attr_key          TEXT        NOT NULL,
+    attr_value        JSONB       NOT NULL,
+    attr_type         TEXT        NOT NULL DEFAULT 'TEXT',
+    verified          BOOLEAN     NOT NULL DEFAULT false,
+    verified_at       TIMESTAMPTZ,
+    verified_by       UUID,
+    source            TEXT        NOT NULL DEFAULT 'self',
+    valid_from        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    valid_until       TIMESTAMPTZ,
+    is_active         BOOLEAN     NOT NULL DEFAULT true,
+    pii_category      TEXT        NULL
+        CHECK (pii_category IN ('EMAIL','PHONE','NID','BIOMETRIC','FINANCIAL','ADDRESS','NAME','DATE_OF_BIRTH','NONE')),
+    legal_basis       TEXT        NULL
+        CHECK (legal_basis IN ('CONTRACT','LEGAL_OBLIGATION','LEGITIMATE_INTEREST','CONSENT','VITAL_INTEREST')),
+    ctx_id            TEXT        NOT NULL,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT uq_iiattr_entity_ns_key UNIQUE (entity_id, attr_namespace, attr_key),
+    -- [ISO 27001 A.5.12+A.5.13] Namespaces sensibles deben declarar pii_category y legal_basis. T-BACKLOG-008+002.
+    CONSTRAINT chk_attr_pii_metadata_completa CHECK (
+        attr_namespace NOT IN ('biometric','identification','fiscal','verification')
+        OR (pii_category IS NOT NULL AND legal_basis IS NOT NULL)
+    )
 );
 
 CREATE INDEX IF NOT EXISTS idx_iiattr_entidad ON bauth.idn_identity_attribute(entity_id, attr_namespace);
@@ -2530,8 +2539,10 @@ WORM: no — la tabla principal es mutable; el historial WORM está en T-158.
 Particionada: no.
 Estándar: ISO 11179 §8, ISO 24760-1 §5.3, NIST SP 800-63A IAL1-3. T-157.';
 
-COMMENT ON COLUMN bauth.idn_identity_attribute.attr_namespace IS 'core, professional, verification, security, contact, fiscal.';
-COMMENT ON COLUMN bauth.idn_identity_attribute.source IS '[NIST 800-63A] self=autoreportado, document=cédula verificada, biometric, employer, government.';
+COMMENT ON COLUMN bauth.idn_identity_attribute.attr_namespace    IS 'core, professional, verification, security, contact, fiscal, biometric, identification.';
+COMMENT ON COLUMN bauth.idn_identity_attribute.source            IS '[NIST 800-63A] self=autoreportado, document=cédula verificada, biometric, employer, government.';
+COMMENT ON COLUMN bauth.idn_identity_attribute.pii_category      IS '[ISO 27001 A.5.34] Categoría formal de PII. NULL = atributo no-PII. Usado por bi18n para mask_method y por Motor de Identidad para controles de privacidad diferenciados.';
+COMMENT ON COLUMN bauth.idn_identity_attribute.legal_basis        IS '[ISO 27001 A.5.34][GDPR Art.6] Base legal de procesamiento por atributo individual. NULL = no-PII. Complementa T-154 (retención a nivel de tabla) con granularidad por atributo.';
 
 
 -- ======================================================================
@@ -6820,4 +6831,343 @@ SELECT 'revocations_24h', count(*), count(DISTINCT credential_id)
 FROM bauth.idn_credencial_revocacion WHERE revocado_at > now() - INTERVAL '24 hours';
 COMMENT ON MATERIALIZED VIEW bauth.mv_audit_dashboard IS
   '[D11-B04] Dashboard unificado de monitoreo. 5 métricas: sesiones activas, CAEP 24h, switches 24h, emergencias activas, revocaciones 24h. Refresh: 5 min.';
+
+
+-- =============================================================================
+-- ISO 27001:2022 BACKLOG — Implementación de gaps D-05..D-18
+-- T-520 a T-529 — Módulos: incidentes, retención, amenazas, vulnerabilidades
+-- =============================================================================
+
+-- =============================================================================
+-- T-520 — bauth.inc_incident (A.5.27 — aprendizaje de incidentes)
+-- Cabecera del incidente de seguridad. Base del módulo inc_*.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bauth.inc_incident (
+    inc_id         UUID        NOT NULL PRIMARY KEY DEFAULT uuidv7(),
+    tenant_id      UUID        NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
+    incident_type  TEXT        NOT NULL,
+    severity       TEXT        NOT NULL,
+    detected_at    TIMESTAMPTZ NOT NULL,
+    resolved_at    TIMESTAMPTZ NULL,
+    caep_event_ref UUID        NULL,   -- referencia blanda a ses_caep_event_log.event_id
+    aud_event_ref  UUID        NULL,   -- referencia blanda a aud_event_log.event_id
+    summary        TEXT        NOT NULL,
+    ctx_id         TEXT        NOT NULL DEFAULT 'system',
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT chk_inc_severity     CHECK (severity IN ('CRITICAL','HIGH','MEDIUM','LOW')),
+    CONSTRAINT chk_inc_type         CHECK (incident_type IN (
+        'CREDENTIAL_BREACH','UNAUTHORIZED_ACCESS','PRIVILEGE_ESCALATION',
+        'DATA_EXFILTRATION','ACCOUNT_TAKEOVER','MFA_BYPASS','IOC_DETECTED',
+        'POLICY_VIOLATION','INSIDER_THREAT','CONFIGURATION_ERROR','OTHER'
+    ))
+);
+CREATE INDEX IF NOT EXISTS idx_inc_tenant  ON bauth.inc_incident(tenant_id, detected_at DESC);
+CREATE INDEX IF NOT EXISTS idx_inc_open    ON bauth.inc_incident(detected_at) WHERE resolved_at IS NULL;
+COMMENT ON TABLE bauth.inc_incident IS
+'INCIDENTES | Cabecera del incidente de seguridad. Base del módulo inc_*.
+Vincula al tenant afectado, clasifica por tipo y severidad, y referencia
+(en modo blando) la evidencia cruda de ses_caep_event_log o aud_event_log.
+Estándar: ISO 27001:2022 A.5.27, NIST SP 800-61 Rev.3, SOC 2 CC7.4. T-520.';
+
+-- =============================================================================
+-- T-521 — bauth.inc_root_cause (A.5.27 — análisis de causa raíz)
+-- Una por incidente. Captura causa principal y factores secundarios.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bauth.inc_root_cause (
+    cause_id             UUID        NOT NULL PRIMARY KEY DEFAULT uuidv7(),
+    inc_id               UUID        NOT NULL REFERENCES bauth.inc_incident(inc_id),
+    cause_category       TEXT        NOT NULL,
+    description          TEXT        NOT NULL,
+    contributing_factors JSONB       NULL,
+    ctx_id               TEXT        NOT NULL DEFAULT 'system',
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT uq_rc_incident UNIQUE (inc_id),   -- una causa raíz por incidente
+    CONSTRAINT chk_rc_category CHECK (cause_category IN (
+        'MISCONFIGURATION','MISSING_CONTROL','HUMAN_ERROR','SOFTWARE_BUG',
+        'SOCIAL_ENGINEERING','EXTERNAL_ATTACK','POLICY_GAP','UNKNOWN'
+    ))
+);
+COMMENT ON TABLE bauth.inc_root_cause IS
+'INCIDENTES | Análisis de causa raíz por incidente (uno por inc_incident).
+Captura categoría de causa, descripción y factores secundarios en JSONB.
+Estándar: ISO 27001:2022 A.5.27, NIST SP 800-61 Rev.3. T-521.';
+
+-- =============================================================================
+-- T-522 — bauth.inc_corrective_action (A.5.26 + A.5.27)
+-- Medidas correctivas. action_phase distingue A.5.26 (respuesta activa)
+-- de A.5.27 (post-incidente). Varias por incidente, secuenciadas.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bauth.inc_corrective_action (
+    action_id            UUID        NOT NULL PRIMARY KEY DEFAULT uuidv7(),
+    inc_id               UUID        NOT NULL REFERENCES bauth.inc_incident(inc_id),
+    sequence_nr          INTEGER     NOT NULL DEFAULT 1,
+    action_type          TEXT        NOT NULL,
+    action_phase         TEXT        NOT NULL DEFAULT 'CORRECTIVE',
+    target_table         TEXT        NULL,
+    target_record_id     UUID        NULL,
+    description          TEXT        NOT NULL,
+    implemented_by       UUID        NULL REFERENCES bauth.idn_identity_entity(entity_id),
+    implemented_at       TIMESTAMPTZ NULL,
+    status               TEXT        NOT NULL DEFAULT 'PENDING',
+    linked_revocation_id UUID        NULL REFERENCES bauth.idn_credencial_revocacion(revocacion_id),
+    linked_thi_id        UUID        NULL,   -- referencia blanda a thi_indicator (evita dep. circular)
+    ctx_id               TEXT        NOT NULL DEFAULT 'system',
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT chk_ica_phase  CHECK (action_phase IN (
+        'CONTAINMENT',    -- A.5.26: detener avance — revocar, bloquear
+        'ERADICATION',    -- A.5.26: eliminar amenaza — purgar tokens, limpiar config
+        'RECOVERY',       -- A.5.26: restaurar operación
+        'CORRECTIVE',     -- A.5.27: cambio de política post-incidente
+        'TRAINING'        -- A.5.27: capacitación derivada del incidente
+    )),
+    CONSTRAINT chk_ica_status CHECK (status IN ('PENDING','IN_PROGRESS','COMPLETED','CANCELLED')),
+    CONSTRAINT chk_ica_type   CHECK (action_type IN (
+        'REVOKE_CREDENTIAL','BLOCK_IP','SUSPEND_ACCOUNT','PATCH_SYSTEM',
+        'UPDATE_POLICY','CHANGE_CONFIG','NOTIFY_STAKEHOLDERS','TRAIN_USERS',
+        'REVIEW_ACCESS','RESET_MFA','OTHER'
+    ))
+);
+CREATE INDEX IF NOT EXISTS idx_ica_incident ON bauth.inc_corrective_action(inc_id, sequence_nr);
+CREATE INDEX IF NOT EXISTS idx_ica_phase    ON bauth.inc_corrective_action(action_phase, status);
+COMMENT ON TABLE bauth.inc_corrective_action IS
+'INCIDENTES | Medidas correctivas por incidente. action_phase distingue:
+  A.5.26: CONTAINMENT / ERADICATION / RECOVERY (respuesta activa durante incidente).
+  A.5.27: CORRECTIVE / TRAINING (post-incidente, mejora continua).
+linked_revocation_id vincula a acciones de revocación de credenciales.
+Estándar: ISO 27001:2022 A.5.26+A.5.27, NIST SP 800-61 Rev.3. T-522.';
+
+-- =============================================================================
+-- T-523 — bauth.inc_effectiveness_review (A.5.27 — ciclo PDCA Check)
+-- Revisión de efectividad de medidas correctivas. Una o más por incidente.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bauth.inc_effectiveness_review (
+    review_id            UUID        NOT NULL PRIMARY KEY DEFAULT uuidv7(),
+    inc_id               UUID        NOT NULL REFERENCES bauth.inc_incident(inc_id),
+    review_date          TIMESTAMPTZ NOT NULL,
+    reviewer_id          UUID        NULL REFERENCES bauth.idn_identity_entity(entity_id),
+    reincidence_detected BOOLEAN     NOT NULL DEFAULT false,
+    verdict              TEXT        NOT NULL DEFAULT 'PENDING',
+    findings             TEXT        NULL,
+    next_review_date     DATE        NULL,
+    ctx_id               TEXT        NOT NULL DEFAULT 'system',
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT chk_ier_verdict CHECK (verdict IN ('EFFECTIVE','PARTIALLY_EFFECTIVE','INEFFECTIVE','PENDING'))
+);
+COMMENT ON TABLE bauth.inc_effectiveness_review IS
+'INCIDENTES | Revisión de efectividad de medidas correctivas (ciclo PDCA — fase Check).
+reincidence_detected=true dispara nueva revisión o reapertura del incidente.
+Estándar: ISO 27001:2022 A.5.27, SOC 2 CC7.4, ITIL 4 Problem Management. T-523.';
+
+-- =============================================================================
+-- T-524 — bauth.cfg_retention_policy (A.8.10 — eliminación de información)
+-- Política de retención y purga por tipo de dato. Leída por el reconcile loop.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bauth.cfg_retention_policy (
+    policy_id      UUID        NOT NULL PRIMARY KEY DEFAULT uuidv7(),
+    table_name     TEXT        NOT NULL,
+    column_name    TEXT        NULL,        -- NULL = aplica a la tabla completa
+    retention_days INTEGER     NOT NULL CHECK (retention_days > 0),
+    purge_action   TEXT        NOT NULL,
+    exemption      TEXT        NULL,        -- 'WORM' → tabla inviolable, no purgar
+    legal_basis    TEXT        NOT NULL,    -- Ley 164, GDPR Art.17, Ley 843 Bolivia, etc.
+    is_active      BOOLEAN     NOT NULL DEFAULT true,
+    ctx_id         TEXT        NOT NULL DEFAULT 'system',
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT chk_rp_accion   CHECK (purge_action IN ('DELETE','ANONYMIZE','ARCHIVE'))
+);
+-- Índice UNIQUE expresional: COALESCE no puede usarse en UNIQUE constraint de tabla
+CREATE UNIQUE INDEX IF NOT EXISTS uq_rp_tabla_col
+    ON bauth.cfg_retention_policy (table_name, COALESCE(column_name, '__all__'));
+COMMENT ON TABLE bauth.cfg_retention_policy IS
+'CICLO DE VIDA | Política de retención y eliminación programada por tabla/columna.
+El reconcile loop lee esta tabla y ejecuta purgas en datos NO-WORM vencidos.
+Toda purga queda registrada en aud_event_log con action_type=''DATA_PURGE''.
+purge_action: DELETE (eliminar fila), ANONYMIZE (NULL PII), ARCHIVE (mover).
+Estándar: ISO 27001:2022 A.8.10, GDPR Art.17, Ley 164 Bolivia, Ley 843 Art.44. T-524.';
+
+-- Seeds de retención iniciales
+INSERT INTO bauth.cfg_retention_policy
+    (table_name, column_name, retention_days, purge_action, exemption, legal_basis, ctx_id)
+VALUES
+    ('bauth.idn_identity_attribute', NULL,           365*7, 'ANONYMIZE', NULL,   'Ley 843 Bolivia Art.44 — 7 años retención datos laborales', 'system'),
+    ('bauth.ses_session_log',         NULL,           365,   'DELETE',    NULL,   'ISO 27001 A.8.10 — sesiones expiradas >1 año', 'system'),
+    ('bauth.auth_attempt_log',        NULL,           365,   'DELETE',    'WORM', 'ISO 27001 A.8.15 — audit log retención mínima 1 año', 'system'),
+    ('bauth.pam_breakglass_activation',NULL,          365*3, 'ARCHIVE',   NULL,   'ISO 27001 A.8.10 + PCI DSS 4.0 Req 10.7 — 3 años', 'system')
+ON CONFLICT (table_name, COALESCE(column_name, '__all__')) DO NOTHING;
+
+-- =============================================================================
+-- T-525 — bauth.thi_indicator (A.5.7 — inteligencia de amenazas)
+-- Catálogo de IOCs consultado en el pipeline de autenticación.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bauth.thi_indicator (
+    indicator_id    UUID        NOT NULL PRIMARY KEY DEFAULT uuidv7(),
+    indicator_type  TEXT        NOT NULL,
+    indicator_value TEXT        NOT NULL,
+    source          TEXT        NOT NULL,
+    confidence      TEXT        NOT NULL,
+    category        TEXT        NOT NULL,
+    action          TEXT        NOT NULL,
+    valid_from      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    valid_until     TIMESTAMPTZ NULL,
+    is_active       BOOLEAN     NOT NULL DEFAULT true,
+    notes           TEXT        NULL,
+    ctx_id          TEXT        NOT NULL DEFAULT 'system',
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT uq_thi_indicator   UNIQUE (indicator_type, indicator_value, source),
+    CONSTRAINT chk_thi_type       CHECK (indicator_type IN (
+        'IPv4','IPv4_RANGE','DOMAIN','EMAIL_DOMAIN','HASH_SHA256','USER_AGENT'
+    )),
+    CONSTRAINT chk_thi_source     CHECK (source IN (
+        'CISA','STIX_TAXII','ISAC','INTERNAL','MANUAL'
+    )),
+    CONSTRAINT chk_thi_confidence CHECK (confidence IN ('HIGH','MEDIUM','LOW')),
+    CONSTRAINT chk_thi_category   CHECK (category IN (
+        'TOR_EXIT','CREDENTIAL_STUFFING','PHISHING','BOTNET','BRUTE_FORCE'
+    )),
+    CONSTRAINT chk_thi_action     CHECK (action IN (
+        'BLOCK','REQUIRE_STEP_UP','MONITOR','ALERT_ONLY'
+    ))
+);
+CREATE INDEX IF NOT EXISTS idx_thi_active  ON bauth.thi_indicator(indicator_type, is_active) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_thi_expiry  ON bauth.thi_indicator(valid_until)               WHERE valid_until IS NOT NULL AND is_active = true;
+COMMENT ON TABLE bauth.thi_indicator IS
+'AMENAZAS | Catálogo de IOCs (Indicators of Compromise) para inteligencia proactiva.
+Consultado en el pipeline de autenticación: si la IP/dominio/email coincide con un IOC
+activo, bAuth aplica la acción configurada (BLOCK / REQUIRE_STEP_UP / MONITOR / ALERT_ONLY).
+A diferencia de CAEP (reactivo), los IOCs son indicadores conocidos de antemano.
+Estándar: ISO 27001:2022 A.5.7, NIST SP 800-150, STIX/TAXII. T-525.';
+
+-- =============================================================================
+-- T-526 — bauth.thi_correlation_log (A.5.7 — log de correlaciones IOC)
+-- Registro de cada coincidencia IOC detectada en el pipeline auth.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bauth.thi_correlation_log (
+    corr_id          UUID        NOT NULL PRIMARY KEY DEFAULT uuidv7(),
+    indicator_id     UUID        NOT NULL REFERENCES bauth.thi_indicator(indicator_id),
+    tenant_id        UUID        NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
+    auth_attempt_ref UUID        NULL,   -- referencia blanda a auth_attempt_log (particionada)
+    matched_value    TEXT        NOT NULL,
+    action_taken     TEXT        NOT NULL,
+    entity_id        UUID        NULL REFERENCES bauth.idn_identity_entity(entity_id),
+    ctx_id           TEXT        NOT NULL DEFAULT 'system',
+    detected_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT chk_tcl_action CHECK (action_taken IN ('BLOCKED','STEP_UP_FORCED','MONITORED','ALERTED'))
+);
+CREATE INDEX IF NOT EXISTS idx_tcl_indicator ON bauth.thi_correlation_log(indicator_id, detected_at DESC);
+CREATE INDEX IF NOT EXISTS idx_tcl_tenant    ON bauth.thi_correlation_log(tenant_id, detected_at DESC);
+REVOKE UPDATE, DELETE ON bauth.thi_correlation_log FROM bauth_app_role;
+COMMENT ON TABLE bauth.thi_correlation_log IS
+'AMENAZAS | Log append-only de correlaciones IOC detectadas en el pipeline auth.
+Cada fila = un IOC activado: qué indicador coincidió, contra qué tenant/entidad,
+qué valor exacto, y qué acción tomó bAuth. Trazabilidad completa de amenazas detectadas.
+auth_attempt_ref es referencia blanda (sin FK) porque auth_attempt_log es particionada.
+WORM: REVOKE UPDATE/DELETE — evidencia forense inviolable.
+Estándar: ISO 27001:2022 A.5.7, NIST SP 800-150. T-526.';
+
+-- =============================================================================
+-- T-527 — bauth.vul_component (A.8.8 — inventario stack auth)
+-- Inventario de crates Rust y librerías del stack de autenticación bAuth.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bauth.vul_component (
+    component_id   UUID        NOT NULL PRIMARY KEY DEFAULT uuidv7(),
+    name           TEXT        NOT NULL,
+    component_type TEXT        NOT NULL,
+    version        TEXT        NOT NULL,
+    source         TEXT        NOT NULL DEFAULT 'Cargo.toml',
+    is_active      BOOLEAN     NOT NULL DEFAULT true,
+    last_scanned   TIMESTAMPTZ NULL,
+    scan_tool      TEXT        NULL,
+    ctx_id         TEXT        NOT NULL DEFAULT 'system',
+    updated_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT uq_vul_component  UNIQUE (name, version),
+    CONSTRAINT chk_vul_comp_type CHECK (component_type IN (
+        'RUST_CRATE','SYSTEM_LIB','BINARY','CONFIG','PROTOCOL'
+    ))
+);
+COMMENT ON TABLE bauth.vul_component IS
+'VULNERABILIDADES | Inventario de componentes del stack de autenticación bAuth.
+Cubre: crates Rust (jsonwebtoken, ring, rustls, webauthn-rs...), librerías del sistema,
+binarios y protocolos. Complementa bos.vul_infra_component (infraestructura).
+last_scanned actualizado por cargo-audit/trivy en cada CI run.
+Estándar: ISO 27001:2022 A.8.8, NIST SP 800-53 SI-2. T-527.';
+
+-- =============================================================================
+-- T-528 — bauth.vul_auth_impact (A.8.8 — impacto CVE en métodos auth)
+-- Evaluación de impacto de CVEs sobre los 18 métodos de autenticación.
+-- SLA: CRITICAL=24h · HIGH=7d · MEDIUM=30d · LOW=90d
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bauth.vul_auth_impact (
+    impact_id        UUID         NOT NULL PRIMARY KEY DEFAULT uuidv7(),
+    cve_id           TEXT         NOT NULL,   -- "CVE-2026-12345" — referencia a bos.vul_cve_registry
+    component_id     UUID         NOT NULL REFERENCES bauth.vul_component(component_id),
+    affected_methods TEXT[]       NOT NULL DEFAULT '{}',
+    severity         TEXT         NOT NULL,
+    cvss_score       NUMERIC(3,1) NULL CHECK (cvss_score BETWEEN 0.0 AND 10.0),
+    impact_desc      TEXT         NOT NULL,
+    mitigation       TEXT         NULL,
+    action_taken     TEXT         NULL,
+    disabled_methods TEXT[]       NOT NULL DEFAULT '{}',
+    sla_deadline     TIMESTAMPTZ  NULL,   -- detected_at + SLA(severity)
+    resolved_at      TIMESTAMPTZ  NULL,
+    ctx_id           TEXT         NOT NULL DEFAULT 'system',
+    created_at       TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    CONSTRAINT chk_vai_severity CHECK (severity IN ('CRITICAL','HIGH','MEDIUM','LOW','INFO')),
+    CONSTRAINT chk_vai_action   CHECK (
+        action_taken IS NULL OR
+        action_taken IN ('DISABLED_METHOD','PATCHED','MITIGATED','ACCEPTED','PENDING')
+    )
+);
+CREATE INDEX IF NOT EXISTS idx_vai_sla_open ON bauth.vul_auth_impact(sla_deadline) WHERE resolved_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_vai_cve      ON bauth.vul_auth_impact(cve_id);
+COMMENT ON TABLE bauth.vul_auth_impact IS
+'VULNERABILIDADES | Evaluación de impacto de CVEs sobre los 18 métodos de autenticación.
+Recibe notificación de bos (bauth.vulnerability.notify JSON-RPC) cuando cargo-audit/Trivy
+detecta un CVE en un componente del stack auth.
+SLAs: CRITICAL=24h, HIGH=7d, MEDIUM=30d, LOW=90d.
+Si severity=CRITICAL/HIGH y action_taken=DISABLED_METHOD: el daemon desactiva el método
+afectado y registra en aud_event_log. Cierre del loop: bos actualiza vul_cve_registry.
+Estándar: ISO 27001:2022 A.8.8, CVSS v3.1, NIST SP 800-53 SI-2. T-528.';
+
+-- =============================================================================
+-- T-529 — bauth.inc_security_event (A.5.25 — triaje de eventos)
+-- Decisión formal de triaje: analista evalúa evento sospechoso y decide.
+-- Depende de T-520 (inc_incident) para el FK incident_id.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bauth.inc_security_event (
+    event_id       UUID        NOT NULL PRIMARY KEY DEFAULT uuidv7(),
+    tenant_id      UUID        NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
+    source_table   TEXT        NOT NULL,
+    source_ref     UUID        NULL,   -- ID del registro origen (nullable si reporte manual)
+    description    TEXT        NOT NULL,
+    assessed_by    UUID        NULL REFERENCES bauth.idn_identity_entity(entity_id),
+    assessed_at    TIMESTAMPTZ NULL,
+    decision       TEXT        NULL,
+    severity       TEXT        NULL,
+    decision_notes TEXT        NULL,
+    incident_id    UUID        NULL REFERENCES bauth.inc_incident(inc_id),
+    ctx_id         TEXT        NOT NULL DEFAULT 'system',
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT chk_ise_source   CHECK (source_table IN (
+        'ses_caep_event_log','auth_attempt_log','aud_event_log','thi_correlation_log','MANUAL'
+    )),
+    CONSTRAINT chk_ise_decision CHECK (
+        decision IS NULL OR
+        decision IN ('CONFIRMED','FALSE_POSITIVE','MONITORING','ESCALATED')
+    ),
+    CONSTRAINT chk_ise_severity CHECK (
+        severity IS NULL OR
+        severity IN ('CRITICAL','HIGH','MEDIUM','LOW')
+    )
+);
+CREATE INDEX IF NOT EXISTS idx_ise_tenant    ON bauth.inc_security_event(tenant_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ise_pending   ON bauth.inc_security_event(created_at) WHERE decision IS NULL;
+COMMENT ON TABLE bauth.inc_security_event IS
+'INCIDENTES | Triaje de eventos de seguridad — registra la decisión formal del analista.
+[A.5.25] Posición: ANTES de inc_incident (T-520). Flujo:
+  evento crudo (auth_attempt_log / ses_caep_event_log / aud_event_log / thi_correlation_log)
+  → inc_security_event (analista evalúa y decide)
+  → si decision=CONFIRMED → crea inc_incident (T-520)
+assessed_by + assessed_at + decision + decision_notes = registro forense del triaje.
+Sin triaje documentado, A.5.25 queda sin evidencia de proceso de decisión humana.
+Estándar: ISO 27001:2022 A.5.25, NIST SP 800-61 Rev.3 §3.2. T-529.';
 

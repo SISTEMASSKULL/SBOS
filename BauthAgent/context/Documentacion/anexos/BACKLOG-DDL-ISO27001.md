@@ -5,7 +5,7 @@
 | **Propósito** | Acumulador de trabajo entre sesiones — NO es un spec formal |
 | **Origen** | Revisión discrepancia por discrepancia de A.71 v1.3.0 |
 | **Última sesión** | 2026-08-01 |
-| **Score actual** | 83 % — 102/123 — v1.9.0 |
+| **Score actual** | **99.2 % — 122/123 — v1.13.0 — T-BACKLOG-001..009 IMPLEMENTADOS EN SBOSDB** |
 
 ---
 
@@ -20,9 +20,12 @@
 
 ## PENDIENTES
 
+> **No quedan tareas pendientes.** T-BACKLOG-001..009 implementados en SBOSDB (2026-08-01).
+> Único gap remanente: A.8.25 CI pipeline SAST/DAST — tarea DevOps, fuera del alcance DDL.
+
 ---
 
-### T-BACKLOG-001 — Módulo de lecciones aprendidas de incidentes (A.5.27)
+### ~~T-BACKLOG-001~~ — ~~Módulo de lecciones aprendidas de incidentes (A.5.27)~~
 
 **Estado:** PENDIENTE  
 **Prioridad:** P2 (MEDIO)  
@@ -750,4 +753,12 @@ Para cada una: revisar con el usuario si es gap real, falso positivo, o brecha d
 |-------|---------|-----------|--------|-------|
 | A.8.3 RLS → re-evaluado CUMPLIDO | A.8.3 | C(3/3) — 3 capas: tenant_id FK + ctx_id + daemon | `d743494` | 2026-08-01 |
 | A.8.11 masking → re-evaluado CUMPLIDO | A.8.11 | C(3/3) — doble árbol + bi18n 8 métodos | `ca47667` | 2026-08-01 |
-| A.5.27 → gap CONFIRMADO, diseño propuesto | A.5.27 | En este backlog T-BACKLOG-001 | — | 2026-08-01 |
+| **T-BACKLOG-001** | A.5.27 | C(3/3) — T-520/521/522/523 módulo inc_* completo | pendiente commit | 2026-08-01 |
+| **T-BACKLOG-002** | A.5.12/A.5.13 | C(3/3) — chk_attr_pii_metadata_completa en T-157 | pendiente commit | 2026-08-01 |
+| **T-BACKLOG-003** | A.8.10 | C(3/3) — T-524 cfg_retention_policy + 4 seeds | pendiente commit | 2026-08-01 |
+| **T-BACKLOG-004** | A.5.13 | CANCELADO — cubierto por T-008+T-002 (ISO 27002 acepta campos BD) | — | 2026-08-01 |
+| **T-BACKLOG-005** | A.5.7 | C(3/3) — T-525 thi_indicator + T-526 thi_correlation_log (WORM) | pendiente commit | 2026-08-01 |
+| **T-BACKLOG-006** | A.5.25 | C(3/3) — T-529 inc_security_event (triaje formal) | pendiente commit | 2026-08-01 |
+| **T-BACKLOG-007** | A.5.26 | C(3/3) — action_phase en T-522 inc_corrective_action | pendiente commit | 2026-08-01 |
+| **T-BACKLOG-008** | A.5.34 | C(3/3) — pii_category + legal_basis en T-157 idn_identity_attribute | pendiente commit | 2026-08-01 |
+| **T-BACKLOG-009** | A.8.8 | C(3/3) — T-527 vul_component + T-528 vul_auth_impact (SLA) | pendiente commit | 2026-08-01 |

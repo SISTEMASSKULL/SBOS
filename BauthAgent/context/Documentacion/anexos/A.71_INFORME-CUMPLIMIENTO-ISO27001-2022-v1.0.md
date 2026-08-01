@@ -3,7 +3,7 @@
 
 | Metadato | Valor |
 |----------|-------|
-| **Versión** | 1.12.0 |
+| **Versión** | 1.13.0 |
 | **Fecha** | 2026-08-01 |
 | **Estándar analizado** | ISO/IEC 27001:2022 (con enmienda climática ISO 27001:2024) |
 | **Alcance del análisis** | Diseño DDL del sistema IAM bAuth — 3 archivos DDL + seeds (ver §2.1) |
@@ -33,14 +33,14 @@ Del universo de 93 controles, **41 son aplicables** al alcance de un diseño de 
 │                                                          │
 │   COBERTURA ISO 27001:2022 — Diseño DDL bAuth           │
 │                                                          │
-│   ████████████████████████████████████████████████████░  89 % │
+│   ██████████████████████████████████████████████████████░  99 % │
 │                                                          │
-│   Puntaje: 110 / 123 puntos posibles (41 controles)     │
-│   (v1.12.0 — D-01..D-18 revisados; 8 falsos pos. ✓)    │
+│   Puntaje: 122 / 123 puntos posibles (41 controles)     │
+│   (v1.13.0 — T-BACKLOG-001..009 implementados en SBOSDB)│
 │                                                          │
-│   Controles CUBIERTOS:      31 / 41  (76 %)             │
-│   Controles PARCIALES:       7 / 41  (17 %)             │
-│   Controles EN PROGRESO:     3 / 41  ( 7 %)             │
+│   Controles CUBIERTOS:      40 / 41  (98 %)             │
+│   Controles PARCIALES:       1 / 41  ( 2 %)  ← A.8.25  │
+│   Controles EN PROGRESO:     0 / 41  ( 0 %)             │
 │   Controles AUSENTES:        0 / 41  ( 0 %)             │
 │   Controles NO APLICA:       2 / 41  ( 5 %)             │
 │                                                          │
@@ -131,7 +131,7 @@ Estos controles regulan políticas organizacionales, roles y responsabilidades d
 | A.5.4 | Responsabilidades de gestión | N/A | |
 | A.5.5 | Contacto con autoridades | N/A | |
 | A.5.6 | Contacto con grupos especiales | N/A | |
-| A.5.7 | Inteligencia de amenazas | **P (2/3)** | ↓ Ver §3.1.2 |
+| A.5.7 | Inteligencia de amenazas | **C (3/3)** ✅ | ↓ Ver §3.1.2 — T-525 thi_indicator + T-526 thi_correlation_log (WORM) |
 | A.5.8 | SI en gestión de proyectos | N/A | |
 
 #### §3.1.1 A.5.3 — Segregación de Funciones: CUMPLIDO ✅
@@ -177,8 +177,8 @@ CREATE TABLE IF NOT EXISTS bauth.idn_financial_sod_rule (
 | A.5.9 | Inventario de activos | **C (3/3)** | A.65.02: 224 tablas inventariadas |
 | A.5.10 | Uso aceptable de activos | N/A | Política organizacional |
 | A.5.11 | Devolución de activos | N/A | Operacional |
-| A.5.12 | Clasificación de información | **P (2/3)** *(→ C condicionado a T-BACKLOG-008)* | ↓ Ver §3.2.1 |
-| A.5.13 | Etiquetado de información | **EP (1/3)** *(→ C condicionado a T-BACKLOG-008 + T-BACKLOG-002)* | ↓ Ver §3.2.2 |
+| A.5.12 | Clasificación de información | **C (3/3)** ✅ | ↓ Ver §3.2.1 — pii_category en T-157 es la clasificación formal |
+| A.5.13 | Etiquetado de información | **C (3/3)** ✅ | ↓ Ver §3.2.2 — chk_attr_pii_metadata_completa (T-BACKLOG-002) es el procedimiento |
 | A.5.14 | Transferencia de información | **C (3/3)** | ↓ Ver §3.2.3 |
 
 #### §3.2.1 A.5.12 — Clasificación de Información: PARCIAL ⚠️ *(→ CUMPLIDO al aplicar T-BACKLOG-008)*
@@ -391,9 +391,9 @@ Políticas de contraseña (NIST 800-63B Rev.4): `password_policy` tabla con Argo
 | Control | Nombre | Estado |
 |---------|--------|--------|
 | A.5.24 | Planificación gestión incidentes | N/A |
-| A.5.25 | Evaluación y decisión de incidentes | **P (2/3)** | ↓ Ver §3.4.2 |
-| A.5.26 | Respuesta a incidentes | **P (2/3)** | ↓ Ver §3.4.3 |
-| A.5.27 | Aprendizaje de incidentes | **EP (1/3)** | ↓ Ver §3.4.4 |
+| A.5.25 | Evaluación y decisión de incidentes | **C (3/3)** ✅ | ↓ Ver §3.4.2 — T-529 inc_security_event (triaje formal) |
+| A.5.26 | Respuesta a incidentes | **C (3/3)** ✅ | ↓ Ver §3.4.3 — action_phase en T-522 (CONTAINMENT/ERADICATION/RECOVERY) |
+| A.5.27 | Aprendizaje de incidentes | **C (3/3)** ✅ | ↓ Ver §3.4.4 — módulo inc_* T-520..T-523 + T-529 completo |
 | A.5.28 | Recolección de evidencia | **C (3/3)** |
 
 #### §3.4.1 A.5.28 — Recolección de Evidencia: CUMPLIDO ✅
@@ -588,7 +588,7 @@ Depende de T-BACKLOG-001 (la tabla `inc_corrective_action` debe existir primero)
 |---------|--------|--------|
 | A.5.31 | Requisitos legales/reglamentarios | **C (3/3)** |
 | A.5.33 | Protección de registros | **C (3/3)** |
-| A.5.34 | Privacidad PII | **P (2/3)** | ↓ Ver §3.5.2 |
+| A.5.34 | Privacidad PII | **C (3/3)** ✅ | ↓ Ver §3.5.2 — pii_category + legal_basis + CHECK constraint en T-157 |
 
 #### §3.5.2 A.5.34 — Privacidad y Protección de PII: PARCIAL ⚠️
 
@@ -812,9 +812,9 @@ La RLS nativa de PostgreSQL es **uno de varios mecanismos posibles** para satisf
 
 | Control | Nombre | Estado |
 |---------|--------|--------|
-| A.8.8 | Vulnerabilidades técnicas | **P (2/3)** | ↓ Ver §4.2.4 |
+| A.8.8 | Vulnerabilidades técnicas | **C (3/3)** ✅ | ↓ Ver §4.2.4 — T-527 vul_component + T-528 vul_auth_impact (SLA index) |
 | A.8.9 | Gestión de configuración | **C (3/3)** | ↓ Ver §4.2.3 |
-| A.8.10 | Eliminación de información | **EP (1/3)** | ↓ Ver §4.2.2 |
+| A.8.10 | Eliminación de información | **C (3/3)** ✅ | ↓ Ver §4.2.2 — T-524 cfg_retention_policy + 4 seeds iniciales |
 | A.8.11 | Enmascaramiento de datos | **C (3/3)** |
 
 #### §4.2.1 A.8.11 — Enmascaramiento de Datos: CUMPLIDO ✅
@@ -1347,23 +1347,24 @@ CI/CD). No bloquea la operación actual. Pendiente para el año 2026.
 ├─────────────────────┬──────────┬────────┬─────────┬────────────────┤
 │ Sección             │ En-scope │ Score  │ Máximo  │ Cumplimiento % │
 ├─────────────────────┼──────────┼────────┼─────────┼────────────────┤
-│ A.5 Organizacional  │   18     │  45    │   54    │    83.3 %      │
+│ A.5 Organizacional  │   18     │  54    │   54    │   100.0 %      │
 │ A.6 Personas        │    1     │   3    │    3    │   100.0 %      │
 │ A.7 Físicos         │    0     │   —    │    —    │   N/A          │
-│ A.8 Tecnológicos    │   22     │  62    │   66    │    93.9 %      │
+│ A.8 Tecnológicos    │   22     │  65    │   66    │    98.5 %      │
 ├─────────────────────┼──────────┼────────┼─────────┼────────────────┤
-│ TOTAL               │   41     │  110   │  123    │  ** 89.4 % **  │
+│ TOTAL               │   41     │  122   │  123    │  ** 99.2 % **  │
 └─────────────────────┴──────────┴────────┴─────────┴────────────────┘
 ```
+*A.8.25 es el único control P(2/3) restante — requiere CI pipeline SAST/DAST (DevOps, no DDL).
 
 ### Distribución de estados (41 controles en-scope)
 
 ```
-CUMPLIDO    █████████████████████████████████  31 controles  76 %
-PARCIAL     ████████                          7 controles  17 %
-EN PROGRESO ████                              3 controles   7 %
-AUSENTE     —                                0 controles   0 %
-NO APLICA   ██                               2 controles   5 %
+CUMPLIDO    ████████████████████████████████████████  40 controles  98 %
+PARCIAL     █                                          1 control    2 %  ← A.8.25 (CI pipeline DevOps)
+EN PROGRESO —                                          0 controles   0 %
+AUSENTE     —                                          0 controles   0 %
+NO APLICA   ██                                         2 controles   5 %
 ```
 
 ### Mapa de calor por dominio funcional
@@ -1442,31 +1443,27 @@ Crear tabla `cfg_retention_policy` con reglas por tipo de dato, y job PostgreSQL
 
 ## 7. Proyección de Cumplimiento Post-Remediación
 
-> **Actualización v1.12.0** — Base revisada: D-01..D-18 completados, 8 falsos positivos
-> corregidos. Score actual: 110/123 (89.4%).
+> **Actualización v1.13.0** — T-BACKLOG-001..009 implementados en SBOSDB (COMMIT pendiente).
+> Score anterior (v1.12.0): 110/123 (89.4%). **Score actual: 122/123 (99.2%)**.
 
 ```
 ┌────────────────────────────────────────────────────────────┐
-│  PROYECCIÓN POST-REMEDIACIÓN (base v1.12.0: 89.4 %)       │
+│  ESTADO POST-IMPLEMENTACIÓN (v1.13.0)                      │
 │                                                            │
-│  Actual (v1.12.0 — 110/123):                              │
+│  Anterior (v1.12.0 — 110/123):                            │
 │  ████████████████████████████████████████████████░░  89 % │
-│  7 P + 3 EP = 13 puntos pendientes                        │
+│  7 P + 3 EP pendientes                                    │
 │                                                            │
-│  Post T-BACKLOG-008 + T-BACKLOG-002                       │
-│  (+A.5.12 P→C +1, +A.5.13 EP→C +2):                     │
-│  ██████████████████████████████████████████████████  91 % │
-│  (113/123 puntos)                                          │
+│  Actual (v1.13.0 — 122/123):  ← IMPLEMENTADO             │
+│  ████████████████████████████████████████████████████  99 %│
+│  10 tablas nuevas (T-520..T-529) + 2 cols T-157 + CHECK  │
+│  Todas verificadas en SBOSDB (idempotencia OK)            │
 │                                                            │
-│  Post T-BACKLOG-001+006+007 (+A.5.25 +1, +A.5.26 +1,    │
-│  +A.5.27 +2) + T-BACKLOG-003 (+A.8.10 +2):               │
-│  ███████████████████████████████████████████████████  97 % │
-│  (119/123 puntos)                                          │
-│                                                            │
-│  Máximo alcanzable (+ T-BACKLOG-005 A.5.7 +1,            │
-│  + T-BACKLOG-009 A.8.8 +1, + CI A.8.25 +1):              │
-│  ████████████████████████████████████████████████████ 100%│
-│  (122/123 — A.8.25 limita hasta alcanzar madurez CI)      │
+│  Único punto pendiente: A.8.25 (1 punto)                  │
+│  Requiere CI pipeline SAST/DAST automatizado — DevOps.    │
+│  No es brecha DDL — el diseño es correcto.               │
+│  ██████████████████████████████████████████████████████ 99%│
+│  (122/123 — tope máximo sin CI pipeline)                  │
 └────────────────────────────────────────────────────────────┘
 ```
 
@@ -1491,33 +1488,33 @@ Los siguientes elementos del **diseño DDL** de bAuth **superan** los requisitos
 
 ## 9. Conclusión
 
-> **v1.12.0** — Score definitivo tras revisión completa de D-01..D-18: **110/123 (89.4%)**.
-> Incremento de +8 puntos vs base v1.3.0 por corrección de 8 falsos positivos
-> (A.8.3, A.8.11, A.5.14, A.8.9, A.8.17, A.8.28, A.6.5 + A.8.11 reconfirmado).
+> **v1.13.0** — T-BACKLOG-001..009 implementados en SBOSDB. **Score final: 122/123 (99.2%)**.
+> Evolución: v1.3.0 base → v1.12.0 (110/123, 89.4%) → v1.13.0 (122/123, 99.2%).
 
-El **diseño DDL de bAuth cubre el 89.4 %** de los controles aplicables de ISO 27001:2022
-(v1.12.0 — revisión completa D-01..D-18). Este resultado es sobresaliente para un sistema IAM
-en fase de diseño, considerando que:
+El **diseño DDL de bAuth cubre el 99.2 %** de los controles aplicables de ISO 27001:2022
+(v1.13.0 — T-BACKLOG completo implementado y verificado en SBOSDB). Este resultado es
+excepcional para un sistema IAM, considerando que:
 
-1. El sistema cubre **todos los controles de autenticación, acceso, identidad y enmascaramiento**
-   con implementaciones que superan el mínimo estándar.
-2. Los **31 controles CUMPLIDOS** (76 %) corresponden al núcleo completo de un sistema IAM
-   Enterprise: autenticación, autorización, privilegios, logging, criptografía, arquitectura
-   segura, restricción de acceso multi-tenant, masking PII y firma digital.
-3. **Sin controles AUSENTES** — toda brecha remanente es PARCIAL (7) o EN PROGRESO (3),
-   implementable con 9 tareas del BACKLOG-DDL-ISO27001.md sin rediseño arquitectónico.
-4. La arquitectura de **doble árbol** (idn_identidad_atributo + idn_roles_template) provee
-   masking nativo gobernado por PDCA, sin tablas adicionales ni antipatrones.
-5. Alcanzar **100 % es posible** implementando los 9 T-BACKLOG — la arquitectura no tiene
-   brechas estructurales irresolubles, solo trabajo de implementación restante.
+1. El sistema cubre **todos los controles de autenticación, acceso, identidad, PII, amenazas,
+   vulnerabilidades e incidentes** con implementaciones que superan el mínimo del estándar.
+2. Los **40 de 41 controles en-scope son CUMPLIDOS (98 %)** — núcleo completo IAM Enterprise:
+   autenticación, autorización, privilegios, logging, criptografía, PII, THI, VUL e incidentes.
+3. **Sin controles AUSENTES y sin controles EN PROGRESO** — única brecha remanente es A.8.25
+   (P 2/3): CI pipeline SAST/DAST no automatizado, que es una tarea DevOps, no DDL.
+4. **10 tablas nuevas** (T-520..T-529) y **2 columnas** nuevas en T-157 implementadas con
+   idempotencia verificada en SBOSDB (doble ejecución sin errores).
+5. Alcanzar **123/123 (100 %)** requiere únicamente automatizar el CI pipeline con cargo-audit
+   + SAST — la arquitectura DDL está completa.
 
 Para una **certificación ISO 27001:2022 exitosa**, la organización deberá complementar el DDL con:
 - Políticas documentadas de gestión (A.5.1, A.5.2) — fuera del alcance DDL
 - Programa de concienciación (A.6.3) — RRHH
 - Controles físicos del data center (A.7) — infraestructura
 - Gestión formal de proveedores (A.5.19-22) — contratos
+- CI pipeline SAST/DAST con cargo-audit (A.8.25) — DevOps
 
-La combinación de estos elementos organizacionales con la remediación técnica P1+P2+P3 llevaría el **cumplimiento global estimado al 88-92 %**, nivel adecuado para auditoría de certificación.
+La combinación de estos elementos organizacionales con el DDL completo de bAuth posiciona al
+sistema para **auditoría de certificación ISO 27001:2022 con alta probabilidad de aprobación**.
 
 ---
 
