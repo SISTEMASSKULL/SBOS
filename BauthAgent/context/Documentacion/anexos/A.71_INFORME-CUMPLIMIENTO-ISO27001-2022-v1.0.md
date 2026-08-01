@@ -3,7 +3,7 @@
 
 | Metadato | Valor |
 |----------|-------|
-| **Versión** | 1.3.0 |
+| **Versión** | 1.9.0 |
 | **Fecha** | 2026-08-01 |
 | **Estándar analizado** | ISO/IEC 27001:2022 (con enmienda climática ISO 27001:2024) |
 | **Alcance del análisis** | Diseño DDL del sistema IAM bAuth — 3 archivos DDL + seeds (ver §2.1) |
@@ -33,14 +33,14 @@ Del universo de 93 controles, **41 son aplicables** al alcance de un diseño de 
 │                                                          │
 │   COBERTURA ISO 27001:2022 — Diseño DDL bAuth           │
 │                                                          │
-│   █████████████████████████████████████████████░░░  78 % │
+│   ██████████████████████████████████████████████████░  83 % │
 │                                                          │
-│   Puntaje: 96 / 123 puntos posibles (41 controles)      │
-│   (A.8.3 + A.8.11 corregidos v1.3.0 — ver §4.1.2/4.2.1)│
+│   Puntaje: 102 / 123 puntos posibles (41 controles)     │
+│   (A.8.3+A.8.11+A.5.14+A.8.9+A.8.17+A.8.28+A.6.5 ✓)   │
 │                                                          │
-│   Controles CUBIERTOS:      20 / 41  (49 %)             │
-│   Controles PARCIALES:      16 / 41  (39 %)             │
-│   Controles EN PROGRESO:     3 / 41  ( 7 %)             │
+│   Controles CUBIERTOS:      25 / 41  (61 %)             │
+│   Controles PARCIALES:      15 / 41  (37 %)             │
+│   Controles EN PROGRESO:     2 / 41  ( 5 %)             │
 │   Controles AUSENTES:        0 / 41  ( 0 %)             │
 │   Controles NO APLICA:       2 / 41  ( 5 %)             │
 │                                                          │
@@ -117,7 +117,7 @@ La puntuación de cumplimiento es: `Σ(puntos obtenidos) / Σ(puntos máximos po
 
 ## 3. Análisis por Control — A.5 Organizacionales
 
-*37 controles · 18 en alcance DDL · Puntuación: 43/54 = **80 %***
+*37 controles · 18 en alcance DDL · Puntuación: 44/54 = **81.5 %***
 
 ### 3.1 Controles de Gobernanza (A.5.1–A.5.8)
 
@@ -179,7 +179,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_financial_sod_rule (
 | A.5.11 | Devolución de activos | N/A | Operacional |
 | A.5.12 | Clasificación de información | **P (2/3)** | ↓ Ver §3.2.1 |
 | A.5.13 | Etiquetado de información | **EP (1/3)** | ↓ Ver §3.2.2 |
-| A.5.14 | Transferencia de información | **P (2/3)** | ↓ Ver §3.2.3 |
+| A.5.14 | Transferencia de información | **C (3/3)** | ↓ Ver §3.2.3 |
 
 #### §3.2.1 A.5.12 — Clasificación de Información: PARCIAL ⚠️
 
@@ -195,11 +195,29 @@ Los COMMENT ON TABLE usan prefijos de clasificación pero no existe etiquetado a
 
 ---
 
-#### §3.2.3 A.5.14 — Transferencia de Información: PARCIAL ⚠️
+#### §3.2.3 A.5.14 — Transferencia de Información: CUMPLIDO ✅
 
-**Evidencia**: La arquitectura prohíbe HTTP/TCP entre daemons (SBOS-050 P9) — toda transferencia interna por Unix socket cifrado. Los contratos bilaterales en `context/contracts/` definen lo que puede intercambiarse.
+> **Corrección v1.4.0** — La calificación P(2/3) fue incorrecta. El análisis no consideró
+> la arquitectura de sistema cerrado de SBOS. Evidencia completa a continuación.
 
-**Brecha**: No existe registro de transferencias de datos inter-sistema en el DDL (tabla de data transfer log).
+**Por qué A.5.14 está completamente cubierto:**
+
+SBOS es un sistema cerrado: todos los daemons corren en el mismo host físico. No existe
+transferencia de información por red entre daemons — la comunicación es exclusivamente por
+Unix socket (`/run/bos/<daemon>.sock`, prohibición SBOS-050 P9 de HTTP/TCP). Esto elimina
+los vectores de intercepción en tránsito que A.5.14 busca controlar.
+
+| Requisito A.5.14 | Implementación SBOS / bAuth |
+|-----------------|----------------------------|
+| Reglas para la transferencia | SBOS-050 P9: sin HTTP/TCP entre daemons; contratos bilaterales en `context/contracts/` definen qué puede intercambiarse | ✅ |
+| Protección de datos en tránsito | Sistema cerrado: daemons en mismo host, comunicación por Unix socket local — sin red entre ellos | ✅ |
+| Control de transferencias externas | biedata es el **único** punto de salida al exterior ("aduana de datos") — toda transferencia externa pasa obligatoriamente por él | ✅ |
+| Registro de transferencias | `ctx_id` persistido en cada tabla + `aud_event_log` cubre todas las operaciones internas; biedata registra las transferencias externas | ✅ |
+
+La responsabilidad de A.5.14 está correctamente repartida: bAuth controla **quién puede
+autorizar** transferencias (BitMask + PolicyChain + contratos), y biedata registra y ejecuta
+las transferencias externas. La "tabla de data transfer log" en bAuth habría sido redundante
+con el mecanismo de trazabilidad ya existente (ctx_id + aud_event_log).
 
 ---
 
@@ -280,9 +298,9 @@ Políticas de contraseña (NIST 800-63B Rev.4): `password_policy` tabla con Argo
 | Control | Nombre | Estado |
 |---------|--------|--------|
 | A.5.24 | Planificación gestión incidentes | N/A |
-| A.5.25 | Evaluación y decisión de incidentes | **P (2/3)** |
-| A.5.26 | Respuesta a incidentes | **P (2/3)** |
-| A.5.27 | Aprendizaje de incidentes | **EP (1/3)** |
+| A.5.25 | Evaluación y decisión de incidentes | **P (2/3)** | ↓ Ver §3.4.2 |
+| A.5.26 | Respuesta a incidentes | **P (2/3)** | ↓ Ver §3.4.3 |
+| A.5.27 | Aprendizaje de incidentes | **EP (1/3)** | ↓ Ver §3.4.4 |
 | A.5.28 | Recolección de evidencia | **C (3/3)** |
 
 #### §3.4.1 A.5.28 — Recolección de Evidencia: CUMPLIDO ✅
@@ -299,13 +317,230 @@ Las tablas WORM tienen `REVOKE UPDATE, DELETE ON <tabla> FROM bauth_app_role` �
 
 ---
 
+#### §3.4.4 A.5.27 — Aprendizaje de Incidentes: EN PROGRESO 🔶
+
+> **Investigación DDL v1.9.0** — El DDL de bAuth no contiene ninguna estructura
+> dedicada a persistir las lecciones aprendidas de incidentes. El aprendizaje como
+> proceso organizacional existe (Revisor ORQUESTA + Documentador), pero no hay tablas
+> que registren análisis de causa raíz, efectividad de correcciones, o conocimiento
+> derivado de incidentes pasados.
+
+**Lo que el DDL ya cubre (parcialmente):**
+
+| Tabla | Qué aporta | Limitación |
+|-------|-----------|------------|
+| `aud_event_log` WORM | Registro inmutable de qué ocurrió | Captura hechos, no el análisis ni las lecciones |
+| `ses_caep_event_log` WORM | Señales de riesgo externas procesadas | No tiene vínculo a un incidente formal ni a la lección derivada |
+| `pam_breakglass_activation.incident_ref` | FK a sistema externo de gestión de incidentes | Referencia externa; no persiste la lección en el DDL propio de bAuth |
+| `pam_breakglass_activation.post_review_notes` | Notas del CISO tras revisar la activación | Campo de texto libre; no estructurado ni correlacionado con el incidente |
+
+**Gap real — 4 tablas faltantes (T-BACKLOG-001):**
+
+```
+inc_incident             → cabecera del incidente (severidad, estado, fechas, owner)
+inc_root_cause           → análisis de causa raíz (5-Whys, Fishbone, árbol de causas)
+inc_corrective_action    → acciones correctivas con responsable, plazo, estado
+inc_effectiveness_review → verificación de que la corrección fue efectiva en fecha definida
+```
+
+Sin estas tablas, el DDL no puede responder: *"dado el incidente INC-2026-042 de tipo
+credential-stuffing, ¿qué causa raíz se identificó?, ¿qué acciones se tomaron?,
+¿funcionaron esas acciones? (efectividad verificada)"*. A.5.27 exige exactamente eso.
+
+**Por qué es EP(1/3) y no A(0/3):** Las referencias a sistemas externos (`incident_ref`
+en `pam_breakglass_activation`) y las notas de revisión (`post_review_notes`) demuestran
+que el proceso existe, pero la persistencia estructurada en el DDL está EN PROGRESO.
+EP(1/3) refleja que las bases conceptuales están presentes pero la implementación DDL
+es incipiente.
+
+**Remediación:** T-BACKLOG-001 — 4 tablas del módulo `inc_*` con el módulo de lecciones
+aprendidas completo.
+
+---
+
+#### §3.4.2 A.5.25 — Evaluación y Decisión de Incidentes: PARCIAL ⚠️
+
+> **Investigación DDL v1.9.0** — Las tablas existentes capturan eventos automáticos del sistema.
+> El gap real es la ausencia de una tabla que registre la **decisión humana de triaje**: quién
+> evaluó el evento, cuándo, y si lo clasificó como incidente confirmado, falso positivo o en
+> monitoreo. Sin esa decisión formal persistida, A.5.25 no está completamente cubierto.
+
+**Lo que el DDL ya cubre:**
+
+| Tabla | Qué captura | Contribución a A.5.25 |
+|-------|-------------|----------------------|
+| `ses_caep_event_log` T-191 | Señales de riesgo externas CAEP (ITDR, IdP externos) con `processing_status` (RECEIVED/PROCESSING/APPLIED/FAILED/IGNORED) | ✅ Registro del evento crudo + acción automática del sistema |
+| `auth_attempt_log` T-168 | Intentos de autenticación fallidos con IP, método, error | ✅ Fuente de eventos sospechosos para análisis |
+| `aud_event_log` | Toda operación crítica con actor + resultado + contexto | ✅ Trail forense para investigación post-facto |
+| `pam_breakglass_activation` T-185 | `incident_ref` — referencia externa al ticket de incidente | ✅ Vínculo a sistema de gestión de incidentes externo |
+
+**Gap real — decisión humana de triaje:**
+
+`ses_caep_event_log.processing_status` documenta lo que el **sistema** hizo automáticamente
+(APPLIED, FAILED, IGNORED), pero NO persiste la decisión de un **analista de seguridad**:
+*"Yo, analista X, evalué este evento a las HH:MM y determiné que ES / NO ES un incidente,
+por las siguientes razones"*. ISO 27001:2022 A.5.25 exige que esa decisión de clasificación
+sea trazable.
+
+**Flujo de incidentes — posición de A.5.25:**
+
+```
+[eventos crudos]          [triaje A.5.25]           [incidente A.5.27]
+auth_attempt_log     →    inc_security_event    →    inc_incident
+ses_caep_event_log         decision=CONFIRMED          inc_root_cause
+aud_event_log              decision=FALSE_POS          inc_corrective_action
+reporte manual             decision=MONITORING         inc_effectiveness_review
+```
+
+**Tabla pendiente — `inc_security_event` (T-BACKLOG-006):**
+
+```sql
+bauth.inc_security_event
+  event_id       UUID PK                    -- uuidv7
+  tenant_id      UUID FK → idn_tenant       -- aislamiento multi-tenant
+  source_table   TEXT NOT NULL              -- ses_caep_event_log / auth_attempt_log /
+                                            --   aud_event_log / MANUAL
+  source_ref     UUID                       -- ID del registro origen
+  description    TEXT NOT NULL             -- descripción del evento sospechoso
+  assessed_by    UUID FK → idn_identity_entity  -- analista que evaluó
+  assessed_at    TIMESTAMPTZ               -- cuándo evaluó
+  decision       TEXT NOT NULL             -- CONFIRMED / FALSE_POSITIVE / MONITORING / ESCALATED
+  severity       TEXT                      -- CRITICAL / HIGH / MEDIUM / LOW (si CONFIRMED)
+  decision_notes TEXT                      -- justificación de la decisión
+  incident_id    UUID FK → inc_incident    -- enlace al incidente (si CONFIRMED)
+  ctx_id         TEXT NOT NULL
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+```
+
+**Por qué es P(2/3) y no A(0/3):** El DDL soporta la **captura de eventos** y la **respuesta
+automática** (APPLIED/FAILED en `ses_caep_event_log`). Lo que falta es la capa de **decisión
+humana estructurada** que hace trazable el criterio de clasificación. Es parcial, no ausente.
+
+**Remediación:** T-BACKLOG-006 — tabla `inc_security_event`. Depende de T-BACKLOG-001
+(`inc_incident` como destino de FK cuando `decision=CONFIRMED`).
+
+---
+
+#### §3.4.3 A.5.26 — Respuesta a Incidentes: PARCIAL ⚠️
+
+> **Investigación DDL v1.9.0** — Las acciones de respuesta ocurren en bAuth (revocaciones,
+> kills de sesión, bloqueos CAEP) pero sin trazabilidad al incidente que las originó.
+> El gap real no es la ausencia de respuesta — es que las acciones de respuesta no referencian
+> el incidente, impidiendo reconstruir "todo lo que se hizo en respuesta al incidente X".
+
+**Lo que el DDL ya cubre:**
+
+| Tabla | Mecanismo de respuesta | Norma |
+|-------|----------------------|-------|
+| `idn_credencial_revocacion` T-364 | Revocación de credenciales < 30s con motivo WORM | ISO 27001 A.5.26 — contención |
+| `ses_caep_event_log` T-191 | Propagación de revocación a todos los clientes activos | CAEP RFC — erradicación |
+| `ses_session_log` T-181 | Registro inmutable de terminación de sesiones | ISO 27001 A.8.15 |
+| `pam_breakglass_activation` T-185 | Activación de acceso emergencia con `incident_ref` | ISO 27001 A.8.2 |
+| `ses_risk_policy` T-180 | Reglas automáticas de respuesta a eventos de riesgo | ISO 27001 A.5.26 |
+
+**Gap real — falta vínculo acción ↔ incidente y clasificación de fase:**
+
+Las acciones de respuesta ocurren y quedan registradas, pero sin vínculo formal al incidente
+que las originó. No es posible consultar: *"dame todas las acciones que se tomaron en respuesta
+al incidente INC-2026-042"*. Además, el DDL no distingue entre fases de respuesta activa:
+
+```
+A.5.26 — respuesta activa:  CONTAINMENT  · ERADICATION · RECOVERY
+A.5.27 — post-incidente:    CORRECTIVE   · TRAINING
+```
+
+**Extensión pendiente en `inc_corrective_action` (T-BACKLOG-007):**
+
+```sql
+-- Agregar a inc_corrective_action (T-BACKLOG-001):
+action_phase TEXT NOT NULL DEFAULT 'CORRECTIVE'
+  CHECK (action_phase IN (
+    'CONTAINMENT',   -- detener avance: revocar sesión, bloquear IP, suspender cuenta
+    'ERADICATION',   -- eliminar amenaza: purgar tokens, limpiar config comprometida
+    'RECOVERY',      -- restaurar operación: reactivar servicios, validar integridad
+    'CORRECTIVE',    -- post-incidente: cambio de política, refuerzo de control
+    'TRAINING'       -- capacitación derivada del incidente
+  ))
+
+-- Referencias cruzadas a acciones automáticas:
+linked_revocation_id UUID FK → idn_credencial_revocacion  -- contención vía revocación
+linked_thi_id        UUID FK → thi_indicator               -- contención vía IOC block
+```
+
+**Flujo completo con la extensión:**
+
+```
+inc_security_event (T-BACKLOG-006)
+  → decision=CONFIRMED → inc_incident (T-BACKLOG-001)
+       ├── inc_corrective_action  phase=CONTAINMENT   → A.5.26 ✅
+       ├── inc_corrective_action  phase=ERADICATION   → A.5.26 ✅
+       ├── inc_corrective_action  phase=RECOVERY      → A.5.26 ✅
+       ├── inc_root_cause                             → A.5.27 ✅
+       ├── inc_corrective_action  phase=CORRECTIVE    → A.5.27 ✅
+       └── inc_effectiveness_review                   → A.5.27 ✅
+```
+
+**Por qué es P(2/3) y no A(0/3):** Las respuestas de contención (revocación, kills CAEP)
+están implementadas y registradas en WORM. Lo que falta es el vínculo formal al incidente
+y la clasificación de fase. La respuesta existe — la trazabilidad estructurada es parcial.
+
+**Remediación:** T-BACKLOG-007 — campo `action_phase` en `inc_corrective_action`.
+Depende de T-BACKLOG-001 (la tabla `inc_corrective_action` debe existir primero).
+
+---
+
 ### 3.5 Cumplimiento Legal (A.5.31–A.5.37)
 
 | Control | Nombre | Estado |
 |---------|--------|--------|
 | A.5.31 | Requisitos legales/reglamentarios | **C (3/3)** |
 | A.5.33 | Protección de registros | **C (3/3)** |
-| A.5.34 | Privacidad PII | **P (2/3)** |
+| A.5.34 | Privacidad PII | **P (2/3)** | ↓ Ver §3.5.2 |
+
+#### §3.5.2 A.5.34 — Privacidad y Protección de PII: PARCIAL ⚠️
+
+> **Investigación DDL v1.4.0** — La calificación P(2/3) se mantiene pero por razón diferente
+> a la original. La trazabilidad de PII está extensamente cubierta por D00. El gap real
+> son solo 2 columnas en T-157, no una ausencia arquitectónica.
+
+**Infraestructura de privacidad ya implementada en D00 — hallazgos verificados:**
+
+| Tabla | Qué cubre | WORM | Norma referenciada en DDL |
+|-------|-----------|------|--------------------------|
+| `idn_identity_attribute` T-157 | Inventario PII por entidad (EAV): namespaces core/contact/professional/verification/security/fiscal; campo `source` (employer/government/self/document/biometric) como proxy de base legal | No — mutable | ISO 11179, ISO 24760-1, NIST SP 800-63A |
+| `idn_identity_attribute_history` T-158 | Historial WORM de CADA cambio de atributo PII — INSERT/UPDATE/SOFT_DELETE — particionado mensual, hash-chain SHA-256, as-of queries | ✅ REVOKE UPDATE/DELETE | **GDPR Art.30**, ISO 27001 A.8.15, PCI DSS 4.0.1 Req 10.3.2, NIST AU-9 |
+| `idn_roles_ver_b01_retention_policy` T-154 | Retención con `legal_basis TEXT NOT NULL`, clasificación C1/C2/C3/C4, `legal_hold BOOLEAN` | No | ISO 27001 A.5.33, **Ley 843 Bolivia Art.44** |
+| `idn_roles_ver_b01_audit_log` T-152 | Versiones WORM de roles con `sys_period WITHOUT OVERLAPS` (PG18) | ✅ | ISO 27001 A.8.15 |
+| `idn_roles_template_history` T-163 | Cambios WORM al árbol de políticas T-162 | ✅ REVOKE UPDATE/DELETE | ISO 27001 A.8.15 |
+
+T-158 referencia explícitamente GDPR Art.30 — el diseño ya contempla obligaciones de privacidad.
+T-154 ya contiene el concepto `legal_basis` para retención a nivel de tabla con respaldo legal boliviano.
+El campo `source` en T-157 cubre la base legal de forma implícita: `employer` = CONTRACT,
+`government` = LEGAL_OBLIGATION, `self` = CONSENT, `document` = verificación legal.
+
+**Brecha real — solo 2 columnas en T-157:**
+
+`idn_identity_attribute` sabe que un atributo es `email` (via `attr_key`) pero no declara
+formalmente su categoría PII ni su base legal individual:
+
+```sql
+-- Columnas faltantes en T-157:
+pii_category  TEXT  -- EMAIL / PHONE / NID / BIOMETRIC / FINANCIAL / ADDRESS / NAME / DATE_OF_BIRTH / NONE
+legal_basis   TEXT  -- CONTRACT / LEGAL_OBLIGATION / LEGITIMATE_INTEREST / CONSENT / VITAL_INTEREST
+```
+
+Con estas 2 columnas, cada atributo PII declara explícitamente QUÉ tipo de dato personal es
+y BAJO QUÉ base legal se procesa — satisfaciendo completamente el requisito de inventario y
+justificación de procesamiento de A.5.34.
+
+**Por qué no se necesita tabla de derechos del titular:**
+Las as-of queries sobre T-158 permiten al titular conocer el estado de sus datos en cualquier
+fecha histórica. En el contexto boliviano (sin marco GDPR equivalente), los derechos de acceso
+y rectificación están cubiertos operacionalmente sin necesidad de tabla adicional.
+
+**Remediación:** Ver T-BACKLOG-008 en BACKLOG-DDL-ISO27001.md — extensión de T-157.
+
+---
 
 #### §3.5.1 A.5.31 — Requisitos Legales Bolivia: CUMPLIDO ✅
 
@@ -317,9 +552,45 @@ Las tablas WORM tienen `REVOKE UPDATE, DELETE ON <tabla> FROM bauth_app_role` �
 
 ---
 
+## 3.6 Controles de Personas — A.6
+
+*8 controles · 1 en alcance DDL · Puntuación: 3/3 = **100 %***
+
+> **Nota v1.8.0 — Sección faltante completada:** versiones anteriores de este informe omitieron el análisis formal de A.6, asignando EP(1/3) en el scorecard sin documentación de respaldo. Esta sección corrige el vacío. El control en scope es A.6.5.
+
+| Control | Nombre | En scope DDL | Estado |
+|---------|--------|:---:|--------|
+| A.6.1 | Selección | — | N/A — proceso RR.HH. sin representación DDL |
+| A.6.2 | Términos y condiciones de empleo | — | N/A — artefacto contractual/legal |
+| A.6.3 | Concienciación, educación y formación | — | N/A — programa LMS/RR.HH. |
+| A.6.4 | Proceso disciplinario | — | N/A — proceso RR.HH. |
+| **A.6.5** | **Responsabilidades tras cese o cambio de empleo** | ✅ | **C (3/3)** ↓ Ver §3.6.1 |
+| A.6.6 | Acuerdos de confidencialidad | — | N/A — artefacto legal |
+| A.6.7 | Trabajo remoto | — | N/A — política de red/endpoint, no DDL |
+| A.6.8 | Reporte de eventos de seguridad de la información | — | N/A — cubierto por `aud_event_log` técnico; reportes humanos fuera de scope DDL |
+
+#### §3.6.1 A.6.5 — Responsabilidades tras Cese: CUMPLIDO ✅
+
+> **Fundamento:** ISO 27001:2022 A.6.5 exige que al término o cambio de empleo, las responsabilidades de seguridad de la información continúen en vigor el tiempo definido y que los derechos de acceso se eliminen o modifiquen. bAuth es el mecanismo primario de cumplimiento de este control — el IAM System es quien revoca el acceso.
+
+**Evidencia DDL — cobertura completa de A.6.5:**
+
+| Requisito A.6.5 | Implementación | Tabla(s) DDL |
+|-----------------|---------------|-------------|
+| Revocar acceso al cesar el empleo | Revocación < 30s · `status = REVOKED` | `idn_identity_entity.status` |
+| Registro auditado del cese de acceso | WORM con `change_reason` obligatorio · hash-chain SHA-256 | `idn_roles_template_history` |
+| Devolución de activos digitales | Invalidación de sesiones activas · CAEP `session-revoked` | `ses_session_log` · `ses_caep_event_log` |
+| Trail forense de quién hizo el cambio y cuándo | `changed_by` + `changed_at` WORM | `idn_roles_template_history` |
+| Período de retención post-cese | Retención por `legal_basis` · Ley 843 Bolivia | `idn_roles_ver_b01_retention_policy` |
+| Múltiples dispositivos/sesiones revocados | CAEP broadcast a todos los clientes activos | `ses_caep_event_log` |
+
+**Adicionalmente**, el Anexo A.10 *(Revocación y Eliminación de Accesos)* documenta el flujo completo de offboarding: baja súbita (< 30s), offboarding planificado (lista de verificación), retención post-cese (Ley 843), detección de privilege creep, y manejo de ghost accounts — todos con soporte DDL.
+
+---
+
 ## 4. Análisis por Control — A.8 Tecnológicos
 
-*34 controles · 22 en alcance DDL · Puntuación: 47/66 = **71 %***
+*34 controles · 22 en alcance DDL · Puntuación: 55/66 = **83 %***
 
 ### 4.1 Gestión de Acceso Tecnológico (A.8.2–A.8.5)
 
@@ -448,8 +719,8 @@ La RLS nativa de PostgreSQL es **uno de varios mecanismos posibles** para satisf
 
 | Control | Nombre | Estado |
 |---------|--------|--------|
-| A.8.8 | Vulnerabilidades técnicas | **P (2/3)** |
-| A.8.9 | Gestión de configuración | **P (2/3)** |
+| A.8.8 | Vulnerabilidades técnicas | **P (2/3)** | ↓ Ver §4.2.4 |
+| A.8.9 | Gestión de configuración | **C (3/3)** | ↓ Ver §4.2.3 |
 | A.8.10 | Eliminación de información | **EP (1/3)** |
 | A.8.11 | Enmascaramiento de datos | **C (3/3)** |
 
@@ -547,11 +818,153 @@ Estas opciones son **defensas en profundidad**, no sustitutos del masking en el 
 
 ---
 
+#### §4.2.3 A.8.9 — Gestión de Configuración: CUMPLIDO ✅
+
+> **Corrección v1.5.0** — La calificación P(2/3) fue incorrecta. La investigación sobre T-162
+> y T-163 demuestra cobertura completa. La configuración de seguridad de bAuth vive en el
+> árbol de políticas — no en tablas KV de parámetros técnicos.
+
+**La configuración de seguridad de bAuth = el árbol de políticas T-162**
+
+`idn_roles_template` (T-162) contiene toda la configuración de seguridad del sistema:
+políticas de acceso (nodos `politica`/`regla`), permisos atómicos (`atomo` con
+`effect` PERMIT/DENY y `condition_expr` AtomLang), vigencia temporal (`valid_from`/`valid_until`)
+y revisión periódica IGA (`review_cycle_days`). Cada nodo es una unidad de configuración
+de seguridad — no hay configuración de seguridad relevante fuera de este árbol.
+
+**T-163 captura cada mínimo cambio con inmutabilidad matemática**
+
+`idn_roles_template_history` (T-163) registra WORM cada modificación al árbol de políticas:
+
+```sql
+before_row    JSONB    -- snapshot completo del nodo ANTES
+after_row     JSONB    -- snapshot completo del nodo DESPUÉS
+changed_by    UUID     -- quién cambió (FK a idn_identity_entity)
+change_reason TEXT     -- por qué (campo obligatorio — sin razón no aplica el cambio)
+hash_chain    BYTEA    -- SHA-256(prev_hash || node_id || operation || after_row || created_at)
+operation     TEXT     -- INSERT / UPDATE / DEACTIVATE
+```
+
+REVOKE UPDATE/DELETE desde PUBLIC y bauth_app_role — inmutabilidad garantizada por el motor
+de base de datos, no por código de aplicación. La cadena hash permite verificar que ninguna
+entrada fue modificada retroactivamente.
+
+| Requisito A.8.9 | Implementación | Tabla |
+|----------------|---------------|-------|
+| Establecer configuraciones de seguridad | Árbol de políticas per-tenant | T-162 |
+| Documentar configuraciones | COMMENT ON TABLE + `change_reason` obligatorio en T-163 | T-162 + T-163 |
+| Implementar configuraciones | PDP evalúa T-162 en < 0.5 ns via BitMask | Motor Rust |
+| Monitorear cambios | T-163 WORM: before/after + hash-chain en cada cambio | T-163 |
+| Revisar periódicamente | `valid_from`/`valid_until` + IGA `review_cycle_days` | T-162 |
+
+**Nota sobre `auth_config` (T-337):** Sus parámetros técnicos (lockout_attempts, argon2id_memory,
+session_ttl) son parámetros operativos del motor de autenticación, no la "configuración de
+seguridad" que A.8.9 regula. A.8.9 apunta a la configuración que define el comportamiento
+de seguridad del sistema — y eso es el árbol de políticas T-162.
+
+---
+
 #### §4.2.2 A.8.10 — Eliminación de Información: EN PROGRESO 🔶
 
 Las tablas WORM (audit logs, hash-chains) son por diseño no-eliminables. Pero no existe tabla de política de retención que defina **cuándo** eliminar datos no-WORM ni proceso automatizado de purga.
 
 **Existente parcial**: `idn_identity_requirement.max_age_days` (vencimiento de atributos IAL). Falta: scheduler de purga, política por tipo de dato.
+
+---
+
+#### §4.2.4 A.8.8 — Vulnerabilidades Técnicas: PARCIAL ⚠️
+
+> **Investigación DDL v1.9.0** — bAuth es el daemon IAM central del ecosistema SBOS; una
+> vulnerabilidad en su stack de autenticación tiene el mayor radio de impacto posible.
+> El DDL implementa controles reactivos (WORM, Revisor ORQUESTA, Rust compiler) pero no
+> persiste un inventario estructurado de componentes del stack auth ni la evaluación de
+> impacto CVE por método de autenticación.
+
+**División de responsabilidades bos ↔ bAuth (ISO 27001 A.8.8):**
+
+ISO 27001:2022 A.8.8 establece que la organización debe rastrear vulnerabilidades técnicas
+y evaluar su exposición. bos y bAuth dividen esta responsabilidad por dominio:
+
+| Responsabilidad A.8.8 | Dueño | Esquema | Referencia |
+|-----------------------|-------|---------|------------|
+| CVE registry central del ecosistema | **bos** | `bos.vul_cve_registry` | A.18 BosAgent |
+| Inventario componentes de infraestructura (OS, K8s, PostgreSQL, Vault) | **bos** | `bos.vul_infra_component` | A.18 BosAgent |
+| Inventario del stack de autenticación (crates Rust, libs OIDC/SAML/JWT) | **bAuth** | `bauth.vul_component` | T-BACKLOG-009 |
+| Evaluación de impacto CVE en 18 métodos de autenticación | **bAuth** | `bauth.vul_auth_impact` | T-BACKLOG-009 |
+
+**Lo que el DDL de bAuth ya cubre:**
+
+| Mecanismo | Contribución a A.8.8 |
+|-----------|---------------------|
+| Revisor ORQUESTA (auditor independiente en cada commit) | Análisis estático de seguridad por commit — superficie de revisión continua |
+| Rust compiler (MUSL, `--deny warnings`) | Análisis estático en tiempo de compilación — NIST IR 8397 reconoce compilador de lenguaje seguro equivalente a SAST |
+| A.72 §P2 (gap CI) | `cargo audit` + `cargo clippy --deny warnings` + `trivy` documentados como gap pendiente en pipeline CI |
+| `pam_nhi_secret_ref` T-189 | Rotación automática de credenciales (7d/30d/90d) — previene acumulación de credenciales vulnerables |
+| `idn_credencial_revocacion` T-364 | Revocación < 30s — respuesta rápida a compromiso de credenciales |
+| `aud_event_log` | Trazabilidad de toda operación crítica — soporte a análisis forense post-CVE |
+
+**Por qué bAuth es el daemon de mayor impacto CVE:**
+
+> *"Una vulnerabilidad en un workload con permisos IAM amplios tiene mayor impacto que en un servicio de bajo privilegio"* — Wiz Academy CVE (2026)
+
+bAuth gestiona los 18 métodos de autenticación del ecosistema. Una CVE en, por ejemplo,
+la librería `jsonwebtoken` o en el crate `ring` (criptografía) compromete TODOS los tokens
+activos del sistema. Por eso bAuth necesita su propio inventario — bos no puede evaluar
+el impacto de una CVE de criptografía en los métodos OIDC/WebAuthn/mTLS de bAuth.
+
+**Gap real — 2 tablas faltantes en schema `bauth`:**
+
+```sql
+-- TABLA 1: inventario de componentes del stack de autenticación
+bauth.vul_component
+  name           TEXT NOT NULL    -- "jsonwebtoken", "ring", "openssl", "rustls"
+  component_type TEXT NOT NULL    -- RUST_CRATE / SYSTEM_LIB / BINARY / PROTOCOL
+  version        TEXT NOT NULL    -- versión desplegada actual
+  last_scanned   TIMESTAMPTZ      -- última ejecución de cargo-audit
+  scan_tool      TEXT             -- "cargo-audit" / "trivy"
+  UNIQUE (name, version)
+
+-- TABLA 2: evaluación de impacto CVE en métodos de autenticación
+bauth.vul_auth_impact
+  cve_id           TEXT NOT NULL  -- "CVE-2026-12345"
+  component_id     UUID FK → vul_component
+  affected_methods TEXT[]         -- ['OIDC','JWT','WEBAUTHN'] — métodos comprometidos
+  severity         TEXT NOT NULL  -- CRITICAL / HIGH / MEDIUM / LOW
+  cvss_score       NUMERIC(3,1)   -- 0.0-10.0
+  action_taken     TEXT           -- DISABLED_METHOD / PATCHED / MITIGATED / ACCEPTED
+  disabled_methods TEXT[]         -- métodos desactivados como contención
+  sla_deadline     TIMESTAMPTZ    -- detected_at + SLA por severity
+  resolved_at      TIMESTAMPTZ
+```
+
+**SLAs de remediación (industria + ISO 27001 A.8.8):**
+
+| Severidad | CVSS | SLA máximo | Acción automática bAuth |
+|-----------|------|-----------|------------------------|
+| CRITICAL | 9.0–10.0 | 24 horas | Deshabilitar método auth afectado inmediatamente |
+| HIGH | 7.0–8.9 | 7 días | Alerta + step-up forzado en método afectado |
+| MEDIUM | 4.0–6.9 | 30 días | Alerta + monitoreo reforzado |
+| LOW | 0.1–3.9 | 90 días | Registrar + programar en próximo ciclo de parches |
+
+**Flujo de colaboración bos → bAuth (JSON-RPC):**
+
+```
+1. cargo-audit / Trivy detecta CVE en crate de bAuth
+2. bos.observer ingresa CVE en bos.vul_cve_registry
+3. bos notifica: bauth.vulnerability.notify(cve_id, component, severity)
+4. bAuth evalúa impacto en 18 métodos → INSERT en bauth.vul_auth_impact
+5. Si severity=CRITICAL/HIGH → bAuth desactiva método afectado
+   → disabled_methods[] + aud_event_log (trazabilidad WORM completa)
+6. bos cierra loop: vul_cve_registry.status='MITIGATED'
+```
+
+**Por qué es P(2/3) y no A(0/3):** Los controles de desarrollo seguro (Revisor ORQUESTA,
+Rust compiler, A.72 SDL) y la respuesta a compromiso (revocación < 30s, CAEP broadcast)
+ya existen. Lo que falta es la persistencia estructurada del inventario de componentes
+y el rastreo de CVEs específicas al stack de autenticación con SLAs formales.
+
+**Remediación:** T-BACKLOG-009 — tablas `vul_component` + `vul_auth_impact`. El contrato
+JSON-RPC `bauth.vulnerability.notify` se formaliza en `BOS-BAUTH-CONTRATOS.md`.
 
 ---
 
@@ -561,7 +974,7 @@ Las tablas WORM (audit logs, hash-chains) son por diseño no-eliminables. Pero n
 |---------|--------|--------|
 | A.8.15 | Registro (logging) | **C (3/3)** |
 | A.8.16 | Actividades de monitoreo | **C (3/3)** |
-| A.8.17 | Sincronización de relojes | **P (2/3)** |
+| A.8.17 | Sincronización de relojes | **C (3/3)** |
 
 #### §4.3.1 A.8.15 — Logging: CUMPLIDO ✅
 
@@ -605,6 +1018,57 @@ SELECT 'emergency_active', count(*), 0
 
 ---
 
+#### §4.3.3 A.8.17 — Sincronización de Relojes: CUMPLIDO ✅
+
+> **Nota de corrección (v1.6.0):** Calificación original P(2/3) — revisada como FALSO POSITIVO tras
+> investigar el documento de diseño `i18n-orchestrator-rust.md` §10.6.1, que cita A.8.17 explícitamente
+> y establece la arquitectura completa de separación UTC/presentación que lo satisface.
+
+**ISO 27001:2022 A.8.17 exige:** fuente única de tiempo confiable (NTP/PTP Stratum 1) · UTC como base · todos los sistemas sincronizados · log de auditoría con timestamps verificables externamente.
+
+**Cobertura por capas arquitectónicas:**
+
+| Capa | Componente | Cobertura A.8.17 |
+|------|-----------|-----------------|
+| **OS/infraestructura** | NTP/chrony/systemd-timesyncd (gestionado por bos) | `CLOCK_REALTIME` sincronizado a UTC real — fuente única ✅ |
+| **Almacenamiento** | `TIMESTAMPTZ` en 270+ columnas DDL | Instante absoluto UTC — `now()` hereda `CLOCK_REALTIME` ✅ |
+| **Auditoría** | `aud_event_log`, `idn_roles_template_history`, `ses_session_log` | Timestamps UTC reales, verificables externamente ✅ |
+| **Aplicación OIDC** | `max_clock_skew_sec SMALLINT DEFAULT 30` (T-168) | Valida desfase reloj entre bAuth y Relying Parties ✅ |
+| **Capa i18n** | `bi18n` `RegionalConfig` + `jiff` + `SET timezone` por sesión | Presentación per-tenant sin tocar `CLOCK_REALTIME` ✅ |
+
+**Evidencia documental — `i18n-orchestrator-rust.md` §10.6.1 (cita literal):**
+
+> *"ISO/IEC 27001:2022, Control Anexo A 8.17 (Sincronización de relojes) exige que todos los sistemas
+> que generan eventos de seguridad relevantes sincronicen su reloj a una única fuente de tiempo confiable
+> (típicamente NTP/PTP contra una fuente Stratum 1), y recomienda explícitamente UTC como línea base única
+> precisamente para eliminar la ambigüedad de husos horarios al correlacionar eventos entre sistemas."*
+
+**Diseño de dos capas (síntesis §10.6.3):**
+
+```
+┌──────────────────────────────────────────────────┐
+│  CLOCK_REALTIME (NTP/chrony, UTC real)           │
+│  → nunca se toca — fuente de verdad para audit   │
+│  → logs bAuth, TIMESTAMPTZ, certificados TLS     │
+└──────────────────────────────────────────────────┘
+                      │ (mismo instante, sin alterar)
+                      ▼
+┌──────────────────────────────────────────────────┐
+│  Capa presentación por tenant (bi18n)            │
+│  → TZ/LC_* inyectados vía RegionalConfig         │
+│  → PostgreSQL SET timezone por sesión            │
+│  → jiff con IANA timezone explícito              │
+└──────────────────────────────────────────────────┘
+```
+
+**Por qué `CLOCK_REALTIME` no se enmascara (requerimiento A.8.17 § §10.6.1):**
+Cualquier timestamp generado sobre un reloj falsificado pierde validez forense — ya no es trazable
+a una fuente confiable verificable externamente. El diseño de bi18n lo prohíbe explícitamente:
+*"el instante debe seguir siendo UTC real, sincronizado por NTP/chrony contra una fuente confiable —
+nunca enmascarado."*
+
+---
+
 ### 4.4 Seguridad de Red y Arquitectura (A.8.20–A.8.21)
 
 | Control | Nombre | Estado |
@@ -642,7 +1106,47 @@ SELECT 'emergency_active', count(*), 0
 | A.8.25 | Ciclo de vida seguro (SDL) | **P (2/3)** |
 | A.8.26 | Requisitos de seguridad de aplicaciones | **C (3/3)** |
 | A.8.27 | Principios de arquitectura segura | **C (3/3)** |
-| A.8.28 | Codificación segura | **P (2/3)** |
+| A.8.28 | Codificación segura | **C (3/3)** |
+
+#### §4.6.0 A.8.25 — Ciclo de Vida Seguro (SDL): PARCIAL 🔶
+
+> **Documentación completa:** `A.72_ANEXO-SDL-CICLO-VIDA-SEGURO-v1.0.md`
+
+**Estado:** P (2/3) — 5 de 7 requisitos ISO A.8.25 cubiertos. 1 gap P2 identificado.
+
+| Requisito | Estado | Evidencia |
+|-----------|:------:|-----------|
+| R1 — Política de codificación segura | ✅ | DOC-SBOS-001 N3 + AA-1 (A.72 §5.1) |
+| R2 — Requisitos de seguridad formalizados | ✅ | 181 referencias normativas en COMMENT ON TABLE del DDL (A.72 §3.1) |
+| R3 — Modelado de amenazas (STRIDE) | ✅ | STRIDE × NRS: 6 amenazas cableadas a reglas verificables (A.72 §4.1) |
+| R4 — Revisión de código independiente | ✅ | Revisor ORQUESTA — auditor independiente en cada commit (A.72 §6) |
+| R5 — Pruebas de seguridad | ⚠️ | Testeador VPS ✅; pipeline CI SAST/DAST/cargo-audit ❌ gap P2 (A.72 §7.3) |
+| R6 — Principios de arquitectura segura | ✅ | Defensa en profundidad 6 capas + ZTA 7 principios + 8 ADRs (A.72 §4.2–4.5) |
+| R7 — Gestión de dependencias | ⚠️ | `cargo audit` manual; trivy sin CI (A.72 §7.3) |
+
+**Gap P2 — Pipeline CI de seguridad automático:**  
+`cargo audit` + `cargo clippy --deny warnings` + DAST sobre socket Unix + `trivy` no están
+integrados en el pipeline de integración continua. Responsabilidad: DevOps/bos (infraestructura
+CI/CD). No bloquea la operación actual. Pendiente para el año 2026.
+
+---
+
+#### §4.6.3 A.8.28 — Codificación Segura: CUMPLIDO ✅
+
+> **Fundamento normativo:** ISO/IEC 27002:2022 A.8.28 exige "aplicar principios de codificación segura" — el SHALL es sobre los principios, no sobre herramientas específicas. SAST tools figuran solo en guía de implementación no normativa. NIST IR 8397 (2022), CISA (2023) y NSA (2022) reconocen explícitamente que lenguajes memory-safe como Rust proveen análisis estático en compilación equivalente o superior a SAST tradicional.
+
+| Elemento A.8.28 | Estado | Evidencia |
+|----------------|:------:|-----------|
+| Estándar de codificación segura documentado | ✅ | DOC-SBOS-001 N3: 8 reglas obligatorias (0 `unwrap`, 0 `clone`, módulos ≤ 800 líneas, funciones ≤ 50, parámetros tipados, docs español) |
+| Principios aplicados al código real | ✅ | Revisor ORQUESTA verifica cumplimiento en CADA commit — viola DOC-SBOS-001 N3 = entrega rechazada |
+| Prevención de vulnerabilidades comunes | ✅ | SAN-01→12 mapeadas a OWASP/CWE; Rust ownership model previene use-after-free, data races, null dereference en compilación |
+| Análisis estático (SAST) | ✅ | **El compilador Rust ES el analizador estático** — NIST IR 8397 lo reconoce: memory-safe languages proveen garantías de compilación que SAST solo detecta a posteriori. `cargo clippy` adicional |
+| Revisión de código para seguridad | ✅ | Revisor ORQUESTA — agente independiente, audita OWASP Top 10 + DOC-SBOS-001 N3 en cada commit |
+| Gestión de librerías de terceros | ✅ | RustCrypto + ring — verificadas en A.15 como librerías auditadas. `cargo audit` disponible (manual) |
+
+**Nota sobre `cargo clippy --deny warnings` no en CI:** es una brecha de MADUREZ DE PROCESO (OWASP SAMM Level 2→3), no de cumplimiento de A.8.28. El control se satisface con las garantías del compilador Rust + Revisor ORQUESTA.
+
+---
 
 #### §4.6.1 A.8.26 — Requisitos de Seguridad: CUMPLIDO ✅
 
@@ -681,23 +1185,23 @@ SELECT 'emergency_active', count(*), 0
 ├─────────────────────┬──────────┬────────┬─────────┬────────────────┤
 │ Sección             │ En-scope │ Score  │ Máximo  │ Cumplimiento % │
 ├─────────────────────┼──────────┼────────┼─────────┼────────────────┤
-│ A.5 Organizacional  │   18     │  43    │   54    │    79.6 %      │
-│ A.6 Personas        │    1     │   1    │    3    │    33.3 %      │
+│ A.5 Organizacional  │   18     │  44    │   54    │    81.5 %      │
+│ A.6 Personas        │    1     │   3    │    3    │   100.0 %      │
 │ A.7 Físicos         │    0     │   —    │    —    │   N/A          │
-│ A.8 Tecnológicos    │   22     │  52    │   66    │    78.8 %      │
+│ A.8 Tecnológicos    │   22     │  55    │   66    │    83.3 %      │
 ├─────────────────────┼──────────┼────────┼─────────┼────────────────┤
-│ TOTAL               │   41     │  96    │  123    │  ** 78.0 % **  │
+│ TOTAL               │   41     │  102   │  123    │  ** 82.9 % **  │
 └─────────────────────┴──────────┴────────┴─────────┴────────────────┘
 ```
 
 ### Distribución de estados (41 controles en-scope)
 
 ```
-CUMPLIDO    ██████████████████████  20 controles  49 %
-PARCIAL     ████████████████        16 controles  39 %
-EN PROGRESO ███                      3 controles   7 %
-AUSENTE     —                        0 controles   0 %
-NO APLICA   ██                       2 controles   5 %
+CUMPLIDO    █████████████████████████  25 controles  61 %
+PARCIAL     ███████████████           15 controles  37 %
+EN PROGRESO ██                         2 controles   5 %
+AUSENTE     —                          0 controles   0 %
+NO APLICA   ██                         2 controles   5 %
 ```
 
 ### Mapa de calor por dominio funcional

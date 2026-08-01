@@ -2613,18 +2613,39 @@ bos.wdg_watchdog_event (T-411) 🔒  ← Watchdog 3 capas: host|k8s|fichas
 
 ## S20 — Biblioteca de Referencia (bauth)
 
-**NIVEL 21 · Tabla:** T-999  
-**Archivo:** `SBOS_db_V2_DDL.sql` (incluida en el unificado)  
-**Propósito:** Biblioteca unificada de políticas, reglas, configuraciones y métodos de autenticación. **SOLO LECTURA — sin lógica de negocio.** Fuente de referencia para el dashboard, el PDP y los compiladores AtomLang.
+**NIVEL 21 · Tablas:** T-999 · T-999b · T-999c  
+**Archivo:** `SBOS_db_V2_DDL.sql`
+
+> ⚠️ **LIBRERÍA DE REFERENCIA DOCUMENTAL — NO FUNCIONAL EN RUNTIME.**  
+> Estas tablas **no participan en ningún flujo operacional de bAuth**: no intervienen en
+> autenticación, evaluación de acceso, emisión de tokens ni ningún proceso del motor de
+> identidad. Son datos de consulta estáticos que viven en SBOSDB como referencia.
+
+**Consumidores válidos:**
+- **Dashboard** — UI renderiza formularios, etiquetas y contexto normativo sin hardcodear texto
+- **Agentes IA** — contexto normativo para búsqueda semántica (qex)
+- **Programadores** — referencia durante el desarrollo de dominios y átomos
+
+**NO consultar desde:** el motor de autenticación, el PDP, el PrivilegeEngine ni ningún componente de evaluación en runtime.
 
 ### T-999 — bauth.cfg_policy_library
 
-**Estructura jerárquica:** `section → group → policy → config` con CTE recursivo desde `framework_raw`.  
+**Propósito:** Árbol normalizado de las 16 fuentes normativas para consulta.  
+**Estructura jerárquica:** `section → group → policy → config` con CTE recursivo desde `framework_raw` (T-999b).  
 **16 fuentes normativas:** NIST SP 800-63B-4, FIDO2 CTAP 2.2, NIST PQC 2025, OAuth 2.1, Zero Trust NSA 2026, ISO 27001:2022, Industry Enterprise, PCI DSS 4.0, D3 Financiero, D4 Temporal, D6 Geo, D10 Delegación, CIS K8s 1.8, AWS IAM, SOC2 Type II.  
 **13 dominios:** D1-D12 + SEC.  
-**29 columnas** de clasificación: `node_type`, `semantic_type`, `domain_map`, `source`, `standard_ref`, `compliance_ref`, `enforcement`, `risk_level`, `lifecycle`, `assurance_level`, `auth_factor`, `phishing_resistant`, `mfa_required`.  
+**29 columnas:** `node_type`, `semantic_type`, `domain_map`, `source`, `standard_ref`, `compliance_ref`, `enforcement`, `risk_level`, `lifecycle`, `assurance_level`, `auth_factor`, `phishing_resistant`, `mfa_required`.  
 **Contenido multilingüe:** `content` (original), `content_en` (inglés), `content_es` (español vía `translate_keys_en_es()`).  
-**REVOKE UPDATE/DELETE** — tabla de referencia inmutable en runtime.
+**REVOKE UPDATE/DELETE** — inmutable en runtime.  
+**Seed:** `DDLs/seeds/bauth_T999__cfg_policy_library.sql` — cargado por `inicializar_sbos_db.sh`.
+
+### T-999b — bauth.framework_raw
+
+**Propósito:** Staging de los 16 JSON normativos crudos sin transformar. Permite re-procesar T-999 actualizando solo las fuentes que cambiaron.
+
+### T-999c — bauth.cfg_key_translation
+
+**Propósito:** Diccionario de ~221 términos IAM inglés→español. Alimenta la función `translate_keys_en_es()` que genera `content_es` en T-999.
 
 ---
 
