@@ -1,22 +1,68 @@
-# A.65.04 — Inventario de Menús Contextuales (MC)
+# A.65.04 — Inventario de Menús Contextuales (MC-0001..MC-0319)
 
-**Versión:** 1.0.0  **Fecha:** 2026-08-01  **Estado:** GENERADO — 319 menús (58 ENUMs formales + 261 CHECKs implícitos)
+**Versión:** 1.1.0 · **Fecha:** 2026-08-01 · **Estado:** VERIFICADO — 319 menús contextuales
 
-## Propósito
+---
 
-Inventario de todos los menús contextuales registrados en `bglobal.menu_context`.
-Análogo al A.65.02 (tablas DDL) pero para el catálogo de opciones de UI.
-Permite corregir o actualizar un menú conociendo su código **MC-XXXX** y trazarlo
-hasta la tabla y columna que le da origen en el DDL.
+## Concepto y propósito
 
-## Convenciones
+### ¿Qué es un menú contextual en SBOS?
 
-- **MC-XXXX**: código único de menú contextual (4 dígitos, secuencial).
-- **code**: valor del campo `menu_context.code` — identificador semántico legible.
-- **T-XXX**: código de tabla origen según A.65.02. `—` = tabla sin código asignado aún.
-- **Origen**: `schema.tabla.columna` que define los valores válidos.
-- **Tipo**: `ENUM` = `CREATE TYPE ... AS ENUM` · `CHECK` = `CHECK (col = ANY(ARRAY[...]))`.
-- Los valores de cada menú viven en `bglobal.menu_item` como hijos `depth=1`.
+En SBOS, un **menú contextual** (`menu_context`) es el catálogo de opciones válidas para un campo
+específico de la base de datos. Cuando una columna sólo acepta un conjunto cerrado de valores
+(por ejemplo `status` sólo puede ser `ACTIVE` o `INACTIVE`), ese conjunto se registra como un
+menú contextual con su lista de ítems (`menu_item`).
+
+El menú contextual **no es un menú de navegación de la UI** — es una *tabla de referencia viva*
+que la interfaz, las APIs y las validaciones consultan para mostrar opciones, validar entrada y
+traducir valores técnicos a texto legible por dominio.
+
+### ¿Qué problema resuelve?
+
+Sin menús contextuales, cada componente que necesita mostrar opciones tiene que conocer
+internamente los valores válidos de cada campo. Eso produce:
+
+- **Código duplicado**: la lista `['ACTIVE', 'INACTIVE', 'SUSPENDED']` aparece en el backend,
+  el frontend, las validaciones y los tests — y divergen con el tiempo.
+- **Hardcoding**: los valores se escriben directamente en el código en lugar de consultarse.
+- **Imposibilidad de auditoría**: no hay registro central de "cuáles son los valores válidos
+  para este campo en producción".
+
+El menú contextual resuelve esto con **una fuente de verdad única** consultable por todas las
+capas del sistema.
+
+### ¿Cómo se usa?
+
+1. **La UI** consulta `bglobal.menu_context + menu_item` por `code` y obtiene la lista de opciones
+   con sus etiquetas en el idioma del usuario (`label jsonb`).
+2. **El backend** valida que el valor enviado existe como `menu_item` hijo del contexto correcto.
+3. **Los informes** muestran el nombre legible en lugar del código técnico.
+4. **Este documento** permite localizar cualquier menú por su código **MC-XXXX** y rastrear qué
+   tabla/columna y qué T-code del DDL le da origen.
+
+### Origen de los valores
+
+Los 319 menús provienen de dos fuentes distintas del DDL de SBOSDB:
+
+| Fuente | Cantidad | Cómo se cambian |
+|--------|----------|-----------------|
+| `CREATE TYPE ... AS ENUM` (PARTE A) | 58 | `ALTER TYPE ... ADD/RENAME VALUE` — inmutable en orden |
+| `CHECK (col = ANY(ARRAY[...]))` (PARTE B) | 261 | `ALTER TABLE ... DROP CONSTRAINT / ADD CONSTRAINT` |
+
+---
+
+## Convenciones de lectura
+
+| Campo | Significado |
+|-------|-------------|
+| **MC-XXXX** | Código único de menú contextual (4 dígitos, secuencial). Estable — no cambia aunque cambie el `code`. |
+| **code** | Valor del campo `menu_context.code` — identificador semántico legible. PARTE A: nombre descriptivo. PARTE B: `dominio.entidad.atributo` en español. |
+| **T-ref** | Código de tabla según A.65.02. Permite ir directo al DDL que define la columna origen. |
+| **Origen** | `schema.tabla.columna` cuya restricción de valores da vida a este menú. |
+| **Tipo pg / Constraint** | El artefacto PostgreSQL concreto que restringe los valores. |
+
+Los valores de cada menú viven en `bglobal.menu_item` como registros hijos (`depth=1`,
+`parent_id = menu_context.context_id`, `is_leaf = true`).
 
 ---
 
@@ -30,7 +76,7 @@ hasta la tabla y columna que le da origen en el DDL.
 
 | MC | code | T-ref | Origen (tabla.columna) | Tipo pg |
 |-----|------|-------|------------------------|---------|
-| **MC-0001** | `ver_canal` | T-041 | `bauth.idn_roles_rol_hierarchical.change_channel`<br>`bauth.idn_roles_ver_b01_audit_log.change_channel` | `ver_channel_enum` |
+| **MC-0001** | `ver_canal` | T-041 | `bauth.idn_roles_rol_hierarchical.change_channel`, `bauth.idn_roles_ver_b01_audit_log.change_channel` | `ver_channel_enum` |
 | **MC-0002** | `ver_compactacion` | T-154 | `bauth.idn_roles_ver_b01_retention_policy.compaction_policy` | `ver_compaction_enum` |
 | **MC-0003** | `ver_estado_propuesta` | T-153 | `bauth.idn_roles_ver_b03_approval_queue.status` | `ver_proposal_status_enum` |
 | **MC-0004** | `ver_tipo_cambio` | T-152 | `bauth.idn_roles_ver_b01_audit_log.change_type` | `ver_semver_change_enum` |
@@ -47,7 +93,7 @@ hasta la tabla y columna que le da origen en el DDL.
 | **MC-0010** | `tenant_estado` | T-005 | `bauth.idn_tenant.status` | `tenant_status_enum` |
 | **MC-0011** | `tenant_tipo` | T-005 | `bauth.idn_tenant.tenant_type` | `tenant_type_enum` |
 | **MC-0012** | `tenant_estado_provisionamiento` | T-005 | `bauth.idn_tenant.provisioning_status` | `provisioning_status_enum` |
-| **MC-0013** | `dominio_estado` | T-010 | `bauth.idn_tenant_domain.deploy_status`<br>`bauth.idn_tenant_domain.health_status` | `domain_status_enum` |
+| **MC-0013** | `dominio_estado` | T-010 | `bauth.idn_tenant_domain.deploy_status`, `bauth.idn_tenant_domain.health_status` | `domain_status_enum` |
 | **MC-0014** | `dominio_tipo` | T-010 | `bauth.idn_tenant_domain.domain_type` | `domain_type_enum` |
 | **MC-0015** | `red_tipo` | T-011 | `bauth.idn_tenant_network.network_type` | `network_type_enum` |
 
@@ -55,8 +101,8 @@ hasta la tabla y columna que le da origen en el DDL.
 
 | MC | code | T-ref | Origen (tabla.columna) | Tipo pg |
 |-----|------|-------|------------------------|---------|
-| **MC-0016** | `entidad_nivel` | T-156 | `bauth.idn_identity_entity.level`<br>`bauth.idn_identity_requirement.entity_type` | `entidad_nivel_enum` |
-| **MC-0017** | `nivel_ial` | T-156 | `bauth.idn_identity_entity.ial_min`<br>`bauth.idn_identity_proofing.ial_achieved` | `ial_level_enum` |
+| **MC-0016** | `entidad_nivel` | T-156 | `bauth.idn_identity_entity.level`, `bauth.idn_identity_requirement.entity_type` | `entidad_nivel_enum` |
+| **MC-0017** | `nivel_ial` | T-156 | `bauth.idn_identity_entity.ial_min`, `bauth.idn_identity_proofing.ial_achieved` | `ial_level_enum` |
 | **MC-0018** | `verificacion_estado` | T-008 | `bauth.idn_tenant_verification.status` | `verification_status_enum` |
 | **MC-0019** | `verificacion_paso` | T-008 | `bauth.idn_tenant_verification.step` | `verification_step_enum` |
 | **MC-0020** | `idioma_alcance` | T-001 | `bglobal.global_language.scope` | `language_scope_enum` |
@@ -124,7 +170,7 @@ hasta la tabla y columna que le da origen en el DDL.
 | **MC-0052** | `calendario_tipo_propietario` | T-013 | `bauth.idn_tenant_calendar_assignment.owner_type` | `calendar_owner_type_enum` |
 | **MC-0053** | `anio_fiscal_estado` | T-012 | `bcalendar.cal_fiscal_year.status` | `fiscal_year_status_enum` |
 | **MC-0054** | `horario_estado` | T-019 | `bcalendar.cal_schedule.status` | `schedule_status_enum` |
-| **MC-0055** | `canal_alarma` | T-016 | `bcalendar.cal_alarm.channel`<br>`bcalendar.cal_notification_log.channel` | `alarm_channel_enum` |
+| **MC-0055** | `canal_alarma` | T-016 | `bcalendar.cal_alarm.channel`, `bcalendar.cal_notification_log.channel` | `alarm_channel_enum` |
 
 ### Menú y Sistema
 
