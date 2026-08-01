@@ -3,7 +3,7 @@
 
 | Metadato | Valor |
 |----------|-------|
-| **Versión** | 1.11.0 |
+| **Versión** | 1.12.0 |
 | **Fecha** | 2026-08-01 |
 | **Estándar analizado** | ISO/IEC 27001:2022 (con enmienda climática ISO 27001:2024) |
 | **Alcance del análisis** | Diseño DDL del sistema IAM bAuth — 3 archivos DDL + seeds (ver §2.1) |
@@ -814,7 +814,7 @@ La RLS nativa de PostgreSQL es **uno de varios mecanismos posibles** para satisf
 |---------|--------|--------|
 | A.8.8 | Vulnerabilidades técnicas | **P (2/3)** | ↓ Ver §4.2.4 |
 | A.8.9 | Gestión de configuración | **C (3/3)** | ↓ Ver §4.2.3 |
-| A.8.10 | Eliminación de información | **EP (1/3)** |
+| A.8.10 | Eliminación de información | **EP (1/3)** | ↓ Ver §4.2.2 |
 | A.8.11 | Enmascaramiento de datos | **C (3/3)** |
 
 #### §4.2.1 A.8.11 — Enmascaramiento de Datos: CUMPLIDO ✅
@@ -959,9 +959,78 @@ de seguridad del sistema — y eso es el árbol de políticas T-162.
 
 #### §4.2.2 A.8.10 — Eliminación de Información: EN PROGRESO 🔶
 
-Las tablas WORM (audit logs, hash-chains) son por diseño no-eliminables. Pero no existe tabla de política de retención que defina **cuándo** eliminar datos no-WORM ni proceso automatizado de purga.
+> **Investigación DDL v1.12.0 (D-18)** — Gap real confirmado. Las tablas WORM son
+> intencionalmente no-eliminables (correcto). El DDL tiene mecanismos de retención
+> parciales para entidades específicas, pero no existe una política general de ciclo
+> de vida para los datos más sensibles (atributos de identidad, sesiones).
 
-**Existente parcial**: `idn_identity_requirement.max_age_days` (vencimiento de atributos IAL). Falta: scheduler de purga, política por tipo de dato.
+**Lo que el DDL ya cubre — mecanismos de retención existentes:**
+
+| Mecanismo | Tabla | Cobertura | Limitación |
+|-----------|-------|-----------|-----------|
+| `idn_roles_ver_b01_retention_policy` T-154 | Historial versiones roles (T-152) | `hot_window` + `compaction_policy` + `retention_total` + `legal_hold` | **Solo T-152** — no cubre atributos de identidad ni sesiones |
+| `idn_tenant.purge_after` | Tenants soft-deleted | Grace period de 30 días antes de eliminación definitiva | Solo tenants — no cubre datos del tenant |
+| `idn_identity_requirement.max_age_days` T-159 | Atributos IAL | Antigüedad máxima por tipo de atributo (IAL2: 365 días) | Marca expiración — no ejecuta purga |
+| `sig_document_hash.purge_after` | Hashes de firma digital | Fecha de purga programada por documento | Scoped a firma digital |
+| Tablas WORM (`aud_event_log`, `idn_identity_attribute_history`, `ses_caep_event_log`) | Audit logs / historial | Intencionalmente NO eliminables — correcto para auditoría | Requieren proceso externo post-retención |
+
+**Brecha real — ausencia de política general para datos PII activos:**
+
+`idn_identity_attribute` (T-157) es la tabla más sensible del sistema: almacena atributos
+biométricos, de identificación fiscal, y verificación de identidad. No tiene:
+- Campo `purge_after` o `expires_at` por fila
+- Referencia a una política de retención que defina cuándo purgar tras offboarding
+- Mecanismo de anonimización post-retención (GDPR Art.17 "right to erasure")
+
+`ses_session_log` tampoco tiene política de retención configurada en el DDL — las sesiones
+expiradas permanecen indefinidamente salvo acción manual.
+
+**Por qué T-154 NO resuelve el gap:**
+
+T-154 es específica para **versioning de roles** (T-152). Su `compaction_policy`
+(KEEP_ALL/KEEP_ANCHORS/KEEP_LAST_N) y `hot_window` son conceptos del subsistema de
+compactación de historial — no aplican a "eliminar atributos PII de usuarios dados de baja
+después de N días". Son tablas con propósitos distintos:
+
+| Aspecto | T-154 | `cfg_retention_policy` (T-BACKLOG-003) |
+|---------|-------|---------------------------------------|
+| Alcance | T-152 historial versiones roles | Cualquier tabla con datos no-WORM |
+| Acción | Compactar (KEEP_ALL/ANCHORS/LAST_N) | Eliminar / Anonimizar / Archivar |
+| Granularidad | Por entity_name (tabla entera) | Por tabla o columna específica |
+| Propósito | Gobernanza del historial de versiones | Ciclo de vida de datos PII activos |
+
+**Por qué es EP(1/3) y no P(2/3):**
+
+Los mecanismos existentes cubren casos específicos y acotados (tenant eliminado,
+documento de firma, historial de rol). La entidad más crítica — los **atributos de
+identidad en T-157** de usuarios offboarded — no tiene ningún mecanismo de purga.
+ISO 27001 A.8.10 exige que los datos se eliminen cuando ya no son necesarios; sin
+`cfg_retention_policy` y un scheduler, ese requerimiento no puede cumplirse de forma
+sistemática y auditable.
+
+**Solución — T-BACKLOG-003 (`cfg_retention_policy`):**
+
+```sql
+CREATE TABLE IF NOT EXISTS bauth.cfg_retention_policy (
+    policy_id      UUID        PRIMARY KEY DEFAULT uuidv7(),
+    table_name     TEXT        NOT NULL,
+    column_name    TEXT        NULL,     -- NULL = aplica a toda la tabla
+    retention_days INTEGER     NOT NULL,
+    purge_action   TEXT        NOT NULL, -- DELETE / ANONYMIZE / ARCHIVE
+    exemption      TEXT        NULL,     -- 'WORM' = no aplica purga
+    legal_basis    TEXT        NOT NULL, -- Ley 164, GDPR Art.17, Ley 843...
+    is_active      BOOLEAN     NOT NULL DEFAULT true,
+    ctx_id         TEXT        NOT NULL,
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT uq_rp_tabla_col UNIQUE (table_name, COALESCE(column_name, '__all__')),
+    CONSTRAINT chk_rp_accion   CHECK (purge_action IN ('DELETE','ANONYMIZE','ARCHIVE'))
+);
+```
+
+Un pg_cron job (o el reconcile loop del daemon) lee esta tabla y ejecuta las purgas
+vencidas, dejando registro en `aud_event_log` con `action_type = 'DATA_PURGE'`.
+
+**Remediación:** T-BACKLOG-003 — no depende de otros T-BACKLOG. Impacto: EP(1/3) → C(3/3).
 
 ---
 
