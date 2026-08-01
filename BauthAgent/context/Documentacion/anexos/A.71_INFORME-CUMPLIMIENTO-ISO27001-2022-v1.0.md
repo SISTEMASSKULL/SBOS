@@ -1,36 +1,43 @@
 # A.71 — Informe de Cumplimiento ISO 27001:2022
-## SBOS_db · Esquema de Base de Datos IAM · bAuth Identity Control Plane
+## Diseño DDL — bAuth Identity Control Plane
 
 | Metadato | Valor |
 |----------|-------|
-| **Versión** | 1.0.0 |
+| **Versión** | 1.1.0 |
 | **Fecha** | 2026-08-01 |
 | **Estándar analizado** | ISO/IEC 27001:2022 (con enmienda climática ISO 27001:2024) |
-| **Alcance del análisis** | DDL de SBOS_db — esquema de identidad bAuth (3 archivos DDL + seeds) |
+| **Alcance del análisis** | Diseño DDL del sistema IAM bAuth — 3 archivos DDL + seeds (ver §2.1) |
+| **Objeto evaluado** | Los archivos de definición, NO la instancia de base de datos en ejecución |
 | **Clasificación** | INTERNO CRÍTICO |
-| **Preparado por** | BauthAgent v4.0.0 (análisis automático + verificación manual) |
+| **Preparado por** | BauthAgent v4.0.0 (análisis del diseño DDL) |
 | **Revisado por** | Pendiente auditoría Revisor |
+
+> **Nota de alcance**: Este informe evalúa si el **diseño DDL** (los archivos `.sql` de definición del esquema)
+> cubre los controles de ISO 27001:2022. La pregunta es: *¿el diseño del esquema implementa los mecanismos
+> que el estándar exige?* No es una auditoría de la instancia en producción SBOSDB.
 
 ---
 
 ## 1. Resumen Ejecutivo
 
-El análisis evalúa el cumplimiento de la base de datos SBOS_db del daemon bAuth frente a los **93 controles del Anexo A de ISO/IEC 27001:2022**, clasificados en 4 temas: Organizacionales (A.5 · 37 controles), Personas (A.6 · 8 controles), Físicos (A.7 · 14 controles) y Tecnológicos (A.8 · 34 controles).
+El análisis evalúa si el **diseño DDL del sistema IAM bAuth** cubre los **93 controles del Anexo A de ISO/IEC 27001:2022**, clasificados en 4 temas: Organizacionales (A.5 · 37 controles), Personas (A.6 · 8 controles), Físicos (A.7 · 14 controles) y Tecnológicos (A.8 · 34 controles).
 
-Del universo de 93 controles, **41 son aplicables** al alcance de un esquema de base de datos IAM. Los controles de personas, físicos, y la mayoría de los organizacionales de gestión (políticas, RRHH, proveedores) no aplican al DDL y se excluyen del cálculo.
+Un control está **cubierto** por el DDL cuando el diseño del esquema define la estructura, las restricciones o los mecanismos que permiten implementar ese control. Un control está **ausente del DDL** cuando el diseño no contempla las tablas, políticas o constraints necesarios para soportarlo.
 
-### Puntuación global
+Del universo de 93 controles, **41 son aplicables** al alcance de un diseño de esquema IAM. Los controles de personas, físicos, y la mayoría de los organizacionales de gestión (políticas, RRHH, proveedores) requieren artefactos fuera del DDL y se excluyen del cálculo.
+
+### Puntuación global del diseño DDL
 
 ```
 ┌──────────────────────────────────────────────────────────┐
 │                                                          │
-│   CUMPLIMIENTO ISO 27001:2022 — SBOS_db bAuth           │
+│   COBERTURA ISO 27001:2022 — Diseño DDL bAuth           │
 │                                                          │
 │   ████████████████████████████████████░░░░░░░  74 %     │
 │                                                          │
 │   Puntaje: 91 / 123 puntos posibles (41 controles)      │
 │                                                          │
-│   Controles CUMPLIDOS:      18 / 41  (44 %)             │
+│   Controles CUBIERTOS:      18 / 41  (44 %)             │
 │   Controles PARCIALES:      16 / 41  (39 %)             │
 │   Controles EN PROGRESO:     4 / 41  (10 %)             │
 │   Controles AUSENTES:        1 / 41  ( 2 %)             │
@@ -56,11 +63,11 @@ Del universo de 93 controles, **41 son aplicables** al alcance de un esquema de 
 
 | Prioridad | Brecha | Control | Impacto |
 |-----------|--------|---------|---------|
-| 🔴 P1 | Sin Row Level Security (RLS) en PostgreSQL | A.8.3 | Multi-tenant exposure risk |
-| 🟠 P2 | Sin enmascaramiento de datos en DDL | A.8.11 | PII visible para roles administrativos |
-| 🟠 P2 | Sin workflow formal de lecciones aprendidas | A.5.27 | Conocimiento no institucionalizado |
-| 🟡 P3 | Sin tabla de retención/eliminación programada | A.8.10 | Datos fuera del ciclo de vida |
-| 🟡 P3 | Sin tabla de clasificación formal de información | A.5.12 | Clasificación solo en comentarios SQL |
+| 🔴 P1 | El DDL no define políticas RLS (`CREATE POLICY`) en tablas multi-tenant | A.8.3 | El diseño no aísla filas por tenant a nivel de BD |
+| 🟠 P2 | El DDL no incluye vistas ni funciones de enmascaramiento de PII | A.8.11 | PII accesible en claro desde cualquier rol con SELECT |
+| 🟠 P2 | El DDL no incluye tabla de lecciones aprendidas de incidentes | A.5.27 | Conocimiento de incidentes no persiste en el esquema |
+| 🟡 P3 | El DDL no define tabla ni trigger de retención/eliminación programada | A.8.10 | Ciclo de vida de datos no gestionado en el diseño |
+| 🟡 P3 | El DDL no define tabla formal de clasificación de información | A.5.12 | Clasificación solo como comentario SQL, no como constraint |
 
 ---
 
@@ -68,29 +75,31 @@ Del universo de 93 controles, **41 son aplicables** al alcance de un esquema de 
 
 ### 2.1 Alcance del análisis
 
-El análisis cubre los siguientes artefactos:
+El análisis cubre exclusivamente los **archivos DDL de diseño** del sistema IAM bAuth. Son artefactos de definición, no volcados de una instancia en ejecución:
 
-| Archivo | Tablas | Líneas | Descripción |
-|---------|--------|--------|-------------|
-| `DDLs/SBOS_db_V2_DDL.sql` | 139 tablas | ~6.700 | DDL principal — bAuth + bglobal |
-| `DDLs/bos_01__control_plane.sql` | ~12 tablas | ~350 | Schema BOS — Context Plane |
-| `DDLs/migrations/bauth_dominios_pendientes_v2.0.sql` | ~80 tablas | ~1.100 | Dominios D01-D15 + D98 + D99 |
-| `DDLs/seeds/` | — | ~15.000 | Seeds de datos de referencia |
-| **Total** | **~231 tablas** | **~24.000** | BD única SBOS_db (SBOSDB en VPS) |
+| Archivo DDL | Tablas definidas | Líneas | Contenido |
+|-------------|-----------------|--------|-----------|
+| `DDLs/SBOS_db_V2_DDL.sql` | 139 | ~6.700 | Diseño principal — schemas bauth + bglobal |
+| `DDLs/bos_01__control_plane.sql` | ~12 | ~350 | Diseño Context Plane — schema bos |
+| `DDLs/migrations/bauth_dominios_pendientes_v2.0.sql` | ~80 | ~1.100 | Diseño dominios D01-D15 + D98 + D99 |
+| `DDLs/seeds/` | — | ~15.000 | Datos de referencia del diseño |
+| **Total diseñado** | **~231 tablas** | **~24.000** | Esquema completo del sistema IAM |
 
-**No incluido en el alcance**: configuración del servidor PostgreSQL, parámetros del sistema operativo (systemd, auditd), claves secretas en Vault, configuración de red Kong/Nginx.
+La pregunta de evaluación para cada control es: *¿el diseño DDL contiene las estructuras (tablas, constraints, políticas, índices, funciones) que permiten implementar este control?*
+
+**Fuera del alcance**: instancia de producción SBOSDB, configuración del servidor PostgreSQL, parámetros del SO, claves en Vault, configuración de red Kong/Nginx.
 
 ### 2.2 Metodología de puntuación
 
-Cada control aplicable recibe una puntuación de **0 a 3 puntos**:
+Cada control aplicable recibe una puntuación de **0 a 3 puntos** según lo que el diseño DDL define:
 
-| Nivel | Puntos | Criterio |
-|-------|--------|----------|
-| **CUMPLIDO (C)** | 3/3 | Evidencia directa en DDL — tabla, constraint, índice, COMMENT |
-| **PARCIAL (P)** | 2/3 | Implementado parcialmente o con brechas menores documentadas |
-| **EN PROGRESO (EP)** | 1/3 | Diseñado o planificado; brechas mayores sin resolver |
-| **AUSENTE (A)** | 0/3 | Control aplicable pero sin implementación |
-| **NO APLICA (N/A)** | — | Control fuera del alcance del DDL |
+| Nivel | Puntos | Criterio de diseño |
+|-------|--------|--------------------|
+| **CUBIERTO (C)** | 3/3 | El DDL define explícitamente los mecanismos que soportan el control: tabla, constraint, política, función o index documentado |
+| **PARCIAL (P)** | 2/3 | El DDL cubre el control parcialmente — existe la estructura base pero faltan elementos complementarios de diseño |
+| **EN DISEÑO (EP)** | 1/3 | El control está mencionado en comentarios SQL o referencias normativas pero la estructura DDL es incompleta |
+| **AUSENTE (A)** | 0/3 | El control es aplicable al esquema IAM pero el DDL no define ninguna estructura que lo soporte |
+| **NO APLICA (N/A)** | — | El control requiere artefactos fuera del DDL (política organizacional, hardware, etc.) |
 
 La puntuación de cumplimiento es: `Σ(puntos obtenidos) / Σ(puntos máximos por controles en-scope) × 100`.
 
@@ -339,7 +348,7 @@ Re-autenticación: el break-glass exige `auth_method` ∈ {MTLS_X509, WEBAUTHN_R
 
 #### §4.1.2 A.8.3 — Restricción de Acceso: EN PROGRESO 🔶 (**BRECHA P1**)
 
-**Situación actual**: La restricción de acceso se implementa a nivel aplicación (BitMask + PolicyChain). Sin embargo, **no existe ninguna política `CREATE POLICY`** en el DDL de SBOS_db — PostgreSQL Row Level Security (RLS) no está habilitado en ninguna tabla.
+**Situación en el diseño DDL**: La restricción de acceso a nivel aplicación está cubierta (BitMask + PolicyChain). Sin embargo, **el diseño DDL no incluye ninguna sentencia `CREATE POLICY`** ni `ENABLE ROW LEVEL SECURITY` — el esquema no diseña políticas RLS de PostgreSQL en ninguna tabla multi-tenant.
 
 ```bash
 # Verificación en DDL:
@@ -532,7 +541,7 @@ SELECT 'emergency_active', count(*), 0
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│  ISO 27001:2022 — Scorecard SBOS_db bAuth                          │
+│  ISO 27001:2022 — Scorecard Diseño DDL bAuth                       │
 ├─────────────────────┬──────────┬────────┬─────────┬────────────────┤
 │ Sección             │ En-scope │ Score  │ Máximo  │ Cumplimiento % │
 ├─────────────────────┼──────────┼────────┼─────────┼────────────────┤
@@ -692,7 +701,7 @@ Si se implementan las brechas P1 y P2:
 
 ## 8. Hallazgos Destacados — Buenas Prácticas Superiores al Estándar
 
-Los siguientes elementos de SBOS_db **superan** los requisitos mínimos de ISO 27001:2022:
+Los siguientes elementos del **diseño DDL** de bAuth **superan** los requisitos mínimos de ISO 27001:2022:
 
 | # | Práctica superior | Descripción |
 |---|-------------------|-------------|
@@ -709,7 +718,7 @@ Los siguientes elementos de SBOS_db **superan** los requisitos mínimos de ISO 2
 
 ## 9. Conclusión
 
-SBOS_db bAuth alcanza un **cumplimiento del 74 %** frente a los controles aplicables de ISO 27001:2022. Este resultado es significativo considerando que:
+El **diseño DDL de bAuth cubre el 74 %** de los controles aplicables de ISO 27001:2022. Este resultado es significativo considerando que:
 
 1. El sistema cubre **todos los controles de autenticación, acceso e identidad** con implementaciones que superan el mínimo estándar.
 2. Los **18 controles CUMPLIDOS** corresponden precisamente al núcleo de un sistema IAM: autenticación, autorización, privilegios, logging, criptografía y arquitectura segura.
@@ -747,7 +756,7 @@ La combinación de estos elementos organizacionales con la remediación técnica
 
 | Métrica | Valor | Relevancia ISO 27001 |
 |---------|-------|----------------------|
-| Tablas en SBOS_db | ~231 | Alcance del inventario A.5.9 |
+| Tablas definidas en el DDL | ~231 | Alcance del inventario A.5.9 |
 | Columnas TIMESTAMPTZ | 270+ | Sincronización A.8.17, trazabilidad A.8.15 |
 | Referencias WORM/inmutables | 229 | No-repudio A.5.28, logging A.8.15 |
 | Constraints CHECK | 282 | Validación input A.8.26 |
