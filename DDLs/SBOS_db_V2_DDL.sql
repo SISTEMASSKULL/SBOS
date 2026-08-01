@@ -219,6 +219,7 @@ Fuente: seed inicial (2800+ idiomas de IANA Language Subtag Registry + CLDR 46);
 Administración: tabla de referencia global — ningún daemon modifica filas en producción; cambios requieren migración con HITL; is_active=true para los 6 locales activos iniciales del SBOS.
 WORM: no (is_active se actualiza al activar/desactivar un idioma).
 Particionada: no.
+Seed: DDLs/seeds/bglobal_T001__global_language.sql — idempotente ON CONFLICT.
 Estándar: BCP 47 (RFC 5646), ISO 639-1/2/3, ISO 15924, IANA Language Subtag Registry, Unicode CLDR 46. T-001.';
 
 COMMENT ON COLUMN bglobal.global_language.locale      IS '[BCP 47] Tag canónico: es-BO, en-US, zh-Hans-CN, qu-BO, ay-BO.';
@@ -285,6 +286,7 @@ Fuente: seed inicial (249 países ISO 3166-1 activos + territorios dependientes)
 Administración: tabla de referencia global — ningún daemon modifica filas en producción; is_active=false para países sancionados o sin soporte; referenciada por idn_tenant(country) y global_currency.
 WORM: no (is_active puede actualizarse al aplicar sanciones o activar nuevos territorios).
 Particionada: no.
+Seed: DDLs/seeds/bglobal_T002__global_country.sql — idempotente ON CONFLICT.
 Estándar: ISO 3166-1:2020, ISO 3166-2:2020, UN M.49 (regiones estadísticas), GDPR Art. 44 (transferencias internacionales). T-002.';
 
 COMMENT ON COLUMN bglobal.global_country.iso_alpha2 IS '[ISO 3166-1 alpha-2] BO, US, AR, BR, CL, PE.';
@@ -368,6 +370,7 @@ Fuente: seed inicial (600+ entradas de la IANA TZ Database 2024e); actualizació
 Administración: tabla de referencia global — ningún daemon modifica filas en runtime; observes_dst=true requiere que el evaluador temporal aplique el offset DST en períodos correspondientes.
 WORM: no (is_active y utc_offset_min se actualizan cuando IANA cambia una zona).
 Particionada: no.
+Seed: DDLs/seeds/bglobal_T004__geo_timezone.sql — idempotente ON CONFLICT.
 Estándar: IANA TZ Database (tzdata), ISO 6709:2022 (notación geográfica), RFC 5545 VTIMEZONE §3.6.5. T-004.';
 
 COMMENT ON COLUMN bglobal.geo_timezone.timezone_id IS '[IANA] America/La_Paz, America/New_York, Asia/Shanghai, Europe/Madrid.';
@@ -404,6 +407,7 @@ Fuente: seed inicial con el árbol de menú del sistema SBOS (dashboard, iam.rol
 Administración: tabla de referencia — code es el identificador técnico estable (ej: iam.roles.create); label JSONB multi-idioma vía bi18n; is_active=false oculta el ítem del menú sin eliminar sus asignaciones de átomo.
 WORM: no (is_active y sort_order actualizables al reorganizar la navegación).
 Particionada: no.
+Seed: DDLs/seeds/bglobal_T0XX__menu_item.sql — PENDIENTE — estructura de menú a diseñar
 Estándar: ISO 9241-11:2018 (usabilidad), WCAG 2.2 (accesibilidad de menús), ARIA roles navigation. T-059.';
 
 COMMENT ON COLUMN bglobal.menu_item.code  IS 'Identificador único del ítem: dashboard.home, iam.roles.create.';
@@ -441,6 +445,7 @@ Fuente: seed inicial con ~20 parámetros canónicos (max_sessions, loa_default, 
 Administración: is_overridable=true = tenant puede sobrescribir en idn_tenant_config (T-009); is_overridable=false = piso de seguridad inviolable que el tenant no puede rebajar; ningún daemon escribe aquí en runtime.
 WORM: no (param_value actualizable al cambiar parámetros globales de seguridad con HITL).
 Particionada: no.
+Seed: DDLs/seeds/bglobal_T0XX__global_config.sql — PENDIENTE — parámetros globales por definir
 Estándar: NIST SP 800-53 CM-6 (Configuration Settings), NIST SP 800-53 CM-7 (Least Functionality). T-114.';
 
 COMMENT ON COLUMN bglobal.global_config.param_key      IS 'Clave del parámetro: max_sessions, loa_default, argon2id_t, session_ttl_max.';
@@ -535,6 +540,7 @@ Fuente: creado por BOS (Instalador IAM) vía RPC bos.tenant.create durante el pr
 Administración: solo bOS puede crear tenants; bAuth suspende/activa; purge_after controla el borrado definitivo tras SOFT_DELETED (30 días por defecto); TERMINATED es irreversible y no puede volverse ACTIVE; mfa_required se evalúa en cada autenticación; revisión trimestral de tenants según ISO 27001 A.8.2.
 WORM: no (ciclo de vida de 7 estados requiere actualización de status y timestamps).
 Particionada: no.
+Seed: DDLs/seeds/bauth_T005__idn_tenant.sql — idempotente ON CONFLICT.
 Estándar: ISO 27001 A.8.2 (clasificación de activos), NIST SP 800-53 AC-2 (gestión de cuentas), SBOS-049 §4, GDPR Art. 32 (seguridad por diseño). T-005.';
 
 COMMENT ON COLUMN bauth.idn_tenant.tenant_id           IS '[RFC 9562] PK UUIDv7. 20+ FKs entrantes.';
@@ -868,6 +874,7 @@ Fuente: registrado por el ADMIN del tenant al integrar una nueva aplicación RP 
 Administración: UNIQUE (tenant_id, rp_client_id); cambios de FAL level requieren re-aprobación de SECURITY_ADMIN; is_active=false desactiva la integración sin revocar el historial de tokens emitidos; max_clock_skew_sec controla la tolerancia de reloj entre bAuth y la RP.
 WORM: no (is_active y nivel FAL actualizables durante el ciclo de vida de la integración).
 Particionada: no.
+Seed: DDLs/seeds/bauth_T168__idn_tenant_fal_config.sql — idempotente ON CONFLICT.
 Estándar: NIST SP 800-63-4 §5 (FAL), OpenID Connect Core 1.0 §3.3, RFC 9449 (DPoP), RFC 8705 (mTLS). T-168.';
 COMMENT ON COLUMN bauth.idn_tenant_fal_config.fal_level IS '[NIST SP 800-63-4 §5] FAL1=signed assertion · FAL2=bound assertion (DPoP) · FAL3=holder-of-key (mTLS+hardware).';
 COMMENT ON COLUMN bauth.idn_tenant_fal_config.require_pkce IS '[RFC 7636] FAL1+: PKCE previene authorization code interception. S256 obligatorio.';
@@ -961,6 +968,7 @@ Fuente: creado automáticamente al onboarding del tenant con los calendarios de 
 Administración: is_system=true = predefinido por SBOS, no puede eliminarse ni cambiarse el tipo; is_active=false desactiva sin borrar; timezone IANA determina cómo se expanden las ocurrencias de eventos recurrentes (cal_event).
 WORM: no.
 Particionada: no.
+Seed: DDLs/seeds/bcalendar_T012__cal_calendar.sql — idempotente ON CONFLICT.
 Estándar: RFC 4791 §4 (CalDAV VCALENDAR), RFC 5545 §3.6 (iCalendar), ISO 8601:2019. T-014.';
 
 
@@ -1095,6 +1103,7 @@ Fuente: seed inicial con feriados nacionales bolivianos (26 días Ley), departam
 Administración: is_recurring=true = se repite cada año automáticamente (feriado fijo); UNIQUE (tenant_id, holiday_date, country_code) previene duplicados; el evaluador D04 consulta esta tabla para determinar si una ventana de tiempo aplica hoy.
 WORM: no.
 Particionada: no.
+Seed: DDLs/seeds/bcalendar_T015__cal_holiday_complete.sql — idempotente ON CONFLICT.
 Estándar: ISO 8601:2019 (fechas), ILO Working Time Instruments §4 (días no laborables), GTRBAC §4.1 (calendarios de trabajo). T-018.';
 
 
@@ -1128,6 +1137,7 @@ Fuente: configurado por HR_ADMIN o SECURITY_ADMIN del tenant al definir los hora
 Administración: access_outside_schedule define la política al detectar acceso fuera de horario (BLOCKED, PERMITTED, REQUIRES_APPROVAL, READ_ONLY); shifts JSONB permite modelar turnos en el mismo horario; is_default=true es el horario base evaluado sin asignación explícita.
 WORM: no.
 Particionada: no.
+Seed: DDLs/seeds/bcalendar_T014__cal_schedule.sql — idempotente ON CONFLICT.
 Estándar: RFC 7953 (VAVAILABILITY), ISO 8601:2019, GTRBAC §3.1 (Generalized Temporal RBAC). T-019.';
 
 COMMENT ON COLUMN bcalendar.cal_schedule.shifts IS '[JSONB] Turnos: [{name:"Mañana",start:"06:00",end:"14:00"},{name:"Tarde",...}].';
@@ -1271,39 +1281,9 @@ Fuente: seed inicial con 7 categorías canónicas del estándar SBOS al desplieg
 Administración: review_cycle_days determina la frecuencia de certificación IGA (PRIVILEGED=90d, EMERGENCY=30d, BUSINESS=365d); is_privileged=true activa campaña de revisión trimestral obligatoria (NIST AC-2(7)); is_active=false archiva la categoría sin eliminar roles existentes.
 WORM: no.
 Particionada: no.
+Seed: DDLs/seeds/bauth_T194__idn_roles_iga_category.sql — idempotente ON CONFLICT.
 Estándar: IGA best practices, NIST SP 800-53 AC-2(7), ISO 24760-2:2025 §5. T-191.';
 
-INSERT INTO bauth.idn_roles_iga_category
-    (code, name, description, is_privileged, review_cycle_days, sort_order) VALUES
-  ('BUSINESS',
-   '{"es":"Negocio","en":"Business"}',
-   '{"es":"Roles operativos del proceso de negocio","en":"Business process operational roles"}',
-   false, 365, 1),
-  ('IT_INFRASTRUCTURE',
-   '{"es":"Infraestructura TI","en":"IT Infrastructure"}',
-   '{"es":"Roles técnicos: sysadmin, DBA, devops","en":"Technical roles: sysadmin, DBA, devops"}',
-   true, 90, 2),
-  ('APPLICATION',
-   '{"es":"Aplicación","en":"Application"}',
-   '{"es":"Roles específicos de un módulo o aplicación","en":"Module or application specific roles"}',
-   false, 365, 3),
-  ('PRIVILEGED',
-   '{"es":"Privilegiado","en":"Privileged"}',
-   '{"es":"Roles con privilegio elevado — PAM y certificación trimestral","en":"Elevated privilege roles — PAM and quarterly certification"}',
-   true, 90, 4),
-  ('EMERGENCY',
-   '{"es":"Emergencia","en":"Emergency"}',
-   '{"es":"Roles break-glass — uso excepcional con audit trail forzado","en":"Break-glass roles — exceptional use with forced audit trail"}',
-   true, 30, 5),
-  ('SERVICE',
-   '{"es":"Servicio","en":"Service"}',
-   '{"es":"Roles de cuentas de servicio y NHI no humanos","en":"Service account and non-human NHI roles"}',
-   true, 90, 6),
-  ('STANDARD',
-   '{"es":"Estándar","en":"Standard"}',
-   '{"es":"Roles de uso general sin clasificación especial","en":"General purpose roles without special classification"}',
-   false, 365, 7)
-ON CONFLICT (code) DO NOTHING;
 
 
 -- ======================================================================
@@ -1334,6 +1314,7 @@ Administración: catálogo de referencia inmutable en operación normal; solo ac
 aprobada por HITL. is_active=false desactiva sin borrar para trazabilidad histórica.
 WORM: no — is_active puede actualizarse; pero no se eliminan filas.
 Particionada: no.
+Seed: DDLs/seeds/bauth_T040__idn_roles_rol_type.sql — idempotente ON CONFLICT.
 Estándar: NIST RBAC N3, ANSI INCITS 359-2004, SCIM RFC 7643, NIST AC-2(7), ISO 27001 A.5.15. T-040.';
 
 COMMENT ON COLUMN bauth.idn_roles_rol_type.code        IS 'INDIVIDUAL, M2M, SYSTEM, GROUP, TEMPLATE, VIRTUAL, BOT, DEVICE, SERVICE, EMERGENCY.';
@@ -1342,51 +1323,6 @@ COMMENT ON COLUMN bauth.idn_roles_rol_type.description IS '[JSONB] Descripción 
 COMMENT ON COLUMN bauth.idn_roles_rol_type.is_privileged IS '[NIST AC-2(7)] true = acceso privilegiado, revisión trimestral.';
 COMMENT ON COLUMN bauth.idn_roles_rol_type.requires_human_owner IS '[NIST AC-2(7)] true = toda cuenta de este tipo requiere propietario humano designado.';
 
--- Seeds del catálogo de tipos
-INSERT INTO bauth.idn_roles_rol_type
-    (code, name, description, is_privileged, requires_human_owner,
-     default_certification_cycle_days, sort_order) VALUES
-  ('INDIVIDUAL',
-   '{"es":"Individual","en":"Individual"}',
-   '{"es":"Cuenta de persona física — empleado, contratista o usuario de negocio","en":"Natural person account — employee, contractor or business user"}',
-   false, false, 365, 1),
-  ('M2M',
-   '{"es":"Máquina a Máquina","en":"Machine to Machine"}',
-   '{"es":"Cuenta máquina a máquina — integraciones, APIs y pipelines automatizados","en":"Machine-to-machine account — integrations, APIs and automated pipelines"}',
-   true, true, 90, 2),
-  ('SYSTEM',
-   '{"es":"Sistema","en":"System"}',
-   '{"es":"Cuenta de proceso del sistema operativo o del ecosistema SBOS","en":"OS or SBOS ecosystem process account"}',
-   true, false, 90, 3),
-  ('GROUP',
-   '{"es":"Grupo","en":"Group"}',
-   '{"es":"Grupo lógico de cuentas con política de acceso compartida","en":"Logical group of accounts with shared access policy"}',
-   false, false, 365, 4),
-  ('TEMPLATE',
-   '{"es":"Plantilla","en":"Template"}',
-   '{"es":"Plantilla reutilizable para crear roles derivados con herencia","en":"Reusable template for creating inherited derived roles"}',
-   false, false, 365, 5),
-  ('VIRTUAL',
-   '{"es":"Virtual","en":"Virtual"}',
-   '{"es":"Cuenta virtual sin autenticación directa — representación lógica de entidad","en":"Virtual account without direct authentication — logical entity representation"}',
-   false, false, 365, 6),
-  ('BOT',
-   '{"es":"Bot","en":"Bot"}',
-   '{"es":"Proceso automatizado con identidad propia y propietario humano responsable","en":"Automated process with its own identity and a responsible human owner"}',
-   true, true, 90, 7),
-  ('DEVICE',
-   '{"es":"Dispositivo","en":"Device"}',
-   '{"es":"Dispositivo físico o lógico registrado y gobernado en el ecosistema","en":"Physical or logical device registered and governed in the ecosystem"}',
-   true, true, 90, 8),
-  ('SERVICE',
-   '{"es":"Servicio","en":"Service"}',
-   '{"es":"Cuenta de servicio de larga duración con propietario técnico designado","en":"Long-lived service account with a designated technical owner"}',
-   true, true, 90, 9),
-  ('EMERGENCY',
-   '{"es":"Emergencia","en":"Emergency"}',
-   '{"es":"Cuenta break-glass de emergencia — uso excepcional con auditoría forzada","en":"Break-glass emergency account — exceptional use with forced audit"}',
-   true, false, 30, 10)
-ON CONFLICT (code) DO NOTHING;
 
 
 -- ======================================================================
@@ -1427,6 +1363,7 @@ Administración: los valores de seguridad (timeouts, MFA) se ajustan mediante mi
 no se crean ni eliminan tiers en operación — son el vocabulario fijo del sistema de roles.
 WORM: no — los parámetros de seguridad deben poder ajustarse vía migración controlada.
 Particionada: no.
+Seed: DDLs/seeds/bauth_T042__idn_roles_rol_tier.sql — idempotente ON CONFLICT.
 Estándar: NIST SP 800-63B-4 §4, ISO 27001 A.5.15, NIST AC-5, RFC 9470 (Step-Up). T-042.';
 
 COMMENT ON COLUMN bauth.idn_roles_rol_tier.loa_required               IS '[NIST 800-63B-4] Nivel de aseguramiento mínimo: 1=AAL1, 2=AAL2, 3=AAL3.';
@@ -1438,57 +1375,6 @@ COMMENT ON COLUMN bauth.idn_roles_rol_tier.certification_cycle_days   IS '[IGA] 
 COMMENT ON COLUMN bauth.idn_roles_rol_tier.inactivity_lockout_days    IS '[ISO 27001 A.5.15] Días de inactividad antes de bloqueo automático.';
 COMMENT ON COLUMN bauth.idn_roles_rol_tier.requires_use_justification IS '[NIST AC-2(7)] true = justificación obligatoria en cada uso (SU y T0).';
 
--- Seeds del catálogo de tiers
-INSERT INTO bauth.idn_roles_rol_tier
-    (tier, display_name, description, loa_required, session_timeout_minutes,
-     max_sessions, mfa_required, sort_order,
-     is_privileged_tier, requires_pam, certification_cycle_days,
-     inactivity_lockout_days, requires_use_justification) VALUES
-  ('SU',
-   '{"es":"Superusuario","en":"Superuser"}',
-   '{"es":"Superusuario SBOS — máximo privilegio global, uso exclusivo para bootstrap y DR","en":"SBOS Superuser — maximum global privilege, exclusive use for bootstrap and DR"}',
-   3, 60, 1, true, 1, true, true, 30, 30, true),
-  ('T0',
-   '{"es":"Técnico Raíz","en":"Root Technician"}',
-   '{"es":"Técnico Raíz — administrador de infraestructura física y K8s del ecosistema","en":"Root Technician — physical infrastructure and K8s administrator of the ecosystem"}',
-   3, 120, 1, true, 2, true, true, 90, 30, true),
-  ('T1',
-   '{"es":"Técnico Tenant","en":"Tenant Technician"}',
-   '{"es":"Técnico Tenant — administrador técnico con alcance limitado al tenant","en":"Tenant Technician — technical administrator scoped to the tenant"}',
-   2, 240, 2, true, 3, true, false, 90, 60, false),
-  ('BIZ_N1',
-   '{"es":"Negocio N1","en":"Business N1"}',
-   '{"es":"Negocio N1 — dirección estratégica y representación legal de la organización","en":"Business N1 — strategic direction and legal representation of the organization"}',
-   2, 480, 3, true, 4, false, false, 180, 90, false),
-  ('BIZ_N2',
-   '{"es":"Negocio N2","en":"Business N2"}',
-   '{"es":"Negocio N2 — gerencia media y supervisión departamental","en":"Business N2 — middle management and departmental supervision"}',
-   2, 480, 5, false, 5, false, false, 365, 90, false),
-  ('BIZ_N3',
-   '{"es":"Negocio N3","en":"Business N3"}',
-   '{"es":"Negocio N3 — coordinación de equipo y gestión operativa","en":"Business N3 — team coordination and operational management"}',
-   1, 480, 5, false, 6, false, false, 365, 90, false),
-  ('BIZ_N4',
-   '{"es":"Negocio N4","en":"Business N4"}',
-   '{"es":"Negocio N4 — ejecución técnico-profesional y analítica","en":"Business N4 — technical-professional execution and analytics"}',
-   1, 480, 5, false, 7, false, false, 365, 90, false),
-  ('BIZ_N5',
-   '{"es":"Negocio N5","en":"Business N5"}',
-   '{"es":"Negocio N5 — operativo base, atención directa y tareas rutinarias","en":"Business N5 — base operations, direct service and routine tasks"}',
-   1, 480, 5, false, 8, false, false, 365, 90, false),
-  ('EXT_N0',
-   '{"es":"Externo N0","en":"External N0"}',
-   '{"es":"Externo N0 — acceso limitado de terceros, proveedores y contratistas","en":"External N0 — limited access for third parties, vendors and contractors"}',
-   1, 60, 1, false, 9, false, false, 180, 30, false),
-  ('M2M',
-   '{"es":"Máquina a Máquina","en":"Machine to Machine"}',
-   '{"es":"Máquina a Máquina — daemons, pipelines e integraciones del ecosistema","en":"Machine to Machine — daemons, pipelines and ecosystem integrations"}',
-   2, 3600, 10, false, 10, true, false, 90, 30, false),
-  ('VISITANTE',
-   '{"es":"Visitante","en":"Visitor"}',
-   '{"es":"Visitante — acceso mínimo de sólo lectura sin autenticación fuerte","en":"Visitor — minimum read-only access without strong authentication"}',
-   1, 30, 1, false, 11, false, false, 365, 7, false)
-ON CONFLICT (tier) DO NOTHING;
 
 
 -- ======================================================================
@@ -2113,13 +1999,8 @@ Administración: el reconcile loop de retención lee esta tabla para decidir qu�
 solo SUPER_ADMIN puede actualizar retention_total o activar legal_hold.
 WORM: no — legal_hold y hot_window son ajustables operacionalmente.
 Particionada: no.
+Seed: DDLs/seeds/bauth_T154__idn_roles_ver_b01_retention_policy.sql — idempotente ON CONFLICT.
 Estándar: ISO 27001 A.5.33, NIST AU-11, PCI DSS Req 10.5, SOX-404, Ley 843 Bolivia Art.44. T-154.';
-INSERT INTO bauth.idn_roles_ver_b01_retention_policy
-    (entity_name, info_class, hot_window, compaction_policy, retention_total, legal_basis, standard_ref, ctx_id)
-VALUES ('idn_roles_rol_hierarchical','C1',INTERVAL '2 years','KEEP_ANCHORS',INTERVAL '10 years',
-    'Ley 843 Bolivia Art. 44 · ISO 27001 A.5.33 · NIST AU-11 · PCI DSS Req 10.5',
-    ARRAY['Ley-843-Art44','A.5.33','AU-11','PCI-DSS-10.5','SOX-404'],'bootstrap')
-ON CONFLICT (entity_name) DO NOTHING;
 
 -- ======================================================================
 -- T-155 — bauth.idn_roles_ver_contract_revision_log
@@ -2197,6 +2078,7 @@ is_active=false los desactiva preservando trazabilidad histórica de FKs en idn_
 Nuevos verbos requieren análisis de impacto en la matriz SoD (T-175) antes de ser registrados.
 WORM: no — is_active puede actualizarse; verbos se desactivan, no se borran.
 Particionada: no.
+Seed: DDLs/seeds/bauth_T174__privilege_verb.sql — idempotente ON CONFLICT.
 Estándar: NIST SP 800-53 AC-5, XACML 3.0 §4.3, ISO 27001 A.6.1.2, OWASP ASVS 6.1. T-174.';
 
 COMMENT ON COLUMN bauth.privilege_verb.verb_id     IS 'PK texto snake_case: [a-z][a-z0-9_]*. Ej: create, approve, sign_document.';
@@ -2241,6 +2123,7 @@ Solo INSERT/DELETE vía migración; si un verbo en verb_a/verb_b es desactivado 
 conflicto queda huérfano (ON DELETE CASCADE — la FK lo elimina automáticamente).
 WORM: no — pares pueden eliminarse si se retira un verbo de T-174.
 Particionada: no.
+Seed: DDLs/seeds/bauth_T175__privilege_verb_conflict.sql — idempotente ON CONFLICT.
 Estándar: NIST SP 800-53 AC-5, ISO 27001 A.6.1.2, NIST SP 800-53 AC-6(7). T-175.';
 
 COMMENT ON COLUMN bauth.privilege_verb_conflict.conflict_type IS '[TEXT] STATIC_SOD | DYNAMIC_SOD | AFINIDAD.';
@@ -2253,146 +2136,9 @@ COMMENT ON COLUMN bauth.privilege_verb_conflict.conflict_type IS '[TEXT] STATIC_
 -- ======================================================================
 
 -- ── T-174: Verbos canónicos ────────────────────────────────────────────────────
-INSERT INTO bauth.privilege_verb (verb_id, description, created_by) VALUES
--- CRUD universal — todos los dominios
-('create',          'Crear una entidad o registro nuevo',                                   'bauth-seed'),
-('update',          'Modificar datos de un registro existente',                             'bauth-seed'),
-('delete',          'Eliminar un registro (lógico o físico según módulo)',                  'bauth-seed'),
-('read',            'Leer y visualizar información',                                        'bauth-seed'),
--- Documentales
-('print',           'Imprimir documento o reporte',                                         'bauth-seed'),
-('copy',            'Copiar un registro o documento',                                       'bauth-seed'),
-('save',            'Guardar cambios temporales en borrador',                               'bauth-seed'),
-('duplicate',       'Duplicar un registro o documento completo',                            'bauth-seed'),
-('export',          'Exportar datos a formato externo',                                     'bauth-seed'),
-('import',          'Importar datos desde fuente externa',                                  'bauth-seed'),
-('append',          'Anexar información a un registro existente',                           'bauth-seed'),
-('append_to',       'Ser anexado a otro registro como componente',                          'bauth-seed'),
--- Estado y bloqueo
-('lock',            'Bloquear un objeto o registro para edición',                           'bauth-seed'),
-('unlock',          'Desbloquear un objeto o registro bloqueado',                           'bauth-seed'),
-('block_entity',    'Bloquear una entidad o usuario del sistema',                           'bauth-seed'),
-('unblock_entity',  'Desbloquear una entidad o usuario bloqueado',                          'bauth-seed'),
-('archive',         'Archivar un registro como histórico inactivo',                         'bauth-seed'),
-('close',           'Cerrar un período, proceso o documento',                               'bauth-seed'),
-('reopen',          'Reabrir un período, proceso o documento cerrado',                      'bauth-seed'),
-('void',            'Anular un documento o registro sin borrar',                            'bauth-seed'),
-('draft',           'Crear o gestionar borrador de documento',                              'bauth-seed'),
-('confirm',         'Confirmar un documento o acción pendiente',                            'bauth-seed'),
--- Contables y financieros (semántica SAP ACTVT)
-('post',            'Contabilizar/asentar en libros — irreversible sin reverso',            'bauth-seed'),
-('release',         'Liberar documento retenido para procesamiento',                        'bauth-seed'),
-('undo_release',    'Revertir la liberación de un documento',                               'bauth-seed'),
-('reverse',         'Realizar contra-asiento o reversión contable',                        'bauth-seed'),
-('display_totals',  'Ver totales agregados sin acceso a partidas individuales',             'bauth-seed'),
-('display_items',   'Ver partidas individuales de un documento contable',                   'bauth-seed'),
-('settle_rule',     'Ejecutar regla de liquidación automática',                             'bauth-seed'),
-('settle_params',   'Configurar parámetros de liquidación',                                'bauth-seed'),
-('reconcile',       'Conciliar registros contables o bancarios',                            'bauth-seed'),
--- Flujo y aprobación
-('check',           'Verificar datos, consistencia o cumplimiento de reglas',               'bauth-seed'),
-('complete',        'Completar un proceso o documento en curso',                            'bauth-seed'),
-('approve',         'Aprobar un documento o solicitud — SoD: nunca quien crea',            'bauth-seed'),
-('reject',          'Rechazar un documento o solicitud',                                    'bauth-seed'),
-('submit',          'Enviar documento para revisión o aprobación',                          'bauth-seed'),
-('validate',        'Validar datos o documentos contra reglas del negocio',                 'bauth-seed'),
--- Transferencia y asignación
-('transfer',        'Transferir recursos, fondos o responsabilidades',                      'bauth-seed'),
-('assign',          'Asignar resource o tarea a usuario o grupo',                           'bauth-seed'),
-('share',           'Compartir acceso a un resource con otro usuario',                       'bauth-seed'),
--- Ejecución y programación
-('execute',         'Ejecutar un proceso, tarea o comando',                                 'bauth-seed'),
-('schedule',        'Programar ejecución diferida de un proceso',                           'bauth-seed'),
-('schedule_task',   'Programar tarea automatizada del sistema',                             'bauth-seed'),
--- Delegación y suplantación — ALTO RIESGO (solo tier SU/SYS)
-('delegate',        'Delegar autorización propia a otro usuario — ALTO RIESGO',             'bauth-seed'),
-('impersonate',     'Actuar con la identidad de otro usuario — ALTO RIESGO',               'bauth-seed'),
-('delegate_access', 'Delegar acceso específico a resource — ALTO RIESGO',                    'bauth-seed'),
-('impersonate_user','Suplantar identidad de usuario persona — ALTO RIESGO',                 'bauth-seed'),
-('emergency_access','Acceso break-glass de emergencia con dual control — ALTO RIESGO',      'bauth-seed'),
--- Comunicación y configuración
-('notify',          'Enviar notificación o alerta a usuarios o sistemas',                   'bauth-seed'),
-('configure',       'Configurar parámetros o comportamiento del sistema',                   'bauth-seed'),
--- IGA y certificación
-('certify',         'Certificar o recertificar accesos en campaña IGA (NIST AC-2(j))',      'bauth-seed'),
-('audit',           'Auditar operaciones y registros del sistema (ISO 27001 A.8.15)',        'bauth-seed'),
-('report',          'Generar reporte de accesos, roles o cumplimiento',                     'bauth-seed'),
-('manage',          'Gestionar o administrar entidades del sistema',                        'bauth-seed'),
-('reassess',        'Reevaluar elegibilidad de grants vía CAEP reactivo (RFC 9396)',        'bauth-seed'),
--- Firma digital y criptografía (D13)
-('sign',            'Firmar digitalmente documentos o tokens (Ley 164 · Vault Ed25519)',    'bauth-seed'),
-('emit',            'Emitir tokens, eventos o documentos del sistema',                     'bauth-seed'),
--- Autenticación e identidad
-('login',           'Iniciar sesión / autenticarse en el sistema',                          'bauth-seed'),
-('enroll',          'Enrolar credencial biométrica o authenticator (D9 · FIDO2)',           'bauth-seed'),
-('revoke',          'Revocar credencial, token o acceso activo (< 30s NIST AC-2(j))',       'bauth-seed'),
--- Break-glass
-('glass',           'Activar protocolo break-glass de emergencia — romper el vidrio',       'bauth-seed')
-ON CONFLICT (verb_id) DO NOTHING;
 
 -- ── T-175: Matriz de conflictos SoD — verb_a < verb_b (orden alfabético) ─────
 -- Fuente: NIST SP 800-53 AC-5 · ISO 27001 A.6.1.2 · GAPS-DDL-PRIVILEGIOS.md G-03
-INSERT INTO bauth.privilege_verb_conflict (verb_a, verb_b, conflict_type, description, created_by) VALUES
--- STATIC_SOD — conflicto siempre prohibido para el mismo usuario ─────────────
-('approve',   'create',           'STATIC_SOD', 'Quien crea no puede aprobar lo que crea — principio maker-checker (NIST AC-5)',            'bauth-seed'),
-('approve',   'delegate',         'STATIC_SOD', 'Quien delega autorización no puede aprobar lo que delegó',                                 'bauth-seed'),
-('approve',   'delegate_access',  'STATIC_SOD', 'Quien delega acceso no puede aprobar la solicitud resultante',                             'bauth-seed'),
-('approve',   'emergency_access', 'STATIC_SOD', 'Break-glass excluye rol aprobador — dual control obligatorio (NIST AC-2(2))',               'bauth-seed'),
-('approve',   'impersonate',      'STATIC_SOD', 'Quien actúa como otro no puede aprobar durante esa sesión',                                'bauth-seed'),
-('approve',   'impersonate_user', 'STATIC_SOD', 'Suplantación de persona excluye rol aprobador',                                            'bauth-seed'),
-('approve',   'post',             'STATIC_SOD', 'Quien contabiliza no puede aprobar el documento que asienta',                              'bauth-seed'),
-('approve',   'reconcile',        'STATIC_SOD', 'Quien reconcilia no puede aprobar los asientos que reconcilia',                            'bauth-seed'),
-('approve',   'reverse',          'STATIC_SOD', 'Quien reversa no puede haber aprobado el asiento original',                                'bauth-seed'),
-('approve',   'settle_rule',      'STATIC_SOD', 'Quien liquida no puede aprobar las reglas de liquidación',                                 'bauth-seed'),
-('approve',   'void',             'STATIC_SOD', 'Quien anula no puede ser aprobador del documento anulado',                                 'bauth-seed'),
-('create',    'post',             'STATIC_SOD', 'Quien crea el documento no puede contabilizarlo — maker no es checker',                    'bauth-seed'),
-('create',    'reconcile',        'STATIC_SOD', 'Quien crea no puede conciliar sus propios registros',                                      'bauth-seed'),
-('create',    'reverse',          'STATIC_SOD', 'Quien crea un asiento no puede reversarlo (ISO 27001 A.6.1.2)',                            'bauth-seed'),
-('create',    'validate',         'STATIC_SOD', 'Quien crea no puede validar lo que crea — ejemplo canónico G-03',                          'bauth-seed'),
-('create',    'void',             'STATIC_SOD', 'Quien crea no puede anular sus propios documentos',                                        'bauth-seed'),
-('post',      'reverse',          'STATIC_SOD', 'Quien contabiliza no puede reversar — cuatro ojos contable',                               'bauth-seed'),
--- DYNAMIC_SOD — conflicto solo sobre el mismo objeto/instancia ───────────────
-('approve',   'check',            'DYNAMIC_SOD', 'Quien verifica no puede aprobar el mismo documento',                                       'bauth-seed'),
-('approve',   'complete',         'DYNAMIC_SOD', 'Quien completa un proceso no puede aprobarlo en la misma instancia',                       'bauth-seed'),
-('approve',   'submit',           'DYNAMIC_SOD', 'Quien envía la solicitud no puede aprobarla',                                              'bauth-seed'),
-('create',    'reject',           'DYNAMIC_SOD', 'Quien crea no puede rechazar su propio documento',                                         'bauth-seed'),
-('submit',    'validate',         'DYNAMIC_SOD', 'Quien envía para validación no puede validar la misma solicitud',                          'bauth-seed'),
--- AFINIDAD — verbos típicamente asignados juntos, sin generar rechazo ──────────
-('approve',   'reject',           'AFFINITY',     'Aprobador y rechazador son la misma función — pares complementarios del flujo',            'bauth-seed'),
-('assign',    'delegate',         'AFFINITY',     'Asignar y delegar son operaciones afines de distribución de trabajo',                      'bauth-seed'),
-('block_entity','unblock_entity', 'AFFINITY',     'Bloquear y desbloquear entidades — par operacional complementario',                        'bauth-seed'),
-('close',     'reopen',           'AFFINITY',     'Cerrar y reabrir períodos — par de ciclo de vida complementario',                          'bauth-seed'),
-('create',    'update',           'AFFINITY',     'Crear y editar — operaciones básicas del propietario del registro',                        'bauth-seed'),
-('delegate',  'delegate_access',  'AFFINITY',     'Delegar y delegar acceso — variantes de la misma familia semántica',                       'bauth-seed'),
-('execute',   'notify',           'AFFINITY',     'Ejecutar y notificar — quien ejecuta típicamente también notifica el resultado',           'bauth-seed'),
-('execute',   'schedule',         'AFFINITY',     'Ejecutar y programar — par natural de ejecución inmediata vs diferida',                    'bauth-seed'),
-('execute',   'schedule_task',    'AFFINITY',     'Ejecutar y programar tareas — variantes de ejecución de procesos',                         'bauth-seed'),
-('export',    'read',             'AFFINITY',     'Exportar requiere leer — quien exporta implícitamente accede al dato',                     'bauth-seed'),
-('impersonate','impersonate_user','AFFINITY',     'Suplantar y suplantar usuario — par de variantes de la misma familia de alto riesgo',      'bauth-seed'),
-('lock',      'unlock',           'AFFINITY',     'Bloquear y desbloquear objetos — par operacional complementario',                          'bauth-seed'),
-('print',     'read',             'AFFINITY',     'Imprimir requiere leer — quien imprime implícitamente accede al dato',                     'bauth-seed'),
-('release',   'undo_release',     'AFFINITY',     'Liberar y deshacer liberación — par de ciclo documental complementario',                   'bauth-seed'),
--- STATIC_SOD — verbos nuevos ────────────────────────────────────────────────
-('approve',   'certify',          'STATIC_SOD', 'Quien certifica accesos no puede haber aprobado esos mismos accesos (IGA independiente)',  'bauth-seed'),
-('approve',   'glass',            'STATIC_SOD', 'Break-glass excluye rol aprobador — dual control glass vs aprobación ordinaria',           'bauth-seed'),
-('audit',     'manage',           'STATIC_SOD', 'Quien gestiona entidades no puede auditarse a sí mismo (ISO 27001 A.6.1.2)',               'bauth-seed'),
-('audit',     'configure',        'STATIC_SOD', 'Quien configura el sistema no puede auditar su propia configuración',                      'bauth-seed'),
-('certify',   'create',           'STATIC_SOD', 'Quien crea accesos no puede certificar (recertificar) esos mismos accesos',                'bauth-seed'),
-('certify',   'manage',           'STATIC_SOD', 'Quien gestiona entidades no puede certificar sus propios accesos (NIST AC-2(j))',           'bauth-seed'),
-('glass',     'post',             'STATIC_SOD', 'Break-glass no coexiste con contabilización — emergencia excluye operación contable',      'bauth-seed'),
-('glass',     'settle_rule',      'STATIC_SOD', 'Break-glass excluye liquidación — el acceso de emergencia no puede ejecutar reglas',       'bauth-seed'),
--- DYNAMIC_SOD — verbos nuevos ────────────────────────────────────────────────
-('certify',   'sign',             'DYNAMIC_SOD', 'Quien firma un documento no puede certificar ese mismo documento',                         'bauth-seed'),
-('create',    'sign',             'DYNAMIC_SOD', 'Quien crea un documento no puede firmarlo — la firma requiere un segundo actor',           'bauth-seed'),
-('emit',      'revoke',           'DYNAMIC_SOD', 'Quien emitió un token no puede ser el único que lo revoca sobre el mismo objeto',          'bauth-seed'),
--- AFINIDAD — verbos nuevos ────────────────────────────────────────────────────
-('audit',     'report',           'AFFINITY',     'Auditar y reportar — el auditor típicamente genera el reporte de hallazgos',               'bauth-seed'),
-('certify',   'reassess',         'AFFINITY',     'Certificar y reevaluar — ambos son mecanismos de revisión de accesos',                     'bauth-seed'),
-('emit',      'sign',             'AFFINITY',     'Emitir y firmar — quien emite documentos con validez jurídica también los firma',          'bauth-seed'),
-('enroll',    'login',            'AFFINITY',     'Enrolar y autenticarse — el enrolamiento es prerequisito del login con ese método',        'bauth-seed'),
-('emergency_access', 'glass', 'AFFINITY',     'Glass y acceso_emergencia — verbos complementarios del protocolo break-glass',             'bauth-seed'),
-('reassess',  'revoke',           'AFFINITY',     'Reevaluar y revocar — el reactor CAEP reevalúa y si procede revoca',                       'bauth-seed')
-ON CONFLICT (verb_a, verb_b) DO NOTHING;
 
 -- ======================================================================
 -- T-161b — bauth.idn_policy_node_type
@@ -2446,6 +2192,7 @@ Administración: ON CONFLICT DO UPDATE — los campos de presentación (color, f
 son actualizables sin migración destructiva; code y abbreviation son estables (son FK vivas).
 WORM: no — parámetros de presentación se actualizan vía ON CONFLICT DO UPDATE.
 Particionada: no.
+Seed: DDLs/seeds/bauth_T161b__idn_policy_node_type.sql — idempotente ON CONFLICT.
 Estándar: XACML 3.0 §4.3, NIST RBAC N3. T-161b.';
 
 -- Seed: tipos canónicos del árbol de políticas bAuth
@@ -2453,87 +2200,7 @@ Estándar: XACML 3.0 §4.3, NIST RBAC N3. T-161b.';
 --   monospace, letter_spacing, show_badge, expanded_default) permiten que el
 --   cliente Flutter renderice el árbol SIN hardcoding — todo viene de esta tabla.
 -- Paleta de color_key: primary | foreground | muted | amber | teal | violet | red | green
-INSERT INTO bauth.idn_policy_node_type (
-    code, abbreviation, name_es, name_en, description_es, description_en,
-    color_key, color_key_valor, font_weight, font_size_token,
-    monospace, letter_spacing, show_badge, expanded_default, sort_order
-) VALUES
-  ('tenant','TNT','Tenant','Tenant',
-   'Nodo raíz del árbol de políticas de un tenant. Cada tenant tiene su propio árbol independiente.',
-   'Root node of a tenant policy tree. Each tenant has its own independent tree.',
-   'primary','muted', 700,'md', FALSE,0.4, TRUE,TRUE, 10),
 
-  ('domain','DOM','Dominio','Domain',
-   'Cabecera de un dominio de control. Agrupa bloques y políticas de un área funcional. Corresponde a los dominios D0–D99.',
-   'Control domain header. Groups blocks and policies for a functional area. Maps to domains D0–D99.',
-   'primary','muted', 700,'md', FALSE,0.4, FALSE,TRUE, 20),
-
-  ('block','BLQ','Bloque','Block',
-   'Agrupación intermedia de objetos y políticas dentro de un dominio. Organiza secciones lógicas sin semántica de control propia.',
-   'Intermediate grouping of objects and policies within a domain. Organizes logical sections without own control semantics.',
-   'foreground','muted', 700,'base', FALSE,0.0, FALSE,FALSE, 30),
-
-  ('object','OBJ','Objeto','Object',
-   'Estructura de datos JSONB. Representa una entidad de negocio o configuración. No contiene lógica de control.',
-   'JSONB data structure. Represents a business entity or configuration. Contains no control logic.',
-   'muted','muted', 600,'base', FALSE,0.0, TRUE,FALSE, 40),
-
-  ('list','LST','Lista','List',
-   'Colección ordenada de ítems homogéneos. Usada para arrays de valores de configuración o permisos.',
-   'Ordered collection of homogeneous items. Used for arrays of configuration values or permissions.',
-   'muted','muted', 600,'base', FALSE,0.0, TRUE,FALSE, 50),
-
-  ('policy_set','SET','Conjunto de Políticas','Policy Set',
-   'Agrupación lógica de políticas evaluadas como un conjunto bajo un algoritmo de combinación (permit-overrides, deny-overrides, etc.).',
-   'Logical grouping of policies evaluated as a set under a combining algorithm (permit-overrides, deny-overrides, etc.).',
-   'primary','muted', 600,'base', FALSE,0.0, TRUE,FALSE, 60),
-
-  ('policy','POL','Política','Policy',
-   'Conjunción de condiciones que gobiernan el acceso a un resource. Contiene reglas y define el algoritmo de combinación.',
-   'Conjunction of conditions that govern access to a resource. Contains rules and defines the combining algorithm.',
-   'primary','muted', 600,'base', FALSE,0.0, TRUE,FALSE, 70),
-
-  ('rule','RGL','Regla','Rule',
-   'Una o más evaluaciones atómicas encadenadas con su efecto (Permit/Deny). Patrón: eval [op_lógico eval]* efecto.',
-   'One or more atomic evaluations chained with their effect (Permit/Deny). Pattern: eval [logical_op eval]* effect.',
-   'amber','muted', 600,'base', FALSE,0.0, TRUE,FALSE, 80),
-
-  ('atom','ATM','Átomo','Atom',
-   'Evaluación atómica: propiedad / operador / valor / efecto. Unidad mínima de decisión del PDP. Ocupa una posición de bit en el BitMask.',
-   'Atomic evaluation: property / operator / value / effect. Minimum decision unit of the PDP. Occupies one bit position in the BitMask.',
-   'teal','teal', 600,'sm', FALSE,0.0, TRUE,FALSE, 90),
-
-  ('attribute','ATR','Atributo','Attribute',
-   'Hoja de datos: clave → valor libre. Almacena metadatos, parámetros de configuración o claims del contexto.',
-   'Data leaf: key → free value. Stores metadata, configuration parameters or context claims.',
-   'muted','muted', 500,'sm', TRUE,0.0, FALSE,FALSE, 100),
-
-  ('enum','ENM','Enumerado','Enum',
-   'Hoja de datos: clave → valor de conjunto fijo. El editor presenta un menú contextual con las opciones disponibles.',
-   'Data leaf: key → value from a fixed set. The editor presents a context menu with available options.',
-   'violet','violet', 600,'sm', TRUE,0.0, TRUE,FALSE, 110),
-
-  ('event','EVT','Evento','Event',
-   'Disparador de políticas basado en eventos del sistema o del usuario. Activa evaluaciones reactivas en el motor CAEP.',
-   'Policy trigger based on system or user events. Activates reactive evaluations in the CAEP engine.',
-   'amber','muted', 600,'base', FALSE,0.0, TRUE,FALSE, 120)
-ON CONFLICT (code) DO UPDATE SET
-    abbreviation       = EXCLUDED.abbreviation,
-    name_es         = EXCLUDED.name_es,
-    name_en         = EXCLUDED.name_en,
-    description_es    = EXCLUDED.description_es,
-    description_en    = EXCLUDED.description_en,
-    color_key         = EXCLUDED.color_key,
-    color_key_valor   = EXCLUDED.color_key_valor,
-    font_weight       = EXCLUDED.font_weight,
-    font_size_token   = EXCLUDED.font_size_token,
-    monospace         = EXCLUDED.monospace,
-    letter_spacing   = EXCLUDED.letter_spacing,
-    show_badge     = EXCLUDED.show_badge,
-    expanded_default = EXCLUDED.expanded_default,
-    sort_order        = EXCLUDED.sort_order;
-
--- ======================================================================
 -- T-162 — bauth.idn_roles_template
 -- Árbol de políticas PER-TENANT (G-06). Cada tenant tiene su propio árbol.
 -- Tipos de nodo (FK a idn_policy_node_type): tenant|dominio|bloque|objeto|lista|
@@ -2653,6 +2320,7 @@ biedata son lectores. Cambios en path/node_type de átomos activos requieren rev
 en BitMask (atom_position inmutable). Historial de cambios en T-163 (WORM).
 WORM: no — el árbol es mutable; el historial inmutable vive en T-163.
 Particionada: no.
+Seed: DDLs/seeds/bauth_T162__idn_roles_template.sql — idempotente ON CONFLICT.
 Estándar: XACML 3.0, NIST RBAC N3, ISO 27001 A.5.15, OWASP ASVS 6.1. T-162.';
 
 COMMENT ON COLUMN bauth.idn_roles_template.tenant_id     IS '[G-06] FK a idn_tenant. El árbol es per-tenant — cada empresa tiene el suyo.';
@@ -2807,6 +2475,7 @@ lectores por contrato. Cambiar parent_id requiere recalcular paths descendientes
 Eliminar un nodo (ON DELETE CASCADE) elimina toda su jerarquía — requiere HITL.
 WORM: no — status y metadata son actualizables (SUSPENDED/ARCHIVED es el flujo de baja).
 Particionada: no.
+Seed: DDLs/seeds/bauth_T156__idn_identity_entity.sql — idempotente ON CONFLICT.
 Estándar: ISO 24760-2:2025, NIST SP 800-63A IAL1-3, ISO 27001 A.5.16. T-156.';
 
 COMMENT ON COLUMN bauth.idn_identity_entity.level  IS '[ENUM] Nivel jerárquico: tenant (raíz del ecosistema del cliente), bdomain (empresa/organización), bsubdomain (sucursal/departamento), pos (punto de servicio/venta), actor (entidad hoja — persona, sistema, bot que porta credenciales y roles).';
@@ -3049,6 +2718,7 @@ en vez de DELETE — mantiene historicidad de qué se requería en cada período
 accepted_sources controla las fuentes válidas de verificación por tier IAL.
 WORM: no — is_active es editable; el override de un tenant se actualiza vía UPSERT.
 Particionada: no.
+Seed: DDLs/seeds/bauth_T159__idn_identity_requirement.sql — idempotente ON CONFLICT.
 Estándar: NIST SP 800-63A-4 §4, ISO 24760-2:2025 §5, ISO 11179-3:2023. T-159.';
 
 COMMENT ON COLUMN bauth.idn_identity_requirement.tenant_id        IS 'NULL = global (aplica a todos los tenants). NOT NULL = override específico del tenant.';
@@ -3061,48 +2731,8 @@ COMMENT ON COLUMN bauth.idn_identity_requirement.max_age_days      IS 'Antigüed
 COMMENT ON COLUMN bauth.idn_identity_requirement.error_message     IS 'Mensaje de error bilingüe {es, en} devuelto por el Motor de Identidad al frontend cuando falla la validación.';
 
 -- ─── Seeds base: requisitos globales del sistema ───────────────────────
-INSERT INTO bauth.idn_identity_requirement
-    (tenant_id, entity_type, ial_level,
-     attr_namespace, attr_key,
-     is_required, must_be_verified, accepted_sources,
-     validation_regex, error_message)
-VALUES
-    -- IAL1: solo autoafirmado — nombre + email
-    (NULL, 'actor', 'IAL1', 'core',    'full_name',    true,  false,
-     '{self}',                    NULL,
-     '{"es":"Nombre completo is_required","en":"Full name required"}'),
 
-    (NULL, 'actor', 'IAL1', 'contact', 'email',         true,  false,
-     '{self}',                    '^[^@]+@[^@]+\.[^@]+$',
-     '{"es":"Email is_required","en":"Email required"}'),
 
-    -- IAL2: verificado remotamente — nombre + CI + email verificados
-    (NULL, 'actor', 'IAL2', 'core',    'full_name',    true,  true,
-     '{document,government}',     NULL,
-     '{"es":"Nombre completo verificado is_required (IAL2)","en":"Verified full name required (IAL2)"}'),
-
-    (NULL, 'actor', 'IAL2', 'core',    'national_id',  true,  true,
-     '{document,government}',     '^\d{7,8}$',
-     '{"es":"Cédula de identidad boliviana verificada requerida","en":"Verified Bolivian national ID required"}'),
-
-    (NULL, 'actor', 'IAL2', 'contact', 'email',         true,  true,
-     '{self,employer}',            '^[^@]+@[^@]+\.[^@]+$',
-     '{"es":"Email verificado is_required (IAL2)","en":"Verified email required (IAL2)"}'),
-
-    -- IAL3: verificado presencialmente — CI + biometría obligatoria
-    (NULL, 'actor', 'IAL3', 'core',    'full_name',    true,  true,
-     '{government}',               NULL,
-     '{"es":"Nombre verificado presencialmente is_required (IAL3)","en":"In-person verified name required (IAL3)"}'),
-
-    (NULL, 'actor', 'IAL3', 'core',    'national_id',  true,  true,
-     '{government}',               '^\d{7,8}$',
-     '{"es":"Cédula verificada presencialmente requerida (IAL3)","en":"In-person verified national ID required (IAL3)"}'),
-
-    (NULL, 'actor', 'IAL3', 'verification', 'biometric_ref', true, true,
-     '{biometric}',                NULL,
-     '{"es":"Referencia biométrica verificada requerida (IAL3)","en":"Verified biometric reference required (IAL3)"}')
-
-ON CONFLICT (tenant_id, entity_type, ial_level, attr_namespace, attr_key) DO NOTHING;
 
 -- ======================================================================
 -- T-160 — bauth.idn_identidad_sinonimo  [STUB — diseño pendiente]
@@ -3285,6 +2915,72 @@ mínimo privilegio del agente — NUNCA puede exceder los permisos del NHI padre
 WORM: no — max_permission_scope y session_type son ajustables operacionalmente.
 Particionada: no.
 Estándar: NIST AI RMF 1.0, ISO 42001:2023, CSA NHI Governance 2025. T-190.';
+
+
+-- ======================================================================
+-- T-187 — bauth.idn_scim_attribute_map
+-- Mapeo bidireccional entre atributos SCIM 2.0 (RFC 7643/7644) y los atributos
+-- locales de bAuth. Permite a bAuth exponer y consumir identidades via SCIM
+-- sin acoplar el esquema externo al modelo interno. GAP-D00-08.
+-- tenant_id=NULL = regla global; NOT NULL = override del tenant.
+-- ======================================================================
+CREATE TABLE IF NOT EXISTS bauth.idn_scim_attribute_map (
+    map_id           UUID        PRIMARY KEY DEFAULT uuidv7(),
+    tenant_id        UUID        NULL REFERENCES bauth.idn_tenant(tenant_id) ON DELETE CASCADE,
+    scim_resource    TEXT        NOT NULL,
+    scim_attr        TEXT        NOT NULL,
+    local_namespace  TEXT        NOT NULL,
+    local_attr_key   TEXT        NOT NULL,
+    local_table      TEXT        NOT NULL DEFAULT 'idn_identidad_atributo',
+    scim_mutability  TEXT        NOT NULL DEFAULT 'readWrite',
+    scim_returned    TEXT        NOT NULL DEFAULT 'default',
+    transform_expr   TEXT        NULL,
+    activo           BOOLEAN     NOT NULL DEFAULT true,
+    ctx_id           TEXT        NOT NULL DEFAULT 'system',
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT uq_isam_tenant_resource_attr UNIQUE (tenant_id, scim_resource, scim_attr),
+    CONSTRAINT chk_isam_resource CHECK (
+        scim_resource IN ('User','Group','EnterpriseUser','ServiceAccount','CustomResource')
+    ),
+    CONSTRAINT chk_isam_mutability CHECK (
+        scim_mutability IN ('readOnly','readWrite','immutable','writeOnly')
+    ),
+    CONSTRAINT chk_isam_returned CHECK (
+        scim_returned IN ('always','never','default','request')
+    ),
+    CONSTRAINT chk_isam_table CHECK (
+        local_table IN ('idn_identidad_atributo','idn_identidad_entidad','idn_identidad_proofing','idn_identidad_vc')
+    )
+);
+
+CREATE INDEX IF NOT EXISTS idx_isam_resource ON bauth.idn_scim_attribute_map (scim_resource);
+CREATE INDEX IF NOT EXISTS idx_isam_local    ON bauth.idn_scim_attribute_map (local_namespace, local_attr_key);
+CREATE INDEX IF NOT EXISTS idx_isam_tenant   ON bauth.idn_scim_attribute_map (tenant_id) WHERE tenant_id IS NOT NULL;
+
+COMMENT ON TABLE bauth.idn_scim_attribute_map IS
+'IDENTIDAD SCIM D00 | Mapeo bidireccional SCIM 2.0 ↔ atributos locales bAuth (GAP-D00-08).
+Permite que bAuth actúe como SCIM server (RFC 7644) y cliente (provisioning) sin acoplar el
+esquema externo al modelo interno. Cada fila describe cómo un atributo SCIM se mapea a un
+atributo local (local_namespace + local_attr_key en la tabla local_table).
+Patrón override en dos capas: tenant_id=NULL = regla global del sistema; tenant_id NOT NULL
+= override del tenant que sobreescribe la regla global para ese atributo específico.
+transform_expr: expresión opcional para transformar el valor SCIM→local (SQL/JSONPath).
+Fuente: seed de despliegue con los atributos SCIM User/Group estándar (RFC 7643 §4.1-4.2);
+overrides del tenant vía RPC bauth.identity.scim.map.override con HITL.
+Administración: solo SUPER_ADMIN y TENANT_ADMIN pueden configurar overrides. activo=false
+desactiva el mapeo sin eliminarlo (trazabilidad histórica). Revisión al actualizar schema SCIM.
+WORM: no — activo y transform_expr son editables vía UPSERT controlado.
+Particionada: no.
+Seed: DDLs/seeds/bauth_T187__idn_scim_attribute_map.sql — idempotente ON CONFLICT.
+Estándar: RFC 7643, RFC 7644, NIST SP 800-63A-4 §4, ISO 24760-2:2025 §5. T-187.';
+
+COMMENT ON COLUMN bauth.idn_scim_attribute_map.tenant_id       IS 'NULL = global (aplica a todos los tenants). NOT NULL = override específico del tenant para este atributo SCIM.';
+COMMENT ON COLUMN bauth.idn_scim_attribute_map.scim_resource   IS '[ENUM] Tipo de recurso SCIM: User (RFC 7643 §4.1), Group (§4.2), EnterpriseUser (§4.3), ServiceAccount, CustomResource.';
+COMMENT ON COLUMN bauth.idn_scim_attribute_map.scim_attr       IS 'Ruta del atributo SCIM en notación de punto. Ej: userName, name.givenName, emails[type=work].value.';
+COMMENT ON COLUMN bauth.idn_scim_attribute_map.local_namespace IS 'Namespace del atributo en el modelo local: identity, contact, hr, organization, etc.';
+COMMENT ON COLUMN bauth.idn_scim_attribute_map.scim_mutability IS '[RFC 7643 §7] readOnly/readWrite/immutable/writeOnly — controla si el atributo puede ser actualizado por el cliente SCIM.';
+COMMENT ON COLUMN bauth.idn_scim_attribute_map.transform_expr  IS 'Expresión opcional de transformación valor SCIM→local (JSONPath o SQL). NULL = mapeo directo sin transformación.';
 
 
 -- T-165 — bauth.idn_identity_proofing
@@ -5175,6 +4871,7 @@ Administración: solo SUPER_ADMIN y UI_ADMIN pueden crear/desactivar contextos; 
 tabla al arrancar y la cachea en Redis; cambios de is_active se propagán por señal CAEP catalog_change.
 WORM: no — is_active y sort_order son mutables para ajustes de UX.
 Particionada: no.
+Seed: DDLs/seeds/bglobal_T060__menu_context.sql — idempotente ON CONFLICT.
 Estándar: WCAG 2.2 (navegación accesible), SBOS ADR-020 (Interface Dual). T-060.';
 
 
@@ -5213,6 +4910,7 @@ del átomo (el ítem se vuelve visible para todos — usar con precaución); cam
 por señal de invalidación de cache.
 WORM: no — is_active es mutable para gestión operacional de visibilidad.
 Particionada: no.
+Seed: DDLs/seeds/bglobal_T0XX__menu_item_atom.sql — PENDIENTE — depende de menu_item
 Estándar: NIST SP 800-53 AC-3(9) (dynamic access control), SBOS ADR-020, OWASP ASVS 5.0 §4.1. T-061.';
 
 
@@ -5250,20 +4948,9 @@ Administración: tabla de referencia inmutable en operación normal; solo HITL d
 protocolos; status=DEPRECATED mantiene historial de protocolos retirados sin eliminar datos.
 WORM: no — status es mutable para el ciclo de vida de protocolos (SUPPORTED→DEPRECATED).
 Particionada: no.
+Seed: DDLs/seeds/bauth_T384__auth_federation_protocol.sql — idempotente ON CONFLICT.
 Estándar: RFC 7591 (OIDC), RFC 8705 (mTLS), FAPI 2.0, RFC 9493 (CAEP), SAML 2.0 OASIS. T-384.';
 
-INSERT INTO bauth.auth_federation_protocol
-    (code, name, spec_url, aal_max, fal_supported, is_phishing_resistant, supports_logout, supports_backchannel, status, sort_order)
-VALUES
-    ('SAML_2_0',             '{"es":"SAML 2.0"}',                 'https://docs.oasis-open.org/security/saml/v2.0/',                                      'AAL2','{FAL1,FAL2}',      FALSE,TRUE, TRUE, 'SUPPORTED',10),
-    ('OIDC_CORE_1_0',        '{"es":"OpenID Connect Core 1.0"}',  'https://openid.net/specs/openid-connect-core-1_0.html',                                'AAL2','{FAL1,FAL2}',      FALSE,TRUE, TRUE, 'SUPPORTED',20),
-    ('OAUTH2_PKCE',          '{"es":"OAuth 2.0 + PKCE"}',         'https://www.rfc-editor.org/rfc/rfc7636',                                               'AAL2','{FAL1,FAL2}',      FALSE,FALSE,FALSE,'SUPPORTED',30),
-    ('OAUTH2_DEVICE',        '{"es":"OAuth 2.0 Device Auth"}',    'https://www.rfc-editor.org/rfc/rfc8628',                                               'AAL1','{FAL1}',           FALSE,FALSE,FALSE,'SUPPORTED',40),
-    ('OAUTH2_TOKEN_EXCHANGE','{"es":"OAuth 2.0 Token Exchange"}', 'https://www.rfc-editor.org/rfc/rfc8693',                                               'AAL2','{FAL1,FAL2}',      FALSE,FALSE,FALSE,'SUPPORTED',50),
-    ('CIBA',                 '{"es":"CIBA Backchannel Auth"}',    'https://openid.net/specs/openid-client-initiated-backchannel-authentication-core-1_0.html','AAL2','{FAL1,FAL2}',FALSE,FALSE,TRUE, 'SUPPORTED',60),
-    ('FAPI_2_0',             '{"es":"FAPI 2.0 Security Profile"}','https://openid.net/specs/fapi-2_0-security-profile-1_0.html',                          'AAL3','{FAL2,FAL3}',      TRUE, TRUE, TRUE, 'SUPPORTED',70),
-    ('CAEP_RFC9396',         '{"es":"CAEP / SSF (RFC 9396)"}',    'https://www.rfc-editor.org/rfc/rfc9396',                                               'AAL2','{FAL1,FAL2,FAL3}', FALSE,FALSE,TRUE, 'SUPPORTED',80)
-ON CONFLICT (code) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS bauth.auth_saga_catalog (
     saga_id         UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
@@ -5286,25 +4973,10 @@ Fuente: seed de despliegue con las 12 sagas canónicas (PASSWORD_MFA, PASSWORDLE
 Administración: tabla de referencia; cambios solo vía migración DDL con HITL; el motor de autenticación de bAuth selecciona la saga según el método solicitado y el AAL de la sesión actual; DEPRECATED conserva histórico.
 WORM: no (status DEPRECATED necesario para el ciclo de vida de las sagas).
 Particionada: no.
+Seed: DDLs/seeds/bauth_T385__auth_saga_catalog.sql — idempotente ON CONFLICT.
 Estándar: RFC 9470 (Step-Up Auth), RFC 8628 (Device Auth), RFC 8693 (Token Exchange), NIST SP 800-63B-4 §7, OWASP ASVS 5.0 §2.2. T-385.';
 
 
-INSERT INTO bauth.auth_saga_catalog
-    (code, name, description, steps, aal_required, aal_produced, timeout_seconds, is_emergency, requires_mfa, status, sort_order)
-VALUES
-    ('PASSWORD_MFA',        '{"es":"Contraseña + MFA"}',         '{"es":"Contraseña + segundo factor"}',           '["PASSWORD","MFA_CHALLENGE","VERIFY_MFA"]',                                   'AAL1','AAL2',300,  FALSE,TRUE, 'ACTIVE',10),
-    ('PASSWORDLESS_FIDO2',  '{"es":"Sin contraseña FIDO2"}',     '{"es":"Passkey nativa anti-phishing"}',          '["FIDO2_CHALLENGE","VERIFY_ASSERTION"]',                                      'AAL1','AAL3',120,  FALSE,FALSE,'ACTIVE',20),
-    ('SOCIAL_BROKER',       '{"es":"Bróker Social/OIDC"}',       '{"es":"Redirección a IdP externo"}',             '["REDIRECT_TO_IDP","RECEIVE_CALLBACK","MAP_CLAIMS","LOCAL_ACCOUNT_LINK"]',    'AAL1','AAL2',600,  FALSE,FALSE,'ACTIVE',30),
-    ('SAML_SSO',            '{"es":"SSO SAML 2.0"}',             '{"es":"Single Sign-On vía SAML 2.0"}',           '["SP_INIT_AUTHNREQ","IDP_PROCESS","VALIDATE_ASSERTION","ESTABLISH_SESSION"]', 'AAL1','AAL2',600,  FALSE,FALSE,'ACTIVE',40),
-    ('DEVICE_AUTH',         '{"es":"Device Authorization"}',     '{"es":"RFC 8628 para dispositivos"}',            '["DEVICE_CODE_REQUEST","USER_CODE_DISPLAY","USER_AUTHORIZE","POLL_TOKEN"]',   'AAL1','AAL1',900,  FALSE,FALSE,'ACTIVE',50),
-    ('STEP_UP_AAL2_AAL3',   '{"es":"Step-Up AAL2→AAL3"}',        '{"es":"Elevación temporal LoA RFC 9470"}',       '["CURRENT_SESSION_VERIFY","CHALLENGE_AAL3","VERIFY_AAL3","GRANT_STEP_UP"]',  'AAL2','AAL3',180,  FALSE,TRUE, 'ACTIVE',60),
-    ('BREAKGLASS_EMERGENCY','{"es":"Break-Glass Emergencia"}',   '{"es":"Emergencia con alerta SIEM"}',            '["EMERGENCY_TRIGGER","DUAL_APPROVAL","GRANT_ACCESS","ALERT_SIEM"]',           'AAL2','AAL3',3600, TRUE, TRUE, 'ACTIVE',70),
-    ('RECOVERY_FLOW',       '{"es":"Recuperación de Cuenta"}',   '{"es":"Verificación + reset de credencial"}',    '["IDENTITY_VERIFY","RECOVERY_METHOD","RESET_CREDENTIAL","NOTIFY_USER"]',      'AAL1','AAL2',1800, FALSE,FALSE,'ACTIVE',80),
-    ('CIBA_PUSH',           '{"es":"CIBA Push MFA"}',            '{"es":"CIBA — push a bNotify"}',                 '["CIBA_REQUEST","PUSH_TO_DEVICE","USER_APPROVE","DELIVER_TOKEN"]',            'AAL1','AAL2',120,  FALSE,TRUE, 'ACTIVE',90),
-    ('TOKEN_EXCHANGE',      '{"es":"Token Exchange"}',           '{"es":"Intercambio RFC 8693"}',                  '["VALIDATE_SUBJECT_TOKEN","CHECK_PERMISSIONS","ISSUE_ACTOR_TOKEN"]',          'AAL1','AAL2',60,   FALSE,FALSE,'ACTIVE',100),
-    ('CLIENT_CREDENTIALS',  '{"es":"Client Credentials M2M"}',  '{"es":"M2M sin usuario"}',                       '["VALIDATE_CLIENT","CHECK_SCOPE","ISSUE_ACCESS_TOKEN"]',                      'AAL1','AAL1',30,   FALSE,FALSE,'ACTIVE',110),
-    ('M2M_MTLS',            '{"es":"M2M mTLS Certificate"}',     '{"es":"M2M con cert. cliente RFC 8705"}',        '["VALIDATE_CERT","CHECK_SCOPE","ISSUE_BOUND_TOKEN"]',                         'AAL1','AAL2',30,   FALSE,FALSE,'ACTIVE',120)
-ON CONFLICT (code) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS bauth.auth_compliance_map (
     map_id              UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
@@ -5324,27 +4996,10 @@ Fuente: seed de despliegue con 14 controles de los 5 estándares más relevantes
 Administración: tabla de referencia documental — UNIQUE (standard, control_id); cobertura PARTIAL genera alerta de gap en idn_global_compliance_control; no_covered bloquea certificaciones que requieran ese control.
 WORM: no.
 Particionada: no.
+Seed: DDLs/seeds/bauth_T386__auth_compliance_map.sql — idempotente ON CONFLICT.
 Estándar: NIST SP 800-63B-4, PCI DSS 4.0, OWASP ASVS 5.0, ISO 27001:2022, FIPS 140-3. T-386.';
 
 
-INSERT INTO bauth.auth_compliance_map
-    (standard, control_id, control_description, method_codes, saga_codes, coverage_level, notes)
-VALUES
-    ('NIST_SP_800_63B_4','§5.1.1','Memorized Secret — Argon2id',            '{PASSWORD}',                                        '{PASSWORD_MFA,RECOVERY_FLOW}',          'FULL','Argon2id m=64MB t=3 p=4'),
-    ('NIST_SP_800_63B_4','§5.1.3','TOTP — RFC 6238',                        '{TOTP}',                                            '{PASSWORD_MFA}',                        'FULL',NULL),
-    ('NIST_SP_800_63B_4','§5.1.7','WebAuthn L3 — FIDO2 Passkey',            '{WEBAUTHN_PASSWORDLESS,PASSKEY}',                   '{PASSWORDLESS_FIDO2}',                  'FULL','W3C WebAuthn L3'),
-    ('NIST_SP_800_63B_4','§5.2.5','Step-Up Auth — RFC 9470',                '{WEBAUTHN_2FA,X509_MTLS}',                          '{STEP_UP_AAL2_AAL3}',                   'FULL',NULL),
-    ('NIST_SP_800_63B_4','§7.2',  'Revocación < 30s',                       '{PASSWORD,TOTP,WEBAUTHN_PASSWORDLESS,X509_MTLS}',   '{RECOVERY_FLOW}',                       'FULL',NULL),
-    ('PCI_DSS_4_0','Req8.2.4',    'Lockout tras N fallos',                   '{PASSWORD}',                                        '{PASSWORD_MFA}',                        'FULL','N en T-337 auth_config'),
-    ('PCI_DSS_4_0','Req8.2.8',    'Log de todos los intentos',              '{PASSWORD,TOTP,WEBAUTHN_PASSWORDLESS}',              '{PASSWORD_MFA,PASSWORDLESS_FIDO2}',     'FULL','T-334 WORM'),
-    ('PCI_DSS_4_0','Req8.4.2',    'MFA para acceso a CDE',                  '{TOTP,WEBAUTHN_2FA,PASSKEY}',                       '{PASSWORD_MFA,STEP_UP_AAL2_AAL3}',      'FULL',NULL),
-    ('OWASP_ASVS_5_0','§2.1.1',   'Política contraseña — min 12 chars',     '{PASSWORD}',                                        '{PASSWORD_MFA,RECOVERY_FLOW}',          'FULL',NULL),
-    ('OWASP_ASVS_5_0','§2.2.1',   'Anti-phishing — cred. resistentes',      '{WEBAUTHN_PASSWORDLESS,PASSKEY,X509_MTLS}',         '{PASSWORDLESS_FIDO2,M2M_MTLS}',         'FULL',NULL),
-    ('OWASP_ASVS_5_0','§2.3.1',   'Cambio de cred. verificado',             '{PASSWORD}',                                        '{RECOVERY_FLOW}',                       'FULL',NULL),
-    ('OWASP_ASVS_5_0','§2.5.4',   'Recuperación segura — sin preguntas',    '{EMAIL_OTP,RECOVERY_CODES}',                        '{RECOVERY_FLOW}',                       'FULL','T-322'),
-    ('ISO_27001_2022','A.8.2',     'PAM — MFA obligatorio',                  '{WEBAUTHN_2FA,PASSKEY,X509_MTLS}',                  '{BREAKGLASS_EMERGENCY,STEP_UP_AAL2_AAL3}','FULL',NULL),
-    ('FIPS_140_3','Level2',        'Módulo cripto — algos APPROVED',         '{X509_MTLS,WEBAUTHN_PASSWORDLESS}',                 '{M2M_MTLS,PASSWORDLESS_FIDO2}',         'FULL','AES-256-GCM, ED25519, ML-KEM-768')
-ON CONFLICT (standard, control_id) DO NOTHING;
 
 
 -- ======================================================================
@@ -5912,6 +5567,7 @@ Fuente: seed de despliegue con los 47 métodos canónicos del Authentication Fra
 Administración: tabla de referencia — cambios solo vía migración con HITL; status=REMOVED significa que el código Rust fue eliminado; status=PLANNED es el estado previo a la implementación; métodos DEPRECATED no se ofrecen al cliente pero aún se validan para sesiones históricas.
 WORM: no (status evoluciona durante el ciclo de vida del método).
 Particionada: no.
+Seed: DDLs/seeds/bauth_T335__auth_method.sql — idempotente ON CONFLICT (code).
 Estándar: NIST SP 800-63B-4 §5 (tipos de autenticadores), FIDO2/WebAuthn W3C §8, RFC 6238 (TOTP), RFC 4226 (HOTP), RFC 9470 (Step-Up). T-335.';
 
 
@@ -6813,6 +6469,7 @@ política sin hardcodear texto en el frontend; agents IA la consultan vía qex p
 WORM: no formalmente — REVOKE UPDATE/DELETE es operacional, no jurídico; la tabla se puede
 repoblar en un despliegue nuevo.
 Particionada: no.
+Seed: DDLs/seeds/bauth_T999__cfg_policy_library.sql — idempotente ON CONFLICT.
 Estándar: NIST SP 800-63B-4, PCI DSS 4.0, OWASP ASVS 5.0, ISO 27001:2022, FIDO2, RFC 9449. T-999.';
 
 COMMENT ON COLUMN bauth.cfg_policy_library.json_path      IS 'Ruta completa en el JSON fuente. Identificador único global.';
@@ -6873,6 +6530,7 @@ Administración: SECURITY_ADMIN puede agregar términos nuevos; key_en UNIQUE pr
 nuevos términos son efectivos en el próximo repoblado de T-999.
 WORM: no — las traducciones pueden corregirse o ampliarse.
 Particionada: no.
+Seed: poblada por el script init del sistema de referencia normativa — no tiene seed file propio (los ~221 términos se generan automáticamente desde el vocabulario IAM del framework).
 Estándar: ISO 24760-2:2025 §3 (terminología de gestión de identidad), NIST SP 800-63-4 glosario. T-999c.';
 
 -- Función: descompone nodos JSONB (objetos→jsonb_each, arrays→jsonb_array_elements)

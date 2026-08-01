@@ -127,9 +127,19 @@ CREATE TABLE IF NOT EXISTS bos.ctx_context_policy (
 CREATE INDEX IF NOT EXISTS idx_cp_tenant ON bos.ctx_context_policy (tenant_id);
 
 COMMENT ON TABLE bos.ctx_context_policy IS
-  '[T-399] [ISO 27001:2022 A.9.4.2] [NIST SP 800-207 §3.3] [SBOS-049 §8]
-   Políticas de TTL y seguridad del Context Plane. CAPA DE INFRAESTRUCTURA.
-   NO duplica bauth.idn_tenant.session_ttl_max (TTL de identidad). UNIQUE por tenant.';
+  'CONTEXT PLANE | Políticas de TTL y seguridad del Context Plane por tenant (SBOS-049 §8).
+   Define los tiempos máximos de dispositivo (device_ttl_seconds) y sesión (session_ttl_seconds),
+   el intervalo de heartbeat, y las políticas de seguridad (MDM, jailbreak, rate limit).
+   CAPA DE INFRAESTRUCTURA — NO duplica bauth.idn_tenant.session_ttl_max (TTL de identidad).
+   UNIQUE por tenant_id: cada tenant tiene exactamente una configuración de Context Plane.
+   Fuente: insertada por el IAM Installer al provisionar cada tenant; editable por SUPER_ADMIN
+   y TENANT_ADMIN vía RPC bos.ctx.policy.update.
+   Administración: BOS la consulta en cada evaluación de sesión; cambios requieren revalidación
+   de sesiones activas en Redis. Historial de cambios en logs de auditoría (ctx_audit_log).
+   WORM: no — los TTLs son configurables operacionalmente por el TENANT_ADMIN.
+   Particionada: no.
+   Seed: DDLs/seeds/bos_T399__ctx_context_policy.sql — idempotente ON CONFLICT.
+   Estándar: ISO 27001:2022 A.9.4.2, NIST SP 800-207 §3.3, SBOS-049 §8. T-399.';
 COMMENT ON COLUMN bos.ctx_context_policy.tenant_id              IS 'FK → bauth.idn_tenant(tenant_id). UNIQUE.';
 COMMENT ON COLUMN bos.ctx_context_policy.device_ttl_seconds     IS 'TTL máximo de dispositivo pre-auth. Default 8h (28800s).';
 COMMENT ON COLUMN bos.ctx_context_policy.session_ttl_seconds    IS 'TTL máximo de sesión post-auth. Default 12h (43200s).';
