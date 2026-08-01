@@ -2546,8 +2546,161 @@ Particionada: no.
 Estándar: ISO 9001:2015 §7.5 (registros controlados), ISO/IEC 24760-2:2025. T-502.';
 
 -- =============================================================================
+-- SECCIÓN 20 — Tablas recuperadas desde VPS (existían en BD sin DDL local)
+-- T-169 idn_did_document · T-188 idn_dpia_registro · T-186b idn_identidad_lifecycle_event
+-- =============================================================================
+
+-- ======================================================================
+-- T-169 — bauth.idn_did_document
+-- Caché de documentos DID resueltos (W3C DID Core v1.1).
+-- Permite resolver DIDs sin llamada externa en cada operación.
+-- ======================================================================
+CREATE TABLE IF NOT EXISTS bauth.idn_did_document (
+    did_id          UUID        PRIMARY KEY DEFAULT uuidv7(),
+    did             TEXT        NOT NULL UNIQUE,
+    did_method      TEXT        NOT NULL,
+    document        JSONB       NOT NULL,
+    status          TEXT        NOT NULL DEFAULT 'ACTIVE',
+    tenant_id       UUID        NULL REFERENCES bauth.idn_tenant(tenant_id) ON DELETE SET NULL,
+    entidad_id      UUID        NULL REFERENCES bauth.idn_identity_entity(entity_id) ON DELETE SET NULL,
+    resolved_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at      TIMESTAMPTZ NULL,
+    deactivated_at  TIMESTAMPTZ NULL,
+    ctx_id          TEXT        NOT NULL DEFAULT 'system',
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT chk_idd_status CHECK (status IN ('ACTIVE','DEACTIVATED','INVALID','EXPIRED')),
+    CONSTRAINT chk_idd_did_format CHECK (did ~* '^did:[a-z0-9]+:.+$')
+);
+
+CREATE INDEX IF NOT EXISTS idx_idd_tenant   ON bauth.idn_did_document (tenant_id)   WHERE tenant_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_idd_entidad  ON bauth.idn_did_document (entidad_id)  WHERE entidad_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_idd_method   ON bauth.idn_did_document (did_method);
+CREATE INDEX IF NOT EXISTS idx_idd_status   ON bauth.idn_did_document (status)      WHERE status = 'ACTIVE';
+CREATE INDEX IF NOT EXISTS idx_idd_expires  ON bauth.idn_did_document (expires_at)  WHERE expires_at IS NOT NULL;
+
+COMMENT ON TABLE bauth.idn_did_document IS
+'IDENTIDAD D00 | Caché de documentos DID resueltos (GAP-D00-05). Permite que bAuth resuelva
+DIDs (did:web, did:key, did:ion, did:peer) sin llamada externa en cada operación. El resolver
+actualiza esta tabla cuando el documento DID caduca (expires_at) o es deactivated.
+Fuente: poblada por el resolver DID de bAuth al procesar operaciones de firma/verificación
+o al registrar credenciales DID de un actor; los DIDs estáticos (did:key) no expiran.
+Administración: el job de expiración marca status=EXPIRED cuando expires_at < now(); solo
+el resolver DID puede insertar/actualizar; la aplicación solo lee.
+WORM: no — status y expires_at se actualizan por el resolver.
+Particionada: no.
+Estándar: W3C DID Core v1.1 CR mar-2026, W3C VC Data Model 2.0, ISO 18013-5:2021. T-169.';
+
+COMMENT ON COLUMN bauth.idn_did_document.did         IS 'Decentralized Identifier en formato canónico W3C. Ej: did:web:example.com · did:key:z6Mk...';
+COMMENT ON COLUMN bauth.idn_did_document.did_method  IS 'Método DID: web, key, ion, peer, ethr. Determina el resolver a usar.';
+COMMENT ON COLUMN bauth.idn_did_document.document    IS 'Documento DID resuelto en JSON-LD. Incluye verificationMethod, authentication, assertionMethod.';
+COMMENT ON COLUMN bauth.idn_did_document.expires_at  IS 'TTL de caché. NULL = sin expiración (DIDs estáticos como did:key). El resolver refresca cuando expires_at < now().';
+
+
+-- ======================================================================
+-- T-188 — bauth.idn_dpia_registro
+-- Evaluaciones de Impacto relativas a la Protección de Datos (GDPR Art. 35).
+-- ======================================================================
+CREATE TABLE IF NOT EXISTS bauth.idn_dpia_registro (
+    dpia_id                UUID        PRIMARY KEY DEFAULT uuidv7(),
+    tenant_id              UUID        NOT NULL REFERENCES bauth.idn_tenant(tenant_id) ON DELETE CASCADE,
+    titulo                 JSONB       NOT NULL,
+    descripcion            JSONB       NOT NULL,
+    finalidad              TEXT        NOT NULL,
+    categorias_datos       TEXT[]      NOT NULL DEFAULT '{}',
+    datos_especiales       BOOLEAN     NOT NULL DEFAULT false,
+    riesgos                JSONB       NOT NULL DEFAULT '[]',
+    riesgo_residual        TEXT        NOT NULL DEFAULT 'MEDIUM',
+    medidas_mitigacion     JSONB       NOT NULL DEFAULT '[]',
+    estado                 TEXT        NOT NULL DEFAULT 'DRAFT',
+    requiere_consulta_previa BOOLEAN   NOT NULL DEFAULT false,
+    dpa_notificado         BOOLEAN     NOT NULL DEFAULT false,
+    dpa_notificado_at      TIMESTAMPTZ NULL,
+    responsable_id         UUID        NOT NULL REFERENCES bauth.idn_identity_entity(entity_id),
+    dpo_id                 UUID        NULL     REFERENCES bauth.idn_identity_entity(entity_id) ON DELETE SET NULL,
+    aprobado_at            TIMESTAMPTZ NULL,
+    proxima_revision       TIMESTAMPTZ NULL,
+    documento_ref          TEXT        NULL,
+    ctx_id                 TEXT        NOT NULL DEFAULT 'system',
+    created_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT chk_idpia_estado   CHECK (estado IN ('DRAFT','IN_REVIEW','APPROVED','REJECTED','ARCHIVED','REQUIRES_DPA')),
+    CONSTRAINT chk_idpia_riesgo   CHECK (riesgo_residual IN ('LOW','MEDIUM','HIGH','VERY_HIGH'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_idpia_tenant      ON bauth.idn_dpia_registro (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_idpia_estado      ON bauth.idn_dpia_registro (estado);
+CREATE INDEX IF NOT EXISTS idx_idpia_responsable ON bauth.idn_dpia_registro (responsable_id);
+CREATE INDEX IF NOT EXISTS idx_idpia_revision    ON bauth.idn_dpia_registro (proxima_revision) WHERE proxima_revision IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_idpia_especiales  ON bauth.idn_dpia_registro (tenant_id) WHERE datos_especiales = true;
+
+COMMENT ON TABLE bauth.idn_dpia_registro IS
+'PRIVACIDAD D00 | Registro de Evaluaciones de Impacto relativas a la Protección de Datos
+(GAP-D00-10). GDPR Art. 35 obliga a realizar DPIA para tratamientos de alto riesgo (datos
+biométricos, datos de menores, vigilancia sistemática, perfilado). Incluye inventario de riesgos,
+medidas de mitigación y estado de aprobación del DPO.
+Fuente: creada por el DPO o PRIVACY_ADMIN vía RPC; obligatoria antes de activar módulos
+biométricos, geoespaciales o de delegación financiera en un tenant.
+Administración: solo PRIVACY_ADMIN y DPO pueden crear y aprobar; estado=REQUIRES_DPA genera
+notificación a la autoridad de control; proxima_revision activa recordatorio automático.
+WORM: no — el estado y las medidas evolucionan durante el proceso de revisión.
+Particionada: no.
+Estándar: GDPR Art. 35 (Reg UE 2016/679), WP248 rev01 (WP29), Guía AEPD 2023. T-188.';
+
+COMMENT ON COLUMN bauth.idn_dpia_registro.categorias_datos      IS 'Categorías de datos tratados: personal, biometric, financial, health, location, behavioral.';
+COMMENT ON COLUMN bauth.idn_dpia_registro.datos_especiales       IS 'TRUE = incluye categorías especiales GDPR Art.9 (salud, biometría, origen racial, etc.).';
+COMMENT ON COLUMN bauth.idn_dpia_registro.riesgo_residual        IS 'Nivel de riesgo residual tras aplicar medidas: LOW/MEDIUM/HIGH/VERY_HIGH.';
+COMMENT ON COLUMN bauth.idn_dpia_registro.requiere_consulta_previa IS 'TRUE = riesgo alto sin mitigación suficiente → consulta previa al organismo de control obligatoria.';
+COMMENT ON COLUMN bauth.idn_dpia_registro.dpa_notificado         IS 'TRUE = autoridad de control notificada (Art. 36 GDPR).';
+
+
+-- ======================================================================
+-- T-186b — bauth.idn_identidad_lifecycle_event
+-- Eventos JML (Joiner/Mover/Leaver) del ciclo de vida de identidad.
+-- NIST SP 800-63-3 §4 · SCIM 2.0 RFC 7644 §3.4.3
+-- ======================================================================
+CREATE TABLE IF NOT EXISTS bauth.idn_identidad_lifecycle_event (
+    event_id        UUID        PRIMARY KEY DEFAULT uuidv7(),
+    entidad_id      UUID        NOT NULL REFERENCES bauth.idn_identity_entity(entity_id) ON DELETE CASCADE,
+    tenant_id       UUID        NOT NULL REFERENCES bauth.idn_tenant(tenant_id) ON DELETE CASCADE,
+    event_type      TEXT        NOT NULL,
+    effective_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    triggered_by    UUID        NOT NULL REFERENCES bauth.idn_identity_entity(entity_id),
+    policy_snapshot JSONB       NULL,
+    notes           TEXT        NULL,
+    ctx_id          TEXT        NOT NULL DEFAULT 'system',
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT chk_ile_event_type CHECK (
+        event_type IN ('HIRED','TRANSFERRED','PROMOTED','ON_LEAVE','RETURNED','TERMINATED','REACTIVATED')
+    )
+);
+
+CREATE INDEX IF NOT EXISTS idx_ile_entidad     ON bauth.idn_identidad_lifecycle_event (entidad_id, effective_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ile_tenant_type ON bauth.idn_identidad_lifecycle_event (tenant_id, event_type, effective_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ile_triggered   ON bauth.idn_identidad_lifecycle_event (triggered_by);
+
+COMMENT ON TABLE bauth.idn_identidad_lifecycle_event IS
+'IDENTIDAD JML D00 | Registro de eventos de ciclo de vida de identidad (GAP-D00-02).
+Joiner (HIRED/REACTIVATED) · Mover (TRANSFERRED/PROMOTED/ON_LEAVE/RETURNED) ·
+Leaver (TERMINATED). Fuente de verdad para auditar transiciones laborales y disparar el
+ajuste automático de privilegios (privilege creep detection).
+Fuente: insertada por el IAM Installer al provisionar actores; por RRHH/supervisor vía RPC
+bauth.identity.lifecycle.event.create; por el reconcile loop al detectar cambios en RRHH.
+Administración: APPEND-ONLY — ningún evento se modifica; policy_snapshot captura el estado
+exacto de grants y roles al momento del evento (evidencia forense pre-cambio).
+WORM: sí operacional — REVOKE UPDATE, DELETE en producción.
+Particionada: no (volumen bajo — un evento por transición laboral).
+Estándar: NIST SP 800-63-3 §4 (JML), ISO 27001 A.6.1 (incorporación/baja), SCIM 2.0 RFC 7644. T-186b.';
+
+COMMENT ON COLUMN bauth.idn_identidad_lifecycle_event.triggered_by    IS '[ISO 27001 A.5.18] FK a idn_identity_entity. Quién activó el evento: RRHH, supervisor, sistema bAuth.';
+COMMENT ON COLUMN bauth.idn_identidad_lifecycle_event.policy_snapshot IS '[NIST AC-2] Snapshot JSONB de los grants y roles activos al momento del evento. Evidencia forense del estado pre-cambio.';
+
+REVOKE UPDATE, DELETE ON bauth.idn_identidad_lifecycle_event FROM PUBLIC;
+
+-- =============================================================================
 -- FIN: bAuth Dominios Pendientes v2.0 — tablas y columnas en inglés
 -- Comentarios SQL y documentación en español (regla SBOS)
 -- SECCIÓN 19 — Documentación estratificada de 78 tablas padre añadida.
+-- SECCIÓN 20 — T-169, T-188, T-186b recuperadas desde VPS (2026-08-01).
 -- Estado: [DOC:REVIEW] — pendiente verificación en SBOSDB_copia con verificar_documentacion.sh
 -- =============================================================================

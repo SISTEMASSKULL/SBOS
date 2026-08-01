@@ -22,6 +22,9 @@ tablas:
   - schema: bauth
     tabla: aud_certification_campaign
     fqn: bauth.aud_certification_campaign
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 4290
+    t_code: "T-178"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -30,6 +33,9 @@ tablas:
   - schema: bauth
     tabla: aud_certification_review
     fqn: bauth.aud_certification_review
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 4345
+    t_code: "T-177"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -38,6 +44,9 @@ tablas:
   - schema: bauth
     tabla: auth_attempt_log_2026_07
     fqn: bauth.auth_attempt_log_2026_07
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 5519
+    t_code: "T-334"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -46,6 +55,9 @@ tablas:
   - schema: bauth
     tabla: auth_attempt_log_2026_08
     fqn: bauth.auth_attempt_log_2026_08
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 5520
+    t_code: "T-334"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -54,6 +66,9 @@ tablas:
   - schema: bauth
     tabla: auth_attempt_log_2026_09
     fqn: bauth.auth_attempt_log_2026_09
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 5521
+    t_code: "T-334"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -62,6 +77,9 @@ tablas:
   - schema: bauth
     tabla: auth_compliance_map
     fqn: bauth.auth_compliance_map
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 4981
+    t_code: "T-386"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -70,6 +88,9 @@ tablas:
   - schema: bauth
     tabla: auth_config
     fqn: bauth.auth_config
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 5597
+    t_code: "T-337"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -78,6 +99,9 @@ tablas:
   - schema: bauth
     tabla: auth_credential
     fqn: bauth.auth_credential
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 5319
+    t_code: "T-320"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -86,6 +110,9 @@ tablas:
   - schema: bauth
     tabla: auth_credential_fido2
     fqn: bauth.auth_credential_fido2
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 5406
+    t_code: "T-330"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -94,6 +121,9 @@ tablas:
   - schema: bauth
     tabla: auth_credential_secret
     fqn: bauth.auth_credential_secret
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 5368
+    t_code: "T-331"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -102,6 +132,9 @@ tablas:
   - schema: bauth
     tabla: auth_credential_x509
     fqn: bauth.auth_credential_x509
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 5454
+    t_code: "T-352"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -110,6 +143,9 @@ tablas:
   - schema: bauth
     tabla: auth_crypto_algorithm
     fqn: bauth.auth_crypto_algorithm
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 5616
+    t_code: "T-338"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -118,6 +154,9 @@ tablas:
   - schema: bauth
     tabla: auth_device
     fqn: bauth.auth_device
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 5010
+    t_code: "T-390"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -126,6 +165,9 @@ tablas:
   - schema: bauth
     tabla: auth_device_credential_binding
     fqn: bauth.auth_device_credential_binding
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 5123
+    t_code: "T-390"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -134,6 +176,9 @@ tablas:
   - schema: bauth
     tabla: auth_device_posture
     fqn: bauth.auth_device_posture
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 5071
+    t_code: "T-180"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -142,6 +187,9 @@ tablas:
   - schema: bauth
     tabla: auth_federation_protocol
     fqn: bauth.auth_federation_protocol
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 4922
+    t_code: "T-396"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -150,6 +198,9 @@ tablas:
   - schema: bauth
     tabla: auth_method
     fqn: bauth.auth_method
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 5550
+    t_code: "T-335"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -158,6 +209,9 @@ tablas:
   - schema: bauth
     tabla: auth_policy
     fqn: bauth.auth_policy
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 5574
+    t_code: "T-336"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -166,6 +220,9 @@ tablas:
   - schema: bauth
     tabla: auth_saga_catalog
     fqn: bauth.auth_saga_catalog
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 4955
+    t_code: "T-385"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -174,6 +231,9 @@ tablas:
   - schema: bauth
     tabla: blk_account
     fqn: bauth.blk_account
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 5960
+    t_code: "T-157"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -182,6 +242,9 @@ tablas:
   - schema: bauth
     tabla: blk_anchor
     fqn: bauth.blk_anchor
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 5915
+    t_code: "T-358"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -190,6 +253,9 @@ tablas:
   - schema: bauth
     tabla: blk_merkle_batch
     fqn: bauth.blk_merkle_batch
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 5885
+    t_code: "T-358"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -198,6 +264,9 @@ tablas:
   - schema: bauth
     tabla: blk_merkle_leaf
     fqn: bauth.blk_merkle_leaf
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 5940
+    t_code: "T-360"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -206,6 +275,9 @@ tablas:
   - schema: bauth
     tabla: blk_reconciliation
     fqn: bauth.blk_reconciliation
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 5990
+    t_code: "T-362"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -214,6 +286,9 @@ tablas:
   - schema: bauth
     tabla: cfg_key_translation
     fqn: bauth.cfg_key_translation
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 6516
+    t_code: "T-999"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -222,6 +297,9 @@ tablas:
   - schema: bauth
     tabla: cfg_policy_library
     fqn: bauth.cfg_policy_library
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 6405
+    t_code: "T-999b"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -230,6 +308,9 @@ tablas:
   - schema: bauth
     tabla: fed_client
     fqn: bauth.fed_client
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 6015
+    t_code: "T-365"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -238,6 +319,9 @@ tablas:
   - schema: bauth
     tabla: fed_provider_ext
     fqn: bauth.fed_provider_ext
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 6056
+    t_code: "T-366"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -246,6 +330,9 @@ tablas:
   - schema: bauth
     tabla: fed_token_issued_2026_07
     fqn: bauth.fed_token_issued_2026_07
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 6116
+    t_code: "T-364"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -254,6 +341,9 @@ tablas:
   - schema: bauth
     tabla: fed_token_issued_2026_08
     fqn: bauth.fed_token_issued_2026_08
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 6117
+    t_code: "T-364"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -262,6 +352,9 @@ tablas:
   - schema: bauth
     tabla: fed_token_issued_2026_09
     fqn: bauth.fed_token_issued_2026_09
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 6118
+    t_code: "T-364"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -270,6 +363,9 @@ tablas:
   - schema: bauth
     tabla: framework_raw
     fqn: bauth.framework_raw
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 6494
+    t_code: "T-999"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -278,6 +374,9 @@ tablas:
   - schema: bauth
     tabla: idn_access_contract
     fqn: bauth.idn_access_contract
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 3258
+    t_code: "T-201"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -286,6 +385,9 @@ tablas:
   - schema: bauth
     tabla: idn_attribute_schema
     fqn: bauth.idn_attribute_schema
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 3206
+    t_code: "T-157"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -294,6 +396,9 @@ tablas:
   - schema: bauth
     tabla: idn_audit_alert_rule
     fqn: bauth.idn_audit_alert_rule
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1284
+    t_code: "T-423"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -302,6 +407,9 @@ tablas:
   - schema: bauth
     tabla: idn_audit_event_log_2026_07
     fqn: bauth.idn_audit_event_log_2026_07
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1340
+    t_code: "T-425"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -310,6 +418,9 @@ tablas:
   - schema: bauth
     tabla: idn_audit_event_log_2026_08
     fqn: bauth.idn_audit_event_log_2026_08
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1343
+    t_code: "T-425"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -318,6 +429,9 @@ tablas:
   - schema: bauth
     tabla: idn_audit_event_log_2026_09
     fqn: bauth.idn_audit_event_log_2026_09
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1346
+    t_code: "T-425"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -326,6 +440,9 @@ tablas:
   - schema: bauth
     tabla: idn_audit_event_log_default
     fqn: bauth.idn_audit_event_log_default
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1349
+    t_code: "T-425"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -334,6 +451,9 @@ tablas:
   - schema: bauth
     tabla: idn_audit_retention_policy
     fqn: bauth.idn_audit_retention_policy
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1266
+    t_code: "T-422"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -342,6 +462,9 @@ tablas:
   - schema: bauth
     tabla: idn_audit_siem_target
     fqn: bauth.idn_audit_siem_target
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1301
+    t_code: "T-424"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -350,6 +473,9 @@ tablas:
   - schema: bauth
     tabla: idn_biometric_enrollment
     fqn: bauth.idn_biometric_enrollment
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 926
+    t_code: "T-281"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -358,6 +484,9 @@ tablas:
   - schema: bauth
     tabla: idn_biometric_identification_log_default
     fqn: bauth.idn_biometric_identification_log_default
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1008
+    t_code: "T-284"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -366,6 +495,9 @@ tablas:
   - schema: bauth
     tabla: idn_biometric_pad_policy
     fqn: bauth.idn_biometric_pad_policy
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 977
+    t_code: "T-283"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -374,6 +506,9 @@ tablas:
   - schema: bauth
     tabla: idn_biometric_quality_policy
     fqn: bauth.idn_biometric_quality_policy
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1012
+    t_code: "T-285"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -382,6 +517,9 @@ tablas:
   - schema: bauth
     tabla: idn_biometric_revocation
     fqn: bauth.idn_biometric_revocation
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1026
+    t_code: "T-300"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -390,6 +528,9 @@ tablas:
   - schema: bauth
     tabla: idn_biometric_verification_log_2026_07
     fqn: bauth.idn_biometric_verification_log_2026_07
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 965
+    t_code: "T-282"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -398,6 +539,9 @@ tablas:
   - schema: bauth
     tabla: idn_biometric_verification_log_2026_08
     fqn: bauth.idn_biometric_verification_log_2026_08
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 968
+    t_code: "T-282"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -406,6 +550,9 @@ tablas:
   - schema: bauth
     tabla: idn_biometric_verification_log_default
     fqn: bauth.idn_biometric_verification_log_default
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 971
+    t_code: "T-282"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -414,6 +561,9 @@ tablas:
   - schema: bauth
     tabla: idn_blockchain_anchor_ext
     fqn: bauth.idn_blockchain_anchor_ext
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1361
+    t_code: "T-426"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -422,6 +572,9 @@ tablas:
   - schema: bauth
     tabla: idn_blockchain_merkle_proof
     fqn: bauth.idn_blockchain_merkle_proof
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1409
+    t_code: "T-429"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -430,6 +583,9 @@ tablas:
   - schema: bauth
     tabla: idn_blockchain_node
     fqn: bauth.idn_blockchain_node
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1424
+    t_code: "T-440"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -438,6 +594,9 @@ tablas:
   - schema: bauth
     tabla: idn_blockchain_transaction
     fqn: bauth.idn_blockchain_transaction
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1374
+    t_code: "T-427"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -446,6 +605,9 @@ tablas:
   - schema: bauth
     tabla: idn_blockchain_wallet
     fqn: bauth.idn_blockchain_wallet
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1394
+    t_code: "T-428"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -454,6 +616,9 @@ tablas:
   - schema: bauth
     tabla: idn_credencial_introspeccion
     fqn: bauth.idn_credencial_introspeccion
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 6654
+    t_code: "T-365"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -462,6 +627,9 @@ tablas:
   - schema: bauth
     tabla: idn_credencial_revocacion
     fqn: bauth.idn_credencial_revocacion
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 6610
+    t_code: "T-191"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -470,6 +638,9 @@ tablas:
   - schema: bauth
     tabla: idn_credential_password_history
     fqn: bauth.idn_credential_password_history
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 425
+    t_code: "T-363"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -478,6 +649,9 @@ tablas:
   - schema: bauth
     tabla: idn_credential_token_issued_2026_07
     fqn: bauth.idn_credential_token_issued_2026_07
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 459
+    t_code: "T-220"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -486,6 +660,9 @@ tablas:
   - schema: bauth
     tabla: idn_credential_token_issued_2026_08
     fqn: bauth.idn_credential_token_issued_2026_08
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 462
+    t_code: "T-220"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -494,6 +671,9 @@ tablas:
   - schema: bauth
     tabla: idn_credential_token_issued_2026_09
     fqn: bauth.idn_credential_token_issued_2026_09
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 465
+    t_code: "T-220"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -502,6 +682,9 @@ tablas:
   - schema: bauth
     tabla: idn_credential_token_issued_default
     fqn: bauth.idn_credential_token_issued_default
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 468
+    t_code: "T-220"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -510,6 +693,9 @@ tablas:
   - schema: bauth
     tabla: idn_delegation_chain
     fqn: bauth.idn_delegation_chain
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1213
+    t_code: "T-419"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -518,6 +704,9 @@ tablas:
   - schema: bauth
     tabla: idn_delegation_grant
     fqn: bauth.idn_delegation_grant
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1165
+    t_code: "T-416"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -526,6 +715,9 @@ tablas:
   - schema: bauth
     tabla: idn_delegation_rar_request
     fqn: bauth.idn_delegation_rar_request
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1248
+    t_code: "T-421"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -534,6 +726,9 @@ tablas:
   - schema: bauth
     tabla: idn_delegation_renewal
     fqn: bauth.idn_delegation_renewal
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1190
+    t_code: "T-417"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -542,6 +737,9 @@ tablas:
   - schema: bauth
     tabla: idn_delegation_restriction
     fqn: bauth.idn_delegation_restriction
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1202
+    t_code: "T-418"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -550,6 +748,9 @@ tablas:
   - schema: bauth
     tabla: idn_delegation_usage_log_2026_07
     fqn: bauth.idn_delegation_usage_log_2026_07
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1236
+    t_code: "T-420"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -558,6 +759,9 @@ tablas:
   - schema: bauth
     tabla: idn_delegation_usage_log_2026_08
     fqn: bauth.idn_delegation_usage_log_2026_08
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1239
+    t_code: "T-420"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -566,6 +770,9 @@ tablas:
   - schema: bauth
     tabla: idn_delegation_usage_log_default
     fqn: bauth.idn_delegation_usage_log_default
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1242
+    t_code: "T-420"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -574,6 +781,9 @@ tablas:
   - schema: bauth
     tabla: idn_did_document
     fqn: bauth.idn_did_document
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 2558
+    t_code: "T-169"
     estado: IN_PROGRESS
     score: 3/6
     es_particion: false
@@ -582,6 +792,9 @@ tablas:
   - schema: bauth
     tabla: idn_dpia_registro
     fqn: bauth.idn_dpia_registro
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 2604
+    t_code: "T-188"
     estado: IN_PROGRESS
     score: 3/6
     es_particion: false
@@ -590,6 +803,9 @@ tablas:
   - schema: bauth
     tabla: idn_financial_approval
     fqn: bauth.idn_financial_approval
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 681
+    t_code: "T-248"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -598,6 +814,9 @@ tablas:
   - schema: bauth
     tabla: idn_financial_approval_vote
     fqn: bauth.idn_financial_approval_vote
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 701
+    t_code: "T-242"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -606,6 +825,9 @@ tablas:
   - schema: bauth
     tabla: idn_financial_fraud_alert
     fqn: bauth.idn_financial_fraud_alert
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 767
+    t_code: "T-246"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -614,6 +836,9 @@ tablas:
   - schema: bauth
     tabla: idn_financial_invoice_auth
     fqn: bauth.idn_financial_invoice_auth
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 729
+    t_code: "T-244"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -622,6 +847,9 @@ tablas:
   - schema: bauth
     tabla: idn_financial_limit
     fqn: bauth.idn_financial_limit
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 659
+    t_code: "T-241"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -630,6 +858,9 @@ tablas:
   - schema: bauth
     tabla: idn_financial_reconciliation
     fqn: bauth.idn_financial_reconciliation
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 785
+    t_code: "T-247"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -638,6 +869,9 @@ tablas:
   - schema: bauth
     tabla: idn_financial_report
     fqn: bauth.idn_financial_report
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 751
+    t_code: "T-245"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -646,6 +880,9 @@ tablas:
   - schema: bauth
     tabla: idn_financial_sod_rule
     fqn: bauth.idn_financial_sod_rule
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 714
+    t_code: "T-243"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -654,6 +891,9 @@ tablas:
   - schema: bauth
     tabla: idn_financial_tpp_consent
     fqn: bauth.idn_financial_tpp_consent
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 804
+    t_code: "T-260"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -662,6 +902,9 @@ tablas:
   - schema: bauth
     tabla: idn_geospatial_data_residency
     fqn: bauth.idn_geospatial_data_residency
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1127
+    t_code: "T-305"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -670,6 +913,9 @@ tablas:
   - schema: bauth
     tabla: idn_geospatial_device_fleet
     fqn: bauth.idn_geospatial_device_fleet
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1144
+    t_code: "T-415"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -678,6 +924,9 @@ tablas:
   - schema: bauth
     tabla: idn_geospatial_geofence
     fqn: bauth.idn_geospatial_geofence
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1045
+    t_code: "T-301"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -686,6 +935,9 @@ tablas:
   - schema: bauth
     tabla: idn_geospatial_location_log_2026_07
     fqn: bauth.idn_geospatial_location_log_2026_07
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1084
+    t_code: "T-302"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -694,6 +946,9 @@ tablas:
   - schema: bauth
     tabla: idn_geospatial_location_log_2026_08
     fqn: bauth.idn_geospatial_location_log_2026_08
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1087
+    t_code: "T-302"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -702,6 +957,9 @@ tablas:
   - schema: bauth
     tabla: idn_geospatial_location_log_default
     fqn: bauth.idn_geospatial_location_log_default
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1090
+    t_code: "T-302"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -710,6 +968,9 @@ tablas:
   - schema: bauth
     tabla: idn_geospatial_velocity_event
     fqn: bauth.idn_geospatial_velocity_event
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1110
+    t_code: "T-304"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -718,6 +979,9 @@ tablas:
   - schema: bauth
     tabla: idn_geospatial_velocity_policy
     fqn: bauth.idn_geospatial_velocity_policy
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1096
+    t_code: "T-303"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -726,6 +990,9 @@ tablas:
   - schema: bauth
     tabla: idn_global_admin
     fqn: bauth.idn_global_admin
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 152
+    t_code: "T-513"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -734,6 +1001,9 @@ tablas:
   - schema: bauth
     tabla: idn_global_compliance_control
     fqn: bauth.idn_global_compliance_control
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 237
+    t_code: "T-515"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -742,6 +1012,9 @@ tablas:
   - schema: bauth
     tabla: idn_global_crypto_params
     fqn: bauth.idn_global_crypto_params
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 175
+    t_code: "T-511"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -750,6 +1023,9 @@ tablas:
   - schema: bauth
     tabla: idn_global_hitl_exception
     fqn: bauth.idn_global_hitl_exception
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 217
+    t_code: "T-514"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -758,6 +1034,9 @@ tablas:
   - schema: bauth
     tabla: idn_global_notification
     fqn: bauth.idn_global_notification
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 199
+    t_code: "T-512"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -766,6 +1045,9 @@ tablas:
   - schema: bauth
     tabla: idn_global_sbom
     fqn: bauth.idn_global_sbom
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 257
+    t_code: "T-195"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -774,6 +1056,9 @@ tablas:
   - schema: bauth
     tabla: idn_identidad_lifecycle_event
     fqn: bauth.idn_identidad_lifecycle_event
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 2662
+    t_code: "T-186b"
     estado: IN_PROGRESS
     score: 4/6
     es_particion: false
@@ -782,6 +1067,9 @@ tablas:
   - schema: bauth
     tabla: idn_identity_attribute
     fqn: bauth.idn_identity_attribute
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 2491
+    t_code: "T-156"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -790,6 +1078,9 @@ tablas:
   - schema: bauth
     tabla: idn_identity_attribute_history_2026_07
     fqn: bauth.idn_identity_attribute_history_2026_07
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 2588
+    t_code: "T-157"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -798,6 +1089,9 @@ tablas:
   - schema: bauth
     tabla: idn_identity_attribute_history_2026_08
     fqn: bauth.idn_identity_attribute_history_2026_08
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 2592
+    t_code: "T-157"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -806,6 +1100,9 @@ tablas:
   - schema: bauth
     tabla: idn_identity_attribute_history_2026_09
     fqn: bauth.idn_identity_attribute_history_2026_09
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 2596
+    t_code: "T-157"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -814,6 +1111,9 @@ tablas:
   - schema: bauth
     tabla: idn_identity_attribute_history_2026_10
     fqn: bauth.idn_identity_attribute_history_2026_10
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 2600
+    t_code: "T-157"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -822,6 +1122,9 @@ tablas:
   - schema: bauth
     tabla: idn_identity_attribute_history_2026_11
     fqn: bauth.idn_identity_attribute_history_2026_11
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 2604
+    t_code: "T-157"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -830,6 +1133,9 @@ tablas:
   - schema: bauth
     tabla: idn_identity_attribute_history_2026_12
     fqn: bauth.idn_identity_attribute_history_2026_12
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 2608
+    t_code: "T-157"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -838,6 +1144,9 @@ tablas:
   - schema: bauth
     tabla: idn_identity_consent
     fqn: bauth.idn_identity_consent
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 3059
+    t_code: "T-166"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -846,6 +1155,9 @@ tablas:
   - schema: bauth
     tabla: idn_identity_entity
     fqn: bauth.idn_identity_entity
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 2440
+    t_code: "T-156"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -854,6 +1166,9 @@ tablas:
   - schema: bauth
     tabla: idn_identity_proofing
     fqn: bauth.idn_identity_proofing
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 2988
+    t_code: "—"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -862,6 +1177,9 @@ tablas:
   - schema: bauth
     tabla: idn_identity_requirement
     fqn: bauth.idn_identity_requirement
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 2658
+    t_code: "—"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -870,6 +1188,9 @@ tablas:
   - schema: bauth
     tabla: idn_identity_vc
     fqn: bauth.idn_identity_vc
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 3125
+    t_code: "—"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -878,6 +1199,9 @@ tablas:
   - schema: bauth
     tabla: idn_network_connection_policy
     fqn: bauth.idn_network_connection_policy
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 281
+    t_code: "T-196"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -886,6 +1210,9 @@ tablas:
   - schema: bauth
     tabla: idn_network_context_propagation
     fqn: bauth.idn_network_context_propagation
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 404
+    t_code: "T-202"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -894,6 +1221,9 @@ tablas:
   - schema: bauth
     tabla: idn_network_dlp_policy
     fqn: bauth.idn_network_dlp_policy
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 386
+    t_code: "T-201"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -902,6 +1232,9 @@ tablas:
   - schema: bauth
     tabla: idn_network_dpop_binding
     fqn: bauth.idn_network_dpop_binding
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 305
+    t_code: "T-197"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -910,6 +1243,9 @@ tablas:
   - schema: bauth
     tabla: idn_network_posture_policy
     fqn: bauth.idn_network_posture_policy
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 348
+    t_code: "T-199"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -918,6 +1254,9 @@ tablas:
   - schema: bauth
     tabla: idn_network_rate_policy
     fqn: bauth.idn_network_rate_policy
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 330
+    t_code: "T-198"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -926,6 +1265,9 @@ tablas:
   - schema: bauth
     tabla: idn_network_segment
     fqn: bauth.idn_network_segment
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 368
+    t_code: "T-200"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -934,6 +1276,9 @@ tablas:
   - schema: bauth
     tabla: idn_nhi_rotation_policy
     fqn: bauth.idn_nhi_rotation_policy
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1598
+    t_code: "T-481"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -942,6 +1287,9 @@ tablas:
   - schema: bauth
     tabla: idn_nhi_svid
     fqn: bauth.idn_nhi_svid
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1615
+    t_code: "T-500"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -950,6 +1298,9 @@ tablas:
   - schema: bauth
     tabla: idn_physical_access_credential
     fqn: bauth.idn_physical_access_credential
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 481
+    t_code: "T-220"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -958,6 +1309,9 @@ tablas:
   - schema: bauth
     tabla: idn_physical_access_emergency
     fqn: bauth.idn_physical_access_emergency
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 620
+    t_code: "T-226"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -966,6 +1320,9 @@ tablas:
   - schema: bauth
     tabla: idn_physical_access_evacuation
     fqn: bauth.idn_physical_access_evacuation
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 639
+    t_code: "T-240"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -974,6 +1331,9 @@ tablas:
   - schema: bauth
     tabla: idn_physical_access_event_log_2026_07
     fqn: bauth.idn_physical_access_event_log_2026_07
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 583
+    t_code: "T-224"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -982,6 +1342,9 @@ tablas:
   - schema: bauth
     tabla: idn_physical_access_event_log_2026_08
     fqn: bauth.idn_physical_access_event_log_2026_08
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 586
+    t_code: "T-224"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -990,6 +1353,9 @@ tablas:
   - schema: bauth
     tabla: idn_physical_access_event_log_default
     fqn: bauth.idn_physical_access_event_log_default
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 589
+    t_code: "T-224"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -998,6 +1364,9 @@ tablas:
   - schema: bauth
     tabla: idn_physical_access_location
     fqn: bauth.idn_physical_access_location
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 506
+    t_code: "T-221"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1006,6 +1375,9 @@ tablas:
   - schema: bauth
     tabla: idn_physical_access_presence
     fqn: bauth.idn_physical_access_presence
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 551
+    t_code: "T-223"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1014,6 +1386,9 @@ tablas:
   - schema: bauth
     tabla: idn_physical_access_reader
     fqn: bauth.idn_physical_access_reader
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 529
+    t_code: "T-222"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1022,6 +1397,9 @@ tablas:
   - schema: bauth
     tabla: idn_physical_access_visit
     fqn: bauth.idn_physical_access_visit
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 596
+    t_code: "T-225"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1030,6 +1408,9 @@ tablas:
   - schema: bauth
     tabla: idn_policy_node_type
     fqn: bauth.idn_policy_node_type
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 2150
+    t_code: "T-161b"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1038,6 +1419,9 @@ tablas:
   - schema: bauth
     tabla: idn_registry_atom_catalog
     fqn: bauth.idn_registry_atom_catalog
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1665
+    t_code: "T-502"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1046,6 +1430,9 @@ tablas:
   - schema: bauth
     tabla: idn_registry_attribute_schema
     fqn: bauth.idn_registry_attribute_schema
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1641
+    t_code: "T-501"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1054,6 +1441,9 @@ tablas:
   - schema: bauth
     tabla: idn_registry_bitmask_version
     fqn: bauth.idn_registry_bitmask_version
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1683
+    t_code: "T-196"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1062,6 +1452,9 @@ tablas:
   - schema: bauth
     tabla: idn_roles_iga_category
     fqn: bauth.idn_roles_iga_category
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 1266
+    t_code: "T-191"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1070,6 +1463,9 @@ tablas:
   - schema: bauth
     tabla: idn_roles_nhi_agent_identity
     fqn: bauth.idn_roles_nhi_agent_identity
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 2885
+    t_code: "T-186"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1078,6 +1474,9 @@ tablas:
   - schema: bauth
     tabla: idn_roles_nhi_certification
     fqn: bauth.idn_roles_nhi_certification
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 2845
+    t_code: "T-186"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1086,6 +1485,9 @@ tablas:
   - schema: bauth
     tabla: idn_roles_nhi_identity
     fqn: bauth.idn_roles_nhi_identity
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 2756
+    t_code: "T-187"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1094,6 +1496,9 @@ tablas:
   - schema: bauth
     tabla: idn_roles_nhi_lifecycle_event
     fqn: bauth.idn_roles_nhi_lifecycle_event
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 2805
+    t_code: "T-186"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1102,6 +1507,9 @@ tablas:
   - schema: bauth
     tabla: idn_roles_rol_closure
     fqn: bauth.idn_roles_rol_closure
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 1767
+    t_code: "T-041"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1110,6 +1518,9 @@ tablas:
   - schema: bauth
     tabla: idn_roles_rol_hierarchical
     fqn: bauth.idn_roles_rol_hierarchical
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 1384
+    t_code: "—"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1118,6 +1529,9 @@ tablas:
   - schema: bauth
     tabla: idn_roles_rol_lifecycle_event
     fqn: bauth.idn_roles_rol_lifecycle_event
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 1602
+    t_code: "—"
     estado: DONE
     score: 5/6
     es_particion: false
@@ -1126,6 +1540,9 @@ tablas:
   - schema: bauth
     tabla: idn_roles_rol_tier
     fqn: bauth.idn_roles_rol_tier
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 1332
+    t_code: "T-042"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1134,6 +1551,9 @@ tablas:
   - schema: bauth
     tabla: idn_roles_rol_type
     fqn: bauth.idn_roles_rol_type
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 1294
+    t_code: "T-040"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1142,6 +1562,9 @@ tablas:
   - schema: bauth
     tabla: idn_roles_template
     fqn: bauth.idn_roles_template
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 2212
+    t_code: "T-161b"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1150,6 +1573,9 @@ tablas:
   - schema: bauth
     tabla: idn_roles_template_history
     fqn: bauth.idn_roles_template_history
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 2390
+    t_code: "T-162"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1158,6 +1584,9 @@ tablas:
   - schema: bauth
     tabla: idn_roles_ver_b01_audit_log
     fqn: bauth.idn_roles_ver_b01_audit_log
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 1820
+    t_code: "T-152"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1166,6 +1595,9 @@ tablas:
   - schema: bauth
     tabla: idn_roles_ver_b01_retention_policy
     fqn: bauth.idn_roles_ver_b01_retention_policy
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 1973
+    t_code: "T-152"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1174,6 +1606,9 @@ tablas:
   - schema: bauth
     tabla: idn_roles_ver_b03_approval_queue
     fqn: bauth.idn_roles_ver_b03_approval_queue
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 1913
+    t_code: "T-041"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1182,6 +1617,9 @@ tablas:
   - schema: bauth
     tabla: idn_roles_ver_contract_revision_log
     fqn: bauth.idn_roles_ver_contract_revision_log
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 2009
+    t_code: "T-155"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1190,6 +1628,9 @@ tablas:
   - schema: bauth
     tabla: idn_scim_attribute_map
     fqn: bauth.idn_scim_attribute_map
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 2927
+    t_code: "T-187"
     estado: IN_PROGRESS
     score: 3/6
     es_particion: false
@@ -1198,6 +1639,9 @@ tablas:
   - schema: bauth
     tabla: idn_signature_ca_chain
     fqn: bauth.idn_signature_ca_chain
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1464
+    t_code: "T-442"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1206,6 +1650,9 @@ tablas:
   - schema: bauth
     tabla: idn_signature_eudi_wallet
     fqn: bauth.idn_signature_eudi_wallet
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1553
+    t_code: "T-461"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1214,6 +1661,9 @@ tablas:
   - schema: bauth
     tabla: idn_signature_ltv_evidence
     fqn: bauth.idn_signature_ltv_evidence
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1538
+    t_code: "T-446"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1222,6 +1672,9 @@ tablas:
   - schema: bauth
     tabla: idn_signature_request
     fqn: bauth.idn_signature_request
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1443
+    t_code: "T-441"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1230,6 +1683,9 @@ tablas:
   - schema: bauth
     tabla: idn_signature_revocation_cache
     fqn: bauth.idn_signature_revocation_cache
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1522
+    t_code: "T-445"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1238,6 +1694,9 @@ tablas:
   - schema: bauth
     tabla: idn_signature_timestamp
     fqn: bauth.idn_signature_timestamp
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1486
+    t_code: "T-443"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1246,6 +1705,9 @@ tablas:
   - schema: bauth
     tabla: idn_signature_verification_log
     fqn: bauth.idn_signature_verification_log
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1504
+    t_code: "T-444"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1254,6 +1716,9 @@ tablas:
   - schema: bauth
     tabla: idn_temporal_calendar
     fqn: bauth.idn_temporal_calendar
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 864
+    t_code: "T-263"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1262,6 +1727,9 @@ tablas:
   - schema: bauth
     tabla: idn_temporal_exception
     fqn: bauth.idn_temporal_exception
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 906
+    t_code: "T-280"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1270,6 +1738,9 @@ tablas:
   - schema: bauth
     tabla: idn_temporal_period
     fqn: bauth.idn_temporal_period
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 847
+    t_code: "T-262"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1278,6 +1749,9 @@ tablas:
   - schema: bauth
     tabla: idn_temporal_shift
     fqn: bauth.idn_temporal_shift
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 877
+    t_code: "T-264"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1286,6 +1760,9 @@ tablas:
   - schema: bauth
     tabla: idn_temporal_shift_assignment
     fqn: bauth.idn_temporal_shift_assignment
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 891
+    t_code: "T-265"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1294,6 +1771,9 @@ tablas:
   - schema: bauth
     tabla: idn_temporal_window
     fqn: bauth.idn_temporal_window
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 829
+    t_code: "T-261"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1302,6 +1782,9 @@ tablas:
   - schema: bauth
     tabla: idn_tenant
     fqn: bauth.idn_tenant
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 470
+    t_code: "—"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1310,6 +1793,9 @@ tablas:
   - schema: bauth
     tabla: idn_tenant_calendar_assignment
     fqn: bauth.idn_tenant_calendar_assignment
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 1225
+    t_code: "T-013"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1318,6 +1804,9 @@ tablas:
   - schema: bauth
     tabla: idn_tenant_config
     fqn: bauth.idn_tenant_config
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 667
+    t_code: "T-162"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1326,6 +1815,9 @@ tablas:
   - schema: bauth
     tabla: idn_tenant_currencies
     fqn: bauth.idn_tenant_currencies
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 562
+    t_code: "T-006"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1334,6 +1826,9 @@ tablas:
   - schema: bauth
     tabla: idn_tenant_domain
     fqn: bauth.idn_tenant_domain
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 745
+    t_code: "T-010"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1342,6 +1837,9 @@ tablas:
   - schema: bauth
     tabla: idn_tenant_fal_config
     fqn: bauth.idn_tenant_fal_config
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 829
+    t_code: "T-168"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1350,6 +1848,9 @@ tablas:
   - schema: bauth
     tabla: idn_tenant_languages
     fqn: bauth.idn_tenant_languages
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 596
+    t_code: "T-007"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1358,6 +1859,9 @@ tablas:
   - schema: bauth
     tabla: idn_tenant_network
     fqn: bauth.idn_tenant_network
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 798
+    t_code: "T-011"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1366,6 +1870,9 @@ tablas:
   - schema: bauth
     tabla: idn_tenant_verification
     fqn: bauth.idn_tenant_verification
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 627
+    t_code: "T-008"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1374,6 +1881,9 @@ tablas:
   - schema: bauth
     tabla: idn_user
     fqn: bauth.idn_user
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 5179
+    t_code: "T-156"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1382,6 +1892,9 @@ tablas:
   - schema: bauth
     tabla: idn_user_history
     fqn: bauth.idn_user_history
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 5243
+    t_code: "T-320"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1390,6 +1903,9 @@ tablas:
   - schema: bauth
     tabla: idn_user_recovery
     fqn: bauth.idn_user_recovery
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 5278
+    t_code: "T-178"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1398,6 +1914,9 @@ tablas:
   - schema: bauth
     tabla: pam_breakglass_activation
     fqn: bauth.pam_breakglass_activation
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 4592
+    t_code: "—"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1406,6 +1925,9 @@ tablas:
   - schema: bauth
     tabla: pam_credential_ref
     fqn: bauth.pam_credential_ref
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 4671
+    t_code: "T-320"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1414,6 +1936,9 @@ tablas:
   - schema: bauth
     tabla: pam_cuenta_privilegiada
     fqn: bauth.pam_cuenta_privilegiada
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 6692
+    t_code: "T-182"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1422,6 +1947,9 @@ tablas:
   - schema: bauth
     tabla: pam_jit_approval
     fqn: bauth.pam_jit_approval
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 4536
+    t_code: "T-182"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1430,6 +1958,9 @@ tablas:
   - schema: bauth
     tabla: pam_jit_request
     fqn: bauth.pam_jit_request
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 4468
+    t_code: "T-182b"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1438,6 +1969,9 @@ tablas:
   - schema: bauth
     tabla: pam_nhi_secret_ref
     fqn: bauth.pam_nhi_secret_ref
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 4787
+    t_code: "T-183"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1446,6 +1980,9 @@ tablas:
   - schema: bauth
     tabla: pam_session_record
     fqn: bauth.pam_session_record
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 4729
+    t_code: "T-170"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1454,6 +1991,9 @@ tablas:
   - schema: bauth
     tabla: pam_session_recording
     fqn: bauth.pam_session_recording
+    ddl_archivo: "DDLs/migrations/bauth_dominios_pendientes_v2.0.sql"
+    ddl_linea: 1573
+    t_code: "T-480"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1462,6 +2002,9 @@ tablas:
   - schema: bauth
     tabla: privilege_assurance_audit
     fqn: bauth.privilege_assurance_audit
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 3974
+    t_code: "T-170"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1470,6 +2013,9 @@ tablas:
   - schema: bauth
     tabla: privilege_atom_audit_2026_07
     fqn: bauth.privilege_atom_audit_2026_07
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 3680
+    t_code: "T-170b"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -1478,6 +2024,9 @@ tablas:
   - schema: bauth
     tabla: privilege_atom_audit_2026_08
     fqn: bauth.privilege_atom_audit_2026_08
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 3684
+    t_code: "T-170b"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -1486,6 +2035,9 @@ tablas:
   - schema: bauth
     tabla: privilege_atom_audit_2026_09
     fqn: bauth.privilege_atom_audit_2026_09
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 3688
+    t_code: "T-170b"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -1494,6 +2046,9 @@ tablas:
   - schema: bauth
     tabla: privilege_atom_grant
     fqn: bauth.privilege_atom_grant
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 3357
+    t_code: "T-162"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1502,6 +2057,9 @@ tablas:
   - schema: bauth
     tabla: privilege_delegation
     fqn: bauth.privilege_delegation
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 3842
+    t_code: "T-170"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1510,6 +2068,9 @@ tablas:
   - schema: bauth
     tabla: privilege_exception_record
     fqn: bauth.privilege_exception_record
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 4027
+    t_code: "T-173"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1518,6 +2079,9 @@ tablas:
   - schema: bauth
     tabla: privilege_override
     fqn: bauth.privilege_override
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 3898
+    t_code: "T-162"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1526,6 +2090,9 @@ tablas:
   - schema: bauth
     tabla: privilege_resource_atom
     fqn: bauth.privilege_resource_atom
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 3769
+    t_code: "T-162"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1534,6 +2101,9 @@ tablas:
   - schema: bauth
     tabla: privilege_verb
     fqn: bauth.privilege_verb
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 2058
+    t_code: "T-175"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1542,6 +2112,9 @@ tablas:
   - schema: bauth
     tabla: privilege_verb_conflict
     fqn: bauth.privilege_verb_conflict
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 2093
+    t_code: "T-170"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1550,6 +2123,9 @@ tablas:
   - schema: bauth
     tabla: ses_caep_event_log
     fqn: bauth.ses_caep_event_log
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 4143
+    t_code: "T-170"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1558,6 +2134,9 @@ tablas:
   - schema: bauth
     tabla: ses_risk_policy
     fqn: bauth.ses_risk_policy
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 4397
+    t_code: "T-191"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1566,6 +2145,9 @@ tablas:
   - schema: bauth
     tabla: ses_session_log
     fqn: bauth.ses_session_log
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 4090
+    t_code: "T-181"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1574,6 +2156,9 @@ tablas:
   - schema: bauth
     tabla: ses_ssf_delivery_log
     fqn: bauth.ses_ssf_delivery_log
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 4239
+    t_code: "T-192"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1582,6 +2167,9 @@ tablas:
   - schema: bauth
     tabla: ses_ssf_stream
     fqn: bauth.ses_ssf_stream
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 4201
+    t_code: "T-192"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1590,6 +2178,9 @@ tablas:
   - schema: bauth
     tabla: sig_adsib_lifecycle
     fqn: bauth.sig_adsib_lifecycle
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 5830
+    t_code: "T-356"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1598,6 +2189,9 @@ tablas:
   - schema: bauth
     tabla: sig_certificate
     fqn: bauth.sig_certificate
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 5674
+    t_code: "T-351"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1606,6 +2200,9 @@ tablas:
   - schema: bauth
     tabla: sig_crl
     fqn: bauth.sig_crl
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 5708
+    t_code: "T-352"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1614,6 +2211,9 @@ tablas:
   - schema: bauth
     tabla: sig_document_hash
     fqn: bauth.sig_document_hash
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 5800
+    t_code: "T-354"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1622,6 +2222,9 @@ tablas:
   - schema: bauth
     tabla: sig_document_policy
     fqn: bauth.sig_document_policy
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 5853
+    t_code: "T-357"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1630,6 +2233,9 @@ tablas:
   - schema: bauth
     tabla: sig_key
     fqn: bauth.sig_key
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 5643
+    t_code: "T-350"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1638,6 +2244,9 @@ tablas:
   - schema: bauth
     tabla: sig_operation_log
     fqn: bauth.sig_operation_log
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 5767
+    t_code: "T-353"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1646,6 +2255,9 @@ tablas:
   - schema: bauth
     tabla: sig_timestamp
     fqn: bauth.sig_timestamp
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 5736
+    t_code: "T-354"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1654,6 +2266,9 @@ tablas:
   - schema: bauth
     tabla: wallet
     fqn: bauth.wallet
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 6150
+    t_code: "T-380"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1662,6 +2277,9 @@ tablas:
   - schema: bauth
     tabla: wallet_issuance_log
     fqn: bauth.wallet_issuance_log
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 6259
+    t_code: "T-167"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1670,6 +2288,9 @@ tablas:
   - schema: bauth
     tabla: wallet_item
     fqn: bauth.wallet_item
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 6178
+    t_code: "T-167"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1678,6 +2299,9 @@ tablas:
   - schema: bauth
     tabla: wallet_presentation_log_2026_07
     fqn: bauth.wallet_presentation_log_2026_07
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 6237
+    t_code: "T-365"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -1686,6 +2310,9 @@ tablas:
   - schema: bauth
     tabla: wallet_presentation_log_2026_08
     fqn: bauth.wallet_presentation_log_2026_08
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 6238
+    t_code: "T-365"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -1694,6 +2321,9 @@ tablas:
   - schema: bcalendar
     tabla: cal_alarm
     fqn: bcalendar.cal_alarm
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 1021
+    t_code: "T-016"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1702,6 +2332,9 @@ tablas:
   - schema: bcalendar
     tabla: cal_break_policy
     fqn: bcalendar.cal_break_policy
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 1187
+    t_code: "T-125"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1710,6 +2343,9 @@ tablas:
   - schema: bcalendar
     tabla: cal_calendar
     fqn: bcalendar.cal_calendar
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 946
+    t_code: "T-014"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1718,6 +2354,9 @@ tablas:
   - schema: bcalendar
     tabla: cal_event
     fqn: bcalendar.cal_event
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 979
+    t_code: "T-015"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1726,6 +2365,9 @@ tablas:
   - schema: bcalendar
     tabla: cal_fiscal_year
     fqn: bcalendar.cal_fiscal_year
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 896
+    t_code: "T-013"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1734,6 +2376,9 @@ tablas:
   - schema: bcalendar
     tabla: cal_holiday
     fqn: bcalendar.cal_holiday
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 1082
+    t_code: "T-018"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1742,6 +2387,9 @@ tablas:
   - schema: bcalendar
     tabla: cal_notification_log
     fqn: bcalendar.cal_notification_log
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 1051
+    t_code: "T-017"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1750,6 +2398,9 @@ tablas:
   - schema: bcalendar
     tabla: cal_overtime_policy
     fqn: bcalendar.cal_overtime_policy
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 1150
+    t_code: "T-124"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1758,6 +2409,9 @@ tablas:
   - schema: bcalendar
     tabla: cal_schedule
     fqn: bcalendar.cal_schedule
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 1116
+    t_code: "T-019"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1766,6 +2420,9 @@ tablas:
   - schema: bglobal
     tabla: geo_timezone
     fqn: bglobal.geo_timezone
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 344
+    t_code: "T-004"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1774,6 +2431,9 @@ tablas:
   - schema: bglobal
     tabla: global_config
     fqn: bglobal.global_config
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 423
+    t_code: "T-009"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1782,6 +2442,9 @@ tablas:
   - schema: bglobal
     tabla: global_country
     fqn: bglobal.global_country
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 236
+    t_code: "T-002"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1790,6 +2453,9 @@ tablas:
   - schema: bglobal
     tabla: global_currency
     fqn: bglobal.global_currency
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 301
+    t_code: "T-003"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1798,6 +2464,9 @@ tablas:
   - schema: bglobal
     tabla: global_language
     fqn: bglobal.global_language
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 187
+    t_code: "T-001"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1806,6 +2475,9 @@ tablas:
   - schema: bglobal
     tabla: menu_context
     fqn: bglobal.menu_context
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 4849
+    t_code: "T-059"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1814,6 +2486,9 @@ tablas:
   - schema: bglobal
     tabla: menu_item
     fqn: bglobal.menu_item
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 384
+    t_code: "T-059"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1822,6 +2497,9 @@ tablas:
   - schema: bglobal
     tabla: menu_item_atom
     fqn: bglobal.menu_item_atom
+    ddl_archivo: "DDLs/SBOS_db_V2_DDL.sql"
+    ddl_linea: 4883
+    t_code: "T-059"
     estado: DONE
     score: 6/6
     es_particion: false
@@ -1830,6 +2508,9 @@ tablas:
   - schema: bos
     tabla: cap_sistema_snapshot_2026_07
     fqn: bos.cap_sistema_snapshot_2026_07
+    ddl_archivo: "DDLs/bos_01__control_plane.sql"
+    ddl_linea: 636
+    t_code: "T-406"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -1838,6 +2519,9 @@ tablas:
   - schema: bos
     tabla: cap_tenant_policy
     fqn: bos.cap_tenant_policy
+    ddl_archivo: "DDLs/bos_01__control_plane.sql"
+    ddl_linea: 666
+    t_code: "T-407"
     estado: IN_PROGRESS
     score: 3/6
     es_particion: false
@@ -1846,6 +2530,9 @@ tablas:
   - schema: bos
     tabla: ctx_context_audit
     fqn: bos.ctx_context_audit
+    ddl_archivo: "DDLs/bos_01__control_plane.sql"
+    ddl_linea: 214
+    t_code: "T-397"
     estado: IN_PROGRESS
     score: 4/6
     es_particion: false
@@ -1854,6 +2541,9 @@ tablas:
   - schema: bos
     tabla: ctx_context_emergency
     fqn: bos.ctx_context_emergency
+    ddl_archivo: "DDLs/bos_01__control_plane.sql"
+    ddl_linea: 343
+    t_code: "T-402"
     estado: IN_PROGRESS
     score: 4/6
     es_particion: false
@@ -1862,6 +2552,9 @@ tablas:
   - schema: bos
     tabla: ctx_context_policy
     fqn: bos.ctx_context_policy
+    ddl_archivo: "DDLs/bos_01__control_plane.sql"
+    ddl_linea: 103
+    t_code: "T-399"
     estado: IN_PROGRESS
     score: 3/6
     es_particion: false
@@ -1870,6 +2563,9 @@ tablas:
   - schema: bos
     tabla: ctx_context_session
     fqn: bos.ctx_context_session
+    ddl_archivo: "DDLs/bos_01__control_plane.sql"
+    ddl_linea: 158
+    t_code: "T-396"
     estado: IN_PROGRESS
     score: 3/6
     es_particion: false
@@ -1878,6 +2574,9 @@ tablas:
   - schema: bos
     tabla: ctx_context_switch_log
     fqn: bos.ctx_context_switch_log
+    ddl_archivo: "DDLs/bos_01__control_plane.sql"
+    ddl_linea: 265
+    t_code: "T-398"
     estado: IN_PROGRESS
     score: 4/6
     es_particion: false
@@ -1886,6 +2585,9 @@ tablas:
   - schema: bos
     tabla: ctx_context_transfer
     fqn: bos.ctx_context_transfer
+    ddl_archivo: "DDLs/bos_01__control_plane.sql"
+    ddl_linea: 304
+    t_code: "T-401"
     estado: IN_PROGRESS
     score: 4/6
     es_particion: false
@@ -1894,6 +2596,9 @@ tablas:
   - schema: bos
     tabla: ctx_device_heartbeat
     fqn: bos.ctx_device_heartbeat
+    ddl_archivo: "DDLs/bos_01__control_plane.sql"
+    ddl_linea: 75
+    t_code: "T-400"
     estado: IN_PROGRESS
     score: 3/6
     es_particion: false
@@ -1902,6 +2607,9 @@ tablas:
   - schema: bos
     tabla: ctx_registered_device
     fqn: bos.ctx_registered_device
+    ddl_archivo: "DDLs/bos_01__control_plane.sql"
+    ddl_linea: 32
+    t_code: "T-395"
     estado: IN_PROGRESS
     score: 3/6
     es_particion: false
@@ -1910,6 +2618,9 @@ tablas:
   - schema: bos
     tabla: fch_ficha_event
     fqn: bos.fch_ficha_event
+    ddl_archivo: "DDLs/bos_01__control_plane.sql"
+    ddl_linea: 456
+    t_code: "T-404"
     estado: IN_PROGRESS
     score: 4/6
     es_particion: false
@@ -1918,6 +2629,9 @@ tablas:
   - schema: bos
     tabla: fch_ficha_state
     fqn: bos.fch_ficha_state
+    ddl_archivo: "DDLs/bos_01__control_plane.sql"
+    ddl_linea: 402
+    t_code: "T-403"
     estado: IN_PROGRESS
     score: 3/6
     es_particion: false
@@ -1926,6 +2640,9 @@ tablas:
   - schema: bos
     tabla: ins_bootstrap_event
     fqn: bos.ins_bootstrap_event
+    ddl_archivo: "DDLs/bos_01__control_plane.sql"
+    ddl_linea: 506
+    t_code: "T-405"
     estado: IN_PROGRESS
     score: 4/6
     es_particion: false
@@ -1934,6 +2651,9 @@ tablas:
   - schema: bos
     tabla: ins_saga_execution
     fqn: bos.ins_saga_execution
+    ddl_archivo: "DDLs/bos_01__control_plane.sql"
+    ddl_linea: 993
+    t_code: "T-412"
     estado: IN_PROGRESS
     score: 4/6
     es_particion: false
@@ -1942,6 +2662,9 @@ tablas:
   - schema: bos
     tabla: net_cert_inventory
     fqn: bos.net_cert_inventory
+    ddl_archivo: "DDLs/bos_01__control_plane.sql"
+    ddl_linea: 1058
+    t_code: "—"
     estado: IN_PROGRESS
     score: 3/6
     es_particion: false
@@ -1950,6 +2673,9 @@ tablas:
   - schema: bos
     tabla: net_security_events_default
     fqn: bos.net_security_events_default
+    ddl_archivo: "DDLs/bos_01__control_plane.sql"
+    ddl_linea: 1198
+    t_code: "T-414"
     estado: DONE
     score: 6/6
     es_particion: true
@@ -1958,6 +2684,9 @@ tablas:
   - schema: bos
     tabla: prt_port_assignment
     fqn: bos.prt_port_assignment
+    ddl_archivo: "DDLs/bos_01__control_plane.sql"
+    ddl_linea: 737
+    t_code: "—"
     estado: IN_PROGRESS
     score: 3/6
     es_particion: false
@@ -1966,6 +2695,9 @@ tablas:
   - schema: bos
     tabla: rel_release_event
     fqn: bos.rel_release_event
+    ddl_archivo: "DDLs/bos_01__control_plane.sql"
+    ddl_linea: 881
+    t_code: "T-410"
     estado: IN_PROGRESS
     score: 4/6
     es_particion: false
@@ -1974,6 +2706,9 @@ tablas:
   - schema: bos
     tabla: rel_release_manifest
     fqn: bos.rel_release_manifest
+    ddl_archivo: "DDLs/bos_01__control_plane.sql"
+    ddl_linea: 835
+    t_code: "T-409"
     estado: IN_PROGRESS
     score: 3/6
     es_particion: false
@@ -1982,6 +2717,9 @@ tablas:
   - schema: bos
     tabla: wdg_watchdog_event
     fqn: bos.wdg_watchdog_event
+    ddl_archivo: "DDLs/bos_01__control_plane.sql"
+    ddl_linea: 932
+    t_code: "T-411"
     estado: IN_PROGRESS
     score: 4/6
     es_particion: false
