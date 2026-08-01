@@ -227,7 +227,7 @@ CREATE TABLE IF NOT EXISTS bos.ctx_context_audit (
     ctx_id_text TEXT        NOT NULL DEFAULT 'system',
 
     CONSTRAINT ca_pkey PRIMARY KEY (audit_id),
-    CONSTRAINT chk_ca_operation CHECK (operation IN (
+    CONSTRAINT chk_ca_operation CHECK (operation IN (  -- [MC-0289] → A.65.04
         'DEVICE_REGISTER','DEVICE_HEARTBEAT',
         'SESSION_CREATE','SESSION_PROMOTE',
         'SESSION_SWITCH','SESSION_INVALIDATE','SESSION_EXPIRE',
@@ -235,7 +235,7 @@ CREATE TABLE IF NOT EXISTS bos.ctx_context_audit (
         'CONTEXT_TRANSFER','EMERGENCY_ACTIVATE','EMERGENCY_APPROVE',
         'COMPLIANCE_VIOLATION','ADMIN_OVERRIDE'
     )),
-    CONSTRAINT chk_ca_state CHECK (
+    CONSTRAINT chk_ca_state CHECK (  -- [MC-0290] → A.65.04
         (old_state IS NULL OR old_state IN (
             'PENDING','ACTIVE','SUSPENDED','BLOCKED','INVALIDATED','EXPIRED','ARCHIVED'))
         AND new_state IN (
@@ -315,7 +315,7 @@ CREATE TABLE IF NOT EXISTS bos.ctx_context_transfer (
 
     CONSTRAINT ct_pkey PRIMARY KEY (transfer_id),
     CONSTRAINT chk_ct_different CHECK (from_dctx_id <> to_dctx_id),
-    CONSTRAINT chk_ct_type CHECK (transfer_type IN (
+    CONSTRAINT chk_ct_type CHECK (transfer_type IN (  -- [MC-0293] → A.65.04
         'USER_INITIATED','AUTO_CONTINUITY','ADMIN_TRANSFER','BREAKGLASS'
     ))
 );
@@ -360,10 +360,10 @@ CREATE TABLE IF NOT EXISTS bos.ctx_context_emergency (
 
     CONSTRAINT cem_pkey PRIMARY KEY (emergency_id),
     CONSTRAINT chk_cem_dual CHECK (activated_by <> approved_by),
-    CONSTRAINT chk_cem_state CHECK (state IN (
+    CONSTRAINT chk_cem_state CHECK (state IN (  -- [MC-0292] → A.65.04
         'ACTIVATED','SESSION_CREATED','CLOSED','REVIEWED','EXPIRED'
     )),
-    CONSTRAINT chk_cem_review CHECK (review_outcome IS NULL OR review_outcome IN (
+    CONSTRAINT chk_cem_review CHECK (review_outcome IS NULL OR review_outcome IN (  -- [MC-0291] → A.65.04
         'JUSTIFIED','UNJUSTIFIED','POLICY_VIOLATION'
     )),
     CONSTRAINT chk_cem_expiry CHECK (expires_at <= activated_at + INTERVAL '2 hours'),
@@ -419,14 +419,14 @@ CREATE TABLE IF NOT EXISTS bos.fch_ficha_state (
 
     CONSTRAINT fch_s_pkey           PRIMARY KEY (ficha_id),
     CONSTRAINT uq_fch_s_name_server UNIQUE (ficha_name, server_id),
-    CONSTRAINT chk_fch_s_state      CHECK (state IN (
+    CONSTRAINT chk_fch_s_state      CHECK (state IN (  -- [MC-0296] → A.65.04
         'PENDING','READY','INSTALLING','INSTALLED',
         'UPDATE_AVAILABLE','UPDATE_APPROVED','UPDATING',
         'DEGRADED','PHYSICAL_ERROR','LOGICAL_ERROR','REPAIRING',
         'UNRECOVERABLE','INSTALL_FAILED','UPDATE_FAILED',
         'ROLLBACK','CLEANUP','PAUSED','UNINSTALLED'
     )),
-    CONSTRAINT chk_fch_s_backend    CHECK (backend IN ('bash','k8s','binary','python')),
+    CONSTRAINT chk_fch_s_backend    CHECK (backend IN ('bash','k8s','binary','python')),  -- [MC-0295] → A.65.04
     CONSTRAINT chk_fch_s_category   CHECK (category BETWEEN 1 AND 5),
     CONSTRAINT chk_fch_s_hashes     CHECK (jsonb_typeof(hashes) = 'object')
 );
@@ -472,7 +472,7 @@ CREATE TABLE IF NOT EXISTS bos.fch_ficha_event (
     ctx_id      TEXT        NOT NULL DEFAULT 'system',
 
     CONSTRAINT fch_e_pkey          PRIMARY KEY (event_id),
-    CONSTRAINT chk_fch_e_result    CHECK (result IN ('OK','FAIL','PARTIAL','SKIPPED')),
+    CONSTRAINT chk_fch_e_result    CHECK (result IN ('OK','FAIL','PARTIAL','SKIPPED')),  -- [MC-0294] → A.65.04
     CONSTRAINT chk_fch_e_details   CHECK (jsonb_typeof(details) = 'object'),
     CONSTRAINT chk_fch_e_duration  CHECK (duration_ms IS NULL OR duration_ms >= 0)
 );
@@ -523,7 +523,7 @@ CREATE TABLE IF NOT EXISTS bos.ins_bootstrap_event (
 
     CONSTRAINT ins_be_pkey       PRIMARY KEY (event_id),
     CONSTRAINT chk_ins_be_layer  CHECK (layer BETWEEN 0 AND 5),
-    CONSTRAINT chk_ins_be_state  CHECK (state IN (
+    CONSTRAINT chk_ins_be_state  CHECK (state IN (  -- [MC-0297] → A.65.04
         'STARTED','COMPLETED','FAILED','SKIPPED','RETRYING'
     )),
     CONSTRAINT chk_ins_be_result CHECK (result IN ('OK','FAIL','PARTIAL','SKIPPED')),
@@ -614,7 +614,7 @@ CREATE TABLE IF NOT EXISTS bos.cap_sistema_snapshot (
 
     -- PK incluye captured_at por requisito de PostgreSQL en tablas particionadas
     CONSTRAINT cap_sn_pkey             PRIMARY KEY (snapshot_id, captured_at),
-    CONSTRAINT chk_cap_sn_scope        CHECK (scope IN ('GLOBAL','TENANT')),
+    CONSTRAINT chk_cap_sn_scope        CHECK (scope IN ('GLOBAL','TENANT')),  -- [MC-0287] → A.65.04
     CONSTRAINT chk_cap_sn_scope_tenant CHECK (
         (scope = 'GLOBAL' AND tenant_id IS NULL) OR
         (scope = 'TENANT' AND tenant_id IS NOT NULL)
@@ -687,7 +687,7 @@ CREATE TABLE IF NOT EXISTS bos.cap_tenant_policy (
 
     CONSTRAINT cap_pol_pkey             PRIMARY KEY (policy_id),
     CONSTRAINT uq_cap_pol_tenant        UNIQUE (tenant_id),
-    CONSTRAINT chk_cap_tp_mode          CHECK (policy_mode IN (
+    CONSTRAINT chk_cap_tp_mode          CHECK (policy_mode IN (  -- [MC-0288] → A.65.04
         'autonomous','recommend','block_and_alert','emergency'
     )),
     CONSTRAINT chk_cap_tp_pcts          CHECK (
@@ -782,14 +782,14 @@ CREATE TABLE IF NOT EXISTS bos.prt_port_assignment (
     CONSTRAINT prt_pa_pkey              PRIMARY KEY (port_id),
     -- Un puerto+tipo+namespace no puede asignarse dos veces simultáneamente
     CONSTRAINT uq_prt_pa_port_ns        UNIQUE (port, port_type, namespace),
-    CONSTRAINT chk_prt_pa_transport     CHECK (transport IN ('TCP','UDP','SCTP','DCCP')),
-    CONSTRAINT chk_prt_pa_port_type     CHECK (port_type IN (
+    CONSTRAINT chk_prt_pa_transport     CHECK (transport IN ('TCP','UDP','SCTP','DCCP')),  -- [MC-0310] → A.65.04
+    CONSTRAINT chk_prt_pa_port_type     CHECK (port_type IN (  -- [MC-0308] → A.65.04
         'HOST_PHYSICAL','HOST_LOGICAL','K8S_NODE_PORT','K8S_CLUSTER_IP','K8S_LOAD_BALANCER'
     )),
-    CONSTRAINT chk_prt_pa_asset         CHECK (asset_type IN (
+    CONSTRAINT chk_prt_pa_asset         CHECK (asset_type IN (  -- [MC-0307] → A.65.04
         'ficha','daemon','logical_server','k8s_node','k8s_service','kong_route'
     )),
-    CONSTRAINT chk_prt_pa_status        CHECK (status IN ('assigned','released','revoked','conflict')),
+    CONSTRAINT chk_prt_pa_status        CHECK (status IN ('assigned','released','revoked','conflict')),  -- [MC-0309] → A.65.04
     CONSTRAINT chk_prt_pa_port_range    CHECK (port BETWEEN 1024 AND 49151),
     CONSTRAINT chk_prt_pa_port_role     CHECK (port_role BETWEEN 0 AND 9),
     CONSTRAINT chk_prt_pa_release_state CHECK (
@@ -898,10 +898,10 @@ CREATE TABLE IF NOT EXISTS bos.rel_release_event (
     ctx_id         TEXT        NOT NULL DEFAULT 'system',
 
     CONSTRAINT rel_re_pkey         PRIMARY KEY (event_id),
-    CONSTRAINT chk_rel_re_op       CHECK (operation IN ('INSTALL','UPDATE','ROLLBACK')),
-    CONSTRAINT chk_rel_re_trigger  CHECK (triggered_by IN ('scheduler','watchdog','human')),
-    CONSTRAINT chk_rel_re_result   CHECK (result IN ('OK','FAIL','PARTIAL')),
-    CONSTRAINT chk_rel_re_channel  CHECK (channel IN ('canary','early','stable')),
+    CONSTRAINT chk_rel_re_op       CHECK (operation IN ('INSTALL','UPDATE','ROLLBACK')),  -- [MC-0312] → A.65.04
+    CONSTRAINT chk_rel_re_trigger  CHECK (triggered_by IN ('scheduler','watchdog','human')),  -- [MC-0314] → A.65.04
+    CONSTRAINT chk_rel_re_result   CHECK (result IN ('OK','FAIL','PARTIAL')),  -- [MC-0313] → A.65.04
+    CONSTRAINT chk_rel_re_channel  CHECK (channel IN ('canary','early','stable')),  -- [MC-0311] → A.65.04
     CONSTRAINT chk_rel_re_details  CHECK (jsonb_typeof(details) = 'object')
 );
 
@@ -948,13 +948,13 @@ CREATE TABLE IF NOT EXISTS bos.wdg_watchdog_event (
     ctx_id         TEXT        NOT NULL DEFAULT 'system',
 
     CONSTRAINT wdg_we_pkey          PRIMARY KEY (event_id),
-    CONSTRAINT chk_wdg_we_layer     CHECK (check_layer IN ('ubuntu_host','k8s_cluster','bos_fichas')),
-    CONSTRAINT chk_wdg_we_severity  CHECK (severity IN ('INFO','WARN','ERROR','CRITICAL')),
-    CONSTRAINT chk_wdg_we_resource  CHECK (resource_type IN ('host','node','pod','ficha','daemon')),
-    CONSTRAINT chk_wdg_we_action    CHECK (action_taken IN (
+    CONSTRAINT chk_wdg_we_layer     CHECK (check_layer IN ('ubuntu_host','k8s_cluster','bos_fichas')),  -- [MC-0316] → A.65.04
+    CONSTRAINT chk_wdg_we_severity  CHECK (severity IN ('INFO','WARN','ERROR','CRITICAL')),  -- [MC-0319] → A.65.04
+    CONSTRAINT chk_wdg_we_resource  CHECK (resource_type IN ('host','node','pod','ficha','daemon')),  -- [MC-0317] → A.65.04
+    CONSTRAINT chk_wdg_we_action    CHECK (action_taken IN (  -- [MC-0315] → A.65.04
         'auto_repair','hitl_escalated','daemon_restart','rollback','none'
     ) OR action_taken IS NULL),
-    CONSTRAINT chk_wdg_we_result    CHECK (action_result IN ('OK','FAIL','PENDING') OR action_result IS NULL),
+    CONSTRAINT chk_wdg_we_result    CHECK (action_result IN ('OK','FAIL','PENDING') OR action_result IS NULL),  -- [MC-0318] → A.65.04
     CONSTRAINT chk_wdg_we_details   CHECK (jsonb_typeof(details) = 'object')
 );
 
@@ -1013,10 +1013,10 @@ CREATE TABLE IF NOT EXISTS bos.ins_saga_execution (
     ctx_id            TEXT        NOT NULL DEFAULT 'system',
 
     CONSTRAINT ins_se_pkey         PRIMARY KEY (saga_id),
-    CONSTRAINT chk_ins_se_type     CHECK (saga_type IN (
+    CONSTRAINT chk_ins_se_type     CHECK (saga_type IN (  -- [MC-0299] → A.65.04
         'install','update','repair','remove','deploy_tenant','remove_tenant','suspend_tenant'
     )),
-    CONSTRAINT chk_ins_se_state    CHECK (state IN (
+    CONSTRAINT chk_ins_se_state    CHECK (state IN (  -- [MC-0298] → A.65.04
         'RUNNING','COMPLETED','FAILED','COMPENSATING','COMPENSATED'
     )),
     CONSTRAINT chk_ins_se_steps    CHECK (
@@ -1099,14 +1099,14 @@ CREATE TABLE IF NOT EXISTS bos.net_cert_inventory (
 
     CONSTRAINT net_ci_pkey              PRIMARY KEY (cert_id),
     CONSTRAINT uq_net_ci_fingerprint    UNIQUE (fingerprint_sha256),
-    CONSTRAINT chk_net_ci_cert_type     CHECK (cert_type IN (
+    CONSTRAINT chk_net_ci_cert_type     CHECK (cert_type IN (  -- [MC-0300] → A.65.04
         'daemon_host','ficha_k8s','spiffe_svid','external_wildcard','kong_tls','ca_internal'
     )),
-    CONSTRAINT chk_net_ci_issuer_engine CHECK (issuer_engine IN (
+    CONSTRAINT chk_net_ci_issuer_engine CHECK (issuer_engine IN (  -- [MC-0301] → A.65.04
         'vault_pki','cert_manager','spire','acme_le','manual'
     )),
-    CONSTRAINT chk_net_ci_key_algo      CHECK (key_algorithm IN ('ECDSA','RSA','Ed25519')),
-    CONSTRAINT chk_net_ci_status        CHECK (status IN (
+    CONSTRAINT chk_net_ci_key_algo      CHECK (key_algorithm IN ('ECDSA','RSA','Ed25519')),  -- [MC-0302] → A.65.04
+    CONSTRAINT chk_net_ci_status        CHECK (status IN (  -- [MC-0303] → A.65.04
         'active','expiring_soon','expired','revoked','superseded'
     )),
     CONSTRAINT chk_net_ci_validity      CHECK (valid_until > valid_from),
@@ -1176,7 +1176,7 @@ CREATE TABLE IF NOT EXISTS bos.net_security_events (
     ctx_id       TEXT         NOT NULL DEFAULT 'system',
 
     CONSTRAINT net_se_pkey          PRIMARY KEY (event_id),
-    CONSTRAINT chk_net_se_type      CHECK (event_type IN (
+    CONSTRAINT chk_net_se_type      CHECK (event_type IN (  -- [MC-0306] → A.65.04
         -- PORTMAN
         'port_assigned','port_released','port_conflict','port_validated',
         -- CERTMAN
@@ -1188,8 +1188,8 @@ CREATE TABLE IF NOT EXISTS bos.net_security_events (
         'crowdsec_ban','crowdsec_unban','fail2ban_ban','fail2ban_unban',
         'ddos_detected','brute_force_detected','replay_detected'
     )),
-    CONSTRAINT chk_net_se_severity  CHECK (severity IN ('info','warn','high','critical')),
-    CONSTRAINT chk_net_se_source    CHECK (source IN (
+    CONSTRAINT chk_net_se_severity  CHECK (severity IN ('info','warn','high','critical')),  -- [MC-0304] → A.65.04
+    CONSTRAINT chk_net_se_source    CHECK (source IN (  -- [MC-0305] → A.65.04
         'portman','certman','fwman','ips','crowdsec','fail2ban','psad','bos_daemon'
     ))
 ) PARTITION BY RANGE (event_time);

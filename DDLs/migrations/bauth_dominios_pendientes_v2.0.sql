@@ -153,7 +153,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_global_admin (
     id                    UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
     entity_id             UUID        NOT NULL REFERENCES bauth.idn_identity_entity(entity_id),
     user_id               UUID        NOT NULL REFERENCES bauth.idn_user(user_id),
-    admin_role            TEXT        NOT NULL CHECK (admin_role IN ('SUPER_ADMIN','SECURITY_ADMIN','AUDIT_ADMIN','SUPPORT_ADMIN')),
+    admin_role            TEXT        NOT NULL CHECK (admin_role IN ('SUPER_ADMIN','SECURITY_ADMIN','AUDIT_ADMIN','SUPPORT_ADMIN')),  -- [MC-0222] → A.65.04
     can_manage_tenants    BOOLEAN     NOT NULL DEFAULT false,
     can_manage_crypto     BOOLEAN     NOT NULL DEFAULT false,
     can_read_audit_all    BOOLEAN     NOT NULL DEFAULT false,
@@ -175,7 +175,7 @@ CREATE INDEX IF NOT EXISTS idx_iga_status ON bauth.idn_global_admin (status);
 CREATE TABLE IF NOT EXISTS bauth.idn_global_crypto_params (
     id                    UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
     algorithm_name        TEXT    NOT NULL UNIQUE,
-    algorithm_family      TEXT    NOT NULL CHECK (algorithm_family IN ('SYMMETRIC','ASYMMETRIC','HASH','KDF','KEM','SIGNATURE','MAC')),
+    algorithm_family      TEXT    NOT NULL CHECK (algorithm_family IN ('SYMMETRIC','ASYMMETRIC','HASH','KDF','KEM','SIGNATURE','MAC')),  -- [MC-0224] → A.65.04
     key_size_bits         INTEGER,
     is_pqc                BOOLEAN NOT NULL DEFAULT false,
     is_approved           BOOLEAN NOT NULL DEFAULT true,
@@ -198,11 +198,11 @@ CREATE INDEX IF NOT EXISTS idx_igcp_prohibited ON bauth.idn_global_crypto_params
 -- T-511: Notificaciones globales del sistema
 CREATE TABLE IF NOT EXISTS bauth.idn_global_notification (
     id               UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
-    notification_type TEXT   NOT NULL CHECK (notification_type IN ('SECURITY_ALERT','CRYPTO_EXPIRY','CERT_EXPIRY','COMPLIANCE_WARNING','MAINTENANCE','INCIDENT','POLICY_CHANGE','CAPACITY_ALERT')),
-    severity         TEXT    NOT NULL DEFAULT 'INFO' CHECK (severity IN ('INFO','WARNING','ERROR','CRITICAL')),
+    notification_type TEXT   NOT NULL CHECK (notification_type IN ('SECURITY_ALERT','CRYPTO_EXPIRY','CERT_EXPIRY','COMPLIANCE_WARNING','MAINTENANCE','INCIDENT','POLICY_CHANGE','CAPACITY_ALERT')),  -- [MC-0228] → A.65.04
+    severity         TEXT    NOT NULL DEFAULT 'INFO' CHECK (severity IN ('INFO','WARNING','ERROR','CRITICAL')),  -- [MC-0229] → A.65.04
     title            TEXT    NOT NULL,
     message          TEXT    NOT NULL,
-    target_scope     TEXT    NOT NULL DEFAULT 'ALL' CHECK (target_scope IN ('ALL','TENANT','ADMIN')),
+    target_scope     TEXT    NOT NULL DEFAULT 'ALL' CHECK (target_scope IN ('ALL','TENANT','ADMIN')),  -- [MC-0230] → A.65.04
     target_tenant_id UUID    REFERENCES bauth.idn_tenant(tenant_id),
     target_admin_id  UUID    REFERENCES bauth.idn_global_admin(id),
     is_read          BOOLEAN NOT NULL DEFAULT false,
@@ -216,17 +216,17 @@ CREATE INDEX IF NOT EXISTS idx_ign_unread ON bauth.idn_global_notification (is_r
 -- T-512: Excepciones HITL (Human-In-The-Loop) — NIST AI RMF 1.0 §3.6
 CREATE TABLE IF NOT EXISTS bauth.idn_global_hitl_exception (
     id                       UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
-    exception_type           TEXT    NOT NULL CHECK (exception_type IN ('PROHIBITED_ALGO','POLICY_OVERRIDE','EMERGENCY_ACCESS','CRYPTO_DOWNGRADE','COMPLIANCE_BREACH','AI_DECISION_REVIEWED')),
+    exception_type           TEXT    NOT NULL CHECK (exception_type IN ('PROHIBITED_ALGO','POLICY_OVERRIDE','EMERGENCY_ACCESS','CRYPTO_DOWNGRADE','COMPLIANCE_BREACH','AI_DECISION_REVIEWED')),  -- [MC-0226] → A.65.04
     description              TEXT    NOT NULL CHECK (length(description) >= 50),
     business_justification   TEXT    NOT NULL CHECK (length(business_justification) >= 100),
     requester_id             UUID    NOT NULL REFERENCES bauth.idn_user(user_id),
     approver_id              UUID    REFERENCES bauth.idn_global_admin(id),
-    status                   TEXT    NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','APPROVED','REJECTED','EXPIRED','REVOKED')),
+    status                   TEXT    NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','APPROVED','REJECTED','EXPIRED','REVOKED')),  -- [MC-0227] → A.65.04
     approved_at              TIMESTAMPTZ,
     valid_from               TIMESTAMPTZ,
     valid_until              TIMESTAMPTZ NOT NULL,
     review_at                TIMESTAMPTZ,  -- calculado por app: valid_until - 7 días
-    affected_entity_type     TEXT    NOT NULL CHECK (affected_entity_type IN ('ALGORITHM','POLICY','TENANT','USER','ROLE','CERT')),
+    affected_entity_type     TEXT    NOT NULL CHECK (affected_entity_type IN ('ALGORITHM','POLICY','TENANT','USER','ROLE','CERT')),  -- [MC-0225] → A.65.04
     affected_entity_ref      TEXT    NOT NULL,
     ctx_id                   TEXT,
     created_at               TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -240,7 +240,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_global_compliance_control (
     control_id        TEXT    NOT NULL,
     control_title     TEXT    NOT NULL,
     control_desc      TEXT    NOT NULL,
-    status            TEXT    NOT NULL DEFAULT 'IMPLEMENTED' CHECK (status IN ('IMPLEMENTED','PARTIAL','PLANNED','NOT_APPLICABLE','GAP')),
+    status            TEXT    NOT NULL DEFAULT 'IMPLEMENTED' CHECK (status IN ('IMPLEMENTED','PARTIAL','PLANNED','NOT_APPLICABLE','GAP')),  -- [MC-0223] → A.65.04
     evidence_type     TEXT[]  NOT NULL DEFAULT ARRAY[]::TEXT[],
     evidence_location TEXT,
     last_reviewed_at  TIMESTAMPTZ,
@@ -257,13 +257,13 @@ CREATE INDEX IF NOT EXISTS idx_igcc_status ON bauth.idn_global_compliance_contro
 CREATE TABLE IF NOT EXISTS bauth.idn_global_sbom (
     id              UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
     component_name  TEXT    NOT NULL,
-    component_type  TEXT    NOT NULL CHECK (component_type IN ('LIBRARY','FRAMEWORK','DAEMON','TOOL','OS_PACKAGE','CONTAINER')),
+    component_type  TEXT    NOT NULL CHECK (component_type IN ('LIBRARY','FRAMEWORK','DAEMON','TOOL','OS_PACKAGE','CONTAINER')),  -- [MC-0231] → A.65.04
     version         TEXT    NOT NULL,
     language        TEXT,
     license         TEXT,
     package_url     TEXT,
     cve_known       TEXT[]  NOT NULL DEFAULT ARRAY[]::TEXT[],
-    risk_level      TEXT    NOT NULL DEFAULT 'LOW' CHECK (risk_level IN ('CRITICAL','HIGH','MEDIUM','LOW','NONE')),
+    risk_level      TEXT    NOT NULL DEFAULT 'LOW' CHECK (risk_level IN ('CRITICAL','HIGH','MEDIUM','LOW','NONE')),  -- [MC-0232] → A.65.04
     last_scanned_at TIMESTAMPTZ,
     is_direct_dep   BOOLEAN NOT NULL DEFAULT true,
     daemon_name     TEXT    NOT NULL,
@@ -282,7 +282,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_network_connection_policy (
     id                UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
     tenant_id         UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
     policy_name       TEXT    NOT NULL,
-    min_tls_version   TEXT    NOT NULL DEFAULT 'TLS_1_3' CHECK (min_tls_version IN ('TLS_1_2','TLS_1_3')),
+    min_tls_version   TEXT    NOT NULL DEFAULT 'TLS_1_3' CHECK (min_tls_version IN ('TLS_1_2','TLS_1_3')),  -- [MC-0163] → A.65.04
     require_mtls      BOOLEAN NOT NULL DEFAULT false,
     require_dpop      BOOLEAN NOT NULL DEFAULT false,
     require_pkce      BOOLEAN NOT NULL DEFAULT true,
@@ -310,7 +310,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_network_dpop_binding (
     dpop_jkt    TEXT    NOT NULL,       -- JWK thumbprint SHA-256 clave pública
     http_method TEXT    NOT NULL,
     http_uri    TEXT    NOT NULL,
-    alg         TEXT    NOT NULL DEFAULT 'ES256' CHECK (alg IN ('ES256','ES384','RS256','PS256','EdDSA')),
+    alg         TEXT    NOT NULL DEFAULT 'ES256' CHECK (alg IN ('ES256','ES384','RS256','PS256','EdDSA')),  -- [MC-0166] → A.65.04
     ath         TEXT,                   -- hash del access token (RFC 9449 §4.2)
     nonce       TEXT,                   -- server nonce para replay prevention
     issued_at   TIMESTAMPTZ NOT NULL,
@@ -330,13 +330,13 @@ CREATE INDEX IF NOT EXISTS idx_indb_tenant  ON bauth.idn_network_dpop_binding (t
 CREATE TABLE IF NOT EXISTS bauth.idn_network_rate_policy (
     id                  UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
     tenant_id           UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
-    scope               TEXT    NOT NULL CHECK (scope IN ('GLOBAL','TENANT','CLIENT','USER','IP')),
+    scope               TEXT    NOT NULL CHECK (scope IN ('GLOBAL','TENANT','CLIENT','USER','IP')),  -- [MC-0169] → A.65.04
     scope_ref           UUID,
     endpoint_pattern    TEXT,
     requests_per_second INTEGER NOT NULL CHECK (requests_per_second > 0),
     burst_size          INTEGER NOT NULL CHECK (burst_size > 0),
     window_seconds      INTEGER NOT NULL DEFAULT 60,
-    action_on_exceed    TEXT    NOT NULL DEFAULT 'THROTTLE' CHECK (action_on_exceed IN ('THROTTLE','BLOCK','NOTIFY')),
+    action_on_exceed    TEXT    NOT NULL DEFAULT 'THROTTLE' CHECK (action_on_exceed IN ('THROTTLE','BLOCK','NOTIFY')),  -- [MC-0168] → A.65.04
     status              TEXT    NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','DISABLED')),
     ctx_id              TEXT,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -356,7 +356,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_network_posture_policy (
     require_mdm_enrolled     BOOLEAN NOT NULL DEFAULT false,
     allow_byod               BOOLEAN NOT NULL DEFAULT true,
     posture_ttl_minutes      INTEGER NOT NULL DEFAULT 240,
-    action_on_fail           TEXT    NOT NULL DEFAULT 'STEP_UP' CHECK (action_on_fail IN ('DENY','STEP_UP','NOTIFY','CHALLENGE')),
+    action_on_fail           TEXT    NOT NULL DEFAULT 'STEP_UP' CHECK (action_on_fail IN ('DENY','STEP_UP','NOTIFY','CHALLENGE')),  -- [MC-0167] → A.65.04
     status                   TEXT    NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','DISABLED','DRAFT')),
     ctx_id                   TEXT,
     created_at               TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -369,9 +369,9 @@ CREATE TABLE IF NOT EXISTS bauth.idn_network_segment (
     id              UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
     tenant_id       UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
     segment_name    TEXT    NOT NULL,
-    segment_type    TEXT    NOT NULL CHECK (segment_type IN ('DMZ','INTERNAL','TRUSTED','ISOLATED','QUARANTINE')),
+    segment_type    TEXT    NOT NULL CHECK (segment_type IN ('DMZ','INTERNAL','TRUSTED','ISOLATED','QUARANTINE')),  -- [MC-0170] → A.65.04
     cidr_ranges     INET[]  NOT NULL,
-    trust_level     TEXT    NOT NULL DEFAULT 'UNTRUSTED' CHECK (trust_level IN ('TRUSTED','CONDITIONALLY_TRUSTED','UNTRUSTED')),
+    trust_level     TEXT    NOT NULL DEFAULT 'UNTRUSTED' CHECK (trust_level IN ('TRUSTED','CONDITIONALLY_TRUSTED','UNTRUSTED')),  -- [MC-0171] → A.65.04
     require_mtls    BOOLEAN NOT NULL DEFAULT false,
     require_vpn     BOOLEAN NOT NULL DEFAULT false,
     status          TEXT    NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','DISABLED')),
@@ -392,7 +392,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_network_dlp_policy (
     max_payload_bytes     INTEGER CHECK (max_payload_bytes > 0),
     allowed_content_types TEXT[],
     sensitive_patterns    TEXT[],
-    action_on_match       TEXT    NOT NULL DEFAULT 'LOG' CHECK (action_on_match IN ('LOG','BLOCK','REDACT','QUARANTINE')),
+    action_on_match       TEXT    NOT NULL DEFAULT 'LOG' CHECK (action_on_match IN ('LOG','BLOCK','REDACT','QUARANTINE')),  -- [MC-0165] → A.65.04
     status                TEXT    NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','DISABLED','DRAFT')),
     ctx_id                TEXT,
     created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -406,7 +406,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_network_context_propagation (
     tenant_id          UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
     source_service     TEXT    NOT NULL,
     target_service     TEXT    NOT NULL,
-    propagation_format TEXT    NOT NULL DEFAULT 'W3C_TRACEPARENT' CHECK (propagation_format IN ('W3C_TRACEPARENT','W3C_BAGGAGE','SBOS_CTX_HEADER','OTEL_BAGGAGE')),
+    propagation_format TEXT    NOT NULL DEFAULT 'W3C_TRACEPARENT' CHECK (propagation_format IN ('W3C_TRACEPARENT','W3C_BAGGAGE','SBOS_CTX_HEADER','OTEL_BAGGAGE')),  -- [MC-0164] → A.65.04
     header_name        TEXT    NOT NULL DEFAULT 'X-SBOS-CTX-ID',
     included_fields    TEXT[]  NOT NULL DEFAULT ARRAY['tenant_id','user_id','traceparent'],
     encrypt_payload    BOOLEAN NOT NULL DEFAULT false,
@@ -440,7 +440,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_credential_token_issued (
     tenant_id        UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
     user_id          UUID    NOT NULL REFERENCES bauth.idn_user(user_id),
     jti              TEXT    NOT NULL,
-    token_type       TEXT    NOT NULL CHECK (token_type IN ('ACCESS','REFRESH','ID','EXCHANGE','DEVICE')),
+    token_type       TEXT    NOT NULL CHECK (token_type IN ('ACCESS','REFRESH','ID','EXCHANGE','DEVICE')),  -- [MC-0174] → A.65.04
     client_id        TEXT    NOT NULL,
     scopes           TEXT[]  NOT NULL DEFAULT ARRAY[]::TEXT[],
     dpop_jkt         TEXT,                      -- thumbprint JWK si DPoP-bound (RFC 9449)
@@ -448,7 +448,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_credential_token_issued (
     issued_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     expires_at       TIMESTAMPTZ NOT NULL,
     revoked_at       TIMESTAMPTZ,
-    revocation_reason TEXT   CHECK (revocation_reason IN ('USER_LOGOUT','ADMIN_REVOKE','CREDENTIAL_CHANGE','SESSION_EXPIRED','SUSPICIOUS_ACTIVITY')),
+    revocation_reason TEXT   CHECK (revocation_reason IN ('USER_LOGOUT','ADMIN_REVOKE','CREDENTIAL_CHANGE','SESSION_EXPIRED','SUSPICIOUS_ACTIVITY')),  -- [MC-0173] → A.65.04
     loa_issued       INTEGER NOT NULL DEFAULT 1 CHECK (loa_issued BETWEEN 1 AND 3),
     ctx_id           TEXT,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -483,7 +483,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_physical_access_credential (
     tenant_id              UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
     entity_id              UUID    NOT NULL REFERENCES bauth.idn_identity_entity(entity_id),
     user_id                UUID    REFERENCES bauth.idn_user(user_id),
-    credential_type        TEXT    NOT NULL CHECK (credential_type IN ('RFID','SMARTCARD','PIV','BIOMETRIC','PIN','NFC','QR')),
+    credential_type        TEXT    NOT NULL CHECK (credential_type IN ('RFID','SMARTCARD','PIV','BIOMETRIC','PIN','NFC','QR')),  -- [MC-0118] → A.65.04
     credential_code        TEXT    NOT NULL,   -- número de badge / UUID de tarjeta
     facility_code          TEXT,
     issued_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -507,7 +507,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_physical_access_location (
     id               UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
     tenant_id        UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
     location_name    TEXT    NOT NULL,
-    location_type    TEXT    NOT NULL CHECK (location_type IN ('BUILDING','FLOOR','ROOM','DATACENTER','WAREHOUSE','PERIMETER','VEHICLE_ACCESS')),
+    location_type    TEXT    NOT NULL CHECK (location_type IN ('BUILDING','FLOOR','ROOM','DATACENTER','WAREHOUSE','PERIMETER','VEHICLE_ACCESS')),  -- [MC-0124] → A.65.04
     address          TEXT,
     country_iso      TEXT    NOT NULL DEFAULT 'BO',
     city             TEXT,
@@ -515,7 +515,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_physical_access_location (
     requires_escort  BOOLEAN NOT NULL DEFAULT false,
     max_capacity     INTEGER CHECK (max_capacity > 0),
     parent_id        UUID    REFERENCES bauth.idn_physical_access_location(id),
-    status           TEXT    NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','INACTIVE','MAINTENANCE')),
+    status           TEXT    NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','INACTIVE','MAINTENANCE')),  -- [MC-0125] → A.65.04
     notes            TEXT,
     ctx_id           TEXT,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -531,15 +531,15 @@ CREATE TABLE IF NOT EXISTS bauth.idn_physical_access_reader (
     tenant_id        UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
     location_id      UUID    NOT NULL REFERENCES bauth.idn_physical_access_location(id),
     reader_name      TEXT    NOT NULL,
-    reader_type      TEXT    NOT NULL CHECK (reader_type IN ('RFID','SMARTCARD','BIOMETRIC','PIN','MULTIFACTOR','OSDP')),
-    protocol         TEXT    NOT NULL DEFAULT 'OSDP_V2' CHECK (protocol IN ('WIEGAND','OSDP_V1','OSDP_V2','OSDP_V2_2')),
+    reader_type      TEXT    NOT NULL CHECK (reader_type IN ('RFID','SMARTCARD','BIOMETRIC','PIN','MULTIFACTOR','OSDP')),  -- [MC-0128] → A.65.04
+    protocol         TEXT    NOT NULL DEFAULT 'OSDP_V2' CHECK (protocol IN ('WIEGAND','OSDP_V1','OSDP_V2','OSDP_V2_2')),  -- [MC-0127] → A.65.04
     osdp_address     INTEGER CHECK (osdp_address BETWEEN 0 AND 127),
     physical_location TEXT   NOT NULL,   -- descripción de ubicación en el edificio
-    direction        TEXT    NOT NULL CHECK (direction IN ('ENTRY','EXIT','BIDIRECTIONAL')),
+    direction        TEXT    NOT NULL CHECK (direction IN ('ENTRY','EXIT','BIDIRECTIONAL')),  -- [MC-0126] → A.65.04
     is_online        BOOLEAN NOT NULL DEFAULT true,
     last_heartbeat   TIMESTAMPTZ,
     firmware_version TEXT,
-    status           TEXT    NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','OFFLINE','MAINTENANCE','DISABLED')),
+    status           TEXT    NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','OFFLINE','MAINTENANCE','DISABLED')),  -- [MC-0129] → A.65.04
     ctx_id           TEXT,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -570,10 +570,10 @@ CREATE TABLE IF NOT EXISTS bauth.idn_physical_access_event_log (
     entity_id      UUID    NOT NULL REFERENCES bauth.idn_identity_entity(entity_id),
     reader_id      UUID    NOT NULL REFERENCES bauth.idn_physical_access_reader(id),
     location_id    UUID    NOT NULL REFERENCES bauth.idn_physical_access_location(id),
-    event_type     TEXT    NOT NULL CHECK (event_type IN ('ENTRY','EXIT','DENIED','ALARM','FORCED','ANTIPASSBACK')),
-    credential_type TEXT   CHECK (credential_type IN ('RFID','SMARTCARD','BIOMETRIC','PIN','MULTIFACTOR')),
+    event_type     TEXT    NOT NULL CHECK (event_type IN ('ENTRY','EXIT','DENIED','ALARM','FORCED','ANTIPASSBACK')),  -- [MC-0122] → A.65.04
+    credential_type TEXT   CHECK (credential_type IN ('RFID','SMARTCARD','BIOMETRIC','PIN','MULTIFACTOR')),  -- [MC-0121] → A.65.04
     credential_id  UUID    REFERENCES bauth.idn_physical_access_credential(id) DEFERRABLE INITIALLY DEFERRED,
-    outcome        TEXT    NOT NULL CHECK (outcome IN ('GRANTED','DENIED','ALARM','TIMEOUT')),
+    outcome        TEXT    NOT NULL CHECK (outcome IN ('GRANTED','DENIED','ALARM','TIMEOUT')),  -- [MC-0123] → A.65.04
     denial_reason  TEXT,
     ctx_id         TEXT,
     logged_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -608,7 +608,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_physical_access_visit (
     actual_exit_at   TIMESTAMPTZ,
     badge_number     TEXT,
     escort_id        UUID    REFERENCES bauth.idn_user(user_id),
-    status           TEXT    NOT NULL DEFAULT 'SCHEDULED' CHECK (status IN ('SCHEDULED','ACTIVE','COMPLETED','CANCELLED','NO_SHOW')),
+    status           TEXT    NOT NULL DEFAULT 'SCHEDULED' CHECK (status IN ('SCHEDULED','ACTIVE','COMPLETED','CANCELLED','NO_SHOW')),  -- [MC-0130] → A.65.04
     ctx_id           TEXT,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT chk_ipav_dates CHECK (scheduled_until > scheduled_from)
@@ -621,12 +621,12 @@ CREATE TABLE IF NOT EXISTS bauth.idn_physical_access_emergency (
     id               UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
     tenant_id        UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
     location_id      UUID    NOT NULL REFERENCES bauth.idn_physical_access_location(id),
-    emergency_type   TEXT    NOT NULL CHECK (emergency_type IN ('FIRE','INTRUSION','MEDICAL','EVACUATION','POWER_FAILURE','OTHER')),
+    emergency_type   TEXT    NOT NULL CHECK (emergency_type IN ('FIRE','INTRUSION','MEDICAL','EVACUATION','POWER_FAILURE','OTHER')),  -- [MC-0120] → A.65.04
     activated_by     UUID    REFERENCES bauth.idn_user(user_id),
     activated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deactivated_at   TIMESTAMPTZ,
     deactivated_by   UUID    REFERENCES bauth.idn_user(user_id),
-    door_mode        TEXT    NOT NULL DEFAULT 'NORMAL' CHECK (door_mode IN ('NORMAL','FAIL_SAFE','FAIL_SECURE','MANUAL_OVERRIDE')),
+    door_mode        TEXT    NOT NULL DEFAULT 'NORMAL' CHECK (door_mode IN ('NORMAL','FAIL_SAFE','FAIL_SECURE','MANUAL_OVERRIDE')),  -- [MC-0119] → A.65.04
     affected_doors   TEXT[],
     incident_ref     TEXT,
     notes            TEXT,
@@ -659,16 +659,16 @@ CREATE INDEX IF NOT EXISTS idx_ipaev_emergency ON bauth.idn_physical_access_evac
 CREATE TABLE IF NOT EXISTS bauth.idn_financial_limit (
     id                       UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
     tenant_id                UUID        NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
-    scope                    TEXT        NOT NULL CHECK (scope IN ('ROLE','USER','ENTITY','CLIENT')),
+    scope                    TEXT        NOT NULL CHECK (scope IN ('ROLE','USER','ENTITY','CLIENT')),  -- [MC-0137] → A.65.04
     scope_ref                UUID        NOT NULL,
-    operation_type           TEXT        NOT NULL CHECK (operation_type IN ('PAYMENT','TRANSFER','APPROVAL','ISSUANCE','ACCOUNTING','GENERAL')),
+    operation_type           TEXT        NOT NULL CHECK (operation_type IN ('PAYMENT','TRANSFER','APPROVAL','ISSUANCE','ACCOUNTING','GENERAL')),  -- [MC-0136] → A.65.04
     currency                 TEXT        NOT NULL DEFAULT 'BOB',
     limit_amount             NUMERIC(20,4) NOT NULL CHECK (limit_amount > 0),
     daily_limit              NUMERIC(20,4) CHECK (daily_limit > 0),
     monthly_limit            NUMERIC(20,4) CHECK (monthly_limit > 0),
     requires_dual_approval   BOOLEAN     NOT NULL DEFAULT false,
     dual_approval_threshold  NUMERIC(20,4),
-    status                   TEXT        NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','DISABLED','DRAFT')),
+    status                   TEXT        NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','DISABLED','DRAFT')),  -- [MC-0138] → A.65.04
     valid_from               TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     valid_until              TIMESTAMPTZ,
     ctx_id                   TEXT,
@@ -682,12 +682,12 @@ CREATE TABLE IF NOT EXISTS bauth.idn_financial_approval (
     id                  UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
     tenant_id           UUID        NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
     requester_id        UUID        NOT NULL REFERENCES bauth.idn_user(user_id),
-    operation_type      TEXT        NOT NULL CHECK (operation_type IN ('PAYMENT','TRANSFER','APPROVAL','ISSUANCE','ACCOUNTING')),
+    operation_type      TEXT        NOT NULL CHECK (operation_type IN ('PAYMENT','TRANSFER','APPROVAL','ISSUANCE','ACCOUNTING')),  -- [MC-0131] → A.65.04
     amount              NUMERIC(20,4) NOT NULL CHECK (amount > 0),
     currency            TEXT        NOT NULL DEFAULT 'BOB',
     description         TEXT        NOT NULL CHECK (length(description) >= 10),
     external_reference  TEXT,
-    status              TEXT        NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','APPROVED','REJECTED','CANCELLED','EXPIRED')),
+    status              TEXT        NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','APPROVED','REJECTED','CANCELLED','EXPIRED')),  -- [MC-0046] → A.65.04
     required_quorum     INTEGER     NOT NULL DEFAULT 2 CHECK (required_quorum >= 2),
     achieved_quorum     INTEGER     NOT NULL DEFAULT 0,
     expires_at          TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '24 hours',
@@ -702,7 +702,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_financial_approval_vote (
     id           UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
     approval_id  UUID    NOT NULL REFERENCES bauth.idn_financial_approval(id),
     approver_id  UUID    NOT NULL REFERENCES bauth.idn_user(user_id),
-    decision     TEXT    NOT NULL CHECK (decision IN ('APPROVE','REJECT','ABSTAIN')),
+    decision     TEXT    NOT NULL CHECK (decision IN ('APPROVE','REJECT','ABSTAIN')),  -- [MC-0132] → A.65.04
     reason       TEXT,
     ctx_id       TEXT,
     voted_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -717,7 +717,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_financial_sod_rule (
     rule_name      TEXT    NOT NULL,
     operation_a    TEXT    NOT NULL,
     operation_b    TEXT    NOT NULL,
-    conflict_type  TEXT    NOT NULL CHECK (conflict_type IN ('MUTUALLY_EXCLUSIVE','REQUIRES_APPROVAL','SEQUENTIAL_ONLY')),
+    conflict_type  TEXT    NOT NULL CHECK (conflict_type IN ('MUTUALLY_EXCLUSIVE','REQUIRES_APPROVAL','SEQUENTIAL_ONLY')),  -- [MC-0143] → A.65.04
     description    TEXT    NOT NULL,
     status         TEXT    NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','DISABLED')),
     ctx_id         TEXT,
@@ -739,7 +739,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_financial_invoice_auth (
     cuf             TEXT,                  -- Código Único de Factura SIN
     cufd            TEXT,                  -- Código Único de Facturación Diaria
     signature_op_id UUID,                  -- ref: sig_operation_log (sin FK por PK compuesta)
-    sin_status      TEXT    NOT NULL DEFAULT 'PENDING' CHECK (sin_status IN ('PENDING','AUTHORIZED','REJECTED','CANCELLED','CONTINGENCY')),
+    sin_status      TEXT    NOT NULL DEFAULT 'PENDING' CHECK (sin_status IN ('PENDING','AUTHORIZED','REJECTED','CANCELLED','CONTINGENCY')),  -- [MC-0135] → A.65.04
     ctx_id          TEXT,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -751,14 +751,14 @@ CREATE INDEX IF NOT EXISTS idx_ifia_status ON bauth.idn_financial_invoice_auth (
 CREATE TABLE IF NOT EXISTS bauth.idn_financial_report (
     id           UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
     tenant_id    UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
-    report_type  TEXT    NOT NULL CHECK (report_type IN ('SOX_302','SOX_404','PCI_DSS','QUARTERLY','ANNUAL','INCIDENT','AUDIT')),
+    report_type  TEXT    NOT NULL CHECK (report_type IN ('SOX_302','SOX_404','PCI_DSS','QUARTERLY','ANNUAL','INCIDENT','AUDIT')),  -- [MC-0141] → A.65.04
     period_from  DATE    NOT NULL,
     period_until DATE    NOT NULL,
     generated_by UUID    NOT NULL REFERENCES bauth.idn_user(user_id),
     approved_by  UUID    REFERENCES bauth.idn_user(user_id),
     file_ref     TEXT,
     hash_sha256  TEXT,
-    status       TEXT    NOT NULL DEFAULT 'DRAFT' CHECK (status IN ('DRAFT','REVIEW','APPROVED','PUBLISHED','ARCHIVED')),
+    status       TEXT    NOT NULL DEFAULT 'DRAFT' CHECK (status IN ('DRAFT','REVIEW','APPROVED','PUBLISHED','ARCHIVED')),  -- [MC-0142] → A.65.04
     ctx_id       TEXT,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -768,12 +768,12 @@ CREATE TABLE IF NOT EXISTS bauth.idn_financial_fraud_alert (
     id               UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
     tenant_id        UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
     entity_id        UUID    NOT NULL REFERENCES bauth.idn_identity_entity(entity_id),
-    alert_type       TEXT    NOT NULL CHECK (alert_type IN ('UNUSUAL_AMOUNT','TIME_PATTERN','ANOMALOUS_LOCATION','SOD_VIOLATION','MULTIPLE_REJECTIONS','VELOCITY_CHECK')),
+    alert_type       TEXT    NOT NULL CHECK (alert_type IN ('UNUSUAL_AMOUNT','TIME_PATTERN','ANOMALOUS_LOCATION','SOD_VIOLATION','MULTIPLE_REJECTIONS','VELOCITY_CHECK')),  -- [MC-0133] → A.65.04
     severity         TEXT    NOT NULL DEFAULT 'MEDIUM' CHECK (severity IN ('CRITICAL','HIGH','MEDIUM','LOW')),
     description      TEXT    NOT NULL,
     reference_amount NUMERIC(20,4),
     is_investigated  BOOLEAN NOT NULL DEFAULT false,
-    result           TEXT    CHECK (result IN ('FRAUD_CONFIRMED','FALSE_POSITIVE','PENDING','ESCALATED')),
+    result           TEXT    CHECK (result IN ('FRAUD_CONFIRMED','FALSE_POSITIVE','PENDING','ESCALATED')),  -- [MC-0134] → A.65.04
     investigator_id  UUID    REFERENCES bauth.idn_user(user_id),
     ctx_id           TEXT,
     detected_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -786,14 +786,14 @@ CREATE TABLE IF NOT EXISTS bauth.idn_financial_reconciliation (
     id                  UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
     tenant_id           UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
     period              DATE    NOT NULL,
-    reconciliation_type TEXT    NOT NULL CHECK (reconciliation_type IN ('DAILY','MONTHLY','QUARTERLY','ANNUAL')),
+    reconciliation_type TEXT    NOT NULL CHECK (reconciliation_type IN ('DAILY','MONTHLY','QUARTERLY','ANNUAL')),  -- [MC-0139] → A.65.04
     source_system       TEXT    NOT NULL,
     target_system       TEXT    NOT NULL,
     source_records      INTEGER NOT NULL,
     target_records      INTEGER NOT NULL,
     differences         INTEGER NOT NULL DEFAULT 0,
     difference_amount   NUMERIC(20,4) NOT NULL DEFAULT 0,
-    status              TEXT    NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','IN_PROGRESS','COMPLETED','WITH_DIFFERENCES','APPROVED')),
+    status              TEXT    NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','IN_PROGRESS','COMPLETED','WITH_DIFFERENCES','APPROVED')),  -- [MC-0140] → A.65.04
     executed_by         UUID    NOT NULL REFERENCES bauth.idn_user(user_id),
     ctx_id              TEXT,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -812,9 +812,9 @@ CREATE TABLE IF NOT EXISTS bauth.idn_financial_tpp_consent (
     valid_from      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     valid_until     TIMESTAMPTZ NOT NULL,
     revoked_at      TIMESTAMPTZ,
-    revoked_by      TEXT    CHECK (revoked_by IN ('USER','ADMIN','TPP','REGULATOR','EXPIRED')),
+    revoked_by      TEXT    CHECK (revoked_by IN ('USER','ADMIN','TPP','REGULATOR','EXPIRED')),  -- [MC-0145] → A.65.04
     dpop_required   BOOLEAN NOT NULL DEFAULT true,
-    fapi_profile    TEXT    NOT NULL DEFAULT 'FAPI_2_0' CHECK (fapi_profile IN ('FAPI_1_0','FAPI_2_0')),
+    fapi_profile    TEXT    NOT NULL DEFAULT 'FAPI_2_0' CHECK (fapi_profile IN ('FAPI_1_0','FAPI_2_0')),  -- [MC-0144] → A.65.04
     ctx_id          TEXT,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT chk_iftc_validity CHECK (valid_until > valid_from)
@@ -830,7 +830,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_temporal_window (
     id           UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
     tenant_id    UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
     window_name  TEXT    NOT NULL,
-    window_type  TEXT    NOT NULL CHECK (window_type IN ('TIME_OF_DAY','DAILY','WEEKLY','MONTHLY','CUSTOM')),
+    window_type  TEXT    NOT NULL CHECK (window_type IN ('TIME_OF_DAY','DAILY','WEEKLY','MONTHLY','CUSTOM')),  -- [MC-0148] → A.65.04
     start_time   TIME    NOT NULL,
     end_time     TIME    NOT NULL,
     week_days    INTEGER[] CHECK (array_length(week_days, 1) > 0),  -- 1=lun..7=dom
@@ -879,7 +879,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_temporal_shift (
     tenant_id      UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
     shift_name     TEXT    NOT NULL,
     window_id      UUID    NOT NULL REFERENCES bauth.idn_temporal_window(id),
-    rotation_type  TEXT    NOT NULL DEFAULT 'FIXED' CHECK (rotation_type IN ('FIXED','ROTATING','FLEXIBLE','GUARD')),
+    rotation_type  TEXT    NOT NULL DEFAULT 'FIXED' CHECK (rotation_type IN ('FIXED','ROTATING','FLEXIBLE','GUARD')),  -- [MC-0147] → A.65.04
     duration_hours NUMERIC(4,1) NOT NULL CHECK (duration_hours BETWEEN 1 AND 24),
     is_active      BOOLEAN NOT NULL DEFAULT true,
     ctx_id         TEXT,
@@ -907,7 +907,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_temporal_exception (
     id                 UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
     tenant_id          UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
     entity_id          UUID    NOT NULL REFERENCES bauth.idn_identity_entity(entity_id),
-    exception_type     TEXT    NOT NULL CHECK (exception_type IN ('EXTENSION','REDUCTION','BLOCK','ADDITIONAL_GUARD')),
+    exception_type     TEXT    NOT NULL CHECK (exception_type IN ('EXTENSION','REDUCTION','BLOCK','ADDITIONAL_GUARD')),  -- [MC-0146] → A.65.04
     reason             TEXT    NOT NULL CHECK (length(reason) >= 20),
     original_window_id UUID    NOT NULL REFERENCES bauth.idn_temporal_window(id),
     valid_from         TIMESTAMPTZ NOT NULL,
@@ -928,7 +928,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_biometric_enrollment (
     tenant_id           UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
     entity_id           UUID    NOT NULL REFERENCES bauth.idn_identity_entity(entity_id),
     user_id             UUID    NOT NULL REFERENCES bauth.idn_user(user_id),
-    biometric_type      TEXT    NOT NULL CHECK (biometric_type IN ('FINGERPRINT','IRIS','FACE','VOICE','RETINA','PALM','VEIN')),
+    biometric_type      TEXT    NOT NULL CHECK (biometric_type IN ('FINGERPRINT','IRIS','FACE','VOICE','RETINA','PALM','VEIN')),  -- [MC-0149] → A.65.04
     sample_quality      NUMERIC(5,2) NOT NULL CHECK (sample_quality BETWEEN 0 AND 100),
     algorithm           TEXT    NOT NULL,
     vault_template_path TEXT    NOT NULL,   -- ruta en Vault — NUNCA el template en BD
@@ -936,7 +936,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_biometric_enrollment (
     liveness_check      BOOLEAN NOT NULL DEFAULT true,
     liveness_score      NUMERIC(5,2) CHECK (liveness_score BETWEEN 0 AND 100),
     enrolled_by         UUID    NOT NULL REFERENCES bauth.idn_user(user_id),
-    status              TEXT    NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','SUSPENDED','REVOKED','EXPIRED')),
+    status              TEXT    NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','SUSPENDED','REVOKED','EXPIRED')),  -- [MC-0150] → A.65.04
     enrolled_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     expires_at          TIMESTAMPTZ,
     revoked_at          TIMESTAMPTZ,
@@ -951,7 +951,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_biometric_verification_log (
     tenant_id      UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
     enrollment_id  UUID    NOT NULL REFERENCES bauth.idn_biometric_enrollment(id),
     biometric_type TEXT    NOT NULL,
-    outcome        TEXT    NOT NULL CHECK (outcome IN ('MATCH','NO_MATCH','LIVENESS_FAIL','QUALITY_FAIL','ERROR','TIMEOUT')),
+    outcome        TEXT    NOT NULL CHECK (outcome IN ('MATCH','NO_MATCH','LIVENESS_FAIL','QUALITY_FAIL','ERROR','TIMEOUT')),  -- [MC-0156] → A.65.04
     score_match    NUMERIC(5,2),
     score_liveness NUMERIC(5,2),
     loa_achieved   INTEGER CHECK (loa_achieved BETWEEN 1 AND 3),
@@ -978,12 +978,12 @@ CREATE TABLE IF NOT EXISTS bauth.idn_biometric_pad_policy (
     id                  UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
     tenant_id           UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
     biometric_type      TEXT    NOT NULL CHECK (biometric_type IN ('FINGERPRINT','IRIS','FACE','VOICE','RETINA','PALM','VEIN')),
-    pad_level           TEXT    NOT NULL DEFAULT 'LEVEL_2' CHECK (pad_level IN ('LEVEL_1','LEVEL_2','LEVEL_3')),
+    pad_level           TEXT    NOT NULL DEFAULT 'LEVEL_2' CHECK (pad_level IN ('LEVEL_1','LEVEL_2','LEVEL_3')),  -- [MC-0153] → A.65.04
     liveness_threshold  NUMERIC(5,2) NOT NULL DEFAULT 80.0 CHECK (liveness_threshold BETWEEN 0 AND 100),
     pad_algorithm       TEXT    NOT NULL,
     pad_block_attempts  INTEGER NOT NULL DEFAULT 3,
-    fail_action         TEXT    NOT NULL DEFAULT 'DENY' CHECK (fail_action IN ('DENY','STEP_UP','LOG_AND_ALLOW','QUARANTINE')),
-    status              TEXT    NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','DISABLED')),
+    fail_action         TEXT    NOT NULL DEFAULT 'DENY' CHECK (fail_action IN ('DENY','STEP_UP','LOG_AND_ALLOW','QUARANTINE')),  -- [MC-0152] → A.65.04
+    status              TEXT    NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','DISABLED')),  -- [MC-0154] → A.65.04
     ctx_id              TEXT,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -997,7 +997,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_biometric_identification_log (
     biometric_type  TEXT    NOT NULL,
     candidate_count INTEGER NOT NULL,
     best_score      NUMERIC(5,2),
-    result          TEXT    NOT NULL CHECK (result IN ('IDENTIFIED','NOT_IDENTIFIED','MULTIPLE_MATCH','ERROR')),
+    result          TEXT    NOT NULL CHECK (result IN ('IDENTIFIED','NOT_IDENTIFIED','MULTIPLE_MATCH','ERROR')),  -- [MC-0151] → A.65.04
     entity_id_match UUID    REFERENCES bauth.idn_identity_entity(entity_id),
     threshold_used  NUMERIC(5,2) NOT NULL,
     ctx_id          TEXT,
@@ -1027,7 +1027,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_biometric_revocation (
     id                    UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
     tenant_id             UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
     enrollment_id         UUID    NOT NULL REFERENCES bauth.idn_biometric_enrollment(id),
-    revocation_reason     TEXT    NOT NULL CHECK (revocation_reason IN ('COMPROMISE','USER_REQUEST','ADMIN','EXPIRATION','QUALITY_DEGRADED','INCIDENT')),
+    revocation_reason     TEXT    NOT NULL CHECK (revocation_reason IN ('COMPROMISE','USER_REQUEST','ADMIN','EXPIRATION','QUALITY_DEGRADED','INCIDENT')),  -- [MC-0155] → A.65.04
     revoked_by            UUID    NOT NULL REFERENCES bauth.idn_user(user_id),
     vault_wipe_confirmed  BOOLEAN NOT NULL DEFAULT false,  -- confirmación de borrado en Vault
     vault_wipe_at         TIMESTAMPTZ,
@@ -1046,13 +1046,13 @@ CREATE TABLE IF NOT EXISTS bauth.idn_geospatial_geofence (
     id              UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
     tenant_id       UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
     fence_name      TEXT    NOT NULL,
-    fence_type      TEXT    NOT NULL CHECK (fence_type IN ('CIRCLE','POLYGON','COUNTRY','REGION','CITY')),
+    fence_type      TEXT    NOT NULL CHECK (fence_type IN ('CIRCLE','POLYGON','COUNTRY','REGION','CITY')),  -- [MC-0161] → A.65.04
     center_lat      NUMERIC(10,7),
     center_lon      NUMERIC(10,7),
     radius_km       NUMERIC(8,3)  CHECK (radius_km > 0),
     geojson         JSONB,                  -- para tipos POLYGON/COUNTRY/REGION
-    action_outside  TEXT    NOT NULL DEFAULT 'DENY'  CHECK (action_outside IN ('DENY','STEP_UP','LOG','NOTIFY')),
-    action_inside   TEXT    NOT NULL DEFAULT 'ALLOW' CHECK (action_inside  IN ('ALLOW','STEP_UP','LOG','NOTIFY')),
+    action_outside  TEXT    NOT NULL DEFAULT 'DENY'  CHECK (action_outside IN ('DENY','STEP_UP','LOG','NOTIFY')),  -- [MC-0160] → A.65.04
+    action_inside   TEXT    NOT NULL DEFAULT 'ALLOW' CHECK (action_inside  IN ('ALLOW','STEP_UP','LOG','NOTIFY')),  -- [MC-0159] → A.65.04
     country_iso     TEXT,                   -- ISO 3166-1 alpha-2
     status          TEXT    NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','DISABLED','DRAFT')),
     ctx_id          TEXT,
@@ -1071,7 +1071,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_geospatial_location_log (
     latitude        NUMERIC(10,7) NOT NULL,
     longitude       NUMERIC(10,7) NOT NULL,
     accuracy_meters NUMERIC(8,2),
-    location_source TEXT    NOT NULL CHECK (location_source IN ('GPS','WIFI','IP_GEOIP','CELL','MANUAL','BEACON')),
+    location_source TEXT    NOT NULL CHECK (location_source IN ('GPS','WIFI','IP_GEOIP','CELL','MANUAL','BEACON')),  -- [MC-0162] → A.65.04
     geofence_id     UUID    REFERENCES bauth.idn_geospatial_geofence(id),
     inside_geofence BOOLEAN,
     ip_hash         TEXT,                   -- GDPR: IP anonimizada
@@ -1129,8 +1129,8 @@ CREATE TABLE IF NOT EXISTS bauth.idn_geospatial_data_residency (
     tenant_id             UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
     allowed_countries     TEXT[]  NOT NULL,         -- ISO 3166-1 alpha-2
     blocked_countries     TEXT[]  NOT NULL DEFAULT ARRAY[]::TEXT[],
-    apply_to              TEXT    NOT NULL DEFAULT 'ALL' CHECK (apply_to IN ('ALL','DATA_RESIDENCY','AUTH_ONLY','STORAGE')),
-    violation_action      TEXT    NOT NULL DEFAULT 'DENY' CHECK (violation_action IN ('DENY','LOG','NOTIFY','QUARANTINE')),
+    apply_to              TEXT    NOT NULL DEFAULT 'ALL' CHECK (apply_to IN ('ALL','DATA_RESIDENCY','AUTH_ONLY','STORAGE')),  -- [MC-0157] → A.65.04
+    violation_action      TEXT    NOT NULL DEFAULT 'DENY' CHECK (violation_action IN ('DENY','LOG','NOTIFY','QUARANTINE')),  -- [MC-0158] → A.65.04
     requires_sovereign_vpn BOOLEAN NOT NULL DEFAULT false,
     exempt_entity_ids     UUID[],                   -- entity_ids exentos de la política
     status                TEXT    NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','DISABLED')),
@@ -1168,7 +1168,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_delegation_grant (
     grantor_id       UUID    NOT NULL REFERENCES bauth.idn_user(user_id),    -- quien delega
     grantee_id       UUID    NOT NULL REFERENCES bauth.idn_user(user_id),    -- quien recibe
     purpose          TEXT    NOT NULL CHECK (length(purpose) >= 20),
-    delegation_type  TEXT    NOT NULL DEFAULT 'IMPERSONATION' CHECK (delegation_type IN ('IMPERSONATION','AGENT','PROXY','TOKEN_EXCHANGE')),
+    delegation_type  TEXT    NOT NULL DEFAULT 'IMPERSONATION' CHECK (delegation_type IN ('IMPERSONATION','AGENT','PROXY','TOKEN_EXCHANGE')),  -- [MC-0175] → A.65.04
     scopes           TEXT[]  NOT NULL,
     amount_limit     NUMERIC(20,4),
     valid_from       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -1202,7 +1202,7 @@ CREATE INDEX IF NOT EXISTS idx_idr_grant ON bauth.idn_delegation_renewal (grant_
 CREATE TABLE IF NOT EXISTS bauth.idn_delegation_restriction (
     id               UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
     grant_id         UUID    NOT NULL REFERENCES bauth.idn_delegation_grant(id),
-    restriction_type TEXT    NOT NULL CHECK (restriction_type IN ('SCOPE_LIMIT','IP_WHITELIST','HOURS_ONLY','RESOURCE_LIMIT','APPROVAL_REQUIRED')),
+    restriction_type TEXT    NOT NULL CHECK (restriction_type IN ('SCOPE_LIMIT','IP_WHITELIST','HOURS_ONLY','RESOURCE_LIMIT','APPROVAL_REQUIRED')),  -- [MC-0177] → A.65.04
     parameters       JSONB   NOT NULL DEFAULT '{}'::jsonb,
     ctx_id           TEXT,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -1226,7 +1226,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_delegation_usage_log (
     grant_id    UUID    NOT NULL REFERENCES bauth.idn_delegation_grant(id),
     action_name TEXT    NOT NULL,
     resource    TEXT,
-    outcome     TEXT    NOT NULL CHECK (outcome IN ('PERMIT','DENY','ERROR')),
+    outcome     TEXT    NOT NULL CHECK (outcome IN ('PERMIT','DENY','ERROR')),  -- [MC-0178] → A.65.04
     ip_hash     TEXT,
     ctx_id      TEXT,
     logged_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -1251,7 +1251,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_delegation_rar_request (
     grant_id              UUID    REFERENCES bauth.idn_delegation_grant(id),
     client_id             TEXT    NOT NULL,
     authorization_details JSONB   NOT NULL,  -- RFC 9396 §2: array de objetos tipados
-    status                TEXT    NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','APPROVED','REJECTED','EXPIRED')),
+    status                TEXT    NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','APPROVED','REJECTED','EXPIRED')),  -- [MC-0176] → A.65.04
     expires_at            TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '10 minutes',
     ctx_id                TEXT,
     created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -1270,7 +1270,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_audit_retention_policy (
     retention_days       INTEGER NOT NULL CHECK (retention_days > 0),
     legal_retention_days INTEGER,             -- SOX §802 = 2555 días (7 años)
     legal_basis          TEXT[]  NOT NULL DEFAULT ARRAY[]::TEXT[],
-    expiration_action    TEXT    NOT NULL DEFAULT 'ARCHIVE' CHECK (expiration_action IN ('DELETE','ARCHIVE','ANONYMIZE','KEEP')),
+    expiration_action    TEXT    NOT NULL DEFAULT 'ARCHIVE' CHECK (expiration_action IN ('DELETE','ARCHIVE','ANONYMIZE','KEEP')),  -- [MC-0182] → A.65.04
     archive_destination  TEXT,
     is_active            BOOLEAN NOT NULL DEFAULT true,
     ctx_id               TEXT,
@@ -1302,11 +1302,11 @@ CREATE TABLE IF NOT EXISTS bauth.idn_audit_siem_target (
     id            UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
     tenant_id     UUID    REFERENCES bauth.idn_tenant(tenant_id),
     target_name   TEXT    NOT NULL,
-    protocol_type TEXT    NOT NULL CHECK (protocol_type IN ('SYSLOG_UDP','SYSLOG_TCP','SYSLOG_TLS','HTTP_WEBHOOK','KAFKA','ELASTIC')),
+    protocol_type TEXT    NOT NULL CHECK (protocol_type IN ('SYSLOG_UDP','SYSLOG_TCP','SYSLOG_TLS','HTTP_WEBHOOK','KAFKA','ELASTIC')),  -- [MC-0184] → A.65.04
     endpoint      TEXT    NOT NULL,
     port          INTEGER CHECK (port BETWEEN 1 AND 65535),
     tls_enabled   BOOLEAN NOT NULL DEFAULT false,
-    log_format    TEXT    NOT NULL DEFAULT 'CEF' CHECK (log_format IN ('CEF','LEEF','JSON','SYSLOG_RFC5424','WAZUH')),
+    log_format    TEXT    NOT NULL DEFAULT 'CEF' CHECK (log_format IN ('CEF','LEEF','JSON','SYSLOG_RFC5424','WAZUH')),  -- [MC-0183] → A.65.04
     event_filter  TEXT[]  NOT NULL DEFAULT ARRAY[]::TEXT[],  -- vacío = todos los eventos
     is_active     BOOLEAN NOT NULL DEFAULT true,
     last_sent_at  TIMESTAMPTZ,
@@ -1321,13 +1321,13 @@ CREATE TABLE IF NOT EXISTS bauth.idn_audit_siem_target (
 CREATE TABLE IF NOT EXISTS bauth.idn_audit_event_log (
     id          UUID    DEFAULT gen_random_uuid() NOT NULL,
     tenant_id   UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
-    domain_code TEXT    NOT NULL CHECK (domain_code IN ('D00','D01','D02','D03','D04','D05','D06','D07','D08','D09','D10','D11','D12','D13','D14','D15','D98','D99')),
+    domain_code TEXT    NOT NULL CHECK (domain_code IN ('D00','D01','D02','D03','D04','D05','D06','D07','D08','D09','D10','D11','D12','D13','D14','D15','D98','D99')),  -- [MC-0179] → A.65.04
     event_type  TEXT    NOT NULL,
     subject_id  UUID,
-    subject_type TEXT   CHECK (subject_type IN ('USER','ENTITY','NHI','SYSTEM')),
+    subject_type TEXT   CHECK (subject_type IN ('USER','ENTITY','NHI','SYSTEM')),  -- [MC-0181] → A.65.04
     action      TEXT    NOT NULL,
     resource    TEXT,
-    outcome     TEXT    NOT NULL CHECK (outcome IN ('PERMIT','DENY','ERROR','PARTIAL')),
+    outcome     TEXT    NOT NULL CHECK (outcome IN ('PERMIT','DENY','ERROR','PARTIAL')),  -- [MC-0180] → A.65.04
     ip_hash     TEXT,
     ctx_id      TEXT,
     metadata    JSONB   NOT NULL DEFAULT '{}'::jsonb,
@@ -1361,7 +1361,7 @@ CREATE INDEX IF NOT EXISTS idx_iael_denied  ON bauth.idn_audit_event_log (outcom
 CREATE TABLE IF NOT EXISTS bauth.idn_blockchain_anchor_ext (
     id                       UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
     blk_anchor_id            UUID    NOT NULL REFERENCES bauth.blk_anchor(anchor_id),
-    source_event_type        TEXT    NOT NULL CHECK (source_event_type IN ('PRIVILEGE_GRANT','AUDIT_BATCH','DIGITAL_SIGNATURE','VC_ISSUED','SOD_VIOLATION')),
+    source_event_type        TEXT    NOT NULL CHECK (source_event_type IN ('PRIVILEGE_GRANT','AUDIT_BATCH','DIGITAL_SIGNATURE','VC_ISSUED','SOD_VIOLATION')),  -- [MC-0185] → A.65.04
     source_event_id          UUID    NOT NULL,
     merkle_proof_path        TEXT[],                    -- prueba de inclusión
     external_verification_url TEXT,
@@ -1376,12 +1376,12 @@ CREATE TABLE IF NOT EXISTS bauth.idn_blockchain_transaction (
     tenant_id    UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
     account_id   UUID    NOT NULL REFERENCES bauth.blk_account(account_id),
     tx_hash      TEXT    NOT NULL UNIQUE,
-    tx_type      TEXT    NOT NULL CHECK (tx_type IN ('SETTLE','FREEZE','UNFREEZE','REVERT','DEPLOY','CALL')),
+    tx_type      TEXT    NOT NULL CHECK (tx_type IN ('SETTLE','FREEZE','UNFREEZE','REVERT','DEPLOY','CALL')),  -- [MC-0188] → A.65.04
     from_address TEXT    NOT NULL,
     to_address   TEXT,
     value_wei    NUMERIC(30,0),
     gas_used     BIGINT,
-    status       TEXT    NOT NULL CHECK (status IN ('PENDING','CONFIRMED','FAILED','REVERTED')),
+    status       TEXT    NOT NULL CHECK (status IN ('PENDING','CONFIRMED','FAILED','REVERTED')),  -- [MC-0187] → A.65.04
     block_number BIGINT,
     confirmed_at TIMESTAMPTZ,
     ctx_id       TEXT,
@@ -1394,13 +1394,13 @@ CREATE INDEX IF NOT EXISTS idx_ibt_status  ON bauth.idn_blockchain_transaction (
 CREATE TABLE IF NOT EXISTS bauth.idn_blockchain_wallet (
     id                UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
     tenant_id         UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id) UNIQUE,
-    chain             TEXT    NOT NULL DEFAULT 'BESU_QBFT' CHECK (chain IN ('BESU_QBFT','ARBITRUM')),
+    chain             TEXT    NOT NULL DEFAULT 'BESU_QBFT' CHECK (chain IN ('BESU_QBFT','ARBITRUM')),  -- [MC-0189] → A.65.04
     address           TEXT    NOT NULL UNIQUE,
     vault_key_path    TEXT    NOT NULL,   -- clave privada NUNCA en BD — siempre en Vault
     hd_path           TEXT,              -- BIP-44 derivation path
     balance_wei       NUMERIC(30,0) NOT NULL DEFAULT 0,
     balance_updated_at TIMESTAMPTZ,
-    status            TEXT    NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','FROZEN','DECOMMISSIONED')),
+    status            TEXT    NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','FROZEN','DECOMMISSIONED')),  -- [MC-0190] → A.65.04
     ctx_id            TEXT,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -1426,7 +1426,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_blockchain_node (
     enode_url         TEXT    NOT NULL UNIQUE,
     address           TEXT    NOT NULL UNIQUE,
     is_validator      BOOLEAN NOT NULL DEFAULT false,
-    status            TEXT    NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','SYNCING','OFFLINE','DECOMMISSIONED')),
+    status            TEXT    NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','SYNCING','OFFLINE','DECOMMISSIONED')),  -- [MC-0186] → A.65.04
     last_block_number BIGINT,
     peers_count       INTEGER,
     last_heartbeat    TIMESTAMPTZ,
@@ -1444,13 +1444,13 @@ CREATE TABLE IF NOT EXISTS bauth.idn_signature_request (
     id                 UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
     tenant_id          UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
     requester_id       UUID    NOT NULL REFERENCES bauth.idn_user(user_id),
-    document_type      TEXT    NOT NULL CHECK (document_type IN ('PDF','XML','JSON','INVOICE_SIN','VC','JWT','CONTRACT')),
-    signature_format   TEXT    NOT NULL DEFAULT 'PADES_B' CHECK (signature_format IN ('PADES_B','PADES_T','PADES_LT','PADES_LTA','CADES_B','XADES_B','JADES')),
-    engine             TEXT    NOT NULL CHECK (engine IN ('INTERNAL_ED25519','EXTERNAL_ADSIB','DUAL')),
+    document_type      TEXT    NOT NULL CHECK (document_type IN ('PDF','XML','JSON','INVOICE_SIN','VC','JWT','CONTRACT')),  -- [MC-0193] → A.65.04
+    signature_format   TEXT    NOT NULL DEFAULT 'PADES_B' CHECK (signature_format IN ('PADES_B','PADES_T','PADES_LT','PADES_LTA','CADES_B','XADES_B','JADES')),  -- [MC-0195] → A.65.04
+    engine             TEXT    NOT NULL CHECK (engine IN ('INTERNAL_ED25519','EXTERNAL_ADSIB','DUAL')),  -- [MC-0194] → A.65.04
     document_hash      TEXT    NOT NULL,   -- SHA-256 del documento
     vault_key_path     TEXT,              -- ruta en Vault para motor interno
     cert_id            UUID    REFERENCES bauth.sig_certificate(cert_id),
-    status             TEXT    NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','SIGNING','SIGNED','FAILED','CANCELLED')),
+    status             TEXT    NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','SIGNING','SIGNED','FAILED','CANCELLED')),  -- [MC-0196] → A.65.04
     requires_timestamp BOOLEAN NOT NULL DEFAULT false,
     requires_lts       BOOLEAN NOT NULL DEFAULT false,
     operation_id       UUID    REFERENCES bauth.sig_operation_log(operation_id),
@@ -1465,7 +1465,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_signature_ca_chain (
     id                 UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
     tenant_id          UUID    REFERENCES bauth.idn_tenant(tenant_id),  -- NULL = global
     ca_name            TEXT    NOT NULL,
-    ca_type            TEXT    NOT NULL CHECK (ca_type IN ('ROOT_CA','INTERMEDIATE_CA','ISSUING_CA','ADSIB','VAULT_PKI')),
+    ca_type            TEXT    NOT NULL CHECK (ca_type IN ('ROOT_CA','INTERMEDIATE_CA','ISSUING_CA','ADSIB','VAULT_PKI')),  -- [MC-0191] → A.65.04
     subject_dn         TEXT    NOT NULL,
     issuer_dn          TEXT    NOT NULL,
     fingerprint_sha256 TEXT    NOT NULL UNIQUE,
@@ -1507,8 +1507,8 @@ CREATE TABLE IF NOT EXISTS bauth.idn_signature_verification_log (
     verifier_id    UUID    REFERENCES bauth.idn_user(user_id),
     document_hash  TEXT    NOT NULL,
     signature_type TEXT    NOT NULL,
-    outcome        TEXT    NOT NULL CHECK (outcome IN ('VALID','INVALID','EXPIRED','REVOKED','UNKNOWN','ERROR')),
-    cert_status    TEXT    CHECK (cert_status IN ('VALID','REVOKED','EXPIRED','UNKNOWN')),
+    outcome        TEXT    NOT NULL CHECK (outcome IN ('VALID','INVALID','EXPIRED','REVOKED','UNKNOWN','ERROR')),  -- [MC-0200] → A.65.04
+    cert_status    TEXT    CHECK (cert_status IN ('VALID','REVOKED','EXPIRED','UNKNOWN')),  -- [MC-0199] → A.65.04
     chain_valid    BOOLEAN,
     timestamp_valid BOOLEAN,
     ltv_valid      BOOLEAN,
@@ -1523,12 +1523,12 @@ CREATE TABLE IF NOT EXISTS bauth.idn_signature_revocation_cache (
     id                 UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
     cert_fingerprint   TEXT    NOT NULL UNIQUE,
     issuer_fingerprint TEXT    NOT NULL,
-    status             TEXT    NOT NULL CHECK (status IN ('GOOD','REVOKED','UNKNOWN')),
+    status             TEXT    NOT NULL CHECK (status IN ('GOOD','REVOKED','UNKNOWN')),  -- [MC-0198] → A.65.04
     this_update        TIMESTAMPTZ NOT NULL,
     next_update        TIMESTAMPTZ NOT NULL,
     revoked_at         TIMESTAMPTZ,
     revocation_reason  TEXT,
-    check_source       TEXT    NOT NULL CHECK (check_source IN ('OCSP','CRL','VAULT','MANUAL')),
+    check_source       TEXT    NOT NULL CHECK (check_source IN ('OCSP','CRL','VAULT','MANUAL')),  -- [MC-0197] → A.65.04
     ctx_id             TEXT,
     cached_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -1557,7 +1557,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_signature_eudi_wallet (
     wallet_provider   TEXT    NOT NULL,
     wallet_did        TEXT,
     pid_credential_id TEXT,               -- Personal ID credential del EUDI
-    status            TEXT    NOT NULL DEFAULT 'LINKED' CHECK (status IN ('LINKED','SUSPENDED','REVOKED','PENDING')),
+    status            TEXT    NOT NULL DEFAULT 'LINKED' CHECK (status IN ('LINKED','SUSPENDED','REVOKED','PENDING')),  -- [MC-0192] → A.65.04
     linked_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     last_used_at      TIMESTAMPTZ,
     ctx_id            TEXT,
@@ -1576,7 +1576,7 @@ CREATE TABLE IF NOT EXISTS bauth.pam_session_recording (
     session_record_id UUID    NOT NULL REFERENCES bauth.pam_session_record(id),
     file_name         TEXT    NOT NULL,
     file_hash_sha256  TEXT    NOT NULL,
-    storage_type      TEXT    NOT NULL DEFAULT 'MINIO' CHECK (storage_type IN ('MINIO','S3','LOCAL','NFS')),
+    storage_type      TEXT    NOT NULL DEFAULT 'MINIO' CHECK (storage_type IN ('MINIO','S3','LOCAL','NFS')),  -- [MC-0212] → A.65.04
     storage_bucket    TEXT    NOT NULL,
     storage_path      TEXT    NOT NULL,
     size_bytes        BIGINT,
@@ -1598,12 +1598,12 @@ CREATE INDEX IF NOT EXISTS idx_psr_retention ON bauth.pam_session_recording (ret
 CREATE TABLE IF NOT EXISTS bauth.idn_nhi_rotation_policy (
     id              UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
     tenant_id       UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id),
-    nhi_type        TEXT    NOT NULL CHECK (nhi_type IN ('SERVICE_ACCOUNT','CI_CD','DAEMON','BOT','AGENT_IA','API_KEY')),
+    nhi_type        TEXT    NOT NULL CHECK (nhi_type IN ('SERVICE_ACCOUNT','CI_CD','DAEMON','BOT','AGENT_IA','API_KEY')),  -- [MC-0214] → A.65.04
     rotation_days   INTEGER NOT NULL CHECK (rotation_days BETWEEN 1 AND 365),
     rotate_on_use   BOOLEAN NOT NULL DEFAULT false,  -- ON_USE pattern para CI/CD
     pre_notice_days INTEGER NOT NULL DEFAULT 7,
     auto_rotate     BOOLEAN NOT NULL DEFAULT true,
-    fail_action     TEXT    NOT NULL DEFAULT 'NOTIFY' CHECK (fail_action IN ('NOTIFY','SUSPEND_NHI','ALERT_ADMIN')),
+    fail_action     TEXT    NOT NULL DEFAULT 'NOTIFY' CHECK (fail_action IN ('NOTIFY','SUSPEND_NHI','ALERT_ADMIN')),  -- [MC-0213] → A.65.04
     status          TEXT    NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','DISABLED')),
     ctx_id          TEXT,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -1617,7 +1617,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_nhi_svid (
     tenant_id        UUID    REFERENCES bauth.idn_tenant(tenant_id),  -- NULL = sistema
     nhi_id           UUID    NOT NULL REFERENCES bauth.idn_roles_nhi_identity(id),
     spiffe_id        TEXT    NOT NULL,           -- spiffe://trust-domain/path
-    svid_type        TEXT    NOT NULL DEFAULT 'X509' CHECK (svid_type IN ('X509','JWT')),
+    svid_type        TEXT    NOT NULL DEFAULT 'X509' CHECK (svid_type IN ('X509','JWT')),  -- [MC-0216] → A.65.04
     trust_domain     TEXT    NOT NULL,
     cert_fingerprint TEXT,
     serial_number    TEXT,
@@ -1625,7 +1625,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_nhi_svid (
     expires_at       TIMESTAMPTZ NOT NULL,
     rotated_at       TIMESTAMPTZ,
     vault_path       TEXT    NOT NULL,           -- cert SVID en Vault — NUNCA en BD
-    status           TEXT    NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','ROTATED','REVOKED','EXPIRED')),
+    status           TEXT    NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','ROTATED','REVOKED','EXPIRED')),  -- [MC-0215] → A.65.04
     ctx_id           TEXT,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT uk_ins_nhi_spiffe UNIQUE (nhi_id, spiffe_id),
@@ -1641,15 +1641,15 @@ CREATE INDEX IF NOT EXISTS idx_ins_active ON bauth.idn_nhi_svid (trust_domain, s
 CREATE TABLE IF NOT EXISTS bauth.idn_registry_attribute_schema (
     id               UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
     attr_key         TEXT    NOT NULL UNIQUE,  -- clave canónica: 'nit_bo', 'phone_mobile'
-    category         TEXT    NOT NULL CHECK (category IN ('IDENTITY','CONTACT','LEGAL','BIOMETRIC','FINANCIAL','SYSTEM','CUSTOM')),
-    data_type        TEXT    NOT NULL CHECK (data_type IN ('TEXT','INTEGER','DECIMAL','BOOLEAN','DATE','DATETIME','JSON','BINARY','UUID')),
-    mutability       TEXT    NOT NULL DEFAULT 'READ_WRITE' CHECK (mutability IN ('READ_ONLY','READ_WRITE','WRITE_ONCE')),
+    category         TEXT    NOT NULL CHECK (category IN ('IDENTITY','CONTACT','LEGAL','BIOMETRIC','FINANCIAL','SYSTEM','CUSTOM')),  -- [MC-0279] → A.65.04
+    data_type        TEXT    NOT NULL CHECK (data_type IN ('TEXT','INTEGER','DECIMAL','BOOLEAN','DATE','DATETIME','JSON','BINARY','UUID')),  -- [MC-0281] → A.65.04
+    mutability       TEXT    NOT NULL DEFAULT 'READ_WRITE' CHECK (mutability IN ('READ_ONLY','READ_WRITE','WRITE_ONCE')),  -- [MC-0282] → A.65.04
     returned         TEXT    NOT NULL DEFAULT 'DEFAULT' CHECK (returned IN ('ALWAYS','DEFAULT','NEVER','REQUEST')),
     required         BOOLEAN NOT NULL DEFAULT false,
     multi_valued     BOOLEAN NOT NULL DEFAULT false,
     min_ial          INTEGER NOT NULL DEFAULT 1 CHECK (min_ial BETWEEN 1 AND 3),
-    source           TEXT    NOT NULL DEFAULT 'USER' CHECK (source IN ('USER','SYSTEM','PROOFING','IMPORT','DERIVED')),
-    classification   TEXT    NOT NULL DEFAULT 'INTERNAL' CHECK (classification IN ('PUBLIC','INTERNAL','CONFIDENTIAL','SECRET')),
+    source           TEXT    NOT NULL DEFAULT 'USER' CHECK (source IN ('USER','SYSTEM','PROOFING','IMPORT','DERIVED')),  -- [MC-0283] → A.65.04
+    classification   TEXT    NOT NULL DEFAULT 'INTERNAL' CHECK (classification IN ('PUBLIC','INTERNAL','CONFIDENTIAL','SECRET')),  -- [MC-0280] → A.65.04
     mask_display     BOOLEAN NOT NULL DEFAULT false,
     retention_days   INTEGER CHECK (retention_days > 0),
     validation_regex TEXT,

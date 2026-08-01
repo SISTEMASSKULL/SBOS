@@ -58,45 +58,45 @@ CREATE EXTENSION IF NOT EXISTS btree_gist;   -- is_required por WITHOUT OVERLAPS
 -- ══════════════════════════════════════════════════════════════════════
 
 -- --- GLOBAL / IDIOMA ---
-DO $$ BEGIN CREATE TYPE language_scope_enum    AS ENUM ('individual','macrolanguage','special','collection'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE language_type_enum     AS ENUM ('living','extinct','ancient','constructed','historic'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE text_direction_enum    AS ENUM ('ltr','rtl','ttb'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE translation_status_enum AS ENUM ('COMPLETE','PARTIAL','MACHINE_TRANSLATED','NOT_TRANSLATED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE menu_type_enum         AS ENUM ('HIERARCHICAL','CONTEXTUAL'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE global_param_scope_enum AS ENUM ('global','security','calendar','auth','policy','billing'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE global_param_type_enum  AS ENUM ('TEXT','INTEGER','BOOLEAN','JSON','DECIMAL'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE language_scope_enum    AS ENUM ('individual','macrolanguage','special','collection'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0020] → A.65.04
+DO $$ BEGIN CREATE TYPE language_type_enum     AS ENUM ('living','extinct','ancient','constructed','historic'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0021] → A.65.04
+DO $$ BEGIN CREATE TYPE text_direction_enum    AS ENUM ('ltr','rtl','ttb'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0022] → A.65.04
+DO $$ BEGIN CREATE TYPE translation_status_enum AS ENUM ('COMPLETE','PARTIAL','MACHINE_TRANSLATED','NOT_TRANSLATED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0023] → A.65.04
+DO $$ BEGIN CREATE TYPE menu_type_enum         AS ENUM ('HIERARCHICAL','CONTEXTUAL'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0056] → A.65.04
+DO $$ BEGIN CREATE TYPE global_param_scope_enum AS ENUM ('global','security','calendar','auth','policy','billing'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0048] → A.65.04
+DO $$ BEGIN CREATE TYPE global_param_type_enum  AS ENUM ('TEXT','INTEGER','BOOLEAN','JSON','DECIMAL'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0049] → A.65.04
 
 -- --- TENANT ---
-DO $$ BEGIN CREATE TYPE tenant_status_enum       AS ENUM ('PENDING_VERIFICATION','ACTIVE','SUSPENDED','MAINTENANCE','SOFT_DELETED','TERMINATED','PURGED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE tenant_type_enum         AS ENUM ('STANDARD','REGULATED','HIGH_SENSITIVITY'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE isolation_level_enum     AS ENUM ('ROW_LEVEL','SCHEMA_PER_TENANT','DB_PER_TENANT'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE subscription_status_enum AS ENUM ('TRIAL','ACTIVE','PAST_DUE','CANCELLED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE plan_tier_enum           AS ENUM ('BASIC','PRO','ENTERPRISE'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE provisioning_status_enum AS ENUM ('PENDING','INFRA_PROVISIONING','SCHEMA_CREATED','IDP_CONFIGURED','COMPLETED','FAILED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE audit_level_enum         AS ENUM ('basic','full'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE verification_step_enum   AS ENUM ('IDENTITY_CHECK','LEGAL_CHECK','TECHNICAL_SETUP','SECURITY_REVIEW','FINAL_APPROVAL'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE verification_status_enum AS ENUM ('PENDING','IN_PROGRESS','PASSED','FAILED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE domain_type_enum         AS ENUM ('WEB','API','POS','ADMIN','PORTAL','STATIC','MAIL'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE domain_status_enum       AS ENUM ('PENDING','VERIFIED','FAILED','DEPLOYING','DEPLOYED','HEALTHY','DEGRADED','UNHEALTHY','UNKNOWN'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE network_type_enum        AS ENUM ('LAN','WAN','VPN','DMZ','GUEST','MANAGEMENT'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE calendar_owner_type_enum AS ENUM ('TENANT','COMPANY','BRANCH','USER'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE calendar_role_enum       AS ENUM ('OWNER','EDITOR','VIEWER'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE tenant_status_enum       AS ENUM ('PENDING_VERIFICATION','ACTIVE','SUSPENDED','MAINTENANCE','SOFT_DELETED','TERMINATED','PURGED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0010] → A.65.04
+DO $$ BEGIN CREATE TYPE tenant_type_enum         AS ENUM ('STANDARD','REGULATED','HIGH_SENSITIVITY'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0011] → A.65.04
+DO $$ BEGIN CREATE TYPE isolation_level_enum     AS ENUM ('ROW_LEVEL','SCHEMA_PER_TENANT','DB_PER_TENANT'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0007] → A.65.04
+DO $$ BEGIN CREATE TYPE subscription_status_enum AS ENUM ('TRIAL','ACTIVE','PAST_DUE','CANCELLED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0009] → A.65.04
+DO $$ BEGIN CREATE TYPE plan_tier_enum           AS ENUM ('BASIC','PRO','ENTERPRISE'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0008] → A.65.04
+DO $$ BEGIN CREATE TYPE provisioning_status_enum AS ENUM ('PENDING','INFRA_PROVISIONING','SCHEMA_CREATED','IDP_CONFIGURED','COMPLETED','FAILED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0012] → A.65.04
+DO $$ BEGIN CREATE TYPE audit_level_enum         AS ENUM ('basic','full'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0006] → A.65.04
+DO $$ BEGIN CREATE TYPE verification_step_enum   AS ENUM ('IDENTITY_CHECK','LEGAL_CHECK','TECHNICAL_SETUP','SECURITY_REVIEW','FINAL_APPROVAL'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0019] → A.65.04
+DO $$ BEGIN CREATE TYPE verification_status_enum AS ENUM ('PENDING','IN_PROGRESS','PASSED','FAILED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0018] → A.65.04
+DO $$ BEGIN CREATE TYPE domain_type_enum         AS ENUM ('WEB','API','POS','ADMIN','PORTAL','STATIC','MAIL'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0014] → A.65.04
+DO $$ BEGIN CREATE TYPE domain_status_enum       AS ENUM ('PENDING','VERIFIED','FAILED','DEPLOYING','DEPLOYED','HEALTHY','DEGRADED','UNHEALTHY','UNKNOWN'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0013] → A.65.04
+DO $$ BEGIN CREATE TYPE network_type_enum        AS ENUM ('LAN','WAN','VPN','DMZ','GUEST','MANAGEMENT'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0015] → A.65.04
+DO $$ BEGIN CREATE TYPE calendar_owner_type_enum AS ENUM ('TENANT','COMPANY','BRANCH','USER'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0052] → A.65.04
+DO $$ BEGIN CREATE TYPE calendar_role_enum       AS ENUM ('OWNER','EDITOR','VIEWER'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0051] → A.65.04
 
 -- --- CALENDARIO ---
-DO $$ BEGIN CREATE TYPE fiscal_year_status_enum  AS ENUM ('OPEN','CLOSED','CLOSED_WITH_ADJUSTMENTS','ARCHIVED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE calendar_type_enum       AS ENUM ('WORK','FISCAL','PROCESS','COMPLIANCE','HOLIDAY','MAINTENANCE'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE alarm_channel_enum       AS ENUM ('EMAIL','SMS','WHATSAPP','PUSH','CHAT','UI'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE schedule_status_enum     AS ENUM ('OPEN','CLOSED','LUNCH','BREAK','OVERTIME'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE fiscal_year_status_enum  AS ENUM ('OPEN','CLOSED','CLOSED_WITH_ADJUSTMENTS','ARCHIVED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0053] → A.65.04
+DO $$ BEGIN CREATE TYPE calendar_type_enum       AS ENUM ('WORK','FISCAL','PROCESS','COMPLIANCE','HOLIDAY','MAINTENANCE'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0050] → A.65.04
+DO $$ BEGIN CREATE TYPE alarm_channel_enum       AS ENUM ('EMAIL','SMS','WHATSAPP','PUSH','CHAT','UI'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0055] → A.65.04
+DO $$ BEGIN CREATE TYPE schedule_status_enum     AS ENUM ('OPEN','CLOSED','LUNCH','BREAK','OVERTIME'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0054] → A.65.04
 
 -- --- ROLES ---
-DO $$ BEGIN CREATE TYPE rol_tier_enum            AS ENUM ('SU','T0','T1','BIZ_N1','BIZ_N2','BIZ_N3','BIZ_N4','BIZ_N5','EXT_N0','M2M','VISITOR'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE rol_status_enum          AS ENUM ('ACTIVE','INACTIVE','DEPRECATED','ARCHIVED','SUSPENDED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE rol_tier_enum            AS ENUM ('SU','T0','T1','BIZ_N1','BIZ_N2','BIZ_N3','BIZ_N4','BIZ_N5','EXT_N0','M2M','VISITOR'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0025] → A.65.04
+DO $$ BEGIN CREATE TYPE rol_status_enum          AS ENUM ('ACTIVE','INACTIVE','DEPRECATED','ARCHIVED','SUSPENDED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0024] → A.65.04
 -- B02 §lifecycle — agregar IN_REVIEW (NIST AC-2 revisión periódica IGA)
 ALTER TYPE rol_status_enum ADD VALUE IF NOT EXISTS 'IN_REVIEW' AFTER 'SUSPENDED';
-DO $$ BEGIN CREATE TYPE rol_account_type_enum    AS ENUM ('INDIVIDUAL','M2M','SYSTEM','GROUP','TEMPLATE','VIRTUAL','BOT','DEVICE','SERVICE','EMERGENCY'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE rol_account_type_enum    AS ENUM ('INDIVIDUAL','M2M','SYSTEM','GROUP','TEMPLATE','VIRTUAL','BOT','DEVICE','SERVICE','EMERGENCY'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0026] → A.65.04
 -- B02 §validity_period.type — 5 tipos de vigencia de negocio (NIST AC-2(d) · ISO A.5.18)
 DO $$ BEGIN
-    CREATE TYPE bauth.role_validity_type AS ENUM (
+    CREATE TYPE bauth.role_validity_type AS ENUM (  -- [MC-0005] → A.65.04
         'INDEFINITE',    -- estructurales; sin fin fijo; auto-extensión si hay usuarios activos
         'FIXED',         -- fin contractual; humano establece valid_until
         'PROJECT_BASED', -- fin por hito; notificación 30d antes; solo humano decide extensión
@@ -105,9 +105,9 @@ DO $$ BEGIN
     );
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
-DO $$ BEGIN CREATE TYPE ial_level_enum           AS ENUM ('IAL1','IAL2','IAL3'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE risk_level_enum          AS ENUM ('LOW','MEDIUM','HIGH','CRITICAL'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE sensitivity_label_enum   AS ENUM ('PUBLIC','INTERNAL','CONFIDENTIAL','RESTRICTED','SECRET'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE ial_level_enum           AS ENUM ('IAL1','IAL2','IAL3'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0017] → A.65.04
+DO $$ BEGIN CREATE TYPE risk_level_enum          AS ENUM ('LOW','MEDIUM','HIGH','CRITICAL'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0028] → A.65.04
+DO $$ BEGIN CREATE TYPE sensitivity_label_enum   AS ENUM ('PUBLIC','INTERNAL','CONFIDENTIAL','RESTRICTED','SECRET'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0027] → A.65.04
 
 -- --- ÁRBOL DE POLÍTICAS ---
 -- NOTA: template_node_type_enum, template_effect_enum, verb_conflict_type_enum ELIMINADOS.
@@ -115,42 +115,42 @@ DO $$ BEGIN CREATE TYPE sensitivity_label_enum   AS ENUM ('PUBLIC','INTERNAL','C
 -- T-175 usa tipo TEXT + CHECK('STATIC_SOD','DYNAMIC_SOD','AFFINITY').
 
 -- --- IDENTIDAD D00 ---
-DO $$ BEGIN CREATE TYPE entidad_nivel_enum       AS ENUM ('tenant','bdomain','bsubdomain','pos','actor'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE nhi_type_enum            AS ENUM ('DAEMON','PIPELINE','BOT','SERVICE_ACCOUNT','AGENT_AI','DEVICE'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE nhi_status_enum          AS ENUM ('ACTIVE','SUSPENDED','DECOMMISSIONED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE nhi_event_type_enum      AS ENUM ('PROVISIONED','CERTIFIED','ROTATED','SUSPENDED','REACTIVATED','DECOMMISSIONED','OWNER_CHANGED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE nhi_cert_decision_enum   AS ENUM ('CERTIFY','DECOMMISSION','REDUCE_SCOPE'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE entidad_nivel_enum       AS ENUM ('tenant','bdomain','bsubdomain','pos','actor'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0016] → A.65.04
+DO $$ BEGIN CREATE TYPE nhi_type_enum            AS ENUM ('DAEMON','PIPELINE','BOT','SERVICE_ACCOUNT','AGENT_AI','DEVICE'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0039] → A.65.04
+DO $$ BEGIN CREATE TYPE nhi_status_enum          AS ENUM ('ACTIVE','SUSPENDED','DECOMMISSIONED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0038] → A.65.04
+DO $$ BEGIN CREATE TYPE nhi_event_type_enum      AS ENUM ('PROVISIONED','CERTIFIED','ROTATED','SUSPENDED','REACTIVATED','DECOMMISSIONED','OWNER_CHANGED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0041] → A.65.04
+DO $$ BEGIN CREATE TYPE nhi_cert_decision_enum   AS ENUM ('CERTIFY','DECOMMISSION','REDUCE_SCOPE'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0040] → A.65.04
 
 -- --- PRIVILEGIOS ---
-DO $$ BEGIN CREATE TYPE grant_type_enum          AS ENUM ('STANDARD','JIT','BREAKGLASS'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE grant_status_enum        AS ENUM ('ACTIVE','INACTIVE','REVOKED','EXPIRED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE grant_type_enum          AS ENUM ('STANDARD','JIT','BREAKGLASS'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0030] → A.65.04
+DO $$ BEGIN CREATE TYPE grant_status_enum        AS ENUM ('ACTIVE','INACTIVE','REVOKED','EXPIRED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0029] → A.65.04
 -- NOTA: override_type_enum, assurance_outcome_enum, sod_exception_type_enum ELIMINADOS.
 -- T-173 usa override_type TEXT + CHECK('DENY_TO_PERMIT','PERMIT_TO_DENY').
 -- T-176 usa outcome TEXT + CHECK('PERMIT','STEP_UP_REQUIRED','DENIED').
 -- privilege_sod_exception eliminada — SoD se enforcea via trigger en T-170.
 
 -- --- SESIÓN / CAEP ---
-DO $$ BEGIN CREATE TYPE caep_event_type_enum     AS ENUM ('credential_change','token_claims_change','session_revoked','assurance_level_change','ip_change','risk_score_change'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE caep_proc_status_enum    AS ENUM ('RECEIVED','PROCESSING','APPLIED','FAILED','IGNORED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE ssf_delivery_method_enum AS ENUM ('PUSH','POLL'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE ssf_delivery_status_enum AS ENUM ('SUCCESS','FAILED','RETRYING','ABANDONED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE caep_event_type_enum     AS ENUM ('credential_change','token_claims_change','session_revoked','assurance_level_change','ip_change','risk_score_change'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0042] → A.65.04
+DO $$ BEGIN CREATE TYPE caep_proc_status_enum    AS ENUM ('RECEIVED','PROCESSING','APPLIED','FAILED','IGNORED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0043] → A.65.04
+DO $$ BEGIN CREATE TYPE ssf_delivery_method_enum AS ENUM ('PUSH','POLL'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0057] → A.65.04
+DO $$ BEGIN CREATE TYPE ssf_delivery_status_enum AS ENUM ('SUCCESS','FAILED','RETRYING','ABANDONED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0058] → A.65.04
 
 -- --- AUDITORÍA ---
-DO $$ BEGIN CREATE TYPE campaign_scope_enum      AS ENUM ('TENANT','USER','ROLE','ATOM'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE campaign_type_enum       AS ENUM ('QUARTERLY','ANNUAL','OFFBOARDING','INCIDENT','SOD_REVIEW'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE campaign_status_enum     AS ENUM ('ACTIVE','COMPLETED','CANCELLED','OVERDUE'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE review_decision_enum     AS ENUM ('CERTIFY','REVOKE','ESCALATE','DEFER'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE campaign_scope_enum      AS ENUM ('TENANT','USER','ROLE','ATOM'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0031] → A.65.04
+DO $$ BEGIN CREATE TYPE campaign_type_enum       AS ENUM ('QUARTERLY','ANNUAL','OFFBOARDING','INCIDENT','SOD_REVIEW'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0033] → A.65.04
+DO $$ BEGIN CREATE TYPE campaign_status_enum     AS ENUM ('ACTIVE','COMPLETED','CANCELLED','OVERDUE'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0032] → A.65.04
+DO $$ BEGIN CREATE TYPE review_decision_enum     AS ENUM ('CERTIFY','REVOKE','ESCALATE','DEFER'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0034] → A.65.04
 
 -- --- RIESGO / ITDR ---
-DO $$ BEGIN CREATE TYPE risk_action_enum         AS ENUM ('STEP_UP','REVOKE','SUSPEND','NOTIFY','REQUIRE_MFA'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE risk_action_enum         AS ENUM ('STEP_UP','REVOKE','SUSPEND','NOTIFY','REQUIRE_MFA'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0047] → A.65.04
 
 -- --- PAM ---
-DO $$ BEGIN CREATE TYPE jit_status_enum          AS ENUM ('PENDING','APPROVED','ACTIVE','EXPIRED','REVOKED','REJECTED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE breakglass_status_enum   AS ENUM ('PENDING_APPROVAL','ACTIVE','DEACTIVATED','REVIEWED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE pam_access_type_enum     AS ENUM ('SSH','RDP','API','CONSOLE','DB','CLI','VAULT'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE credential_ref_type_enum AS ENUM ('PASSWORD','API_KEY','CERTIFICATE','SSH_KEY','SERVICE_TOKEN','OAUTH_TOKEN'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE credential_owner_type_enum AS ENUM ('HUMAN','NHI'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE proposal_status_enum     AS ENUM ('DRAFT','PENDING_QUORUM','APPROVED','REJECTED','EXPIRED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE jit_status_enum          AS ENUM ('PENDING','APPROVED','ACTIVE','EXPIRED','REVOKED','REJECTED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0036] → A.65.04
+DO $$ BEGIN CREATE TYPE breakglass_status_enum   AS ENUM ('PENDING_APPROVAL','ACTIVE','DEACTIVATED','REVIEWED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0035] → A.65.04
+DO $$ BEGIN CREATE TYPE pam_access_type_enum     AS ENUM ('SSH','RDP','API','CONSOLE','DB','CLI','VAULT'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0037] → A.65.04
+DO $$ BEGIN CREATE TYPE credential_ref_type_enum AS ENUM ('PASSWORD','API_KEY','CERTIFICATE','SSH_KEY','SERVICE_TOKEN','OAUTH_TOKEN'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0045] → A.65.04
+DO $$ BEGIN CREATE TYPE credential_owner_type_enum AS ENUM ('HUMAN','NHI'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0044] → A.65.04
+DO $$ BEGIN CREATE TYPE proposal_status_enum     AS ENUM ('DRAFT','PENDING_QUORUM','APPROVED','REJECTED','EXPIRED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0046] → A.65.04
 
 RESET lock_timeout;
 RESET client_min_messages;
@@ -1614,7 +1614,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_roles_rol_lifecycle_event (
     entry_hash       TEXT             NOT NULL,
     CONSTRAINT idn_roles_rol_lifecycle_event_pkey PRIMARY KEY (id),
     CONSTRAINT fk_irle_role FOREIGN KEY (role_id) REFERENCES bauth.idn_roles_rol_hierarchical(id) ON DELETE RESTRICT,
-    CONSTRAINT chk_irle_trigger CHECK (
+    CONSTRAINT chk_irle_trigger CHECK (  -- [MC-0271] → A.65.04
         trigger_type IN ('MANUAL','AUTO_EXPIRY','RECONCILE','IGA_REVIEW','BREAKGLASS','BOOTSTRAP')
     )
 );
@@ -1807,10 +1807,10 @@ COMMENT ON COLUMN bauth.idn_roles_rol_closure.depth         IS '0=self, 1=hijo d
 -- ╚══════════════════════════════════════════════════════════════════════╝
 
 -- ENUMs del subsistema ver_
-DO $$ BEGIN CREATE TYPE bauth.ver_semver_change_enum   AS ENUM ('MAJOR','MINOR','PATCH');                          EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE bauth.ver_channel_enum          AS ENUM ('API','CLI','BOOTSTRAP','RECONCILE');             EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE bauth.ver_proposal_status_enum  AS ENUM ('PENDING','APPROVED','REJECTED','EXPIRED','CANCELLED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE bauth.ver_compaction_enum       AS ENUM ('KEEP_ALL','KEEP_ANCHORS','KEEP_LAST_N');        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE bauth.ver_semver_change_enum   AS ENUM ('MAJOR','MINOR','PATCH');                          EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0004] → A.65.04
+DO $$ BEGIN CREATE TYPE bauth.ver_channel_enum          AS ENUM ('API','CLI','BOOTSTRAP','RECONCILE');             EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0001] → A.65.04
+DO $$ BEGIN CREATE TYPE bauth.ver_proposal_status_enum  AS ENUM ('PENDING','APPROVED','REJECTED','EXPIRED','CANCELLED'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0003] → A.65.04
+DO $$ BEGIN CREATE TYPE bauth.ver_compaction_enum       AS ENUM ('KEEP_ALL','KEEP_ANCHORS','KEEP_LAST_N');        EXCEPTION WHEN duplicate_object THEN NULL; END $$;  -- [MC-0002] → A.65.04
 
 -- ======================================================================
 -- T-152 — bauth.idn_roles_ver_b01_audit_log
@@ -1985,7 +1985,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_roles_ver_b01_retention_policy (
     updated_at        TIMESTAMPTZ                 NOT NULL DEFAULT now(),
     CONSTRAINT pk_irvb01rp           PRIMARY KEY (id),
     CONSTRAINT uq_irvb01rp_entity    UNIQUE (entity_name),
-    CONSTRAINT chk_irvb01rp_class    CHECK (info_class IN ('C1','C2','C3','C4')),
+    CONSTRAINT chk_irvb01rp_class    CHECK (info_class IN ('C1','C2','C3','C4')),  -- [MC-0273] → A.65.04
     CONSTRAINT chk_irvb01rp_piso_d99 CHECK (retention_total >= INTERVAL '365 days')
 );
 COMMENT ON TABLE bauth.idn_roles_ver_b01_retention_policy IS
@@ -2025,7 +2025,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_roles_ver_contract_revision_log (
     CONSTRAINT pk_irvcrl            PRIMARY KEY (id),
     CONSTRAINT fk_irvcrl_approved   FOREIGN KEY (approved_by) REFERENCES bauth.idn_identity_entity(entity_id) ON DELETE RESTRICT,
     CONSTRAINT uq_irvcrl_transition UNIQUE (contract_name, version_from, version_to),
-    CONSTRAINT chk_irvcrl_compat    CHECK (compatibility IN ('COMPATIBLE','BREAKING')),
+    CONSTRAINT chk_irvcrl_compat    CHECK (compatibility IN ('COMPATIBLE','BREAKING')),  -- [MC-0274] → A.65.04
     CONSTRAINT chk_irvcrl_diff_ver  CHECK (version_to <> version_from)
 );
 CREATE INDEX IF NOT EXISTS idx_irvcrl_contract ON bauth.idn_roles_ver_contract_revision_log (contract_name);
@@ -2102,7 +2102,7 @@ CREATE TABLE IF NOT EXISTS bauth.privilege_verb_conflict (
     CONSTRAINT chk_pvc_no_self_conflict      CHECK (verb_a <> verb_b),
     -- Almacenar siempre en orden alfabético: elimina duplicados (A,B) y (B,A)
     CONSTRAINT chk_pvc_alphabetic_order      CHECK (verb_a < verb_b),
-    CONSTRAINT chk_pvc_conflict_type         CHECK (conflict_type IN ('STATIC_SOD','DYNAMIC_SOD','AFFINITY'))
+    CONSTRAINT chk_pvc_conflict_type         CHECK (conflict_type IN ('STATIC_SOD','DYNAMIC_SOD','AFFINITY'))  -- [MC-0242] → A.65.04
 );
 
 CREATE INDEX IF NOT EXISTS idx_pvc_verba ON bauth.privilege_verb_conflict(verb_a);
@@ -2563,7 +2563,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_identity_attribute_history (
 
     -- Tipo de operación
     operation       TEXT        NOT NULL,
-    CONSTRAINT chk_iah_operation CHECK (operation IN ('INSERT', 'UPDATE', 'SOFT_DELETE')),
+    CONSTRAINT chk_iah_operation CHECK (operation IN ('INSERT', 'UPDATE', 'SOFT_DELETE')),  -- [MC-0100] → A.65.04
 
     -- Hash-chain WORM (NIST AU-9)
     -- prev_hash: SHA-256 de la fila anterior para (entity_id, attr_namespace, attr_key)
@@ -2771,10 +2771,10 @@ CREATE TABLE IF NOT EXISTS bauth.idn_roles_nhi_identity (
     ctx_id          TEXT        NOT NULL,
     CONSTRAINT idn_roles_nhi_identity_pkey PRIMARY KEY (id),
     CONSTRAINT uq_nhi_system_ref UNIQUE (tenant_id, system_ref),
-    CONSTRAINT chk_inhi_type CHECK (
+    CONSTRAINT chk_inhi_type CHECK (  -- [MC-0220] → A.65.04
         nhi_type IN ('SERVICE_ACCOUNT','WORKLOAD','AGENT','BOT','API_CLIENT','CI_CD_PIPELINE')
     ),
-    CONSTRAINT chk_inhi_status CHECK (
+    CONSTRAINT chk_inhi_status CHECK (  -- [MC-0219] → A.65.04
         status IN ('ACTIVE','DORMANT','DECOMMISSIONED','SUSPENDED')
     )
 );
@@ -2812,7 +2812,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_roles_nhi_lifecycle_event (
     metadata        JSONB       NULL,
     ctx_id          TEXT        NOT NULL,
     CONSTRAINT idn_roles_nhi_lifecycle_event_pkey PRIMARY KEY (id),
-    CONSTRAINT chk_inle_type CHECK (
+    CONSTRAINT chk_inle_type CHECK (  -- [MC-0221] → A.65.04
         event_type IN (
             'PROVISIONED','CERTIFIED','ROTATED','SUSPENDED',
             'REACTIVATED','DECOMMISSIONED','OWNER_CHANGED','REVIEW_SCHEDULED'
@@ -2855,7 +2855,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_roles_nhi_certification (
     reviewed_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
     ctx_id          TEXT        NOT NULL,
     CONSTRAINT idn_roles_nhi_certification_pkey PRIMARY KEY (id),
-    CONSTRAINT chk_inc_decision CHECK (
+    CONSTRAINT chk_inc_decision CHECK (  -- [MC-0218] → A.65.04
         decision IN ('CERTIFY','DECOMMISSION','REDUCE_SCOPE','ESCALATE')
     )
 );
@@ -2893,7 +2893,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_roles_nhi_agent_identity (
     max_spawn_depth      INTEGER     NOT NULL DEFAULT 0,
     CONSTRAINT idn_roles_nhi_agent_identity_pkey PRIMARY KEY (id),
     CONSTRAINT uq_iai_nhi UNIQUE (nhi_id),
-    CONSTRAINT chk_iai_session CHECK (session_type IN ('EPHEMERAL','PERSISTENT')),
+    CONSTRAINT chk_iai_session CHECK (session_type IN ('EPHEMERAL','PERSISTENT')),  -- [MC-0217] → A.65.04
     CONSTRAINT chk_iai_spawn CHECK (
         (can_spawn_agents = false AND max_spawn_depth = 0)
         OR (can_spawn_agents = true AND max_spawn_depth > 0)
@@ -2940,16 +2940,16 @@ CREATE TABLE IF NOT EXISTS bauth.idn_scim_attribute_map (
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT uq_isam_tenant_resource_attr UNIQUE (tenant_id, scim_resource, scim_attr),
-    CONSTRAINT chk_isam_resource CHECK (
+    CONSTRAINT chk_isam_resource CHECK (  -- [MC-0115] → A.65.04
         scim_resource IN ('User','Group','EnterpriseUser','ServiceAccount','CustomResource')
     ),
-    CONSTRAINT chk_isam_mutability CHECK (
+    CONSTRAINT chk_isam_mutability CHECK (  -- [MC-0114] → A.65.04
         scim_mutability IN ('readOnly','readWrite','immutable','writeOnly')
     ),
-    CONSTRAINT chk_isam_returned CHECK (
+    CONSTRAINT chk_isam_returned CHECK (  -- [MC-0116] → A.65.04
         scim_returned IN ('always','never','default','request')
     ),
-    CONSTRAINT chk_isam_table CHECK (
+    CONSTRAINT chk_isam_table CHECK (  -- [MC-0117] → A.65.04
         local_table IN ('idn_identidad_atributo','idn_identidad_entidad','idn_identidad_proofing','idn_identidad_vc')
     )
 );
@@ -2993,7 +2993,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_identity_proofing (
                     ON DELETE CASCADE,
     ial_achieved    ial_level_enum NOT NULL,
     proofing_type   TEXT        NOT NULL,
-    CONSTRAINT chk_ip_type CHECK (proofing_type IN (
+    CONSTRAINT chk_ip_type CHECK (proofing_type IN (  -- [MC-0107] → A.65.04
         'SELF_ASSERTED','REMOTE_UNATTENDED','REMOTE_ATTENDED','IN_PERSON','TRUSTED_REFEREE'
     )),
     evidence        JSONB       NOT NULL DEFAULT '{}',
@@ -3005,7 +3005,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_identity_proofing (
     reviewer_id     UUID        NULL REFERENCES bauth.idn_identity_entity(entity_id)
                     ON DELETE SET NULL,
     status          TEXT        NOT NULL DEFAULT 'PENDING',
-    CONSTRAINT chk_ip_status CHECK (status IN (
+    CONSTRAINT chk_ip_status CHECK (status IN (  -- [MC-0106] → A.65.04
         'PENDING','IN_PROGRESS','PASSED','FAILED','EXPIRED'
     )),
     failure_reason  TEXT        NULL,
@@ -3065,12 +3065,12 @@ CREATE TABLE IF NOT EXISTS bauth.idn_identity_consent (
     policy_version      TEXT        NOT NULL,
     processing_scope    TEXT[]      NOT NULL,
     legal_basis         TEXT        NOT NULL,
-    CONSTRAINT chk_ic_legal_basis CHECK (legal_basis IN (
+    CONSTRAINT chk_ic_legal_basis CHECK (legal_basis IN (  -- [MC-0102] → A.65.04
         'CONSENT','CONTRACT','LEGAL_OBLIGATION','VITAL_INTEREST','PUBLIC_TASK','LEGITIMATE_INTEREST'
     )),
     granted_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     granted_via         TEXT        NOT NULL,
-    CONSTRAINT chk_ic_granted_via CHECK (granted_via IN (
+    CONSTRAINT chk_ic_granted_via CHECK (granted_via IN (  -- [MC-0101] → A.65.04
         'WEB','API','APP','IN_PERSON','EMAIL'
     )),
     ip_address          INET        NULL,
@@ -3078,7 +3078,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_identity_consent (
     withdrawn_at        TIMESTAMPTZ NULL,
     withdrawal_reason   TEXT        NULL,
     withdrawn_via       TEXT        NULL,
-    CONSTRAINT chk_ic_withdrawn_via CHECK (
+    CONSTRAINT chk_ic_withdrawn_via CHECK (  -- [MC-0103] → A.65.04
         withdrawn_via IS NULL OR withdrawn_via IN ('WEB','API','APP','IN_PERSON','EMAIL','ADMIN')
     ),
     is_active           BOOLEAN     NOT NULL GENERATED ALWAYS AS (withdrawn_at IS NULL) STORED,
@@ -3131,7 +3131,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_identity_vc (
     vc_uri              TEXT        UNIQUE NOT NULL,
     vc_type             TEXT[]      NOT NULL,
     vc_format           TEXT        NOT NULL DEFAULT 'VC_DATA_MODEL_2_0',
-    CONSTRAINT chk_ivc_format CHECK (vc_format IN (
+    CONSTRAINT chk_ivc_format CHECK (vc_format IN (  -- [MC-0109] → A.65.04
         'VC_DATA_MODEL_1_1','VC_DATA_MODEL_2_0','SD_JWT_VC'
     )),
     issuer_did          TEXT        NOT NULL,
@@ -3223,7 +3223,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_attribute_schema (
         CONSTRAINT chk_idras_mutability CHECK (mutability IN (
             'READ_ONLY','READ_WRITE','WRITE_ONLY','IMMUTABLE')),
     returned        TEXT NOT NULL DEFAULT 'DEFAULT'
-        CONSTRAINT chk_idras_ret CHECK (returned IN ('ALWAYS','NEVER','DEFAULT','REQUEST')),
+        CONSTRAINT chk_idras_ret CHECK (returned IN ('ALWAYS','NEVER','DEFAULT','REQUEST')),  -- [MC-0277] → A.65.04
     display_mask    TEXT NULL,
     standard_ref    TEXT NULL,
     is_active       BOOLEAN NOT NULL DEFAULT TRUE,
@@ -3258,13 +3258,13 @@ Estándar: SCIM 2.0 RFC 7643 §4, ISO/IEC 24760-1:2019 §5, NIST SP 800-162 §3.
 CREATE TABLE IF NOT EXISTS bauth.idn_access_contract (
     contract_id          UUID PRIMARY KEY DEFAULT uuidv7(),
     tenant_id            UUID NOT NULL REFERENCES bauth.idn_tenant(tenant_id) ON DELETE CASCADE,
-    access_type          TEXT NOT NULL CONSTRAINT chk_iac_access_type CHECK (access_type IN (
+    access_type          TEXT NOT NULL CONSTRAINT chk_iac_access_type CHECK (access_type IN (  -- [MC-0094] → A.65.04
         'ROLE_ACCESS','ATOM_ACCESS','TEMPORAL_ACCESS','EMERGENCY_ACCESS','DELEGATED_ACCESS')),
     beneficiary_id      UUID NOT NULL REFERENCES bauth.idn_identity_entity(entity_id) ON DELETE RESTRICT,
     role_id              UUID NULL REFERENCES bauth.idn_roles_rol_hierarchical(id) ON DELETE SET NULL,
     id_atom              UUID NULL REFERENCES bauth.idn_roles_template(id) ON DELETE SET NULL,
     CONSTRAINT chk_iac_subject CHECK (role_id IS NOT NULL OR id_atom IS NOT NULL),
-    status               TEXT NOT NULL DEFAULT 'DRAFT' CONSTRAINT chk_iac_status CHECK (status IN (
+    status               TEXT NOT NULL DEFAULT 'DRAFT' CONSTRAINT chk_iac_status CHECK (status IN (  -- [MC-0095] → A.65.04
         'DRAFT','ACTIVE','SUSPENDED','EXPIRED','REVOKED')),
     business_justification TEXT NOT NULL,
     policy_ref         TEXT NULL,
@@ -3796,13 +3796,13 @@ CREATE TABLE IF NOT EXISTS bauth.privilege_resource_atom (
     CONSTRAINT chk_pra_protocol_type CHECK (
         protocol_type IN ('WS_RPC','JSON_RPC','GRPC','UNIX_SOCKET','HTTP_EXT')
     ),
-    CONSTRAINT chk_pra_eval_path CHECK (
+    CONSTRAINT chk_pra_eval_path CHECK (  -- [MC-0238] → A.65.04
         evaluation_path IN ('FAST','POLICY','EXTERNAL','PRECONDITION')
     ),
-    CONSTRAINT chk_pra_tenant_scope CHECK (
+    CONSTRAINT chk_pra_tenant_scope CHECK (  -- [MC-0240] → A.65.04
         tenant_scope IN ('GLOBAL','TENANT_SPECIFIC')
     ),
-    CONSTRAINT chk_pra_status CHECK (status IN ('ACTIVE','INACTIVE','DEPRECATED')),
+    CONSTRAINT chk_pra_status CHECK (status IN ('ACTIVE','INACTIVE','DEPRECATED')),  -- [MC-0239] → A.65.04
     -- G-06: unicidad per-tenant — el mismo resource+operación puede existir en dos tenants
     CONSTRAINT uq_pra_tenant_resource UNIQUE (tenant_id, protocol_type, resource, operation)
 );
@@ -3857,7 +3857,7 @@ CREATE TABLE IF NOT EXISTS bauth.privilege_delegation (
     status       TEXT        NOT NULL DEFAULT 'ACTIVE',
     ctx_id       TEXT        NOT NULL,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT chk_pd_status CHECK (status IN ('ACTIVE','EXPIRED','REVOKED')),
+    CONSTRAINT chk_pd_status CHECK (status IN ('ACTIVE','EXPIRED','REVOKED')),  -- [MC-0235] → A.65.04
     CONSTRAINT chk_pd_valid  CHECK (valid_from < valid_until)
 );
 
@@ -3926,7 +3926,7 @@ CREATE TABLE IF NOT EXISTS bauth.privilege_override (
         DEFERRABLE INITIALLY DEFERRED,
     CONSTRAINT chk_po_status        CHECK (status IN ('ACTIVE','EXPIRED','REVOKED')),
     CONSTRAINT chk_po_valid         CHECK (valid_from < valid_until),
-    CONSTRAINT chk_po_override_type CHECK (override_type IN ('DENY_TO_PERMIT','PERMIT_TO_DENY'))
+    CONSTRAINT chk_po_override_type CHECK (override_type IN ('DENY_TO_PERMIT','PERMIT_TO_DENY'))  -- [MC-0237] → A.65.04
 );
 
 -- Un solo override activo del mismo tipo por (tenant, átomo, usuario)
@@ -4048,7 +4048,7 @@ CREATE TABLE IF NOT EXISTS bauth.privilege_exception_record (
     revoked_at      TIMESTAMPTZ NULL,
     revoked_by      UUID        NULL,
     ctx_id          TEXT        NOT NULL,
-    CONSTRAINT chk_per_type   CHECK (exception_type IN ('SOD_EXCEPTION','TIER_EXCEPTION','SCOPE_EXCEPTION','OTHER')),
+    CONSTRAINT chk_per_type   CHECK (exception_type IN ('SOD_EXCEPTION','TIER_EXCEPTION','SCOPE_EXCEPTION','OTHER')),  -- [MC-0236] → A.65.04
     CONSTRAINT chk_per_status CHECK (status IN ('ACTIVE','EXPIRED','REVOKED')),
     CONSTRAINT chk_per_dates  CHECK (valid_until > approved_at AND review_at <= valid_until),
     CONSTRAINT chk_per_reason CHECK (length(business_reason) >= 50)
@@ -4104,7 +4104,7 @@ CREATE TABLE IF NOT EXISTS bauth.ses_session_log (
     CONSTRAINT ses_session_log_pkey PRIMARY KEY (session_id),
     CONSTRAINT chk_ssl_loa_i  CHECK (loa_initial IN ('AAL1','AAL2','AAL3')),
     CONSTRAINT chk_ssl_loa_p  CHECK (loa_peak    IN ('AAL1','AAL2','AAL3')),
-    CONSTRAINT chk_ssl_reason CHECK (
+    CONSTRAINT chk_ssl_reason CHECK (  -- [MC-0245] → A.65.04
         termination_reason IS NULL
         OR termination_reason IN ('LOGOUT','TIMEOUT','CAEP_REVOKE','ADMIN_REVOKE','EXPIRY')
     )
@@ -4154,13 +4154,13 @@ CREATE TABLE IF NOT EXISTS bauth.ses_caep_event_log (
     error_message       TEXT        NULL,
     ctx_id              TEXT        NOT NULL,
     CONSTRAINT ses_caep_event_log_pkey PRIMARY KEY (id),
-    CONSTRAINT chk_scel_event_type CHECK (
+    CONSTRAINT chk_scel_event_type CHECK (  -- [MC-0243] → A.65.04
         event_type IN (
             'session-revoked','token-claims-change','credential-change',
             'assurance-level-change','device-compliance-change','risk-level-change'
         )
     ),
-    CONSTRAINT chk_scel_subject_type CHECK (
+    CONSTRAINT chk_scel_subject_type CHECK (  -- [MC-0244] → A.65.04
         subject_type IN ('session','user','device','token','oauth_client')
     ),
     CONSTRAINT chk_scel_status CHECK (
@@ -4214,7 +4214,7 @@ CREATE TABLE IF NOT EXISTS bauth.ses_ssf_stream (
     ctx_id              TEXT        NOT NULL,
     CONSTRAINT ses_ssf_stream_pkey PRIMARY KEY (id),
     CONSTRAINT chk_sss_delivery CHECK (delivery_method IN ('PUSH','POLL')),
-    CONSTRAINT chk_sss_status   CHECK (status IN ('ACTIVE','PAUSED','TERMINATED','ERROR'))
+    CONSTRAINT chk_sss_status   CHECK (status IN ('ACTIVE','PAUSED','TERMINATED','ERROR'))  -- [MC-0246] → A.65.04
 );
 
 COMMENT ON TABLE bauth.ses_ssf_stream IS
@@ -4546,7 +4546,7 @@ CREATE TABLE IF NOT EXISTS bauth.pam_jit_approval (
     ctx_id          TEXT        NOT NULL,
     CONSTRAINT pam_jit_approval_pkey    PRIMARY KEY (id),
     CONSTRAINT uq_pja_request_level     UNIQUE (request_id, level),
-    CONSTRAINT chk_pja_decision CHECK (
+    CONSTRAINT chk_pja_decision CHECK (  -- [MC-0209] → A.65.04
         decision IS NULL OR decision IN ('APPROVED','REJECTED')
     ),
     CONSTRAINT chk_pja_level CHECK (level BETWEEN 1 AND 5)
@@ -4613,16 +4613,16 @@ CREATE TABLE IF NOT EXISTS bauth.pam_breakglass_activation (
     CONSTRAINT chk_pbga_status CHECK (
         status IN ('PENDING_APPROVAL','ACTIVE','DEACTIVATED','REVIEWED')
     ),
-    CONSTRAINT chk_pbga_auth_method CHECK (
+    CONSTRAINT chk_pbga_auth_method CHECK (  -- [MC-0201] → A.65.04
         auth_method IN ('MTLS_X509','WEBAUTHN_ROAMING','WEBAUTHN_PLATFORM')
     ),
     CONSTRAINT chk_pbga_auth_loa CHECK (auth_loa IN (2,3)),
     CONSTRAINT chk_pbga_review_due CHECK (post_review_due_at > activated_at),
-    CONSTRAINT chk_pbga_deactivation CHECK (
+    CONSTRAINT chk_pbga_deactivation CHECK (  -- [MC-0202] → A.65.04
         (status IN ('DEACTIVATED','REVIEWED') AND deactivated_at IS NOT NULL)
         OR status IN ('PENDING_APPROVAL','ACTIVE')
     ),
-    CONSTRAINT chk_pbga_dual_control CHECK (
+    CONSTRAINT chk_pbga_dual_control CHECK (  -- [MC-0203] → A.65.04
         (status = 'ACTIVE' AND approver_id IS NOT NULL AND approved_at IS NOT NULL)
         OR status IN ('PENDING_APPROVAL','DEACTIVATED','REVIEWED')
     )
@@ -4685,14 +4685,14 @@ CREATE TABLE IF NOT EXISTS bauth.pam_credential_ref (
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     ctx_id              TEXT        NOT NULL,
     CONSTRAINT pam_credential_ref_pkey PRIMARY KEY (id),
-    CONSTRAINT chk_pcref_type  CHECK (
+    CONSTRAINT chk_pcref_type  CHECK (  -- [MC-0206] → A.65.04
         credential_type IN ('PASSWORD','SSH_KEY','API_KEY','CERT','TOKEN','OAUTH_CLIENT')
     ),
     CONSTRAINT chk_pcref_owner CHECK (owner_type IN ('HUMAN','NHI')),
-    CONSTRAINT chk_pcref_rot   CHECK (
+    CONSTRAINT chk_pcref_rot   CHECK (  -- [MC-0204] → A.65.04
         rotation_policy IN ('MANUAL','AUTO_7D','AUTO_30D','AUTO_90D','AUTO_1Y')
     ),
-    CONSTRAINT chk_pcref_status CHECK (
+    CONSTRAINT chk_pcref_status CHECK (  -- [MC-0205] → A.65.04
         status IN ('ACTIVE','ROTATING','REVOKED','EXPIRED')
     )
 );
@@ -4749,7 +4749,7 @@ CREATE TABLE IF NOT EXISTS bauth.pam_session_record (
     CONSTRAINT chk_psr_access_type CHECK (
         access_type IN ('SSH','RDP','API','CONSOLE','DB','CLI','VAULT')
     ),
-    CONSTRAINT chk_psr_status CHECK (
+    CONSTRAINT chk_psr_status CHECK (  -- [MC-0211] → A.65.04
         status IN ('ACTIVE','ENDED','TERMINATED','ERROR')
     )
 );
@@ -4802,7 +4802,7 @@ CREATE TABLE IF NOT EXISTS bauth.pam_nhi_secret_ref (
     CONSTRAINT chk_pnsr_type CHECK (
         secret_type IN ('API_KEY','OAUTH_CLIENT','CERT','TOKEN','SSH_KEY','PASSWORD')
     ),
-    CONSTRAINT chk_pnsr_rotation CHECK (
+    CONSTRAINT chk_pnsr_rotation CHECK (  -- [MC-0210] → A.65.04
         rotation_policy IN ('AUTO_7D','AUTO_30D','AUTO_90D','MANUAL','ON_USE')
     ),
     CONSTRAINT chk_pnsr_status CHECK (
@@ -4930,7 +4930,7 @@ CREATE TABLE IF NOT EXISTS bauth.auth_federation_protocol (
     supports_logout       BOOLEAN NOT NULL DEFAULT FALSE,
     supports_backchannel  BOOLEAN NOT NULL DEFAULT FALSE,
     status                TEXT    NOT NULL DEFAULT 'SUPPORTED'
-                                   CONSTRAINT chk_afp_status CHECK (status IN ('SUPPORTED','DEPRECATED','PLANNED')),
+                                   CONSTRAINT chk_afp_status CHECK (status IN ('SUPPORTED','DEPRECATED','PLANNED')),  -- [MC-0077] → A.65.04
     sort_order            INT     NOT NULL DEFAULT 0
 );
 COMMENT ON TABLE bauth.auth_federation_protocol IS
@@ -4964,7 +4964,7 @@ CREATE TABLE IF NOT EXISTS bauth.auth_saga_catalog (
     is_emergency    BOOLEAN NOT NULL DEFAULT FALSE,
     requires_mfa    BOOLEAN NOT NULL DEFAULT FALSE,
     status          TEXT    NOT NULL DEFAULT 'ACTIVE'
-                             CONSTRAINT chk_asc_status CHECK (status IN ('ACTIVE','DEPRECATED','PLANNED')),
+                             CONSTRAINT chk_asc_status CHECK (status IN ('ACTIVE','DEPRECATED','PLANNED')),  -- [MC-0080] → A.65.04
     sort_order      INT     NOT NULL DEFAULT 0
 );
 COMMENT ON TABLE bauth.auth_saga_catalog IS
@@ -4986,7 +4986,7 @@ CREATE TABLE IF NOT EXISTS bauth.auth_compliance_map (
     method_codes        TEXT[]  NOT NULL DEFAULT '{}',
     saga_codes          TEXT[]  NOT NULL DEFAULT '{}',
     coverage_level      TEXT    NOT NULL DEFAULT 'FULL'
-                                 CONSTRAINT chk_acm_cov CHECK (coverage_level IN ('FULL','PARTIAL','NOT_COVERED')),
+                                 CONSTRAINT chk_acm_cov CHECK (coverage_level IN ('FULL','PARTIAL','NOT_COVERED')),  -- [MC-0060] → A.65.04
     notes               TEXT    NULL,
     CONSTRAINT uq_acm_standard_control UNIQUE (standard, control_id)
 );
@@ -5013,25 +5013,25 @@ CREATE TABLE IF NOT EXISTS bauth.auth_device (
     user_id       UUID    NULL REFERENCES bauth.idn_user(user_id) ON DELETE SET NULL,
     device_key    TEXT    NOT NULL UNIQUE,
     name          TEXT    NOT NULL,
-    category      TEXT    NOT NULL CONSTRAINT chk_ad_cat CHECK (category IN (
+    category      TEXT    NOT NULL CONSTRAINT chk_ad_cat CHECK (category IN (  -- [MC-0068] → A.65.04
                       'DESKTOP','MOBILE','TABLET','SERVER','IOT',
                       'SECURITY_KEY','SMART_CARD','OSDP_READER','NFC_READER')),
-    platform      TEXT    NOT NULL CONSTRAINT chk_ad_plat CHECK (platform IN (
+    platform      TEXT    NOT NULL CONSTRAINT chk_ad_plat CHECK (platform IN (  -- [MC-0070] → A.65.04
                       'WINDOWS','LINUX','MACOS','ANDROID','IOS',
                       'EMBEDDED','FIDO2_HW','OSDP_HW','UNKNOWN')),
     os_version    TEXT    NULL,
     hardware_id   TEXT    NULL,
     aaguid        UUID    NULL,
     trust_level   TEXT    NOT NULL DEFAULT 'UNTRUSTED'
-                          CONSTRAINT chk_ad_trust CHECK (trust_level IN (
+                          CONSTRAINT chk_ad_trust CHECK (trust_level IN (  -- [MC-0072] → A.65.04
                               'TRUSTED','CONDITIONALLY_TRUSTED','UNTRUSTED','QUARANTINE')),
     is_managed    BOOLEAN NOT NULL DEFAULT FALSE,
     mdm_device_id TEXT    NULL,
     is_osdp       BOOLEAN NOT NULL DEFAULT FALSE,
     osdp_address  TEXT    NULL,
-    osdp_version  TEXT    NULL CONSTRAINT chk_ad_osdp CHECK (osdp_version IN ('v1.0','v2.1','v2.2') OR osdp_version IS NULL),
+    osdp_version  TEXT    NULL CONSTRAINT chk_ad_osdp CHECK (osdp_version IN ('v1.0','v2.1','v2.2') OR osdp_version IS NULL),  -- [MC-0069] → A.65.04
     status        TEXT    NOT NULL DEFAULT 'PENDING'
-                          CONSTRAINT chk_ad_status CHECK (status IN (
+                          CONSTRAINT chk_ad_status CHECK (status IN (  -- [MC-0071] → A.65.04
                               'PENDING','ACTIVE','SUSPENDED','REVOKED','LOST','DECOMMISSIONED')),
     last_seen_at  TIMESTAMPTZ NULL,
     last_seen_ip  INET    NULL,
@@ -5080,13 +5080,13 @@ CREATE TABLE IF NOT EXISTS bauth.auth_device_posture (
     mdm_enrolled        BOOLEAN  NOT NULL DEFAULT FALSE,
     mdm_provider        TEXT     NULL,
     mdm_compliance      TEXT     NOT NULL DEFAULT 'UNKNOWN'
-                                 CONSTRAINT chk_adp_mdm CHECK (mdm_compliance IN ('COMPLIANT','NON_COMPLIANT','UNKNOWN')),
+                                 CONSTRAINT chk_adp_mdm CHECK (mdm_compliance IN ('COMPLIANT','NON_COMPLIANT','UNKNOWN')),  -- [MC-0075] → A.65.04
     risk_score          SMALLINT NOT NULL DEFAULT 50
                                  CONSTRAINT chk_adp_risk CHECK (risk_score BETWEEN 0 AND 100),
     compliance_status   TEXT     NOT NULL DEFAULT 'UNKNOWN'
-                                 CONSTRAINT chk_adp_comp CHECK (compliance_status IN ('COMPLIANT','NON_COMPLIANT','UNKNOWN','EXEMPTED')),
+                                 CONSTRAINT chk_adp_comp CHECK (compliance_status IN ('COMPLIANT','NON_COMPLIANT','UNKNOWN','EXEMPTED')),  -- [MC-0074] → A.65.04
     posture_source      TEXT     NOT NULL DEFAULT 'SELF_REPORTED'
-                                 CONSTRAINT chk_adp_src CHECK (posture_source IN ('MDM','EDR','AGENT','SELF_REPORTED','MANUAL')),
+                                 CONSTRAINT chk_adp_src CHECK (posture_source IN ('MDM','EDR','AGENT','SELF_REPORTED','MANUAL')),  -- [MC-0076] → A.65.04
     raw_report          JSONB    NULL,
     evaluated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
     valid_until         TIMESTAMPTZ NOT NULL DEFAULT (now() + INTERVAL '4 hours'),
@@ -5124,7 +5124,7 @@ CREATE TABLE IF NOT EXISTS bauth.auth_device_credential_binding (
     binding_id    UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
     device_id     UUID    NOT NULL REFERENCES bauth.auth_device(device_id) ON DELETE CASCADE,
     credential_id UUID    NOT NULL REFERENCES bauth.auth_credential(credential_id) ON DELETE CASCADE,
-    binding_type  TEXT    NOT NULL CONSTRAINT chk_adcb_type CHECK (binding_type IN (
+    binding_type  TEXT    NOT NULL CONSTRAINT chk_adcb_type CHECK (binding_type IN (  -- [MC-0073] → A.65.04
                               'FIDO2_RESIDENT','FIDO2_CROSS_PLATFORM','X509_MTLS',
                               'SOFT_TOTP','PUSH_NOTIFICATION','OSDP_CARD')),
     is_primary    BOOLEAN NOT NULL DEFAULT FALSE,
@@ -5184,11 +5184,11 @@ CREATE TABLE IF NOT EXISTS bauth.idn_user (
                                       REFERENCES bauth.idn_identity_entity(entity_id),
     username             TEXT         NOT NULL,
     status               TEXT         NOT NULL DEFAULT 'PENDING_ACTIVATION'
-                                      CONSTRAINT chk_iu_status CHECK (status IN (
+                                      CONSTRAINT chk_iu_status CHECK (status IN (  -- [MC-0111] → A.65.04
                                           'PENDING_ACTIVATION','ACTIVE','LOCKED',
                                           'SUSPENDED','DEACTIVATED','ARCHIVED')),
     registration_method  TEXT         NOT NULL DEFAULT 'ADMIN'
-                                      CONSTRAINT chk_iu_reg_method CHECK (registration_method IN (
+                                      CONSTRAINT chk_iu_reg_method CHECK (registration_method IN (  -- [MC-0110] → A.65.04
                                           'ADMIN','SELF_SERVICE','PROVISIONED','FEDERATED')),
     ial_achieved         TEXT         NULL
                                       CONSTRAINT chk_iu_ial CHECK (ial_achieved IN ('IAL1','IAL2','IAL3')),
@@ -5280,11 +5280,11 @@ CREATE TABLE IF NOT EXISTS bauth.idn_user_recovery (
     user_id     UUID         NOT NULL REFERENCES bauth.idn_user(user_id) ON DELETE CASCADE,
     tenant_id   UUID         NOT NULL,
     type        TEXT         NOT NULL
-                             CONSTRAINT chk_iur_type CHECK (type IN (
+                             CONSTRAINT chk_iur_type CHECK (type IN (  -- [MC-0113] → A.65.04
                                  'BACKUP_EMAIL','BACKUP_PHONE','TRUSTED_CONTACT','ADMIN_OVERRIDE')),
     value_hash  TEXT         NULL,
     status      TEXT         NOT NULL DEFAULT 'ACTIVE'
-                             CONSTRAINT chk_iur_status CHECK (status IN ('ACTIVE','USED','REVOKED')),
+                             CONSTRAINT chk_iur_status CHECK (status IN ('ACTIVE','USED','REVOKED')),  -- [MC-0112] → A.65.04
     valid_until TIMESTAMPTZ  NULL,
     used_at     TIMESTAMPTZ  NULL,
     ctx_id      TEXT         NOT NULL DEFAULT 'system',
@@ -5322,10 +5322,10 @@ CREATE TABLE IF NOT EXISTS bauth.auth_credential (
     tenant_id             UUID         NOT NULL,
     method_code           TEXT         NOT NULL,
     status                TEXT         NOT NULL DEFAULT 'ACTIVE'
-                                        CONSTRAINT chk_ac_status CHECK (status IN (
+                                        CONSTRAINT chk_ac_status CHECK (status IN (  -- [MC-0062] → A.65.04
                                             'PENDING_ACTIVATION','ACTIVE','SUSPENDED','REVOKED','EXPIRED')),
     loa_provided          TEXT         NOT NULL
-                                        CONSTRAINT chk_ac_loa CHECK (loa_provided IN ('AAL1','AAL2','AAL3')),
+                                        CONSTRAINT chk_ac_loa CHECK (loa_provided IN ('AAL1','AAL2','AAL3')),  -- [MC-0061] → A.65.04
     is_primary            BOOLEAN      NOT NULL DEFAULT FALSE,
     is_phishing_resistant BOOLEAN      NOT NULL DEFAULT FALSE,
     enrolled_at           TIMESTAMPTZ  NOT NULL DEFAULT now(),
@@ -5368,7 +5368,7 @@ COMMENT ON COLUMN bauth.auth_credential.revocation_reason     IS 'Motivo de revo
 CREATE TABLE IF NOT EXISTS bauth.auth_credential_secret (
     secret_id         UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
     credential_id     UUID    NOT NULL UNIQUE REFERENCES bauth.auth_credential(credential_id) ON DELETE CASCADE,
-    type              TEXT    NOT NULL CONSTRAINT chk_acs_type CHECK (type IN (
+    type              TEXT    NOT NULL CONSTRAINT chk_acs_type CHECK (type IN (  -- [MC-0064] → A.65.04
                                'ARGON2ID_HASH','TOTP_SEED_ENC','HOTP_SEED_ENC',
                                'RECOVERY_CODE_HASH','PUSH_PUBKEY_ED25519')),
     secret            TEXT    NOT NULL,
@@ -5409,7 +5409,7 @@ CREATE TABLE IF NOT EXISTS bauth.auth_credential_fido2 (
     credential_id_bytes  BYTEA   NOT NULL,
     public_key_cose      BYTEA   NOT NULL,
     aaguid               UUID    NOT NULL,
-    attestation_fmt      TEXT    NOT NULL CONSTRAINT chk_af2_fmt CHECK (attestation_fmt IN (
+    attestation_fmt      TEXT    NOT NULL CONSTRAINT chk_af2_fmt CHECK (attestation_fmt IN (  -- [MC-0063] → A.65.04
                                      'packed','tpm','fido-u2f','none','apple',
                                      'android-safetynet','android-key')),
     attestation_data     JSONB   NOT NULL DEFAULT '{}',
@@ -5454,7 +5454,7 @@ COMMENT ON COLUMN bauth.auth_credential_fido2.public_key_cose   IS 'Clave públi
 CREATE TABLE IF NOT EXISTS bauth.auth_credential_x509 (
     x509_id             UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
     credential_id       UUID    NOT NULL UNIQUE REFERENCES bauth.auth_credential(credential_id) ON DELETE CASCADE,
-    origin              TEXT    NOT NULL CONSTRAINT chk_ax509_origin CHECK (origin IN (
+    origin              TEXT    NOT NULL CONSTRAINT chk_ax509_origin CHECK (origin IN (  -- [MC-0065] → A.65.04
                                     'VAULT_INTERNAL','ADSIB_EXTERNA','ENTERPRISE_PKI','SELF_SIGNED')),
     subject_dn          TEXT    NOT NULL,
     issuer_dn           TEXT    NOT NULL,
@@ -5502,7 +5502,7 @@ CREATE TABLE IF NOT EXISTS bauth.auth_attempt_log (
     user_id          UUID         NULL,
     username_tried   TEXT         NULL,
     method_code      TEXT         NOT NULL,
-    outcome          TEXT         NOT NULL CONSTRAINT chk_aal_outcome CHECK (outcome IN (
+    outcome          TEXT         NOT NULL CONSTRAINT chk_aal_outcome CHECK (outcome IN (  -- [MC-0059] → A.65.04
                                       'SUCCESS','FAILURE','LOCKED','STEP_UP_REQUIRED',
                                       'EXPIRED','INVALID_USER','REVOKED_CREDENTIAL')),
     failure_reason   TEXT         NULL,
@@ -5550,14 +5550,14 @@ COMMENT ON COLUMN bauth.auth_attempt_log.failure_reason IS 'Motivo técnico del 
 CREATE TABLE IF NOT EXISTS bauth.auth_method (
     method_id             UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
     code                  TEXT    NOT NULL UNIQUE,
-    category              TEXT    NOT NULL CONSTRAINT chk_am_cat CHECK (category IN ('A','B','C','D','E','F')),
+    category              TEXT    NOT NULL CONSTRAINT chk_am_cat CHECK (category IN ('A','B','C','D','E','F')),  -- [MC-0078] → A.65.04
     name                  JSONB   NOT NULL,
     description           JSONB   NOT NULL,
     loa_provided          TEXT    NOT NULL CONSTRAINT chk_am_loa CHECK (loa_provided IN ('AAL1','AAL2','AAL3')),
     is_phishing_resistant BOOLEAN NOT NULL DEFAULT FALSE,
     is_mfa_component      BOOLEAN NOT NULL DEFAULT FALSE,
     status                TEXT    NOT NULL DEFAULT 'PLANNED'
-                                   CONSTRAINT chk_am_status CHECK (status IN ('IMPLEMENTED','PLANNED','DEPRECATED','REMOVED')),
+                                   CONSTRAINT chk_am_status CHECK (status IN ('IMPLEMENTED','PLANNED','DEPRECATED','REMOVED')),  -- [MC-0079] → A.65.04
     standards             TEXT[]  NOT NULL DEFAULT '{}',
     sort_order            INT     NOT NULL DEFAULT 0
 );
@@ -5616,12 +5616,12 @@ Estándar: NIST SP 800-63B-4 §5.1 (parámetros de contraseña), OWASP ASVS 5.0 
 CREATE TABLE IF NOT EXISTS bauth.auth_crypto_algorithm (
     algo_id        UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
     code           TEXT    NOT NULL UNIQUE,
-    type           TEXT    NOT NULL CONSTRAINT chk_aca_type CHECK (type IN (
+    type           TEXT    NOT NULL CONSTRAINT chk_aca_type CHECK (type IN (  -- [MC-0067] → A.65.04
                                'KDF','SYMMETRIC','ASYMMETRIC_SIG','ASYMMETRIC_KEM','HASH','PQC')),
     is_pqc         BOOLEAN NOT NULL DEFAULT FALSE,
     default_params JSONB   NOT NULL DEFAULT '{}',
     status         TEXT    NOT NULL DEFAULT 'APPROVED'
-                            CONSTRAINT chk_aca_status CHECK (status IN ('APPROVED','DEPRECATED','FORBIDDEN')),
+                            CONSTRAINT chk_aca_status CHECK (status IN ('APPROVED','DEPRECATED','FORBIDDEN')),  -- [MC-0066] → A.65.04
     nist_ref       TEXT    NULL,
     deprecated_at  TIMESTAMPTZ NULL
 );
@@ -5647,11 +5647,11 @@ CREATE TABLE IF NOT EXISTS bauth.sig_key (
     vault_path          TEXT    NOT NULL,
     vault_key_version   INT     NOT NULL DEFAULT 1,
     algorithm           TEXT    NOT NULL,
-    purpose             TEXT    NOT NULL CONSTRAINT chk_sk_purpose CHECK (purpose IN (
+    purpose             TEXT    NOT NULL CONSTRAINT chk_sk_purpose CHECK (purpose IN (  -- [MC-0254] → A.65.04
                             'JWT_SIGNING','DOCUMENT_SIGNING','CODE_SIGNING',
                             'TLS_CLIENT','ADSIB_BILLING','ADSIB_CONTRACTS')),
     root_ca_fingerprint TEXT    NULL,
-    status              TEXT    NOT NULL DEFAULT 'ACTIVE' CONSTRAINT chk_sk_status CHECK (
+    status              TEXT    NOT NULL DEFAULT 'ACTIVE' CONSTRAINT chk_sk_status CHECK (  -- [MC-0255] → A.65.04
                             status IN ('ACTIVE','ROTATING','SUSPENDED','REVOKED')),
     active_since        TIMESTAMPTZ NOT NULL DEFAULT now(),
     expires_at          TIMESTAMPTZ NULL,
@@ -5675,7 +5675,7 @@ CREATE TABLE IF NOT EXISTS bauth.sig_certificate (
     cert_id            UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
     key_id             UUID    NOT NULL REFERENCES bauth.sig_key(key_id) ON DELETE CASCADE,
     tenant_id          UUID    NOT NULL,
-    engine             TEXT    NOT NULL CONSTRAINT chk_sc_engine CHECK (engine IN ('INTERNAL_VAULT','EXTERNAL_ADSIB','ENTERPRISE_PKI')),
+    engine             TEXT    NOT NULL CONSTRAINT chk_sc_engine CHECK (engine IN ('INTERNAL_VAULT','EXTERNAL_ADSIB','ENTERPRISE_PKI')),  -- [MC-0249] → A.65.04
     subject_dn         TEXT    NOT NULL,
     issuer_dn          TEXT    NOT NULL,
     serial_number      TEXT    NOT NULL,
@@ -5685,7 +5685,7 @@ CREATE TABLE IF NOT EXISTS bauth.sig_certificate (
     san                TEXT[]  NULL,
     key_usage          TEXT[]  NOT NULL DEFAULT '{}',
     cert_pem           TEXT    NOT NULL,
-    adsib_type         TEXT    NULL CONSTRAINT chk_sc_adsib CHECK (adsib_type IN ('PERSONA_NATURAL','PERSONA_JURIDICA','FIRMA_AUTOMATICA')),
+    adsib_type         TEXT    NULL CONSTRAINT chk_sc_adsib CHECK (adsib_type IN ('PERSONA_NATURAL','PERSONA_JURIDICA','FIRMA_AUTOMATICA')),  -- [MC-0248] → A.65.04
     issuer_nit         TEXT    NULL,
     status             TEXT    NOT NULL DEFAULT 'ACTIVE' CONSTRAINT chk_sc_status CHECK (status IN ('ACTIVE','EXPIRED','REVOKED','SUSPENDED')),
     revoked_by_ca_at   TIMESTAMPTZ NULL,
@@ -5708,7 +5708,7 @@ Estándar: RFC 5280 §6 (X.509 v3), Ley 164 Bolivia Art. 20, ADSIB-FD-POLT-015 v
 CREATE TABLE IF NOT EXISTS bauth.sig_crl (
     crl_id        UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
     issuer_dn     TEXT    NOT NULL,
-    engine        TEXT    NOT NULL CONSTRAINT chk_scrl_engine CHECK (engine IN ('INTERNAL_VAULT','EXTERNAL_ADSIB')),
+    engine        TEXT    NOT NULL CONSTRAINT chk_scrl_engine CHECK (engine IN ('INTERNAL_VAULT','EXTERNAL_ADSIB')),  -- [MC-0250] → A.65.04
     crl_der       BYTEA   NOT NULL,
     next_update   TIMESTAMPTZ NOT NULL,
     downloaded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -5774,9 +5774,9 @@ CREATE TABLE IF NOT EXISTS bauth.sig_operation_log (
     document_type    TEXT    NOT NULL,
     signature_format TEXT    NOT NULL,
     signed_by        UUID    NOT NULL,
-    signer_type      TEXT    NOT NULL CONSTRAINT chk_sol_stype CHECK (signer_type IN ('HUMAN','NHI','DAEMON')),
+    signer_type      TEXT    NOT NULL CONSTRAINT chk_sol_stype CHECK (signer_type IN ('HUMAN','NHI','DAEMON')),  -- [MC-0257] → A.65.04
     purpose          TEXT    NOT NULL,
-    outcome          TEXT    NOT NULL CONSTRAINT chk_sol_outcome CHECK (outcome IN ('SUCCESS','FAILURE','CERT_EXPIRED','CERT_REVOKED')),
+    outcome          TEXT    NOT NULL CONSTRAINT chk_sol_outcome CHECK (outcome IN ('SUCCESS','FAILURE','CERT_EXPIRED','CERT_REVOKED')),  -- [MC-0256] → A.65.04
     signature_ref    TEXT    NULL,
     error_msg        TEXT    NULL,
     merkle_batch_id  UUID    NULL,
@@ -5831,7 +5831,7 @@ CREATE TABLE IF NOT EXISTS bauth.sig_adsib_lifecycle (
     lifecycle_id   UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
     tenant_id      UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id) ON DELETE CASCADE,
     cert_id        UUID    NOT NULL REFERENCES bauth.sig_certificate(cert_id),
-    event          TEXT    NOT NULL CONSTRAINT chk_sal_event CHECK (event IN (
+    event          TEXT    NOT NULL CONSTRAINT chk_sal_event CHECK (event IN (  -- [MC-0247] → A.65.04
                        'ISSUED','ACTIVATED','ALERT_30D','ALERT_15D','ALERT_7D',
                        'RENEWAL_CSR','RENEWED','EXPIRED','REVOKED_BY_CA','REISSUED')),
     description    TEXT    NULL,
@@ -5854,10 +5854,10 @@ CREATE TABLE IF NOT EXISTS bauth.sig_document_policy (
     policy_id                  UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
     tenant_id                  UUID    NULL REFERENCES bauth.idn_tenant(tenant_id),
     document_type              TEXT    NOT NULL,
-    engine_required            TEXT    NOT NULL CONSTRAINT chk_sdp_eng CHECK (engine_required IN ('INTERNAL_VAULT','EXTERNAL_ADSIB','BOTH')),
+    engine_required            TEXT    NOT NULL CONSTRAINT chk_sdp_eng CHECK (engine_required IN ('INTERNAL_VAULT','EXTERNAL_ADSIB','BOTH')),  -- [MC-0251] → A.65.04
     legal_basis                TEXT    NOT NULL,
-    internal_profile           TEXT    NULL CONSTRAINT chk_sdp_int CHECK (internal_profile IN ('JWS','INT-B','INT-T','INT-LT')),
-    external_profile           TEXT    NULL CONSTRAINT chk_sdp_ext CHECK (external_profile IN ('XAdES-BES','EXT-B','EXT-T','EXT-LT','EXT-LTA')),
+    internal_profile           TEXT    NULL CONSTRAINT chk_sdp_int CHECK (internal_profile IN ('JWS','INT-B','INT-T','INT-LT')),  -- [MC-0253] → A.65.04
+    external_profile           TEXT    NULL CONSTRAINT chk_sdp_ext CHECK (external_profile IN ('XAdES-BES','EXT-B','EXT-T','EXT-LT','EXT-LTA')),  -- [MC-0252] → A.65.04
     min_retention_years        INT     NOT NULL DEFAULT 7,
     requires_timestamp         BOOLEAN NOT NULL DEFAULT FALSE,
     requires_blockchain_anchor BOOLEAN NOT NULL DEFAULT FALSE,
@@ -5888,7 +5888,7 @@ CREATE TABLE IF NOT EXISTS bauth.blk_merkle_batch (
     event_from   UUID    NOT NULL,
     event_to     UUID    NOT NULL,
     total_leaves INT     NOT NULL,
-    status       TEXT    NOT NULL DEFAULT 'OPEN' CONSTRAINT chk_bmb_status CHECK (
+    status       TEXT    NOT NULL DEFAULT 'OPEN' CONSTRAINT chk_bmb_status CHECK (  -- [MC-0261] → A.65.04
                      status IN ('OPEN','CLOSED','COMPUTING','ANCHORED','FAILED')),
     closed_at    TIMESTAMPTZ NULL,
     ctx_id       TEXT    NOT NULL DEFAULT 'system',
@@ -5916,10 +5916,10 @@ CREATE TABLE IF NOT EXISTS bauth.blk_anchor (
     anchor_id    UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
     batch_id     UUID    NOT NULL REFERENCES bauth.blk_merkle_batch(batch_id),
     merkle_root  TEXT    NOT NULL,
-    chain        TEXT    NOT NULL CONSTRAINT chk_ba_chain CHECK (chain IN ('ARBITRUM_ONE','BESU_QBFT')),
+    chain        TEXT    NOT NULL CONSTRAINT chk_ba_chain CHECK (chain IN ('ARBITRUM_ONE','BESU_QBFT')),  -- [MC-0259] → A.65.04
     tx_hash      TEXT    NULL,
     block_number BIGINT  NULL,
-    status       TEXT    NOT NULL DEFAULT 'PENDING' CONSTRAINT chk_ba_status CHECK (status IN ('PENDING','SENT','ANCHORED','FAILED')),
+    status       TEXT    NOT NULL DEFAULT 'PENDING' CONSTRAINT chk_ba_status CHECK (status IN ('PENDING','SENT','ANCHORED','FAILED')),  -- [MC-0260] → A.65.04
     gas_used     BIGINT  NULL,
     error_msg    TEXT    NULL,
     ctx_id       TEXT    NOT NULL DEFAULT 'system',
@@ -5962,7 +5962,7 @@ CREATE TABLE IF NOT EXISTS bauth.blk_account (
     tenant_id     UUID    NOT NULL,
     entity_id     UUID    NOT NULL REFERENCES bauth.idn_identity_entity(entity_id),
     eth_address   TEXT    NOT NULL UNIQUE,
-    status        TEXT    NOT NULL DEFAULT 'ACTIVE' CONSTRAINT chk_bac_status CHECK (status IN ('ACTIVE','FROZEN','CLOSED')),
+    status        TEXT    NOT NULL DEFAULT 'ACTIVE' CONSTRAINT chk_bac_status CHECK (status IN ('ACTIVE','FROZEN','CLOSED')),  -- [MC-0258] → A.65.04
     balance_cache NUMERIC(20,8) NULL,
     cache_at      TIMESTAMPTZ NULL,
     ctx_id        TEXT    NOT NULL DEFAULT 'system',
@@ -5993,7 +5993,7 @@ CREATE TABLE IF NOT EXISTS bauth.blk_reconciliation (
     balance_onchain NUMERIC(20,8) NOT NULL,
     balance_prev    NUMERIC(20,8) NULL,
     delta           NUMERIC(20,8) NOT NULL,
-    status          TEXT    NOT NULL CONSTRAINT chk_br_status CHECK (status IN ('OK','DISCREPANCY','CORRECTED')),
+    status          TEXT    NOT NULL CONSTRAINT chk_br_status CHECK (status IN ('OK','DISCREPANCY','CORRECTED')),  -- [MC-0262] → A.65.04
     ctx_id          TEXT    NOT NULL DEFAULT 'system',
     verified_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -6017,18 +6017,18 @@ CREATE TABLE IF NOT EXISTS bauth.fed_client (
     tenant_id         UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id) ON DELETE CASCADE,
     client_key        TEXT    NOT NULL UNIQUE,
     name              TEXT    NOT NULL,
-    type              TEXT    NOT NULL CONSTRAINT chk_fc_type CHECK (type IN ('CONFIDENTIAL','PUBLIC','M2M')),
+    type              TEXT    NOT NULL CONSTRAINT chk_fc_type CHECK (type IN ('CONFIDENTIAL','PUBLIC','M2M')),  -- [MC-0083] → A.65.04
     redirect_uris     TEXT[]  NOT NULL DEFAULT '{}',
     allowed_scopes    TEXT[]  NOT NULL DEFAULT '{}',
     grant_types       TEXT[]  NOT NULL DEFAULT '{}',
     pkce_required     BOOLEAN NOT NULL DEFAULT TRUE,
     dpop_required     BOOLEAN NOT NULL DEFAULT FALSE,
     mtls_required     BOOLEAN NOT NULL DEFAULT FALSE,
-    fapi_profile      TEXT    NULL CONSTRAINT chk_fc_fapi CHECK (fapi_profile IN ('BASELINE','ADVANCED','FAPI2')),
+    fapi_profile      TEXT    NULL CONSTRAINT chk_fc_fapi CHECK (fapi_profile IN ('BASELINE','ADVANCED','FAPI2')),  -- [MC-0081] → A.65.04
     at_ttl_seconds    INT     NOT NULL DEFAULT 3600,
     rt_ttl_seconds    INT     NULL,
     id_token_ttl      INT     NOT NULL DEFAULT 600,
-    status            TEXT    NOT NULL DEFAULT 'ACTIVE' CONSTRAINT chk_fc_status CHECK (status IN ('ACTIVE','SUSPENDED','REVOKED')),
+    status            TEXT    NOT NULL DEFAULT 'ACTIVE' CONSTRAINT chk_fc_status CHECK (status IN ('ACTIVE','SUSPENDED','REVOKED')),  -- [MC-0082] → A.65.04
     vault_secret_path TEXT    NULL,
     ctx_id            TEXT    NOT NULL DEFAULT 'system',
     created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -6057,7 +6057,7 @@ CREATE TABLE IF NOT EXISTS bauth.fed_provider_ext (
     provider_id       UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
     tenant_id         UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id) ON DELETE CASCADE,
     name              TEXT    NOT NULL,
-    protocol          TEXT    NOT NULL CONSTRAINT chk_fpe_proto CHECK (protocol IN (
+    protocol          TEXT    NOT NULL CONSTRAINT chk_fpe_proto CHECK (protocol IN (  -- [MC-0085] → A.65.04
                           'OIDC','SAML2','GOOGLE','GITHUB','LINKEDIN','MICROSOFT_ENTRA')),
     issuer_url        TEXT    NULL,
     discovery_url     TEXT    NULL,
@@ -6066,7 +6066,7 @@ CREATE TABLE IF NOT EXISTS bauth.fed_provider_ext (
     entity_id         TEXT    NULL,
     sso_url           TEXT    NULL,
     attr_mapping      JSONB   NOT NULL DEFAULT '{}',
-    fal               TEXT    NOT NULL DEFAULT 'FAL1' CONSTRAINT chk_fpe_fal CHECK (fal IN ('FAL1','FAL2','FAL3')),
+    fal               TEXT    NOT NULL DEFAULT 'FAL1' CONSTRAINT chk_fpe_fal CHECK (fal IN ('FAL1','FAL2','FAL3')),  -- [MC-0084] → A.65.04
     status            TEXT    NOT NULL DEFAULT 'ACTIVE',
     vault_secret_path TEXT    NULL,
     ctx_id            TEXT    NOT NULL DEFAULT 'system',
@@ -6098,7 +6098,7 @@ CREATE TABLE IF NOT EXISTS bauth.fed_token_issued (
     tenant_id         UUID         NOT NULL,
     client_id         UUID         NOT NULL REFERENCES bauth.fed_client(client_id),
     user_id           UUID         NULL REFERENCES bauth.idn_user(user_id),
-    type              TEXT         NOT NULL CONSTRAINT chk_fti_type CHECK (type IN (
+    type              TEXT         NOT NULL CONSTRAINT chk_fti_type CHECK (type IN (  -- [MC-0086] → A.65.04
                                        'ACCESS_TOKEN','REFRESH_TOKEN','ID_TOKEN','EXCHANGE_TOKEN')),
     token_hash        TEXT         NOT NULL,
     scopes            TEXT[]       NOT NULL DEFAULT '{}',
@@ -6152,9 +6152,9 @@ CREATE TABLE IF NOT EXISTS bauth.wallet (
     tenant_id            UUID    NOT NULL REFERENCES bauth.idn_tenant(tenant_id) ON DELETE CASCADE,
     entity_id            UUID    NOT NULL REFERENCES bauth.idn_identity_entity(entity_id),
     did                  TEXT    NOT NULL UNIQUE,
-    status               TEXT    NOT NULL DEFAULT 'ACTIVE' CONSTRAINT chk_w_status CHECK (status IN ('ACTIVE','SUSPENDED','REVOKED','ARCHIVED')),
+    status               TEXT    NOT NULL DEFAULT 'ACTIVE' CONSTRAINT chk_w_status CHECK (status IN ('ACTIVE','SUSPENDED','REVOKED','ARCHIVED')),  -- [MC-0264] → A.65.04
     backup_enabled       BOOLEAN NOT NULL DEFAULT FALSE,
-    backup_method        TEXT    NULL CONSTRAINT chk_w_backup CHECK (backup_method IN ('NONE','ENCRYPTED_CLOUD')),
+    backup_method        TEXT    NULL CONSTRAINT chk_w_backup CHECK (backup_method IN ('NONE','ENCRYPTED_CLOUD')),  -- [MC-0263] → A.65.04
     did_anchored         BOOLEAN NOT NULL DEFAULT FALSE,
     did_tx_hash          TEXT    NULL,
     total_presentations  INT     NOT NULL DEFAULT 0,
@@ -6179,11 +6179,11 @@ CREATE TABLE IF NOT EXISTS bauth.wallet_item (
     item_id       UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
     wallet_id     UUID    NOT NULL REFERENCES bauth.wallet(wallet_id) ON DELETE CASCADE,
     tenant_id     UUID    NOT NULL,
-    type          TEXT    NOT NULL CONSTRAINT chk_wi_type CHECK (type IN (
+    type          TEXT    NOT NULL CONSTRAINT chk_wi_type CHECK (type IN (  -- [MC-0268] → A.65.04
                       'VC','FIDO2','X509_CERT','DID_DOC','SIG_CERT','NATIONAL_ID','LICENSE','PHYSICAL_PASS')),
     ref_id        UUID    NOT NULL,
     display_name  TEXT    NOT NULL,
-    status        TEXT    NOT NULL DEFAULT 'ACTIVE' CONSTRAINT chk_wi_status CHECK (status IN ('ACTIVE','EXPIRED','REVOKED','HIDDEN')),
+    status        TEXT    NOT NULL DEFAULT 'ACTIVE' CONSTRAINT chk_wi_status CHECK (status IN ('ACTIVE','EXPIRED','REVOKED','HIDDEN')),  -- [MC-0267] → A.65.04
     sd_enabled    BOOLEAN NOT NULL DEFAULT FALSE,
     public_attrs  TEXT[]  NULL,
     added_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -6225,9 +6225,9 @@ CREATE TABLE IF NOT EXISTS bauth.wallet_presentation_log (
     verifier_client_id UUID    NULL REFERENCES bauth.fed_client(client_id),
     verifier_name      TEXT    NOT NULL,
     verifier_did       TEXT    NULL,
-    protocol           TEXT    NOT NULL CONSTRAINT chk_wpl_proto CHECK (protocol IN ('OPENID4VP','SAML_ASSERTION','DIRECT_API')),
+    protocol           TEXT    NOT NULL CONSTRAINT chk_wpl_proto CHECK (protocol IN ('OPENID4VP','SAML_ASSERTION','DIRECT_API')),  -- [MC-0270] → A.65.04
     revealed_attrs     TEXT[]  NULL,
-    outcome            TEXT    NOT NULL CONSTRAINT chk_wpl_outcome CHECK (outcome IN ('ACCEPTED','REJECTED','PARTIAL')),
+    outcome            TEXT    NOT NULL CONSTRAINT chk_wpl_outcome CHECK (outcome IN ('ACCEPTED','REJECTED','PARTIAL')),  -- [MC-0269] → A.65.04
     rejection_reason   TEXT    NULL,
     ctx_id             TEXT    NOT NULL DEFAULT 'system',
     traceparent        TEXT    NULL,
@@ -6263,8 +6263,8 @@ CREATE TABLE IF NOT EXISTS bauth.wallet_issuance_log (
     vc_id           UUID    NOT NULL REFERENCES bauth.idn_identity_vc(vc_id),
     issuer_did      TEXT    NOT NULL,
     credential_type TEXT    NOT NULL,
-    protocol        TEXT    NOT NULL CONSTRAINT chk_wil_proto CHECK (protocol IN ('OPENID4VCI','DIRECT_ISSUE','IMPORTED')),
-    outcome         TEXT    NOT NULL CONSTRAINT chk_wil_outcome CHECK (outcome IN ('ISSUED','REJECTED','PENDING')),
+    protocol        TEXT    NOT NULL CONSTRAINT chk_wil_proto CHECK (protocol IN ('OPENID4VCI','DIRECT_ISSUE','IMPORTED')),  -- [MC-0266] → A.65.04
+    outcome         TEXT    NOT NULL CONSTRAINT chk_wil_outcome CHECK (outcome IN ('ISSUED','REJECTED','PENDING')),  -- [MC-0265] → A.65.04
     ctx_id          TEXT    NOT NULL DEFAULT 'system',
     issued_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -6450,26 +6450,23 @@ CREATE INDEX IF NOT EXISTS idx_cfg_library_lifecycle ON bauth.cfg_policy_library
 REVOKE UPDATE, DELETE ON bauth.cfg_policy_library FROM PUBLIC;
 
 COMMENT ON TABLE bauth.cfg_policy_library IS
-'CONFIGURACIÓN | Biblioteca unificada de referencia de políticas, reglas, métodos de autenticación
-y controles normativos — tabla de solo lectura que descompone y normaliza 16 fuentes normativas
-JSON (framework_raw T-999b) en un árbol jerárquico plano consultable con CTE recursivo. Estructura:
-node_type (section → group → policy/config), semantic_type (policy, configuration, method, standard,
-guideline). Dominios D1-D12 + SEC cubiertos en domain_map (array GIN-indexado). Campos i18n: content
-(JSON original), content_en (claves en inglés normalizadas), content_es (claves traducidas al español
-via translate_keys_en_es()). Metadata de gobernanza: enforcement (mandatory/recommended/optional),
-risk_level (critical/high/medium/low), lifecycle (active/deprecated/draft/proposed). Campos de IAM:
-assurance_level (AAL1/AAL2/AAL3), auth_factor (knowledge/possession/inherence/context/multi),
-phishing_resistant, mfa_required, session_timeout. compliance_ref: array de IDs de controles en
-formatos estándar (PCI DSS 4.0 Req 7.2.4, NIST SP 800-53 AC-2). REVOKE UPDATE/DELETE FROM PUBLIC.
-Fuente: poblada automáticamente por el script de carga (load_framework_raw.sql + CTE recursivo)
-desde bauth.framework_raw al despliegue inicial; recargable con HITL al actualizar normas.
-Administración: REVOKE UPDATE/DELETE FROM PUBLIC — tabla de solo lectura en runtime; solo el proceso
-de inicialización puede insertar; UX del dashboard lee esta tabla para renderizar formularios de
-política sin hardcodear texto en el frontend; agents IA la consultan vía qex para contexto normativo.
-WORM: no formalmente — REVOKE UPDATE/DELETE es operacional, no jurídico; la tabla se puede
-repoblar en un despliegue nuevo.
+'CONFIGURACIÓN | LIBRERÍA DE REFERENCIA DOCUMENTAL — NO FUNCIONAL EN RUNTIME.
+Esta tabla no participa en ningún flujo operacional de bAuth: no interviene en autenticación,
+evaluación de acceso, emisión de tokens ni ningún proceso del motor de identidad. Es
+exclusivamente una biblioteca de consulta estática que normaliza 16 fuentes normativas IAM
+(NIST, ISO 27001, FIDO2, PCI DSS, OWASP, RFC 9449, etc.) en un árbol jerárquico plano.
+Consumidores válidos: (1) dashboard — UI renderiza formularios y etiquetas sin hardcodear texto;
+(2) agentes IA — contexto normativo para qex/búsqueda semántica; (3) programadores — referencia
+durante el desarrollo. NO la consulte desde el motor de autenticación ni desde el PDP.
+Estructura: node_type (section→group→policy/config), semantic_type (policy/configuration/method/
+standard/guideline), domain_map (D1-D12+SEC, array GIN), campos i18n content/content_en/content_es,
+enforcement (mandatory/recommended/optional), risk_level (critical/high/medium/low).
+Fuente: seed DDLs/seeds/bauth_T999__cfg_policy_library.sql — datos exportados y normalizados
+desde SBOS_db; cargados directamente por el seed.
+Administración: REVOKE UPDATE/DELETE FROM PUBLIC — inmutable en runtime; solo el proceso de
+inicialización inserta; recargable con HITL al actualizar fuentes normativas.
+WORM: no formalmente — REVOKE UPDATE/DELETE es operacional; repoblable en nuevo despliegue.
 Particionada: no.
-Seed: DDLs/seeds/bauth_T999__cfg_policy_library.sql — idempotente ON CONFLICT.
 Estándar: NIST SP 800-63B-4, PCI DSS 4.0, OWASP ASVS 5.0, ISO 27001:2022, FIDO2, RFC 9449. T-999.';
 
 COMMENT ON COLUMN bauth.cfg_policy_library.json_path      IS 'Ruta completa en el JSON fuente. Identificador único global.';
@@ -6480,126 +6477,11 @@ COMMENT ON COLUMN bauth.cfg_policy_library.source         IS 'Fuente normativa: 
 COMMENT ON COLUMN bauth.cfg_policy_library.compliance_ref IS 'IDs de controles: PCI DSS 4.0 Req 7.2.4, ISO 27001:2022 A.8.5, NIST 800-53 AC-2.';
 COMMENT ON COLUMN bauth.cfg_policy_library.content        IS 'JSONB original de la política/regla/configuración.';
 COMMENT ON COLUMN bauth.cfg_policy_library.content_en     IS 'JSONB con claves en inglés.';
-COMMENT ON COLUMN bauth.cfg_policy_library.content_es     IS 'JSONB con claves traducidas al español (translate_keys_en_es).';
+COMMENT ON COLUMN bauth.cfg_policy_library.content_es     IS 'JSONB con claves traducidas al español (pre-calculado en la carga del seed).';
 COMMENT ON COLUMN bauth.cfg_policy_library.help_text      IS 'Ayuda contextual multilingüe generada automáticamente.';
 COMMENT ON COLUMN bauth.cfg_policy_library.enforcement    IS 'Nivel de exigencia: mandatory, recommended, optional.';
 COMMENT ON COLUMN bauth.cfg_policy_library.risk_level     IS 'Nivel de riesgo NIST RMF: critical, high, medium, low.';
 COMMENT ON COLUMN bauth.cfg_policy_library.lifecycle      IS 'Ciclo de vida IAM: active, deprecated, draft, proposed.';
-
-
--- =============================================================================
--- T-999b — bauth.framework_raw · bauth.cfg_key_translation
--- Soporte de T-999: carga de fuentes JSON y traducción de claves.
--- =============================================================================
-CREATE TABLE IF NOT EXISTS bauth.framework_raw (
-    id          serial PRIMARY KEY,
-    source_name text NOT NULL UNIQUE,
-    content     jsonb NOT NULL,
-    loaded_at   timestamptz DEFAULT now()
-);
-COMMENT ON TABLE bauth.framework_raw IS
-'CONFIGURACIÓN | Almacén de las 16 fuentes normativas JSON brutas que alimentan cfg_policy_library
-(T-999) — cada fila es un framework completo en JSONB (source_name UNIQUE como clave de carga).
-Las 16 fuentes incluyen NIST SP 800-63B-4, ISO 27001:2022, FIDO2 CTAP 2.2, OAuth2/OIDC, PCI DSS 4.0,
-OWASP ASVS 5.0, RFC 9449 DPoP, RFC 8705 mTLS, FAPI 2.0, entre otros. El contenido es el JSON
-completo del framework tal como fue descargado — sin transformar; la transformación la hace el CTE
-recursivo en el proceso de carga a T-999. Permite re-procesar T-999 desde cero actualizando solo las
-fuentes que cambiaron.
-Fuente: cargada por el script de inicialización del sistema de referencia normativa de bAuth
-(load_framework_raw.sql) durante el despliegue; nuevas fuentes requieren HITL (cambio normativo).
-Administración: SECURITY_ADMIN puede agregar nuevas fuentes normativas; el proceso de re-carga
-trunca T-999 y la repuebla desde esta tabla; source_name UNIQUE previene duplicados.
-WORM: no — el JSON puede actualizarse cuando cambia la normativa fuente.
-Particionada: no.
-Estándar: NIST SP 800-63B-4, ISO 27001:2022, PCI DSS 4.0, OWASP ASVS 5.0, FAPI 2.0. T-999b.';
-
-CREATE TABLE IF NOT EXISTS bauth.cfg_key_translation (
-    key_en  text PRIMARY KEY,
-    key_es  text NOT NULL
-);
-COMMENT ON TABLE bauth.cfg_key_translation IS
-'CONFIGURACIÓN | Diccionario de ~221 términos técnicos IAM inglés→español — usado por la función
-bauth.translate_keys_en_es() para generar el campo content_es de cfg_policy_library (T-999).
-Mapea términos del dominio de identidad y seguridad: authentication→autenticación, assurance_level→
-nivel_de_aseguramiento, phishing_resistant→resistente_a_phishing, etc. key_en es la clave primaria.
-La función translate_keys_en_es() hace lookup primero con la clave completa, luego por palabras
-camelCase y finalmente por separación por guión bajo para cubrir términos compuestos.
-Fuente: poblada por el script de inicialización del sistema de referencia normativa; mantenida
-manualmente por el equipo de documentación al agregar nuevos términos o fuentes normativas.
-Administración: SECURITY_ADMIN puede agregar términos nuevos; key_en UNIQUE previene duplicados;
-nuevos términos son efectivos en el próximo repoblado de T-999.
-WORM: no — las traducciones pueden corregirse o ampliarse.
-Particionada: no.
-Seed: poblada por el script init del sistema de referencia normativa — no tiene seed file propio (los ~221 términos se generan automáticamente desde el vocabulario IAM del framework).
-Estándar: ISO 24760-2:2025 §3 (terminología de gestión de identidad), NIST SP 800-63-4 glosario. T-999c.';
-
--- Función: descompone nodos JSONB (objetos→jsonb_each, arrays→jsonb_array_elements)
-CREATE OR REPLACE FUNCTION bauth.jsonb_explode(node jsonb)
-RETURNS TABLE(child_key text, child_value jsonb, child_ordinality bigint)
-LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE AS $$
-BEGIN
-    IF jsonb_typeof(node) = 'object' THEN
-        RETURN QUERY SELECT k, v, 0::bigint FROM jsonb_each(node) AS e(k, v);
-    ELSIF jsonb_typeof(node) = 'array' THEN
-        RETURN QUERY SELECT '[' || o::text || ']', v, o
-                     FROM jsonb_array_elements(node) WITH ORDINALITY AS e(v, o);
-    END IF;
-END;
-$$;
-COMMENT ON FUNCTION bauth.jsonb_explode(jsonb) IS 'Descompone nodo JSONB en filas (key, value, ordinality).';
-
--- Función: traduce claves JSON recursivamente inglés→español usando cfg_key_translation
-CREATE OR REPLACE FUNCTION bauth.translate_keys_en_es(node jsonb)
-RETURNS jsonb LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE AS $$
-DECLARE
-    result jsonb := '{}';
-    child_record record;
-    translated_key text;
-    child_value jsonb;
-    translated_parts text[];
-    part text;
-BEGIN
-    IF jsonb_typeof(node) = 'object' THEN
-        FOR child_record IN SELECT * FROM jsonb_each(node) LOOP
-            SELECT kt.key_es INTO translated_key FROM bauth.cfg_key_translation kt WHERE kt.key_en = child_record.key;
-            IF translated_key IS NULL THEN
-                translated_parts := '{}';
-                FOR part IN SELECT w[1] FROM regexp_matches(child_record.key, '([A-Z][a-z]+|[a-z]+)', 'g') AS w LOOP
-                    SELECT COALESCE(kt2.key_es, lower(part)) INTO part FROM (SELECT 1) AS d
-                    LEFT JOIN bauth.cfg_key_translation kt2 ON kt2.key_en = lower(part);
-                    translated_parts := array_append(translated_parts, part);
-                END LOOP;
-                IF array_length(translated_parts, 1) > 1 THEN
-                    translated_key := array_to_string(translated_parts, '');
-                END IF;
-            END IF;
-            IF translated_key IS NULL THEN
-                translated_parts := '{}';
-                FOR part IN SELECT w FROM regexp_split_to_table(child_record.key, '_') AS w LOOP
-                    SELECT COALESCE(kt3.key_es, part) INTO part FROM (SELECT 1) AS d
-                    LEFT JOIN bauth.cfg_key_translation kt3 ON kt3.key_en = part;
-                    translated_parts := array_append(translated_parts, part);
-                END LOOP;
-                IF array_length(translated_parts, 1) > 1 THEN translated_key := array_to_string(translated_parts, '_'); END IF;
-            END IF;
-            IF translated_key IS NULL THEN translated_key := child_record.key; END IF;
-            child_value := bauth.translate_keys_en_es(child_record.value);
-            result := result || jsonb_build_object(translated_key, child_value);
-        END LOOP;
-        RETURN result;
-    ELSIF jsonb_typeof(node) = 'array' THEN
-        result := '[]';
-        FOR child_record IN SELECT * FROM jsonb_array_elements(node) WITH ORDINALITY AS elem(value, idx) ORDER BY idx LOOP
-            child_value := bauth.translate_keys_en_es(child_record.value);
-            result := result || jsonb_build_array(child_value);
-        END LOOP;
-        RETURN result;
-    ELSE
-        RETURN node;
-    END IF;
-END;
-$$;
-COMMENT ON FUNCTION bauth.translate_keys_en_es(jsonb) IS 'Recorre JSONB recursivamente y traduce claves usando bauth.cfg_key_translation.';
 
 
 -- =============================================================================
@@ -6617,7 +6499,7 @@ CREATE TABLE IF NOT EXISTS bauth.idn_credencial_revocacion (
     caep_event_id   UUID REFERENCES bauth.ses_caep_event_log(id),
     jti_invalidados UUID[] NOT NULL DEFAULT '{}',
     ctx_id          TEXT NOT NULL DEFAULT 'system',
-    CONSTRAINT chk_idcr_motivo CHECK (motivo IN (
+    CONSTRAINT chk_idcr_motivo CHECK (motivo IN (  -- [MC-0172] → A.65.04
         'COMPROMISED','LOST_DEVICE','USER_REQUEST','ADMIN_REVOKE','EXPIRED','ROTATION'))
 );
 CREATE INDEX IF NOT EXISTS idx_idcr_credential ON bauth.idn_credencial_revocacion(credential_id, revocado_at DESC);
@@ -6701,11 +6583,11 @@ CREATE TABLE IF NOT EXISTS bauth.pam_cuenta_privilegiada (
     estado      TEXT NOT NULL DEFAULT 'ACTIVE',
     ctx_id      TEXT NOT NULL DEFAULT 'system',
     UNIQUE (tenant_id, nombre, sistema),
-    CONSTRAINT chk_pcp_tipo CHECK (tipo IN (
+    CONSTRAINT chk_pcp_tipo CHECK (tipo IN (  -- [MC-0208] → A.65.04
         'LOCAL_ADMIN','DOMAIN_ADMIN','SERVICE_ACCOUNT','SHARED','ROOT',
         'API_KEY','CERTIFICATE','SSH_KEY','DATABASE_DBA','CLOUD_ADMIN')),
     CONSTRAINT chk_pcp_criticidad CHECK (criticidad IN ('LOW','MEDIUM','HIGH','CRITICAL')),
-    CONSTRAINT chk_pcp_estado CHECK (estado IN ('ACTIVE','INACTIVE','DECOMMISSIONED'))
+    CONSTRAINT chk_pcp_estado CHECK (estado IN ('ACTIVE','INACTIVE','DECOMMISSIONED'))  -- [MC-0207] → A.65.04
 );
 COMMENT ON TABLE bauth.pam_cuenta_privilegiada IS
 'PAM | Inventario maestro de cuentas privilegiadas del tenant — catálogo de referencia que lista
