@@ -3,7 +3,7 @@
 
 | Metadato | Valor |
 |----------|-------|
-| **Versión** | 1.9.0 |
+| **Versión** | 1.10.0 |
 | **Fecha** | 2026-08-01 |
 | **Estándar analizado** | ISO/IEC 27001:2022 (con enmienda climática ISO 27001:2024) |
 | **Alcance del análisis** | Diseño DDL del sistema IAM bAuth — 3 archivos DDL + seeds (ver §2.1) |
@@ -177,15 +177,55 @@ CREATE TABLE IF NOT EXISTS bauth.idn_financial_sod_rule (
 | A.5.9 | Inventario de activos | **C (3/3)** | A.65.02: 224 tablas inventariadas |
 | A.5.10 | Uso aceptable de activos | N/A | Política organizacional |
 | A.5.11 | Devolución de activos | N/A | Operacional |
-| A.5.12 | Clasificación de información | **P (2/3)** | ↓ Ver §3.2.1 |
+| A.5.12 | Clasificación de información | **P (2/3)** *(→ C condicionado a T-BACKLOG-008)* | ↓ Ver §3.2.1 |
 | A.5.13 | Etiquetado de información | **EP (1/3)** | ↓ Ver §3.2.2 |
 | A.5.14 | Transferencia de información | **C (3/3)** | ↓ Ver §3.2.3 |
 
-#### §3.2.1 A.5.12 — Clasificación de Información: PARCIAL ⚠️
+#### §3.2.1 A.5.12 — Clasificación de Información: PARCIAL ⚠️ *(→ CUMPLIDO al aplicar T-BACKLOG-008)*
 
-**Evidencia**: La clasificación existe de forma implícita en los COMMENT ON TABLE (marcadores `AUTENTICACIÓN |`, `IDENTIDAD |`, `PAM JIT |`, `GLOBAL |`) y en la columna `risk_level` de las tablas PAM. Sin embargo, no existe una tabla formal de clasificación de información ni políticas de manejo en el esquema.
+> **Corrección arquitectónica v1.10.0 (D-16):** La solución original propuesta (tabla
+> `cfg_information_classification` + columna FK) fue descartada por el usuario. La clasificación
+> de información es **metadata del atributo PII**, no una entidad relacional propia.
+> La solución correcta es un CHECK constraint sobre los campos que T-BACKLOG-008 agrega.
 
-**Brecha**: Sin tabla `cfg_information_classification` ni columna `data_sensitivity` en tablas con PII.
+**Lo que el DDL ya cubre:**
+
+| Mecanismo | Evidencia | Aporte |
+|-----------|-----------|--------|
+| Prefijos `COMMENT ON TABLE` | `AUTENTICACIÓN \|`, `IDENTIDAD \|`, `PAM JIT \|`, `GLOBAL \|` en 139 tablas | Clasificación implícita por propósito — legible pero no ejecutable |
+| Separación por schema | `bauth` / `bos` / `bglobal` / `bcalendar` | Aislamiento de dominio como proxy de clasificación |
+| `risk_level` | `pam_jit_request` · `pam_breakglass_activation` | Clasificación operativa en contexto PAM |
+| `idn_roles_ver_b01_retention_policy.info_class` T-154 | C1/C2/C3/C4 + `legal_hold` | Clasificación formal a nivel de política de retención |
+| `idn_identity_requirement` T-159 | `is_required`, `must_be_verified`, `accepted_sources` | Motor de validación de atributos obligatorios — el lugar correcto para reglas de completitud |
+
+**Brecha real — CHECK constraint de metadata faltante:**
+
+`idn_identity_attribute` (T-157) almacena atributos sensibles (biométricos, identificación, fiscal)
+sin exigir que declaren su clasificación. Con T-BACKLOG-008, T-157 tendrá `pii_category` y
+`legal_basis` — pero esas columnas serán opcionales sin un constraint que las haga obligatorias
+para namespaces sensibles.
+
+**Solución — CHECK constraint en T-157 (T-BACKLOG-002 reformulado):**
+
+```sql
+-- Aplicar DESPUÉS de T-BACKLOG-008:
+ALTER TABLE bauth.idn_identity_attribute
+ADD CONSTRAINT chk_attr_pii_metadata_completa
+CHECK (
+    attr_namespace NOT IN ('biometric', 'identification', 'fiscal', 'verification')
+    OR (pii_category IS NOT NULL AND legal_basis IS NOT NULL)
+);
+```
+
+Los niveles de clasificación (PUBLIC / INTERNAL / CONFIDENTIAL / RESTRICTED) se definen como
+seed del menú contextual `MC-INFOCLS` en `bglobal_T060` — no como tabla relacional con FK.
+
+**Por qué es P(2/3) y no A(0/3):** El DDL tiene clasificación implícita por convención
+(COMMENT ON TABLE + separación de schemas + T-154). Lo que falta es que sea ejecutable
+para namespaces sensibles. La infraestructura de validación (T-159) y el metadata (T-157)
+ya existen — solo falta el constraint que los conecta.
+
+**Remediación:** T-BACKLOG-002 (reformulado) — depende de T-BACKLOG-008.
 
 ---
 

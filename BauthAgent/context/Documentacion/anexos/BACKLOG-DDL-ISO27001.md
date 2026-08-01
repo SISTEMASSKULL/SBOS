@@ -120,50 +120,73 @@ A.5.27: EP(1/3) → C(3/3) = +2 puntos → score 96+2 = 98/123 = **79.7 %**
 
 ---
 
-### T-BACKLOG-002 — Tabla de clasificación formal de información (A.5.12)
+### T-BACKLOG-002 — CHECK constraint metadata PII obligatorio + ENUM niveles (A.5.12)
 
 **Estado:** PENDIENTE  
-**Prioridad:** P1 (ALTO)  
+**Prioridad:** P2 (MEDIO) — reformulado desde P1 (tabla separada descartada)  
 **Control ISO:** A.5.12 — Clasificación de información  
-**Gap confirmado por:** Análisis A.71 §3.2.1 — usuario por confirmar en revisión  
+**Gap confirmado por:** Usuario — 2026-08-01 (reformulado D-16 — 2026-08-01)  
+**Dependencia:** REQUIERE T-BACKLOG-008 (`pii_category` + `legal_basis` en T-157 deben existir primero)  
+**Naturaleza:** CHECK constraint en T-157 + seed ENUM — NO tabla nueva
 
-**Por qué es un gap:**  
-La clasificación existe solo como `COMMENT ON TABLE` en el DDL (marcadores como `IDENTIDAD |`, `PAM JIT |`).
-No existe una tabla formal de clasificación ni columna `data_class` en tablas con PII.
-Sin tabla formal, no se puede auditar automaticamente qué datos son CONFIDENTIAL vs PUBLIC.
+**Decisión arquitectónica — por qué se descartó `cfg_information_classification`:**
 
-**Diseño propuesto:**
+La arquitectura original (tabla separada + columna `data_class` FK) fue descartada tras
+análisis con el usuario (D-16 — 2026-08-01). La clasificación de un atributo PII es
+**metadata del atributo**, no una entidad relacional propia:
+
+1. `pii_category` en T-157 (T-BACKLOG-008) ya es el nivel de clasificación del atributo
+2. T-159 (`idn_identity_requirement`) ya es el módulo de validación de atributos obligatorios —
+   es el lugar correcto para las reglas de completitud
+3. Una tabla con FK duplica gobernanza y no se integra con el motor de validación existente
+4. Los niveles (PUBLIC / INTERNAL / CONFIDENTIAL / RESTRICTED) son un menú contextual
+   (seed T060), no una entidad relacional con lifecycle propio
+
+**Cambio DDL — 1 CHECK constraint en T-157:**
 
 ```sql
--- TABLA: catálogo de niveles de clasificación
-bauth.cfg_information_classification
-  class_id           UUID PK (uuidv7)
-  class_code         TEXT NOT NULL UNIQUE    -- MC-INFOCLS: PUBLIC / INTERNAL / CONFIDENTIAL / RESTRICTED
-  class_name         JSONB NOT NULL          -- {es: "...", en: "..."}
-  retention_days     INTEGER NOT NULL
-  masking_required   BOOLEAN NOT NULL DEFAULT false
-  encryption_at_rest BOOLEAN NOT NULL DEFAULT false
-  handling_rules     JSONB                   -- instrucciones de manejo por nivel
-  created_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+-- Requiere T-BACKLOG-008 aplicado primero (pii_category + legal_basis deben existir en T-157)
+ALTER TABLE bauth.idn_identity_attribute
+ADD CONSTRAINT chk_attr_pii_metadata_completa
+CHECK (
+    -- Namespaces sensibles DEBEN declarar su categoría PII y base legal
+    attr_namespace NOT IN ('biometric', 'identification', 'fiscal', 'verification')
+    OR (pii_category IS NOT NULL AND legal_basis IS NOT NULL)
+);
 
--- COLUMNA ADICIONAL en tablas con PII:
--- idn_identity_entity, idn_user, idn_identidad_atributo, pam_credential_ref...
-ALTER TABLE bauth.idn_identity_entity
-  ADD COLUMN IF NOT EXISTS data_class TEXT
-  REFERENCES bauth.cfg_information_classification(class_code);
+COMMENT ON CONSTRAINT chk_attr_pii_metadata_completa ON bauth.idn_identity_attribute IS
+'[ISO 27001:2022 A.5.12] Atributos en namespaces sensibles (biometric / identification /
+fiscal / verification) deben declarar explícitamente pii_category y legal_basis.
+Garantiza clasificación formal — ningún dato sensible almacenado sin metadata completo.
+Namespaces core / contact / professional / security: clasificación opcional (NULL permitido).
+Depende de T-BACKLOG-008. Reformulado D-16.';
 ```
 
-**Artefactos a actualizar:**
+**Seed ENUM — niveles de clasificación en bglobal T060:**
+
+Los niveles de clasificación son valores de menú contextual, no tabla relacional:
+
+```sql
+-- Agregar a DDLs/seeds/bglobal_T060__menu_context.sql:
+INSERT INTO bglobal.menu_context (menu_code, item_code, display_order, label_es, label_en)
+VALUES
+  ('MC-INFOCLS', 'PUBLIC',       1, 'Público',      'Public'),
+  ('MC-INFOCLS', 'INTERNAL',     2, 'Interno',      'Internal'),
+  ('MC-INFOCLS', 'CONFIDENTIAL', 3, 'Confidencial', 'Confidential'),
+  ('MC-INFOCLS', 'RESTRICTED',   4, 'Restringido',  'Restricted')
+ON CONFLICT DO NOTHING;
+```
+
+**Artefactos a actualizar al ejecutar:**
 
 | Artefacto | Acción requerida |
 |-----------|-----------------|
-| `DDLs/SBOS_db_V2_DDL.sql` | Crear `cfg_information_classification` + ALTER de tablas PII |
-| `DDLs/SBOS_db_V2_DDL_MANUAL.md` | Documentar (HITL) |
-| `A.65.02` | T-code nuevo para `cfg_information_classification` |
-| Seeds T060 | Nuevo ENUM MC-INFOCLS (PUBLIC / INTERNAL / CONFIDENTIAL / RESTRICTED) |
-| Seeds T061 | CHECK en columna `data_class` |
-| `A.65.04` | Documentar MC-INFOCLS |
-| `A.71` | Actualizar A.5.12: P(2/3) → C(3/3) + §3.2.1 |
+| `DDLs/SBOS_db_V2_DDL.sql` | CHECK constraint `chk_attr_pii_metadata_completa` en T-157 |
+| `DDLs/SBOS_db_V2_DDL_MANUAL.md` | Documentar constraint + decisión arquitectónica (HITL) |
+| `A.65.02` | Actualizar entrada T-157: nuevo constraint en columna `pii_category` |
+| `DDLs/seeds/bglobal_T060__menu_context.sql` | 4 valores MC-INFOCLS |
+| `A.65.04` | MC-INFOCLS con Concepto + Valores válidos |
+| `A.71` | Actualizar A.5.12: P(2/3) → C(3/3) + §3.2.1 reformulado |
 
 **Impacto en score A.71:**  
 A.5.12: P(2/3) → C(3/3) = +1 punto → score +1
@@ -703,6 +726,7 @@ Para cada una: revisar con el usuario si es gap real, falso positivo, o brecha d
 
 | # | Control | Estado actual | Descripción breve |
 |---|---------|--------------|------------------|
+| ~~D-16~~ | ~~A.5.12 (P 2/3)~~ | **→ T-BACKLOG-002 REFORMULADO** | Arquitectura corregida — la clasificación es metadata del atributo PII (T-157), no tabla separada. Solución: CHECK constraint en T-157 (depende T-BACKLOG-008) + seed MC-INFOCLS. Ver §3.2.1 |
 | ~~D-05~~ | ~~A.5.7 (P 2/3)~~ | **→ T-BACKLOG-005** | Gap confirmado — 2 tablas `thi_*`: IOC store + correlation log |
 | ~~D-06~~ | ~~A.5.14 (P 2/3)~~ | **→ FALSO POSITIVO → C(3/3)** | Sistema cerrado: daemons en mismo host por Unix socket; biedata es el único punto de salida exterior. ctx_id + aud_event_log cubre lo interno. Actualizar A.71 §3.2.3. |
 | ~~D-07~~ | ~~A.5.25 (P 2/3)~~ | **→ T-BACKLOG-006** | Gap confirmado — tabla `inc_security_event`: triaje previo al incidente confirmado (decisión formal CONFIRMED/FALSE_POSITIVE/ESCALATED) |
