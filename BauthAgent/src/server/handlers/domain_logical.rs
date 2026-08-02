@@ -14,10 +14,13 @@ impl JsonRpcHandler for LogicalAtomsHandler {
             code: -32000, message: "base de datos no disponible".into(), data: None,
         })?;
         #[derive(sqlx::FromRow, serde::Serialize)]
-        struct Row { atom_slug: String, atom_name: String, app_code: i16, group_code: i16, verb_code: i16, atom_position: i32 }
+        struct Row { atom_slug: String, atom_name: Option<String>, domain_number: i32, atom_position: i64 }
         let rows: Vec<Row> = sqlx::query_as(
-            "SELECT atom_slug, atom_name, app_code, group_code, verb_code, atom_position FROM bauth.privilege_atom WHERE domain_code = 1 ORDER BY atom_position"
+            "SELECT path AS atom_slug, name->>'es' AS atom_name, domain_number, atom_position
+             FROM bauth.idn_roles_template
+             WHERE node_type = 'atom' AND domain_number = 1 AND is_active = TRUE
+             ORDER BY atom_position"
         ).fetch_all(pg).await.map_err(|e| JsonRpcError { code: -32000, message: e.to_string(), data: None })?;
-        Ok(serde_json::json!({"domain": "logical", "domain_code": 1, "atoms": rows, "count": rows.len()}))
+        Ok(serde_json::json!({"domain": "logical", "domain_number": 1, "atoms": rows, "count": rows.len()}))
     }
 }

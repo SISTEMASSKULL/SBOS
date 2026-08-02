@@ -101,12 +101,14 @@ impl UserNotifier {
         }
     }
 
-    /// Busca email del usuario en idn_user_template.
+    /// Busca email del usuario vía JOIN idn_user + idn_identity_attribute (attr_key='email').
     async fn lookup_email(&self, user_uuid: &str) -> Option<String> {
         let pg = self.pg_pool.as_ref()?;
         let uuid: uuid::Uuid = user_uuid.parse().ok()?;
         sqlx::query_scalar::<_, String>(
-            "SELECT email FROM bauth.idn_user_template WHERE uuid = $1"
+            "SELECT ia.attr_value #>> '{}' FROM bauth.idn_identity_attribute ia
+             JOIN bauth.idn_user u ON u.entity_id = ia.entity_id
+             WHERE u.user_id = $1 AND ia.attr_key = 'email' LIMIT 1"
         ).bind(uuid).fetch_optional(pg).await.ok()?
     }
 

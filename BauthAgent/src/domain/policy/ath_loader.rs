@@ -28,11 +28,13 @@ pub async fn load_domain(pg: &PgPool, domain: u8) -> Vec<PolicyRule> {
         config: serde_json::Value,
     }
 
+    // D01 resuelto: ath_policy_dN → auth_policy (tabla unificada DDL v2.12.0)
+    // metadata JSONB reemplaza config; policy_id::text como policy_code
     let sql = format!(
-        "SELECT policy_code, policy_name, config \
-         FROM bauth.ath_policy_d{} \
-         WHERE is_active = true AND config ? 'rule' \
-         ORDER BY policy_code",
+        "SELECT policy_id::text AS policy_code, name AS policy_name, metadata AS config
+         FROM bauth.auth_policy
+         WHERE active = TRUE AND metadata ? 'rule'
+         ORDER BY policy_id -- domain={} (sin columna domain en DDL v2.12.0)",
         domain
     );
 

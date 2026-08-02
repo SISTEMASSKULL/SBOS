@@ -17,10 +17,13 @@ macro_rules! domain_handler {
             async fn handle(&self, _params: Value) -> Result<Value, JsonRpcError> {
                 let pg = self.pg_pool.as_ref().ok_or_else(|| JsonRpcError { code: -32000, message: "BD no disponible".into(), data: None })?;
                 #[derive(sqlx::FromRow, serde::Serialize)]
-                struct Row { atom_slug: String, atom_name: String, app_code: i16, group_code: i16, verb_code: i16, atom_position: i32 }
+                struct Row { atom_slug: String, atom_name: Option<String>, domain_number: i32, atom_position: i64 }
                 let rows: Vec<Row> = sqlx::query_as(
-                    "SELECT atom_slug, atom_name, app_code, group_code, verb_code, atom_position FROM bauth.privilege_atom WHERE domain_code = $1 ORDER BY atom_position"
-                ).bind($code).fetch_all(pg).await.map_err(|e| JsonRpcError { code: -32000, message: e.to_string(), data: None })?;
+                    "SELECT path AS atom_slug, name->>'es' AS atom_name, domain_number, atom_position
+                     FROM bauth.idn_roles_template
+                     WHERE node_type = 'atom' AND domain_number = $1 AND is_active = TRUE
+                     ORDER BY atom_position"
+                ).bind($code as i32).fetch_all(pg).await.map_err(|e| JsonRpcError { code: -32000, message: e.to_string(), data: None })?;
                 Ok(serde_json::json!({"domain": $label, "domain_code": $code, "atoms": rows, "count": rows.len()}))
             }
         }

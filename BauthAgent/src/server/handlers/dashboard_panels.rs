@@ -1,18 +1,35 @@
 // ============================================================
-// bauth::server::handlers::dashboard_panels — B47.D01 a D10
-// 10 handlers JSON-RPC para paneles dashboard
+// bauth::server::handlers::dashboard_panels — B47.D01 a D13
 //
-// Tablas canónicas DDL v2.12.0 (phantoms eliminados):
-//   bauth.ses_caep_event_log — eventos auth (reemplaza ath_login_attempt + aud_event)
-//   bauth.ses_session_log    — sesiones activas (reemplaza ses_context)
-//   bauth.idn_user           — usuarios (reemplaza idn_user_template)
-//   bauth.auth_credential    — credenciales MFA (reemplaza ath_mfa_enrollment)
-//   bauth.idn_roles_template — átomos/dominios (reemplaza privilege_atom/privilege_domain)
-//   bauth.auth_policy        — políticas unificadas (reemplaza ath_policy_d{N})
-//   bauth.cfg_policy_library — configuración de políticas (reemplaza ath_config_{N})
-//   bglobal.menu_item        — canónico (seeds T060)
+// Tablas canónicas DDL v2.12.0 usadas:
 //
-// sync_log eliminado (no existe en DDL v2.12.0)
+//   auth_attempt_log      — intentos de autenticación (WORM, particionada por attempted_at)
+//     outcome CHECK: 'SUCCESS','FAILURE','LOCKED','STEP_UP_REQUIRED','EXPIRED','INVALID_USER','REVOKED_CREDENTIAL'
+//     timestamp: attempted_at (NO created_at)
+//
+//   ses_caep_event_log    — eventos CAEP externos (session-revoked, credential-change, etc.)
+//     event_type CHECK: 'session-revoked','token-claims-change','credential-change',
+//                       'assurance-level-change','device-compliance-change','risk-level-change'
+//     timestamp: received_at (NO created_at)
+//     processing_status CHECK: 'RECEIVED','PROCESSING','APPLIED','FAILED','IGNORED'
+//
+//   ses_session_log       — sesiones activas
+//   auth_credential       — credenciales MFA enrolladas
+//   idn_user              — cuentas de login (NO tiene columna metadata)
+//   idn_identity_attribute — atributos EAV (attr_namespace, attr_key, attr_value JSONB)
+//   idn_financial_sod_rule — reglas SoD financiero (status CHECK: 'ACTIVE','DISABLED')
+//   idn_roles_template    — átomos/dominios BitMask
+//   auth_policy           — políticas unificadas (active BOOLEAN, created_at solo — sin updated_at)
+//   cfg_policy_library    — biblioteca de políticas por dominio
+//   auth_device           — dispositivos ZTA (category, last_seen_at — NO device_category/last_seen)
+//   idn_audit_event_log   — auditoría WORM hash-chain (hash_actual, prev_hash, logged_at)
+//   blk_merkle_batch      — lotes Merkle (created_at, status: OPEN/CLOSED/COMPUTING/ANCHORED/FAILED)
+//   blk_anchor            — anclajes blockchain con tx_hash (NO en blk_merkle_batch)
+//   blk_merkle_leaf       — hojas del árbol (event_id — NO ctx_id)
+//   blk_reconciliation    — conciliación on-chain (verified_at — NO created_at;
+//                           status CHECK: 'OK','DISCREPANCY','CORRECTED' — NO 'PENDING')
+//
+// Phantoms eliminados: net_device, bauth_44, sec_key_inventory, fin_sod_rule (legado)
 // DOC-SBOS-001 N3 · SBOS-049
 // ============================================================
 
@@ -27,8 +44,9 @@ fn make_error(msg: &str) -> JsonRpcError {
 }
 
 // ── Panel 1: KPIs Tiempo Real (§29.1) ─────────────────────
+// Métricas de autenticación en tiempo real.
+// FUENTE: auth_attempt_log (no ses_caep_event_log — CAEP es para eventos externos).
 
-/// Métricas en tiempo real desde ses_caep_event_log y ses_session_log.
 pub struct Panel1Handler { pub pg: PgPool }
 
 #[async_trait]
@@ -36,35 +54,35 @@ impl JsonRpcHandler for Panel1Handler {
     async fn handle(&self, _params: Value) -> Result<Value, JsonRpcError> {
         let pg = &self.pg;
 
-        // Intentos de login en última 1h (event_type LIKE 'login%')
+        // Total intentos en la última hora (SUCCESS + FAILURE + LOCKED...)
         let login_attempts_1h: i64 = sqlx::query_scalar(
-            "SELECT count(*) FROM bauth.ses_caep_event_log
-             WHERE event_type LIKE 'login%'
-               AND created_at > now() - interval '1 hour'"
+            "SELECT count(*) FROM bauth.auth_attempt_log
+             WHERE attempted_at > now() - interval '1 hour'"
         ).fetch_one(pg).await.unwrap_or(0);
 
         // Tasa de éxito MFA en últimas 24h
+        // MFA = cualquier método que no sea PASSWORD (TOTP, WEBAUTHN, etc.)
         let mfa_success_rate: Option<f64> = sqlx::query_scalar(
             "SELECT round(
-                100.0 * count(*) FILTER (WHERE processing_status = 'DELIVERED')
-                / nullif(count(*), 0), 1
-             )
-             FROM bauth.ses_caep_event_log
-             WHERE event_type LIKE 'login.mfa%'
-               AND created_at > now() - interval '24 hours'"
+                100.0 * count(*) FILTER (WHERE outcome = 'SUCCESS')
+                / nullif(count(*), 0)
+             , 1)
+             FROM bauth.auth_attempt_log
+             WHERE method_code <> 'PASSWORD'
+               AND attempted_at > now() - interval '24 hours'"
         ).fetch_one(pg).await.unwrap_or(None);
 
-        // Sesiones activas en ses_session_log
+        // Sesiones activas (ses_session_log — correcto para esta métrica)
         let active_sessions: i64 = sqlx::query_scalar(
             "SELECT count(*) FROM bauth.ses_session_log
              WHERE terminated_at IS NULL"
         ).fetch_one(pg).await.unwrap_or(0);
 
-        // Intentos fallidos últimos 5min
+        // Fallos en últimos 5 minutos
         let failed_5min: i64 = sqlx::query_scalar(
-            "SELECT count(*) FROM bauth.ses_caep_event_log
-             WHERE event_type = 'login.failure'
-               AND created_at > now() - interval '5 minutes'"
+            "SELECT count(*) FROM bauth.auth_attempt_log
+             WHERE outcome = 'FAILURE'
+               AND attempted_at > now() - interval '5 minutes'"
         ).fetch_one(pg).await.unwrap_or(0);
 
         Ok(json!({
@@ -77,9 +95,12 @@ impl JsonRpcHandler for Panel1Handler {
 }
 impl Panel1Handler { pub fn method_name() -> &'static str { "bauth.dashboard.panel1" } }
 
-// ── Panel 1b: Zero Trust + Machine Identities (§29.2-§29.5) ─
+// ── Panel 1b: Zero Trust + Identidades Máquina (§29.2-§29.5) ─
+// idn_user NO tiene columna metadata.
+// account_type se almacena en idn_identity_attribute (attr_key='account_type').
+// idn_financial_sod_rule.status CHECK: 'ACTIVE','DISABLED' (no is_active boolean).
+// sec_key_inventory NO existe en DDL v2.12.0 — se aproxima con auth_credential.
 
-/// Indicadores Zero Trust: cuentas sin MFA, huérfanas, SoD, M2M.
 pub struct Panel1bHandler { pub pg: PgPool }
 
 #[async_trait]
@@ -87,7 +108,7 @@ impl JsonRpcHandler for Panel1bHandler {
     async fn handle(&self, _params: Value) -> Result<Value, JsonRpcError> {
         let pg = &self.pg;
 
-        // Usuarios sin credencial MFA activa (auth_credential con método != PASSWORD)
+        // Usuarios activos sin credencial MFA enrollada
         let users_without_mfa: i64 = sqlx::query_scalar(
             "SELECT count(*) FROM bauth.idn_user u
              WHERE u.status = 'ACTIVE'
@@ -99,7 +120,7 @@ impl JsonRpcHandler for Panel1bHandler {
                )"
         ).fetch_one(pg).await.unwrap_or(0);
 
-        // Cuentas activas sin sesión en los últimos 90 días
+        // Cuentas sin sesión en los últimos 90 días (posible privilege creep)
         let orphan_accounts_90d: i64 = sqlx::query_scalar(
             "SELECT count(*) FROM bauth.idn_user u
              WHERE u.status = 'ACTIVE'
@@ -110,40 +131,46 @@ impl JsonRpcHandler for Panel1bHandler {
                )"
         ).fetch_one(pg).await.unwrap_or(0);
 
-        // Reglas SoD activas (tabla fin_sod_rule puede ser canónica en dominio financiero)
-        let sod_violations: i64 = sqlx::query_scalar(
-            "SELECT count(*) FROM bauth.fin_sod_rule WHERE is_active = true"
+        // Reglas SoD financieras activas (idn_financial_sod_rule — status='ACTIVE')
+        let sod_active_rules: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM bauth.idn_financial_sod_rule WHERE status = 'ACTIVE'"
         ).fetch_one(pg).await.unwrap_or(0);
 
-        // Identidades máquina / servicio (account_type en metadata JSONB de idn_user)
+        // Identidades máquina/servicio: entidades con attr_key='account_type' y valor M2M/SERVICE
+        // idn_user no tiene metadata — el account_type vive en idn_identity_attribute (EAV)
         let machine_identities: i64 = sqlx::query_scalar(
-            "SELECT count(*) FROM bauth.idn_user
-             WHERE status = 'ACTIVE'
-               AND metadata->>'account_type' IN ('SERVICE', 'MACHINE', 'M2M')"
+            "SELECT count(*) FROM bauth.idn_user u
+             JOIN bauth.idn_identity_attribute ia
+               ON ia.entity_id = u.entity_id
+              AND ia.attr_key = 'account_type'
+              AND ia.attr_value #>> '{}' IN ('SERVICE','MACHINE','M2M')
+              AND ia.is_active = true
+             WHERE u.status = 'ACTIVE'"
         ).fetch_one(pg).await.unwrap_or(0);
 
-        // API keys sin rotación > 90 días (tabla sec_key_inventory si existe)
-        let api_keys_no_rotation: i64 = sqlx::query_scalar(
-            "SELECT count(*) FROM bauth.sec_key_inventory
-             WHERE key_type = 'API_KEY'
-               AND (last_rotated_at IS NULL
-                    OR last_rotated_at < now() - interval '90 days')"
+        // Credenciales activas sin uso en más de 90 días (aproximación — sec_key_inventory no existe)
+        // Representa credenciales candidatas a rotación / revocación
+        let credentials_stale_90d: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM bauth.auth_credential
+             WHERE status = 'ACTIVE'
+               AND (last_used_at IS NULL OR last_used_at < now() - interval '90 days')"
         ).fetch_one(pg).await.unwrap_or(0);
 
         Ok(json!({
-            "users_without_mfa":    users_without_mfa,
-            "orphan_accounts_90d":  orphan_accounts_90d,
-            "sod_violations":       sod_violations,
-            "machine_identities":   machine_identities,
-            "api_keys_no_rotation": api_keys_no_rotation,
+            "users_without_mfa":      users_without_mfa,
+            "orphan_accounts_90d":    orphan_accounts_90d,
+            "sod_active_rules":       sod_active_rules,
+            "machine_identities":     machine_identities,
+            "credentials_stale_90d":  credentials_stale_90d,
         }))
     }
 }
 impl Panel1bHandler { pub fn method_name() -> &'static str { "bauth.dashboard.panel1b" } }
 
 // ── Panel 9: Trazabilidad Forense (§32.7) ─────────────────
+// Timeline por ctx_id combinando ses_caep_event_log y ses_session_log.
+// ses_caep_event_log usa received_at (NO created_at).
 
-/// Timeline forense por ctx_id desde ses_caep_event_log y ses_session_log.
 pub struct Panel9Handler { pub pg: PgPool }
 
 #[async_trait]
@@ -153,14 +180,18 @@ impl JsonRpcHandler for Panel9Handler {
         let ctx_id = params.get("ctx_id").and_then(|v| v.as_str()).unwrap_or("");
         if ctx_id.is_empty() { return Err(make_error("Se requiere ctx_id")); }
 
-        // Eventos CAEP para este ctx_id
+        // Combina eventos CAEP (received_at) y sesiones para el ctx_id dado
         let events: Vec<(String, String, String, String)> = sqlx::query_as(
-            "SELECT 'CAEP' as src, event_type as evt, created_at::text as ts,
+            "SELECT 'CAEP'::text as src,
+                    event_type as evt,
+                    received_at::text as ts,
                     left(event_payload::text, 200) as det
              FROM bauth.ses_caep_event_log
              WHERE ctx_id = $1
              UNION ALL
-             SELECT 'SESSION', auth_method, started_at::text,
+             SELECT 'SESSION'::text,
+                    auth_method,
+                    started_at::text,
                     coalesce(termination_reason, 'activa')
              FROM bauth.ses_session_log
              WHERE ctx_id = $1
@@ -181,8 +212,11 @@ impl JsonRpcHandler for Panel9Handler {
 impl Panel9Handler { pub fn method_name() -> &'static str { "bauth.dashboard.panel9" } }
 
 // ── Panel 9b: Hash-Chain + Merkle Proof (§32.5) ───────────
+// Tabla canónica WORM: idn_audit_event_log (NO bauth_44 — phantom eliminado).
+// Columnas hash: hash_actual (calculado por trigger), prev_hash (hash del evento anterior).
+// Columna timestamp: logged_at (NO created_at).
+// blk_merkle_leaf NO tiene ctx_id — se vincula por event_id = idn_audit_event_log.id.
 
-/// Verificación de integridad de cadena de hash y prueba Merkle.
 pub struct Panel9bHandler { pub pg: PgPool }
 
 #[async_trait]
@@ -192,15 +226,20 @@ impl JsonRpcHandler for Panel9bHandler {
         let ctx_id = params.get("ctx_id").and_then(|v| v.as_str()).unwrap_or("");
         if ctx_id.is_empty() { return Err(make_error("Se requiere ctx_id")); }
 
-        // Verificar integridad de cadena de hash en tabla de auditoría canónica (bauth_44 WORM)
+        // Verificar integridad de cadena hash en idn_audit_event_log.
+        // Cada fila debe tener prev_hash == hash_actual de la fila anterior (ORDER BY logged_at).
         let chain_ok: bool = sqlx::query_scalar::<_, Option<bool>>(
             "WITH chain AS (
-                SELECT event_hash,
-                       LAG(event_hash) OVER (ORDER BY created_at) AS prev
-                FROM bauth.bauth_44
+                SELECT hash_actual,
+                       prev_hash,
+                       LAG(hash_actual) OVER (ORDER BY logged_at) AS expected_prev
+                FROM bauth.idn_audit_event_log
                 WHERE ctx_id = $1
              )
-             SELECT bool_and(prev IS NULL OR event_hash IS NOT NULL) FROM chain"
+             SELECT bool_and(
+                 prev_hash IS NULL
+                 OR prev_hash = expected_prev
+             ) FROM chain"
         )
         .bind(ctx_id)
         .fetch_one(pg)
@@ -208,12 +247,14 @@ impl JsonRpcHandler for Panel9bHandler {
         .unwrap_or(None)
         .unwrap_or(true);
 
-        // Merkle proof (tabla blockchain si existe)
-        let merkle: Option<(String, String, i32)> = sqlx::query_as(
+        // Merkle proof: blk_merkle_leaf se vincula a idn_audit_event_log.id (event_id).
+        // No tiene columna ctx_id — la búsqueda va a través de la tabla de auditoría.
+        let merkle: Option<(String, Option<String>, i32)> = sqlx::query_as(
             "SELECT l.leaf_hash, b.merkle_root, l.leaf_index
-             FROM bauth.blk_merkle_leaf l
+             FROM bauth.idn_audit_event_log a
+             JOIN bauth.blk_merkle_leaf l ON l.event_id = a.id
              JOIN bauth.blk_merkle_batch b ON b.batch_id = l.batch_id
-             WHERE l.ctx_id = $1
+             WHERE a.ctx_id = $1
              ORDER BY b.created_at DESC LIMIT 1"
         )
         .bind(ctx_id)
@@ -222,17 +263,22 @@ impl JsonRpcHandler for Panel9bHandler {
         .unwrap_or(None);
 
         Ok(json!({
-            "ctx_id":       ctx_id,
+            "ctx_id":        ctx_id,
             "hash_chain_ok": chain_ok,
-            "merkle_proof": merkle.map(|(l, r, i)| json!({"leaf": l, "root": r, "index": i})),
+            "merkle_proof":  merkle.map(|(leaf, root, idx)| json!({
+                "leaf_hash":   leaf,
+                "merkle_root": root,
+                "leaf_index":  idx,
+            })),
         }))
     }
 }
 impl Panel9bHandler { pub fn method_name() -> &'static str { "bauth.dashboard.panel9b" } }
 
 // ── Panel 10: Dispositivos Físicos y Móviles (§33.7) ──────
+// Tabla canónica: auth_device (NO net_device — phantom eliminado).
+// Columnas correctas: category (NO device_category), last_seen_at (NO last_seen).
 
-/// Listado de dispositivos desde net_device (tabla de networking).
 pub struct Panel10Handler { pub pg: PgPool }
 
 #[async_trait]
@@ -240,18 +286,33 @@ impl JsonRpcHandler for Panel10Handler {
     async fn handle(&self, _params: Value) -> Result<Value, JsonRpcError> {
         let pg = &self.pg;
 
-        let devices: Vec<(String, String, String)> = sqlx::query_as(
-            "SELECT device_id::text, device_category, coalesce(last_seen::text, '')
-             FROM bauth.net_device
-             ORDER BY last_seen DESC NULLS LAST LIMIT 100"
+        let devices: Vec<(String, String, String, String)> = sqlx::query_as(
+            "SELECT device_id::text,
+                    category,
+                    trust_level,
+                    coalesce(last_seen_at::text, registered_at::text)
+             FROM bauth.auth_device
+             WHERE status = 'ACTIVE'
+             ORDER BY last_seen_at DESC NULLS LAST LIMIT 100"
         )
         .fetch_all(pg)
         .await
         .unwrap_or_default();
 
+        let total: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM bauth.auth_device WHERE status = 'ACTIVE'"
+        ).fetch_one(pg).await.unwrap_or(0);
+
+        // Dispositivos en cuarentena (riesgo ZTA)
+        let quarantine_count: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM bauth.auth_device WHERE trust_level = 'QUARANTINE' AND status != 'DECOMMISSIONED'"
+        ).fetch_one(pg).await.unwrap_or(0);
+
         Ok(json!({
-            "devices": devices.into_iter().map(|(id, cat, seen)| {
-                json!({"id": id, "category": cat, "last_seen": seen})
+            "total_active": total,
+            "quarantine":   quarantine_count,
+            "devices": devices.into_iter().map(|(id, cat, trust, seen)| {
+                json!({"id": id, "category": cat, "trust_level": trust, "last_seen_at": seen})
             }).collect::<Vec<_>>()
         }))
     }
@@ -259,8 +320,9 @@ impl JsonRpcHandler for Panel10Handler {
 impl Panel10Handler { pub fn method_name() -> &'static str { "bauth.dashboard.panel10" } }
 
 // ── Panel 11: Motor BitMask (§34.8) ───────────────────────
+// domain_number solo está en nodos tipo='domain'.
+// Para contar átomos por dominio se necesita JOIN con el nodo padre dominio.
 
-/// Estadísticas del motor BitMask desde idn_roles_template (DDL v2.12.0).
 pub struct Panel11Handler { pub pg: PgPool }
 
 #[async_trait]
@@ -276,12 +338,17 @@ impl JsonRpcHandler for Panel11Handler {
         .await
         .unwrap_or(0);
 
-        // Conteo de átomos por número de dominio
-        let by_domain: Vec<(i32, i64)> = sqlx::query_as(
-            "SELECT domain_number, count(*) as c
-             FROM bauth.idn_roles_template
-             WHERE node_type = 'atom' AND is_active = TRUE
-             GROUP BY domain_number
+        // Átomos por dominio: JOIN del átomo con su nodo dominio ancestral
+        // (domain_number solo existe en node_type='domain', no en 'atom')
+        let by_domain: Vec<(Option<i32>, i64)> = sqlx::query_as(
+            "SELECT d.domain_number, count(a.id) as c
+             FROM bauth.idn_roles_template d
+             JOIN bauth.idn_roles_template a
+               ON a.path LIKE d.path || '.%'
+              AND a.node_type = 'atom'
+              AND a.is_active = TRUE
+             WHERE d.node_type = 'domain'
+             GROUP BY d.domain_number
              ORDER BY c DESC"
         )
         .fetch_all(pg)
@@ -299,8 +366,8 @@ impl JsonRpcHandler for Panel11Handler {
 impl Panel11Handler { pub fn method_name() -> &'static str { "bauth.dashboard.panel11" } }
 
 // ── Panel 12: Motor de Evaluación (§35.7) ─────────────────
+// auth_policy tiene: active BOOLEAN, loa_required, created_at (NO updated_at).
 
-/// Total de políticas activas en auth_policy (tabla unificada DDL v2.12.0).
 pub struct Panel12Handler { pub pg: PgPool }
 
 #[async_trait]
@@ -315,7 +382,6 @@ impl JsonRpcHandler for Panel12Handler {
         .await
         .unwrap_or(0);
 
-        // Distribución por loa_required
         let by_loa: Vec<(String, i64)> = sqlx::query_as(
             "SELECT loa_required, count(*) as c
              FROM bauth.auth_policy WHERE active = TRUE
@@ -327,17 +393,20 @@ impl JsonRpcHandler for Panel12Handler {
 
         Ok(json!({
             "total_active_policies": total,
-            "by_loa":                by_loa.into_iter().map(|(l, c)| json!({"loa": l, "count": c})).collect::<Vec<_>>(),
-            "evaluation_layers":     ["FastPath", "PolicyPath", "External"],
-            "trace_available":       true,
+            "by_loa": by_loa.into_iter().map(|(l, c)| json!({"loa": l, "count": c})).collect::<Vec<_>>(),
+            "evaluation_layers": ["FastPath", "PolicyPath", "External"],
+            "trace_available":   true,
         }))
     }
 }
 impl Panel12Handler { pub fn method_name() -> &'static str { "bauth.dashboard.panel12" } }
 
 // ── Panel 13: Blockchain D12 (§37.7) ──────────────────────
+// tx_hash vive en blk_anchor (NO en blk_merkle_batch).
+// blk_reconciliation usa verified_at (NO created_at).
+// blk_reconciliation.status CHECK: 'OK','DISCREPANCY','CORRECTED' (NO 'PENDING').
+// DRIFT = tiene filas con status='DISCREPANCY' en últimas 24h.
 
-/// Estado de anclajes blockchain y reconciliación.
 pub struct Panel13Handler { pub pg: PgPool }
 
 #[async_trait]
@@ -345,31 +414,36 @@ impl JsonRpcHandler for Panel13Handler {
     async fn handle(&self, _params: Value) -> Result<Value, JsonRpcError> {
         let pg = &self.pg;
 
-        let anchors: Vec<(String, String, String)> = sqlx::query_as(
-            "SELECT batch_id::text, merkle_root, tx_hash
-             FROM bauth.blk_merkle_batch
-             ORDER BY created_at DESC LIMIT 20"
+        // Batches recientes con su anclaje (tx_hash en blk_anchor, no en blk_merkle_batch)
+        let anchors: Vec<(String, Option<String>, String, Option<String>)> = sqlx::query_as(
+            "SELECT b.batch_id::text, b.merkle_root, b.status, a.tx_hash
+             FROM bauth.blk_merkle_batch b
+             LEFT JOIN bauth.blk_anchor a
+               ON a.batch_id = b.batch_id
+              AND a.status = 'ANCHORED'
+             ORDER BY b.created_at DESC LIMIT 20"
         )
         .fetch_all(pg)
         .await
         .unwrap_or_default();
 
+        // Estado de reconciliación (verified_at — no created_at; status 'PENDING' no existe)
         let status: String = sqlx::query_scalar(
             "SELECT CASE
-                WHEN count(*) FILTER (WHERE status = 'PENDING') > 0 THEN 'DRIFT'
+                WHEN count(*) FILTER (WHERE status = 'DISCREPANCY') > 0 THEN 'DRIFT'
                 WHEN count(*) = 0 THEN 'EMPTY'
                 ELSE 'OK'
              END
              FROM bauth.blk_reconciliation
-             WHERE created_at > now() - interval '24 hours'"
+             WHERE verified_at > now() - interval '24 hours'"
         )
         .fetch_one(pg)
         .await
         .unwrap_or_else(|_| "UNKNOWN".into());
 
         Ok(json!({
-            "recent_anchors": anchors.into_iter().map(|(id, root, tx)| {
-                json!({"batch": id, "root": root, "tx": tx})
+            "recent_anchors": anchors.into_iter().map(|(id, root, st, tx)| {
+                json!({"batch": id, "root": root, "status": st, "tx_hash": tx})
             }).collect::<Vec<_>>(),
             "reconciliation": status,
         }))
@@ -379,8 +453,6 @@ impl Panel13Handler { pub fn method_name() -> &'static str { "bauth.dashboard.pa
 
 // ── Panel 4: Biblioteca de Políticas por Dominio (§31.1) ──
 
-/// Políticas y configuraciones por dominio.
-/// Usa auth_policy (filtro loa) y cfg_policy_library (filtro domain_map).
 pub struct Panel4Handler { pub pg: PgPool }
 
 #[async_trait]
@@ -388,13 +460,9 @@ impl JsonRpcHandler for Panel4Handler {
     async fn handle(&self, params: Value) -> Result<Value, JsonRpcError> {
         let pg = &self.pg;
 
-        // Dominio como número: "D1" → 1, "D11" → 11, etc.
         let d_raw = params.get("domain").and_then(|v| v.as_str()).unwrap_or("D1");
-        let domain_num: i32 = d_raw.trim_start_matches('D')
-            .parse()
-            .unwrap_or(1);
+        let domain_num: i32 = d_raw.trim_start_matches('D').parse().unwrap_or(1);
 
-        // Políticas activas (auth_policy no tiene columna domain — filtrar por loa)
         let policies: Vec<(uuid::Uuid, String, String)> = sqlx::query_as(
             "SELECT policy_id, name, loa_required
              FROM bauth.auth_policy
@@ -405,7 +473,6 @@ impl JsonRpcHandler for Panel4Handler {
         .await
         .unwrap_or_default();
 
-        // Configuraciones del dominio desde cfg_policy_library
         let configs: Vec<(String, String)> = sqlx::query_as(
             "SELECT section_name, json_path
              FROM bauth.cfg_policy_library
@@ -430,10 +497,8 @@ impl JsonRpcHandler for Panel4Handler {
 }
 impl Panel4Handler { pub fn method_name() -> &'static str { "bauth.dashboard.panel4" } }
 
-// ── Panel 7+8: Sync Status + ctx_id + Menús ───────────────
+// ── Panel 7+8: Estado de Sesiones + Menús ─────────────────
 
-/// Estado de sesiones activas y menús.
-/// sync_log eliminado (no existe en DDL v2.12.0).
 pub struct Panel78Handler { pub pg: PgPool }
 
 #[async_trait]
@@ -441,7 +506,6 @@ impl JsonRpcHandler for Panel78Handler {
     async fn handle(&self, _params: Value) -> Result<Value, JsonRpcError> {
         let pg = &self.pg;
 
-        // Últimas sesiones (reemplaza sync_log + ses_context)
         let sessions: Vec<(String, String, String)> = sqlx::query_as(
             "SELECT user_id::text, auth_method, started_at::text
              FROM bauth.ses_session_log
@@ -459,7 +523,6 @@ impl JsonRpcHandler for Panel78Handler {
         .await
         .unwrap_or(0);
 
-        // Menús canónicos (seeds T060 — bglobal schema)
         let menu_count: i64 = sqlx::query_scalar(
             "SELECT count(*) FROM bglobal.menu_item"
         )

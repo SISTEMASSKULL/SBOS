@@ -140,12 +140,13 @@ impl JsonRpcHandler for CtxPromoteHandler {
                 _ => "AAL1",
             };
             if let Some(tid) = tenant_uuid {
+                // ses_session_log.session_id es el único PK único — ctx_id no tiene UNIQUE constraint.
+                // INSERT plano: cada promoción crea una fila nueva de sesión.
                 let _ = sqlx::query(
                     "INSERT INTO bauth.ses_session_log
                         (tenant_id, user_id, auth_method, loa_initial, loa_peak,
                          ip_address, user_agent, ctx_id)
-                     VALUES ($1, $2, $3, $4, $4, $5::inet, $6, $7)
-                     ON CONFLICT (ctx_id) DO UPDATE SET last_active_at = now()"
+                     VALUES ($1, $2, $3, $4, $4, $5::inet, $6, $7)"
                 )
                 .bind(tid)
                 .bind(user_id)

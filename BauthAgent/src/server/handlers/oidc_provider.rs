@@ -275,7 +275,11 @@ async fn lookup_user(pg: &sqlx::PgPool, sub: &str) -> Result<(Option<String>, Op
     #[derive(sqlx::FromRow)]
     struct UserRow { username: Option<String>, email: Option<String> }
     if let Ok(Some(row)) = sqlx::query_as::<_, UserRow>(
-        "SELECT username, email FROM bauth.idn_user_template WHERE uuid::text = $1"
+        "SELECT u.username, ia.attr_value #>> '{}' AS email
+         FROM bauth.idn_user u
+         LEFT JOIN bauth.idn_identity_attribute ia
+           ON ia.entity_id = u.entity_id AND ia.attr_key = 'email'
+         WHERE u.user_id::text = $1 LIMIT 1"
     ).bind(sub).fetch_optional(pg).await {
         Ok((row.username, row.email))
     } else { Ok((None, None)) }

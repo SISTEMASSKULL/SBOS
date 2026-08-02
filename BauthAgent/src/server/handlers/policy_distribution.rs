@@ -14,8 +14,11 @@
 //   - sla_p99_ms: 5000 (5s P99 objetivo)
 //
 // Probe interno: el handler mide en tiempo real consultando
-// aud_policy_change. En producción, un cron cada 30s llama a
-// este endpoint y alerta si health != "ok".
+// auth_policy.created_at (tabla canónica DDL v2.12.0).
+//
+// NOTA: auth_policy NO tiene columna updated_at — solo created_at.
+// ses_caep_event_log es para eventos CAEP externos (session-revoked,
+// credential-change, etc.) — NO para cambios de política interna.
 // ============================================================
 
 #![allow(dead_code)]
@@ -34,6 +37,9 @@ impl JsonRpcHandler for PolicyDistributionHandler {
         })?;
 
         // ── Último cambio de política ──────────────────────
+        // auth_policy.created_at es el timestamp de creación/versión de la política.
+        // auth_policy NO tiene updated_at — la política más reciente por created_at
+        // representa el último cambio registrado en el sistema.
         #[derive(sqlx::FromRow)]
         struct LastChange {
             changed_at: chrono::DateTime<chrono::Utc>,
@@ -42,28 +48,27 @@ impl JsonRpcHandler for PolicyDistributionHandler {
         }
 
         let last_change: Option<LastChange> = sqlx::query_as(
-            "SELECT changed_at, policy_slug, change_type
-             FROM bauth.aud_policy_change
-             ORDER BY changed_at DESC LIMIT 1"
+            "SELECT created_at AS changed_at,
+                    name AS policy_slug,
+                    loa_required AS change_type
+             FROM bauth.auth_policy
+             WHERE active = TRUE
+             ORDER BY created_at DESC LIMIT 1"
         ).fetch_optional(pg).await.map_err(|e| JsonRpcError {
-            code: -32000, message: format!("error consultando auditoría: {}", e), data: None,
+            code: -32000, message: format!("error consultando auth_policy: {}", e), data: None,
         })?;
 
         // ── Políticas activas totales ──────────────────────
         #[derive(sqlx::FromRow)]
         struct PolicyCount { cnt: i64 }
 
-        let mut total_policies: i64 = 0;
-        for d in 1..=12 {
-            let sql = format!(
-                "SELECT COUNT(*) as cnt FROM bauth.ath_policy_d{} WHERE is_active = true AND config ? 'rule'", d
-            );
-            if let Ok(Some(row)) = sqlx::query_as::<_, PolicyCount>(&sql)
-                .fetch_optional(pg).await
-            {
-                total_policies += row.cnt;
-            }
-        }
+        // D01 resuelto: ath_policy_d{N} → auth_policy (tabla unificada DDL v2.12.0)
+        let total_policies: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM bauth.auth_policy WHERE active = TRUE"
+        )
+        .fetch_one(pg)
+        .await
+        .unwrap_or(0);
 
         // ── Calcular latencia de propagación ───────────────
         let (propagation_ms, health, last_change_info) = match &last_change {

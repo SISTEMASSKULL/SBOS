@@ -143,7 +143,9 @@ impl HierarchicalNotifier {
         let pg = self.pg.as_ref()?;
         let uuid: uuid::Uuid = user_uuid.parse().ok()?;
         sqlx::query_scalar::<_, String>(
-            "SELECT email FROM bauth.idn_user_template WHERE uuid = $1"
+            "SELECT ia.attr_value #>> '{}' FROM bauth.idn_identity_attribute ia
+             JOIN bauth.idn_user u ON u.entity_id = ia.entity_id
+             WHERE u.user_id = $1 AND ia.attr_key = 'email' LIMIT 1"
         ).bind(uuid).fetch_optional(pg).await.ok()?
     }
 }
