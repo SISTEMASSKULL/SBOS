@@ -36,6 +36,7 @@ import '../widgets/comunes/arbol_bd.dart';
 import '../widgets/comunes/arbol_sbos.dart';
 import '../widgets/comunes/arbol_template.dart';
 import '../widgets/comunes/boton_sbos.dart';
+import '../widgets/comunes/dialogo_crear_atomo.dart';
 import '../widgets/comunes/panel_lateral.dart';
 import '../widgets/comunes/tira_tabs.dart';
 
@@ -296,9 +297,34 @@ class _PanelComparacion extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
+    final s  = Theme.of(context).scaling;
     final totalFuente = _contarFuente(arbolRolTemplate);
     final conexion = ref.watch(pruebaConexionProvider);
     final conectado = conexion.fase == FaseConexion.exitosa;
+    final puedeAgregar = conectado && seleccionBD != null && seleccionBD!.tipo != 'atom';
+
+    // Barra de acciones del panel BD
+    final accionBD = conectado
+        ? Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (puedeAgregar) ...[
+                BotonSbos(
+                  '+ Átomo',
+                  icono: LucideIcons.plus,
+                  alTocar: () => mostrarDialogoCrearAtomo(
+                    context,
+                    padre: seleccionBD!,
+                    rpc: ref.read(clienteRpcActivoProvider),
+                    alCrear: alRecargar,
+                  ),
+                ),
+                SizedBox(width: 6 * s),
+              ],
+              BotonSbos('Recargar', icono: LucideIcons.refreshCw, alTocar: alRecargar),
+            ],
+          )
+        : null;
 
     return Row(
       children: [
@@ -311,15 +337,11 @@ class _PanelComparacion extends ConsumerWidget {
         Container(width: 1, color: cs.border),
         Expanded(child: _PanelArbol(
           titulo: 'BD · idn_roles_template',
-          subtitulo: conectado ? 'expandido automático' : 'sin conexión',
+          subtitulo: conectado
+              ? (seleccionBD != null ? 'selección: ${seleccionBD!.clave}' : 'sin selección')
+              : 'sin conexión',
           color: Colors.teal.shade400,
-          accion: conectado
-              ? BotonSbos(
-                  'Recargar',
-                  icono: LucideIcons.refreshCw,
-                  alTocar: alRecargar,
-                )
-              : null,
+          accion: accionBD,
           footerBD: Column(
             mainAxisSize: MainAxisSize.min,
             children: [

@@ -146,9 +146,22 @@ final arbolEntidadesProvider = FutureProvider<List<EntidadInfo>>((ref) async {
 });
 
 /// Catálogo de tipos de nodo desde bauth.idn_policy_node_type.
-/// Cargado una vez al conectar. Provee Map<codigo, ConfigTipoNodo>.
+/// Cargado una vez al conectar. Provee `Map<codigo, ConfigTipoNodo>`.
 /// Los widgets leen de aquí — cero switch de presentación por tipo en la UI.
 final catalogoTiposProvider = FutureProvider<Map<String, ConfigTipoNodo>>((ref) async {
   final api = ref.watch(bauthApiProvider);
   return api.cargarCatalogoTipos();
+});
+
+/// Métricas operacionales del daemon bAuth — se refresca cada 30 s.
+/// Consume bauth.sync.status (7 COUNTs en paralelo, < 5 ms).
+final syncStatusProvider = FutureProvider.autoDispose<SyncStatusInfo>((ref) async {
+  ref.keepAlive();
+  final api = ref.watch(bauthApiProvider);
+  final timer = Timer.periodic(const Duration(seconds: 30), (_) {
+    // ignore: invalid_use_of_visible_for_testing_member
+    ref.invalidateSelf();
+  });
+  ref.onDispose(timer.cancel);
+  return api.syncStatus();
 });

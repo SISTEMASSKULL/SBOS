@@ -127,6 +127,35 @@ class AccessResult {
         detalle = j;
 }
 
+/// Métricas operacionales del daemon — respuesta de bauth.sync.status.
+class SyncStatusInfo {
+  final String status;
+  final String timestamp;
+  final int rolesTotal;
+  final int atomosActivos;
+  final int atomosConPosicion;
+  final int usuariosActivos;
+  final int sesionesActivas;
+  final int credencialesActivas;
+  final int intentosUltimaHora;
+  final int algoritmosAprobados;
+
+  SyncStatusInfo.fromJson(Map<String, dynamic> j)
+      : status      = j['status']    ?? 'UNKNOWN',
+        timestamp   = j['timestamp'] ?? '',
+        rolesTotal         = (j['identidad']    as Map?)?['roles_total']          ?? 0,
+        atomosActivos      = (j['identidad']    as Map?)?['atomos_activos']       ?? 0,
+        atomosConPosicion  = (j['identidad']    as Map?)?['atomos_con_posicion']  ?? 0,
+        usuariosActivos    = (j['identidad']    as Map?)?['usuarios_activos']     ?? 0,
+        sesionesActivas    = (j['sesiones']     as Map?)?['activas']              ?? 0,
+        credencialesActivas = (j['sesiones']    as Map?)?['credenciales_activas'] ?? 0,
+        intentosUltimaHora  = (j['sesiones']   as Map?)?['intentos_ultima_hora'] ?? 0,
+        algoritmosAprobados = (j['criptografia'] as Map?)?['algoritmos_aprobados'] ?? 0;
+
+  /// Crea una instancia vacía para estado de carga o error.
+  factory SyncStatusInfo.vacio() => SyncStatusInfo.fromJson(const {});
+}
+
 class SoDResult {
   final bool conflicto;
   final List<String> rolesConflictivos;
@@ -155,6 +184,15 @@ class BauthApi {
   Future<HealthInfo> healthCheck() async {
     final r = await _rpc.llamar('bauth.health.check');
     return HealthInfo.fromJson(r);
+  }
+
+  // ── Sync Status ──────────────────────────────────────────
+
+  /// Métricas operacionales: roles, átomos, usuarios, sesiones, cripto.
+  /// Fuente: bauth.sync.status (sync_status.rs — 7 queries en paralelo).
+  Future<SyncStatusInfo> syncStatus() async {
+    final r = await _rpc.llamar('bauth.sync.status');
+    return SyncStatusInfo.fromJson(r);
   }
 
   // ── Roles ────────────────────────────────────────────────
