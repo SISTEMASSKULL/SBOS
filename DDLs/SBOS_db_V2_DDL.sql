@@ -5497,6 +5497,7 @@ CREATE TABLE IF NOT EXISTS bauth.auth_credential_fido2 (
     backup_state         BOOLEAN NOT NULL DEFAULT FALSE,
     transports           TEXT[]  NOT NULL DEFAULT '{}',
     device_name          TEXT    NULL,
+    uv_required          BOOLEAN NOT NULL DEFAULT false,
     ctx_id               TEXT    NOT NULL DEFAULT 'system',
     created_at           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -5527,6 +5528,43 @@ COMMENT ON COLUMN bauth.auth_credential_fido2.backup_eligible   IS 'TRUE = la cr
 COMMENT ON COLUMN bauth.auth_credential_fido2.backup_state      IS 'TRUE = la credencial está actualmente sincronizada en nube. Combinado con backup_eligible para evaluar el nivel de confianza del autenticador.';
 COMMENT ON COLUMN bauth.auth_credential_fido2.credential_id_bytes IS 'ID de la credencial en bytes — asignado por el autenticador, único por origen. Se presenta en cada solicitud de autenticación para que el servidor ubique la credencial.';
 COMMENT ON COLUMN bauth.auth_credential_fido2.public_key_cose   IS 'Clave pública en formato COSE (CBOR Object Signing and Encryption) — la clave privada NUNCA sale del autenticador. El motor verifica la firma de la aserción usando esta clave.';
+COMMENT ON COLUMN bauth.auth_credential_fido2.uv_required        IS '[W3C WebAuthn L3 §15.5 · GAP-FIDO2-01] TRUE = el motor exige User Verification (PIN/biométrica) en el autenticador al verificar esta credencial. Refuerza AAL3: sin UV el autenticador solo prueba posesión (AAL2). El PDP evalúa este flag para recursos de alta seguridad.';
+
+-- =============================================================================
+-- T-568  auth_biometric_template — Plantillas biométricas cifradas (GAP-NIST63B-02)
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS bauth.auth_biometric_template (
+    template_id       UUID        NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    credential_id     UUID        NOT NULL UNIQUE REFERENCES bauth.auth_credential(credential_id) ON DELETE CASCADE,
+    tenant_id         UUID        NOT NULL REFERENCES bauth.idn_tenant(tenant_id) ON DELETE CASCADE,
+    biometric_type    TEXT        NOT NULL CONSTRAINT chk_abt_type CHECK (
+                                      biometric_type IN ('FINGERPRINT','FACE','IRIS','VOICE','VEIN','PALM')),
+    template_hash     TEXT        NOT NULL,
+    vault_path        TEXT        NOT NULL,
+    vault_key_version INT         NOT NULL DEFAULT 1,
+    sensor_make       TEXT        NULL,
+    sensor_model      TEXT        NULL,
+    quality_score     NUMERIC(5,2) NULL CONSTRAINT chk_abt_quality CHECK (
+                                      quality_score IS NULL OR
+                                      (quality_score >= 0 AND quality_score <= 100)),
+    enrolled_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_verified_at  TIMESTAMPTZ NULL,
+    revoked_at        TIMESTAMPTZ NULL,
+    ctx_id            TEXT        NOT NULL DEFAULT 'system',
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_abt_tenant ON bauth.auth_biometric_template (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_abt_type   ON bauth.auth_biometric_template (biometric_type);
+COMMENT ON TABLE bauth.auth_biometric_template IS
+'AUTENTICACIÓN | Templates biométricos — NIST SP 800-63B §5.2.3. Los datos biométricos
+se almacenan en un sistema separado del verificador principal (ADR-010). NUNCA se guarda
+el template en claro: template_hash es el SHA-256 del template procesado; vault_path apunta
+a la ruta en Vault transit donde vive el template cifrado con AES-256-GCM.
+Tipos: FINGERPRINT, FACE, IRIS, VOICE, VEIN, PALM. quality_score 0-100 indica la calidad
+del template capturado (umbral mínimo configurable en cfg_policy_library).
+vault_key_version: permite re-cifrado al rotar la clave sin invalidar templates activos.
+Norma: NIST SP 800-63B §5.2.3, ISO/IEC 30107-3 (PAD). T-568.';
 
 CREATE TABLE IF NOT EXISTS bauth.auth_credential_x509 (
     x509_id             UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
@@ -6108,6 +6146,10 @@ CREATE TABLE IF NOT EXISTS bauth.fed_client (
     id_token_ttl      INT     NOT NULL DEFAULT 600,
     status            TEXT    NOT NULL DEFAULT 'ACTIVE' CONSTRAINT chk_fc_status CHECK (status IN ('ACTIVE','SUSPENDED','REVOKED')),  -- [MC-0082] → A.65.04
     vault_secret_path TEXT    NULL,
+    jarm_signing_alg  TEXT    NULL CONSTRAINT chk_fc_jarm_sign CHECK (
+                                  jarm_signing_alg IN ('PS256','RS256','ES256')),
+    jarm_encryption_alg TEXT  NULL,
+    authorization_details_types TEXT[] NULL,
     ctx_id            TEXT    NOT NULL DEFAULT 'system',
     created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -6131,7 +6173,12 @@ Administración: status=SUSPENDED bloquea emisión de nuevos tokens manteniendo 
 status=REVOKED invalida todos los tokens activos del cliente de forma inmediata.
 WORM: no — at_ttl_seconds y dpop_required son ajustables en runtime por OAUTH_ADMIN.
 Particionada: no.
-Estándar: RFC 6749 (OAuth 2.0), RFC 7636 (PKCE), RFC 9449 (DPoP), RFC 8705 (mTLS), RFC 9126 (PAR), FAPI 2.0. T-365.';
+jarm_signing_alg (JWT Secured Authorization Response Mode RFC 9101 — PS256/RS256/ES256): si NOT NULL,
+las respuestas de autorización se emiten como JWT firmado. Obligatorio en FAPI 2.0 Advanced.
+jarm_encryption_alg: algoritmo de cifrado para JARM (ej. RSA-OAEP). NULL = no cifrar, solo firmar.
+authorization_details_types (RFC 9396 RAR — Rich Authorization Requests): tipos de autorización detallada
+que este cliente puede solicitar (ej. ["payment_initiation","account_info"]).
+Estándar: RFC 6749, RFC 7636 (PKCE), RFC 9449 (DPoP), RFC 8705 (mTLS), RFC 9126 (PAR), RFC 9101 (JARM), RFC 9396 (RAR), FAPI 2.0. T-365.';
 
 -- =============================================================================
 -- T-566 — bauth.fed_par_request (RFC 9126 — Pushed Authorization Requests)
@@ -6213,6 +6260,34 @@ WORM: no — attr_mapping y status son mutables por administración normal.
 Particionada: no.
 Estándar: NIST SP 800-63-4 §6 (FAL), RFC 6749 (OIDC), SAML 2.0 OASIS, OpenID Connect Core 1.0. T-366.';
 
+-- =============================================================================
+-- T-569 — bauth.fed_dynamic_client_registration (RFC 7591 — Dynamic Client Registration)
+-- GAP-OAUTH-04: soporte DDL para registro dinámico de clientes OAuth2.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bauth.fed_dynamic_client_registration (
+    registration_id          UUID        NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    client_id                UUID        NOT NULL UNIQUE REFERENCES bauth.fed_client(client_id) ON DELETE CASCADE,
+    tenant_id                UUID        NOT NULL REFERENCES bauth.idn_tenant(tenant_id) ON DELETE CASCADE,
+    registration_access_token TEXT       NOT NULL UNIQUE,
+    initial_access_token_ref TEXT        NULL,
+    metadata                 JSONB       NOT NULL DEFAULT '{}',
+    status                   TEXT        NOT NULL DEFAULT 'ACTIVE' CONSTRAINT chk_fdcr_status CHECK (
+                                             status IN ('ACTIVE','EXPIRED','REVOKED')),
+    registered_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at               TIMESTAMPTZ NULL,
+    ctx_id                   TEXT        NOT NULL DEFAULT 'system',
+    created_at               TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_fdcr_tenant ON bauth.fed_dynamic_client_registration (tenant_id);
+COMMENT ON TABLE bauth.fed_dynamic_client_registration IS
+'FEDERACIÓN OIDC | Registro dinámico de clientes — RFC 7591. Cada fila vincula un client_id
+(en fed_client, creado dinámicamente) con su registration_access_token, que permite al
+cliente actualizar o eliminar su propio registro sin intervención del OAUTH_ADMIN.
+metadata: copia del software_statement JWT y parámetros del registration request original.
+initial_access_token_ref: referencia al token de acceso inicial requerido por el servidor
+para autorizar el registro (ruta en Vault — el token en sí nunca se almacena en BD).
+Norma: RFC 7591 (Dynamic Client Registration), RFC 7592 (Management). T-569.';
+
 -- PK compuesto (token_id, issued_at) requerido por particionamiento
 CREATE TABLE IF NOT EXISTS bauth.fed_token_issued (
     token_id          UUID         NOT NULL DEFAULT uuidv7(),
@@ -6229,9 +6304,10 @@ CREATE TABLE IF NOT EXISTS bauth.fed_token_issued (
     issued_at         TIMESTAMPTZ  NOT NULL DEFAULT now(),
     expires_at        TIMESTAMPTZ  NOT NULL,
     revoked_at        TIMESTAMPTZ  NULL,
-    revocation_reason TEXT         NULL,
-    session_id        UUID         NULL,
-    ctx_id            TEXT         NOT NULL DEFAULT 'system',
+    revocation_reason       TEXT         NULL,
+    session_id              UUID         NULL,
+    authorization_details   JSONB        NULL,
+    ctx_id                  TEXT         NOT NULL DEFAULT 'system',
     PRIMARY KEY (token_id, issued_at)
 ) PARTITION BY RANGE (issued_at);
 CREATE TABLE IF NOT EXISTS bauth.fed_token_issued_2026_07 PARTITION OF bauth.fed_token_issued FOR VALUES FROM ('2026-07-01') TO ('2026-08-01');
@@ -7234,6 +7310,142 @@ COMMENT ON TABLE bauth.inc_security_event IS
 assessed_by + assessed_at + decision + decision_notes = registro forense del triaje.
 Sin triaje documentado, A.5.25 queda sin evidencia de proceso de decisión humana.
 Estándar: ISO 27001:2022 A.5.25, NIST SP 800-61 Rev.3 §3.2. T-565.';
+
+-- =============================================================================
+-- T-572 — bauth.vul_pentest_record (PCI DSS 11.3 — GAP-PCI-02)
+-- Registro de pruebas de penetración anuales y post-cambio.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bauth.vul_pentest_record (
+    pentest_id                UUID        NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    tenant_id                 UUID        NOT NULL REFERENCES bauth.idn_tenant(tenant_id) ON DELETE CASCADE,
+    title                     TEXT        NOT NULL,
+    scope                     TEXT        NOT NULL,
+    performed_by              TEXT        NOT NULL,
+    performed_at              DATE        NOT NULL,
+    method                    TEXT        NOT NULL CONSTRAINT chk_vpr_method CHECK (
+                                              method IN ('BLACKBOX','GREYBOX','WHITEBOX')),
+    findings_critical         INT         NOT NULL DEFAULT 0,
+    findings_high             INT         NOT NULL DEFAULT 0,
+    findings_medium           INT         NOT NULL DEFAULT 0,
+    findings_low              INT         NOT NULL DEFAULT 0,
+    report_path               TEXT        NULL,
+    remediation_status        TEXT        NOT NULL DEFAULT 'OPEN' CONSTRAINT chk_vpr_status CHECK (
+                                              remediation_status IN ('OPEN','IN_PROGRESS','CLOSED','ACCEPTED_RISK')),
+    remediated_at             DATE        NULL,
+    next_pentest_due          DATE        NULL,
+    ctx_id                    TEXT        NOT NULL DEFAULT 'system',
+    created_at                TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_vpr_tenant    ON bauth.vul_pentest_record (tenant_id, performed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_vpr_due       ON bauth.vul_pentest_record (next_pentest_due) WHERE next_pentest_due IS NOT NULL;
+COMMENT ON TABLE bauth.vul_pentest_record IS
+'VULNERABILIDADES | Registro de pruebas de penetración — PCI DSS 11.3 obliga pentest anual
+y tras cambios significativos. Registra evidencia forense: quién, cuándo, alcance, metodología
+y conteo de hallazgos por severidad. remediation_status rastrea el cierre de los hallazgos.
+next_pentest_due: calculado por el daemon al cerrar el registro anterior.
+Norma: PCI DSS 4.0 Req 11.3, ISO 27001:2022 A.8.8. T-572.';
+
+-- =============================================================================
+-- T-570 — bauth.gdpr_international_transfer (GDPR Art. 44 — GAP-GDPR-02)
+-- Registro de transferencias internacionales de datos personales fuera del EEE.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bauth.gdpr_international_transfer (
+    transfer_id      UUID        NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    tenant_id        UUID        NOT NULL REFERENCES bauth.idn_tenant(tenant_id) ON DELETE CASCADE,
+    recipient_country TEXT       NOT NULL,
+    recipient_org    TEXT        NOT NULL,
+    transfer_basis   TEXT        NOT NULL CONSTRAINT chk_git_basis CHECK (
+                                     transfer_basis IN (
+                                         'ADEQUACY_DECISION','STANDARD_CONTRACTUAL_CLAUSES',
+                                         'BINDING_CORPORATE_RULES','DEROGATION_ART49',
+                                         'CERTIFICATION','CODE_OF_CONDUCT'
+                                     )),
+    data_categories  TEXT[]      NOT NULL DEFAULT '{}',
+    purpose          TEXT        NOT NULL,
+    started_at       DATE        NOT NULL,
+    ended_at         DATE        NULL,
+    review_due       DATE        NULL,
+    notes            TEXT        NULL,
+    ctx_id           TEXT        NOT NULL DEFAULT 'system',
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_git_tenant  ON bauth.gdpr_international_transfer (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_git_country ON bauth.gdpr_international_transfer (recipient_country);
+COMMENT ON TABLE bauth.gdpr_international_transfer IS
+'PRIVACIDAD | Registro de transferencias internacionales de datos personales.
+GDPR Art. 44-49: toda transferencia a un país no adecuado debe tener una base jurídica.
+transfer_basis registra el mecanismo legal (SCCs son el más común post-Schrems II).
+data_categories: categorías de datos transferidos (ej. {identidad, sesiones, biometría}).
+Norma: GDPR Art. 44-49, EDPB Guidelines 05/2021. T-570.';
+
+-- =============================================================================
+-- T-567 — bauth.gdpr_portability_request (GDPR Art. 20 — GAP-GDPR-01)
+-- Solicitudes de portabilidad de datos del sujeto.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bauth.gdpr_portability_request (
+    request_id       UUID        NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    tenant_id        UUID        NOT NULL REFERENCES bauth.idn_tenant(tenant_id) ON DELETE CASCADE,
+    subject_id       UUID        NOT NULL REFERENCES bauth.idn_identity_entity(entity_id),
+    requested_by     UUID        NULL REFERENCES bauth.idn_identity_entity(entity_id),
+    format           TEXT        NOT NULL DEFAULT 'JSON' CONSTRAINT chk_gpr_format CHECK (
+                                     format IN ('JSON','CSV','XML')),
+    scope            TEXT[]      NOT NULL DEFAULT '{}',
+    status           TEXT        NOT NULL DEFAULT 'PENDING' CONSTRAINT chk_gpr_status CHECK (
+                                     status IN ('PENDING','PROCESSING','READY','DELIVERED','EXPIRED','FAILED')),
+    requested_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    completed_at     TIMESTAMPTZ NULL,
+    expires_at       TIMESTAMPTZ NULL,
+    delivery_method  TEXT        NOT NULL DEFAULT 'DOWNLOAD' CONSTRAINT chk_gpr_delivery CHECK (
+                                     delivery_method IN ('DOWNLOAD','EMAIL','API_PUSH')),
+    download_token   TEXT        NULL UNIQUE,
+    error_message    TEXT        NULL,
+    ctx_id           TEXT        NOT NULL DEFAULT 'system',
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_gpr_subject  ON bauth.gdpr_portability_request (subject_id, requested_at DESC);
+CREATE INDEX IF NOT EXISTS idx_gpr_pending  ON bauth.gdpr_portability_request (status) WHERE status IN ('PENDING','PROCESSING');
+CREATE INDEX IF NOT EXISTS idx_gpr_token    ON bauth.gdpr_portability_request (download_token) WHERE download_token IS NOT NULL;
+COMMENT ON TABLE bauth.gdpr_portability_request IS
+'PRIVACIDAD | Solicitudes de portabilidad de datos — GDPR Art. 20. El sujeto tiene derecho
+a recibir sus datos en formato estructurado (JSON/CSV/XML) y a transmitirlos a otro
+responsable. El daemon procesa la solicitud de forma asíncrona: recopila los datos del
+sujeto de todas las tablas bAuth, los empaqueta y genera un download_token de un solo uso.
+SLA: 30 días calendario (Art. 12.3). download_token expira en 7 días tras READY.
+Norma: GDPR Art. 20, EDPB Guidelines 05/2021. T-567.';
+
+-- =============================================================================
+-- T-571 — bauth.zta_data_access_policy (NIST SP 800-207 §3.3 — GAP-800207-01)
+-- Políticas de acceso a nivel de dato para Zero Trust Architecture.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bauth.zta_data_access_policy (
+    policy_id        UUID        NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    tenant_id        UUID        NOT NULL REFERENCES bauth.idn_tenant(tenant_id) ON DELETE CASCADE,
+    resource_type    TEXT        NOT NULL CONSTRAINT chk_zdap_rtype CHECK (
+                                     resource_type IN ('TABLE','API_ENDPOINT','FILE_PATH','QUEUE','STREAM','OBJECT')),
+    resource_pattern TEXT        NOT NULL,
+    required_loa     TEXT        NOT NULL CONSTRAINT chk_zdap_loa CHECK (
+                                     required_loa IN ('AAL1','AAL2','AAL3')),
+    required_atoms   TEXT[]      NOT NULL DEFAULT '{}',
+    conditions       JSONB       NULL,
+    effect           TEXT        NOT NULL DEFAULT 'DENY' CONSTRAINT chk_zdap_effect CHECK (
+                                     effect IN ('ALLOW','DENY')),
+    priority         INT         NOT NULL DEFAULT 100,
+    enabled          BOOLEAN     NOT NULL DEFAULT true,
+    ctx_id           TEXT        NOT NULL DEFAULT 'system',
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_zdap_tenant   ON bauth.zta_data_access_policy (tenant_id, enabled);
+CREATE INDEX IF NOT EXISTS idx_zdap_rtype    ON bauth.zta_data_access_policy (resource_type, priority);
+COMMENT ON TABLE bauth.zta_data_access_policy IS
+'ZERO TRUST | Políticas de acceso a nivel de dato — NIST SP 800-207 §3.3. Cada fila define
+una regla que el PEP de bAuth evalúa al decidir si un sujeto puede acceder a un recurso.
+resource_pattern: glob o prefijo del recurso (ej. "/api/v1/users/*", "bauth.idn_user").
+required_loa: nivel mínimo de autenticación requerido (AAL1/2/3).
+required_atoms: lista de slugs de átomos BitMask que el sujeto debe tener activos.
+conditions: filtros adicionales JSONB (geo, temporal, device_posture, risk_score).
+priority: menor número = mayor prioridad (evaluado en orden ascendente).
+Norma: NIST SP 800-207 §3.3 (Data-Level Access Policy), SBOS-049. T-571.';
 
 -- =============================================================================
 -- §WORM — WORM ENFORCEMENT TRIGGERS (append-only a nivel BD)

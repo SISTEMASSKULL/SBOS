@@ -182,7 +182,7 @@ punto_de_entrada:
       controles_iso27001: "A.5.7 · A.5.12 · A.5.25 · A.5.26 · A.5.27 · A.5.34 · A.8.8 · A.8.10"
       estado: "APLICADO en SBOSDB producción (score A.71: 122/123 — 99.2%)"
     - archivo: "migrations/bauth_par_t566.sql"
-      commit: "pendiente"
+      commit: "e2bd38e"
       tipo: "ALTER TABLE fed_client + CREATE TABLE fed_par_request"
       t_codes: "T-566 fed_par_request"
       columnas_alteradas: "fed_client +par_required BOOLEAN"
@@ -190,6 +190,26 @@ punto_de_entrada:
       gaps_cerrados: "GAP-OAUTH-01 (A.73 v1.4.0)"
       nota: "request_uri = urn:ietf:params:oauth:request_uri:<random> · 1 solo uso · TTL 60-600s"
       estado: "APLICADO en SBOSDB producción (1 columna + tabla T-566 + 4 índices verificados)"
+    - archivo: "migrations/bauth_gaps_p2.sql"
+      commit: "pendiente"
+      tipo: "ALTER TABLE × 3 + CREATE TABLE × 6"
+      t_codes: "T-567 T-568 T-569 T-570 T-571 T-572"
+      columnas_alteradas: >
+        fed_client +jarm_signing_alg +jarm_encryption_alg +authorization_details_types +chk_fc_jarm_sign ·
+        fed_token_issued +authorization_details ·
+        auth_credential_fido2 +uv_required
+      tablas_nuevas: >
+        gdpr_portability_request (T-567) · auth_biometric_template (T-568) ·
+        fed_dynamic_client_registration (T-569) · gdpr_international_transfer (T-570) ·
+        zta_data_access_policy (T-571) · vul_pentest_record (T-572)
+      normas: >
+        RFC 9396 (RAR) · RFC 9101 (JARM) · RFC 7591 (DCR) · WebAuthn L3 §16.1 ·
+        GDPR Art.20 · GDPR Art.44 · NIST SP 800-207 §3.3 · PCI DSS 11.3 · NIST 800-63B §5.2.3
+      gaps_cerrados: >
+        GAP-OAUTH-02 (RAR) · GAP-OAUTH-03 (JARM) · GAP-OAUTH-04 (DCR) ·
+        GAP-FIDO2-01 (uv_required) · GAP-GDPR-01 (portabilidad) · GAP-GDPR-02 (transferencias int.) ·
+        GAP-800207-01 (ZTA data-level) · GAP-PCI-02 (pentest) · GAP-NIST63B-02 (biometría)
+      estado: "APLICADO en SBOSDB producción (3 ALTERs + 6 tablas verificadas)"
     - archivo: "migrations/bauth_hibp_t331.sql"
       commit: "a93b936"
       tipo: "ALTER TABLE bauth.auth_credential_secret"
