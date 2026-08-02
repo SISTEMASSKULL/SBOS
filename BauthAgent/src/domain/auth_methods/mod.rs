@@ -37,6 +37,7 @@ pub mod mtls;
 pub mod webauthn;  // WebAuthn/FIDO2 nativo — webauthn-rs — elimina dependencia Keycloak
 pub mod saml;            // SAML 2.0 nativo — validación ligera — elimina dependencia Keycloak
 pub mod saml_signature;  // G4: verificación de firma XML-DSig (xmldsig)
+pub mod biometric;       // NIST 800-63B §5.2.3 + 800-63-4 §8 · ISO/IEC 30107-3 — T-568
 
 // ── Trait AuthMethod ────────────────────────────────────────
 

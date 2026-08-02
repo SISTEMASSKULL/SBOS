@@ -1,7 +1,7 @@
 # A.73 — Informe de Cumplimiento Multi-Norma — bAuth IAM v1.0
 
 **Código:** A.73  
-**Versión:** 1.7.0  
+**Versión:** 1.9.0  
 **Fecha:** 2026-08-02  
 **Clasificación:** INTERNO CRÍTICO — uso restringido a equipo de seguridad SBOS  
 **Alcance:** SBOSDB (229 tablas bauth) · bAuth Identity Control Plane v3.0  
@@ -528,7 +528,7 @@ MADUREZ GLOBAL bAuth IAM — 2026-08-02 (v1.7.0)
 | 6 | ✅ **HECHO** — GAP-IAL-01 cerrado: NIST 800-63-4 §8 Biometrics → T-568 `auth_biometric_template`; A.73 §4 actualizado; IAL 8/8 (100%) (2026-08-02) | NIST 800-63-4 | XS | ~~🟠 P2~~ |
 | 7 | ✅ **HECHO** — `gdpr_retention_execution_log` (T-573): purge_scope/records/status/legal_hold — GAP-GDPR-03 CERRADO (2026-08-02) | GDPR Art. 25 | S | ~~🟡 P3~~ |
 | 8 | ✅ **HECHO** — CI pipeline Podman: `ci/Containerfile.security` + `ci/security-scan.sh` (cargo-audit + cargo-deny + clippy) + `ci/cargo-deny.toml` + timer systemd semanal; ingesta SBOSDB (2026-08-02) | ISO 27001 A.8.25 / NIST SA-10 | L | ~~🟡 P3~~ |
-| 9 | Implementar NIST 800-63-4 §8 biometría en código Rust (comparación template) | NIST 800-63-4 | XL | 🟡 P3 |
+| 9 | ✅ **HECHO** — `domain/auth_methods/biometric.rs`: 8 controles NIST (hash, revocación, tipo, intentos, calidad, liveness/PAD, FMR, score) + `BiometricAuthMethod` trait + 15 tests OK (2026-08-02) | NIST 800-63-4 §8 · 800-63B §5.2.3 · ISO/IEC 30107-3 | XL | ~~🟡 P3~~ |
 
 ---
 
@@ -536,6 +536,7 @@ MADUREZ GLOBAL bAuth IAM — 2026-08-02 (v1.7.0)
 
 | Versión | Fecha | Cambio |
 |---------|-------|--------|
+| 1.9.0 | 2026-08-02 | Tarea 9 CERRADA: `domain/auth_methods/biometric.rs` — 8 controles NIST (hash/revocación/tipo/intentos/calidad/liveness/FMR/score) + `BiometricAuthMethod` trait + 15 tests OK; §15 todas las 9 tareas COMPLETADAS |
 | 1.8.0 | 2026-08-02 | GAP-GDPR-03 CERRADO: `gdpr_retention_execution_log` T-573 (GDPR Art.25 WORM); quinn-proto→0.11.16 (CVE-2026-25800 FIXED); rsa ACCEPTED en cargo-deny ignore + SBOSDB; cargo-deny v2 limpio (sin skips innecesarios); GDPR 10/10 (100%) ↑; 0 gaps P3 · 0 CVEs PENDING |
 | 1.7.0 | 2026-08-02 | SA-10 + A.8.25 CERRADOS: CI pipeline Podman `ci/` (cargo-audit + cargo-deny + clippy + timer systemd + ingesta vul_component/vul_auth_impact); NIST 800-53 18/18 (100%) ↑; ISO 27001 123/123 (100%) ↑; madurez 100.0% ↑ +0.6%; 11/11 normas al 100% |
 | 1.6.0 | 2026-08-02 | GAP-IAL-01 cerrado (NIST 800-63-4 §8 Biometrics → T-568); NIST 800-53 P2 corregido (dato stale — AU-9 ya cerrado); IAL 8/8 (100%); madurez 99.4% ↑ +1.1%; 9/11 normas al 100% |
@@ -548,4 +549,4 @@ MADUREZ GLOBAL bAuth IAM — 2026-08-02 (v1.7.0)
 
 ---
 
-*Custodio: BauthAgent · Verificado contra SBOSDB · v1.8.0 actualizado 2026-08-02 · 0 gaps abiertos · 0 CVEs PENDING · madurez 100.0% · Nivel L4 Optimized COMPLETO · 11/11 normas al 100% · scan CI limpio*
+*Custodio: BauthAgent · Verificado contra SBOSDB · v1.9.0 actualizado 2026-08-02 · §15 9/9 tareas completadas · 0 gaps abiertos · 0 CVEs PENDING · madurez 100.0% · Nivel L4 Optimized COMPLETO · 11/11 normas al 100% · scan CI limpio*
