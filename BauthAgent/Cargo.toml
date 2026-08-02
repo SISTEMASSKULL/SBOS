@@ -12,7 +12,8 @@ version = "3.0.0"
 edition = "2021"
 description = "Motor de Identidad Soberano del SBOS — BitMask Dual + 12 Dominios D1-D12 + D12 Blockchain"
 authors = ["SKULL <sistemas@skull.com.bo>"]
-license = "UNLICENSED"
+license = "LicenseRef-SBOS-Proprietary"
+publish = false
 rust-version = "1.85"
 
 [profile.release]

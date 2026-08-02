@@ -2,10 +2,11 @@
 #
 # Propósito: Entorno reproducible para cargo-audit + cargo-deny + cargo-clippy
 # Norma:     SA-10 (NIST 800-53 Rev.5) · ISO 27001:2022 A.8.25
-# Uso:       podman build -t bauth-security-scanner -f ci/Containerfile.security .
-#            podman run --rm -v $(pwd):/workspace bauth-security-scanner
+# Uso:       podman build -t bauth-security-scanner -f ci/Containerfile.security ci/
+#            podman run --rm -v $(pwd):/workspace bauth-security-scanner "cargo-audit --json"
 #
 # No usa Docker — solo Podman (SBOS soberano)
+# Nota: usa cargo-binstall para descargar binarios pre-compilados (segundos, no minutos)
 
 FROM docker.io/library/rust:1.85-slim
 
@@ -14,23 +15,34 @@ LABEL org.opencontainers.image.description="Escáner de seguridad bAuth: cargo-a
 LABEL org.opencontainers.image.vendor="SKULL SBOS"
 LABEL org.sbos.norma="SA-10 / ISO 27001 A.8.25"
 
-# ── Dependencias de sistema para compilar herramientas de seguridad ───────────
+# ── Garantizar PATH con Cargo bin — bash -l resetea al path del sistema ───────
+ENV PATH=/usr/local/cargo/bin:/usr/local/rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin:${PATH}
+
+# ── Dependencias de sistema ───────────────────────────────────────────────────
 RUN apt-get update && apt-get install -y --no-install-recommends \
         pkg-config \
         libssl-dev \
         ca-certificates \
         git \
+        curl \
         jq \
     && rm -rf /var/lib/apt/lists/*
 
-# ── Instalar herramientas de seguridad en versiones reproducibles ─────────────
+# ── cargo-binstall: gestor de binarios pre-compilados ────────────────────────
+# Usa binarios pre-compilados musl estáticos → instalación en segundos
+RUN curl -L --proto '=https' --tlsv1.2 -sSf \
+    "https://github.com/cargo-bins/cargo-binstall/releases/latest/download/cargo-binstall-x86_64-unknown-linux-musl.tgz" \
+    | tar -xz -C /usr/local/cargo/bin/ \
+    && chmod +x /usr/local/cargo/bin/cargo-binstall
+
+# ── Instalar cargo-audit y cargo-deny vía binstall (binarios pre-compilados) ─
 # cargo-audit: escanea Cargo.lock contra RustSec Advisory Database
 # cargo-deny:  aplica políticas de licencias, advisories y paquetes prohibidos
-RUN cargo install cargo-audit --locked \
-    && cargo install cargo-deny  --locked \
-    && rm -rf /root/.cargo/registry/src \
-              /root/.cargo/registry/cache \
-              /root/.cargo/git/db
+RUN cargo-binstall --no-confirm --secure cargo-audit cargo-deny \
+    && rm -rf /root/.cargo/registry 2>/dev/null || true
+
+# ── Agregar clippy para SAST (no incluido por defecto en rust:slim) ───────────
+RUN rustup component add clippy
 
 # ── Directorio de trabajo (montado desde el host con --volume) ────────────────
 WORKDIR /workspace
@@ -38,11 +50,9 @@ WORKDIR /workspace
 # ── Directorio de salida para reportes JSON/texto ────────────────────────────
 RUN mkdir -p /output
 
-# El ENTRYPOINT es /bin/bash -lc para permitir pipelines en el CMD
-ENTRYPOINT ["/bin/bash", "-lc"]
+# Usar -c (no -l) para no resetear el PATH con /etc/profile del sistema
+ENTRYPOINT ["/bin/bash", "-c"]
 
-# CMD por defecto: ejecutar todas las fases de seguridad
-# Se sobreescribe en security-scan.sh por fase
-CMD ["cargo audit --json > /output/cargo-audit.json; \
-      cargo deny check 2>&1 | tee /output/cargo-deny.txt; \
-      cargo clippy --all-targets -- -D warnings 2>&1 | tee /output/clippy.txt"]
+# CMD por defecto: todas las fases (se sobreescribe en security-scan.sh por fase)
+CMD ["cargo-audit --json > /output/cargo-audit.json; \
+      cargo-deny check 2>&1 | tee /output/cargo-deny.txt"]

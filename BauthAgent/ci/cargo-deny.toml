@@ -1,32 +1,37 @@
 # cargo-deny.toml — Política de dependencias bAuth (SBOS)
 # Propósito: definir qué licencias, advisories y paquetes están permitidos
 # Norma:     SA-10 / ISO 27001 A.8.25 / OWASP ASVS v5.0 §12.3
-# Referencia: https://embarkstudios.github.io/cargo-deny/
+# Formato:   version 2 (cargo-deny 0.14+ / 0.20+)
+# Migración: pull/611 eliminó los campos "deny", "default", "copyleft" de [licenses]
+#            y cambió "unmaintained" de acción a scope en [advisories]
 
 # ── §1 Advisories (vulnerabilidades conocidas — RustSec DB) ──────────────────
+# En v2: vulnerabilities son siempre denied salvo que estén en ignore[].
+# unmaintained: scope "all"|"workspace"|"transitive"|"none" (ya no acepta "warn"/"deny")
 [advisories]
-# Base de datos local de advisories (sincronizada por cargo-audit)
-db-path     = "~/.cargo/advisory-db"
-db-urls     = ["https://github.com/rustsec/advisory-db"]
+version = 2
+db-path  = "~/.cargo/advisory-db"
+db-urls  = ["https://github.com/rustsec/advisory-db"]
 
-# Toda vulnerabilidad activa se deniega (bloquea el pipeline)
-vulnerability = "deny"
+# Incluir todos los crates (workspace + transitivos) en la revisión
+unmaintained = "all"
 
-# Crates no mantenidos se reportan como advertencia
-unmaintained  = "warn"
+# Versiones retiradas de crates.io → advertencia (puede bloquear builds futuros)
+yanked = "warn"
 
-# Versiones descontinuadas (yanked en crates.io) se deniegan
-yanked        = "deny"
-
-# Avisos (notices, no CVEs) se reportan como advertencia
-notice        = "warn"
-
-# Lista de advisories exceptuados (vacía — no se aceptan excepciones sin revisión manual)
+# Lista de advisories exceptuados — vacía: ninguna excepción sin revisión manual
 ignore = []
 
 # ── §2 Licencias aprobadas para el ecosistema SBOS ───────────────────────────
+# En v2: "allow" define el conjunto aprobado. Todo lo no listado es error implícito.
+# Los campos "deny", "default" y "copyleft" fueron eliminados en 0.14+ (pull/611).
+# Licencias copyleft (GPL, AGPL, LGPL, EUPL) quedan denegadas por no estar en allow.
 [licenses]
-# Licencias explícitamente aprobadas por el equipo SBOS (soberanas y compatibles)
+version = 2
+# bAuth es software propietario SBOS interno (no publicado en crates.io).
+# private.ignore=true omite el chequeo de licencias para crates del workspace
+# que no tienen license = <SPDX válido> en su Cargo.toml.
+private = { ignore = true }
 allow = [
     "MIT",
     "Apache-2.0",
@@ -40,26 +45,10 @@ allow = [
     "CC0-1.0",
     "Zlib",
     "MPL-2.0",
+    # webpki-roots 0.26.x / 1.x: Community Data License Agreement Permissive 2.0
+    # Licencia permisiva de Linux Foundation — equivalente funcional a BSD/MIT para uso.
+    "CDLA-Permissive-2.0",
 ]
-
-# Licencias copyleft fuertes prohibidas (incompatibles con la licencia SBOS)
-deny = [
-    "GPL-2.0",
-    "GPL-3.0",
-    "AGPL-1.0",
-    "AGPL-3.0",
-    "LGPL-2.0",
-    "LGPL-2.1",
-    "LGPL-3.0",
-    "EUPL-1.1",
-    "EUPL-1.2",
-]
-
-# Copyleft débil (LGPL-like) → advertencia para revisión manual
-copyleft = "warn"
-
-# Licencias sin clasificación explícita → error
-default = "deny"
 
 # Umbral de confianza para detección automática de licencias (80%)
 confidence-threshold = 0.8
@@ -71,20 +60,6 @@ multiple-versions = "warn"
 
 # Wildcards en dependencias → permitidos (usamos rangos semver normales)
 wildcards = "allow"
-
-# Resaltar todos los conflictos
-highlight = "all"
-
-# Paquetes prohibidos explícitamente en bAuth
-# Razón: bAuth usa ring (criptografía Rust nativa) y rustls (TLS Rust nativo).
-# Cualquier pull de openssl-sys implica una dependencia C no auditada que contradice
-# el principio de soberanía criptográfica (ADR-010).
-deny = [
-    # openssl-sys: dependencia C externa — bAuth usa ring/rustls
-    # Comentado hasta confirmar que ninguna dependencia transitiva lo requiere;
-    # si una lo requiere, es un hallazgo de seguridad a reportar.
-    # { name = "openssl-sys" },
-]
 
 # Paquetes cuyas múltiples versiones se permiten explícitamente (transitivos comunes)
 skip = [

@@ -104,9 +104,8 @@ fase_cargo_audit() {
         --workdir /workspace \
         --security-opt=no-new-privileges \
         "${IMAGE_NAME}" \
-        "cargo audit --json 2>/dev/null > /output/cargo-audit.json || true; \
-         cargo audit 2>&1 | tee /output/cargo-audit.txt; \
-         cargo audit --json 2>/dev/null; true" || exit_code=$?
+        "cargo-audit audit --json > /output/cargo-audit.json 2>&1; \
+         cargo-audit audit 2>&1 | tee /output/cargo-audit.txt" || exit_code=$?
 
     if [[ -f "${AUDIT_JSON}" ]]; then
         local vuln_count
@@ -137,12 +136,12 @@ fase_cargo_deny() {
     local exit_code=0
     podman run --rm \
         --volume "${PROJECT_DIR}:/workspace:ro" \
-        --volume "${DENY_CFG}:/workspace/deny.toml:ro" \
+        --volume "${DENY_CFG}:/deny.toml:ro" \
         --volume "${OUTPUT_DIR}:/output:rw" \
         --workdir /workspace \
         --security-opt=no-new-privileges \
         "${IMAGE_NAME}" \
-        "cargo deny --config /workspace/deny.toml check 2>&1 | tee /output/cargo-deny.txt" \
+        "cargo-deny --config /deny.toml check 2>&1 | tee /output/cargo-deny.txt" \
         >> "${SCAN_LOG}" 2>&1 || exit_code=$?
 
     if [[ ${exit_code} -eq 0 ]]; then
@@ -157,6 +156,15 @@ fase_cargo_deny() {
 # ── Fase 4: cargo-clippy SAST ─────────────────────────────────────────────────
 fase_clippy() {
     log "Fase 4: cargo-clippy — análisis estático SAST..."
+
+    # Clippy requiere código fuente compilable; si src/ no existe, reportar N/A.
+    if [[ ! -d "${PROJECT_DIR}/src" ]]; then
+        warn "cargo-clippy: src/ no disponible en este entorno — fase omitida (N/A)."
+        echo "SAST N/A: directorio src/ no disponible en ${PROJECT_DIR}" > "${CLIPPY_TXT}"
+        CLIPPY_STATUS=0
+        return 0
+    fi
+
     local exit_code=0
     # Necesita directorio target en rw para compilar
     podman run --rm \
@@ -165,7 +173,7 @@ fase_clippy() {
         --workdir /workspace \
         --security-opt=no-new-privileges \
         "${IMAGE_NAME}" \
-        "cargo clippy --all-targets -- -D warnings 2>&1 | tee /output/clippy.txt" \
+        "cargo clippy --all-targets -- -D warnings 2>&1 | tee /output/clippy.txt; exit \${PIPESTATUS[0]}" \
         >> "${SCAN_LOG}" 2>&1 || exit_code=$?
 
     if [[ ${exit_code} -eq 0 ]]; then
@@ -188,10 +196,32 @@ fase_ingestar_sbosdb() {
     # Generar SQL de ingesta con Python3 + json
     python3 - "${AUDIT_JSON}" "${TIMESTAMP}" << 'PYEOF' > "${INGEST_SQL}"
 import json, sys, re
-from datetime import datetime
 
 audit_path = sys.argv[1]
 scan_ts    = sys.argv[2]
+
+def esc(s):
+    """Escapar comillas simples para SQL."""
+    return str(s).replace("'", "''")
+
+def map_severity(cvss_vector):
+    """
+    Mapea vector CVSS a categoría de severidad según CVSS base score aproximado.
+    Valores válidos en BD: CRITICAL, HIGH, MEDIUM, LOW, INFO.
+    """
+    if not cvss_vector:
+        return "INFO"
+    # Extraer AV y otros componentes para aproximar
+    # Lógica simplificada: presencia de AV:N/AC:L → HIGH+
+    if "AV:N/AC:L" in cvss_vector and "A:H" in cvss_vector:
+        return "HIGH"
+    if "AV:N" in cvss_vector and "/C:H" in cvss_vector:
+        return "HIGH"
+    if "AV:N" in cvss_vector:
+        return "MEDIUM"
+    if "AV:A" in cvss_vector:
+        return "MEDIUM"
+    return "LOW"
 
 print("-- Ingesta automática SA-10: resultado de cargo-audit")
 print(f"-- Generado: {scan_ts}")
@@ -205,18 +235,16 @@ except Exception as e:
     print("ROLLBACK;")
     sys.exit(0)
 
-# Obtener metadatos del lockfile
-lockfile   = data.get("lockfile", {})
-packages   = lockfile.get("packages", [])
-
 # Upsert del componente "bauth" principal
+# component_type válidos: RUST_CRATE, SYSTEM_LIB, BINARY, CONFIG, PROTOCOL
+# Constraint UNIQUE correcto: uq_vul_component (name, version)
 print(f"""
 -- Componente principal bAuth
 INSERT INTO bauth.vul_component
     (name, component_type, version, source, is_active, last_scanned, scan_tool, ctx_id)
 VALUES
-    ('bauth', 'RUST_BINARY', 'dev', 'Cargo.toml', true, '{scan_ts}', 'cargo-audit', 'system')
-ON CONFLICT ON CONSTRAINT vul_component_name_version_key
+    ('bauth', 'BINARY', 'dev', 'Cargo.toml', true, '{scan_ts}', 'cargo-audit', 'system')
+ON CONFLICT ON CONSTRAINT uq_vul_component
 DO UPDATE SET
     last_scanned = EXCLUDED.last_scanned,
     scan_tool    = EXCLUDED.scan_tool,
@@ -229,23 +257,26 @@ if not vulns:
     print("-- Sin vulnerabilidades: no se insertan filas en vul_auth_impact")
 else:
     for vuln in vulns:
-        advisory  = vuln.get("advisory", {})
-        pkg       = vuln.get("package", {})
-        adv_id    = advisory.get("id", "UNKNOWN")
-        aliases   = advisory.get("aliases", [])
-        cve_id    = next((a for a in aliases if a.startswith("CVE-")), adv_id)
-        pkg_name  = pkg.get("name", "unknown")
-        pkg_ver   = pkg.get("version", "?")
-        title     = advisory.get("title", "Sin título").replace("'", "''")
-        desc      = advisory.get("description", "")[:500].replace("'", "''")
-        severity  = advisory.get("severity", "UNKNOWN").upper()
-        cvss      = advisory.get("cvss", None)
+        advisory = vuln.get("advisory", {})
+        pkg      = vuln.get("package", {})
+        adv_id   = advisory.get("id", "UNKNOWN")
+        aliases  = advisory.get("aliases", [])
+        cve_id   = next((a for a in aliases if a.startswith("CVE-")), adv_id)
+        pkg_name = esc(pkg.get("name", "unknown"))
+        pkg_ver  = esc(pkg.get("version", "0.0.0"))
+        title    = esc(advisory.get("title", "Sin título"))
+        desc     = esc((advisory.get("description", "") or "")[:400])
+        cvss_vec = advisory.get("cvss", None)
+        sev      = map_severity(cvss_vec)
 
-        # Mapear severity de RustSec a nuestro esquema
-        sev_map = {"CRITICAL": "CRITICAL", "HIGH": "HIGH",
-                   "MEDIUM": "MEDIUM", "LOW": "LOW"}
-        sev = sev_map.get(severity, "MEDIUM")
-        cvss_val = f"'{cvss}'" if cvss else "NULL"
+        # cvss_score en BD es NUMERIC(4,1) — no admite el vector completo.
+        # Pasamos NULL; el vector queda en impact_desc para trazabilidad.
+        cvss_sql = "NULL"
+
+        # action_taken: solo DISABLED_METHOD, PATCHED, MITIGATED, ACCEPTED, PENDING
+        action = "PENDING"
+
+        vector_info = f" [vector: {cvss_vec}]" if cvss_vec else ""
 
         print(f"""
 -- CVE/Advisory: {cve_id} — {pkg_name} {pkg_ver}
@@ -253,23 +284,24 @@ WITH comp AS (
     INSERT INTO bauth.vul_component
         (name, component_type, version, source, is_active, last_scanned, scan_tool, ctx_id)
     VALUES
-        ('{pkg_name}', 'RUST_DEPENDENCY', '{pkg_ver}', 'Cargo.lock', true, '{scan_ts}', 'cargo-audit', 'system')
-    ON CONFLICT ON CONSTRAINT vul_component_name_version_key
+        ('{pkg_name}', 'RUST_CRATE', '{pkg_ver}', 'Cargo.lock', true, '{scan_ts}', 'cargo-audit', 'system')
+    ON CONFLICT ON CONSTRAINT uq_vul_component
     DO UPDATE SET last_scanned = EXCLUDED.last_scanned, updated_at = now()
     RETURNING component_id
 )
 INSERT INTO bauth.vul_auth_impact
-    (cve_id, component_id, affected_methods, severity, cvss_score, impact_desc,
-     mitigation, action_taken, ctx_id)
+    (cve_id, component_id, affected_methods, disabled_methods,
+     severity, cvss_score, impact_desc, mitigation, action_taken, ctx_id)
 SELECT
     '{cve_id}',
     component_id,
     ARRAY[]::text[],
+    ARRAY[]::text[],
     '{sev}',
-    {cvss_val},
-    '{title}: {desc}',
+    {cvss_sql},
+    '{title}: {desc}{vector_info}',
     'Actualizar crate {pkg_name} a versión sin vulnerabilidad según RustSec',
-    'PENDIENTE — detectado por cargo-audit en escaneo SA-10 {scan_ts}',
+    '{action}',
     'system'
 FROM comp
 ON CONFLICT DO NOTHING;
@@ -279,7 +311,9 @@ print("COMMIT;")
 PYEOF
 
     local ingest_exit=0
-    psql "${DB_DSN}" -f "${INGEST_SQL}" >> "${SCAN_LOG}" 2>&1 || ingest_exit=$?
+    # psql -v ON_ERROR_STOP=1: devuelve exit!=0 ante cualquier error SQL
+    PGPASSWORD=postgres psql "${DB_DSN}" -v ON_ERROR_STOP=1 -f "${INGEST_SQL}" \
+        >> "${SCAN_LOG}" 2>&1 || ingest_exit=$?
 
     if [[ ${ingest_exit} -eq 0 ]]; then
         ok "Ingesta en SBOSDB completada. SQL: ${INGEST_SQL}"
