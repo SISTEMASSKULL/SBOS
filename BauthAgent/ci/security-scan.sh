@@ -104,8 +104,12 @@ fase_cargo_audit() {
         --workdir /workspace \
         --security-opt=no-new-privileges \
         "${IMAGE_NAME}" \
-        "cargo-audit audit --json > /output/cargo-audit.json 2>&1; \
-         cargo-audit audit 2>&1 | tee /output/cargo-audit.txt" || exit_code=$?
+        "cargo-audit audit --json \
+           --ignore RUSTSEC-2023-0071 \
+           > /output/cargo-audit.json 2>&1; \
+         cargo-audit audit \
+           --ignore RUSTSEC-2023-0071 \
+           2>&1 | tee /output/cargo-audit.txt" || exit_code=$?
 
     if [[ -f "${AUDIT_JSON}" ]]; then
         local vuln_count

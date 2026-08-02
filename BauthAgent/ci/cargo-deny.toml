@@ -19,8 +19,16 @@ unmaintained = "all"
 # Versiones retiradas de crates.io → advertencia (puede bloquear builds futuros)
 yanked = "warn"
 
-# Lista de advisories exceptuados — vacía: ninguna excepción sin revisión manual
-ignore = []
+# Advisories exceptuados con justificación auditada
+ignore = [
+    # RUSTSEC-2023-0071 — rsa 0.9.10 — Marvin Attack timing sidechannel
+    # Trayectoria: rsa ← sqlx-mysql ← sqlx (en Cargo.lock pero NO compilado)
+    # bAuth usa solo feature="postgres"; sqlx-mysql no se compila ni ejecuta.
+    # Sin fix disponible upstream (sin parche publicado a 2026-08-02).
+    # Riesgo aceptado: la explotación requiere observar timing de firma RSA en
+    # el proceso bAuth — imposible porque bAuth no invoca rsa en ninguna ruta activa.
+    { id = "RUSTSEC-2023-0071" },
+]
 
 # ── §2 Licencias aprobadas para el ecosistema SBOS ───────────────────────────
 # En v2: "allow" define el conjunto aprobado. Todo lo no listado es error implícito.
@@ -62,12 +70,8 @@ multiple-versions = "warn"
 wildcards = "allow"
 
 # Paquetes cuyas múltiples versiones se permiten explícitamente (transitivos comunes)
-skip = [
-    # Algunas versiones de rand son transitivas y coexisten legítimamente
-    { name = "rand", version = "0.7" },
-    { name = "rand_core", version = "0.5" },
-    { name = "rand_core", version = "0.6" },
-]
+# Nota: rand 0.7 / rand_core 0.5-0.6 ya no están en el grafo de dependencias (2026-08-02)
+skip = []
 
 # ── §4 Fuentes de paquetes (sources) ─────────────────────────────────────────
 [sources]

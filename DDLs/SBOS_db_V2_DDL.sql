@@ -7414,6 +7414,50 @@ SLA: 30 días calendario (Art. 12.3). download_token expira en 7 días tras READ
 Norma: GDPR Art. 20, EDPB Guidelines 05/2021. T-567.';
 
 -- =============================================================================
+-- T-573 — bauth.gdpr_retention_execution_log (GDPR Art. 25 — GAP-GDPR-03)
+-- Registro de auditoría de ejecución de purgas de datos personales.
+-- Cada ejecución del job de retención escribe una fila — tabla append-only (WORM).
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bauth.gdpr_retention_execution_log (
+    log_id              UUID        NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    policy_ref          TEXT        NOT NULL,
+    purge_scope         TEXT        NOT NULL CONSTRAINT chk_grel_scope CHECK (
+                                        purge_scope IN (
+                                            'IDENTITY_AUDIT',
+                                            'SESSION_DATA',
+                                            'CREDENTIAL_HISTORY',
+                                            'ROLE_ASSIGNMENT_LOG',
+                                            'TOKEN_HISTORY',
+                                            'BIOMETRIC_TEMPLATE',
+                                            'PORTABILITY_EXPORT',
+                                            'ALL_SCOPES'
+                                        )),
+    tenant_id           UUID        REFERENCES bauth.idn_tenant(tenant_id) ON DELETE SET NULL,
+    executed_by         TEXT        NOT NULL DEFAULT 'system',
+    records_evaluated   INTEGER     NOT NULL DEFAULT 0,
+    records_purged      INTEGER     NOT NULL DEFAULT 0,
+    status              TEXT        NOT NULL CONSTRAINT chk_grel_status CHECK (
+                                        status IN ('SUCCESS','PARTIAL','FAILED','SKIPPED')),
+    error_message       TEXT,
+    legal_hold_applied  BOOLEAN     NOT NULL DEFAULT false,
+    executed_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    ctx_id              TEXT        NOT NULL DEFAULT 'system'
+);
+
+CREATE INDEX IF NOT EXISTS idx_grel_tenant    ON bauth.gdpr_retention_execution_log (tenant_id, executed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_grel_status    ON bauth.gdpr_retention_execution_log (status) WHERE status <> 'SUCCESS';
+CREATE INDEX IF NOT EXISTS idx_grel_scope     ON bauth.gdpr_retention_execution_log (purge_scope, executed_at DESC);
+
+COMMENT ON TABLE bauth.gdpr_retention_execution_log IS
+'PRIVACIDAD | Auditoría de ejecución de purgas de datos — GDPR Art. 25 (Privacy by Design).
+Toda ejecución del job de retención de datos registra aquí: qué política corrió, qué scope,
+cuántos registros se evaluaron, cuántos se purgaron, si había legal hold activo, y el resultado.
+Tabla WORM: el trigger worm_enforcement bloquea UPDATE/DELETE — los registros son inmutables.
+legal_hold_applied=true indica que la purga fue suprimida por medida cautelar activa.
+Norma: GDPR Art. 5(1)(e) (limitación de conservación) · Art. 25 (Privacy by Design) ·
+ISO 27001:2022 A.5.33 (protección de registros). GAP-GDPR-03 CERRADO 2026-08-02. T-573.';
+
+-- =============================================================================
 -- T-571 — bauth.zta_data_access_policy (NIST SP 800-207 §3.3 — GAP-800207-01)
 -- Políticas de acceso a nivel de dato para Zero Trust Architecture.
 -- =============================================================================

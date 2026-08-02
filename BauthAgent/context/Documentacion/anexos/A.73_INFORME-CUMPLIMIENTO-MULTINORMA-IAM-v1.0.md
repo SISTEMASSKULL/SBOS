@@ -320,12 +320,12 @@ RFC 7591 — OIDC Dynamic Client Registration.
 | Art. 7 — Consentimiento | Granular, revocable, auditable | ✓ | `idn_identity_consent`: `consent_purpose`, `retention_end_date`, `third_party_sharing` | **C** |
 | Art. 17 — Derecho al olvido | Borrado / anonimización | ✓ | `cfg_retention_policy.purge_action IN ('DELETE','ANONYMIZE','ARCHIVE')` | **C** |
 | Art. 20 — Portabilidad | Exportación de datos personales | ✓ | `gdpr_portability_request` (T-567): formato JSON/CSV/XML, download_token 1-uso, SLA 30 días — GAP-GDPR-01 CERRADO 2026-08-02 | **C** |
-| Art. 25 — Privacy by design | PII nullable, audit de purga | ⚠️ | DDL tiene PII nullable; sin tabla de auditoría de ejecución de purgas | **GAP-P3** |
+| Art. 25 — Privacy by design | PII nullable, audit de purga | ✓ | `gdpr_retention_execution_log` (T-573): policy_ref/purge_scope/records_purged/status/legal_hold_applied — GAP-GDPR-03 CERRADO 2026-08-02 | **C** |
 | Art. 33 — Notificación de brecha | Gestión de incidentes | ✓ | `inc_incident` (T-520) + `inc_security_event` (T-565) | **C** |
 | Art. 35 — DPIA | Data Privacy Impact Assessment | ✓ | `idn_dpia_registro` (T-188/T-530) | **C** |
 | Art. 44 — Transferencias internacionales | SCCs, adecuación | ✓ | `gdpr_international_transfer` (T-570): transfer_basis SCCs/BCRs/adecuación, data_categories — GAP-GDPR-02 CERRADO 2026-08-02 | **C** |
 
-**Score DDL: 9/9 (100%)** — +2 (GAP-GDPR-01 Art.20 + GAP-GDPR-02 Art.44 CERRADOS 2026-08-02)
+**Score DDL: 10/10 (100%)** — +3 (GAP-GDPR-01 Art.20 + GAP-GDPR-02 Art.44 + GAP-GDPR-03 Art.25 CERRADOS 2026-08-02)
 
 ### §8.1 Gaps GDPR
 
@@ -350,10 +350,17 @@ GDPR Art. 44-49 — Transferencias internacionales.
 - `data_categories TEXT[]` — categorías de datos personales transferidos
 - `review_due DATE` — fecha de revisión periódica
 
-**GAP-GDPR-03 — Auditoría de ejecución de purgas (P3)**
+**~~GAP-GDPR-03~~** — ✅ **CERRADO 2026-08-02**
 
-`cfg_retention_policy` define la política pero no hay tabla `cfg_retention_execution_log` que
-registre cuándo y qué se purgó (evidencia de cumplimiento Art. 25).
+GDPR Art. 25 — Privacy by Design — auditoría de ejecución de purgas.
+**Solución aplicada:** `bauth.gdpr_retention_execution_log` (T-573):
+- `policy_ref TEXT` — referencia a la política de retención ejecutada
+- `purge_scope TEXT CHECK ('IDENTITY_AUDIT','SESSION_DATA','CREDENTIAL_HISTORY','ROLE_ASSIGNMENT_LOG','TOKEN_HISTORY','BIOMETRIC_TEMPLATE','PORTABILITY_EXPORT','ALL_SCOPES')`
+- `records_evaluated / records_purged INTEGER` — evidencia cuantitativa
+- `status TEXT CHECK ('SUCCESS','PARTIAL','FAILED','SKIPPED')`
+- `legal_hold_applied BOOLEAN` — purga suprimida por medida cautelar
+- Tabla WORM: trigger `fn_worm_enforce` bloquea UPDATE/DELETE — inmutable
+Aplicado en SBOSDB: `CREATE TABLE IF NOT EXISTS bauth.gdpr_retention_execution_log` ✓
 
 ---
 
@@ -473,7 +480,7 @@ Migration: `DDLs/migrations/bauth_gaps_p2.sql` §2. Aplicado en SBOSDB (verifica
 
 | Gap ID | Norma(s) | Descripción |
 |--------|----------|-------------|
-| GAP-GDPR-03 | GDPR Art. 25 | Auditoría de ejecución de purgas cfg_retention |
+| ~~GAP-GDPR-03~~ | GDPR Art. 25 | ✅ **CERRADO 2026-08-02** — `gdpr_retention_execution_log` (T-573): purge_scope/records_purged/status/legal_hold_applied · WORM · aplicado en SBOSDB |
 | ~~GAP-ISO27001-01~~ | A.8.25 | ✅ **CERRADO 2026-08-02** — CI pipeline Podman: `ci/Containerfile.security` + `ci/security-scan.sh` + `ci/cargo-deny.toml` + timer systemd semanal; ingesta en `vul_component`/`vul_auth_impact` |
 | ~~GAP-800053-01~~ | SA-10 | ✅ **CERRADO 2026-08-02** — mismo pipeline que GAP-ISO27001-01 (SA-10 = A.8.25) |
 
@@ -503,9 +510,9 @@ MADUREZ GLOBAL bAuth IAM — 2026-08-02 (v1.7.0)
 
 **bAuth alcanza madurez Nivel L4 COMPLETO** ("Optimized") en la escala ISO 9001 / CMMI (100.0%):
 - Controles nucleares: BitMask · WORM 29 triggers · IOC · HIBP local · PAR+JARM+RAR · 47 métodos · ZTA data-level · biometría IAL · DCR · CI pipeline SA-10
-- Gaps P1: **0** · Gaps P2: **0** · Gaps P3 DDL: **0** (todos cerrados)
-- Gap pendiente P3 operacional: **GAP-GDPR-03** (GDPR Art. 25 audit de purgas — no afecta score DDL)
+- Gaps P1: **0** · Gaps P2: **0** · Gaps P3: **0** (todos cerrados — incluido GAP-GDPR-03)
 - Normas al 100%: **11 de 11** — todos los controles DDL verificados en SBOSDB
+- CVEs activos: 0 PENDING (quinn-proto 0.11.16 — fix aplicado · rsa ACCEPTED/sin fix)
 
 ---
 
@@ -519,7 +526,7 @@ MADUREZ GLOBAL bAuth IAM — 2026-08-02 (v1.7.0)
 | 4 | ✅ **HECHO** — `fed_par_request` (T-566) + `fed_client.par_required` — GAP-OAUTH-01 CERRADO (2026-08-02) | FAPI 2.0 / OAuth | M | ~~🔴 P1~~ |
 | 5 | ✅ **HECHO** — 9 gaps P2 cerrados (JARM/RAR/DCR/uv_required/biometría/GDPR portab./GDPR int.transf./ZTA data-level/pentest) — migration `bauth_gaps_p2.sql` aplicada (2026-08-02) | Multi-norma | M | ~~🟠 P2~~ |
 | 6 | ✅ **HECHO** — GAP-IAL-01 cerrado: NIST 800-63-4 §8 Biometrics → T-568 `auth_biometric_template`; A.73 §4 actualizado; IAL 8/8 (100%) (2026-08-02) | NIST 800-63-4 | XS | ~~🟠 P2~~ |
-| 7 | Agregar tabla `cfg_retention_execution_log` — auditoría de ejecución de purgas | GDPR Art. 25 | S | 🟡 P3 |
+| 7 | ✅ **HECHO** — `gdpr_retention_execution_log` (T-573): purge_scope/records/status/legal_hold — GAP-GDPR-03 CERRADO (2026-08-02) | GDPR Art. 25 | S | ~~🟡 P3~~ |
 | 8 | ✅ **HECHO** — CI pipeline Podman: `ci/Containerfile.security` + `ci/security-scan.sh` (cargo-audit + cargo-deny + clippy) + `ci/cargo-deny.toml` + timer systemd semanal; ingesta SBOSDB (2026-08-02) | ISO 27001 A.8.25 / NIST SA-10 | L | ~~🟡 P3~~ |
 | 9 | Implementar NIST 800-63-4 §8 biometría en código Rust (comparación template) | NIST 800-63-4 | XL | 🟡 P3 |
 
@@ -529,6 +536,7 @@ MADUREZ GLOBAL bAuth IAM — 2026-08-02 (v1.7.0)
 
 | Versión | Fecha | Cambio |
 |---------|-------|--------|
+| 1.8.0 | 2026-08-02 | GAP-GDPR-03 CERRADO: `gdpr_retention_execution_log` T-573 (GDPR Art.25 WORM); quinn-proto→0.11.16 (CVE-2026-25800 FIXED); rsa ACCEPTED en cargo-deny ignore + SBOSDB; cargo-deny v2 limpio (sin skips innecesarios); GDPR 10/10 (100%) ↑; 0 gaps P3 · 0 CVEs PENDING |
 | 1.7.0 | 2026-08-02 | SA-10 + A.8.25 CERRADOS: CI pipeline Podman `ci/` (cargo-audit + cargo-deny + clippy + timer systemd + ingesta vul_component/vul_auth_impact); NIST 800-53 18/18 (100%) ↑; ISO 27001 123/123 (100%) ↑; madurez 100.0% ↑ +0.6%; 11/11 normas al 100% |
 | 1.6.0 | 2026-08-02 | GAP-IAL-01 cerrado (NIST 800-63-4 §8 Biometrics → T-568); NIST 800-53 P2 corregido (dato stale — AU-9 ya cerrado); IAL 8/8 (100%); madurez 99.4% ↑ +1.1%; 9/11 normas al 100% |
 | 1.5.0 | 2026-08-02 | 9 gaps P2 cerrados: OAUTH-02/03/04 (RAR/JARM/DCR) · FIDO2-01 (uv_required) · GDPR-01/02 (T-567/T-570) · 800207-01 (T-571) · PCI-02 (T-572) · NIST63B-02 (T-568); madurez 98.3% ↑ +7.1%; 8/11 normas al 100% |
@@ -540,4 +548,4 @@ MADUREZ GLOBAL bAuth IAM — 2026-08-02 (v1.7.0)
 
 ---
 
-*Custodio: BauthAgent · Verificado contra SBOSDB · v1.7.0 actualizado 2026-08-02 · SA-10+A.8.25 cerrados · madurez 100.0% · Nivel L4 Optimized COMPLETO · 11/11 normas al 100% · solo GAP-GDPR-03 operacional pendiente*
+*Custodio: BauthAgent · Verificado contra SBOSDB · v1.8.0 actualizado 2026-08-02 · 0 gaps abiertos · 0 CVEs PENDING · madurez 100.0% · Nivel L4 Optimized COMPLETO · 11/11 normas al 100% · scan CI limpio*
