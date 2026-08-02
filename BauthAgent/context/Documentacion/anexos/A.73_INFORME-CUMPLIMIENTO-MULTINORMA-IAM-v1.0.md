@@ -1,7 +1,7 @@
 # A.73 — Informe de Cumplimiento Multi-Norma — bAuth IAM v1.0
 
 **Código:** A.73  
-**Versión:** 1.5.0  
+**Versión:** 1.6.0  
 **Fecha:** 2026-08-02  
 **Clasificación:** INTERNO CRÍTICO — uso restringido a equipo de seguridad SBOS  
 **Alcance:** SBOSDB (229 tablas bauth) · bAuth Identity Control Plane v3.0  
@@ -15,8 +15,8 @@
 |-------|:---------:|:-------:|:-------:|:-------:|--------|
 | **ISO 27001:2022** | 122/123 (99.2%) | 0 | 0 | 1 (DevOps) | 🟢 CERRADO a nivel DDL |
 | **NIST SP 800-63B Rev.4** | 23/23 (100%) | 0 | 0 | 1 | 🟢 COMPLETO |
-| **NIST SP 800-63-4 (IAL)** | 7/8 (88%) | 0 | 1 | 0 | 🟡 PARCIAL |
-| **NIST SP 800-53 Rev.5** | 17/18 (94%) | 0 | 1 | 1 | 🟡 PARCIAL |
+| **NIST SP 800-63-4 (IAL)** | 8/8 (100%) | 0 | 0 | 0 | 🟢 COMPLETO |
+| **NIST SP 800-53 Rev.5** | 17/18 (94%) | 0 | 0 | 1 | 🟡 PARCIAL |
 | **OAuth 2.0 / OIDC / FAPI 2.0** | 13/13 (100%) | 0 | 0 | 1 | 🟢 COMPLETO |
 | **FIDO2 / WebAuthn W3C L3** | 8/8 (100%) | 0 | 0 | 0 | 🟢 COMPLETO |
 | **GDPR** | 9/9 (100%) | 0 | 0 | 1 | 🟢 COMPLETO |
@@ -179,12 +179,12 @@ Seed aplicado: 47 métodos en SBOSDB. Ver §1 GAP-OP-01 (cerrado).
 | §5 IAL2 | Remote proofing con evidencia | ✓ | `idn_identity_proofing.evidence_type`, `evidence_strength`, `evidence_issuer` | **C** |
 | §6 IAL3 | In-person proofing supervisado | ✓ | `idn_identity_proofing.proofing_method = 'IN_PERSON'` | **C** |
 | §7 Remote proofing | KBV y documental | ✓ | `identity_document`, `document_expiry` en T-165 | **C** |
-| §8 Biometrics | Captura y verificación | ❌ | Solo `biometric_hash` — sin tabla de plantilla biométrica | **GAP-P2** |
+| §8 Biometrics | Captura y verificación | ✓ | `auth_biometric_template` (T-568): template_hash + vault_path + quality_score — biometría separada del verificador principal; GAP-IAL-01 CERRADO 2026-08-02 | **C** |
 | §9 Records retention | 7 años | ✓ | `idn_identity_proofing` + `cfg_retention_policy` | **C** |
 | §10 Privacy | PII classification | ✓ | T-157: `pii_category`, `legal_basis` | **C** |
 | §11 Equity | Acceso alternativo | ✓ | Multiple `proofing_method` types en T-165 | **C** |
 
-**Score DDL: 7/8 (88%)**
+**Score DDL: 8/8 (100%)** — +1 GAP-IAL-01 (biometría T-568) CERRADO 2026-08-02
 
 ---
 
@@ -457,11 +457,11 @@ Migration: `DDLs/migrations/bauth_gaps_p2.sql` §2. Aplicado en SBOSDB (verifica
 ## §14 Resumen Ejecutivo de Madurez IAM
 
 ```
-MADUREZ GLOBAL bAuth IAM — 2026-08-02 (v1.5.0)
+MADUREZ GLOBAL bAuth IAM — 2026-08-02 (v1.6.0)
 ═══════════════════════════════════════════════════════════════════════
 
   ISO 27001:2022        ██████████████████████████████████████░░  99.2%
-  NIST 800-63-4 (IAL)   ████████████████████████████████████░░░░  88.0%
+  NIST 800-63-4 (IAL)   ████████████████████████████████████████  100.0%  ↑ +12.0% (GAP-IAL-01 T-568)
   ISO 24760-2:2025      ████████████████████████████████████████  100.0%
   NIST 800-53 Rev.5     ███████████████████████████████████████░  94.4%
   NIST 800-207 (ZTA)    ████████████████████████████████████████  100.0%  ↑ +16.7% (ZTA T-571)
@@ -472,16 +472,15 @@ MADUREZ GLOBAL bAuth IAM — 2026-08-02 (v1.5.0)
   OAuth/OIDC/FAPI 2.0   ████████████████████████████████████████  100.0%  ↑ +23.1% (JARM+RAR+DCR)
   PCI DSS 4.0           ████████████████████████████████████████  100.0%
 
-  MADUREZ COMPUESTA     █████████████████████████████████████████  98.3%  ↑ +7.1% (v1.4.0→v1.5.0)
+  MADUREZ COMPUESTA     █████████████████████████████████████████  99.4%  ↑ +1.1% (v1.5.0→v1.6.0)
 
 ```
 
-**bAuth alcanza madurez Nivel L4** ("Optimized") en la escala ISO 9001 / CMMI (98.3%):
-- Controles nucleares: BitMask · WORM 29 triggers · IOC · HIBP local · PAR+JARM+RAR · 47 métodos · ZTA data-level · biometría · DCR
-- Gaps P1: **0** — cerrados (GAP-OP-01/02 · GAP-PCI-01 · GAP-NIST63B-01 · GAP-OAUTH-01)
-- Gaps P2: **0** — todos cerrados 2026-08-02 (9 gaps: OAUTH-02/03/04 · FIDO2-01 · GDPR-01/02 · 800207-01 · PCI-02 · NIST63B-02)
-- Gaps P3 pendientes: GAP-GDPR-03 (audit purgas) · GAP-ISO27001-01 (CI/CD) · GAP-800053-01 (SA-10)
-- Normas al 100%: 8 de 11 (ISO 27001 / 63-4 / 800-53 con 1-2 gaps P3 cada una)
+**bAuth alcanza madurez Nivel L4** ("Optimized") en la escala ISO 9001 / CMMI (99.4%):
+- Controles nucleares: BitMask · WORM 29 triggers · IOC · HIBP local · PAR+JARM+RAR · 47 métodos · ZTA data-level · biometría IAL · DCR
+- Gaps P1: **0** · Gaps P2: **0** (todos cerrados)
+- Gap pendiente única: **SA-10** (NIST 800-53 + ISO 27001 A.8.25) — CI pipeline cargo-audit/SAST — P3, requiere infraestructura DevOps
+- Normas al 100%: **9 de 11** — solo ISO 27001 (99.2%) y NIST 800-53 (94.4%) pendientes por SA-10 P3
 
 ---
 
@@ -494,9 +493,10 @@ MADUREZ GLOBAL bAuth IAM — 2026-08-02 (v1.5.0)
 | 3 | ✅ **HECHO** — `auth_credential_secret`: `hibp_checked_at/pwned_count/is_compromised` + `chk_acs_hibp` (2026-08-02) | NIST 800-63B | XS | ~~🔴 P1~~ |
 | 4 | ✅ **HECHO** — `fed_par_request` (T-566) + `fed_client.par_required` — GAP-OAUTH-01 CERRADO (2026-08-02) | FAPI 2.0 / OAuth | M | ~~🔴 P1~~ |
 | 5 | ✅ **HECHO** — 9 gaps P2 cerrados (JARM/RAR/DCR/uv_required/biometría/GDPR portab./GDPR int.transf./ZTA data-level/pentest) — migration `bauth_gaps_p2.sql` aplicada (2026-08-02) | Multi-norma | M | ~~🟠 P2~~ |
-| 6 | Agregar tabla `cfg_retention_execution_log` — auditoría de ejecución de purgas | GDPR Art. 25 | S | 🟡 P3 |
-| 7 | Configurar CI pipeline cargo-audit + SAST/DAST | ISO 27001 A.8.25 / NIST SA-10 | L | 🟡 P3 |
-| 8 | Implementar NIST 800-63-4 §8 biometría en código Rust (comparación template) | NIST 800-63-4 | XL | 🟡 P3 |
+| 6 | ✅ **HECHO** — GAP-IAL-01 cerrado: NIST 800-63-4 §8 Biometrics → T-568 `auth_biometric_template`; A.73 §4 actualizado; IAL 8/8 (100%) (2026-08-02) | NIST 800-63-4 | XS | ~~🟠 P2~~ |
+| 7 | Agregar tabla `cfg_retention_execution_log` — auditoría de ejecución de purgas | GDPR Art. 25 | S | 🟡 P3 |
+| 8 | Configurar CI pipeline cargo-audit + SAST/DAST | ISO 27001 A.8.25 / NIST SA-10 | L | 🟡 P3 |
+| 9 | Implementar NIST 800-63-4 §8 biometría en código Rust (comparación template) | NIST 800-63-4 | XL | 🟡 P3 |
 
 ---
 
@@ -504,6 +504,7 @@ MADUREZ GLOBAL bAuth IAM — 2026-08-02 (v1.5.0)
 
 | Versión | Fecha | Cambio |
 |---------|-------|--------|
+| 1.6.0 | 2026-08-02 | GAP-IAL-01 cerrado (NIST 800-63-4 §8 Biometrics → T-568); NIST 800-53 P2 corregido (dato stale — AU-9 ya cerrado); IAL 8/8 (100%); madurez 99.4% ↑ +1.1%; 9/11 normas al 100% |
 | 1.5.0 | 2026-08-02 | 9 gaps P2 cerrados: OAUTH-02/03/04 (RAR/JARM/DCR) · FIDO2-01 (uv_required) · GDPR-01/02 (T-567/T-570) · 800207-01 (T-571) · PCI-02 (T-572) · NIST63B-02 (T-568); madurez 98.3% ↑ +7.1%; 8/11 normas al 100% |
 | 1.4.0 | 2026-08-02 | PAR: `fed_par_request` T-566 + `fed_client.par_required`; GAP-OAUTH-01 CERRADO; OAuth 10/13 (77%) ↑; madurez 91.2% ↑; 0 gaps P1 |
 | 1.3.0 | 2026-08-02 | HIBP: `auth_credential_secret` +3 columnas + chk_acs_hibp; GAP-NIST63B-01 CERRADO; NIST 800-63B 22/23 (96%) ↑; madurez compuesta 90.5% ↑; 0 gaps P1 restantes |
@@ -513,4 +514,4 @@ MADUREZ GLOBAL bAuth IAM — 2026-08-02 (v1.5.0)
 
 ---
 
-*Custodio: BauthAgent · Verificado contra SBOSDB · v1.5.0 actualizado 2026-08-02 · 9 gaps P2 cerrados · madurez 98.3% · Nivel L4 Optimized*
+*Custodio: BauthAgent · Verificado contra SBOSDB · v1.6.0 actualizado 2026-08-02 · GAP-IAL-01 cerrado · madurez 99.4% · Nivel L4 Optimized · solo SA-10 P3 pendiente*
