@@ -181,6 +181,16 @@ punto_de_entrada:
       nota_conflicto: "T-525 y T-529 ya estaban asignados; se usaron T-564 y T-565 para los reemplazos"
       controles_iso27001: "A.5.7 · A.5.12 · A.5.25 · A.5.26 · A.5.27 · A.5.34 · A.8.8 · A.8.10"
       estado: "APLICADO en SBOSDB producción (score A.71: 122/123 — 99.2%)"
+    - archivo: "migrations/worm_enforcement_triggers.sql"
+      commit: "pendiente"
+      tipo: "SOLO TRIGGERS (sin DDL nuevas tablas)"
+      funcion_compartida: "bauth.fn_worm_enforce() — schemas bauth/bcalendar/bos"
+      triggers: 29
+      tablas_padre: 29
+      normas: "ISO 27001:2022 A.8.15 · NIST SP 800-53 AU-9 · PCI DSS 4.0 Req 10.3.2"
+      gaps_cerrados: "GAP-OP-02 / GAP-PCI-01 (A.73 v1.2.0)"
+      nota: "FOR EACH STATEMENT — rechaza UPDATE/DELETE incluso en tablas vacías o WHERE FALSE"
+      estado: "APLICADO en SBOSDB producción (29 triggers activos verificados)"
 
 # ── REGLAS PARA AGENTES DESARROLLADORES ─────────────────────────────────────
 reglas_agentes:

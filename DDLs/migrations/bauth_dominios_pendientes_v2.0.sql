@@ -2698,9 +2698,55 @@ COMMENT ON COLUMN bauth.idn_identidad_lifecycle_event.policy_snapshot IS '[NIST 
 REVOKE UPDATE, DELETE ON bauth.idn_identidad_lifecycle_event FROM PUBLIC;
 
 -- =============================================================================
+-- SECCIÓN 21 — WORM ENFORCEMENT TRIGGERS (tablas definidas en esta migration)
+-- Cierra: GAP-OP-02 (bauth_dominios_pendientes_v2.0.sql)
+-- Norma: ISO 27001:2022 A.8.15 · NIST AU-9 · PCI DSS 10.3.2
+-- Requiere: bauth.fn_worm_enforce() definida en SBOS_db_V2_DDL.sql (§WORM).
+-- Idempotente: DROP TRIGGER IF EXISTS + CREATE TRIGGER.
+-- FOR EACH STATEMENT: rechaza incluso en tablas vacías (no requiere filas).
+-- =============================================================================
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.idn_network_dpop_binding;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.idn_network_dpop_binding
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.idn_credential_password_history;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.idn_credential_password_history
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.idn_physical_access_evacuation;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.idn_physical_access_evacuation
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.idn_delegation_usage_log;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.idn_delegation_usage_log
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.idn_audit_event_log;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.idn_audit_event_log
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.idn_blockchain_anchor_ext;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.idn_blockchain_anchor_ext
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.idn_signature_verification_log;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.idn_signature_verification_log
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.idn_signature_ltv_evidence;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.idn_signature_ltv_evidence
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.idn_identidad_lifecycle_event;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.idn_identidad_lifecycle_event
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+-- =============================================================================
 -- FIN: bAuth Dominios Pendientes v2.0 — tablas y columnas en inglés
 -- Comentarios SQL y documentación en español (regla SBOS)
 -- SECCIÓN 19 — Documentación estratificada de 78 tablas padre añadida.
 -- SECCIÓN 20 — T-169, T-188, T-186b recuperadas desde VPS (2026-08-01).
+-- SECCIÓN 21 — WORM triggers para las 9 tablas append-only de esta migration (2026-08-02).
 -- Estado: [DOC:REVIEW] — pendiente verificación en SBOSDB_copia con verificar_documentacion.sh
 -- =============================================================================

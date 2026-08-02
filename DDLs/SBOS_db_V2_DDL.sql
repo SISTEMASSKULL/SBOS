@@ -7171,3 +7171,152 @@ assessed_by + assessed_at + decision + decision_notes = registro forense del tri
 Sin triaje documentado, A.5.25 queda sin evidencia de proceso de decisión humana.
 Estándar: ISO 27001:2022 A.5.25, NIST SP 800-61 Rev.3 §3.2. T-565.';
 
+-- =============================================================================
+-- §WORM — WORM ENFORCEMENT TRIGGERS (append-only a nivel BD)
+-- Cierra: GAP-OP-02 / GAP-PCI-01 (A.73 v1.2.0)
+-- Normas: ISO 27001:2022 A.8.15 · NIST SP 800-53 AU-9 · PCI DSS 4.0 Req 10.3.2
+-- Tablas excluidas (hash-chain ya en DDL base):
+--   idn_roles_rol_lifecycle_event   → trg_irle_worm
+--   idn_roles_ver_b01_audit_log     → trg_irvb01al_worm
+-- Idempotente: DROP TRIGGER IF EXISTS + CREATE TRIGGER.
+-- Usar FOR EACH STATEMENT para rechazar incluso en tablas vacías o WHERE FALSE.
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION bauth.fn_worm_enforce()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RAISE EXCEPTION
+        'WORM_VIOLATION: %.% es una tabla de solo inserción (append-only). '
+        'Operación % rechazada por enforcer activo. '
+        'Norma: ISO 27001:2022 A.8.15 · NIST AU-9 · PCI DSS 10.3.2. '
+        'Si necesita corregir un registro, contacte al DBA con justificación auditada.',
+        TG_TABLE_SCHEMA, TG_TABLE_NAME, TG_OP;
+END;
+$$;
+
+COMMENT ON FUNCTION bauth.fn_worm_enforce() IS
+'Función WORM compartida (schemas bauth/bcalendar/bos). Rechaza UPDATE y DELETE en
+tablas append-only con RAISE EXCEPTION prefijado WORM_VIOLATION.
+ISO 27001:2022 A.8.15 — protección de registros de auditoría. NIST AU-9. PCI DSS 10.3.2.';
+
+-- schema bauth — 27 tablas
+DROP TRIGGER IF EXISTS trg_worm ON bauth.idn_network_dpop_binding;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.idn_network_dpop_binding
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.idn_credential_password_history;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.idn_credential_password_history
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.idn_physical_access_evacuation;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.idn_physical_access_evacuation
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.idn_delegation_usage_log;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.idn_delegation_usage_log
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.idn_audit_event_log;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.idn_audit_event_log
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.idn_blockchain_anchor_ext;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.idn_blockchain_anchor_ext
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.idn_signature_verification_log;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.idn_signature_verification_log
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.idn_signature_ltv_evidence;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.idn_signature_ltv_evidence
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.idn_user_history;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.idn_user_history
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.idn_identity_attribute_history;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.idn_identity_attribute_history
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.idn_identity_consent;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.idn_identity_consent
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.idn_roles_template_history;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.idn_roles_template_history
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.idn_roles_nhi_lifecycle_event;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.idn_roles_nhi_lifecycle_event
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.privilege_atom_audit;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.privilege_atom_audit
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.auth_device_credential_binding;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.auth_device_credential_binding
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.auth_attempt_log;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.auth_attempt_log
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.ses_caep_event_log;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.ses_caep_event_log
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.ses_ssf_delivery_log;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.ses_ssf_delivery_log
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.sig_timestamp;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.sig_timestamp
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.sig_operation_log;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.sig_operation_log
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.sig_document_hash;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.sig_document_hash
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.sig_adsib_lifecycle;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.sig_adsib_lifecycle
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.blk_anchor;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.blk_anchor
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.blk_merkle_leaf;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.blk_merkle_leaf
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.thi_correlation_log;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.thi_correlation_log
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.wallet_presentation_log;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.wallet_presentation_log
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+DROP TRIGGER IF EXISTS trg_worm ON bauth.wallet_issuance_log;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bauth.wallet_issuance_log
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+-- schema bcalendar — 1 tabla
+DROP TRIGGER IF EXISTS trg_worm ON bcalendar.cal_notification_log;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bcalendar.cal_notification_log
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
+-- schema bos — 1 tabla
+DROP TRIGGER IF EXISTS trg_worm ON bos.ctx_context_audit;
+CREATE TRIGGER trg_worm BEFORE UPDATE OR DELETE ON bos.ctx_context_audit
+    FOR EACH STATEMENT EXECUTE FUNCTION bauth.fn_worm_enforce();
+
