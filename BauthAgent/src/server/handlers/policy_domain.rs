@@ -1,13 +1,16 @@
 // ============================================================
 // bauth::server::handlers::policy_domain — B9.T24 PolicyEngine operativo
 //
-// Tres handlers JSON-RPC sobre las tablas ath_policy_dN:
-//   bauth.policy.domain.evaluate  — evalúa políticas de un dominio vs contexto
-//   bauth.policy.domain.list      — lista políticas activas de un dominio
+// Handlers JSON-RPC:
+//   bauth.policy.domain.evaluate  — evalúa políticas vs contexto (usa cfg_policy_library)
+//   bauth.policy.domain.list      — lista políticas en auth_policy (con filtro opcional)
 //   bauth.policy.library.search   — busca en cfg_policy_library (9,142 entradas)
 //
+// D01 eliminado: ath_policy_d{N} no existe en DDL v2.12.0.
+//   PolicyDomainListHandler usa auth_policy (tabla unificada).
+//
 // Motor de evaluación: PolicyEngine::evaluate() (XACML 3.0 / NIST ABAC).
-// Carga: ath_loader::load_domain() con ath_converter::convert() por fila.
+// ath_loader::load_domain() carga desde cfg_policy_library (correcto).
 // ============================================================
 
 #![allow(dead_code)]
@@ -28,7 +31,7 @@ impl JsonRpcHandler for PolicyDomainEvalHandler {
         })?;
 
         let domain = params.get("domain").and_then(|v| v.as_u64())
-            .ok_or_else(|| JsonRpcError { code: -32602, message: "domain requerido [1-12]".into(), data: None })?
+            .ok_or_else(|| JsonRpcError { code: -32602, message: "domain requerido [1-15]".into(), data: None })?
             as u8;
 
         // Contexto de evaluación: mapa de valores runtime del caller
@@ -37,14 +40,15 @@ impl JsonRpcHandler for PolicyDomainEvalHandler {
             .map(|o| o.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
             .unwrap_or_default();
 
+        // ath_loader::load_domain lee desde cfg_policy_library (canónico)
         let rules = ath_loader::load_domain(pg, domain).await;
 
         if rules.is_empty() {
             return Ok(serde_json::json!({
-                "domain": domain,
+                "domain":    domain,
                 "evaluated": 0,
-                "state": "aprobado",
-                "message": "sin políticas activas para este dominio"
+                "state":     "aprobado",
+                "message":   "sin políticas activas para este dominio"
             }));
         }
 
@@ -60,11 +64,11 @@ impl JsonRpcHandler for PolicyDomainEvalHandler {
         };
 
         let detail: Vec<Value> = results.iter().map(|r| serde_json::json!({
-            "policy": r.slug,
-            "action": r.action,
+            "policy":         r.slug,
+            "action":         r.action,
             "conditions_met": r.conditions_met,
-            "state": format!("{:?}", r.state),
-            "message": r.message,
+            "state":          format!("{:?}", r.state),
+            "message":        r.message,
         })).collect();
 
         let passed  = results.iter().filter(|r| matches!(r.state, crate::bitmask::PolicyState::Aprobado)).count();
@@ -72,21 +76,24 @@ impl JsonRpcHandler for PolicyDomainEvalHandler {
         let pending = results.iter().filter(|r| matches!(r.state, crate::bitmask::PolicyState::Pendiente)).count();
 
         Ok(serde_json::json!({
-            "domain":    domain,
-            "allowed":   allowed,
-            "state":     state_str,
-            "evaluated": results.len(),
-            "passed":    passed,
-            "failed":    failed,
-            "pending":   pending,
+            "domain":     domain,
+            "allowed":    allowed,
+            "state":      state_str,
+            "evaluated":  results.len(),
+            "passed":     passed,
+            "failed":     failed,
+            "pending":    pending,
             "latency_us": elapsed_us,
-            "results":   detail,
+            "results":    detail,
         }))
     }
 }
 
 // ── bauth.policy.domain.list ────────────────────────────────
 
+/// Lista políticas desde auth_policy con filtro opcional por loa_required.
+/// El parámetro `domain` es aceptado por compatibilidad pero ignorado:
+/// auth_policy no tiene columna domain (DDL v2.12.0).
 pub struct PolicyDomainListHandler { pub pg_pool: Option<sqlx::PgPool> }
 
 #[async_trait::async_trait]
@@ -96,39 +103,49 @@ impl JsonRpcHandler for PolicyDomainListHandler {
             code: -32000, message: "base de datos no disponible".into(), data: None,
         })?;
 
-        let domain = params.get("domain").and_then(|v| v.as_u64()).unwrap_or(1) as u8;
+        let loa_filter = params.get("loa_required").and_then(|v| v.as_str());
+        let tenant_id = params.get("tenant_uuid").and_then(|v| v.as_str())
+            .map(|s| uuid::Uuid::parse_str(s).ok())
+            .flatten();
 
         #[derive(sqlx::FromRow, serde::Serialize)]
         struct Row {
-            policy_code: String,
-            policy_name: String,
-            description: Option<String>,
-            config: serde_json::Value,
-            is_active: bool,
-            standard_ref: Vec<String>,
+            policy_id:        uuid::Uuid,
+            name:             String,
+            description:      Option<String>,
+            loa_required:     String,
+            allowed_methods:  Vec<String>,
+            required_methods: Vec<String>,
+            active:           bool,
         }
 
-        let sql = format!(
-            "SELECT policy_code, policy_name, description, config, is_active, standard_ref \
-             FROM bauth.ath_policy_d{} ORDER BY policy_code",
-            domain
-        );
-
-        let rows: Vec<Row> = sqlx::query_as(&sql).fetch_all(pg).await
-            .map_err(|e| JsonRpcError { code: -32000, message: e.to_string(), data: None })?;
+        let rows: Vec<Row> = sqlx::query_as(
+            "SELECT policy_id, name, description, loa_required,
+                    allowed_methods, required_methods, active
+             FROM bauth.auth_policy
+             WHERE active = TRUE
+               AND ($1::text IS NULL OR loa_required = $1)
+               AND ($2::uuid IS NULL OR tenant_id = $2)
+             ORDER BY name"
+        )
+        .bind(loa_filter)
+        .bind(tenant_id)
+        .fetch_all(pg)
+        .await
+        .map_err(|e| JsonRpcError { code: -32000, message: e.to_string(), data: None })?;
 
         let entries: Vec<Value> = rows.iter().map(|r| serde_json::json!({
-            "policy_code":  r.policy_code,
-            "policy_name":  r.policy_name,
-            "description":  r.description,
-            "rule_type":    r.config.get("rule"),
-            "is_active":    r.is_active,
-            "standard_ref": r.standard_ref,
+            "policy_id":      r.policy_id.to_string(),
+            "name":           r.name,
+            "description":    r.description,
+            "loa_required":   r.loa_required,
+            "allowed_methods": r.allowed_methods,
+            "required_methods": r.required_methods,
+            "is_active":      r.active,
         })).collect();
 
         Ok(serde_json::json!({
-            "domain": domain,
-            "count":   entries.len(),
+            "count":    entries.len(),
             "policies": entries,
         }))
     }
@@ -136,6 +153,7 @@ impl JsonRpcHandler for PolicyDomainListHandler {
 
 // ── bauth.policy.library.search ─────────────────────────────
 
+/// Busca en cfg_policy_library (tabla canónica — sin cambios).
 pub struct PolicyLibrarySearchHandler { pub pg_pool: Option<sqlx::PgPool> }
 
 #[async_trait::async_trait]
@@ -145,38 +163,39 @@ impl JsonRpcHandler for PolicyLibrarySearchHandler {
             code: -32000, message: "base de datos no disponible".into(), data: None,
         })?;
 
-        let source     = params.get("source").and_then(|v| v.as_str());
-        let domain     = params.get("domain").and_then(|v| v.as_str());
-        let semantic   = params.get("semantic_type").and_then(|v| v.as_str());
+        let source      = params.get("source").and_then(|v| v.as_str());
+        let domain      = params.get("domain").and_then(|v| v.as_str());
+        let semantic    = params.get("semantic_type").and_then(|v| v.as_str());
         let enforcement = params.get("enforcement").and_then(|v| v.as_str());
-        let limit      = params.get("limit").and_then(|v| v.as_i64()).unwrap_or(20).min(100);
+        let limit       = params.get("limit").and_then(|v| v.as_i64()).unwrap_or(20).min(100);
 
         #[derive(sqlx::FromRow, serde::Serialize)]
         struct Row {
-            section_id:     i32,
-            section_name:   String,
-            json_path:      String,
-            source:         String,
-            node_type:      String,
-            semantic_type:  Option<String>,
-            enforcement:    Option<String>,
-            risk_level:     Option<String>,
+            section_id:      i32,
+            section_name:    String,
+            json_path:       String,
+            source:          String,
+            node_type:       String,
+            semantic_type:   Option<String>,
+            enforcement:     Option<String>,
+            risk_level:      Option<String>,
             assurance_level: Option<String>,
         }
 
         let rows: Vec<Row> = sqlx::query_as(
-            "SELECT section_id, section_name, json_path, source, node_type, \
-                    semantic_type, enforcement, risk_level, assurance_level \
-             FROM bauth.cfg_policy_library \
-             WHERE ($1::text IS NULL OR source = $1) \
-               AND ($2::text IS NULL OR $2 = ANY(domain_map)) \
-               AND ($3::text IS NULL OR semantic_type = $3) \
-               AND ($4::text IS NULL OR enforcement = $4) \
-             ORDER BY source, json_path \
+            "SELECT section_id, section_name, json_path, source, node_type,
+                    semantic_type, enforcement, risk_level, assurance_level
+             FROM bauth.cfg_policy_library
+             WHERE ($1::text IS NULL OR source = $1)
+               AND ($2::text IS NULL OR $2 = ANY(domain_map))
+               AND ($3::text IS NULL OR semantic_type = $3)
+               AND ($4::text IS NULL OR enforcement = $4)
+             ORDER BY source, json_path
              LIMIT $5"
         )
         .bind(source).bind(domain).bind(semantic).bind(enforcement).bind(limit)
-        .fetch_all(pg).await
+        .fetch_all(pg)
+        .await
         .map_err(|e| JsonRpcError { code: -32000, message: e.to_string(), data: None })?;
 
         Ok(serde_json::json!({

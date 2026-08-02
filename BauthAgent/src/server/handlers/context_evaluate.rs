@@ -1,6 +1,18 @@
+// ============================================================
 // bauth::server::handlers::context_evaluate — bauth.context.evaluate (B45.D01)
-// Ampliado B-BAUTH-003 (2026-06-28): incluye bloque "session" con datos de ses_context
-// Evalúa 12 dominios para un ctx_id usando DomainRegistry::evaluate_all()
+//
+// Evalúa los dominios para un ctx_id usando DomainRegistry::evaluate_all().
+// Carga la sesión desde ses_session_log (DDL v2.12.0) y el bitmask del
+// usuario desde privilege_atom_grant (G-12, cero roles intermedios).
+//
+// Phantoms eliminados (Capa 3 refactor):
+//   ses_context       → ses_session_log
+//   privilege_atom    → idn_roles_template (node_type='atom')
+//   privilege_role_atom → privilege_atom_grant (G-12)
+//   Hardcoded 5808    → count_atoms() dinámico
+//
+// DOC-SBOS-001 N3 · SBOS-049 Context Plane · NIST SP 800-207
+// ============================================================
 
 #![allow(dead_code)]
 use crate::bitmask::registry::DomainRegistry;
@@ -8,6 +20,7 @@ use crate::server::jsonrpc::{JsonRpcError, JsonRpcHandler};
 use serde_json::Value;
 use std::sync::Arc;
 use std::time::Instant;
+use uuid::Uuid;
 
 pub struct ContextEvaluateHandler {
     pub registry: Arc<DomainRegistry>,
@@ -25,7 +38,7 @@ impl JsonRpcHandler for ContextEvaluateHandler {
             });
         }
 
-        let atom_slug = params.get("atom_slug").and_then(|v| v.as_str())
+        let atom_path = params.get("atom_slug").and_then(|v| v.as_str())
             .unwrap_or("sistema.sesion.activa");
 
         let t_start = Instant::now();
@@ -34,112 +47,139 @@ impl JsonRpcHandler for ContextEvaluateHandler {
             code: -32000, message: "base de datos no disponible".into(), data: None,
         })?;
 
-        // ── B-BAUTH-003: Query completa de sesión (antes solo 3 campos) ──
+        // Carga sesión activa desde ses_session_log (DDL v2.12.0)
         let session = super::context_plane::query_session(pg, ctx_id).await?;
-        let tenant_id = session.tenant_id.clone();
-        let user_id = session.user_uuid.map(|u| u.to_string()).unwrap_or_default();
+        let tenant_id_str = session.tenant_id.to_string();
+        let user_id_str   = session.user_id.to_string();
         let t_resolve = t_start.elapsed().as_nanos() as u64;
 
-        // Resolver átomo
-        let (atom_position, atom_code) = self.resolve_atom(pg, atom_slug).await?;
+        // Resolver átomo desde idn_roles_template (path = slug canónico)
+        let (atom_position, atom_code) = self.resolve_atom(pg, atom_path).await?;
 
-        // Cargar RolBitMask real del usuario (desde privilege_role_atom)
-        let rol = self.load_user_rolmask(&user_id).await.unwrap_or_else(|_| {
-            crate::bitmask::RolBitMask::with_capacity(5808)
+        // Cargar RolBitMask del usuario desde privilege_atom_grant (G-12)
+        let rol = self.load_user_rolmask(pg, session.user_id).await.unwrap_or_else(|_| {
+            crate::bitmask::RolBitMask::with_capacity(0)
         });
         let atom = crate::bitmask::AtomBitMask::from_u64(atom_code);
 
         let results = self.registry.evaluate_all(
-            &tenant_id, ctx_id, &user_id, &rol, atom_position, &atom,
+            &tenant_id_str, ctx_id, &user_id_str, &rol, atom_position, &atom,
         );
 
         let t_eval = t_start.elapsed().as_nanos() as u64;
 
         let domain_results: Vec<Value> = results.iter().map(|r| {
             serde_json::json!({
-                "domain": r.domain,
-                "result": r.result.as_u8(),
+                "domain":       r.domain,
+                "result":       r.result.as_u8(),
                 "policy_state": crate::bitmask::PolicyState::from_u8(r.policy_state as u8).is_approved(),
-                "latency_ns": r.latency_ns,
+                "latency_ns":   r.latency_ns,
             })
         }).collect();
 
-        // Notificar si algún dominio denegó
+        // Notificar acceso denegado al notificador jerárquico (si está configurado)
         if let Some(ref notifier) = self.notifier {
             for r in &results {
-                if r.result.as_u8() == 0 { // Denegado
-                    let empresa = session.empresa_id.clone();
-                    let sucursal = session.sucursal_id.clone().unwrap_or_default();
-                    let motivo = format!("Dominio {}: politica denego el acceso", r.domain);
+                if r.result.as_u8() == 0 {
+                    let motivo = format!("Dominio {}: política denegó el acceso", r.domain);
+                    // empresa_id y sucursal_id no están en ses_session_log — se pasan vacíos
                     notifier.notify_access_denied(
-                        &session.tenant_id, &empresa, &sucursal,
-                        &user_id, atom_slug, r.domain as u8, &motivo,
+                        &tenant_id_str, "", "", &user_id_str, atom_path, r.domain as u8, &motivo,
                     ).await;
                 }
             }
         }
 
-        let total_latency_ns = t_start.elapsed().as_nanos() as u64;
+        let total_ns = t_start.elapsed().as_nanos() as u64;
+
         Ok(serde_json::json!({
-            "ctx_id": ctx_id,
-            "atom_slug": atom_slug,
-            // ── B-BAUTH-003: Bloque session con datos completos ──
+            "ctx_id":    ctx_id,
+            "atom_slug": atom_path,
             "session": {
-                "user_uuid":      session.user_uuid.map(|u| u.to_string()),
-                "tenant_id":      session.tenant_id,
-                "empresa_id":     session.empresa_id,
-                "sucursal_id":    session.sucursal_id,
-                "pos_logico":     session.pos_logico,
-                "bitmask_hex":    session.bitmask_hex,
-                "loa_current":    session.loa_current,
-                "device_id":      session.device_id,
-                "device_hostname":session.device_hostname,
-                "device_ip":      session.device_ip,
-                "session_kc":     session.session_kc,
-                "traceparent":    session.traceparent,
-                "state":          session.state,
-                "created_at":     session.created_at.map(|d| d.to_rfc3339()),
-                "expires_at":     session.expires_at.map(|d| d.to_rfc3339()),
+                "user_id":      user_id_str,
+                "tenant_id":    tenant_id_str,
+                "auth_method":  session.auth_method,
+                "loa_initial":  session.loa_initial,
+                "loa_peak":     session.loa_peak,
+                "ip_address":   session.ip_address,
+                "started_at":   session.started_at.to_rfc3339(),
+                "last_active":  session.last_active_at.to_rfc3339(),
             },
             "domains_evaluated": domain_results.len(),
             "domains": domain_results,
             "latency": {
-                "resolve_ns": t_resolve,
+                "resolve_ns":  t_resolve,
                 "evaluate_ns": t_eval - t_resolve,
-                "total_ns": total_latency_ns,
+                "total_ns":    total_ns,
             },
         }))
     }
 }
 
 impl ContextEvaluateHandler {
-    async fn resolve_atom(&self, pg: &sqlx::PgPool, atom_slug: &str)
-        -> Result<(usize, u64), JsonRpcError>
-    {
+    /// Resuelve un átomo por path canónico desde idn_roles_template (DDL v2.12.0).
+    async fn resolve_atom(
+        &self,
+        pg: &sqlx::PgPool,
+        atom_path: &str,
+    ) -> Result<(usize, u64), JsonRpcError> {
         #[derive(sqlx::FromRow)]
-        struct AtomRow { atom_position: i32, contextual_mask: i32, logical_mask: i32 }
+        struct AtomRow { atom_position: i64 }
 
-        let atom: AtomRow = sqlx::query_as(
-            "SELECT atom_position, contextual_mask, logical_mask
-             FROM bauth.privilege_atom WHERE atom_slug = $1"
-        ).bind(atom_slug).fetch_optional(pg).await.map_err(|e| JsonRpcError {
+        let row: AtomRow = sqlx::query_as(
+            "SELECT atom_position
+             FROM bauth.idn_roles_template
+             WHERE node_type = 'atom' AND path = $1 AND is_active = TRUE"
+        )
+        .bind(atom_path)
+        .fetch_optional(pg)
+        .await
+        .map_err(|e| JsonRpcError {
             code: -32000, message: format!("error buscando átomo: {}", e), data: None,
-        })?.ok_or_else(|| JsonRpcError {
-            code: -32602, message: format!("átomo no encontrado: {}", atom_slug), data: None,
+        })?
+        .ok_or_else(|| JsonRpcError {
+            code: -32602,
+            message: format!("átomo no encontrado en catálogo: {}", atom_path),
+            data: None,
         })?;
 
-        let atom_code: u64 = ((atom.contextual_mask as u64) << 32) | (atom.logical_mask as u64);
-        Ok((atom.atom_position as usize, atom_code))
+        let pos = row.atom_position.max(0) as usize;
+        // atom_code = posición como u64 (compatible con AtomBitMask::from_u64)
+        Ok((pos, row.atom_position as u64))
     }
 
-    /// Carga el RolBitMask real del usuario desde privilege_role_atom.
-    async fn load_user_rolmask(&self, user_uuid: &str) -> Result<crate::bitmask::RolBitMask, String> {
-        let pg = self.pg_pool.as_ref().ok_or("BD no disponible")?;
-        if let Ok(role_id) = uuid::Uuid::parse_str(user_uuid) {
-            crate::bitmask::resolver::compute_rol_bitmask(pg, role_id).await
-                .map_err(|e| e.to_string())
-        } else {
-            Ok(crate::bitmask::RolBitMask::with_capacity(5808))
-        }
+    /// Computa RolBitMask del usuario desde privilege_atom_grant (G-12).
+    /// Evita tablas intermedias de roles — consulta directa a grants activos.
+    async fn load_user_rolmask(
+        &self,
+        pg: &sqlx::PgPool,
+        user_id: Uuid,
+    ) -> Result<crate::bitmask::RolBitMask, String> {
+        let total_atoms = crate::db::count_atoms(pg)
+            .await
+            .map_err(|e| e.to_string())? as usize;
+
+        let positions: Vec<(i64,)> = sqlx::query_as(
+            "SELECT rt.atom_position
+             FROM bauth.privilege_atom_grant pag
+             JOIN bauth.idn_roles_template rt
+               ON rt.path = pag.atom_path
+              AND rt.node_type = 'atom'
+              AND rt.is_active = TRUE
+             WHERE pag.user_id = $1
+               AND (pag.general = TRUE AND pag.effect = TRUE
+                    OR pag.general = FALSE AND pag.access = TRUE)
+               AND (pag.expires_at IS NULL OR pag.expires_at > now())"
+        )
+        .bind(user_id)
+        .fetch_all(pg)
+        .await
+        .map_err(|e| e.to_string())?;
+
+        let pos_list: Vec<usize> = positions.iter()
+            .filter_map(|(p,)| if *p >= 0 { Some(*p as usize) } else { None })
+            .collect();
+
+        Ok(crate::bitmask::RolBitMask::from_positions(&pos_list, total_atoms))
     }
 }
