@@ -1,10 +1,18 @@
 // ================================================================
-// bauth::db — Acceso a datos PostgreSQL (B1.T19)
+// bauth::db — Acceso a datos PostgreSQL (SBOSDB, 158 tablas)
 //
-// PostgreSQL: fuente de verdad (bauth_db, 85 tablas, 3 schemas).
-// Redis: cache caliente (B10+).
+// Fuente de verdad: DDL canónico `SBOS_db_V2_DDL.sql` v2.12.0
+// Instancia: SBOSDB · PostgreSQL localhost:15432
 //
-// DOC-SBOS-001 N3: documentación en español.
+// Tablas eliminadas (no existen en DDL canónico):
+//   - privilege_atom_policy  → ELIMINADO (D05b)
+//   - privilege_role_atom    → ELIMINADO (sin equivalente)
+//   - privilege_role         → ELIMINADO (sin equivalente)
+//   - privilege_domain       → REESCRITO a privilege_resource_atom (D05)
+//   - idn_role_closure       → REESCRITO a idn_roles_rol_closure
+//   - privilege_atom         → REESCRITO a privilege_resource_atom
+//
+// DOC-SBOS-001 N3 · SBOS-049 Context Plane
 // ================================================================
 
 #![allow(dead_code)]
@@ -17,11 +25,13 @@ pub struct AppContext {
     pub pg: sqlx::PgPool,
 }
 
-/// Inicializa la conexión a PostgreSQL.
+/// Inicializa el pool de conexiones a PostgreSQL (SBOSDB).
 pub async fn init(cfg: &Config) -> Result<AppContext, DbError> {
     let pg = sqlx::postgres::PgPoolOptions::new()
         .max_connections(cfg.database.pool_size)
-        .acquire_timeout(std::time::Duration::from_secs(cfg.database.connect_timeout_secs))
+        .acquire_timeout(std::time::Duration::from_secs(
+            cfg.database.connect_timeout_secs,
+        ))
         .connect(&cfg.database.url)
         .await
         .map_err(|e| DbError::Postgres(e.to_string()))?;
@@ -39,92 +49,20 @@ pub enum DbError {
     Other(String),
 }
 
-// ─── Queries de políticas (B1.T19) ──────────────────────────
+pub mod versioning;    // WORM T-152 (B01) y T-B02L (B02) — canónico
+pub mod approval;      // Cola quórum N-de-M T-153 (B03) — canónico
+pub mod version_store; // Transición atómica 9 pasos + queries — canónico
 
-/// Fila cruda de bos_atom_policy desde la BD.
-#[derive(Debug, Clone, sqlx::FromRow)]
-pub struct PolicyRow {
-    pub policy_slug: String,
-    pub policy_data: serde_json::Value,
-}
+// ─── Átomos de privilegio (T-170) ───────────────────────────
+//
+// Fuente: bauth.privilege_resource_atom
+// Reemplaza: bauth.privilege_atom (phantom), bauth.privilege_domain (phantom)
 
-/// Carga todas las políticas activas encadenadas a un átomo.
-/// Ordenadas por priority (menor = primero).
-pub async fn load_policies_for_atom(
-    pg: &sqlx::PgPool,
-    app_code: i16,
-    group_code: i16,
-    atom_code: i32,
-) -> Result<Vec<PolicyRow>, DbError> {
-    let rows: Vec<PolicyRow> = sqlx::query_as(
-        r#"
-        SELECT policy_slug, policy_data
-        FROM bauth.privilege_atom_policy
-        WHERE app_code = $1 AND group_code = $2 AND atom_code = $3
-          AND active = TRUE
-        ORDER BY (policy_data->>'priority')::integer
-        "#
-    )
-    .bind(app_code)
-    .bind(group_code)
-    .bind(atom_code)
-    .fetch_all(pg)
-    .await
-    .map_err(|e| DbError::Postgres(e.to_string()))?;
-
-    Ok(rows)
-}
-
-/// Cuenta políticas activas en la BD (para health check).
-pub async fn count_policies(pg: &sqlx::PgPool) -> Result<i64, DbError> {
-    let (count,): (i64,) = sqlx::query_as(
-        "SELECT count(*) FROM bauth.privilege_atom_policy WHERE active = TRUE"
-    )
-    .fetch_one(pg)
-    .await
-    .map_err(|e| DbError::Postgres(e.to_string()))?;
-
-    Ok(count)
-}
-
-pub mod versioning;     // F3: escritura WORM a T-152 (B01) y T-B02L (B02)
-pub mod approval;       // B03: cola de aprobación quórum N-de-M (T-153)
-pub mod version_store;  // F3: transición atómica 9 pasos + queries as-of/history/diff
-
-// ─── Queries de roles (B1.T07) ─────────────────────────────
-
-/// Posición de átomo asignada a un rol (de bos_role_atom).
-#[derive(Debug, Clone, sqlx::FromRow)]
-pub struct RoleAtomRow {
-    pub atom_position: i32,
-}
-
-/// Carga los átomos asignados a un rol (allowed=true).
-/// Retorna las posiciones activas para construir el RolBitMask.
-pub async fn load_role_atoms(
-    pg: &sqlx::PgPool,
-    role_id: uuid::Uuid,
-) -> Result<Vec<RoleAtomRow>, DbError> {
-    let rows: Vec<RoleAtomRow> = sqlx::query_as(
-        r#"
-        SELECT atom_position
-        FROM bauth.privilege_role_atom
-        WHERE role_id = $1 AND allowed = TRUE
-        ORDER BY atom_position
-        "#
-    )
-    .bind(role_id)
-    .fetch_all(pg)
-    .await
-    .map_err(|e| DbError::Postgres(e.to_string()))?;
-
-    Ok(rows)
-}
-
-/// Obtiene el número total de átomos en el catálogo (tamaño del RolBitMask).
+/// Cuenta átomos activos en el catálogo de privilegios.
+/// Usado para dimensionar el espacio del RolBitMask en health check.
 pub async fn count_atoms(pg: &sqlx::PgPool) -> Result<i64, DbError> {
     let (count,): (i64,) = sqlx::query_as(
-        "SELECT count(*) FROM bauth.privilege_atom"
+        "SELECT count(*) FROM bauth.privilege_resource_atom WHERE status = 'ACTIVE'",
     )
     .fetch_one(pg)
     .await
@@ -133,22 +71,29 @@ pub async fn count_atoms(pg: &sqlx::PgPool) -> Result<i64, DbError> {
     Ok(count)
 }
 
-// ─── Queries de herencia (B1.T09) ──────────────────────────
+// ─── Herencia de roles (closure table) ──────────────────────
+//
+// Fuente: bauth.idn_roles_rol_closure
+// Reemplaza: bauth.idn_role_closure (columnas legacy: ancestro_id, descendiente_id, profundidad)
 
-/// Carga los ancestros de un rol desde la closure table.
-/// Retorna los `ancestro_id` de todos los roles de los que hereda
-/// (excluyendo self, profundidad >= 1).
+/// Carga los IDs de ancestros de un rol desde la closure table.
+///
+/// Retorna todos los roles de los que hereda el rol dado (depth >= 1),
+/// ordenados por profundidad ascendente. Solo ancestros activos.
+/// La closure table es mantenida por triggers — no se edita directamente.
 pub async fn load_role_ancestors(
     pg: &sqlx::PgPool,
-    role_id: &str,
-) -> Result<Vec<String>, DbError> {
-    let rows: Vec<(String,)> = sqlx::query_as(
+    role_id: uuid::Uuid,
+) -> Result<Vec<uuid::Uuid>, DbError> {
+    let rows: Vec<(uuid::Uuid,)> = sqlx::query_as(
         r#"
-        SELECT ancestro_id
-        FROM bauth.idn_role_closure
-        WHERE descendiente_id = $1 AND profundidad >= 1
-        ORDER BY profundidad
-        "#
+        SELECT ancestor_id
+        FROM bauth.idn_roles_rol_closure
+        WHERE descendant_id = $1
+          AND depth          >= 1
+          AND is_active      = TRUE
+        ORDER BY depth
+        "#,
     )
     .bind(role_id)
     .fetch_all(pg)
@@ -158,51 +103,66 @@ pub async fn load_role_ancestors(
     Ok(rows.into_iter().map(|(id,)| id).collect())
 }
 
-/// Carga los átomos de múltiples roles y los combina en posiciones únicas.
-/// Útil para computar la máscara efectiva con herencia.
-pub async fn load_atoms_for_roles(
+// ─── Dominios activos por tenant (T-170) ────────────────────
+//
+// Fuente: bauth.privilege_resource_atom
+// Reemplaza: bauth.privilege_domain (phantom, columnas: domain_code, requires_policy)
+
+/// Configuración de dominio derivada para un tenant.
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct DomainConfigRow {
+    /// Código del dominio (D00-D15, D98, D99).
+    pub domain_code: i16,
+    /// `true` si el dominio tiene átomos activos para el tenant.
+    pub active: bool,
+    /// Obligación JSONB del dominio, si aplica.
+    pub override_params: Option<serde_json::Value>,
+}
+
+/// Carga los dominios activos para un tenant.
+///
+/// Un dominio se considera activo cuando tiene al menos un átomo con
+/// `status = 'ACTIVE'` en `privilege_resource_atom` para ese tenant.
+/// Los tenants sin átomos retornan lista vacía (sin acceso a ningún dominio).
+pub async fn load_active_domains(
     pg: &sqlx::PgPool,
-    role_ids: &[String],
-) -> Result<Vec<i32>, DbError> {
-    if role_ids.is_empty() {
-        return Ok(Vec::new());
-    }
-
-    // sqlx no soporta arrays nativos en query_as con IN, usamos ANY
-    let ids: Vec<uuid::Uuid> = role_ids
-        .iter()
-        .filter_map(|id| uuid::Uuid::parse_str(id).ok())
-        .collect();
-
-    if ids.is_empty() {
-        return Ok(Vec::new());
-    }
-
-    let rows: Vec<(i32,)> = sqlx::query_as(
+    tenant_id: uuid::Uuid,
+) -> Result<Vec<DomainConfigRow>, DbError> {
+    let rows: Vec<DomainConfigRow> = sqlx::query_as(
         r#"
-        SELECT DISTINCT atom_position
-        FROM bauth.privilege_role_atom
-        WHERE role_id = ANY($1) AND allowed = TRUE
-        ORDER BY atom_position
-        "#
+        SELECT DISTINCT
+            domain_code,
+            TRUE        AS active,
+            NULL::jsonb AS override_params
+        FROM bauth.privilege_resource_atom
+        WHERE status    = 'ACTIVE'
+          AND tenant_id = $1
+        ORDER BY domain_code
+        "#,
     )
-    .bind(&ids)
+    .bind(tenant_id)
     .fetch_all(pg)
     .await
     .map_err(|e| DbError::Postgres(e.to_string()))?;
 
-    Ok(rows.into_iter().map(|(p,)| p).collect())
+    Ok(rows)
 }
 
-// ─── Configuración global (B1.T21) ─────────────────────────
+// ─── Configuración global del ecosistema (bglobal) ──────────
+//
+// El schema `bglobal` es compartido entre todos los servicios SBOS.
+// No es una tabla de bauth — es la configuración global del ecosistema.
 
-/// Carga un valor de configuración global desde `bglobal.global_config`.
+/// Carga un valor desde `bglobal.global_config`.
+///
+/// Retorna `None` si la clave no existe. El schema `bglobal` es
+/// co-propiedad del ecosistema SBOS (read-only para bAuth).
 pub async fn load_global_config(
     pg: &sqlx::PgPool,
     key: &str,
 ) -> Result<Option<serde_json::Value>, DbError> {
     let row: Option<(serde_json::Value,)> = sqlx::query_as(
-        "SELECT config_value FROM bglobal.global_config WHERE config_key = $1"
+        "SELECT config_value FROM bglobal.global_config WHERE config_key = $1",
     )
     .bind(key)
     .fetch_optional(pg)
@@ -212,93 +172,51 @@ pub async fn load_global_config(
     Ok(row.map(|(v,)| v))
 }
 
-// ─── Queries de configuración de dominios (B1.T21) ─────────
-
-/// Configuración de un dominio para un tenant específico.
-#[derive(Debug, Clone, sqlx::FromRow)]
-pub struct DomainConfigRow {
-    pub domain_code: i16,
-    pub active: bool,
-    pub override_params: Option<serde_json::Value>,
-}
-
-/// Carga la configuración de dominios para un tenant.
-/// Usa `privilege_domain` (12 dominios D1-D12) como fuente de verdad.
-/// La activación por tenant se almacenará en `idn_tenant_config.metadata`
-/// (B45 pendiente). Por ahora retorna todos los dominios activos.
-pub async fn load_active_domains(
-    pg: &sqlx::PgPool,
-    _tenant_id: uuid::Uuid,
-) -> Result<Vec<DomainConfigRow>, DbError> {
-    let rows: Vec<DomainConfigRow> = sqlx::query_as(
-        r#"
-        SELECT domain_code, requires_policy AS active, NULL::jsonb AS override_params
-        FROM bauth.privilege_domain
-        ORDER BY domain_code
-        "#
-    )
-    .fetch_all(pg)
-    .await
-    .map_err(|e| DbError::Postgres(e.to_string()))?;
-
-    Ok(rows)
-}
-
-// ─── Queries de saga_catalog (B35) ─────────────────────────
+// ─── Catálogo de sagas (migración B35 pendiente) ─────────────
+//
+// Las tablas `saga_catalog` y `saga_step` no existen en DDL v2.12.0.
+// Se mantienen como stubs que retornan error descriptivo (H-012).
 
 /// Fila del catálogo de sagas.
 #[derive(Debug, Clone, sqlx::FromRow, serde::Serialize)]
 pub struct SagaCatalogRow {
-    pub saga_name: String,
-    pub version: String,
-    pub description: String,
-    pub compensation: String,
+    pub saga_name:     String,
+    pub version:       String,
+    pub description:   String,
+    pub compensation:  String,
     pub max_timeout_ms: i32,
-    pub tier_minimum: String,
-    pub active: bool,
+    pub tier_minimum:  String,
+    pub active:        bool,
 }
 
 /// Fila de paso de saga.
 #[derive(Debug, Clone, sqlx::FromRow, serde::Serialize)]
 pub struct SagaStepRow {
-    pub step_order: i32,
-    pub step_name: String,
-    pub saga_op: String,
-    pub action_ref: String,
+    pub step_order:     i32,
+    pub step_name:      String,
+    pub saga_op:        String,
+    pub action_ref:     String,
     pub compensate_ref: Option<String>,
-    pub timeout_ms: i32,
-    pub max_retries: i32,
-    pub depends_on: Option<Vec<String>>,
+    pub timeout_ms:     i32,
+    pub max_retries:    i32,
+    pub depends_on:     Option<Vec<String>>,
 }
 
-/// Carga todas las sagas activas del catálogo.
-/// TODO B35: Las tablas `saga_catalog` y `saga_step` no existen en DDL actual.
-/// Deben crearse o migrarse desde bos_privilege schema antiguo.
+/// Carga las sagas activas. Pendiente: migración B35.
 pub async fn load_saga_catalog(_pg: &sqlx::PgPool) -> Result<Vec<SagaCatalogRow>, DbError> {
-    // H-012 FIX: retornar error descriptivo en vez de silencioso vacio
-    Err(DbError::Other("saga_catalog: tabla no disponible — migracion B35 pendiente".into()))
+    Err(DbError::Other(
+        "saga_catalog: tabla no disponible — migración B35 pendiente".into(),
+    ))
 }
 
-pub async fn load_saga_steps(_pg: &sqlx::PgPool, _saga_name: &str) -> Result<Vec<SagaStepRow>, DbError> {
-    Err(DbError::Other("saga_steps: tabla no disponible — migracion B35 pendiente".into()))
-}
-
-// ─── Queries de role ────────────────────────────────────────
-
-/// Fila de rol para listado.
-#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize)]
-pub struct RoleRow {
-    pub role_id: uuid::Uuid,
-    pub role_code: i32,
-    pub role_name: String,
-    pub role_slug: String,
-    pub active: bool,
-}
-
-/// Carga todos los roles activos.
-pub async fn load_roles(pg: &sqlx::PgPool) -> Result<Vec<RoleRow>, DbError> {
-    sqlx::query_as("SELECT role_id, role_code, role_name, role_slug, active FROM bauth.privilege_role WHERE active = TRUE ORDER BY role_code")
-        .fetch_all(pg).await.map_err(|e| DbError::Postgres(e.to_string()))
+/// Carga los pasos de una saga. Pendiente: migración B35.
+pub async fn load_saga_steps(
+    _pg: &sqlx::PgPool,
+    _saga_name: &str,
+) -> Result<Vec<SagaStepRow>, DbError> {
+    Err(DbError::Other(
+        "saga_steps: tabla no disponible — migración B35 pendiente".into(),
+    ))
 }
 
 #[cfg(test)]

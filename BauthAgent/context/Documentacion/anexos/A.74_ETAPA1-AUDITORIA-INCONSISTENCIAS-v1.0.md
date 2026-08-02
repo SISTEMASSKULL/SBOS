@@ -107,16 +107,17 @@ Leyenda de estado: ✅ Mapeado con certeza · ❓ Requiere decisión humana · �
 
 ---
 
-## §3 Decisiones pendientes (bloquean el refactor)
+## §3 Decisiones resueltas (regla: DDL canónico gana · sin preservar legacy)
 
-| ID | Tabla(s) | Pregunta | Bloqueado en capa |
-|----|----------|----------|-------------------|
-| D01 | `ath_policy_d` | ¿mapeo a `auth_policy` o nueva tabla? | 2B domain/ |
-| D02 | `aud_event` | ¿`ses_caep_event_log` o nueva `aud_event`? | 2B domain/ |
-| D03 | `idn_user_template` | ¿`idn_user` o tabla nueva? | 2C handlers/ |
-| D04 | `org_*` (3 tablas) | ¿colapsan a `idn_identity_entity`? | 2C handlers/ |
-| D05 | `privilege_domain`, `privilege_atom_policy` | ¿nuevas tablas o colapso? | 2C handlers/ |
-| D06 | `ses_context` | ¿`ses_session_log` o tabla propia? | 2B domain/ |
+| ID | Tabla(s) legacy | Acción | Tabla canónica destino |
+|----|-----------------|--------|------------------------|
+| D01 | `ath_policy_d` | REESCRIBIR | `bauth.auth_policy` |
+| D02 | `aud_event` | REESCRIBIR | `bauth.ses_caep_event_log` |
+| D03 | `idn_user_template` | REESCRIBIR | `bauth.idn_user` |
+| D04 | `org_empresa`, `org_sucursal`, `org_pos_logico` | REESCRIBIR | `bauth.idn_identity_entity` |
+| D05 | `privilege_domain` | REESCRIBIR | `bauth.privilege_resource_atom` |
+| D05b | `privilege_atom_policy` | ELIMINAR | sin equivalente canónico |
+| D06 | `ses_context` | REESCRIBIR | `bauth.ses_session_log` |
 
 ---
 

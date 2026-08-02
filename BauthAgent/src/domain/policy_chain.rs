@@ -1,12 +1,12 @@
 // ============================================================
 // bauth::domain::policy_chain — PolicyChainResolver (B1.T19)
 //
-// Resuelve la cadena de políticas encadenadas a un átomo.
-// Consulta bos_atom_policy en PostgreSQL, parsea policy_data JSONB,
-// y devuelve Vec<PolicyRule> listo para evaluación por el PolicyEngine.
+// Resuelve la cadena de políticas asociadas a una operación.
 //
-// D4 y D6 no tienen átomos propios — se activan encadenados a átomos
-// de D1 (ej: sistema.sesion.ingresar → D4 + D6).
+// Estado actual: `privilege_atom_policy` fue eliminada del DDL canónico (D05b).
+// No existe tabla equivalente en DDL v2.12.0 para políticas por átomo.
+// El sistema de políticas se migrará a `cfg_policy_library` (clave-valor)
+// o `auth_policy` (política por dominio) en iteraciones futuras.
 //
 // Estándares:
 //   NIST ABAC SP 800-162 — resolución de políticas por atributos
@@ -16,101 +16,72 @@
 
 #![allow(dead_code)]
 use super::policy::{parse_policy_data, from_policy_data, PolicyRule};
-use crate::db::load_policies_for_atom;
 use sqlx::PgPool;
-use tracing::{debug, warn};
+use tracing::debug;
 
 /// Resolvedor de cadena de políticas.
 ///
 /// Sin estado propio — opera sobre el pool de PostgreSQL.
-/// Todas las políticas se cargan desde BD en cada evaluación.
-/// Para producción, agregar caché en Redis con TTL 30s (B10+).
+/// Carga políticas desde `cfg_policy_library` cuando estén disponibles.
 pub struct PolicyChainResolver;
 
 impl PolicyChainResolver {
-    /// Carga y resuelve todas las políticas encadenadas a un átomo.
+    /// Carga las políticas encadenadas a una operación.
+    ///
+    /// **Estado actual:** retorna Vec vacío — `privilege_atom_policy` fue
+    /// eliminada (D05b). Las políticas por dominio se gestionarán vía
+    /// `auth_policy` cuando el módulo de políticas sea migrado (D01).
     ///
     /// # Argumentos
     /// - `pg`: pool de conexiones PostgreSQL
-    /// - `app_code`, `group_code`, `atom_code`: identificador del átomo
+    /// - `app_code`, `group_code`, `atom_code`: identificador de la operación
     ///
     /// # Retorno
-    /// - `Vec<PolicyRule>` ordenado por priority, listo para PolicyEngine::evaluate()
-    /// - Vec vacío si el átomo no tiene políticas encadenadas
+    /// - `Vec<PolicyRule>` (vacío en la implementación actual)
     pub async fn resolve(
-        pg: &PgPool,
+        _pg: &PgPool,
         app_code: i16,
         group_code: i16,
         atom_code: i32,
     ) -> Result<Vec<PolicyRule>, PolicyChainError> {
-        let rows = load_policies_for_atom(pg, app_code, group_code, atom_code).await?;
-
-        if rows.is_empty() {
-            debug!(
-                app_code, group_code, atom_code,
-                "sin políticas encadenadas"
-            );
-            return Ok(Vec::new());
-        }
-
-        let mut rules = Vec::with_capacity(rows.len());
-
-        for row in &rows {
-            match parse_policy_data(&row.policy_data) {
-                Ok(pd) => {
-                    let mut rule = from_policy_data(&pd);
-                    // El slug viene de la BD, no del JSONB (permite búsqueda inversa)
-                    rule.slug = row.policy_slug.clone();
-                    // El dominio se infiere del policy_domain en la BD (ya está en la query)
-                    rules.push(rule);
-                }
-                Err(e) => {
-                    warn!(
-                        slug = %row.policy_slug,
-                        error = %e,
-                        "política mal formada — omitiendo"
-                    );
-                    // Continuar con las demás políticas — no detener la evaluación
-                }
-            }
-        }
-
         debug!(
             app_code, group_code, atom_code,
-            total = rules.len(),
-            "políticas cargadas y resueltas"
+            "policies: sin cadena disponible (privilege_atom_policy eliminada D05b)"
         );
-
-        Ok(rules)
+        Ok(Vec::new())
     }
 
-    /// Devuelve los dominios adicionales que deben evaluarse para un átomo.
+    /// Carga políticas genéricas desde `cfg_policy_library` por clave.
     ///
-    /// Útil para D4 y D6 que se encadenan sin átomos propios.
-    /// Retorna los domain_code distintos de las políticas activas.
-    pub async fn chained_domains(
+    /// Sustituto parcial de `privilege_atom_policy` para políticas globales.
+    /// Las políticas específicas por dominio se implementarán vía `auth_policy`.
+    pub async fn resolve_from_config(
         pg: &PgPool,
-        app_code: i16,
-        group_code: i16,
-        atom_code: i32,
-    ) -> Result<Vec<u8>, PolicyChainError> {
-        let rows: Vec<(i16,)> = sqlx::query_as(
-            r#"
-            SELECT DISTINCT policy_domain
-            FROM bauth.privilege_atom_policy
-            WHERE app_code = $1 AND group_code = $2 AND atom_code = $3
-              AND active = TRUE
-            ORDER BY policy_domain
-            "#
+        policy_key: &str,
+    ) -> Result<Vec<PolicyRule>, PolicyChainError> {
+        let row: Option<(serde_json::Value,)> = sqlx::query_as(
+            "SELECT policy_value FROM bauth.cfg_policy_library WHERE policy_key = $1",
         )
-        .bind(app_code)
-        .bind(group_code)
-        .bind(atom_code)
-        .fetch_all(pg)
+        .bind(policy_key)
+        .fetch_optional(pg)
         .await
         .map_err(|e| PolicyChainError::Database(e.to_string()))?;
 
-        Ok(rows.into_iter().map(|(d,)| d as u8).collect())
+        let Some((policy_data,)) = row else {
+            return Ok(Vec::new());
+        };
+
+        match parse_policy_data(&policy_data) {
+            Ok(pd) => {
+                let mut rule = from_policy_data(&pd);
+                rule.slug = policy_key.to_string();
+                Ok(vec![rule])
+            }
+            Err(e) => {
+                debug!(key = policy_key, error = %e, "política en cfg_policy_library mal formada");
+                Ok(Vec::new())
+            }
+        }
     }
 }
 
@@ -131,8 +102,6 @@ impl From<crate::db::DbError> for PolicyChainError {
 mod tests {
     use super::*;
 
-    /// Verifica que parseo de policy_data JSONB → PolicyRule funciona
-    /// con datos simulados como los que vienen de la BD.
     #[test]
     fn test_parse_policy_row_to_rule() {
         let json = serde_json::json!({
@@ -157,7 +126,6 @@ mod tests {
         assert_eq!(rule.priority, 10);
         assert_eq!(rule.action, "deny");
         assert_eq!(rule.conditions.len(), 1);
-        // Verificar que ${params.limit} fue resuelto a 10000
         assert_eq!(rule.conditions[0].raw_value, serde_json::json!(10000));
     }
 

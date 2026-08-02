@@ -1,18 +1,20 @@
 // ============================================================
-// bAuth::bitmask::resolver — Resolución y cómputo de BitMasks
-// B1.T07 — ComputeRolBitMask (desde bos_role_atom en BD)
+// bauth::bitmask::resolver — Serialización y cómputo de BitMasks
+//
 // B1.T17 — RolBitMaskSerializer (formatos base64/bytes/positions)
 // B1.T18 — AtomPositionResolver (HashMap cache inmutable)
+// B1.T07 — ComputeRolBitMask (stub — pendiente idn_roles_template depth=3)
+// B1.T09 — InheritFromParent (closure canónica — bitmask pendiente depth=3)
 //
-// B1.T07: Consulta bos_role_atom para un rol, construye RolBitMask
-// con las posiciones activas. Sin hardcodear — todo desde BD.
+// Tablas canónicas usadas:
+//   bauth.privilege_resource_atom → count_atoms()
+//   bauth.idn_roles_rol_closure   → load_role_ancestors()
 //
-// B1.T17: La serialización base (to_base64/from_base64/to_bytes/from_bytes)
-// ya está en rol.rs. Aquí se agregan helpers para almacenamiento en Redis y DB.
+// Eliminado: consultas a privilege_role_atom y privilege_atom (phantoms).
+// Pendiente: cómputo de BitMask individual cuando idn_roles_template
+//            tenga átomos a depth=3.
 //
-// B1.T18: Cache en memoria que mapea atom_slug → atom_position.
-// Las posiciones son INMUTABLES — el cache se llena al cargar el catálogo
-// y nunca se invalida (TTL ∞).
+// DOC-SBOS-001 N3
 // ============================================================
 
 #![allow(dead_code)]
@@ -21,12 +23,11 @@ use sqlx::PgPool;
 use std::collections::HashMap;
 use tracing::debug;
 
-// ─── B1.T17: Serialización extendida ─────────────────────────────
+// ─── B1.T17: Serialización extendida ─────────────────────────
 
-/// Formatos de serialización del Rol BitMask soportados.
+/// Formatos de serialización del RolBitMask soportados.
 pub enum RolBitMaskFormat {
     /// Base64 URL-safe sin padding (para JWT claims).
-    /// ~63 bytes para 500 átomos.
     Base64Url,
     /// Bytes crudos (para Redis SET/GET).
     Bytes,
@@ -37,28 +38,29 @@ pub enum RolBitMaskFormat {
 /// Serializa un RolBitMask en el formato especificado.
 pub fn serialize_rol(rol: &RolBitMask, format: RolBitMaskFormat) -> Vec<u8> {
     match format {
-        RolBitMaskFormat::Base64Url => rol.to_base64().into_bytes(),
-        RolBitMaskFormat::Bytes => rol.to_bytes(),
-        RolBitMaskFormat::Positions => {
-            let positions: Vec<u8> = rol
-                .active_positions()
+        RolBitMaskFormat::Base64Url  => rol.to_base64().into_bytes(),
+        RolBitMaskFormat::Bytes      => rol.to_bytes(),
+        RolBitMaskFormat::Positions  => {
+            rol.active_positions()
                 .flat_map(|p| p.to_le_bytes())
-                .collect();
-            positions
+                .collect()
         }
     }
 }
 
 /// Deserializa un RolBitMask desde bytes + formato + total_atoms.
-pub fn deserialize_rol(data: &[u8], format: RolBitMaskFormat, total_atoms: usize) -> Result<RolBitMask, String> {
+pub fn deserialize_rol(
+    data: &[u8],
+    format: RolBitMaskFormat,
+    total_atoms: usize,
+) -> Result<RolBitMask, String> {
     match format {
         RolBitMaskFormat::Base64Url => {
-            let b64_str = std::str::from_utf8(data).map_err(|e| format!("utf8: {}", e))?;
-            RolBitMask::from_base64(b64_str, total_atoms)
+            let b64 = std::str::from_utf8(data).map_err(|e| format!("utf8: {e}"))?;
+            RolBitMask::from_base64(b64, total_atoms)
         }
         RolBitMaskFormat::Bytes => Ok(RolBitMask::from_bytes(data, total_atoms)),
         RolBitMaskFormat::Positions => {
-            // Reconstruir desde array de posiciones (cada posición = 8 bytes en little-endian)
             let positions: Vec<AtomPosition> = data
                 .chunks_exact(8)
                 .map(|chunk| {
@@ -71,42 +73,33 @@ pub fn deserialize_rol(data: &[u8], format: RolBitMaskFormat, total_atoms: usize
     }
 }
 
-// ─── B1.T18: AtomPositionResolver ────────────────────────────────
+// ─── B1.T18: AtomPositionResolver ────────────────────────────
 
-/// Resuelve atom_slug → atom_position usando un cache inmutable en memoria.
+/// Cache inmutable de atom_slug → atom_position.
 ///
-/// Se llena UNA vez al cargar el catálogo desde `bos_atom_catalog`.
-/// Las posiciones nunca cambian (son inmutables), por lo que el cache
-/// tiene TTL ∞ — nunca se invalida.
+/// Se llena una vez al cargar el catálogo desde la BD y nunca se invalida
+/// (las posiciones son inmutables por diseño del BitMask engine).
 pub struct AtomPositionResolver {
-    /// Mapa slug → posición.
-    /// Clave: "comprobantes.nuevo"
-    /// Valor: posición ordinal (0-based)
     cache: HashMap<String, AtomPosition>,
 }
 
 impl AtomPositionResolver {
     /// Crea un resolver vacío.
     pub fn new() -> Self {
-        AtomPositionResolver {
-            cache: HashMap::new(),
-        }
+        AtomPositionResolver { cache: HashMap::new() }
     }
 
-    /// Crea un resolver desde un iterador de pares (slug, position).
+    /// Crea un resolver desde pares (slug, position).
     pub fn from_entries(entries: impl Iterator<Item = (String, AtomPosition)>) -> Self {
-        let cache: HashMap<String, AtomPosition> = entries.collect();
-        AtomPositionResolver { cache }
+        AtomPositionResolver { cache: entries.collect() }
     }
 
-    /// Registra un nuevo slug → posición.
-    /// Solo se llama durante la carga del catálogo (nunca en runtime).
+    /// Registra slug → posición. Solo durante carga inicial del catálogo.
     pub fn register(&mut self, slug: &str, position: AtomPosition) {
         self.cache.insert(slug.to_string(), position);
     }
 
-    /// Resuelve un slug a su posición.
-    /// Retorna None si el slug no está en el catálogo.
+    /// Resuelve un slug a su posición. `None` si no está en el catálogo.
     pub fn resolve(&self, slug: &str) -> Option<AtomPosition> {
         self.cache.get(slug).copied()
     }
@@ -121,15 +114,15 @@ impl AtomPositionResolver {
         self.cache.contains_key(slug)
     }
 
-    /// Número total de átomos en el catálogo.
+    /// Número total de átomos registrados.
     pub fn total_atoms(&self) -> usize {
         self.cache.len()
     }
 }
 
-// ─── B1.T07: ComputeRolBitMask ─────────────────────────────────
+// ─── B1.T07: ComputeRolBitMask ───────────────────────────────
 
-/// Error al computar el RolBitMask con mensaje en español.
+/// Error al computar el RolBitMask con mensajes en español.
 #[derive(Debug, thiserror::Error)]
 pub enum ComputeError {
     #[error("error de base de datos: {0}")]
@@ -140,100 +133,69 @@ pub enum ComputeError {
 
 /// Computa el RolBitMask para un rol desde la base de datos.
 ///
-/// Consulta `bos_role_atom` para obtener las posiciones de átomos
-/// asignadas al rol (allowed=true), y construye un RolBitMask
-/// con el tamaño total del catálogo.
+/// **Estado actual:** stub — retorna máscara vacía dimensionada al catálogo.
+/// La asignación átomo-rol se realizará a través de `idn_roles_template`
+/// cuando los átomos a depth=3 sean insertados en esa tabla.
 ///
-/// # Rendimiento
-/// - 1 query para átomos del rol (~1ms)
-/// - 1 query para tamaño del catálogo (~0.5ms)
-/// - Construcción del BitVec: O(n) donde n = átomos del rol
+/// Consulta canónica futura:
+///   ```sql
+///   SELECT t.bit_position
+///   FROM bauth.idn_roles_template t
+///   JOIN bauth.privilege_resource_atom pra ON pra.id_atom = t.id
+///   WHERE pra.status = 'ACTIVE' AND pra.id_atom = $1
+///   ```
 pub async fn compute_rol_bitmask(
     pg: &PgPool,
     role_id: uuid::Uuid,
 ) -> Result<RolBitMask, ComputeError> {
-    let atom_rows = crate::db::load_role_atoms(pg, role_id)
-        .await
-        .map_err(|e| ComputeError::Database(e.to_string()))?;
-
-    if atom_rows.is_empty() {
-        return Err(ComputeError::EmptyRole);
-    }
-
     let total_atoms = crate::db::count_atoms(pg)
         .await
         .map_err(|e| ComputeError::Database(e.to_string()))? as usize;
 
-    let positions: Vec<AtomPosition> = atom_rows
-        .iter()
-        .map(|r| r.atom_position as usize)
-        .collect();
-
     debug!(
         role_id = %role_id,
-        active = positions.len(),
         total_atoms,
-        "RolBitMask computado desde BD"
+        "RolBitMask: pendiente átomos depth=3 en idn_roles_template"
     );
 
-    Ok(RolBitMask::from_positions(&positions, total_atoms))
+    Ok(RolBitMask::with_capacity(total_atoms))
 }
 
 // ─── B1.T09: InheritFromParent ────────────────────────────────
 
-/// Computa la máscara efectiva de un rol considerando herencia DAG.
+/// Computa la máscara efectiva de un rol con herencia DAG.
 ///
-/// Consulta `bauth.idn_role_closure` para obtener todos los ancestros del rol,
-/// carga los átomos de cada ancestro, y hace OR de todas las máscaras.
+/// Obtiene los ancestros desde `bauth.idn_roles_rol_closure` (canónico)
+/// y aplica OR de las máscaras. El cómputo de BitMask de cada rol
+/// es un stub hasta que `idn_roles_template` tenga átomos a depth=3.
 ///
-/// `mask_eff(rol) = mask_own(rol) | mask_own(ancestro_1) | mask_own(ancestro_2) | ...`
-///
-/// El closure table garantiza que las relaciones transitivas ya están
-/// precomputadas — una sola query resuelve toda la cadena.
+/// `mask_eff(rol) = mask_own(rol) | mask_own(ancestro_1) | ...`
 pub async fn inherit_from_parents(
     pg: &PgPool,
-    role_id: &str,
+    role_id: uuid::Uuid,
 ) -> Result<RolBitMask, ComputeError> {
-    // 1. Obtener ancestros desde closure table
     let ancestors = crate::db::load_role_ancestors(pg, role_id)
         .await
         .map_err(|e| ComputeError::Database(e.to_string()))?;
 
-    // 2. Recolectar todos los IDs (el rol propio + ancestros)
-    let mut all_ids = vec![role_id.to_string()];
-    all_ids.extend(ancestors);
-
-    // 3. Cargar átomos de todos los roles
-    let positions = crate::db::load_atoms_for_roles(pg, &all_ids)
-        .await
-        .map_err(|e| ComputeError::Database(e.to_string()))?;
-
-    if positions.is_empty() {
-        return Err(ComputeError::EmptyRole);
-    }
-
-    // 4. Obtener tamaño del catálogo
     let total_atoms = crate::db::count_atoms(pg)
         .await
         .map_err(|e| ComputeError::Database(e.to_string()))? as usize;
 
-    let atom_positions: Vec<usize> = positions.iter().map(|&p| p as usize).collect();
-
     debug!(
         role_id = %role_id,
-        ancestors = all_ids.len() - 1,
-        active = atom_positions.len(),
-        "máscara efectiva computada con herencia DAG"
+        ancestors = ancestors.len(),
+        total_atoms,
+        "herencia DAG: ancestros resueltos desde closure canónica"
     );
 
-    Ok(RolBitMask::from_positions(&atom_positions, total_atoms))
+    // Stub: OR de máscaras vacías hasta que depth=3 exista en idn_roles_template
+    Ok(RolBitMask::with_capacity(total_atoms))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // ─── B1.T17 Tests ───
 
     #[test]
     fn test_serialize_roundtrip_bytes() {
@@ -273,8 +235,6 @@ mod tests {
         let restored = deserialize_rol(&bytes, RolBitMaskFormat::Bytes, 64).unwrap();
         assert_eq!(restored.count_active(), 0);
     }
-
-    // ─── B1.T18 Tests ───
 
     #[test]
     fn test_resolve_existing_slug() {
@@ -326,7 +286,6 @@ mod tests {
     fn test_cache_immutable() {
         let mut resolver = AtomPositionResolver::new();
         resolver.register("original", 5);
-        // Intentar re-registrar — debe sobrescribir (la app no debería hacer esto)
         resolver.register("original", 99);
         assert_eq!(resolver.resolve("original"), Some(99), "último registro gana");
     }

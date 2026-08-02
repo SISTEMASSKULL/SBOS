@@ -136,13 +136,17 @@ cargo check 2>&1 | grep -c "error"
 
 ## §4 Checklist de cierre por capa
 
-| Capa | cargo check | 0 refs legacy | Commit |
-|------|:-----------:|:-------------:|--------|
-| 1 — db/ | ⬜ | ⬜ | `refactor(bauth-db): capa db/ alineada con DDL canónico` |
-| 2A — bitmask/ | ⬜ | ⬜ | `refactor(bauth-bitmask): tablas canónicas` |
-| 2B — domain/ | ⬜ | ⬜ | `refactor(bauth-domain): tablas canónicas` |
-| 2C — saga/sync/ | ⬜ | ⬜ | `refactor(bauth-saga): tablas canónicas` |
-| 3 — handlers/ | ⬜ | ⬜ | `refactor(bauth-handlers): tablas canónicas + structs` |
+| Capa | cargo check | 0 refs legacy SQL | Archivos canónicos | Commit |
+|------|:-----------:|:-----------------:|-------------------|--------|
+| 1 — db/ | ✅ | ✅ | `db/mod.rs` (5 phantoms eliminados, 3 reescritos) | pendiente commit |
+| 2A — bitmask/ | ✅ parcial | ⬜ | `bitmask/resolver.rs` (closure canónica, bitmask stub) | pendiente commit |
+| 2B — domain/ | ✅ parcial | ⬜ | `domain/policy_chain.rs` (sin phantom, cfg_policy_library) | pendiente commit |
+| 2C — saga/sync/ | ⬜ | ⬜ | — | — |
+| 3 — handlers/ | ✅ parcial | ⬜ | `role_list`, `access_evaluate`, `policy_evaluate`, `inheritance_evaluate` | pendiente commit |
+
+**Nota:** La compilación (cargo check) está verde globalmente. Las referencias legacy restantes
+son inline SQL strings (no causan errores de compilación) — se corregirán en las siguientes
+iteraciones de Capa 2C y Capa 3.
 
 ---
 
