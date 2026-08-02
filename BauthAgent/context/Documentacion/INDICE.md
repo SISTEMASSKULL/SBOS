@@ -134,6 +134,7 @@ listar la carpeta; los archivos ordenan solos por fase y dependencia. La carta r
 | 7.3 | [Normas y Estándares Internacionales](7.03_MANUAL-NORMAS-v1.0.md) | todos (cataloga sus normas) | ✅ 1.0.0 |
 | 7.4 | [CLI y Pruebas Externas (delegación de verificación)](7.04_MANUAL-CLI-PRUEBAS-EXTERNAS-v1.0.md) | 6.1, 9.1 | ✅ 1.0.0 ➕ |
 | 7.5 | [Pipeline de Seguridad CI — SA-10 / ISO 27001 A.8.25 (Podman + cargo-audit + cargo-deny + clippy + timer systemd)](7.05_MANUAL-PIPELINE-SEGURIDAD-CI-v1.0.md) | 6.1, 5.1, 7.3 | ✅ 1.0.0 |
+| 7.6 | [Auditoría y Refactorización DB — 36 tablas phantom → DDL canónico (3 etapas)](7.06_MANUAL-AUDITORIA-REFACTOR-DB-v1.0.md) | DDL, A.74, A.75, A.76 | ✅ 1.0.0 |
 
 ### Serie 9 — PRODUCTO (transversal)
 
@@ -165,6 +166,10 @@ curada para consulta sin fricción. Índice, patrón canónico y plan: [anexos/I
 | **[A.66 — Gaps nombres tablas DDL](anexos/A.66_ANEXO-GAPS-NOMBRES-TABLAS-DDL-v1.0.md)** · **[A.67 — Zonas de Negocio RolTemplate](anexos/A.67_ANEXO-BLOQUE-ZONAS-NEGOCIO-ROL-TEMPLATE-v1.0.md)** · **[A.68 — Catálogo propiedades átomos](anexos/A.68_CATALOGO-PROPIEDADES-ATOMOS-v1.0.md)** · **[A.69 — Revisión DDL V2 bugs](anexos/A.69_ANEXO-REVISION-DDL-V2-BUGS-v1.0.md)** | DDL · Árbol · Átomos | ✅ |
 | **[A.70 — Recursos Kubernetes de bAuth (B02 Reconcile + NetworkPolicies)](anexos/A.70_ANEXO-BAUTH-KUBERNETES-RESOURCES-v1.0.md)** — Secret, CronJob y NetworkPolicy; manifests idempotentes para reconstrucción sin fricción | B02 · K8s | ✅ 1.0.0 |
 | **[A.71 — Informe de Cumplimiento ISO 27001:2022](anexos/A.71_INFORME-CUMPLIMIENTO-ISO27001-2022-v1.0.md)** — Análisis de los 93 controles Anexo A contra SBOS_db: 74 % cumplimiento global · 18 controles CUMPLIDOS · 5 brechas priorizadas P1-P3 · plan de remediación a 88-92 % | ISO 27001 · DDL | ✅ 1.0.0 |
+| **[A.73 — Informe de Cumplimiento Multi-Norma IAM](anexos/A.73_INFORME-CUMPLIMIENTO-MULTINORMA-IAM-v1.0.md)** — 11 normas (NIST/ISO/OAuth/GDPR/PCI/FIDO2/Ley 164); 100% madurez L4; §15 9/9 tareas completadas; 0 gaps abiertos | Multi-norma | ✅ 1.9.0 |
+| **[A.74 — Etapa 1: Auditoría de Inconsistencias DDL ↔ Código](anexos/A.74_ETAPA1-AUDITORIA-INCONSISTENCIAS-v1.0.md)** — 36 tablas phantom en código · ~250 refs SQL legacy · mapa REESCRIBIR/ELIMINAR · 6 decisiones pendientes D01-D06 | Refactor | ✅ 1.0.0 |
+| **[A.75 — Etapa 2: Refactor por Capas](anexos/A.75_ETAPA2-REFACTOR-POR-CAPAS-v1.0.md)** — 3 capas (db/ → domain/bitmask/saga/sync/ → handlers/) · checklist de cierre por capa · criterios DONE medibles | Refactor | ✅ 1.0.0 |
+| **[A.76 — Etapa 3: Validación VPS](anexos/A.76_ETAPA3-VALIDACION-VPS-v1.0.md)** — queries de validación por capa · checklist SBOSDB · protocolo de retroceso ante fallo | Refactor | ✅ 1.0.0 |
 
 ---
 
