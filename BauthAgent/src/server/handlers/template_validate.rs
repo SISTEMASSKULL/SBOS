@@ -63,19 +63,38 @@ impl JsonRpcHandler for TemplateValidateHandler {
             })?;
 
         // ── 1. Cargar template ─────────────────────────────
+        // idn_role_template no existe en DDL v2.12.0.
+        // Tabla canónica: idn_roles_rol_hierarchical (rol registrado).
+        // loa_required/mfa_required/step_up provienen de idn_roles_rol_tier (por tier).
+        // El template a validar es metadata_b1 (JSONB del rol).
         #[derive(sqlx::FromRow)]
-        struct Tpl { tier: String, status: String, loa_required: i32,
-            mfa_required: bool, step_up_enabled: bool, max_sessions: i32,
-            session_timeout: Option<i32>, template: serde_json::Value }
+        struct Tpl {
+            tier: String,
+            status: String,
+            loa_required: i32,
+            mfa_required: bool,
+            step_up_enabled: bool,
+            max_sessions: Option<i32>,
+            session_timeout: Option<i32>,
+            template: serde_json::Value,
+        }
 
         let tpl: Tpl = sqlx::query_as(
-            "SELECT tier, status, loa_required, mfa_required, step_up_enabled,
-                    max_sessions, session_timeout, template
-             FROM bauth.idn_role_template WHERE id = $1"
+            "SELECT r.tier::text,
+                    r.status::text,
+                    t.loa_required,
+                    (t.loa_required >= 2) AS mfa_required,
+                    (t.step_up_loa IS NOT NULL) AS step_up_enabled,
+                    NULL::integer AS max_sessions,
+                    NULL::integer AS session_timeout,
+                    r.metadata_b1 AS template
+             FROM bauth.idn_roles_rol_hierarchical r
+             JOIN bauth.idn_roles_rol_tier t ON t.tier::text = r.tier::text
+             WHERE r.code = $1"
         ).bind(role_id).fetch_optional(pg).await.map_err(|e| JsonRpcError {
             code: -32000, message: format!("error: {}", e), data: None,
         })?.ok_or_else(|| JsonRpcError {
-            code: -32602, message: format!("template no encontrado: {}", role_id), data: None,
+            code: -32602, message: format!("rol no encontrado: {}", role_id), data: None,
         })?;
 
         // ── 2. Cargar reglas activas ───────────────────────

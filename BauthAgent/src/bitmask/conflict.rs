@@ -154,31 +154,57 @@ impl ConflictMatrix {
             "Archivar (pos=301) y enviar (pos=302) requieren segunda firma en D11");
     }
 
-    /// Carga conflictos SoD desde la tabla `fin_sod_rule` en la BD.
-    /// Reemplaza `seed_defaults()` cuando la BD está disponible.
+    /// Carga conflictos SoD desde `privilege_verb_conflict` en la BD (DDL v2.12.0).
+    /// Reemplaza `fin_sod_rule` (phantom eliminado).
+    ///
+    /// Estrategia: obtiene pares de verbos en conflicto STATIC_SOD/DYNAMIC_SOD,
+    /// luego resuelve las `atom_position` de cada verbo vía `idn_roles_template`.
+    /// Solo incluye pares donde ambos verbos tienen átomos activos con posición asignada.
     pub async fn load_from_db(pg: &sqlx::PgPool) -> Result<Self, String> {
         let mut matrix = ConflictMatrix::new();
 
         #[derive(sqlx::FromRow)]
         struct SodRow {
-            position_a: i32,
-            position_b: i32,
-            risk_level: String,
-            action: String,
-            rationale: Option<String>,
+            position_a: i64,
+            position_b: i64,
+            conflict_type: String,
+            description: Option<String>,
         }
 
+        // JOIN con idn_roles_template para resolver verb_id → atom_position.
+        // Solo pares donde ambos verbos tienen átomos activos registrados.
         let rows: Vec<SodRow> = sqlx::query_as(
-            "SELECT position_a, position_b, risk_level, action, rationale
-             FROM bauth.fin_sod_rule ORDER BY risk_level DESC, position_a"
+            "SELECT irt_a.atom_position AS position_a,
+                    irt_b.atom_position AS position_b,
+                    pvc.conflict_type,
+                    pvc.description
+             FROM bauth.privilege_verb_conflict pvc
+             JOIN bauth.idn_roles_template irt_a
+               ON irt_a.verb_id = pvc.verb_a
+              AND irt_a.node_type = 'atom'
+              AND irt_a.is_active = TRUE
+              AND irt_a.atom_position IS NOT NULL
+             JOIN bauth.idn_roles_template irt_b
+               ON irt_b.verb_id = pvc.verb_b
+              AND irt_b.node_type = 'atom'
+              AND irt_b.is_active = TRUE
+              AND irt_b.atom_position IS NOT NULL
+             WHERE pvc.conflict_type IN ('STATIC_SOD', 'DYNAMIC_SOD')
+             ORDER BY pvc.conflict_type DESC, irt_a.atom_position"
         )
         .fetch_all(pg)
         .await
         .map_err(|e| format!("error cargando reglas SoD: {}", e))?;
 
         for row in &rows {
-            let severity = SodSeverity::from_str(&row.risk_level);
-            let desc = row.rationale.as_deref().unwrap_or(&row.action);
+            // STATIC_SOD → CRÍTICO (siempre bloqueante, ej: crear+aprobar)
+            // DYNAMIC_SOD → ALTO (bloqueante en misma sesión)
+            let severity = match row.conflict_type.as_str() {
+                "STATIC_SOD"  => SodSeverity::Critico,
+                "DYNAMIC_SOD" => SodSeverity::Alto,
+                _             => SodSeverity::Medio,
+            };
+            let desc = row.description.as_deref().unwrap_or(&row.conflict_type);
             matrix.add_conflict(
                 row.position_a as usize,
                 row.position_b as usize,
@@ -187,7 +213,7 @@ impl ConflictMatrix {
             );
         }
 
-        tracing::info!(reglas = rows.len(), "ConflictMatrix cargada desde fin_sod_rule");
+        tracing::info!(reglas = rows.len(), "ConflictMatrix cargada desde privilege_verb_conflict");
         Ok(matrix)
     }
 }
