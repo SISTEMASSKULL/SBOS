@@ -3,16 +3,15 @@
 //
 // B1.T17 — RolBitMaskSerializer (formatos base64/bytes/positions)
 // B1.T18 — AtomPositionResolver (HashMap cache inmutable)
-// B1.T07 — ComputeRolBitMask (stub — pendiente idn_roles_template depth=3)
-// B1.T09 — InheritFromParent (closure canónica — bitmask pendiente depth=3)
+// B1.T07 — ComputeRolBitMask (REAL — privilege_atom_grant modelo G-12)
+// B1.T09 — InheritFromParent (REAL — closure canónica + G-12 OR-herencia)
 //
 // Tablas canónicas usadas:
-//   bauth.privilege_resource_atom → count_atoms()
-//   bauth.idn_roles_rol_closure   → load_role_ancestors()
+//   bauth.idn_roles_template    → count_atoms() (nodos tipo 'atom')
+//   bauth.privilege_atom_grant  → load_role_atom_positions() (G-12 5 cols)
+//   bauth.idn_roles_rol_closure → load_role_ancestors()
 //
 // Eliminado: consultas a privilege_role_atom y privilege_atom (phantoms).
-// Pendiente: cómputo de BitMask individual cuando idn_roles_template
-//            tenga átomos a depth=3.
 //
 // DOC-SBOS-001 N3
 // ============================================================
@@ -131,19 +130,14 @@ pub enum ComputeError {
     EmptyRole,
 }
 
-/// Computa el RolBitMask para un rol desde la base de datos.
+/// Computa el RolBitMask propio de un rol desde la base de datos.
 ///
-/// **Estado actual:** stub — retorna máscara vacía dimensionada al catálogo.
-/// La asignación átomo-rol se realizará a través de `idn_roles_template`
-/// cuando los átomos a depth=3 sean insertados en esa tabla.
+/// Consulta `bauth.privilege_atom_grant` con el modelo G-12 5 columnas:
+///   `general=TRUE` → árbol manda → evalúa `effect`
+///   `general=FALSE` → grant manda → evalúa `access`
+/// Cada posición activa se activa en el BitMask resultante.
 ///
-/// Consulta canónica futura:
-///   ```sql
-///   SELECT t.bit_position
-///   FROM bauth.idn_roles_template t
-///   JOIN bauth.privilege_resource_atom pra ON pra.id_atom = t.id
-///   WHERE pra.status = 'ACTIVE' AND pra.id_atom = $1
-///   ```
+/// Retorna máscara vacía (no error) si el rol no tiene grants activos.
 pub async fn compute_rol_bitmask(
     pg: &PgPool,
     role_id: uuid::Uuid,
@@ -152,24 +146,33 @@ pub async fn compute_rol_bitmask(
         .await
         .map_err(|e| ComputeError::Database(e.to_string()))? as usize;
 
+    let positions = crate::db::load_role_atom_positions(pg, role_id)
+        .await
+        .map_err(|e| ComputeError::Database(e.to_string()))?;
+
+    let u_positions: Vec<AtomPosition> = positions.iter().map(|p| *p as AtomPosition).collect();
+
     debug!(
         role_id = %role_id,
+        atomos_activos = u_positions.len(),
         total_atoms,
-        "RolBitMask: pendiente átomos depth=3 en idn_roles_template"
+        "RolBitMask computado desde privilege_atom_grant (G-12)"
     );
 
-    Ok(RolBitMask::with_capacity(total_atoms))
+    Ok(RolBitMask::from_positions(&u_positions, total_atoms))
 }
 
 // ─── B1.T09: InheritFromParent ────────────────────────────────
 
-/// Computa la máscara efectiva de un rol con herencia DAG.
-///
-/// Obtiene los ancestros desde `bauth.idn_roles_rol_closure` (canónico)
-/// y aplica OR de las máscaras. El cómputo de BitMask de cada rol
-/// es un stub hasta que `idn_roles_template` tenga átomos a depth=3.
+/// Computa la máscara efectiva de un rol con herencia DAG (OR-herencia).
 ///
 /// `mask_eff(rol) = mask_own(rol) | mask_own(ancestro_1) | ...`
+///
+/// Pasos:
+///   1. Obtiene ancestros desde `bauth.idn_roles_rol_closure` (canónico)
+///   2. Incluye el rol propio en la lista
+///   3. Consulta `privilege_atom_grant` para todos con modelo G-12
+///   4. Aplica OR implícito via DISTINCT en la query
 pub async fn inherit_from_parents(
     pg: &PgPool,
     role_id: uuid::Uuid,
@@ -182,15 +185,26 @@ pub async fn inherit_from_parents(
         .await
         .map_err(|e| ComputeError::Database(e.to_string()))? as usize;
 
+    // Combinar rol propio + todos sus ancestros
+    let mut all_ids = Vec::with_capacity(ancestors.len() + 1);
+    all_ids.push(role_id);
+    all_ids.extend_from_slice(&ancestors);
+
+    let positions = crate::db::load_atom_positions_for_roles(pg, &all_ids)
+        .await
+        .map_err(|e| ComputeError::Database(e.to_string()))?;
+
+    let u_positions: Vec<AtomPosition> = positions.iter().map(|p| *p as AtomPosition).collect();
+
     debug!(
-        role_id = %role_id,
-        ancestors = ancestors.len(),
+        role_id   = %role_id,
+        ancestros = ancestors.len(),
+        atomos    = u_positions.len(),
         total_atoms,
-        "herencia DAG: ancestros resueltos desde closure canónica"
+        "herencia DAG: OR de {} roles desde closure canónica + G-12", all_ids.len()
     );
 
-    // Stub: OR de máscaras vacías hasta que depth=3 exista en idn_roles_template
-    Ok(RolBitMask::with_capacity(total_atoms))
+    Ok(RolBitMask::from_positions(&u_positions, total_atoms))
 }
 
 #[cfg(test)]

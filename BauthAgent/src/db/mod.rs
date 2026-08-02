@@ -53,22 +53,91 @@ pub mod versioning;    // WORM T-152 (B01) y T-B02L (B02) — canónico
 pub mod approval;      // Cola quórum N-de-M T-153 (B03) — canónico
 pub mod version_store; // Transición atómica 9 pasos + queries — canónico
 
-// ─── Átomos de privilegio (T-170) ───────────────────────────
+// ─── Átomos del catálogo (idn_roles_template) ───────────────
 //
-// Fuente: bauth.privilege_resource_atom
+// Fuente: bauth.idn_roles_template (node_type = 'atom', atom_position IS NOT NULL)
+// Los átomos son nodos hoja del árbol T-162; atom_position es la posición
+// en el BitMask (BIGINT UNIQUE). Las asignaciones rol→átomo van en privilege_atom_grant.
+//
 // Reemplaza: bauth.privilege_atom (phantom), bauth.privilege_domain (phantom)
 
-/// Cuenta átomos activos en el catálogo de privilegios.
-/// Usado para dimensionar el espacio del RolBitMask en health check.
+/// Cuenta átomos activos en el catálogo de templates.
+/// Dimensiona el espacio del RolBitMask: max(atom_position) + 1.
 pub async fn count_atoms(pg: &sqlx::PgPool) -> Result<i64, DbError> {
     let (count,): (i64,) = sqlx::query_as(
-        "SELECT count(*) FROM bauth.privilege_resource_atom WHERE status = 'ACTIVE'",
+        r#"
+        SELECT count(*)
+        FROM bauth.idn_roles_template
+        WHERE node_type = 'atom'
+          AND atom_position IS NOT NULL
+        "#,
     )
     .fetch_one(pg)
     .await
     .map_err(|e| DbError::Postgres(e.to_string()))?;
 
     Ok(count)
+}
+
+/// Carga las posiciones de átomos asignadas a un rol.
+///
+/// Fuente: `bauth.privilege_atom_grant` — modelo G-12 5 columnas.
+/// Condición de acceso (G-12 §3):
+///   `general=TRUE`  → árbol manda → evalúa `effect`
+///   `general=FALSE` → grant manda → evalúa `access`
+/// SQL compacto: `CASE WHEN general THEN effect ELSE access END = TRUE`
+///
+/// Retorna las posiciones para construir el RolBitMask con `from_positions()`.
+pub async fn load_role_atom_positions(
+    pg: &sqlx::PgPool,
+    role_id: uuid::Uuid,
+) -> Result<Vec<i64>, DbError> {
+    let rows: Vec<(i64,)> = sqlx::query_as(
+        r#"
+        SELECT atom_position
+        FROM bauth.privilege_atom_grant
+        WHERE role_id = $1
+          AND status  = 'ACTIVE'
+          AND CASE WHEN general THEN effect ELSE access END = TRUE
+        ORDER BY atom_position
+        "#,
+    )
+    .bind(role_id)
+    .fetch_all(pg)
+    .await
+    .map_err(|e| DbError::Postgres(e.to_string()))?;
+
+    Ok(rows.into_iter().map(|(p,)| p).collect())
+}
+
+/// Carga las posiciones de átomos de múltiples roles (para herencia DAG).
+///
+/// Retorna posiciones distintas de todos los roles combinadas (OR-herencia).
+/// Fuente: `bauth.privilege_atom_grant` — modelo G-12 5 columnas (mismo criterio
+/// que `load_role_atom_positions()`).
+pub async fn load_atom_positions_for_roles(
+    pg: &sqlx::PgPool,
+    role_ids: &[uuid::Uuid],
+) -> Result<Vec<i64>, DbError> {
+    if role_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    let rows: Vec<(i64,)> = sqlx::query_as(
+        r#"
+        SELECT DISTINCT atom_position
+        FROM bauth.privilege_atom_grant
+        WHERE role_id = ANY($1)
+          AND status  = 'ACTIVE'
+          AND CASE WHEN general THEN effect ELSE access END = TRUE
+        ORDER BY atom_position
+        "#,
+    )
+    .bind(role_ids)
+    .fetch_all(pg)
+    .await
+    .map_err(|e| DbError::Postgres(e.to_string()))?;
+
+    Ok(rows.into_iter().map(|(p,)| p).collect())
 }
 
 // ─── Herencia de roles (closure table) ──────────────────────
@@ -121,9 +190,9 @@ pub struct DomainConfigRow {
 
 /// Carga los dominios activos para un tenant.
 ///
-/// Un dominio se considera activo cuando tiene al menos un átomo con
-/// `status = 'ACTIVE'` en `privilege_resource_atom` para ese tenant.
-/// Los tenants sin átomos retornan lista vacía (sin acceso a ningún dominio).
+/// Un dominio está activo si tiene al menos un átomo definido en
+/// `idn_roles_template` para ese tenant (node_type = 'atom', posición asignada).
+/// `domain_number` es INTEGER en T-162; se castea a SMALLINT para `domain_code`.
 pub async fn load_active_domains(
     pg: &sqlx::PgPool,
     tenant_id: uuid::Uuid,
@@ -131,12 +200,13 @@ pub async fn load_active_domains(
     let rows: Vec<DomainConfigRow> = sqlx::query_as(
         r#"
         SELECT DISTINCT
-            domain_code,
-            TRUE        AS active,
-            NULL::jsonb AS override_params
-        FROM bauth.privilege_resource_atom
-        WHERE status    = 'ACTIVE'
-          AND tenant_id = $1
+            domain_number::smallint     AS domain_code,
+            TRUE                        AS active,
+            NULL::jsonb                 AS override_params
+        FROM bauth.idn_roles_template
+        WHERE node_type      = 'atom'
+          AND atom_position  IS NOT NULL
+          AND tenant_id      = $1
         ORDER BY domain_code
         "#,
     )
