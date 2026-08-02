@@ -1,0 +1,48 @@
+# Containerfile.security — Imagen Podman para escaneo de seguridad bAuth
+#
+# Propósito: Entorno reproducible para cargo-audit + cargo-deny + cargo-clippy
+# Norma:     SA-10 (NIST 800-53 Rev.5) · ISO 27001:2022 A.8.25
+# Uso:       podman build -t bauth-security-scanner -f ci/Containerfile.security .
+#            podman run --rm -v $(pwd):/workspace bauth-security-scanner
+#
+# No usa Docker — solo Podman (SBOS soberano)
+
+FROM docker.io/library/rust:1.85-slim
+
+LABEL org.opencontainers.image.title="bauth-security-scanner"
+LABEL org.opencontainers.image.description="Escáner de seguridad bAuth: cargo-audit + cargo-deny + clippy"
+LABEL org.opencontainers.image.vendor="SKULL SBOS"
+LABEL org.sbos.norma="SA-10 / ISO 27001 A.8.25"
+
+# ── Dependencias de sistema para compilar herramientas de seguridad ───────────
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        pkg-config \
+        libssl-dev \
+        ca-certificates \
+        git \
+        jq \
+    && rm -rf /var/lib/apt/lists/*
+
+# ── Instalar herramientas de seguridad en versiones reproducibles ─────────────
+# cargo-audit: escanea Cargo.lock contra RustSec Advisory Database
+# cargo-deny:  aplica políticas de licencias, advisories y paquetes prohibidos
+RUN cargo install cargo-audit --locked \
+    && cargo install cargo-deny  --locked \
+    && rm -rf /root/.cargo/registry/src \
+              /root/.cargo/registry/cache \
+              /root/.cargo/git/db
+
+# ── Directorio de trabajo (montado desde el host con --volume) ────────────────
+WORKDIR /workspace
+
+# ── Directorio de salida para reportes JSON/texto ────────────────────────────
+RUN mkdir -p /output
+
+# El ENTRYPOINT es /bin/bash -lc para permitir pipelines en el CMD
+ENTRYPOINT ["/bin/bash", "-lc"]
+
+# CMD por defecto: ejecutar todas las fases de seguridad
+# Se sobreescribe en security-scan.sh por fase
+CMD ["cargo audit --json > /output/cargo-audit.json; \
+      cargo deny check 2>&1 | tee /output/cargo-deny.txt; \
+      cargo clippy --all-targets -- -D warnings 2>&1 | tee /output/clippy.txt"]

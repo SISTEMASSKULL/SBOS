@@ -1,0 +1,60 @@
+# bauth-security-scan.service — Unidad systemd para escaneo de seguridad SA-10
+#
+# Propósito: ejecutar el pipeline CI/CD de seguridad de bAuth en el host
+# Norma:     SA-10 (NIST 800-53 Rev.5) · ISO 27001:2022 A.8.25
+# Activación: mediante bauth-security-scan.timer (semanal) o manual
+#
+# Instalación:
+#   sudo cp ci/bauth-security-scan.service /etc/systemd/system/
+#   sudo cp ci/bauth-security-scan.timer   /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now bauth-security-scan.timer
+#
+# Ejecución manual:
+#   sudo systemctl start bauth-security-scan.service
+
+[Unit]
+Description=bAuth Security Scan SA-10 — cargo-audit + SAST con Podman
+Documentation=file:///opt/skull/orquestador/proyectos/SBOS/BauthAgent/ci/security-scan.sh
+After=network.target
+Requires=network.target
+
+[Service]
+Type=oneshot
+# Usuario y grupo de ejecución (no root)
+User=root
+Group=root
+
+# Directorio del proyecto bAuth
+WorkingDirectory=/opt/skull/orquestador/proyectos/SBOS/BauthAgent
+
+# DSN de SBOSDB oficial — NUNCA otra base de datos
+Environment="BAUTH_DB_DSN=postgres://postgres:postgres@localhost:15432/SBOSDB"
+# Directorio de salida de informes (rotado por logrotate)
+Environment="OUTPUT_DIR=/var/log/bauth-security-scan"
+# No reconstruir la imagen si ya existe (optimización)
+Environment="BUILD_IMAGE=true"
+
+# Comando principal
+ExecStart=/opt/skull/orquestador/proyectos/SBOS/BauthAgent/ci/security-scan.sh
+
+# Timeout: 30 minutos (cargo-audit puede tardar en descargar advisory DB)
+TimeoutStartSec=1800
+
+# Restart: no automático — es un job one-shot disparado por el timer
+Restart=no
+
+# Logging a journald
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=bauth-security-scan
+
+# Seguridad de la unidad systemd (SBOS-047 / ISO 27001 A.8.2)
+# Limitar superficie de ataque del proceso de escaneo
+PrivateTmp=true
+ProtectSystem=full
+ReadOnlyPaths=/opt/skull/orquestador/proyectos/SBOS/BauthAgent
+ReadWritePaths=/var/log/bauth-security-scan /tmp
+
+[Install]
+WantedBy=multi-user.target

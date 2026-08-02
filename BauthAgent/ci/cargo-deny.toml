@@ -1,0 +1,109 @@
+# cargo-deny.toml — Política de dependencias bAuth (SBOS)
+# Propósito: definir qué licencias, advisories y paquetes están permitidos
+# Norma:     SA-10 / ISO 27001 A.8.25 / OWASP ASVS v5.0 §12.3
+# Referencia: https://embarkstudios.github.io/cargo-deny/
+
+# ── §1 Advisories (vulnerabilidades conocidas — RustSec DB) ──────────────────
+[advisories]
+# Base de datos local de advisories (sincronizada por cargo-audit)
+db-path     = "~/.cargo/advisory-db"
+db-urls     = ["https://github.com/rustsec/advisory-db"]
+
+# Toda vulnerabilidad activa se deniega (bloquea el pipeline)
+vulnerability = "deny"
+
+# Crates no mantenidos se reportan como advertencia
+unmaintained  = "warn"
+
+# Versiones descontinuadas (yanked en crates.io) se deniegan
+yanked        = "deny"
+
+# Avisos (notices, no CVEs) se reportan como advertencia
+notice        = "warn"
+
+# Lista de advisories exceptuados (vacía — no se aceptan excepciones sin revisión manual)
+ignore = []
+
+# ── §2 Licencias aprobadas para el ecosistema SBOS ───────────────────────────
+[licenses]
+# Licencias explícitamente aprobadas por el equipo SBOS (soberanas y compatibles)
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-DFS-2016",
+    "Unicode-3.0",
+    "OpenSSL",
+    "CC0-1.0",
+    "Zlib",
+    "MPL-2.0",
+]
+
+# Licencias copyleft fuertes prohibidas (incompatibles con la licencia SBOS)
+deny = [
+    "GPL-2.0",
+    "GPL-3.0",
+    "AGPL-1.0",
+    "AGPL-3.0",
+    "LGPL-2.0",
+    "LGPL-2.1",
+    "LGPL-3.0",
+    "EUPL-1.1",
+    "EUPL-1.2",
+]
+
+# Copyleft débil (LGPL-like) → advertencia para revisión manual
+copyleft = "warn"
+
+# Licencias sin clasificación explícita → error
+default = "deny"
+
+# Umbral de confianza para detección automática de licencias (80%)
+confidence-threshold = 0.8
+
+# ── §3 Restricciones sobre paquetes (bans) ───────────────────────────────────
+[bans]
+# Múltiples versiones del mismo crate → advertencia (pueden existir transitivamente)
+multiple-versions = "warn"
+
+# Wildcards en dependencias → permitidos (usamos rangos semver normales)
+wildcards = "allow"
+
+# Resaltar todos los conflictos
+highlight = "all"
+
+# Paquetes prohibidos explícitamente en bAuth
+# Razón: bAuth usa ring (criptografía Rust nativa) y rustls (TLS Rust nativo).
+# Cualquier pull de openssl-sys implica una dependencia C no auditada que contradice
+# el principio de soberanía criptográfica (ADR-010).
+deny = [
+    # openssl-sys: dependencia C externa — bAuth usa ring/rustls
+    # Comentado hasta confirmar que ninguna dependencia transitiva lo requiere;
+    # si una lo requiere, es un hallazgo de seguridad a reportar.
+    # { name = "openssl-sys" },
+]
+
+# Paquetes cuyas múltiples versiones se permiten explícitamente (transitivos comunes)
+skip = [
+    # Algunas versiones de rand son transitivas y coexisten legítimamente
+    { name = "rand", version = "0.7" },
+    { name = "rand_core", version = "0.5" },
+    { name = "rand_core", version = "0.6" },
+]
+
+# ── §4 Fuentes de paquetes (sources) ─────────────────────────────────────────
+[sources]
+# Solo crates.io oficial permitido — no registries privados no verificados
+unknown-registry = "deny"
+
+# Dependencias de git sin verificación de hash → denegadas
+unknown-git = "deny"
+
+# Registries aprobados
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+
+# No se permiten dependencias de repositorios git externos sin aprobación explícita
+allow-git = []

@@ -3,7 +3,7 @@
 #
 # DOC-SBOS-001 N3: documentación en español
 
-.PHONY: build build-musl check test lint clean install help
+.PHONY: build build-musl check test lint clean install security-scan help
 
 # ── Targets principales ─────────────────────────────────────
 
@@ -46,6 +46,18 @@ install: build-musl
 	sudo cp target/x86_64-unknown-linux-musl/release/bauthctl /usr/local/bin/bauthctl
 	sudo chmod 755 /usr/local/bin/bauth /usr/local/bin/bauthctl
 	@echo "Binarios instalados en /usr/local/bin/"
+
+## Ejecutar pipeline de seguridad SA-10 con Podman (cargo-audit + cargo-deny + clippy)
+security-scan:
+	./ci/security-scan.sh
+
+## Instalar timer systemd para escaneo semanal automático (requiere sudo)
+install-security-timer:
+	sudo cp ci/bauth-security-scan.service /etc/systemd/system/
+	sudo cp ci/bauth-security-scan.timer   /etc/systemd/system/
+	sudo systemctl daemon-reload
+	sudo systemctl enable --now bauth-security-scan.timer
+	@echo "Timer SA-10 instalado. Próxima ejecución: $(shell systemctl list-timers bauth-security-scan.timer --no-pager 2>/dev/null | tail -1)"
 
 ## Mostrar esta ayuda
 help:

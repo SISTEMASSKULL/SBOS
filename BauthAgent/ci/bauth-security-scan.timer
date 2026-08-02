@@ -1,0 +1,29 @@
+# bauth-security-scan.timer — Timer systemd para escaneo semanal de seguridad
+#
+# Propósito: automatizar el pipeline SA-10 con periodicidad configurable
+# Norma:     SA-10 (NIST 800-53 Rev.5) · ISO 27001:2022 A.8.25
+# Cadencia:  semanal (todos los lunes a las 02:00 UTC)
+#
+# Consultar resultados:
+#   journalctl -u bauth-security-scan.service --since "1 week ago"
+#   ls -lt /var/log/bauth-security-scan/
+
+[Unit]
+Description=Timer semanal — bAuth Security Scan SA-10
+Requires=bauth-security-scan.service
+
+[Timer]
+# Ejecutar los lunes a las 02:00 UTC (fuera de horario de producción)
+OnCalendar=Mon *-*-* 02:00:00 UTC
+
+# Activar también si el sistema estuvo apagado durante el disparo programado
+Persistent=true
+
+# Ventana de aleatoriedad para no saturar el servidor con otros timers simultáneos
+RandomizedDelaySec=300
+
+# Unidad de servicio asociada (mismo nombre base)
+Unit=bauth-security-scan.service
+
+[Install]
+WantedBy=timers.target
