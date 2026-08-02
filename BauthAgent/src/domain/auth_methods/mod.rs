@@ -38,6 +38,9 @@ pub mod webauthn;  // WebAuthn/FIDO2 nativo — webauthn-rs — elimina dependen
 pub mod saml;            // SAML 2.0 nativo — validación ligera — elimina dependencia Keycloak
 pub mod saml_signature;  // G4: verificación de firma XML-DSig (xmldsig)
 pub mod biometric;       // NIST 800-63B §5.2.3 + 800-63-4 §8 · ISO/IEC 30107-3 — T-568
+pub mod password;        // A01: Contraseña + Argon2id (NIST SP 800-63B-4 §5.1.1.2)
+pub mod step_up;         // E12: Step-Up Authentication (RFC 9470 · AAL escalation)
+pub mod scim;            // E13: SCIM 2.0 Bearer Token (RFC 7644 · M2M provisioning)
 
 // ── Trait AuthMethod ────────────────────────────────────────
 

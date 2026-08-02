@@ -107,7 +107,9 @@ impl JsonRpcHandler for TokenIssueHandler {
         let ttl = max_session_secs.unwrap_or(self.jwt_cfg.default_ttl_seconds as i32) as i64;
 
         // Registrar sesión en ses_session_log
-        registrar_sesion(pg, uid, tenant_id, ctx_id).await?;
+        let auth_method = params.get("auth_method").and_then(|v| v.as_str())
+            .unwrap_or("PASSWORD");
+        registrar_sesion(pg, uid, tenant_id, ctx_id, auth_method, &loa_required).await?;
 
         // Construir claims y firmar con Ed25519 (JwtSigner)
         let now = chrono::Utc::now().timestamp();
@@ -144,7 +146,8 @@ impl TokenIssueHandler {
 /// Computa el bitmask OR de todos los átomos activos para el usuario.
 /// Modelo G-12: grants en privilege_atom_grant con 5 columnas.
 /// atom_position desde idn_roles_template (DDL v2.12.0).
-async fn computar_bitmask(
+/// pub(super) para ser reutilizado por token_refresh.rs sin duplicar lógica.
+pub(super) async fn computar_bitmask(
     pg: &PgPool,
     user_id: uuid::Uuid,
     bitmask_len: usize,
@@ -185,22 +188,30 @@ async fn computar_bitmask(
 
 // ── Sesión ────────────────────────────────────────────
 
-/// Registra o actualiza la sesión activa en ses_session_log.
-async fn registrar_sesion(
+/// Registra una nueva sesión en ses_session_log.
+/// Cada emisión de token abre una nueva fila — ctx_id no tiene UNIQUE constraint.
+///
+/// Columnas NOT NULL requeridas: auth_method (qué método se usó),
+/// loa_initial y loa_peak (AAL1/AAL2/AAL3).
+pub(super) async fn registrar_sesion(
     pg: &PgPool,
     user_id: uuid::Uuid,
     tenant_id: uuid::Uuid,
     ctx_id: &str,
+    auth_method: &str,
+    loa: &str,
 ) -> Result<(), JsonRpcError> {
     sqlx::query(
         "INSERT INTO bauth.ses_session_log
-            (user_id, tenant_id, ctx_id, started_at, last_active_at)
-         VALUES ($1, $2, $3, now(), now())
-         ON CONFLICT (ctx_id) DO UPDATE SET last_active_at = now()"
+            (user_id, tenant_id, ctx_id, auth_method, loa_initial, loa_peak,
+             started_at, last_active_at)
+         VALUES ($1, $2, $3, $4, $5, $5, now(), now())"
     )
     .bind(user_id)
     .bind(tenant_id)
     .bind(ctx_id)
+    .bind(auth_method)
+    .bind(loa)
     .execute(pg)
     .await
     .map_err(|e| err(&e.to_string()))?;

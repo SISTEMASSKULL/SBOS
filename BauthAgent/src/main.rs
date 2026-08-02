@@ -322,9 +322,13 @@ async fn main() {
             pg_pool: db_ctx.as_ref().map(|c| c.pg.clone()),
         }));
     dispatcher.register("bauth.sync.reconcile",
-        std::sync::Arc::new(server::handlers::sync_reconcile::SyncReconcileHandler));
+        std::sync::Arc::new(server::handlers::sync_reconcile::SyncReconcileHandler {
+            pg_pool: db_ctx.as_ref().map(|c| c.pg.clone()),
+        }));
     dispatcher.register("bauth.sync.status",
-        std::sync::Arc::new(server::handlers::sync_status::SyncStatusHandler));
+        std::sync::Arc::new(server::handlers::sync_status::SyncStatusHandler {
+            pg_pool: db_ctx.as_ref().map(|c| c.pg.clone()),
+        }));
 
     // ── Fase 4: CRUD Framework (H-13) ─────────────────
     dispatcher.register("bauth.method.list",
