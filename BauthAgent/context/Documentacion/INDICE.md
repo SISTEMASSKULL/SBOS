@@ -2,7 +2,7 @@
 
 **Versión:** 1.0.0  
 **Mantenido por:** bauth-developer  
-**Última actualización:** 2026-07-13  
+**Última actualización:** 2026-08-02  
 **Estado:** Activo — se amplía a medida que se cierran los gaps de reparación
 
 ---
@@ -133,6 +133,7 @@ listar la carpeta; los archivos ordenan solos por fase y dependencia. La carta r
 | 7.2 | [Calidad de Autenticación (QA)](7.02_MANUAL-CALIDAD-AUTENTICACION-v1.0.md) | 2.2, 7.3 | ✅ 1.0.0 |
 | 7.3 | [Normas y Estándares Internacionales](7.03_MANUAL-NORMAS-v1.0.md) | todos (cataloga sus normas) | ✅ 1.0.0 |
 | 7.4 | [CLI y Pruebas Externas (delegación de verificación)](7.04_MANUAL-CLI-PRUEBAS-EXTERNAS-v1.0.md) | 6.1, 9.1 | ✅ 1.0.0 ➕ |
+| 7.5 | [Pipeline de Seguridad CI — SA-10 / ISO 27001 A.8.25 (Podman + cargo-audit + cargo-deny + clippy + timer systemd)](7.05_MANUAL-PIPELINE-SEGURIDAD-CI-v1.0.md) | 6.1, 5.1, 7.3 | ✅ 1.0.0 |
 
 ### Serie 9 — PRODUCTO (transversal)
 
