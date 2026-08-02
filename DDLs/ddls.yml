@@ -191,7 +191,7 @@ punto_de_entrada:
       nota: "request_uri = urn:ietf:params:oauth:request_uri:<random> · 1 solo uso · TTL 60-600s"
       estado: "APLICADO en SBOSDB producción (1 columna + tabla T-566 + 4 índices verificados)"
     - archivo: "migrations/bauth_gaps_p2.sql"
-      commit: "pendiente"
+      commit: "6ae12b3"
       tipo: "ALTER TABLE × 3 + CREATE TABLE × 6"
       t_codes: "T-567 T-568 T-569 T-570 T-571 T-572"
       columnas_alteradas: >

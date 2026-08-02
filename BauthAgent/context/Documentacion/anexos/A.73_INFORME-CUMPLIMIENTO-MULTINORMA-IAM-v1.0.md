@@ -434,15 +434,15 @@ Migration: `DDLs/migrations/bauth_gaps_p2.sql` §2. Aplicado en SBOSDB (verifica
 
 | Gap ID | Norma(s) | Descripción | Commit |
 |--------|----------|-------------|--------|
-| ~~GAP-NIST63B-02~~ | NIST 800-63B §5.2.3 | ✅ **CERRADO 2026-08-02** — `auth_biometric_template` (T-568): template_hash + vault_path + quality_score | pendiente |
-| ~~GAP-OAUTH-02~~ | RFC 9396 | ✅ **CERRADO 2026-08-02** — `fed_client.authorization_details_types` + `fed_token_issued.authorization_details` | pendiente |
-| ~~GAP-OAUTH-03~~ | FAPI 2.0 Adv | ✅ **CERRADO 2026-08-02** — `fed_client.jarm_signing_alg/jarm_encryption_alg` + CHECK | pendiente |
-| ~~GAP-OAUTH-04~~ | RFC 7591 | ✅ **CERRADO 2026-08-02** — `fed_dynamic_client_registration` (T-569): registration_access_token | pendiente |
-| ~~GAP-FIDO2-01~~ | WebAuthn L3 | ✅ **CERRADO 2026-08-02** — `auth_credential_fido2.uv_required BOOLEAN NOT NULL DEFAULT false` | pendiente |
-| ~~GAP-GDPR-01~~ | GDPR Art. 20 | ✅ **CERRADO 2026-08-02** — `gdpr_portability_request` (T-567): format/status/download_token | pendiente |
-| ~~GAP-GDPR-02~~ | GDPR Art. 44 | ✅ **CERRADO 2026-08-02** — `gdpr_international_transfer` (T-570): transfer_basis/SCCs | pendiente |
-| ~~GAP-800207-01~~ | NIST SP 800-207 | ✅ **CERRADO 2026-08-02** — `zta_data_access_policy` (T-571): resource_type/loa/atoms/effect | pendiente |
-| ~~GAP-PCI-02~~ | PCI DSS 11.3 | ✅ **CERRADO 2026-08-02** — `vul_pentest_record` (T-572): method/findings/remediation | pendiente |
+| ~~GAP-NIST63B-02~~ | NIST 800-63B §5.2.3 | ✅ **CERRADO 2026-08-02** — `auth_biometric_template` (T-568): template_hash + vault_path + quality_score | 6ae12b3 |
+| ~~GAP-OAUTH-02~~ | RFC 9396 | ✅ **CERRADO 2026-08-02** — `fed_client.authorization_details_types` + `fed_token_issued.authorization_details` | 6ae12b3 |
+| ~~GAP-OAUTH-03~~ | FAPI 2.0 Adv | ✅ **CERRADO 2026-08-02** — `fed_client.jarm_signing_alg/jarm_encryption_alg` + CHECK | 6ae12b3 |
+| ~~GAP-OAUTH-04~~ | RFC 7591 | ✅ **CERRADO 2026-08-02** — `fed_dynamic_client_registration` (T-569): registration_access_token | 6ae12b3 |
+| ~~GAP-FIDO2-01~~ | WebAuthn L3 | ✅ **CERRADO 2026-08-02** — `auth_credential_fido2.uv_required BOOLEAN NOT NULL DEFAULT false` | 6ae12b3 |
+| ~~GAP-GDPR-01~~ | GDPR Art. 20 | ✅ **CERRADO 2026-08-02** — `gdpr_portability_request` (T-567): format/status/download_token | 6ae12b3 |
+| ~~GAP-GDPR-02~~ | GDPR Art. 44 | ✅ **CERRADO 2026-08-02** — `gdpr_international_transfer` (T-570): transfer_basis/SCCs | 6ae12b3 |
+| ~~GAP-800207-01~~ | NIST SP 800-207 | ✅ **CERRADO 2026-08-02** — `zta_data_access_policy` (T-571): resource_type/loa/atoms/effect | 6ae12b3 |
+| ~~GAP-PCI-02~~ | PCI DSS 11.3 | ✅ **CERRADO 2026-08-02** — `vul_pentest_record` (T-572): method/findings/remediation | 6ae12b3 |
 
 ### Prioridad 3 — Backlog Largo Plazo
 
