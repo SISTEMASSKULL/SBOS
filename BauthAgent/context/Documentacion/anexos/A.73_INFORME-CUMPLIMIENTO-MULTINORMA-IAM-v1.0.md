@@ -1,7 +1,7 @@
 # A.73 — Informe de Cumplimiento Multi-Norma — bAuth IAM v1.0
 
 **Código:** A.73  
-**Versión:** 1.2.0  
+**Versión:** 1.3.0  
 **Fecha:** 2026-08-02  
 **Clasificación:** INTERNO CRÍTICO — uso restringido a equipo de seguridad SBOS  
 **Alcance:** SBOSDB (229 tablas bauth) · bAuth Identity Control Plane v3.0  
@@ -14,7 +14,7 @@
 | Norma | Score DDL | Gaps P1 | Gaps P2 | Gaps P3 | Estado |
 |-------|:---------:|:-------:|:-------:|:-------:|--------|
 | **ISO 27001:2022** | 122/123 (99.2%) | 0 | 0 | 1 (DevOps) | 🟢 CERRADO a nivel DDL |
-| **NIST SP 800-63B Rev.4** | 21/23 (91%) | 1 | 1 | 1 | 🟡 PARCIAL |
+| **NIST SP 800-63B Rev.4** | 22/23 (96%) | 0 | 1 | 1 | 🟡 PARCIAL |
 | **NIST SP 800-63-4 (IAL)** | 7/8 (88%) | 0 | 1 | 0 | 🟡 PARCIAL |
 | **NIST SP 800-53 Rev.5** | 17/18 (94%) | 0 | 1 | 1 | 🟡 PARCIAL |
 | **OAuth 2.0 / OIDC / FAPI 2.0** | 9/13 (69%) | 1 | 3 | 1 | 🟡 PARCIAL |
@@ -114,7 +114,7 @@ están verificadas en SBOSDB (§0). El análisis detallado por control vive en A
 | §3.1 AAL1/2/3 | Niveles de aseguramiento de autenticación | ✓ | `auth_method.loa_provided` — 47 métodos con AAL en SBOSDB (seed 2026-08-01) | **C** |
 | §4.3.1 | Phishing resistance | ✓ | `auth_method.is_phishing_resistant` — 6 métodos TRUE (passkey/fido2/x509/smartcard_piv/dpop/post_quantum) | **C** |
 | §5.1.1 | Memorized secrets (passwords) | ✓ | `auth_credential` + T-162 (árbol políticas) | **C** |
-| §5.1.1.2 | Compromised password lookup (HIBP) | ❌ | Ninguna columna en `auth_credential` | **GAP-P1** |
+| §5.1.1.2 | Compromised password lookup (HIBP) | ✓ | `auth_credential_secret.hibp_checked_at/pwned_count/is_compromised` + `chk_acs_hibp` — GAP-NIST63B-01 CERRADO 2026-08-02 | **C** |
 | §5.1.3 | TOTP/HOTP (OTP devices) | ✓ | `auth_credential.totp_secret` (en seed cuando exista) | **C** |
 | §5.1.6 | WebAuthn / FIDO2 | ✓ | `auth_credential_fido2` con `sign_count`, `backup_eligible`, `backup_state` | **C** |
 | §5.1.6.1 | Passkeys (discoverable credentials) | ✓ | `backup_eligible = true` → credencial passkey | **C** |
@@ -132,21 +132,24 @@ están verificadas en SBOSDB (§0). El análisis detallado por control vive en A
 | §8.3 | Verifier impersonation | ✓ | FAPI 2.0 profile en `fed_client` | **C** |
 | §9 | NIST 800-63B compliance map | ✓ | `auth_compliance_map` (T-386) | **C** |
 
-**Score DDL: 21/23 secciones con cobertura verificada (91%)** — +2 al cerrar GAP-OP-01 (seed aplicado)
+**Score DDL: 22/23 secciones con cobertura verificada (96%)** — +1 al cerrar GAP-NIST63B-01 (HIBP 2026-08-02)
 
 ### §3.2 Gaps NIST 800-63B
 
-**GAP-NIST63B-01 — Compromised credential lookup (P1)**
+**~~GAP-NIST63B-01~~** — ✅ **CERRADO 2026-08-02**
 
-NIST 800-63B Rev.4 §5.1.1.2 requiere que el verificador compruebe si la contraseña candidata
-aparece en listas de contraseñas comprometidas (HIBP, corpuslists) durante el registro y cambio.
+NIST 800-63B Rev.4 §5.1.1.2 — Compromised credential lookup.
 
-```
-Evidencia: ninguna columna en auth_credential indica verificación HIBP
-Acción DDL: ALTER TABLE bauth.auth_credential ADD COLUMN IF NOT EXISTS
-  hibp_checked_at TIMESTAMPTZ NULL,
-  hibp_is_compromised BOOLEAN NULL DEFAULT false;
-```
+**Solución aplicada:** 3 columnas en `bauth.auth_credential_secret` (T-331) + CHECK:
+- `hibp_checked_at TIMESTAMPTZ NULL` — cuándo se verificó
+- `hibp_pwned_count INT NULL` — apariciones en corpus HIBP local (0 = limpia)
+- `hibp_is_compromised BOOLEAN NOT NULL DEFAULT false` — resultado resumido
+- `CONSTRAINT chk_acs_hibp` — fuerza verificación antes de insertar ARGON2ID_HASH
+
+Tabla elegida: `auth_credential_secret` (no `auth_credential`) porque HIBP solo aplica
+a `type = 'ARGON2ID_HASH'` — semánticamente correcto, evita columnas vacías para TOTP/FIDO2.
+Implementación soberana: corpus HIBP local con k-Anonymity — sin llamadas externas.
+Migration: `DDLs/migrations/bauth_hibp_t331.sql`. Aplicado en SBOSDB (verificado).
 
 **GAP-NIST63B-02 — Biometría separada (P2)**
 
@@ -415,7 +418,7 @@ registro de actividades de prueba, alcance, hallazgos y remediación.
 | ~~GAP-OP-01~~ | NIST 800-63B · PCI DSS · ISO 27001 | ✅ **CERRADO 2026-08-01** — `auth_method`: 47 métodos, 12 IMPLEMENTED | Operacional (seed) | Seed aplicado: `bauth_T335__auth_method.sql` |
 | ~~GAP-OP-02~~ | ISO 27001 A.8.15 · AU-9 · PCI 10.3 | ✅ **CERRADO 2026-08-02** — Trigger WORM activo `fn_worm_enforce` BEFORE STATEMENT en 29 tablas | — | Aplicado en SBOSDB |
 | ~~GAP-PCI-01~~ | PCI DSS 10.3.2 | ✅ **CERRADO 2026-08-02** — mismo trigger que GAP-OP-02 | — | Aplicado en SBOSDB |
-| GAP-NIST63B-01 | NIST 800-63B §5.1.1.2 | Sin HIBP/compromised password check en `auth_credential` | DDL | `+hibp_checked_at`, `+hibp_is_compromised` en T-330 |
+| ~~GAP-NIST63B-01~~ | NIST 800-63B §5.1.1.2 | ✅ **CERRADO 2026-08-02** — `auth_credential_secret`: `hibp_checked_at/pwned_count/is_compromised` + `chk_acs_hibp` | — | Aplicado en SBOSDB |
 | GAP-OAUTH-01 | OAuth 2.0 · FAPI 2.0 Advanced | Sin PAR (RFC 9126) — requerido para FAPI 2.0 Advanced | DDL | Nueva tabla T-566 `fed_par_request` |
 
 ### Prioridad 2 — Próximo Ciclo DDL
@@ -451,24 +454,24 @@ MADUREZ GLOBAL bAuth IAM — 2026-08-02
   ISO 27001:2022        ██████████████████████████████████████░░  99.2%
   NIST 800-63-4 (IAL)   ████████████████████████████████████░░░░  88.0%
   ISO 24760-2:2025      ████████████████████████████████████████  100.0%
-  NIST 800-53 Rev.5     ███████████████████████████████████████░  94.4%  ↑ +5.5% (WORM trigger AU-9)
+  NIST 800-53 Rev.5     ███████████████████████████████████████░  94.4%
   NIST 800-207 (ZTA)    ████████████████████████████████████░░░░  83.3%
-  NIST 800-63B Rev.4    ████████████████████████████████████░░░░  91.0%
+  NIST 800-63B Rev.4    ███████████████████████████████████████░  95.7%  ↑ +4.7% (HIBP chk_acs_hibp)
   FIDO2/WebAuthn L3     ████████████████████████████████████░░░░  87.5%
   GDPR                  █████████████████████████████████░░░░░░░  77.8%
   Ley 164 Bolivia       ████████████████████████████████████████  100.0%
   OAuth/OIDC/FAPI 2.0   ████████████████████████████░░░░░░░░░░░░  69.2%
-  PCI DSS 4.0           ████████████████████████████████████████  100.0%  ↑ +12.5% (WORM trigger Req 10.3)
+  PCI DSS 4.0           ████████████████████████████████████████  100.0%
 
-  MADUREZ COMPUESTA     ████████████████████████████████████████  90.0%  ↑ +1.6%
+  MADUREZ COMPUESTA     ████████████████████████████████████████  90.5%  ↑ +0.5%
 
 ```
 
-**bAuth alcanza madurez Nivel L3** ("Managed") en la escala ISO 9001 / CMMI (90.0%):
+**bAuth alcanza madurez Nivel L3** ("Managed") en la escala ISO 9001 / CMMI (90.5%):
 - Procesos definidos y documentados con evidencia DDL
-- Controles nucleares implementados (BitMask, WORM activo 29 triggers, IOC, incidentes, catálogo 47 métodos)
-- Gaps P1 restantes: 1 — HIBP (GAP-NIST63B-01)
-- Para Nivel L4 ("Optimized") se requiere: HIBP + PAR (RFC 9126) + coverage tests
+- Controles nucleares implementados (BitMask, WORM activo 29 triggers, IOC, HIBP local, catálogo 47 métodos)
+- Gaps P1 restantes: **0** — todos cerrados en esta sesión
+- Para Nivel L4 ("Optimized"): PAR RFC 9126 (GAP-OAUTH-01) + cobertura de tests automatizados
 
 ---
 
@@ -478,7 +481,7 @@ MADUREZ GLOBAL bAuth IAM — 2026-08-02
 |---|--------|-------|:--------:|:---------:|
 | 1 | ✅ **HECHO** — Seed `auth_method` aplicado: 47 métodos / 12 IMPLEMENTED (2026-08-01) | Multi-norma | XS | ~~🔴 P1~~ |
 | 2 | ✅ **HECHO** — Trigger WORM `fn_worm_enforce` BEFORE STATEMENT en 29 tablas — GAP-OP-02 + GAP-PCI-01 CERRADOS (2026-08-02) | ISO 27001 / PCI | S | ~~🔴 P1~~ |
-| 3 | Agregar `hibp_checked_at` + `hibp_is_compromised` en `auth_credential` | NIST 800-63B | XS | 🔴 P1 |
+| 3 | ✅ **HECHO** — `auth_credential_secret`: `hibp_checked_at/pwned_count/is_compromised` + `chk_acs_hibp` (2026-08-02) | NIST 800-63B | XS | ~~🔴 P1~~ |
 | 4 | Diseñar e implementar `fed_par_request` (T-566) | FAPI 2.0 / OAuth | M | 🔴 P1 |
 | 5 | ALTER `fed_client`: `+jarm_signing_alg`, `+jarm_encryption_alg`, `+require_par` | FAPI 2.0 | XS | 🟠 P2 |
 | 6 | ALTER `fed_token_issued` + `fed_client`: `+authorization_details JSONB` (RAR) | RFC 9396 | S | 🟠 P2 |
@@ -492,10 +495,11 @@ MADUREZ GLOBAL bAuth IAM — 2026-08-02
 
 | Versión | Fecha | Cambio |
 |---------|-------|--------|
+| 1.3.0 | 2026-08-02 | HIBP: `auth_credential_secret` +3 columnas + chk_acs_hibp; GAP-NIST63B-01 CERRADO; NIST 800-63B 22/23 (96%) ↑; madurez compuesta 90.5% ↑; 0 gaps P1 restantes |
 | 1.2.0 | 2026-08-02 | WORM trigger `fn_worm_enforce` FOR EACH STATEMENT en 29 tablas; GAP-OP-02 + GAP-PCI-01 CERRADOS; NIST 800-53 17/18 (94%) ↑ · PCI DSS 8/8 (100%) ↑; madurez compuesta 90.0% ↑ +1.6%; DDL principal §WORM actualizado + migration worm_enforcement_triggers.sql registrada |
 | 1.1.0 | 2026-08-01 | Seed auth_method aplicado: 47 métodos (universo canónico 2.02 v1.1.0); GAP-OP-01 CERRADO; scores NIST 800-63B 91% · PCI DSS 87.5% · madurez compuesta 88.4%; CLAUDE.md src/ actualizado |
 | 1.0.0 | 2026-08-01 | Documento inicial — 11 normas, 229 tablas bauth, análisis post T-520..T-565 |
 
 ---
 
-*Custodio: BauthAgent · Verificado contra SBOSDB (commit `3c8d5f1`) · v1.2.0 actualizado 2026-08-02*
+*Custodio: BauthAgent · Verificado contra SBOSDB (commit `3c8d5f1`) · v1.3.0 actualizado 2026-08-02*

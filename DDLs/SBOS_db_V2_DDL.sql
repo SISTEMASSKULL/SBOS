@@ -5423,18 +5423,29 @@ COMMENT ON COLUMN bauth.auth_credential.valid_until           IS 'Fecha de expir
 COMMENT ON COLUMN bauth.auth_credential.revocation_reason     IS 'Motivo de revocación en texto libre — requerido cuando revoked_at IS NOT NULL. Opciones típicas: COMPROMISED, LOST_DEVICE, USER_REQUEST, ROTATION.';
 
 CREATE TABLE IF NOT EXISTS bauth.auth_credential_secret (
-    secret_id         UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
-    credential_id     UUID    NOT NULL UNIQUE REFERENCES bauth.auth_credential(credential_id) ON DELETE CASCADE,
-    type              TEXT    NOT NULL CONSTRAINT chk_acs_type CHECK (type IN (  -- [MC-0064] → A.65.04
-                               'ARGON2ID_HASH','TOTP_SEED_ENC','HOTP_SEED_ENC',
-                               'RECOVERY_CODE_HASH','PUSH_PUBKEY_ED25519')),
-    secret            TEXT    NOT NULL,
-    algorithm         TEXT    NOT NULL,
-    params            JSONB   NOT NULL DEFAULT '{}',
-    vault_key_version INT     NOT NULL DEFAULT 1,
-    rotated_at        TIMESTAMPTZ NULL,
-    ctx_id            TEXT    NOT NULL DEFAULT 'system',
-    created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+    secret_id           UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    credential_id       UUID    NOT NULL UNIQUE REFERENCES bauth.auth_credential(credential_id) ON DELETE CASCADE,
+    type                TEXT    NOT NULL CONSTRAINT chk_acs_type CHECK (type IN (  -- [MC-0064] → A.65.04
+                                 'ARGON2ID_HASH','TOTP_SEED_ENC','HOTP_SEED_ENC',
+                                 'RECOVERY_CODE_HASH','PUSH_PUBKEY_ED25519')),
+    secret              TEXT    NOT NULL,
+    algorithm           TEXT    NOT NULL,
+    params              JSONB   NOT NULL DEFAULT '{}',
+    vault_key_version   INT     NOT NULL DEFAULT 1,
+    rotated_at          TIMESTAMPTZ NULL,
+    -- Verificación de contraseña comprometida — NIST SP 800-63B-4 §5.1.1.2
+    -- Solo aplica a type=ARGON2ID_HASH; NULL en todos los demás tipos.
+    -- El CHECK fuerza que toda contraseña haya pasado la verificación HIBP antes de guardarse.
+    -- Implementación soberana: corpus HIBP local con k-Anonymity (SHA-1 prefix) — sin llamadas externas.
+    hibp_checked_at     TIMESTAMPTZ NULL,
+    hibp_pwned_count    INT         NULL,           -- 0 = no comprometida; >0 = rechazar
+    hibp_is_compromised BOOLEAN     NOT NULL DEFAULT false,
+    ctx_id              TEXT        NOT NULL DEFAULT 'system',
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT chk_acs_hibp CHECK (
+        type != 'ARGON2ID_HASH'
+        OR (hibp_checked_at IS NOT NULL AND hibp_pwned_count IS NOT NULL)
+    )
 );
 REVOKE UPDATE (secret) ON bauth.auth_credential_secret FROM bauth_app_role;
 COMMENT ON TABLE bauth.auth_credential_secret IS
@@ -5449,16 +5460,25 @@ el motor de verificación pueda reproducir la operación (ej. {m:65536, t:3, p:4
 vault_key_version: versión de la clave de cifrado en Vault transit — permite re-cifrado al rotar
 la clave maestra sin invalidar todos los secretos. La columna secret tiene REVOKE UPDATE: no puede
 modificarse directamente — el cambio de contraseña crea una fila nueva y elimina la anterior.
+HIBP (Compromised credential lookup — NIST SP 800-63B-4 §5.1.1.2): hibp_checked_at registra
+cuándo se verificó la contraseña contra el corpus local HIBP; hibp_pwned_count es el número de
+apariciones en brechas (0 = limpia, >0 = rechazar); hibp_is_compromised resume el resultado.
+El CHECK chk_acs_hibp fuerza que toda contraseña (ARGON2ID_HASH) haya pasado la verificación
+antes de ser insertada — cumplimiento a nivel BD, no solo por convención de código. Verificación
+soberana: corpus HIBP local con k-Anonymity (SHA-1 prefix 5 chars) — sin llamadas externas.
 Fuente: creada por el motor de enrollment de bAuth al registrar una contraseña u OTP seed; el hash
 se calcula en el daemon Rust (nunca en BD) antes de almacenar.
 Administración: REVOKE UPDATE (secret) aplicado — el daemon solo puede INSERT o DELETE, nunca UPDATE
 del secreto; rotación de clave Vault: el job de re-key lee con vault_key_version < current y re-cifra.
 WORM: no formalmente — INSERT+DELETE para cambio de contraseña (nunca UPDATE del valor).
 Particionada: no.
-Estándar: NIST SP 800-63B-4 §5.1.1.2 (Argon2id), NIST SP 800-132 (KDF), FIPS 140-3. T-331.';
-COMMENT ON COLUMN bauth.auth_credential_secret.secret            IS 'El secreto protegido — NUNCA el valor en claro. Contiene el hash Argon2id (contraseñas), la semilla cifrada con Vault transit (TOTP/HOTP), o el hash de código de recuperación. La columna tiene REVOKE UPDATE: el daemon solo puede INSERT o DELETE, nunca modificar en sitio.';
-COMMENT ON COLUMN bauth.auth_credential_secret.vault_key_version IS 'Versión de la clave de cifrado en Vault KV transit usada para cifrar este secreto. Permite re-cifrado progresivo: el job de re-key busca filas con vault_key_version < current y las re-cifra sin interrumpir el servicio.';
-COMMENT ON COLUMN bauth.auth_credential_secret.params            IS 'Parámetros del algoritmo de protección en JSONB. Para ARGON2ID: {m: 65536, t: 3, p: 4, salt: "<hex>"}. Para AES-256-GCM-VAULT-TRANSIT: {key_name: "bauth-credentials", version: N}. El motor de verificación los lee para reproducir la operación correctamente.';
+Estándar: NIST SP 800-63B-4 §5.1.1.2 (Argon2id + HIBP), NIST SP 800-132 (KDF), FIPS 140-3. T-331.';
+COMMENT ON COLUMN bauth.auth_credential_secret.secret              IS 'El secreto protegido — NUNCA el valor en claro. Contiene el hash Argon2id (contraseñas), la semilla cifrada con Vault transit (TOTP/HOTP), o el hash de código de recuperación. La columna tiene REVOKE UPDATE: el daemon solo puede INSERT o DELETE, nunca modificar en sitio.';
+COMMENT ON COLUMN bauth.auth_credential_secret.vault_key_version   IS 'Versión de la clave de cifrado en Vault KV transit usada para cifrar este secreto. Permite re-cifrado progresivo: el job de re-key busca filas con vault_key_version < current y las re-cifra sin interrumpir el servicio.';
+COMMENT ON COLUMN bauth.auth_credential_secret.params              IS 'Parámetros del algoritmo de protección en JSONB. Para ARGON2ID: {m: 65536, t: 3, p: 4, salt: "<hex>"}. Para AES-256-GCM-VAULT-TRANSIT: {key_name: "bauth-credentials", version: N}. El motor de verificación los lee para reproducir la operación correctamente.';
+COMMENT ON COLUMN bauth.auth_credential_secret.hibp_checked_at     IS '[NIST 800-63B-4 §5.1.1.2] Timestamp de la última verificación HIBP. NULL para tipos distintos de ARGON2ID_HASH. El CHECK chk_acs_hibp fuerza NOT NULL al insertar una contraseña.';
+COMMENT ON COLUMN bauth.auth_credential_secret.hibp_pwned_count    IS '[NIST 800-63B-4 §5.1.1.2] Número de veces que la contraseña aparece en el corpus HIBP local. 0 = limpia (aceptar). >0 = comprometida (rechazar antes de insertar). NULL para tipos distintos de ARGON2ID_HASH.';
+COMMENT ON COLUMN bauth.auth_credential_secret.hibp_is_compromised IS '[NIST 800-63B-4 §5.1.1.2] TRUE si hibp_pwned_count > 0. Una fila con TRUE indica que se intentó registrar una contraseña comprometida — el daemon debe rechazarla antes de INSERT; este registro permanece como evidencia forense de la verificación.';
 
 CREATE TABLE IF NOT EXISTS bauth.auth_credential_fido2 (
     fido2_id             UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,
