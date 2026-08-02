@@ -6102,6 +6102,7 @@ CREATE TABLE IF NOT EXISTS bauth.fed_client (
     dpop_required     BOOLEAN NOT NULL DEFAULT FALSE,
     mtls_required     BOOLEAN NOT NULL DEFAULT FALSE,
     fapi_profile      TEXT    NULL CONSTRAINT chk_fc_fapi CHECK (fapi_profile IN ('BASELINE','ADVANCED','FAPI2')),  -- [MC-0081] → A.65.04
+    par_required      BOOLEAN NOT NULL DEFAULT FALSE,  -- RFC 9126: TRUE = cliente solo acepta PAR; obligatorio para FAPI2/ADVANCED
     at_ttl_seconds    INT     NOT NULL DEFAULT 3600,
     rt_ttl_seconds    INT     NULL,
     id_token_ttl      INT     NOT NULL DEFAULT 600,
@@ -6120,7 +6121,9 @@ donde vive el secreto cifrado; bAuth lo recupera de Vault cuando necesita verifi
 Campos de seguridad: pkce_required (PKCE RFC 7636 — TRUE por defecto, previene CSRF), dpop_required
 (DPoP RFC 9449 — vincula el access token a la clave pública del cliente, previene token replay),
 mtls_required (mTLS RFC 8705 — el token está bound al certificado del cliente), fapi_profile
-(FAPI 2.0 para banca/fintech — la máxima seguridad disponible). TTL configurable por cliente:
+(FAPI 2.0 para banca/fintech — la máxima seguridad disponible), par_required (RFC 9126 — TRUE
+obliga al cliente a usar PAR; el daemon rechaza authorization requests directos si TRUE;
+obligatorio para fapi_profile IN (ADVANCED, FAPI2)). TTL configurable por cliente:
 at_ttl_seconds (access token), rt_ttl_seconds (refresh token — NULL = sin refresh), id_token_ttl.
 Fuente: creado por OAUTH_ADMIN vía RPC bauth.oidc.client.register al onboarding de una app nueva;
 nunca por INSERT directo (el proceso de registro valida redirect_uris y allowed_scopes).
@@ -6128,7 +6131,48 @@ Administración: status=SUSPENDED bloquea emisión de nuevos tokens manteniendo 
 status=REVOKED invalida todos los tokens activos del cliente de forma inmediata.
 WORM: no — at_ttl_seconds y dpop_required son ajustables en runtime por OAUTH_ADMIN.
 Particionada: no.
-Estándar: RFC 6749 (OAuth 2.0), RFC 7636 (PKCE), RFC 9449 (DPoP), RFC 8705 (mTLS), FAPI 2.0. T-365.';
+Estándar: RFC 6749 (OAuth 2.0), RFC 7636 (PKCE), RFC 9449 (DPoP), RFC 8705 (mTLS), RFC 9126 (PAR), FAPI 2.0. T-365.';
+
+-- =============================================================================
+-- T-566 — bauth.fed_par_request (RFC 9126 — Pushed Authorization Requests)
+-- Almacena authorization requests pre-autorizados. El cliente EMPUJA el request
+-- al endpoint PAR y recibe un request_uri de un solo uso con TTL corto (60-600s).
+-- Luego usa ese request_uri en el authorization endpoint estándar.
+-- FAPI 2.0 Advanced exige PAR para todos los flujos de autorización.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bauth.fed_par_request (
+    par_id                UUID        NOT NULL DEFAULT uuidv7() PRIMARY KEY,
+    request_uri           TEXT        NOT NULL UNIQUE,  -- urn:ietf:params:oauth:request_uri:<random>
+    client_id             UUID        NOT NULL REFERENCES bauth.fed_client(client_id) ON DELETE CASCADE,
+    tenant_id             UUID        NOT NULL REFERENCES bauth.idn_tenant(tenant_id) ON DELETE CASCADE,
+    request_payload       JSONB       NOT NULL,          -- parámetros del authorization request
+    code_challenge        TEXT        NULL,              -- PKCE code_challenge (S256 obligatorio en FAPI)
+    code_challenge_method TEXT        NOT NULL DEFAULT 'S256' CONSTRAINT chk_fpar_method CHECK (
+                                           code_challenge_method IN ('S256','plain')),
+    used                  BOOLEAN     NOT NULL DEFAULT false,
+    used_at               TIMESTAMPTZ NULL,
+    expires_at            TIMESTAMPTZ NOT NULL,          -- TTL: 60-600s (RFC 9126 §2.1)
+    ctx_id                TEXT        NOT NULL DEFAULT 'system',
+    created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT chk_fpar_used_at CHECK (used = false OR used_at IS NOT NULL)
+);
+CREATE INDEX IF NOT EXISTS idx_fpar_expires ON bauth.fed_par_request (expires_at) WHERE used = false;
+CREATE INDEX IF NOT EXISTS idx_fpar_client  ON bauth.fed_par_request (client_id, created_at DESC);
+COMMENT ON TABLE bauth.fed_par_request IS
+'FEDERACIÓN OIDC | Pushed Authorization Requests — RFC 9126. El cliente envía los parámetros
+de autorización al endpoint PAR (/oauth/par) y recibe un request_uri opaco de un solo uso
+con TTL 60-600 segundos. El authorization endpoint estándar acepta request_uri en lugar de
+los parámetros inline — los parámetros nunca viajan en la URL del navegador.
+Ventajas FAPI: (1) los parámetros están firmados y autenticados desde el inicio (el cliente
+se autentifica al llamar al endpoint PAR); (2) el navegador nunca ve los parámetros reales
+(protección contra open redirectors y referer leakage); (3) el servidor puede validar los
+parámetros antes de mostrar la UI de autorización.
+used: true = el request_uri fue consumido (un solo uso — chk_fpar_used_at fuerza used_at).
+code_challenge: correlaciona PAR con PKCE — FAPI 2.0 Advanced exige PKCE+PAR combinados.
+Limpieza: job diario elimina filas expired (expires_at < now()); idx_fpar_expires optimiza.
+WORM: no — used y used_at se actualizan al consumir el request_uri.
+Particionada: no (volumen bajo — TTL corto limita acumulación).
+Estándar: RFC 9126 (PAR), FAPI 2.0 Advanced Security Profile §4.3.1.1. T-566.';
 
 CREATE TABLE IF NOT EXISTS bauth.fed_provider_ext (
     provider_id       UUID    NOT NULL DEFAULT uuidv7() PRIMARY KEY,

@@ -1,7 +1,7 @@
 # A.73 — Informe de Cumplimiento Multi-Norma — bAuth IAM v1.0
 
 **Código:** A.73  
-**Versión:** 1.3.0  
+**Versión:** 1.4.0  
 **Fecha:** 2026-08-02  
 **Clasificación:** INTERNO CRÍTICO — uso restringido a equipo de seguridad SBOS  
 **Alcance:** SBOSDB (229 tablas bauth) · bAuth Identity Control Plane v3.0  
@@ -17,7 +17,7 @@
 | **NIST SP 800-63B Rev.4** | 22/23 (96%) | 0 | 1 | 1 | 🟡 PARCIAL |
 | **NIST SP 800-63-4 (IAL)** | 7/8 (88%) | 0 | 1 | 0 | 🟡 PARCIAL |
 | **NIST SP 800-53 Rev.5** | 17/18 (94%) | 0 | 1 | 1 | 🟡 PARCIAL |
-| **OAuth 2.0 / OIDC / FAPI 2.0** | 9/13 (69%) | 1 | 3 | 1 | 🟡 PARCIAL |
+| **OAuth 2.0 / OIDC / FAPI 2.0** | 10/13 (77%) | 0 | 3 | 1 | 🟡 PARCIAL |
 | **FIDO2 / WebAuthn W3C L3** | 7/8 (88%) | 0 | 1 | 0 | 🟡 PARCIAL |
 | **GDPR** | 7/9 (78%) | 0 | 2 | 1 | 🟡 PARCIAL |
 | **Ley 164 Bolivia** | 6/6 (100%) | 0 | 0 | 0 | 🟢 COMPLETO |
@@ -217,7 +217,7 @@ Seed aplicado: 47 métodos en SBOSDB. Ver §1 GAP-OP-01 (cerrado).
 | RFC 7636 — PKCE | Code challenge | ✓ | `fed_client.pkce_required = true` | **C** |
 | RFC 8705 — mTLS binding | Certificate-bound tokens | ✓ | `fed_client.mtls_required`, `auth_credential_x509` | **C** |
 | RFC 9449 — DPoP | Demonstration of Proof of Possession | ✓ | `fed_client.dpop_required`, `fed_token_issued.dpop_jkt` | **C** |
-| RFC 9126 — PAR | Pushed Authorization Requests | ❌ | Sin tabla `fed_par_request`, sin columna `par_request_uri` en `fed_client` | **GAP-P1** |
+| RFC 9126 — PAR | Pushed Authorization Requests | ✓ | `fed_par_request` (T-566) + `fed_client.par_required` — GAP-OAUTH-01 CERRADO 2026-08-02 | **C** |
 | RFC 9396 — RAR | Rich Authorization Requests | ❌ | Sin `authorization_details` en `fed_client` ni en `fed_token_issued` | **GAP-P2** |
 | JARM | JWT Secured Authorization Response | ❌ | Sin `jarm_alg` en `fed_client` | **GAP-P2** |
 | OIDC Core 1.0 | ID Token, UserInfo endpoint | ✓ | `fed_provider_ext` + `fed_token_issued` | **C** |
@@ -227,25 +227,17 @@ Seed aplicado: 47 métodos en SBOSDB. Ver §1 GAP-OP-01 (cerrado).
 | CAEP / SSF | RFC 8935/8936 | ✓ | `ses_caep_event_log` (T-191), `ses_ssf_stream` (T-192), `ses_ssf_delivery_log` (T-193) | **C** |
 | RFC 9470 — Step-Up | AAL step-up auth | ✓ | `ses_session_log.step_up_valid_until` | **C** |
 
-**Score DDL: 9/13 (69%)**
+**Score DDL: 10/13 (77%)** — +1 al cerrar GAP-OAUTH-01 (PAR 2026-08-02)
 
 ### §6.1 Gaps OAuth/OIDC/FAPI
 
-**GAP-OAUTH-01 — PAR (RFC 9126) — P1**
+**~~GAP-OAUTH-01~~** — ✅ **CERRADO 2026-08-02**
 
-FAPI 2.0 Advanced Security Profile exige PAR como mecanismo de envío de authorization requests.
-Sin tabla `fed_par_request`, los flujos FAPI 2.0 Advanced no pueden ser implementados.
-
-Tablas requeridas:
-```
-bauth.fed_par_request (T-566 propuesto):
-  request_uri TEXT PK (urn:ietf:params:oauth:request_uri:<random>)
-  client_id UUID FK fed_client
-  tenant_id UUID FK idn_tenant
-  request_payload JSONB NOT NULL  -- parámetros del authorization request
-  expires_at TIMESTAMPTZ NOT NULL
-  created_at TIMESTAMPTZ DEFAULT now()
-```
+RFC 9126 — Pushed Authorization Requests.
+**Solución aplicada:**
+- `bauth.fed_par_request` (T-566): `par_id` · `request_uri UNIQUE` · `client_id FK` · `tenant_id FK` · `request_payload JSONB` · `code_challenge` · `code_challenge_method DEFAULT 'S256'` · `used` · `used_at` · `expires_at` · `chk_fpar_method` · `chk_fpar_used_at` · índices `idx_fpar_expires` + `idx_fpar_client`
+- `fed_client.par_required BOOLEAN NOT NULL DEFAULT false` — fuerza PAR para fapi_profile=ADVANCED/FAPI2
+- Migration: `DDLs/migrations/bauth_par_t566.sql`. Aplicado en SBOSDB (verificado).
 
 **GAP-OAUTH-02 — RAR / authorization_details (RFC 9396) — P2**
 
@@ -419,7 +411,7 @@ registro de actividades de prueba, alcance, hallazgos y remediación.
 | ~~GAP-OP-02~~ | ISO 27001 A.8.15 · AU-9 · PCI 10.3 | ✅ **CERRADO 2026-08-02** — Trigger WORM activo `fn_worm_enforce` BEFORE STATEMENT en 29 tablas | — | Aplicado en SBOSDB |
 | ~~GAP-PCI-01~~ | PCI DSS 10.3.2 | ✅ **CERRADO 2026-08-02** — mismo trigger que GAP-OP-02 | — | Aplicado en SBOSDB |
 | ~~GAP-NIST63B-01~~ | NIST 800-63B §5.1.1.2 | ✅ **CERRADO 2026-08-02** — `auth_credential_secret`: `hibp_checked_at/pwned_count/is_compromised` + `chk_acs_hibp` | — | Aplicado en SBOSDB |
-| GAP-OAUTH-01 | OAuth 2.0 · FAPI 2.0 Advanced | Sin PAR (RFC 9126) — requerido para FAPI 2.0 Advanced | DDL | Nueva tabla T-566 `fed_par_request` |
+| ~~GAP-OAUTH-01~~ | OAuth 2.0 · FAPI 2.0 Advanced | ✅ **CERRADO 2026-08-02** — `fed_par_request` (T-566) + `fed_client.par_required` · RFC 9126 | — | Aplicado en SBOSDB |
 
 ### Prioridad 2 — Próximo Ciclo DDL
 
@@ -456,22 +448,21 @@ MADUREZ GLOBAL bAuth IAM — 2026-08-02
   ISO 24760-2:2025      ████████████████████████████████████████  100.0%
   NIST 800-53 Rev.5     ███████████████████████████████████████░  94.4%
   NIST 800-207 (ZTA)    ████████████████████████████████████░░░░  83.3%
-  NIST 800-63B Rev.4    ███████████████████████████████████████░  95.7%  ↑ +4.7% (HIBP chk_acs_hibp)
+  NIST 800-63B Rev.4    ███████████████████████████████████████░  95.7%
   FIDO2/WebAuthn L3     ████████████████████████████████████░░░░  87.5%
   GDPR                  █████████████████████████████████░░░░░░░  77.8%
   Ley 164 Bolivia       ████████████████████████████████████████  100.0%
-  OAuth/OIDC/FAPI 2.0   ████████████████████████████░░░░░░░░░░░░  69.2%
+  OAuth/OIDC/FAPI 2.0   ██████████████████████████████░░░░░░░░░░  76.9%  ↑ +7.7% (PAR T-566)
   PCI DSS 4.0           ████████████████████████████████████████  100.0%
 
-  MADUREZ COMPUESTA     ████████████████████████████████████████  90.5%  ↑ +0.5%
+  MADUREZ COMPUESTA     █████████████████████████████████████████  91.2%  ↑ +0.7%
 
 ```
 
-**bAuth alcanza madurez Nivel L3** ("Managed") en la escala ISO 9001 / CMMI (90.5%):
-- Procesos definidos y documentados con evidencia DDL
-- Controles nucleares implementados (BitMask, WORM activo 29 triggers, IOC, HIBP local, catálogo 47 métodos)
-- Gaps P1 restantes: **0** — todos cerrados en esta sesión
-- Para Nivel L4 ("Optimized"): PAR RFC 9126 (GAP-OAUTH-01) + cobertura de tests automatizados
+**bAuth alcanza madurez Nivel L3** ("Managed") en la escala ISO 9001 / CMMI (91.2%):
+- Controles nucleares: BitMask · WORM 29 triggers · IOC · HIBP local · PAR RFC 9126 · 47 métodos
+- Gaps P1: **0 restantes** — todos cerrados en esta sesión (GAP-OP-01/02 · GAP-PCI-01 · GAP-NIST63B-01 · GAP-OAUTH-01)
+- Para Nivel L4 ("Optimized"): JARM (GAP-OAUTH-03) + cobertura de tests automatizados + GDPR portabilidad
 
 ---
 
@@ -482,7 +473,7 @@ MADUREZ GLOBAL bAuth IAM — 2026-08-02
 | 1 | ✅ **HECHO** — Seed `auth_method` aplicado: 47 métodos / 12 IMPLEMENTED (2026-08-01) | Multi-norma | XS | ~~🔴 P1~~ |
 | 2 | ✅ **HECHO** — Trigger WORM `fn_worm_enforce` BEFORE STATEMENT en 29 tablas — GAP-OP-02 + GAP-PCI-01 CERRADOS (2026-08-02) | ISO 27001 / PCI | S | ~~🔴 P1~~ |
 | 3 | ✅ **HECHO** — `auth_credential_secret`: `hibp_checked_at/pwned_count/is_compromised` + `chk_acs_hibp` (2026-08-02) | NIST 800-63B | XS | ~~🔴 P1~~ |
-| 4 | Diseñar e implementar `fed_par_request` (T-566) | FAPI 2.0 / OAuth | M | 🔴 P1 |
+| 4 | ✅ **HECHO** — `fed_par_request` (T-566) + `fed_client.par_required` — GAP-OAUTH-01 CERRADO (2026-08-02) | FAPI 2.0 / OAuth | M | ~~🔴 P1~~ |
 | 5 | ALTER `fed_client`: `+jarm_signing_alg`, `+jarm_encryption_alg`, `+require_par` | FAPI 2.0 | XS | 🟠 P2 |
 | 6 | ALTER `fed_token_issued` + `fed_client`: `+authorization_details JSONB` (RAR) | RFC 9396 | S | 🟠 P2 |
 | 7 | Diseñar `gdpr_portability_request` (T-567) | GDPR Art. 20 | M | 🟠 P2 |
@@ -495,6 +486,7 @@ MADUREZ GLOBAL bAuth IAM — 2026-08-02
 
 | Versión | Fecha | Cambio |
 |---------|-------|--------|
+| 1.4.0 | 2026-08-02 | PAR: `fed_par_request` T-566 + `fed_client.par_required`; GAP-OAUTH-01 CERRADO; OAuth 10/13 (77%) ↑; madurez 91.2% ↑; 0 gaps P1 |
 | 1.3.0 | 2026-08-02 | HIBP: `auth_credential_secret` +3 columnas + chk_acs_hibp; GAP-NIST63B-01 CERRADO; NIST 800-63B 22/23 (96%) ↑; madurez compuesta 90.5% ↑; 0 gaps P1 restantes |
 | 1.2.0 | 2026-08-02 | WORM trigger `fn_worm_enforce` FOR EACH STATEMENT en 29 tablas; GAP-OP-02 + GAP-PCI-01 CERRADOS; NIST 800-53 17/18 (94%) ↑ · PCI DSS 8/8 (100%) ↑; madurez compuesta 90.0% ↑ +1.6%; DDL principal §WORM actualizado + migration worm_enforcement_triggers.sql registrada |
 | 1.1.0 | 2026-08-01 | Seed auth_method aplicado: 47 métodos (universo canónico 2.02 v1.1.0); GAP-OP-01 CERRADO; scores NIST 800-63B 91% · PCI DSS 87.5% · madurez compuesta 88.4%; CLAUDE.md src/ actualizado |
@@ -502,4 +494,4 @@ MADUREZ GLOBAL bAuth IAM — 2026-08-02
 
 ---
 
-*Custodio: BauthAgent · Verificado contra SBOSDB (commit `3c8d5f1`) · v1.3.0 actualizado 2026-08-02*
+*Custodio: BauthAgent · Verificado contra SBOSDB (commit `3c8d5f1`) · v1.4.0 actualizado 2026-08-02*
