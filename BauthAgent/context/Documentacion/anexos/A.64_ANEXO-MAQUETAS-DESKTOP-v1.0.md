@@ -67,10 +67,13 @@ pero tampoco bloquean el avance.
 
 ---
 
+**Inventario de códigos:** `A.64.01_INVENTARIO-CODIGOS-DESKTOP-v1.0.md` — catálogo completo de todos los códigos G-/V-/W-/DL-/PR- usados en este documento, con árbol de slots, tabla de consulta rápida y maqueta del shell anotada.
+
 ## Changelog
 
 | Versión | Fecha | Cambio |
 |---|---|---|
+| 1.2 | 2026-08-03 | Códigos G-/V-/W- agregados en todas las maquetas (§1–§9) · referencia a A.64.01 · anotaciones inline en ASCII art |
 | 1.1 | 2026-07-18 | Método Living Spec · Changelog · estados por sección · TEMPLATES (Identidad/Rol/User/Aplicacion) · CRUD 11 ítems · TOP Bloque 3 con selector desplegable · §4.5 AtomLang log compilación · §3.1 menú de usuario |
 | 1.0 | 2026-07-18 | Versión inicial — estructura de 3 bloques · maquetas §1–§11 |
 
@@ -100,21 +103,22 @@ pero tampoco bloquean el avance.
 
 **Expandido — 248 px · flex 1 · 300 px**
 
+`G-SN` 248 px                `G-BC` flex 1                     `G-BD` 300 px
 ```
 ╔══════════════════╦══════════════════════════════════╦══════════════════╗
-║  TOP             ║  TOP                             ║  TOP             ║
-║  _Encabezado     ║  BarraSuperior 48 px             ║  _Encabezado     ║
+║ G-SN:TOP         ║ G-BC:TOP · G-BC-001              ║ G-BD:TOP         ║
+║ G-SN-001         ║  BarraSuperior 48 px             ║ G-BD-001         ║
 ║  56 px           ║                                  ║  56 px           ║
 ╠══════════════════╣──────────────────────────────────╠══════════════════╣
-║  BODY            ║  BODY                            ║  BODY            ║
-║  [◎] Dashboard   ║  BarraBreadcrumb 40 px           ║  [◎] Acciones    ║
-║  [◎] Roles       ║  ──────────────────────────────  ║  [◎] Alertas     ║
-║  [◎] Usuarios    ║  Outlet (flex 1)                 ║  [◎] Uso 24 h    ║
+║ G-SN:BOD         ║ G-BC:BB · G-BC-009               ║ G-BD:BOD         ║
+║ G-SN-003 W-002   ║  BarraBreadcrumb 40 px           ║ G-BD-002..007    ║
+║  [◎] Roles       ║  ──────────────────────────────  ║  (por selector)  ║
+║  [◎] Usuarios    ║ G-BC:OUT · Outlet flex 1         ║  [◎] Uso 24 h    ║
 ║  ...             ║  ──────────────────────────────  ║                  ║
-║                  ║  BarraEstado 30 px               ║                  ║
+║                  ║ G-BC:SB · G-BC-010               ║                  ║
 ╠══════════════════╣──────────────────────────────────╠══════════════════╣
-║  BOTTOM          ║  BOTTOM                          ║  BOTTOM          ║
-║  _Pie 48 px      ║  BarraInferior 30 px             ║  _Pie 48 px      ║
+║ G-SN:BOT         ║ G-BC:BOT · G-BC-011              ║ G-BD:BOT         ║
+║ G-SN-006         ║  BarraInferior 30 px             ║ G-BD-008         ║
 ╚══════════════════╩══════════════════════════════════╩══════════════════╝
 ```
 
@@ -145,53 +149,53 @@ pero tampoco bloquean el avance.
 
 ```
 ┌─────────────────────────────────────┐  ← 248 px ancho
-│ ╔══╗  bAuth                         │  ← TOP 56px (logo + título)
+│ ╔══╗  bAuth                         │  G-SN:TOP · G-SN-001
 │ ║🛡️║  Control Plane                 │    click → colapsa sidenav
 │ ╚══╝                                │
 ├─────────────────────────────────────┤
-│                                     │  ← BODY (scroll vertical)
-│  GENERAL                            │  ← título de grupo (10px, letra espaciada)
-│  ⊞ Dashboard de Salud               │  ← ítem activo (fondo muted resaltado)
-│  👥 Usuarios Conectados    [89]     │  ← badge numérico
+│                                     │  G-SN:BOD
+│  GENERAL                            │  G-SN-002 · título de grupo
+│  ⊞ Dashboard de Salud               │  G-SN-003  W-002 · ítem activo
+│  👥 Usuarios Conectados    [89]     │  G-SN-003  G-SN-004 · badge numérico
 │                                     │
-│  TEMPLATES                          │
-│  🪪 Identidad                       │
-│  🛡 Rol                             │
-│  👤 User                            │
-│  📦 Aplicacion                      │
+│  TEMPLATES                          │  G-SN-002
+│  🪪 Identidad                       │  G-SN-003  W-002
+│  🛡 Rol                             │  G-SN-003  W-002
+│  👤 User                            │  G-SN-003  W-002
+│  📦 Aplicacion                      │  G-SN-003  W-002
 │                                     │
-│  CRUD                               │
-│  ⚙  Métodos                         │
-│  🌐 Dominios                        │
-│  🧱 Bloques                         │
-│  🏷 Atributos                       │
-│  ⚡ Verbos                          │
-│  🛡  Roles                  [366]   │
-│  👥 Usuarios               [1.2k]  │
-│  📦 Aplicaciones                    │
-│  🧩 Módulos                         │
-│  🔗 Grupos                          │
-│  📋 Reglas                          │
+│  CRUD                               │  G-SN-002
+│  ⚙  Métodos                         │  G-SN-003  W-002
+│  🌐 Dominios                        │  G-SN-003  W-002
+│  🧱 Bloques                         │  G-SN-003  W-002
+│  🏷 Atributos                       │  G-SN-003  W-002
+│  ⚡ Verbos                          │  G-SN-003  W-002
+│  🛡  Roles                  [366]   │  G-SN-003  G-SN-004  W-002
+│  👥 Usuarios               [1.2k]  │  G-SN-003  G-SN-004  W-002
+│  📦 Aplicaciones                    │  G-SN-003  W-002
+│  🧩 Módulos                         │  G-SN-003  W-002
+│  🔗 Grupos                          │  G-SN-003  W-002
+│  📋 Reglas                          │  G-SN-003  W-002
 │                                     │
-│  IDENTIDAD                          │
-│  ⎇  Árbol de Entidades              │
-│  📈 Uso del Sistema          ●⚠     │  ← punto ámbar = advertencia
+│  IDENTIDAD                          │  G-SN-002
+│  ⎇  Árbol de Entidades              │  G-SN-003  W-002
+│  📈 Uso del Sistema          ●⚠     │  G-SN-003  G-SN-005 · ámbar = advertencia
 │                                     │
-│  SISTEMA                            │
-│  🔄 Sincronización           ●✓     │  ← punto verde = ok
-│  📄 Auditoría                ●⚠     │
-│  🛡  Visión BOS               ●⚠     │
-│  🔗 Blockchain                      │
+│  SISTEMA                            │  G-SN-002
+│  🔄 Sincronización           ●✓     │  G-SN-003  G-SN-005 · verde = ok
+│  📄 Auditoría                ●⚠     │  G-SN-003  G-SN-005
+│  🛡  Visión BOS               ●⚠     │  G-SN-003  G-SN-005
+│  🔗 Blockchain                      │  G-SN-003  W-002
 │                                     │
-│  CUENTA                             │
-│  💳 Mi Cuenta                       │
-│  🎧 Soporte SBOS                    │
+│  CUENTA                             │  G-SN-002
+│  💳 Mi Cuenta                       │  G-SN-003  W-002
+│  🎧 Soporte SBOS                    │  G-SN-003  W-002
 │                                     │
-│           ─────────────────         │  ← spacer
-│  ⊞  Configuración                   │  ← fijo al pie del nav
+│           ─────────────────         │  G-SN-007 · separador
+│  ⊞  Configuración                   │  G-SN-003  W-002 · fijo al pie del nav
 ├─────────────────────────────────────┤
-│ ●  Daemon operativo                 │  ← BOTTOM 48px
-│    v0.9.0 · uptime 99.9%            │  ← monospace, muted
+│ ●  Daemon operativo                 │  G-SN:BOT · G-SN-006
+│    v0.9.0 · uptime 99.9%            │  monospace, muted
 └─────────────────────────────────────┘
 ```
 
@@ -211,15 +215,16 @@ pero tampoco bloquean el avance.
 
 ### 3.1 BarraSuperior (48 px, fija en TOP)
 
-**Estado normal:**
+**Estado normal:** `G-BC:TOP` · `G-BC-001`
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────┐
 │  [≪]  [🔍 Buscar roles, usuarios, políticas…              ⌘K]  ●9450  [☀]  [🔔]  [SA ▾] │
+│ G-BC-002  G-BC-003 W-010                                  G-BC-004 G-BC-005 G-BC-006 G-BC-007│
 └──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Menú de usuario — desplegable al pulsar `[SA ▾]`:**
+**Menú de usuario — desplegable al pulsar `[SA ▾]`:** `G-BC-008`
 
 ```
                                                           ┌──────────────────────────┐
@@ -237,14 +242,14 @@ pero tampoco bloquean el avance.
 ```
 
 **Elementos:**
-- `[≪]` / `[≫]` — toggle que colapsa/expande el sidenav izquierdo
-- Buscador: fondo muted + ícono lupa + placeholder + atajo `⌘K`
-- `●9450` — chip conexión: punto verde + IP:puerto en monospace
-- `[☀]` — toggle de tema claro/oscuro
-- `[🔔]` — campana; punto rojo si hay notificación crítica
-- `[SA ▾]` — avatar gradiente + nombre + rol + desplegable de sesión
+- `[≪]` / `[≫]` → `G-BC-002` — toggle que colapsa/expande el sidenav izquierdo
+- Buscador → `G-BC-003` `W-010`: fondo muted + ícono lupa + placeholder + atajo `⌘K`
+- `●9450` → `G-BC-004`: chip conexión: punto verde + IP:puerto en monospace
+- `[☀]` → `G-BC-005`: toggle de tema claro/oscuro
+- `[🔔]` → `G-BC-006`: campana; punto rojo si hay notificación crítica
+- `[SA ▾]` → `G-BC-007` `W-005`: avatar gradiente + nombre + rol + desplegable de sesión
 
-### 3.2 BarraBreadcrumb (40 px, bajo la barra superior)
+### 3.2 BarraBreadcrumb (40 px, bajo la barra superior) `G-BC:BB` · `G-BC-009`
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
@@ -255,7 +260,7 @@ pero tampoco bloquean el avance.
 
 Cambia automáticamente con la ruta activa. "Control Plane" permanece siempre en muted.
 
-### 3.3 BarraEstado (30 px, bajo el outlet)
+### 3.3 BarraEstado (30 px, bajo el outlet) `G-BC:SB` · `G-BC-010`
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
@@ -286,22 +291,23 @@ Cada opción del selector tiene su propio widget de contenido.
 
 ---
 
-### 4.1 Estructura con selector
+### 4.1 Estructura con selector `G-BD`
 
 **Expandido (300 px):**
 
 ```
 ┌──────────────────────────────┐
-│  TOP                         │
-│  [ ⚙ Configuración      ▾ ] │  ← 56 px — selector desplegable
+│  G-BD:TOP                    │
+│  [ ⚙ Configuración      ▾ ] │  G-BD-001 · selector desplegable
 ├──────────────────────────────┤
-│  BODY                        │
-│  (widget de la opción        │
-│   seleccionada)              │
-│                              │
+│  G-BD:BOD                    │
+│  G-BD-002 PanelConfig        │  (cuando selector = Configuración)
+│  G-BD-003 PanelHerramientas  │  (cuando selector = Herramientas)
+│  G-BD-004 PanelAtomLang      │  (cuando selector = AtomLang)
+│  G-BD-005..007               │  (Uso / Ayuda / Salir)
 ├──────────────────────────────┤
-│  BOTTOM                      │
-│  ● Sesión activa · 2h 14m   │  ← 48 px
+│  G-BD:BOT                    │
+│  ● Sesión activa · 2h 14m   │  G-BD-008
 └──────────────────────────────┘
 ```
 
@@ -327,6 +333,7 @@ Cada opción del selector tiene su propio widget de contenido.
 ┌──────────────────────────────┐
 │  [ ⚙ Configuración      ▾ ] │
 ├──────────────────────────────┤
+│  ⚙  Conexion                │
 │  ⚙  Configuración            │
 │  🔧  Herramientas             │
 │  🔷  AtomLang                │
@@ -652,38 +659,35 @@ Los tres botones son **mutuamente excluyentes**: nunca dos a la vez.
 ```
 ┌── OUTLET (bloque central) ──────────────────────────────────────────────────────────┐
 │                                                                                     │
-│  Dashboard de Salud                                   [● En vivo]  [24h│ 7d│ 30d]  │
-│  Identity Control Plane · 12 dominios monitoreados    borde primary   selector      │
+│  Dashboard de Salud                      [● OPERACIONAL]   [En vivo│ 7d│ 30d]      │
+│  Identity Control Plane · 18 dominios    V-DS-002 W-008    V-DS-003                 │
+│  ← V-DS-001 Cabecera ──────────────────────────────────────────────────────────→   │
 │                                                                                     │
+│  ← V-DS-004 RejillaKpis (Row, Expanded) ────────────────────────────────────────→  │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐           │
-│  │ 👥           │  │ 🔍           │  │ ✓            │  │ ⚡           │           │
-│  │ Usuarios tot │  │ Roles activos│  │ Átomos       │  │ FastPath     │           │
-│  │              │  │              │  │              │  │              │           │
-│  │    1.247     │  │     366      │  │    5.808     │  │   99.7 %     │           │
+│  │ V-DS-005     │  │ V-DS-005     │  │ V-DS-005     │  │ V-DS-005     │           │
+│  │ W-001        │  │ W-001        │  │ W-001        │  │ W-001        │           │
+│  │ 👥 1.247     │  │ 🛡 366       │  │ ✓ 5.808      │  │ ⚡ 99.7%     │           │
 │  │              │  │              │  │              │  │              │           │
 │  │ 89 conectados│  │ 3 con DRIFT  │  │ catálogo     │  │ 0.3% Policy  │           │
-│  │           ✓  │  │              │  │ completo     │  │           ✓  │           │
 │  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘           │
 │                                                                                     │
 │  ┌──────────────┐  ┌──────────────┐                                                │
-│  │ 📊           │  │ 💻           │                                                │
-│  │ Latencia     │  │ CPU daemon   │                                                │
-│  │ eval.        │  │              │                                                │
-│  │    0.3 ns    │  │     18 %     │                                                │
+│  │ V-DS-005 W-001│ │ V-DS-005 W-001│                                               │
+│  │ 📊 0.3 ns    │  │ 💻 18%       │                                                │
 │  │              │  │              │                                                │
 │  │ P99 4.7 ms   │  │ RAM 62 MB    │                                                │
-│  │              │  │ 47 hilos     │                                                │
 │  └──────────────┘  └──────────────┘                                                │
 │                                                                                     │
 └─────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 **Estructura interna:**
-- `_Cabecera`: Row con título/subtítulo izquierda + badge "En vivo" + selector derecha
-- `_RejillaKpis`: Row con 6 `TarjetaKpi` expandidas (`Expanded` cada una)
-- Cada KPI: icono arriba izquierda + valor grande (bold) + unidad + nota inferior (muted, con tono ok=verde)
-- Badge "En vivo": borde primary, fondo primary 12% opacidad, punto primary + texto "En vivo"
-- Selector: 3 opciones `[24h│7d│30d]` con borde compartido; activo = fondo muted
+- `V-DS-001` Cabecera: Row con título/subtítulo izquierda + `V-DS-002` badge + `V-DS-003` selector derecha
+- `V-DS-004` RejillaKpis: Row con 6 `V-DS-005` expandidas (`Expanded` cada una)
+- `V-DS-005` → `W-001` TarjetaKpi: icono arriba izquierda + valor grande (bold) + unidad + nota inferior
+- `V-DS-002` → `W-008` BadgeEstado: borde primary, fondo primary 12% opacidad, punto + texto estado
+- `V-DS-003` SelectorRango: 3 opciones `[En vivo│7d│30d]` con borde compartido; activo = fondo muted
 
 ---
 
@@ -784,42 +788,42 @@ unidad de mantenimiento) · A.46 §2 (gramática y fases compilador) · A.01 §3
 ```
 ┌── OUTLET — Vista: Rol Template (AtomLang) ──────────────────────────────────────────┐
 │                                                                                      │
-│  [GERENTE_VENTAS ▾]  ← selector de RolTemplate activo                               │
+│  [GERENTE_VENTAS ▾]  V-RT-001 · selector de RolTemplate activo                      │
 │                                                                                      │
-│  ┌─ 1: IDENTIDAD ──────────┐  ┌─ 2: ROL TEMPLATE ──────────┐  ┌─ 3: COMPILADO ───┐ │
-│  │  idn_role_template      │  │  Árbol AtomLang (.atm.yaml) │  │  → BitMask       │ │
-│  │  ↔ idn_identity_entity│  │                             │  │                  │ │
-│  ├─────────────────────────┤  ├─────────────────────────────┤  ├──────────────────┤ │
-│  │                         │  │                             │  │                  │ │
-│  │  ▼ [SU] SuperUsuario    │  │  ▼ D00 [POLICYSET]          │  │  RolBitMask      │ │
-│  │    ▼ [SYS] Sistema      │  │    ▼ D01 [POLICYSET]        │  │  ··1··0···1···   │ │
-│  │      ▼ [BIZ-N1] Dir.    │  │      ▼ B6 [POLICYSET]       │  │                  │ │
-│  │        ▼ [BIZ-N2]       │  │        ▼ App [POLICY]       │  │  Átomos:         │ │
-│  │   ●──── GERENTE_VENTAS  │  │   ●──    ▼ [REGLA] Permit   │  │  042 · Permit    │ │
-│  │          ▼ VENDEDOR     │  │          ▼ [REGLA] Deny      │  │  043 · Deny      │ │
-│  │          ▼ PROMOTOR     │  │      ▼ B7 [POLICYSET]        │  │  044 · Permit    │ │
-│  │                         │  │    ▼ D98 [REGISTRO]          │  │                  │ │
-│  │  ● nodo activo          │  │      · SET vendedores_senior │  │  FastPath:  ✓    │ │
-│  │  ── enlace cruzado      │  │      · SET gerentes_zona     │  │  PolicyPath: —   │ │
-│  │     con Panel 2         │  │                              │  │                  │ │
+│  ┌─ V-RT:P1 IDENTIDAD ─────┐  ┌─ V-RT:P2 ROL TEMPLATE ──────┐  ┌─ V-RT:P3 ───────┐ │
+│  │  V-RT-004  W-006        │  │  V-RT-007  W-006             │  │  V-RT-008        │ │
+│  │  idn_role_template      │  │  Árbol AtomLang (.atm.yaml)  │  │  → BitMask       │ │
+│  ├─ V-RT:P1>TB ────────────┤  ├─────────────────────────────┤  ├──────────────────┤ │
+│  │  V-RT-003               │  │                              │  │                  │ │
+│  │  ▼ [SU] SuperUsuario    │  │  ▼ D00 [POLICYSET]           │  │  RolBitMask      │ │
+│  │  W-009  W-006           │  │  W-006                       │  │  ··1··0···1···   │ │
+│  │    ▼ [SYS] Sistema      │  │    ▼ D01 [POLICYSET]         │  │                  │ │
+│  │      ▼ [BIZ-N1] Dir.    │  │      ▼ B6 [POLICYSET]        │  │  Átomos:         │ │
+│  │        ▼ [BIZ-N2]       │  │        ▼ App [POLICY]        │  │  042 · Permit    │ │
+│  │  V-RT-010 ●──GERENTE_VT │  │  V-RT-010 ●──  [REGLA] P    │  │  043 · Deny      │ │
+│  │          ▼ VENDEDOR     │  │               [REGLA] D      │  │  044 · Permit    │ │
+│  │          ▼ PROMOTOR     │  │      ▼ D98 [REGISTRO]        │  │                  │ │
+│  ├─ V-RT:P1>BOT ───────────┤  │      · SET vendedores_senior │  │  FastPath:  ✓    │ │
+│  │  V-RT-005               │  │      · SET gerentes_zona     │  │  PolicyPath: —   │ │
+│  │  (ficha identidad nodo) │  │                              │  │                  │ │
 │  └─────────────────────────┘  └─────────────────────────────┘  └──────────────────┘ │
 │                                                                                      │
-│  ┌─ Ruta del nodo seleccionado ───────────────────────────────────────── [Copiar] ─┐ │
+│  ┌─ V-RT:BOT · V-RT-009 ──────────────────────────────────────────────── [Copiar] ─┐ │
 │  │  D01 · Acceso Lógico › B6 · Zona Ventas › App Ventas › [REGLA] aprobacion_t1   │ │
 │  └────────────────────────────────────────────────────────────────────────────────┘ │
 └──────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Panel 1 — Identidad Rol Template (DATOS PARTICULARES):**
-- Árbol jerárquico de todos los roles del sistema extraído de `bauth.idn_role_template` ↔ `bauth.idn_identity_entity`
-- 5 niveles en la jerarquía: tenant → bdomain → bsubdomain → pos → actor (1.06 §4)
-- Cada nodo muestra su tier (`[SU]` `[SYS]` `[BIZ-Nx]` `[EXT]` `[M2M]`)
+**`V-RT:P1` — Panel 1 Identidad Rol Template (DATOS PARTICULARES):**
+- `V-RT-004` `W-006` ArbolRoles: árbol jerárquico `bauth.idn_role_template` ↔ `bauth.idn_identity_entity`
+- 5 niveles: tenant → bdomain → bsubdomain → pos → actor (1.06 §4)
+- Cada nodo muestra su tier via `W-009` ChipTier: `[SU]` `[SYS]` `[BIZ-Nx]` `[EXT]` `[M2M]`
 - **Cada nodo lleva adjunta su identidad particular**: los valores concretos de ESE rol
   (`id`, `name`, `org_unit_id`, `sector_code`, `tenant_id`, `accountability_chain`, vigencia,
   aprobadores de cambio, etc.) — distintos en cada nodo, derivados del esquema D0/B1 del Panel 2
-- Clic en un nodo → lo activa como contexto + expande su ficha de identidad particular +
-  resalta en Panel 2 las reglas que lo referencian
-- El objeto **"Identidad RT"** de la paleta (§4.4) crea un nodo nuevo con su identidad particular
+- Clic en un nodo → lo activa + expande `V-RT-005` FichaIdentidadNodo (`V-RT:P1>BOT`) +
+  resalta en Panel 2 las reglas que lo referencian vía `V-RT-010` EnlaceCruzado
+- El objeto **"Identidad RT"** de la paleta (`G-BD-003`) crea un nodo nuevo con su identidad particular
 
 #### CRUD de Panel 1 — `bauth.idn_role_template`
 
@@ -934,24 +938,23 @@ completar y especializar su configuración sin interferir con el resto del templ
 ### Layout — 2 bloques sobre el outlet
 
 ```
-┌── OUTLET — Completitud de Roles ─────────────────────────────────────────────────────┐
+┌── OUTLET — Completitud de Roles  V-CR ───────────────────────────────────────────────┐
 │                                                                                       │
-│  ┌─ Bloque 1: JERARQUÍA DE ROLES ──────────┐  ┌─ Bloque 2 ─────────────────────────┐ │
-│  │  idn_role_template                       │  │  ┌─ TOP ───────────────────────┐   │ │
-│  │  ↔ idn_identity_entity                 │  │  │  [SU] SuperUsuario  ←auto   │   │ │
-│  ├──────────────────────────────────────────┤  │  └─────────────────────────────┘   │ │
-│  │  ● [SU] SuperUsuario   ← auto-selección  │  │  ┌─ OUTLET ────────────────────┐   │ │
-│  │    ▼ [SYS] Sistema                       │  │  │  (filtro aplicado)          │   │ │
-│  │      ▼ [BIZ-N1] Dir.                     │  │  │                             │   │ │
-│  │        ▼ [BIZ-N2]                        │  │  │                             │   │ │
-│  │          ▼ GERENTE_VENTAS                │  │  │                             │   │ │
-│  │            ▼ VENDEDOR                    │  │  │                             │   │ │
-│  │            ▼ PROMOTOR                    │  │  │                             │   │ │
-│  │                                          │  │  └─────────────────────────────┘   │ │
-│  │  ● nodo seleccionado                     │  │  ┌─ BOTTOM ────────────────────┐   │ │
-│  └──────────────────────────────────────────┘  │  │  [Publicar]    [Cancelar]   │   │ │
-│                                                 │  └─────────────────────────────┘   │ │
-│                                                 └────────────────────────────────────┘ │
+│  ┌─ V-CR:B1 · V-CR-001  340px ─────────────┐  ┌─ V-CR:B2 · V-CR-006 flex 1 ────────┐ │
+│  │  V-CR:B1>TOP  V-CR-002 BarraTiers        │  │  ┌─ V-CR:B2>TOP · V-CR-007 ──────┐ │ │
+│  │  [TODOS][SU][SYS][BIZ_N1]…  W-009       │  │  │  [SU] SuperUsuario  ← auto    │ │ │
+│  ├──────────────────────────────────────────┤  │  └───────────────────────────────┘ │ │
+│  │  V-CR-004 FilaRol                        │  │  ┌─ V-CR:B2>OUT · V-CR-008 ──────┐ │ │
+│  │  ● [SU] SuperUsuario  W-009   ← auto     │  │  │  [Métodos][Átomos][Saga]      │ │ │
+│  │    ▼ [SYS] Sistema    W-009              │  │  │  V-CR:B2>T1 / T2 / T3         │ │ │
+│  │      ▼ [BIZ-N1] Dir.                     │  │  │  (filtro por rol activo)      │ │ │
+│  │        ▼ [BIZ-N2]                        │  │  │                               │ │ │
+│  │          ▼ GERENTE_VENTAS                │  │  └───────────────────────────────┘ │ │
+│  │            ▼ VENDEDOR                    │  │  ┌─ V-CR:B2>BOT · V-CR-009 ──────┐ │ │
+│  │            ▼ PROMOTOR                    │  │  │  [Publicar]    [Cancelar]     │ │ │
+│  ├──────────────────────────────────────────┤  │  └───────────────────────────────┘ │ │
+│  │  V-CR-005 PieListaRoles                  │  │  V-CR-010 W-007 (si sin selección) │ │
+│  └──────────────────────────────────────────┘  └────────────────────────────────────┘ │
 │                                                                                       │
 │  ← al seleccionar GERENTE_VENTAS en Bloque 1:                                        │
 │                                                                                       │
@@ -1210,32 +1213,30 @@ Al cargar §7, se auto-selecciona el primer rol del árbol (Bloque 1) y se ejecu
 inmediatamente — el OUTLET nunca aparece vacío al entrar a la pantalla.
 
 ```
-┌── OUTLET ───────────────────────────────────────────────────────────────────────────┐
+┌── OUTLET  V-CR ─────────────────────────────────────────────────────────────────────┐
 │                                                                                     │
-│  ┌── 340 px ────────────────────────────┐  ┌── PANEL DETALLE (flex 1) ───────────┐ │
-│  │                                       │  │                                     │ │
-│  │ [TODOS][SU][SYS][BIZ_N1][BIZ_N2]    │  │  vendedor_senior                    │ │
-│  │ [BIZ_N3][BIZ_N4][BIZ_N5][EXT_N0]    │  │  ─────────────────────────         │ │
-│  │ [M2M][VISITANTE]                      │  │  biz_vendedor_senior_v2              │ │
-│  │  ← scroll horizontal, pills filtro → │  │                           [BIZ_N2]  │ │
-│  ├───────────────────────────────────── │  │                                     │ │
-│  │ vendedor_senior          [BIZ_N2] 24●│  │  Estado    activo                   │ │
-│  │ biz_vendedor_senior_v2              │  │  Átomos    24                       │ │
-│  ├─────────────────────────────────────┤  │                                     │ │
-│  │ cajero                    [BIZ_N1] 12│  │  ACCIONES                           │ │
-│  │ biz_cajero_standard_v3              │  │  [👤 Asignar a usuario]             │ │
-│  ├─────────────────────────────────────┤  │  [⎇ Ver herencia]                   │ │
-│  │ gerente_ventas            [BIZ_N3] 38│  │                                     │ │
-│  │ biz_gerente_ventas_v1               │  │                                     │ │
-│  ├─────────────────────────────────────┤  │                                     │ │
-│  │ su_admin                      [SU] 64│  │  ← estado vacío si nada             │ │
-│  ├─────────────────────────────────────┤  │     seleccionado:                   │ │
-│  │ sys_auditoria               [SYS] 31 │  │                                     │ │
-│  ├─────────────────────────────────────┤  │     [🛡️] Selecciona un rol           │ │
-│  │ ...                                  │  │                                     │ │
-│  ├─────────────────────────────────────┤  │                                     │ │
-│  │ 366 roles                            │  │                                     │ │
-│  └──────────────────────────────────── ┘  └─────────────────────────────────────┘ │
+│  ┌── V-CR:B1 · V-CR-001  340px ──────────┐  ┌── V-CR:B2 · V-CR-006 flex 1 ───────┐ │
+│  │ V-CR:B1>TOP  V-CR-002 BarraTiers       │  │                                     │ │
+│  │ [TODOS][SU][SYS][BIZ_N1][BIZ_N2]      │  │  V-CR:B2>TOP  V-CR-007              │ │
+│  │ [BIZ_N3][BIZ_N4][BIZ_N5][EXT_N0]      │  │  vendedor_senior                    │ │
+│  │ [M2M][VISITANTE]   ← scroll horiz W-009│  │  ─────────────────────────         │ │
+│  ├────────────────────────────────────────┤  │  biz_vendedor_senior_v2  [BIZ_N2]  │ │
+│  │ V-CR-004 FilaRol                       │  │  W-009                              │ │
+│  │ vendedor_senior   [BIZ_N2] 24⚛  W-009 │  │                                     │ │
+│  │ biz_vendedor_senior_v2                 │  │  Estado    activo  W-004            │ │
+│  ├────────────────────────────────────────┤  │  Átomos    24                       │ │
+│  │ cajero             [BIZ_N1] 12⚛  W-009│  │                                     │ │
+│  │ biz_cajero_standard_v3                 │  │  ACCIONES                           │ │
+│  ├────────────────────────────────────────┤  │  [👤 Asignar a usuario]             │ │
+│  │ gerente_ventas     [BIZ_N3] 38⚛  W-009│  │  [⎇ Ver herencia]                   │ │
+│  │ biz_gerente_ventas_v1                  │  │                                     │ │
+│  ├────────────────────────────────────────┤  │  ← V-CR-010 W-007 si sin selección  │ │
+│  │ su_admin               [SU] 64⚛  W-009│  │                                     │ │
+│  ├────────────────────────────────────────┤  │     [🛡️] Selecciona un rol           │ │
+│  │ sys_auditoria         [SYS] 31⚛  W-009│  │                                     │ │
+│  ├────────────────────────────────────────┤  │                                     │ │
+│  │ V-CR-005  366 roles                    │  │                                     │ │
+│  └────────────────────────────────────── ┘  └─────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -1267,46 +1268,48 @@ inmediatamente — el OUTLET nunca aparece vacío al entrar a la pantalla.
 **Ruta:** `usuarios` — Archivo: `vistas/vista_usuarios.dart`
 
 ```
-┌── OUTLET ───────────────────────────────────────────────────────────────────────────┐
+┌── OUTLET  V-US ─────────────────────────────────────────────────────────────────────┐
 │                                                                                     │
-│  ┌── 320 px ────────────────────────────┐  ┌── PANEL DETALLE (flex 1) ───────────┐ │
-│  │                                       │  │                                     │ │
-│  │  ┌─────────────────────────────────┐  │  │  ╔══╗  jperez                      │ │
-│  │  │ 🔍 Buscar...                    │  │  │  ║JP║  jperez@skull.com            │ │
-│  │  └─────────────────────────────────┘  │  │  ╚══╝                    [activo]  │ │
-│  ├───────────────────────────────────────┤  │                                     │ │
-│  │ ╔══╗  jperez               [activo]  │  │  INFORMACIÓN                        │ │
-│  │ ║JP║  jperez@skull.com              │  │  UUID     3f2a-... (monospace)       │ │
-│  ├───────────────────────────────────── │  │  Tipo     HUMAN                     │ │
-│  │ ╔══╗  mgomez               [activo]  │  │                                     │ │
-│  │ ║MG║  mgomez@skull.com              │  │  ROLES ASIGNADOS            2       │ │
-│  ├───────────────────────────────────── │  │  [vendedor_senior]                  │ │
-│  │ ╔══╗  sa_admin             [activo]  │  │  [supervisor_regional]              │ │
-│  │ ║SA║  ─                             │  │                                     │ │
-│  ├───────────────────────────────────── │  │                                     │ │
-│  │ ╔══╗  bot_sync            [inactivo] │  │  ← estado vacío si nada             │ │
-│  │ ║BS║  ─                             │  │     seleccionado:                   │ │
-│  ├───────────────────────────────────── │  │                                     │ │
-│  │ ...                                  │  │     [🔍] Selecciona un usuario      │ │
-│  ├───────────────────────────────────── │  │                                     │ │
-│  │ 4 usuarios                           │  │                                     │ │
-│  └──────────────────────────────────── ┘  └─────────────────────────────────────┘ │
+│  ┌── V-US:B1 · V-US-001  320px ──────────┐  ┌── V-US:B2 · V-US-005 flex 1 ───────┐ │
+│  │  V-US:B1>TOP                           │  │                                     │ │
+│  │  ┌──────────────────────────────────┐  │  │  V-US-006 FichaUsuario             │ │
+│  │  │ V-US-002 W-010  🔍 Buscar...     │  │  │                                     │ │
+│  │  └──────────────────────────────────┘  │  │  ╔══╗  jperez      W-005           │ │
+│  ├────────────────────────────────────────┤  │  ║JP║  jperez@skull.com            │ │
+│  │  V-US-003 FilaUsuario                  │  │  ╚══╝                [activo] W-004│ │
+│  │  ╔══╗  jperez             [activo]     │  │                                     │ │
+│  │  ║JP║  W-005   W-004                  │  │  INFORMACIÓN                        │ │
+│  ├────────────────────────────────────────┤  │  UUID     3f2a-... (monospace)      │ │
+│  │  V-US-003 FilaUsuario                  │  │  Tipo     HUMAN                     │ │
+│  │  ╔══╗  mgomez             [activo]     │  │                                     │ │
+│  │  ║MG║  W-005   W-004                  │  │  ROLES ASIGNADOS         2          │ │
+│  ├────────────────────────────────────────┤  │  V-US-007 ChipsRolesAsignados       │ │
+│  │  V-US-003                              │  │  [vendedor_senior]                  │ │
+│  │  ╔══╗  sa_admin           [activo]     │  │  [supervisor_regional]              │ │
+│  │  ║SA║  W-005   W-004                  │  │                                     │ │
+│  ├────────────────────────────────────────┤  │  ← V-US-008 W-007 si sin selección  │ │
+│  │  V-US-003                              │  │                                     │ │
+│  │  ╔══╗  bot_sync          [inactivo]    │  │     [🔍] Selecciona un usuario      │ │
+│  │  ║BS║  W-005   W-004                  │  │                                     │ │
+│  ├────────────────────────────────────────┤  │                                     │ │
+│  │  V-US-004  4 usuarios                  │  │                                     │ │
+│  └────────────────────────────────────── ┘  └─────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Cabecera lista:** barra de búsqueda full-width (fondo muted, borde, icono lupa 14px + EditableText)
+**`V-US:B1>TOP`** `V-US-002` `W-010` — barra búsqueda full-width (fondo muted, borde, lupa 14px)
 
-**Fila de usuario:**
-- Avatar circular (32px): inicial del username, fondo primary 15% opacidad, letra primary
+**`V-US-003` FilaUsuario:**
+- `W-005` AvatarCircular (32px): inicial del username, fondo primary 15% opacidad, letra primary
 - Username (bold 13px) + email (11px muted)
-- Chip de estado: `activo` (fondo primary 12%) o `inactivo` (muted)
+- `W-004` ChipEstado: `activo` (fondo primary 12%) o `inactivo` (muted)
 
-**Panel detalle:**
-- Avatar grande (44px) + username (17px bold) + email (12px muted) + chip estado
+**`V-US-006` FichaUsuario — panel detalle:**
+- `W-005` AvatarCircular grande (44px) + username 17px bold + email 12px muted + `W-004` chip estado
 - Sección "INFORMACIÓN": UUID (monospace) + Tipo de cuenta
-- Sección "ROLES ASIGNADOS": counter + chips de roles `[nombre_rol]` en Wrap
+- Sección "ROLES ASIGNADOS": counter + `V-US-007` ChipsRolesAsignados: chips `[nombre_rol]` en Wrap
 
-**Pie del panel izquierdo:**
+**`V-US-004` PieListaUsuarios:**
 - `N usuarios` (11px, muted, fondo muted 36px alto)
 
 ---
@@ -1320,40 +1323,36 @@ inmediatamente — el OUTLET nunca aparece vacío al entrar a la pantalla.
 **Ruta:** `identidad` — Archivo: `vistas/vista_entidades.dart`
 
 ```
-┌── OUTLET ───────────────────────────────────────────────────────────────────────────┐
+┌── OUTLET  V-AE ─────────────────────────────────────────────────────────────────────┐
 │                                                                                     │
-│  ┌── 340 px ────────────────────────────┐  ┌── PANEL DETALLE (flex 1) ───────────┐ │
-│  │ ⎇  Árbol de Entidades                │  │                                     │ │
-│  │  ← cabecera 40px, fondo muted/40% →  │  │  ╔════╗                             │ │
-│  ├──────────────────────────────────── ─┤  │  ║ 🏢 ║  SKULL                      │ │
-│  │                                       │  │  ╚════╝  [TNT] interno             │ │
-│  │ ▼ [TNT] interno  SKULL                │  │                                     │ │
-│  │   ▼ [BDM] empresa  SKULL-CORP         │  │  IDENTIFICADORES                    │ │
-│  │     ▼ [BSD] sucursal  Norte           │  │  ID      3a2b-c4d5-... (mono)      │ │
-│  │       ▼ [POS] caja  CAJA-01           │  │  Slug    skull-corp (mono)          │ │
-│  │         ─ [ACT] HUMAN  Juan Pérez     │  │  Tenant  root-tenant-id (mono)      │ │
-│  │         ─ [ACT] HUMAN  María Gómez    │  │                                     │ │
-│  │     ▼ [BSD] deposito  Depósito-A      │  │  POSICIÓN EN EL ÁRBOL               │ │
-│  │       ▼ [POS] estante  Estante-01     │  │  Nivel   tenant                     │ │
-│  │         ─ [ACT] producto  Laptop Dell │  │  Tipo    interno                    │ │
-│  │   ▼ [BDM] almacen  Almacén-Central    │  │  Orden   0                          │ │
-│  │     ▼ [BSD] deposito  Bodega-Norte    │  │  Interno Sí                         │ │
-│  │       ─ [POS] estante  Estante-02     │  │                                     │ │
-│  │   ─ [BDM] datacenter  Datacenter      │  │  HIJOS DIRECTOS                     │ │
-│  │                                       │  │  [BDM] empresa  SKULL-CORP          │ │
-│  │                                       │  │  [BDM] almacen  Almacén-Central     │ │
-│  │                                       │  │  [BDM] datacenter  Datacenter       │ │
+│  ┌── V-AE:B1 · V-AE-001  340px ──────────┐  ┌── V-AE:B2 · V-AE-005 flex 1 ───────┐ │
+│  │ V-AE:B1>TOP  V-AE-002                 │  │                                     │ │
+│  │ ⎇  Árbol de Entidades  40px muted     │  │  V-AE-006 FichaEntidad              │ │
+│  ├────────────────────────────────────── ┤  │                                     │ │
+│  │                                       │  │  V-AE-007 IconoNivel (40px)         │ │
+│  │ V-AE-003 NodoEntidad  W-006           │  │  ╔════╗  SKULL                      │ │
+│  │ ▼ [TNT] interno  SKULL  W-003         │  │  ║ 🏢 ║  [TNT] interno  W-003       │ │
+│  │   ▼ [BDM] empresa  SKULL-CORP  W-003  │  │  ╚════╝                             │ │
+│  │     ▼ [BSD] sucursal  Norte   W-003   │  │                                     │ │
+│  │       ▼ [POS] caja  CAJA-01   W-003   │  │  IDENTIFICADORES                    │ │
+│  │         ─ [ACT] HUMAN  Juan   W-003   │  │  ID      3a2b-c4d5-... (mono)       │ │
+│  │         ─ [ACT] HUMAN  María  W-003   │  │  Slug    skull-corp (mono)           │ │
+│  │     ▼ [BSD] deposito  Dep-A   W-003   │  │  Tenant  root-tenant-id (mono)       │ │
+│  │       ▼ [POS] estante  Est-01 W-003   │  │                                     │ │
+│  │         ─ [ACT] producto  Lap W-003   │  │  POSICIÓN EN EL ÁRBOL               │ │
+│  │   ▼ [BDM] almacen  Almacén   W-003   │  │  Nivel   tenant                     │ │
+│  │     ▼ [BSD] deposito  Bodega  W-003   │  │  Tipo    interno                    │ │
+│  │   ─ [BDM] datacenter  DC     W-003   │  │                                     │ │
+│  │                                       │  │  HIJOS DIRECTOS                     │ │
+│  │                                       │  │  [BDM] empresa  · [BDM] almacen     │ │
 │  ├───────────────────────────────────────┤  │                                     │ │
-│  │ 11 entidades                          │  │  ← estado vacío si nada             │ │
-│  └──────────────────────────────────────┘  │     seleccionado:                   │ │
-│                                            │     [⎇] Selecciona una entidad       │ │
-│                                            │     tenant · bdomain · bsubdomain    │ │
-│                                            │     pos · actor   (monospace)        │ │
+│  │ V-AE-004  11 entidades               │  │  ← V-AE-008 W-007 si sin selección   │ │
+│  └──────────────────────────────────────┘  │     [⎇] Selecciona una entidad       │ │
 │                                            └─────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Badges de nivel (colores):**
+**`W-003` BadgeNivel — colores por nivel:**
 
 | Badge | Nivel       | Color fondo   | Color texto  |
 |-------|-------------|---------------|--------------|
