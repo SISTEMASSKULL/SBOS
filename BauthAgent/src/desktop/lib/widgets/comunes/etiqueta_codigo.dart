@@ -15,15 +15,14 @@ import 'package:tf_shadcn_flutter/shadcn_flutter.dart';
 
 import '../../nucleo/sidenav_provider.dart';
 
-/// Chip de código A.64.01 (ej: «G-SN», «V-DS», «G-BC:TOP», «W-006»).
-/// Retorna SizedBox.shrink cuando mostrarCodigosProvider = false.
-class EtiquetaCodigo extends ConsumerWidget {
+/// Chip visual de código A.64.01 — widget puro, sin ConsumerWidget.
+/// Se crea solo cuando los códigos están visibles (controlado por el padre).
+class _ChipCodigo extends StatelessWidget {
   final String codigo;
-  const EtiquetaCodigo(this.codigo, {super.key});
+  const _ChipCodigo(this.codigo);
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    if (!ref.watch(mostrarCodigosProvider)) return const SizedBox.shrink();
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final s = theme.scaling;
@@ -48,9 +47,25 @@ class EtiquetaCodigo extends ConsumerWidget {
   }
 }
 
-/// Envuelve [child] con una etiqueta de código A.64.01 flotante en la esquina
-/// superior izquierda. No altera el layout del [child].
-/// La etiqueta solo aparece cuando mostrarCodigosProvider = true.
+/// Chip de código A.64.01 para uso standalone (ej: dentro de una vista).
+/// Retorna SizedBox.shrink cuando mostrarCodigosProvider = false.
+class EtiquetaCodigo extends ConsumerWidget {
+  final String codigo;
+  const EtiquetaCodigo(this.codigo, {super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!ref.watch(mostrarCodigosProvider)) return const SizedBox.shrink();
+    return _ChipCodigo(codigo);
+  }
+}
+
+/// Envuelve [child] con una etiqueta de código A.64.01 flotante.
+///
+/// IMPORTANTE: devuelve SIEMPRE un Stack (nunca cambia de tipo).
+/// Esto garantiza que el elemento hijo no se destruya cuando los
+/// códigos se activan/desactivan — el estado de [child] se preserva.
+/// La etiqueta se añade/quita como Positioned dentro del Stack existente.
 class SeccionConCodigo extends ConsumerWidget {
   final String codigo;
   final Widget child;
@@ -58,16 +73,17 @@ class SeccionConCodigo extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!ref.watch(mostrarCodigosProvider)) return child;
+    final mostrar = ref.watch(mostrarCodigosProvider);
     return Stack(
       clipBehavior: Clip.none,
       children: [
         child,
-        Positioned(
-          top: 3,
-          left: 3,
-          child: EtiquetaCodigo(codigo),
-        ),
+        if (mostrar)
+          Positioned(
+            top: 3,
+            left: 3,
+            child: _ChipCodigo(codigo),
+          ),
       ],
     );
   }
