@@ -50,3 +50,22 @@ class LayoutNotifier extends Notifier<EstadoLayout> {
 
 /// Provider del estado del layout.
 final layoutProvider = NotifierProvider<LayoutNotifier, EstadoLayout>(LayoutNotifier.new);
+
+// ═══════════════════════════════════════════════════════════
+// Visibilidad de etiquetas de código A.64.01
+// ═══════════════════════════════════════════════════════════
+
+/// Notifier para el toggle de etiquetas A.64.01.
+class MostrarCodigosNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  /// Alterna la visibilidad de las etiquetas de código A.64.01.
+  void alternar() => state = !state;
+}
+
+/// Controla la visibilidad de las etiquetas de referencia A.64.01.
+/// false (por defecto) = ocultas; true = visibles.
+/// El toggle en BarraSuperior (G-BC-007) invoca alternar().
+final mostrarCodigosProvider =
+    NotifierProvider<MostrarCodigosNotifier, bool>(MostrarCodigosNotifier.new);

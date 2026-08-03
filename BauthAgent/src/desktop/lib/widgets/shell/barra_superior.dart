@@ -2,11 +2,11 @@
 // bauth_desktop · widgets/shell/barra_superior.dart
 //
 // Propósito: TOP del bloque central (global, fijo) — conmutador del bloque
-//   izquierdo (‹‹), buscador, chip de conexión, tema, notificaciones y perfil.
-//   No depende de la vista. `scaling`.
+//   izquierdo (‹‹), buscador, chip de conexión, tema, toggle de códigos A.64.01,
+//   notificaciones y perfil. No depende de la vista. `scaling`.
 // Dependencias: flutter_riverpod, tf_shadcn_flutter, nucleo/sidenav_provider,
 //   widgets/comunes/boton_icono.
-// Estándar: prototipo bAuth Desktop · SPA (shell) · DOC-SBOS-001 N3.
+// Estándar: G-BC:TOP · A.64.01 · SPA (shell) · DOC-SBOS-001 N3.
 // ============================================================
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -42,10 +42,42 @@ class BarraSuperior extends ConsumerWidget {
           SizedBox(width: 10 * s),
           const BotonIcono(icono: LucideIcons.sun),
           SizedBox(width: 10 * s),
+          const _ToggleCodigos(),
+          SizedBox(width: 10 * s),
           const BotonIcono(icono: LucideIcons.bell, insignia: _PuntoCritico()),
           SizedBox(width: 12 * s),
           const _Perfil(),
         ],
+      ),
+    );
+  }
+}
+
+/// Toggle A.64.01 — muestra/oculta las etiquetas de código de sección.
+/// Activo: fondo e ícono en color primario. Inactivo: fondo muted.
+class _ToggleCodigos extends ConsumerWidget {
+  const _ToggleCodigos();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final s = theme.scaling;
+    final activo = ref.watch(mostrarCodigosProvider);
+    return GestureDetector(
+      onTap: () => ref.read(mostrarCodigosProvider.notifier).alternar(),
+      child: Container(
+        width: 34 * s,
+        height: 34 * s,
+        decoration: BoxDecoration(
+          color: activo ? cs.primary.withValues(alpha: 0.12) : cs.muted,
+          border: Border.all(color: activo ? cs.primary : cs.border),
+          borderRadius: BorderRadius.circular(8 * s),
+        ),
+        child: Center(
+          child: Icon(LucideIcons.hash, size: 17 * s,
+              color: activo ? cs.primary : cs.mutedForeground),
+        ),
       ),
     );
   }
