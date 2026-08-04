@@ -1,7 +1,7 @@
 # A.10 — Etapas de Desarrollo de bNexus
 ## Estrategia bootstrap para romper el ciclo huevo-gallina
 
-**Versión:** 1.2.0
+**Versión:** 1.3.0
 **Fecha:** 2026-08-05
 **Manual padre:** `INDICE.md`
 **Carta rectora:** `0.00_MANUAL-DIRECTRICES-NEXUS.md`
@@ -61,7 +61,17 @@ funcionando. bhnexus valida tokens obteniendo la clave pública de bAuth vía `b
 - Auth Cache con invalidación real desde bAuth
 - Policy Cache cifrado en banexus
 
-**Estructura Rust mínima para Etapa 1:**
+**Las 5 formas de banexus y su representación en código:**
+
+| Forma | Artefacto | Dónde vive en el árbol |
+|-------|-----------|------------------------|
+| `banexus-daemon` | Binario Rust MUSL (systemd --user en workstation/POS) | `banexus/daemon/` |
+| `banexus-gateway` | **Mismo binario** que daemon — `mode = "gateway"` en config | `banexus/daemon/` (mismo crate) |
+| `banexus-sdk` | Librería nativa `libbauth_nexus` (iOS Swift Package / Android AAR) | `banexus/sdk/` |
+| `banexus-virtual` | Sin binario propio — endpoints HTTP/MQTT/WS **dentro de bhnexus** | `bhnexus/virtual/` |
+| `banexus-implicit` | Sin binario — protocolo puro (Motor 2.18 en bAuth) | — (no genera código aquí) |
+
+**Estructura Rust completa (Etapa 1 activa en 🟢; resto estructura preparada para E2/E3):**
 
 El código vive en `BauthAgent/src/bnexus/` — igual que `desktop/` vive en
 `BauthAgent/src/desktop/`. La documentación vive en `BnexusAgent/context/Documentacion/`
@@ -69,33 +79,52 @@ pero el código en `BauthAgent/src/`. (Ver `SBOS-NEXUS-CONCEPTUALIZACION-v3_0.md
 
 ```
 BauthAgent/src/bnexus/
-├── bhnexus/
+├── bhnexus/                          🟢 ETAPA 1
 │   ├── Cargo.toml
 │   └── src/
-│       ├── main.rs              # Entry point, señales systemd, tokio runtime
-│       ├── config/mod.rs        # bhnexus.toml — dev_mode, puertos, certs
+│       ├── main.rs                   # Entry point, señales systemd, tokio runtime
+│       ├── config/mod.rs             # bhnexus.toml — dev_mode, puertos, certs
 │       ├── server/
 │       │   ├── mod.rs
-│       │   ├── unix_socket.rs   # /run/bos/bhnexus.sock — Interface Dual
-│       │   ├── jsonrpc.rs       # Dispatcher JSON-RPC 2.0
-│       │   ├── websocket.rs     # WebSocket RPC (operadores)
-│       │   └── puerta1.rs       # TCP 9444 — acepta banexus agents
+│       │   ├── unix_socket.rs        # /run/bos/bhnexus.sock — Interface Dual
+│       │   ├── jsonrpc.rs            # Dispatcher JSON-RPC 2.0
+│       │   ├── websocket.rs          # WebSocket RPC (operadores humanos)
+│       │   └── puerta1.rs            # TCP 9444 — acepta banexus-daemon y banexus-gateway
+│       ├── virtual/                  ○ Etapa 2/3 — banexus-virtual (endpoints en bhnexus)
+│       │   ├── mod.rs
+│       │   ├── http.rs               # Device-initiated REST (IoT HTTP-only)
+│       │   ├── mqtt.rs               # MQTT pub/sub (sensores, actuadores)
+│       │   └── ws_push.rs            # WebSocket push persistente (pantallas)
 │       ├── auth/
 │       │   ├── mod.rs
-│       │   └── dev_auth.rs      # Etapa 1: dev CA (reemplazado por SPIFFE en E3)
+│       │   └── dev_auth.rs           # Etapa 1: dev CA autofirmada (→ SPIFFE/SVID en E3)
 │       └── node/
 │           ├── mod.rs
-│           └── registry.rs      # Registro en memoria de nodos conectados
+│           └── registry.rs           # Registro en memoria de nodos conectados
 └── banexus/
-    ├── Cargo.toml
-    └── src/
-        ├── main.rs              # Entry point, señales, tokio runtime
-        ├── config/mod.rs        # banexus.toml — host_url, node_id, dev_mode
-        └── transport/
-            ├── mod.rs
-            ├── conexion.rs      # WebSocket client → bhnexus TCP 9444
-            └── heartbeat.rs     # Ping cada 30s, reconexión con backoff
+    ├── Cargo.toml                    # Workspace: miembros [daemon, sdk]
+    ├── daemon/                       🟢 ETAPA 1 — banexus-daemon + banexus-gateway
+    │   ├── Cargo.toml                # [[bin]] name = "banexus"
+    │   └── src/
+    │       ├── main.rs               # Entry point; mode = "daemon"|"gateway" vía config
+    │       ├── config/mod.rs         # banexus.toml: mode, host_url, node_id, dev_mode
+    │       └── transport/
+    │           ├── mod.rs
+    │           ├── conexion.rs       # WebSocket mTLS → bhnexus TCP 9444
+    │           └── heartbeat.rs      # Ping 30s, reconexión con backoff exponencial
+    └── sdk/                          ○ Etapa 3 — banexus-sdk: libbauth_nexus
+        ├── Cargo.toml                # [lib] name = "bauth_nexus" → .so/.a + Swift Package / Android AAR
+        └── src/
+            ├── lib.rs                # API pública: init, authenticate, disconnect
+            ├── aliro/                # Aliro CSA 2023: BLE + UWB + NFC
+            │   └── mod.rs
+            └── ffi/                  # FFI C ABI → JNI (Android) + Swift Package (iOS)
+                └── mod.rs
 ```
+
+**En Etapa 1 solo se compila lo marcado 🟢:** `bhnexus` + `banexus/daemon`. Los directorios
+`virtual/` y `sdk/` se crean vacíos como estructura (solo `mod.rs` stub) para que el workspace
+esté correctamente organizado desde el inicio.
 
 **Criterio de salida de Etapa 1:**
 - `cargo build --release` sin errores en ambos binarios
@@ -240,6 +269,7 @@ con auth real — el protocolo que consume es el mismo.
 
 | Versión | Fecha | Cambio |
 |---------|-------|--------|
+| 1.3.0 | 2026-08-05 | Corrección: banexus reorganizado en 5 formas — daemon+gateway (mismo binario en `daemon/`), sdk (`libbauth_nexus` en `sdk/`), virtual (endpoints en `bhnexus/virtual/`, no en banexus), implicit (sin código). Tabla de formas + árbol con marcas 🟢/○ por etapa. |
 | 1.2.0 | 2026-08-05 | Corrección: código en `BauthAgent/src/bnexus/bhnexus/` y `BauthAgent/src/bnexus/banexus/` — igual que desktop en src/desktop/ (SBOS-NEXUS-CONCEPTUALIZACION-v3_0.md §23.4) |
 | 1.1.0 | 2026-08-05 | Corrección: JWT no se simula — bAuth ya emite tokens EdDSA Ed25519 reales (token_issue + token_jwks). Solo la CA de Puerta 1 es simulada en E1. Eliminado dev_jwt_secret incorrecto. |
 | 1.0.0 | 2026-08-05 | Versión inicial — 3 etapas bootstrap, estructura Rust E1, config dev_mode, mapa de dependencias |
