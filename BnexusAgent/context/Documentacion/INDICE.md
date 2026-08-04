@@ -141,6 +141,7 @@
 | `A.07` | [HAL: inventario de drivers y tipos de credencial](anexos/A.07_HAL-INVENTARIO-DRIVERS.md) | 3.01, 3.02 | ✅ |
 | `A.08` | Contrato bilateral bhnexus ↔ bAuth | 2.02, 6.01 | ✅ |
 | `A.09` | [Seguridad: mTLS, SPIFFE, AES-256-GCM, canal privilegiado threat model, Wazuh 12 reglas](anexos/A.09_SEGURIDAD-MTLS-AES.md) | 7.02 | ✅ |
+| `A.10` | [Etapas de desarrollo de bNexus — bootstrap huevo-gallina, auth simulada E1, desktop E2, expansión E3](anexos/A.10_ETAPAS-DESARROLLO-BNEXUS.md) | INDICE | ✅ |
 
 > **A.08** vive en `context/contracts/BHNEXUS-BAUTH-CONTRATOS.md` (decisión HITL H-01).  
 
@@ -155,11 +156,13 @@
 | **Sprint 3** — Hardware & Intercepción (7 docs) | 3.01, 3.02, 3.03, 4.01, 4.02, 4.04, A.07 | ✅ COMPLETO |
 | **Sprint 4** — Normas, Operación & Producto (14 docs) | 7.01, 7.02, 7.03, 7.04, 6.02, 6.03, 9.01, 6 MOTORES/, A.09 | ✅ COMPLETO |
 | **Cierre P3** — Políticas físicas + Actuador (2 docs) | 3.04, 4.03 | ✅ COMPLETO |
+| **Desarrollo E1** — Canal vivo bootstrap | A.10 + estructura Rust mínima | 🔄 EN CURSO |
 
 ---
 
-**Total de documentos:** 51 (incluyendo INDICE + MOTORES-INDEX + A.08 externo)  
-**Corpus completo:** ✅ CERRADO — todos los manuales completados
+**Total de documentos:** 52 (incluyendo INDICE + MOTORES-INDEX + A.08 externo + A.10)  
+**Corpus de diseño:** ✅ CERRADO — todos los manuales de arquitectura completados  
+**Desarrollo:** 🔄 Etapa 1 iniciada — ver A.10
 
 ---
 
