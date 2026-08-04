@@ -30,6 +30,7 @@ modula de vuelta al salir. El núcleo es **agnóstico de transporte**.
 
 ## 4. Manuales de referencia
 - **2.12** Canales Protegidos — **madre** (§4 arquitectura, §4.bis normalización, §5.bis jerarquía de protocolos).
+- **2.18** Motor de Comunicación — **banexus-implicit: contraparte cliente** (protocolo universal agnóstico de framework: WS+JSON-RPC 2.0 · mTLS · JWT/OIDC · W3C Trace Context · implementaciones en TypeScript/React/Vue, PHP/Laravel, Dart/Flutter, Rust M2M, Python/Django · 4 sagas · A.77 protocolo wire · A.78 sagas). Define la superficie **entrante** del canal desde el lado del cliente — cualquier app de software se conecta a bAuth mediante este motor sin pasar por bhnexus.
 - **SBOS-054** (seguridad de red) · ADR-020 (Interface Dual — el entrante ya centralizado).
 
 ## 5. Anexos y contratos
