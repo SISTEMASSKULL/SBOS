@@ -1,7 +1,7 @@
 # A.10 — Etapas de Desarrollo de bNexus
 ## Estrategia bootstrap para romper el ciclo huevo-gallina
 
-**Versión:** 1.1.0
+**Versión:** 1.2.0
 **Fecha:** 2026-08-05
 **Manual padre:** `INDICE.md`
 **Carta rectora:** `0.00_MANUAL-DIRECTRICES-NEXUS.md`
@@ -62,13 +62,18 @@ funcionando. bhnexus valida tokens obteniendo la clave pública de bAuth vía `b
 - Policy Cache cifrado en banexus
 
 **Estructura Rust mínima para Etapa 1:**
+
+El código vive en `BauthAgent/src/bnexus/` — igual que `desktop/` vive en
+`BauthAgent/src/desktop/`. La documentación vive en `BnexusAgent/context/Documentacion/`
+pero el código en `BauthAgent/src/`. (Ver `SBOS-NEXUS-CONCEPTUALIZACION-v3_0.md` §23.4.)
+
 ```
-BnexusAgent/src/
+BauthAgent/src/bnexus/
 ├── bhnexus/
 │   ├── Cargo.toml
 │   └── src/
-│       ├── main.rs          # Entry point, señales systemd, tokio runtime
-│       ├── config/mod.rs    # bhnexus.toml — dev_mode, puertos, certs
+│       ├── main.rs              # Entry point, señales systemd, tokio runtime
+│       ├── config/mod.rs        # bhnexus.toml — dev_mode, puertos, certs
 │       ├── server/
 │       │   ├── mod.rs
 │       │   ├── unix_socket.rs   # /run/bos/bhnexus.sock — Interface Dual
@@ -77,19 +82,19 @@ BnexusAgent/src/
 │       │   └── puerta1.rs       # TCP 9444 — acepta banexus agents
 │       ├── auth/
 │       │   ├── mod.rs
-│       │   └── dev_auth.rs  # Etapa 1: auth simulada (dev_mode=true)
+│       │   └── dev_auth.rs      # Etapa 1: dev CA (reemplazado por SPIFFE en E3)
 │       └── node/
 │           ├── mod.rs
-│           └── registry.rs  # Registro en memoria de nodos conectados
+│           └── registry.rs      # Registro en memoria de nodos conectados
 └── banexus/
     ├── Cargo.toml
     └── src/
-        ├── main.rs          # Entry point, señales, tokio runtime
-        ├── config/mod.rs    # banexus.toml — host_url, node_id, dev_mode
+        ├── main.rs              # Entry point, señales, tokio runtime
+        ├── config/mod.rs        # banexus.toml — host_url, node_id, dev_mode
         └── transport/
             ├── mod.rs
-            ├── conexion.rs  # WebSocket client → bhnexus TCP 9444
-            └── heartbeat.rs # Ping cada 30s, reconexión con backoff
+            ├── conexion.rs      # WebSocket client → bhnexus TCP 9444
+            └── heartbeat.rs     # Ping cada 30s, reconexión con backoff
 ```
 
 **Criterio de salida de Etapa 1:**
@@ -235,5 +240,6 @@ con auth real — el protocolo que consume es el mismo.
 
 | Versión | Fecha | Cambio |
 |---------|-------|--------|
+| 1.2.0 | 2026-08-05 | Corrección: código en `BauthAgent/src/bnexus/bhnexus/` y `BauthAgent/src/bnexus/banexus/` — igual que desktop en src/desktop/ (SBOS-NEXUS-CONCEPTUALIZACION-v3_0.md §23.4) |
 | 1.1.0 | 2026-08-05 | Corrección: JWT no se simula — bAuth ya emite tokens EdDSA Ed25519 reales (token_issue + token_jwks). Solo la CA de Puerta 1 es simulada en E1. Eliminado dev_jwt_secret incorrecto. |
 | 1.0.0 | 2026-08-05 | Versión inicial — 3 etapas bootstrap, estructura Rust E1, config dev_mode, mapa de dependencias |
