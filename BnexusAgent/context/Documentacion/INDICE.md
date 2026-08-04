@@ -1,7 +1,7 @@
 # Índice de Documentación — bNexus (bhnexus + banexus)
 ### SKULL · SBOS — Motor de Conectividad & Edge Física
 
-**Versión:** 2.1.0  
+**Versión:** 2.2.0  
 **Fecha:** 2026-08-04  
 **Carta rectora:** `0.00_MANUAL-DIRECTRICES-NEXUS.md` — todos los manuales se leen bajo esas directrices  
 **Plan:** `PLAN-DOCUMENTACION-BNEXUS-v2.0.md` — secuencia y estado de Sprint 1-4  
@@ -13,7 +13,7 @@
 | Rol | Por dónde empezar |
 |-----|------------------|
 | Desarrollador nuevo en bNexus | `0.00` → `1.01` → `1.06` → `2.01` → `2.02` |
-| Integrador (conectar una app a bAuth) | `1.06` (forma implicit) → manuales bAuth |
+| Integrador (conectar una app a bAuth) | `1.06` §4 (banexus-implicit) → **`BauthAgent/2.18`** (Motor de Comunicación agnóstico) |
 | Equipo de hardware | `1.01` → `3.01` → `3.02` → `4.01` |
 | Equipo de seguridad | `0.00` → `7.02` → `2.01` → `2.02` → `A.09` |
 | Operaciones / SRE | `7.03` → `5.01` → `5.02` → `5.03` |
@@ -160,6 +160,14 @@
 
 **Total de documentos:** 51 (incluyendo INDICE + MOTORES-INDEX + A.08 externo)  
 **Corpus completo:** ✅ CERRADO — todos los manuales completados
+
+---
+
+## Documento externo referenciado
+
+| Documento | Ubicación | Qué describe |
+|-----------|-----------|-------------|
+| **Motor de Comunicación — banexus-implicit** | `BauthAgent/context/Documentacion/2.18_MANUAL-MOTOR-COMUNICACION-v1.0.md` | Protocolo universal para apps de software que se conectan a bAuth directamente (sin pasar por bhnexus): WS+JSON-RPC 2.0, mTLS, JWT/OIDC, W3C Trace Context. Implementaciones en TypeScript, PHP/Laravel, Dart/Flutter, Rust M2M, Python. *(Ref: `0.00` §4 · `1.06` §4 banexus-implicit)* |
 
 ---
 
