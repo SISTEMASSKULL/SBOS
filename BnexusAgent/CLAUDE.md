@@ -6,7 +6,7 @@
 **bhnexus + banexus** — Nexus — Proxy de Hardware Universal + Centinela Edge. Nexus Host (bhnexus): WebSocket mTLS (10K+ conexiones), Hardware Bridge (OSDP/MQTT/ONVIF/Wiegand), Auth Cache in-memory (TTL 30s). Nexus Agent (banexus): centinela edge en Fedora VDI, interceptor USB/shell (udev+PAM+polkit), Policy Cache efímero (AES-256-GCM).
 
 ## Producto que desarrolla
-Nexus — Proxy de Hardware Universal + Centinela Edge · **Plano:** Conectividad / Edge · **Stack:** Go 1.22
+Nexus — Proxy de Hardware Universal + Centinela Edge · **Plano:** Conectividad / Edge · **Stack:** Rust 1.85+ (MUSL, LTO, tokio) — autosuficiente, mismo stack que bAuth
 
 ## Interfaz (ADR-020 — Interface Dual)
 - Unix socket `/run/bos/bhnexus.sock (+ /run/bos/banexus.sock)` (0660, grupo `bos`): **WebSocket RPC** (humanos/CLI) + **JSON-RPC 2.0** (otros daemons).
