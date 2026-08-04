@@ -1,7 +1,7 @@
 # A.10 — Etapas de Desarrollo de bNexus
 ## Estrategia bootstrap para romper el ciclo huevo-gallina
 
-**Versión:** 1.0.0
+**Versión:** 1.1.0
 **Fecha:** 2026-08-05
 **Manual padre:** `INDICE.md`
 **Carta rectora:** `0.00_MANUAL-DIRECTRICES-NEXUS.md`
@@ -25,10 +25,12 @@ inicio de desarrollo si se intenta resolver todo a la vez:
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**Solución:** desarrollo por etapas con **auth simulada** en la Etapa 1. Se abre el canal de
-comunicación con una CA local de desarrollo (sin Vault, sin SPIRE) solo para tener los binarios
-compilando y el puerto 9444 vivo. Con eso se desbloquean el desktop y el módulo de identidad.
-Luego se reemplaza la simulación con la auth real.
+**Solución:** desarrollo por etapas. En la Etapa 1 se abre el canal Puerta 1 (banexus ↔ bhnexus)
+con una **CA de desarrollo autofirmada** en lugar de SPIFFE/SVID de Vault/SPIRE — eso es lo
+único que se simula. Los **JWT los emite bAuth real** desde el primer día: bAuth ya tiene
+`JwtSigner` (EdDSA Ed25519) + `bauth.token.issue` + `bauth.token.jwks` implementados y
+funcionando. bhnexus valida tokens obteniendo la clave pública de bAuth vía `bauth.token.jwks`
+(RFC 7517) — sin ningún secreto local ni firma simulada.
 
 ---
 
@@ -42,13 +44,19 @@ Luego se reemplaza la simulación con la auth real.
 
 | Componente | Qué hace | Auth |
 |-----------|----------|------|
-| `bhnexus` | Unix socket `/run/bos/bhnexus.sock` (Interface Dual ADR-020) + TCP 9444 escuchando | Dev CA local — acepta cualquier cert firmado por ella |
-| `banexus` | Se conecta a bhnexus por TCP 9444, envía heartbeat cada 30s, JSON-RPC básico funciona | Dev CA local — cert autogenerado al arrancar |
-| Auth requests | Retornan `GRANTED` hardcodeado en modo dev | Flag `dev_mode = true` en `bhnexus.toml` |
-| Interface Dual | `bhnexus.health`, `bhnexus.node.list`, `bhnexus.status` — métodos mínimos | JWT simulado (firma local, no Vault) |
+| `bhnexus` | Unix socket `/run/bos/bhnexus.sock` (Interface Dual ADR-020) + TCP 9444 escuchando | **Puerta 1:** dev CA autofirmada (no SPIFFE/SVID) |
+| `banexus` | Se conecta a bhnexus por TCP 9444, envía heartbeat cada 30s, JSON-RPC básico funciona | **Puerta 1:** cert generado por dev CA al arrancar |
+| JWT de sesión | Emitido por **bAuth real** (`bauth.token.issue` — EdDSA Ed25519) | ✅ Real desde Etapa 1 — sin simulación |
+| Validación JWT | bhnexus obtiene clave pública via `bauth.token.jwks` (RFC 7517) | ✅ Real desde Etapa 1 — sin simulación |
+| Interface Dual | `bhnexus.health`, `bhnexus.node.list`, `bhnexus.status` — métodos mínimos | JWT real de bAuth |
+| Auth requests (Puerta 1) | Retornan `GRANTED` hardcodeado en modo dev (sin consultar bAuth aún) | Flag `dev_mode = true` en `bhnexus.toml` |
 
-**Lo que NO se implementa en Etapa 1:**
+**Lo único simulado en Etapa 1:**
+- Certificados Puerta 1 (banexus ↔ bhnexus): dev CA autofirmada en lugar de SPIFFE/SVID de Vault/SPIRE
+
+**Lo que NO se implementa en Etapa 1 (se agrega en Etapa 3):**
 - SPIFFE/SVID real (necesita SPIRE + Vault)
+- Puerta 2 (bhnexus ↔ bAuth via Unix socket TLV)
 - HAL (OSDP, MQTT, ONVIF, Wiegand)
 - Auth Cache con invalidación real desde bAuth
 - Policy Cache cifrado en banexus
@@ -175,16 +183,21 @@ ETAPA 1 (Canal vivo)
 # Activo solo si este flag es true — PROHIBIDO en producción
 dev_mode = true
 
-# CA local generada con: openssl req -x509 -newkey rsa:4096 -days 365 ...
-dev_ca_cert  = "/etc/bhnexus/dev/ca.crt"
-dev_ca_key   = "/etc/bhnexus/dev/ca.key"
+# CA local para Puerta 1 (banexus ↔ bhnexus).
+# Generada con: openssl req -x509 -newkey rsa:4096 -days 365 ...
+# En Etapa 3 se reemplaza por SPIFFE/SVID de Vault/SPIRE.
+dev_ca_cert = "/etc/bhnexus/dev/ca.crt"
+dev_ca_key  = "/etc/bhnexus/dev/ca.key"
 
-# En dev_mode, toda auth request retorna GRANTED con este bitmask ficticio
+# En dev_mode, las auth requests de Puerta 1 retornan GRANTED sin consultar bAuth.
+# (Puerta 2 aún no implementada en Etapa 1.)
 dev_granted_bitmask = "0xFFFFFFFFFFFFFFFF"
 
-# JWT simulado: firmado con clave local, no Vault Ed25519
-dev_jwt_secret = "dev-only-secret-cambiar-en-etapa-3"
-dev_jwt_ttl_s  = 3600
+[bauth]
+# bhnexus obtiene la clave pública de bAuth para validar JWT.
+# bauth.token.jwks (RFC 7517) — EdDSA Ed25519 real, no simulado.
+jwks_socket  = "/run/bos/bauth.sock"
+jwks_method  = "bauth.token.jwks"
 ```
 
 `banexus.toml` — sección de desarrollo:
@@ -222,4 +235,5 @@ con auth real — el protocolo que consume es el mismo.
 
 | Versión | Fecha | Cambio |
 |---------|-------|--------|
+| 1.1.0 | 2026-08-05 | Corrección: JWT no se simula — bAuth ya emite tokens EdDSA Ed25519 reales (token_issue + token_jwks). Solo la CA de Puerta 1 es simulada en E1. Eliminado dev_jwt_secret incorrecto. |
 | 1.0.0 | 2026-08-05 | Versión inicial — 3 etapas bootstrap, estructura Rust E1, config dev_mode, mapa de dependencias |
