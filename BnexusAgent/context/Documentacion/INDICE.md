@@ -1,7 +1,7 @@
 # Índice de Documentación — bNexus (bhnexus + banexus)
 ### SKULL · SBOS — Motor de Conectividad & Edge Física
 
-**Versión:** 2.0.0  
+**Versión:** 2.1.0  
 **Fecha:** 2026-08-04  
 **Carta rectora:** `0.00_MANUAL-DIRECTRICES-NEXUS.md` — todos los manuales se leen bajo esas directrices  
 **Plan:** `PLAN-DOCUMENTACION-BNEXUS-v2.0.md` — secuencia y estado de Sprint 1-4  
@@ -60,6 +60,7 @@
 | `3.01` | [HAL: DeviceDriver trait, pipeline de captura, 6 drivers](3.01_MANUAL-HAL.md) | ✅ |
 | `3.02` | [Drivers: OSDP, Wiegand, MQTT, ONVIF, USB HID, HTTP](3.02_MANUAL-DRIVERS.md) | ✅ |
 | `3.03` | [Flujos por tipo de credencial — del hardware al SAM-128](3.03_MANUAL-FLUJOS-CREDENCIAL.md) | ✅ |
+| `3.04` | [Políticas físicas avanzadas — Anti-passback, Two-Person Rule, Mantrap](3.04_MANUAL-POLITICAS-FISICAS.md) | ✅ |
 
 ---
 
@@ -69,6 +70,7 @@
 |--------|--------|:------:|
 | `4.01` | [Input Hooking: udev + libusb — captura antes de evdev, anti-inyección](4.01_MANUAL-INPUT-HOOKING.md) | ✅ |
 | `4.02` | [Shell Sentinel: pam_banexus.so — PAM, LD_PRELOAD, eBPF](4.02_MANUAL-SHELL-SENTINEL.md) | ✅ |
+| `4.03` | [Actuator Controller: RS-232, GPIO, HTTP — ejecución física de comandos](4.03_MANUAL-ACTUATOR-CONTROLLER.md) | ✅ |
 | `4.04` | [Integridad de banexus: SHA-256 cada 5 min, auto-shutdown, Wazuh](4.04_MANUAL-INTEGRIDAD-BANEXUS.md) | ✅ |
 
 ---
@@ -152,11 +154,12 @@
 | **Sprint 2** — Base topológica + Resiliencia (11 docs) | 1.02, 1.04, 2.03, 2.04, 5.01, 5.02, 5.03, 6.01, A.01, A.06, A.08 | ✅ COMPLETO |
 | **Sprint 3** — Hardware & Intercepción (7 docs) | 3.01, 3.02, 3.03, 4.01, 4.02, 4.04, A.07 | ✅ COMPLETO |
 | **Sprint 4** — Normas, Operación & Producto (14 docs) | 7.01, 7.02, 7.03, 7.04, 6.02, 6.03, 9.01, 6 MOTORES/, A.09 | ✅ COMPLETO |
+| **Cierre P3** — Políticas físicas + Actuador (2 docs) | 3.04, 4.03 | ✅ COMPLETO |
 
 ---
 
-**Total de documentos:** 49 (incluyendo INDICE + MOTORES-INDEX + A.08 externo)  
-**Corpus completo:** ✅ CERRADO — todos los Sprints 1-4 completados
+**Total de documentos:** 51 (incluyendo INDICE + MOTORES-INDEX + A.08 externo)  
+**Corpus completo:** ✅ CERRADO — todos los manuales completados
 
 ---
 
