@@ -1,8 +1,8 @@
 # Documentación Técnica — bAuth Identity Control Plane
 
-**Versión:** 1.0.0  
+**Versión:** 1.1.0  
 **Mantenido por:** bauth-developer  
-**Última actualización:** 2026-08-02  
+**Última actualización:** 2026-08-04  
 **Estado:** Activo — se amplía a medida que se cierran los gaps de reparación
 
 ---
@@ -99,6 +99,7 @@ listar la carpeta; los archivos ordenan solos por fase y dependencia. La carta r
 | 2.15 | [Motor de Identidad — validación de datos con políticas AtomLang](2.15_MANUAL-MOTOR-IDENTIDAD-v1.0.md) | 1.06 v2.0, 1.07 v2.0, 2.13 v2.0 | ✅ 1.1.0 (N-to-N · multi-tenant · visibilidad) |
 | 2.16 | [Uso del Motor de Identidad — guía práctica](2.16_MANUAL-USO-MOTOR-IDENTIDAD-v1.0.md) | 1.06 v2.0, 1.07 v2.0, 2.15 | ✅ 1.1.0 (guía de uso · ejemplos · API) |
 | 2.17 | [Motor de Roles — gestión de roles, átomos y asignaciones vía JSON-RPC y CLI](2.17_MANUAL-MOTOR-ROLES-v1.0.md) | 1.03, 1.04, 1.08, 1.09, 2.05, 2.13, 2.15 | ✅ 1.1.0 (CRUD + CLI + RPC · diseño completo) |
+| 2.18 | [Motor de Comunicación — banexus-implicit: protocolo universal agnóstico de framework (WS+JSON-RPC 2.0 · mTLS · JWT/OIDC · W3C Trace Context · TS/React/Vue · PHP/Laravel · Dart/Flutter · Rust M2M · Python/Django · 4 sagas)](2.18_MANUAL-MOTOR-COMUNICACION-v1.0.md) | 2.12, 2.9, 2.3, 2.1 | ⬜ 3.0.0 (protocolo completo · 5 tecnologías de referencia · implementación pendiente) |
 
 ### Fase 3 — DETECCIÓN · monitoreo y riesgo
 
@@ -161,7 +162,7 @@ curada para consulta sin fricción. Índice, patrón canónico y plan: [anexos/I
 | **Sustentación A.16–A.40 (25 anexos)** — verificación de código real de todos los manuales: protocolos, BitMask, frontend, superficie, OIDC, dominios, RLS, validadores, sqlx, calidad, riesgo, auditoría, DPoP, operación, IGA, atributos, aplicaciones, motor, D99, calendario, menú, datos, CAEP, CLI, producto | [INDICE-ANEXOS §2-§3.1](anexos/INDICE-ANEXOS.md) | ✅ **COBERTURA TOTAL** (36/36 manuales) |
 | **AtomLang A.45–A.51 (7 anexos)** — respaldo normativo y técnico de los manuales 2.13 y 2.14. | [INDICE-ANEXOS §2](anexos/INDICE-ANEXOS.md) | ✅ |
 | **Identidad + Motor de Roles A.52–A.63 (10 anexos)** — A.52 Tipos y Dominios · A.53 Capas Acumulativas · A.54 Catálogo Autopartes · A.55 Catálogo Automotriz · A.56 Diseño BD Identidad · A.57 Rendimiento Identidad · A.59 Tipos de Átomos (6,000, BitMask) · A.60 Ciclo Vida Átomos (DAG, merge) · A.61 Diseño BD Roles · A.62 Rendimiento Roles · A.63 Objetos Compuestos (Composite GoF, 3 árboles) | [INDICE-ANEXOS §2](anexos/INDICE-ANEXOS.md) | ✅ 2.1.0 |
-| **[A.64 — Maquetas Desktop](anexos/A.64_ANEXO-MAQUETAS-DESKTOP-v1.0.md)** · **[A.64.01 — Inventario de Códigos Desktop](anexos/A.64.01_INVENTARIO-CODIGOS-DESKTOP-v1.0.md)** (sistema G-/V-/W-/DL-/PR- · 10 widgets · árbol de slots · tabla consulta rápida) · **[A.65 — Inventario Tablas DDL](anexos/A.65_ANEXO-INVENTARIO-TABLAS-DDL-v1.0.md)** · **[A.65.01 — Guía Desarrollo Tablas](anexos/A.65.01_ANEXO-GUIA-DESARROLLO-TABLAS-DDL-v1.0.md)** · **[A.65.02 — Nueva DDL · 32 tablas base (GLOBAL/TENANT/ROLES/VERSIONADO/IDENTIDAD)](anexos/A.65.02_ANEXO-NUEVA-DDL-v1.0.md)** — inventario limpio de partida para el diseño DDL desde cero | 5.01 · 1.13 · A.65 · A.61 · A.56 | ✅ 1.0.0 |
+| **[A.64 — Maquetas Desktop](anexos/A.64_ANEXO-MAQUETAS-DESKTOP-v1.0.md)** · **[A.64.01 — Inventario de Códigos Desktop](anexos/A.64.01_INVENTARIO-CODIGOS-DESKTOP-v1.0.md)** (sistema G-/V-/W-/DL-/PR- · 10 widgets · árbol de slots · tabla consulta rápida) · **[A.64.02 — Proyecto Comunicación Segura Desktop](anexos/A.64.02_PROYECTO-COMUNICACION-DESKTOP-v1.0.md)** (SSH+psql → WSS+Kong+JWT · 4 fases · API RPC · átomos D03 · autenticación usuario+contraseña pertinente) · **[A.65 — Inventario Tablas DDL](anexos/A.65_ANEXO-INVENTARIO-TABLAS-DDL-v1.0.md)** · **[A.65.01 — Guía Desarrollo Tablas](anexos/A.65.01_ANEXO-GUIA-DESARROLLO-TABLAS-DDL-v1.0.md)** · **[A.65.02 — Nueva DDL · 32 tablas base (GLOBAL/TENANT/ROLES/VERSIONADO/IDENTIDAD)](anexos/A.65.02_ANEXO-NUEVA-DDL-v1.0.md)** — inventario limpio de partida para el diseño DDL desde cero | 5.01 · 1.13 · A.65 · A.61 · A.56 | ✅ 1.0.0 |
 | **[A.65.03 — Completitud 18 dominios bAuth](anexos/A.65.03.01.18_COMPLETITUD-TODOS-DOMINIOS.md)** · **[A.65.04 — Inventario Menús Contextuales MC-0001..MC-0319](anexos/A.65.04_INVENTARIO-MENUS-CONTEXTUALES.md)** — análogo del A.65.02 para `bglobal.menu_context`: 58 ENUMs + 261 CHECKs, MC-XXXX + T-XXX, índice inverso columna→MC | DDL · Seeds · UI | ✅ 1.0.0 |
 | **[A.66 — Gaps nombres tablas DDL](anexos/A.66_ANEXO-GAPS-NOMBRES-TABLAS-DDL-v1.0.md)** · **[A.67 — Zonas de Negocio RolTemplate](anexos/A.67_ANEXO-BLOQUE-ZONAS-NEGOCIO-ROL-TEMPLATE-v1.0.md)** · **[A.68 — Catálogo propiedades átomos](anexos/A.68_CATALOGO-PROPIEDADES-ATOMOS-v1.0.md)** · **[A.69 — Revisión DDL V2 bugs](anexos/A.69_ANEXO-REVISION-DDL-V2-BUGS-v1.0.md)** | DDL · Árbol · Átomos | ✅ |
 | **[A.70 — Recursos Kubernetes de bAuth (B02 Reconcile + NetworkPolicies)](anexos/A.70_ANEXO-BAUTH-KUBERNETES-RESOURCES-v1.0.md)** — Secret, CronJob y NetworkPolicy; manifests idempotentes para reconstrucción sin fricción | B02 · K8s | ✅ 1.0.0 |
@@ -170,6 +171,8 @@ curada para consulta sin fricción. Índice, patrón canónico y plan: [anexos/I
 | **[A.74 — Etapa 1: Auditoría de Inconsistencias DDL ↔ Código](anexos/A.74_ETAPA1-AUDITORIA-INCONSISTENCIAS-v1.0.md)** — 36 tablas phantom en código · ~250 refs SQL legacy · mapa REESCRIBIR/ELIMINAR · 6 decisiones pendientes D01-D06 | Refactor | ✅ 1.0.0 |
 | **[A.75 — Etapa 2: Refactor por Capas](anexos/A.75_ETAPA2-REFACTOR-POR-CAPAS-v1.0.md)** — 3 capas (db/ → domain/bitmask/saga/sync/ → handlers/) · checklist de cierre por capa · criterios DONE medibles | Refactor | ✅ 1.0.0 |
 | **[A.76 — Etapa 3: Validación VPS](anexos/A.76_ETAPA3-VALIDACION-VPS-v1.0.md)** — queries de validación por capa · checklist SBOSDB · protocolo de retroceso ante fallo | Refactor | ✅ 1.0.0 |
+| **[A.77 — Protocolo de Wire WS+JSON-RPC](anexos/A.77_PROTOCOLO-WS-JSONRPC-v1.0.md)** — handshake HTTP Upgrade, frames texto, multiplexado JSON-RPC 2.0, ctx_id propagación, JWT mínimo pre-átomos, verificación con wscat/socat | 2.18 | ✅ 1.0.0 |
+| **[A.78 — Sagas del Motor de Comunicación](anexos/A.78_SAGAS-MOTOR-COMUNICACION-v1.0.md)** — S-01 conexión + login, S-02 reconexión backoff, S-03 renovación token, S-04 revocación sesión, S-05 heartbeat; máquina de estados; implementación Dart de referencia | 2.18 | ✅ 1.0.0 |
 
 ---
 
