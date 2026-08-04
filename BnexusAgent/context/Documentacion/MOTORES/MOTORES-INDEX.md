@@ -12,12 +12,12 @@ Un **motor** es la capacidad técnica central que da nombre a una capa o funció
 
 | Motor | Verbo | Capa | Manual primario | Estado |
 |-------|-------|------|-----------------|:------:|
-| **Conectividad-Agentes** | Recibir agentes (Puerta 1) | bhnexus | `2.01_MANUAL-PUERTA-1-AGENTES.md` | ⬜ portada |
-| **Conectividad-bAuth** | Resolver identidad (Puerta 2) | bhnexus ↔ bAuth | `2.02_MANUAL-PUERTA-2-BAUTH.md` | ⬜ portada |
-| **Hardware** | Normalizar señales físicas | bhnexus HAL | `3.01_MANUAL-HAL.md` | ⬜ portada |
-| **Cache** | Cachear decisiones | bhnexus + banexus | `5.01`, `5.02` | ⬜ portada |
-| **Intercepción** | Interceptar en borde | banexus | `4.01_MANUAL-INPUT-HOOKING.md` | ⬜ portada |
-| **Actuación** | Actuar sobre hardware | banexus | `4.03_MANUAL-ACTUATOR-CONTROLLER.md` | ⬜ portada |
+| **Conectividad-Agentes** | Recibir agentes (Puerta 1) | bhnexus | `2.01_MANUAL-PUERTA-1-AGENTES.md` | ✅ [portada](motor-conectividad-agentes.md) |
+| **Conectividad-bAuth** | Resolver identidad (Puerta 2) | bhnexus ↔ bAuth | `2.02_MANUAL-PUERTA-2-BAUTH.md` | ✅ [portada](motor-identidad-bauth.md) |
+| **Hardware** | Normalizar señales físicas | bhnexus HAL | `3.01_MANUAL-HAL.md` | ✅ [portada](motor-hardware.md) |
+| **Cache** | Cachear decisiones | bhnexus + banexus | `5.01`, `5.02` | ✅ [portada](motor-cache.md) |
+| **Intercepción** | Interceptar en borde | banexus | `4.01_MANUAL-INPUT-HOOKING.md` | ✅ [portada](motor-intercepcion.md) |
+| **Actuación** | Actuar sobre hardware | banexus | `6.01_MANUAL-FLUJO-POLITICA.md` | ✅ [portada](motor-actuacion.md) |
 
 ---
 
