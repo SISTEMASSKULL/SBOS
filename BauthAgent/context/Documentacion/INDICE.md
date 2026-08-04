@@ -171,8 +171,8 @@ curada para consulta sin fricción. Índice, patrón canónico y plan: [anexos/I
 | **[A.74 — Etapa 1: Auditoría de Inconsistencias DDL ↔ Código](anexos/A.74_ETAPA1-AUDITORIA-INCONSISTENCIAS-v1.0.md)** — 36 tablas phantom en código · ~250 refs SQL legacy · mapa REESCRIBIR/ELIMINAR · 6 decisiones pendientes D01-D06 | Refactor | ✅ 1.0.0 |
 | **[A.75 — Etapa 2: Refactor por Capas](anexos/A.75_ETAPA2-REFACTOR-POR-CAPAS-v1.0.md)** — 3 capas (db/ → domain/bitmask/saga/sync/ → handlers/) · checklist de cierre por capa · criterios DONE medibles | Refactor | ✅ 1.0.0 |
 | **[A.76 — Etapa 3: Validación VPS](anexos/A.76_ETAPA3-VALIDACION-VPS-v1.0.md)** — queries de validación por capa · checklist SBOSDB · protocolo de retroceso ante fallo | Refactor | ✅ 1.0.0 |
-| **[A.77 — Protocolo de Wire WS+JSON-RPC](anexos/A.77_PROTOCOLO-WS-JSONRPC-v1.0.md)** — handshake HTTP Upgrade, frames texto, multiplexado JSON-RPC 2.0, ctx_id propagación, JWT mínimo pre-átomos, verificación con wscat/socat | 2.18 | ✅ 1.0.0 |
-| **[A.78 — Sagas del Motor de Comunicación](anexos/A.78_SAGAS-MOTOR-COMUNICACION-v1.0.md)** — S-01 conexión + login, S-02 reconexión backoff, S-03 renovación token, S-04 revocación sesión, S-05 heartbeat; máquina de estados; implementación Dart de referencia | 2.18 | ✅ 1.0.0 |
+| **[A.77 — Protocolo de Wire WS+JSON-RPC](anexos/A.77_PROTOCOLO-WS-JSONRPC-v1.0.md)** — handshake HTTP Upgrade, frames texto, multiplexado JSON-RPC 2.0, ctx_id propagación multi-lenguaje (TS/PHP/Dart/Rust/Python), JWT mínimo pre-átomos, verificación con wscat/socat | 2.18 | ✅ 1.1.0 |
+| **[A.78 — Sagas del Motor de Comunicación](anexos/A.78_SAGAS-MOTOR-COMUNICACION-v1.0.md)** — S-01 conexión + login, S-02 reconexión backoff, S-03 renovación token, S-04 revocación sesión, S-05 heartbeat; máquina de estados; implementación Dart de referencia (una de 5 — ver 2.18 §4) | 2.18 | ✅ 1.1.0 |
 
 ---
 
