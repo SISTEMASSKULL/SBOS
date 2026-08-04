@@ -98,8 +98,8 @@ class _PanelConexionState extends ConsumerState<PanelConexion> {
         usuario: _sshUsuario.text.trim(),
         password: _sshPassword.text,
       );
-      // Crear cliente SSH exec y activarlo como cliente RPC
-      final clienteSsh = _tunel!.crearClienteRpc();
+      // Crear canal socat persistente y activarlo como cliente RPC
+      final clienteSsh = await _tunel!.crearClienteRpc();
       if (mounted) {
         ref.read(clienteRpcSshProvider.notifier).establecer(clienteSsh);
         // Probar health.check via SSH exec

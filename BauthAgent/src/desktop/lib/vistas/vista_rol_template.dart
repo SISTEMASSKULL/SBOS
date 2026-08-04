@@ -21,9 +21,12 @@
 //           · 2.13 §4 · 2.14 §3/§10 · A.47 §9 · DDL T-162 · DOC-SBOS-001 N3.
 // ============================================================
 
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tf_shadcn_flutter/shadcn_flutter.dart';
+
+import '../widgets/comunes/indicador_procesamiento.dart';
 
 import '../datos/arbol_datos.dart';
 import '../datos/atomlang_datos.dart';
@@ -40,6 +43,12 @@ import '../widgets/comunes/dialogo_crear_atomo.dart';
 import '../widgets/comunes/panel_lateral.dart';
 import '../widgets/comunes/tira_tabs.dart';
 
+// Precalculado una sola vez en tiempo de compilación — evita el DFS
+// recursivo en cada rebuild de _PanelComparacion.
+int _contarFuenteRec(List<NodoTemplate> ns) =>
+    ns.fold(0, (s, n) => s + 1 + _contarFuenteRec(n.hijos));
+final int _kTotalFuente = _contarFuenteRec(arbolRolTemplate);
+
 /// Vista de mantenimiento del RolTemplate global.
 class VistaRolTemplate extends ConsumerStatefulWidget {
   const VistaRolTemplate({super.key});
@@ -49,26 +58,55 @@ class VistaRolTemplate extends ConsumerStatefulWidget {
 }
 
 class _VistaRolTemplateState extends ConsumerState<VistaRolTemplate> {
-  /// 0 = Árbol Fuente · 1 = AtomLang · 2 = Compilado · 3 = Comparación BD.
   int _tabArbol = 0;
 
-  NodoTemplate? _seleccion;
-  String _ruta = '';
-  bool _copiado = false;
+  // ── Overlay de carga ──────────────────────────────────────────────────
+  // Frame 1: _contenidoListo=false → solo el overlay, cero árbol pesado.
+  // Frame 2+: contenido real. El overlay se muestra mientras
+  //   catalogoTiposProvider.isLoading (FutureProvider siempre termina
+  //   en data/error → imposible quedarse colgado).
+  bool _contenidoListo = false;
 
-  // ── Estado de comparación BD (tab 3) ──
-  NodoRolTemplateBD? _seleccionBD;
-  // Incrementar fuerza reconstrucción del ArbolBD (carga desde cero)
+  // ── Selección via ValueNotifier (sin setState en el padre) ────────────
+  final _seleccionNotifier = ValueNotifier<NodoTemplate?>(null);
+  final _rutaNotifier = ValueNotifier<String>('');
+  final _copiadoNotifier = ValueNotifier<bool>(false);
+
+  // ── Estado de comparación BD (tab 0) ──
+  final _seleccionBDNotifier = ValueNotifier<NodoRolTemplateBD?>(null);
+  // Overlay MVVM correcto: false=libre, true=cargando.
+  // ArbolBD lo pone a true en initState y a false cuando el ViewModel termina.
+  // Nunca depende de timers ni de FutureProvider.isLoading.
+  final _cargandoBDNotifier = ValueNotifier<bool>(false);
   int _claveArbolBD = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Frame 1 pinta solo el overlay (instantáneo).
+    // Frame 2 activa el contenido real.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _contenidoListo = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _seleccionNotifier.dispose();
+    _rutaNotifier.dispose();
+    _copiadoNotifier.dispose();
+    _seleccionBDNotifier.dispose();
+    _cargandoBDNotifier.dispose();
+    super.dispose();
+  }
 
   /// Cambia el tab activo y limpia la selección actual.
   void _cambiarTab(int idx) {
-    setState(() {
-      _tabArbol = idx;
-      _seleccion = null;
-      _ruta = '';
-      _copiado = false;
-    });
+    setState(() { _tabArbol = idx; });
+    _seleccionNotifier.value = null;
+    _rutaNotifier.value = '';
+    _copiadoNotifier.value = false;
+    _seleccionBDNotifier.value = null;
   }
 
   /// DFS recursivo que devuelve la ruta completa del nodo objetivo.
@@ -92,26 +130,57 @@ class _VistaRolTemplateState extends ConsumerState<VistaRolTemplate> {
       };
 
   /// Registra la selección y calcula la ruta en el árbol activo.
+  /// Sin setState: actualiza solo los notifiers para que PanelHelp y
+  /// _BarraRuta rebuildan solos sin tocar ArbolTemplate ni _TreeViewState.
   void _seleccionar(NodoTemplate n) {
-    setState(() {
-      _seleccion = n;
-      _ruta = _calcularRuta(_arbolActivo, n, '');
-    });
+    _seleccionNotifier.value = n;
+    _rutaNotifier.value = _calcularRuta(_arbolActivo, n, '');
   }
 
   /// Copia la ruta actual al portapapeles y activa el indicador visual por 2 s.
   Future<void> _copiarRuta() async {
-    if (_ruta.isEmpty) return;
-    await Clipboard.setData(ClipboardData(text: _ruta));
-    setState(() => _copiado = true);
+    if (_rutaNotifier.value.isEmpty) return;
+    await Clipboard.setData(ClipboardData(text: _rutaNotifier.value));
+    _copiadoNotifier.value = true;
     Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) setState(() => _copiado = false);
+      if (mounted) _copiadoNotifier.value = false;
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+
+    // Frame 1: spinner solo — sin árbol pesado, aparece instantáneo.
+    if (!_contenidoListo) return const IndicadorProcesamiento();
+
+    // Frame 2+: Stack permanente con dos capas:
+    //   - Capa 0: vista completa — SIEMPRE presente; ArbolBD nunca se desmonta.
+    //   - Capa 1: overlay — aparece/desaparece como SizedBox.shrink sin tocar la capa 0.
+    //
+    // CRÍTICO: el overlay NO puede envolver la vista.
+    // Si lo hiciera, cada cambio de ValueListenableBuilder cambiaría el tipo raíz
+    // (Column → Stack o viceversa), obligando a Flutter a desmontar y remontar
+    // ArbolBD, que en su initState volvería a activar el notifier → loop infinito.
+    return Stack(
+      children: [
+        _buildVista(cs),
+        ValueListenableBuilder<bool>(
+          valueListenable: _cargandoBDNotifier,
+          builder: (_, cargando, __) {
+            if (!cargando || _tabArbol != 0) return const SizedBox.shrink();
+            return const IndicadorProcesamiento(
+              mensaje: 'Consultando SBOSDB…',
+              icono: LucideIcons.database,
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  /// Vista completa separada del overlay para que ArbolBD sea estable en el árbol.
+  Widget _buildVista(ColorScheme cs) {
     return Column(
       children: [
         const TiraTabs(
@@ -122,22 +191,12 @@ class _VistaRolTemplateState extends ConsumerState<VistaRolTemplate> {
         Expanded(
           child: Row(
             children: [
-              PanelLateral(
-                titulo: 'AtomLang v1',
-                conteo: 'vocabulario',
-                lado: LadoPanel.izquierdo,
-                child: ArbolTemplate(
-                  nodos: arbolAtomLang,
-                  shrinkWrap: true,
-                  alSeleccionar: (_) {},
-                ),
-              ),
+              const _PanelVocabulario(),
               Expanded(
                 child: Container(
                   color: cs.background,
                   child: Column(
                     children: [
-                      // ── Barra de tabs interior del árbol ──────────────────
                       TiraTabs(
                         tabs: const [
                           'Árbol Fuente',
@@ -147,18 +206,22 @@ class _VistaRolTemplateState extends ConsumerState<VistaRolTemplate> {
                         activa: _tabArbol,
                         alSeleccionar: _cambiarTab,
                       ),
-                      // ── Contenido según tab activo ────────────────────────
                       Expanded(child: _contenidoTab(cs)),
-                      // ── Barra diagnósticos (solo Tab AtomLang) ────────────
                       if (_tabArbol == 1) _BarraDiagnosticos(cs: cs),
-                      // ── Barra de ruta + panel de ayuda (solo tab AtomLang) ──
                       if (_tabArbol == 1) ...[
-                        _BarraRuta(
-                          ruta: _ruta,
-                          copiado: _copiado,
-                          alCopiar: _copiarRuta,
+                        ListenableBuilder(
+                          listenable: Listenable.merge(
+                              [_rutaNotifier, _copiadoNotifier]),
+                          builder: (_, _) => _BarraRuta(
+                            ruta: _rutaNotifier.value,
+                            copiado: _copiadoNotifier.value,
+                            alCopiar: _copiarRuta,
+                          ),
                         ),
-                        PanelHelp(nodo: _seleccion),
+                        ValueListenableBuilder<NodoTemplate?>(
+                          valueListenable: _seleccionNotifier,
+                          builder: (_, nodo, _) => PanelHelp(nodo: nodo),
+                        ),
                       ],
                     ],
                   ),
@@ -181,23 +244,23 @@ class _VistaRolTemplateState extends ConsumerState<VistaRolTemplate> {
     switch (_tabArbol) {
       case 0:
         return _PanelComparacion(
-          cargarHijos: (parentId) =>
-              ref.read(bauthApiProvider).rolTemplateHijos(parentId: parentId),
+          // Una sola SSH exec para todos los nodos — sin carga lazy por nodo.
+          cargarTodos: () => ref.read(bauthApiProvider).rolTemplateTodos(),
           claveArbol: _claveArbolBD,
-          seleccionBD: _seleccionBD,
-          alSeleccionarBD: (n) => setState(() => _seleccionBD = n),
+          cargandoNotifier: _cargandoBDNotifier,
+          seleccionListenable: _seleccionBDNotifier,
+          alSeleccionarBD: (n) => _seleccionBDNotifier.value = n,
           alRecargar: () {
-            ref.read(bauthApiProvider).invalidarCacheArbol();
-            setState(() {
-              _claveArbolBD++;
-              _seleccionBD = null;
-            });
+            // Reinicia el overlay antes de que ArbolBD remonte.
+            _cargandoBDNotifier.value = false;
+            _seleccionBDNotifier.value = null;
+            setState(() { _claveArbolBD++; });
           },
         );
       case 1:
         return ArbolTemplate(
           nodos: arbolNormalizado,
-          seleccionado: _seleccion,
+          seleccionListenable: _seleccionNotifier,
           alSeleccionar: _seleccionar,
         );
       default:
@@ -276,91 +339,119 @@ class _PlaceholderCompiladoTab extends StatelessWidget {
 /// Vista lado a lado: árbol Dart fuente (izq.) vs árbol live de la BD (der.).
 /// El árbol BD solo se monta cuando hay conexión SSH activa — previene el
 /// cuelgue de 10 min que ocurre cuando TCP intenta conectar a localhost:9450.
+///
+/// [seleccionListenable] en vez de un valor directo: cuando el usuario selecciona
+/// un nodo en ArbolBD solo rebuilda el ValueListenableBuilder interior (subtítulo,
+/// botón + Átomo, PanelHelpBD) — ArbolBD y ArbolTemplate izquierdo NO rebuildan.
 class _PanelComparacion extends ConsumerWidget {
-  final CargadorHijosBD cargarHijos;
+  /// Carga TODOS los nodos en una sola SSH exec — sin lazy loading por nodo.
+  final Future<List<NodoRolTemplateBD>> Function() cargarTodos;
   final int claveArbol;
-  final NodoRolTemplateBD? seleccionBD;
+  /// Notifier que ArbolBD usa para señalar inicio/fin de carga al padre.
+  final ValueNotifier<bool>? cargandoNotifier;
+  final ValueListenable<NodoRolTemplateBD?> seleccionListenable;
   final ValueChanged<NodoRolTemplateBD?> alSeleccionarBD;
   final VoidCallback alRecargar;
 
   const _PanelComparacion({
-    required this.cargarHijos,
+    required this.cargarTodos,
     required this.claveArbol,
-    required this.seleccionBD,
+    required this.seleccionListenable,
     required this.alSeleccionarBD,
     required this.alRecargar,
+    this.cargandoNotifier,
   });
-
-  int _contarFuente(List<NodoTemplate> ns) =>
-      ns.fold(0, (s, n) => s + 1 + _contarFuente(n.hijos));
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
     final s  = Theme.of(context).scaling;
-    final totalFuente = _contarFuente(arbolRolTemplate);
+    // _kTotalFuente se calcula UNA vez al cargar la biblioteca — no en cada rebuild.
     final conexion = ref.watch(pruebaConexionProvider);
     final conectado = conexion.fase == FaseConexion.exitosa;
-    final puedeAgregar = conectado && seleccionBD != null && seleccionBD!.tipo != 'atom';
 
-    // Barra de acciones del panel BD
-    final accionBD = conectado
-        ? Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (puedeAgregar) ...[
-                BotonSbos(
-                  '+ Átomo',
-                  icono: LucideIcons.plus,
-                  alTocar: () => mostrarDialogoCrearAtomo(
-                    context,
-                    padre: seleccionBD!,
-                    rpc: ref.read(clienteRpcActivoProvider),
-                    alCrear: alRecargar,
-                  ),
-                ),
-                SizedBox(width: 6 * s),
-              ],
-              BotonSbos('Recargar', icono: LucideIcons.refreshCw, alTocar: alRecargar),
-            ],
+    // ArbolBD se pasa como child de ValueListenableBuilder:
+    // NO rebuilda cuando cambia la selección — solo el panel derecho lo hace.
+    final arbolBDOPlaceholder = conectado
+        ? ArbolBD(
+            key: ValueKey(claveArbol),
+            cargarTodos: cargarTodos,
+            alSeleccionar: alSeleccionarBD,
+            cargandoNotifier: cargandoNotifier,
           )
-        : null;
+        : const _PlaceholderSinConexionBD();
 
     return Row(
       children: [
-        Expanded(child: _PanelArbol(
-          titulo: 'FUENTE · Dart',
-          subtitulo: '$totalFuente nodos',
-          color: cs.primary,
-          child: ArbolTemplate(nodos: arbolRolTemplate, alSeleccionar: (_) {}),
-        )),
-        Container(width: 1, color: cs.border),
-        Expanded(child: _PanelArbol(
-          titulo: 'BD · idn_roles_template',
-          subtitulo: conectado
-              ? (seleccionBD != null ? 'selección: ${seleccionBD!.clave}' : 'sin selección')
-              : 'sin conexión',
-          color: Colors.teal.shade400,
-          accion: accionBD,
-          footerBD: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (conectado) PanelHelpBD(nodo: seleccionBD, alto: 65),
-              const _BarraConexionBD(),
-            ],
+        Expanded(
+          child: _PanelArbol(
+            titulo: 'FUENTE · Dart',
+            subtitulo: '$_kTotalFuente nodos',
+            color: cs.primary,
+            child: ArbolTemplate(nodos: arbolRolTemplate, alSeleccionar: (_) {}),
           ),
-          child: conectado
-              ? ArbolBD(
-                  key: ValueKey(claveArbol),
-                  cargarHijos: cargarHijos,
-                  alSeleccionar: alSeleccionarBD,
-                )
-              : const _PlaceholderSinConexionBD(),
-        )),
+        ),
+        Container(width: 1, color: cs.border),
+        Expanded(
+          child: ValueListenableBuilder<NodoRolTemplateBD?>(
+            valueListenable: seleccionListenable,
+            // child: ArbolBD no rebuilda en cada cambio de selección
+            child: arbolBDOPlaceholder,
+            builder: (context, seleccionBD, arbolBDChild) {
+              final puedeAgregar =
+                  conectado && seleccionBD != null && seleccionBD.tipo != 'atom';
+
+              final accionBD = conectado
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (puedeAgregar) ...[
+                          BotonSbos(
+                            '+ Átomo',
+                            icono: LucideIcons.plus,
+                            alTocar: () => mostrarDialogoCrearAtomo(
+                              context,
+                              padre: seleccionBD,
+                              rpc: ref.read(clienteRpcActivoProvider),
+                              alCrear: alRecargar,
+                            ),
+                          ),
+                          SizedBox(width: 6 * s),
+                        ],
+                        BotonSbos(
+                            'Recargar', icono: LucideIcons.refreshCw, alTocar: alRecargar),
+                      ],
+                    )
+                  : null;
+
+              return _PanelArbol(
+                titulo: 'BD · idn_roles_template',
+                subtitulo: conectado
+                    ? (seleccionBD != null
+                        ? 'selección: ${seleccionBD.clave}'
+                        : 'sin selección')
+                    : 'sin conexión',
+                color: Colors.teal.shade400,
+                accion: accionBD,
+                footerBD: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (conectado) PanelHelpBD(nodo: seleccionBD, alto: 65),
+                    const _BarraConexionBD(),
+                  ],
+                ),
+                child: arbolBDChild!,
+              );
+            },
+          ),
+        ),
       ],
     );
   }
 }
+
+// ── Overlay de carga inicial ─────────────────────────────────
+
 
 /// Placeholder para el panel BD cuando no hay conexión SSH activa.
 class _PlaceholderSinConexionBD extends StatelessWidget {
@@ -606,6 +697,31 @@ class _BarraRuta extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// Panel izquierdo del vocabulario AtomLang v1 (referencia de lenguaje).
+///
+/// Widget const: Flutter detecta la misma instancia en cada rebuild del padre
+/// y OMITE la actualización del element — el árbol de vocabulario no se
+/// reconstruye cuando el usuario selecciona un nodo en el árbol principal.
+class _PanelVocabulario extends StatelessWidget {
+  const _PanelVocabulario();
+
+  static void _ignorar(NodoTemplate _) {}
+
+  @override
+  Widget build(BuildContext context) {
+    return PanelLateral(
+      titulo: 'AtomLang v1',
+      conteo: 'vocabulario',
+      lado: LadoPanel.izquierdo,
+      child: ArbolTemplate(
+        nodos: arbolAtomLang,
+        shrinkWrap: true,
+        alSeleccionar: _ignorar,
       ),
     );
   }

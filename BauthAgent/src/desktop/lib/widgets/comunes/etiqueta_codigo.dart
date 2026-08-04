@@ -15,8 +15,8 @@ import 'package:tf_shadcn_flutter/shadcn_flutter.dart';
 
 import '../../nucleo/sidenav_provider.dart';
 
-/// Chip visual de código A.64.01 — widget puro, sin ConsumerWidget.
-/// Se crea solo cuando los códigos están visibles (controlado por el padre).
+/// Chip visual A.64.01 — widget puro (StatelessWidget, sin provider).
+/// Solo se instancia cuando los códigos están activos.
 class _ChipCodigo extends StatelessWidget {
   final String codigo;
   const _ChipCodigo(this.codigo);
@@ -47,43 +47,44 @@ class _ChipCodigo extends StatelessWidget {
   }
 }
 
-/// Chip de código A.64.01 para uso standalone (ej: dentro de una vista).
-/// Retorna SizedBox.shrink cuando mostrarCodigosProvider = false.
+/// Chip reactivo A.64.01: se muestra/oculta via Offstage según el toggle.
+/// Al usar Offstage en vez de retornar tipos distintos, el elemento _ChipCodigo
+/// nunca se destruye — solo cambia su visibilidad en el render tree.
 class EtiquetaCodigo extends ConsumerWidget {
   final String codigo;
   const EtiquetaCodigo(this.codigo, {super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!ref.watch(mostrarCodigosProvider)) return const SizedBox.shrink();
-    return _ChipCodigo(codigo);
+    return Offstage(
+      offstage: !ref.watch(mostrarCodigosProvider),
+      child: _ChipCodigo(codigo),
+    );
   }
 }
 
-/// Envuelve [child] con una etiqueta de código A.64.01 flotante.
+/// Envuelve [child] con una etiqueta A.64.01 flotante en la esquina.
 ///
-/// IMPORTANTE: devuelve SIEMPRE un Stack (nunca cambia de tipo).
-/// Esto garantiza que el elemento hijo no se destruya cuando los
-/// códigos se activan/desactivan — el estado de [child] se preserva.
-/// La etiqueta se añade/quita como Positioned dentro del Stack existente.
-class SeccionConCodigo extends ConsumerWidget {
+/// Es un StatelessWidget PURO — no se suscribe a ningún provider.
+/// Solo EtiquetaCodigo (el chip) escucha mostrarCodigosProvider.
+/// Resultado: el toggle de códigos nunca reconstruye [child] ni a
+/// SeccionConCodigo misma — solo actualiza el Offstage del chip.
+class SeccionConCodigo extends StatelessWidget {
   final String codigo;
   final Widget child;
   const SeccionConCodigo(this.codigo, {super.key, required this.child});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final mostrar = ref.watch(mostrarCodigosProvider);
+  Widget build(BuildContext context) {
     return Stack(
       clipBehavior: Clip.none,
       children: [
         child,
-        if (mostrar)
-          Positioned(
-            top: 3,
-            left: 3,
-            child: _ChipCodigo(codigo),
-          ),
+        Positioned(
+          top: 3,
+          left: 3,
+          child: EtiquetaCodigo(codigo),
+        ),
       ],
     );
   }

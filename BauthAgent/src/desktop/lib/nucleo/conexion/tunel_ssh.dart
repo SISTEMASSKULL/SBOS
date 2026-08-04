@@ -58,14 +58,17 @@ class TunelSSH {
     await _cliente!.authenticated;
   }
 
-  /// Crea un cliente JSON-RPC que usa SSH exec por cada llamada.
+  /// Crea un cliente JSON-RPC con canal socat persistente y lo conecta.
   /// El SSH debe estar autenticado (llama a [iniciar] primero).
-  ClienteRpcSsh crearClienteRpc() {
+  /// El canal socat se abre aquí — el primer [llamar] no paga overhead SSH.
+  Future<ClienteRpcSsh> crearClienteRpc() async {
     final cliente = _cliente;
     if (cliente == null) {
       throw StateError('túnel SSH no conectado — llama a iniciar() primero');
     }
-    return ClienteRpcSsh(cliente, _socketRemoto);
+    final rpc = ClienteRpcSsh(cliente, _socketRemoto);
+    await rpc.conectar();
+    return rpc;
   }
 
   /// Cierra la conexión SSH y libera recursos.

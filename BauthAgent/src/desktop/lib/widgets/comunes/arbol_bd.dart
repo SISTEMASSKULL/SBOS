@@ -1,17 +1,24 @@
 // ============================================================
 // bauth_desktop · widgets/comunes/arbol_bd.dart
 //
-// Propósito: árbol lazy de NodoRolTemplateBD.
-//   Carga nodo a nodo — cada expansión dispara un RPC
-//   bauth.rol_template.children(parent_id) al daemon.
-//   Sin expansión no hay llamada → nunca satura la conexión.
+// Propósito: árbol de NodoRolTemplateBD con arquitectura MVVM.
 //
-//   Estados visibles:
-//     • Raíz cargando   → spinner centrado con mensaje
-//     • Raíz con error  → cuadro rojo con texto completo + Reintentar
-//     • Nodo cargando   → spinner inline en la fila del nodo padre
-//     • Nodo con error  → banda roja bajo la fila con Reintentar
-//     • Árbol OK        → ListView plana con indentación por depth
+//   ViewModel (_ArbolBDViewModel extends ChangeNotifier):
+//     Dueño único del estado — cargando, error, árbol en memoria,
+//     nodos expandidos, lista visible, selección.
+//     Carga TODOS los nodos en UN solo ejecutarCmd (una SSH exec).
+//     Expansiones posteriores son O(visibles) en memoria pura — sin red.
+//
+//   View (ArbolBD + _FilaNodo):
+//     Solo reacciona al ViewModel. No tiene lógica de negocio.
+//     ListenableBuilder reconstruye solo cuando el ViewModel notifica.
+//     _FilaNodo usa ValueListenableBuilder para el resaltado de selección:
+//     solo la fila afectada rebuilda, no toda la lista.
+//
+//   Overlay externo:
+//     cargandoNotifier (ValueNotifier<bool>) controlado por el ViewModel.
+//     La vista padre lo observa para mostrar/ocultar el overlay de carga.
+//     Se pone a false cuando cargar() termina (éxito o error) → sin colgarse.
 //
 // Dependencias: tf_shadcn_flutter, nucleo/api/bauth_api.
 // Estándar: DDL T-162 · ADR-020 · DOC-SBOS-001 N3.
@@ -23,11 +30,9 @@ import 'package:tf_shadcn_flutter/shadcn_flutter.dart';
 import '../../nucleo/api/bauth_api.dart';
 import '../../nucleo/conexion/proveedor_conexion.dart';
 import '../../nucleo/dominio/config_tipo_nodo.dart';
+import 'indicador_procesamiento.dart';
 
-// ── Composición de etiqueta de nodo ──────────────────────────
-// Dominio  → "D00 · Identidad Organizacional"
-// Bloque   → "B01 · Evaluación PDP"
-// Resto    → clave tal cual
+// ── Etiqueta compuesta del nodo ───────────────────────────────
 String _etiquetaNodo(NodoRolTemplateBD n) {
   if (n.tipo == 'dominio' && n.domainNumber != null) {
     return 'D${n.domainNumber!.toString().padLeft(2, '0')} · ${n.clave}';
@@ -38,142 +43,203 @@ String _etiquetaNodo(NodoRolTemplateBD n) {
   return n.clave;
 }
 
-// ── Tipo del callback de carga ────────────────────────────────
-typedef CargadorHijosBD = Future<List<NodoRolTemplateBD>> Function(
-    String? parentId);
+// ═══════════════════════════════════════════════════════════
+// ViewModel
+// ═══════════════════════════════════════════════════════════
 
-// ── Árbol lazy ────────────────────────────────────────────────
+/// Estado del árbol BD. Extiende ChangeNotifier — la Vista
+/// reacciona vía ListenableBuilder sin setState ni providers.
+class _ArbolBDViewModel extends ChangeNotifier {
+  /// true mientras se ejecuta cargar().
+  bool cargando = true;
 
-/// Árbol interactivo con carga lazy — un RPC por expansión de nodo.
+  /// Mensaje de error; null si no hubo error.
+  String? error;
+
+  /// Mapa parentId → hijos directos (construido en memoria tras cargar).
+  final Map<String?, List<NodoRolTemplateBD>> _hijos = {};
+
+  /// IDs de nodos actualmente expandidos.
+  final Set<String> _expandidos = {};
+
+  /// Lista plana de nodos visibles en el orden correcto.
+  List<NodoRolTemplateBD> visibles = const [];
+
+  /// Notifier de selección: solo la fila afectada rebuilda su fondo.
+  final seleccionNotifier = ValueNotifier<NodoRolTemplateBD?>(null);
+
+  @override
+  void dispose() {
+    seleccionNotifier.dispose();
+    super.dispose();
+  }
+
+  /// Carga todos los nodos en una sola llamada y construye el árbol en memoria.
+  /// Llama a [onTerminado] al finalizar (éxito o error) para el overlay externo.
+  Future<void> cargar(
+    Future<List<NodoRolTemplateBD>> Function() fn, {
+    VoidCallback? onTerminado,
+  }) async {
+    cargando = true;
+    error = null;
+    _hijos.clear();
+    _expandidos.clear();
+    visibles = const [];
+    notifyListeners();
+
+    try {
+      final todos = await fn();
+      // Agrupar por parentId en memoria: O(n) una sola vez.
+      for (final n in todos) {
+        (_hijos[n.parentId] ??= []).add(n);
+      }
+      _reconstruirVisibles();
+    } catch (e) {
+      error = e.toString().length > 300
+          ? '${e.toString().substring(0, 300)}…'
+          : e.toString();
+    } finally {
+      cargando = false;
+      notifyListeners();
+      onTerminado?.call();
+    }
+  }
+
+  /// Expande o colapsa un nodo. O(visibles) — sin red.
+  void toggle(NodoRolTemplateBD nodo) {
+    if (!_hijos.containsKey(nodo.id)) return;
+    if (_expandidos.contains(nodo.id)) {
+      _expandidos.remove(nodo.id);
+    } else {
+      _expandidos.add(nodo.id);
+    }
+    _reconstruirVisibles();
+    notifyListeners();
+  }
+
+  /// Selecciona un nodo. Solo actualiza el ValueNotifier —
+  /// no llama notifyListeners() para no rebuildar toda la lista.
+  void seleccionar(NodoRolTemplateBD nodo) {
+    seleccionNotifier.value = nodo;
+  }
+
+  bool tieneHijos(String id) => _hijos.containsKey(id);
+  bool estaExpandido(String id) => _expandidos.contains(id);
+
+  void _reconstruirVisibles() {
+    final lista = <NodoRolTemplateBD>[];
+    _agregarNiveles(null, lista);
+    visibles = lista;
+  }
+
+  void _agregarNiveles(String? parentId, List<NodoRolTemplateBD> lista) {
+    for (final h in _hijos[parentId] ?? const []) {
+      lista.add(h);
+      if (_expandidos.contains(h.id)) _agregarNiveles(h.id, lista);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// Vista — ArbolBD
+// ═══════════════════════════════════════════════════════════
+
+/// Vista del árbol de roles BD.
+///
+/// Crea su propio ViewModel en [initState] y delega todo el estado a él.
+/// La Vista es "tonta": solo renderiza lo que el ViewModel dice.
+///
+/// [cargarTodos] — función que devuelve TODOS los nodos del árbol en una
+///   sola llamada. Se ejecuta una vez al montar y en reintentos.
+/// [alSeleccionar] — callback al padre cuando el usuario selecciona un nodo.
+/// [cargandoNotifier] — notifier externo que la vista padre observa para
+///   mostrar/ocultar su overlay. Se pone a false cuando cargar() termina.
 class ArbolBD extends ConsumerStatefulWidget {
-  /// Callback que recibe parent_id (null = raíz) y retorna hijos directos.
-  final CargadorHijosBD cargarHijos;
-
-  /// Llamado al seleccionar un nodo (null = deseleccionar).
+  final Future<List<NodoRolTemplateBD>> Function() cargarTodos;
   final ValueChanged<NodoRolTemplateBD?>? alSeleccionar;
+  final ValueNotifier<bool>? cargandoNotifier;
 
-  const ArbolBD({super.key, required this.cargarHijos, this.alSeleccionar});
+  const ArbolBD({
+    super.key,
+    required this.cargarTodos,
+    this.alSeleccionar,
+    this.cargandoNotifier,
+  });
 
   @override
   ConsumerState<ArbolBD> createState() => _ArbolBDState();
 }
 
 class _ArbolBDState extends ConsumerState<ArbolBD> {
-  // Hijos por parent_id (null = nivel raíz)
-  final Map<String?, List<NodoRolTemplateBD>> _hijos = {};
-  // IDs de nodos actualmente expandidos
-  final Set<String> _expandidos = {};
-  // IDs de nodos cuyos hijos se están cargando (null = carga de raíz)
-  final Set<String?> _cargando = {};
-  // Mensajes de error por parent_id
-  final Map<String?, String> _errores = {};
-  // Lista plana ordenada de nodos visibles
-  final List<NodoRolTemplateBD> _visibles = [];
-
-  NodoRolTemplateBD? _seleccionado;
+  late final _ArbolBDViewModel _vm;
 
   @override
   void initState() {
     super.initState();
-    _cargarNivel(null);
-  }
-
-  // ── Lógica de carga ─────────────────────────────────────────
-
-  Future<void> _cargarNivel(String? parentId) async {
-    if (_cargando.contains(parentId)) return;
-    setState(() {
-      _cargando.add(parentId);
-      _errores.remove(parentId);
+    _vm = _ArbolBDViewModel();
+    // postFrameCallback: seguro señalar al padre fuera del frame de build actual.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      widget.cargandoNotifier?.value = true;
+      _vm.cargar(widget.cargarTodos, onTerminado: () {
+        if (mounted) widget.cargandoNotifier?.value = false;
+      });
     });
-    try {
-      final hijos = await widget.cargarHijos(parentId);
-      if (!mounted) return;
-      setState(() {
-        _hijos[parentId] = hijos;
-        if (parentId != null) _expandidos.add(parentId);
-        _cargando.remove(parentId);
-        _reconstruirVisibles();
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _errores[parentId] = _mensajeError(e);
-        _cargando.remove(parentId);
-      });
-    }
   }
 
-  Future<void> _toggleNodo(NodoRolTemplateBD nodo) async {
-    if (_expandidos.contains(nodo.id)) {
-      setState(() {
-        _expandidos.remove(nodo.id);
-        _reconstruirVisibles();
-      });
-      return;
-    }
-    if (_hijos.containsKey(nodo.id)) {
-      setState(() {
-        _expandidos.add(nodo.id);
-        _reconstruirVisibles();
-      });
-    } else {
-      await _cargarNivel(nodo.id);
-    }
+  @override
+  void dispose() {
+    _vm.dispose();
+    super.dispose();
   }
 
-  void _reconstruirVisibles() {
-    _visibles.clear();
-    _agregarNiveles(null);
+  void _reintentar() {
+    widget.cargandoNotifier?.value = true;
+    _vm.cargar(widget.cargarTodos, onTerminado: () {
+      if (mounted) widget.cargandoNotifier?.value = false;
+    });
   }
-
-  void _agregarNiveles(String? parentId) {
-    final lista = _hijos[parentId] ?? [];
-    for (final h in lista) {
-      _visibles.add(h);
-      if (_expandidos.contains(h.id)) _agregarNiveles(h.id);
-    }
-  }
-
-  String _mensajeError(Object e) {
-    final s = e.toString();
-    if (s.length > 300) return '${s.substring(0, 300)}…';
-    return s;
-  }
-
-  // ── Build ────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     final catalogo = ref.watch(catalogoTiposProvider).asData?.value ?? const {};
-    if (_cargando.contains(null) && _hijos[null] == null) {
-      return _CargandoRaiz();
-    }
-    if (_errores.containsKey(null) && _hijos[null] == null) {
-      return _ErrorRaiz(
-        mensaje: _errores[null]!,
-        onReintentar: () => _cargarNivel(null),
-      );
-    }
-    if (_visibles.isEmpty) {
-      return _VacioBD();
-    }
-    return ListView.builder(
-      itemCount: _visibles.length,
-      itemBuilder: (ctx, i) {
-        final n = _visibles[i];
-        return _FilaNodo(
-          nodo: n,
-          config: catalogo[n.tipo] ?? kConfigDesconocido,
-          expandido: _expandidos.contains(n.id),
-          cargando: _cargando.contains(n.id),
-          error: _errores[n.id],
-          seleccionado: _seleccionado?.id == n.id,
-          onToggle: () => _toggleNodo(n),
-          onReintentar: () => _cargarNivel(n.id),
-          onSeleccionar: () {
-            setState(() => _seleccionado = n);
-            widget.alSeleccionar?.call(n);
+
+    // ListenableBuilder: reconstruye cuando el ViewModel notifica un cambio
+    // de estado (cargando → listo, o toggle de nodo).
+    // La selección usa ValueListenableBuilder por fila → no pasa por aquí.
+    return ListenableBuilder(
+      listenable: _vm,
+      builder: (context, _) {
+        if (_vm.cargando) {
+          return const IndicadorProcesamiento(
+            tipo: TipoIndicador.barra,
+            opacidadFondo: 0,
+          );
+        }
+        if (_vm.error != null) {
+          return _ErrorRaiz(
+            mensaje: _vm.error!,
+            onReintentar: _reintentar,
+          );
+        }
+        if (_vm.visibles.isEmpty) return _VacioBD();
+
+        return ListView.builder(
+          itemCount: _vm.visibles.length,
+          itemBuilder: (ctx, i) {
+            final n = _vm.visibles[i];
+            return _FilaNodo(
+              nodo: n,
+              config: catalogo[n.tipo] ?? kConfigDesconocido,
+              expandido: _vm.estaExpandido(n.id),
+              tieneHijos: _vm.tieneHijos(n.id),
+              seleccionadoNotifier: _vm.seleccionNotifier,
+              onToggle: () => _vm.toggle(n),
+              onSeleccionar: () {
+                _vm.seleccionar(n);
+                widget.alSeleccionar?.call(n);
+              },
+            );
           },
         );
       },
@@ -181,28 +247,30 @@ class _ArbolBDState extends ConsumerState<ArbolBD> {
   }
 }
 
-// ── Fila de nodo ─────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+// Fila de nodo
+// ═══════════════════════════════════════════════════════════
 
+/// Fila de un nodo en el árbol BD.
+///
+/// Usa [ValueListenableBuilder] internamente para el resaltado de selección:
+/// solo la fila cuyo id coincide rebuilda su fondo — O(1) en vez de O(visibles).
 class _FilaNodo extends StatelessWidget {
   final NodoRolTemplateBD nodo;
   final ConfigTipoNodo config;
   final bool expandido;
-  final bool cargando;
-  final String? error;
-  final bool seleccionado;
+  final bool tieneHijos;
+  final ValueNotifier<NodoRolTemplateBD?> seleccionadoNotifier;
   final VoidCallback onToggle;
-  final VoidCallback onReintentar;
   final VoidCallback onSeleccionar;
 
   const _FilaNodo({
     required this.nodo,
     required this.config,
     required this.expandido,
-    required this.cargando,
-    required this.error,
-    required this.seleccionado,
+    required this.tieneHijos,
+    required this.seleccionadoNotifier,
     required this.onToggle,
-    required this.onReintentar,
     required this.onSeleccionar,
   });
 
@@ -213,19 +281,18 @@ class _FilaNodo extends StatelessWidget {
     final color = config.colorAcentoDe(cs);
     final indent = nodo.depth * 14.0 * s;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // ── Fila principal ───────────────────────────────────
-        MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            onTap: onSeleccionar,
-            child: Container(
-              color: seleccionado
-                  ? cs.primary.withValues(alpha: 0.12)
-                  : null,
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onSeleccionar,
+        // ValueListenableBuilder: solo esta fila rebuilda cuando cambia
+        // la selección. Las demás filas no se reconstruyen.
+        child: ValueListenableBuilder<NodoRolTemplateBD?>(
+          valueListenable: seleccionadoNotifier,
+          builder: (_, selec, _) {
+            final activo = selec?.id == nodo.id;
+            return Container(
+              color: activo ? cs.primary.withValues(alpha: 0.12) : null,
               padding: EdgeInsets.only(
                 left: 6 * s + indent,
                 top: 3 * s,
@@ -233,19 +300,12 @@ class _FilaNodo extends StatelessWidget {
                 right: 8 * s,
               ),
               child: Row(children: [
-                // Toggle — spinner si cargando hijos, flecha si no
+                // Icono de expansión (solo si tiene hijos)
                 SizedBox(
                   width: 18 * s,
                   height: 18 * s,
-                  child: cargando
-                      ? Center(
-                          child: SizedBox(
-                            width: 11 * s,
-                            height: 11 * s,
-                            child: CircularProgressIndicator(strokeWidth: 1.5),
-                          ),
-                        )
-                      : MouseRegion(
+                  child: tieneHijos
+                      ? MouseRegion(
                           cursor: SystemMouseCursors.click,
                           child: GestureDetector(
                             onTap: onToggle,
@@ -257,23 +317,25 @@ class _FilaNodo extends StatelessWidget {
                               color: cs.mutedForeground.withValues(alpha: 0.7),
                             ),
                           ),
-                        ),
+                        )
+                      : null,
                 ),
                 SizedBox(width: 3 * s),
-                // Etiqueta del nodo: código + clave compuestos al mostrar
+                // Etiqueta con estilo reactivo a selección
                 Flexible(
                   child: Text(
                     _etiquetaNodo(nodo),
                     overflow: TextOverflow.ellipsis,
-                    style: config.estiloTextoDe(seleccionado, cs, s),
+                    style: config.estiloTextoDe(activo, cs, s),
                   ),
                 ),
-                // Badge de tipo — derecha del nombre
+                // Badge de tipo
                 if (config.showBadge) ...[
                   SizedBox(width: 6 * s),
-                  _BadgeBD(rotulo: config.abbreviation, color: color, s: s),
+                  _BadgeBD(
+                      rotulo: config.abbreviation, color: color, s: s),
                 ],
-                // Valor (si aplica)
+                // Valor inline
                 if (nodo.valor != null && nodo.valor!.isNotEmpty) ...[
                   SizedBox(width: 6 * s),
                   Flexible(
@@ -291,110 +353,17 @@ class _FilaNodo extends StatelessWidget {
                   ),
                 ],
               ]),
-            ),
-          ),
+            );
+          },
         ),
-        // ── Banda de error al cargar hijos ───────────────────
-        if (error != null)
-          _BandaError(
-            mensaje: error!,
-            indent: indent + 24 * s,
-            onReintentar: onReintentar,
-          ),
-      ],
-    );
-  }
-}
-
-// ── Banda de error inline ─────────────────────────────────────
-
-class _BandaError extends StatelessWidget {
-  final String mensaje;
-  final double indent;
-  final VoidCallback onReintentar;
-  const _BandaError({
-    required this.mensaje,
-    required this.indent,
-    required this.onReintentar,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final s = Theme.of(context).scaling;
-    return Padding(
-      padding: EdgeInsets.only(left: indent, right: 8 * s, bottom: 4 * s),
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 8 * s, vertical: 4 * s),
-        decoration: BoxDecoration(
-          color: cs.destructive.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(4 * s),
-          border: Border.all(color: cs.destructive.withValues(alpha: 0.35)),
-        ),
-        child: Row(children: [
-          Icon(LucideIcons.circleAlert, size: 11 * s, color: cs.destructive),
-          SizedBox(width: 5 * s),
-          Expanded(
-            child: Text(
-              mensaje,
-              style: TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 9.5 * s,
-                color: cs.destructive,
-              ),
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          SizedBox(width: 8 * s),
-          MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              onTap: onReintentar,
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(LucideIcons.refreshCw, size: 10 * s, color: cs.primary),
-                SizedBox(width: 3 * s),
-                Text(
-                  'Reintentar',
-                  style: TextStyle(
-                    fontSize: 9.5 * s,
-                    color: cs.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ]),
-            ),
-          ),
-        ]),
       ),
     );
   }
 }
 
-// ── Estados especiales ────────────────────────────────────────
-
-class _CargandoRaiz extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final s = Theme.of(context).scaling;
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        SizedBox(
-          width: 28 * s,
-          height: 28 * s,
-          child: const CircularProgressIndicator(strokeWidth: 2),
-        ),
-        SizedBox(height: 12 * s),
-        Text(
-          'Cargando árbol desde SBOSDB…',
-          style: TextStyle(fontSize: 11 * s, color: cs.mutedForeground),
-        ),
-      ],
-    );
-  }
-}
+// ═══════════════════════════════════════════════════════════
+// Estados de carga / error / vacío
+// ═══════════════════════════════════════════════════════════
 
 class _ErrorRaiz extends StatelessWidget {
   final String mensaje;
@@ -414,12 +383,11 @@ class _ErrorRaiz extends StatelessWidget {
               color: cs.destructive.withValues(alpha: 0.75)),
           SizedBox(height: 10 * s),
           Text(
-            'Error al conectar con bAuth',
+            'Error al cargar árbol BD',
             style: TextStyle(
-              fontSize: 13 * s,
-              fontWeight: FontWeight.w700,
-              color: cs.foreground,
-            ),
+                fontSize: 13 * s,
+                fontWeight: FontWeight.w700,
+                color: cs.destructive),
           ),
           SizedBox(height: 8 * s),
           Container(
@@ -427,43 +395,32 @@ class _ErrorRaiz extends StatelessWidget {
             padding: EdgeInsets.all(10 * s),
             decoration: BoxDecoration(
               color: cs.destructive.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(4 * s),
-              border: Border.all(color: cs.destructive.withValues(alpha: 0.35)),
+              borderRadius: BorderRadius.circular(6 * s),
             ),
             child: Text(
               mensaje,
-              textAlign: TextAlign.left,
               style: TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 9.5 * s,
-                color: cs.destructive,
-                height: 1.5,
-              ),
+                  fontFamily: 'monospace',
+                  fontSize: 10 * s,
+                  color: cs.destructive),
             ),
           ),
           SizedBox(height: 14 * s),
-          MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              onTap: onReintentar,
-              child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 16 * s, vertical: 8 * s),
-                decoration: BoxDecoration(
-                  color: cs.primary,
-                  borderRadius: BorderRadius.circular(6 * s),
-                ),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(LucideIcons.refreshCw, size: 13 * s, color: cs.primaryForeground),
-                  SizedBox(width: 6 * s),
-                  Text(
-                    'Reintentar',
-                    style: TextStyle(
-                      fontSize: 12 * s,
-                      fontWeight: FontWeight.w600,
-                      color: cs.primaryForeground,
-                    ),
-                  ),
-                ]),
+          GestureDetector(
+            onTap: onReintentar,
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                  horizontal: 14 * s, vertical: 6 * s),
+              decoration: BoxDecoration(
+                color: cs.primary,
+                borderRadius: BorderRadius.circular(4 * s),
+              ),
+              child: Text(
+                'Reintentar',
+                style: TextStyle(
+                    fontSize: 12 * s,
+                    fontWeight: FontWeight.w600,
+                    color: cs.primaryForeground),
               ),
             ),
           ),
@@ -480,28 +437,35 @@ class _VacioBD extends StatelessWidget {
     final s = Theme.of(context).scaling;
     return Center(
       child: Text(
-        'Sin nodos — ejecuta el seed T-162.',
-        style: TextStyle(fontSize: 11.5 * s, color: cs.mutedForeground),
+        'Sin registros en idn_roles_template',
+        style: TextStyle(
+            fontSize: 11 * s,
+            fontStyle: FontStyle.italic,
+            color: cs.mutedForeground),
       ),
     );
   }
 }
 
-// ── Badge de tipo ─────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+// Badge de tipo
+// ═══════════════════════════════════════════════════════════
 
 class _BadgeBD extends StatelessWidget {
   final String rotulo;
   final Color color;
   final double s;
-  const _BadgeBD({required this.rotulo, required this.color, required this.s});
+  const _BadgeBD(
+      {required this.rotulo, required this.color, required this.s});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 5 * s, vertical: 1 * s),
+      padding: EdgeInsets.symmetric(horizontal: 4 * s, vertical: 1 * s),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(3 * s),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
         rotulo,
@@ -517,7 +481,9 @@ class _BadgeBD extends StatelessWidget {
   }
 }
 
-// ── Panel de detalle del nodo seleccionado ────────────────────
+// ═══════════════════════════════════════════════════════════
+// Panel de detalle del nodo seleccionado
+// ═══════════════════════════════════════════════════════════
 
 /// Panel inferior que muestra path, tipo y help del nodo BD seleccionado.
 class PanelHelpBD extends StatelessWidget {
@@ -588,17 +554,6 @@ class PanelHelpBD extends StatelessWidget {
                       ),
                     ),
                   ),
-                if (n.help != null) ...[
-                  SizedBox(height: 4 * s),
-                  Expanded(
-                    child: Text(
-                      n.help!,
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 2,
-                      style: TextStyle(fontSize: 11 * s, color: cs.mutedForeground),
-                    ),
-                  ),
-                ],
               ],
             ),
     );
