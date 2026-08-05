@@ -1,5 +1,6 @@
 //! Configuración de banexus desde banexus.toml.
 //! mode = "daemon" | "gateway" — mismo binario, distinto despliegue.
+//! local_api — TCP listener para Flutter desktop (127.0.0.1:9446).
 //! SSOT: BnexusAgent/context/Documentacion/ · SBOS-NEXUS-CONCEPTUALIZACION-v3_0.md §24.1-§24.2
 
 use serde::Deserialize;
@@ -36,14 +37,31 @@ impl std::fmt::Display for Modo {
 }
 
 /// Configuración raíz de banexus.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BanexusConfig {
     pub agente: AgenteConfig,
     pub dev: DevConfig,
+    /// API local TCP para Flutter desktop (127.0.0.1:9446 por defecto).
+    pub local_api: LocalApiConfig,
+}
+
+/// Parámetros de la API local TCP para el desktop Flutter.
+#[derive(Debug, Clone)]
+pub struct LocalApiConfig {
+    /// Dirección de escucha (default "127.0.0.1" — solo loopback).
+    pub addr: String,
+    /// Puerto TCP (default 9446). SBOS-050: rango daemons 9400-9499.
+    pub puerto: u16,
+}
+
+impl Default for LocalApiConfig {
+    fn default() -> Self {
+        Self { addr: "127.0.0.1".into(), puerto: 9446 }
+    }
 }
 
 /// Parámetros de conexión y modo del agente.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AgenteConfig {
     /// Modo de operación: Daemon (workstation/POS) o Gateway (SBC/Pi remoto).
     pub modo: Modo,
@@ -54,7 +72,7 @@ pub struct AgenteConfig {
 }
 
 /// Parámetros de modo desarrollo (Etapa 1).
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct DevConfig {
     pub dev_mode: bool,
@@ -69,6 +87,25 @@ pub struct DevConfig {
 struct ConfigRaw {
     agente: AgenteRaw,
     dev: DevRaw,
+    #[serde(default)]
+    local_api: LocalApiRaw,
+}
+
+#[derive(Deserialize)]
+struct LocalApiRaw {
+    #[serde(default = "default_local_api_addr")]
+    addr: String,
+    #[serde(default = "default_local_api_puerto")]
+    puerto: u16,
+}
+
+fn default_local_api_addr() -> String { "127.0.0.1".into() }
+fn default_local_api_puerto() -> u16 { 9446 }
+
+impl Default for LocalApiRaw {
+    fn default() -> Self {
+        Self { addr: default_local_api_addr(), puerto: default_local_api_puerto() }
+    }
 }
 
 #[derive(Deserialize)]
@@ -112,6 +149,10 @@ impl BanexusConfig {
                 dev_mode: raw.dev.dev_mode,
                 cert_path: raw.dev.cert_path,
                 key_path: raw.dev.key_path,
+            },
+            local_api: LocalApiConfig {
+                addr: raw.local_api.addr,
+                puerto: raw.local_api.puerto,
             },
         })
     }

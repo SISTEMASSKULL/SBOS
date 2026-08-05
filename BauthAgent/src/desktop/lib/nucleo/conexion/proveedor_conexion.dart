@@ -5,29 +5,49 @@
 //   de la conexión a bAuth: config → ClienteRpc → BauthApi.
 //   La UI observa el estado y se actualiza automáticamente.
 //
-//   Modos de conexión:
-//     SSH exec   — clienteRpcSshProvider != null: cada RPC usa SSH exec.
-//     TCP directo — fallback: ClienteRpc con host:puerto convencional.
+//   Transporte primario:
+//     banexus local API (127.0.0.1:9446) — TCP sin SSH.
+//     Flutter → banexus → bhnexus Puerta 1 → bAuth socket.
 //
-// Dependencias: flutter_riverpod, cliente_rpc, cliente_rpc_ssh,
+//   Transporte secundario (solo si banexus no responde):
+//     SSH exec — ClienteRpcSsh, activado desde PanelConexion.
+//
+// Dependencias: flutter_riverpod, cliente_rpc_banexus, cliente_rpc_ssh,
 //               config_conexion, bauth_api.
-// Estándar: JSON-RPC 2.0 · Riverpod 3.x · DOC-SBOS-001 N3.
+// Estándar: JSON-RPC 2.0 · Riverpod 3.x · ADR-020 · DOC-SBOS-001 N3.
 // ============================================================
 
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'cliente_rpc.dart';
+import 'cliente_rpc_banexus.dart';
 import 'cliente_rpc_ssh.dart';
 import 'config_conexion.dart';
 import '../api/bauth_api.dart';
 import '../dominio/config_tipo_nodo.dart';
 
 // ═══════════════════════════════════════════════════════════
-// Modo SSH exec (prioridad sobre TCP cuando está activo)
+// Transporte primario: banexus local API
 // ═══════════════════════════════════════════════════════════
 
-/// Notifier que sostiene el cliente SSH exec activo.
+/// Provider del cliente JSON-RPC via banexus local API.
+/// Transporte canónico: Flutter → banexus → bhnexus → bAuth.
+final clienteRpcBanexusProvider = Provider<ClienteRpcBanexus>((ref) {
+  final cfg = ref.watch(configConexionProvider);
+  final cliente = ClienteRpcBanexus(
+    host: cfg.banexusHost,
+    puerto: cfg.banexusPuerto,
+  );
+  ref.onDispose(() => cliente.dispose());
+  return cliente;
+});
+
+// ═══════════════════════════════════════════════════════════
+// Transporte secundario: SSH exec (fallback manual)
+// ═══════════════════════════════════════════════════════════
+
+/// Notifier que sostiene el cliente SSH exec activo (fallback).
 class ClienteRpcSshNotifier extends Notifier<ClienteRpcSsh?> {
   @override
   ClienteRpcSsh? build() => null;
@@ -36,31 +56,31 @@ class ClienteRpcSshNotifier extends Notifier<ClienteRpcSsh?> {
   void establecer(ClienteRpcSsh? cliente) => state = cliente;
 }
 
-/// Cliente SSH exec activo, o null si se usa modo TCP.
-/// Se establece desde PanelConexion tras autenticar SSH con éxito.
+/// Cliente SSH exec activo, o null si se usa banexus.
+/// Se establece desde PanelConexion si banexus no está disponible.
 final clienteRpcSshProvider =
     NotifierProvider<ClienteRpcSshNotifier, ClienteRpcSsh?>(
         ClienteRpcSshNotifier.new);
 
 // ═══════════════════════════════════════════════════════════
-// Cliente RPC activo (SSH exec o TCP, según disponibilidad)
+// Cliente RPC activo (banexus primario, SSH fallback)
 // ═══════════════════════════════════════════════════════════
 
-/// Provee el mejor cliente RPC disponible:
-///   1. ClienteRpcSsh si el modo SSH está activo.
-///   2. ClienteRpc TCP si el modo directo está configurado.
+/// Provee el cliente RPC activo:
+///   1. ClienteRpcSsh si el fallback SSH está explícitamente activo.
+///   2. ClienteRpcBanexus (banexus local API) — transporte por defecto.
 final clienteRpcActivoProvider = Provider<IClienteRpc>((ref) {
   final ssh = ref.watch(clienteRpcSshProvider);
   if (ssh != null) return ssh;
-  return ref.watch(clienteRpcProvider);
+  return ref.watch(clienteRpcBanexusProvider);
 });
 
 // ═══════════════════════════════════════════════════════════
-// Cliente TCP (singleton gestionado por provider)
+// Cliente TCP legacy (mantenido para compatibilidad de providers)
 // ═══════════════════════════════════════════════════════════
 
-/// Provider del cliente JSON-RPC TCP. Se crea al leer la config
-/// y persiste durante toda la vida de la app.
+/// Provider del cliente JSON-RPC TCP directo.
+/// En producción usar clienteRpcBanexusProvider — este es para pruebas.
 final clienteRpcProvider = Provider<ClienteRpc>((ref) {
   final cfg = ref.watch(configConexionProvider);
   final cliente = ClienteRpc(host: cfg.host, puerto: cfg.puerto);
@@ -72,20 +92,20 @@ final clienteRpcProvider = Provider<ClienteRpc>((ref) {
 // Estado de conexión (observable desde la UI)
 // ═══════════════════════════════════════════════════════════
 
-/// Stream del estado de conexión del cliente TCP.
+/// Stream del estado de conexión — sigue a banexus local API.
 final estadoConexionProvider = StreamProvider<EstadoConexion>((ref) {
-  final cliente = ref.watch(clienteRpcProvider);
+  final cliente = ref.watch(clienteRpcBanexusProvider);
   return cliente.estado;
 });
 
-/// Provider que controla la conexión TCP: conectar/desconectar.
+/// Provider que controla la conexión banexus: conectar/desconectar.
 final controlConexionProvider = Provider<ControlConexion>((ref) {
-  final cliente = ref.watch(clienteRpcProvider);
+  final cliente = ref.watch(clienteRpcBanexusProvider);
   return ControlConexion(cliente);
 });
 
 class ControlConexion {
-  final ClienteRpc _cliente;
+  final IClienteRpc _cliente;
   ControlConexion(this._cliente);
 
   Future<void> conectar() => _cliente.conectar();

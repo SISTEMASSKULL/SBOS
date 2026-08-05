@@ -40,7 +40,7 @@ async fn sesion(
     mut stream: TcpStream,
     cfg: &BanexusConfig,
 ) -> anyhow::Result<()> {
-    // Handshake inicial
+    // Handshake inicial (newline-terminated — protocolo banexus↔bhnexus)
     let handshake = json!({
         "type": "handshake",
         "node_id": cfg.agente.node_id,
@@ -50,6 +50,7 @@ async fn sesion(
     .to_string();
 
     stream.write_all(handshake.as_bytes()).await?;
+    stream.write_u8(b'\n').await?;
 
     let mut buf = vec![0u8; 1024];
     let n = stream.read(&mut buf).await?;

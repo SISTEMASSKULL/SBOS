@@ -1,11 +1,15 @@
 //! Puerta 1 — listener TCP 9444 para banexus-daemon y banexus-gateway.
+//! Protocolo: JSON newline-delimited (\n al final de cada mensaje).
+//! Tipos de mensaje aceptados: handshake · heartbeat · rpc_call.
+//! rpc_call → proxy a bAuth socket → rpc_response de vuelta al agente.
 //! Etapa 1: TLS con dev CA autofirmada. Etapa 3: SPIFFE/SVID.
 //! SSOT: BnexusAgent/context/Documentacion/2.01_MANUAL-PUERTA-1-AGENTES.md
 
 use crate::auth::DevCa;
 use crate::node::RegistroNodos;
+use crate::server::bauth_proxy;
 use serde_json::{json, Value};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpListener;
 use tracing::{error, info, warn};
 use uuid::Uuid;
@@ -15,6 +19,7 @@ pub async fn escuchar(
     puerto: u16,
     _dev_ca: DevCa,
     registro: RegistroNodos,
+    bauth_socket: String,
 ) -> anyhow::Result<()> {
     let addr = format!("0.0.0.0:{puerto}");
     let listener = TcpListener::bind(&addr).await?;
@@ -22,11 +27,12 @@ pub async fn escuchar(
 
     loop {
         match listener.accept().await {
-            Ok((mut stream, peer_addr)) => {
+            Ok((stream, peer_addr)) => {
                 let reg = registro.clone();
                 let addr_str = peer_addr.to_string();
+                let socket = bauth_socket.clone();
                 tokio::spawn(async move {
-                    if let Err(e) = manejar_agente(&mut stream, addr_str, reg).await {
+                    if let Err(e) = manejar_agente(stream, addr_str, reg, socket).await {
                         error!(error = %e, "Error en agente Puerta 1");
                     }
                 });
@@ -36,29 +42,39 @@ pub async fn escuchar(
     }
 }
 
-/// Protocolo mínimo Etapa 1: recibe JSON, procesa heartbeat y auth.
+/// Gestiona un agente banexus con protocolo newline-delimited.
 async fn manejar_agente(
-    stream: &mut tokio::net::TcpStream,
+    stream: tokio::net::TcpStream,
     addr: String,
     registro: RegistroNodos,
+    bauth_socket: String,
 ) -> anyhow::Result<()> {
-    // Registro del nodo al conectarse (modo desconocido hasta handshake).
     let node_id = registro.registrar(addr.clone(), "desconocido".into()).await;
     info!(node_id = %node_id, addr = %addr, "Agente banexus conectado");
 
-    let mut buf = vec![0u8; 4096];
+    let (read_half, mut write_half) = stream.into_split();
+    let mut lector = BufReader::new(read_half);
+    let mut linea = String::new();
+
     loop {
-        let n = stream.read(&mut buf).await?;
+        linea.clear();
+        let n = lector.read_line(&mut linea).await?;
         if n == 0 {
-            // Conexión cerrada limpiamente.
             registro.remover(&node_id).await;
             info!(node_id = %node_id, "Agente desconectado");
             return Ok(());
         }
 
-        let texto = std::str::from_utf8(&buf[..n]).unwrap_or("");
-        let respuesta = procesar_mensaje(texto, &node_id, &registro).await;
-        stream.write_all(respuesta.as_bytes()).await?;
+        let texto = linea.trim_end_matches(['\n', '\r']).trim();
+        if texto.is_empty() {
+            continue;
+        }
+
+        let respuesta =
+            procesar_mensaje(texto, &node_id, &registro, &bauth_socket).await;
+        // Respuesta newline-terminated
+        write_half.write_all(respuesta.as_bytes()).await?;
+        write_half.write_u8(b'\n').await?;
     }
 }
 
@@ -67,6 +83,7 @@ async fn procesar_mensaje(
     texto: &str,
     node_id: &Uuid,
     registro: &RegistroNodos,
+    bauth_socket: &str,
 ) -> String {
     let Ok(msg) = serde_json::from_str::<Value>(texto) else {
         return json!({"error": "JSON inválido"}).to_string();
@@ -77,10 +94,13 @@ async fn procesar_mensaje(
             registro.actualizar_ping(node_id).await;
             json!({"type": "pong", "node_id": node_id}).to_string()
         }
+
         Some("handshake") => {
-            // Etapa 1: acepta cualquier handshake — GRANTED.
-            let modo = msg.get("modo").and_then(Value::as_str).unwrap_or("daemon").to_string();
-            // Actualizar modo en el registro tras handshake.
+            let modo = msg
+                .get("modo")
+                .and_then(Value::as_str)
+                .unwrap_or("daemon")
+                .to_string();
             registro.actualizar_modo(node_id, modo.clone()).await;
             json!({
                 "type": "handshake_ok",
@@ -91,6 +111,37 @@ async fn procesar_mensaje(
             })
             .to_string()
         }
+
+        Some("rpc_call") => {
+            // Extraer el payload JSON-RPC que viene del desktop Flutter
+            let payload = match msg.get("payload") {
+                Some(p) => p.clone(),
+                None => {
+                    return json!({"type":"rpc_error","error":"campo 'payload' ausente"})
+                        .to_string();
+                }
+            };
+            let seq = msg.get("seq").cloned().unwrap_or(json!(null));
+
+            match bauth_proxy::llamar_bauth(bauth_socket, &payload).await {
+                Ok(resp) => json!({
+                    "type": "rpc_response",
+                    "payload": resp,
+                    "seq": seq,
+                })
+                .to_string(),
+                Err(e) => {
+                    warn!(error = %e, "Error proxying a bAuth");
+                    json!({
+                        "type": "rpc_error",
+                        "error": e.to_string(),
+                        "seq": seq,
+                    })
+                    .to_string()
+                }
+            }
+        }
+
         _ => json!({"error": "tipo de mensaje desconocido"}).to_string(),
     }
 }

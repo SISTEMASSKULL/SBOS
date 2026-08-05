@@ -27,7 +27,9 @@ pub async fn ejecutar(stream: &mut TcpStream, node_id: &str) -> anyhow::Result<(
         })
         .to_string();
 
+        // Newline-terminated — protocolo banexus↔bhnexus
         stream.write_all(ping.as_bytes()).await?;
+        stream.write_u8(b'\n').await?;
         debug!(node_id = %node_id, "Ping enviado");
 
         // Esperamos pong con timeout — si no llega, terminamos la sesión.
