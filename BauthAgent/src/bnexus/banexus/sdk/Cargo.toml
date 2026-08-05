@@ -5,6 +5,7 @@
 
 [package]
 name        = "bauth_nexus"
+build       = "build.rs"
 description = "banexus SDK — DLL FFI para Flutter desktop"
 version.workspace     = true
 edition.workspace     = true

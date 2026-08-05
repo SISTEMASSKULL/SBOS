@@ -15,6 +15,17 @@
 mod ffi;
 mod protocolo;
 
+// ─── Directivas de exportación PE (Windows) ──────────────────
+// La sección .drectve incrusta directivas de linker en el COFF object.
+// El linker lee esta sección y añade las funciones a la PE export table.
+// Necesario porque cargo-zigbuild (zig/lld MinGW) no procesa .def externos
+// y #[no_mangle] pub extern "C" no setea __declspec(dllexport) en GNU target.
+// Tipo [u8; 114]: los bytes van directo a .drectve (no un fat pointer).
+#[cfg(target_os = "windows")]
+#[link_section = ".drectve"]
+#[used]
+static DRECTVE: [u8; 114] = *b" /EXPORT:banexus_init /EXPORT:banexus_llamar /EXPORT:banexus_liberar /EXPORT:banexus_estado /EXPORT:banexus_cerrar";
+
 use serde_json::{json, Value};
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;

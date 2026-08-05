@@ -2,8 +2,8 @@
 // bauth_desktop · widgets/panel_conexion.dart
 //
 // Propósito: panel de conexión al daemon bAuth.
-//   Transporte único: banexus daemon local (127.0.0.1:9446).
-//   Flutter → banexus → bhnexus (servidor) → bAuth (Unix socket).
+//   Transporte único: banexus.dll (FFI) → bhnexus (13.140.128.230:9444) → bAuth.
+//   Flutter → banexus.dll → bhnexus remoto → bAuth (Unix socket).
 //   El usuario solo prueba la conexión — no configura nada.
 //
 // Dependencias: flutter_riverpod, tf_shadcn_flutter,
@@ -66,7 +66,7 @@ class PanelConexion extends ConsumerWidget {
                               fontSize: 12 * s,
                               fontWeight: FontWeight.w600,
                               color: cs.foreground)),
-                      Text('127.0.0.1:9446 → bhnexus → bAuth',
+                      Text('13.140.128.230:9444 → bAuth',
                           style: TextStyle(
                               fontFamily: 'monospace',
                               fontSize: 10 * s,

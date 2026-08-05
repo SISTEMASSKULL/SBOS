@@ -1,0 +1,11 @@
+; banexus.def — Tabla de exportación explícita para Windows PE.
+; Necesario con cargo-zigbuild (Zig/lld) que no genera entradas PE export
+; automáticamente para pub extern "C" de Rust.
+; Referenciado desde build.rs vía cargo:rustc-link-arg.
+
+EXPORTS
+    banexus_init
+    banexus_llamar
+    banexus_liberar
+    banexus_estado
+    banexus_cerrar
