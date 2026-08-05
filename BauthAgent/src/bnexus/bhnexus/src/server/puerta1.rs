@@ -79,7 +79,9 @@ async fn procesar_mensaje(
         }
         Some("handshake") => {
             // Etapa 1: acepta cualquier handshake — GRANTED.
-            let modo = msg.get("modo").and_then(Value::as_str).unwrap_or("daemon");
+            let modo = msg.get("modo").and_then(Value::as_str).unwrap_or("daemon").to_string();
+            // Actualizar modo en el registro tras handshake.
+            registro.actualizar_modo(node_id, modo.clone()).await;
             json!({
                 "type": "handshake_ok",
                 "node_id": node_id,

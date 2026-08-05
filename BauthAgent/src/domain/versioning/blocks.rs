@@ -103,6 +103,7 @@ struct EntradaBloqueCruda {
 
 #[derive(Debug, Deserialize)]
 struct ConfigBloquesCruda {
+    #[serde(default)]
     campo: Vec<EntradaBloqueCruda>,
 }
 

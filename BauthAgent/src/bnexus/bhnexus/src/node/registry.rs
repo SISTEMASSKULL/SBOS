@@ -57,6 +57,13 @@ impl RegistroNodos {
         }
     }
 
+    /// Actualiza el modo (daemon|gateway) tras el handshake.
+    pub async fn actualizar_modo(&self, node_id: &Uuid, modo: String) {
+        if let Some(nodo) = self.nodos.write().await.get_mut(node_id) {
+            nodo.modo = modo;
+        }
+    }
+
     /// Elimina un nodo al desconectarse.
     pub async fn remover(&self, node_id: &Uuid) {
         self.nodos.write().await.remove(node_id);
