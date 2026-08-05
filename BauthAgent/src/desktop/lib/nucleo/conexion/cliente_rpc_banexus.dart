@@ -2,9 +2,9 @@
 // bauth_desktop · nucleo/conexion/cliente_rpc_banexus.dart
 //
 // Propósito: adaptador IClienteRpc → BanexusCliente (libs/bauth_nexus/).
-//   La lógica de transporte reside en la DLL banexus (Rust, dart:ffi).
+//   El protocolo de transporte es implementado por el binario banexus (Rust).
 //   Este archivo no implementa ninguna lógica de transporte — solo adapta
-//   la interfaz IClienteRpc al cliente FFI de la librería bauth_nexus.
+//   la interfaz IClienteRpc al cliente TCP de la librería bauth_nexus.
 //
 // Dependencias: cliente_rpc (IClienteRpc), libs/bauth_nexus/cliente.dart.
 // Estándar: JSON-RPC 2.0 · ADR-020 · SBOS-NEXUS-CONCEPTUALIZACION-v3_0 §24.3.
@@ -15,17 +15,16 @@ import 'dart:async';
 import '../../libs/bauth_nexus/cliente.dart';
 import 'cliente_rpc.dart';
 
-/// Adaptador IClienteRpc que delega a la DLL banexus (FFI Rust).
+/// Adaptador IClienteRpc que delega al binario banexus (proceso Rust).
 ///
 /// Toda la lógica de transporte (TCP a bhnexus, handshake, proxy a bAuth)
-/// reside en la DLL banexus. Este adaptador solo convierte BanexusCliente
+/// reside en el binario banexus. Este adaptador solo convierte BanexusCliente
 /// al contrato IClienteRpc que el resto de la app utiliza.
 class ClienteRpcBanexus implements IClienteRpc {
   final BanexusCliente _banexus;
 
-  /// [bhnexusAddr] = "host:puerto" del servidor bhnexus Puerta 1.
-  ClienteRpcBanexus({String bhnexusAddr = '13.140.128.230:9444'})
-      : _banexus = BanexusCliente(bhnexusAddr: bhnexusAddr);
+  ClienteRpcBanexus({String host = '127.0.0.1', int puerto = 9446})
+      : _banexus = BanexusCliente(host: host, puerto: puerto);
 
   @override
   Stream<EstadoConexion> get estado => _banexus.estadoStream.map(_mapearEstado);

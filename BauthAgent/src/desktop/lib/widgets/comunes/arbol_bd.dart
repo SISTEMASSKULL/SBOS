@@ -6,7 +6,7 @@
 //   ViewModel (_ArbolBDViewModel extends ChangeNotifier):
 //     Dueño único del estado — cargando, error, árbol en memoria,
 //     nodos expandidos, lista visible, selección.
-//     Carga TODOS los nodos en UN solo ejecutarCmd vía banexus.
+//     Carga TODOS los nodos en UN solo ejecutarCmd (una SSH exec).
 //     Expansiones posteriores son O(visibles) en memoria pura — sin red.
 //
 //   View (ArbolBD + _FilaNodo):

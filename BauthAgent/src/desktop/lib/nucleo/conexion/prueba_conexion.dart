@@ -2,7 +2,7 @@
 // bauth_desktop · nucleo/conexion/prueba_conexion.dart
 //
 // Propósito: health check contra bAuth real usando el cliente activo.
-//   Usa clienteRpcActivoProvider (siempre banexus).
+//   Usa clienteRpcActivoProvider: SSH exec si hay túnel SSH activo,
 //   TCP si está en modo directo. Expone el resultado para la UI.
 //
 // Dependencias: flutter_riverpod, proveedor_conexion.
@@ -37,18 +37,18 @@ class PruebaConexionNotifier extends Notifier<ResultadoConexion> {
   @override
   ResultadoConexion build() => ResultadoConexion.inicial;
 
-  /// Publica un error sin ejecutar la prueba.
+  /// Publica un error sin ejecutar la prueba (usado por el túnel SSH).
   void establecerError(String mensaje) {
     state = ResultadoConexion(FaseConexion.fallida, mensaje);
   }
 
   /// Conecta usando el cliente activo y ejecuta bauth.health.check.
-  /// Usa el cliente RPC activo (banexus).
+  /// Usa SSH exec si hay un ClienteRpcSsh activo; TCP si no.
   Future<void> probar() async {
     state = const ResultadoConexion(FaseConexion.probando, 'Conectando…');
     final cliente = ref.read(clienteRpcActivoProvider);
     try {
-      await cliente.conectar();
+      await cliente.conectar(); // no-op para SSH
       final r = await cliente.llamar('bauth.health.check');
       final version = r['version'] ?? '?';
       final status = r['status'] ?? '?';
@@ -62,7 +62,7 @@ class PruebaConexionNotifier extends Notifier<ResultadoConexion> {
     } catch (e) {
       state = ResultadoConexion(FaseConexion.fallida, e.toString());
     }
-    // Mantener la conexión persistente de banexus activa.
+    // No desconectar: SSH exec no tiene estado persistente
     //                 TCP: el cliente compartido permanece conectado para reutilizar
   }
 }
