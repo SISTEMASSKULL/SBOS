@@ -5,9 +5,9 @@
 //   de la conexión a bAuth: config → ClienteRpcBanexus → BauthApi.
 //   La UI observa el estado y se actualiza automáticamente.
 //
-//   Transporte único: banexus local API (127.0.0.1:9446).
-//     Flutter → banexus.exe → bhnexus Puerta 1 → bAuth Unix socket.
-//     No existe modo SSH ni TCP directo (ADR-020, SBOS-NEXUS §24.3).
+//   Transporte único: DLL banexus (dart:ffi).
+//     Flutter → banexus.dll → bhnexus Puerta 1 → bAuth Unix socket.
+//     No existe modo SSH ni proceso externo (ADR-020, SBOS-NEXUS §24.3).
 //
 // Dependencias: flutter_riverpod, cliente_rpc_banexus, config_conexion, bauth_api.
 // Estándar: JSON-RPC 2.0 · Riverpod 3.x · ADR-020 · DOC-SBOS-001 N3.
@@ -16,7 +16,6 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../libs/bauth_nexus/launcher.dart';
 import 'cliente_rpc.dart';
 import 'cliente_rpc_banexus.dart';
 import 'config_conexion.dart';
@@ -27,14 +26,12 @@ import '../dominio/config_tipo_nodo.dart';
 // Transporte único: banexus local API
 // ═══════════════════════════════════════════════════════════
 
-/// Provider del cliente JSON-RPC via banexus local API.
-/// Transporte canónico: Flutter → banexus → bhnexus → bAuth.
+/// Provider del cliente JSON-RPC via DLL banexus (FFI).
+/// Transporte canónico: Flutter → banexus.dll → bhnexus → bAuth.
 final clienteRpcBanexusProvider = Provider<ClienteRpcBanexus>((ref) {
-  final cfg = ref.watch(configConexionProvider);
-  final cliente = ClienteRpcBanexus(
-    host: cfg.banexusHost,
-    puerto: cfg.banexusPuerto,
-  );
+  final cfg    = ref.watch(configConexionProvider);
+  final addr   = '${cfg.banexusHost}:${cfg.banexusPuerto}';
+  final cliente = ClienteRpcBanexus(bhnexusAddr: addr);
   ref.onDispose(() => cliente.dispose());
   return cliente;
 });
@@ -104,13 +101,9 @@ final templatesProvider = FutureProvider<List<RolTemplate>>((ref) async {
   return api.listarTemplates();
 });
 
-/// Auto-arranque de banexus + conexión al iniciar la app.
-/// El usuario final no hace nada — banexus.exe se lanza solo si no está corriendo.
+/// Inicialización de la DLL banexus y conexión al arrancar la app.
+/// El usuario solo ejecuta el .exe — la DLL se carga automáticamente.
 final autoConexionProvider = FutureProvider<void>((ref) async {
-  final cfg  = ref.watch(configConexionProvider);
-  final launcher = BanexusLauncher(host: cfg.banexusHost, puerto: cfg.banexusPuerto);
-  // Si banexus no responde, lo lanza desde el directorio del exe de la app.
-  await launcher.asegurarCorriendo();
   final control = ref.watch(controlConexionProvider);
   await control.conectar();
 });

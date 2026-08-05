@@ -1,12 +1,11 @@
-# banexus-sdk — libbauth_nexus · SBOS
-# Librería nativa (iOS Swift Package / Android AAR) — Aliro CSA 2023: BLE + UWB + NFC
-# Miembro del workspace: src/bnexus/banexus/Cargo.toml
-# STUB Etapa 1: estructura declarada, implementación en Etapa 3
+# banexus-sdk — DLL para Flutter desktop (dart:ffi)
+# Produce banexus.dll (Windows) / libbanexus.so (Linux) / libbanexus.dylib (macOS).
+# Flutter la carga con DynamicLibrary.open() — sin proceso separado, sin puerto TCP local.
 # SSOT: SBOS-NEXUS-CONCEPTUALIZACION-v3_0.md §24.3
 
 [package]
 name        = "bauth_nexus"
-description = "libbauth_nexus — SDK Aliro BLE+UWB+NFC para iOS/Android (Etapa 3)"
+description = "banexus SDK — DLL FFI para Flutter desktop"
 version.workspace     = true
 edition.workspace     = true
 authors.workspace     = true
@@ -15,10 +14,11 @@ publish.workspace     = true
 rust-version.workspace = true
 
 [lib]
-name       = "bauth_nexus"
-crate-type = ["cdylib", "staticlib"]
+name       = "banexus"
+crate-type = ["cdylib"]
 
 [dependencies]
-serde.workspace      = true
-serde_json.workspace = true
-thiserror.workspace  = true
+tokio      = { workspace = true }
+serde_json = { workspace = true }
+anyhow     = { workspace = true }
+tracing    = { workspace = true }

@@ -2,9 +2,9 @@
 // bauth_desktop · nucleo/conexion/config_conexion.dart
 //
 // Propósito: configuración de conexión al daemon bAuth.
-//   Transporte primario: banexus local API (127.0.0.1:9446).
-//     Flutter → banexus-daemon → bhnexus Puerta 1 → bAuth socket.
-//   Transporte secundario: TCP directo (para pruebas o fallback).
+//   Transporte primario: DLL banexus (dart:ffi).
+//     Flutter → banexus.dll → bhnexus Puerta 1 → bAuth socket.
+//   banexusHost:banexusPuerto = dirección del servidor bhnexus Puerta 1.
 // Dependencias: flutter_riverpod.
 // Estándar: ADR-020 (Interface Dual) · SBOS-NEXUS §24.3.
 // ============================================================
@@ -13,10 +13,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Datos de conexión al servidor bAuth.
 class ConfigConexion {
-  /// Host de banexus local API — siempre loopback en producción.
+  /// Host del servidor bhnexus Puerta 1 (Rust, TCP).
   final String banexusHost;
 
-  /// Puerto de banexus local API (SBOS-050: rango 9400-9499).
+  /// Puerto del servidor bhnexus Puerta 1 (SBOS-050: rango 9400-9499).
   final int banexusPuerto;
 
   /// Host TCP directo (solo fallback / pruebas).
@@ -26,8 +26,8 @@ class ConfigConexion {
   final int puerto;
 
   const ConfigConexion({
-    this.banexusHost = '127.0.0.1',
-    this.banexusPuerto = 9446,
+    this.banexusHost = '13.140.128.230',
+    this.banexusPuerto = 9444,
     this.host = 'localhost',
     this.puerto = 9450,
   });

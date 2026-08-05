@@ -53,9 +53,10 @@ dependencies = [
 name = "bauth_nexus"
 version = "0.1.0"
 dependencies = [
- "serde",
+ "anyhow",
  "serde_json",
- "thiserror 2.0.19",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

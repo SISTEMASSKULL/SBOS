@@ -17,6 +17,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tf_shadcn_flutter/shadcn_flutter.dart';
 
+import '../nucleo/conexion/cliente_rpc.dart';
 import '../nucleo/conexion/proveedor_conexion.dart';
 import '../nucleo/conexion/prueba_conexion.dart';
 import 'boton_primario.dart';
@@ -37,8 +38,8 @@ class PanelConexion extends ConsumerWidget {
     final resultado = ref.watch(pruebaConexionProvider);
     final probando  = resultado.fase == FaseConexion.probando;
 
-    final conectado = estado.valueOrNull == EstadoConexion.conectado;
-    final conectando = estado.valueOrNull == EstadoConexion.conectando || probando;
+    final conectado = estado.value == EstadoConexion.conectado;
+    final conectando = estado.value == EstadoConexion.conectando || probando;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -122,7 +123,7 @@ class _IndicadorEstado extends StatelessWidget {
         ? LucideIcons.plugZap
         : conectando
             ? LucideIcons.loader
-            : LucideIcons.plugZapOff;
+            : LucideIcons.unplug;
 
     return Row(children: [
       Icon(icono, size: 13 * s, color: color),
