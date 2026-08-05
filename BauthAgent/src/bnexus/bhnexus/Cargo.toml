@@ -1,0 +1,35 @@
+# bhnexus — Nexus Host · SBOS
+# Puerto 9444 (Puerta 1 banexus agents) + /run/bos/bhnexus.sock (Interface Dual ADR-020)
+# Miembro del workspace: src/bnexus/Cargo.toml
+
+[package]
+name        = "bhnexus"
+description = "Nexus Host — broker WebSocket, Puerta 1 banexus agents, Interface Dual"
+version.workspace     = true
+edition.workspace     = true
+authors.workspace     = true
+license.workspace     = true
+publish.workspace     = true
+rust-version.workspace = true
+
+[[bin]]
+name = "bhnexus"
+path = "src/main.rs"
+
+[dependencies]
+tokio.workspace              = true
+tokio-tungstenite.workspace  = true
+futures-util.workspace       = true
+rustls.workspace             = true
+tokio-rustls.workspace       = true
+rcgen.workspace              = true
+serde.workspace              = true
+serde_json.workspace         = true
+toml.workspace               = true
+tracing.workspace            = true
+tracing-subscriber.workspace = true
+uuid.workspace               = true
+chrono.workspace             = true
+thiserror.workspace          = true
+anyhow.workspace             = true
+base64.workspace             = true

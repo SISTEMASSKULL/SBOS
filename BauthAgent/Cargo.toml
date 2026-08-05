@@ -6,6 +6,10 @@
 #       SBOS-BAUTH-EVALUACION-INTEGRAL-v2.2.md
 # Modelo BitMask Dual: AtomBitMask (64-bit label) + RolBitMask (N-bit one-hot). SAM-128 ELIMINADO.
 
+# bnexus y desktop tienen su propio sistema de build en src/bnexus/ y src/desktop/
+[workspace]
+exclude = ["src/bnexus", "src/desktop", "tools"]
+
 [package]
 name = "bauth"
 version = "3.0.0"

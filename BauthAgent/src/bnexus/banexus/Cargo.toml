@@ -1,0 +1,52 @@
+# banexus workspace — Nexus Agent · SBOS
+# daemon/ = binario único banexus-daemon y banexus-gateway (mode en config)
+# sdk/    = libbauth_nexus (iOS/Android, Aliro BLE+UWB+NFC) — Etapa 3
+# Para construir: cd src/bnexus/banexus && cargo build -p banexus
+# SSOT: SBOS-NEXUS-CONCEPTUALIZACION-v3_0.md §24.1-§24.3
+
+[workspace]
+members  = ["daemon", "sdk"]
+resolver = "2"
+
+[workspace.package]
+version      = "0.1.0"
+edition      = "2021"
+authors      = ["SKULL <sistemas@skull.com.bo>"]
+license      = "LicenseRef-SBOS-Proprietary"
+publish      = false
+rust-version = "1.85"
+
+[workspace.dependencies]
+# === Async Runtime ===
+tokio             = { version = "1.45", features = ["full"] }
+tokio-tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots"] }
+
+# === TLS (mTLS Puerta 1) ===
+rustls       = { version = "0.23", features = ["ring"] }
+tokio-rustls = "0.26"
+rcgen        = "0.13"
+
+# === Serialización ===
+serde      = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml       = "0.8"
+
+# === Logging ===
+tracing            = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# === Utilidades ===
+uuid      = { version = "1", features = ["v4", "serde"] }
+chrono    = { version = "0.4", features = ["serde"] }
+thiserror = "2"
+anyhow    = "1"
+
+[profile.release]
+opt-level     = "z"
+lto           = true
+codegen-units = 1
+panic         = "abort"
+strip         = true
+
+[profile.dev]
+opt-level = 1

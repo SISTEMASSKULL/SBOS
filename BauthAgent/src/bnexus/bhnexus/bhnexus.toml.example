@@ -1,0 +1,19 @@
+# bhnexus.toml — Configuración del Nexus Host
+# Copiar a /etc/bhnexus/bhnexus.toml y ajustar para el entorno
+
+[servidor]
+# Socket Unix para Interface Dual (ADR-020): WebSocket RPC + JSON-RPC 2.0
+socket_unix   = "/run/bos/bhnexus.sock"
+# Puerto TCP para Puerta 1 — banexus-daemon y banexus-gateway (SBOS-050)
+puerto_puerta1 = 9444
+
+[dev]
+# ETAPA 1 ÚNICAMENTE — PROHIBIDO en producción (validado al arrancar)
+dev_mode    = true
+dev_ca_cert = "/etc/bhnexus/dev/ca.crt"
+dev_ca_key  = "/etc/bhnexus/dev/ca.key"
+
+[bauth]
+# Socket Unix de bAuth para obtener JWKS (bauth.token.jwks — RFC 7517)
+jwks_socket = "/run/bos/bauth.sock"
+jwks_method = "bauth.token.jwks"
