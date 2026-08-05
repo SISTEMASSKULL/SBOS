@@ -26,6 +26,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tf_shadcn_flutter/shadcn_flutter.dart';
 
+import '../widgets/comunes/etiqueta_codigo.dart';
 import '../widgets/comunes/indicador_procesamiento.dart';
 
 import '../datos/arbol_datos.dart';
@@ -191,47 +192,53 @@ class _VistaRolTemplateState extends ConsumerState<VistaRolTemplate> {
         Expanded(
           child: Row(
             children: [
-              const _PanelVocabulario(),
+              const SeccionConCodigo('V-RT:VOC', child: _PanelVocabulario()),
               Expanded(
-                child: Container(
-                  color: cs.background,
-                  child: Column(
-                    children: [
-                      TiraTabs(
-                        tabs: const [
-                          'Árbol Fuente',
-                          'Árbol AtomLang',
-                          'Árbol Compilado',
-                        ],
-                        activa: _tabArbol,
-                        alSeleccionar: _cambiarTab,
-                      ),
-                      Expanded(child: _contenidoTab(cs)),
-                      if (_tabArbol == 1) _BarraDiagnosticos(cs: cs),
-                      if (_tabArbol == 1) ...[
-                        ListenableBuilder(
-                          listenable: Listenable.merge(
-                              [_rutaNotifier, _copiadoNotifier]),
-                          builder: (_, _) => _BarraRuta(
-                            ruta: _rutaNotifier.value,
-                            copiado: _copiadoNotifier.value,
-                            alCopiar: _copiarRuta,
+                child: SeccionConCodigo(
+                  'V-RT:CNT',
+                  child: Container(
+                    color: cs.background,
+                    child: Column(
+                      children: [
+                        TiraTabs(
+                          tabs: const [
+                            'Árbol Fuente',
+                            'Árbol AtomLang',
+                            'Árbol Compilado',
+                          ],
+                          activa: _tabArbol,
+                          alSeleccionar: _cambiarTab,
+                        ),
+                        Expanded(child: _contenidoTab(cs)),
+                        if (_tabArbol == 1) _BarraDiagnosticos(cs: cs),
+                        if (_tabArbol == 1) ...[
+                          ListenableBuilder(
+                            listenable: Listenable.merge(
+                                [_rutaNotifier, _copiadoNotifier]),
+                            builder: (_, _) => _BarraRuta(
+                              ruta: _rutaNotifier.value,
+                              copiado: _copiadoNotifier.value,
+                              alCopiar: _copiarRuta,
+                            ),
                           ),
-                        ),
-                        ValueListenableBuilder<NodoTemplate?>(
-                          valueListenable: _seleccionNotifier,
-                          builder: (_, nodo, _) => PanelHelp(nodo: nodo),
-                        ),
+                          ValueListenableBuilder<NodoTemplate?>(
+                            valueListenable: _seleccionNotifier,
+                            builder: (_, nodo, _) => PanelHelp(nodo: nodo),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ),
-              const PanelLateral(
-                titulo: 'Políticas',
-                conteo: 'dominio',
-                lado: LadoPanel.derecho,
-                child: ArbolSbos(nodos: arbolPoliticas),
+              const SeccionConCodigo(
+                'V-RT:POL',
+                child: PanelLateral(
+                  titulo: 'Políticas',
+                  conteo: 'dominio',
+                  lado: LadoPanel.derecho,
+                  child: ArbolSbos(nodos: arbolPoliticas),
+                ),
               ),
             ],
           ),

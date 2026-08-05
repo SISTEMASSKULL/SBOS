@@ -15,6 +15,7 @@ import 'package:tf_shadcn_flutter/shadcn_flutter.dart';
 
 import '../../datos/menu_datos.dart';
 import '../../nucleo/sidenav_provider.dart';
+import '../comunes/etiqueta_codigo.dart';
 import '../menu/fila_menu.dart';
 
 /// Bloque lateral izquierdo, expandible/colapsable (estado en el provider).
@@ -38,43 +39,49 @@ class BloqueLateralIzquierdo extends ConsumerWidget {
       child: ClipRect(
         child: Column(
           children: [
-            _Encabezado(expandido: expandido, alAlternar: nav.alternarIzq),
+            SeccionConCodigo('G-SN:H', child: _Encabezado(expandido: expandido, alAlternar: nav.alternarIzq)),
             Expanded(
               child: Column(
                 children: [
                   Expanded(
-                    child: SingleChildScrollView(
-                      padding: EdgeInsets.symmetric(horizontal: 10 * s, vertical: 12 * s),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          for (final g in gruposMenu) ...[
-                            if (expandido) _TituloGrupo(titulo: g.titulo) else SizedBox(height: 8 * s),
-                            for (final it in g.items)
-                              FilaMenu(
-                                item: it,
-                                expandido: expandido,
-                                activo: it.ruta == ruta,
-                                alTocar: () => nav.seleccionarRuta(it.ruta),
-                              ),
+                    child: SeccionConCodigo(
+                      'G-SN:NAV',
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.symmetric(horizontal: 10 * s, vertical: 12 * s),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            for (final g in gruposMenu) ...[
+                              if (expandido) _TituloGrupo(titulo: g.titulo) else SizedBox(height: 8 * s),
+                              for (final it in g.items)
+                                FilaMenu(
+                                  item: it,
+                                  expandido: expandido,
+                                  activo: it.ruta == ruta,
+                                  alTocar: () => nav.seleccionarRuta(it.ruta),
+                                ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
                     ),
                   ),
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(10 * s, 4 * s, 10 * s, 8 * s),
-                    child: FilaMenu(
-                      item: itemConfiguracion,
-                      expandido: expandido,
-                      activo: itemConfiguracion.ruta == ruta,
-                      alTocar: () => nav.seleccionarRuta(itemConfiguracion.ruta),
+                  SeccionConCodigo(
+                    'G-SN:CFG',
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(10 * s, 4 * s, 10 * s, 8 * s),
+                      child: FilaMenu(
+                        item: itemConfiguracion,
+                        expandido: expandido,
+                        activo: itemConfiguracion.ruta == ruta,
+                        alTocar: () => nav.seleccionarRuta(itemConfiguracion.ruta),
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
-            _Pie(expandido: expandido),
+            SeccionConCodigo('G-SN:F', child: _Pie(expandido: expandido)),
           ],
         ),
       ),

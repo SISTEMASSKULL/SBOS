@@ -18,6 +18,7 @@ import 'package:tf_shadcn_flutter/shadcn_flutter.dart';
 
 import '../nucleo/api/bauth_api.dart';
 import '../nucleo/conexion/proveedor_conexion.dart';
+import '../widgets/comunes/etiqueta_codigo.dart';
 
 // ═══════════════════════════════════════════════════════════
 // Vista principal
@@ -40,16 +41,19 @@ class _VistaEntidadesState extends ConsumerState<VistaEntidades> {
       children: [
         SizedBox(
           width: 340 * s,
-          child: _PanelArbol(
-            seleccionada: _seleccionada,
-            onSeleccion: (e) => setState(() => _seleccionada = e),
+          child: SeccionConCodigo(
+            'V-AE:ARB',
+            child: _PanelArbol(
+              seleccionada: _seleccionada,
+              onSeleccion: (e) => setState(() => _seleccionada = e),
+            ),
           ),
         ),
         Container(width: 1, color: Theme.of(context).colorScheme.border),
         Expanded(
           child: _seleccionada == null
-              ? const _SinSeleccion()
-              : _PanelDetalle(entidad: _seleccionada!),
+              ? const SeccionConCodigo('V-AE:EMPTY', child: _SinSeleccion())
+              : SeccionConCodigo('V-AE:DET', child: _PanelDetalle(entidad: _seleccionada!)),
         ),
       ],
     );

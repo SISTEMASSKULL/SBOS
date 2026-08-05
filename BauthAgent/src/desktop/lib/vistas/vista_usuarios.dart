@@ -14,6 +14,7 @@ import 'package:tf_shadcn_flutter/shadcn_flutter.dart';
 
 import '../nucleo/api/bauth_api.dart';
 import '../nucleo/conexion/proveedor_conexion.dart';
+import '../widgets/comunes/etiqueta_codigo.dart';
 
 /// Vista principal de Usuarios.
 class VistaUsuarios extends ConsumerStatefulWidget {
@@ -33,18 +34,21 @@ class _VistaUsuariosState extends ConsumerState<VistaUsuarios> {
       children: [
         SizedBox(
           width: 320 * s,
-          child: _PanelLista(
-            busqueda: _busqueda,
-            seleccionado: _seleccionado,
-            onBusqueda: (v) => setState(() { _busqueda = v; _seleccionado = null; }),
-            onSeleccion: (u) => setState(() => _seleccionado = u),
+          child: SeccionConCodigo(
+            'V-US:L',
+            child: _PanelLista(
+              busqueda: _busqueda,
+              seleccionado: _seleccionado,
+              onBusqueda: (v) => setState(() { _busqueda = v; _seleccionado = null; }),
+              onSeleccion: (u) => setState(() => _seleccionado = u),
+            ),
           ),
         ),
         Container(width: 1, color: Theme.of(context).colorScheme.border),
         Expanded(
           child: _seleccionado == null
-              ? _SinSeleccion()
-              : _PanelDetalle(usuario: _seleccionado!),
+              ? SeccionConCodigo('V-US:EMPTY', child: _SinSeleccion())
+              : SeccionConCodigo('V-US:DET', child: _PanelDetalle(usuario: _seleccionado!)),
         ),
       ],
     );

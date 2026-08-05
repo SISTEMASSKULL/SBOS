@@ -23,6 +23,7 @@ import 'package:tf_shadcn_flutter/shadcn_flutter.dart';
 
 import '../nucleo/api/bauth_api.dart';
 import '../nucleo/conexion/proveedor_conexion.dart';
+import '../widgets/comunes/etiqueta_codigo.dart';
 
 /// Orden canónico de tiers — de mayor a menor privilegio.
 const _ordenTiers = ['SU', 'SYS', 'BIZ_N5', 'BIZ_N4', 'BIZ_N3', 'BIZ_N2', 'BIZ_N1', 'EXT_N0', 'M2M', 'VISITANTE'];
@@ -62,17 +63,23 @@ class _VistaRolesState extends ConsumerState<VistaRoles> {
     final cs = Theme.of(context).colorScheme;
     return Row(
       children: [
-        _BloqueJerarquia(
-          rolActivo: _rolActivo,
-          alSeleccionar: _seleccionarRol,
-          alAutoSeleccionar: _seleccionarRol,
+        SeccionConCodigo(
+          'V-CR:ARB',
+          child: _BloqueJerarquia(
+            rolActivo: _rolActivo,
+            alSeleccionar: _seleccionarRol,
+            alAutoSeleccionar: _seleccionarRol,
+          ),
         ),
         Container(width: 1, color: cs.border),
         Expanded(
-          child: _BloqueEspecializacion(
-            rolActivo: _rolActivo,
-            alPublicar: _publicar,
-            alCancelar: _cancelar,
+          child: SeccionConCodigo(
+            'V-CR:ESP',
+            child: _BloqueEspecializacion(
+              rolActivo: _rolActivo,
+              alPublicar: _publicar,
+              alCancelar: _cancelar,
+            ),
           ),
         ),
       ],

@@ -15,6 +15,7 @@ import 'package:tf_shadcn_flutter/shadcn_flutter.dart';
 
 import '../nucleo/api/bauth_api.dart';
 import '../nucleo/conexion/proveedor_conexion.dart';
+import '../widgets/comunes/etiqueta_codigo.dart';
 
 /// Vista del Dashboard de Salud con datos reales del daemon.
 class VistaDashboard extends ConsumerWidget {
@@ -29,9 +30,9 @@ class VistaDashboard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _Cabecera(syncAsync: syncAsync),
+          SeccionConCodigo('V-DS:H', child: _Cabecera(syncAsync: syncAsync)),
           SizedBox(height: 16 * s),
-          _RejillaKpis(syncAsync: syncAsync),
+          SeccionConCodigo('V-DS:KPI', child: _RejillaKpis(syncAsync: syncAsync)),
         ],
       ),
     );
