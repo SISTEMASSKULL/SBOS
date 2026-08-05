@@ -15,16 +15,16 @@ import 'dart:async';
 import '../../libs/bauth_nexus/cliente.dart';
 import 'cliente_rpc.dart';
 
-/// Adaptador IClienteRpc que delega al binario banexus (proceso Rust).
+/// Adaptador IClienteRpc que delega a banexus.dll via FFI.
 ///
-/// Toda la lógica de transporte (TCP a bhnexus, handshake, proxy a bAuth)
-/// reside en el binario banexus. Este adaptador solo convierte BanexusCliente
+/// Toda la lógica de transporte (conexión a bhnexus, handshake, proxy a bAuth)
+/// reside en la DLL Rust. Este adaptador convierte BanexusCliente
 /// al contrato IClienteRpc que el resto de la app utiliza.
 class ClienteRpcBanexus implements IClienteRpc {
   final BanexusCliente _banexus;
 
-  ClienteRpcBanexus({String host = '127.0.0.1', int puerto = 9446})
-      : _banexus = BanexusCliente(host: host, puerto: puerto);
+  ClienteRpcBanexus({String bhnexusAddr = '13.140.128.230:9444'})
+      : _banexus = BanexusCliente(bhnexusAddr: bhnexusAddr);
 
   @override
   Stream<EstadoConexion> get estado => _banexus.estadoStream.map(_mapearEstado);

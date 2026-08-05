@@ -1,213 +1,153 @@
 // ============================================================
 // bauth_nexus · libs/bauth_nexus/cliente.dart
 //
-// Librería agnóstica — solo dart:io / dart:async / dart:convert.
-// No depende de Flutter, Riverpod ni ningún framework de UI.
+// Propósito: cliente FFI de banexus.dll para Flutter desktop.
+//   Carga banexus.dll (dart:ffi) y expone la misma interfaz que
+//   usaba el cliente TCP — sin proceso separado, sin puerto local.
 //
-// Propósito: cliente TCP al binario banexus (Rust).
-//   banexus-daemon escucha en 127.0.0.1:9446 (local_api).
-//   Protocolo: JSON-RPC 2.0 newline-delimited → banexus → bhnexus → bAuth.
+// Cadena: Flutter → banexus.dll (FFI) → bhnexus (TCP 9444) → bAuth.
 //
-//   La lógica de transporte (handshake, reconexión, bhnexus, bAuth)
-//   está íntegramente en el binario banexus (Rust). Este cliente
-//   solo abre un socket TCP y envía/recibe JSON estándar.
+// Las llamadas bloqueantes de Rust se ejecutan en Isolate.run()
+// para no bloquear el hilo de UI de Flutter.
 //
-// Uso:
-//   final c = BanexusCliente();
-//   await c.conectar();
-//   final resp = await c.llamar('bauth.health', {});
-//   c.cerrar();
+// Dependencias: dart:ffi, dart:isolate, dart:convert, package:ffi.
+// Estándar: SBOS-NEXUS §24.3 · ADR-020 · DOC-SBOS-001 N3.
 // ============================================================
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
+import 'dart:ffi';
+import 'dart:isolate';
 
-/// Error retornado por el binario banexus (campo 'error' en JSON-RPC 2.0).
+import 'package:ffi/ffi.dart';
+
+// ─── Tipos nativos FFI ────────────────────────────────────────
+
+typedef _InitNative   = Int32         Function(Pointer<Utf8>);
+typedef _InitDart     = int           Function(Pointer<Utf8>);
+typedef _LlamarNative = Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>);
+typedef _LlamarDart   = Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>);
+typedef _LiberarNative = Void         Function(Pointer<Utf8>);
+typedef _LiberarDart   = void         Function(Pointer<Utf8>);
+typedef _CerrarNative = Void          Function();
+typedef _CerrarDart   = void          Function();
+
+// ─── Enlace a banexus.dll ─────────────────────────────────────
+
+DynamicLibrary? _dll;
+_InitDart?    _fInit;
+_LlamarDart?  _fLlamar;
+_LiberarDart? _fLiberar;
+_CerrarDart?  _fCerrar;
+
+/// Carga banexus.dll y enlaza las funciones exportadas. Idempotente.
+void _enlazar() {
+  if (_dll != null) return;
+  _dll      = DynamicLibrary.open('banexus.dll');
+  _fInit    = _dll!.lookupFunction<_InitNative,    _InitDart>   ('banexus_init');
+  _fLlamar  = _dll!.lookupFunction<_LlamarNative,  _LlamarDart> ('banexus_llamar');
+  _fLiberar = _dll!.lookupFunction<_LiberarNative, _LiberarDart>('banexus_liberar');
+  _fCerrar  = _dll!.lookupFunction<_CerrarNative,  _CerrarDart> ('banexus_cerrar');
+}
+
+// ─── Helpers C-string ────────────────────────────────────────
+
+T _conPtr<T>(String s, T Function(Pointer<Utf8>) fn) {
+  final p = s.toNativeUtf8();
+  try { return fn(p); }
+  finally { malloc.free(p); }
+}
+
+// ─── Error y estado público ───────────────────────────────────
+
+/// Error retornado por banexus.dll (código + mensaje JSON-RPC 2.0).
 class BanexusError implements Exception {
-  final int code;
+  final int    code;
   final String message;
   const BanexusError(this.code, this.message);
   @override
   String toString() => 'BanexusError($code): $message';
 }
 
-/// Estados de la conexión TCP al binario banexus.
+/// Estado de la conexión de la DLL.
 enum EstadoBanexus { desconectado, conectando, conectado, error }
 
-/// Cliente TCP al binario banexus (proceso Rust independiente).
-///
-/// banexus-daemon corre en la misma máquina (o puede ser arrancado por
-/// [BanexusLauncher]) y expone su local_api en 127.0.0.1:9446.
-/// Este cliente envía llamadas JSON-RPC 2.0 al daemon y recibe respuestas.
-///
-/// Toda la lógica de transporte (conexión a bhnexus, handshake, proxy
-/// a bAuth) está en el binario Rust — este cliente no implementa nada
-/// del protocolo banexus.
-class BanexusCliente {
-  final String host;
-  final int puerto;
-  final Duration timeout;
+// ─── Cliente público ──────────────────────────────────────────
 
-  Socket? _socket;
-  final StringBuffer _buf = StringBuffer();
-  int _nextId = 1;
-  final Map<int, Completer<Map<String, dynamic>>> _pendientes = {};
+/// Cliente FFI a banexus.dll.
+/// Misma interfaz que el cliente TCP anterior — los providers no cambian.
+///
+/// La DLL maneja: conexión a bhnexus, handshake, pool TCP y proxy JSON-RPC.
+/// Flutter solo llama conectar() → llamar() → dispose().
+class BanexusCliente {
+  /// host:puerto del servidor bhnexus (Puerta 1).
+  final String bhnexusAddr;
 
   final _estadoCtrl = StreamController<EstadoBanexus>.broadcast();
   EstadoBanexus _estado = EstadoBanexus.desconectado;
 
-  Completer<void>? _conectandoCompleter;
-
-  /// Stream de cambios de estado de la conexión TCP.
-  Stream<EstadoBanexus> get estadoStream => _estadoCtrl.stream;
-
-  /// Estado actual de la conexión.
-  EstadoBanexus get estado => _estado;
-
   BanexusCliente({
-    this.host = '127.0.0.1',
-    this.puerto = 9446,
-    this.timeout = const Duration(seconds: 15),
+    String? host,
+    int?    puerto,
+    this.bhnexusAddr = '13.140.128.230:9444',
   });
+
+  Stream<EstadoBanexus> get estadoStream => _estadoCtrl.stream;
+  EstadoBanexus get estado => _estado;
 
   // ─── Conexión ───────────────────────────────────────────────
 
-  /// Abre el socket TCP al binario banexus. Idempotente.
+  /// Inicializa la DLL y conecta a bhnexus. Idempotente.
   Future<void> conectar() async {
     if (_estado == EstadoBanexus.conectado) return;
-    if (_conectandoCompleter != null) return _conectandoCompleter!.future;
-
-    _conectandoCompleter = Completer<void>();
     _setEstado(EstadoBanexus.conectando);
+    final addr = bhnexusAddr;
     try {
-      _socket = await Socket.connect(host, puerto, timeout: timeout);
-      _socket!
-        ..setOption(SocketOption.tcpNoDelay, true)
-        ..listen(_onDatos, onDone: _onCierre, onError: _onError, cancelOnError: false);
+      await Isolate.run(() {
+        _enlazar();
+        final cfg = jsonEncode({'bhnexus_addr': addr, 'node_id': 'desktop-bauth', 'dev_mode': true});
+        final code = _conPtr(cfg, (p) => _fInit!(p));
+        if (code != 0) throw BanexusError(code, 'banexus_init falló: código $code');
+      });
       _setEstado(EstadoBanexus.conectado);
-      _conectandoCompleter!.complete();
     } catch (e) {
       _setEstado(EstadoBanexus.error);
-      _conectandoCompleter!.completeError(e);
       rethrow;
-    } finally {
-      _conectandoCompleter = null;
     }
   }
 
-  /// Cierra el socket y rechaza todas las llamadas pendientes.
   void cerrar() {
-    try { _socket?.destroy(); } catch (_) {}
-    _socket = null;
-    _buf.clear();
-    _rechazarPendientes('socket cerrado');
+    try { _enlazar(); _fCerrar!(); } catch (_) {}
     _setEstado(EstadoBanexus.desconectado);
   }
 
   // ─── JSON-RPC 2.0 ───────────────────────────────────────────
 
-  /// Llama a [metodo] con [params] opcionales y retorna el campo `result`.
-  /// Lanza [BanexusError] si el binario retorna un error JSON-RPC.
-  Future<Map<String, dynamic>> llamar(
-    String metodo, [
-    Map<String, dynamic>? params,
-  ]) async {
+  /// Llama a [metodo] con [params] y retorna el campo `result`.
+  /// Lanza [BanexusError] si la DLL retorna error JSON-RPC.
+  Future<Map<String, dynamic>> llamar(String metodo, [Map<String, dynamic>? params]) async {
     if (_estado != EstadoBanexus.conectado) await conectar();
-    if (_socket == null) throw BanexusError(-32000, 'socket banexus no disponible');
-
-    final id = _nextId++;
-    final msg = <String, dynamic>{'jsonrpc': '2.0', 'method': metodo, 'id': id};
-    if (params != null) msg['params'] = params;
-
-    final completer = Completer<Map<String, dynamic>>();
-    _pendientes[id] = completer;
-
-    // Enviar JSON + '\n' (protocolo newline-delimited de banexus local_api)
-    _socket!.write('${jsonEncode(msg)}\n');
-
-    return completer.future.timeout(timeout, onTimeout: () {
-      _pendientes.remove(id);
-      throw BanexusError(-32001, 'timeout en llamada $metodo');
-    }).whenComplete(() => _pendientes.remove(id));
-  }
-
-  // ─── Parser interno ─────────────────────────────────────────
-
-  void _onDatos(List<int> datos) {
-    _buf.write(utf8.decode(datos, allowMalformed: true));
-    _extraerMensajes();
-  }
-
-  void _extraerMensajes() {
-    final s = _buf.toString();
-    int nivel = 0, inicio = 0;
-    bool enCadena = false, escape = false;
-
-    for (int i = 0; i < s.length; i++) {
-      final c = s[i];
-      if (escape) { escape = false; continue; }
-      if (c == '\\' && enCadena) { escape = true; continue; }
-      if (c == '"') { enCadena = !enCadena; continue; }
-      if (enCadena) continue;
-      if (c == '{') nivel++;
-      else if (c == '}') {
-        nivel--;
-        if (nivel == 0) {
-          try { _despachar(jsonDecode(s.substring(inicio, i + 1)) as Map<String, dynamic>); }
-          catch (_) {}
-          inicio = i + 1;
+    final m = metodo;
+    final p = jsonEncode(params ?? {});
+    return Isolate.run(() {
+      _enlazar();
+      // Las llamadas FFI bloquean el hilo del Isolate, no la UI
+      late final Pointer<Utf8> resp;
+      _conPtr(m, (mp) => _conPtr(p, (pp) { resp = _fLlamar!(mp, pp); }));
+      try {
+        final mapa = jsonDecode(resp.toDartString()) as Map<String, dynamic>;
+        if (mapa.containsKey('error')) {
+          final e = mapa['error'] as Map;
+          throw BanexusError(e['code'] as int? ?? -1, e['message']?.toString() ?? '');
         }
+        return (mapa['result'] as Map<String, dynamic>?) ?? {};
+      } finally {
+        _fLiberar!(resp);
       }
-    }
-    _buf.clear();
-    if (inicio < s.length) _buf.write(s.substring(inicio));
+    });
   }
 
-  void _despachar(Map<String, dynamic> resp) {
-    final id = resp['id'] as int?;
-    if (id == null || !_pendientes.containsKey(id)) return;
+  void _setEstado(EstadoBanexus e) { _estado = e; _estadoCtrl.add(e); }
 
-    final error = resp['error'];
-    if (error is Map) {
-      _pendientes[id]!.completeError(BanexusError(
-        error['code'] as int? ?? -1,
-        error['message']?.toString() ?? 'error desconocido',
-      ));
-    } else {
-      _pendientes[id]!.complete(
-        (resp['result'] as Map<String, dynamic>?) ?? const {},
-      );
-    }
-  }
-
-  void _onCierre() {
-    _socket = null;
-    _buf.clear();
-    _rechazarPendientes('banexus cerró la conexión');
-    _setEstado(EstadoBanexus.desconectado);
-  }
-
-  void _onError(Object err) {
-    _rechazarPendientes(err.toString());
-    _setEstado(EstadoBanexus.error);
-  }
-
-  void _rechazarPendientes(String motivo) {
-    final err = BanexusError(-32000, motivo);
-    for (final c in _pendientes.values) {
-      if (!c.isCompleted) c.completeError(err);
-    }
-    _pendientes.clear();
-  }
-
-  void _setEstado(EstadoBanexus e) {
-    _estado = e;
-    _estadoCtrl.add(e);
-  }
-
-  void dispose() {
-    cerrar();
-    _estadoCtrl.close();
-  }
+  void dispose() { cerrar(); _estadoCtrl.close(); }
 }

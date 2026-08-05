@@ -34,11 +34,7 @@ import '../dominio/config_tipo_nodo.dart';
 /// Provider del cliente JSON-RPC via banexus local API.
 /// Transporte canónico: Flutter → banexus → bhnexus → bAuth.
 final clienteRpcBanexusProvider = Provider<ClienteRpcBanexus>((ref) {
-  final cfg = ref.watch(configConexionProvider);
-  final cliente = ClienteRpcBanexus(
-    host: cfg.banexusHost,
-    puerto: cfg.banexusPuerto,
-  );
+  final cliente = ClienteRpcBanexus();
   ref.onDispose(() => cliente.dispose());
   return cliente;
 });
