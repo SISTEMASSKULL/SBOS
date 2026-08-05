@@ -16,6 +16,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../libs/bauth_nexus/launcher.dart';
 import 'cliente_rpc.dart';
 import 'cliente_rpc_banexus.dart';
 import 'config_conexion.dart';
@@ -103,8 +104,13 @@ final templatesProvider = FutureProvider<List<RolTemplate>>((ref) async {
   return api.listarTemplates();
 });
 
-/// Auto-conexión banexus al iniciar la app.
+/// Auto-arranque de banexus + conexión al iniciar la app.
+/// El usuario final no hace nada — banexus.exe se lanza solo si no está corriendo.
 final autoConexionProvider = FutureProvider<void>((ref) async {
+  final cfg  = ref.watch(configConexionProvider);
+  final launcher = BanexusLauncher(host: cfg.banexusHost, puerto: cfg.banexusPuerto);
+  // Si banexus no responde, lo lanza desde el directorio del exe de la app.
+  await launcher.asegurarCorriendo();
   final control = ref.watch(controlConexionProvider);
   await control.conectar();
 });
