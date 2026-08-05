@@ -163,9 +163,9 @@ class _Resultado extends StatelessWidget {
         color: cs.muted,
         borderRadius: BorderRadius.circular(6),
       ),
-      child: Text(
+      child: SelectableText(
         resultado.mensaje,
-        style: TextStyle(color: color, fontSize: 12),
+        style: TextStyle(color: color, fontSize: 12, fontFamily: 'monospace'),
       ),
     );
   }

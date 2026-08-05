@@ -106,3 +106,13 @@ install(DIRECTORY "${PROJECT_BUILD_DIR}/${FLUTTER_ASSET_DIR_NAME}"
 install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   CONFIGURATIONS Profile;Release
   COMPONENT Runtime)
+
+# banexus.dll — DLL Rust FFI para transporte bhnexus.
+# Se copia al mismo directorio que el ejecutable para que
+# DynamicLibrary.open('banexus.dll') la encuentre en todos los modos.
+set(BANEXUS_DLL "${CMAKE_CURRENT_SOURCE_DIR}/../banexus.dll")
+if(EXISTS "${BANEXUS_DLL}")
+  install(FILES "${BANEXUS_DLL}"
+    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    COMPONENT Runtime)
+endif()
