@@ -2,18 +2,14 @@
 // bauth_desktop · nucleo/conexion/proveedor_conexion.dart
 //
 // Propósito: Riverpod providers que gestionan el ciclo de vida
-//   de la conexión a bAuth: config → ClienteRpc → BauthApi.
+//   de la conexión a bAuth: config → ClienteRpcBanexus → BauthApi.
 //   La UI observa el estado y se actualiza automáticamente.
 //
-//   Transporte primario:
-//     banexus local API (127.0.0.1:9446) — TCP sin SSH.
-//     Flutter → banexus → bhnexus Puerta 1 → bAuth socket.
+//   Transporte único: banexus local API (127.0.0.1:9446).
+//     Flutter → banexus.exe → bhnexus Puerta 1 → bAuth Unix socket.
+//     No existe modo SSH ni TCP directo (ADR-020, SBOS-NEXUS §24.3).
 //
-//   Transporte secundario (solo si banexus no responde):
-//     SSH exec — ClienteRpcSsh, activado desde PanelConexion.
-//
-// Dependencias: flutter_riverpod, cliente_rpc_banexus, cliente_rpc_ssh,
-//               config_conexion, bauth_api.
+// Dependencias: flutter_riverpod, cliente_rpc_banexus, config_conexion, bauth_api.
 // Estándar: JSON-RPC 2.0 · Riverpod 3.x · ADR-020 · DOC-SBOS-001 N3.
 // ============================================================
 
@@ -22,13 +18,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'cliente_rpc.dart';
 import 'cliente_rpc_banexus.dart';
-import 'cliente_rpc_ssh.dart';
 import 'config_conexion.dart';
 import '../api/bauth_api.dart';
 import '../dominio/config_tipo_nodo.dart';
 
 // ═══════════════════════════════════════════════════════════
-// Transporte primario: banexus local API
+// Transporte único: banexus local API
 // ═══════════════════════════════════════════════════════════
 
 /// Provider del cliente JSON-RPC via banexus local API.
@@ -44,48 +39,12 @@ final clienteRpcBanexusProvider = Provider<ClienteRpcBanexus>((ref) {
 });
 
 // ═══════════════════════════════════════════════════════════
-// Transporte secundario: SSH exec (fallback manual)
+// Cliente RPC activo — siempre banexus
 // ═══════════════════════════════════════════════════════════
 
-/// Notifier que sostiene el cliente SSH exec activo (fallback).
-class ClienteRpcSshNotifier extends Notifier<ClienteRpcSsh?> {
-  @override
-  ClienteRpcSsh? build() => null;
-
-  /// Establece o limpia el cliente SSH exec activo.
-  void establecer(ClienteRpcSsh? cliente) => state = cliente;
-}
-
-/// Cliente SSH exec activo, o null si se usa banexus.
-/// Se establece desde PanelConexion si banexus no está disponible.
-final clienteRpcSshProvider =
-    NotifierProvider<ClienteRpcSshNotifier, ClienteRpcSsh?>(
-        ClienteRpcSshNotifier.new);
-
-// ═══════════════════════════════════════════════════════════
-// Cliente RPC activo (banexus primario, SSH fallback)
-// ═══════════════════════════════════════════════════════════
-
-/// Provee el cliente RPC activo:
-///   1. ClienteRpcSsh si el fallback SSH está explícitamente activo.
-///   2. ClienteRpcBanexus (banexus local API) — transporte por defecto.
+/// Provee el cliente RPC activo: siempre banexus local API.
 final clienteRpcActivoProvider = Provider<IClienteRpc>((ref) {
-  final ssh = ref.watch(clienteRpcSshProvider);
-  if (ssh != null) return ssh;
   return ref.watch(clienteRpcBanexusProvider);
-});
-
-// ═══════════════════════════════════════════════════════════
-// Cliente TCP legacy (mantenido para compatibilidad de providers)
-// ═══════════════════════════════════════════════════════════
-
-/// Provider del cliente JSON-RPC TCP directo.
-/// En producción usar clienteRpcBanexusProvider — este es para pruebas.
-final clienteRpcProvider = Provider<ClienteRpc>((ref) {
-  final cfg = ref.watch(configConexionProvider);
-  final cliente = ClienteRpc(host: cfg.host, puerto: cfg.puerto);
-  ref.onDispose(() => cliente.dispose());
-  return cliente;
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -116,7 +75,7 @@ class ControlConexion {
 // API tipada (wrapper sobre el cliente activo)
 // ═══════════════════════════════════════════════════════════
 
-/// BauthApi usa el cliente activo: SSH exec si disponible, TCP si no.
+/// BauthApi usa el cliente activo (siempre banexus).
 final bauthApiProvider = Provider<BauthApi>((ref) {
   final cliente = ref.watch(clienteRpcActivoProvider);
   return BauthApi(cliente);
@@ -144,7 +103,7 @@ final templatesProvider = FutureProvider<List<RolTemplate>>((ref) async {
   return api.listarTemplates();
 });
 
-/// Auto-conexión TCP: conecta al iniciar la app (no-op en modo SSH).
+/// Auto-conexión banexus al iniciar la app.
 final autoConexionProvider = FutureProvider<void>((ref) async {
   final control = ref.watch(controlConexionProvider);
   await control.conectar();

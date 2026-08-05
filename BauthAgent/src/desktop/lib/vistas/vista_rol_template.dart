@@ -244,7 +244,7 @@ class _VistaRolTemplateState extends ConsumerState<VistaRolTemplate> {
     switch (_tabArbol) {
       case 0:
         return _PanelComparacion(
-          // Una sola SSH exec para todos los nodos — sin carga lazy por nodo.
+          // Una sola llamada RPC para todos los nodos — sin carga lazy por nodo.
           cargarTodos: () => ref.read(bauthApiProvider).rolTemplateTodos(),
           claveArbol: _claveArbolBD,
           cargandoNotifier: _cargandoBDNotifier,
@@ -337,14 +337,14 @@ class _PlaceholderCompiladoTab extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════
 
 /// Vista lado a lado: árbol Dart fuente (izq.) vs árbol live de la BD (der.).
-/// El árbol BD solo se monta cuando hay conexión SSH activa — previene el
-/// cuelgue de 10 min que ocurre cuando TCP intenta conectar a localhost:9450.
+/// El árbol BD solo se monta cuando banexus está conectado — previene el
+/// cuelgue de 10 min que ocurría cuando TCP intentaba conectar a localhost:9450.
 ///
 /// [seleccionListenable] en vez de un valor directo: cuando el usuario selecciona
 /// un nodo en ArbolBD solo rebuilda el ValueListenableBuilder interior (subtítulo,
 /// botón + Átomo, PanelHelpBD) — ArbolBD y ArbolTemplate izquierdo NO rebuildan.
 class _PanelComparacion extends ConsumerWidget {
-  /// Carga TODOS los nodos en una sola SSH exec — sin lazy loading por nodo.
+  /// Carga TODOS los nodos en una sola llamada RPC — sin lazy loading por nodo.
   final Future<List<NodoRolTemplateBD>> Function() cargarTodos;
   final int claveArbol;
   /// Notifier que ArbolBD usa para señalar inicio/fin de carga al padre.
@@ -453,7 +453,7 @@ class _PanelComparacion extends ConsumerWidget {
 // ── Overlay de carga inicial ─────────────────────────────────
 
 
-/// Placeholder para el panel BD cuando no hay conexión SSH activa.
+/// Placeholder para el panel BD cuando banexus no está conectado.
 class _PlaceholderSinConexionBD extends StatelessWidget {
   const _PlaceholderSinConexionBD();
 
@@ -481,7 +481,7 @@ class _PlaceholderSinConexionBD extends StatelessWidget {
           ),
           SizedBox(height: 6 * s),
           Text(
-            'Configura el túnel SSH en el panel lateral\ny pulsa "Conectar vía SSH".',
+            'Arranca banexus.exe y pulsa "Conectar"\nen el panel lateral.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 11 * s,
@@ -496,7 +496,7 @@ class _PlaceholderSinConexionBD extends StatelessWidget {
 }
 
 /// Barra de estado de conexión al pie del panel BD.
-/// Muestra en tiempo real el resultado del health check / error del túnel SSH.
+/// Muestra en tiempo real el resultado del health check vía banexus.
 /// Se actualiza sola cuando cambia pruebaConexionProvider.
 class _BarraConexionBD extends ConsumerWidget {
   const _BarraConexionBD();
@@ -529,7 +529,7 @@ class _BarraConexionBD extends ConsumerWidget {
             ? '${r.mensaje}  — si el árbol muestra error, pulsa Recargar'
             : esProbando
                 ? 'Verificando conexión con bAuth…'
-                : 'Sin conexión  — configura el túnel SSH en el panel de conexión';
+                : 'Sin conexión a banexus — pulsa «Conectar» en el panel lateral';
 
     return Container(
       width: double.infinity,

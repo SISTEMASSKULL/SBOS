@@ -450,9 +450,9 @@ class BauthApi {
         .toList();
   }
 
-  /// Carga TODOS los nodos de idn_roles_template en UNA sola SSH exec.
+  /// Carga TODOS los nodos de idn_roles_template en UNA sola llamada RPC.
   /// Retorna la lista plana completa — ArbolBD la agrupa en memoria por parentId.
-  /// Una query, cero overhead de SSH por nodo, sin cuelgues.
+  /// Una query, sin cuelgues por lazy loading.
   Future<List<NodoRolTemplateBD>> rolTemplateTodos({
     String tenantSlug = 'skull',
   }) async {

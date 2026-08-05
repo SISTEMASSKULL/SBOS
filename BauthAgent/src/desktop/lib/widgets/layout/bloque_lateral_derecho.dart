@@ -2,7 +2,7 @@
 // bauth_desktop · widgets/layout/bloque_lateral_derecho.dart
 //
 // Propósito: BLOQUE 3 del viewport — panel de conexión al daemon
-//   bAuth. Permite configurar el túnel SSH (VPS host + usuario +
+//   bAuth. Muestra el panel de conexión banexus.
 //   contraseña) o conexión directa host:puerto, y ver el estado
 //   del health check en tiempo real.
 // Dependencias: tf_shadcn_flutter, widgets/panel_conexion.

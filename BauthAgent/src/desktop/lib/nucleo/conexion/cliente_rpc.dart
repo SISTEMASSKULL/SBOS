@@ -1,12 +1,9 @@
 // ============================================================
 // bauth_desktop · nucleo/conexion/cliente_rpc.dart
 //
-// Propósito: cliente JSON-RPC 2.0 persistente via TCP raw (Socket).
-//   El daemon bAuth expone /tmp/bauth/bauth.sock con protocolo
-//   JSON-RPC puro (una línea JSON por petición/respuesta, sin HTTP).
-//   El túnel SSH reenvía ese socket a un puerto TCP local; este
-//   cliente se conecta a ese puerto con Socket directo — sin
-//   overhead de WebSocket (sin HTTP upgrade, sin frames).
+// Propósito: interfaz IClienteRpc + implementación TCP de bajo nivel.
+//   El transporte canónico es ClienteRpcBanexus (via banexus daemon).
+//   ClienteRpc TCP queda disponible para pruebas locales o futuros usos.
 //
 // Protocolo:
 //   Envío:   utf8(json + "\n")
@@ -40,7 +37,7 @@ enum EstadoConexion {
 }
 
 /// Interfaz mínima de cliente JSON-RPC 2.0.
-/// Implementada por ClienteRpc (TCP) y ClienteRpcSsh (SSH exec).
+/// Implementada por ClienteRpcBanexus (transporte canónico) y ClienteRpc (TCP).
 abstract class IClienteRpc {
   Stream<EstadoConexion> get estado;
   Future<void> conectar();
@@ -49,7 +46,7 @@ abstract class IClienteRpc {
   void dispose();
 
   /// Ejecuta un comando de shell en el servidor y devuelve stdout.
-  /// Solo disponible en implementaciones SSH — lanza [UnsupportedError] en TCP.
+  /// No soportado en esta implementación — las implementaciones pueden sobreescribirlo.
   Future<String> ejecutarCmd(String cmd) =>
       Future.error(UnsupportedError('ejecutarCmd no soportado por este cliente'));
 }
@@ -94,7 +91,7 @@ class ClienteRpc implements IClienteRpc {
   // Conexión
   // ═══════════════════════════════════════════════════════════
 
-  /// Abre la conexión TCP al daemon (o al puerto local del túnel SSH).
+  /// Abre la conexión TCP al daemon.
   /// Lanza excepción si falla — el llamador ve el error real.
   @override
   Future<void> conectar() async {
@@ -148,7 +145,7 @@ class ClienteRpc implements IClienteRpc {
       await conectar(); // rethrow si falla
     }
     if (_socket == null || _estado != EstadoConexion.conectado) {
-      throw RpcError(-32000, 'no conectado a bAuth — verifica el túnel SSH');
+      throw RpcError(-32000, 'no conectado a bAuth — verifica que banexus esté activo');
     }
 
     final id = _nextId++;
@@ -287,7 +284,7 @@ class ClienteRpc implements IClienteRpc {
     _estadoCtrl.add(e);
   }
 
-  /// No disponible en cliente TCP — solo implementado en ClienteRpcSsh.
+  /// No implementado en cliente TCP directo.
   @override
   Future<String> ejecutarCmd(String cmd) =>
       Future.error(UnsupportedError('ejecutarCmd no soportado en cliente TCP'));
