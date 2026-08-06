@@ -184,10 +184,13 @@ class _VistaRolTemplateState extends ConsumerState<VistaRolTemplate> {
   Widget _buildVista(ColorScheme cs) {
     return Column(
       children: [
-        const TiraTabs(
-          tabs: ['Roles', 'Usuarios', 'Políticas', 'Atributos', 'Aplicaciones', 'Átomos'],
-          activa: 0,
-          separadorTras: 1,
+        SeccionConCodigo(
+          'V-RT-002',
+          child: const TiraTabs(
+            tabs: ['Roles', 'Usuarios', 'Políticas', 'Atributos', 'Aplicaciones', 'Átomos'],
+            activa: 0,
+            separadorTras: 1,
+          ),
         ),
         Expanded(
           child: Row(
@@ -200,30 +203,39 @@ class _VistaRolTemplateState extends ConsumerState<VistaRolTemplate> {
                     color: cs.background,
                     child: Column(
                       children: [
-                        TiraTabs(
-                          tabs: const [
-                            'Árbol Fuente',
-                            'Árbol AtomLang',
-                            'Árbol Compilado',
-                          ],
-                          activa: _tabArbol,
-                          alSeleccionar: _cambiarTab,
+                        SeccionConCodigo(
+                          'V-RT-006',
+                          child: TiraTabs(
+                            tabs: const [
+                              'Árbol Fuente',
+                              'Árbol AtomLang',
+                              'Árbol Compilado',
+                            ],
+                            activa: _tabArbol,
+                            alSeleccionar: _cambiarTab,
+                          ),
                         ),
                         Expanded(child: _contenidoTab(cs)),
-                        if (_tabArbol == 1) _BarraDiagnosticos(cs: cs),
+                        if (_tabArbol == 1) SeccionConCodigo('V-RT-013', child: _BarraDiagnosticos(cs: cs)),
                         if (_tabArbol == 1) ...[
-                          ListenableBuilder(
-                            listenable: Listenable.merge(
-                                [_rutaNotifier, _copiadoNotifier]),
-                            builder: (_, _) => _BarraRuta(
-                              ruta: _rutaNotifier.value,
-                              copiado: _copiadoNotifier.value,
-                              alCopiar: _copiarRuta,
+                          SeccionConCodigo(
+                            'V-RT-009',
+                            child: ListenableBuilder(
+                              listenable: Listenable.merge(
+                                  [_rutaNotifier, _copiadoNotifier]),
+                              builder: (_, _) => _BarraRuta(
+                                ruta: _rutaNotifier.value,
+                                copiado: _copiadoNotifier.value,
+                                alCopiar: _copiarRuta,
+                              ),
                             ),
                           ),
-                          ValueListenableBuilder<NodoTemplate?>(
-                            valueListenable: _seleccionNotifier,
-                            builder: (_, nodo, _) => PanelHelp(nodo: nodo),
+                          SeccionConCodigo(
+                            'V-RT-014',
+                            child: ValueListenableBuilder<NodoTemplate?>(
+                              valueListenable: _seleccionNotifier,
+                              builder: (_, nodo, _) => PanelHelp(nodo: nodo),
+                            ),
                           ),
                         ],
                       ],
@@ -265,13 +277,16 @@ class _VistaRolTemplateState extends ConsumerState<VistaRolTemplate> {
           },
         );
       case 1:
-        return ArbolTemplate(
-          nodos: arbolNormalizado,
-          seleccionListenable: _seleccionNotifier,
-          alSeleccionar: _seleccionar,
+        return SeccionConCodigo(
+          'V-RT-007',
+          child: ArbolTemplate(
+            nodos: arbolNormalizado,
+            seleccionListenable: _seleccionNotifier,
+            alSeleccionar: _seleccionar,
+          ),
         );
       default:
-        return _PlaceholderCompiladoTab(cs: cs);
+        return SeccionConCodigo('V-RT-008', child: _PlaceholderCompiladoTab(cs: cs));
     }
   }
 }
@@ -391,11 +406,14 @@ class _PanelComparacion extends ConsumerWidget {
     return Row(
       children: [
         Expanded(
-          child: _PanelArbol(
-            titulo: 'FUENTE · Dart',
-            subtitulo: '$_kTotalFuente nodos',
-            color: cs.primary,
-            child: ArbolTemplate(nodos: arbolRolTemplate, alSeleccionar: (_) {}),
+          child: SeccionConCodigo(
+            'V-RT-011',
+            child: _PanelArbol(
+              titulo: 'FUENTE · Dart',
+              subtitulo: '$_kTotalFuente nodos',
+              color: cs.primary,
+              child: ArbolTemplate(nodos: arbolRolTemplate, alSeleccionar: (_) {}),
+            ),
           ),
         ),
         Container(width: 1, color: cs.border),
@@ -431,23 +449,26 @@ class _PanelComparacion extends ConsumerWidget {
                     )
                   : null;
 
-              return _PanelArbol(
-                titulo: 'BD · idn_roles_template',
-                subtitulo: conectado
-                    ? (seleccionBD != null
-                        ? 'selección: ${seleccionBD.clave}'
-                        : 'sin selección')
-                    : 'sin conexión',
-                color: Colors.teal.shade400,
-                accion: accionBD,
-                footerBD: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (conectado) PanelHelpBD(nodo: seleccionBD, alto: 65),
-                    const _BarraConexionBD(),
-                  ],
+              return SeccionConCodigo(
+                'V-RT-012',
+                child: _PanelArbol(
+                  titulo: 'BD · idn_roles_template',
+                  subtitulo: conectado
+                      ? (seleccionBD != null
+                          ? 'selección: ${seleccionBD.clave}'
+                          : 'sin selección')
+                      : 'sin conexión',
+                  color: Colors.teal.shade400,
+                  accion: accionBD,
+                  footerBD: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (conectado) PanelHelpBD(nodo: seleccionBD, alto: 65),
+                      const _BarraConexionBD(),
+                    ],
+                  ),
+                  child: arbolBDChild!,
                 ),
-                child: arbolBDChild!,
               );
             },
           ),

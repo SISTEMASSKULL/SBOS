@@ -1,7 +1,7 @@
 # A.64.01 — Inventario de Códigos: Desktop bAuth
 ## Referencia rápida · secciones · objetos · widgets · slots
 
-**Versión:** 1.0.2  
+**Versión:** 1.0.3  
 **Fecha:** 2026-08-06  
 **Autor:** bauth-developer  
 **Complementa:** `A.64_ANEXO-MAQUETAS-DESKTOP-v1.0.md` (maquetas + estados Living Spec)
@@ -335,14 +335,20 @@ V-RT
 
 | Código | Nombre | Descripción |
 |--------|--------|-------------|
-| `V-RT-001` | SelectorRolActivo | Dropdown: elige el RolTemplate a editar (GERENTE_VENTAS▾) |
-| `V-RT-003` | ToolbarP1 | Barra `V-RT:P1>TB`: buscador inline + `[+ Nuevo rol]` + `[+ Átomo]` |
-| `V-RT-004` | ArbolRoles | Árbol jerárquico `idn_role_template`: 5 niveles · tier badge · enlace cruzado → usa `W-006` por nodo |
-| `V-RT-005` | FichaIdentidadNodo | `V-RT:P1>BOT`: campos del nodo seleccionado + `[Editar]` `[Retirar]` |
-| `V-RT-007` | ArbolAtomLang | Árbol `.atm.yaml`: nodos POLICYSET/POLICY/REGLA/REGISTRO con linter inline → usa `W-006` |
-| `V-RT-008` | Panel3Compilado | RolBitMask one-hot + lista átomos compilados + FastPath ✓/✗ |
-| `V-RT-009` | BarraRutaNodo | `V-RT:BOT`: ruta del nodo seleccionado (breadcrumb nodo) + `[Copiar]` |
-| `V-RT-010` | EnlaceCruzado | Indicador visual `●──` entre nodo P1 y regla P2 que lo referencia vía SET |
+| `V-RT-001` | SelectorRolActivo | Dropdown: elige el RolTemplate a editar (GERENTE_VENTAS▾) _(diseño futuro)_ |
+| `V-RT-002` | SelectorEntidad | TiraTabs raíz de V-RT: Roles / Usuarios / Políticas / Atributos / Aplicaciones / Átomos |
+| `V-RT-003` | ToolbarP1 | Barra `V-RT:P1>TB`: buscador inline + `[+ Nuevo rol]` + `[+ Átomo]` _(diseño futuro)_ |
+| `V-RT-004` | ArbolRoles | Árbol jerárquico `idn_role_template`: 5 niveles · tier badge · enlace cruzado → usa `W-006` _(diseño futuro)_ |
+| `V-RT-005` | FichaIdentidadNodo | `V-RT:P1>BOT`: campos del nodo seleccionado + `[Editar]` `[Retirar]` _(diseño futuro)_ |
+| `V-RT-006` | SelectorArbol | TiraTabs dentro de `V-RT:CNT`: Árbol Fuente / Árbol AtomLang / Árbol Compilado |
+| `V-RT-007` | ArbolAtomLang | `V-RT:CNT` Tab 1: árbol normalizado con linter inline ATOMC (errores/avisos en nodos) → usa `W-006` |
+| `V-RT-008` | Panel3Compilado | `V-RT:CNT` Tab 2: placeholder fase 3 — IR generado por atomc → bos_atom_compiled |
+| `V-RT-009` | BarraRutaNodo | `V-RT:CNT` Tab 1: ruta del nodo seleccionado en monospace + botón `[Copiar]` |
+| `V-RT-010` | EnlaceCruzado | Indicador visual `●──` entre nodo P1 y regla P2 que lo referencia vía SET _(diseño futuro)_ |
+| `V-RT-011` | PanelFuenteDart | `V-RT:CNT` Tab 0 izq: árbol Dart fuente `arbolRolTemplate` (comparación) |
+| `V-RT-012` | PanelBD | `V-RT:CNT` Tab 0 der: árbol live `idn_roles_template` BD + botones `[+Átomo]` `[Recargar]` |
+| `V-RT-013` | BarraDiagnosticos | `V-RT:CNT` Tab 1: barra ATOMC Problems — conteo total errores/avisos del linter |
+| `V-RT-014` | PanelAyudaNodo | `V-RT:CNT` Tab 1: panel contextual de ayuda del nodo seleccionado (PanelHelp) |
 
 ---
 
@@ -594,14 +600,20 @@ Tabla para buscar rápidamente un código sin recorrer todo el documento:
 | `V-DS-003` | obj | SelectorRango | V-DS-001 |
 | `V-DS-004` | obj | RejillaKpis | V-DS |
 | `V-DS-005` | obj→W-001 | TarjetaKpi | V-DS-004 ×6 |
-| `V-RT-001` | obj | SelectorRolActivo | V-RT |
-| `V-RT-003` | obj | ToolbarP1 | V-RT:P1>TB |
-| `V-RT-004` | obj→W-006 | ArbolRoles | V-RT:P1 |
-| `V-RT-005` | obj | FichaIdentidadNodo | V-RT:P1>BOT |
-| `V-RT-007` | obj→W-006 | ArbolAtomLang | V-RT:P2 |
-| `V-RT-008` | obj | Panel3Compilado | V-RT:P3 |
-| `V-RT-009` | obj | BarraRutaNodo | V-RT:BOT |
-| `V-RT-010` | obj | EnlaceCruzado | V-RT:P1/P2 |
+| `V-RT-001` | obj | SelectorRolActivo | V-RT _(futuro)_ |
+| `V-RT-002` | obj | SelectorEntidad | V-RT:TOP |
+| `V-RT-003` | obj | ToolbarP1 | V-RT:P1>TB _(futuro)_ |
+| `V-RT-004` | obj→W-006 | ArbolRoles | V-RT:P1 _(futuro)_ |
+| `V-RT-005` | obj | FichaIdentidadNodo | V-RT:P1>BOT _(futuro)_ |
+| `V-RT-006` | obj | SelectorArbol | V-RT:CNT>TOP |
+| `V-RT-007` | obj→W-006 | ArbolAtomLang | V-RT:CNT>BOD T1 |
+| `V-RT-008` | obj | Panel3Compilado | V-RT:CNT>BOD T2 |
+| `V-RT-009` | obj | BarraRutaNodo | V-RT:CNT>BOT T1 |
+| `V-RT-010` | obj | EnlaceCruzado | V-RT:CNT _(futuro)_ |
+| `V-RT-011` | obj | PanelFuenteDart | V-RT:CNT>BOD T0 izq |
+| `V-RT-012` | obj | PanelBD | V-RT:CNT>BOD T0 der |
+| `V-RT-013` | obj | BarraDiagnosticos | V-RT:CNT>BOT T1 |
+| `V-RT-014` | obj | PanelAyudaNodo | V-RT:CNT>BOT T1 |
 | `V-US-001` | obj | BloqueLista | V-US:B1 |
 | `V-US-002` | obj→W-010 | BuscadorUsuarios | V-US:B1>TOP |
 | `V-US-003` | obj | FilaUsuario | V-US:B1>BOD |
@@ -635,3 +647,4 @@ Tabla para buscar rápidamente un código sin recorrer todo el documento:
 | 1.0.0 | 2026-08-03 | Creación — sistema de códigos completo: G-SN/G-BC/G-BD · V-DS/V-RT/V-CR/V-US/V-AE · W-001..W-010 · DL-001 · PR-001..PR-004 · árbol de slots · maqueta anotada § 8 · tabla de consulta rápida §9 |
 | 1.0.1 | 2026-08-06 | G-BC-012 ToggleCodigos añadido (herramienta dev, no estaba en maqueta original). Todos los objetos G-BC:TOP codificados con SeccionConCodigo. _ChipConexion actualizada: estado real de pruebaConexionProvider + dirección bhnexus:9444. |
 | 1.0.2 | 2026-08-06 | G-BC-013 TogglePanelDerecho añadido (extremo derecho de la barra, simétrico a G-BC-002). G-BD colapsable: AnimatedContainer 300px ↔ 76px controlado por layoutProvider.derExpandido. |
+| 1.0.3 | 2026-08-06 | V-RT:CNT codificado completo: V-RT-002 SelectorEntidad · V-RT-006 SelectorArbol · V-RT-007..009 (Tab 1) · V-RT-011..014 (Tabs 0/1). V-RT-001/003/004/005/010 marcados como _(futuro)_ — diseño P1/P2/P3 aún no implementado. |
