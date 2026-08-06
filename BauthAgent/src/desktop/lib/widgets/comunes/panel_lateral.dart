@@ -160,7 +160,7 @@ class _PanelLateralState extends State<PanelLateral> {
         child: Tooltip(
           tooltip: TooltipContainer(
             child: Text(_expandido ? 'Colapsar' : 'Expandir'),
-          ),
+          ).call,
           child: Icon(icono, size: 14 * s, color: cs.mutedForeground),
         ),
       ),

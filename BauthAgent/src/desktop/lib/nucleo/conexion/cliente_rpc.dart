@@ -83,12 +83,10 @@ class ClienteRpc implements IClienteRpc {
   static const _baseDelay = Duration(milliseconds: 500);
 
   ClienteRpc({
-    String host = 'localhost',
-    int puerto = 9450,
-    Duration timeout = const Duration(seconds: 15),
-  })  : _host = host,
-        _puerto = puerto,
-        _timeout = timeout;
+    this._host = 'localhost',
+    this._puerto = 9450,
+    this._timeout = const Duration(seconds: 15),
+  });
 
   // ═══════════════════════════════════════════════════════════
   // Conexión

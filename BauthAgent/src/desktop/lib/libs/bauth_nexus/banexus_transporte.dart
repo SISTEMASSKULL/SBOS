@@ -55,7 +55,6 @@ class BanexusTransporte implements IClienteRpc {
   Socket? _socket;
   final StringBuffer _buffer = StringBuffer();
   int _seq = 0;
-  bool _handshakeListo = false;
   Completer<void>? _handshakeCompleter;
 
   // ── Peticiones en vuelo (seq → Completer) ─────────────────────────────────
@@ -87,12 +86,10 @@ class BanexusTransporte implements IClienteRpc {
   EstadoConexion get _estadoActual => _estadoCtrl.value;
 
   BanexusTransporte({
-    String host = '13.140.128.230',
-    int puerto = 9444,
-    Duration timeout = const Duration(seconds: 15),
-  })  : _host = host,
-        _puerto = puerto,
-        _timeout = timeout;
+    this._host = '13.140.128.230',
+    this._puerto = 9444,
+    this._timeout = const Duration(seconds: 15),
+  });
 
   // ══════════════════════════════════════════════════════════════════════════
   // API pública
@@ -118,7 +115,6 @@ class BanexusTransporte implements IClienteRpc {
     _socket?.destroy();
     _socket = null;
     _buffer.clear();
-    _handshakeListo = false;
     _setEstado(EstadoConexion.desconectado);
   }
 
@@ -154,7 +150,9 @@ class BanexusTransporte implements IClienteRpc {
 
   Future<void> _conectarInterno() async {
     if (_estadoActual == EstadoConexion.conectado ||
-        _estadoActual == EstadoConexion.conectando) return;
+        _estadoActual == EstadoConexion.conectando) {
+      return;
+    }
 
     _setEstado(EstadoConexion.conectando);
     final nodeId = '${_generarNodeId()}-flutter';
@@ -173,14 +171,12 @@ class BanexusTransporte implements IClienteRpc {
       });
 
       await _handshakeCompleter!.future.timeout(_timeout);
-      _handshakeListo = true;
       _intentos = 0; // reset backoff en conexión exitosa
       _setEstado(EstadoConexion.conectado);
       _iniciarHeartbeat();
     } catch (_) {
       _socket?.destroy();
       _socket = null;
-      _handshakeListo = false;
       _setEstado(EstadoConexion.error);
       if (_debeReconectar) _programarReconexion();
     }
@@ -212,7 +208,6 @@ class BanexusTransporte implements IClienteRpc {
   void _onCanalMuerto() {
     _socket?.destroy();
     _socket = null;
-    _handshakeListo = false;
     _detenerHeartbeat();
     _setEstado(EstadoConexion.error);
     if (_debeReconectar) _programarReconexion();
@@ -306,7 +301,6 @@ class BanexusTransporte implements IClienteRpc {
 
   void _onCierre() {
     _socket = null;
-    _handshakeListo = false;
     _detenerHeartbeat();
     if (_estadoActual == EstadoConexion.conectado ||
         _estadoActual == EstadoConexion.conectando) {

@@ -89,7 +89,7 @@ class _PanelLista extends ConsumerWidget {
                 ? _VacioMensaje(texto: busqueda.isEmpty ? 'Sin usuarios registrados' : 'Sin resultados para "$busqueda"')
                 : ListView.separated(
                     itemCount: usuarios.length,
-                    separatorBuilder: (_, __) => Container(height: 1, color: cs.border),
+                    separatorBuilder: (_, _) => Container(height: 1, color: cs.border),
                     itemBuilder: (_, i) => _FilaUsuario(
                       usuario: usuarios[i],
                       activo: seleccionado?.uuid == usuarios[i].uuid,
@@ -115,10 +115,44 @@ class _PanelLista extends ConsumerWidget {
   }
 }
 
-class _CabeceraLista extends StatelessWidget {
+// StatefulWidget obligatorio: TextEditingController y FocusNode requieren
+// ciclo de vida (dispose). Crearlos en build() fugaría memoria en cada rebuild.
+class _CabeceraLista extends StatefulWidget {
   final String busqueda;
   final ValueChanged<String> onBusqueda;
   const _CabeceraLista({required this.busqueda, required this.onBusqueda});
+
+  @override
+  State<_CabeceraLista> createState() => _CabeceraListaState();
+}
+
+class _CabeceraListaState extends State<_CabeceraLista> {
+  late final TextEditingController _ctrl;
+  late final FocusNode _foco;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: widget.busqueda);
+    _foco = FocusNode();
+  }
+
+  @override
+  void didUpdateWidget(_CabeceraLista old) {
+    super.didUpdateWidget(old);
+    // Sincronizar solo si el texto cambió desde fuera (p.e. reset de búsqueda).
+    if (old.busqueda != widget.busqueda && _ctrl.text != widget.busqueda) {
+      _ctrl.text = widget.busqueda;
+      _ctrl.selection = TextSelection.collapsed(offset: widget.busqueda.length);
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    _foco.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -144,9 +178,9 @@ class _CabeceraLista extends StatelessWidget {
                   SizedBox(width: 6 * s),
                   Expanded(
                     child: EditableText(
-                      controller: TextEditingController(text: busqueda),
-                      focusNode: FocusNode(),
-                      onChanged: onBusqueda,
+                      controller: _ctrl,
+                      focusNode: _foco,
+                      onChanged: widget.onBusqueda,
                       style: TextStyle(fontSize: 12 * s, color: cs.foreground),
                       cursorColor: cs.primary,
                       backgroundCursorColor: cs.muted,

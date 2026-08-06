@@ -342,7 +342,7 @@ class _CampoTexto extends StatelessWidget {
   }
 }
 
-/// Selector de verbo usando Select<String> de shadcn.
+/// Selector de verbo usando `Select<String>` de shadcn.
 class _SelectorVerbo extends StatelessWidget {
   final String valor;
   final List<String> verbos;

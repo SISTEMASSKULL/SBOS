@@ -475,7 +475,7 @@ class BauthApi {
   // ── Catálogo de tipos de nodo (idn_policy_node_type) ─────────────
 
   /// Carga todos los tipos desde bauth.idn_policy_node_type.
-  /// Devuelve Map<code, ConfigTipoNodo> listo para usar en widgets.
+  /// Devuelve `Map<code, ConfigTipoNodo>` listo para usar en widgets.
   /// Llamar una vez al conectar y cachear en el provider.
   /// Carga el catálogo de tipos de nodo desde SBOSDB.
   /// En caso de error (sin conexión, timeout, SQL) retorna mapa vacío

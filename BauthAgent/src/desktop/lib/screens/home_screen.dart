@@ -19,23 +19,25 @@ class TableroMotores extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final s  = theme.scaling;
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(24 * s),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Motores de bAuth',
-              style: TextStyle(color: cs.foreground, fontSize: 24, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 4),
+              style: TextStyle(color: cs.foreground, fontSize: 24 * s, fontWeight: FontWeight.w700)),
+          SizedBox(height: 4 * s),
           Text('Una capacidad, un motor, un punto de cambio (ADR-013)',
-              style: TextStyle(color: cs.mutedForeground, fontSize: 13)),
-          const SizedBox(height: 20),
+              style: TextStyle(color: cs.mutedForeground, fontSize: 13 * s)),
+          SizedBox(height: 20 * s),
           Expanded(
             child: SingleChildScrollView(
               child: Wrap(
-                spacing: 16,
-                runSpacing: 16,
+                spacing: 16 * s,
+                runSpacing: 16 * s,
                 children: [for (final m in catalogoMotores) TarjetaMotor(motor: m)],
               ),
             ),

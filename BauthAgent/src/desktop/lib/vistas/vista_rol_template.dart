@@ -153,7 +153,7 @@ class _VistaRolTemplateState extends ConsumerState<VistaRolTemplate> {
         _buildVista(cs),
         ValueListenableBuilder<bool>(
           valueListenable: _cargandoBDNotifier,
-          builder: (_, cargando, __) {
+          builder: (_, cargando, _) {
             if (!cargando || _tabArbol != 0) return const SizedBox.shrink();
             return const IndicadorProcesamiento(
               mensaje: 'Consultando SBOSDB…',
