@@ -192,11 +192,15 @@ class _Tecla extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// G-BC-004 — ChipConexion
+// G-BC-004 — ChipConexion (control único de conexión)
 // ══════════════════════════════════════════════════════════════════════════════
 
-/// Chip de estado de conexión al daemon bAuth (vía banexus → bhnexus:9444).
-/// Punto verde = conectado y salud OK · rojo = falla · ámbar = conectando.
+/// G-BC-004 — Control único del canal bAuth (banexus → bhnexus:9444).
+///
+/// Estados visuales:
+///   exitosa  — verde · "bhnexus:9444"   (no interactivo)
+///   probando — ámbar · mensaje dinámico (no interactivo — auto-reconecta)
+///   fallida  — rojo  · "Error · Reconectar" (clic → probar())
 class _ChipConexion extends ConsumerWidget {
   const _ChipConexion();
 
@@ -206,6 +210,7 @@ class _ChipConexion extends ConsumerWidget {
     final cs = theme.colorScheme;
     final s = theme.scaling;
     final resultado = ref.watch(pruebaConexionProvider);
+    final fallida = resultado.fase == FaseConexion.fallida;
 
     final Color dotColor = switch (resultado.fase) {
       FaseConexion.exitosa  => Colors.green.shade500,
@@ -213,28 +218,47 @@ class _ChipConexion extends ConsumerWidget {
       FaseConexion.probando => Colors.amber.shade500,
     };
 
-    return Container(
-      height: 34 * s,
-      padding: EdgeInsets.symmetric(horizontal: 11 * s),
-      decoration: BoxDecoration(
-          color: cs.muted,
-          border: Border.all(color: cs.border),
-          borderRadius: BorderRadius.circular(9 * s)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 7 * s,
-            height: 7 * s,
-            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+    final String etiqueta = switch (resultado.fase) {
+      FaseConexion.exitosa  => 'bhnexus:9444',
+      FaseConexion.probando => resultado.mensaje, // "Conectando…" / "Reconectando…"
+      FaseConexion.fallida  => 'Error · Reconectar',
+    };
+
+    return MouseRegion(
+      cursor: fallida ? SystemMouseCursors.click : MouseCursor.defer,
+      child: GestureDetector(
+        onTap: fallida
+            ? () => ref.read(pruebaConexionProvider.notifier).probar()
+            : null,
+        child: Container(
+          height: 34 * s,
+          padding: EdgeInsets.symmetric(horizontal: 11 * s),
+          decoration: BoxDecoration(
+            color: fallida
+                ? cs.destructive.withValues(alpha: 0.08)
+                : cs.muted,
+            border: Border.all(
+                color: fallida ? cs.destructive.withValues(alpha: 0.4) : cs.border),
+            borderRadius: BorderRadius.circular(9 * s),
           ),
-          SizedBox(width: 8 * s),
-          Text('bhnexus:9444',
-              style: TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 12 * s,
-                  color: cs.mutedForeground)),
-        ],
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 7 * s,
+                height: 7 * s,
+                decoration:
+                    BoxDecoration(color: dotColor, shape: BoxShape.circle),
+              ),
+              SizedBox(width: 8 * s),
+              Text(etiqueta,
+                  style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12 * s,
+                      color: fallida ? cs.destructive : cs.mutedForeground)),
+            ],
+          ),
+        ),
       ),
     );
   }
