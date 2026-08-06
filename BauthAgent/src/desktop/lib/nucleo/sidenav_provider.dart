@@ -20,25 +20,41 @@ class DestinoSidenav {
 /// Estado del layout: expansión izquierda, ruta activa central, destino derecho.
 class EstadoLayout {
   final bool izqExpandido;
+  final bool derExpandido;
   final String rutaActiva;
   final String? activoDer;
-  const EstadoLayout({this.izqExpandido = true, this.rutaActiva = 'dashboard', this.activoDer});
+  const EstadoLayout({
+    this.izqExpandido = true,
+    this.derExpandido = true,
+    this.rutaActiva = 'dashboard',
+    this.activoDer,
+  });
 
-  EstadoLayout copyWith({bool? izqExpandido, String? rutaActiva, String? activoDer, bool limpiarDer = false}) =>
+  EstadoLayout copyWith({
+    bool? izqExpandido,
+    bool? derExpandido,
+    String? rutaActiva,
+    String? activoDer,
+    bool limpiarDer = false,
+  }) =>
       EstadoLayout(
         izqExpandido: izqExpandido ?? this.izqExpandido,
+        derExpandido: derExpandido ?? this.derExpandido,
         rutaActiva: rutaActiva ?? this.rutaActiva,
         activoDer: limpiarDer ? null : (activoDer ?? this.activoDer),
       );
 }
 
-/// Conmuta la expansión izquierda, la ruta central y el destino derecho.
+/// Conmuta la expansión de los bloques laterales, la ruta central y el destino derecho.
 class LayoutNotifier extends Notifier<EstadoLayout> {
   @override
   EstadoLayout build() => const EstadoLayout();
 
-  /// Extiende ↔ colapsa el bloque izquierdo (invocado desde el bloque central).
+  /// Extiende ↔ colapsa el bloque izquierdo G-SN.
   void alternarIzq() => state = state.copyWith(izqExpandido: !state.izqExpandido);
+
+  /// Extiende ↔ colapsa el bloque derecho G-BD (300px ↔ 76px).
+  void alternarDerPanel() => state = state.copyWith(derExpandido: !state.derExpandido);
 
   /// Fija la ruta que muestra el bloque central (invocado desde el menú).
   void seleccionarRuta(String ruta) => state = state.copyWith(rutaActiva: ruta);

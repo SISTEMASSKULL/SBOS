@@ -5,8 +5,9 @@
 //   Todos los objetos internos marcados con SeccionConCodigo (A.64.01):
 //   G-BC-002 ToggleSidenav · G-BC-003 BuscadorGlobal · G-BC-004 ChipConexion
 //   G-BC-005 ToggleTema · G-BC-012 ToggleCodigos (dev) · G-BC-006 Campanilla
-//   G-BC-007 AvatarMenu
+//   G-BC-007 AvatarMenu · G-BC-013 TogglePanelDerecho
 //
+// G-BC-002/G-BC-013: toggles simétricos de G-SN (izq) y G-BD (der).
 // G-BC-004 ChipConexion: estado real de pruebaConexionProvider (banexus→bhnexus:9444).
 // Dependencias: flutter_riverpod, tf_shadcn_flutter, nucleo/sidenav_provider,
 //   nucleo/conexion/prueba_conexion, widgets/comunes/{boton_icono,etiqueta_codigo}.
@@ -31,7 +32,8 @@ class BarraSuperior extends ConsumerWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final s = theme.scaling;
-    final expandido = ref.watch(layoutProvider).izqExpandido;
+    final izqExpandido = ref.watch(layoutProvider).izqExpandido;
+    final derExpandido = ref.watch(layoutProvider).derExpandido;
 
     return Container(
       height: 48 * s,
@@ -44,7 +46,7 @@ class BarraSuperior extends ConsumerWidget {
           SeccionConCodigo(
             'G-BC-002',
             child: BotonIcono(
-              icono: expandido
+              icono: izqExpandido
                   ? LucideIcons.chevronsLeft
                   : LucideIcons.chevronsRight,
               alTocar: () => ref.read(layoutProvider.notifier).alternarIzq(),
@@ -87,6 +89,19 @@ class BarraSuperior extends ConsumerWidget {
 
           // G-BC-007 — AvatarMenu: avatar + nombre + rol + ▾ (abre G-BC-008)
           SeccionConCodigo('G-BC-007', child: const _Perfil()),
+
+          SizedBox(width: 12 * s),
+
+          // G-BC-013 — TogglePanelDerecho: colapsa/expande G-BD (simétrico a G-BC-002)
+          SeccionConCodigo(
+            'G-BC-013',
+            child: BotonIcono(
+              icono: derExpandido
+                  ? LucideIcons.chevronsRight
+                  : LucideIcons.chevronsLeft,
+              alTocar: () => ref.read(layoutProvider.notifier).alternarDerPanel(),
+            ),
+          ),
         ],
       ),
     );
