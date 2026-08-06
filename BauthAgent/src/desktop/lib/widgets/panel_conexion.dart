@@ -1,15 +1,13 @@
 // ============================================================
 // bauth_desktop · widgets/panel_conexion.dart
 //
-// Propósito: panel de conexión al daemon bAuth.
-//   Transporte único: banexus.dll (FFI) → bhnexus (13.140.128.230:9444) → bAuth.
-//   Flutter → banexus.dll → bhnexus remoto → bAuth (Unix socket).
-//   El usuario solo prueba la conexión — no configura nada.
+// Propósito: panel de estado de conexión a bAuth via banexus.
+//   La conexión se establece automáticamente al iniciar la app.
+//   El botón "Reconectar" solo aparece cuando la conexión falla.
 //
 // Dependencias: flutter_riverpod, tf_shadcn_flutter,
-//   nucleo/conexion/{prueba_conexion, proveedor_conexion},
-//   widgets/{boton_primario, comunes/etiqueta_codigo}.
-// Estándar: ADR-020 · SBOS-NEXUS §24.3 · A.64.01 · DOC-SBOS-001 N3.
+//   nucleo/conexion/prueba_conexion, widgets/{boton_primario, etiqueta_codigo}.
+// Estándar: ADR-020 · 2.18 Motor de Comunicación · DOC-SBOS-001 N3.
 // ============================================================
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,7 +19,8 @@ import 'comunes/etiqueta_codigo.dart';
 
 // ── Panel raíz ───────────────────────────────────────────────
 
-/// Panel lateral de conexión al daemon bAuth via banexus.
+/// Panel lateral de estado de conexión a bAuth.
+/// Conexión automática al arrancar — botón solo si hay fallo.
 class PanelConexion extends ConsumerWidget {
   const PanelConexion({super.key});
 
@@ -30,7 +29,8 @@ class PanelConexion extends ConsumerWidget {
     final cs = Theme.of(context).colorScheme;
     final s = Theme.of(context).scaling;
     final r = ref.watch(pruebaConexionProvider);
-    final ocupado = r.fase == FaseConexion.probando;
+    final fallida = r.fase == FaseConexion.fallida;
+    final probando = r.fase == FaseConexion.probando;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -81,17 +81,38 @@ class PanelConexion extends ConsumerWidget {
 
         SizedBox(height: 14 * s),
 
-        SeccionConCodigo(
-          'G-BD:BTN',
-          child: BotonPrimario(
-            texto: ocupado ? 'Probando…' : 'Probar conexión',
-            alPresionar: ocupado
-                ? null
-                : () => ref.read(pruebaConexionProvider.notifier).probar(),
+        // Botón "Reconectar" — solo visible cuando la conexión falla
+        if (fallida)
+          SeccionConCodigo(
+            'G-BD:BTN',
+            child: BotonPrimario(
+              texto: 'Reconectar',
+              alPresionar: () =>
+                  ref.read(pruebaConexionProvider.notifier).probar(),
+            ),
           ),
-        ),
 
-        SizedBox(height: 14 * s),
+        // Spinner mientras conecta (solo al inicio o al reconectar)
+        if (probando)
+          SeccionConCodigo(
+            'G-BD:BTN',
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 14 * s,
+                  height: 14 * s,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: cs.mutedForeground),
+                ),
+                SizedBox(width: 8 * s),
+                Text('Conectando…',
+                    style: TextStyle(
+                        fontSize: 12 * s, color: cs.mutedForeground)),
+              ],
+            ),
+          ),
+
+        if (fallida || probando) SizedBox(height: 14 * s),
 
         SeccionConCodigo('G-BD:RES', child: _Resultado(resultado: r)),
       ],

@@ -1,22 +1,24 @@
 // ============================================================
 // bauth_desktop · nucleo/conexion/prueba_conexion.dart
 //
-// Propósito: health check contra bAuth real usando el cliente activo.
-//   Usa clienteRpcActivoProvider: SSH exec si hay túnel SSH activo,
-//   TCP si está en modo directo. Expone el resultado para la UI.
+// Propósito: health check automático contra bAuth al iniciar la app.
+//   Al crear el provider ejecuta bauth.health.check inmediatamente.
+//   El botón de reconexión solo aparece cuando la conexión falla.
 //
 // Dependencias: flutter_riverpod, proveedor_conexion.
-// Estándar: bauth.health.check (verificado VPS 2026-07-15).
+// Estándar: bauth.health.check · ADR-020 · DOC-SBOS-001 N3.
 // ============================================================
+
+import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'proveedor_conexion.dart';
 
 /// Fase del intento de conexión.
-enum FaseConexion { inicial, probando, exitosa, fallida }
+enum FaseConexion { probando, exitosa, fallida }
 
-/// Resultado del "hola mundo" con su mensaje para la UI.
+/// Resultado del health check con el mensaje para la UI.
 class ResultadoConexion {
   final FaseConexion fase;
   final String mensaje;
@@ -26,28 +28,26 @@ class ResultadoConexion {
   const ResultadoConexion(this.fase, this.mensaje,
       {this.version, this.uptime});
 
-  static const inicial =
-      ResultadoConexion(FaseConexion.inicial, 'Sin probar');
-
   bool get ok => fase == FaseConexion.exitosa;
 }
 
-/// Ejecuta el health.check y publica el resultado.
+/// Ejecuta bauth.health.check y publica el resultado.
+/// Al inicializarse dispara la conexión automáticamente.
 class PruebaConexionNotifier extends Notifier<ResultadoConexion> {
   @override
-  ResultadoConexion build() => ResultadoConexion.inicial;
-
-  /// Publica un error sin ejecutar la prueba (usado por el túnel SSH).
-  void establecerError(String mensaje) {
-    state = ResultadoConexion(FaseConexion.fallida, mensaje);
+  ResultadoConexion build() {
+    // Conectar automáticamente al arrancar la app
+    Future.microtask(probar);
+    return const ResultadoConexion(FaseConexion.probando, 'Conectando…');
   }
 
-  /// Conecta via BanexusTransporte y ejecuta bauth.health.check.
+  /// Conecta via BanexusTransporte y verifica bauth.health.check.
+  /// Llamado automáticamente al iniciar y manualmente al reconectar.
   Future<void> probar() async {
     state = const ResultadoConexion(FaseConexion.probando, 'Conectando…');
     final cliente = ref.read(clienteRpcActivoProvider);
     try {
-      await cliente.conectar(); // no-op para SSH
+      await cliente.conectar();
       final r = await cliente.llamar('bauth.health.check');
       final version = r['version'] ?? '?';
       final status = r['status'] ?? '?';
@@ -61,8 +61,6 @@ class PruebaConexionNotifier extends Notifier<ResultadoConexion> {
     } catch (e) {
       state = ResultadoConexion(FaseConexion.fallida, e.toString());
     }
-    // No desconectar: SSH exec no tiene estado persistente
-    //                 TCP: el cliente compartido permanece conectado para reutilizar
   }
 }
 
