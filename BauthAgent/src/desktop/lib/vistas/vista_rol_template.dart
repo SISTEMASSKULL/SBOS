@@ -20,13 +20,11 @@ import 'package:tf_shadcn_flutter/shadcn_flutter.dart';
 import '../widgets/comunes/etiqueta_codigo.dart';
 import '../widgets/comunes/indicador_procesamiento.dart';
 
-import '../datos/arbol_datos.dart';
 import '../datos/rol_template_datos.dart';
 import '../nucleo/api/bauth_api.dart';
 import '../nucleo/conexion/prueba_conexion.dart';
 import '../nucleo/conexion/proveedor_conexion.dart';
 import '../widgets/comunes/arbol_bd.dart';
-import '../widgets/comunes/arbol_sbos.dart';
 import '../widgets/comunes/arbol_template.dart';
 import '../widgets/comunes/boton_sbos.dart';
 import '../widgets/comunes/dialogo_crear_atomo.dart';
@@ -100,6 +98,15 @@ class _VistaRolTemplateState extends ConsumerState<VistaRolTemplate> {
         Expanded(
           child: Row(
             children: [
+              // ── Sidenav izquierdo (V-RT:VOC) — vacío, reservado ──
+              const SeccionConCodigo(
+                'V-RT:VOC',
+                child: PanelLateral(
+                  titulo: 'Herramientas',
+                  lado: LadoPanel.izquierdo,
+                  child: SizedBox.shrink(),
+                ),
+              ),
               Expanded(
                 child: SeccionConCodigo(
                   'V-RT:CNT',
@@ -118,13 +125,13 @@ class _VistaRolTemplateState extends ConsumerState<VistaRolTemplate> {
                   ),
                 ),
               ),
+              // ── Sidenav derecho (V-RT:POL) — vacío, reservado ──
               const SeccionConCodigo(
                 'V-RT:POL',
                 child: PanelLateral(
                   titulo: 'Políticas',
-                  conteo: 'dominio',
                   lado: LadoPanel.derecho,
-                  child: ArbolSbos(nodos: arbolPoliticas),
+                  child: SizedBox.shrink(),
                 ),
               ),
             ],
