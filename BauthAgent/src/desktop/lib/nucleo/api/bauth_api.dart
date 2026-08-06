@@ -450,35 +450,20 @@ class BauthApi {
         .toList();
   }
 
-  /// Carga TODOS los nodos de idn_roles_template en UNA sola SSH exec.
-  /// Retorna la lista plana completa — ArbolBD la agrupa en memoria por parentId.
-  /// Una query, cero overhead de SSH por nodo, sin cuelgues.
+  /// Carga TODOS los nodos de idn_roles_template vía JSON-RPC (banexus).
+  /// Usa llamar() en lugar de ejecutarCmd — compatible con BanexusTransporte.
+  /// Respuesta esperada del daemon: {"nodos": [{id, parent_id, tipo, …}]}.
+  /// Si el daemon aún no implementa el método, retorna lista vacía sin error.
   Future<List<NodoRolTemplateBD>> rolTemplateTodos({
     String tenantSlug = 'skull',
   }) async {
     try {
-      final sql = "SELECT json_agg(t ORDER BY t.sort_order) FROM ("
-          "SELECT irt.id::text, irt.parent_id::text, irt.path,"
-          " irt.node_type AS tipo,"
-          " irt.label->>'es' AS clave, irt.label->>'en' AS clave_en,"
-          " irt.name->>'es' AS nombre, irt.name->>'en' AS nombre_en,"
-          " irt.value AS valor,"
-          " irt.help->>'es' AS help, irt.help->>'en' AS help_en,"
-          " irt.effect, irt.verb_id, irt.domain_number,"
-          " irt.depth, irt.sort_order, irt.alias, irt.block_code"
-          " FROM bauth.idn_roles_template irt"
-          " WHERE irt.tenant_id = ("
-          "  SELECT tenant_id FROM bauth.idn_tenant"
-          "  WHERE tenant_slug = '$tenantSlug' LIMIT 1)"
-          ") t";
-      final b64 = base64Encode(utf8.encode(sql));
-      final salida = await _rpc.ejecutarCmd(
-        "echo $b64 | base64 -d | psql '$_dsnSbos' -t -A",
+      final r = await _rpc.llamar(
+        'bauth.idn_roles_template.todos',
+        {'tenant_slug': tenantSlug},
       );
-      if (salida.isEmpty || salida == 'null') return const [];
-      final decoded = jsonDecode(salida);
-      if (decoded == null) return const [];
-      return (decoded as List<dynamic>)
+      final lista = r['nodos'] as List<dynamic>? ?? [];
+      return lista
           .cast<Map<String, dynamic>>()
           .map(NodoRolTemplateBD.fromJson)
           .toList();

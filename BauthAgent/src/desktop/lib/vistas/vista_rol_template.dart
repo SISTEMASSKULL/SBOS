@@ -359,8 +359,8 @@ class _PlaceholderCompiladoTab extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════
 
 /// Vista lado a lado: árbol Dart fuente (izq.) vs árbol live de la BD (der.).
-/// El árbol BD solo se monta cuando hay conexión SSH activa — previene el
-/// cuelgue de 10 min que ocurre cuando TCP intenta conectar a localhost:9450.
+/// El árbol BD solo se monta cuando banexus está conectado y bAuth responde
+/// (pruebaConexionProvider.fase == exitosa). Usa llamar() vía banexus — sin SSH.
 ///
 /// [seleccionListenable] en vez de un valor directo: cuando el usuario selecciona
 /// un nodo en ArbolBD solo rebuilda el ValueListenableBuilder interior (subtítulo,
@@ -509,7 +509,7 @@ class _PlaceholderSinConexionBD extends StatelessWidget {
           ),
           SizedBox(height: 6 * s),
           Text(
-            'Configura el túnel SSH en el panel lateral\ny pulsa "Conectar vía SSH".',
+            'Verifica la conexión banexus\n(pulsa G-BC-004 para reconectar).',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 11 * s,
@@ -557,7 +557,7 @@ class _BarraConexionBD extends ConsumerWidget {
             ? '${r.mensaje}  — si el árbol muestra error, pulsa Recargar'
             : esProbando
                 ? 'Verificando conexión con bAuth…'
-                : 'Sin conexión  — configura el túnel SSH en el panel de conexión';
+                : 'Sin conexión  — usa G-BC-004 para reconectar a bAuth';
 
     return Container(
       width: double.infinity,
