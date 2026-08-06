@@ -40,7 +40,7 @@ enum EstadoConexion {
 }
 
 /// Interfaz mínima de cliente JSON-RPC 2.0.
-/// Implementada por ClienteRpc (TCP) y ClienteRpcSsh (SSH exec).
+/// Implementada por BanexusTransporte (banexus-implicit vía dart:io Socket).
 abstract class IClienteRpc {
   Stream<EstadoConexion> get estado;
   Future<void> conectar();
@@ -287,7 +287,7 @@ class ClienteRpc implements IClienteRpc {
     _estadoCtrl.add(e);
   }
 
-  /// No disponible en cliente TCP — solo implementado en ClienteRpcSsh.
+  /// No disponible en banexus-implicit — aberración SSH eliminada.
   @override
   Future<String> ejecutarCmd(String cmd) =>
       Future.error(UnsupportedError('ejecutarCmd no soportado en cliente TCP'));

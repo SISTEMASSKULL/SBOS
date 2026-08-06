@@ -42,8 +42,7 @@ class PruebaConexionNotifier extends Notifier<ResultadoConexion> {
     state = ResultadoConexion(FaseConexion.fallida, mensaje);
   }
 
-  /// Conecta usando el cliente activo y ejecuta bauth.health.check.
-  /// Usa SSH exec si hay un ClienteRpcSsh activo; TCP si no.
+  /// Conecta via BanexusTransporte y ejecuta bauth.health.check.
   Future<void> probar() async {
     state = const ResultadoConexion(FaseConexion.probando, 'Conectando…');
     final cliente = ref.read(clienteRpcActivoProvider);

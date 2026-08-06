@@ -1,183 +1,117 @@
 // ============================================================
 // bauth_desktop · nucleo/conexion/proveedor_conexion.dart
 //
-// Propósito: Riverpod providers que gestionan el ciclo de vida
-//   de la conexión a bAuth: config → ClienteRpc → BauthApi.
-//   La UI observa el estado y se actualiza automáticamente.
+// Propósito: providers Riverpod para el ciclo de vida de conexión a bAuth.
+//   Transporte único: BanexusTransporte (dart:io Socket → bhnexus:9444).
+//   Cadena canónica: Flutter → BanexusTransporte → bhnexus:9444 → bAuth socket.
+//   Sin SSH. Sin DLL. Sin TCP directo a bAuth.
 //
-//   Transporte primario:
-//     banexus local API (127.0.0.1:9446) — TCP sin SSH.
-//     Flutter → banexus → bhnexus Puerta 1 → bAuth socket.
-//
-//   Transporte secundario (solo si banexus no responde):
-//     SSH exec — ClienteRpcSsh, activado desde PanelConexion.
-//
-// Dependencias: flutter_riverpod, cliente_rpc_banexus, cliente_rpc_ssh,
-//               config_conexion, bauth_api.
-// Estándar: JSON-RPC 2.0 · Riverpod 3.x · ADR-020 · DOC-SBOS-001 N3.
+// Dependencias: flutter_riverpod, banexus_transporte, bauth_api.
+// Estándar: JSON-RPC 2.0 · Riverpod 3.x · ADR-020 · 2.18 Motor de Comunicación.
 // ============================================================
 
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'cliente_rpc.dart';
-import 'cliente_rpc_banexus.dart';
-import 'cliente_rpc_ssh.dart';
-import 'config_conexion.dart';
+import '../../libs/bauth_nexus/banexus_transporte.dart';
 import '../api/bauth_api.dart';
 import '../dominio/config_tipo_nodo.dart';
 
 // ═══════════════════════════════════════════════════════════
-// Transporte primario: banexus local API
+// Transporte: banexus-implicit (único — cadena canónica)
 // ═══════════════════════════════════════════════════════════
 
-/// Provider del cliente JSON-RPC via banexus local API.
-/// Transporte canónico: Flutter → banexus → bhnexus → bAuth.
-final clienteRpcBanexusProvider = Provider<ClienteRpcBanexus>((ref) {
-  final cliente = ClienteRpcBanexus();
-  ref.onDispose(() => cliente.dispose());
-  return cliente;
+/// Transporte banexus-implicit — el único canal permitido para el desktop.
+/// Flutter → BanexusTransporte → bhnexus:9444 → bAuth.
+final banexusTransporteProvider = Provider<BanexusTransporte>((ref) {
+  final t = BanexusTransporte(host: '13.140.128.230', puerto: 9444);
+  ref.onDispose(() => t.dispose());
+  return t;
 });
 
-// ═══════════════════════════════════════════════════════════
-// Transporte secundario: SSH exec (fallback manual)
-// ═══════════════════════════════════════════════════════════
-
-/// Notifier que sostiene el cliente SSH exec activo (fallback).
-class ClienteRpcSshNotifier extends Notifier<ClienteRpcSsh?> {
-  @override
-  ClienteRpcSsh? build() => null;
-
-  /// Establece o limpia el cliente SSH exec activo.
-  void establecer(ClienteRpcSsh? cliente) => state = cliente;
-}
-
-/// Cliente SSH exec activo, o null si se usa banexus.
-/// Se establece desde PanelConexion si banexus no está disponible.
-final clienteRpcSshProvider =
-    NotifierProvider<ClienteRpcSshNotifier, ClienteRpcSsh?>(
-        ClienteRpcSshNotifier.new);
-
-// ═══════════════════════════════════════════════════════════
-// Cliente RPC activo (banexus primario, SSH fallback)
-// ═══════════════════════════════════════════════════════════
-
-/// Provee el cliente RPC activo:
-///   1. ClienteRpcSsh si el fallback SSH está explícitamente activo.
-///   2. ClienteRpcBanexus (banexus local API) — transporte por defecto.
+/// IClienteRpc activo — siempre BanexusTransporte en la cadena canónica.
 final clienteRpcActivoProvider = Provider<IClienteRpc>((ref) {
-  final ssh = ref.watch(clienteRpcSshProvider);
-  if (ssh != null) return ssh;
-  return ref.watch(clienteRpcBanexusProvider);
-});
-
-// ═══════════════════════════════════════════════════════════
-// Cliente TCP legacy (mantenido para compatibilidad de providers)
-// ═══════════════════════════════════════════════════════════
-
-/// Provider del cliente JSON-RPC TCP directo.
-/// En producción usar clienteRpcBanexusProvider — este es para pruebas.
-final clienteRpcProvider = Provider<ClienteRpc>((ref) {
-  final cfg = ref.watch(configConexionProvider);
-  final cliente = ClienteRpc(host: cfg.host, puerto: cfg.puerto);
-  ref.onDispose(() => cliente.dispose());
-  return cliente;
+  return ref.watch(banexusTransporteProvider);
 });
 
 // ═══════════════════════════════════════════════════════════
 // Estado de conexión (observable desde la UI)
 // ═══════════════════════════════════════════════════════════
 
-/// Stream del estado de conexión — sigue a banexus local API.
+/// Stream del estado de conexión TCP banexus.
 final estadoConexionProvider = StreamProvider<EstadoConexion>((ref) {
-  final cliente = ref.watch(clienteRpcBanexusProvider);
-  return cliente.estado;
+  return ref.watch(banexusTransporteProvider).estado;
 });
 
-/// Provider que controla la conexión banexus: conectar/desconectar.
+/// Control de conexión: conectar/desconectar desde la UI.
 final controlConexionProvider = Provider<ControlConexion>((ref) {
-  final cliente = ref.watch(clienteRpcBanexusProvider);
-  return ControlConexion(cliente);
+  return ControlConexion(ref.watch(banexusTransporteProvider));
 });
 
 class ControlConexion {
   final IClienteRpc _cliente;
   ControlConexion(this._cliente);
-
   Future<void> conectar() => _cliente.conectar();
   void desconectar() => _cliente.desconectar();
 }
 
 // ═══════════════════════════════════════════════════════════
-// API tipada (wrapper sobre el cliente activo)
+// API tipada y providers de datos
 // ═══════════════════════════════════════════════════════════
 
-/// BauthApi usa el cliente activo: SSH exec si disponible, TCP si no.
+/// BauthApi usa el cliente activo — siempre BanexusTransporte.
 final bauthApiProvider = Provider<BauthApi>((ref) {
-  final cliente = ref.watch(clienteRpcActivoProvider);
-  return BauthApi(cliente);
+  return BauthApi(ref.watch(clienteRpcActivoProvider));
 });
 
-// ═══════════════════════════════════════════════════════════
-// Datos reales desde bAuth (providers Future)
-// ═══════════════════════════════════════════════════════════
-
-/// Health check — se refresca cada 30s.
+/// Health check del daemon bAuth.
 final healthProvider = FutureProvider<HealthInfo>((ref) async {
-  final api = ref.watch(bauthApiProvider);
-  return api.healthCheck();
+  return ref.watch(bauthApiProvider).healthCheck();
 });
 
 /// Lista de roles activos.
 final rolesProvider = FutureProvider<List<RolInfo>>((ref) async {
-  final api = ref.watch(bauthApiProvider);
-  return api.listarRoles();
+  return ref.watch(bauthApiProvider).listarRoles();
 });
 
 /// Lista de role templates.
 final templatesProvider = FutureProvider<List<RolTemplate>>((ref) async {
-  final api = ref.watch(bauthApiProvider);
-  return api.listarTemplates();
+  return ref.watch(bauthApiProvider).listarTemplates();
 });
 
-/// Auto-conexión TCP: conecta al iniciar la app (no-op en modo SSH).
+/// Auto-conexión al iniciar la app: llama conectar() en BanexusTransporte.
 final autoConexionProvider = FutureProvider<void>((ref) async {
-  final control = ref.watch(controlConexionProvider);
-  await control.conectar();
+  await ref.watch(controlConexionProvider).conectar();
 });
 
-/// Lista de usuarios (recargable).
+/// Lista de usuarios con filtro de búsqueda.
 final usuariosProvider = FutureProvider.family<List<UsuarioInfo>, String>(
   (ref, busqueda) async {
-    final api = ref.watch(bauthApiProvider);
-    return api.listarUsuarios(busqueda: busqueda.isEmpty ? null : busqueda);
+    return ref.watch(bauthApiProvider).listarUsuarios(
+      busqueda: busqueda.isEmpty ? null : busqueda,
+    );
   },
 );
 
-/// Árbol completo de entidades (idn_identity_entity — 5 niveles).
-/// Raíz: tenants → bdomain → bsubdomain → pos → actor.
+/// Árbol completo de entidades organizacionales.
 final arbolEntidadesProvider = FutureProvider<List<EntidadInfo>>((ref) async {
-  final api = ref.watch(bauthApiProvider);
-  return api.arbolEntidades();
+  return ref.watch(bauthApiProvider).arbolEntidades();
 });
 
-/// Catálogo de tipos de nodo desde bauth.idn_policy_node_type.
-/// Cargado una vez al conectar. Provee `Map<codigo, ConfigTipoNodo>`.
-/// Los widgets leen de aquí — cero switch de presentación por tipo en la UI.
-final catalogoTiposProvider = FutureProvider<Map<String, ConfigTipoNodo>>((ref) async {
-  final api = ref.watch(bauthApiProvider);
-  return api.cargarCatalogoTipos();
+/// Catálogo de tipos de nodo (idn_policy_node_type).
+final catalogoTiposProvider =
+    FutureProvider<Map<String, ConfigTipoNodo>>((ref) async {
+  return ref.watch(bauthApiProvider).cargarCatalogoTipos();
 });
 
-/// Métricas operacionales del daemon bAuth — se refresca cada 30 s.
-/// Consume bauth.sync.status (7 COUNTs en paralelo, < 5 ms).
-final syncStatusProvider = FutureProvider.autoDispose<SyncStatusInfo>((ref) async {
+/// Métricas del daemon bAuth — refresco automático cada 30 s.
+final syncStatusProvider =
+    FutureProvider.autoDispose<SyncStatusInfo>((ref) async {
   ref.keepAlive();
-  final api = ref.watch(bauthApiProvider);
   final timer = Timer.periodic(const Duration(seconds: 30), (_) {
-    // ignore: invalid_use_of_visible_for_testing_member
     ref.invalidateSelf();
   });
   ref.onDispose(timer.cancel);
-  return api.syncStatus();
+  return ref.watch(bauthApiProvider).syncStatus();
 });
