@@ -464,8 +464,8 @@ class _SidenavHerramientas extends StatefulWidget {
 }
 
 class _SidenavHerramientasState extends State<_SidenavHerramientas> {
-  /// Categoría actualmente seleccionada; null = sin selección.
-  String? _categoria;
+  /// Categoría actualmente seleccionada; primera opción por defecto.
+  String _categoria = _SelectorCategoria._opciones.first;
 
   @override
   Widget build(BuildContext context) {
@@ -483,10 +483,10 @@ class _SidenavHerramientasState extends State<_SidenavHerramientas> {
 
 /// Dropdown [Select<String>] para elegir la categoría de herramientas.
 ///
-/// [valor] categoría seleccionada actualmente (puede ser null).
+/// [valor] categoría seleccionada actualmente.
 /// [alCambiar] callback invocado cuando el usuario elige una opción.
 class _SelectorCategoria extends StatelessWidget {
-  final String? valor;
+  final String valor;
   final ValueChanged<String> alCambiar;
 
   static const _opciones = ['Roles', 'Usuarios', 'Otros'];
@@ -524,9 +524,9 @@ class _SelectorCategoria extends StatelessWidget {
 
 /// Panel inferior del sidenav Herramientas con la descripción de la categoría.
 ///
-/// [categoria] nombre de la categoría seleccionada (null si ninguna).
+/// [categoria] nombre de la categoría seleccionada.
 class _DescripcionCategoria extends StatelessWidget {
-  final String? categoria;
+  final String categoria;
 
   const _DescripcionCategoria({required this.categoria});
 
