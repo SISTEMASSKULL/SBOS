@@ -239,6 +239,7 @@ G-BC:SB [G-BC-010]
 | `G-BC-006` | Campanilla | Botón `[🔔]` + punto rojo si hay alerta crítica pendiente |
 | `G-BC-007` | AvatarMenu | Avatar gradiente + nombre + rol + `[▾]` → abre `G-BC-008` · usa `W-005` |
 | `G-BC-008` | MenuUsuarioDesplegable | Popup flotante: avatar · nombre · rol · Mi perfil · Cambiar usuario · Registrar · Iniciar sesión · Cerrar sesión |
+| `G-BC-012` | ToggleCodigos | Botón `[#]` — activa/desactiva etiquetas A.64.01 en todos los widgets (herramienta dev) |
 | `G-BC-009` | BarraBreadcrumb | Ruta activa (40px): "Control Plane / Vista actual" — muted / bold |
 | `G-BC-010` | BarraEstado | Segmentos izq→der: conexión · reconcile · drift · spacer · métricas (30px) |
 | `G-BC-011` | BarraInferior | Reservada — 30px (contenido TBD) |
@@ -552,6 +553,7 @@ Tabla para buscar rápidamente un código sin recorrer todo el documento:
 | `G-BC-009` | obj | BarraBreadcrumb | G-BC:BB |
 | `G-BC-010` | obj→W-008 | BarraEstado | G-BC:SB |
 | `G-BC-011` | obj | BarraInferior | G-BC:BOT |
+| `G-BC-012` | obj | ToggleCodigos | G-BC:TOP |
 | `G-BD-001` | obj | SelectorContexto | G-BD:TOP |
 | `G-BD-002` | obj | PanelConfig | G-BD:BOD |
 | `G-BD-003` | obj | PanelHerramientas | G-BD:BOD |
@@ -629,3 +631,4 @@ Tabla para buscar rápidamente un código sin recorrer todo el documento:
 | Versión | Fecha | Cambio |
 |---------|-------|--------|
 | 1.0.0 | 2026-08-03 | Creación — sistema de códigos completo: G-SN/G-BC/G-BD · V-DS/V-RT/V-CR/V-US/V-AE · W-001..W-010 · DL-001 · PR-001..PR-004 · árbol de slots · maqueta anotada § 8 · tabla de consulta rápida §9 |
+| 1.0.1 | 2026-08-06 | G-BC-012 ToggleCodigos añadido (herramienta dev, no estaba en maqueta original). Todos los objetos G-BC:TOP codificados con SeccionConCodigo. _ChipConexion actualizada: estado real de pruebaConexionProvider + dirección bhnexus:9444. |
