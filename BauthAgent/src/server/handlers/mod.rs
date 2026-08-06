@@ -62,3 +62,4 @@ pub mod identidad_crud;    // Motor de Identidad: list/get/hijos/atributo.*
 pub mod role_lifecycle;    // B10.T76-T89: Role lifecycle, impact, search, bulk, rollback, batch (panel1,1b,4,9,9b,10,11,12,13,78)
 pub mod versioning;        // F3: B01 version.record/history + B02 lifecycle.record/history (T-152 + T-B02L)
 pub mod approval;          // B03: quórum N-de-M para cambios MAJOR (T-153) — propose/vote/list/get
+pub mod idn_roles_template; // T-162: árbol AtomLang — bauth.idn_roles_template.todos

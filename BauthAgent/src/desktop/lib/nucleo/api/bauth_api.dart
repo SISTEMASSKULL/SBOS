@@ -453,23 +453,20 @@ class BauthApi {
   /// Carga TODOS los nodos de idn_roles_template vía JSON-RPC (banexus).
   /// Usa llamar() en lugar de ejecutarCmd — compatible con BanexusTransporte.
   /// Respuesta esperada del daemon: {"nodos": [{id, parent_id, tipo, …}]}.
-  /// Si el daemon aún no implementa el método, retorna lista vacía sin error.
+  /// Los errores se propagan al llamador (ArbolBD._ArbolBDViewModel.cargar)
+  /// que los muestra en _ErrorRaiz con botón Reintentar.
   Future<List<NodoRolTemplateBD>> rolTemplateTodos({
     String tenantSlug = 'skull',
   }) async {
-    try {
-      final r = await _rpc.llamar(
-        'bauth.idn_roles_template.todos',
-        {'tenant_slug': tenantSlug},
-      ).timeout(const Duration(seconds: 5));
-      final lista = r['nodos'] as List<dynamic>? ?? [];
-      return lista
-          .cast<Map<String, dynamic>>()
-          .map(NodoRolTemplateBD.fromJson)
-          .toList();
-    } catch (_) {
-      return const [];
-    }
+    final r = await _rpc.llamar(
+      'bauth.idn_roles_template.todos',
+      {'tenant_slug': tenantSlug},
+    ).timeout(const Duration(seconds: 5));
+    final lista = r['nodos'] as List<dynamic>? ?? [];
+    return lista
+        .cast<Map<String, dynamic>>()
+        .map(NodoRolTemplateBD.fromJson)
+        .toList();
   }
 
   /// Sin caché — cada llamada va directo a la BD.

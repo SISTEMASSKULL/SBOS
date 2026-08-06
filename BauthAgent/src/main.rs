@@ -673,6 +673,13 @@ async fn main() {
             std::sync::Arc::new(DebugMethodsHandler { methods: method_list }));
     }
 
+    // ── Árbol AtomLang — idn_roles_template (T-162) ──
+    for (method_name, handler) in server::handlers::idn_roles_template::all_idn_roles_template_handlers(
+        db_ctx.as_ref().map(|c| c.pg.clone())
+    ) {
+        dispatcher.register(&method_name, handler);
+    }
+
     // ── Motor de Identidad (2.15 §5) ──
     dispatcher.register("bauth.identidad.list",
         std::sync::Arc::new(server::handlers::identidad_crud::IdentidadListHandler { pg_pool: db_ctx.as_ref().map(|c| c.pg.clone()) }));
