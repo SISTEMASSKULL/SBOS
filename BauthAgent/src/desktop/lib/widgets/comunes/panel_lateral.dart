@@ -1,15 +1,23 @@
 // ============================================================
 // bauth_desktop · widgets/comunes/panel_lateral.dart
 //
-// Propósito: sidenav colapsable — encabezado + área de contenido.
-//   Expandido: ancho completo con título y contenido.
+// Propósito: sidenav colapsable con tres secciones de contenido:
+//
+//   ┌─────────────────────────────┐
+//   │ encabezado (título + toggle)│  ← siempre presente, fijo
+//   ├─────────────────────────────┤
+//   │ top                         │  ← fijo, sin scroll (opcional)
+//   ├─────────────────────────────┤
+//   │ body  (Expanded + scroll)   │  ← flexible, scrolleable (opcional)
+//   ├─────────────────────────────┤
+//   │ bottom                      │  ← fijo, sin scroll (opcional)
+//   └─────────────────────────────┘
+//
 //   Colapsado: tira vertical con título rotado y botón de toggle.
 //
-// Rendimiento: usa Offstage para mantener AMBOS estados (expandido y
-//   colapsado) siempre en el árbol. Evita el desmonte/remonte en cada
-//   toggle, eliminando la reconstrucción costosa del contenido.
-//   AnimatedContainer con clipBehavior para que el clip solo cambie
-//   dimensión sin forzar relayout del contenido interior.
+// Rendimiento: Offstage mantiene expandido y colapsado siempre en el
+//   árbol — sin desmonte al hacer toggle. AnimatedContainer con
+//   clipBehavior solo cambia el clip, no relayoutea el contenido.
 //
 // Dependencias: tf_shadcn_flutter.
 // Estándar: shadcn_flutter · DOC-SBOS-001 N3 (componente reutilizable).
@@ -20,21 +28,34 @@ import 'package:tf_shadcn_flutter/shadcn_flutter.dart';
 /// Lado del borde de un panel lateral.
 enum LadoPanel { izquierdo, derecho }
 
-/// Sidenav colapsable con encabezado y contenido desplazable.
+/// Sidenav colapsable con tres secciones: [top], [body] y [bottom].
+///
+/// Todas las secciones son opcionales. [body] ocupa el espacio restante
+/// con scroll; [top] y [bottom] son fijas (sin scroll).
 class PanelLateral extends StatefulWidget {
   final String titulo;
   final String conteo;
   final LadoPanel lado;
-  final Widget child;
   final double ancho;
+
+  /// Sección superior fija (debajo del encabezado, sin scroll).
+  final Widget? top;
+
+  /// Sección central flexible con scroll vertical.
+  final Widget? body;
+
+  /// Sección inferior fija (encima del borde inferior, sin scroll).
+  final Widget? bottom;
 
   const PanelLateral({
     super.key,
     required this.titulo,
     this.conteo = '',
     required this.lado,
-    required this.child,
     this.ancho = 252,
+    this.top,
+    this.body,
+    this.bottom,
   });
 
   @override
@@ -50,8 +71,6 @@ class _PanelLateralState extends State<PanelLateral> {
     final cs = theme.colorScheme;
     final s = theme.scaling;
 
-    // clipBehavior: el contenido a ancho fijo queda recortado durante
-    // la animación sin necesidad de relayoutearlo en cada frame.
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeInOut,
@@ -68,11 +87,9 @@ class _PanelLateralState extends State<PanelLateral> {
               : BorderSide.none,
         ),
       ),
-      // Stack con Offstage: AMBOS estados permanecen en el árbol.
-      // Al hacer toggle solo cambia la visibilidad — nunca hay desmonte.
+      // Offstage: ambos estados permanecen en el árbol — sin desmonte.
       child: Stack(
         children: [
-          // ── Estado expandido ──────────────────────────────────
           Offstage(
             offstage: !_expandido,
             child: _PanelExpandido(
@@ -81,10 +98,11 @@ class _PanelLateralState extends State<PanelLateral> {
               lado: widget.lado,
               ancho: widget.ancho,
               onToggle: _toggle,
-              child: widget.child,
+              top: widget.top,
+              body: widget.body,
+              bottom: widget.bottom,
             ),
           ),
-          // ── Estado colapsado ──────────────────────────────────
           Offstage(
             offstage: _expandido,
             child: _PanelColapsado(
@@ -102,7 +120,7 @@ class _PanelLateralState extends State<PanelLateral> {
 }
 
 // ════════════════════════════════════════════════════════════
-// Sub-widgets internos (stateless — renderizan su estado)
+// Sub-widgets internos
 // ════════════════════════════════════════════════════════════
 
 class _PanelExpandido extends StatelessWidget {
@@ -111,7 +129,9 @@ class _PanelExpandido extends StatelessWidget {
   final LadoPanel lado;
   final double ancho;
   final VoidCallback onToggle;
-  final Widget child;
+  final Widget? top;
+  final Widget? body;
+  final Widget? bottom;
 
   const _PanelExpandido({
     required this.titulo,
@@ -119,7 +139,9 @@ class _PanelExpandido extends StatelessWidget {
     required this.lado,
     required this.ancho,
     required this.onToggle,
-    required this.child,
+    this.top,
+    this.body,
+    this.bottom,
   });
 
   @override
@@ -132,7 +154,7 @@ class _PanelExpandido extends StatelessWidget {
     return SizedBox(
       width: ancho * s,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // ── Encabezado ───────────────────────────────────────
           Container(
@@ -144,7 +166,8 @@ class _PanelExpandido extends StatelessWidget {
             ),
             child: Row(
               children: [
-                if (!esIzq) _BotonToggle(lado: lado, expandido: true, onToggle: onToggle, s: s, cs: cs),
+                if (!esIzq)
+                  _BotonToggle(lado: lado, expandido: true, onToggle: onToggle, s: s, cs: cs),
                 if (!esIzq) SizedBox(width: 4 * s),
                 Expanded(
                   child: Text(
@@ -168,17 +191,33 @@ class _PanelExpandido extends StatelessWidget {
                     ),
                   ),
                 if (esIzq) SizedBox(width: 4 * s),
-                if (esIzq) _BotonToggle(lado: lado, expandido: true, onToggle: onToggle, s: s, cs: cs),
+                if (esIzq)
+                  _BotonToggle(lado: lado, expandido: true, onToggle: onToggle, s: s, cs: cs),
               ],
             ),
           ),
-          // ── Contenido ────────────────────────────────────────
+
+          // ── Sección top (fija) ────────────────────────────────
+          if (top != null) ...[
+            top!,
+            Divider(height: 1, thickness: 1, color: cs.border),
+          ],
+
+          // ── Sección body (flexible + scroll) ─────────────────
           Expanded(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.symmetric(horizontal: 6 * s),
-              child: child,
-            ),
+            child: body != null
+                ? SingleChildScrollView(
+                    padding: EdgeInsets.symmetric(horizontal: 6 * s, vertical: 4 * s),
+                    child: body,
+                  )
+                : const SizedBox.shrink(),
           ),
+
+          // ── Sección bottom (fija) ─────────────────────────────
+          if (bottom != null) ...[
+            Divider(height: 1, thickness: 1, color: cs.border),
+            bottom!,
+          ],
         ],
       ),
     );
@@ -209,7 +248,13 @@ class _PanelColapsado extends StatelessWidget {
           SizedBox(
             width: 32 * s,
             height: 32 * s,
-            child: _BotonToggle(lado: lado, expandido: false, onToggle: onToggle, s: s, cs: cs),
+            child: _BotonToggle(
+              lado: lado,
+              expandido: false,
+              onToggle: onToggle,
+              s: s,
+              cs: cs,
+            ),
           ),
           Expanded(
             child: Center(
@@ -234,7 +279,7 @@ class _PanelColapsado extends StatelessWidget {
   }
 }
 
-/// Botón de toggle reutilizable entre los dos estados del panel.
+/// Botón de toggle compartido entre estado expandido y colapsado.
 class _BotonToggle extends StatelessWidget {
   final LadoPanel lado;
   final bool expandido;

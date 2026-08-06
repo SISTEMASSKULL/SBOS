@@ -98,13 +98,12 @@ class _VistaRolTemplateState extends ConsumerState<VistaRolTemplate> {
         Expanded(
           child: Row(
             children: [
-              // ── Sidenav izquierdo (V-RT:VOC) — vacío, reservado ──
+              // ── Sidenav izquierdo (V-RT:VOC) — Menú Roles Template ──
               const SeccionConCodigo(
                 'V-RT:VOC',
                 child: PanelLateral(
-                  titulo: 'Herramientas',
+                  titulo: 'Roles Template',
                   lado: LadoPanel.izquierdo,
-                  child: SizedBox.shrink(),
                 ),
               ),
               Expanded(
@@ -125,13 +124,12 @@ class _VistaRolTemplateState extends ConsumerState<VistaRolTemplate> {
                   ),
                 ),
               ),
-              // ── Sidenav derecho (V-RT:POL) — vacío, reservado ──
+              // ── Sidenav derecho (V-RT:POL) — Herramientas ──
               const SeccionConCodigo(
                 'V-RT:POL',
                 child: PanelLateral(
-                  titulo: 'Políticas',
+                  titulo: 'Herramientas',
                   lado: LadoPanel.derecho,
-                  child: SizedBox.shrink(),
                 ),
               ),
             ],
