@@ -30,6 +30,7 @@ import 'package:tf_shadcn_flutter/shadcn_flutter.dart';
 import '../../nucleo/api/bauth_api.dart';
 import '../../nucleo/conexion/proveedor_conexion.dart';
 import '../../nucleo/dominio/config_tipo_nodo.dart';
+import '../../nucleo/procesamiento_provider.dart';
 import 'indicador_procesamiento.dart';
 
 // ── Etiqueta compuesta del nodo ───────────────────────────────
@@ -181,8 +182,12 @@ class _ArbolBDState extends ConsumerState<ArbolBD> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       widget.cargandoNotifier?.value = true;
+      ref.read(procesamientoProvider.notifier).iniciar('Consultando SBOSDB…');
       _vm.cargar(widget.cargarTodos, onTerminado: () {
-        if (mounted) widget.cargandoNotifier?.value = false;
+        if (mounted) {
+          widget.cargandoNotifier?.value = false;
+          ref.read(procesamientoProvider.notifier).terminar();
+        }
       });
     });
   }
@@ -195,8 +200,12 @@ class _ArbolBDState extends ConsumerState<ArbolBD> {
 
   void _reintentar() {
     widget.cargandoNotifier?.value = true;
+    ref.read(procesamientoProvider.notifier).iniciar('Consultando SBOSDB…');
     _vm.cargar(widget.cargarTodos, onTerminado: () {
-      if (mounted) widget.cargandoNotifier?.value = false;
+      if (mounted) {
+        widget.cargandoNotifier?.value = false;
+        ref.read(procesamientoProvider.notifier).terminar();
+      }
     });
   }
 
