@@ -61,13 +61,6 @@ class VistaRolTemplate extends ConsumerStatefulWidget {
 class _VistaRolTemplateState extends ConsumerState<VistaRolTemplate> {
   int _tabArbol = 0;
 
-  // ── Overlay de carga ──────────────────────────────────────────────────
-  // Frame 1: _contenidoListo=false → solo el overlay, cero árbol pesado.
-  // Frame 2+: contenido real. El overlay se muestra mientras
-  //   catalogoTiposProvider.isLoading (FutureProvider siempre termina
-  //   en data/error → imposible quedarse colgado).
-  bool _contenidoListo = false;
-
   // ── Selección via ValueNotifier (sin setState en el padre) ────────────
   final _seleccionNotifier = ValueNotifier<NodoTemplate?>(null);
   final _rutaNotifier = ValueNotifier<String>('');
@@ -75,20 +68,15 @@ class _VistaRolTemplateState extends ConsumerState<VistaRolTemplate> {
 
   // ── Estado de comparación BD (tab 0) ──
   final _seleccionBDNotifier = ValueNotifier<NodoRolTemplateBD?>(null);
-  // Overlay MVVM correcto: false=libre, true=cargando.
-  // ArbolBD lo pone a true en initState y a false cuando el ViewModel termina.
-  // Nunca depende de timers ni de FutureProvider.isLoading.
-  final _cargandoBDNotifier = ValueNotifier<bool>(false);
+  // Overlay elegante: true desde el primer frame para que aparezca
+  // inmediatamente al abrir la vista. ArbolBD lo mantiene true y lo pone
+  // a false cuando el ViewModel termina de cargar los 154 nodos.
+  final _cargandoBDNotifier = ValueNotifier<bool>(true);
   int _claveArbolBD = 0;
 
   @override
   void initState() {
     super.initState();
-    // Frame 1 pinta solo el overlay (instantáneo).
-    // Frame 2 activa el contenido real.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() => _contenidoListo = true);
-    });
   }
 
   @override
@@ -152,10 +140,7 @@ class _VistaRolTemplateState extends ConsumerState<VistaRolTemplate> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    // Frame 1: spinner solo — sin árbol pesado, aparece instantáneo.
-    if (!_contenidoListo) return const IndicadorProcesamiento();
-
-    // Frame 2+: Stack permanente con dos capas:
+    // Stack permanente con dos capas:
     //   - Capa 0: vista completa — SIEMPRE presente; ArbolBD nunca se desmonta.
     //   - Capa 1: overlay — aparece/desaparece como SizedBox.shrink sin tocar la capa 0.
     //
