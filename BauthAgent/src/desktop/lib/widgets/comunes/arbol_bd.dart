@@ -69,8 +69,13 @@ class _ArbolBDViewModel extends ChangeNotifier {
   /// Notifier de selección: solo la fila afectada rebuilda su fondo.
   final seleccionNotifier = ValueNotifier<NodoRolTemplateBD?>(null);
 
+  // Flag para evitar notifyListeners() sobre un ChangeNotifier ya destruido.
+  // cargar() puede completar después de dispose() si el usuario navega rápido.
+  bool _destruido = false;
+
   @override
   void dispose() {
+    _destruido = true;
     seleccionNotifier.dispose();
     super.dispose();
   }
@@ -101,7 +106,7 @@ class _ArbolBDViewModel extends ChangeNotifier {
           : e.toString();
     } finally {
       cargando = false;
-      notifyListeners();
+      if (!_destruido) notifyListeners();
       onTerminado?.call();
     }
   }
@@ -174,40 +179,46 @@ class ArbolBD extends ConsumerStatefulWidget {
 class _ArbolBDState extends ConsumerState<ArbolBD> {
   late final _ArbolBDViewModel _vm;
 
+  // true mientras hay una carga en vuelo — permite que dispose() limpie
+  // procesamientoProvider aunque el Future complete después del desmontaje.
+  bool _cargando = false;
+
   @override
   void initState() {
     super.initState();
     _vm = _ArbolBDViewModel();
-    // postFrameCallback: seguro señalar al padre fuera del frame de build actual.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      widget.cargandoNotifier?.value = true;
-      ref.read(procesamientoProvider.notifier).iniciar('Consultando SBOSDB…');
-      _vm.cargar(widget.cargarTodos, onTerminado: () {
-        if (mounted) {
-          widget.cargandoNotifier?.value = false;
-          ref.read(procesamientoProvider.notifier).terminar();
-        }
-      });
+      _iniciarCarga();
     });
   }
 
-  @override
-  void dispose() {
-    _vm.dispose();
-    super.dispose();
-  }
-
-  void _reintentar() {
+  /// Activa el overlay local + el provider global y lanza cargar().
+  void _iniciarCarga() {
+    _cargando = true;
     widget.cargandoNotifier?.value = true;
     ref.read(procesamientoProvider.notifier).iniciar('Consultando SBOSDB…');
     _vm.cargar(widget.cargarTodos, onTerminado: () {
+      _cargando = false;
       if (mounted) {
         widget.cargandoNotifier?.value = false;
         ref.read(procesamientoProvider.notifier).terminar();
       }
     });
   }
+
+  @override
+  void dispose() {
+    // Si se desmonta con carga en vuelo, liberar el provider global.
+    // ref es válido en dispose() con ConsumerStatefulWidget.
+    if (_cargando) {
+      ref.read(procesamientoProvider.notifier).terminar();
+    }
+    _vm.dispose();
+    super.dispose();
+  }
+
+  void _reintentar() => _iniciarCarga();
 
   @override
   Widget build(BuildContext context) {
