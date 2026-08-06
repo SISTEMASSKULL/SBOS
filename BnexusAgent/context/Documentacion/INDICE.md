@@ -170,7 +170,7 @@
 
 | Documento | Ubicación | Qué describe |
 |-----------|-----------|-------------|
-| **Motor de Comunicación — banexus-implicit** | `BauthAgent/context/Documentacion/2.18_MANUAL-MOTOR-COMUNICACION-v1.0.md` | Protocolo universal para apps de software que se conectan a bAuth directamente (sin pasar por bhnexus): WS+JSON-RPC 2.0, mTLS, JWT/OIDC, W3C Trace Context. Implementaciones en TypeScript, PHP/Laravel, Dart/Flutter, Rust M2M, Python. *(Ref: `0.00` §4 · `1.06` §4 banexus-implicit)* |
+| **Motor de Comunicación — banexus-implicit** | `BauthAgent/context/Documentacion/2.18_MANUAL-MOTOR-COMUNICACION-v1.0.md` | Protocolo para apps de software que se conectan a **bhnexus:9444** en modo proxy (bhnexus enruta a bAuth): TCP/WS newline-delimited JSON, handshake JWT, rpc_call/rpc_response. Implementaciones en TypeScript, PHP/Laravel, Dart/Flutter, Rust M2M, Python. **Nunca conectar a bAuth:9450 directamente.** *(Ref: `0.00` §4 · `1.06` §4)* |
 
 ---
 

@@ -137,15 +137,16 @@ esté correctamente organizado desde el inicio.
 
 ### Etapa 2 — Desktop + Módulo de Identidad
 
-**Objetivo:** con el canal bNexus vivo (aunque sea en modo dev), desarrollar el desktop y el
-módulo de identidad + roles template. bAuth ya tiene su socket activo — el desktop usa
-banexus-implicit (Motor 2.18) y se conecta directamente a bAuth.
+**Objetivo:** con el canal bNexus vivo (Etapa 1 activa en modo dev), desarrollar el desktop y el
+módulo de identidad + roles template. El desktop usa banexus-implicit (Motor 2.18) y se conecta
+a **bhnexus:9444** — bhnexus enruta las peticiones a bAuth.
 
 **Por qué desbloquea el desktop:**
-- El desktop conecta a bAuth vía `banexus-implicit` — directo al socket de bAuth, no pasa por
-  bhnexus. Pero necesita que el ecosistema esté "vivo": un bhnexus corriendo (aunque sea en
-  modo dev) confirma que la infraestructura base funciona.
-- Los certificados de desarrollo generados en Etapa 1 sirven también para el desktop en fase dev.
+- El desktop conecta a **bhnexus** vía `banexus-implicit` (SDK Rust DLL en Flutter, o protocolo
+  nativo en otros lenguajes) — bhnexus actúa como proxy hacia bAuth. El desktop nunca habla
+  directamente con bAuth; toda la cadena es `desktop → bhnexus → bAuth`.
+- En Etapa 1 bhnexus ya acepta conexiones `modo: "proxy"` con `dev_mode: true` — sin JWT real,
+  para bootstrap. En Etapa 2 se añade el JWT real emitido por bAuth.
 
 **Qué se desarrolla en Etapa 2:**
 
