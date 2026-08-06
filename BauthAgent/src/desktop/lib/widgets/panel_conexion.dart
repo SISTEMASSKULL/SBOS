@@ -92,7 +92,8 @@ class PanelConexion extends ConsumerWidget {
             ),
           ),
 
-        // Spinner mientras conecta (solo al inicio o al reconectar)
+        // Spinner: muestra el mensaje exacto del monitor
+        // ("Conectando…", "Reconectando…", "Verificando…")
         if (probando)
           SeccionConCodigo(
             'G-BD:BTN',
@@ -105,7 +106,7 @@ class PanelConexion extends ConsumerWidget {
                       strokeWidth: 2, color: cs.mutedForeground),
                 ),
                 SizedBox(width: 8 * s),
-                Text('Conectando…',
+                Text(r.mensaje,
                     style: TextStyle(
                         fontSize: 12 * s, color: cs.mutedForeground)),
               ],

@@ -80,11 +80,6 @@ final templatesProvider = FutureProvider<List<RolTemplate>>((ref) async {
   return ref.watch(bauthApiProvider).listarTemplates();
 });
 
-/// Auto-conexión al iniciar la app: llama conectar() en BanexusTransporte.
-final autoConexionProvider = FutureProvider<void>((ref) async {
-  await ref.watch(controlConexionProvider).conectar();
-});
-
 /// Lista de usuarios con filtro de búsqueda.
 final usuariosProvider = FutureProvider.family<List<UsuarioInfo>, String>(
   (ref, busqueda) async {

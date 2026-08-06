@@ -1,22 +1,24 @@
 // ============================================================
 // bauth_desktop · libs/bauth_nexus/banexus_transporte.dart
 //
-// Propósito: banexus-implicit para Flutter/Dart.
-//   Transporte TCP nativo (dart:io Socket) hacia bhnexus:9444.
-//   Protocolo newline-delimited JSON — handshake + rpc_call frames.
-//   Cadena canónica: App → BanexusTransporte → bhnexus:9444 → bAuth socket.
-//   Sin DLL. Sin FFI. Sin SSH. Solo socket nativo.
+// Propósito: banexus-implicit para Flutter/Dart con gestión de
+//   conexión persistente al estándar de la industria.
+//
+// Mecanismos de resiliencia:
+//   1. Heartbeat cada 30s: {"type":"heartbeat"} → espera pong
+//   2. Watchdog 45s: si no llega pong → conexión declarada muerta
+//   3. Reconexión automática con backoff exponencial: 500ms→1s→2s→...→30s
+//   4. El ciclo es transparente para la app — solo llama a llamar()
+//
+// Patrón (WebSocket RFC 6455 / MQTT 5.0 / Socket.IO):
+//   drop → backoff(500ms×2ⁿ, techo 30s) → TCP connect → handshake → listo
 //
 // Protocolo banexus-implicit (SSOT: 2.18_MANUAL-MOTOR-COMUNICACION v4.0):
-//   1. Conectar TCP a bhnexus:9444
-//   2. Enviar handshake: {"type":"handshake","node_id":"<uuid>","modo":"proxy","dev_mode":true}\n
-//   3. Recibir:          {"type":"handshake_ok","granted":true,...}\n
-//   4. Por cada llamada:
-//      Enviar:  {"type":"rpc_call","payload":{json-rpc-2.0},"seq":N}\n
-//      Recibir: {"type":"rpc_response","payload":{jsonrpc,result|error},"seq":N}\n
+//   TCP 9444 → {"type":"handshake",...} → handshake_ok
+//              → rpc_call frames → rpc_response frames
 //
-// Dependencias: dart:io, dart:async, dart:convert, dart:math.
-// Estándar: ADR-020 · SBOS-NEXUS-CONCEPTUALIZACION-v3_0 §20 · 1.06 Formas banexus.
+// Dependencias: dart:io, dart:async, dart:convert, dart:math, rxdart.
+// Estándar: ADR-020 · SBOS-NEXUS-CONCEPTUALIZACION §20 · 2.18 Motor de Comunicación.
 // ============================================================
 
 import 'dart:async';
@@ -24,10 +26,11 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:rxdart/rxdart.dart';
+
 import '../../nucleo/conexion/cliente_rpc.dart';
 
-/// Genera un node_id único para esta sesión de banexus-implicit.
-/// Formato UUID v4 (RFC 4122) usando Random.secure().
+/// Genera node_id UUID v4 único para esta sesión de banexus-implicit.
 String _generarNodeId() {
   final r = Random.secure();
   final b = List<int>.generate(16, (_) => r.nextInt(256));
@@ -38,37 +41,50 @@ String _generarNodeId() {
       '${h.substring(12, 16)}-${h.substring(16, 20)}-${h.substring(20)}';
 }
 
-/// banexus-implicit para Flutter/Dart — la forma base universal para apps de software.
-/// Implementa [IClienteRpc] usando [dart:io Socket] directamente sobre TCP.
+/// banexus-implicit para Flutter/Dart — conexión persistente industrial.
 ///
-/// La app solo invoca [llamar] — el protocolo bhnexus (handshake, frames, seq)
-/// es completamente transparente para el llamador.
-///
-/// Etapa 1 (actual): dev_mode=true, sin JWT. El handshake es aceptado por
-/// bhnexus sin validación de token — bootstrap mientras bAuth aún no tiene usuarios.
-/// Etapa 2: añadir jwt al handshake (cambio de una línea aquí).
+/// La app solo invoca [llamar]. Todo lo demás (heartbeat, watchdog,
+/// reconexión con backoff) es transparente y automático.
 class BanexusTransporte implements IClienteRpc {
-  // ── Configuración ─────────────────────────────────────────────────────────
+  // ── Config ────────────────────────────────────────────────────────────────
   final String _host;
   final int _puerto;
   final Duration _timeout;
 
-  // ── Estado del socket ─────────────────────────────────────────────────────
+  // ── Socket y handshake ────────────────────────────────────────────────────
   Socket? _socket;
   final StringBuffer _buffer = StringBuffer();
   int _seq = 0;
   bool _handshakeListo = false;
   Completer<void>? _handshakeCompleter;
 
-  // ── Peticiones en vuelo: seq → Completer ──────────────────────────────────
+  // ── Peticiones en vuelo (seq → Completer) ─────────────────────────────────
   final Map<int, Completer<Map<String, dynamic>>> _pendientes = {};
 
-  // ── Stream de estado ──────────────────────────────────────────────────────
-  final _estadoCtrl = StreamController<EstadoConexion>.broadcast();
-  EstadoConexion _estadoActual = EstadoConexion.desconectado;
+  // ── Reconexión automática ─────────────────────────────────────────────────
+  bool _debeReconectar = false;
+  int _intentos = 0;
+  Timer? _reconectTimer;
+  static const Duration _backoffBase = Duration(milliseconds: 500);
+  static const Duration _backoffMax = Duration(seconds: 30);
+
+  // ── Heartbeat + watchdog ──────────────────────────────────────────────────
+  Timer? _heartbeatTimer;
+  Timer? _pongWatchdog;
+  static const Duration _heartbeatIntervalo = Duration(seconds: 30);
+  static const Duration _pongTimeout = Duration(seconds: 45);
+
+  // ── Estado observable ─────────────────────────────────────────────────────
+  // BehaviorSubject: los nuevos suscriptores reciben el último valor emitido.
+  // Necesario para que StreamProvider de Riverpod obtenga el estado actual
+  // al suscribirse, sin esperar el próximo evento.
+  final _estadoCtrl =
+      BehaviorSubject<EstadoConexion>.seeded(EstadoConexion.desconectado);
 
   @override
   Stream<EstadoConexion> get estado => _estadoCtrl.stream;
+
+  EstadoConexion get _estadoActual => _estadoCtrl.value;
 
   BanexusTransporte({
     String host = '13.140.128.230',
@@ -79,47 +95,25 @@ class BanexusTransporte implements IClienteRpc {
         _timeout = timeout;
 
   // ══════════════════════════════════════════════════════════════════════════
-  // Ciclo de vida
+  // API pública
   // ══════════════════════════════════════════════════════════════════════════
 
-  /// Abre la conexión TCP y completa el handshake banexus-implicit.
-  /// Etapa 1: dev_mode=true (sin JWT). Idempotente si ya está conectado.
+  /// Inicia la conexión y activa el ciclo de reconexión automática.
   @override
   Future<void> conectar() async {
-    if (_estadoActual == EstadoConexion.conectado ||
-        _estadoActual == EstadoConexion.conectando) return;
-
-    _setEstado(EstadoConexion.conectando);
-    final nodeId = '${_generarNodeId()}-flutter';
-
-    try {
-      _socket = await Socket.connect(_host, _puerto).timeout(_timeout);
-      _socket!.listen(_onDatos, onError: _onError, onDone: _onCierre);
-
-      // Handshake Etapa 1: dev_mode=true — bhnexus acepta sin JWT
-      _handshakeCompleter = Completer<void>();
-      _enviarLinea({
-        'type': 'handshake',
-        'node_id': nodeId,
-        'modo': 'proxy',
-        'dev_mode': true,
-      });
-
-      await _handshakeCompleter!.future.timeout(_timeout);
-      _handshakeListo = true;
-      _setEstado(EstadoConexion.conectado);
-    } catch (e) {
-      _socket?.destroy();
-      _socket = null;
-      _handshakeListo = false;
-      _setEstado(EstadoConexion.error);
-      rethrow;
-    }
+    _debeReconectar = true;
+    _intentos = 0;
+    await _conectarInterno();
   }
 
-  /// Cierra la conexión TCP limpiamente y rechaza peticiones pendientes.
+  /// Cierra la conexión y desactiva la reconexión automática.
   @override
   void desconectar() {
+    _debeReconectar = false;
+    _intentos = 0;
+    _detenerHeartbeat();
+    _reconectTimer?.cancel();
+    _reconectTimer = null;
     _rechazarPendientes('desconectado por el cliente');
     _socket?.destroy();
     _socket = null;
@@ -128,12 +122,7 @@ class BanexusTransporte implements IClienteRpc {
     _setEstado(EstadoConexion.desconectado);
   }
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // Llamada JSON-RPC 2.0 vía frame rpc_call
-  // ══════════════════════════════════════════════════════════════════════════
-
   /// Envuelve la llamada JSON-RPC en un frame rpc_call y espera rpc_response.
-  /// Auto-conecta si el socket no está listo.
   @override
   Future<Map<String, dynamic>> llamar(
     String metodo, [
@@ -160,6 +149,91 @@ class BanexusTransporte implements IClienteRpc {
   }
 
   // ══════════════════════════════════════════════════════════════════════════
+  // Conexión interna (también usada por el ciclo de reconexión)
+  // ══════════════════════════════════════════════════════════════════════════
+
+  Future<void> _conectarInterno() async {
+    if (_estadoActual == EstadoConexion.conectado ||
+        _estadoActual == EstadoConexion.conectando) return;
+
+    _setEstado(EstadoConexion.conectando);
+    final nodeId = '${_generarNodeId()}-flutter';
+
+    try {
+      _socket = await Socket.connect(_host, _puerto).timeout(_timeout);
+      _socket!.listen(_onDatos, onError: _onError, onDone: _onCierre);
+
+      // Handshake Etapa 1 — dev_mode:true (sin JWT)
+      _handshakeCompleter = Completer<void>();
+      _enviarLinea({
+        'type': 'handshake',
+        'node_id': nodeId,
+        'modo': 'proxy',
+        'dev_mode': true,
+      });
+
+      await _handshakeCompleter!.future.timeout(_timeout);
+      _handshakeListo = true;
+      _intentos = 0; // reset backoff en conexión exitosa
+      _setEstado(EstadoConexion.conectado);
+      _iniciarHeartbeat();
+    } catch (_) {
+      _socket?.destroy();
+      _socket = null;
+      _handshakeListo = false;
+      _setEstado(EstadoConexion.error);
+      if (_debeReconectar) _programarReconexion();
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // Heartbeat + watchdog de pong (detección rápida de canal muerto)
+  // ══════════════════════════════════════════════════════════════════════════
+
+  void _iniciarHeartbeat() {
+    _detenerHeartbeat();
+    _heartbeatTimer = Timer.periodic(_heartbeatIntervalo, (_) {
+      if (_estadoActual != EstadoConexion.conectado) return;
+      _enviarLinea({'type': 'heartbeat'});
+      // Watchdog: si no llega pong en _pongTimeout → canal muerto
+      _pongWatchdog?.cancel();
+      _pongWatchdog = Timer(_pongTimeout, _onCanalMuerto);
+    });
+  }
+
+  void _detenerHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _pongWatchdog?.cancel();
+    _heartbeatTimer = null;
+    _pongWatchdog = null;
+  }
+
+  /// Watchdog expiró — bhnexus no respondió el pong en 45s.
+  void _onCanalMuerto() {
+    _socket?.destroy();
+    _socket = null;
+    _handshakeListo = false;
+    _detenerHeartbeat();
+    _setEstado(EstadoConexion.error);
+    if (_debeReconectar) _programarReconexion();
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // Backoff exponencial: 500ms → 1s → 2s → 4s → 8s → 16s → 30s → 30s…
+  // ══════════════════════════════════════════════════════════════════════════
+
+  void _programarReconexion() {
+    _reconectTimer?.cancel();
+    final exp = _intentos.clamp(0, 6); // 2⁶ = 64 → techo 30s
+    final ms = _backoffBase.inMilliseconds * (1 << exp);
+    final delay = Duration(milliseconds: ms.clamp(0, _backoffMax.inMilliseconds));
+    _intentos++;
+    _reconectTimer = Timer(delay, () async {
+      if (_debeReconectar) await _conectarInterno();
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
   // Procesamiento de mensajes entrantes (newline-delimited JSON)
   // ══════════════════════════════════════════════════════════════════════════
 
@@ -168,13 +242,10 @@ class BanexusTransporte implements IClienteRpc {
     _extraerLineas();
   }
 
-  /// Extrae mensajes completos separados por '\n'.
-  /// Retiene el fragmento final incompleto para el siguiente evento.
   void _extraerLineas() {
     final s = _buffer.toString();
     final lineas = s.split('\n');
     _buffer.clear();
-
     for (int i = 0; i < lineas.length - 1; i++) {
       final linea = lineas[i].trim();
       if (linea.isEmpty) continue;
@@ -182,8 +253,6 @@ class BanexusTransporte implements IClienteRpc {
         _procesarMensaje(jsonDecode(linea) as Map<String, dynamic>);
       } catch (_) {}
     }
-
-    // Fragmento incompleto al final — retener para el próximo evento
     if (lineas.last.isNotEmpty) _buffer.write(lineas.last);
   }
 
@@ -218,25 +287,32 @@ class BanexusTransporte implements IClienteRpc {
         );
 
       case 'pong':
-        break; // heartbeat confirmado — sin acción necesaria
+        // Pong recibido → canal vivo, cancelar watchdog
+        _pongWatchdog?.cancel();
+        _pongWatchdog = null;
     }
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // Manejo de errores y cierre de socket
+  // Manejo de caída del socket
   // ══════════════════════════════════════════════════════════════════════════
 
-  void _onError(Object e) {
-    _rechazarPendientes(e.toString());
+  void _onError(Object _) {
+    _detenerHeartbeat();
+    _rechazarPendientes('error de socket');
     _setEstado(EstadoConexion.error);
+    if (_debeReconectar) _programarReconexion();
   }
 
   void _onCierre() {
     _socket = null;
     _handshakeListo = false;
-    if (_estadoActual == EstadoConexion.conectado) {
+    _detenerHeartbeat();
+    if (_estadoActual == EstadoConexion.conectado ||
+        _estadoActual == EstadoConexion.conectando) {
       _rechazarPendientes('conexión cerrada por bhnexus');
       _setEstado(EstadoConexion.desconectado);
+      if (_debeReconectar) _programarReconexion();
     }
   }
 
@@ -244,12 +320,10 @@ class BanexusTransporte implements IClienteRpc {
   // Utilidades
   // ══════════════════════════════════════════════════════════════════════════
 
-  /// Serializa [msg] a JSON y lo envía como línea terminada en '\n'.
   void _enviarLinea(Map<String, dynamic> msg) {
     _socket?.add(utf8.encode('${jsonEncode(msg)}\n'));
   }
 
-  /// Rechaza todas las peticiones pendientes con el motivo dado.
   void _rechazarPendientes(String motivo) {
     final err = RpcError(-32000, motivo);
     for (final c in _pendientes.values) {
@@ -262,11 +336,9 @@ class BanexusTransporte implements IClienteRpc {
   }
 
   void _setEstado(EstadoConexion e) {
-    _estadoActual = e;
     if (!_estadoCtrl.isClosed) _estadoCtrl.add(e);
   }
 
-  /// ejecutarCmd no aplica a banexus-implicit — solo existía en el cliente SSH (eliminado).
   @override
   Future<String> ejecutarCmd(String cmd) =>
       Future.error(UnsupportedError('ejecutarCmd no aplica en banexus-implicit'));
