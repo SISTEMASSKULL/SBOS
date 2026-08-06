@@ -219,7 +219,7 @@ class _ChipConexion extends ConsumerWidget {
     };
 
     final String etiqueta = switch (resultado.fase) {
-      FaseConexion.exitosa  => 'bhnexus:9444',
+      FaseConexion.exitosa  => 'banexus:9444',
       FaseConexion.probando => resultado.mensaje, // "Conectando…" / "Reconectando…"
       FaseConexion.fallida  => 'Error · Reconectar',
     };
