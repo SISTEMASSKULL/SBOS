@@ -461,7 +461,7 @@ class BauthApi {
       final r = await _rpc.llamar(
         'bauth.idn_roles_template.todos',
         {'tenant_slug': tenantSlug},
-      );
+      ).timeout(const Duration(seconds: 5));
       final lista = r['nodos'] as List<dynamic>? ?? [];
       return lista
           .cast<Map<String, dynamic>>()

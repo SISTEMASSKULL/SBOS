@@ -52,13 +52,19 @@ class BloqueLateralIzquierdo extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             for (final g in gruposMenu) ...[
-                              if (expandido) _TituloGrupo(titulo: g.titulo) else SizedBox(height: 8 * s),
+                              if (expandido)
+                                SeccionConCodigo('G-SN-002', child: _TituloGrupo(titulo: g.titulo))
+                              else
+                                SizedBox(height: 8 * s),
                               for (final it in g.items)
-                                FilaMenu(
-                                  item: it,
-                                  expandido: expandido,
-                                  activo: it.ruta == ruta,
-                                  alTocar: () => nav.seleccionarRuta(it.ruta),
+                                SeccionConCodigo(
+                                  'G-SN-003',
+                                  child: FilaMenu(
+                                    item: it,
+                                    expandido: expandido,
+                                    activo: it.ruta == ruta,
+                                    alTocar: () => nav.seleccionarRuta(it.ruta),
+                                  ),
                                 ),
                             ],
                           ],

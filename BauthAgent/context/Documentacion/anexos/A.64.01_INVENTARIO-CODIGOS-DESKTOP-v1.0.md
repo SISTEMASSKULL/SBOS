@@ -1,7 +1,7 @@
 # A.64.01 — Inventario de Códigos: Desktop bAuth
 ## Referencia rápida · secciones · objetos · widgets · slots
 
-**Versión:** 1.0.3  
+**Versión:** 1.0.4  
 **Fecha:** 2026-08-06  
 **Autor:** bauth-developer  
 **Complementa:** `A.64_ANEXO-MAQUETAS-DESKTOP-v1.0.md` (maquetas + estados Living Spec)
@@ -648,3 +648,4 @@ Tabla para buscar rápidamente un código sin recorrer todo el documento:
 | 1.0.1 | 2026-08-06 | G-BC-012 ToggleCodigos añadido (herramienta dev, no estaba en maqueta original). Todos los objetos G-BC:TOP codificados con SeccionConCodigo. _ChipConexion actualizada: estado real de pruebaConexionProvider + dirección bhnexus:9444. |
 | 1.0.2 | 2026-08-06 | G-BC-013 TogglePanelDerecho añadido (extremo derecho de la barra, simétrico a G-BC-002). G-BD colapsable: AnimatedContainer 300px ↔ 76px controlado por layoutProvider.derExpandido. |
 | 1.0.3 | 2026-08-06 | V-RT:CNT codificado completo: V-RT-002 SelectorEntidad · V-RT-006 SelectorArbol · V-RT-007..009 (Tab 1) · V-RT-011..014 (Tabs 0/1). V-RT-001/003/004/005/010 marcados como _(futuro)_ — diseño P1/P2/P3 aún no implementado. |
+| 1.0.4 | 2026-08-06 | G-SN:NAV codificado: G-SN-002 GrupoNav y G-SN-003 ÍtemNav implementados con SeccionConCodigo en `bloque_lateral_izquierdo.dart`. Spinner V-RT-012 corregido: timeout reducido a 5 s en `rolTemplateTodos()` (antes 15 s del BanexusTransporte). |
