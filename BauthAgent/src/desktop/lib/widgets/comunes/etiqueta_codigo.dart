@@ -27,20 +27,26 @@ class _ChipCodigo extends StatelessWidget {
     final cs = theme.colorScheme;
     final s = theme.scaling;
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 4 * s, vertical: 1 * s),
+      padding: EdgeInsets.symmetric(horizontal: 5 * s, vertical: 2 * s),
       decoration: BoxDecoration(
-        color: cs.primary.withValues(alpha: 0.08),
-        border: Border.all(color: cs.primary.withValues(alpha: 0.35)),
+        color: cs.primary,
         borderRadius: BorderRadius.circular(3 * s),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.30),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
       child: Text(
         codigo,
         style: TextStyle(
           fontFamily: 'monospace',
           fontSize: 9 * s,
-          color: cs.primary.withValues(alpha: 0.75),
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.4,
+          color: cs.primaryForeground,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.5,
         ),
       ),
     );
