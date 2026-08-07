@@ -175,11 +175,14 @@ class _PanelComparacion extends ConsumerWidget {
     // ArbolBD se pasa como child del ValueListenableBuilder:
     // NO rebuilda cuando cambia la selección — solo el panel derecho lo hace.
     final arbolBDOPlaceholder = conectado
-        ? ArbolBD(
-            key: ValueKey(claveArbol),
-            cargarTodos: cargarTodos,
-            alSeleccionar: alSeleccionarBD,
-            cargandoNotifier: cargandoNotifier,
+        ? SeccionConCodigo(
+            'V-RT:DBT',
+            child: ArbolBD(
+              key: ValueKey(claveArbol),
+              cargarTodos: cargarTodos,
+              alSeleccionar: alSeleccionarBD,
+              cargandoNotifier: cargandoNotifier,
+            ),
           )
         : const _PlaceholderSinConexionBD();
 
@@ -192,7 +195,10 @@ class _PanelComparacion extends ConsumerWidget {
               titulo: 'FUENTE · Dart',
               subtitulo: '$_kTotalFuente nodos',
               color: cs.primary,
-              child: ArbolTemplate(nodos: arbolRolTemplate, alSeleccionar: (_) {}),
+              child: SeccionConCodigo(
+                'V-RT:FNT',
+                child: ArbolTemplate(nodos: arbolRolTemplate, alSeleccionar: (_) {}),
+              ),
             ),
           ),
         ),
