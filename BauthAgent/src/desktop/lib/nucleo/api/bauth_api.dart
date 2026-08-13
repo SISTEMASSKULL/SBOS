@@ -1,16 +1,32 @@
 // ============================================================
 // bauth_desktop · nucleo/api/bauth_api.dart
 //
-// Propósito: wrappers tipados para los métodos JSON-RPC de bAuth.
-//   Cada método retorna un Future<T> con tipos Dart concretos.
-//   Los providers de Riverpod consumen esta API.
+// Propósito: Router central de la API bAuth.
+//   Define BauthApi — punto único de entrada que usa la conexión
+//   banexus (IClienteRpc) inyectada desde el provider.
 //
-// Métodos implementados (v3.0.0, registrados en main.rs):
-//   Health, Roles, RoleTemplates, Users, Policy, Access,
-//   Inheritance, SoD, Tokens, Saga, WebAuthn.
+//   La conexión (BanexusTransporte) es independiente y se inyecta
+//   desde proveedor_conexion.dart. Esta clase no crea ni posee la
+//   conexión — la usa como canal hacia el daemon bAuth.
 //
-// Estándar: JSON-RPC 2.0 · Motor de Roles (2.17 §4) ·
-//   Motor de Identidad (2.15 §5) · DOC-SBOS-001 N3.
+// Organización interna (part of):
+//   modelos/ — tipos de datos por dominio
+//     comun.dart      · HealthInfo · SyncStatusInfo · AccessResult · SoDResult
+//     identidad.dart  · RolInfo · RolTemplate · UsuarioInfo · EntidadInfo
+//     arbol.dart      · NodoRolTemplateBD
+//     atomlang.dart   · AttrSchema · GrupoSchema · NodeTypeSchema · NodoSchema
+//
+//   rutas/ — métodos JSON-RPC por dominio
+//     health.dart     · bauth.health.* / bauth.sync.*
+//     roles.dart      · bauth.role.* / bauth.role.template.*
+//     usuarios.dart   · bauth.user.*
+//     entidades.dart  · bauth.entidad.*
+//     acceso.dart     · bauth.access.* / bauth.policy.* / bauth.inheritance.* / bauth.sod.*
+//     tokens.dart     · bauth.token.*
+//     arbol_roles.dart· bauth.idn_roles_template.* / idn_policy_node_type
+//     atomlang.dart   · bauth.atomlang.schema.*
+//
+// Estándar: JSON-RPC 2.0 · ADR-020 · DOC-SBOS-001 N3.
 // ============================================================
 
 import 'dart:async';
@@ -19,528 +35,34 @@ import 'dart:convert';
 import '../conexion/cliente_rpc.dart';
 import '../dominio/config_tipo_nodo.dart';
 
-// ═══════════════════════════════════════════════════════════
-// Tipos de datos
-// ═══════════════════════════════════════════════════════════
-
-class HealthInfo {
-  final String status;
-  final String version;
-  final int uptimeSeconds;
-  final String socket;
-
-  HealthInfo.fromJson(Map<String, dynamic> j)
-      : status = j['status'] ?? '?',
-        version = j['version'] ?? '?',
-        uptimeSeconds = j['uptime_seconds'] ?? 0,
-        socket = j['socket'] ?? '?';
-}
-
-class RolInfo {
-  final String id;
-  final String nombre;
-  final String? tier;
-  final String? status;
-  final int atomCount;
-
-  RolInfo.fromJson(Map<String, dynamic> j)
-      : id = j['id'] ?? j['role_id'] ?? '?',
-        nombre = j['name'] ?? j['nombre'] ?? '?',
-        tier = j['tier'],
-        status = j['status'],
-        atomCount = j['atom_count'] ?? 0;
-}
-
-class RolTemplate {
-  final String id;
-  final String nombre;
-  final String version;
-  final String? dominio;
-  final Map<String, dynamic>? metadata;
-
-  RolTemplate.fromJson(Map<String, dynamic> j)
-      : id = j['id'] ?? '?',
-        nombre = j['name'] ?? j['nombre'] ?? '?',
-        version = j['version'] ?? '?',
-        dominio = j['domain'] ?? j['dominio'],
-        metadata = j['metadata'] as Map<String, dynamic>?;
-}
-
-class UsuarioInfo {
-  final String uuid;
-  final String username;
-  final String? email;
-  final String? accountType;
-  final String? status;
-  final List<String> roles;
-
-  UsuarioInfo.fromJson(Map<String, dynamic> j)
-      : uuid = j['uuid'] ?? '?',
-        username = j['username'] ?? '?',
-        email = j['email'],
-        accountType = j['account_type'],
-        status = j['status'],
-        roles = (j['roles'] as List<dynamic>?)
-                ?.map((e) => e.toString())
-                .toList() ??
-            [];
-}
-
-/// Entidad del catálogo universal de identidad (idn_identity_entity).
-/// Puede ser cualquier cosa: persona, empresa, vehículo, servidor, sensor, puerta.
-/// Los 5 niveles: tenant → bdomain → bsubdomain → pos → actor.
-class EntidadInfo {
-  final String entidadId;
-  final String? parentId;
-  final String tenantId;
-  final String nivel; // tenant | bdomain | bsubdomain | pos | actor
-  final String tipo;  // empresa, HUMAN, caja, vehiculo, servidor, etc.
-  final String nombre;
-  final String slug;
-  final bool? isInternal;
-  final int sortOrder;
-  final List<EntidadInfo> hijos;
-
-  EntidadInfo.fromJson(Map<String, dynamic> j)
-      : entidadId = j['entity_id'] ?? j['id'] ?? '?',
-        parentId = j['parent_id'],
-        tenantId = j['tenant_id'] ?? '?',
-        nivel = j['level'] ?? j['nivel'] ?? '?',
-        tipo = j['entity_type'] ?? j['tipo'] ?? '?',
-        nombre = j['nombre'] ?? j['name'] ?? '?',
-        slug = j['slug'] ?? '?',
-        isInternal = j['is_internal'] as bool?,
-        sortOrder = j['sort_order'] ?? 0,
-        hijos = (j['hijos'] as List<dynamic>? ?? [])
-            .map((e) => EntidadInfo.fromJson(e as Map<String, dynamic>))
-            .toList();
-}
-
-class AccessResult {
-  final bool permitido;
-  final String? motivo;
-  final Map<String, dynamic>? detalle;
-
-  AccessResult.fromJson(Map<String, dynamic> j)
-      : permitido = j['allowed'] == true || j['decision'] == 'Permit',
-        motivo = j['reason'] ?? j['motivo'],
-        detalle = j;
-}
-
-/// Métricas operacionales del daemon — respuesta de bauth.sync.status.
-class SyncStatusInfo {
-  final String status;
-  final String timestamp;
-  final int rolesTotal;
-  final int atomosActivos;
-  final int atomosConPosicion;
-  final int usuariosActivos;
-  final int sesionesActivas;
-  final int credencialesActivas;
-  final int intentosUltimaHora;
-  final int algoritmosAprobados;
-
-  SyncStatusInfo.fromJson(Map<String, dynamic> j)
-      : status      = j['status']    ?? 'UNKNOWN',
-        timestamp   = j['timestamp'] ?? '',
-        rolesTotal         = (j['identidad']    as Map?)?['roles_total']          ?? 0,
-        atomosActivos      = (j['identidad']    as Map?)?['atomos_activos']       ?? 0,
-        atomosConPosicion  = (j['identidad']    as Map?)?['atomos_con_posicion']  ?? 0,
-        usuariosActivos    = (j['identidad']    as Map?)?['usuarios_activos']     ?? 0,
-        sesionesActivas    = (j['sesiones']     as Map?)?['activas']              ?? 0,
-        credencialesActivas = (j['sesiones']    as Map?)?['credenciales_activas'] ?? 0,
-        intentosUltimaHora  = (j['sesiones']   as Map?)?['intentos_ultima_hora'] ?? 0,
-        algoritmosAprobados = (j['criptografia'] as Map?)?['algoritmos_aprobados'] ?? 0;
-
-  /// Crea una instancia vacía para estado de carga o error.
-  factory SyncStatusInfo.vacio() => SyncStatusInfo.fromJson(const {});
-}
-
-class SoDResult {
-  final bool conflicto;
-  final List<String> rolesConflictivos;
-  final String? detalle;
-
-  SoDResult.fromJson(Map<String, dynamic> j)
-      : conflicto = j['conflict'] == true || j['conflicto'] == true,
-        rolesConflictivos = (j['conflicting_roles'] as List<dynamic>?)
-                ?.map((e) => e.toString())
-                .toList() ??
-            [],
-        detalle = j['detail'] ?? j['detalle'];
-}
-
-// ═══════════════════════════════════════════════════════════
-// Cliente API tipado
-// ═══════════════════════════════════════════════════════════
-
-class BauthApi {
-  final IClienteRpc _rpc;
-
-  BauthApi(this._rpc);
-
-  // ── Health ───────────────────────────────────────────────
-
-  Future<HealthInfo> healthCheck() async {
-    final r = await _rpc.llamar('bauth.health.check');
-    return HealthInfo.fromJson(r);
-  }
-
-  // ── Sync Status ──────────────────────────────────────────
-
-  /// Métricas operacionales: roles, átomos, usuarios, sesiones, cripto.
-  /// Fuente: bauth.sync.status (sync_status.rs — 7 queries en paralelo).
-  Future<SyncStatusInfo> syncStatus() async {
-    final r = await _rpc.llamar('bauth.sync.status');
-    return SyncStatusInfo.fromJson(r);
-  }
-
-  // ── Roles ────────────────────────────────────────────────
-
-  /// Lista todos los roles activos.
-  Future<List<RolInfo>> listarRoles({String? tier, String? status}) async {
-    final params = <String, dynamic>{};
-    if (tier != null) params['tier'] = tier;
-    if (status != null) params['status'] = status;
-    final r = await _rpc.llamar('bauth.role.list', params);
-    final roles = r['roles'] as List<dynamic>? ?? [];
-    return roles
-        .map((e) => RolInfo.fromJson(e as Map<String, dynamic>))
-        .toList();
-  }
-
-  /// Combina dos o más roles (merge OR).
-  Future<Map<String, dynamic>> mergeRoles(List<String> roleIds) async {
-    return _rpc.llamar('bauth.role.merge', {'role_ids': roleIds});
-  }
-
-  // ── Role Templates ───────────────────────────────────────
-
-  Future<List<RolTemplate>> listarTemplates() async {
-    final r = await _rpc.llamar('bauth.role.template.list');
-    final items = r['templates'] as List<dynamic>? ?? [];
-    return items
-        .map((e) => RolTemplate.fromJson(e as Map<String, dynamic>))
-        .toList();
-  }
-
-  Future<RolTemplate> obtenerTemplate(String id) async {
-    final r = await _rpc.llamar('bauth.role.template.get', {'id': id});
-    return RolTemplate.fromJson(r);
-  }
-
-  Future<Map<String, dynamic>> validarTemplate(
-      Map<String, dynamic> template) async {
-    return _rpc.llamar('bauth.role.template.validate', {'template': template});
-  }
-
-  Future<Map<String, dynamic>> crearTemplate(
-      Map<String, dynamic> template) async {
-    return _rpc.llamar('bauth.role.template.create', {'template': template});
-  }
-
-  // ── Usuarios ─────────────────────────────────────────────
-
-  Future<UsuarioInfo> obtenerUsuario(String uuid) async {
-    final r = await _rpc.llamar('bauth.user.get', {'uuid': uuid});
-    return UsuarioInfo.fromJson(r);
-  }
-
-  Future<Map<String, dynamic>> crearUsuario(
-      Map<String, dynamic> userData) async {
-    return _rpc.llamar('bauth.user.create', {'user': userData});
-  }
-
-  Future<Map<String, dynamic>> actualizarUsuario(
-      String uuid, Map<String, dynamic> cambios) async {
-    return _rpc.llamar('bauth.user.update', {
-      'uuid': uuid,
-      'changes': cambios,
-    });
-  }
-
-  Future<void> eliminarUsuario(String uuid) async {
-    await _rpc.llamar('bauth.user.delete', {'uuid': uuid});
-  }
-
-  Future<Map<String, dynamic>> asignarRol(
-      String userUuid, String roleId, {String? modo}) async {
-    return _rpc.llamar('bauth.user.assign_role', {
-      'user_uuid': userUuid,
-      'role_id': roleId,
-      'mode': ?modo,
-    });
-  }
-
-  Future<void> revocarRol(String userUuid, String roleId) async {
-    await _rpc.llamar('bauth.user.revoke_role', {
-      'user_uuid': userUuid,
-      'role_id': roleId,
-    });
-  }
-
-  /// Lista usuarios con filtros opcionales.
-  Future<List<UsuarioInfo>> listarUsuarios({
-    String? busqueda,
-    String? status,
-    int limite = 100,
-  }) async {
-    final params = <String, dynamic>{'limit': limite};
-    if (busqueda != null && busqueda.isNotEmpty) params['search'] = busqueda;
-    if (status != null) params['status'] = status;
-    final r = await _rpc.llamar('bauth.user.list', params);
-    final items = r['users'] as List<dynamic>? ?? [];
-    return items
-        .map((e) => UsuarioInfo.fromJson(e as Map<String, dynamic>))
-        .toList();
-  }
-
-  // ── Entidades (idn_identity_entity) ────────────────────
-  // Modelo universal: cualquier cosa es una entidad con nivel y tipo.
-  // 5 niveles: tenant → bdomain → bsubdomain → pos → actor.
-
-  /// Árbol completo de entidades (estructura anidada con hijos).
-  Future<List<EntidadInfo>> arbolEntidades({String? tenantId}) async {
-    final params = <String, dynamic>{};
-    if (tenantId != null) params['tenant_id'] = tenantId;
-    final r = await _rpc.llamar('bauth.entidad.tree', params);
-    final raices = r['raices'] as List<dynamic>? ?? [];
-    return raices
-        .map((e) => EntidadInfo.fromJson(e as Map<String, dynamic>))
-        .toList();
-  }
-
-  /// Lista entidades con filtros opcionales (para queries específicas).
-  Future<List<EntidadInfo>> listarEntidades({
-    String? nivel,
-    String? tipo,
-    String? parentId,
-    String? tenantId,
-  }) async {
-    final params = <String, dynamic>{};
-    if (nivel != null) params['nivel'] = nivel;
-    if (tipo != null) params['tipo'] = tipo;
-    if (parentId != null) params['parent_id'] = parentId;
-    if (tenantId != null) params['tenant_id'] = tenantId;
-    final r = await _rpc.llamar('bauth.entidad.list', params);
-    final items = r['entidades'] as List<dynamic>? ?? [];
-    return items
-        .map((e) => EntidadInfo.fromJson(e as Map<String, dynamic>))
-        .toList();
-  }
-
-  /// Crea una nueva entidad en la jerarquía.
-  Future<EntidadInfo> crearEntidad({
-    required String nivel,
-    required String tipo,
-    required String nombre,
-    required String tenantId,
-    String? parentId,
-    bool? isInternal,
-  }) async {
-    final params = <String, dynamic>{
-      'nivel': nivel,
-      'tipo': tipo,
-      'nombre': nombre,
-      'tenant_id': tenantId,
-    };
-    if (parentId != null) params['parent_id'] = parentId;
-    if (isInternal != null) params['is_internal'] = isInternal;
-    final r = await _rpc.llamar('bauth.entidad.create', params);
-    return EntidadInfo.fromJson(r);
-  }
-
-  // ── Access Control ───────────────────────────────────────
-
-  Future<AccessResult> evaluarAcceso(
-    String sujeto,
-    String recurso,
-    String verbo, {
-    Map<String, dynamic>? contexto,
-  }) async {
-    final r = await _rpc.llamar('bauth.access.evaluate', {
-      'subject': sujeto,
-      'resource': recurso,
-      'action': verbo,
-      'context': ?contexto,
-    });
-    return AccessResult.fromJson(r);
-  }
-
-  // ── Policy ───────────────────────────────────────────────
-
-  Future<AccessResult> evaluarPolitica(
-    String policyId,
-    Map<String, dynamic> contexto,
-  ) async {
-    final r = await _rpc.llamar('bauth.policy.evaluate', {
-      'policy_id': policyId,
-      'context': contexto,
-    });
-    return AccessResult.fromJson(r);
-  }
-
-  // ── Inheritance ──────────────────────────────────────────
-
-  Future<Map<String, dynamic>> computarHerencia(String roleId) async {
-    return _rpc.llamar('bauth.inheritance.compute', {'role_id': roleId});
-  }
-
-  Future<bool> verificarHerencia(String ancestro, String descendiente) async {
-    final r =
-        await _rpc.llamar('bauth.inheritance.check', {'ancestor': ancestro, 'descendant': descendiente});
-    return r['inherits'] == true;
-  }
-
-  // ── SoD ──────────────────────────────────────────────────
-
-  Future<SoDResult> verificarSoD(List<String> roleIds) async {
-    final r =
-        await _rpc.llamar('bauth.sod.check', {'role_ids': roleIds});
-    return SoDResult.fromJson(r);
-  }
-
-  // ── Tokens ───────────────────────────────────────────────
-
-  Future<Map<String, dynamic>> emitirToken(
-      Map<String, dynamic> claims) async {
-    return _rpc.llamar('bauth.token.issue', {'claims': claims});
-  }
-
-  Future<Map<String, dynamic>> validarToken(String token) async {
-    return _rpc.llamar('bauth.token.validate', {'token': token});
-  }
-
-  // ── Árbol de políticas (idn_roles_template) ──────────────
-
-  /// Hijos directos de [parentId] desde la BD — carga lazy nodo por nodo.
-  /// Cada llamada ejecuta una query psql ordenada por sort_order.
-  /// La BD es la única responsable del orden — Flutter solo presenta.
-  Future<List<NodoRolTemplateBD>> rolTemplateHijos({
-    String? parentId,
-    String tenantSlug = 'skull',
-  }) async {
-    final condicion = parentId == null
-        ? 'irt.parent_id IS NULL'
-        : "irt.parent_id = '$parentId'";
-    final sql = "SELECT json_agg(t ORDER BY t.sort_order) FROM ("
-        "SELECT irt.id::text, irt.parent_id::text, irt.path, irt.node_type AS tipo,"
-        " irt.label->>'es' AS clave, irt.label->>'en' AS clave_en,"
-        " irt.name->>'es' AS nombre, irt.name->>'en' AS nombre_en,"
-        " irt.value AS valor,"
-        " irt.help->>'es' AS help, irt.help->>'en' AS help_en,"
-        " irt.effect, irt.verb_id, irt.domain_number, irt.depth, irt.sort_order,"
-        " irt.alias, irt.block_code"
-        " FROM bauth.idn_roles_template irt"
-        " WHERE $condicion"
-        " AND irt.tenant_id = ("
-        "  SELECT tenant_id FROM bauth.idn_tenant"
-        "  WHERE tenant_slug = '$tenantSlug' LIMIT 1)"
-        ") t";
-    final b64 = base64Encode(utf8.encode(sql));
-    final salida = await _rpc.ejecutarCmd(
-      "echo $b64 | base64 -d | psql '$_dsnSbos' -t -A",
-    );
-    if (salida.isEmpty || salida == 'null') return const [];
-    final decoded = jsonDecode(salida);
-    if (decoded == null) return const [];
-    return (decoded as List<dynamic>)
-        .cast<Map<String, dynamic>>()
-        .map(NodoRolTemplateBD.fromJson)
-        .toList();
-  }
-
-  /// Carga TODOS los nodos de idn_roles_template vía JSON-RPC (banexus).
-  /// Usa llamar() en lugar de ejecutarCmd — compatible con BanexusTransporte.
-  /// Respuesta esperada del daemon: {"nodos": [{id, parent_id, tipo, …}]}.
-  /// Los errores se propagan al llamador (ArbolBD._ArbolBDViewModel.cargar)
-  /// que los muestra en _ErrorRaiz con botón Reintentar.
-  Future<List<NodoRolTemplateBD>> rolTemplateTodos({
-    String tenantSlug = 'skull',
-  }) async {
-    final r = await _rpc.llamar(
-      'bauth.idn_roles_template.todos',
-      {'tenant_slug': tenantSlug},
-    ).timeout(const Duration(seconds: 5));
-    final lista = r['nodos'] as List<dynamic>? ?? [];
-    return lista
-        .cast<Map<String, dynamic>>()
-        .map(NodoRolTemplateBD.fromJson)
-        .toList();
-  }
-
-  /// Sin caché — cada llamada va directo a la BD.
-  void invalidarCacheArbol() {}
-
-  // ── Catálogo de tipos de nodo (idn_policy_node_type) ─────────────
-
-  /// Carga todos los tipos desde bauth.idn_policy_node_type.
-  /// Devuelve `Map<code, ConfigTipoNodo>` listo para usar en widgets.
-  /// Llamar una vez al conectar y cachear en el provider.
-  /// Carga el catálogo de tipos de nodo desde SBOSDB.
-  /// En caso de error (sin conexión, timeout, SQL) retorna mapa vacío
-  /// en lugar de lanzar — el provider siempre termina en estado data.
-  Future<Map<String, ConfigTipoNodo>> cargarCatalogoTipos() async {
-    try {
-      const sql = 'SELECT json_agg(t) FROM ('
-          'SELECT code, abbreviation, name_es, name_en,'
-          ' color_key, color_key_valor, font_weight, font_size_token,'
-          ' monospace, letter_spacing::float AS letter_spacing,'
-          ' show_badge, expanded_default'
-          ' FROM bauth.idn_policy_node_type WHERE is_active = true'
-          ' ORDER BY sort_order) t';
-      final b64 = base64Encode(utf8.encode(sql));
-      final salida = await _rpc.ejecutarCmd(
-        "echo $b64 | base64 -d | psql '$_dsnSbos' -t -A",
-      );
-      if (salida.isEmpty || salida == 'null') return const {};
-      final decoded = jsonDecode(salida);
-      if (decoded == null) return const {};
-      final lista = (decoded as List<dynamic>).cast<Map<String, dynamic>>();
-      return { for (final j in lista) j['code'] as String : ConfigTipoNodo.fromJson(j) };
-    } catch (_) {
-      // Sin conexión, timeout o error SQL → devuelve vacío.
-      // El provider pasa a estado data (no error) y el overlay desaparece.
-      return const {};
-    }
-  }
-
-  // ── Schema AtomLang (T-580/T-581) ───────────────────────────
-
-  /// Retorna el schema de grupos y atributos para un tipo de nodo AtomLang.
-  /// Llama a bauth.atomlang.schema.node_type — handler registrado en
-  /// atomlang_schema.rs (T-580 + T-581).
-  Future<NodeTypeSchema> atomlangSchema(String nodeType) async {
-    final r = await _rpc.llamar(
-      'bauth.atomlang.schema.node_type',
-      {'node_type': nodeType},
-    );
-    return NodeTypeSchema.fromJson(r);
-  }
-
-  /// Retorna la jerarquía completa del árbol AtomLang como lista plana
-  /// ordenada padre-primero. El cliente reconstruye el árbol usando parentId.
-  /// Llama a bauth.atomlang.schema.all — una sola llamada, sin parámetros.
-  Future<List<NodoSchema>> atomlangSchemaAll() async {
-    final r = await _rpc.llamar('bauth.atomlang.schema.all', {});
-    final nodos = r['nodos'] as List<dynamic>? ?? [];
-    return nodos
-        .map((n) => NodoSchema.fromJson(n as Map<String, dynamic>))
-        .toList();
-  }
-}
-
-// ═══════════════════════════════════════════════════════════
-// Helpers i18n
-// ═══════════════════════════════════════════════════════════
-
-/// Extrae español de un campo que puede ser String plano o JSONB {"es","en"}.
+// ── Modelos de datos por dominio ──────────────────────────────
+part 'modelos/comun.dart';
+part 'modelos/identidad.dart';
+part 'modelos/arbol.dart';
+part 'modelos/atomlang.dart';
+
+// ── Rutas (métodos JSON-RPC) por dominio ──────────────────────
+part 'rutas/health.dart';
+part 'rutas/roles.dart';
+part 'rutas/usuarios.dart';
+part 'rutas/entidades.dart';
+part 'rutas/acceso.dart';
+part 'rutas/tokens.dart';
+part 'rutas/arbol_roles.dart';
+part 'rutas/atomlang.dart';
+
+// ── DSN de la BD oficial (usado por rutas con SQL directo) ────
+const _dsnSbos = 'postgres://postgres:postgres@localhost:15432/SBOSDB';
+
+// ── Helpers i18n compartidos por todos los modelos ────────────
+
+/// Extrae español de un campo String plano o JSONB {"es","en"}.
 String _es(dynamic v) {
   if (v is Map) return (v['es'] ?? v['en'] ?? '?').toString();
   return v?.toString() ?? '?';
 }
 
-/// Versión nullable — retorna null si el campo es null o vacío.
+/// Versión nullable — null si el campo es null o vacío.
 String? _esN(dynamic v) {
   if (v == null) return null;
   if (v is Map) {
@@ -558,175 +80,17 @@ String? _en(dynamic v) {
   return null;
 }
 
-// ═══════════════════════════════════════════════════════════
-// Nodo BD y helpers de árbol
-// ═══════════════════════════════════════════════════════════
+// ── Router central ────────────────────────────────────────────
 
-/// Nodo del árbol de políticas desde bauth.idn_roles_template.
-/// Campos i18n (clave, nombre, help) pueden llegar como texto plano
-/// (SQL con ->>'es') o como JSONB completo — _es/_esN/_en manejan ambos.
-class NodoRolTemplateBD {
-  final String id;
-  final String? parentId;
-  final String path;
-  final String tipo;
-  final String clave;
-  final String? claveEn;
-  final String? alias;
-  final String? blockCode;
-  final String nombre;
-  final String? nombreEn;
-  final String? valor;
-  final String? help;
-  final String? helpEn;
-  final List<String> opciones;
-  final bool effect;
-  final String? verbId;
-  final int? domainNumber;
-  final int depth;
-  List<NodoRolTemplateBD> hijos;
-
-  NodoRolTemplateBD.fromJson(Map<String, dynamic> j)
-      : id = j['id']?.toString() ?? '?',
-        parentId = j['parent_id']?.toString(),
-        path = j['path']?.toString() ?? '',
-        tipo = j['tipo']?.toString() ?? 'objeto',
-        clave = _es(j['clave']),
-        claveEn = _en(j['clave']) ?? j['clave_en']?.toString(),
-        alias = j['alias']?.toString(),
-        blockCode = j['block_code']?.toString(),
-        nombre = _es(j['nombre'] ?? j['clave']),
-        nombreEn = _en(j['nombre'] ?? j['clave']) ?? j['nombre_en']?.toString(),
-        valor = j['valor']?.toString(),
-        help = _esN(j['help']),
-        helpEn = _en(j['help']) ?? j['help_en']?.toString(),
-        opciones = const [],
-        effect = j['effect'] as bool? ?? false,
-        verbId = j['verb_id']?.toString(),
-        domainNumber = j['domain_number'] as int?,
-        depth = j['depth'] as int? ?? 0,
-        hijos = [];
-}
-
-// ═══════════════════════════════════════════════════════════
-// Schema AtomLang — T-580/T-581
-// ═══════════════════════════════════════════════════════════
-
-/// Atributo hoja de un grupo del schema AtomLang (T-581).
-class AttrSchema {
-  final String attrId;
-  final String key;
-  final String labelEs;
-  final String descEs;
-  final String tipo;
-  final List<String> enumValores;
-  final int sortOrder;
-  final bool readonly;
-  final bool nullable;
-  final bool obligatorio;
-
-  AttrSchema.fromJson(Map<String, dynamic> j)
-      : attrId = j['attr_id']?.toString() ?? '?',
-        key = j['key']?.toString() ?? '?',
-        labelEs = _es(j['label']),
-        descEs = _esN(j['desc']) ?? '',
-        tipo = j['tipo']?.toString() ?? 'text',
-        enumValores = (j['enum_valores'] as List<dynamic>?)
-                ?.map((e) => e.toString())
-                .toList() ??
-            const [],
-        sortOrder = j['sort_order'] as int? ?? 0,
-        readonly = j['readonly'] == true,
-        nullable = j['nullable'] != false,
-        obligatorio = j['obligatorio'] == true;
-}
-
-/// Grupo del schema AtomLang (T-580) con sus atributos hoja.
-class GrupoSchema {
-  final String schemaId;
-  final String slug;
-  final String? parentId;
-  final String? parentSlug;
-  final String labelEs;
-  final String descEs;
-  final int sortOrder;
-  final bool readonly;
-  final bool reactivo;
-  final List<AttrSchema> atributos;
-
-  GrupoSchema.fromJson(Map<String, dynamic> j)
-      : schemaId = j['schema_id']?.toString() ?? '?',
-        slug = j['slug']?.toString() ?? '?',
-        parentId = j['parent_id']?.toString(),
-        parentSlug = j['parent_slug']?.toString(),
-        labelEs = _es(j['label']),
-        descEs = _esN(j['desc']) ?? '',
-        sortOrder = j['sort_order'] as int? ?? 0,
-        readonly = j['readonly'] == true,
-        reactivo = j['reactivo'] == true,
-        atributos = (j['atributos'] as List<dynamic>? ?? [])
-            .map((e) => AttrSchema.fromJson(e as Map<String, dynamic>))
-            .toList();
-
-  bool get esSubgrupo => parentId != null;
-}
-
-/// Schema completo de un tipo de nodo AtomLang (grupos + atributos).
-/// Usado por bauth.atomlang.schema.node_type.
-class NodeTypeSchema {
-  final String nodeType;
-  final List<GrupoSchema> grupos;
-
-  NodeTypeSchema.fromJson(Map<String, dynamic> j)
-      : nodeType = j['node_type']?.toString() ?? '?',
-        grupos = (j['grupos'] as List<dynamic>? ?? [])
-            .map((e) => GrupoSchema.fromJson(e as Map<String, dynamic>))
-            .toList();
-
-  static NodeTypeSchema vacio(String tipo) =>
-      NodeTypeSchema.fromJson({'node_type': tipo, 'grupos': <dynamic>[]});
-}
-
-/// Nodo del árbol jerárquico AtomLang (T-580).
-/// Devuelto por bauth.atomlang.schema.all como lista plana padre-primero.
-/// El cliente reconstruye el árbol usando parentId.
+/// Punto de entrada de la API bAuth.
 ///
-/// esTipo=true  → fila "self" del tipo (encabezado de sección, no seleccionable).
-/// esTipo=false → grupo de atributos seleccionable en el editor.
-class NodoSchema {
-  final String  schemaId;
-  final String  nodeType;
-  final String  slug;
-  final String? parentId;
-  final bool    esTipo;
-  final String  labelEs;
-  final String  descEs;
-  final String? icono;
-  final String? color;
-  final int     sortOrder;
-  final bool    readonly;
-  final bool    reactivo;
-  final List<AttrSchema> atributos;
-
-  NodoSchema.fromJson(Map<String, dynamic> j)
-      : schemaId  = j['schema_id']?.toString()  ?? '?',
-        nodeType  = j['node_type']?.toString()  ?? '?',
-        slug      = j['slug']?.toString()       ?? '?',
-        parentId  = j['parent_id']?.toString(),
-        esTipo    = j['es_tipo'] == true,
-        labelEs   = _es(j['label']),
-        descEs    = _esN(j['desc']) ?? '',
-        icono     = j['icono']?.toString(),
-        color     = j['color']?.toString(),
-        sortOrder = j['sort_order'] as int? ?? 0,
-        readonly  = j['readonly'] == true,
-        reactivo  = j['reactivo'] == true,
-        atributos = (j['atributos'] as List<dynamic>? ?? [])
-            .map((e) => AttrSchema.fromJson(e as Map<String, dynamic>))
-            .toList();
-
-  bool get esSeleccionable => !esTipo || atributos.isNotEmpty;
+/// Usa la conexión [IClienteRpc] inyectada (banexus) para enrutar
+/// llamadas JSON-RPC al daemon. Los métodos están organizados por
+/// dominio como extensiones en rutas/ (part of esta librería).
+///
+/// La conexión es independiente — vive en BanexusTransporte y puede
+/// usarse para otros fines además de esta API.
+class BauthApi {
+  final IClienteRpc _rpc;
+  BauthApi(this._rpc);
 }
-
-// DSN de la BD oficial SBOSDB
-const _dsnSbos = 'postgres://postgres:postgres@localhost:15432/SBOSDB';
