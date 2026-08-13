@@ -725,7 +725,7 @@ class NodoSchema {
             .map((e) => AttrSchema.fromJson(e as Map<String, dynamic>))
             .toList();
 
-  bool get esSeleccionable => !esTipo;
+  bool get esSeleccionable => !esTipo || atributos.isNotEmpty;
 }
 
 // DSN de la BD oficial SBOSDB

@@ -206,10 +206,10 @@ VALUES
 ON CONFLICT ON CONSTRAINT uq_paas_schema_key DO NOTHING;
 
 -- ======================================================================
--- POLICY_SET — datos
+-- POLICY_SET — atributos propios (en la fila self policy_set)
 -- ======================================================================
 SELECT schema_id INTO v_g FROM bauth.pol_atomlang_node_schema
-WHERE node_type='policy_set' AND grupo_slug='datos';
+WHERE node_type='policy_set' AND grupo_slug='policy_set';
 
 INSERT INTO bauth.pol_atomlang_attr_schema
     (schema_id, attr_key, attr_label, attr_desc, attr_tipo, attr_enum_valores, nullable, obligatorio, sort_order, icono, is_system, ctx_id)
@@ -272,10 +272,10 @@ VALUES
 ON CONFLICT ON CONSTRAINT uq_paas_schema_key DO NOTHING;
 
 -- ======================================================================
--- POLICY — datos (igual que policy_set + campo type)
+-- POLICY — atributos propios (en la fila self policy)
 -- ======================================================================
 SELECT schema_id INTO v_g FROM bauth.pol_atomlang_node_schema
-WHERE node_type='policy' AND grupo_slug='datos';
+WHERE node_type='policy' AND grupo_slug='policy';
 
 INSERT INTO bauth.pol_atomlang_attr_schema
     (schema_id, attr_key, attr_label, attr_desc, attr_tipo, attr_enum_valores, nullable, obligatorio, sort_order, icono, is_system, ctx_id)
@@ -322,10 +322,10 @@ VALUES
 ON CONFLICT ON CONSTRAINT uq_paas_schema_key DO NOTHING;
 
 -- ======================================================================
--- RULE — datos
+-- RULE — atributos propios (en la fila self rule)
 -- ======================================================================
 SELECT schema_id INTO v_g FROM bauth.pol_atomlang_node_schema
-WHERE node_type='rule' AND grupo_slug='datos';
+WHERE node_type='rule' AND grupo_slug='rule';
 
 INSERT INTO bauth.pol_atomlang_attr_schema
     (schema_id, attr_key, attr_label, attr_desc, attr_tipo, attr_enum_valores, nullable, obligatorio, sort_order, icono, is_system, ctx_id)
@@ -371,10 +371,10 @@ VALUES
 ON CONFLICT ON CONSTRAINT uq_paas_schema_key DO NOTHING;
 
 -- ======================================================================
--- DOMAIN — datos
+-- DOMAIN — atributos propios (en la fila self domain)
 -- ======================================================================
 SELECT schema_id INTO v_g FROM bauth.pol_atomlang_node_schema
-WHERE node_type='domain' AND grupo_slug='datos';
+WHERE node_type='domain' AND grupo_slug='domain';
 
 INSERT INTO bauth.pol_atomlang_attr_schema
     (schema_id, attr_key, attr_label, attr_desc, attr_tipo, attr_enum_valores, nullable, obligatorio, sort_order, icono, is_system, ctx_id)
@@ -391,10 +391,10 @@ VALUES
 ON CONFLICT ON CONSTRAINT uq_paas_schema_key DO NOTHING;
 
 -- ======================================================================
--- BLOCK — datos
+-- BLOCK — atributos propios (en la fila self block)
 -- ======================================================================
 SELECT schema_id INTO v_g FROM bauth.pol_atomlang_node_schema
-WHERE node_type='block' AND grupo_slug='datos';
+WHERE node_type='block' AND grupo_slug='block';
 
 INSERT INTO bauth.pol_atomlang_attr_schema
     (schema_id, attr_key, attr_label, attr_desc, attr_tipo, nullable, obligatorio, sort_order, icono, is_system, ctx_id)

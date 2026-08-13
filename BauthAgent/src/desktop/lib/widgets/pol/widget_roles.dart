@@ -184,7 +184,7 @@ class _BloqueA extends ConsumerWidget {
       ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
 
     for (final nodo in hijos) {
-      if (nodo.esTipo) {
+      if (nodo.esTipo && nodo.atributos.isEmpty) {
         items.add(_EncabezadoNodo(
           nodo: nodo,
           profundidad: profundidad,

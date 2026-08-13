@@ -6,24 +6,21 @@
 --   domain → block → policy_set / policy → rule → atom
 --
 -- Cada tipo de nodo tiene una fila "self" (grupo_slug = node_type)
--- con parent_id apuntando al tipo padre. Los grupos de atributos
--- son hijos de la fila "self" de su tipo de nodo.
+-- que actúa como encabezado Y como contenedor de atributos propios.
+-- No existe el nodo "datos" — los atributos del tipo van directamente
+-- en la fila self. Los grupos especializados (target, subject, etc.)
+-- son hijos de la fila self de su tipo.
 --
--- Árbol resultante:
---   domain (self, raíz)
---     datos  (grupo)
---     block  (self, hijo de domain)
---       datos (grupo)
---       policy_set (self, hijo de block)
---         datos  (grupo)
+-- Árbol resultante (RPC devuelve 19 nodos, excluye _common/attribute/enum):
+--   domain (self + attrs propios)
+--     block  (self + attrs propios)
+--       policy_set (self + attrs propios)
 --         target (grupo) → subject (subgrupo)
---       policy (self, hijo de block)
---         datos  (grupo)
+--       policy (self + attrs propios)
 --         target (grupo) → subject (subgrupo)
---         rule (self, hijo de policy)
---           datos  (grupo)
+--         rule (self + attrs propios)
 --           target (grupo) → subject (subgrupo)
---           atom (self, hijo de rule)
+--           atom (self — sin attrs directos; usa grupos especializados)
 --             identidad (grupo)
 --             TARGET (grupo) → subject (subgrupo)
 --             CONDITION (grupo)
@@ -36,7 +33,7 @@
 
 DO $$
 DECLARE
-    -- Filas "self" (contenedor del tipo de nodo)
+    -- Filas "self" (encabezado + contenedor de atributos del tipo)
     v_domain      UUID;
     v_block       UUID;
     v_policy_set  UUID;
@@ -44,22 +41,13 @@ DECLARE
     v_rule        UUID;
     v_atom        UUID;
 
-    -- Grupos hijos de domain
-    v_domain_datos UUID;
-
-    -- Grupos hijos de block
-    v_block_datos  UUID;
-
     -- Grupos hijos de policy_set
-    v_ps_datos     UUID;
     v_ps_target    UUID;
 
     -- Grupos hijos de policy
-    v_po_datos     UUID;
     v_po_target    UUID;
 
     -- Grupos hijos de rule
-    v_ru_datos     UUID;
     v_ru_target    UUID;
 
     -- Grupos hijos de atom
@@ -87,6 +75,7 @@ EXECUTE 'SET LOCAL session_replication_role = origin';
 
 -- ======================================================================
 -- 1. DOMAIN — raíz de la jerarquía
+--    Fila self: encabezado de sección + contiene atributos propios de domain.
 -- ======================================================================
 
 INSERT INTO bauth.pol_atomlang_node_schema
@@ -99,18 +88,9 @@ VALUES
         'globe','#6366F1',0,false,false,true,'seed')
 RETURNING schema_id INTO v_domain;
 
-INSERT INTO bauth.pol_atomlang_node_schema
-    (node_type, grupo_slug, parent_id, grupo_label, grupo_desc, icono, color,
-     sort_order, readonly, reactivo, is_system, ctx_id)
-VALUES
-    ('domain','datos',v_domain,
-        '{"es":"Datos","en":"Data"}',
-        '{"es":"Identificador, nombre, owner, clasificación, versión y PolicySet raíz del dominio.","en":"Identifier, name, owner, classification, version and root PolicySet of the domain."}',
-        'database','#6366F1',0,false,false,true,'seed')
-RETURNING schema_id INTO v_domain_datos;
-
 -- ======================================================================
 -- 2. BLOCK — hijo de domain
+--    Fila self: encabezado de sección + contiene atributos propios de block.
 -- ======================================================================
 
 INSERT INTO bauth.pol_atomlang_node_schema
@@ -123,18 +103,9 @@ VALUES
         'box','#8B5CF6',1,false,false,true,'seed')
 RETURNING schema_id INTO v_block;
 
-INSERT INTO bauth.pol_atomlang_node_schema
-    (node_type, grupo_slug, parent_id, grupo_label, grupo_desc, icono, color,
-     sort_order, readonly, reactivo, is_system, ctx_id)
-VALUES
-    ('block','datos',v_block,
-        '{"es":"Datos","en":"Data"}',
-        '{"es":"Identificador, dominio padre, tipo de recurso agrupado y Policy/PolicySet representativo.","en":"Identifier, parent domain, grouped resource type and representative Policy/PolicySet."}',
-        'database','#8B5CF6',0,false,false,true,'seed')
-RETURNING schema_id INTO v_block_datos;
-
 -- ======================================================================
 -- 3. POLICY_SET — hijo de block
+--    Fila self: encabezado + atributos propios. Target/subject son hijos.
 -- ======================================================================
 
 INSERT INTO bauth.pol_atomlang_node_schema
@@ -146,16 +117,6 @@ VALUES
         '{"es":"Nodo de combinación XACML. Agrupa Policies hijas con un algoritmo de decisión.","en":"XACML combination node. Groups child Policies with a decision algorithm."}',
         'layers','#0EA5E9',2,false,false,true,'seed')
 RETURNING schema_id INTO v_policy_set;
-
-INSERT INTO bauth.pol_atomlang_node_schema
-    (node_type, grupo_slug, parent_id, grupo_label, grupo_desc, icono, color,
-     sort_order, readonly, reactivo, is_system, ctx_id)
-VALUES
-    ('policy_set','datos',v_policy_set,
-        '{"es":"Datos","en":"Data"}',
-        '{"es":"Identificador, algoritmo de combinación, estado, versión e issuer del PolicySet.","en":"Identifier, combining algorithm, status, version and issuer of the PolicySet."}',
-        'database','#0EA5E9',0,false,false,true,'seed')
-RETURNING schema_id INTO v_ps_datos;
 
 INSERT INTO bauth.pol_atomlang_node_schema
     (node_type, grupo_slug, parent_id, grupo_label, grupo_desc, icono, color,
@@ -178,6 +139,7 @@ VALUES
 
 -- ======================================================================
 -- 4. POLICY — hijo de block (hermano de policy_set)
+--    Fila self: encabezado + atributos propios. Target/subject/rule son hijos.
 -- ======================================================================
 
 INSERT INTO bauth.pol_atomlang_node_schema
@@ -189,16 +151,6 @@ VALUES
         '{"es":"Contiene Rules. Produce una decisión combinando los efectos de sus Rules hijos.","en":"Contains Rules. Produces a decision by combining the effects of its child Rules."}',
         'file-text','#06B6D4',3,false,false,true,'seed')
 RETURNING schema_id INTO v_policy;
-
-INSERT INTO bauth.pol_atomlang_node_schema
-    (node_type, grupo_slug, parent_id, grupo_label, grupo_desc, icono, color,
-     sort_order, readonly, reactivo, is_system, ctx_id)
-VALUES
-    ('policy','datos',v_policy,
-        '{"es":"Datos","en":"Data"}',
-        '{"es":"Identificador, tipo, algoritmo de combinación, estado, versión e issuer de la Policy.","en":"Identifier, type, combining algorithm, status, version and issuer of the Policy."}',
-        'database','#06B6D4',0,false,false,true,'seed')
-RETURNING schema_id INTO v_po_datos;
 
 INSERT INTO bauth.pol_atomlang_node_schema
     (node_type, grupo_slug, parent_id, grupo_label, grupo_desc, icono, color,
@@ -221,6 +173,7 @@ VALUES
 
 -- ======================================================================
 -- 5. RULE — hijo de policy
+--    Fila self: encabezado + atributos propios. Target/subject/atom son hijos.
 -- ======================================================================
 
 INSERT INTO bauth.pol_atomlang_node_schema
@@ -232,16 +185,6 @@ VALUES
         '{"es":"Unidad de autorización. Evalúa TARGET + CONDITION y produce EFFECT (PERMIT|DENY).","en":"Authorization unit. Evaluates TARGET + CONDITION and produces EFFECT (PERMIT|DENY)."}',
         'list','#10B981',2,false,false,true,'seed')
 RETURNING schema_id INTO v_rule;
-
-INSERT INTO bauth.pol_atomlang_node_schema
-    (node_type, grupo_slug, parent_id, grupo_label, grupo_desc, icono, color,
-     sort_order, readonly, reactivo, is_system, ctx_id)
-VALUES
-    ('rule','datos',v_rule,
-        '{"es":"Datos","en":"Data"}',
-        '{"es":"Identificador, Policy padre, descripción semántica y algoritmo de combinación si tiene múltiples Atoms.","en":"Identifier, parent Policy, semantic description and combining algorithm if multiple Atoms."}',
-        'database','#10B981',0,false,false,true,'seed')
-RETURNING schema_id INTO v_ru_datos;
 
 INSERT INTO bauth.pol_atomlang_node_schema
     (node_type, grupo_slug, parent_id, grupo_label, grupo_desc, icono, color,
@@ -264,6 +207,8 @@ VALUES
 
 -- ======================================================================
 -- 6. ATOM — hijo de rule
+--    Fila self: solo encabezado (sin atributos directos).
+--    Todos sus atributos viven en grupos especializados hijos.
 -- ======================================================================
 
 INSERT INTO bauth.pol_atomlang_node_schema
