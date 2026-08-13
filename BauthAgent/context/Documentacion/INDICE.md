@@ -173,6 +173,7 @@ curada para consulta sin fricción. Índice, patrón canónico y plan: [anexos/I
 | **[A.76 — Etapa 3: Validación VPS](anexos/A.76_ETAPA3-VALIDACION-VPS-v1.0.md)** — queries de validación por capa · checklist SBOSDB · protocolo de retroceso ante fallo | Refactor | ✅ 1.0.0 |
 | **[A.77 — Protocolo de Wire WS+JSON-RPC](anexos/A.77_PROTOCOLO-WS-JSONRPC-v1.0.md)** — handshake HTTP Upgrade, frames texto, multiplexado JSON-RPC 2.0, ctx_id propagación multi-lenguaje (TS/PHP/Dart/Rust/Python), JWT mínimo pre-átomos, verificación con wscat/socat | 2.18 | ✅ 1.1.0 |
 | **[A.78 — Sagas del Motor de Comunicación](anexos/A.78_SAGAS-MOTOR-COMUNICACION-v1.0.md)** — S-01 conexión + login, S-02 reconexión backoff, S-03 renovación token, S-04 revocación sesión, S-05 heartbeat; máquina de estados; implementación Dart de referencia (una de 5 — ver 2.18 §4) | 2.18 | ✅ 1.1.0 |
+| **[A.79 — Reglas de Implementación PAP — Editor de Árbol](anexos/A.79_ANEXO-PAP-ARBOL-REGLAS-UI-v1.0.md)** — layout v-rt:pol (top/body/bottom); estrategia validación Opción B (selección nodo → filtro grupos); mapa `childrenPermitidos` completo; atributos comunes + específicos por `node_type`; reglas UI-01..UI-15; 5 pendientes de pulir durante implementación | Desktop · PAP · AtomLang | ✅ 1.0.0 |
 
 ---
 

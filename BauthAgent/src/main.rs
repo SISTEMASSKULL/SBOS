@@ -680,6 +680,13 @@ async fn main() {
         dispatcher.register(&method_name, handler);
     }
 
+    // ── Schema AtomLang — grupos y atributos por node_type (T-580/T-581) ──
+    for (method_name, handler) in server::handlers::atomlang_schema::all_atomlang_schema_handlers(
+        db_ctx.as_ref().map(|c| c.pg.clone())
+    ) {
+        dispatcher.register(&method_name, handler);
+    }
+
     // ── Motor de Identidad (2.15 §5) ──
     dispatcher.register("bauth.identidad.list",
         std::sync::Arc::new(server::handlers::identidad_crud::IdentidadListHandler { pg_pool: db_ctx.as_ref().map(|c| c.pg.clone()) }));

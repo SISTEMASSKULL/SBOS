@@ -44,6 +44,10 @@ class PanelLateral extends StatefulWidget {
   /// Sección central flexible con scroll vertical.
   final Widget? body;
 
+  /// Sección central flexible SIN scroll — para layouts que necesitan
+  /// altura fija (ej. splitters resizables). Tiene prioridad sobre [body].
+  final Widget? bodyFlex;
+
   /// Sección inferior fija (encima del borde inferior, sin scroll).
   final Widget? bottom;
 
@@ -55,6 +59,7 @@ class PanelLateral extends StatefulWidget {
     this.ancho = 252,
     this.top,
     this.body,
+    this.bodyFlex,
     this.bottom,
   });
 
@@ -100,6 +105,7 @@ class _PanelLateralState extends State<PanelLateral> {
               onToggle: _toggle,
               top: widget.top,
               body: widget.body,
+              bodyFlex: widget.bodyFlex,
               bottom: widget.bottom,
             ),
           ),
@@ -131,6 +137,7 @@ class _PanelExpandido extends StatelessWidget {
   final VoidCallback onToggle;
   final Widget? top;
   final Widget? body;
+  final Widget? bodyFlex;
   final Widget? bottom;
 
   const _PanelExpandido({
@@ -141,6 +148,7 @@ class _PanelExpandido extends StatelessWidget {
     required this.onToggle,
     this.top,
     this.body,
+    this.bodyFlex,
     this.bottom,
   });
 
@@ -203,14 +211,18 @@ class _PanelExpandido extends StatelessWidget {
             Divider(height: 1, thickness: 1, color: cs.border),
           ],
 
-          // ── Sección body (flexible + scroll) ─────────────────
+          // ── Sección body (flexible) ───────────────────────────
+          // bodyFlex: sin scroll — para splitters y layouts de altura fija.
+          // body: con scroll — para contenido de longitud variable.
           Expanded(
-            child: body != null
-                ? SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(horizontal: 6 * s, vertical: 4 * s),
-                    child: body,
-                  )
-                : const SizedBox.shrink(),
+            child: bodyFlex != null
+                ? bodyFlex!
+                : body != null
+                    ? SingleChildScrollView(
+                        padding: EdgeInsets.symmetric(horizontal: 6 * s, vertical: 4 * s),
+                        child: body,
+                      )
+                    : const SizedBox.shrink(),
           ),
 
           // ── Sección bottom (fija) ─────────────────────────────

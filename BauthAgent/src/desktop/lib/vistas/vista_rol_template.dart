@@ -30,6 +30,7 @@ import '../widgets/comunes/boton_sbos.dart';
 import '../widgets/comunes/dialogo_crear_atomo.dart';
 import '../widgets/comunes/panel_lateral.dart';
 import '../widgets/comunes/tira_tabs.dart';
+import '../widgets/pol/widget_roles.dart';
 
 // Precalculado una sola vez en tiempo de compilación — evita el DFS
 // recursivo en cada rebuild de _PanelComparacion.
@@ -450,18 +451,18 @@ class _PanelArbol extends StatelessWidget {
 // Sidenav Herramientas (V-RT:POL)
 // ═══════════════════════════════════════════════════════════
 
-/// Descripciones por categoría de herramientas del sidenav derecho.
+/// Descripciones por categoría mostradas en el bottom del sidenav.
 const _kDescHerramientas = <String, String>{
-  'Roles': 'Herramientas para inspección y edición del árbol de Roles Template — atributos, átomos, condiciones y jerarquías.',
-  'Usuarios': 'Herramientas de gestión de usuarios IAM — asignación de roles, estados de cuenta y perfiles.',
-  'Otros': 'Utilidades generales — diagnóstico, exportación y configuración del entorno.',
+  'Roles':    'Árbol de políticas · subject.rol · condition_expr (A.46 §2)',
+  'Usuarios': 'Gestión IAM · asignación de roles · estados de cuenta',
+  'Otros':    'Utilidades · diagnóstico · exportación · configuración',
 };
 
 /// Sidenav derecho con selector de categoría de herramientas (V-RT:POL).
 ///
-/// top: dropdown [Select<String>] con las categorías Roles / Usuarios / Otros.
-/// bottom: descripción textual de la categoría seleccionada.
-/// body: vacío — contenido planificado por separado.
+/// top:      dropdown [Select<String>] — Roles / Usuarios / Otros.
+/// bodyFlex: [IndexedStack] de tres widgets — uno por categoría.
+/// bottom:   descripción textual de la categoría activa.
 class _SidenavHerramientas extends StatefulWidget {
   const _SidenavHerramientas();
 
@@ -470,11 +471,12 @@ class _SidenavHerramientas extends StatefulWidget {
 }
 
 class _SidenavHerramientasState extends State<_SidenavHerramientas> {
-  /// Categoría actualmente seleccionada; primera opción por defecto.
   String _categoria = _SelectorCategoria._opciones.first;
 
   @override
   Widget build(BuildContext context) {
+    final indice = _SelectorCategoria._opciones.indexOf(_categoria);
+
     return PanelLateral(
       titulo: 'Herramientas',
       lado: LadoPanel.derecho,
@@ -482,7 +484,66 @@ class _SidenavHerramientasState extends State<_SidenavHerramientas> {
         valor: _categoria,
         alCambiar: (v) => setState(() => _categoria = v),
       ),
+      bodyFlex: IndexedStack(
+        index: indice,
+        children: const [
+          WidgetRoles(),
+          _WidgetProximamente('Usuarios'),
+          _WidgetProximamente('Otros'),
+        ],
+      ),
       bottom: _DescripcionCategoria(categoria: _categoria),
+    );
+  }
+}
+
+/// Panel inferior: descripción de la categoría seleccionada.
+class _DescripcionCategoria extends StatelessWidget {
+  final String categoria;
+  const _DescripcionCategoria({required this.categoria});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final s  = Theme.of(context).scaling;
+
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 8 * s, vertical: 6 * s),
+      child: Text(
+        _kDescHerramientas[categoria] ??
+            'Selecciona una categoría.',
+        style: TextStyle(
+          fontSize: 10 * s,
+          color: cs.mutedForeground,
+          fontStyle: FontStyle.italic,
+          height: 1.4,
+        ),
+      ),
+    );
+  }
+}
+
+/// Placeholder para categorías aún no implementadas.
+class _WidgetProximamente extends StatelessWidget {
+  final String nombre;
+  const _WidgetProximamente(this.nombre);
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final s  = Theme.of(context).scaling;
+
+    return Center(
+      child: Text(
+        '$nombre\n— próximamente —',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontSize: 11 * s,
+          color: cs.mutedForeground,
+          fontStyle: FontStyle.italic,
+          height: 1.6,
+        ),
+      ),
     );
   }
 }
@@ -528,34 +589,3 @@ class _SelectorCategoria extends StatelessWidget {
   }
 }
 
-/// Panel inferior del sidenav Herramientas con la descripción de la categoría.
-///
-/// [categoria] nombre de la categoría seleccionada.
-class _DescripcionCategoria extends StatelessWidget {
-  final String categoria;
-
-  const _DescripcionCategoria({required this.categoria});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final s = theme.scaling;
-
-    final texto = _kDescHerramientas[categoria] ??
-        'Selecciona una categoría para ver las herramientas disponibles.';
-
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 8 * s, vertical: 6 * s),
-      child: Text(
-        texto,
-        style: TextStyle(
-          fontSize: 11 * s,
-          color: cs.mutedForeground,
-          fontStyle: FontStyle.italic,
-          height: 1.4,
-        ),
-      ),
-    );
-  }
-}

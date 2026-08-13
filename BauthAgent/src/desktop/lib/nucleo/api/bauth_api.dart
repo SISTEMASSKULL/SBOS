@@ -504,6 +504,30 @@ class BauthApi {
       return const {};
     }
   }
+
+  // ── Schema AtomLang (T-580/T-581) ───────────────────────────
+
+  /// Retorna el schema de grupos y atributos para un tipo de nodo AtomLang.
+  /// Llama a bauth.atomlang.schema.node_type — handler registrado en
+  /// atomlang_schema.rs (T-580 + T-581).
+  Future<NodeTypeSchema> atomlangSchema(String nodeType) async {
+    final r = await _rpc.llamar(
+      'bauth.atomlang.schema.node_type',
+      {'node_type': nodeType},
+    );
+    return NodeTypeSchema.fromJson(r);
+  }
+
+  /// Retorna la jerarquía completa del árbol AtomLang como lista plana
+  /// ordenada padre-primero. El cliente reconstruye el árbol usando parentId.
+  /// Llama a bauth.atomlang.schema.all — una sola llamada, sin parámetros.
+  Future<List<NodoSchema>> atomlangSchemaAll() async {
+    final r = await _rpc.llamar('bauth.atomlang.schema.all', {});
+    final nodos = r['nodos'] as List<dynamic>? ?? [];
+    return nodos
+        .map((n) => NodoSchema.fromJson(n as Map<String, dynamic>))
+        .toList();
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -582,6 +606,126 @@ class NodoRolTemplateBD {
         domainNumber = j['domain_number'] as int?,
         depth = j['depth'] as int? ?? 0,
         hijos = [];
+}
+
+// ═══════════════════════════════════════════════════════════
+// Schema AtomLang — T-580/T-581
+// ═══════════════════════════════════════════════════════════
+
+/// Atributo hoja de un grupo del schema AtomLang (T-581).
+class AttrSchema {
+  final String attrId;
+  final String key;
+  final String labelEs;
+  final String descEs;
+  final String tipo;
+  final List<String> enumValores;
+  final int sortOrder;
+  final bool readonly;
+  final bool nullable;
+  final bool obligatorio;
+
+  AttrSchema.fromJson(Map<String, dynamic> j)
+      : attrId = j['attr_id']?.toString() ?? '?',
+        key = j['key']?.toString() ?? '?',
+        labelEs = _es(j['label']),
+        descEs = _esN(j['desc']) ?? '',
+        tipo = j['tipo']?.toString() ?? 'text',
+        enumValores = (j['enum_valores'] as List<dynamic>?)
+                ?.map((e) => e.toString())
+                .toList() ??
+            const [],
+        sortOrder = j['sort_order'] as int? ?? 0,
+        readonly = j['readonly'] == true,
+        nullable = j['nullable'] != false,
+        obligatorio = j['obligatorio'] == true;
+}
+
+/// Grupo del schema AtomLang (T-580) con sus atributos hoja.
+class GrupoSchema {
+  final String schemaId;
+  final String slug;
+  final String? parentId;
+  final String? parentSlug;
+  final String labelEs;
+  final String descEs;
+  final int sortOrder;
+  final bool readonly;
+  final bool reactivo;
+  final List<AttrSchema> atributos;
+
+  GrupoSchema.fromJson(Map<String, dynamic> j)
+      : schemaId = j['schema_id']?.toString() ?? '?',
+        slug = j['slug']?.toString() ?? '?',
+        parentId = j['parent_id']?.toString(),
+        parentSlug = j['parent_slug']?.toString(),
+        labelEs = _es(j['label']),
+        descEs = _esN(j['desc']) ?? '',
+        sortOrder = j['sort_order'] as int? ?? 0,
+        readonly = j['readonly'] == true,
+        reactivo = j['reactivo'] == true,
+        atributos = (j['atributos'] as List<dynamic>? ?? [])
+            .map((e) => AttrSchema.fromJson(e as Map<String, dynamic>))
+            .toList();
+
+  bool get esSubgrupo => parentId != null;
+}
+
+/// Schema completo de un tipo de nodo AtomLang (grupos + atributos).
+/// Usado por bauth.atomlang.schema.node_type.
+class NodeTypeSchema {
+  final String nodeType;
+  final List<GrupoSchema> grupos;
+
+  NodeTypeSchema.fromJson(Map<String, dynamic> j)
+      : nodeType = j['node_type']?.toString() ?? '?',
+        grupos = (j['grupos'] as List<dynamic>? ?? [])
+            .map((e) => GrupoSchema.fromJson(e as Map<String, dynamic>))
+            .toList();
+
+  static NodeTypeSchema vacio(String tipo) =>
+      NodeTypeSchema.fromJson({'node_type': tipo, 'grupos': <dynamic>[]});
+}
+
+/// Nodo del árbol jerárquico AtomLang (T-580).
+/// Devuelto por bauth.atomlang.schema.all como lista plana padre-primero.
+/// El cliente reconstruye el árbol usando parentId.
+///
+/// esTipo=true  → fila "self" del tipo (encabezado de sección, no seleccionable).
+/// esTipo=false → grupo de atributos seleccionable en el editor.
+class NodoSchema {
+  final String  schemaId;
+  final String  nodeType;
+  final String  slug;
+  final String? parentId;
+  final bool    esTipo;
+  final String  labelEs;
+  final String  descEs;
+  final String? icono;
+  final String? color;
+  final int     sortOrder;
+  final bool    readonly;
+  final bool    reactivo;
+  final List<AttrSchema> atributos;
+
+  NodoSchema.fromJson(Map<String, dynamic> j)
+      : schemaId  = j['schema_id']?.toString()  ?? '?',
+        nodeType  = j['node_type']?.toString()  ?? '?',
+        slug      = j['slug']?.toString()       ?? '?',
+        parentId  = j['parent_id']?.toString(),
+        esTipo    = j['es_tipo'] == true,
+        labelEs   = _es(j['label']),
+        descEs    = _esN(j['desc']) ?? '',
+        icono     = j['icono']?.toString(),
+        color     = j['color']?.toString(),
+        sortOrder = j['sort_order'] as int? ?? 0,
+        readonly  = j['readonly'] == true,
+        reactivo  = j['reactivo'] == true,
+        atributos = (j['atributos'] as List<dynamic>? ?? [])
+            .map((e) => AttrSchema.fromJson(e as Map<String, dynamic>))
+            .toList();
+
+  bool get esSeleccionable => !esTipo;
 }
 
 // DSN de la BD oficial SBOSDB

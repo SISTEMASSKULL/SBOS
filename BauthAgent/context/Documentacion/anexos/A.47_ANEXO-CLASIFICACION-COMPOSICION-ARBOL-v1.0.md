@@ -1,8 +1,8 @@
 # A.47 — Clasificación y Composición del Árbol de Configuración
 ## Tipo B+C — Fundamento normativo y justificación técnica para la posición de cada nodo en el árbol de políticas bAuth
 
-**Versión:** 1.0.3  
-**Fecha:** 2026-07-14  
+**Versión:** 1.0.4  
+**Fecha:** 2026-08-07  
 **Tipo de anexo:** B (normativo/industria) + C (justificación de decisión técnica)  
 **Respalda a:** [2.14 MANUAL-COMPOSICION-ARBOL §8–§10](../2.14_MANUAL-COMPOSICION-ARBOL-v1.0.md) · [2.13 MANUAL-ATOMLANG-LENGUAJE v2.0 §4](../2.13_MANUAL-ATOMLANG-LENGUAJE-v2.0.md) · [1.06 D00 Identidad v2.0](../1.06_MANUAL-D00-IDENTIDAD-v2.0.md) · [2.15 Motor de Identidad](../2.15_MANUAL-MOTOR-IDENTIDAD-v1.0.md)  
 **Fuentes absorbidas:** `manual-estructuracion-politicas-roles-bAuth.md` §6–§12 (legacy en `anexos/` — este anexo lo reemplaza) · `ATOMLANG-GAP-ANALYSIS-D1-v1.0.md` §1–§5 (gaps D1 absorbidos en §6)  
@@ -25,7 +25,73 @@ Este anexo contiene:
 
 ## §2 Reglas de clasificación — ¿dónde va cada nodo?
 
-Estas son las reglas que determinan si un elemento del árbol debe ser PolicySet (Dominio o Zona), Policy (Aplicación), Rule (Atom), o D98 (Registro Estructural). El compilador `atomc` verifica estas reglas en Fase 2 (Semantic).
+Estas son las reglas que determinan si un elemento del árbol debe ser Bloque, PolicySet (Dominio o Zona), Policy (Aplicación), Rule (Atom), o D98 (Registro Estructural). El compilador `atomc` verifica estas reglas en Fase 2 (Semantic).
+
+**Dependencia canónica completa (tabla `bauth.idn_roles_template`):**
+
+Atributos comunes a todos los nodos:
+`id · tenant_id · parent_id · node_type · label(jsonb) · name(jsonb) · alias`
+`description · help(jsonb) · depth · path · sort_order · order_idx`
+`is_active · version · valid_from · valid_until · created_at · updated_at`
+
+```
+[tenant]  node_type=tenant · depth=0
+  │
+  └── [domain]  node_type=domain · depth=1       ← D01–D15 + D98 + D99
+        + domain_number (int NOT NULL)
+        │
+        └── [block]  node_type=block · depth=2   ← B01–B10
+              + block_code (varchar NOT NULL)
+              │
+              ├── [policy]  node_type=policy      ← caso normal
+              │     (solo atributos comunes)
+              │     │
+              │     └── [rule]  node_type=rule
+              │           + effect (bool: true=Permit | false=Deny)
+              │           + condition_expr (jsonb)
+              │           │
+              │           └── [atom]  node_type=atom  ← 1 bit en BitMask
+              │                 + atom_position (bigint UNIQUE NOT NULL)
+              │                 + verb_id (FK privilege_verb NOT NULL)
+              │                 + effect (bool: true=Permit | false=Deny)
+              │                 + condition_expr (jsonb):
+              │                       subject
+              │                         dim. ROL  kind: ROL|SET|UNSET|ANY
+              │                                   id:   rol_id|set_id|null
+              │                         dim. USER kind: USER|USERSET|USERUNSET|ANY
+              │                                   id:   user_id|userset_id|null
+              │                       resource    resource_id
+              │                       environment[]
+              │                         property_id · operator · value
+              │                       Apply (Condition XACML)
+              │                         function_id
+              │                         AttributeDesignator
+              │                           category · attribute_id · data_type · must_be_present
+              │                         AttributeValue
+              │                           value · data_type
+              │                         Apply (anidado)
+              │
+              │     ⚠ Guardrail = [rule]/[atom] con application_id=null
+              │       Siempre dentro de [policy] — NUNCA bajo [block] (XACML 3.0 §5.29)
+              │
+              ├── [policy_set]  node_type=policy_set  ← OPCIONAL
+              │     (solo atributos comunes)
+              │     └── [policy] → [rule] → [atom]  (ídem)
+              │
+              ├── [object]    node_type=object    (solo atributos comunes)
+              ├── [list]      node_type=list      (solo atributos comunes)
+              │     └── [object] | [attribute] | [enum]
+              ├── [attribute] node_type=attribute  + value (text)
+              ├── [enum]      node_type=enum       + value (text) + options (text[])
+              └── [event]     node_type=event      (disparador CAEP — solo atributos comunes)
+
+⚠ EN SUSPENSO — estructura propia, no siguen esta dependencia:
+  D00 · Identidad Organizacional · D98 · Registro Estructural · D99 · Administrativo Global
+```
+- **Caso normal:** Bloque → Política → Regla (una Política por nodo, sin PolicySet).
+- **Caso especial:** Bloque → PolicySet → Política(s) → Regla (PolicySet agrupa varias Políticas).
+- El PolicySet es **siempre opcional** y **siempre contiene** Políticas — nunca es hermano de una Política al mismo nivel.
+- D00, D98 y D99 tienen estructura propia (ver §3 y §3.3 de 2.14).
 
 ### §2.1 Árbol de decisión para clasificar un nodo
 
@@ -40,15 +106,23 @@ Estas son las reglas que determinan si un elemento del árbol debe ser PolicySet
 │         │     Validador. Requisitos ISO/NIST/XACML por tipo de nodo.
 │         └── D98 · Registro Estructural → badge [REGISTRO ESTRUCTURAL]
 │               no lleva combining_algorithm · contiene Sets, constantes, enums
+│
+│         ¿Es un agrupador temático dentro de un Dominio (D01–D15)?
+│         └── SÍ → es Bloque (B01–B10) → sin badge, no evaluable
+│               hijo directo del Dominio · padre de PolicySets y Políticas
+│               (ver Regla A-09 y §3.3 de 2.14_MANUAL-COMPOSICION-ARBOL)
+│
 └── SÍ → ¿Es garante transversal (aplica a todo el sistema)?
           ├── SÍ → D99 · Administrativo Global → badge [POLICYSET][GLOBAL]
           │         combining_algorithm obligatorio. No entra al BitMask.
           └── NO → ¿contiene otros nodos que producen Decision?
                     ├── SÍ → es PolicySet (Dominio o Zona)
-                    │         ├── ¿Es un plano de control del BitMask (D00-D13)?
+                    │         ├── ¿Es un plano de control del BitMask (D01-D15)?
                     │         │   └── SÍ → badge [POLICYSET] + código D + path de evaluación
-                    │         └── ¿Es un segmento lógico dentro de un Dominio?
+                    │         │             hijo de un Bloque (B01–B10) dentro del Dominio
+                    │         └── ¿Es un segmento lógico dentro de un Bloque?
                     │             └── SÍ → badge [POLICYSET] + nombre de zona (B6)
+                    │                       hijo del Bloque B06 — nivel 3 del árbol
                     └── NO → ¿contiene directamente Rules (Atoms)?
                               ├── SÍ → es Policy (Aplicación o capa B7)
                               │         → badge [POLICY] · combining_algorithm obligatorio si 2+ Rules
@@ -60,7 +134,7 @@ Estas son las reglas que determinan si un elemento del árbol debe ser PolicySet
 
 **Regla A-01 — Atom de Aplicación:** si la regla pertenece al flujo de negocio de un módulo específico (ERP, CRM, RRHH), colócarla dentro de la Policy de esa Aplicación (`application_id != null`). La Policy debe declarar `combining_algorithm`.
 
-**Regla A-02 — Guardrail Atom:** si la regla aplica transversalmente a toda solicitud, independientemente de la Aplicación, colócarla como Rule standalone (`application_id = null`). No tiene Policy contenedora.
+**Regla A-02 — Guardrail Atom:** si la regla aplica transversalmente a toda solicitud, independientemente de la Aplicación, es una Regla con `application_id = null`. **Siempre vive dentro de una Política** — nunca es standalone bajo un Bloque o PolicySet. XACML 3.0 §5.29 lo establece explícitamente: *"A Rule is not intended to form the basis of an authorization decision by itself; it exists only within a Policy."* Lo que distingue al Guardrail es su propiedad `application_id = null` (alcance transversal), no su posición en el árbol.
 
 **Regla A-03 — Atoms de B7 (PrivilegeEngine):** los Atoms que controlan acceso a nivel de modelo, campo, menú o fila en cualquier aplicación del tenant (registradas en `bauth.privilege_application`) pertenecen a una de las 5 capas de B7. Cada capa es una Policy con su propio `combining_algorithm`. B7 aplica a ERP, CRM, RRHH, correo, portales y toda aplicación con control de acceso de grano fino — no solo ERP.
 
@@ -73,6 +147,14 @@ Estas son las reglas que determinan si un elemento del árbol debe ser PolicySet
 **Regla A-07 — D97 es un validador:** la Conformidad Normativa (D97) contiene requisitos trazables a normas (ISO, NIST, XACML). No produce Decision. atomc consulta D97 en Fase 2 (Semantic) para verificar que cada nodo del árbol cumple los requisitos aplicables a su tipo.
 
 **Regla A-08 — D99 es un PolicySet global:** el Administrativo Global (D99) sigue la misma estructura que D00-D13 (PolicySet → Política → Regla) pero sus políticas aplican a TODO el sistema, sin importar el dominio funcional. No entra al BitMask. Cambia solo por HITL.
+
+**Regla A-09 — Bloque es nivel intermedio obligatorio (D01–D15):** todo hijo directo de un Dominio D01–D15 DEBE ser un Bloque (B01–B10). No está permitido colgar un PolicySet, una Política ni una Regla directamente de un Dominio. El compilador `atomc` rechaza esta condición con error ATOMC-E-071. El Bloque no es XACML — no lleva badge, no tiene `combining_algorithm`, y no produce Decision. Su único rol es agrupar temáticamente los nodos evaluables dentro de un Dominio.
+
+**Regla A-10 — PolicySet es opcional y siempre precede a la Política:** dentro de un Bloque, el caso normal es Bloque → Política (una Política directa). El PolicySet solo se usa cuando es necesario agrupar **varias Políticas** bajo un mismo nodo de agrupación. El PolicySet siempre CONTIENE Políticas — nunca es hermano de una Política al mismo nivel de un Bloque. El error de diseño más común es tratar PolicySet y Política como alternativas intercambiables: **no lo son**.
+
+**Regla A-10b — Guardrail no es standalone:** el Guardrail es una Regla con `application_id = null`. Como toda Regla (XACML 3.0 §5.29), **siempre debe estar contenida en una Política**. No puede colgar directamente de un Bloque ni de un PolicySet. Si un Guardrail necesita aplicar transversalmente, se le crea una Política dedicada (ej. `politica_guardrails_transversales`) que lo contiene. La transversalidad es una propiedad del Guardrail, no una excepción a la jerarquía.
+
+⚠ **EN SUSPENSO:** D00 (Identidad Organizacional), D98 (Registro Estructural) y D99 (Administrativo Global) tienen estructura propia y no siguen la dependencia `Dominio → Bloque → PolicySet`. Trabajar en sesión separada.
 
 ### §2.3 Decisión de `combining_algorithm` por tipo de contenedor
 
@@ -96,15 +178,17 @@ XACML 3.0 no tiene un equivalente directo para "declaración de grupo de roles r
 
 ### §3.2 Reglas de uso de D98
 
+D98 almacena dos tipos de Sets: **Sets de Roles** y **Sets de Usuarios**, usados respectivamente en las dos dimensiones del `subject` de una Regla.
+
 | Regla | Descripción |
 |---|---|
-| R-D98-01 | Un Set solo puede declararse en D98 — nunca inline dentro de un Atom |
-| R-D98-02 | Un Atom que referencia un Set via `subject.set_id` DEBE tener ese Set declarado en D98 (ATOMC-E-014 si no existe) |
+| R-D98-01 | Un Set (de roles o de usuarios) solo puede declararse en D98 — nunca inline dentro de un Atom |
+| R-D98-02 | Un Atom que referencia un Set via `subject.rol.set_id` o `subject.user.userset_id` DEBE tener ese Set declarado en D98 (ATOMC-E-014 si no existe) |
 | R-D98-03 | D98 no lleva badge `[POLICYSET]` ni `combining_algorithm` — es estructural, no evaluable |
-| R-D98-04 | Un rol puede pertenecer a múltiples Sets simultáneamente (relación N:M en `bauth.privilege_role_set_member` *(propuesta)*) |
+| R-D98-04 | Un rol o usuario puede pertenecer a múltiples Sets simultáneamente (relación N:M) |
 | R-D98-05 | Eliminar un Set de D98 requiere verificar que ningún Atom lo referencia — el compilador detecta la referencia huérfana |
-| R-D98-06 | `UNSET` en un nodo declara los roles que NO pueden ver ni recibir ese nodo aunque pertenezcan al SET que lo incluye. El compilador evalúa `UNSET` **con prioridad** sobre `subject.set_id`. Cada rol en `UNSET` DEBE existir en `bauth.idn_role_template` (ATOMC-E-062 si no existe) |
-| R-D98-07 | Si un rol aparece simultáneamente en `UNSET` de un nodo Y como miembro del `SET` referenciado en `subject.set_id` del mismo nodo, el compilador emite ATOMC-W-032 (contradicción explícita — `UNSET` prevalece y el rol queda excluido) |
+| R-D98-06 | `UNSET` declara roles que NO pueden recibir ese nodo aunque pertenezcan al SET incluido. `USERUNSET` declara usuarios excluidos del USERSET. El compilador evalúa exclusiones **con prioridad** sobre inclusiones (ATOMC-E-062 si el id referenciado no existe) |
+| R-D98-07 | Si un rol/usuario aparece simultáneamente en exclusión (`UNSET`/`USERUNSET`) y en el set de inclusión del mismo Atom, el compilador emite ATOMC-W-032 (contradicción — la exclusión prevalece) |
 
 ### §3.3 Ciclo de vida de un Set (D98) vs. ciclo de vida de un Atom
 
@@ -161,7 +245,8 @@ El Guardrail Atom existe en aislamiento relativo — sin Policy contenedora. Su 
 | Unidad de decisión por módulo | Policy | Policy | Identity/Resource-based Policy | — | Aplicación (`bauth.privilege_application`) |
 | Motor de privilegios de aplicaciones (5 capas) | PolicySet anidado | — | — | — | B7 · PrivilegeEngine |
 | Unidad atómica evaluable | Rule | Rule | Statement | — | Atom (`bauth.privilege_atom`) |
-| Quién puede (Subject) | Subject | Subject attribute | Principal | — | Rol (Dominio Lógico) |
+| Quién puede — dim. ROL | Subject (role attribute) | Subject attribute | Principal | — | ROL \| SET \| UNSET \| ANY · bauth.idn_role_template + D98 |
+| Quién puede — dim. USER | Subject (identity attribute) | Subject attribute | Principal | User/Group | USER \| USERSET \| USERUNSET \| ANY · bauth.idn_user_template + D98 |
 | Sobre qué (Resource) | Resource | Object attribute | Resource | — | Modelo/Campo |
 | Qué acción (Action/Verbo) | Action | Operation | Action | — | Verbo (`bauth.privilege_verb`) |
 | Bajo qué circunstancia | Environment / Condition | Environment attribute | Condition block | — | Dominio Contextual |
@@ -427,6 +512,7 @@ Sin verbo, un Atom no puede distinguir entre `read`, `write`, `approve`, `delete
 
 | Versión | Fecha | Descripción |
 |---------|-------|-------------|
+| 1.0.4 | 2026-08-07 | §2 árbol de dependencia expandido con columnas reales de `bauth.idn_roles_template` por tipo de nodo: atributos comunes (todos) + específicos de domain (`domain_number`), block (`block_code`), rule (`effect` bool + `condition_expr` jsonb), atom (`atom_position` + `verb_id` + `effect` + `condition_expr`), attribute (`value`), enum (`value` + `options`). Integra estructura XACML 3.0 con esquema real verificado en VPS SBOSDB. |
 | 1.0.2 | 2026-07-14 | Actualización: árbol de decisión §2.1 ampliado con D95-D99 (Catálogo de Átomos, Contrato de Métodos, Conformidad Normativa, Administrativo Global). Nuevas reglas A-05..A-08 para dominios del lenguaje. Cabecera y mapa §10 actualizados con referencia a 2.13 v2.0. |
 | 1.0.1 | 2026-07-13 | Correcciones por revisión: B7 renombrado, referencias `bos_*` reemplazadas. |
 | 1.0.0 | 2026-07-13 | Primera edición. Árbol de decisión, reglas A-01..A-04, D98, glosario, diagnóstico D1, checklist. |
@@ -450,10 +536,10 @@ Sin verbo, un Atom no puede distinguir entre `read`, `write`, `approve`, `delete
 
 ### Nuevas reglas de clasificación
 
-**Regla A-09 — D93 gobierna tipos de entidad:** el Catálogo de Identidades define qué `tipo`
+**Regla A-11 — D93 gobierna tipos de entidad:** el Catálogo de Identidades define qué `tipo`
 es válido para cada `nivel` en `idn_identity_entity`. El motor de identidad rechaza cualquier tipo
 no registrado. Agregar un sector nuevo (educación, salud) es agregar su tipo a la política D93.
 
-**Regla A-10 — D94 agrupa usuarios:** el Registro de Usuarios define USERSETs que agrupan
+**Regla A-12 — D94 agrupa usuarios:** el Registro de Usuarios define USERSETs que agrupan
 entidades por contexto operativo (RRHH, flota, autenticacion). Una entidad pertenece a
 múltiples conjuntos sin duplicarse. Mismo patrón que D98 (SET de roles).
