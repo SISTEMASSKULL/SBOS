@@ -64,3 +64,4 @@ pub mod versioning;        // F3: B01 version.record/history + B02 lifecycle.rec
 pub mod approval;          // B03: quórum N-de-M para cambios MAJOR (T-153) — propose/vote/list/get
 pub mod idn_roles_template; // T-162: árbol AtomLang — bauth.idn_roles_template.todos
 pub mod atomlang_schema;   // T-580/T-581: schema grupos+atributos por node_type
+pub mod policy_node_type;  // T-161b: catálogo de tipos de nodo — bauth.idn_policy_node_type.list

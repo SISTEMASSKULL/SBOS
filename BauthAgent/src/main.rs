@@ -687,6 +687,13 @@ async fn main() {
         dispatcher.register(&method_name, handler);
     }
 
+    // ── Catálogo de tipos de nodo (T-161b) ──
+    for (method_name, handler) in server::handlers::policy_node_type::all_policy_node_type_handlers(
+        db_ctx.as_ref().map(|c| c.pg.clone())
+    ) {
+        dispatcher.register(&method_name, handler);
+    }
+
     // ── Motor de Identidad (2.15 §5) ──
     dispatcher.register("bauth.identidad.list",
         std::sync::Arc::new(server::handlers::identidad_crud::IdentidadListHandler { pg_pool: db_ctx.as_ref().map(|c| c.pg.clone()) }));

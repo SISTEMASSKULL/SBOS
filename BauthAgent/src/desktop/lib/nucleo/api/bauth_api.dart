@@ -11,26 +11,21 @@
 //
 // Organización interna (part of):
 //   modelos/ — tipos de datos por dominio
-//     comun.dart      · HealthInfo · SyncStatusInfo · AccessResult · SoDResult
+//     comun.dart      · HealthInfo · SyncStatusInfo
 //     identidad.dart  · RolInfo · RolTemplate · UsuarioInfo · EntidadInfo
 //     arbol.dart      · NodoRolTemplateBD
 //     atomlang.dart   · AttrSchema · GrupoSchema · NodeTypeSchema · NodoSchema
 //
-//   rutas/ — métodos JSON-RPC por dominio
+//   rutas/ — métodos JSON-RPC activos
 //     health.dart     · bauth.health.* / bauth.sync.*
-//     roles.dart      · bauth.role.* / bauth.role.template.*
-//     usuarios.dart   · bauth.user.*
-//     entidades.dart  · bauth.entidad.*
-//     acceso.dart     · bauth.access.* / bauth.policy.* / bauth.inheritance.* / bauth.sod.*
-//     tokens.dart     · bauth.token.*
-//     arbol_roles.dart· bauth.idn_roles_template.* / idn_policy_node_type
-//     atomlang.dart   · bauth.atomlang.schema.*
+//     roles.dart      · bauth.role.list
+//     usuarios.dart   · bauth.user.list
+//     entidades.dart  · bauth.entidad.tree
+//     arbol_roles.dart· bauth.idn_roles_template.todos / idn_policy_node_type
+//     atomlang.dart   · bauth.atomlang.schema.all
 //
 // Estándar: JSON-RPC 2.0 · ADR-020 · DOC-SBOS-001 N3.
 // ============================================================
-
-import 'dart:async';
-import 'dart:convert';
 
 import '../conexion/cliente_rpc.dart';
 import '../dominio/config_tipo_nodo.dart';
@@ -46,13 +41,8 @@ part 'rutas/health.dart';
 part 'rutas/roles.dart';
 part 'rutas/usuarios.dart';
 part 'rutas/entidades.dart';
-part 'rutas/acceso.dart';
-part 'rutas/tokens.dart';
 part 'rutas/arbol_roles.dart';
 part 'rutas/atomlang.dart';
-
-// ── DSN de la BD oficial (usado por rutas con SQL directo) ────
-const _dsnSbos = 'postgres://postgres:postgres@localhost:15432/SBOSDB';
 
 // ── Helpers i18n compartidos por todos los modelos ────────────
 

@@ -75,11 +75,6 @@ final rolesProvider = FutureProvider<List<RolInfo>>((ref) async {
   return ref.watch(bauthApiProvider).listarRoles();
 });
 
-/// Lista de role templates.
-final templatesProvider = FutureProvider<List<RolTemplate>>((ref) async {
-  return ref.watch(bauthApiProvider).listarTemplates();
-});
-
 /// Lista de usuarios con filtro de búsqueda.
 final usuariosProvider = FutureProvider.family<List<UsuarioInfo>, String>(
   (ref, busqueda) async {
@@ -109,14 +104,6 @@ final syncStatusProvider =
   });
   ref.onDispose(timer.cancel);
   return ref.watch(bauthApiProvider).syncStatus();
-});
-
-/// Schema AtomLang (grupos + atributos) para un tipo de nodo.
-/// Parámetro: node_type ("atom" | "rule" | "policy" | "policy_set" | ...).
-/// Fuente: bauth.atomlang.schema.node_type (T-580/T-581).
-final atomlangSchemaProvider =
-    FutureProvider.family<NodeTypeSchema, String>((ref, nodeType) async {
-  return ref.watch(bauthApiProvider).atomlangSchema(nodeType);
 });
 
 /// Árbol jerárquico AtomLang como lista plana padre-primero (NodoSchema).
