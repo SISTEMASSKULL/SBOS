@@ -478,6 +478,7 @@ V-AE
 | `W-008` | `BadgeEstado` | `V-DS-002`, `G-BC-010` | `estado`(OPERACIONAL/CONECTANDO/SIN CONEXIÓN) |
 | `W-009` | `ChipTier` | `V-CR-003`, `V-CR-004`, `V-RT-004` | `tier` (SU/SYS/BIZ_N1..BIZ_N5/EXT_N0/M2M/VISITANTE) |
 | `W-010` | `BarraBusqueda` | `V-US-002`, `G-BC-003` | `placeholder, controller, onChanged, atajo` |
+| `W-011` | `EtiquetaCodigo` | shell (×4), layout (×2), vistas (×5) — todos los widgets | `codigo, visible` — etiqueta overlay dev con referencia A.64.01; visible = `mostrarCodigosProvider` |
 
 **Ubicación en código:** `lib/widgets/comunes/`  
 **Para agregar un nuevo W-**: primero confirmar que aparece en ≥2 vistas, luego agregar aquí
@@ -489,7 +490,7 @@ y crear el archivo en `lib/widgets/comunes/<nombre_snake>.dart`.
 
 | Código | Clase Dart | Se abre desde | Descripción |
 |--------|-----------|---------------|-------------|
-| `DL-001` | `DialogoCrearAtomo` | `V-RT-003` → `[+ Átomo]` | Modal: inserta átomo en `bauth.idn_roles_template` vía psql + base64 |
+| `DL-001` | `DialogoCrearAtomo` | `V-RT-003` → `[+ Átomo]` | Modal: inserta átomo en `bauth.idn_roles_template` vía JSON-RPC (`bauth.idn_roles_template.insert`) |
 
 **Ubicación en código:** `lib/widgets/comunes/dialogo_<nombre>.dart`  
 **API:** `mostrarDialogo<Nombre>(context, ...params)` → función top-level que llama `showDialog`.
@@ -498,14 +499,35 @@ y crear el archivo en `lib/widgets/comunes/<nombre_snake>.dart`.
 
 ## §7 · Providers Riverpod (PR-NNN)
 
-| Código | Nombre Riverpod | Tipo | Descripción |
-|--------|----------------|------|-------------|
-| `PR-001` | `syncStatusProvider` | `FutureProvider.autoDispose<SyncStatusInfo>` | Estado daemon bAuth · `bauth.sync.status` · refresh 30s |
-| `PR-002` | `bauthApiProvider` | `Provider<BauthApi>` | Instancia singleton de `BauthApi` (JSON-RPC / psql) |
-| `PR-003` | `rolTemplateProvider` | `FutureProvider.autoDispose` | Árbol completo `bauth.idn_role_template` (pendiente) |
-| `PR-004` | `entidadesProvider` | `FutureProvider.autoDispose` | Árbol `bauth.idn_identity_entity` — D00 (pendiente) |
+### Conexión y transporte (`nucleo/conexion/`)
 
-**Ubicación en código:** `lib/nucleo/conexion/proveedor_conexion.dart`
+| Código | Nombre Riverpod | Archivo | Tipo | Descripción |
+|--------|----------------|---------|------|-------------|
+| `PR-001` | `syncStatusProvider` | `proveedor_conexion.dart` | `FutureProvider.autoDispose<SyncStatusInfo>` | Estado daemon bAuth · `bauth.sync.status` · refresh 30 s |
+| `PR-002` | `bauthApiProvider` | `proveedor_conexion.dart` | `Provider<BauthApi>` | Instancia singleton de `BauthApi` (JSON-RPC) |
+| `PR-003` | `banexusTransporteProvider` | `proveedor_conexion.dart` | `Provider<BanexusTransporte>` | Transporte TCP banexus — fuente de `IClienteRpc` |
+| `PR-004` | `clienteRpcActivoProvider` | `proveedor_conexion.dart` | `Provider<IClienteRpc>` | Wrapper activo sobre `banexusTransporteProvider` |
+| `PR-005` | `estadoConexionProvider` | `proveedor_conexion.dart` | `StreamProvider<EstadoConexion>` | Stream de estado WebSocket: conectado/desconectado/error |
+| `PR-006` | `controlConexionProvider` | `proveedor_conexion.dart` | `Provider<ControlConexion>` | Acciones imperativas sobre la conexión (reconectar, cerrar) |
+| `PR-007` | `healthProvider` | `proveedor_conexion.dart` | `FutureProvider<HealthInfo>` | `bauth.health.check` — estado del daemon |
+| `PR-008` | `rolesProvider` | `proveedor_conexion.dart` | `FutureProvider<List<RolInfo>>` | `bauth.role.list` — listado de roles |
+| `PR-009` | `usuariosProvider` | `proveedor_conexion.dart` | `FutureProvider.family<List<UsuarioInfo>, String>` | `bauth.user.list` — por tenant slug |
+| `PR-010` | `arbolEntidadesProvider` | `proveedor_conexion.dart` | `FutureProvider<List<EntidadInfo>>` | `bauth.entidad.tree` — árbol D00 |
+| `PR-011` | `catalogoTiposProvider` | `proveedor_conexion.dart` | `FutureProvider<Map<String,ConfigTipoNodo>>` | `bauth.idn_policy_node_type.list` — T-161b |
+| `PR-012` | `allAtomLangSchemasProvider` | `proveedor_conexion.dart` | `FutureProvider<List<NodoSchema>>` | `bauth.atomlang.schema.all` — T-580/T-581 |
+
+### Layout y UI (`nucleo/`)
+
+| Código | Nombre Riverpod | Archivo | Tipo | Descripción |
+|--------|----------------|---------|------|-------------|
+| `PR-013` | `layoutProvider` | `sidenav_provider.dart` | `NotifierProvider<LayoutNotifier, EstadoLayout>` | Estado expandido/colapsado de G-SN y G-BD; destino activo del sidenav |
+| `PR-014` | `mostrarCodigosProvider` | `sidenav_provider.dart` | `NotifierProvider<MostrarCodigosNotifier, bool>` | Activa/desactiva overlay de códigos A.64.01 en todos los widgets → G-BC-012 |
+| `PR-015` | `procesamientoProvider` | `procesamiento_provider.dart` | `NotifierProvider<ProcesamientoNotifier, EstadoProcesamiento>` | Estado de operaciones asíncronas — spinner global |
+| `PR-016` | `pruebaConexionProvider` | `prueba_conexion.dart` | `NotifierProvider<PruebaConexionNotifier, ResultadoConexion>` | Verifica conectividad bhnexus:9444 → G-BC-004 ChipConexion |
+
+**Nota:** PR-003 (rolTemplateProvider) y PR-004 (entidadesProvider) de la versión anterior fueron renombrados — los nombres reales en código son los listados arriba. `rolTemplateTodos()` se llama directo desde la vista, sin provider dedicado.
+
+**Ubicación en código:** `lib/nucleo/conexion/proveedor_conexion.dart` · `lib/nucleo/sidenav_provider.dart` · `lib/nucleo/procesamiento_provider.dart` · `lib/nucleo/conexion/prueba_conexion.dart`
 
 ---
 
@@ -632,11 +654,24 @@ Tabla para buscar rápidamente un código sin recorrer todo el documento:
 | `W-008` | widget | BadgeEstado | V-DS, G-BC |
 | `W-009` | widget | ChipTier | V-CR, V-RT |
 | `W-010` | widget | BarraBusqueda | V-US, G-BC |
+| `W-011` | widget | EtiquetaCodigo | shell ×4, layout ×2, vistas ×5 |
 | `DL-001` | diálogo | DialogoCrearAtomo | V-RT:P1>TB |
 | `PR-001` | provider | syncStatusProvider | V-DS, G-SN:BOT |
 | `PR-002` | provider | bauthApiProvider | global |
-| `PR-003` | provider | rolTemplateProvider | V-RT, V-CR |
-| `PR-004` | provider | entidadesProvider | V-AE |
+| `PR-003` | provider | banexusTransporteProvider | global (conexión) |
+| `PR-004` | provider | clienteRpcActivoProvider | global (IClienteRpc) |
+| `PR-005` | provider | estadoConexionProvider | G-BC-004, G-BC-010 |
+| `PR-006` | provider | controlConexionProvider | global |
+| `PR-007` | provider | healthProvider | V-DS, G-SN:BOT |
+| `PR-008` | provider | rolesProvider | V-CR |
+| `PR-009` | provider | usuariosProvider | V-US |
+| `PR-010` | provider | arbolEntidadesProvider | V-AE |
+| `PR-011` | provider | catalogoTiposProvider | V-RT:P2 (árbol BD) |
+| `PR-012` | provider | allAtomLangSchemasProvider | V-RT:POL (WidgetRoles) |
+| `PR-013` | provider | layoutProvider | G-SN, G-BD, G-BC-002/013 |
+| `PR-014` | provider | mostrarCodigosProvider | W-011 ×todos |
+| `PR-015` | provider | procesamientoProvider | V-RT (spinner) |
+| `PR-016` | provider | pruebaConexionProvider | G-BC-004, V-RT |
 
 ---
 
@@ -648,4 +683,5 @@ Tabla para buscar rápidamente un código sin recorrer todo el documento:
 | 1.0.1 | 2026-08-06 | G-BC-012 ToggleCodigos añadido (herramienta dev, no estaba en maqueta original). Todos los objetos G-BC:TOP codificados con SeccionConCodigo. _ChipConexion actualizada: estado real de pruebaConexionProvider + dirección bhnexus:9444. |
 | 1.0.2 | 2026-08-06 | G-BC-013 TogglePanelDerecho añadido (extremo derecho de la barra, simétrico a G-BC-002). G-BD colapsable: AnimatedContainer 300px ↔ 76px controlado por layoutProvider.derExpandido. |
 | 1.0.3 | 2026-08-06 | V-RT:CNT codificado completo: V-RT-002 SelectorEntidad · V-RT-006 SelectorArbol · V-RT-007..009 (Tab 1) · V-RT-011..014 (Tabs 0/1). V-RT-001/003/004/005/010 marcados como _(futuro)_ — diseño P1/P2/P3 aún no implementado. |
+| 1.0.5 | 2026-08-15 | W-011 EtiquetaCodigo añadido (presente en shell×4, layout×2, vistas×5). §7 PR-NNN reescrito con los 16 providers reales: PR-001..PR-016. PR-003/PR-004 anteriores (rolTemplateProvider/entidadesProvider) renombrados a nombres reales del código. DL-001 corregido: psql+base64 (SSH residuo) → JSON-RPC. §9 tabla actualizada. |
 | 1.0.4 | 2026-08-06 | G-SN:NAV codificado: G-SN-002 GrupoNav y G-SN-003 ÍtemNav implementados con SeccionConCodigo en `bloque_lateral_izquierdo.dart`. Spinner V-RT-012 corregido: timeout reducido a 5 s en `rolTemplateTodos()` (antes 15 s del BanexusTransporte). |

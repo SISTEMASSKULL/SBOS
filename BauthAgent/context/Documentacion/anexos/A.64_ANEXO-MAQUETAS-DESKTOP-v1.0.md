@@ -73,6 +73,7 @@ pero tampoco bloquean el avance.
 
 | Versión | Fecha | Cambio |
 |---|---|---|
+| 1.3 | 2026-08-15 | Estados reales verificados contra código: §1-§4 MAQUETA→EN DESARROLLO · §6 bloque corregido MAQUETA→EN DESARROLLO · §7 EN DISEÑO→EN DESARROLLO · pendientes actualizados en cada sección · ver A.64.01 v1.0.5 para códigos nuevos |
 | 1.2 | 2026-08-03 | Códigos G-/V-/W- agregados en todas las maquetas (§1–§9) · referencia a A.64.01 · anotaciones inline en ASCII art |
 | 1.1 | 2026-07-18 | Método Living Spec · Changelog · estados por sección · TEMPLATES (Identidad/Rol/User/Aplicacion) · CRUD 11 ítems · TOP Bloque 3 con selector desplegable · §4.5 AtomLang log compilación · §3.1 menú de usuario |
 | 1.0 | 2026-07-18 | Versión inicial — estructura de 3 bloques · maquetas §1–§11 |
@@ -81,10 +82,10 @@ pero tampoco bloquean el avance.
 
 ## Tabla de contenidos
 
-1. [Shell global — los 3 bloques](#1-shell-global--los-3-bloques) `[MAQUETA]`
-2. [Bloque izquierdo — sidenav](#2-bloque-izquierdo--sidenav) `[MAQUETA]`
-3. [Bloque central — capas fijas](#3-bloque-central--capas-fijas) `[MAQUETA]`
-4. [Bloque derecho — panel de acciones](#4-bloque-derecho--panel-de-acciones) `[MAQUETA]`
+1. [Shell global — los 3 bloques](#1-shell-global--los-3-bloques) `[EN DESARROLLO]`
+2. [Bloque izquierdo — sidenav](#2-bloque-izquierdo--sidenav) `[EN DESARROLLO]`
+3. [Bloque central — capas fijas](#3-bloque-central--capas-fijas) `[EN DESARROLLO]`
+4. [Bloque derecho — panel de acciones](#4-bloque-derecho--panel-de-acciones) `[EN DESARROLLO]`
 5. [Vista: Dashboard de Salud](#5-vista-dashboard-de-salud) `[EN DESARROLLO]`
 6. [Vista: Rol Template (AtomLang)](#6-vista-rol-template-atomlang) `[EN DESARROLLO]`
 7. [Vista: Roles](#7-vista-roles) `[EN DESARROLLO]`
@@ -97,9 +98,9 @@ pero tampoco bloquean el avance.
 
 ## 1. Shell global — los 3 bloques
 
-> **Estado:** MAQUETA  
-> **Aprobado:** 2026-07-18 — 3 bloques (IZQ/CENTRAL/DER) con TOP/BODY/BOTTOM cada uno; estados expandido y contraído para Bloques 1 y 3  
-> **Pendiente:** · reparar `bloque_lateral_derecho.dart` — actualmente no tiene TOP ni BOTTOM, solo `SingleChildScrollView` · implementar toggle colapsado en Bloque 3
+> **Estado:** EN DESARROLLO  
+> **Aprobado:** 2026-07-18 — 3 bloques (IZQ/CENTRAL/DER) con TOP/BODY/BOTTOM; `estructura_desktop.dart` implementado; colapsado G-SN y G-BD funcional vía `layoutProvider`  
+> **Pendiente:** · G-BD-001 SelectorContexto no funcional (placeholder estático «Acciones») · G-BD-002..G-BD-008 paneles de contenido sin implementar
 
 **Expandido — 248 px · flex 1 · 300 px**
 
@@ -141,9 +142,9 @@ pero tampoco bloquean el avance.
 
 ## 2. Bloque izquierdo — sidenav
 
-> **Estado:** MAQUETA  
-> **Aprobado:** 2026-07-18 — grupos GENERAL / TEMPLATES (Identidad/Rol/User/Aplicacion) / CRUD (11 ítems) / IDENTIDAD / SISTEMA / CUENTA confirmados; `menu_datos.dart` actualizado  
-> **Pendiente:** · rutas nuevas de TEMPLATES (`rtpl_identidad`) y CRUD (`metodos`, `dominios`, `bloques`, `atributos`, `verbos`, `aplicaciones`, `modulos`, `grupos`, `reglas`) sin vistas implementadas · Bloque 3 (DER) también debe tener toggle expand/collapse
+> **Estado:** EN DESARROLLO  
+> **Aprobado:** 2026-07-18 — grupos GENERAL / TEMPLATES / CRUD / IDENTIDAD / SISTEMA / CUENTA; `bloque_lateral_izquierdo.dart` implementado con G-SN-001..G-SN-007; colapso 248px↔76px funcional  
+> **Pendiente:** · rutas TEMPLATES y CRUD sin vistas implementadas (solo placeholder en `router_vistas.dart`) · sidenav muestra ítems hardcodeados — pendiente conectar a `layoutProvider.destino` dinámico
 
 ### 2.1 Sidenav expandido (248 px)
 
@@ -209,9 +210,9 @@ pero tampoco bloquean el avance.
 
 ## 3. Bloque central — capas fijas
 
-> **Estado:** MAQUETA  
-> **Aprobado:** 2026-07-18 — BarraSuperior con menú de usuario desplegable `[SA▾]` (Mi perfil / Cambiar usuario / Registrar / Iniciar sesión / Cerrar sesión); BarraBreadcrumb; BarraEstado; BarraInferior  
-> **Pendiente:** · menú desplegable `[SA▾]` no implementado en código (actualmente solo muestra avatar estático) · BarraEstado puede diferir del código real — verificar
+> **Estado:** EN DESARROLLO  
+> **Aprobado:** 2026-07-18 — G-BC-001..G-BC-013 implementados en `barra_superior.dart`; G-BC-009 BarraBreadcrumb; G-BC-010 BarraEstado; G-BC-011 BarraInferior; G-BC-012 ToggleCodigos; G-BC-013 TogglePanelDerecho  
+> **Pendiente:** · G-BC-008 MenuUsuarioDesplegable sin implementar (avatar estático sin popup) · G-BC-006 Campanilla sin funcionalidad real · G-BC-011 BarraInferior reservada sin contenido
 
 ### 3.1 BarraSuperior (48 px, fija en TOP)
 
@@ -282,9 +283,9 @@ Cambia automáticamente con la ruta activa. "Control Plane" permanece siempre en
 
 ## 4. Bloque derecho — panel de acciones
 
-> **Estado:** MAQUETA  
-> **Aprobado:** 2026-07-18 — rediseño completo: TOP con selector (Config/Herramientas/AtomLang/Uso/Ayuda/Salir); BODY contextual por vista activa de Bloque 1; §4.4 Herramientas = paleta AtomLang (A.49 §2); §4.5 AtomLang = log compilación con 4 estados (sin compilar / en progreso / errores / éxito) y botones mutuamente excluyentes (Compilar → Recompilar → Publicar); BOTTOM con estado de sesión  
-> **Pendiente:** · TODO el refactor en código — `bloque_lateral_derecho.dart` no tiene TOP/BODY/BOTTOM ni selector · no tiene `activoDer` conectado en provider · ningún widget de las opciones existe todavía en Dart
+> **Estado:** EN DESARROLLO  
+> **Aprobado:** 2026-07-18 — rediseño completo acordado; `bloque_lateral_derecho.dart` tiene estructura G-BD:TOP/BOD/BOT con AnimatedContainer colapsable (300px↔76px); `widget_roles.dart` implementa paleta Herramientas para V-RT (árbol dinámico T-580/T-581 + tabs atributos)  
+> **Pendiente:** · G-BD-001 SelectorContexto no funcional (título «Acciones» estático, sin dropdown) · G-BD-002 PanelConfig · G-BD-004..G-BD-007 (Uso/Ayuda/AtomLang/Salir) sin implementar · G-BD-008 EstadoSesión pendiente · selector no conectado a `layoutProvider`
 
 El TOP contiene un selector desplegable que determina qué widget se muestra en el BODY.
 Cada opción del selector tiene su propio widget de contenido.
@@ -693,9 +694,9 @@ Los tres botones son **mutuamente excluyentes**: nunca dos a la vez.
 
 ## 6. Vista: Rol Template (AtomLang)
 
-> **Estado:** MAQUETA  
-> **Aprobado:** 2026-07-19 — objetivo de la vista documentado; estructura de 3 paneles (Identidad / Rol Template / Compilado) acordada; relación cruzada entre árboles definida  
-> **Pendiente:** · reescribir `vista_rol_template.dart` para el nuevo layout de 3 paneles · paleta AtomLang (§4.4 Bloque 3) no conectada · `atomc` no integrado · linter inline existente (commit `b0bfdc4`) debe integrarse al Panel 2
+> **Estado:** EN DESARROLLO  
+> **Aprobado:** 2026-07-19 — `vista_rol_template.dart` implementado con layout V-RT:P1+P2+P3 usando `PanelLateral`; ArbolSBOS (Dart fuente) + ArbolBD (BD T-162) en Tab 0 de V-RT:CNT; `WidgetRoles` en panel Herramientas; V-RT-009 BarraRutaNodo en BOT; codes A.64.01 en árboles  
+> **Pendiente:** · V-RT:P1 Panel Identidad (V-RT-004 ArbolRoles, V-RT-005 FichaIdentidadNodo) sin implementar · `atomc` no integrado (V-RT-008 Panel3Compilado placeholder) · linter inline pendiente · V-RT-001 SelectorRolActivo sin implementar
 
 **Ruta:** `rtpl` — Archivo: `vistas/vista_rol_template.dart`
 
@@ -918,9 +919,9 @@ Nada del árbol AtomLang (campo `template`) se toca desde aquí — ese es terri
 
 ## 7. Completitud de Roles
 
-> **Estado:** EN DISEÑO
-> **Aprobado:** —
-> **Pendiente:** · implementar
+> **Estado:** EN DESARROLLO  
+> **Aprobado:** — `vista_roles.dart` existe con listado de roles reales vía `rolesProvider`  
+> **Pendiente:** · rediseño V-CR completo (BarraTiers, tabs Métodos/Átomos/Saga) sin implementar · V-CR usa layout simple lista, no el diseño B1+B2 de la maqueta
 
 **Ruta:** `roles` — Archivo: `vistas/vista_roles.dart` (legacy — a reescribir)
 
