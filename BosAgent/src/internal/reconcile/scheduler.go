@@ -22,9 +22,16 @@ import (
 	"time"
 
 	"bos/internal/installer"
+	"bos/internal/portman"
 	"bos/internal/state"
 	"log/slog"
 )
+
+// KardexValidator compara el Kardex de puertos contra el estado real de K8s.
+// Implementado por *portman.Manager — inyectable para tests.
+type KardexValidator interface {
+	ValidateKardex(getK8sSvcFn func(svc, ns string) (int, bool)) (*portman.ValidationResult, error)
+}
 
 // DeclaredFiles lista los archivos que definen el estado declarado de una ficha.
 // Se hashean y comparan para detectar drift.
@@ -51,7 +58,9 @@ type Scheduler struct {
 	autoRepair   bool
 	stopCh       chan struct{}
 	running      bool
-	k8sDiscovery *K8sDiscovery // nil si K8s no está disponible
+	k8sDiscovery *K8sDiscovery  // nil si K8s no está disponible
+	portman      KardexValidator // nil-safe — si nil, ValidateKardex se omite
+	portmanEvery time.Duration  // frecuencia de validación del Kardex (default: 300s)
 }
 
 // NewScheduler crea un planificador de reconciliación.
@@ -85,6 +94,15 @@ func (s *Scheduler) WithK8sDiscovery(d *K8sDiscovery) *Scheduler {
 	return s
 }
 
+// WithPortManager inyecta el validador de Kardex de puertos.
+// Activa un ticker independiente cada 300s que llama ValidateKardex().
+// Si no se llama, la validación periódica de puertos se omite silenciosamente.
+func (s *Scheduler) WithPortManager(v KardexValidator) *Scheduler {
+	s.portman = v
+	s.portmanEvery = 300 * time.Second
+	return s
+}
+
 // Run inicia el loop periódico de reconciliación. Bloquea hasta que Stop() sea llamado.
 //
 // Efectos secundarios:
@@ -99,6 +117,15 @@ func (s *Scheduler) Run() {
 	ticker := time.NewTicker(s.interval)
 	defer ticker.Stop()
 
+	// Ticker secundario para ValidateKardex (300s independiente del interval principal).
+	var kardexTicker *time.Ticker
+	var kardexC <-chan time.Time
+	if s.portman != nil && s.portmanEvery > 0 {
+		kardexTicker = time.NewTicker(s.portmanEvery)
+		defer kardexTicker.Stop()
+		kardexC = kardexTicker.C
+	}
+
 	s.logger.Info("reconcile scheduler started", "interval", s.interval)
 
 	// Ciclo inmediato al arrancar: sincroniza estado K8s real (M2.2).
@@ -109,6 +136,8 @@ func (s *Scheduler) Run() {
 		select {
 		case <-ticker.C:
 			s.reconcile()
+		case <-kardexC:
+			s.validateKardex()
 		case <-s.stopCh:
 			s.logger.Info("reconcile scheduler stopped")
 			return
@@ -287,6 +316,38 @@ func sha256File(path string) (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// validateKardex compara el Kardex de puertos con los servicios K8s reales.
+// Solo registra divergencias — no las corrige automáticamente.
+func (s *Scheduler) validateKardex() {
+	if s.portman == nil {
+		return
+	}
+	result, err := s.portman.ValidateKardex(nil) // nil = solo verifica coherencia interna del Kardex
+	if err != nil {
+		s.logger.Error("validateKardex: error al validar puertos", "err", err)
+		return
+	}
+	if len(result.Drifted) > 0 {
+		s.logger.Warn("validateKardex: divergencias en el Kardex de puertos",
+			"verificados", result.Checked,
+			"ok", result.OK,
+			"divergentes", len(result.Drifted),
+		)
+		for _, d := range result.Drifted {
+			s.logger.Warn("kardex drift detectado",
+				"port_id", d.PortID,
+				"puerto", d.Port,
+				"ficha", d.FichaID,
+				"servicio", d.ServiceName,
+				"razon", d.Reason,
+			)
+		}
+	} else {
+		s.logger.Debug("validateKardex: Kardex coherente con estado real",
+			"verificados", result.Checked)
+	}
 }
 
 // DriftSummary retorna un reporte de drift legible para humanos.

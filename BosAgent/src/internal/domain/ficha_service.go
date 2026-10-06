@@ -9,6 +9,7 @@ import (
 	"bos/internal/installer"
 	"bos/internal/plugin"
 	"bos/internal/state"
+	"log/slog"
 )
 
 // InstallerPort es el puerto que FichaService necesita del instalador.
@@ -36,17 +37,49 @@ type CatalogPort interface {
 	Reload() int
 }
 
+// PortAssignerPort permite a FichaService registrar y liberar puertos
+// sin importar el paquete portman (inversión de dependencias — ADR-020).
+type PortAssignerPort interface {
+	AssignFicha(fichaID, logicalServer string, fichaIndex int, ctxID string) error
+	ReleaseFicha(fichaID, ctxID string) error
+}
+
+// EventPublisherPort permite a FichaService emitir eventos de ciclo de vida
+// sin importar eventbus directamente.
+type EventPublisherPort interface {
+	PublishFichaEvent(eventType, fichaID, server, version, ctxID string)
+}
+
 // FichaService contiene la lógica de negocio de las operaciones sobre fichas.
 // No importa tipos JSON-RPC, net/http ni encoding/json.
 type FichaService struct {
 	installer InstallerPort
 	state     StatePort
 	catalog   CatalogPort
+	portman   PortAssignerPort  // nil-safe — si nil, registro de puertos desactivado
+	events    EventPublisherPort // nil-safe — si nil, publicación de eventos desactivada
 }
 
 // NewFichaService crea el servicio con sus dependencias inyectadas.
 func NewFichaService(ins InstallerPort, st StatePort, cat CatalogPort) *FichaService {
 	return &FichaService{installer: ins, state: st, catalog: cat}
+}
+
+// SetPortManager inyecta el registrador de puertos. Nil-safe: si pm es nil, desactiva portman.
+func (svc *FichaService) SetPortManager(pm PortAssignerPort) { svc.portman = pm }
+
+// SetEventPublisher inyecta el publicador de eventos. Nil-safe.
+func (svc *FichaService) SetEventPublisher(ep EventPublisherPort) { svc.events = ep }
+
+// resolveServerInfo obtiene el servidor lógico e índice de ejecución de una ficha desde el catálogo.
+// Retorna defaults seguros si la ficha no está en el catálogo.
+func (svc *FichaService) resolveServerInfo(fichaID string) (server string, fichaIndex int) {
+	if svc.catalog != nil {
+		if mf, ok := svc.catalog.Get(fichaID); ok {
+			return mf.Server, mf.ExecutionOrder
+		}
+	}
+	return "S15", 0 // coreserver como default seguro (SBOS-050)
 }
 
 // Install ejecuta la saga de instalación de una ficha.
@@ -72,6 +105,19 @@ func (svc *FichaService) Install(fichaID, version string) (*SagaOutcome, error) 
 			FailedSteps: result.FailedSteps(),
 		}
 	}
+
+	// Registrar puertos en el Kardex tras instalación exitosa (no-blocking: fallo no cancela).
+	srv, idx := svc.resolveServerInfo(fichaID)
+	if svc.portman != nil {
+		if err := svc.portman.AssignFicha(fichaID, srv, idx, "bos-install"); err != nil {
+			slog.Warn("portman: asignación de puertos falló — continuando sin Kardex", "ficha", fichaID, "err", err)
+		}
+	}
+	// Publicar evento de instalación exitosa.
+	if svc.events != nil {
+		svc.events.PublishFichaEvent("ficha.installed", fichaID, srv, version, "bos-install")
+	}
+
 	return &SagaOutcome{
 		FichaID:   fichaID,
 		Command:   "install",
@@ -116,6 +162,10 @@ func (svc *FichaService) Repair(fichaID string) (*SagaOutcome, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrSagaFailed, err.Error())
 	}
+	if result.Success && svc.events != nil {
+		srv, _ := svc.resolveServerInfo(fichaID)
+		svc.events.PublishFichaEvent("ficha.repaired", fichaID, srv, "", "bos-repair")
+	}
 	return &SagaOutcome{FichaID: fichaID, Command: "repair", Success: result.Success, Duration: result.Duration}, nil
 }
 
@@ -131,6 +181,18 @@ func (svc *FichaService) Remove(fichaID string) (*SagaOutcome, error) {
 	result, err := svc.installer.Remove(fichaID)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrSagaFailed, err.Error())
+	}
+	if result.Success {
+		// Liberar puertos del Kardex (no-blocking: fallo no cancela la desinstalación).
+		if svc.portman != nil {
+			if err := svc.portman.ReleaseFicha(fichaID, "bos-remove"); err != nil {
+				slog.Warn("portman: liberación de puertos falló — Kardex puede estar desactualizado", "ficha", fichaID, "err", err)
+			}
+		}
+		if svc.events != nil {
+			srv, _ := svc.resolveServerInfo(fichaID)
+			svc.events.PublishFichaEvent("ficha.removed", fichaID, srv, "", "bos-remove")
+		}
 	}
 	return &SagaOutcome{FichaID: fichaID, Command: "remove", Success: result.Success, Duration: result.Duration}, nil
 }

@@ -24,6 +24,7 @@ import (
 
 	bosctx "bos/internal/context"
 	"bos/internal/domain"
+	"bos/internal/eventbus"
 	"bos/internal/installer"
 	"bos/internal/maintenance"
 	"bos/internal/metrics"
@@ -163,6 +164,11 @@ func NewServer(cfg Config, stateMgr StateManager, plugins PluginLoader, healthCh
 	if ctxSvc == nil {
 		ctxSvc = bosctx.NewServiceWithMemStore()
 	}
+	fichaSvc := domain.NewFichaService(installer, stateMgr, plugins)
+	// Eventbus en memoria — los suscriptores del mismo proceso reciben eventos de fichas.
+	bus := eventbus.NewMemBus()
+	fichaSvc.SetEventPublisher(NewFichaEventAdapter(bus))
+
 	s := &Server{
 		cfg:         cfg,
 		stateMgr:    stateMgr,
@@ -174,7 +180,7 @@ func NewServer(cfg Config, stateMgr StateManager, plugins PluginLoader, healthCh
 		logger:      logger,
 		wsHub:       NewHub(logger),
 		ShutdownCh:  make(chan struct{}),
-		fichaSvc:     domain.NewFichaService(installer, stateMgr, plugins),
+		fichaSvc:     fichaSvc,
 		bootstrapSvc: domain.NewBootstrapService(stateMgr),
 		bosCtxSvc:    ctxSvc,
 		pgAuxSvc:     pgAuxSvc,
@@ -263,8 +269,12 @@ func (s *Server) SetLogReader(lr domain.LogPort) {
 // SetPortManager inyecta el Motor de Puertos (SBOS-050).
 // Opcional — si no se inyecta, los handlers bos.portman.* crean una conexión
 // lazy usando BOS_PG_DSN al primer uso.
+// También cablea el adaptador en FichaService para que install/remove registren puertos.
 func (s *Server) SetPortManager(pm PortManager) {
 	s.portman = pm
+	if pm != nil && s.fichaSvc != nil {
+		s.fichaSvc.SetPortManager(NewFichaPortAdapter(pm))
+	}
 }
 
 // handleContextLookup responde a GET /api/v1/context/{ctx_id} para Kong (C-5).

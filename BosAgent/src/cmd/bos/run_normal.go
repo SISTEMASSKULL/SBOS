@@ -25,6 +25,7 @@ import (
 	"bos/internal/observer"
 	"bos/internal/paths"
 	"bos/internal/plugin"
+	"bos/internal/portman"
 	"bos/internal/query"
 	"bos/internal/reconcile"
 	"bos/internal/release"
@@ -273,6 +274,20 @@ func runNormal(cfg *config.Config, benv *bootstrapEnv) {
 	// K8sScanner: bos.ficha.rescan dispara descubrimiento K8s bajo demanda
 	// sin esperar el próximo ciclo de reconciliación (300s).
 	apiServer.SetK8sScanner(reconcile.NewK8sScanAdapter(k8sDiscovery, stateMgr))
+
+	// Port Manager (SBOS-050): cablear portman en apiServer + Scheduler si BOS_PG_DSN está disponible.
+	// SetPortManager también cablea el adaptador en FichaService (install→Assign, remove→Release).
+	if pgDSN := os.Getenv("BOS_PG_DSN"); pgDSN != "" {
+		if pm, err := portman.NewWithDSN(pgDSN); err != nil {
+			log.Warn().Err(err).Msg("portman: no se pudo conectar — bos.portman.* degradado (Kardex desactivado)")
+		} else {
+			apiServer.SetPortManager(pm)
+			reconcileScheduler.WithPortManager(pm)
+			log.Info().Msg("portman: Kardex de puertos activo (SBOS-050) — ValidateKardex cada 300s")
+		}
+	} else {
+		log.Info().Msg("portman: BOS_PG_DSN no configurado — Kardex desactivado (modo standalone)")
+	}
 
 	// F10 — agente biaos: catálogo ICAP + ReAct + HITL; sus herramientas son
 	// el propio dispatcher RPC (ToolExecutor). Degrada sin catálogo sin

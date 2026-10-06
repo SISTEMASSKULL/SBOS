@@ -100,7 +100,7 @@ Cada motor tiene un manual que lo **define** (qué hace, cómo, por qué). Los m
 | Fortalece | 5.02 | [WebSocket sobre Unix Socket](5.02_MANUAL-DASHBOARD-WEBSOCKET.md) | 5.01 | ✅ 1.0.0 | — |
 | Fortalece | 5.03 | [Contratos de Eventos](5.03_MANUAL-DASHBOARD-EVENTOS.md) | 5.01 | ✅ 1.0.0 | — |
 | Fortalece | 5.04 | [Momentos de Conexión](5.04_MANUAL-DASHBOARD-CONEXION.md) | 5.03 | ✅ 1.0.0 | — |
-| Fortalece | 5.05 | [biaOS — Agente IA Soberano](5.05_MANUAL-DASHBOARD-BIAOS.md) | 5.01 | ⬜ PENDIENTE | Nuevo subsistema — ICAP Engine, embedding diagnosis, Ollama local, `bos.ai.*` JSON-RPC, flujo A.08 Etapa 2 |
+| Fortalece | 5.05 | [biaOS — Agente IA de Infraestructura](5.05_MANUAL-DASHBOARD-BIAOS.md) | 5.01 | ✅ 2.0.0 | Router 3-tiers (DeepSeek/Claude/Ollama) + Gateway singleton + ciclo ReAct ≤6 + ICAP + HITL + auditoría JSONL + `bos.ai.*` JSON-RPC |
 
 ---
 
@@ -167,7 +167,7 @@ Cada motor tiene un manual que lo **define** (qué hace, cómo, por qué). Los m
 **Nuevos a escribir (orden de activación):**
 1. `3.09` — Event Bus Redis Streams (Fase IV)
 2. `A.16` — Zero Trust NIST 800-207 (Fase II)
-3. `5.05` — biaOS Agente IA Soberano (Fase VI)
+3. `5.05` — biaOS Agente IA de Infraestructura ✅ 2.0.0 (2026-10-07)
 4. `A.17` — Certificación FAPI 2.0 (Fase VII)
 
 ---
