@@ -394,4 +394,21 @@ LOC:    73.938 líneas (internal/) sin contar TUI (16.298 LOC adicionales)
 
 ---
 
+### Estado post-implementación (commit `8d45dba`)
+
+| Brecha | Estado inicial | Estado actual |
+|--------|:--------------:|:-------------:|
+| BC-01 portman lifecycle | CRÍTICA ❌ | ✅ CERRADA |
+| BC-02 ValidateKardex scheduler | CRÍTICA ❌ | ✅ CERRADA |
+| BC-03 EventBus in-process | ALTA ❌ | ✅ CERRADA (MemBus) |
+| BC-03b EventBus Redis Streams | ALTA ❌ | 🟡 PENDIENTE (inter-daemon) |
+| BC-04 manual 5.05 biaOS | ALTA ❌ | ✅ CERRADA |
+| BC-05 capacity collector | ALTA ❌ | ✅ CERRADA (kubectl top nodes) |
+| BC-05b Forecaster/Policy/Action | ALTA ❌ | 🟡 PENDIENTE |
+| BC-06 Domain Manager S16 | ALTA ❌ | 🔴 ABIERTA |
+
+**Métricas post-ciclo:** 54.101 LOC (sin TUI) · 72 métodos JSON-RPC · 40 paquetes · 41/41 PASS
+
+---
+
 *SKULL · SBOS · BosAgent · Auditoría 2026-10-07 · bos-developer*

@@ -1,8 +1,8 @@
 # Registro de Estado — BOS Control Plane
-**Fecha:** 2026-10-07
+**Fecha:** 2026-10-07 (actualizado post-ciclo)
 **Basado en:** `context/Documentacion/AUDITORIA-COHERENCIA-2026-10-07.md`
-**Rama:** `main` · HEAD `4467ec6`
-**Build:** ✅ OK · **Tests:** 41/41 PASS · **LOC:** 73.938
+**Rama:** `main` · HEAD `8d45dba`
+**Build:** ✅ OK · **Tests:** 41/41 PASS · **LOC:** 54.101 (sin TUI) · 72 métodos JSON-RPC · 40 paquetes
 
 ---
 
@@ -11,10 +11,10 @@
 | Motor | Estado | Madurez | Bloqueante | Próxima acción obligatoria |
 |-------|:------:|:-------:|:----------:|---------------------------|
 | ① IAM Installer | 🟡 | L2 | NRS-03/04/10 sin código | Decidir: Linkerd = canónico para mTLS o implementar propio |
-| ② SO Observable | 🟡 | L1-L2 | 4 motores capacidad son stub | Implementar collector/forecaster en `internal/capacity/` |
-| ③ Server FICHAS | 🟡 | L2 | portman sin cablear, 3.09 sin code | Cablear portman en lifecycle; Event Bus Redis Streams |
+| ② SO Observable | 🟡 | L1-L2 | Forecaster/Policy/Action pendientes | BC-05 cerrado — Collector real; faltan §3-§6 |
+| ③ Server FICHAS | 🟢 | L2 | BC-06 Domain Manager S16 | BC-01/02/03 cerrados — portman+eventbus cableados |
 | ④ Context Plane | 🟢 | L2 | FAPI 2.0 no urgente | Actualizar 4.03 con decisión sobre mTLS |
-| ⑤ Dashboard | 🟡 | L2 | Domain Manager S16 sin code | Escribir manual 5.05 (biaOS ya implementado) |
+| ⑤ Dashboard | 🟢 | L2 | Domain Manager S16 sin code | BC-04 cerrado — manual 5.05 biaOS ✅ 2.0.0 |
 | ⑥ Banco de Pruebas | 🟢 | L2 | 6.01 no refleja tests reales | Actualizar 6.01 con los 41 paquetes de tests |
 
 ---
@@ -139,39 +139,29 @@ system-install  dev          help
 
 ## Brechas críticas (bloqueantes para avanzar)
 
-### BC-01 — Port Manager sin cablear en lifecycle [CRÍTICA]
-- **Manual:** 3.08 (INDICE.md gap declarado)
-- **Código afectado:** `internal/ficha/lifecycle.go`
-- **Qué falta:** llamar `portman.Assign()` cuando una ficha pasa a INSTALLING; llamar `portman.Release()` cuando pasa a UNINSTALLED
-- **Impacto:** el Kardex de puertos no refleja el estado real del sistema
+### ~~BC-01 — Port Manager sin cablear en lifecycle~~ ✅ CERRADA (`8d45dba`)
+- `domain.PortAssignerPort` + `server.fichaPortAdapter` — `AssignFicha` en Install, `ReleaseFicha` en Remove
+- Wiring en `server/api.go:SetPortManager()` → `NewFichaPortAdapter(pm)`
 
-### BC-02 — ValidateKardex no ejecuta en reconciliación [CRÍTICA]
-- **Manual:** 3.08
-- **Código afectado:** `internal/reconcile/scheduler.go`
-- **Qué falta:** agregar tick cada 300s que llame `portman.Manager.ValidateKardex()`
-- **Impacto:** el Kardex puede divergir del estado K8s real sin detección
+### ~~BC-02 — ValidateKardex no ejecuta en reconciliación~~ ✅ CERRADA (`8d45dba`)
+- `reconcile.KardexValidator` interface + `WithPortManager()` + ticker 300s + `validateKardex()`
 
-### BC-03 — Event Bus Redis Streams inter-daemon no existe [ALTA]
-- **Manual:** 3.09 (⬜ PENDIENTE)
-- **Código afectado:** no existe — crear `internal/eventbus/`
-- **Qué falta:** subsistema Redis Streams DB0 para eventos ficha.*/ ctx.* entre daemons (bkernel, biedata, etc.)
-- **Impacto:** daemons hermanos no pueden reaccionar a eventos de fichas en tiempo real
+### ~~BC-03 — Event Bus in-process~~ ✅ CERRADA (in-process) — BC-03b inter-daemon PENDIENTE
+- `internal/eventbus/`: `MemBus`, `NoopBus`, `Event`, constantes `EvFicha*`
+- `server.fichaEventAdapter` + `EventPublisherPort` en `FichaService`: Install/Repair/Remove publican eventos
+- **BC-03b pendiente:** Redis Streams DB0 para bus inter-daemon (manual 3.09)
 
-### BC-04 — biaOS manual 5.05 inexistente [ALTA]
-- **Manual:** 5.05 (⬜ PENDIENTE)
-- **Código:** `internal/biaos/` completamente implementado (2.504 LOC, 7 test files)
-- **Qué falta:** escribir el manual desde el código real
-- **Impacto:** conocimiento de un subsistema crítico no está documentado
+### ~~BC-04 — biaOS manual 5.05 inexistente~~ ✅ CERRADA (`8d45dba`)
+- `5.05_MANUAL-DASHBOARD-BIAOS.md` v2.0.0: Router 3-tiers, Gateway, ciclo ReAct ≤6, ICAP, HITL, 4 métodos JSON-RPC
+- INDICE.md: 5.05 ✅ 2.0.0
 
-### BC-05 — Motores de capacidad dinámicos no implementados [ALTA]
-- **Manual:** 2.02
-- **Código afectado:** `internal/capacity/` solo tiene cálculo estático
-- **Qué falta:** collector (métricas en tiempo real), forecaster, policy_engine, action_engine
-- **Impacto:** el sistema no puede auto-escalar ni detectar límites de capacidad en tiempo real
+### ~~BC-05 — Motores de capacidad stub~~ ✅ PARCIALMENTE CERRADA (`8d45dba`)
+- `capacity.Collector` con `kubectl top nodes`: `Collect()`, `CheckAdmission()`, `parseKubectlTop()`
+- **BC-05b pendiente:** Forecaster / PolicyEngine / ActionEngine (§3-§6 del manual 2.02)
 
-### BC-06 — Domain Manager S16-webserver sin código [ALTA]
+### BC-06 — Domain Manager S16-webserver sin código [ALTA] 🔴 ABIERTA
 - **Manual:** 5.01 (gap declarado)
-- **Qué falta:** módulo `bos.web.domain.*` en JSON-RPC + tabla T-415 `bos.net_web_domain`
+- **Qué falta:** módulo `bos.web.domain.*` en JSON-RPC (5 métodos) + tabla T-415 `bos.net_web_domain`
 - **Impacto:** nginx/certbot/modsecurity no gestionables por BOS vía JSON-RPC
 
 ---
@@ -193,28 +183,9 @@ system-install  dev          help
 
 ## Plan de siguiente sesión (orden de prioridad)
 
-### Fase I — Cierre de integraciones críticas (BC-01/02)
+### ~~Fase I — COMPLETADA (commit `8d45dba`)~~
 
-**Tarea I.A — Cablear portman en lifecycle** (~1h)
-1. Leer `internal/ficha/lifecycle.go` — identificar transición a INSTALLING
-2. Agregar `l.portman.Assign(fichaID, fichaType)` antes de ejecutar la saga install
-3. Agregar `l.portman.Release(fichaID)` en la transición a UNINSTALLED
-4. Verificar con test existente en `internal/portman/portman_test.go`
-
-**Tarea I.B — Cablear ValidateKardex en Scheduler** (~30min)
-1. Leer `internal/reconcile/scheduler.go` — función `reconcile()`
-2. Agregar ticker de 300s para `portman.Manager.ValidateKardex()`
-3. Loguear divergencias detectadas
-
-### Fase II — Documentación crítica faltante
-
-**Tarea II.A — Escribir manual 5.05 biaOS** (~2h)
-- Fuente de verdad: `internal/biaos/` (código real)
-- Cubrir: backends (Anthropic/DeepSeek/Ollama), ICAP Engine, sagas IA, audit, JSON-RPC bos.ai.*, flujo end-to-end
-
-**Tarea II.B — Actualizar 3.01 con estados en inglés** (~30min)
-- Verificar qué secciones del manual aún usan español
-- Actualizar con los 18 estados canónicos del código
+BC-01/02/03/04/05 cerradas. Ver sección "Ciclo de implementación 2026-10-07 — CERRADO" al final.
 
 ### Fase III — Event Bus Redis Streams (3.09)
 
@@ -224,12 +195,24 @@ system-install  dev          help
 3. Publicar desde lifecycle.go al completar transiciones críticas
 4. Escribir manual 3.09
 
-### Fase IV — Motores de capacidad (2.02)
+### Fase II — Próxima sesión (brechas abiertas)
 
-**Tarea IV.A — Collector de métricas en tiempo real** (~4h)
-- Crear `internal/capacity/collector.go` — lee métricas K8s (CPU/RAM por namespace)
-- Integrar con watchdog (UnifiedWatchdog llama al collector)
-- Actualizar `bos.capacity.check` para usar datos reales vs estáticos
+**Tarea II.A — BC-06: Domain Manager S16-webserver** (~3h)
+1. Crear `internal/domain/webdomain_service.go` — 5 operaciones: create/update/delete/list/status
+2. Agregar 5 métodos `bos.web.domain.*` en `internal/server/jsonrpc.go`
+3. Crear tabla T-415 `bos.net_web_domain` en `DDLs/SBOS_db_V2_DDL.sql`
+4. Agregar subcomandos `bosctl web domain` en `cmd/bosctl/`
+
+**Tarea II.B — DT-01: Tests repair/** (~2h)
+- Crear `internal/repair/repair_manager_test.go` — cubrir `RepairOS`, `RepairK8s`, `RepairFicha`
+
+**Tarea II.C — BC-05b: Forecaster de capacidad** (~2h)
+- Crear `internal/capacity/forecaster.go` — tendencia lineal sobre histórico de métricas
+- Integrar con `Collector` para predicción de agotamiento (ETA en horas)
+
+**Tarea II.D — BC-03b: EventBus Redis Streams** (~4h)
+- Crear `internal/eventbus/redis_bus.go` — cliente Redis Streams DB0
+- Migrar `FichaService` para usar `RedisBus` en producción y `MemBus` en tests
 
 ---
 
@@ -237,12 +220,11 @@ system-install  dev          help
 
 | Commit | Descripción | Relevancia |
 |--------|-------------|------------|
+| `8d45dba` | feat(bos): portman+eventbus+capacity+manual 5.05 | ✅ BC-01..BC-05 cerradas |
+| `e9df9a2` | docs(bos): auditoría coherencia docs↔código | Auditoría inicial |
 | `4467ec6` | docs: REGISTRO-ESTADO.md — auditoría S-47 | Documentación |
-| `ce418b3` | docs(desktop): A.64 v1.3 + A.64.01 v1.0.5 | Desktop bAuth |
-| `9d2cc84` | refactor(desktop+rust): eliminar residuos SSH | Limpieza |
 | `380cd69` | feat(portman): Motor de Asignación de Puertos SBOS-050 | ✅ Portman completo |
 | `a05da47` | docs(plan): 0.01 v3.0.0 | Plan completitud |
-| `3fc8a9e` | fix(ddl): T-408 + T-413 + T-414 DDL schema bos | DDL corregido |
 
 ---
 
@@ -271,6 +253,36 @@ Kubernetes Cluster
 2. `domain/<servicio>.go` → `server/jsonrpc.go` → `cmd/bosctl/<cmd>.go` (ADR-020)
 3. `k8s.Core` es el único dispatcher kubectl (P1 — nunca kubectl directo)
 4. Todo commit: `[FX.Y] tipo: descripcion` + build verde + tests pasando
+
+---
+
+---
+
+## Ciclo de implementación 2026-10-07 — CERRADO
+
+### Brechas cerradas (commit `8d45dba`)
+
+| Brecha | Descripción | Archivos clave | Estado |
+|--------|-------------|----------------|:------:|
+| BC-01 | portman cableado en FichaService | `domain/ficha_service.go` + `server/portman_adapter.go` | ✅ CERRADA |
+| BC-02 | ValidateKardex ticker 300s en Scheduler | `reconcile/scheduler.go` | ✅ CERRADA |
+| BC-03 | EventBus MemBus in-process | `internal/eventbus/` + `server/eventbus_adapter.go` | ✅ CERRADA |
+| BC-04 | Manual 5.05 biaOS v2.0.0 | `Documentacion/5.05_MANUAL-DASHBOARD-BIAOS.md` | ✅ CERRADA |
+| BC-05 | Capacity Collector kubectl top nodes | `internal/capacity/collector.go` | ✅ CERRADA |
+
+**Métricas post-ciclo:** 54.101 LOC (sin TUI) · 72 métodos JSON-RPC · 40 paquetes · 41/41 tests PASS
+
+### Brechas abiertas para próximo ciclo
+
+| Brecha | Descripción | Prioridad |
+|--------|-------------|:---------:|
+| BC-06 | `bos.web.domain.*` Domain Manager S16-webserver (5 métodos, T-415) | ALTA |
+| BC-03b | EventBus Redis Streams inter-daemon (reemplazar MemBus in-process) | ALTA |
+| BC-05b | Motores capacidad §3-§6: Forecaster / PolicyEngine / ActionEngine | ALTA |
+| DT-01 | `internal/repair/` sin tests (883 LOC, 0 archivos _test.go) | MEDIA |
+| DT-02 | `internal/security/` sin tests (1.221 LOC, 0 archivos _test.go) | MEDIA |
+| DT-03 | `internal/release/` sin tests (555 LOC, 0 archivos _test.go) | MEDIA |
+| DT-05 | `internal/scaler/` desconectado de `internal/capacity/` | MEDIA |
 
 ---
 
