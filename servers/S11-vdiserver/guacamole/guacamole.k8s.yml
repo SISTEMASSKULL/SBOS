@@ -1,6 +1,31 @@
 # guacamole.k8s.yml — Apache Guacamole VDI Gateway (BOS-REPAIR-09 §5)
 # guacd (daemon de protocolo) + guacamole (webapp Tomcat) en un solo pod.
 # El estado vive en guacamole_db (PostgreSQL); el pod es stateless.
+# BC-11: Secret guacamole-db + ConfigMap guacamole-oidc añadidos (antes faltaban)
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: guacamole-db
+  namespace: sbos-vdi
+type: Opaque
+stringData:
+  username: "guacamole"
+  # password se sobreescribe por BOS en pre_install vía kubectl apply
+  password: "PLACEHOLDER_SET_BY_BOS"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: guacamole-oidc
+  namespace: sbos-vdi
+data:
+  # Valores reales inyectados por BOS en pre_install con el dominio del tenant
+  authorization_endpoint: "https://PLACEHOLDER/realms/skbos/protocol/openid-connect/auth"
+  jwks_endpoint: "https://PLACEHOLDER/realms/skbos/protocol/openid-connect/certs"
+  issuer: "https://PLACEHOLDER/realms/skbos"
+  redirect_uri: "https://PLACEHOLDER/guacamole/"
+---
 apiVersion: v1
 kind: ServiceAccount
 metadata:

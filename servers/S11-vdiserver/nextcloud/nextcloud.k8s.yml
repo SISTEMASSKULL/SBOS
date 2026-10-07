@@ -1,9 +1,20 @@
+# nextcloud.k8s.yml — Nextcloud Files (almacenamiento soberano)
+# Imagen: nextcloud:30.0-apache (incluye Apache+PHP — no requiere nginx separado)
+# PVC: 500Gi (plan BC-11) — storageClass local-path
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nextcloud-sa
+  namespace: sbos-vdi
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: nextcloud
   namespace: sbos-vdi
+  labels:
+    app: nextcloud
 spec:
   clusterIP: None
   selector:
@@ -18,6 +29,9 @@ kind: StatefulSet
 metadata:
   name: nextcloud
   namespace: sbos-vdi
+  labels:
+    app: nextcloud
+    app.kubernetes.io/part-of: sbos-vdi
 spec:
   serviceName: nextcloud
   replicas: 1
@@ -32,40 +46,70 @@ spec:
       serviceAccountName: nextcloud-sa
       containers:
         - name: nextcloud
-          image: docker.io/nextcloud:29.0-fpm
+          image: nextcloud:30.0-apache
           ports:
             - containerPort: 80
               name: http
-
+          env:
+            - name: NEXTCLOUD_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: nextcloud-secret
+                  key: admin-user
+            - name: NEXTCLOUD_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nextcloud-secret
+                  key: admin-password
+            - name: POSTGRES_HOST
+              value: "postgresql.sbos-data.svc.cluster.local"
+            - name: POSTGRES_DB
+              value: "nextcloud_db"
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: nextcloud-secret
+                  key: db-user
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nextcloud-secret
+                  key: db-password
+            - name: REDIS_HOST
+              value: "redis.sbos-data.svc.cluster.local"
+            - name: REDIS_HOST_PORT
+              value: "6379"
+            - name: NEXTCLOUD_TRUSTED_DOMAINS
+              value: "nextcloud.sbos-vdi.svc nextcloud"
           volumeMounts:
             - name: data
-              mountPath: /var/lib/nextcloud
+              mountPath: /var/www/html
           resources:
             requests:
-              cpu: 500m
-              memory: 1Gi
+              cpu: "500m"
+              memory: "1Gi"
             limits:
-              cpu: 2000m
-              memory: 2Gi
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: 80
-            initialDelaySeconds: 30
-            periodSeconds: 30
+              cpu: "2000m"
+              memory: "4Gi"
           readinessProbe:
             httpGet:
-              path: /health
+              path: /status.php
               port: 80
-            initialDelaySeconds: 10
-            periodSeconds: 10
-
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /status.php
+              port: 80
+            initialDelaySeconds: 120
+            periodSeconds: 30
   volumeClaimTemplates:
     - metadata:
         name: data
       spec:
         accessModes: ["ReadWriteOnce"]
-        storageClassName: sbos-fast
+        storageClassName: local-path
         resources:
           requests:
-            storage: 200Gi
+            storage: 500Gi
