@@ -175,13 +175,58 @@ ficha_pre_install() {
         local pv_phase
         pv_phase=$(_k get pv sbos-vault-pv \
             -o jsonpath='{.status.phase}' 2>/dev/null || echo "Unknown")
+
+        # Recuperación del ciclo huevo-gallina: cuando un uninstall previo elimina el PVC
+        # pero conserva el PV (reclaimPolicy=Retain), el PV queda en Released (no Available).
+        # Limpiamos el claimRef para que el PV vuelva a Available y pueda ser reasignado.
+        if [[ "$pv_phase" == "Released" ]]; then
+            _log "sbos-vault-pv en Released — limpiando claimRef para restaurar a Available"
+            _k patch pv sbos-vault-pv \
+                --type=json -p '[{"op":"remove","path":"/spec/claimRef"}]' \
+                >> "$FICHA_LOG" 2>&1 || true
+            pv_phase=$(_k get pv sbos-vault-pv \
+                -o jsonpath='{.status.phase}' 2>/dev/null || echo "Unknown")
+        fi
+
         if [[ "$pv_phase" != "Available" && "$pv_phase" != "Bound" ]]; then
-            echo "${__STEP_FAIL__} verificar_pv: sbos-vault-pv en fase $pv_phase"
+            echo "${__STEP_FAIL__} verificar_pv: sbos-vault-pv en fase $pv_phase (no recuperable)"
             return 1
         fi
         echo "${__STEP_OK__} verificar_pv (fase=$pv_phase, pre-creado)"
     else
         echo "${__STEP_SKIP__} verificar_pv: PV no pre-existe — dynamic provisioning lo creara"
+    fi
+
+    echo "${__STEP_START__} asegurar_dir_pv"
+    # Vault (UID 100, GID 1000 en imagen oficial HashiCorp) necesita escribir en
+    # /vault/data (hostPath /data/vault). K8s fsGroup=1000 en el StatefulSet chownea
+    # el mount al grupo 1000, pero el directorio debe existir antes del primer Pod.
+    mkdir -p /data/vault
+    chown 100:1000 /data/vault 2>/dev/null || chown :1000 /data/vault 2>/dev/null || true
+    chmod 770 /data/vault
+    echo "${__STEP_OK__} asegurar_dir_pv"
+
+    echo "${__STEP_START__} limpiar_datos_raft"
+    # Si existen datos de raft (vault.db) de una instalación anterior pero no tenemos
+    # las unseal_keys_b64 reales, esos datos son irrecuperables: vault arrancaría en
+    # estado "already initialized" sin forma de unsealar. Limpiamos para fresh init.
+    if [[ -f "/data/vault/vault.db" ]]; then
+        local tiene_keys="false"
+        if [[ -f "$VAULT_KEYS_FILE" ]]; then
+            python3 -c "import json; d=json.load(open('${VAULT_KEYS_FILE}')); \
+                assert isinstance(d.get('unseal_keys_b64'), list) and len(d['unseal_keys_b64']) > 0" \
+                2>/dev/null && tiene_keys="true"
+        fi
+        if [[ "$tiene_keys" == "false" ]]; then
+            _log "Datos raft sin unseal_keys_b64 — limpiando /data/vault para reinicialización limpia"
+            rm -rf /data/vault/vault.db /data/vault/raft
+            echo "${__STEP_OK__} limpiar_datos_raft (limpieza realizada)"
+        else
+            _log "Datos raft presentes con keys válidas — conservando para unseal"
+            echo "${__STEP_OK__} limpiar_datos_raft (datos conservados, keys OK)"
+        fi
+    else
+        echo "${__STEP_SKIP__} limpiar_datos_raft: sin datos raft previos"
     fi
 
     echo "${__STEP_START__} verificar_namespace"
@@ -202,12 +247,15 @@ ficha_install() {
 
     # Detectar pasada actual
     local pasada=1
+    local migrar_pod_dev="false"
     if _k get statefulset vault -n "$NS" > /dev/null 2>&1; then
         pasada=2
+        migrar_pod_dev="false"
         _log "PASADA 2 detectada: StatefulSet existe → robustecer"
     elif _k get pod vault-0 -n "$NS" > /dev/null 2>&1; then
         # Pod existe de pasada 1 → migrar a StatefulSet
         pasada=2
+        migrar_pod_dev="true"
         _log "PASADA 2 detectada: Pod dev existe → migrar a StatefulSet"
     else
         _log "PASADA 1: instalación mínima viable (vault server -dev)"
@@ -216,7 +264,7 @@ ficha_install() {
     if [[ $pasada -eq 1 ]]; then
         ficha_install_pasada1
     else
-        ficha_install_pasada2
+        ficha_install_pasada2 "$migrar_pod_dev"
     fi
 }
 
@@ -325,6 +373,25 @@ spec:
 # Robusto: persiste datos, TLS, HA readiness.
 # Se llama cuando PASADA 1 ya completó o cuando el StatefulSet ya existe.
 ficha_install_pasada2() {
+    local migrar_pod_dev="${1:-false}"
+
+    # ── 0. Eliminar Pod dev si viene de PASADA 1 ─────────────────────
+    # El Pod vault-0 de PASADA 1 (sin ownerReference del StatefulSet) debe eliminarse
+    # ANTES de crear el StatefulSet. Si coexisten durante el apply, K8s termina el Pod
+    # dev mientras el script ejecuta kubectl exec → "container not found" (race condition).
+    if [[ "$migrar_pod_dev" == "true" ]]; then
+        echo "${__STEP_START__} eliminar_pod_dev"
+        _log "Eliminando Pod dev vault-0 antes de crear StatefulSet (datos in-memory se pierden — normales en dev mode)"
+        _k delete pod vault-0 -n "$NS" --grace-period=10 2>/dev/null || true
+        # Esperar hasta 60s a que el Pod desaparezca completamente
+        local deadline=$(( $(date +%s) + 60 ))
+        while (( $(date +%s) < deadline )); do
+            _k get pod vault-0 -n "$NS" > /dev/null 2>&1|| break
+            sleep 3
+        done
+        echo "${__STEP_OK__} eliminar_pod_dev"
+    fi
+
     # ── 1. PVC ───────────────────────────────────────────────────
     echo "${__STEP_START__} crear_pvc"
     _apply "pvc" "apiVersion: v1
@@ -420,12 +487,14 @@ spec:
         app: vault
     spec:
       serviceAccountName: vault
-      # ADR-040: sin securityContext restrictivo (mínimo viable, 2da pasada CIS)
-      securityContext: {}
+      # ADR-040: fsGroup=1000 permite a Vault (GID 1000) escribir en el PV montado.
+      # Sin fsGroup el directorio hostPath queda con permisos de root → CrashLoopBackOff.
+      securityContext:
+        fsGroup: 1000
       containers:
         - name: vault
           image: ${VAULT_IMAGE}
-          args: [server, -dev, -dev-listen-address=0.0.0.0:8200, -dev-root-token-id=sbos-dev-root]
+          args: [server]
           ports:
             - containerPort: 8200
               name: api
@@ -436,18 +505,19 @@ spec:
               value: \"http://127.0.0.1:8200\"
             - name: VAULT_API_ADDR
               value: \"http://vault:8200\"
-            - name: SKIP_CHOWN
-              value: \"true\"
           securityContext:
             capabilities:
               add: [IPC_LOCK]
           readinessProbe:
             httpGet:
-              path: /v1/sys/health?standbyok=true
+              # sealedok=true + uninitok=true: Vault responde 200 aunque esté sellado/no-init.
+              # Necesario para romper el chicken-and-egg: pod debe estar Ready para que
+              # kubectl exec pueda ejecutar vault operator init y vault operator unseal.
+              path: /v1/sys/health?standbyok=true&sealedok=true&uninitok=true
               port: 8200
             initialDelaySeconds: 10
             periodSeconds: 5
-            failureThreshold: 3
+            failureThreshold: 6
           livenessProbe:
             httpGet:
               path: /v1/sys/health?standbyok=true
@@ -509,15 +579,24 @@ spec:
     }
     echo "${__STEP_OK__} deploy_statefulset"
 
-    # ── 5. Esperar phase=Running (necesario para vault operator init) ─
-    # Vault no será Ready hasta que esté inicializado y unsealed.
-    # Esperamos phase=Running (proceso arrancado) para poder enviarle comandos.
+    # ── 5. Esperar phase=Running y condition=Ready ───────────────────
+    # phase=Running solo confirma que el proceso arrancó; condition=Ready confirma
+    # que la readinessProbe HTTP pasó y el container acepta kubectl exec sin
+    # "container not found" por transición. En dev mode la probe pasa en ~10-15s.
     echo "${__STEP_START__} wait_running"
     if ! _wait_vault_phase 120; then
         echo "${__STEP_FAIL__} wait_running: vault-0 no Running"
         return 1
     fi
     echo "${__STEP_OK__} wait_running"
+
+    echo "${__STEP_START__} wait_ready"
+    if ! _wait_vault_ready 90; then
+        _log "ADVERTENCIA: vault-0 no Ready en 90s — continuando (kubectl exec puede fallar)"
+        echo "${__STEP_SKIP__} wait_ready: timeout (readinessProbe pendiente)"
+    else
+        echo "${__STEP_OK__} wait_ready"
+    fi
 
     # ── 6. Vault init ────────────────────────────────────────────
     echo "${__STEP_START__} vault_init"
@@ -529,13 +608,25 @@ spec:
         echo "${__STEP_SKIP__} vault_init: ya inicializado"
     else
         _log "Ejecutando vault operator init (5 keys, threshold 3)..."
-        local init_output
+        local init_output init_err
         init_output=$(_k exec "$VAULT_POD" -n "$NS" -- \
             sh -c "VAULT_ADDR=${VAULT_ADDR_LOCAL} vault operator init \
-                -key-shares=5 -key-threshold=3 -format=json 2>/dev/null")
+                -key-shares=5 -key-threshold=3 -format=json 2>&1")
 
-        if [[ -z "$init_output" ]]; then
-            echo "${__STEP_FAIL__} vault_init: vault operator init no retornó datos"
+        # Detectar "already initialized": vault.db de instalación anterior sin keys.
+        # En ese caso los datos deben limpiarse (ficha_pre_install no pudo hacerlo
+        # porque el pod no estaba levantado aún).
+        if echo "$init_output" | grep -qi "already initialized"; then
+            _log "FALLO: Vault ya inicializado con keys perdidas (vault.db residual). \
+Eliminar /data/vault/vault.db y /data/vault/raft manualmente, luego reinstalar."
+            echo "${__STEP_FAIL__} vault_init: datos raft residuales con keys perdidas"
+            return 1
+        fi
+
+        if [[ -z "$init_output" ]] || ! echo "$init_output" | python3 -c \
+            "import json,sys; d=json.load(sys.stdin); assert d.get('root_token')" 2>/dev/null; then
+            _log "vault operator init output: ${init_output:-(vacío)}"
+            echo "${__STEP_FAIL__} vault_init: vault operator init no retornó datos válidos"
             return 1
         fi
 
@@ -882,12 +973,16 @@ data:
                 fi
                 echo "${__STEP_OK__} configurar_vault_tls"
             else
-                echo "${__STEP_FAIL__} configurar_vault_tls: no se pudo extraer cert/key del PKI"
-                return 1
+                # ADR-040: mínimo viable progresivo — TLS no bloquea PASADA 2.
+                # Ocurre si el PKI engine no pudo configurarse en este ciclo.
+                # El próximo bos install reintentará TLS con PKI ya en estado.
+                _log "ADVERTENCIA: cert/key no extraíbles del PKI — TLS diferido para próxima pasada"
+                echo "${__STEP_SKIP__} configurar_vault_tls: cert/key no disponibles (PKI pendiente)"
             fi
         else
-            echo "${__STEP_FAIL__} configurar_vault_tls: no se pudo emitir certificado"
-            return 1
+            # ADR-040: mínimo viable progresivo — TLS no bloquea PASADA 2.
+            _log "ADVERTENCIA: emisión de certificado PKI falló — TLS diferido para próxima pasada"
+            echo "${__STEP_SKIP__} configurar_vault_tls: PKI no pudo emitir certificado (diferido)"
         fi
     fi
 
