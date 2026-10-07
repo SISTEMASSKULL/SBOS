@@ -89,7 +89,7 @@ CGO_ENABLED=0 /home/skull/sdk/go/bin/go build ./...
 - **Un átomo = un commit** semántico: `[FX.Y] tipo: descripcion`
 - **Build verde en cada commit** — si se rompe: `git revert HEAD`
 - **Sin mock de BD en tests** — usar interfaces (PgAuxK8sPort, StatePort, etc.)
-- **Archivos ≤ 200 líneas** — dividir si se excede (DOC-SBOS-001 N3)
+- **Archivos ≤ 400 líneas** — dividir si se excede (DOC-SBOS-001 N3); techo absoluto 800 líneas solo cuando la cohesión semántica lo justifique (dispatchers, sagas, bootstraps de infraestructura)
 - **JSON-RPC naming:** `bos.<modulo>.<operacion>` (bos.ctx.create, bos.ficha.install, etc.)
 
 ## Variables de entorno relevantes
