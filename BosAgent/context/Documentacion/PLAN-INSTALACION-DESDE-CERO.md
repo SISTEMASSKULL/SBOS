@@ -1,9 +1,9 @@
 # Plan de Instalación desde Cero — VPS Limpia Ubuntu 26.04
 
-**Versión:** 1.1.0  
+**Versión:** 1.2.0  
 **Fecha:** 2026-10-07  
 **Autor:** bos-developer  
-**Estado:** ✅ LISTO PARA PRUEBA — todos los checks en verde · FIX-01..FIX-09 aplicados  
+**Estado:** ✅ LISTO PARA PRUEBA — todos los checks en verde · FIX-01..FIX-13 aplicados  
 **Prerrequisito:** Ubuntu 26.04 Server LTS — instalación por defecto, sin software adicional
 
 ---
@@ -13,19 +13,30 @@
 Los siguientes bugs fueron encontrados y corregidos antes de poder ejecutar las pruebas.
 **Sin estas correcciones la instalación habría fallado.**
 
+**Leyenda de severidad:**
+- 🔴 **CRÍTICO** — fallo funcional que impide la instalación completamente
+- 🟠 **SEGURIDAD** — violación del principio P6 (credenciales o tokens hardcodeados)
+- 🟡 **CALIDAD** — violación de convención R16 (rutas hardcodeadas, código muerto)
+- 📄 **DOC** — documentación incorrecta o desactualizada
+
 | ID | Archivo | Severidad | Descripción | Fix aplicado |
 |----|---------|-----------|-------------|--------------|
-| **FIX-01** | `cmd/bosctl/system_install.go` | 🔴 CRÍTICO | `bos-install.toml` se generaba con expresiones Go literales (`paths.CorePath + "/servers"`) en lugar de los valores reales — TOML inválido → parseo fallaba | Usar `fmt.Sprintf` con `%q` y constantes `paths.*` |
-| **FIX-02** | `cmd/bosctl/system_install.go` | 🔴 CRÍTICO | `runPreflightFicha` buscaba el `task_catalog.sh` en `/opt/bos/core/servers/...` (no existe) — la ficha bos-preflight nunca se encontraba | Agregar `paths.ServersPath` como primer candidato |
-| **FIX-03** | `servers/seed-skull.yml` | 🔴 CRÍTICO | `shamir_keys: 3` + `shamir_threshold: 5` — threshold > keys, Vault **nunca** se puede unsealar | Corregir a `shamir_keys: 5, shamir_threshold: 3` |
-| **FIX-04** | `servers/S-HOST/bos-preflight/task_catalog.sh` | 🟡 SEGURIDAD | Token RPC hardcodeado `"dev-token-2026"` en texto claro — viola P6 | Generar con `openssl rand -hex 32` |
-| **FIX-05** | `cmd/bosctl/rbac.go` | 🟡 R16 | `/run/bos/bauth.sock` hardcodeado | `paths.RuntimeFile("bauth.sock")` |
-| **FIX-06** | `cmd/bosctl/packages.go` | 🟡 R16 | `const defaultBlibsDir = "/etc/bos/blibs/..."` hardcodeado | `var` con `filepath.Join(paths.ServersPath, ...)` |
-| **FIX-07** | `cmd/bosctl/deploy.go` | 🟡 R16 | `/var/log/bos/fichas/` hardcodeado | `filepath.Join(paths.VarLogBos, "fichas", ...)` |
-| **FIX-08** | `cmd/bos/env.go` | 🟡 R16 | Paths de búsqueda `/etc/bos/core/...` hardcodeados | `filepath.Join(paths.EtcBos, ...)` |
-| **FIX-09** | `cmd/bos/run_normal.go` | 🟡 R16 | `/etc/bos/ai/action_catalog.yml` hardcodeado | `paths.ConfigDir("ai/action_catalog.yml")` |
+| **FIX-01** | `cmd/bosctl/system_install.go` | 🔴 CRÍTICO | `bos-install.toml` generado con expresiones Go literales como valores — TOML inválido → parseo fallaba al iniciar el daemon | Usar `fmt.Sprintf` con `%q` y constantes `paths.*` |
+| **FIX-02** | `cmd/bosctl/system_install.go` | 🔴 CRÍTICO | `runPreflightFicha` buscaba `task_catalog.sh` en `/opt/bos/core/servers/...` (ruta inexistente) — ficha bos-preflight nunca se encontraba | Agregar `paths.ServersPath` como primer candidato de búsqueda |
+| **FIX-03** | `servers/seed-skull.yml` | 🔴 CRÍTICO | `shamir_keys: 3` + `shamir_threshold: 5` — con threshold > keys, Vault nunca puede ser unsealed tras inicialización | Corregir a `shamir_keys: 5, shamir_threshold: 3` |
+| **FIX-04** | `servers/S-HOST/bos-preflight/task_catalog.sh` | 🟠 SEGURIDAD | Token RPC `"dev-token-2026"` hardcodeado en texto claro + base64 estático en `.env` — viola P6 | Generar con `openssl rand -hex 32` — nunca predecible |
+| **FIX-05** | `cmd/bosctl/rbac.go` | 🟡 CALIDAD | `/run/bos/bauth.sock` hardcodeado como string literal | `paths.RuntimeFile("bauth.sock")` |
+| **FIX-06** | `cmd/bosctl/packages.go` | 🟡 CALIDAD | `const defaultBlibsDir = "/etc/bos/blibs/..."` hardcodeado | `var` con `filepath.Join(paths.ServersPath, ...)` |
+| **FIX-07** | `cmd/bosctl/deploy.go` | 🟡 CALIDAD | `/var/log/bos/fichas/` hardcodeado como string literal | `filepath.Join(paths.VarLogBos, "fichas", ...)` |
+| **FIX-08** | `cmd/bos/env.go` | 🟡 CALIDAD | Paths de búsqueda `/etc/bos/core/...` hardcodeados como strings | `filepath.Join(paths.EtcBos, ...)` |
+| **FIX-09** | `cmd/bos/run_normal.go` | 🟡 CALIDAD | `/etc/bos/ai/action_catalog.yml` hardcodeado | `paths.ConfigDir("ai/action_catalog.yml")` |
+| **FIX-10** | `cmd/bosctl/deploy.go::rpcAuthToken()` | 🟠 SEGURIDAD | Token base64 hardcodeado como fallback en la función `rpcAuthToken()` — si `/etc/bos/rpc-token` no existe, la sesión usaba credencial estática predecible | Retornar `""` (el servidor rechaza con 401 y fuerza regeneración) |
+| **FIX-11** | `cmd/bosctl/deploy.go::deployTenant()` | 🟡 CALIDAD | PASO 0 y PASO 1.5 tenían triple sangría incorrecta; comentario de PASO 2 aparecía antes del código de PASO 1.5 — código visualmente engañoso | Normalizar sangría a 1 tab; reordenar comentarios según ejecución real |
+| **FIX-12** | `cmd/bosctl/deploy.go` | 🔴 CRÍTICO | Cadena de compensación incompleta: si PASO 2 o posteriores fallaban, el rollback no eliminaba el StorageClass/PVs del PASO 1.5, dejando PVs huérfanos en el cluster | Agregar `compensateStep1_5()` que encadena namespace + storage; actualizar `compensateSteps12` y fallo de PASO 2 |
+| **FIX-13** | `cmd/bosctl/system_install.go::runPreflightFicha()` | 🟡 CALIDAD | Objeto `cmd` (`exec.Command`) construido pero nunca ejecutado — solo se usaba para copiar el env a `wrapper`; código muerto confuso | Eliminar `cmd`; construir `fichaEnv` directamente y asignarlo a `wrapper` |
+| **FIX-DOC** | `BosAgent/CLAUDE.md` tabla "Rutas canónicas" | 📄 DOC | Rutas TLS documentadas como `/etc/bos/tls/bos.crt` pero `paths.CertFile` apunta a `/etc/bos/certs/bos.crt` — cualquier agente que leyera el CLAUDE.md buscaría la ruta incorrecta | Corregir a `/etc/bos/certs/bos.crt` y `/etc/bos/certs/bos.key` |
 
-**Resultado:** `CGO_ENABLED=0 go build ./...` — ✅ sin errores
+**Resultado tras FIX-01..FIX-13:** `CGO_ENABLED=0 go build ./...` — ✅ sin errores
 
 ---
 
@@ -337,5 +348,5 @@ Techo permitido hasta **800 líneas** cuando la cohesión semántica lo justific
 
 ---
 
-*Documento v1.1.0 — bos-developer · 2026-10-07*  
+*Documento v1.2.0 — bos-developer · 2026-10-07*  
 *Plan completo de instalación: `PLAN-IMPLEMENTACION-BOS-VDI.md` (artefacto interactivo: https://claude.ai/artifact/8KqeXT172Cwgzh7vWoF86f)*

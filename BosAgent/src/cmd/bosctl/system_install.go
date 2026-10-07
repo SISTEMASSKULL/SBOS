@@ -315,8 +315,9 @@ func runPreflightFicha(mode string) error {
 		return fmt.Errorf("task_catalog.sh de bos-preflight no encontrado — incluir en el paquete de deploy")
 	}
 
-	cmd := exec.Command("bash", catalog)
-	cmd.Env = append(os.Environ(),
+	// Ejecutar ficha_pre_install → ficha_install → ficha_post_install en secuencia.
+	// Se usa "source + llamar función" para que las funciones del catalog sean visibles.
+	fichaEnv := append(os.Environ(),
 		"__SBOS__STEP_START__=STEP_START",
 		"__SBOS__STEP_OK__=STEP_OK",
 		"__SBOS__STEP_FAIL__=STEP_FAIL",
@@ -324,15 +325,10 @@ func runPreflightFicha(mode string) error {
 		"FICHA_LOG="+filepath.Join(paths.VarLogBos, "fichas", "bos-preflight.log"),
 		"BOS_INSTALL_MODE="+mode,
 	)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	// Llamar ficha_install (función dentro del catalog)
-	// En bash, source + llamar función directamente
 	wrapper := exec.Command("bash", "-c",
 		fmt.Sprintf(`source %q && ficha_pre_install && ficha_install && ficha_post_install`, catalog),
 	)
-	wrapper.Env = cmd.Env
+	wrapper.Env = fichaEnv
 	wrapper.Stdout = os.Stdout
 	wrapper.Stderr = os.Stderr
 

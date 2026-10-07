@@ -141,14 +141,16 @@ func deployTenant(seedPath string) error {
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
 
-		// ── PASO 0: Instalar K8s (kubeadm) ───────────────────────────
-		fmt.Println("[0/7] Instalando Kubernetes (kubeadm)...")
-		if err := installFicha("sbos-bootstrap-k8s", nil); err != nil {
-			return fmt.Errorf("PASO 0 (kubeadm): %w", err)
-		}
-		fmt.Println("  ✅ kubeadm + kubectl listos")
+	// ── PASO 0: Instalar K8s (kubeadm) ────────────────────────────────
+	// Prerequisito absoluto — sin K8s no hay dónde desplegar el resto.
+	// No tiene compensación: el bootstrap de K8s no es reversible automáticamente.
+	fmt.Println("[0/7] Instalando Kubernetes (kubeadm)...")
+	if err := installFicha("sbos-bootstrap-k8s", nil); err != nil {
+		return fmt.Errorf("PASO 0 (kubeadm): %w", err)
+	}
+	fmt.Println("  ✅ kubeadm + kubectl listos")
 
-	// ── PASO 1: Namespace K8s + NetworkPolicy ──────────────────────
+	// ── PASO 1: Namespace K8s + NetworkPolicy ──────────────────────────
 	fmt.Println("[1/7] Creando namespace K8s...")
 	if err := installFicha(cfg.Infrastructure.Ficha, map[string]string{
 		"TENANT_ID":   tenantID,
@@ -161,23 +163,23 @@ func deployTenant(seedPath string) error {
 	fmt.Printf("  ✅ namespace sbos-%s (%s, %s)\n",
 		tenantID, cfg.Infrastructure.TenancyTrustModel, cfg.Infrastructure.IsolationMechanism)
 
-	// ── PASO 2: PostgreSQL + Bases de Datos ─────────────────────────
+	// ── PASO 1.5: Bootstrap Storage (StorageClass + PVs) ───────────────
+	// Debe ejecutarse antes de PostgreSQL y Redis — ambos requieren PVs.
+	fmt.Println("[1.5/7] Configurando almacenamiento...")
+	if err := installFicha("sbos-bootstrap-storage", nil); err != nil {
+		compensateStep1(tenantID)
+		return fmt.Errorf("PASO 1.5 (storage): %w", err)
+	}
+	fmt.Println("  ✅ StorageClass + PVs listos")
 
-		// ── PASO 1.5: Bootstrap Storage (StorageClass + PVs) ────────────
-		fmt.Println("[1.5/7] Configurando almacenamiento...")
-		if err := installFicha("sbos-bootstrap-storage", nil); err != nil {
-			compensateStep1(tenantID)
-			return fmt.Errorf("PASO 1.5 (storage): %w", err)
-		}
-		fmt.Println("  ✅ StorageClass + PVs listos")
-
+	// ── PASO 2: PostgreSQL + Bases de Datos ─────────────────────────────
 	fmt.Println("[2/7] Provisionando bases de datos...")
 	if err := installFicha("postgresql", map[string]string{
 		"TENANT_ID": tenantID,
 		"ENGINE":    cfg.Databases.Engine,
 		"VERSION":   cfg.Databases.Version,
 	}); err != nil {
-		compensateStep1(tenantID)
+		compensateStep1_5(tenantID)
 		return fmt.Errorf("PASO 2 (postgresql): %w", err)
 	}
 	fmt.Printf("  ✅ PostgreSQL %s + %d databases (ClusterIP %s)\n",
@@ -428,8 +430,10 @@ func rpcAuthToken() string {
 			return base64.StdEncoding.EncodeToString([]byte(auth))
 		}
 	}
-	// 3. Último recurso: token hardcodeado de desarrollo
-	return "c2Jvc19hZG1pbjpkZXY6ZGV2LXRva2VuLTIwMjY="
+	// 3. Sin token disponible — retornar vacío (el servidor rechazará con 401).
+	// Nunca usar token hardcodeado de fallback: viola P6.
+	// Ejecutar: bosctl system-install --mode=dev para regenerar /etc/bos/rpc-token.
+	return ""
 }
 
 // rpcCall hace una llamada JSON-RPC 2.0 al daemon vía Unix socket.
@@ -486,8 +490,15 @@ func compensateStep1(tenantID string) {
 	fmt.Printf("  ↩️  Compensando PASO 1: eliminando namespace sbos-%s\n", tenantID)
 }
 
-func compensateSteps12(tenantID string) {
+// compensateStep1_5 revierte el StorageClass y PVs del PASO 1.5, luego encadena PASO 1.
+// Llamado cuando falla PASO 2 (postgresql) o cualquier paso posterior.
+func compensateStep1_5(tenantID string) {
 	compensateStep1(tenantID)
+	fmt.Println("  ↩️  Compensando PASO 1.5: eliminando StorageClass + PVs")
+}
+
+func compensateSteps12(tenantID string) {
+	compensateStep1_5(tenantID)
 	fmt.Println("  ↩️  Compensando PASO 2: (no-destructive — PG se mantiene)")
 }
 

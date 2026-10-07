@@ -127,8 +127,8 @@ cmd/bosctl/<cmd>.go      ← comando CLI (WebSocket RPC)
 | RBAC roles | `/etc/bos/rbac/roles.json` (`paths.RBACRoles`) |
 | bos.toml | `/etc/bos/bos.toml` (`paths.BosToml`) |
 | bos-install.toml | `/etc/bos/bos-install.toml` (`paths.BosInstallToml`) |
-| TLS cert | `/etc/bos/tls/bos.crt` (`paths.CertFile`) |
-| TLS key | `/etc/bos/tls/bos.key` (`paths.KeyFile`) |
+| TLS cert | `/etc/bos/certs/bos.crt` (`paths.CertFile`) |
+| TLS key | `/etc/bos/certs/bos.key` (`paths.KeyFile`) |
 | Fichas | `/etc/bos/servers/` |
 
 ## Protocolo de instalación idempotente (P15) — NO NEGOCIABLE
