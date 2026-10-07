@@ -1,0 +1,12 @@
+# banexus.toml — Configuración del daemon bNexus Agent
+# Generado por BOS en instalación — NO editar manualmente
+# Variables sustituidas: {{NODE_ID}}, {{CLIENT_CERT}}, {{CLIENT_KEY}}
+
+[agente]
+mode         = "daemon"
+bhnexus_addr = "127.0.0.1:9444"
+node_id      = "{{NODE_ID}}"
+
+[tls]
+cert_path = "{{CLIENT_CERT}}"
+key_path  = "{{CLIENT_KEY}}"

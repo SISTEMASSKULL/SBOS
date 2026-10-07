@@ -1,0 +1,19 @@
+[Unit]
+Description=bNexus Agent (daemon) — SBOS Centinela Edge
+Documentation=https://sbos.app/docs/bnexus
+After=network.target bhnexus.service
+Requires=bhnexus.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/etc/banexus
+ExecStart=/usr/local/bin/banexus
+Restart=on-failure
+RestartSec=5
+Environment=RUST_LOG=info
+Environment=SBOS_ENV=production
+EnvironmentFile=-/etc/banexus/banexus.env
+
+[Install]
+WantedBy=multi-user.target

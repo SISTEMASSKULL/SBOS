@@ -1,0 +1,21 @@
+[Unit]
+Description=bNexus Host — SBOS Proxy de Hardware Universal
+Documentation=https://sbos.app/docs/bnexus
+After=network.target bauth.service
+Wants=bauth.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/etc/bhnexus
+ExecStart=/usr/local/bin/bhnexus
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+Environment=RUST_LOG=info
+Environment=SBOS_ENV=production
+EnvironmentFile=-/etc/bhnexus/bhnexus.env
+
+[Install]
+WantedBy=multi-user.target
