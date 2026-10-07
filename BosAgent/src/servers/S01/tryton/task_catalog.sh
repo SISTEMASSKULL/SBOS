@@ -33,14 +33,84 @@ PG_NAMESPACE="${PG_NAMESPACE:-sbos-data}"
 PG_POD="${PG_POD:-postgresql-0}"
 VAULT_NAMESPACE="${VAULT_NAMESPACE:-sbos-security}"
 VAULT_POD="${VAULT_POD:-vault-0}"
+KC_NAMESPACE="${KC_NAMESPACE:-sbos-security}"
+KC_POD="${KC_POD:-keycloak-0}"
 
-# Ruta en Vault donde se almacena el secreto de Tryton.
+# Rutas en Vault
 VAULT_PATH="secret/tenants/${TENANT_ID}/tryton"
+VAULT_OIDC_PATH="secret/tenants/${TENANT_ID}/tryton/oidc"
 
 _log()  { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [tryton] $*" | tee -a "$FICHA_LOG"; }
 _k()    { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@"; }
 _pg()   { _k exec -n "$PG_NAMESPACE" "$PG_POD" -- psql -U postgres "$@"; }
 _vault(){ _k exec -n "$VAULT_NAMESPACE" "$VAULT_POD" -- vault "$@"; }
+
+# ── Autenticación OIDC ───────────────────────────────────────────────────
+# Despliega oauth2-proxy-tryton como capa de autenticación frente a Tryton.
+# Fase 1: valida sesiones contra Keycloak (realm skull).
+# Fase 2: cambiar ConfigMap tryton-auth OIDC_ISSUER_URL → bAuth, luego rollout restart.
+configurar_autenticacion_oidc() {
+    local oidc_client_secret="${TRYTON_OIDC_CLIENT_SECRET:-}"
+    local oidc_cookie_secret="${TRYTON_OIDC_COOKIE_SECRET:-}"
+
+    # Leer de Vault si ya existen (idempotencia)
+    if [[ -z "$oidc_client_secret" ]]; then
+        oidc_client_secret=$(_vault kv get -field=client_secret "$VAULT_OIDC_PATH" 2>/dev/null || echo "")
+    fi
+    if [[ -z "$oidc_client_secret" ]]; then
+        oidc_client_secret=$(openssl rand -hex 16)
+        oidc_cookie_secret=$(openssl rand -base64 32 | tr -d '\n')
+        _vault kv put "$VAULT_OIDC_PATH" \
+            client_secret="$oidc_client_secret" \
+            cookie_secret="$oidc_cookie_secret" \
+            client_id="tryton-erp" \
+            created_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)" 2>/dev/null || {
+            echo "${__STEP_FAIL__} configurar_autenticacion_oidc: no se pudo guardar en Vault $VAULT_OIDC_PATH"
+            return 1
+        }
+        _log "Credenciales OIDC generadas y almacenadas en Vault: $VAULT_OIDC_PATH"
+    else
+        oidc_cookie_secret=$(_vault kv get -field=cookie_secret "$VAULT_OIDC_PATH" 2>/dev/null || echo "")
+        _log "Credenciales OIDC recuperadas de Vault: $VAULT_OIDC_PATH"
+    fi
+
+    # Crear K8s Secret tryton-oidc-secret desde Vault (idempotente via dry-run + apply)
+    _k create secret generic tryton-oidc-secret \
+        --namespace="$NAMESPACE" \
+        --from-literal=client_secret="$oidc_client_secret" \
+        --from-literal=cookie_secret="$oidc_cookie_secret" \
+        --dry-run=client -o yaml 2>/dev/null | _k apply -f - >> "$FICHA_LOG" 2>&1
+
+    # Aplicar ConfigMap tryton-auth + Deployment oauth2-proxy-tryton + Service (P10)
+    _k apply --dry-run=server -f "${FICHA_DIR}/resources/tryton-auth.k8s.yml" >> "$FICHA_LOG" 2>&1 || {
+        _log "ADVERTENCIA: dry-run tryton-auth.k8s.yml falló — aplicando de todos modos"
+    }
+    _k apply -f "${FICHA_DIR}/resources/tryton-auth.k8s.yml" >> "$FICHA_LOG" 2>&1
+
+    # Registrar cliente OIDC en Keycloak si está disponible
+    if _k get pod -n "$KC_NAMESPACE" "$KC_POD" --no-headers 2>/dev/null | grep -q Running; then
+        local kc_admin_pass
+        kc_admin_pass=$(_vault kv get -field=admin_password "secret/tenants/${TENANT_ID}/keycloak" 2>/dev/null || echo "admin")
+        local redirect_uri="http://erp.skull.sbos.local/oauth2/callback"
+        _k exec -n "$KC_NAMESPACE" "$KC_POD" -- bash -c "
+            /opt/keycloak/bin/kcadm.sh create clients \
+              -r skull --no-config \
+              --server http://localhost:8080 \
+              --realm master --user admin --password '${kc_admin_pass}' \
+              -s clientId=tryton-erp -s secret='${oidc_client_secret}' \
+              -s 'redirectUris=[\"${redirect_uri}\"]' \
+              -s publicClient=false -s protocol=openid-connect \
+            2>&1 || echo 'SKIP: cliente ya existe o no disponible'
+        " >> "$FICHA_LOG" 2>&1 && _log "Cliente OIDC 'tryton-erp' registrado en Keycloak realm skull" \
+                                 || _log "ADVERTENCIA: verificar registro manual de 'tryton-erp' en KC"
+    else
+        _log "PENDIENTE (HITL): Keycloak no disponible — registrar cliente OIDC manualmente:"
+        _log "  ClientID: tryton-erp  |  Realm: skull  |  Protocol: openid-connect"
+        _log "  RedirectURI: http://erp.skull.sbos.local/oauth2/callback"
+        _log "  ClientSecret: (Vault $VAULT_OIDC_PATH → client_secret)"
+    fi
+    return 0
+}
 
 # ── Pre-install ───────────────────────────────────────────────────────────
 ficha_pre_install() {
@@ -190,14 +260,22 @@ ficha_install() {
     fi
     echo "${__STEP_OK__} esperar_ready"
 
-    # 9. Aplicar Kong Ingress (requiere que Kong esté corriendo)
+    # 8.5. Configurar autenticación OIDC (oauth2-proxy-tryton + Keycloak/bAuth)
+    echo "${__STEP_START__} configurar_autenticacion_oidc"
+    configurar_autenticacion_oidc || {
+        echo "${__STEP_FAIL__} configurar_autenticacion_oidc"
+        return 1
+    }
+    echo "${__STEP_OK__} configurar_autenticacion_oidc"
+
+    # 9. Aplicar Kong Ingress — ruta: erp.skull.sbos.local → oauth2-proxy-tryton:4180
     echo "${__STEP_START__} configurar_kong_route"
     if _k get deployment kong -n sbos-gateway --no-headers 2>/dev/null | grep -q "1/1"; then
         _k apply --dry-run=server -f "${FICHA_DIR}/resources/tryton-kong.k8s.yml" >> "$FICHA_LOG" 2>&1 || {
             _log "ADVERTENCIA: dry-run Kong Ingress falló — aplicando de todos modos"
         }
         _k apply -f "${FICHA_DIR}/resources/tryton-kong.k8s.yml" >> "$FICHA_LOG" 2>&1
-        _log "Kong Ingress configurado: erp.skull.sbos.local → tryton:8000"
+        _log "Kong Ingress configurado: erp.skull.sbos.local → oauth2-proxy-tryton:4180 → tryton:8000"
         echo "${__STEP_OK__} configurar_kong_route"
     else
         _log "ADVERTENCIA: Kong no disponible — Ingress pendiente (ejecutar 'bosctl ficha repair tryton' cuando Kong esté activo)"
@@ -223,8 +301,12 @@ ficha_post_install() {
 
     _log "===================================================================="
     _log " Tryton ERP listo"
-    _log " URL: http://erp.skull.sbos.local (vía Kong)"
-    _log " Credenciales PG en Vault: $VAULT_PATH"
+    _log " URL: http://erp.skull.sbos.local (Kong → oauth2-proxy-tryton → Tryton)"
+    _log " Auth Fase 1: Keycloak realm skull (cliente: tryton-erp)"
+    _log " Auth Fase 2: cambiar ConfigMap tryton-auth → OIDC_ISSUER_URL de bAuth"
+    _log "             + kubectl rollout restart deployment/oauth2-proxy-tryton -n sbos-erp"
+    _log " Credenciales PG en Vault:   $VAULT_PATH"
+    _log " Credenciales OIDC en Vault: $VAULT_OIDC_PATH"
     _log " Siguiente paso: bosctl ficha init tryton --modules=account,sale,purchase"
     _log "===================================================================="
     return 0
@@ -239,10 +321,12 @@ ficha_repair() {
     _k apply -f "${FICHA_DIR}/resources/tryton-rbac.k8s.yml"    >> "$FICHA_LOG" 2>&1 || true
     _k apply -f "${FICHA_DIR}/resources/tryton-config.k8s.yml"  >> "$FICHA_LOG" 2>&1 || true
     _k apply -f "${FICHA_DIR}/resources/tryton.k8s.yml"          >> "$FICHA_LOG" 2>&1 || true
+    _k apply -f "${FICHA_DIR}/resources/tryton-auth.k8s.yml"    >> "$FICHA_LOG" 2>&1 || true
     _k apply -f "${FICHA_DIR}/resources/tryton-kong.k8s.yml"    >> "$FICHA_LOG" 2>&1 || true
 
-    # Reiniciar el StatefulSet para aplicar cambios de configuración
-    _k rollout restart statefulset tryton -n "$NAMESPACE" 2>/dev/null || true
+    # Reiniciar pods para aplicar cambios de configuración
+    _k rollout restart statefulset tryton             -n "$NAMESPACE" 2>/dev/null || true
+    _k rollout restart deployment oauth2-proxy-tryton -n "$NAMESPACE" 2>/dev/null || true
     _k wait --for=condition=Ready pod -l app=tryton -n "$NAMESPACE" --timeout=300s 2>/dev/null || true
 
     echo "${__STEP_OK__} reparar_tryton"
@@ -292,6 +376,20 @@ ficha_test() {
         ok=1
     fi
 
+    echo "${__STEP_START__} test_oauth2_proxy"
+    local proxy_ready
+    proxy_ready=$(_k get deployment oauth2-proxy-tryton -n "$NAMESPACE" \
+        -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    if [[ "${proxy_ready:-0}" -ge 1 ]]; then
+        echo "${__STEP_OK__} test_oauth2_proxy (readyReplicas=$proxy_ready)"
+    else
+        local auth_phase
+        auth_phase=$(_k get configmap tryton-auth -n "$NAMESPACE" \
+            -o jsonpath='{.data.SBOS_AUTH_PROVIDER}' 2>/dev/null || echo "desconocido")
+        echo "${__STEP_FAIL__} test_oauth2_proxy: no ready (proveedor=$auth_phase) — verificar registro KC"
+        ok=1
+    fi
+
     return $ok
 }
 
@@ -317,6 +415,13 @@ ficha_status() {
         "SELECT datname, pg_size_pretty(pg_database_size(datname)) FROM pg_database WHERE datname='tryton_db'" \
         2>/dev/null || echo "  (no disponible)"
     echo ""
+    echo "Auth (oauth2-proxy-tryton):"
+    _k get deployment oauth2-proxy-tryton -n "$NAMESPACE" -o wide 2>/dev/null || echo "  (no desplegado)"
+    local auth_phase
+    auth_phase=$(_k get configmap tryton-auth -n "$NAMESPACE" \
+        -o jsonpath='{.data.SBOS_AUTH_PROVIDER}' 2>/dev/null || echo "no disponible")
+    echo "  Proveedor OIDC activo: $auth_phase"
+    echo ""
     echo "Kong Ingress:"
     _k get ingress tryton-ingress -n "$NAMESPACE" 2>/dev/null || echo "  (no configurado)"
 }
@@ -325,16 +430,19 @@ ficha_status() {
 ficha_uninstall() {
     _log "ADVERTENCIA: desinstalando Tryton (BD y datos PVC preservados)"
     echo "${__STEP_START__} desinstalar"
-    _k delete statefulset tryton          -n "$NAMESPACE" --ignore-not-found --wait=false 2>/dev/null || true
-    _k delete service tryton             -n "$NAMESPACE" --ignore-not-found 2>/dev/null || true
-    _k delete ingress tryton-ingress     -n "$NAMESPACE" --ignore-not-found 2>/dev/null || true
-    _k delete kongplugin tryton-rate-limit -n "$NAMESPACE" --ignore-not-found 2>/dev/null || true
-    _k delete configmap tryton-config    -n "$NAMESPACE" --ignore-not-found 2>/dev/null || true
-    _k delete serviceaccount tryton-sa   -n "$NAMESPACE" --ignore-not-found 2>/dev/null || true
-    _k delete role tryton-role           -n "$NAMESPACE" --ignore-not-found 2>/dev/null || true
+    _k delete statefulset tryton              -n "$NAMESPACE" --ignore-not-found --wait=false 2>/dev/null || true
+    _k delete deployment oauth2-proxy-tryton  -n "$NAMESPACE" --ignore-not-found --wait=false 2>/dev/null || true
+    _k delete service tryton                 -n "$NAMESPACE" --ignore-not-found 2>/dev/null || true
+    _k delete service oauth2-proxy-tryton    -n "$NAMESPACE" --ignore-not-found 2>/dev/null || true
+    _k delete ingress tryton-ingress         -n "$NAMESPACE" --ignore-not-found 2>/dev/null || true
+    _k delete kongplugin tryton-rate-limit   -n "$NAMESPACE" --ignore-not-found 2>/dev/null || true
+    _k delete configmap tryton-config        -n "$NAMESPACE" --ignore-not-found 2>/dev/null || true
+    _k delete configmap tryton-auth          -n "$NAMESPACE" --ignore-not-found 2>/dev/null || true
+    _k delete serviceaccount tryton-sa       -n "$NAMESPACE" --ignore-not-found 2>/dev/null || true
+    _k delete role tryton-role               -n "$NAMESPACE" --ignore-not-found 2>/dev/null || true
     _k delete rolebinding tryton-rolebinding -n "$NAMESPACE" --ignore-not-found 2>/dev/null || true
-    # Secret y BD preservados — contienen datos del tenant
-    _log "PRESERVADO: tryton-pg-secret, tryton_db, PVC data-tryton-0"
+    # Secrets y BD preservados — contienen datos del tenant
+    _log "PRESERVADO: tryton-pg-secret, tryton-oidc-secret, tryton_db, PVC data-tryton-0"
     echo "${__STEP_OK__} desinstalar"
     return 0
 }

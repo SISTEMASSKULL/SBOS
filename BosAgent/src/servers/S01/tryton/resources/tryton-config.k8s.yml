@@ -19,6 +19,10 @@ data:
     [web]
     listen = 0.0.0.0:8000
     hostname = erp.skull.sbos.local
+    # Confiar X-Forwarded-For de oauth2-proxy y Kong (pods en red del cluster).
+    # Fase 1: oauth2-proxy-tryton inyecta cabeceras de usuario autenticado.
+    # Fase 2: mismo flujo — bAuth reemplaza a Keycloak, proxy no cambia.
+    trusted_proxies = 10.0.0.0/8
 
     # ── Logging ────────────────────────────────────────────────────
     [loggers]

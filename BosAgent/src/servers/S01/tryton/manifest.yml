@@ -42,7 +42,8 @@ resources:
     - resources/tryton-rbac.k8s.yml      # ServiceAccount + Role + RoleBinding
     - resources/tryton-config.k8s.yml    # ConfigMap trytond.conf (sin credenciales)
     - resources/tryton.k8s.yml           # Service + StatefulSet
-    - resources/tryton-kong.k8s.yml      # Kong Ingress + KongPlugin rate-limit
+    - resources/tryton-auth.k8s.yml      # ConfigMap tryton-auth + oauth2-proxy-tryton Deployment + Service
+    - resources/tryton-kong.k8s.yml      # Kong Ingress → oauth2-proxy-tryton:4180 + KongPlugin rate-limit
     - resources/tryton.network           # NetworkPolicy
 
 vault:
@@ -51,6 +52,11 @@ vault:
     - pg_password
     - pg_user
     - pg_db
+  oidc_secret_path: "secret/tenants/{{ tenant_id }}/tryton/oidc"
+  oidc_keys:
+    - client_secret    # Secreto del cliente OIDC registrado en Keycloak/bAuth
+    - cookie_secret    # Cookie secret de oauth2-proxy (32 bytes base64)
+    - client_id        # Siempre "tryton-erp"
 
 health:
   type: command
