@@ -326,6 +326,36 @@ func (s *PGRedisStore) UpdateDeviceState(dctxID string, state ContextState) erro
 	return nil
 }
 
+// SweepExpired marca como EXPIRADO todos los contextos activos cuyo expires_at < before.
+// Aplica sobre bos.context_session y bos.registered_device. Invalida cache Redis.
+// Retorna el total de registros actualizados (BC-08, C-04c).
+func (s *PGRedisStore) SweepExpired(before time.Time) (int, error) {
+	if s.db == nil {
+		return 0, nil
+	}
+	const stateExp = "EXPIRADO"
+	res, err := s.db.Exec(`
+		UPDATE bos.context_session
+		SET state = $1::bos_context_state_enum
+		WHERE state NOT IN ('INVALIDADO','EXPIRADO','ARCHIVADO') AND expires_at < $2`,
+		stateExp, before)
+	if err != nil {
+		return 0, fmt.Errorf("context.SweepExpired sessions: %w", err)
+	}
+	n1, _ := res.RowsAffected()
+
+	res2, err := s.db.Exec(`
+		UPDATE bos.registered_device
+		SET state = $1::bos_context_state_enum, updated_at = NOW()
+		WHERE state NOT IN ('INVALIDADO','EXPIRADO','ARCHIVADO') AND expires_at < $2`,
+		stateExp, before)
+	if err != nil {
+		return int(n1), fmt.Errorf("context.SweepExpired devices: %w", err)
+	}
+	n2, _ := res2.RowsAffected()
+	return int(n1 + n2), nil
+}
+
 // UpdateSessionState actualiza el estado de una SessionContext en PG e invalida cache.
 // Si el estado es terminal (INVALIDADO/EXPIRADO/ARCHIVADO), elimina del cache Redis
 // para que Kong deje de aceptar el ctx_id inmediatamente (SBOS-049 §8).

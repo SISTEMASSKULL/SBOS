@@ -3,10 +3,11 @@
 package context
 
 import (
-	"errors"
 	"context"
+	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"bos/internal/domain"
@@ -24,13 +25,17 @@ type Store interface {
 	UpdateDeviceState(dctxID string, state ContextState) error
 	UpdateSessionState(ctxID string, state ContextState) error
 	AutoMigrate(ctx context.Context) error // F10.B.12: DDL auto-apply
+	// SweepExpired marca como EXPIRADO los contextos cuyo expires_at < before (BC-08, C-04c).
+	SweepExpired(before time.Time) (int, error)
 }
 
 // Service implementa las operaciones del Context Plane.
-// Todos los métodos son thread-safe; no lanza goroutines — cumple TEA P3.
+// Todos los métodos son thread-safe.
+// StartSweeper es la única goroutine que puede lanzar — requiere llamado explícito (BC-08).
 type Service struct {
-	store     Store
-	ctxDomain *domain.CtxService // Create/Validate W3C traceparent (M-14)
+	store         Store
+	ctxDomain     *domain.CtxService // Create/Validate W3C traceparent (M-14)
+	sweeperActive int32              // atomic: 1 si el sweeper de expiración está corriendo (C-04c)
 }
 
 // NewService crea un Service con el Store dado.
@@ -256,6 +261,52 @@ func (svc *Service) Heartbeat(ctxID string) (*SessionContext, error) {
 	return sctx, nil
 }
 
+// ─── Sweeper de expiración (BC-08, C-04c) ────────────────────────────────────
+
+// SweepExpired marca como EXPIRADO todos los contextos activos cuyo TTL expiró.
+// Idempotente: llama sucesivas veces sin efecto si no hay expirados.
+func (svc *Service) SweepExpired() (int, error) {
+	return svc.store.SweepExpired(time.Now().UTC())
+}
+
+// SweeperRunning retorna true si el sweeper de expiración está activo (C-04c).
+func (svc *Service) SweeperRunning() bool {
+	return atomic.LoadInt32(&svc.sweeperActive) == 1
+}
+
+// StartSweeper lanza una goroutine que llama SweepExpired cada interval.
+// Retorna una función stop() que detiene el sweeper (usar con defer en daemon).
+// interval recomendado: 30s (C-04c). Solo lanzar desde cmd/bos/run_normal.go.
+func (svc *Service) StartSweeper(ctx context.Context, interval time.Duration) func() {
+	if interval <= 0 {
+		interval = 30 * time.Second
+	}
+	atomic.StoreInt32(&svc.sweeperActive, 1)
+	stopCh := make(chan struct{})
+	go func() {
+		defer atomic.StoreInt32(&svc.sweeperActive, 0)
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				_, _ = svc.SweepExpired()
+			case <-stopCh:
+				return
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	return func() {
+		select {
+		case <-stopCh: // ya cerrado
+		default:
+			close(stopCh)
+		}
+	}
+}
+
 // ─── Context Plane — Create / Validate (M-14, unificado desde domain) ────────
 
 // Create genera un nuevo ctx_id con traceparent W3C (SBOS-049, RFC 7519).
@@ -367,5 +418,25 @@ func (m *memStore) UpdateSessionState(ctxID string, state ContextState) error {
 	return nil
 }
 
-	// AutoMigrate es no-op en memStore — el DDL solo aplica con PG real.
-	func (m *memStore) AutoMigrate(ctx context.Context) error { return nil }
+// AutoMigrate es no-op en memStore — el DDL solo aplica con PG real.
+func (m *memStore) AutoMigrate(ctx context.Context) error { return nil }
+
+// SweepExpired marca como StateExpirado las sesiones y dispositivos cuyo TTL caducó.
+func (m *memStore) SweepExpired(before time.Time) (int, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	count := 0
+	for _, s := range m.sessions {
+		if !s.State.IsTerminal() && s.ExpiresAt.Before(before) {
+			s.State = StateExpirado
+			count++
+		}
+	}
+	for _, d := range m.devices {
+		if !d.State.IsTerminal() && d.ExpiresAt.Before(before) {
+			d.State = StateExpirado
+			count++
+		}
+	}
+	return count, nil
+}

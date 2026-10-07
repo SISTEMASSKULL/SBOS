@@ -1,6 +1,6 @@
 // Package server — ctx_handlers.go: handlers JSON-RPC del Context Plane completo.
 // F5.4 — BOS-REPAIR Plan Maestro v3.
-// 7 métodos: device.register, promote, switch, invalidate, get, list, tenant.suspend.
+// BC-08: +bos.ctx.sweep + rate limiting en device.register
 package server
 
 import (
@@ -11,6 +11,24 @@ import (
 	bosctx "bos/internal/context"
 	"bos/internal/paths"
 )
+
+// ── bos.ctx.sweep ────────────────────────────────────────────────────────
+
+// rpcCtxSweep lanza un barrido manual de expiración de contextos (BC-08, C-04c).
+//
+// Params: ninguno
+// Returns: {"expired": int, "swept_at": string, "sweeper_running": bool}
+func (s *Server) rpcCtxSweep(req *RPCRequest) RPCResponse {
+	n, err := s.bosCtxSvc.SweepExpired()
+	if err != nil {
+		return rpcFail(req.ID, rpcError(ErrInternal, err.Error()))
+	}
+	return rpcOK(req.ID, map[string]interface{}{
+		"expired":         n,
+		"swept_at":        time.Now().UTC().Format(time.RFC3339),
+		"sweeper_running": s.bosCtxSvc.SweeperRunning(),
+	})
+}
 
 // ── bos.ctx.device.register ───────────────────────────────────────────────
 
@@ -28,6 +46,10 @@ func (s *Server) rpcCtxDeviceRegister(req *RPCRequest) RPCResponse {
 	}
 	if err := parseParams(req.Params, &p); err != nil {
 		return rpcFail(req.ID, rpcError(ErrInvalidParams, err.Error()))
+	}
+	// Rate limiting NRS-08: máx registros/s por tenant_id (re-usa IPLimiter)
+	if s.limiter != nil && !s.limiter.Allow(p.TenantID) {
+		return rpcFail(req.ID, rpcError(ErrRateLimit, "límite de registros excedido para el tenant — reintente en un momento"))
 	}
 	dctx, err := s.bosCtxSvc.RegisterDevice(p.Hostname, p.TenantID, p.NodeK8s, p.IP)
 	if err != nil {

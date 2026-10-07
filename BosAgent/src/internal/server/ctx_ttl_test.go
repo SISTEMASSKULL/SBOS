@@ -43,6 +43,7 @@ func (expiredStore) ListSessionsByTenant(string) ([]*bosctx.SessionContext, erro
 func (expiredStore) UpdateDeviceState(string, bosctx.ContextState) error  { return nil }
 func (expiredStore) UpdateSessionState(string, bosctx.ContextState) error { return nil }
 func (expiredStore) AutoMigrate(ctx context.Context) error               { return nil }
+func (expiredStore) SweepExpired(time.Time) (int, error)                  { return 0, nil }
 
 func makeExpiredServer() *Server {
 	return &Server{

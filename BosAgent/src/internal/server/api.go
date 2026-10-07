@@ -240,6 +240,16 @@ func (s *Server) AutoMigrateContextPlane(ctx context.Context) error {
 	return s.bosCtxSvc.AutoMigrate(ctx)
 }
 
+// StartContextSweeper inicia el sweeper de expiración del Context Plane (BC-08, C-04c).
+// Retorna una función stop() que debe llamarse con defer en el daemon.
+// interval = 0 usa el default 30s.
+func (s *Server) StartContextSweeper(interval time.Duration) func() {
+	if s.bosCtxSvc == nil {
+		return func() {}
+	}
+	return s.bosCtxSvc.StartSweeper(context.Background(), interval)
+}
+
 // SetReleaseManager inyecta el Release Checker del SKULL Release Plane (ADR-019).
 // El ReleaseChecker consulta periódicamente al Release Server de SKULL para detectar
 // actualizaciones disponibles de fichas, verificando firma Ed25519 + SHA-256.

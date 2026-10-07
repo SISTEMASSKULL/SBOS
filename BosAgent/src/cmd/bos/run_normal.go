@@ -423,6 +423,11 @@ func runNormal(cfg *config.Config, benv *bootstrapEnv) {
 		log.Info().Msg("Context Plane DDL verificado (AutoMigrate OK)")
 	}
 
+	// 9.6 Sweeper de expiración del Context Plane (BC-08, C-04c — intervalo 30s)
+	stopSweeper := apiServer.StartContextSweeper(30 * time.Second)
+	defer stopSweeper()
+	log.Info().Msg("Context Plane: sweeper de expiración iniciado (intervalo=30s, C-04c)")
+
 	// 10. Arrancar subsistemas
 	go healthChecker.Run()
 	go reconcileScheduler.Run()
