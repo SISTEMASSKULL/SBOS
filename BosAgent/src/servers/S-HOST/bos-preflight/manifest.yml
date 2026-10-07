@@ -2,7 +2,7 @@ identity:
   id: bos-preflight
   server: S-HOST
   version: 1.0.0
-  category: 0
+  category: 1
   criticality: true
   description: "Preflight de BOS — usuario bosagent, directorios, paquetes del SO y cgroup v2"
 

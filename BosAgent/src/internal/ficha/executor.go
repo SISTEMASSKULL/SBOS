@@ -379,6 +379,8 @@ func buildPhaseScript(phase, fichaID, command, taskDir string) string {
 	sb.WriteString(fmt.Sprintf("export FICHA_DIR=\"%s\"\n", taskDir))
 	sb.WriteString(fmt.Sprintf("export FICHA_LOG=\"${FICHA_LOG:-/var/log/bos/fichas/%s.log}\"\n", fichaID))
 	sb.WriteString("export KUBECONFIG_DEST=\"${KUBECONFIG_DEST:-/etc/bos/.kube/config}\"\n\n")
+	// Crear directorio de log antes de cualquier escritura por parte de la ficha.
+	sb.WriteString("mkdir -p \"$(dirname \"$FICHA_LOG\")\" 2>/dev/null || true\n\n")
 
 	// Sourcear helpers del core si existen
 	sb.WriteString("# Sourcear task_catalog.sh de la ficha\n")

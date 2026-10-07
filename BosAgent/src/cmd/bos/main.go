@@ -16,8 +16,10 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"bos/internal/boslog"
@@ -47,6 +49,38 @@ func newSlogLogger(subsystem string) *slog.Logger {
 }
 
 func main() {
+	// Interceptar subcomandos antes de parsear flags del daemon.
+	// El usuario escribe "bos install" pero "bos" es el daemon.
+	// Delegamos a "bosctl install" que vive junto a este binario.
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "install", "setup":
+			self, _ := os.Executable()
+			bosctlPath := filepath.Join(filepath.Dir(self), "bosctl")
+			if _, err := os.Stat(bosctlPath); os.IsNotExist(err) {
+				bosctlPath, _ = exec.LookPath("bosctl")
+				if bosctlPath == "" {
+					fmt.Fprintln(os.Stderr, "bos: bosctl no encontrado — instalar con: sudo bash install.sh")
+					os.Exit(1)
+				}
+			}
+			cmd := exec.Command(bosctlPath, append([]string{"install"}, os.Args[2:]...)...)
+			cmd.Stdin = os.Stdin
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err := cmd.Run(); err != nil {
+				if exitErr, ok := err.(*exec.ExitError); ok {
+					os.Exit(exitErr.ExitCode())
+				}
+				os.Exit(1)
+			}
+			os.Exit(0)
+		case "version", "-v", "--version":
+			fmt.Println(version)
+			os.Exit(0)
+		}
+	}
+
 	flag.Parse()
 	boslog.Init("bos")
 
