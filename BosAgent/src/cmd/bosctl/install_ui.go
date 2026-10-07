@@ -3,18 +3,20 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"bos/internal/paths"
 )
 
 // cmdSetup es el punto de entrada de "bosctl setup" / "bos install".
-// Flujo: system-install → start daemon → deploy seed.
+// Flujo: detectar estado previo → limpiar si hay fallos → system-install → start daemon → deploy seed.
 func cmdSetup(args []string) int {
 	fs := flag.NewFlagSet("setup", flag.ContinueOnError)
 	// Buscar seed en orden: junto al binario → servers/ del paquete → CWD.
@@ -30,7 +32,32 @@ func cmdSetup(args []string) int {
 		return 2
 	}
 
-	// Si el daemon no está corriendo, ejecutar system-install
+	// Detectar instalaciones fallidas o interrumpidas del intento anterior.
+	failedFichas := detectFailedInstall(paths.StatePath)
+	if len(failedFichas) > 0 {
+		sort.Strings(failedFichas)
+		fmt.Println("\n⚠  Instalación anterior incompleta detectada:")
+		for _, f := range failedFichas {
+			fmt.Printf("   • %s\n", f)
+		}
+		fmt.Println("   Limpiando estado para reinstalar desde cero...")
+
+		// Detener el daemon si está corriendo antes de limpiar.
+		exec.Command("systemctl", "stop", "bos-console.service").Run()
+		exec.Command("systemctl", "stop", "bos.service").Run()
+		time.Sleep(2 * time.Second)
+
+		// Eliminar socket residual si quedó (daemon puede haber crasheado).
+		os.Remove(paths.SocketPath)
+
+		// Limpiar el state file — el deploy del seed restablece los estados correctos.
+		if err := os.Remove(paths.StatePath); err != nil && !os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "advertencia: no se pudo limpiar state file: %v\n", err)
+		}
+		fmt.Println("   Estado limpiado — procediendo con instalación limpia.\n")
+	}
+
+	// Si el daemon no está corriendo (primera instalación o fue detenido arriba), ejecutar system-install.
 	if _, err := os.Stat(paths.SocketPath); os.IsNotExist(err) {
 		fmt.Println("Daemon no detectado — ejecutando system-install...")
 		if code := cmdSystemInstall([]string{"--mode", *modeFlag}); code != 0 {
@@ -49,6 +76,44 @@ func cmdSetup(args []string) int {
 	fmt.Printf("  seed: %s\n", *seedFile)
 	fmt.Printf("  mode: %s\n\n", *modeFlag)
 	return cmdDeploy([]string{*seedFile})
+}
+
+// detectFailedInstall lee el state file y retorna las fichas con estados problemáticos:
+// INSTALL_FAILED, UPDATE_FAILED, UNRECOVERABLE (fallos definitivos) e
+// INSTALLING/UPDATING/REPAIRING zombie (proceso interrumpido sin completar).
+// Retorna nil si no hay state file (instalación nueva) o si todo está OK.
+func detectFailedInstall(statePath string) []string {
+	data, err := os.ReadFile(statePath)
+	if err != nil {
+		return nil
+	}
+
+	var raw struct {
+		Fichas map[string]struct {
+			State string `json:"state"`
+		} `json:"fichas"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		// State file corrupto — tratar como instalación fallida.
+		return []string{"<state file corrupto>"}
+	}
+
+	badStates := map[string]bool{
+		"INSTALL_FAILED": true,
+		"UPDATE_FAILED":  true,
+		"UNRECOVERABLE":  true,
+		"INSTALLING":     true, // zombie: proceso fue interrumpido
+		"UPDATING":       true, // zombie
+		"REPAIRING":      true, // zombie
+	}
+
+	var failed []string
+	for name, ficha := range raw.Fichas {
+		if badStates[ficha.State] {
+			failed = append(failed, fmt.Sprintf("%s (%s)", name, ficha.State))
+		}
+	}
+	return failed
 }
 
 // resolveSeedPath busca seed-skull.yml en orden de precedencia:
