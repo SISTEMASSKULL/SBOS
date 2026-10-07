@@ -1,9 +1,9 @@
 # Plan de Implementación BOS — De la Primera Ficha al VDI Operativo
 
-**Versión:** 2.0.0  
+**Versión:** 2.1.0  
 **Fecha:** 2026-10-07  
 **Autor:** bos-developer  
-**Estado:** PROPUESTA — pendiente aprobación HITL  
+**Estado:** BC-07..BC-13 COMPLETOS — pendiente pruebas de instalación en VPS  
 **Ref:** ADR-040 (bootstrap), ADR-022 (sin intervención manual), SBOS-049 (ctx_id), SBOS-050 (puertos)
 
 ---
@@ -21,39 +21,43 @@ dispositivo con autenticación física (NFC/biométrico).
 
 ## 2. Estado actual verificado en disco (2026-10-07)
 
-### 2.1 Catálogo real
+### 2.1 Catálogo real — post BC-07..BC-13
 
 | Métrica | Valor |
 |---------|-------|
-| Fichas con `manifest.yml` en `SBOS/servers/` (canónico) | **131** (S00–S15 activas) |
-| Fichas con `task_catalog.sh` | **131** (100%) |
-| Fichas antes del VDI (execution_order < 355) | **106** |
-| Fichas VDI (execution_order 355–360) | **4** (fedora-kde · nextcloud · guacamole · onlyoffice) |
-| Fichas post-VDI (geo, ops, AI…) | **20+** |
-| S16-webserver (nginx/certbot/modsecurity/weblate) | declaradas como dirs — **sin manifest.yml** |
-| Daemons soberanos sin ficha declarada | bauth · bnotify · bhnexus · banexus · biedata · bsearch · bcompass · bkernel |
+| Fichas con `manifest.yml` en `SBOS/servers/` (canónico) | **143** (S00–S16) |
+| Fichas con `task_catalog.sh` | **143** (100%) |
+| Fichas antes del VDI (execution_order < 355) | **109** |
+| Fichas VDI (execution_order 355–360) | **4** — fedora-kde · nextcloud · guacamole · onlyoffice |
+| Fichas post-VDI (geo, ops, AI, S16…) | **30** |
+| S16-webserver | **4 fichas completas** — nginx · certbot · modsecurity · weblate |
+| Daemons soberanos sin ficha declarada | ~~8~~ → **0** — todos declarados |
 
 ### 2.2 Niveles de implementación del task_catalog.sh
 
 | Nivel | Ubicación | Fichas | Descripción |
 |-------|-----------|--------|-------------|
 | **ROBUSTO** | `BosAgent/src/servers/` | 11 | 300–820 líneas · lógica K8s completa · verificadas en VPS |
-| **STUB** | `SBOS/servers/<Sxx>/` | ~120 | 50–80 líneas · estructura correcta · manifests K8s necesarios |
+| **COMPLETO** | `SBOS/servers/<Sxx>/` | 12 | k8s.yml + task_catalog.sh real + Secret/ConfigMap generados |
+| **STUB** | `SBOS/servers/<Sxx>/` | ~120 | estructura correcta · manifests K8s pendientes de completar |
 
 Las 11 fichas robustas (manual 1.01 §12.1 ✅):
 `bos-preflight` · `sbos-bootstrap-os/k8s/cni/storage` · `sbos-namespace` · `postgresql` (820 l.) · `redis` (584 l.) · `vault` · `keycloak` · `kong`
 
-### 2.3 Brechas reales bloqueantes
+Las 12 fichas completas (BC-09..BC-13 ✅ commits `6c4a456`..`76d1522`):
+`bauth` · `bhnexus` · `banexus` · `fedora-kde` · `nextcloud` · `guacamole` · `onlyoffice` · `biedata` · `bnotify` · `bsearch` · `nginx (S16)` · `certbot · modsecurity · weblate`
 
-| ID | Brecha | Bloquea |
-|----|--------|---------|
-| **BC-07** | `DbInitService` no existe — aplicación manual de DDLs | Capa 2+ |
-| **BC-08** | Context Plane incompleto (sin heartbeat, rate limit, auditoría) | bAuth |
-| **BC-09** | Ficha `bauth` no declarada en `servers/` | VDI autenticación |
-| **BC-10** | Fichas `bhnexus`/`banexus` no declaradas en `servers/` | NFC/chapas |
-| **BC-11** | Fichas VDI son STUB (58–73 líneas) — sin manifests K8s reales | VDI funcional |
-| **BC-12** | Fichas `bnotify`, `biedata`, `bsearch`, `bcompass`, `bkernel` no declaradas | Datos y notificaciones |
-| **BC-13** | S16-webserver (nginx/certbot/modsecurity/weblate) sin manifest.yml | Dominio público TLS |
+### 2.3 Brechas resueltas (BC-07..BC-13)
+
+| ID | Brecha | Estado | Commit |
+|----|--------|--------|--------|
+| **BC-07** | `DbInitService` no existía — DDLs manuales | ✅ RESUELTO | `377fb29` |
+| **BC-08** | Context Plane sin sweeper/rate-limit | ✅ RESUELTO | `4c45f61` |
+| **BC-09** | Ficha `bauth` no declarada | ✅ RESUELTO | `6c4a456` |
+| **BC-10** | Fichas `bhnexus`/`banexus` no declaradas | ✅ RESUELTO | `7278bd8` |
+| **BC-11** | Fichas VDI eran STUBs sin k8s.yml reales | ✅ RESUELTO | `b049fa3` |
+| **BC-12** | Daemons soberanos sin ficha | ✅ RESUELTO | `61fac4d` |
+| **BC-13** | S16-webserver sin manifest.yml | ✅ RESUELTO | `76d1522` |
 
 ---
 
@@ -111,7 +115,7 @@ CAPA 8 — Geo + Ops + AI (S13–S15)                execution_order 365–430
 | Order | Ficha | Estado | Notas |
 |-------|-------|--------|-------|
 | 100 | postgresql | ✅ 820 l. | SBOS_db + schemas · Verif: C-04 |
-| — | **DbInitService** | 🔴 FALTA | BC-07: DDLs + seeds tras C-04 |
+| — | **DbInitService** | ✅ BC-07 | `DbInitService` automático tras C-04 — commit `377fb29` |
 | 105 | pgbouncer | 🟡 | connection pooler PG |
 | 108 | pgbackrest | 🟡 | backup PG continuo |
 | 110 | redis | ✅ 584 l. | 3 DBs · AOF · Verif: C-05 |
@@ -141,8 +145,8 @@ CAPA 8 — Geo + Ops + AI (S13–S15)                execution_order 365–430
 | 160 | stalwart | 🟡 86 l. | servidor correo JMAP/IMAP/SMTP |
 | 162 | wazuh-indexer | 🟡 | índice Wazuh (Elasticsearch-based) |
 | 165 | openvas | 🟡 | scanner vulnerabilidades |
-| — | **bauth** | 🔴 FALTA | BC-09: daemon identidad soberana |
-| — | **bnotify** | 🔴 FALTA | BC-12: push MFA + notificaciones |
+| 148 | **bauth** | ✅ BC-09 | S03 · SystemdService · /run/bos/bauth.sock — commit `6c4a456` |
+| 152 | **bnotify** | ✅ BC-12 | S03 · SystemdService · /run/bos/bnotify.sock — commit `61fac4d` |
 
 ### CAPA 4 — S04/S05: ERP + Smart apps (execution_order 170–192)
 
@@ -216,17 +220,17 @@ CAPA 8 — Geo + Ops + AI (S13–S15)                execution_order 365–430
 | 342 | mongodb | 🟡 | MongoDB (para Rocket.Chat) |
 | 345 | mattermost | 🟡 | mensajería alternativa |
 | 350 | centrifugo | 🟡 | WebSocket pub/sub tiempo real |
-| — | **bhnexus** | 🔴 FALTA | BC-10: proxy hardware WebSocket :9444 |
-| — | **banexus** | 🔴 FALTA | BC-10: edge sentinel NFC/biométrico |
+| 148 | **bhnexus** | ✅ BC-10 | S02 · SystemdService · port 9444 TLS + unix sock — commit `7278bd8` |
+| 149 | **banexus** | ✅ BC-10 | S02 · SystemdService · Requires=bhnexus — commit `7278bd8` |
 
 ### CAPA 7 — VDI Server S11 (execution_order 355–360) — META PRINCIPAL
 
 | Order | Ficha | Estado | Prerequisito real |
 |-------|-------|--------|-------------------|
-| 355 | fedora-kde | 🟡 57 l. | imagen Fedora KDE + TigerVNC |
-| 358 | nextcloud | 🟡 58 l. | almacenamiento soberano (OIDC via bAuth) |
-| 359 | guacamole | 🟡 73 l. | gateway HTML5 VNC/RDP (OIDC via bAuth) |
-| 360 | onlyoffice | 🟡 58 l. | editor documentos (integrado Nextcloud) |
+| 355 | fedora-kde | ✅ lscr.io/linuxserver/webtop:fedora-kde · noVNC :3000 · PVC 20Gi | bAuth OIDC |
+| 357 | nextcloud | ✅ nextcloud:30.0-apache · PVC 500Gi · pre_install crea nextcloud_db | bAuth OIDC |
+| 358 | guacamole | ✅ guacamole 1.5.5 · initdb.sh · OIDC ConfigMap | bAuth OIDC · guacamole_db |
+| 358 | onlyoffice | ✅ onlyoffice/documentserver:8.2 · JWT · /healthcheck · PVC 50Gi | onlyoffice_db |
 
 ### Fichas post-VDI (S13–S15) — no bloquean el VDI
 
@@ -236,103 +240,155 @@ CAPA 8 — Geo + Ops + AI (S13–S15)                execution_order 365–430
 | 380–405 | gitlab/k6/trivy/bareos/velero/goss/pgbackrest-svc/searxng | S14 | operaciones |
 | 410–430 | ollama/open-webui/qdrant/embedding-worker/langfuse/flowise/bcompass-svc | S15 | IA |
 
-### Fichas sin execution_order aún (pendientes)
+### Fichas sin execution_order aún (pendiente)
 
 | Ficha | Servidor | Estado |
 |-------|---------|--------|
 | sbos-notifier | S06 | 🟡 285 l. (execution_order pendiente) |
-| certbot | S16 | 🔴 sin manifest.yml |
-| modsecurity | S16 | 🔴 sin manifest.yml |
-| nginx | S16 | 🔴 sin manifest.yml |
-| weblate | S16 | 🔴 sin manifest.yml |
 
 ---
 
-## 5. Brechas por resolver — prioridad para llegar al VDI
+## 5. Lo que falta para las pruebas de instalación
 
-### BC-07 — DbInitService (BLOQUEANTE para todo lo demás)
+BC-07..BC-13 cierran todas las brechas de *declaración*. Lo que queda son brechas de
+**compilación, despliegue y verificación** en el VPS real.
 
-BOS debe inicializar SBOS_db inmediatamente después de postgresql C-04.
+### PT-01 — BOS compilar y desplegar en VPS (PREREQUISITO GLOBAL)
 
-```
-internal/domain/dbinit_service.go   ← lógica pura
-internal/server/rpc_db.go           ← bos.db.init · bos.db.status
-cmd/bosctl/db.go                    ← bosctl db init | db status
-```
+BOS ya está corriendo en el VPS (`bos.service` activo, commit `c6d3b1e`).
+Antes de cualquier prueba hay que recompilar con los cambios BC-07 y BC-08:
 
-Nuevo criterio: **C-04b — SBOSDB inicializada** (bauth ≥ 130 tablas · bos ≥ 21 · bglobal ≥ 10)
-
-### BC-08 — Context Plane completo
-
-Sin heartbeat de dctx_id (30s TTL), sin rate limiting y sin auditoría, bAuth no puede funcionar.
-Archivo: `internal/context/service.go` + `internal/server/rpc_ctx.go`
-
-Nuevo criterio: **C-04c — Context Plane operativo**
-
-### BC-09 — Ficha bauth (crear en SBOS/servers/)
-
-```
-servers/S03-identityserver/bauth/
-  manifest.yml         ← identity, depends_on: [keycloak, vault, postgresql, kong], execution_order: 148
-  task_catalog.sh      ← bauth_install, bauth_verify, bauth_health, bauth_repair
-  PROPOSITO.md         ← obligatorio (servers.yml §4)
-  resources/           ← systemd unit, socket perms
+```bash
+# En BosAgent/src/
+CGO_ENABLED=0 /home/skull/sdk/go/bin/go build ./...
+/home/skull/sdk/go/bin/go test -race -count=2 ./...
+# Desplegar en VPS:
+scp -r bin/bos root@13.140.128.230:/usr/local/bin/bos
+systemctl restart bos.service
 ```
 
-### BC-10 — Fichas bhnexus + banexus (crear en SBOS/servers/)
+**Verificar:** `bosctl health` → `{"status":"ok"}` · `bosctl ctx create --tenant skull` → `ctx_id` válido
 
+---
+
+### PT-02 — Verificar cadena C-01..C-08 en VPS
+
+Antes de instalar VDI, confirmar que la infraestructura base ya está operativa:
+
+| Criterio | Comando de verificación | Estado esperado |
+|----------|------------------------|-----------------|
+| C-01 OS | `bosctl bootstrap status os` | ✅ running |
+| C-02 K8s | `kubectl get nodes` | Ready |
+| C-03 CNI | `kubectl get pods -n kube-system \| grep calico` | Running |
+| C-04 PG | `kubectl exec -n sbos-data statefulset/postgresql -- psql -U postgres -c '\l'` | SBOSDB visible |
+| **C-04b** | `bosctl db status` | bauth≥130 · bos≥21 tablas |
+| **C-04c** | `bosctl ctx create --tenant skull` | dctx_id < 10ms |
+| C-05 Redis | `kubectl exec -n sbos-data statefulset/redis -- redis-cli ping` | PONG |
+| C-06 Vault | `kubectl exec -n sbos-gateway statefulset/vault -- vault status` | sealed=false |
+| C-07 KC | `curl -sf https://SBOS_DOMAIN/auth/realms/skbos` | realm JSON |
+| C-08 Kong | `kubectl exec -n sbos-gateway deployment/kong -- kong health` | alive |
+
+**Bloqueo:** C-04b requiere BOS reiniciado con BC-07 (`DbInitService`). Si SBOSDB ya tiene las tablas desde migraciones manuales previas, `DbInitService` las detecta y no hace nada (idempotente).
+
+---
+
+### PT-03 — Compilar y desplegar daemons soberanos
+
+Los daemons tienen ficha declarada pero sus **binarios** deben compilarse y copiarse al VPS antes de instalar:
+
+| Daemon | Repositorio | Binario destino en VPS | Prerequisito |
+|--------|-------------|------------------------|--------------|
+| **bauth** | `BauthAgent/` | `/usr/local/bin/bauth` | PG + Vault + KC + Kong |
+| **bhnexus** | `BnexusAgent/` (Rust MUSL) | `/usr/local/bin/bhnexus` | bauth activo |
+| **banexus** | `BnexusAgent/` (Rust MUSL) | `/usr/local/bin/banexus` | bhnexus activo |
+| **bkernel** | `BkernelAgent/` (Rust MUSL) | `/usr/local/bin/bkernel-daemon` | PG + Redis |
+| **bnotify** | `BnotifyAgent/` (Rust MUSL) | `/usr/local/bin/bnotify` | bauth activo |
+| **biedata** | `BiedataAgent/` | `/usr/local/bin/biedata` | bkernel + bauth |
+| **bsearch** | `BintelligenceAgent/` | `/usr/local/bin/bsearch` | PG + bauth |
+
+Comando tipo para daemon Rust:
+```bash
+cargo build --release --target x86_64-unknown-linux-musl
+scp target/x86_64-unknown-linux-musl/release/<daemon> root@13.140.128.230:/usr/local/bin/
 ```
-servers/S02-gatewayserver/bhnexus/
-  manifest.yml         ← execution_order: 148, depends_on: [bauth, kong, vault], port: 9444
-  task_catalog.sh
 
-servers/S02-gatewayserver/banexus/
-  manifest.yml         ← execution_order: 149, depends_on: [bhnexus], host=true (sin K8s)
-  task_catalog.sh
+**Instalación via BOS (una vez binario copiado):**
+```bash
+bosctl ficha install bauth
+bosctl ficha install bhnexus
+bosctl ficha install banexus
 ```
 
-### BC-11 — Completar STUBs del VDI (S11)
+---
 
-Las 4 fichas VDI (fedora-kde, nextcloud, guacamole, onlyoffice) necesitan:
-1. `<app>.k8s.yml` — Deployment/StatefulSet real con recursos K8s
-2. `<app>.volume` — PVC (nextcloud: 500Gi)
-3. `resources/` — configuraciones, SQL schema si aplica
-4. Lógica de `ficha_install()` real en task_catalog.sh (actualmente llama `sbos_k8s_core` genérico)
+### PT-04 — Instalar fichas VDI (ruta crítica)
 
-### BC-12 — Fichas daemons faltantes (crear en SBOS/servers/)
+Con la infraestructura base operativa (PT-01..PT-03), instalar las 4 fichas VDI en orden:
 
-| Daemon | Servidor destino | execution_order sugerido |
-|--------|-----------------|--------------------------|
-| bnotify | S03-identityserver | 149 (después de bauth) |
-| biedata | S01-dataserver | 117 (después de minio) |
-| bsearch | S01-dataserver | 119 (después de citus) |
-| bcompass | S15-aiserver | 431 (después de flowise) |
-| bkernel (daemon) | S01-dataserver | 70 (o ajustar sbos-bkernel) |
+```bash
+bosctl ficha install fedora-kde    # pre_install: crea namespace + Secret
+bosctl ficha install nextcloud     # pre_install: crea nextcloud_db + Secret
+bosctl ficha install guacamole     # pre_install: crea guacamole_db + schema + OIDC
+bosctl ficha install onlyoffice    # pre_install: crea onlyoffice_db + JWT secret
+```
 
-### BC-13 — S16-webserver (agregar manifest.yml a cada ficha)
+**Verificaciones parciales:**
+```bash
+kubectl get pods -n sbos-vdi       # todos Running
+bosctl ficha health fedora-kde     # :3000 responde
+bosctl ficha health nextcloud      # /status.php responde
+bosctl ficha health guacamole      # /api/languages responde
+bosctl ficha health onlyoffice     # /healthcheck responde
+```
 
-Las 4 fichas S16 tienen directorio pero sin manifest.yml. Ejecutan después del VDI.
+---
+
+### PT-05 — Prueba de extremo a extremo (criterio VDI operativo)
+
+| Paso | Acción | Criterio de éxito |
+|------|--------|-------------------|
+| 1 | Presentar tarjeta NFC al lector | LED verde · banexus captura evento |
+| 2 | banexus → bhnexus → bAuth | `device.register` < 2s · ctx_id creado |
+| 3 | BOS genera sesión VDI | `bos.ctx.create` responde con `session_id` |
+| 4 | Abrir browser `https://{dominio}/guacamole` | Pantalla login Guacamole visible |
+| 5 | Login OIDC vía Keycloak → bAuth | JWT válido · token bitmask generado |
+| 6 | Guacamole conecta a fedora-kde :3000 | Sesión Fedora KDE visible en browser |
+| 7 | Montar Nextcloud en Fedora KDE | Carpeta `~/Nextcloud` accesible |
+| 8 | Crear documento con OnlyOffice | Documento guardado · visible en Nextcloud |
+| 9 | Cerrar sesión → guardar estado | Home persiste en PVC `fedora-kde-home` |
+
+---
+
+### PT-06 — Brechas de implementación pendientes (no bloquean prueba inicial)
+
+Estas brechas no impiden la prueba de instalación básica pero deben resolverse antes de producción:
+
+| ID | Descripción | Impacto |
+|----|-------------|---------|
+| **PT-06a** | `bosctl db status` no implementado aún en CLI (BC-07 solo tiene RPC) | Verificación manual de C-04b |
+| **PT-06b** | `cert-rotation` (S00) no tiene CA configurada para bhnexus | bhnexus usa openssl fallback |
+| **PT-06c** | ConfigMap OIDC de guacamole usa `SBOS_DOMAIN` — necesita el dominio real del tenant | Hardcodear en pre_install o inyectar vía BOS config |
+| **PT-06d** | Fichas STUB Capa 2 (pgbouncer, pgbackrest, minio) no tienen k8s.yml | No bloquean VDI pero degradan robustez |
+| **PT-06e** | `bcompass` está en S15 como K8s Deployment — binario no compilado | No bloquea VDI (es opcional AI) |
 
 ---
 
 ## 6. Orden de implementación recomendado
 
 ```
-BC-07  DbInitService (SBOS_db automática)
+[COMPLETADO] BC-07..BC-13 — Todas las brechas de declaración cerradas
+
+[SIGUIENTE] Pruebas de instalación:
+
+PT-01  Recompilar BOS + desplegar en VPS
   ↓
-BC-08  Context Plane completo
+PT-02  Verificar C-01..C-08 en VPS (infraestructura base)
   ↓
-BC-09  Ficha bauth en servers/
+PT-03  Compilar y desplegar bAuth + bhnexus + banexus + bkernel
   ↓
-BC-10  Fichas bhnexus + banexus
-  ↓ (en paralelo:)
-BC-11  Completar STUBs VDI (manifests K8s reales)
-BC-12  Fichas bnotify + biedata + bsearch
+PT-04  bosctl ficha install fedora-kde → nextcloud → guacamole → onlyoffice
   ↓
-Verificar cadena completa en VPS (bosctl bootstrap verify --full)
-  → C-01..C-08 ✅ + C-04b ✅ + C-04c ✅
-  → bosctl ficha install fedora-kde → nextcloud → guacamole → onlyoffice
-  → Criterios C-09..C-14
+PT-05  Prueba end-to-end: NFC → bAuth → ctx_id → Guacamole → Fedora KDE → Nextcloud
 ```
 
 ---
@@ -369,28 +425,38 @@ Verificar cadena completa en VPS (bosctl bootstrap verify --full)
 
 ## 8. Resumen ejecutivo
 
-| Aspecto | Realidad (verificada en disco) |
-|---------|-------------------------------|
-| Fichas declaradas en catálogo canónico | **131** (SBOS/servers/) |
-| Fichas antes del VDI | **106** |
-| Fichas VDI | **4** (todas como STUB) |
+| Aspecto | Estado actual |
+|---------|--------------|
+| Fichas declaradas en catálogo canónico | **143** (SBOS/servers/ S00–S16) |
+| Fichas antes del VDI | **109** |
+| Fichas VDI | **4** — todas con k8s.yml real ✅ |
 | Fichas robustas listas | **11** (BosAgent/src/servers/) |
-| Daemons soberanos sin ficha | **8** (bauth · bnotify · bhnexus · banexus · biedata · bsearch · bcompass · bkernel) |
-| Brechas bloqueantes | **7** (BC-07 a BC-13) |
+| Fichas completas BC-09..BC-13 | **12** nuevas ✅ |
+| Daemons soberanos sin ficha | ~~8~~ → **0** ✅ |
+| Brechas de declaración (BC-07..BC-13) | ~~7~~ → **0** ✅ |
+| **Brechas de prueba (PT-01..PT-05)** | **5 pendientes** — ver §5 |
 
-**Ruta crítica mínima hacia el VDI:**
+**Ruta crítica para pruebas:**
 
 ```
-BC-07 → BC-08 → BC-09 → BC-10 → BC-11
-  BD     Ctx    bAuth   NFC    VDI STUBs completos
+[OK] BC-07..BC-13 — declaración completa
+
+[AHORA] PT-01 recompilar BOS
+          ↓
+        PT-02 verificar C-01..C-08 en VPS
+          ↓
+        PT-03 compilar + desplegar bAuth · bhnexus · banexus · bkernel
+          ↓
+        PT-04 bosctl ficha install (4 fichas VDI)
+          ↓
+        PT-05 prueba NFC → Guacamole → Fedora KDE → Nextcloud ✅
 ```
 
 Las capas intermedias (S04–S10: ERP, apps, reportes, comms) tienen fichas STUB.
-El BOS puede instalarlas en orden topológico una vez que la infraestructura base (Capas 0–3)
-esté verificada. Los STUBs funcionan para instalar la infraestructura del pod; lo que falta
-es el contenido de configuración específico de cada app.
+BOS puede instalarlas en orden topológico una vez que la infraestructura base (Capas 0–3)
+esté verificada y PT-05 pase.
 
 ---
 
-*Documento v2.0.0 — generado por bos-developer · verificación en disco: 2026-10-07*
+*Documento v2.1.0 — actualizado bos-developer · 2026-10-07 · BC-07..BC-13 completados*
 *Fuente canónica: `SBOS/servers/` · Motor: `BosAgent/src/`*
