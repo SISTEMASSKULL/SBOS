@@ -1,9 +1,13 @@
 ---
+# Service headless para StatefulSet (DNS interno: tryton-0.tryton.sbos-erp).
 apiVersion: v1
 kind: Service
 metadata:
   name: tryton
   namespace: sbos-erp
+  labels:
+    app: tryton
+    managed-by: bos
 spec:
   clusterIP: None
   selector:
@@ -13,14 +17,21 @@ spec:
       port: 8000
       targetPort: 8000
 ---
+# StatefulSet Tryton ERP 7.4.
+# 1 réplica inicial — escalar a 2 con 'bosctl ficha repair tryton' tras validación.
+# Credenciales PG inyectadas desde Secret tryton-pg-secret (generado por Vault en install).
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: tryton
   namespace: sbos-erp
+  labels:
+    app: tryton
+    managed-by: bos
+    version: "7.4"
 spec:
   serviceName: tryton
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: tryton
@@ -28,8 +39,10 @@ spec:
     metadata:
       labels:
         app: tryton
+        managed-by: bos
     spec:
       serviceAccountName: tryton-sa
+
       containers:
         - name: tryton
           image: docker.io/tryton/tryton:7.4
@@ -37,9 +50,26 @@ spec:
             - containerPort: 8000
               name: http
 
+          # Credencial PG desde Secret — URI completa con contraseña (Vault → K8s Secret).
+          # Tryton 7.x lee TRYTOND_<SECCION>__<CLAVE> como override del fichero de config.
+          env:
+            - name: TRYTOND_DATABASE__URI
+              valueFrom:
+                secretKeyRef:
+                  name: tryton-pg-secret
+                  key: TRYTOND_DATABASE__URI
+            - name: TRYTOND_WEB__HOSTNAME
+              value: "erp.skull.sbos.local"
+
+          # Configuración sin credenciales montada desde ConfigMap.
           volumeMounts:
+            - name: config
+              mountPath: /etc/trytond.conf
+              subPath: trytond.conf
+              readOnly: true
             - name: data
               mountPath: /var/lib/tryton
+
           resources:
             requests:
               cpu: 500m
@@ -47,16 +77,25 @@ spec:
             limits:
               cpu: 2000m
               memory: 2Gi
+
           livenessProbe:
             tcpSocket:
               port: 8000
-            initialDelaySeconds: 30
+            initialDelaySeconds: 60
             periodSeconds: 30
+            failureThreshold: 3
+
           readinessProbe:
             tcpSocket:
               port: 8000
-            initialDelaySeconds: 10
+            initialDelaySeconds: 30
             periodSeconds: 10
+            failureThreshold: 5
+
+      volumes:
+        - name: config
+          configMap:
+            name: tryton-config
 
   volumeClaimTemplates:
     - metadata:

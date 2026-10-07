@@ -4,13 +4,13 @@ identity:
   version: "7.4"
   category: 1
   criticality: true
-  description: "Tryton ERP — Contabilidad, inventario, ventas. MDM hub via bKernel CDC."
+  description: "Tryton ERP 7.4 — Contabilidad, inventario, ventas, RRHH. MDM hub via bKernel CDC."
 
 workload:
   type: statefulset
   runtime: docker
   namespace: sbos-erp
-  replicas: 1
+  replicas: 1   # iniciar con 1; escalar a 2 con 'bosctl ficha repair tryton' tras validación
 
 order:
   execution_order: 170
@@ -18,7 +18,8 @@ order:
 requirements:
   dependencies:
     - postgresql
-    - keycloak
+    - vault
+    - kong
 
 governance:
   auto_install: false
@@ -28,13 +29,28 @@ governance:
 meta:
   backend: k8s
   idempotent: true
-  estimated_minutes: 10
+  estimated_minutes: 15
   rollback_support: true
 
 ports:
   - name: http
     port: 8000
     protocol: TCP
+
+resources:
+  manifests:
+    - resources/tryton-rbac.k8s.yml      # ServiceAccount + Role + RoleBinding
+    - resources/tryton-config.k8s.yml    # ConfigMap trytond.conf (sin credenciales)
+    - resources/tryton.k8s.yml           # Service + StatefulSet
+    - resources/tryton-kong.k8s.yml      # Kong Ingress + KongPlugin rate-limit
+    - resources/tryton.network           # NetworkPolicy
+
+vault:
+  secret_path: "secret/tenants/{{ tenant_id }}/tryton"
+  keys:
+    - pg_password
+    - pg_user
+    - pg_db
 
 health:
   type: command
