@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -57,18 +58,34 @@ func cmdSetup(args []string) int {
 		fmt.Println("   Estado limpiado — procediendo con instalación limpia.\n")
 	}
 
-	// Si el daemon no está corriendo (primera instalación o fue detenido arriba), ejecutar system-install.
-	if _, err := os.Stat(paths.SocketPath); os.IsNotExist(err) {
-		fmt.Println("Daemon no detectado — ejecutando system-install...")
+	// Verificar que el daemon RESPONDE, no solo que el socket existe como archivo.
+	// Un socket zombie (archivo sin daemon) da "connection refused" en cmdDeploy.
+	if !isDaemonAlive(paths.SocketPath) {
+		// Limpiar socket fantasma si existe como archivo pero sin daemon.
+		if _, err := os.Stat(paths.SocketPath); err == nil {
+			fmt.Println("Socket residual detectado — limpiando...")
+			os.Remove(paths.SocketPath)
+		}
+		fmt.Println("Daemon no disponible — ejecutando system-install...")
 		if code := cmdSystemInstall([]string{"--mode", *modeFlag}); code != 0 {
 			return code
 		}
 		exec.Command("systemctl", "start", "bos.service").Run()
+		// Esperar hasta que el daemon responda realmente (no solo que el archivo exista).
+		fmt.Print("Esperando daemon")
+		ready := false
 		for i := 0; i < 30; i++ {
-			if _, err := os.Stat(paths.SocketPath); err == nil {
+			if isDaemonAlive(paths.SocketPath) {
+				ready = true
 				break
 			}
+			fmt.Print(".")
 			time.Sleep(1 * time.Second)
+		}
+		if ready {
+			fmt.Println(" listo.")
+		} else {
+			fmt.Println("\nAdvertencia: daemon no respondió en 30s — continuando de todas formas.")
 		}
 	}
 
@@ -143,6 +160,17 @@ func resolveSeedPath() string {
 		}
 	}
 	return "seed-skull.yml"
+}
+
+// isDaemonAlive verifica que el daemon BOS está corriendo y aceptando conexiones
+// intentando abrir el socket Unix. Un archivo de socket sin daemon da "connection refused".
+func isDaemonAlive(socketPath string) bool {
+	conn, err := net.DialTimeout("unix", socketPath, 2*time.Second)
+	if err != nil {
+		return false
+	}
+	conn.Close()
+	return true
 }
 
 // cmdDashboard — no implementado. El dashboard del BOS se integra en el proyecto bAuth.
