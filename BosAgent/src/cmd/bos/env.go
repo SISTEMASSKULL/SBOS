@@ -4,6 +4,7 @@ package main
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/joho/godotenv"
 
@@ -29,12 +30,14 @@ type bootstrapEnv struct {
 //   - Lee BOS_ROOT_PASSWORD del entorno y lo elimina con os.Unsetenv (seguridad).
 //   - NUNCA registrar contraseñas ni tokens en logs.
 func loadBootstrapEnv() *bootstrapEnv {
+	// Rutas de búsqueda construidas con constantes paths.* (R16 — sin hardcodeos).
+	// Orden: ruta canónica prod → fallbacks de desarrollo → directorio local.
 	searchPaths := []string{
 		paths.BootstrapEnv,
-		"/etc/bos/core/bos-bootstrap.env",
-		"/opt/bos/bos-bootstrap.env",
-		"/opt/bos/core/bos-bootstrap.env",
-		"/tmp/bos-bootstrap.env",
+		filepath.Join(paths.EtcBos, "core", "bos-bootstrap.env"),
+		filepath.Join(paths.BosPath, "bos-bootstrap.env"),
+		filepath.Join(paths.CorePath, "bos-bootstrap.env"),
+		filepath.Join(os.TempDir(), "bos-bootstrap.env"),
 		"./bos-bootstrap.env",
 	}
 

@@ -77,8 +77,8 @@ vault:
   engine: kv-v2
   base_path: secret/tenants/skull
   approle_ttl: 24h
-  shamir_keys: 3
-  shamir_threshold: 5
+  shamir_keys: 5          # total de llaves generadas
+  shamir_threshold: 3     # mínimo requerido para unsealar (threshold ≤ keys)
 
 # ── PASO 5: Redis (Context Registry DB1, TTL sync KC) ─────────────────
 redis:

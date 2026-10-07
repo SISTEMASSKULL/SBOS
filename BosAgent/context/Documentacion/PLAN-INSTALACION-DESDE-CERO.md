@@ -1,0 +1,337 @@
+# Plan de Instalación desde Cero — VPS Limpia Ubuntu 26.04
+
+**Versión:** 1.0.0  
+**Fecha:** 2026-10-07  
+**Autor:** bos-developer  
+**Estado:** LISTO PARA PRUEBA — bugs críticos corregidos (commit pendiente)  
+**Prerrequisito:** Ubuntu 26.04 Server LTS — instalación por defecto, sin software adicional
+
+---
+
+## 0. Correcciones aplicadas en esta sesión (pre-vuelo)
+
+Los siguientes bugs fueron encontrados y corregidos antes de poder ejecutar las pruebas.
+**Sin estas correcciones la instalación habría fallado.**
+
+| ID | Archivo | Severidad | Descripción | Fix aplicado |
+|----|---------|-----------|-------------|--------------|
+| **FIX-01** | `cmd/bosctl/system_install.go` | 🔴 CRÍTICO | `bos-install.toml` se generaba con expresiones Go literales (`paths.CorePath + "/servers"`) en lugar de los valores reales — TOML inválido → parseo fallaba | Usar `fmt.Sprintf` con `%q` y constantes `paths.*` |
+| **FIX-02** | `cmd/bosctl/system_install.go` | 🔴 CRÍTICO | `runPreflightFicha` buscaba el `task_catalog.sh` en `/opt/bos/core/servers/...` (no existe) — la ficha bos-preflight nunca se encontraba | Agregar `paths.ServersPath` como primer candidato |
+| **FIX-03** | `servers/seed-skull.yml` | 🔴 CRÍTICO | `shamir_keys: 3` + `shamir_threshold: 5` — threshold > keys, Vault **nunca** se puede unsealar | Corregir a `shamir_keys: 5, shamir_threshold: 3` |
+| **FIX-04** | `servers/S-HOST/bos-preflight/task_catalog.sh` | 🟡 SEGURIDAD | Token RPC hardcodeado `"dev-token-2026"` en texto claro — viola P6 | Generar con `openssl rand -hex 32` |
+| **FIX-05** | `cmd/bosctl/rbac.go` | 🟡 R16 | `/run/bos/bauth.sock` hardcodeado | `paths.RuntimeFile("bauth.sock")` |
+| **FIX-06** | `cmd/bosctl/packages.go` | 🟡 R16 | `const defaultBlibsDir = "/etc/bos/blibs/..."` hardcodeado | `var` con `filepath.Join(paths.ServersPath, ...)` |
+| **FIX-07** | `cmd/bosctl/deploy.go` | 🟡 R16 | `/var/log/bos/fichas/` hardcodeado | `filepath.Join(paths.VarLogBos, "fichas", ...)` |
+| **FIX-08** | `cmd/bos/env.go` | 🟡 R16 | Paths de búsqueda `/etc/bos/core/...` hardcodeados | `filepath.Join(paths.EtcBos, ...)` |
+| **FIX-09** | `cmd/bos/run_normal.go` | 🟡 R16 | `/etc/bos/ai/action_catalog.yml` hardcodeado | `paths.ConfigDir("ai/action_catalog.yml")` |
+
+**Resultado:** `CGO_ENABLED=0 go build ./...` — ✅ sin errores
+
+---
+
+## 1. Requisitos de la VPS de prueba
+
+| Recurso | Mínimo requerido | Verificación |
+|---------|-----------------|-------------|
+| OS | Ubuntu 26.04 LTS Server (instalación por defecto) | `lsb_release -rs` → `26.04` |
+| RAM | 16 GB | `free -m` |
+| CPU | 8 cores | `nproc` |
+| Disco libre en `/` | 165 GB | `df -h /` |
+| Conectividad internet | Sí (APT + registries) | `curl -sf http://archive.ubuntu.com` |
+| Acceso SSH root | Sí | `ssh root@<ip>` |
+
+**VPS de prueba actual:** `root@13.140.128.230`  
+**Modo instalación:** `--mode=dev` (advertencias no bloquean — los recursos mínimos son avisos)
+
+---
+
+## 2. Pasos desde cero
+
+### PASO 1 — Compilar BOS en la máquina de desarrollo
+
+```bash
+cd BosAgent/src
+
+# Compilar daemon y CLI
+CGO_ENABLED=0 /home/skull/sdk/go/bin/go build -o bin/bos ./cmd/bos/
+CGO_ENABLED=0 /home/skull/sdk/go/bin/go build -o bin/bosctl ./cmd/bosctl/
+
+# Verificar (tests con race detector)
+/home/skull/sdk/go/bin/go test -race -count=1 ./... 2>&1 | tail -10
+```
+
+**Resultado esperado:** dos binarios en `bin/bos` y `bin/bosctl`, sin errores de test.
+
+---
+
+### PASO 2 — Crear el paquete de despliegue
+
+El paquete contiene todo lo que necesita la VPS virgen — sin dependencias externas:
+
+```bash
+# Desde BosAgent/src/
+rm -rf /tmp/bos-deploy && mkdir /tmp/bos-deploy
+
+cp bin/bos bin/bosctl /tmp/bos-deploy/
+cp -r core/          /tmp/bos-deploy/core/
+cp -r servers/       /tmp/bos-deploy/servers/
+cp servers/seed-skull.yml /tmp/bos-deploy/seed-skull.yml
+
+# (Opcional) incluir manifiestos Calico locales para instalación offline
+# cp servers/S-HOST/sbos-bootstrap-cni/resources/calico-v3.32.0.yaml /tmp/bos-deploy/servers/S-HOST/sbos-bootstrap-cni/resources/
+
+ls -lh /tmp/bos-deploy/
+```
+
+**Estructura del paquete:**
+```
+/tmp/bos-deploy/
+├── bos              ← daemon (binario estático ~12 MB)
+├── bosctl           ← CLI (binario estático)
+├── core/            ← scripts del motor Bash (00_MASTER_INSTALL_SBOS.sh, etc.)
+├── servers/         ← 143 fichas declarativas (S-HOST a S16)
+└── seed-skull.yml   ← seed del tenant skull (5 llaves Shamir, threshold 3)
+```
+
+---
+
+### PASO 3 — Transferir paquete a la VPS
+
+```bash
+# Desde la máquina de desarrollo
+scp -r /tmp/bos-deploy root@13.140.128.230:/tmp/bos-deploy
+
+# Verificar integridad básica
+ssh root@13.140.128.230 "ls -lh /tmp/bos-deploy/ && file /tmp/bos-deploy/bos"
+# Esperado: ELF 64-bit LSB executable, x86-64, statically linked
+```
+
+---
+
+### PASO 4 — Ejecutar system-install en la VPS
+
+```bash
+ssh root@13.140.128.230
+
+# Desde dentro del VPS:
+cd /tmp/bos-deploy
+
+# system-install realiza los pasos en orden:
+#   1. binarios  → copia bos/bosctl a /opt/bos/bin/ + symlinks en /usr/local/bin/
+#   2. core      → copia core/ a /opt/bos/core/
+#   3. blibs     → copia servers/ a /etc/bos/blibs/servers/ (143 fichas)
+#   4. env       → crea /etc/bos/bos-install.toml y /etc/bos/bos-bootstrap.env mínimos
+#   5. servicios → instala bos.service + bos-console.service en systemd
+#   6. preflight → ejecuta ficha bos-preflight:
+#                    - verifica OS Ubuntu 26.04
+#                    - verifica RAM/CPU/disco
+#                    - instala paquetes del SO (desde manifest.yml)
+#                    - crea usuario/grupo bosagent
+#                    - crea directorios /etc/bos, /run/bos, /var/log/bos, /opt/bos
+#                    - genera certificado TLS autofirmado para :9443
+#                    - genera token RPC aleatorio (openssl rand -hex 32)
+#                    - configura sudoers bosagent
+#                    - configura cgroup v2 delegation
+
+./bosctl system-install --mode=dev 2>&1 | tee /tmp/system-install.log
+```
+
+**Salida esperada (cada línea = un paso):**
+```
+  → binarios... ✓
+  → core... ✓
+  → blibs... ✓
+  → env... ✓
+  → servicios... ✓
+  → preflight... ✓
+
+Sistema listo. BOS arrancará en la consola (tty1) automáticamente.
+```
+
+**Si algo falla:** revisar `/var/log/bos/fichas/bos-preflight.log`
+
+---
+
+### PASO 5 — Iniciar BOS y completar bos-bootstrap.env
+
+```bash
+# Editar el archivo de bootstrap (creado vacío por system-install)
+nano /etc/bos/bos-bootstrap.env
+```
+
+Contenido mínimo para prueba:
+```bash
+BOS_TENANT_NAME=skull
+BOS_TENANT_ID=1234567890
+BOS_TENANT_PAIS=BO
+BOS_TENANT_DOMAIN=skull.sbos.local
+BOS_ROOT_USER=admin
+BOS_ADMIN_NOMBRE=Admin
+BOS_ROOT_PASSWORD=Admin2026!
+BOS_MFA_ENABLED=false
+```
+
+```bash
+# Iniciar el daemon
+systemctl start bos.service
+systemctl status bos.service
+
+# Verificar que el socket Unix está activo
+sleep 5 && ls -la /run/bos/bos.sock
+```
+
+**Esperado:** `srw-rw---- 1 bosagent bosagent ... /run/bos/bos.sock`
+
+---
+
+### PASO 6 — Desplegar el tenant con el seed
+
+```bash
+# Desplegar en modo no-interactivo con seed-skull.yml
+bosctl deploy --seed /tmp/bos-deploy/seed-skull.yml
+
+# Este comando ejecuta los 7 pasos del seed en orden:
+#   [0/7] sbos-bootstrap-k8s  — instala containerd + kubeadm + kubelet, init cluster
+#   [1/7] sbos-namespace      — crea namespace sbos-skull-prod + NetworkPolicy
+#   [1.5] sbos-bootstrap-storage — StorageClass local-path + PVs
+#   [2/7] postgresql          — despliega PostgreSQL 18.4 + 9 BDs + schemas
+#   [3/7] redis               — despliega Redis 8.6.2 (3 DBs, AOF)
+#   [4/7] vault               — inicializa Vault 2.0.1 + Shamir 3/5 + PKI
+#   [5/7] keycloak            — despliega Keycloak 26.6.2 + realm skull + 5 SPIs
+#   [6/7] context plane DDL   — bos.ctx.auto_migrate (bos + registered_devices)
+#   [7/7] fichas del tenant   — sbos-bkernel + kong
+```
+
+**Tiempo estimado:** 30–45 minutos (descarga de imágenes K8s + KC en la primera corrida)
+
+---
+
+### PASO 7 — Verificar criterios C-01..C-08
+
+```bash
+# C-01: OS bootstrap
+bosctl bootstrap status os
+
+# C-02: Nodo K8s Ready
+kubectl --kubeconfig /etc/bos/.kube/config get nodes
+
+# C-03: Calico CNI
+kubectl --kubeconfig /etc/bos/.kube/config get pods -n kube-system | grep calico
+
+# C-04: PostgreSQL + SBOSDB
+kubectl exec -n sbos-data statefulset/postgresql -- psql -U postgres -c '\l'
+
+# C-04c: Context Plane (SBOS-049)
+bosctl ctx create --tenant skull
+
+# C-05: Redis
+kubectl exec -n sbos-data statefulset/redis -- redis-cli ping
+
+# C-06: Vault unsealed
+kubectl exec -n sbos-security statefulset/vault -- vault status | grep sealed
+
+# C-07: Keycloak realm
+curl -sf http://localhost:8080/auth/realms/skull | python3 -m json.tool | head -5
+
+# C-08: Kong alive
+kubectl exec -n sbos-gateway deployment/kong -- kong health
+```
+
+---
+
+### PASO 8 — Instalar fichas VDI (PT-04)
+
+```bash
+# Prerequisito: bAuth, bhnexus, banexus deben estar desplegados (PT-03)
+# Una vez los daemons estén corriendo:
+
+bosctl ficha install fedora-kde    # pre_install: namespace + Secret
+bosctl ficha install nextcloud     # pre_install: nextcloud_db + rol + Secret
+bosctl ficha install guacamole     # pre_install: guacamole_db + initdb.sh + OIDC
+bosctl ficha install onlyoffice    # pre_install: onlyoffice_db + JWT secret
+
+# Verificar:
+kubectl get pods -n sbos-vdi
+bosctl ficha health fedora-kde
+bosctl ficha health nextcloud
+bosctl ficha health guacamole
+bosctl ficha health onlyoffice
+```
+
+---
+
+## 3. Diagnóstico de fallos comunes
+
+| Síntoma | Causa probable | Solución |
+|---------|---------------|----------|
+| `preflight: task_catalog.sh no encontrado` | Paquete no incluye `servers/S-HOST/bos-preflight/` | Verificar `ls /tmp/bos-deploy/servers/S-HOST/bos-preflight/` |
+| `kubeadm_init: exit 1` | Swap activo o puerto 6443 ocupado | `swapoff -a` · `fuser 6443/tcp` |
+| `esperar_nodo_ready: timeout 600s` | Calico no puede descargar imagen | Verificar conectividad: `curl -sf https://quay.io` |
+| `bos-install.toml: parse error` | TOML inválido (FIX-01 ya corregido) | Aplicar FIX-01 y recompilar |
+| `vault sealed=true tras deploy` | Shamir mal configurado (FIX-03 ya corregido) | Aplicar FIX-03 en seed-skull.yml |
+| `bos.sock: no such file` | bos.service no arrancó | `journalctl -u bos.service -n 50` |
+| `containerd: text file busy` | Binario ya cargado en memoria | Ignorable — `system-install` lo maneja |
+| `dpkg locked 30s` | unattended-upgrades en VPS nueva | El bootstrap espera 30s y fuerza liberación |
+
+---
+
+## 4. Estado del código — auditoría de calidad
+
+### 4.1 Monolitismo
+
+| Archivo | Líneas | Veredicto |
+|---------|--------|-----------|
+| `cmd/bos/run_normal.go::runNormal` | ~367 líneas | ⚠️ Sobre el límite (200 l.) — es una función de inicialización secuencial bien estructurada. Los pasos están documentados (#1 a #10). Aceptable por la naturaleza del wiring del daemon; candidato a dividir en `initDaemonServices()` en refactoring futuro. |
+| `cmd/bosctl/deploy.go::deployTenant` | ~160 líneas | ⚠️ Levemente grande. Contiene pasos 0 y 1.5 visualmente fuera del bloque de compensación (sin `compensateStepN` en caso de fallo). Aceptable como saga lineal; mejorar en refactoring. |
+| `cmd/bosctl/ficha.go` | 667 líneas | ✅ Dispatcher de 18 subcomandos — cada `cmdFichaXxx` es corto y delega. Patrón correcto. |
+| `servers/S02/vault/task_catalog.sh` | 1211 líneas | ⚠️ El más grande. Vault requiere lógica de init + unseal + PKI + AppRole. Dividible en secciones con `# ── Sección ──` si se vuelve un problema de mantenimiento. |
+
+### 4.2 Documentación de funciones (estado post-auditoría)
+
+| Archivo | Estado | Observaciones |
+|---------|--------|---------------|
+| `internal/paths/paths.go` | ✅ Excelente | Docstrings completos con callers, efectos secundarios, ejemplos |
+| `cmd/bosctl/system_install.go` | ✅ Bueno | Cada función documenta responsabilidad y efectos secundarios |
+| `cmd/bos/env.go` | ✅ Bueno | `loadBootstrapEnv` documenta orden de búsqueda y efectos de seguridad |
+| `servers/S-HOST/bos-preflight/task_catalog.sh` | ✅ Bueno | Header completo, señales documentadas, sección por función |
+| `servers/S-HOST/sbos-bootstrap-k8s/task_catalog.sh` | ✅ Excelente | Cada paso numerado, workarounds documentados (nspawn, /dev/kmsg) |
+| `cmd/bosctl/deploy.go::deployTenant` | 🟡 Mejorable | Pasos 0 y 1.5 sin comentario de compensación ante fallo |
+| `cmd/bos/run_normal.go` | 🟡 Mejorable | La función `runNormal` no tiene docstring de entrada que explique los pasos que ejecuta |
+
+### 4.3 Parametrización
+
+| Criterio | Estado |
+|----------|--------|
+| Rutas del sistema | ✅ Centralizadas en `paths.*` (R16 — 9 violaciones corregidas en esta sesión) |
+| Versiones de stack | ✅ Variables en task_catalog.sh (`K8S_VERSION`, `CALICO_VERSION`, etc.) |
+| Puertos | ✅ Definidos en SBOS-050; verificados en bos-preflight |
+| Credenciales | ✅ Generadas dinámicamente (FIX-04 — token RPC ahora `openssl rand`) |
+| Namespace K8s | ✅ Env vars (`SBOS_NAMESPACE`) con defaults explícitos |
+| Timeouts | ✅ `K8S_WAIT_TIMEOUT=600` configurable, con valor razonado en comentario |
+
+---
+
+## 5. Próximos pasos tras prueba exitosa
+
+```
+[AHORA]  Commit correcciones FIX-01..FIX-09 + recompilar BOS
+    ↓
+[PT-01]  scp bin/bos + bin/bosctl + core/ + servers/ → VPS
+    ↓
+[PT-01b] bosctl system-install --mode=dev en VPS limpia
+    ↓
+[PT-02]  bosctl deploy --seed seed-skull.yml
+    ↓
+[PT-02b] Verificar C-01..C-08
+    ↓
+[PT-03]  Compilar + desplegar bAuth · bhnexus · banexus · bkernel
+    ↓
+[PT-04]  bosctl ficha install (4 fichas VDI)
+    ↓
+[PT-05]  Prueba end-to-end NFC → Fedora KDE → Nextcloud → OnlyOffice
+```
+
+---
+
+*Documento v1.0.0 — bos-developer · 2026-10-07*  
+*Plan completo de instalación: `PLAN-IMPLEMENTACION-BOS-VDI.md` (artefacto interactivo: https://claude.ai/artifact/8KqeXT172Cwgzh7vWoF86f)*

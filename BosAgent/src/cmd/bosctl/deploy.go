@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -292,8 +293,9 @@ func installFicha(name string, env map[string]string) error {
 		params["env"] = env
 	}
 
-	// Iniciar streaming del log en background
-	logPath := "/var/log/bos/fichas/" + name + ".log"
+	// Iniciar streaming del log en background.
+	// Usar paths.VarLogBos para construir la ruta sin hardcodeo (R16).
+	logPath := filepath.Join(paths.VarLogBos, "fichas", name+".log")
 	stopStream := make(chan struct{})
 	go streamLog(logPath, stopStream)
 

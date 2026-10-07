@@ -1,10 +1,11 @@
 # Plan de Implementación BOS — De la Primera Ficha al VDI Operativo
 
-**Versión:** 2.1.0  
+**Versión:** 2.2.0  
 **Fecha:** 2026-10-07  
 **Autor:** bos-developer  
 **Estado:** BC-07..BC-13 COMPLETOS — pendiente pruebas de instalación en VPS  
-**Ref:** ADR-040 (bootstrap), ADR-022 (sin intervención manual), SBOS-049 (ctx_id), SBOS-050 (puertos)
+**Ref:** ADR-040 (bootstrap), ADR-022 (sin intervención manual), SBOS-049 (ctx_id), SBOS-050 (puertos)  
+**Artefacto interactivo:** https://claude.ai/artifact/8KqeXT172Cwgzh7vWoF86f
 
 ---
 
@@ -458,5 +459,5 @@ esté verificada y PT-05 pase.
 
 ---
 
-*Documento v2.1.0 — actualizado bos-developer · 2026-10-07 · BC-07..BC-13 completados*
+*Documento v2.2.0 — actualizado bos-developer · 2026-10-07 · BC-07..BC-13 completados · artefacto interactivo publicado*
 *Fuente canónica: `SBOS/servers/` · Motor: `BosAgent/src/`*

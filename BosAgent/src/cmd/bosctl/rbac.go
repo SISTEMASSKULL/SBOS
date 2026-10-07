@@ -26,9 +26,11 @@ func getRBAC() security.RBACProvider {
 			return
 		}
 		if os.Getenv("BOS_BAUTH_ENABLED") == "true" || os.Getenv("BOS_BAUTH_ENABLED") == "1" {
+			// BOS_BAUTH_SOCKET sobreescribe la ruta canónica (útil en dev/test).
+			// Default: paths.RuntimeFile("bauth.sock") = /run/bos/bauth.sock (SBOS-050 P9).
 			socketPath := os.Getenv("BOS_BAUTH_SOCKET")
 			if socketPath == "" {
-				socketPath = "/run/bos/bauth.sock"
+				socketPath = paths.RuntimeFile("bauth.sock")
 			}
 			rbacInst = security.NewBauthRBAC(security.BauthRBACConfig{
 				Enabled:    true,

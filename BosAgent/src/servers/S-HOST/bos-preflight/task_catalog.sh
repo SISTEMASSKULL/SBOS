@@ -200,10 +200,21 @@ ficha_install() {
     [ -n "$kubectl_path" ] && [ ! -f /usr/local/bin/kubectl ] && ln -sf "$kubectl_path" /usr/local/bin/kubectl
     echo "${__STEP_OK__} configurar_kubectl"
 
-    # RPC token desarrollo (ficha 00)
+    # RPC token: generado con openssl si no existe — nunca hardcodeado (P6)
     echo "${__STEP_START__} configurar_rpc_token"
-    [ ! -f /etc/bos/rpc-token ] && echo "dev-token-2026" > /etc/bos/rpc-token && chmod 644 /etc/bos/rpc-token
-    grep -q BOS_RPC_TOKEN /etc/bos/.env 2>/dev/null || echo "BOS_RPC_TOKEN=c2Jvc19hZG1pbjpkZXY6ZGV2LXRva2VuLTIwMjY=" >> /etc/bos/.env
+    if [[ ! -f /etc/bos/rpc-token ]]; then
+        openssl rand -hex 32 > /etc/bos/rpc-token
+        chmod 640 /etc/bos/rpc-token
+        chown root:bosagent /etc/bos/rpc-token 2>/dev/null || true
+        _log "Token RPC generado aleatoriamente en /etc/bos/rpc-token"
+    fi
+    if ! grep -q BOS_RPC_TOKEN /etc/bos/.env 2>/dev/null; then
+        local rpc_token
+        rpc_token=$(cat /etc/bos/rpc-token)
+        echo "BOS_RPC_TOKEN=$(echo -n "sbos_admin:${rpc_token}" | base64 -w0)" >> /etc/bos/.env
+        chmod 640 /etc/bos/.env
+        chown root:bosagent /etc/bos/.env 2>/dev/null || true
+    fi
     echo "${__STEP_OK__} configurar_rpc_token"
 
     # Certificado TLS autofirmado para Context API :9443 (M1.4, SBOS-054 §7.5)

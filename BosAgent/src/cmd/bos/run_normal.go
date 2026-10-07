@@ -312,7 +312,7 @@ func runNormal(cfg *config.Config, benv *bootstrapEnv) {
 	// el propio dispatcher RPC (ToolExecutor). Degrada sin catálogo sin
 	// tumbar el daemon (biaos es opcional; el resto del bos funciona).
 	if biaosGW, err := biaos.New(biaos.Config{
-		CatalogPath:  "/etc/bos/ai/action_catalog.yml",
+		CatalogPath:  paths.ConfigDir("ai/action_catalog.yml"),
 		AuditLogPath: paths.AIAuditLog,
 		OllamaURL:    os.Getenv("BOS_AI_LOCAL_ENDPOINT"),
 		OllamaModel:  os.Getenv("BOS_AI_EMBED_MODEL"),

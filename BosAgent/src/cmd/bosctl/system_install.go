@@ -242,20 +242,21 @@ func installServices() error {
 // installEnvTemplate copia bos-bootstrap.env a /etc/bos/ si no existe.
 // No sobreescribe nunca — el admin puede haber personalizado los valores.
 func installEnvTemplate() error {
-	// Crear bos-install.toml mínimo si no existe (requerido para modo normal)
+	// Crear bos-install.toml mínimo si no existe (requerido para modo normal).
+	// Usar fmt.Sprintf con las constantes paths.* para producir TOML válido con valores reales.
 	tomlDest := paths.InstallToml
 	if _, err := os.Stat(tomlDest); os.IsNotExist(err) {
-		tomlContent := `org_name = "SBOS-Setup"
+		tomlContent := fmt.Sprintf(`org_name = "SBOS-Setup"
 client_domain = "skull.local"
 channel = "stable"
 http_port = 9443
-servers_path = paths.CorePath + "/servers"
-kubeconfig_path = paths.KubeconfigPath
-unix_socket = paths.SocketPath
+servers_path = %q
+kubeconfig_path = %q
+unix_socket = %q
 bos_user = "bosagent"
 bos_group = "bosagent"
-log_path = paths.VarLogBos
-`
+log_path = %q
+`, paths.ServersPath, paths.KubeconfigPath, paths.SocketPath, paths.VarLogBos)
 		_ = os.MkdirAll(paths.EtcBos, 0750)
 		_ = os.WriteFile(tomlDest, []byte(tomlContent), 0644)
 	}
@@ -290,14 +291,16 @@ log_path = paths.VarLogBos
 // mode: "dev" (advertencias no bloquean) | "prod" (requisitos estrictos).
 func runPreflightFicha(mode string) error {
 	// Buscar el task_catalog.sh de bos-preflight en rutas conocidas.
+	// Ruta canónica: installBlibs ya copió servers/ a paths.ServersPath = /etc/bos/blibs/servers/
+	const preflightRelPath = "S-HOST/bos-preflight/task_catalog.sh"
 	candidates := []string{
-		"/opt/bos/core/servers/S-HOST/bos-preflight/task_catalog.sh",
-		"servers/S-HOST/bos-preflight/task_catalog.sh",
+		filepath.Join(paths.ServersPath, preflightRelPath),
 	}
-	// También buscar junto al ejecutable actual
+	// Fallbacks: directorio relativo y junto al ejecutable (útil en dev antes del system-install)
+	candidates = append(candidates, filepath.Join("servers", preflightRelPath))
 	if self, err := os.Executable(); err == nil {
 		candidates = append(candidates,
-			filepath.Join(filepath.Dir(self), "servers/S-HOST/bos-preflight/task_catalog.sh"),
+			filepath.Join(filepath.Dir(self), "servers", preflightRelPath),
 		)
 	}
 
@@ -318,7 +321,7 @@ func runPreflightFicha(mode string) error {
 		"__SBOS__STEP_OK__=STEP_OK",
 		"__SBOS__STEP_FAIL__=STEP_FAIL",
 		"__SBOS__STEP_SKIP__=STEP_SKIP",
-		"FICHA_LOG=/var/log/bos/fichas/bos-preflight.log",
+		"FICHA_LOG="+filepath.Join(paths.VarLogBos, "fichas", "bos-preflight.log"),
 		"BOS_INSTALL_MODE="+mode,
 	)
 	cmd.Stdout = os.Stdout

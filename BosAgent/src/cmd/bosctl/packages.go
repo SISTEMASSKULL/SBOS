@@ -6,12 +6,16 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"bos/internal/packages"
+	"bos/internal/paths"
 )
 
-const defaultBlibsDir = "/etc/bos/blibs/servers/hostserver"
+// defaultBlibsDir es la ruta canónica de las fichas del servidor host.
+// Construida con paths.ServersPath para evitar hardcodeos (R16).
+var defaultBlibsDir = filepath.Join(paths.ServersPath, "hostserver")
 
 // cmdPkgInstall instala un paquete (--backend) o una ficha del daemon (sin --backend).
 func cmdPkgInstall(args []string) int {
