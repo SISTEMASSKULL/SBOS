@@ -13,14 +13,13 @@ import (
 	"bos/internal/paths"
 )
 
-// cmdSetup es el punto de entrada de "bosctl setup".
+// cmdSetup es el punto de entrada de "bosctl setup" / "bos install".
 // Flujo: system-install → start daemon → deploy seed.
 func cmdSetup(args []string) int {
 	fs := flag.NewFlagSet("setup", flag.ContinueOnError)
-	defaultSeed := "seed-skull.yml"
-	if self, err := os.Executable(); err == nil {
-		defaultSeed = filepath.Join(filepath.Dir(self), "seed-skull.yml")
-	}
+	// Buscar seed en orden: junto al binario → servers/ del paquete → CWD.
+	// /proc/self/exe devuelve la ruta real aunque se invoque por symlink.
+	defaultSeed := resolveSeedPath()
 	seedFile := fs.String("seed", defaultSeed, "archivo seed.yml para instalación declarativa")
 	modeFlag := fs.String("mode", "dev", "modo: dev (requisitos no bloquean) | prod (requisitos estrictos)")
 	if err := fs.Parse(args); err != nil {
@@ -50,6 +49,35 @@ func cmdSetup(args []string) int {
 	fmt.Printf("  seed: %s\n", *seedFile)
 	fmt.Printf("  mode: %s\n\n", *modeFlag)
 	return cmdDeploy([]string{*seedFile})
+}
+
+// resolveSeedPath busca seed-skull.yml en orden de precedencia:
+// 1. Junto al binario (compatibilidad con paquetes planos)
+// 2. En servers/ del mismo directorio (estructura canónica del paquete)
+// 3. En /opt/bos-install/servers/ (ubicación canónica de instalación)
+// 4. Fallback: "seed-skull.yml" (relativo al CWD)
+func resolveSeedPath() string {
+	selfDir := ""
+	if self, err := os.Executable(); err == nil {
+		selfDir = filepath.Dir(self)
+	}
+	candidates := []string{}
+	if selfDir != "" {
+		candidates = append(candidates,
+			filepath.Join(selfDir, "seed-skull.yml"),
+			filepath.Join(selfDir, "servers", "seed-skull.yml"),
+		)
+	}
+	candidates = append(candidates,
+		"/opt/bos-install/servers/seed-skull.yml",
+		"seed-skull.yml",
+	)
+	for _, c := range candidates {
+		if _, err := os.Stat(c); err == nil {
+			return c
+		}
+	}
+	return "seed-skull.yml"
 }
 
 // cmdDashboard — no implementado. El dashboard del BOS se integra en el proyecto bAuth.
