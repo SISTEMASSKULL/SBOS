@@ -137,6 +137,8 @@ func installCore() error {
 	for _, d := range []string{
 		filepath.Join(selfDir, "core"),
 		"core",
+		"/opt/bos-install/core",           // paquete de deploy canónico
+		filepath.Join(selfDir, "../core"), // por si el binario está en bin/ dentro del paquete
 	} {
 		if info, err := os.Stat(d); err == nil && info.IsDir() {
 			coreDir = d
@@ -144,7 +146,7 @@ func installCore() error {
 		}
 	}
 	if coreDir == "" {
-		return fmt.Errorf("directorio core/ no encontrado — incluir en el paquete de deploy")
+		return fmt.Errorf("directorio core/ no encontrado — incluir en el paquete de deploy junto a los binarios bos/bosctl")
 	}
 
 	entries, err := os.ReadDir(coreDir)
@@ -184,6 +186,8 @@ func installBlibs() error {
 	for _, d := range []string{
 		filepath.Join(selfDir, "servers"),
 		"servers",
+		"/opt/bos-install/servers",           // paquete de deploy canónico
+		filepath.Join(selfDir, "../servers"), // por si el binario está en bin/ dentro del paquete
 	} {
 		if info, err := os.Stat(d); err == nil && info.IsDir() {
 			serversDir = d
@@ -191,7 +195,7 @@ func installBlibs() error {
 		}
 	}
 	if serversDir == "" {
-		return fmt.Errorf("directorio servers/ no encontrado — incluir en el paquete de deploy")
+		return fmt.Errorf("directorio servers/ no encontrado — incluir en el paquete de deploy junto a los binarios bos/bosctl")
 	}
 
 	// Copiar recursivamente con cp -a

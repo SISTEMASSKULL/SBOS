@@ -417,12 +417,13 @@ func runBosRPC(method string, params map[string]interface{}) error {
 
 // rpcAuthToken lee el token compartido de /etc/bos/rpc-token y genera
 // el header Authorization: Basic base64(sbos_admin:dev:<token>).
+//
+// IMPORTANTE: ignoramos BOS_RPC_TOKEN del ambiente porque godotenv.Load("/etc/bos/.env")
+// en main() puede haber cargado un token obsoleto del formato antiguo
+// (sbos_admin:TOKEN sin "dev:"), lo que causa que el servidor rechace con -32600
+// al recibir solo 2 partes en lugar de 3 (user:id:token).
+// La fuente canónica siempre es el archivo /etc/bos/rpc-token.
 func rpcAuthToken() string {
-	// 1. Variable de entorno (más rápido)
-	if env := os.Getenv("BOS_RPC_TOKEN"); env != "" {
-		return env
-	}
-	// 2. Leer archivo de token
 	if data, err := os.ReadFile(paths.RpcTokenFile); err == nil {
 		token := strings.TrimSpace(string(data))
 		if token != "" {
@@ -430,7 +431,7 @@ func rpcAuthToken() string {
 			return base64.StdEncoding.EncodeToString([]byte(auth))
 		}
 	}
-	// 3. Sin token disponible — retornar vacío (el servidor rechazará con 401).
+	// Sin token disponible — retornar vacío (el servidor rechazará con 401).
 	// Nunca usar token hardcodeado de fallback: viola P6.
 	// Ejecutar: bosctl system-install --mode=dev para regenerar /etc/bos/rpc-token.
 	return ""

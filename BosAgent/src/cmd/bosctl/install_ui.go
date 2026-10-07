@@ -43,13 +43,23 @@ func cmdSetup(args []string) int {
 		}
 		fmt.Println("   Limpiando estado para reinstalar desde cero...")
 
-		// Detener el daemon si está corriendo antes de limpiar.
+		// Detener AMBOS servicios y maskear para prevenir reinicios durante la instalación.
+		// bos-console.service (Restart=always, After=bos.service) arranca automáticamente
+		// cuando bos.service inicia. Si lo hace, detecta fichas en INSTALLING y borra el
+		// token RPC, causando que todas las llamadas JSON-RPC fallen con -32600 Unauthorized.
 		exec.Command("systemctl", "stop", "bos-console.service").Run()
+		exec.Command("systemctl", "mask", "--runtime", "bos-console.service").Run() // previene arranque automático
+		exec.Command("systemctl", "mask", "--runtime", "bos.service").Run()         // previene reinicio automático
 		exec.Command("systemctl", "stop", "bos.service").Run()
-		time.Sleep(2 * time.Second)
+		time.Sleep(3 * time.Second) // margen para que el daemon libere el socket
 
 		// Eliminar socket residual si quedó (daemon puede haber crasheado).
 		os.Remove(paths.SocketPath)
+
+		// Eliminar el token RPC para forzar regeneración por el preflight.
+		// Si el token no se regenera, el daemon reiniciado usa el token viejo
+		// y el servidor rechaza las llamadas con -32600 Unauthorized.
+		os.Remove(paths.RpcTokenFile)
 
 		// Limpiar el state file — el deploy del seed restablece los estados correctos.
 		if err := os.Remove(paths.StatePath); err != nil && !os.IsNotExist(err) {
@@ -66,10 +76,18 @@ func cmdSetup(args []string) int {
 			fmt.Println("Socket residual detectado — limpiando...")
 			os.Remove(paths.SocketPath)
 		}
+		// Maskear bos-console.service aquí también: puede que no hubo limpieza previa
+		// (instalación nueva) pero el console igualmente arrancaría al inicio de bos.service.
+		exec.Command("systemctl", "stop", "bos-console.service").Run()
+		exec.Command("systemctl", "mask", "--runtime", "bos-console.service").Run()
+
 		fmt.Println("Daemon no disponible — ejecutando system-install...")
 		if code := cmdSystemInstall([]string{"--mode", *modeFlag}); code != 0 {
+			exec.Command("systemctl", "unmask", "bos-console.service").Run()
 			return code
 		}
+		// Desenmascar bos.service antes de arrancarlo (fue maskeado si hubo limpieza previa).
+		exec.Command("systemctl", "unmask", "bos.service").Run()
 		exec.Command("systemctl", "start", "bos.service").Run()
 		// Esperar hasta que el daemon responda realmente (no solo que el archivo exista).
 		fmt.Print("Esperando daemon")
@@ -92,7 +110,11 @@ func cmdSetup(args []string) int {
 	fmt.Printf("bosctl setup — modo declarativo\n")
 	fmt.Printf("  seed: %s\n", *seedFile)
 	fmt.Printf("  mode: %s\n\n", *modeFlag)
-	return cmdDeploy([]string{*seedFile})
+	result := cmdDeploy([]string{*seedFile})
+	// Desmaskear bos-console.service al finalizar el deploy (éxito o fallo).
+	// Durante el deploy estuvo maskeado para evitar que destruyera el token RPC.
+	exec.Command("systemctl", "unmask", "bos-console.service").Run()
+	return result
 }
 
 // detectFailedInstall lee el state file y retorna las fichas con estados problemáticos:
