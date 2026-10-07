@@ -42,7 +42,8 @@ data:
 
   # ── OAuth2 Proxy ──────────────────────────────────────────────────────
   OAUTH2_REDIRECT_URL: "http://erp.skull.sbos.local/oauth2/callback"
-  OAUTH2_UPSTREAM:     "http://tryton.sbos-erp.svc.cluster.local:8000"
+  # tryton-upstream es el Service ClusterIP (no el headless) — balancea correctamente con 2+ réplicas.
+  OAUTH2_UPSTREAM:     "http://tryton-upstream.sbos-erp.svc.cluster.local:8000"
 ---
 # Deployment: oauth2-proxy-tryton
 # Proxy OIDC dedicado para Tryton ERP.

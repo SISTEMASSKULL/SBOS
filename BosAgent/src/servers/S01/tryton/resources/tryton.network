@@ -1,4 +1,8 @@
 ---
+# NetworkPolicy para los pods de Tryton ERP.
+# ÚNICO origen permitido: oauth2-proxy-tryton (mismo namespace sbos-erp).
+# Nadie puede llegar a Tryton:8000 directamente — todo pasa por el proxy de auth.
+# Garantiza que la autenticación no puede ser saltada.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -12,10 +16,9 @@ spec:
     - Ingress
   ingress:
     - from:
-        - namespaceSelector:
+        - podSelector:
             matchLabels:
-              sbos-role: internal
-
+              app: oauth2-proxy-tryton
       ports:
         - protocol: TCP
           port: 8000

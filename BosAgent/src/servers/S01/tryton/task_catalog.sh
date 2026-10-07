@@ -9,12 +9,14 @@
 #   - ServiceAccount + RBAC mínimo
 #   - ConfigMap con trytond.conf (sin credenciales)
 #   - StatefulSet 1 réplica inicial + PVC 50Gi
-#   - Kong Ingress en erp.skull.sbos.local
+#   - oauth2-proxy-tryton (auth Fase 1: Keycloak / Fase 2: bAuth) frente a Tryton
+#   - Kong Ingress: erp.skull.sbos.local → oauth2-proxy-tryton:4180 → tryton:8000
 #
 # Variables de entorno aceptadas:
-#   TENANT_ID          — ID del tenant (default: skull)
-#   TRYTON_PG_PASSWORD — Inyectada por BOS desde Vault. Si no está presente,
-#                        se genera y se almacena en Vault automáticamente.
+#   TENANT_ID                   — ID del tenant (default: skull)
+#   TRYTON_PG_PASSWORD          — Inyectada por BOS desde Vault (se genera si ausente)
+#   TRYTON_OIDC_CLIENT_SECRET   — Secreto OIDC (se genera si ausente)
+#   TRYTON_OIDC_COOKIE_SECRET   — Cookie secret oauth2-proxy (se genera si ausente)
 # ============================================================================
 
 set -euo pipefail
@@ -90,19 +92,27 @@ configurar_autenticacion_oidc() {
     # Registrar cliente OIDC en Keycloak si está disponible
     if _k get pod -n "$KC_NAMESPACE" "$KC_POD" --no-headers 2>/dev/null | grep -q Running; then
         local kc_admin_pass
-        kc_admin_pass=$(_vault kv get -field=admin_password "secret/tenants/${TENANT_ID}/keycloak" 2>/dev/null || echo "admin")
-        local redirect_uri="http://erp.skull.sbos.local/oauth2/callback"
-        _k exec -n "$KC_NAMESPACE" "$KC_POD" -- bash -c "
-            /opt/keycloak/bin/kcadm.sh create clients \
-              -r skull --no-config \
-              --server http://localhost:8080 \
-              --realm master --user admin --password '${kc_admin_pass}' \
-              -s clientId=tryton-erp -s secret='${oidc_client_secret}' \
-              -s 'redirectUris=[\"${redirect_uri}\"]' \
-              -s publicClient=false -s protocol=openid-connect \
-            2>&1 || echo 'SKIP: cliente ya existe o no disponible'
-        " >> "$FICHA_LOG" 2>&1 && _log "Cliente OIDC 'tryton-erp' registrado en Keycloak realm skull" \
-                                 || _log "ADVERTENCIA: verificar registro manual de 'tryton-erp' en KC"
+        kc_admin_pass=$(_vault kv get -field=admin_password "secret/tenants/${TENANT_ID}/keycloak" 2>/dev/null || echo "")
+        if [[ -z "$kc_admin_pass" ]]; then
+            # Sin contraseña en Vault → no intentar registro automático (P6: sin fallback hardcodeado)
+            _log "PENDIENTE (HITL): admin_password de Keycloak no está en Vault — registrar cliente manualmente:"
+            _log "  ClientID: tryton-erp  |  Realm: skull  |  Protocol: openid-connect"
+            _log "  RedirectURI: http://erp.skull.sbos.local/oauth2/callback"
+            _log "  ClientSecret: (Vault $VAULT_OIDC_PATH → client_secret)"
+        else
+            local redirect_uri="http://erp.skull.sbos.local/oauth2/callback"
+            _k exec -n "$KC_NAMESPACE" "$KC_POD" -- bash -c "
+                /opt/keycloak/bin/kcadm.sh create clients \
+                  -r skull --no-config \
+                  --server http://localhost:8080 \
+                  --realm master --user admin --password '${kc_admin_pass}' \
+                  -s clientId=tryton-erp -s secret='${oidc_client_secret}' \
+                  -s 'redirectUris=[\"${redirect_uri}\"]' \
+                  -s publicClient=false -s protocol=openid-connect \
+                2>&1 || echo 'SKIP: cliente ya existe o no disponible'
+            " >> "$FICHA_LOG" 2>&1 && _log "Cliente OIDC 'tryton-erp' registrado en Keycloak realm skull" \
+                                     || _log "ADVERTENCIA: verificar registro manual de 'tryton-erp' en KC"
+        fi
     else
         _log "PENDIENTE (HITL): Keycloak no disponible — registrar cliente OIDC manualmente:"
         _log "  ClientID: tryton-erp  |  Realm: skull  |  Protocol: openid-connect"

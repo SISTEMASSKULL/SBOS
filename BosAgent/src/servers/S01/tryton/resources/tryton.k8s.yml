@@ -1,5 +1,6 @@
 ---
-# Service headless para StatefulSet (DNS interno: tryton-0.tryton.sbos-erp).
+# Service headless para StatefulSet (DNS por pod: tryton-0.tryton.sbos-erp).
+# Solo para uso interno del StatefulSet — NO usar como upstream del proxy.
 apiVersion: v1
 kind: Service
 metadata:
@@ -10,6 +11,24 @@ metadata:
     managed-by: bos
 spec:
   clusterIP: None
+  selector:
+    app: tryton
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+---
+# Service ClusterIP para upstream de oauth2-proxy-tryton.
+# Con 1 réplica es equivalente al headless; con 2+ réplicas kube-proxy balancea correctamente.
+apiVersion: v1
+kind: Service
+metadata:
+  name: tryton-upstream
+  namespace: sbos-erp
+  labels:
+    app: tryton
+    managed-by: bos
+spec:
   selector:
     app: tryton
   ports:
