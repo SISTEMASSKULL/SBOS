@@ -315,6 +315,12 @@ func runPreflightFicha(mode string) error {
 		return fmt.Errorf("task_catalog.sh de bos-preflight no encontrado — incluir en el paquete de deploy")
 	}
 
+	// Crear directorio de logs antes de que la ficha intente escribir en él.
+	logDir := filepath.Join(paths.VarLogBos, "fichas")
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		return fmt.Errorf("crear directorio de logs fichas: %w", err)
+	}
+
 	// Ejecutar ficha_pre_install → ficha_install → ficha_post_install en secuencia.
 	// Se usa "source + llamar función" para que las funciones del catalog sean visibles.
 	fichaEnv := append(os.Environ(),

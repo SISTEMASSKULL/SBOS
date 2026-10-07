@@ -3,12 +3,14 @@
 #
 # NORMA IRRENUNCIABLE (ADR-022):
 #   Este script hace UNA SOLA COSA: copiar los binarios y delegar
-#   TODA la instalación a "bosctl system-install".
+#   TODA la instalación a "bosctl install".
 #   Sin apt-get. Sin useradd. Sin systemctl. Sin configuraciones manuales.
 #   Cualquier dependencia del SO = ficha declarativa bos-preflight.
 #
 # Uso (como root):
-#   cd /tmp/sbos && sudo bash install.sh
+#   cd /tmp/sbos && sudo bash install.sh [--mode=dev|prod] [--seed=<ruta>]
+#
+# Un solo comando — hace todo: instala el daemon + despliega el stack completo.
 
 set -euo pipefail
 
@@ -35,15 +37,36 @@ ok "binarios presentes"
 # Dar permisos de ejecución si hace falta
 chmod +x "$DIR/bos" "$DIR/bosctl"
 
-# Copiar bosctl temporalmente a /usr/local/bin para poder ejecutarlo
+# Copiar bosctl a /usr/local/bin para ejecutarlo desde cualquier directorio
 install -m 755 "$DIR/bosctl" /usr/local/bin/bosctl
 install -m 755 "$DIR/bos"    /usr/local/bin/bos
 ok "bosctl disponible"
 
-# Delegar TODO a bosctl — el instalador cubre cualquier necesidad
+# Detectar seed file: argumento explícito → junto a install.sh → default
+SEED=""
+MODE="dev"
+for arg in "$@"; do
+    case "$arg" in
+        --seed=*)  SEED="${arg#--seed=}" ;;
+        --mode=*)  MODE="${arg#--mode=}" ;;
+    esac
+done
+
+if [[ -z "$SEED" ]]; then
+    if [[ -f "$DIR/servers/seed-skull.yml" ]]; then
+        SEED="$DIR/servers/seed-skull.yml"
+    else
+        fail "Seed no encontrado. Usar: bash install.sh --seed=<ruta>"
+    fi
+fi
+
+[[ -f "$SEED" ]] || fail "Seed no existe: $SEED"
+ok "seed: $SEED"
+
+# Delegar TODO a bosctl install — instala daemon + despliega stack completo
 echo ""
-echo "  Ejecutando bosctl system-install..."
-echo "  (instala dependencias, crea usuario, dirs, cgroups, servicios)"
+echo "  Ejecutando bosctl install --mode=$MODE --seed=$SEED"
+echo "  (instala daemon, K8s, PG, Redis, Vault, Keycloak, fichas)"
 echo ""
 
-exec bosctl system-install
+exec bosctl install --mode="$MODE" --seed="$SEED"
