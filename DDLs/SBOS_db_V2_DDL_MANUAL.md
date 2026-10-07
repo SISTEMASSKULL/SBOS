@@ -34,7 +34,7 @@
 | [S18 — Dispositivos](#s18--dispositivos-bauth) (NIVEL 19) | T-390(`auth_device`), T-391(`auth_device_posture`), T-392(`auth_device_credential_binding`) | ZTA · MDM · FIDO2 · OSDP v2.2 · WORM binding |
 | [S19 — Context Plane](#s19--context-plane-bos) (NIVEL 20) | T-395(`registered_device`), T-396(`ctx_context_session`), T-397(`ctx_context_audit`), T-398(`ctx_context_switch_log`), T-399(`ctx_context_policy`), T-400(`device_heartbeat`), T-401(`ctx_context_transfer`), T-402(`ctx_context_emergency`) | Policy Administrator NIST SP 800-207 · ctx_id 6 capas · WORM hash-chain |
 | [S20 — Biblioteca de Referencia](#s20--biblioteca-de-referencia-bauth) (NIVEL 21) | T-999(`cfg_policy_library`) | Biblioteca unificada de políticas, reglas y átomos — SOLO LECTURA · 16 fuentes · 13 dominios |
-| [S20 — BOS Control Plane](#s20--bos-control-plane-bos) (NIVEL 21) | T-403(`fch_ficha_state`), T-404(`fch_ficha_event`), T-405(`ins_bootstrap_event`), T-406(`cap_sistema_snapshot`), T-407(`cap_tenant_policy`), T-408(`prt_port_assignment`), T-409(`rel_release_manifest`), T-410(`rel_release_event`), T-411(`wdg_watchdog_event`), T-412(`ins_saga_execution`), T-413(`net_cert_inventory`), T-414(`net_security_events`) | Fichas · IAM Installer · Capacidad · Port Manager · NetMan (certs + eventos) · Release · Watchdog · Sagas |
+| [S20 — BOS Control Plane](#s20--bos-control-plane-bos) (NIVEL 21) | T-403(`fch_ficha_state`), T-404(`fch_ficha_event`), T-405(`ins_bootstrap_event`), T-406(`cap_sistema_snapshot`), T-407(`cap_tenant_policy`), T-408(`prt_port_assignment`), T-409(`rel_release_manifest`), T-410(`rel_release_event`), T-411(`wdg_watchdog_event`), T-412(`ins_saga_execution`), T-413(`net_cert_inventory`), T-414(`net_security_events`), T-430(`net_web_domain`) | Fichas · IAM Installer · Capacidad · Port Manager · NetMan (certs + eventos + dominios web) · Release · Watchdog · Sagas |
 | [S21 — ISO 27001:2022 BACKLOG](#s21--iso-270012022-backlog-bauth) (NIVEL 22) | T-520(`inc_incident`), T-521(`inc_root_cause`), T-522(`inc_corrective_action`), T-523(`inc_effectiveness_review`), T-524(`cfg_retention_policy`), T-526(`thi_correlation_log`), T-527(`vul_component`), T-528(`vul_auth_impact`), T-564(`thi_indicator`), T-565(`inc_security_event`) + ALTER T-157 | Incidentes ISO A.5.27 · Triaje A.5.25 · Respuesta A.5.26 · Retención A.8.10 · Inteligencia amenazas A.5.7 (WORM) · Vulnerabilidades A.8.8 · PII A.5.12/A.5.34 |
 
 > **⚠️ Nota v2.3.0:** S8-S12 fueron refactorizados en el DDL. Los nombres canónicos son los del DDL.
@@ -2357,9 +2357,9 @@ Break-glass de contexto (D08-B04). Control dual NIST AC-17(3): quien activa ≠ 
 
 ## S20 — BOS Control Plane (bos)
 
-**NIVEL 21 · Tablas:** T-403..T-412  
+**NIVEL 21 · Tablas:** T-403..T-414, T-430 — **21 tablas · 8 WORM**  
 **Archivo:** `bos_01__control_plane.sql` · **Schema:** `bos`  
-**Ref:** ADR-021 (18-state machine) · ADR-040 (bootstrap) · RFC 6335 BCP 165 (Port Manager) · SBOS-BOS-CAP-001 · ISO 27001:2022 A.8.9/A.8.15/A.12.4
+**Ref:** ADR-021 (18-state machine) · ADR-040 (bootstrap) · RFC 6335 BCP 165 (Port Manager) · SBOS-BOS-CAP-001 · ISO 27001:2022 A.8.9/A.8.15/A.12.4 · BC-06 (S16 Domain Manager)
 
 ### Arquitectura BOS Control Plane — 6 grupos funcionales
 
@@ -2562,6 +2562,30 @@ bos.wdg_watchdog_event (T-411) 🔒  ← Watchdog 3 capas: host|k8s|fichas
 
 ---
 
+#### T-430 — bos.net_web_domain
+
+**Propósito:** Registro de dominios web multi-tenant del servidor S16-webserver. Persiste el estado de cada dominio gestionado por `bos.web.domain.*` (BC-06) — nginx reverse proxy + certbot SSL. Una fila = un dominio activo o eliminado lógicamente (soft-delete via `is_active=false`).
+
+**Columnas clave:**
+- `domain_id UUID` — clave primaria UUIDv7 (`uuidv7()`)
+- `domain TEXT UNIQUE` — hostname RFC 1123 (ej: `api.empresa.com`, 4-253 chars, lowercase)
+- `tenant_id TEXT` — tenant propietario del dominio
+- `empresa_id / sucursal_id TEXT` — opcional: afinar a empresa/sucursal
+- `is_active BOOLEAN DEFAULT true` — soft-delete: false cuando se elimina el dominio
+- `ssl_provisioned BOOLEAN DEFAULT false` — true cuando certbot emitió certificado
+- `ssl_expires_at TIMESTAMPTZ` — caducidad del cert SSL (calculada por certbot)
+- `ctx_id TEXT NOT NULL` — ctx_id de la operación que creó el registro (SBOS-049)
+
+**Constraints:** `UNIQUE(domain)` · `CHECK(domain ~ regex RFC1123 lowercase)` · `CHECK(length BETWEEN 4 AND 253)`
+
+**Índices:** `idx_net_wd_tenant` · `idx_net_wd_active` (parcial WHERE is_active=true) · `idx_net_wd_ssl_exp` (parcial WHERE ssl_provisioned=true)
+
+**Interfaz:** `bos.web.domain.add|remove|list|resolve|ssl_status` (5 métodos JSON-RPC) · `bosctl web domain add|list|ssl-status|resolve|remove` (CLI).
+
+**Nota T-code:** T-415..T-420 reservados para `bauth.idn_delegation_*` → se usa T-430.
+
+---
+
 ### Grupo REL — Release Plane
 
 #### T-409 — bos.rel_release_manifest
@@ -2754,6 +2778,7 @@ bos.wdg_watchdog_event (T-411) 🔒  ← Watchdog 3 capas: host|k8s|fichas
 
 | Versión | Fecha | Cambios |
 |---------|-------|---------|
+| v2.15.0 | 2026-10-07 | S20 BOS Control Plane: T-430 `bos.net_web_domain` — Dominios web multi-tenant S16-webserver (BC-06). nginx reverse proxy + certbot SSL. 5 métodos JSON-RPC `bos.web.domain.*`. UUID PK con `uuidv7()`. T-code: T-415..T-420 reservados bAuth → se usa T-430. Schema `bos` ahora 21 tablas. |
 | v2.14.0 | 2026-08-01 | S21 ISO 27001:2022 BACKLOG: 10 tablas nuevas (T-520..T-524, T-526..T-528, T-564, T-565) + ALTER T-157 (+pii_category, legal_basis, chk_attr_pii_metadata_completa). Controles cerrados: A.5.7/A.5.12/A.5.25/A.5.26/A.5.27/A.5.34/A.8.8/A.8.10. Score A.71: 122/123 (99.2%). T-564/T-565 por conflicto T-525/T-529 preexistentes. ddls.yml → tablas: 144. Seeds MC-0320..MC-0340 en T061. |
 | v2.13.0 | 2026-07-31 | T-408: columna `algorithm TEXT DEFAULT 'A'` (antes almacenado en `notes` como hack). T-413: `days_remaining` eliminado como `GENERATED ALWAYS AS` — `NOW()` no es IMMUTABLE; se calcula en query. T-413: añadidos `serial_number`, `issued_at`, `last_renewed_at`, `revocation_reason`; `kong_tls` agregado a cert_type CHECK. Todos los documentos (A.15, 3.08, A.65.02) sincronizados. VPS SBOSDB aplicado. |
 | v2.12.0 | 2026-07-31 | T-408 `prt_port_assignment`: corrección CHECK `port_type` — valores alineados con código Go (`HOST_PHYSICAL\|HOST_LOGICAL\|K8S_NODE_PORT\|K8S_CLUSTER_IP\|K8S_LOAD_BALANCER`). T-413 `net_cert_inventory`: Kardex de certificados TLS (ISO 27001 A.8.24). T-414 `net_security_events`: log de eventos de seguridad de red (ISO 27001 A.8.21), particionado mensual por `event_time`, 27 event_types, src_ip tipo INET. Total schema `bos`: 20 tablas · 8 WORM · 8 grupos. |

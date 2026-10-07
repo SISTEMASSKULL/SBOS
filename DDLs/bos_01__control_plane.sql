@@ -1215,7 +1215,43 @@ COMMENT ON TABLE bos.net_security_events IS
    src_ip usa tipo INET (PostgreSQL nativo) para búsquedas por red.';
 
 -- =============================================================================
--- RESUMEN — 20 tablas · 8 WORM · schema bos · 8 grupos funcionales
+-- T-430 — bos.net_web_domain
+-- Registro de dominios web multi-tenant del servidor S16-webserver.
+-- Gestionado por bos.web.domain.* (BC-06). nginx + certbot + reverse proxy.
+-- Nota: T-415..T-420 reservados para bauth.idn_delegation_* → se usa T-430.
+-- Referencia: manual 5.01 §6 · BC-06 · ADR-020 (Interface Dual)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS bos.net_web_domain (
+    domain_id       UUID        NOT NULL DEFAULT uuidv7(),
+    domain          TEXT        NOT NULL,
+    tenant_id       TEXT        NOT NULL,
+    empresa_id      TEXT,
+    sucursal_id     TEXT,
+    is_active       BOOLEAN     NOT NULL DEFAULT true,
+    ssl_provisioned BOOLEAN     NOT NULL DEFAULT false,
+    ssl_expires_at  TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    ctx_id          TEXT        NOT NULL,
+
+    CONSTRAINT net_wd_pkey    PRIMARY KEY (domain_id),
+    CONSTRAINT uq_net_wd_dom  UNIQUE (domain),
+    CONSTRAINT chk_net_wd_len CHECK (length(domain) BETWEEN 4 AND 253),
+    CONSTRAINT chk_net_wd_fmt CHECK (domain ~ '^[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?(\.[a-z]{2,})+$')
+);
+
+CREATE INDEX IF NOT EXISTS idx_net_wd_tenant  ON bos.net_web_domain (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_net_wd_active  ON bos.net_web_domain (is_active) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_net_wd_ssl_exp ON bos.net_web_domain (ssl_expires_at)
+    WHERE ssl_provisioned = true;
+
+COMMENT ON TABLE bos.net_web_domain IS
+  '[T-430] [BC-06] [S16-webserver] [manual 5.01 §6] [ADR-020]
+   Registro de dominios web multi-tenant. Gestionado por bos.web.domain.* (5 métodos).
+   nginx reverse proxy + certbot SSL. Un registro por dominio activo.
+   Soft-delete via is_active=false. ssl_provisioned=true cuando certbot emitió cert.';
+
+-- =============================================================================
+-- RESUMEN — 21 tablas · 8 WORM · schema bos · 8 grupos funcionales
 -- =============================================================================
 -- GRUPO CTX — Motor ④ Context Plane                          8 tablas ✅
 -- T-395    bos.ctx_registered_device     Dispositivos pre-auth (BitMask=0, TTL 8h)
@@ -1243,9 +1279,10 @@ COMMENT ON TABLE bos.net_security_events IS
 -- GRUPO PRT — Port Manager (A.12 / RFC 6335 BCP 165)        1 tabla  ✅
 -- T-408  bos.prt_port_assignment       Kardex de puertos (inmutabilidad lógica, RFC 6335 §8)
 --
--- GRUPO NET — Network Security Manager (A.15)               2 tablas ✅
+-- GRUPO NET — Network Security Manager (A.15)               3 tablas ✅
 -- T-413  bos.net_cert_inventory        Kardex de certificados TLS (ISO 27001 A.8.24)
 -- T-414  bos.net_security_events       Log de eventos de seguridad de red (particionado mensual)
+-- T-430  bos.net_web_domain            Dominios web multi-tenant S16-webserver (BC-06, nginx+certbot)
 --
 -- GRUPO REL — Release Plane (SBOS-RELEASE-001)              2 tablas ✅
 -- T-409  bos.rel_release_manifest      Catálogo de releases por canal (canary→early→stable)
