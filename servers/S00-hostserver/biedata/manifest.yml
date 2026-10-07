@@ -1,0 +1,52 @@
+# manifest.yml — Ficha biedata (SBOS S00-hostserver)
+# BC-12 · SBOS-049 §4 · SBOS-050 · ADR-020 · Order 160
+identity:
+  id: biedata
+  name: biedata — Orquestador de Datos JSON-RPC 2.0
+  version: "1.0.0"
+  category: 1
+  criticality: true
+  server: hostserver
+  description: "Orquestador JSON-RPC 2.0 — aduana de datos soberana. Gateway de integración entre daemons del ecosistema SBOS."
+
+workload:
+  type: SystemdService
+  host: true
+  binary: /usr/local/bin/biedata
+  user: biedata
+  group: bosagent
+  working_dir: /opt/biedata
+
+order:
+  execution_order: 160
+
+requirements:
+  dependencies:
+    - postgresql
+    - redis
+    - bauth
+    - bkernel
+
+ports:
+  - name: rpc
+    protocol: unix
+    path: /run/bos/biedata.sock
+    description: "JSON-RPC 2.0 — interface dual (ADR-020)"
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: daemon-soberano
+
+health:
+  type: command
+  check_command: "systemctl is-active --quiet biedata.service"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+
+meta:
+  backend: systemd
+  idempotent: true
+  estimated_minutes: 2
+  rollback_support: true
