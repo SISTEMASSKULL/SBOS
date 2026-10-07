@@ -114,6 +114,8 @@ func main() {
 		os.Exit(cmdBootstrap(args))
 	case "port":
 		os.Exit(cmdPort(args))
+	case "db":
+		os.Exit(cmdDB(args[1:]))
 	case "web":
 		os.Exit(cmdWeb(args[1:]))
 	case "rpc":

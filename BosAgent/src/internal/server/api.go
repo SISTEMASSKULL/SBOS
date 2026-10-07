@@ -128,6 +128,7 @@ type Server struct {
 	limiter    *ratelimit.IPLimiter    // rate limiter NRS-08 (nil-safe)
 	portman    PortManager             // Motor de puertos SBOS-050 (nil-safe, lazy init via BOS_PG_DSN)
 	webDomain  *domain.WebDomainService // BC-06: Domain Manager S16-webserver (nil-safe, lazy init en rpc_web.go)
+	dbInit     *domain.DbInitService    // BC-07: DbInitService SBOS_db (nil-safe, lazy init en rpc_db.go)
 
 	httpServer *http.Server
 	unixServer *http.Server

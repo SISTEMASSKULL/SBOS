@@ -284,6 +284,9 @@ func init() {
 		"bos.portman.list":     (*Server).rpcPortmanList,
 		"bos.portman.validate": (*Server).rpcPortmanValidate,
 		"bos.portman.export":   (*Server).rpcPortmanExport,
+		// bos.db.* — DbInitService SBOS_db (BC-07, C-04b)
+		"bos.db.init":   (*Server).rpcDBInit,
+		"bos.db.status": (*Server).rpcDBStatus,
 		// bos.web.domain.* — Domain Manager S16-webserver (BC-06)
 		"bos.web.domain.add":        (*Server).rpcWebDomainAdd,
 		"bos.web.domain.remove":     (*Server).rpcWebDomainRemove,
