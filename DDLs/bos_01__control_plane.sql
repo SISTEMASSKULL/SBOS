@@ -1230,6 +1230,8 @@ CREATE TABLE IF NOT EXISTS bos.net_web_domain (
     is_active       BOOLEAN     NOT NULL DEFAULT true,
     ssl_provisioned BOOLEAN     NOT NULL DEFAULT false,
     ssl_expires_at  TIMESTAMPTZ,
+    target          TEXT        NOT NULL DEFAULT '',
+    ssl_auto        BOOLEAN     NOT NULL DEFAULT false,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     ctx_id          TEXT        NOT NULL,
 

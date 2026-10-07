@@ -2569,6 +2569,8 @@ bos.wdg_watchdog_event (T-411) 🔒  ← Watchdog 3 capas: host|k8s|fichas
 **Columnas clave:**
 - `domain_id UUID` — clave primaria UUIDv7 (`uuidv7()`)
 - `domain TEXT UNIQUE` — hostname RFC 1123 (ej: `api.empresa.com`, 4-253 chars, lowercase)
+- `target TEXT DEFAULT ''` — IP o host:puerto de destino del reverse proxy nginx
+- `ssl_auto BOOLEAN DEFAULT false` — si true, certbot se provisiona automáticamente al registrar
 - `tenant_id TEXT` — tenant propietario del dominio
 - `empresa_id / sucursal_id TEXT` — opcional: afinar a empresa/sucursal
 - `is_active BOOLEAN DEFAULT true` — soft-delete: false cuando se elimina el dominio
@@ -2778,6 +2780,7 @@ bos.wdg_watchdog_event (T-411) 🔒  ← Watchdog 3 capas: host|k8s|fichas
 
 | Versión | Fecha | Cambios |
 |---------|-------|---------|
+| v2.15.1 | 2026-10-07 | T-430: ADD COLUMN `target TEXT` (destino nginx) + `ssl_auto BOOLEAN` (provisionar certbot). Columnas necesarias para PgWebDomain (WebDomainPort). Seed actualizado con ALTER idempotente. |
 | v2.15.0 | 2026-10-07 | S20 BOS Control Plane: T-430 `bos.net_web_domain` — Dominios web multi-tenant S16-webserver (BC-06). nginx reverse proxy + certbot SSL. 5 métodos JSON-RPC `bos.web.domain.*`. UUID PK con `uuidv7()`. T-code: T-415..T-420 reservados bAuth → se usa T-430. Schema `bos` ahora 21 tablas. |
 | v2.14.0 | 2026-08-01 | S21 ISO 27001:2022 BACKLOG: 10 tablas nuevas (T-520..T-524, T-526..T-528, T-564, T-565) + ALTER T-157 (+pii_category, legal_basis, chk_attr_pii_metadata_completa). Controles cerrados: A.5.7/A.5.12/A.5.25/A.5.26/A.5.27/A.5.34/A.8.8/A.8.10. Score A.71: 122/123 (99.2%). T-564/T-565 por conflicto T-525/T-529 preexistentes. ddls.yml → tablas: 144. Seeds MC-0320..MC-0340 en T061. |
 | v2.13.0 | 2026-07-31 | T-408: columna `algorithm TEXT DEFAULT 'A'` (antes almacenado en `notes` como hack). T-413: `days_remaining` eliminado como `GENERATED ALWAYS AS` — `NOW()` no es IMMUTABLE; se calcula en query. T-413: añadidos `serial_number`, `issued_at`, `last_renewed_at`, `revocation_reason`; `kong_tls` agregado a cert_type CHECK. Todos los documentos (A.15, 3.08, A.65.02) sincronizados. VPS SBOSDB aplicado. |

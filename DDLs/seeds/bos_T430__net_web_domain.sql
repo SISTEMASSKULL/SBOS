@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS bos.net_web_domain (
     is_active       BOOLEAN     NOT NULL DEFAULT true,
     ssl_provisioned BOOLEAN     NOT NULL DEFAULT false,
     ssl_expires_at  TIMESTAMPTZ,
+    target          TEXT        NOT NULL DEFAULT '',
+    ssl_auto        BOOLEAN     NOT NULL DEFAULT false,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     ctx_id          TEXT        NOT NULL,
 
@@ -34,7 +36,13 @@ COMMENT ON TABLE bos.net_web_domain IS
    nginx reverse proxy + certbot SSL. Un registro por dominio activo.
    Soft-delete via is_active=false. ssl_provisioned=true cuando certbot emitió cert.';
 
+-- Idempotencia: agregar columnas si la tabla existía sin ellas (ALTER seguro)
+ALTER TABLE bos.net_web_domain
+    ADD COLUMN IF NOT EXISTS target   TEXT    NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS ssl_auto BOOLEAN NOT NULL DEFAULT false;
+
 -- Verificar
-SELECT schemaname, tablename, tableowner
-FROM pg_tables
-WHERE schemaname = 'bos' AND tablename = 'net_web_domain';
+SELECT column_name, data_type, is_nullable, column_default
+FROM information_schema.columns
+WHERE table_schema = 'bos' AND table_name = 'net_web_domain'
+ORDER BY ordinal_position;
