@@ -1,0 +1,64 @@
+# manifest.yml — Ficha weblate (SBOS S16-webserver)
+# BC-13 · SBOS-049 §4 · SBOS-050 · Order 380
+# Interfaz web de edición de traducciones FTL/Fluent (bi18n)
+identity:
+  id: weblate
+  name: weblate — Gestión de Traducciones
+  version: "2026"
+  category: 2
+  criticality: false
+  server: webserver
+  description: "Plataforma web self-hosted para editar archivos FTL/Fluent de bi18n. Escribe directo en hostPath /etc/bos/bi18n/translations — bi18nd detecta cambios vía file watcher."
+
+workload:
+  type: Deployment
+  namespace: sbos-web
+  replicas: 1
+  service_account: weblate-sa
+  strategy: Recreate
+
+order:
+  execution_order: 380
+
+requirements:
+  dependencies:
+    - postgresql
+    - redis
+    - nginx
+
+  cpu_request: "500m"
+  cpu_limit: "2000m"
+  memory_request: "1Gi"
+  memory_limit: "2Gi"
+
+ports:
+  - name: http
+    port: 8080
+    protocol: TCP
+    description: "Weblate app web (nginx la proxifica)"
+
+storage:
+  - name: translations
+    type: hostPath
+    host_path: /etc/bos/bi18n/translations
+    mount_path: /app/translations
+    description: "Directorio compartido con bi18nd — Weblate escribe FTL aquí"
+
+governance:
+  auto_install: false
+  requires_approval: true
+  category_label: translation-ui
+
+health:
+  type: http
+  check_path: /healthz/
+  check_port: 8080
+  check_interval_seconds: 60
+  check_timeout_seconds: 15
+  consecutive_failures_threshold: 3
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: true
