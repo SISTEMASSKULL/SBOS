@@ -1,11 +1,13 @@
 // Package domain — implementaciones de infraestructura para WebDomainService.
 //
 // MemWebDomain: store en memoria (tests, modo dev sin BD)
+// PgWebDomain:  store persistente sobre bos.net_web_domain (T-430)
 // NoopNginx:    stub sin efectos (tests)
 // NginxManager: implementación real de producción (nginx + certbot + openssl)
 package domain
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 	"os/exec"
@@ -13,6 +15,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	_ "github.com/lib/pq"
 )
 
 // ── MemWebDomain ─────────────────────────────────────────────────────────────
@@ -56,6 +60,97 @@ func (m *MemWebDomain) List() []WebDomainRecord {
 	out := make([]WebDomainRecord, 0, len(m.records))
 	for _, r := range m.records {
 		out = append(out, r)
+	}
+	return out
+}
+
+// ── PgWebDomain ──────────────────────────────────────────────────────────────
+
+// PgWebDomain implementa WebDomainPort sobre bos.net_web_domain (T-430).
+// Usa soft-delete (is_active=false) para Delete; List y Get filtran is_active=true.
+type PgWebDomain struct {
+	db *sql.DB
+}
+
+// NewPgWebDomain abre la conexión a PostgreSQL y retorna el store.
+// DSN desde env BOS_PG_DSN (mismo que portman y context plane).
+func NewPgWebDomain(dsn string) (*PgWebDomain, error) {
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("webdomain: abrir conexión: %w", err)
+	}
+	db.SetMaxOpenConns(4)
+	db.SetMaxIdleConns(2)
+	if err := db.Ping(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("webdomain: ping falló: %w", err)
+	}
+	return &PgWebDomain{db: db}, nil
+}
+
+// Close cierra el pool de conexiones.
+func (p *PgWebDomain) Close() error { return p.db.Close() }
+
+// Save inserta o actualiza (UPSERT) el registro del dominio.
+// Si el dominio ya existe, actualiza target y ssl_auto.
+func (p *PgWebDomain) Save(rec WebDomainRecord) error {
+	const q = `
+		INSERT INTO bos.net_web_domain
+			(domain, target, ssl_auto, tenant_id, is_active, ctx_id, created_at)
+		VALUES ($1, $2, $3, 'default', true, 'system', $4)
+		ON CONFLICT (domain) DO UPDATE SET
+			target    = EXCLUDED.target,
+			ssl_auto  = EXCLUDED.ssl_auto,
+			is_active = true`
+	_, err := p.db.Exec(q, rec.Domain, rec.Target, rec.SSLAuto, rec.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("webdomain save %s: %w", rec.Domain, err)
+	}
+	return nil
+}
+
+// Delete marca el dominio como inactivo (soft-delete).
+func (p *PgWebDomain) Delete(domain string) error {
+	const q = `UPDATE bos.net_web_domain SET is_active = false WHERE domain = $1`
+	_, err := p.db.Exec(q, domain)
+	if err != nil {
+		return fmt.Errorf("webdomain delete %s: %w", domain, err)
+	}
+	return nil
+}
+
+// Get retorna el registro activo de un dominio, o (zero, false) si no existe.
+func (p *PgWebDomain) Get(domain string) (WebDomainRecord, bool) {
+	const q = `
+		SELECT domain, target, ssl_auto, created_at
+		FROM bos.net_web_domain
+		WHERE domain = $1 AND is_active = true`
+	var rec WebDomainRecord
+	err := p.db.QueryRow(q, domain).Scan(&rec.Domain, &rec.Target, &rec.SSLAuto, &rec.CreatedAt)
+	if err != nil {
+		return WebDomainRecord{}, false
+	}
+	return rec, true
+}
+
+// List retorna todos los dominios activos ordenados por created_at.
+func (p *PgWebDomain) List() []WebDomainRecord {
+	const q = `
+		SELECT domain, target, ssl_auto, created_at
+		FROM bos.net_web_domain
+		WHERE is_active = true
+		ORDER BY created_at`
+	rows, err := p.db.Query(q)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var out []WebDomainRecord
+	for rows.Next() {
+		var rec WebDomainRecord
+		if err := rows.Scan(&rec.Domain, &rec.Target, &rec.SSLAuto, &rec.CreatedAt); err == nil {
+			out = append(out, rec)
+		}
 	}
 	return out
 }

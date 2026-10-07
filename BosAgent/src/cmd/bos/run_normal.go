@@ -289,6 +289,25 @@ func runNormal(cfg *config.Config, benv *bootstrapEnv) {
 		log.Info().Msg("portman: BOS_PG_DSN no configurado — Kardex desactivado (modo standalone)")
 	}
 
+	// BC-06 — Domain Manager S16-webserver: PgWebDomain si BOS_PG_DSN, sino MemWebDomain.
+	// NginxManager requiere nginx + certbot instalados (ficha bos-nginx).
+	{
+		var webStore domain.WebDomainPort
+		if pgDSN := os.Getenv("BOS_PG_DSN"); pgDSN != "" {
+			if pgStore, err := domain.NewPgWebDomain(pgDSN); err != nil {
+				log.Warn().Err(err).Msg("webdomain: PgWebDomain no disponible — usando MemWebDomain")
+				webStore = domain.NewMemWebDomain()
+			} else {
+				webStore = pgStore
+				log.Info().Msg("webdomain: PgWebDomain activo (T-430, bos.net_web_domain)")
+			}
+		} else {
+			webStore = domain.NewMemWebDomain()
+			log.Info().Msg("webdomain: BOS_PG_DSN no configurado — usando MemWebDomain (sin persistencia)")
+		}
+		apiServer.SetWebDomainService(domain.NewWebDomainService(webStore, domain.NewNginxManager("")))
+	}
+
 	// F10 — agente biaos: catálogo ICAP + ReAct + HITL; sus herramientas son
 	// el propio dispatcher RPC (ToolExecutor). Degrada sin catálogo sin
 	// tumbar el daemon (biaos es opcional; el resto del bos funciona).
