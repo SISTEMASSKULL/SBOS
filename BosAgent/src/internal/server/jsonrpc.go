@@ -284,6 +284,12 @@ func init() {
 		"bos.portman.list":     (*Server).rpcPortmanList,
 		"bos.portman.validate": (*Server).rpcPortmanValidate,
 		"bos.portman.export":   (*Server).rpcPortmanExport,
+		// bos.web.domain.* — Domain Manager S16-webserver (BC-06)
+		"bos.web.domain.add":        (*Server).rpcWebDomainAdd,
+		"bos.web.domain.remove":     (*Server).rpcWebDomainRemove,
+		"bos.web.domain.list":       (*Server).rpcWebDomainList,
+		"bos.web.domain.resolve":    (*Server).rpcWebDomainResolve,
+		"bos.web.domain.ssl_status": (*Server).rpcWebDomainSSLStatus,
 		// system.*
 		"system.listMethods": (*Server).rpcSystemListMethods,
 	}

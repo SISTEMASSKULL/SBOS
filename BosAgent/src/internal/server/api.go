@@ -127,6 +127,7 @@ type Server struct {
 	logReader  domain.LogPort          // lector de logs de ficha (nil-safe, inyectado via SetLogReader)
 	limiter    *ratelimit.IPLimiter    // rate limiter NRS-08 (nil-safe)
 	portman    PortManager             // Motor de puertos SBOS-050 (nil-safe, lazy init via BOS_PG_DSN)
+	webDomain  *domain.WebDomainService // BC-06: Domain Manager S16-webserver (nil-safe, lazy init en rpc_web.go)
 
 	httpServer *http.Server
 	unixServer *http.Server
@@ -275,6 +276,12 @@ func (s *Server) SetPortManager(pm PortManager) {
 	if pm != nil && s.fichaSvc != nil {
 		s.fichaSvc.SetPortManager(NewFichaPortAdapter(pm))
 	}
+}
+
+// SetWebDomainService inyecta el Domain Manager de S16-webserver (BC-06).
+// Opcional — si no se inyecta, rpc_web.go usa MemWebDomain + NoopNginx (modo dev).
+func (s *Server) SetWebDomainService(svc *domain.WebDomainService) {
+	s.webDomain = svc
 }
 
 // handleContextLookup responde a GET /api/v1/context/{ctx_id} para Kong (C-5).

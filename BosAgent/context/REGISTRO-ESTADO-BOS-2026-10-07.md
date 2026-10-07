@@ -159,10 +159,17 @@ system-install  dev          help
 - `capacity.Collector` con `kubectl top nodes`: `Collect()`, `CheckAdmission()`, `parseKubectlTop()`
 - **BC-05b pendiente:** Forecaster / PolicyEngine / ActionEngine (§3-§6 del manual 2.02)
 
-### BC-06 — Domain Manager S16-webserver sin código [ALTA] 🔴 ABIERTA
-- **Manual:** 5.01 (gap declarado)
-- **Qué falta:** módulo `bos.web.domain.*` en JSON-RPC (5 métodos) + tabla T-415 `bos.net_web_domain`
-- **Impacto:** nginx/certbot/modsecurity no gestionables por BOS vía JSON-RPC
+### ~~BC-06 — Domain Manager S16-webserver~~ ✅ CERRADA (2026-10-07)
+- `internal/domain/webdomain_service.go`: `WebDomainService.Add/Remove/List/Resolve/SSLStatus`, interfaces `WebDomainPort` + `WebNginxPort`
+- `internal/domain/webdomain_infra.go`: `MemWebDomain` (thread-safe), `NoopNginx` (test stub), `NginxManager` (nginx+certbot+openssl)
+- `internal/domain/webdomain_service_test.go`: 6 tests — Add, AddDuplicate, AddInvalidDomain, List, Resolve, Remove, SSLNotProvisioned
+- `internal/server/rpc_web.go`: 5 handlers — rpcWebDomainAdd/Remove/List/Resolve/SSLStatus
+- `internal/server/api.go`: campo `webDomain` + `SetWebDomainService()`
+- `internal/server/jsonrpc.go`: 5 métodos `bos.web.domain.*` registrados
+- `cmd/bosctl/web.go`: `cmdWeb` → `cmdWebDomain` → 5 subcomandos (add/remove/list/resolve/ssl-status)
+- `cmd/bosctl/main.go`: `case "web":` dispatcher
+- `context/Documentacion/PROPUESTA-T415-net_web_domain.md`: DDL T-415 — **HITL pendiente**
+- **Pendiente HITL:** aprobación de T-415 `bos.net_web_domain` en SBOSDB + implementar `PgWebDomain`
 
 ---
 
