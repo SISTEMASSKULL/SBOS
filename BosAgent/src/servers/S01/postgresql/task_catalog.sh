@@ -549,47 +549,9 @@ spec:
     echo "${__STEP_OK__} deploy_etcd"
 
     # ── 12. pgBackRest PITR (Iteración 3) ────────────────────────
-    echo "${__STEP_START__} configurar_pgbackrest"
-    _apply "pgbackrest-cronjob" "apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: pgbackrest-backup
-  namespace: ${NS}
-  labels:
-    app: pgbackrest
-    sbos-managed: \"true\"
-spec:
-  schedule: \"0 2 * * *\"
-  successfulJobsHistoryLimit: 3
-  failedJobsHistoryLimit: 3
-  jobTemplate:
-    spec:
-      template:
-        spec:
-          restartPolicy: OnFailure
-          containers:
-            - name: pgbackrest
-              image: pgbackrest/pgbackrest:2.54.0
-              command:
-                - pgbackrest
-                - --stanza=sbos
-                - --type=full
-                - backup
-              env:
-                - name: PGBACKREST_REPO1_PATH
-                  value: /backup/pgbackrest
-                - name: PGBACKREST_PG1_PATH
-                  value: /var/lib/postgresql/data
-                - name: PGBACKREST_PG1_HOST
-                  value: postgresql.${NS}.svc.cluster.local
-              volumeMounts:
-                - name: backup
-                  mountPath: /backup
-          volumes:
-            - name: backup
-              persistentVolumeClaim:
-                claimName: sbos-postgres-pvc" || _log "ADVERTENCIA: pgBackRest CronJob ya existe"
-    echo "${__STEP_OK__} configurar_pgbackrest"
+    # SKIP en Iteración 1 — pgBackRest se activa en Iteración 3 junto con
+    # la imagen verificada y el stack completo de PITR.
+    echo "${__STEP_SKIP__} configurar_pgbackrest (Iteración 3 — no activo en Iteración 1)"
 
     # ── 13. Velero backup schedule (Iteración 3) ─────────────────
     echo "${__STEP_START__} configurar_velero"
