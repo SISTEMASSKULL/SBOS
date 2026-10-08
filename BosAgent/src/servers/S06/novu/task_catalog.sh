@@ -85,6 +85,37 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
+  name: allow-novu-ws-egress
+  namespace: ${NS}
+spec:
+  podSelector:
+    matchLabels:
+      app: novu-ws
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector: {}
+    ports:
+    - port: 27017
+      protocol: TCP
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: sbos-data
+    ports:
+    - port: 6379
+      protocol: TCP
+  - to:
+    ports:
+    - port: 53
+      protocol: UDP
+    - port: 53
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
   name: allow-redis-novu
   namespace: sbos-data
 spec:
