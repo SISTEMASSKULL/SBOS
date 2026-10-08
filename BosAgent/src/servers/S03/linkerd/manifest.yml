@@ -41,7 +41,7 @@ ports:
 
 health:
   type: kubernetes
-  label_selector: "app.kubernetes.io/part-of=linkerd"
+  label_selector: "linkerd.io/control-plane-ns=linkerd"
   namespace: linkerd
   timeout_seconds: 60
 
