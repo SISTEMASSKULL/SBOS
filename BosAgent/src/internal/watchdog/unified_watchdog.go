@@ -345,7 +345,7 @@ func (w *UnifiedWatchdog) checkSystemdServices() repair.HealthCheck {
 // ── K8s checks ───────────────────────────────────────────────────────
 
 func (w *UnifiedWatchdog) checkK8sNodes() repair.HealthCheck {
-	cmd := exec.Command("kubectl", "get", "nodes", "--no-headers")
+	cmd := exec.Command("kubectl", "--kubeconfig", paths.KubeconfigPath, "get", "nodes", "--no-headers")
 	out, err := cmd.Output()
 	if err != nil {
 		return repair.HealthCheck{Name: "k8s-nodes", Pass: false, Detail: fmt.Sprintf("cannot list nodes: %v", err)}
@@ -368,7 +368,8 @@ func (w *UnifiedWatchdog) checkK8sNodes() repair.HealthCheck {
 }
 
 func (w *UnifiedWatchdog) checkK8sPods() repair.HealthCheck {
-	cmd := exec.Command("kubectl", "get", "pods", "--all-namespaces", "--no-headers",
+	cmd := exec.Command("kubectl", "--kubeconfig", paths.KubeconfigPath, "get", "pods",
+		"--all-namespaces", "--no-headers",
 		"--field-selector=status.phase!=Running,status.phase!=Succeeded")
 	out, err := cmd.Output()
 	if err != nil {
