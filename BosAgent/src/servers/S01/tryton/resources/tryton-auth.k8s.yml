@@ -31,7 +31,7 @@ data:
   SBOS_AUTH_PROVIDER: "keycloak"
 
   # ── Fase 1: Keycloak ─────────────────────────────────────────────────
-  OIDC_ISSUER_URL: "http://keycloak.sbos-security.svc.cluster.local:8080/auth/realms/skull"
+  OIDC_ISSUER_URL: "http://keycloak.sbos-security.svc.cluster.local:8080/realms/skull"
   # Fase 2 (descomentar y comentar la línea anterior):
   # OIDC_ISSUER_URL: "http://bauth.sbos-system.svc.cluster.local:9400/oidc"
 
