@@ -87,6 +87,8 @@ spec:
           value: "${REDIS_URL}"
         - name: JWT_SECRET
           value: "${JWT_SECRET}"
+        - name: NOVU_SECRET_KEY
+          value: "${JWT_SECRET}"
         - name: STORE_ENCRYPTION_KEY
           value: "${STORE_KEY}"
         - name: NODE_ENV
