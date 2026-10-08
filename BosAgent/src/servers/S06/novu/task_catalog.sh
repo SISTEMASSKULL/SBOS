@@ -4,10 +4,10 @@
 # Dependencias: postgresql, ferretdb, redis, keycloak, vault, postfix
 set -euo pipefail
 
-# readonly (removed for multi-source compatibility) __STEP_START__="${__SBOS__STEP_START__:-__SBOS__STEP_START__}"
-# readonly (removed for multi-source compatibility) __STEP_OK__="${__SBOS__STEP_OK__:-__SBOS__STEP_OK__}"
-# readonly (removed for multi-source compatibility) __STEP_FAIL__="${__SBOS__STEP_FAIL__:-__SBOS__STEP_FAIL__}"
-# readonly (removed for multi-source compatibility) __STEP_SKIP__="${__SBOS__STEP_SKIP__:-__SBOS__STEP_SKIP__}"
+__STEP_START__="${__SBOS__STEP_START__:-__SBOS__STEP_START__}"
+__STEP_OK__="${__SBOS__STEP_OK__:-__SBOS__STEP_OK__}"
+__STEP_FAIL__="${__SBOS__STEP_FAIL__:-__SBOS__STEP_FAIL__}"
+__STEP_SKIP__="${__SBOS__STEP_SKIP__:-__SBOS__STEP_SKIP__}"
 
 FICHA_LOG="${FICHA_LOG:-/var/log/bos/fichas/novu.log}"
 KUBECONFIG_DEST="${KUBECONFIG_DEST:-/etc/bos/.kube/config}"
