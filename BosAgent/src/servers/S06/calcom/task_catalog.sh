@@ -66,12 +66,14 @@ YAML
 
 # ── Install ───────────────────────────────────────────────────────
 ficha_install() {
-    local _pg_pass _nextauth_secret
+    local _pg_pass _nextauth_secret _enc_key
     _pg_pass=$(_k get secret -n sbos-data postgresql-credentials \
         -o jsonpath='{.data.POSTGRES_PASSWORD}' 2>/dev/null | base64 -d 2>/dev/null || echo "sbos_bootstrap_pass")
     local PG_DSN="postgresql://postgres:${_pg_pass}@postgresql.sbos-data.svc.cluster.local:5432/calcom_db"
     _nextauth_secret=$(cat /etc/bos/.calcom-nextauth-secret 2>/dev/null || \
         { openssl rand -base64 32 | tr -d '\n' | tee /etc/bos/.calcom-nextauth-secret; chmod 600 /etc/bos/.calcom-nextauth-secret; cat /etc/bos/.calcom-nextauth-secret; })
+    _enc_key=$(cat /etc/bos/.calcom-enc-key 2>/dev/null || \
+        { openssl rand -hex 16 | tee /etc/bos/.calcom-enc-key; chmod 600 /etc/bos/.calcom-enc-key; cat /etc/bos/.calcom-enc-key; })
 
     echo "${__STEP_START__} crear_namespace"
     _k create namespace "$NS" --dry-run=client -o yaml 2>/dev/null | _k apply -f - >> "$FICHA_LOG" 2>&1 || true
@@ -109,6 +111,8 @@ spec:
           value: "${_nextauth_secret}"
         - name: NEXTAUTH_URL
           value: "https://calcom.sbos.local"
+        - name: CALENDSO_ENCRYPTION_KEY
+          value: "${_enc_key}"
         - name: NODE_ENV
           value: "production"
         ports:
