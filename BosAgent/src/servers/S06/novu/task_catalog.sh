@@ -16,7 +16,8 @@ NOVU_API_IMAGE="${NOVU_API_IMAGE:-ghcr.io/novuhq/novu/api:3.15.0}"
 NOVU_WS_IMAGE="${NOVU_WS_IMAGE:-ghcr.io/novuhq/novu/ws:3.15.0}"
 FERRETDB_URL="${FERRETDB_URL:-mongodb://ferretdb.sbos-notifier.svc.cluster.local:27017/novu}"
 REDIS_HOST="${REDIS_HOST:-redis.sbos-data.svc.cluster.local}"
-REDIS_URL="${REDIS_URL:-redis://${REDIS_HOST}:6379/3}"
+REDIS_PASSWORD="${REDIS_PASSWORD:-sbos_redis_bootstrap}"
+REDIS_URL="${REDIS_URL:-redis://:${REDIS_PASSWORD}@${REDIS_HOST}:6379/3}"
 
 _log()   { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [novu] $*" | tee -a "$FICHA_LOG"; }
 _k()     { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@"; }
@@ -156,6 +157,10 @@ spec:
           value: "${FERRETDB_URL}"
         - name: REDIS_HOST
           value: "${REDIS_HOST}"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: REDIS_PASSWORD
+          value: "${REDIS_PASSWORD}"
         - name: REDIS_URL
           value: "${REDIS_URL}"
         - name: JWT_SECRET
@@ -219,6 +224,8 @@ spec:
         env:
         - name: REDIS_URL
           value: "${REDIS_URL}"
+        - name: REDIS_PASSWORD
+          value: "${REDIS_PASSWORD}"
         ports:
         - containerPort: 3002
         readinessProbe:
