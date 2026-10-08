@@ -299,6 +299,40 @@ ficha_repair() {
     return 0
 }
 
+# ── Health Check ──────────────────────────────────────────────────
+# El observer de BOS ejecuta este check periódicamente.
+# Si detecta drift (políticas sin namespaceSelector), marca unhealthy
+# y ejecuta ficha_repair automáticamente, que re-aplica las políticas.
+ficha_health_check() {
+    local ok=0
+
+    echo "${__STEP_START__} health_pods_kyverno"
+    local ready_pods
+    ready_pods=$(_k get pods -n "$NS" -l app.kubernetes.io/component=admission-controller \
+        -o jsonpath='{.items[*].status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "")
+    if [[ "$ready_pods" =~ True ]]; then
+        echo "${__STEP_OK__} health_pods_kyverno"
+    else
+        _log "HEALTH FAIL: pods kyverno no Ready"
+        echo "${__STEP_FAIL__} health_pods_kyverno"
+        ok=1
+    fi
+
+    echo "${__STEP_START__} health_politicas_sincronizadas"
+    local ns_selector
+    ns_selector=$(_k get clusterpolicy sbos-require-probes \
+        -o jsonpath='{.spec.rules[0].match.any[0].resources.namespaceSelector}' 2>/dev/null || echo "")
+    if [[ -n "$ns_selector" ]]; then
+        echo "${__STEP_OK__} health_politicas_sincronizadas"
+    else
+        _log "HEALTH FAIL: sbos-require-probes sin namespaceSelector (divergió del source)"
+        echo "${__STEP_FAIL__} health_politicas_sincronizadas"
+        ok=1
+    fi
+
+    return $ok
+}
+
 # ── Test ──────────────────────────────────────────────────────────
 ficha_test() {
     local ok=0
