@@ -368,14 +368,20 @@ dir /data" --dry-run=client -o yaml 2>/dev/null | _k apply -f - >> "$FICHA_LOG" 
         vpass=$(_k exec vault-0 -n sbos-security -- sh -c "VAULT_ADDR=http://127.0.0.1:8200 VAULT_TOKEN=${vault_root} vault kv get -field=password sbos/redis/password 2>/dev/null" 2>/dev/null || echo "")
         [[ -n "$vpass" && "$vpass" != "null" ]] && redis_pass="$vpass"
     fi
-    # Actualizar ConfigMap con password para replicación
-    _k create configmap redis-config -n "$NS" \
-        --from-literal=redis.conf="port 0
+    # Actualizar ConfigMap — TLS solo si el secret ya existe (Vault PKI Iteración 2)
+    # Sin el secret la config con tls-port:6379 hace crash: redis busca certs inexistentes
+    if _k get secret redis-tls -n "$NS" > /dev/null 2>&1; then
+        local REDIS_PORT_CONF="port 0
 tls-port 6379
 tls-cert-file /etc/redis/tls/tls.crt
 tls-key-file /etc/redis/tls/tls.key
 tls-ca-cert-file /etc/redis/tls/ca.crt
-tls-auth-clients no
+tls-auth-clients no"
+    else
+        local REDIS_PORT_CONF="port 6379"
+    fi
+    _k create configmap redis-config -n "$NS" \
+        --from-literal=redis.conf="${REDIS_PORT_CONF}
 protected-mode yes
 requirepass ${redis_pass}
 masterauth ${redis_pass}
@@ -387,7 +393,7 @@ save 60 10000
 dir /data
 min-replicas-to-write 1
 min-replicas-max-lag 10" --dry-run=client -o yaml 2>/dev/null | _k apply -f - >> "$FICHA_LOG" 2>&1
-    _log "Redis Sentinel configurado: replicas=3, requirepass+masterauth activos"
+    _log "Redis Sentinel configurado: requirepass+masterauth activos (TLS=$( _k get secret redis-tls -n $NS > /dev/null 2>&1 && echo si || echo no))"
     echo "${__STEP_OK__} configurar_sentinel"
 
     # ── 8. Context Registry DB1 (F10.C.6 — tenant saga) ────────────
