@@ -119,10 +119,10 @@ spec:
         - containerPort: 3000
         readinessProbe:
           httpGet:
-            path: /api/health
+            path: /api/auth/session
             port: 3000
-          initialDelaySeconds: 120
-          periodSeconds: 10
+          initialDelaySeconds: 60
+          periodSeconds: 15
 ---
 apiVersion: v1
 kind: Service
@@ -143,7 +143,7 @@ YAML
 
 # ── Health ────────────────────────────────────────────────────────
 ficha_health_check() {
-    _k exec deploy/calcom -n "$NS" -- curl -sf http://localhost:3000/api/health > /dev/null 2>&1 \
+    _k exec deploy/calcom -n "$NS" -- curl -sf http://localhost:3000/api/auth/session > /dev/null 2>&1 \
         && { echo "${__STEP_OK__} calcom health OK"; return 0; } \
         || { echo "${__STEP_FAIL__} calcom health fail"; return 1; }
 }
