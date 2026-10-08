@@ -11,7 +11,7 @@ workload:
   runtime: kubernetes
 
 order:
-  execution_order: 190
+  execution_order: 110
 
 requirements:
   dependencies:
