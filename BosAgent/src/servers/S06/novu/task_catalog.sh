@@ -35,6 +35,12 @@ _wait_pod() {
 
 # ── Pre-install ───────────────────────────────────────────────────
 ficha_pre_install() {
+    echo "${__STEP_START__} configurar_redis_single_node"
+    _k exec redis-0 -n sbos-data -- \
+        redis-cli -a "${REDIS_PASSWORD}" CONFIG SET min-replicas-to-write 0 >> "$FICHA_LOG" 2>&1 || \
+        _log "ADVERTENCIA: no se pudo ajustar min-replicas-to-write (no fatal)"
+    echo "${__STEP_OK__} configurar_redis_single_node"
+
     echo "${__STEP_START__} verificar_ferretdb"
     _k get pod -n "$NS" -l app=ferretdb > /dev/null 2>&1 || { echo "${__STEP_FAIL__} ferretdb no disponible"; return 1; }
     echo "${__STEP_OK__} verificar_ferretdb"
