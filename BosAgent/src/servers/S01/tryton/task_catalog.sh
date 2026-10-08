@@ -50,6 +50,32 @@ _vault() {
     _vt=$(python3 -c "import json; print(json.load(open('/etc/bos/vault-init-keys.json')).get('root_token',''))" 2>/dev/null || echo "")
     _k exec -n "$VAULT_NAMESPACE" "$VAULT_POD" -- env "VAULT_ADDR=http://127.0.0.1:8200" "VAULT_TOKEN=${_vt}" vault "$@"
 }
+_kc_admin() {
+    local kc_pod kc_user kc_pass
+    kc_pod=$(_k get pod -n "$KC_NAMESPACE" -l app=keycloak --no-headers 2>/dev/null | awk '{print $1}' | head -1)
+    kc_user=$(_k get secret keycloak-admin -n "$KC_NAMESPACE" -o jsonpath='{.data.KEYCLOAK_ADMIN}' 2>/dev/null | base64 -d 2>/dev/null || echo "sbos_admin")
+    kc_pass=$(_k get secret keycloak-admin -n "$KC_NAMESPACE" -o jsonpath='{.data.KEYCLOAK_ADMIN_PASSWORD}' 2>/dev/null | base64 -d 2>/dev/null || echo "")
+    [[ -z "$kc_pod" || -z "$kc_pass" ]] && return 1
+    _k exec -n "$KC_NAMESPACE" "$kc_pod" -- \
+        /opt/keycloak/bin/kcadm.sh "$@" \
+        --no-config --server http://localhost:8080 \
+        --realm master --user "$kc_user" --password "$kc_pass" 2>/dev/null
+}
+crear_realm_keycloak() {
+    local realm="${1:-skull}"
+    echo "${__STEP_START__} crear_realm_${realm}"
+    if _kc_admin get realms/"$realm" > /dev/null 2>&1; then
+        echo "${__STEP_SKIP__} realm $realm ya existe en Keycloak"
+        return 0
+    fi
+    _kc_admin create realms \
+        -s realm="$realm" -s enabled=true \
+        -s displayName="SBOS ${realm^}" \
+        -s registrationAllowed=false 2>/dev/null \
+        && echo "${__STEP_OK__} realm $realm creado en Keycloak" \
+        || { _log "ADVERTENCIA: no se pudo crear realm $realm — verificar manualmente"; echo "${__STEP_SKIP__} realm $realm: crear manualmente"; }
+    return 0
+}
 
 # ── Autenticación OIDC ───────────────────────────────────────────────────
 # Despliega oauth2-proxy-tryton como capa de autenticación frente a Tryton.
@@ -162,6 +188,8 @@ ficha_pre_install() {
         _k label namespace "$NAMESPACE" tenant="$TENANT_ID" managed-by="bos" --overwrite 2>/dev/null || true
     fi
     echo "${__STEP_OK__} verificar_namespace"
+
+    crear_realm_keycloak "skull"
 
     echo "${__STEP_START__} networkpolicy_keycloak"
     _k apply -f - >> "$FICHA_LOG" 2>&1 <<YAML
