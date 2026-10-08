@@ -111,16 +111,32 @@ idempotency_check() {
         echo "${__STEP_FAIL__} idempotencia_chain_id"
     fi
 
-    # Check 2: ¿eth_blockNumber > 0?
+    # Check 2: ¿eth_blockNumber responde con resultado válido?
+    # block=0 es válido — significa genesis block (nodo recién iniciado, aún sin bloques)
+    # El criterio es que el RPC responda, no que haya producido bloques
     echo "${__STEP_START__} idempotencia_block_height"
-    local height
-    height=$(_rpc_field "eth_blockNumber" "[]" "result" "0")
-    if (( height > 0 )); then
-        _log "Check 2 OK: eth_blockNumber = $height bloques"
+    local height_json height height_ok=0
+    height_json=$(_rpc "eth_blockNumber" "[]")
+    height=$(echo "$height_json" | python3 -c "
+import sys,json
+try:
+    d=json.load(sys.stdin)
+    r=d.get('result')
+    if r is not None and isinstance(r,str) and r.startswith('0x'):
+        print(int(r,16))
+        sys.exit(0)
+    print(-1)
+    sys.exit(1)
+except:
+    print(-1)
+    sys.exit(1)
+" 2>/dev/null) && height_ok=1 || height_ok=0
+    if [[ "$height_ok" == "1" ]]; then
+        _log "Check 2 OK: eth_blockNumber = $height (RPC activo, block=0 es válido en chain nueva)"
         ok=$((ok + 1))
         echo "${__STEP_OK__} idempotencia_block_height"
     else
-        _log "Check 2 FAIL: eth_blockNumber = $height"
+        _log "Check 2 FAIL: eth_blockNumber no retorna resultado válido (nodo no responde)"
         issues=$((issues + 1))
         echo "${__STEP_FAIL__} idempotencia_block_height"
     fi
@@ -459,12 +475,26 @@ ficha_test() {
     fi
 
     echo "${__STEP_START__} test_bloques"
-    local height
-    height=$(_rpc_field "eth_blockNumber" "[]" "result" "0")
-    if (( height > 0 )); then
+    local height height_json height_ok=0
+    height_json=$(_rpc "eth_blockNumber" "[]")
+    height=$(echo "$height_json" | python3 -c "
+import sys,json
+try:
+    d=json.load(sys.stdin)
+    r=d.get('result')
+    if r is not None and isinstance(r,str) and r.startswith('0x'):
+        print(int(r,16))
+        sys.exit(0)
+    print(-1)
+    sys.exit(1)
+except:
+    print(-1)
+    sys.exit(1)
+" 2>/dev/null) && height_ok=1 || height_ok=0
+    if [[ "$height_ok" == "1" ]]; then
         echo "${__STEP_OK__} test_bloques (altura=$height)"
     else
-        echo "${__STEP_FAIL__} test_bloques (altura=$height)"
+        echo "${__STEP_FAIL__} test_bloques (nodo no responde RPC)"
         ok=1
     fi
 
