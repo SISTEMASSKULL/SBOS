@@ -45,7 +45,11 @@ VAULT_OIDC_PATH="secret/tenants/${TENANT_ID}/tryton/oidc"
 _log()  { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [tryton] $*" | tee -a "$FICHA_LOG"; }
 _k()    { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@"; }
 _pg()   { _k exec -n "$PG_NAMESPACE" "$PG_POD" -- psql -U postgres "$@"; }
-_vault(){ _k exec -n "$VAULT_NAMESPACE" "$VAULT_POD" -- vault "$@"; }
+_vault() {
+    local _vt
+    _vt=$(python3 -c "import json; print(json.load(open('/etc/bos/vault-init-keys.json')).get('root_token',''))" 2>/dev/null || echo "")
+    _k exec -n "$VAULT_NAMESPACE" "$VAULT_POD" -- env "VAULT_ADDR=http://127.0.0.1:8200" "VAULT_TOKEN=${_vt}" vault "$@"
+}
 
 # ── Autenticación OIDC ───────────────────────────────────────────────────
 # Despliega oauth2-proxy-tryton como capa de autenticación frente a Tryton.

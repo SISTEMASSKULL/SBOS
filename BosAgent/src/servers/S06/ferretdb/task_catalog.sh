@@ -11,10 +11,9 @@ set -euo pipefail
 
 FICHA_LOG="${FICHA_LOG:-/var/log/bos/fichas/ferretdb.log}"
 KUBECONFIG_DEST="${KUBECONFIG_DEST:-/etc/bos/.kube/config}"
-# readonly (removed for multi-source compatibility) NS="sbos-notifier"
-# readonly (removed for multi-source compatibility) FERRETDB_IMAGE="ghcr.io/ferretdb/ferretdb:2.0.0"
-# readonly (removed for multi-source compatibility) PG_HOST="postgresql.sbos-data.svc.cluster.local"
-# readonly (removed for multi-source compatibility) PG_URL="postgres://postgres:$(kubectl --kubeconfig="$KUBECONFIG_DEST" get secret -n sbos-data pg-master-credentials -o jsonpath='{.data.password}' 2>/dev/null | base64 -d)@${PG_HOST}:5432/notifier_db"
+NS="${NS:-sbos-notifier}"
+FERRETDB_IMAGE="${FERRETDB_IMAGE:-ghcr.io/ferretdb/ferretdb:2.0.0}"
+PG_HOST="${PG_HOST:-postgresql.sbos-data.svc.cluster.local}"
 
 _log()   { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [ferretdb] $*" | tee -a "$FICHA_LOG"; }
 _k()     { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@"; }
@@ -49,6 +48,10 @@ ficha_install() {
     else
         _k create deployment ferretdb -n "$NS" --image="$FERRETDB_IMAGE" \
             --replicas=1 --port=27017 --dry-run=client -o yaml | _k apply -f -
+        local _pg_pass
+        _pg_pass=$(_k get secret -n sbos-data pg-master-credentials -o jsonpath='{.data.password}' 2>/dev/null | base64 -d 2>/dev/null || echo "postgres")
+        _k set env deploy/ferretdb -n "$NS" \
+            "FERRETDB_POSTGRESQL_URL=postgres://postgres:${_pg_pass}@${PG_HOST}:5432/notifier_db?sslmode=disable" 2>/dev/null || true
         echo "${__STEP_OK__} deploy_ferretdb"
     fi
 

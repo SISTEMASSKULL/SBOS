@@ -11,14 +11,12 @@ set -euo pipefail
 
 FICHA_LOG="${FICHA_LOG:-/var/log/bos/fichas/novu.log}"
 KUBECONFIG_DEST="${KUBECONFIG_DEST:-/etc/bos/.kube/config}"
-# readonly (removed for multi-source compatibility) NS="sbos-notifier"
-# readonly (removed for multi-source compatibility) NOVU_API_IMAGE="ghcr.io/novuhq/novu/api:3.15.0"
-# readonly (removed for multi-source compatibility) NOVU_WS_IMAGE="ghcr.io/novuhq/novu/ws:3.15.0"
-# readonly (removed for multi-source compatibility) FERRETDB_URL="mongodb://ferretdb.${NS}.svc.cluster.local:27017/novu"
-# readonly (removed for multi-source compatibility) REDIS_HOST="redis.sbos-data.svc.cluster.local"
-# readonly (removed for multi-source compatibility) REDIS_URL="redis://${REDIS_HOST}:6379/3"
-# readonly (removed for multi-source compatibility) JWT_SECRET="${JWT_SECRET:-sbos-novu-dev-secret-32chars!!}"
-# readonly (removed for multi-source compatibility) STORE_KEY="${STORE_KEY:-sbos-novu-store-key-32chars!!!!}"
+NS="${NS:-sbos-notifier}"
+NOVU_API_IMAGE="${NOVU_API_IMAGE:-ghcr.io/novuhq/novu/api:3.15.0}"
+NOVU_WS_IMAGE="${NOVU_WS_IMAGE:-ghcr.io/novuhq/novu/ws:3.15.0}"
+FERRETDB_URL="${FERRETDB_URL:-mongodb://ferretdb.sbos-notifier.svc.cluster.local:27017/novu}"
+REDIS_HOST="${REDIS_HOST:-redis.sbos-data.svc.cluster.local}"
+REDIS_URL="${REDIS_URL:-redis://${REDIS_HOST}:6379/3}"
 
 _log()   { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [novu] $*" | tee -a "$FICHA_LOG"; }
 _k()     { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@"; }
@@ -47,6 +45,12 @@ ficha_pre_install() {
 
 # ── Install ───────────────────────────────────────────────────────
 ficha_install() {
+    local _jwt_secret _store_key
+    _jwt_secret=$(cat /etc/bos/.novu-jwt-secret 2>/dev/null || { openssl rand -hex 32 | tee /etc/bos/.novu-jwt-secret; chmod 600 /etc/bos/.novu-jwt-secret; cat /etc/bos/.novu-jwt-secret; })
+    _store_key=$(cat /etc/bos/.novu-store-key 2>/dev/null || { openssl rand -hex 16 | tee /etc/bos/.novu-store-key; chmod 600 /etc/bos/.novu-store-key; cat /etc/bos/.novu-store-key; })
+    JWT_SECRET="${JWT_SECRET:-${_jwt_secret}}"
+    STORE_KEY="${STORE_KEY:-${_store_key}}"
+
     echo "${__STEP_START__} deploy_novu_api"
     if _k get deployment novu-api -n "$NS" > /dev/null 2>&1; then
         echo "${__STEP_SKIP__} novu-api ya desplegado"

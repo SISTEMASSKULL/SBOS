@@ -12,10 +12,9 @@ set -euo pipefail
 
 FICHA_LOG="${FICHA_LOG:-/var/log/bos/fichas/calcom.log}"
 KUBECONFIG_DEST="${KUBECONFIG_DEST:-/etc/bos/.kube/config}"
-# readonly (removed for multi-source compatibility) NS="sbos-collab"
-# readonly (removed for multi-source compatibility) CALCOM_IMAGE="calcom/cal.com:6.1.0"
-# readonly (removed for multi-source compatibility) DB_URL="postgresql://postgres:$(kubectl --kubeconfig="$KUBECONFIG_DEST" get secret -n sbos-data pg-master-credentials -o jsonpath='{.data.password}' 2>/dev/null | base64 -d)@postgresql.sbos-data.svc.cluster.local:5432/calcom_db"
-# readonly (removed for multi-source compatibility) KC_ISSUER="https://keycloak.sbos-security.svc.cluster.local:8080/realms/sbos"
+NS="${NS:-sbos-collab}"
+CALCOM_IMAGE="${CALCOM_IMAGE:-calcom/cal.com:6.1.0}"
+KC_ISSUER="${KC_ISSUER:-http://keycloak.sbos-security.svc.cluster.local:8080/realms/sbos}"
 
 _log()   { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [calcom] $*" | tee -a "$FICHA_LOG"; }
 _k()     { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@"; }
@@ -47,6 +46,10 @@ ficha_pre_install() {
 
 # ── Install ───────────────────────────────────────────────────────
 ficha_install() {
+    local _pg_pass
+    _pg_pass=$(_k get secret -n sbos-data pg-master-credentials -o jsonpath='{.data.password}' 2>/dev/null | base64 -d 2>/dev/null || echo "postgres")
+    local DB_URL="postgresql://postgres:${_pg_pass}@postgresql.sbos-data.svc.cluster.local:5432/calcom_db"
+
     echo "${__STEP_START__} deploy_calcom"
     if _k get deployment calcom -n "$NS" > /dev/null 2>&1; then
         echo "${__STEP_SKIP__} calcom ya desplegado"
