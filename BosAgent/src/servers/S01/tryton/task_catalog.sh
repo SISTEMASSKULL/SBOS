@@ -65,7 +65,7 @@ configurar_autenticacion_oidc() {
     fi
     if [[ -z "$oidc_client_secret" ]]; then
         oidc_client_secret=$(openssl rand -hex 16)
-        oidc_cookie_secret=$(openssl rand -base64 32 | tr -d '\n')
+        oidc_cookie_secret=$(openssl rand -hex 16)
         _vault kv put "$VAULT_OIDC_PATH" \
             client_secret="$oidc_client_secret" \
             cookie_secret="$oidc_cookie_secret" \
@@ -77,6 +77,13 @@ configurar_autenticacion_oidc() {
         _log "Credenciales OIDC generadas y almacenadas en Vault: $VAULT_OIDC_PATH"
     else
         oidc_cookie_secret=$(_vault kv get -field=cookie_secret "$VAULT_OIDC_PATH" 2>/dev/null || echo "")
+        # Regenerar si la longitud no es válida para AES (16, 24 o 32 bytes)
+        local cs_len="${#oidc_cookie_secret}"
+        if [[ "$cs_len" != 16 ]] && [[ "$cs_len" != 24 ]] && [[ "$cs_len" != 32 ]]; then
+            _log "cookie_secret inválido ($cs_len bytes) — regenerando con 16 bytes"
+            oidc_cookie_secret=$(openssl rand -hex 16)
+            _vault kv patch "$VAULT_OIDC_PATH" cookie_secret="$oidc_cookie_secret" 2>/dev/null || true
+        fi
         _log "Credenciales OIDC recuperadas de Vault: $VAULT_OIDC_PATH"
     fi
 
@@ -335,6 +342,9 @@ ficha_post_install() {
 ficha_repair() {
     _log "Reparando Tryton..."
     echo "${__STEP_START__} reparar_tryton"
+
+    # Re-configurar autenticación OIDC (valida longitud del cookie_secret y regenera si es inválida)
+    configurar_autenticacion_oidc || _log "ADVERTENCIA: configurar_autenticacion_oidc no crítico en repair"
 
     # Re-aplicar todos los manifiestos (idempotente)
     _k apply -f "${FICHA_DIR}/resources/tryton-rbac.k8s.yml"    >> "$FICHA_LOG" 2>&1 || true
