@@ -13,7 +13,7 @@ __STEP_SKIP__="${__SBOS__STEP_SKIP__:-__SBOS__STEP_SKIP__}"
 FICHA_LOG="${FICHA_LOG:-/var/log/bos/fichas/calcom.log}"
 KUBECONFIG_DEST="${KUBECONFIG_DEST:-/etc/bos/.kube/config}"
 NS="${NS:-sbos-collab}"
-CALCOM_IMAGE="${CALCOM_IMAGE:-ghcr.io/calcom/cal.com:v6.1.0}"
+CALCOM_IMAGE="${CALCOM_IMAGE:-calcom/cal.com:v6.2.0}"
 KC_ISSUER="${KC_ISSUER:-http://keycloak.sbos-security.svc.cluster.local:8080/realms/sbos}"
 
 _log()   { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [calcom] $*" | tee -a "$FICHA_LOG"; }
