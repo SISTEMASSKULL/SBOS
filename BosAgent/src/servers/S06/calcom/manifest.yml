@@ -4,6 +4,7 @@ identity:
   version: "6.1.0"
   server: "S06"
   namespace: "sbos-collab"
+  category: 2
   criticality: true
 
 workload:

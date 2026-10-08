@@ -4,6 +4,7 @@ identity:
   version: "2.0.0"
   server: "S06"
   namespace: "sbos-notifier"
+  category: 3
   criticality: true
 
 workload:
