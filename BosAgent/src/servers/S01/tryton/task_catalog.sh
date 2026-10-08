@@ -254,7 +254,12 @@ ficha_install() {
     _k apply -f "${FICHA_DIR}/resources/tryton-config.k8s.yml" >> "$FICHA_LOG" 2>&1
     echo "${__STEP_OK__} aplicar_configmap"
 
-    # 7. Aplicar StatefulSet + Service (P10: dry-run antes de apply)
+    # 7a. Crear PersistentVolume estático (StorageClass local-path sin provisioner dinámico)
+    echo "${__STEP_START__} crear_pv"
+    _k apply -f "${FICHA_DIR}/resources/tryton-pv.k8s.yml" >> "$FICHA_LOG" 2>&1 || true
+    echo "${__STEP_OK__} crear_pv"
+
+    # 7b. Aplicar StatefulSet + Service (P10: dry-run antes de apply)
     echo "${__STEP_START__} aplicar_statefulset"
     _k apply --dry-run=server -f "${FICHA_DIR}/resources/tryton.k8s.yml" >> "$FICHA_LOG" 2>&1 || {
         echo "${__STEP_FAIL__} aplicar_statefulset: dry-run falló — verificar tryton.k8s.yml"
