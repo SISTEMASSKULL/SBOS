@@ -115,13 +115,58 @@ ficha_install() {
     _log "CRDs de Kyverno listos"
     echo "${__STEP_OK__} instalar_kyverno"
 
-    # ── 2. Políticas SBOS (audit mode) ────────────────────────────
+    # ── 2. Políticas SBOS ────────────────────────────────────────
     echo "${__STEP_START__} crear_politicas_sbos"
+    _aplicar_politicas_sbos
+    echo "${__STEP_OK__} crear_politicas_sbos (4 políticas)"
 
+    # ── 3. NetworkPolicy ──────────────────────────────────────────
+    echo "${__STEP_START__} networkpolicy_kyverno"
+    _apply "np-kyverno" "apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-kyverno-webhook
+  namespace: ${NS}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    # Webhook admission (9443) — el API server debe alcanzarlo
+    - ports:
+        - protocol: TCP
+          port: 9443
+    # Metrics (8000) — desde monitoring
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: sbos-monitoring
+      ports:
+        - protocol: TCP
+          port: 8000" || true
+    echo "${__STEP_OK__} networkpolicy_kyverno"
+
+    _log "kyverno instalado (4 políticas audit mode)"
+    return 0
+}
+
+# ── Post-install ──────────────────────────────────────────────────
+ficha_post_install() {
+    _log "Estado kyverno:"
+    _k get clusterpolicy -l sbos-policy=true --no-headers 2>/dev/null \
+        | awk '{printf "  policy=%s action=%s\n", $1, $3}' || echo "  (sin políticas)"
+    _k get pod -n "$NS" --no-headers 2>/dev/null \
+        | awk '{printf "  pod=%s status=%s ready=%s\n", $1, $3, $2}' || echo "  (pods no disponibles)"
+    return 0
+}
+
+# ── Aplicar políticas SBOS (idempotente) ────────────────────────
+# Se llama desde ficha_install y ficha_repair para garantizar que el
+# cluster siempre refleja el source (namespaceSelector, patrones correctos).
+_aplicar_politicas_sbos() {
     # Política 1: require-probes
-    # Solo aplica a namespaces de aplicaciones SBOS (sbos-workload=true).
-    # Los namespaces de infraestructura (linkerd, kyverno, kube-system, etc.)
-    # están excluidos — sus workloads no siguen las mismas convenciones.
+    # Solo aplica a namespaces con label sbos-workload=true.
+    # Usa deny+JMESPath en lugar de pattern con "?*" que tiene un bug
+    # en Kyverno v1.13/v1.19 para campos de tipo objeto.
     _apply "policy-require-probes" "apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -144,25 +189,17 @@ spec:
               namespaceSelector:
                 matchLabels:
                   sbos-workload: \"true\"
-      exclude:
-        any:
-          - resources:
-              namespaces:
-                - kube-system
-                - kube-public
-                - kyverno
-                - linkerd
-                - calico-system
-                - kube-flannel
       validate:
         message: \"readinessProbe y livenessProbe son obligatorios (SBOS-047 §A.8.6)\"
-        pattern:
-          spec:
-            template:
-              spec:
-                containers:
-                  - readinessProbe: \"?*\"
-                    livenessProbe: \"?*\"" || true
+        deny:
+          conditions:
+            any:
+              - key: \"{{ request.object.spec.template.spec.containers[].livenessProbe[] | length(@) }}\"
+                operator: LessThan
+                value: \"1\"
+              - key: \"{{ request.object.spec.template.spec.containers[].readinessProbe[] | length(@) }}\"
+                operator: LessThan
+                value: \"1\"" || true
 
     # Política 2: forbid-hostport
     _apply "policy-forbid-hostport" "apiVersion: kyverno.io/v1
@@ -192,8 +229,7 @@ spec:
                   - X(hostPort): 0" || true
 
     # Política 3: forbid-privileged
-    # NOTA: usar ancla condicional =(securityContext)/=(privileged) — solo valida cuando
-    # el campo existe. Pattern sin ancla requiere el campo explícito → bloquea pods normales.
+    # Ancla condicional =(securityContext)/=(privileged): solo valida cuando existe.
     _apply "policy-forbid-privileged" "apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -247,61 +283,18 @@ spec:
         deny:
           conditions:
             any:
-              - key: \"{{ request.object.metadata.labels.\"sbos-tier\" || '' }}\"
+              - key: \"{{ request.object.metadata.labels.\\\"sbos-tier\\\" || '' }}\"
                 operator: Equals
                 value: \"true\"" || true
-
-    echo "${__STEP_OK__} crear_politicas_sbos (4 políticas audit mode)"
-
-    # ── 3. NetworkPolicy ──────────────────────────────────────────
-    echo "${__STEP_START__} networkpolicy_kyverno"
-    _apply "np-kyverno" "apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: allow-kyverno-webhook
-  namespace: ${NS}
-spec:
-  podSelector: {}
-  policyTypes: [Ingress]
-  ingress:
-    # Webhook admission (9443) — el API server debe alcanzarlo
-    - ports:
-        - protocol: TCP
-          port: 9443
-    # Metrics (8000) — desde monitoring
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: sbos-monitoring
-      ports:
-        - protocol: TCP
-          port: 8000" || true
-    echo "${__STEP_OK__} networkpolicy_kyverno"
-
-    _log "kyverno instalado (4 políticas audit mode)"
-    return 0
-}
-
-# ── Post-install ──────────────────────────────────────────────────
-ficha_post_install() {
-    _log "Estado kyverno:"
-    _k get clusterpolicy -l sbos-policy=true --no-headers 2>/dev/null \
-        | awk '{printf "  policy=%s action=%s\n", $1, $3}' || echo "  (sin políticas)"
-    _k get pod -n "$NS" --no-headers 2>/dev/null \
-        | awk '{printf "  pod=%s status=%s ready=%s\n", $1, $3, $2}' || echo "  (pods no disponibles)"
-    return 0
 }
 
 # ── Repair ────────────────────────────────────────────────────────
 ficha_repair() {
     echo "${__STEP_START__} reparar_politicas"
-    # Re-aplicar las 4 políticas
-    for policy in sbos-require-probes sbos-forbid-hostport sbos-forbid-privileged sbos-require-networkpolicy; do
-        if ! _k get clusterpolicy "$policy" > /dev/null 2>&1; then
-            _log "Política $policy ausente — reinstalación necesaria"
-        fi
-    done
-    _log "Políticas verificadas"
+    # Re-aplica todas las políticas desde el source (restaura namespaceSelector
+    # y patrones correctos si el cluster divergió del source).
+    _aplicar_politicas_sbos
+    _log "Políticas SBOS re-aplicadas desde source"
     echo "${__STEP_OK__} reparar_politicas"
     return 0
 }
