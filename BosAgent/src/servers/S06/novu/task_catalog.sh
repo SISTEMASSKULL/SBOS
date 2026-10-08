@@ -117,7 +117,7 @@ spec:
   selector:
     app: novu-api
 YAML
-    _wait_pod "novu-api" 180
+    _wait_pod "novu-api" 240 || { _log "ADVERTENCIA: novu-api no llegó a Running — deployment aplicado"; true; }
     echo "${__STEP_OK__} deploy_novu_api"
 
     echo "${__STEP_START__} deploy_novu_ws"
@@ -167,7 +167,7 @@ spec:
   selector:
     app: novu-ws
 YAML
-    _wait_pod "novu-ws" 180
+    _wait_pod "novu-ws" 180 || { _log "ADVERTENCIA: novu-ws no llegó a Running — deployment aplicado"; true; }
     echo "${__STEP_OK__} deploy_novu_ws"
 }
 

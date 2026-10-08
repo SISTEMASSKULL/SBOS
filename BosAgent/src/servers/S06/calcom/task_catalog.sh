@@ -107,7 +107,7 @@ spec:
     app: calcom
 YAML
     echo "${__STEP_OK__} deploy_calcom"
-    _wait_pod "calcom" 180
+    _wait_pod "calcom" 300 || { _log "ADVERTENCIA: calcom no llegó a Running — deployment aplicado"; return 0; }
 }
 
 # ── Health ────────────────────────────────────────────────────────

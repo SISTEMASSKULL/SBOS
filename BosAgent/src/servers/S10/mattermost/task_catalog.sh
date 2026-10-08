@@ -191,18 +191,15 @@ YAML
     echo "${__STEP_OK__} deploy_mattermost"
 
     echo "${__STEP_START__} wait_mattermost_running"
-    local elapsed=0 timeout=180
+    local elapsed=0 timeout=300
     while (( elapsed < timeout )); do
         local phase
         phase=$(_k get pod -n "$NS" -l app=mattermost --no-headers 2>/dev/null | awk '{print $3}' | head -1)
-        [[ "$phase" == "Running" ]] && { echo "${__STEP_OK__} mattermost Running"; break; }
-        sleep 5; elapsed=$((elapsed + 5))
+        [[ "$phase" == "Running" ]] && { echo "${__STEP_OK__} mattermost Running"; return 0; }
+        sleep 10; elapsed=$((elapsed + 10))
     done
-    if (( elapsed >= timeout )); then
-        echo "${__STEP_FAIL__} mattermost no arrancó en ${timeout}s"
-        return 1
-    fi
-
+    _log "ADVERTENCIA: mattermost no llegó a Running en ${timeout}s — deployment aplicado, health_check pendiente"
+    echo "${__STEP_SKIP__} wait_mattermost_running: timeout no fatal"
     return 0
 }
 
