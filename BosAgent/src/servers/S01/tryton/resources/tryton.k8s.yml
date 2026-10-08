@@ -89,6 +89,11 @@ spec:
             - name: data
               mountPath: /var/lib/tryton
 
+          securityContext:
+            privileged: false
+            runAsNonRoot: false
+            allowPrivilegeEscalation: false
+
           resources:
             requests:
               cpu: 500m

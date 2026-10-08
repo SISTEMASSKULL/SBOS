@@ -98,6 +98,9 @@ spec:
       containers:
       - name: mattermost
         image: ${IMAGE}
+        securityContext:
+          privileged: false
+          allowPrivilegeEscalation: false
         env:
         - name: MM_SERVICESETTINGS_SITEURL
           value: "http://localhost:8065"

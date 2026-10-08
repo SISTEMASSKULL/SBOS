@@ -46,12 +46,54 @@ ficha_install() {
     if _k get deployment ferretdb -n "$NS" > /dev/null 2>&1; then
         echo "${__STEP_SKIP__} ferretdb ya desplegado"
     else
-        _k create deployment ferretdb -n "$NS" --image="$FERRETDB_IMAGE" \
-            --replicas=1 --port=27017 --dry-run=client -o yaml | _k apply -f -
         local _pg_pass
         _pg_pass=$(_k get secret -n sbos-data pg-master-credentials -o jsonpath='{.data.password}' 2>/dev/null | base64 -d 2>/dev/null || echo "postgres")
-        _k set env deploy/ferretdb -n "$NS" \
-            "FERRETDB_POSTGRESQL_URL=postgres://postgres:${_pg_pass}@${PG_HOST}:5432/notifier_db?sslmode=disable" 2>/dev/null || true
+        _k apply -f - >> "$FICHA_LOG" 2>&1 <<YAML
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ferretdb
+  namespace: ${NS}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ferretdb
+  template:
+    metadata:
+      labels:
+        app: ferretdb
+    spec:
+      containers:
+      - name: ferretdb
+        image: ${FERRETDB_IMAGE}
+        securityContext:
+          privileged: false
+          allowPrivilegeEscalation: false
+        env:
+        - name: FERRETDB_POSTGRESQL_URL
+          value: "postgres://postgres:${_pg_pass}@${PG_HOST}:5432/notifier_db?sslmode=disable"
+        ports:
+        - containerPort: 27017
+        readinessProbe:
+          tcpSocket:
+            port: 27017
+          initialDelaySeconds: 10
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ferretdb
+  namespace: ${NS}
+spec:
+  type: ClusterIP
+  ports:
+  - port: 27017
+    targetPort: 27017
+  selector:
+    app: ferretdb
+YAML
         echo "${__STEP_OK__} deploy_ferretdb"
     fi
 

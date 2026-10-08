@@ -54,14 +54,61 @@ ficha_install() {
     if _k get deployment calcom -n "$NS" > /dev/null 2>&1; then
         echo "${__STEP_SKIP__} calcom ya desplegado"
     else
-        _k create deployment calcom -n "$NS" --image="$CALCOM_IMAGE" --replicas=1 --port=3000 \
-            --dry-run=client -o yaml | _k apply -f -
-        _k set env deploy/calcom -n "$NS" \
-            DATABASE_URL="$DB_URL" \
-            CALCOM_OIDC_ISSUER="$KC_ISSUER" \
-            CALCOM_OIDC_CLIENT_ID="calcom" \
-            NEXTAUTH_URL="https://calcom.sbos.local" \
-            NODE_ENV=production
+        _k apply -f - >> "$FICHA_LOG" 2>&1 <<YAML
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: calcom
+  namespace: ${NS}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: calcom
+  template:
+    metadata:
+      labels:
+        app: calcom
+    spec:
+      containers:
+      - name: calcom
+        image: ${CALCOM_IMAGE}
+        securityContext:
+          privileged: false
+          allowPrivilegeEscalation: false
+        env:
+        - name: DATABASE_URL
+          value: "${DB_URL}"
+        - name: CALCOM_OIDC_ISSUER
+          value: "${KC_ISSUER}"
+        - name: CALCOM_OIDC_CLIENT_ID
+          value: "calcom"
+        - name: NEXTAUTH_URL
+          value: "https://calcom.sbos.local"
+        - name: NODE_ENV
+          value: "production"
+        ports:
+        - containerPort: 3000
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 60
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: calcom
+  namespace: ${NS}
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3000
+    targetPort: 3000
+  selector:
+    app: calcom
+YAML
         echo "${__STEP_OK__} deploy_calcom"
     fi
     _wait_pod "calcom" 180
