@@ -199,6 +199,33 @@ ficha_install() {
     }
     echo "${__STEP_OK__} crear_secrets"
 
+    # ── 1b. NetworkPolicy para migrations (necesaria ANTES del Job) ──
+    # El Job kong-migrations tiene label app=kong-migrations (distinto de app=kong).
+    # Sin esta política, default-deny-all bloquea su egress hacia postgresql.
+    _apply "np-migrations-egress" "apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-kong-migrations-egress
+  namespace: ${NS}
+spec:
+  podSelector:
+    matchLabels:
+      app: kong-migrations
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: sbos-data
+      ports:
+        - protocol: TCP
+          port: 5432
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53" || true
+
     # ── 2. Migrations Job ────────────────────────────────────────
     echo "${__STEP_START__} kong_migrations"
     # Verificar si migrations ya se ejecutaron (idempotente)
@@ -242,7 +269,7 @@ spec:
                 name: kong-db-credentials"
 
         local elapsed=0
-        while (( elapsed < 120 )); do
+        while (( elapsed < 600 )); do
             local succeeded
             succeeded=$(_k get job kong-migrations -n "$NS" \
                 -o jsonpath='{.status.succeeded}' 2>/dev/null || echo "0")
@@ -256,8 +283,8 @@ spec:
             fi
             sleep 10; elapsed=$((elapsed + 10))
         done
-        if (( elapsed >= 120 )); then
-            echo "${__STEP_FAIL__} kong_migrations: timeout (120s)"
+        if (( elapsed >= 600 )); then
+            echo "${__STEP_FAIL__} kong_migrations: timeout (600s)"
             return 1
         fi
         _log "Migrations completadas en ${elapsed}s"
@@ -666,10 +693,11 @@ ficha_test() {
     local np_ok=0
     _k get networkpolicy allow-kong-access -n "$NS" > /dev/null 2>&1 && np_ok=$((np_ok+1))
     _k get networkpolicy allow-kong-egress -n "$NS" > /dev/null 2>&1 && np_ok=$((np_ok+1))
-    if (( np_ok == 2 )); then
-        echo "${__STEP_OK__} test_networkpolicy (2/2)"
+    _k get networkpolicy allow-kong-migrations-egress -n "$NS" > /dev/null 2>&1 && np_ok=$((np_ok+1))
+    if (( np_ok == 3 )); then
+        echo "${__STEP_OK__} test_networkpolicy (3/3)"
     else
-        echo "${__STEP_FAIL__} test_networkpolicy: ${np_ok}/2"
+        echo "${__STEP_FAIL__} test_networkpolicy: ${np_ok}/3"
         ok=1
     fi
 

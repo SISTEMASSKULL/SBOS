@@ -91,6 +91,17 @@ ficha_pre_install() {
         echo "${__STEP_SKIP__} verificar_pv: PV no pre-existe — dynamic provisioning lo creara"
     fi
 
+    # postgres:18.4-alpine usa uid=70. Ajustar el directorio RAÍZ (no recursivo).
+    # sbos-bootstrap-os lo crea con uid=999; esta ficha siempre lo corrige.
+    # Solo se toca el directorio padre — los datos en pgdata/ no se modifican.
+    echo "${__STEP_START__} preparar_directorio_host"
+    local pg_data_dir="/data/postgres"
+    mkdir -p "$pg_data_dir"
+    chown 70:70 "$pg_data_dir" 2>/dev/null || true
+    chmod 700 "$pg_data_dir" 2>/dev/null || true
+    _log "Directorio host preparado para postgres:18.4-alpine (uid=70)"
+    echo "${__STEP_OK__} preparar_directorio_host"
+
     echo "${__STEP_START__} verificar_namespace"
     if ! _k get namespace "$NS" > /dev/null 2>&1; then
         echo "${__STEP_FAIL__} verificar_namespace: $NS no existe"
@@ -247,7 +258,7 @@ spec:
 
     # ── 4. Esperar pod Ready ─────────────────────────────────────
     echo "${__STEP_START__} wait_ready"
-    if ! _wait_pg_ready 180; then
+    if ! _wait_pg_ready 360; then
         echo "${__STEP_FAIL__} wait_ready: timeout esperando $PG_POD"
         return 1
     fi
@@ -326,6 +337,22 @@ END \$\$;" 2>/dev/null || _log "ADVERTENCIA: no se pudo crear slot bkernel_slot"
     # ── 9. NetworkPolicy — acceso a PostgreSQL ───────────────────
     echo "${__STEP_START__} networkpolicy_postgresql"
 
+    # DNS general: todos los pods en sbos-data pueden resolver nombres
+    _apply "np-dns" "apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: ${NS}
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53" || true
+
     # Comunicación libre dentro de sbos-data (Redis, migraciones futuras)
     _apply "np-intra-data" "apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -372,6 +399,31 @@ spec:
       ports:
         - protocol: TCP
           port: 5432" || true
+
+    # Egress desde postgresql hacia namespaces autorizados (respuestas TCP + notificaciones)
+    # Sin esta política, default-deny-all bloquea las respuestas de postgres hacia kong, keycloak, etc.
+    _apply "np-pg-egress" "apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-postgresql-egress
+  namespace: ${NS}
+spec:
+  podSelector:
+    matchLabels:
+      app: postgresql
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchExpressions:
+              - key: kubernetes.io/metadata.name
+                operator: In
+                values:
+                  - sbos-system
+                  - sbos-security
+                  - sbos-gateway
+                  - sbos-data
+                  - sbos-monitoring" || true
 
     echo "${__STEP_OK__} networkpolicy_postgresql"
 

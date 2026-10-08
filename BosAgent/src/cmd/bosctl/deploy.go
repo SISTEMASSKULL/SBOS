@@ -452,7 +452,7 @@ func rpcCall(socket, method string, params map[string]interface{}) error {
 				return net.Dial("unix", socket)
 			},
 		},
-		Timeout: 300 * time.Second,
+		Timeout: 30 * time.Minute, // sagas de infraestructura (storage, K8s) pueden tardar > 5 min
 	}
 
 	req, err := http.NewRequestWithContext(context.Background(), "POST", "http://unix/rpc", bytes.NewReader(body))

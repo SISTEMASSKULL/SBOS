@@ -144,7 +144,7 @@ EOF
     echo "${__STEP_START__} crear_directorios_data"
     local dirs=(
         "/data:0755:root:root"
-        "/data/postgres:0700:999:999"
+        "/data/postgres:0700:70:70"
         "/data/redis:0700:999:999"
         "/data/vault:0700:100:100"
         "/data/keycloak:0755:root:root"

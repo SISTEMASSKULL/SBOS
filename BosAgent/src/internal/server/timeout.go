@@ -28,7 +28,7 @@ const (
 var timeoutByCategory = map[rpcCategory]time.Duration{
 	catLectura:   5 * time.Second,
 	catEscritura: 30 * time.Second,
-	catSaga:      600 * time.Second,
+	catSaga:      30 * time.Minute, // sagas de infraestructura (kong migrations ~10min en cold start)
 }
 
 // sagaMethods: operaciones largas con compensación — plazo 600s.
