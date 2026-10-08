@@ -38,9 +38,9 @@ VAULT_POD="${VAULT_POD:-vault-0}"
 KC_NAMESPACE="${KC_NAMESPACE:-sbos-security}"
 KC_POD="${KC_POD:-keycloak-0}"
 
-# Rutas en Vault
-VAULT_PATH="secret/tenants/${TENANT_ID}/tryton"
-VAULT_OIDC_PATH="secret/tenants/${TENANT_ID}/tryton/oidc"
+# Rutas en Vault (engine montado en sbos/, no en secret/)
+VAULT_PATH="sbos/tenants/${TENANT_ID}/tryton"
+VAULT_OIDC_PATH="sbos/tenants/${TENANT_ID}/tryton/oidc"
 
 _log()  { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [tryton] $*" | tee -a "$FICHA_LOG"; }
 _k()    { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@"; }
@@ -96,7 +96,7 @@ configurar_autenticacion_oidc() {
     # Registrar cliente OIDC en Keycloak si está disponible
     if _k get pod -n "$KC_NAMESPACE" "$KC_POD" --no-headers 2>/dev/null | grep -q Running; then
         local kc_admin_pass
-        kc_admin_pass=$(_vault kv get -field=admin_password "secret/tenants/${TENANT_ID}/keycloak" 2>/dev/null || echo "")
+        kc_admin_pass=$(_vault kv get -field=admin_password "sbos/tenants/${TENANT_ID}/keycloak" 2>/dev/null || echo "")
         if [[ -z "$kc_admin_pass" ]]; then
             # Sin contraseña en Vault → no intentar registro automático (P6: sin fallback hardcodeado)
             _log "PENDIENTE (HITL): admin_password de Keycloak no está en Vault — registrar cliente manualmente:"
