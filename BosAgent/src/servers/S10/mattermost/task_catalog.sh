@@ -79,6 +79,56 @@ ficha_install() {
     _k create namespace "$NS" --dry-run=client -o yaml 2>/dev/null | _k apply -f - >> "$FICHA_LOG" 2>&1 || true
     echo "${__STEP_OK__} crear_namespace"
 
+    echo "${__STEP_START__} networkpolicy_postgresql"
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<YAML
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-comm-postgresql
+  namespace: sbos-data
+spec:
+  podSelector:
+    matchLabels:
+      app: postgresql
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: ${NS}
+    ports:
+    - port: 5432
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-mattermost-egress-pg
+  namespace: ${NS}
+spec:
+  podSelector:
+    matchLabels:
+      app: mattermost
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: sbos-data
+    ports:
+    - port: 5432
+      protocol: TCP
+  - to:
+    ports:
+    - port: 53
+      protocol: UDP
+    - port: 53
+      protocol: TCP
+YAML
+    echo "${__STEP_OK__} networkpolicy_postgresql"
+
     echo "${__STEP_START__} deploy_mattermost"
     _k apply -n "$NS" -f - >> "$FICHA_LOG" 2>&1 <<YAML
 apiVersion: apps/v1
