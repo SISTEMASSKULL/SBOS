@@ -162,6 +162,56 @@ ficha_pre_install() {
         _k label namespace "$NAMESPACE" tenant="$TENANT_ID" managed-by="bos" --overwrite 2>/dev/null || true
     fi
     echo "${__STEP_OK__} verificar_namespace"
+
+    echo "${__STEP_START__} networkpolicy_keycloak"
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<YAML
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-oauth2-proxy-keycloak
+  namespace: sbos-security
+spec:
+  podSelector:
+    matchLabels:
+      app: keycloak
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: ${NAMESPACE}
+    ports:
+    - port: 8080
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-oauth2-proxy-egress-keycloak
+  namespace: ${NAMESPACE}
+spec:
+  podSelector:
+    matchLabels:
+      app: oauth2-proxy-tryton
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: sbos-security
+    ports:
+    - port: 8080
+      protocol: TCP
+  - to:
+    ports:
+    - port: 53
+      protocol: UDP
+    - port: 53
+      protocol: TCP
+YAML
+    echo "${__STEP_OK__} networkpolicy_keycloak"
     return 0
 }
 
