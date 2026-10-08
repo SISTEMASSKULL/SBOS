@@ -66,9 +66,11 @@ YAML
 
 # ── Install ───────────────────────────────────────────────────────
 ficha_install() {
-    local _pg_pass
+    local _pg_pass _nextauth_secret
     _pg_pass=$(_k get secret -n sbos-data pg-master-credentials -o jsonpath='{.data.password}' 2>/dev/null | base64 -d 2>/dev/null || echo "postgres")
     local DB_URL="postgresql://postgres:${_pg_pass}@postgresql.sbos-data.svc.cluster.local:5432/calcom_db"
+    _nextauth_secret=$(cat /etc/bos/.calcom-nextauth-secret 2>/dev/null || \
+        { openssl rand -base64 32 | tr -d '\n' | tee /etc/bos/.calcom-nextauth-secret; chmod 600 /etc/bos/.calcom-nextauth-secret; cat /etc/bos/.calcom-nextauth-secret; })
 
     echo "${__STEP_START__} crear_namespace"
     _k create namespace "$NS" --dry-run=client -o yaml 2>/dev/null | _k apply -f - >> "$FICHA_LOG" 2>&1 || true
@@ -100,10 +102,8 @@ spec:
         env:
         - name: DATABASE_URL
           value: "${DB_URL}"
-        - name: CALCOM_OIDC_ISSUER
-          value: "${KC_ISSUER}"
-        - name: CALCOM_OIDC_CLIENT_ID
-          value: "calcom"
+        - name: NEXTAUTH_SECRET
+          value: "${_nextauth_secret}"
         - name: NEXTAUTH_URL
           value: "https://calcom.sbos.local"
         - name: NODE_ENV
@@ -114,7 +114,7 @@ spec:
           httpGet:
             path: /api/health
             port: 3000
-          initialDelaySeconds: 60
+          initialDelaySeconds: 120
           periodSeconds: 10
 ---
 apiVersion: v1
