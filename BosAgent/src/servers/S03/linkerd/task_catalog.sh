@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================================
 # task_catalog.sh — linkerd
-# Iteración 1: Linkerd 2.16.0 service mesh + mTLS + auto-inject namespaces SBOS
+# Iteración 1: Linkerd stable-2.14.10 service mesh + mTLS + auto-inject namespaces SBOS
 # Dependencias: sbos-bootstrap-k8s, sbos-bootstrap-cni
 # ============================================================================
 
@@ -15,7 +15,22 @@ readonly __STEP_SKIP__="${__SBOS__STEP_SKIP__:-__SBOS__STEP_SKIP__}"
 FICHA_LOG="${FICHA_LOG:-/var/log/bos/fichas/linkerd.log}"
 KUBECONFIG_DEST="${KUBECONFIG_DEST:-/etc/bos/.kube/config}"
 readonly NS="linkerd"
-readonly LINKERD_HELM_VERSION="2.16.0"
+# Versiones de chart helm (app version stable-2.14.10)
+readonly LINKERD_CRDS_VERSION="1.8.0"
+readonly LINKERD_CP_VERSION="1.16.11"
+
+# Helm usa /.config/helm cuando el proceso no tiene HOME=/root (ej: bosagent o systemd).
+# Respetar lo que ya esté seteado; si no, apuntar al directorio donde se registraron
+# los repos durante el bootstrap (kyverno los registró con este mismo contexto).
+export HELM_CONFIG_HOME="${HELM_CONFIG_HOME:-/.config/helm}"
+export HELM_DATA_HOME="${HELM_DATA_HOME:-/.local/share/helm}"
+export HELM_CACHE_HOME="${HELM_CACHE_HOME:-/.cache/helm}"
+# KUBECONFIG para helm (BOS executor lo pasa; modo manual usa KUBECONFIG_DEST)
+export KUBECONFIG="${KUBECONFIG:-${KUBECONFIG_DEST}}"
+
+# Directorio temporal para certs TLS — variable global para que sobreviva el return
+# de _gen_linkerd_certs y los archivos sean legibles por helm --set-file
+_LINKERD_CERT_TMP=""
 
 # Namespaces SBOS donde se activa auto-inject de linkerd
 readonly AUTO_INJECT_NAMESPACES=(
@@ -41,26 +56,26 @@ _apply() {
 
 # _gen_linkerd_certs: genera trust anchor + issuer cert ECDSA P-256 y los almacena
 # como secret K8s. Idempotente: no regenera si el secret ya existe.
+# Usa _LINKERD_CERT_TMP (global) en lugar de local+trap para que los archivos
+# sobrevivan al return y puedan ser leídos por helm --set-file.
 _gen_linkerd_certs() {
-    local tmp_dir
-    tmp_dir=$(mktemp -d /tmp/linkerd-certs-XXXXXX)
-    trap 'rm -rf "$tmp_dir"' RETURN
+    _LINKERD_CERT_TMP=$(mktemp -d /tmp/linkerd-certs-XXXXXX)
 
     # Si el secret de issuer ya existe (instalación previa), usar los existentes
     if _k get secret linkerd-identity-issuer -n "$NS" > /dev/null 2>&1; then
         _log "Secret linkerd-identity-issuer ya existe — reutilizando certificados"
         _k get secret linkerd-identity-issuer -n "$NS" \
-            -o jsonpath='{.data.tls\.crt}' 2>/dev/null | base64 -d > "${tmp_dir}/issuer.crt"
+            -o jsonpath='{.data.tls\.crt}' 2>/dev/null | base64 -d > "${_LINKERD_CERT_TMP}/issuer.crt"
         _k get secret linkerd-identity-issuer -n "$NS" \
-            -o jsonpath='{.data.tls\.key}' 2>/dev/null | base64 -d > "${tmp_dir}/issuer.key"
+            -o jsonpath='{.data.tls\.key}' 2>/dev/null | base64 -d > "${_LINKERD_CERT_TMP}/issuer.key"
         _k get secret linkerd-identity-issuer -n "$NS" \
-            -o jsonpath='{.data.ca\.crt}' 2>/dev/null | base64 -d > "${tmp_dir}/ca.crt" || \
+            -o jsonpath='{.data.ca\.crt}' 2>/dev/null | base64 -d > "${_LINKERD_CERT_TMP}/ca.crt" || \
         _k get configmap linkerd-identity-trust-roots -n "$NS" \
-            -o jsonpath='{.data.ca-bundle\.crt}' 2>/dev/null > "${tmp_dir}/ca.crt" || true
-        if [[ -s "${tmp_dir}/issuer.crt" ]]; then
-            LINKERD_CA_CRT="${tmp_dir}/ca.crt"
-            LINKERD_ISSUER_CRT="${tmp_dir}/issuer.crt"
-            LINKERD_ISSUER_KEY="${tmp_dir}/issuer.key"
+            -o jsonpath='{.data.ca-bundle\.crt}' 2>/dev/null > "${_LINKERD_CERT_TMP}/ca.crt" || true
+        if [[ -s "${_LINKERD_CERT_TMP}/issuer.crt" ]]; then
+            LINKERD_CA_CRT="${_LINKERD_CERT_TMP}/ca.crt"
+            LINKERD_ISSUER_CRT="${_LINKERD_CERT_TMP}/issuer.crt"
+            LINKERD_ISSUER_KEY="${_LINKERD_CERT_TMP}/issuer.key"
             export LINKERD_CA_CRT LINKERD_ISSUER_CRT LINKERD_ISSUER_KEY
             return 0
         fi
@@ -69,22 +84,22 @@ _gen_linkerd_certs() {
     _log "Generando certificados TLS ECDSA P-256 para linkerd identity..."
 
     # Trust anchor (CA raíz auto-firmado, 10 años)
-    openssl ecparam -genkey -name prime256v1 -noout -out "${tmp_dir}/ca.key" 2>/dev/null
+    openssl ecparam -genkey -name prime256v1 -noout -out "${_LINKERD_CERT_TMP}/ca.key" 2>/dev/null
     openssl req -x509 -new -nodes -days 3650 \
         -subj "/CN=root.linkerd.cluster.local" \
-        -key "${tmp_dir}/ca.key" \
-        -out "${tmp_dir}/ca.crt" \
+        -key "${_LINKERD_CERT_TMP}/ca.key" \
+        -out "${_LINKERD_CERT_TMP}/ca.crt" \
         -addext "basicConstraints=critical,CA:TRUE,pathlen:0" \
         -addext "keyUsage=critical,keyCertSign,cRLSign" 2>/dev/null
 
     # Issuer cert (CA intermedio firmado por trust anchor, 1 año)
-    openssl ecparam -genkey -name prime256v1 -noout -out "${tmp_dir}/issuer.key" 2>/dev/null
+    openssl ecparam -genkey -name prime256v1 -noout -out "${_LINKERD_CERT_TMP}/issuer.key" 2>/dev/null
     openssl req -new -nodes \
         -subj "/CN=identity.linkerd.cluster.local" \
-        -key "${tmp_dir}/issuer.key" -out "${tmp_dir}/issuer.csr" 2>/dev/null
+        -key "${_LINKERD_CERT_TMP}/issuer.key" -out "${_LINKERD_CERT_TMP}/issuer.csr" 2>/dev/null
     openssl x509 -req -days 365 \
-        -CA "${tmp_dir}/ca.crt" -CAkey "${tmp_dir}/ca.key" -CAcreateserial \
-        -in "${tmp_dir}/issuer.csr" -out "${tmp_dir}/issuer.crt" \
+        -CA "${_LINKERD_CERT_TMP}/ca.crt" -CAkey "${_LINKERD_CERT_TMP}/ca.key" -CAcreateserial \
+        -in "${_LINKERD_CERT_TMP}/issuer.csr" -out "${_LINKERD_CERT_TMP}/issuer.crt" \
         -extfile <(printf 'basicConstraints=critical,CA:TRUE,pathlen:0\nkeyUsage=critical,keyCertSign,cRLSign\n') \
         2>/dev/null
 
@@ -92,23 +107,17 @@ _gen_linkerd_certs() {
     _k create namespace "$NS" 2>/dev/null || true
     _k create secret generic linkerd-identity-issuer \
         -n "$NS" \
-        --from-file=tls.crt="${tmp_dir}/issuer.crt" \
-        --from-file=tls.key="${tmp_dir}/issuer.key" \
-        --from-file=ca.crt="${tmp_dir}/ca.crt" \
-        2>/dev/null || \
-    _k create secret generic linkerd-identity-issuer \
-        -n "$NS" \
-        --from-file=tls.crt="${tmp_dir}/issuer.crt" \
-        --from-file=tls.key="${tmp_dir}/issuer.key" \
-        --from-file=ca.crt="${tmp_dir}/ca.crt" \
+        --from-file=tls.crt="${_LINKERD_CERT_TMP}/issuer.crt" \
+        --from-file=tls.key="${_LINKERD_CERT_TMP}/issuer.key" \
+        --from-file=ca.crt="${_LINKERD_CERT_TMP}/ca.crt" \
         --dry-run=client -o yaml | _k apply -f - 2>/dev/null || true
 
-    LINKERD_CA_CRT="${tmp_dir}/ca.crt"
-    LINKERD_ISSUER_CRT="${tmp_dir}/issuer.crt"
-    LINKERD_ISSUER_KEY="${tmp_dir}/issuer.key"
+    LINKERD_CA_CRT="${_LINKERD_CERT_TMP}/ca.crt"
+    LINKERD_ISSUER_CRT="${_LINKERD_CERT_TMP}/issuer.crt"
+    LINKERD_ISSUER_KEY="${_LINKERD_CERT_TMP}/issuer.key"
     export LINKERD_CA_CRT LINKERD_ISSUER_CRT LINKERD_ISSUER_KEY
 
-    _log "Certificados generados: CA=$(openssl x509 -noout -subject -in "${tmp_dir}/ca.crt" 2>/dev/null | sed 's/.*CN=//')"
+    _log "Certificados generados: CA=$(openssl x509 -noout -subject -in "${_LINKERD_CERT_TMP}/ca.crt" 2>/dev/null | sed 's/.*CN=//')"
 }
 
 # ── Pre-install ───────────────────────────────────────────────────
@@ -172,19 +181,15 @@ ficha_install() {
 
     # ── 2. Instalar linkerd CRDs ──────────────────────────────────
     echo "${__STEP_START__} instalar_linkerd_crds"
-    if helm status linkerd-crds -n "$NS" &>/dev/null; then
-        _log "linkerd-crds ya instalado via helm — omitiendo"
-    else
-        _log "Instalando linkerd-crds helm chart (v${LINKERD_HELM_VERSION})..."
-        helm install linkerd-crds "linkerd/linkerd-crds" \
-            --namespace "$NS" \
-            --version "${LINKERD_HELM_VERSION}" \
-            --timeout 5m \
-            >> "$FICHA_LOG" 2>&1 || {
-            echo "${__STEP_FAIL__} instalar_linkerd_crds: helm install falló"
-            return 1
-        }
-    fi
+    _log "Instalando/actualizando linkerd-crds (v${LINKERD_CRDS_VERSION})..."
+    helm upgrade --install linkerd-crds "linkerd/linkerd-crds" \
+        --namespace "$NS" \
+        --version "${LINKERD_CRDS_VERSION}" \
+        --timeout 5m \
+        >> "$FICHA_LOG" 2>&1 || {
+        echo "${__STEP_FAIL__} instalar_linkerd_crds: helm upgrade --install falló"
+        return 1
+    }
     # Esperar a que el CRD principal esté registrado
     local crd_ok=0
     for _i in $(seq 1 24); do
@@ -202,27 +207,37 @@ ficha_install() {
 
     # ── 3. Instalar linkerd control plane ─────────────────────────
     echo "${__STEP_START__} instalar_control_plane"
-    if helm status linkerd-control-plane -n "$NS" &>/dev/null; then
-        _log "linkerd-control-plane ya instalado via helm — omitiendo"
-    else
-        _log "Instalando linkerd-control-plane v${LINKERD_HELM_VERSION}..."
-        helm install linkerd-control-plane "linkerd/linkerd-control-plane" \
-            --namespace "$NS" \
-            --version "${LINKERD_HELM_VERSION}" \
-            --set-file identityTrustAnchorsPEM="${LINKERD_CA_CRT}" \
-            --set-file identity.issuer.tls.crtPEM="${LINKERD_ISSUER_CRT}" \
-            --set-file identity.issuer.tls.keyPEM="${LINKERD_ISSUER_KEY}" \
-            --set controllerReplicas=1 \
-            --set "proxy.resources.cpu.request=50m" \
-            --set "proxy.resources.cpu.limit=500m" \
-            --set "proxy.resources.memory.request=64Mi" \
-            --set "proxy.resources.memory.limit=256Mi" \
-            --timeout 10m \
-            >> "$FICHA_LOG" 2>&1 || {
-            echo "${__STEP_FAIL__} instalar_control_plane: helm install falló"
-            return 1
-        }
+
+    # Adoptar el secret de identity-issuer por helm antes del install.
+    # Si fue creado manualmente (sin labels helm), helm rechaza adoptarlo.
+    if _k get secret linkerd-identity-issuer -n "$NS" > /dev/null 2>&1; then
+        _k annotate secret linkerd-identity-issuer -n "$NS" \
+            "meta.helm.sh/release-name=linkerd-control-plane" \
+            "meta.helm.sh/release-namespace=${NS}" \
+            --overwrite >> "$FICHA_LOG" 2>&1 || true
+        _k label secret linkerd-identity-issuer -n "$NS" \
+            "app.kubernetes.io/managed-by=Helm" \
+            --overwrite >> "$FICHA_LOG" 2>&1 || true
+        _log "Secret linkerd-identity-issuer etiquetado para adopción por helm"
     fi
+
+    _log "Instalando/actualizando linkerd-control-plane v${LINKERD_CP_VERSION} (app stable-2.14.10)..."
+    helm upgrade --install linkerd-control-plane "linkerd/linkerd-control-plane" \
+        --namespace "$NS" \
+        --version "${LINKERD_CP_VERSION}" \
+        --set-file identityTrustAnchorsPEM="${LINKERD_CA_CRT}" \
+        --set-file identity.issuer.tls.crtPEM="${LINKERD_ISSUER_CRT}" \
+        --set-file identity.issuer.tls.keyPEM="${LINKERD_ISSUER_KEY}" \
+        --set controllerReplicas=1 \
+        --set "proxy.resources.cpu.request=50m" \
+        --set "proxy.resources.cpu.limit=500m" \
+        --set "proxy.resources.memory.request=64Mi" \
+        --set "proxy.resources.memory.limit=256Mi" \
+        --timeout 10m \
+        >> "$FICHA_LOG" 2>&1 || {
+        echo "${__STEP_FAIL__} instalar_control_plane: helm upgrade --install falló"
+        return 1
+    }
     echo "${__STEP_OK__} instalar_control_plane"
 
     # ── 4. Esperar que los pods del control plane estén Ready ─────
@@ -289,7 +304,11 @@ spec:
           port: 9990" || true
     echo "${__STEP_OK__} networkpolicy_linkerd"
 
-    _log "linkerd ${LINKERD_HELM_VERSION} instalado (control plane + auto-inject ${injected} namespaces)"
+    # Limpiar directorio temporal de certs
+    [[ -n "${_LINKERD_CERT_TMP:-}" ]] && rm -rf "$_LINKERD_CERT_TMP" || true
+    _LINKERD_CERT_TMP=""
+
+    _log "linkerd ${LINKERD_CP_VERSION} instalado (control plane + auto-inject ${injected} namespaces)"
     return 0
 }
 

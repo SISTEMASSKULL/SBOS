@@ -119,6 +119,9 @@ ficha_install() {
     echo "${__STEP_START__} crear_politicas_sbos"
 
     # Política 1: require-probes
+    # Solo aplica a namespaces de aplicaciones SBOS (sbos-workload=true).
+    # Los namespaces de infraestructura (linkerd, kyverno, kube-system, etc.)
+    # están excluidos — sus workloads no siguen las mismas convenciones.
     _apply "policy-require-probes" "apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -138,6 +141,19 @@ spec:
               kinds:
                 - Deployment
                 - StatefulSet
+              namespaceSelector:
+                matchLabels:
+                  sbos-workload: \"true\"
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kube-public
+                - kyverno
+                - linkerd
+                - calico-system
+                - kube-flannel
       validate:
         message: \"readinessProbe y livenessProbe son obligatorios (SBOS-047 §A.8.6)\"
         pattern:
