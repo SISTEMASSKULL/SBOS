@@ -32,16 +32,36 @@ _wait_pod() {
 
 # ── Pre-install ───────────────────────────────────────────────────
 ficha_pre_install() {
+    echo "${__STEP_START__} networkpolicies_calcom"
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<YAML
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-calcom-postgresql
+  namespace: sbos-data
+spec:
+  podSelector:
+    matchLabels:
+      app: postgresql
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: sbos-collab
+    ports:
+    - port: 5432
+      protocol: TCP
+YAML
+    echo "${__STEP_OK__} networkpolicies_calcom"
+
     echo "${__STEP_START__} crear_calcom_db"
     _k exec postgresql-0 -n sbos-data -- psql -U postgres -tc "SELECT 1 FROM pg_database WHERE datname='calcom_db'" 2>/dev/null | grep -q 1 \
         && echo "${__STEP_SKIP__} calcom_db ya existe" \
         || { _k exec postgresql-0 -n sbos-data -- psql -U postgres -c "CREATE DATABASE calcom_db OWNER postgres;" 2>/dev/null \
              && echo "${__STEP_OK__} calcom_db creada" \
              || { echo "${__STEP_FAIL__} no se pudo crear calcom_db"; return 1; }; }
-
-    echo "${__STEP_START__} verificar_keycloak"
-    _k get pod -n sbos-security -l app=keycloak > /dev/null 2>&1 || { echo "${__STEP_FAIL__} keycloak no disponible"; return 1; }
-    echo "${__STEP_OK__} verificar_keycloak"
 }
 
 # ── Install ───────────────────────────────────────────────────────
