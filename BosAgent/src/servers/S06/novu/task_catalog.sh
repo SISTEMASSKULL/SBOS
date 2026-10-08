@@ -41,6 +41,79 @@ ficha_pre_install() {
     echo "${__STEP_START__} verificar_redis"
     _k get pod redis-0 -n sbos-data > /dev/null 2>&1 || { echo "${__STEP_FAIL__} redis-0 no disponible"; return 1; }
     echo "${__STEP_OK__} verificar_redis"
+
+    echo "${__STEP_START__} networkpolicies_novu"
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<YAML
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-novu-intra
+  namespace: ${NS}
+spec:
+  podSelector:
+    matchLabels:
+      app: novu-api
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector: {}
+    ports:
+    - port: 27017
+      protocol: TCP
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: sbos-data
+    ports:
+    - port: 6379
+      protocol: TCP
+  - to:
+    ports:
+    - port: 53
+      protocol: UDP
+    - port: 53
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-redis-novu
+  namespace: sbos-data
+spec:
+  podSelector:
+    matchLabels:
+      app: redis
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: ${NS}
+    ports:
+    - port: 6379
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ferretdb-intra
+  namespace: ${NS}
+spec:
+  podSelector:
+    matchLabels:
+      app: ferretdb
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector: {}
+    ports:
+    - port: 27017
+      protocol: TCP
+YAML
+    echo "${__STEP_OK__} networkpolicies_novu"
 }
 
 # ── Install ───────────────────────────────────────────────────────

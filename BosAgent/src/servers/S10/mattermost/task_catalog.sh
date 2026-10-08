@@ -64,6 +64,10 @@ ficha_pre_install() {
             && echo "${__STEP_OK__} usuario mattermost creado" \
             || { echo "${__STEP_FAIL__} no se pudo crear usuario mattermost"; return 1; }
     fi
+
+    echo "${__STEP_START__} permisos_schema_public"
+    _pg -d mattermost -c "GRANT ALL ON SCHEMA public TO mattermost; ALTER DATABASE mattermost OWNER TO mattermost;" 2>/dev/null || true
+    echo "${__STEP_OK__} permisos_schema_public"
     return 0
 }
 
