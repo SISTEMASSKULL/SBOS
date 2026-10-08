@@ -308,6 +308,12 @@ ficha_health_check() {
     echo "${__STEP_FAIL__} novu-api no Ready"; return 1
 }
 
+# ── Repair (re-aplica estado completo — idempotente) ─────────────
+ficha_repair() {
+    ficha_pre_install
+    ficha_install
+}
+
 # ── Uninstall ─────────────────────────────────────────────────────
 ficha_uninstall() {
     for d in novu-api novu-ws; do
@@ -318,4 +324,4 @@ ficha_uninstall() {
     _k delete svc novu-api novu-ws -n "$NS" --ignore-not-found=true
 }
 
-export -f ficha_pre_install ficha_install ficha_health_check ficha_uninstall
+export -f ficha_pre_install ficha_install ficha_repair ficha_health_check ficha_uninstall

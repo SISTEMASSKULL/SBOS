@@ -243,6 +243,12 @@ ficha_health_check() {
     echo "${__STEP_FAIL__} mattermost no Ready"; return 1
 }
 
+# ── Repair (re-aplica estado completo — idempotente) ─────────────────────────
+ficha_repair() {
+    ficha_pre_install
+    ficha_install
+}
+
 # ── Uninstall ────────────────────────────────────────────────────────────────
 ficha_uninstall() {
     echo "${__STEP_START__} remove_mattermost"
@@ -251,4 +257,4 @@ ficha_uninstall() {
     echo "${__STEP_OK__} mattermost removido"
 }
 
-export -f ficha_pre_install ficha_install ficha_post_install ficha_health_check ficha_uninstall
+export -f ficha_pre_install ficha_install ficha_post_install ficha_repair ficha_health_check ficha_uninstall
