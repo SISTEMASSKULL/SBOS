@@ -80,11 +80,7 @@ ficha_install() {
     echo "${__STEP_OK__} crear_namespace"
 
     echo "${__STEP_START__} deploy_mattermost"
-    if _k get deployment mattermost -n "$NS" > /dev/null 2>&1; then
-        _log "Deployment mattermost ya existe — verificando"
-        echo "${__STEP_SKIP__} mattermost ya desplegado"
-    else
-        _k apply -n "$NS" -f - >> "$FICHA_LOG" 2>&1 <<YAML
+    _k apply -n "$NS" -f - >> "$FICHA_LOG" 2>&1 <<YAML
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -142,8 +138,7 @@ spec:
   selector:
     app: mattermost
 YAML
-        echo "${__STEP_OK__} deploy_mattermost"
-    fi
+    echo "${__STEP_OK__} deploy_mattermost"
 
     echo "${__STEP_START__} wait_mattermost_running"
     local elapsed=0 timeout=180
@@ -205,4 +200,4 @@ ficha_uninstall() {
     echo "${__STEP_OK__} mattermost removido"
 }
 
-export -f ficha_pre_install ficha_install ficha_health_check ficha_uninstall
+export -f ficha_pre_install ficha_install ficha_post_install ficha_health_check ficha_uninstall

@@ -51,10 +51,7 @@ ficha_install() {
     local DB_URL="postgresql://postgres:${_pg_pass}@postgresql.sbos-data.svc.cluster.local:5432/calcom_db"
 
     echo "${__STEP_START__} deploy_calcom"
-    if _k get deployment calcom -n "$NS" > /dev/null 2>&1; then
-        echo "${__STEP_SKIP__} calcom ya desplegado"
-    else
-        _k apply -f - >> "$FICHA_LOG" 2>&1 <<YAML
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<YAML
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -109,8 +106,7 @@ spec:
   selector:
     app: calcom
 YAML
-        echo "${__STEP_OK__} deploy_calcom"
-    fi
+    echo "${__STEP_OK__} deploy_calcom"
     _wait_pod "calcom" 180
 }
 

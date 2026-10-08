@@ -51,43 +51,122 @@ ficha_install() {
     JWT_SECRET="${JWT_SECRET:-${_jwt_secret}}"
     STORE_KEY="${STORE_KEY:-${_store_key}}"
 
+    echo "${__STEP_START__} crear_namespace"
+    _k create namespace "$NS" --dry-run=client -o yaml 2>/dev/null | _k apply -f - >> "$FICHA_LOG" 2>&1 || true
+    echo "${__STEP_OK__} crear_namespace"
+
     echo "${__STEP_START__} deploy_novu_api"
-    if _k get deployment novu-api -n "$NS" > /dev/null 2>&1; then
-        echo "${__STEP_SKIP__} novu-api ya desplegado"
-    else
-        _k create deployment novu-api -n "$NS" --image="$NOVU_API_IMAGE" --replicas=1 --port=3000 \
-            --dry-run=client -o yaml | _k apply -f -
-    fi
-    _k set env deploy/novu-api -n "$NS" \
-        MONGO_URL="$FERRETDB_URL" \
-        REDIS_HOST="$REDIS_HOST" \
-        REDIS_URL="$REDIS_URL" \
-        JWT_SECRET="$JWT_SECRET" \
-        STORE_ENCRYPTION_KEY="$STORE_KEY" \
-        NODE_ENV=production \
-        STEP_RESOLVER_DISPATCH_URL=http://localhost:3000
+    _k apply -n "$NS" -f - >> "$FICHA_LOG" 2>&1 <<YAML
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: novu-api
+  namespace: ${NS}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: novu-api
+  template:
+    metadata:
+      labels:
+        app: novu-api
+    spec:
+      containers:
+      - name: novu-api
+        image: ${NOVU_API_IMAGE}
+        securityContext:
+          privileged: false
+          allowPrivilegeEscalation: false
+        env:
+        - name: MONGO_URL
+          value: "${FERRETDB_URL}"
+        - name: REDIS_HOST
+          value: "${REDIS_HOST}"
+        - name: REDIS_URL
+          value: "${REDIS_URL}"
+        - name: JWT_SECRET
+          value: "${JWT_SECRET}"
+        - name: STORE_ENCRYPTION_KEY
+          value: "${STORE_KEY}"
+        - name: NODE_ENV
+          value: "production"
+        - name: STEP_RESOLVER_DISPATCH_URL
+          value: "http://localhost:3000"
+        ports:
+        - containerPort: 3000
+        readinessProbe:
+          httpGet:
+            path: /v1/health-check
+            port: 3000
+          initialDelaySeconds: 60
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: novu-api
+  namespace: ${NS}
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3000
+    targetPort: 3000
+  selector:
+    app: novu-api
+YAML
     _wait_pod "novu-api" 180
     echo "${__STEP_OK__} deploy_novu_api"
 
     echo "${__STEP_START__} deploy_novu_ws"
-    if _k get deployment novu-ws -n "$NS" > /dev/null 2>&1; then
-        echo "${__STEP_SKIP__} novu-ws ya desplegado"
-    else
-        _k create deployment novu-ws -n "$NS" --image="$NOVU_WS_IMAGE" --replicas=1 --port=3002 \
-            --dry-run=client -o yaml | _k apply -f -
-    fi
-    _k set env deploy/novu-ws -n "$NS" REDIS_URL="$REDIS_URL"
+    _k apply -n "$NS" -f - >> "$FICHA_LOG" 2>&1 <<YAML
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: novu-ws
+  namespace: ${NS}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: novu-ws
+  template:
+    metadata:
+      labels:
+        app: novu-ws
+    spec:
+      containers:
+      - name: novu-ws
+        image: ${NOVU_WS_IMAGE}
+        securityContext:
+          privileged: false
+          allowPrivilegeEscalation: false
+        env:
+        - name: REDIS_URL
+          value: "${REDIS_URL}"
+        ports:
+        - containerPort: 3002
+        readinessProbe:
+          tcpSocket:
+            port: 3002
+          initialDelaySeconds: 30
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: novu-ws
+  namespace: ${NS}
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3002
+    targetPort: 3002
+  selector:
+    app: novu-ws
+YAML
     _wait_pod "novu-ws" 180
     echo "${__STEP_OK__} deploy_novu_ws"
-
-    echo "${__STEP_START__} expose_novu"
-    if _k get svc novu-api -n "$NS" > /dev/null 2>&1; then
-        echo "${__STEP_SKIP__} servicio novu ya existe"
-    else
-        _k expose deployment novu-api -n "$NS" --port=3000 --target-port=3000
-        _k expose deployment novu-ws -n "$NS" --port=3002 --target-port=3002
-        echo "${__STEP_OK__} expose_novu"
-    fi
 }
 
 # ── Health ────────────────────────────────────────────────────────

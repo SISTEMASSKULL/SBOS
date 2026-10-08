@@ -43,12 +43,9 @@ ficha_pre_install() {
 # ── Install ───────────────────────────────────────────────────────
 ficha_install() {
     echo "${__STEP_START__} deploy_ferretdb"
-    if _k get deployment ferretdb -n "$NS" > /dev/null 2>&1; then
-        echo "${__STEP_SKIP__} ferretdb ya desplegado"
-    else
-        local _pg_pass
-        _pg_pass=$(_k get secret -n sbos-data pg-master-credentials -o jsonpath='{.data.password}' 2>/dev/null | base64 -d 2>/dev/null || echo "postgres")
-        _k apply -f - >> "$FICHA_LOG" 2>&1 <<YAML
+    local _pg_pass
+    _pg_pass=$(_k get secret -n sbos-data pg-master-credentials -o jsonpath='{.data.password}' 2>/dev/null | base64 -d 2>/dev/null || echo "postgres")
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<YAML
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -94,8 +91,7 @@ spec:
   selector:
     app: ferretdb
 YAML
-        echo "${__STEP_OK__} deploy_ferretdb"
-    fi
+    echo "${__STEP_OK__} deploy_ferretdb"
 
     echo "${__STEP_START__} wait_ferretdb_ready"
     local timeout=90 elapsed=0
