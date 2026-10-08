@@ -103,6 +103,7 @@ spec:
       containers:
       - name: mattermost
         image: ${IMAGE}
+        command: ["mattermost", "server"]
         securityContext:
           privileged: false
           allowPrivilegeEscalation: false
@@ -157,11 +158,34 @@ YAML
         return 1
     fi
 
+    return 0
+}
+
+# ── Post-install ───────────────────────────────────────────────────
+ficha_post_install() {
     echo "${__STEP_START__} init_channels"
-    if [[ -f "${FICHA_DIR}/init_channels.sh" ]]; then
-        bash "${FICHA_DIR}/init_channels.sh" >> "$FICHA_LOG" 2>&1 || _log "ADVERTENCIA: init_channels.sh retornó error (no fatal)"
+    local catalog="${FICHA_DIR}/init_channels.sh"
+    if [[ ! -f "$catalog" ]]; then
+        echo "${__STEP_SKIP__} init_channels: script no encontrado"
+        return 0
     fi
-    echo "${__STEP_OK__} init_channels"
+    # Esperar a que la API de Mattermost esté accesible antes de configurar canales
+    local elapsed=0
+    while (( elapsed < 120 )); do
+        if _k exec -n "$NS" deploy/mattermost -- \
+            curl -sf http://localhost:8065/api/v4/system/ping > /dev/null 2>&1; then
+            break
+        fi
+        sleep 10; elapsed=$((elapsed + 10))
+    done
+    if (( elapsed >= 120 )); then
+        _log "ADVERTENCIA: API Mattermost no disponible en 120s — init_channels diferido"
+        echo "${__STEP_SKIP__} init_channels: API no ready"
+        return 0
+    fi
+    timeout 120 bash "$catalog" >> "$FICHA_LOG" 2>&1 \
+        && echo "${__STEP_OK__} init_channels" \
+        || { _log "ADVERTENCIA: init_channels falló (no fatal)"; echo "${__STEP_SKIP__} init_channels: error"; }
     return 0
 }
 
