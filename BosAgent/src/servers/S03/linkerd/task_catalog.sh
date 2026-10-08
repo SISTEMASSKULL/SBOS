@@ -15,8 +15,7 @@ readonly __STEP_SKIP__="${__SBOS__STEP_SKIP__:-__SBOS__STEP_SKIP__}"
 FICHA_LOG="${FICHA_LOG:-/var/log/bos/fichas/linkerd.log}"
 KUBECONFIG_DEST="${KUBECONFIG_DEST:-/etc/bos/.kube/config}"
 readonly NS="linkerd"
-readonly LINKERD_VERSION="stable-2.16.0"
-readonly LINKERD_CLI_IMAGE="cr.l5d.io/linkerd/cli:${LINKERD_VERSION}"
+readonly LINKERD_HELM_VERSION="2.16.0"
 
 # Namespaces SBOS donde se activa auto-inject de linkerd
 readonly AUTO_INJECT_NAMESPACES=(
@@ -40,20 +39,76 @@ _apply() {
     return $rc
 }
 
-# _linkerd: ejecuta el CLI de linkerd dentro de un pod temporal (namespace default).
-_linkerd() {
-    _k delete pod linkerd-cli -n default --force 2>/dev/null || true
-    _k run linkerd-cli -n default --image="$LINKERD_CLI_IMAGE" --restart=Never \
-        --command -- linkerd "$@" 2>/dev/null || true
-    # Esperar a que el pod complete (máx 60s)
-    _k wait pod/linkerd-cli -n default \
-        --for=jsonpath='{.status.phase}'=Succeeded \
-        --timeout=60s 2>/dev/null || \
-    _k wait pod/linkerd-cli -n default \
-        --for=condition=Ready=False \
-        --timeout=60s 2>/dev/null || true
-    _k logs linkerd-cli -n default 2>/dev/null || true
-    _k delete pod linkerd-cli -n default --force 2>/dev/null || true
+# _gen_linkerd_certs: genera trust anchor + issuer cert ECDSA P-256 y los almacena
+# como secret K8s. Idempotente: no regenera si el secret ya existe.
+_gen_linkerd_certs() {
+    local tmp_dir
+    tmp_dir=$(mktemp -d /tmp/linkerd-certs-XXXXXX)
+    trap 'rm -rf "$tmp_dir"' RETURN
+
+    # Si el secret de issuer ya existe (instalación previa), usar los existentes
+    if _k get secret linkerd-identity-issuer -n "$NS" > /dev/null 2>&1; then
+        _log "Secret linkerd-identity-issuer ya existe — reutilizando certificados"
+        _k get secret linkerd-identity-issuer -n "$NS" \
+            -o jsonpath='{.data.tls\.crt}' 2>/dev/null | base64 -d > "${tmp_dir}/issuer.crt"
+        _k get secret linkerd-identity-issuer -n "$NS" \
+            -o jsonpath='{.data.tls\.key}' 2>/dev/null | base64 -d > "${tmp_dir}/issuer.key"
+        _k get secret linkerd-identity-issuer -n "$NS" \
+            -o jsonpath='{.data.ca\.crt}' 2>/dev/null | base64 -d > "${tmp_dir}/ca.crt" || \
+        _k get configmap linkerd-identity-trust-roots -n "$NS" \
+            -o jsonpath='{.data.ca-bundle\.crt}' 2>/dev/null > "${tmp_dir}/ca.crt" || true
+        if [[ -s "${tmp_dir}/issuer.crt" ]]; then
+            LINKERD_CA_CRT="${tmp_dir}/ca.crt"
+            LINKERD_ISSUER_CRT="${tmp_dir}/issuer.crt"
+            LINKERD_ISSUER_KEY="${tmp_dir}/issuer.key"
+            export LINKERD_CA_CRT LINKERD_ISSUER_CRT LINKERD_ISSUER_KEY
+            return 0
+        fi
+    fi
+
+    _log "Generando certificados TLS ECDSA P-256 para linkerd identity..."
+
+    # Trust anchor (CA raíz auto-firmado, 10 años)
+    openssl ecparam -genkey -name prime256v1 -noout -out "${tmp_dir}/ca.key" 2>/dev/null
+    openssl req -x509 -new -nodes -days 3650 \
+        -subj "/CN=root.linkerd.cluster.local" \
+        -key "${tmp_dir}/ca.key" \
+        -out "${tmp_dir}/ca.crt" \
+        -addext "basicConstraints=critical,CA:TRUE,pathlen:0" \
+        -addext "keyUsage=critical,keyCertSign,cRLSign" 2>/dev/null
+
+    # Issuer cert (CA intermedio firmado por trust anchor, 1 año)
+    openssl ecparam -genkey -name prime256v1 -noout -out "${tmp_dir}/issuer.key" 2>/dev/null
+    openssl req -new -nodes \
+        -subj "/CN=identity.linkerd.cluster.local" \
+        -key "${tmp_dir}/issuer.key" -out "${tmp_dir}/issuer.csr" 2>/dev/null
+    openssl x509 -req -days 365 \
+        -CA "${tmp_dir}/ca.crt" -CAkey "${tmp_dir}/ca.key" -CAcreateserial \
+        -in "${tmp_dir}/issuer.csr" -out "${tmp_dir}/issuer.crt" \
+        -extfile <(printf 'basicConstraints=critical,CA:TRUE,pathlen:0\nkeyUsage=critical,keyCertSign,cRLSign\n') \
+        2>/dev/null
+
+    # Guardar issuer secret para idempotencia en futuras ejecuciones
+    _k create namespace "$NS" 2>/dev/null || true
+    _k create secret generic linkerd-identity-issuer \
+        -n "$NS" \
+        --from-file=tls.crt="${tmp_dir}/issuer.crt" \
+        --from-file=tls.key="${tmp_dir}/issuer.key" \
+        --from-file=ca.crt="${tmp_dir}/ca.crt" \
+        2>/dev/null || \
+    _k create secret generic linkerd-identity-issuer \
+        -n "$NS" \
+        --from-file=tls.crt="${tmp_dir}/issuer.crt" \
+        --from-file=tls.key="${tmp_dir}/issuer.key" \
+        --from-file=ca.crt="${tmp_dir}/ca.crt" \
+        --dry-run=client -o yaml | _k apply -f - 2>/dev/null || true
+
+    LINKERD_CA_CRT="${tmp_dir}/ca.crt"
+    LINKERD_ISSUER_CRT="${tmp_dir}/issuer.crt"
+    LINKERD_ISSUER_KEY="${tmp_dir}/issuer.key"
+    export LINKERD_CA_CRT LINKERD_ISSUER_CRT LINKERD_ISSUER_KEY
+
+    _log "Certificados generados: CA=$(openssl x509 -noout -subject -in "${tmp_dir}/ca.crt" 2>/dev/null | sed 's/.*CN=//')"
 }
 
 # ── Pre-install ───────────────────────────────────────────────────
@@ -86,58 +141,114 @@ ficha_pre_install() {
 ficha_install() {
     mkdir -p "$(dirname "$FICHA_LOG")"
 
-    # ── 1. Instalar linkerd CRDs ──────────────────────────────────
-    echo "${__STEP_START__} instalar_linkerd_crds"
-    _apply "crds" "apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: linkerd-install-tracking
-  namespace: ${NS}
-  labels:
-    app: linkerd
-    sbos-managed: \"true\"
-data:
-  install_state: \"crds-applied\"" || {
-        echo "${__STEP_FAIL__} instalar_linkerd_crds"; return 1
+    # ── 0. Verificar/instalar helm ────────────────────────────────
+    echo "${__STEP_START__} verificar_helm"
+    if ! command -v helm &>/dev/null; then
+        local HELM_VERSION="3.16.3"
+        local HELM_TMP; HELM_TMP=$(mktemp -d)
+        _log "Helm no encontrado — descargando v${HELM_VERSION}..."
+        curl -fsSL "https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz" \
+            -o "${HELM_TMP}/helm.tar.gz" >> "$FICHA_LOG" 2>&1 || {
+            echo "${__STEP_FAIL__} verificar_helm: descarga fallida"
+            rm -rf "$HELM_TMP"; return 1
+        }
+        tar -xzf "${HELM_TMP}/helm.tar.gz" -C "$HELM_TMP" >> "$FICHA_LOG" 2>&1
+        install -m 755 "${HELM_TMP}/linux-amd64/helm" /usr/local/bin/helm
+        rm -rf "$HELM_TMP"
+    fi
+    echo "${__STEP_OK__} verificar_helm ($(helm version --short 2>/dev/null))"
+
+    # ── 1. Agregar repo linkerd y generar certificados TLS ────────
+    echo "${__STEP_START__} preparar_certificados"
+    helm repo add linkerd https://helm.linkerd.io/stable >> "$FICHA_LOG" 2>&1 || true
+    helm repo update >> "$FICHA_LOG" 2>&1 || true
+    _k create namespace "$NS" 2>/dev/null || true
+
+    _gen_linkerd_certs || {
+        echo "${__STEP_FAIL__} preparar_certificados: error generando TLS"
+        return 1
     }
-    # En un entorno real, linkerd CRDs vienen del chart.
-    # Para Iteración 1, marcamos que la instalación vía Helm se delegaría aquí.
-    _log "CRDs linkerd — delegados a linkerd install (helm chart)"
+    echo "${__STEP_OK__} preparar_certificados"
+
+    # ── 2. Instalar linkerd CRDs ──────────────────────────────────
+    echo "${__STEP_START__} instalar_linkerd_crds"
+    if helm status linkerd-crds -n "$NS" &>/dev/null; then
+        _log "linkerd-crds ya instalado via helm — omitiendo"
+    else
+        _log "Instalando linkerd-crds helm chart (v${LINKERD_HELM_VERSION})..."
+        helm install linkerd-crds "linkerd/linkerd-crds" \
+            --namespace "$NS" \
+            --version "${LINKERD_HELM_VERSION}" \
+            --timeout 5m \
+            >> "$FICHA_LOG" 2>&1 || {
+            echo "${__STEP_FAIL__} instalar_linkerd_crds: helm install falló"
+            return 1
+        }
+    fi
+    # Esperar a que el CRD principal esté registrado
+    local crd_ok=0
+    for _i in $(seq 1 24); do
+        if _k get crd serviceprofiles.linkerd.io >/dev/null 2>&1; then
+            crd_ok=1; break
+        fi
+        _log "  CRD serviceprofiles.linkerd.io aún no registrado, esperando 5s... (${_i}/24)"
+        sleep 5
+    done
+    if [[ "$crd_ok" -eq 0 ]]; then
+        echo "${__STEP_FAIL__} instalar_linkerd_crds: CRDs no registrados en 120s"
+        return 1
+    fi
     echo "${__STEP_OK__} instalar_linkerd_crds"
 
-    # ── 2. Instalar linkerd control plane ─────────────────────────
+    # ── 3. Instalar linkerd control plane ─────────────────────────
     echo "${__STEP_START__} instalar_control_plane"
-    _apply "control-plane-config" "apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: linkerd-config
-  namespace: ${NS}
-  labels:
-    app: linkerd
-    sbos-managed: \"true\"
-data:
-  config.yaml: |
-    # Linkerd 2.16.0 control plane configuration
-    # Instalación: linkerd install | kubectl apply -f -
-    identity:
-      issuer:
-        crtExpiry: 2027-06-01T00:00:00Z
-    proxy:
-      resources:
-        cpu:
-          request: 50m
-          limit: 500m
-        memory:
-          request: 64Mi
-          limit: 256Mi
-    autoInject:
-      enabled: true" || {
-        echo "${__STEP_FAIL__} instalar_control_plane"; return 1
-    }
-    _log "Control plane linkerd — delegado a linkerd install (helm chart)"
+    if helm status linkerd-control-plane -n "$NS" &>/dev/null; then
+        _log "linkerd-control-plane ya instalado via helm — omitiendo"
+    else
+        _log "Instalando linkerd-control-plane v${LINKERD_HELM_VERSION}..."
+        helm install linkerd-control-plane "linkerd/linkerd-control-plane" \
+            --namespace "$NS" \
+            --version "${LINKERD_HELM_VERSION}" \
+            --set-file identityTrustAnchorsPEM="${LINKERD_CA_CRT}" \
+            --set-file identity.issuer.tls.crtPEM="${LINKERD_ISSUER_CRT}" \
+            --set-file identity.issuer.tls.keyPEM="${LINKERD_ISSUER_KEY}" \
+            --set controllerReplicas=1 \
+            --set "proxy.resources.cpu.request=50m" \
+            --set "proxy.resources.cpu.limit=500m" \
+            --set "proxy.resources.memory.request=64Mi" \
+            --set "proxy.resources.memory.limit=256Mi" \
+            --timeout 10m \
+            >> "$FICHA_LOG" 2>&1 || {
+            echo "${__STEP_FAIL__} instalar_control_plane: helm install falló"
+            return 1
+        }
+    fi
     echo "${__STEP_OK__} instalar_control_plane"
 
-    # ── 3. Activar auto-inject en namespaces SBOS ─────────────────
+    # ── 4. Esperar que los pods del control plane estén Ready ─────
+    echo "${__STEP_START__} wait_control_plane_ready"
+    _log "Esperando pods linkerd control plane (hasta 5m)..."
+    local pods_ok=0
+    for _i in $(seq 1 30); do
+        local ready_count
+        ready_count=$(_k get pod -n "$NS" --no-headers 2>/dev/null | \
+            grep -v "^$" | grep "1/1\|2/2\|3/3" | wc -l || echo "0")
+        local total_count
+        total_count=$(_k get pod -n "$NS" --no-headers 2>/dev/null | grep -v "^$" | wc -l || echo "0")
+        if [[ "$total_count" -gt 0 && "$ready_count" -ge "$total_count" ]]; then
+            pods_ok=1; break
+        fi
+        _log "  Control plane pods ready: ${ready_count}/${total_count} (${_i}/30)"
+        sleep 10
+    done
+    if [[ "$pods_ok" -eq 0 ]]; then
+        echo "${__STEP_FAIL__} wait_control_plane_ready: pods no Ready en 5m"
+        return 1
+    fi
+    _log "Control plane listo"
+    echo "${__STEP_OK__} wait_control_plane_ready"
+
+    # ── 5. Activar auto-inject en namespaces SBOS ─────────────────
     echo "${__STEP_START__} activar_auto_inject"
     local injected=0
     for ns in "${AUTO_INJECT_NAMESPACES[@]}"; do
@@ -151,7 +262,7 @@ data:
     done
     echo "${__STEP_OK__} activar_auto_inject ($injected namespaces)"
 
-    # ── 4. NetworkPolicy para linkerd ─────────────────────────────
+    # ── 6. NetworkPolicy para linkerd ─────────────────────────────
     echo "${__STEP_START__} networkpolicy_linkerd"
     _apply "np-linkerd" "apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -162,11 +273,11 @@ spec:
   podSelector: {}
   policyTypes: [Ingress]
   ingress:
-    # Proxy injector (8443)
+    # Proxy injector webhook (8443) — API server lo alcanza desde cualquier NS
     - ports:
         - protocol: TCP
           port: 8443
-    # Metrics (4191, 9990)
+    # Métricas (4191, 9990) — desde monitoring
     - from:
         - namespaceSelector:
             matchLabels:
@@ -178,66 +289,7 @@ spec:
           port: 9990" || true
     echo "${__STEP_OK__} networkpolicy_linkerd"
 
-    # ── ServiceProfile + Viz (Iteración 3) ──────────────────────
-    echo "${__STEP_START__} configurar_serviceprofile_viz"
-
-    # Esperar a que los CRDs de Linkerd estén disponibles antes de aplicar ServiceProfile
-    _log "Esperando CRDs de Linkerd (hasta 120s)..."
-    local crd_ok=0
-    for _i in $(seq 1 24); do
-        if kubectl get crd serviceprofiles.linkerd.io >/dev/null 2>&1; then
-            crd_ok=1; break
-        fi
-        _log "  CRD serviceprofiles.linkerd.io no listo, esperando 5s... (${_i}/24)"
-        sleep 5
-    done
-    if [[ "$crd_ok" -eq 0 ]]; then
-        _log "ADVERTENCIA: CRDs de Linkerd no disponibles en 120s — omitiendo ServiceProfiles"
-        echo "${__STEP_OK__} configurar_serviceprofile_viz"
-        _log "linkerd instalado (sin ServiceProfiles — CRDs no disponibles)"
-        return 0
-    fi
-    _log "CRDs de Linkerd listos"
-
-    # ServiceProfile para servicios SBOS principales
-    local svc_profiles=0
-    for svc in postgresql redis keycloak kong; do
-        _apply "sp-${svc}" "apiVersion: linkerd.io/v1alpha2
-kind: ServiceProfile
-metadata:
-  name: ${svc}.sbos-data.svc.cluster.local
-  namespace: sbos-data
-spec:
-  routes:
-    - name: default
-      condition:
-        method: \"*\"
-        pathRegex: \"/.*\"
-      responseClasses:
-        - condition:
-            status:
-              min: 200
-              max: 299
-          isSuccess: true
-        - condition:
-            status:
-              min: 500
-              max: 599
-          isFailure: true" 2>/dev/null && svc_profiles=$((svc_profiles+1)) || true
-    done
-    # Habilitar Viz dashboard
-    _apply "linkerd-viz" "apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: linkerd-viz-config
-  namespace: ${NS}
-data:
-  viz_enabled: \"true\"
-  dashboard_url: \"http://linkerd-viz.${NS}.svc.cluster.local:8084\"" || true
-    _log "ServiceProfiles creados: $svc_profiles/4, Viz habilitado"
-    echo "${__STEP_OK__} configurar_serviceprofile_viz"
-
-    _log "linkerd instalado (Iteración 3: ServiceProfile + Viz)"
+    _log "linkerd ${LINKERD_HELM_VERSION} instalado (control plane + auto-inject ${injected} namespaces)"
     return 0
 }
 
@@ -256,6 +308,15 @@ ficha_post_install() {
 
 # ── Repair ────────────────────────────────────────────────────────
 ficha_repair() {
+    # Si el control plane no está desplegado (stub previo), re-instalar completamente
+    local pod_count
+    pod_count=$(_k get pod -n "$NS" --no-headers 2>/dev/null | grep -v "^$" | wc -l || echo "0")
+    if [[ "$pod_count" -eq 0 ]]; then
+        _log "No hay pods en namespace linkerd — ejecutando instalación completa"
+        ficha_install
+        return $?
+    fi
+
     echo "${__STEP_START__} reparar_auto_inject"
     local repaired=0
     for ns in "${AUTO_INJECT_NAMESPACES[@]}"; do
