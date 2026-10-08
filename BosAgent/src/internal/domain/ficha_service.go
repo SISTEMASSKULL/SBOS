@@ -94,16 +94,32 @@ func (svc *FichaService) Install(fichaID, version string) (*SagaOutcome, error) 
 		return nil, ErrInstallerUnavailable
 	}
 
+	// Registrar inicio de instalación (READY/INSTALL_FAILED → INSTALLING).
+	if svc.state != nil {
+		_ = svc.state.Transition(fichaID, state.StateInstalling)
+	}
+
 	result, err := svc.installer.Install(fichaID, version)
 	if err != nil {
+		if svc.state != nil {
+			_ = svc.state.Transition(fichaID, state.StateInstallFailed)
+		}
 		return nil, fmt.Errorf("%w: %s", ErrSagaFailed, err.Error())
 	}
 	if !result.Success {
+		if svc.state != nil {
+			_ = svc.state.Transition(fichaID, state.StateInstallFailed)
+		}
 		return nil, &SagaError{
 			Command:     "install",
 			ExitCode:    result.ExitCode,
 			FailedSteps: result.FailedSteps(),
 		}
+	}
+
+	// INSTALLING → INSTALLED.
+	if svc.state != nil {
+		_ = svc.state.Transition(fichaID, state.StateInstalled)
 	}
 
 	// Registrar puertos en el Kardex tras instalación exitosa (no-blocking: fallo no cancela).

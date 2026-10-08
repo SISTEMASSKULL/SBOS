@@ -146,3 +146,27 @@ func (m *Manager) SetLista(name string) error {
 
 // Unblock es un alias de SetLista para compatibilidad con código existente.
 func (m *Manager) Unblock(name string) error { return m.SetLista(name) }
+
+// ForceState mueve una ficha a un estado arbitrario saltándose ValidTransitions.
+// Reservado para recuperación de arranque (sagas huérfanas por reinicio del daemon).
+// NO usar en flujos normales — para transiciones ordinarias usar Transition().
+func (m *Manager) ForceState(name string, to FichaState) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	st, err := m.readLocked()
+	if err != nil {
+		return err
+	}
+
+	ficha, ok := st.Fichas[name]
+	if !ok {
+		return fmt.Errorf("state: ficha %s not found", name)
+	}
+
+	ficha.State = to
+	ficha.UpdatedAt = time.Now()
+	st.UpdatedAt = time.Now()
+
+	return m.writeState(st)
+}

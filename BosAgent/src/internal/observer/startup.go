@@ -72,6 +72,57 @@ func InitializeFichaStates(loader *plugin.Loader, stateMgr *state.Manager) {
 	log.Info().Int("count", len(fichas)).Msg("observer: estados de fichas inicializados")
 }
 
+// RecoverOrphanedSagas detecta fichas atascadas en estados transitorios (INSTALLING,
+// UPDATING, REPAIRING) por un reinicio del daemon durante una saga activa, y les
+// asigna un estado terminal correcto usando K8s como fuente de verdad.
+//
+// Regla: si hay pod Running → INSTALLED; si no hay pod → INSTALL_FAILED.
+// Los estados transitorios NO son pisados por SetK8sDiscoveredState (protección de P15),
+// por lo que esta función usa Transition() directamente como caso excepcional de arranque.
+//
+// Estándares: P15 (idempotencia del instalador), ADR-021.
+func RecoverOrphanedSagas(stateMgr *state.Manager, probeK8s K8sProbeFunc) {
+	st, err := stateMgr.Read()
+	if err != nil {
+		log.Warn().Err(err).Msg("orphan-recovery: no se puede leer estado — omitiendo")
+		return
+	}
+
+	orphans := []string{}
+	for name, ficha := range st.Fichas {
+		switch ficha.State {
+		case state.StateInstalling, state.StateUpdating, state.StateRepairing:
+			orphans = append(orphans, name)
+		}
+	}
+	if len(orphans) == 0 {
+		return
+	}
+
+	log.Warn().Strs("fichas", orphans).Msg("orphan-recovery: fichas en estado transitorio al arrancar — detectando estado real K8s")
+
+	discovered := probeK8s()
+
+	for _, fichaID := range orphans {
+		var newState state.FichaState
+		if discovered != nil {
+			if s, ok := discovered[fichaID]; ok && s == state.StateInstalled {
+				newState = state.StateInstalled
+			} else {
+				newState = state.StateInstallFailed
+			}
+		} else {
+			newState = state.StateInstallFailed
+		}
+
+		if err := stateMgr.ForceState(fichaID, newState); err != nil {
+			log.Warn().Err(err).Str("ficha", fichaID).Str("target", string(newState)).Msg("orphan-recovery: error al recuperar ficha")
+		} else {
+			log.Info().Str("ficha", fichaID).Str("estado", string(newState)).Msg("orphan-recovery: saga huérfana recuperada")
+		}
+	}
+}
+
 // P15ReconcileAfterRebuild protege fichas ya instaladas cuando el state.json fue
 // reconstruido desde cero (RecoveryRebuilt). Sin esta función, el observer vería
 // todas las fichas en LISTA y las reinstalaría, destruyendo datos existentes (Gap A2).

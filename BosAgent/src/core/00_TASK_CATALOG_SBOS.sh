@@ -636,8 +636,12 @@ verify_ficha_health() {
         fi
 
         local namespace
-        namespace=$(yq eval '.identity.server // "default"' "$manifest" 2>/dev/null || echo "default")
-        namespace=$(echo "$namespace" | tr '[:upper:]' '[:lower:]' | sed 's/^s[0-9]*/sbos-/')
+        # Leer namespace explícito desde versions.namespace, si no desde identity.server
+        namespace=$(yq eval '.versions.namespace // .identity.server // "default"' "$manifest" 2>/dev/null || echo "default")
+        # Solo transformar si parece un ID de servidor (sNN o SNN), no si ya es sbos-*
+        if [[ ! "$namespace" =~ ^sbos- ]]; then
+            namespace=$(echo "$namespace" | tr '[:upper:]' '[:lower:]' | sed 's/^s[0-9]*/sbos-/')
+        fi
 
         local svc_ip
         svc_ip=$(kubectl get svc "$ficha_id" -n "$namespace" \

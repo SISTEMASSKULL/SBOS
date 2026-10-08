@@ -287,7 +287,8 @@ func FindNextAutoInstall(st *state.SBOSState, index map[string]*plugin.FichaMani
 		if !ok {
 			continue
 		}
-		if ficha.State != state.StateReady {
+		// Elegibles: LISTA (primera instalación) o FALLA_INSTALACION (reintento automático).
+		if ficha.State != state.StateReady && ficha.State != state.StateInstallFailed {
 			continue
 		}
 		if !DepsSatisfied(mf.Dependencies, st) {

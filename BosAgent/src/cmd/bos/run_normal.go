@@ -182,6 +182,13 @@ func runNormal(cfg *config.Config, benv *bootstrapEnv) {
 	// 5.5 Inicializar estados de fichas y arrancar observer loop
 	observer.InitializeFichaStates(pluginLoader, stateMgr)
 
+	// 5.6 Recuperar sagas huérfanas: fichas en INSTALLING/UPDATING/REPAIRING por reinicio
+	// del daemon durante una saga activa. Las resuelve consultando K8s como fuente de verdad.
+	observer.RecoverOrphanedSagas(stateMgr, func() map[string]state.FichaState {
+		result := k8sDiscovery.DiscoverK8sStates()
+		return result.States
+	})
+
 	// P15-A2: Si el state.json fue reconstruido desde cero, proteger fichas ya
 	// instaladas en K8s antes de arrancar el observer — evita reinstalación destructiva.
 	observer.P15ReconcileAfterRebuild(stateMgr, func() map[string]state.FichaState {

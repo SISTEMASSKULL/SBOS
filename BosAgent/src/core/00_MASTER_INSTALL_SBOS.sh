@@ -28,6 +28,7 @@ readonly SBOS_VERSION="${SBOS_VERSION:-1.0.0}"
 readonly SBOS_SERVERS_DIR="${SBOS_SERVERS_DIR:-/etc/bos/blibs/servers}"
 readonly SBOS_STATE_FILE="${SBOS_STATE_FILE:-/etc/bos/.sbos_state.json}"
 readonly SBOS_KUBECONFIG="${SBOS_KUBECONFIG:-/etc/bos/.kube/config}"
+export KUBECONFIG="${SBOS_KUBECONFIG}"
 
 # ── Usage ─────────────────────────────────────────────────────
 

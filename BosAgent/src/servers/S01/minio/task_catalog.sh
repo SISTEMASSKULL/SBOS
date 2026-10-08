@@ -17,9 +17,9 @@ KUBECONFIG_DEST="${KUBECONFIG_DEST:-/etc/bos/.kube/config}"
 readonly NS="sbos-data"
 readonly MINIO_POD="minio-0"
 readonly MINIO_STS="minio"
-readonly MINIO_IMAGE="minio/minio:RELEASE.2025-05-24T17-08-30Z"
+readonly MINIO_IMAGE="quay.io/minio/minio:RELEASE.2025-05-24T17-08-30Z"
 # mc compatible con el release del servidor (mismo período)
-readonly MC_IMAGE="minio/mc:RELEASE.2025-05-14T01-36-59Z"
+readonly MC_IMAGE="quay.io/minio/mc:RELEASE.2025-05-14T01-36-59Z"
 # URL interna para Jobs en el mismo namespace (headless → DNS al pod)
 readonly MINIO_INTERNAL_URL="http://minio-0.minio.${NS}.svc.cluster.local:9000"
 
@@ -80,6 +80,10 @@ _mc_job() {
     # Eliminar job anterior si existe (idempotencia)
     _k delete job "${job_name}" -n "$NS" 2>/dev/null || true
 
+    # Indentar el script para que sea válido dentro del bloque YAML literal (|)
+    local script_indented
+    script_indented=$(printf '%s\n' "$script" | sed 's/^/              /')
+
     tmp=$(mktemp /tmp/sbos-mc-XXXXXX.yaml)
     cat > "$tmp" <<YAML
 apiVersion: batch/v1
@@ -107,7 +111,7 @@ spec:
                 echo "  Reintentando..."; sleep 5
               done
               echo "Alias configurado. Ejecutando comandos:"
-              ${script}
+${script_indented}
           envFrom:
             - secretRef:
                 name: minio-credentials
@@ -151,6 +155,12 @@ ficha_pre_install() {
         local pv_phase
         pv_phase=$(_k get pv sbos-minio-pv \
             -o jsonpath='{.status.phase}' 2>/dev/null || echo "Unknown")
+        if [[ "$pv_phase" == "Released" ]]; then
+            # PV quedó Released (PVC eliminado con política Retain) — recuperar limpiando claimRef
+            _k patch pv sbos-minio-pv --type=json \
+                -p '[{"op":"remove","path":"/spec/claimRef"}]' > /dev/null 2>&1 || true
+            pv_phase=$(_k get pv sbos-minio-pv -o jsonpath='{.status.phase}' 2>/dev/null || echo "Unknown")
+        fi
         if [[ "$pv_phase" != "Available" && "$pv_phase" != "Bound" ]]; then
             echo "${__STEP_FAIL__} verificar_pv: sbos-minio-pv en fase $pv_phase (esperado Available)"
             return 1
@@ -306,7 +316,7 @@ spec:
 
     # ── 4. Esperar pod Ready ─────────────────────────────────────
     echo "${__STEP_START__} wait_ready"
-    if ! _wait_minio_ready 120; then
+    if ! _wait_minio_ready 360; then
         echo "${__STEP_FAIL__} wait_ready: timeout esperando $MINIO_POD"
         return 1
     fi
