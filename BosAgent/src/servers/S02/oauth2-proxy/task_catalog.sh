@@ -62,13 +62,14 @@ _oauth2_curl() {
 }
 
 # _generate_cookie_secret: genera un secreto aleatorio para cookies.
+# NOTA: no usar tr|head -c con pipefail — tr recibe SIGPIPE (exit 141), el ||
+# fallback se ejecuta IGUAL, y $() captura ambas salidas → 64 bytes en vez de 32.
 _generate_cookie_secret() {
     if [[ -n "$OAUTH2_COOKIE_SECRET" ]]; then
-        echo "$OAUTH2_COOKIE_SECRET"
+        printf '%s' "$OAUTH2_COOKIE_SECRET"
     else
-        tr -dc 'a-zA-Z0-9' < /dev/urandom 2>/dev/null | head -c 32 || \
-            python3 -c "import secrets; print(secrets.token_hex(16))" 2>/dev/null || \
-            echo "sbos_oauth2_cookie_secret_bootstrap"
+        python3 -c "import secrets,sys; sys.stdout.write(secrets.token_hex(16))" 2>/dev/null || \
+            printf '%s' "sbos_oauth2_cookie_s32pad00000000"
     fi
 }
 
@@ -278,7 +279,7 @@ spec:
         - protocol: TCP
           port: 44180" || true
 
-    # Egress hacia Keycloak (OIDC) y Kong (upstream)
+    # Egress hacia Keycloak (OIDC), Kong (upstream) y Redis (session store)
     _apply "np-oauth2-egress" "apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -306,6 +307,14 @@ spec:
       ports:
         - protocol: TCP
           port: 8000
+    # Redis session store (sbos-data — redis headless → pod IP directo)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: sbos-data
+      ports:
+        - protocol: TCP
+          port: 6379
     # DNS
     - ports:
         - protocol: UDP

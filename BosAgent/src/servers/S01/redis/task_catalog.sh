@@ -299,6 +299,7 @@ spec:
                   - sbos-data
                   - sbos-gateway
                   - sbos-monitoring
+                  - sbos-security
       ports:
         - protocol: TCP
           port: 6379" || true
