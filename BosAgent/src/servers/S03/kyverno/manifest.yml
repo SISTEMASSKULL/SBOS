@@ -40,9 +40,8 @@ ports:
     internal_only: true
 
 health:
-  type: http
-  path: /health/liveness
-  port: 9443
+  type: pods
+  label_selector: "app.kubernetes.io/instance=kyverno"
   timeout_seconds: 10
 
 audit:

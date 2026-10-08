@@ -652,7 +652,7 @@ verify_ficha_health() {
         if [[ -z "$svc_ip" || "$svc_ip" == "None" ]]; then
             # Fallback: verificar que el pod está corriendo
             local label_selector
-            label_selector=$(yq eval '.ficha.health.label_selector // "app='"$ficha_id"'"' "$manifest" 2>/dev/null || echo "app=$ficha_id")
+            label_selector=$(yq eval '.health.label_selector // .ficha.health.label_selector // "app='"$ficha_id"'"' "$manifest" 2>/dev/null || echo "app=$ficha_id")
             verify_pod_running "$namespace" "$label_selector"
             return $?
         fi
@@ -672,9 +672,17 @@ verify_ficha_health() {
 
     # Fichas helm/pods sin health.type específico: verificar que el pod corre
     local namespace
-    namespace=$(yq eval '.ficha.namespace // "default"' "$manifest" 2>/dev/null || echo "default")
+    # Prioridad: .versions.namespace (fichas helm) > .ficha.namespace (fichas bash) > "default"
+    namespace=$(yq eval '.versions.namespace // .ficha.namespace // "default"' "$manifest" 2>/dev/null || echo "default")
+    if [[ ! "$namespace" =~ ^sbos- ]] && [[ "$namespace" != "default" ]] && [[ "$namespace" != "kube-system" ]]; then
+        local ns_raw="$namespace"
+        if [[ "$ns_raw" =~ ^[Ss][0-9] ]]; then
+            namespace=$(echo "$ns_raw" | tr '[:upper:]' '[:lower:]' | sed 's/^s[0-9]*/sbos-/')
+        fi
+    fi
     local label_selector
-    label_selector=$(yq eval '.ficha.health.label_selector // "app='"$ficha_id"'"' "$manifest" 2>/dev/null || echo "app=$ficha_id")
+    # Prioridad: .health.label_selector (nivel raíz) > .ficha.health.label_selector > "app=<id>"
+    label_selector=$(yq eval '.health.label_selector // .ficha.health.label_selector // "app='"$ficha_id"'"' "$manifest" 2>/dev/null || echo "app=$ficha_id")
 
     if ! command -v kubectl > /dev/null 2>&1; then
         echo "SKIP: kubectl no disponible — K8s aún no instalado, verify pendiente"

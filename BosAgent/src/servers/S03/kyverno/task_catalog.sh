@@ -54,46 +54,62 @@ ficha_pre_install() {
 ficha_install() {
     mkdir -p "$(dirname "$FICHA_LOG")"
 
-    # ── 1. Instalar kyverno (helm chart delegado) ─────────────────
+    # ── 0. Instalar helm si no está disponible ────────────────────
+    echo "${__STEP_START__} instalar_helm"
+    if ! command -v helm &>/dev/null; then
+        local HELM_VERSION="3.16.3"
+        local HELM_TMP
+        HELM_TMP=$(mktemp -d)
+        _log "Helm no encontrado — descargando v${HELM_VERSION}..."
+        curl -fsSL "https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz" \
+            -o "${HELM_TMP}/helm.tar.gz" >> "$FICHA_LOG" 2>&1 || {
+            echo "${__STEP_FAIL__} instalar_helm: descarga fallida"
+            rm -rf "$HELM_TMP"
+            return 1
+        }
+        tar -xzf "${HELM_TMP}/helm.tar.gz" -C "$HELM_TMP" >> "$FICHA_LOG" 2>&1
+        install -m 755 "${HELM_TMP}/linux-amd64/helm" /usr/local/bin/helm
+        rm -rf "$HELM_TMP"
+        _log "Helm $(helm version --short) instalado"
+    else
+        _log "Helm $(helm version --short) ya presente"
+    fi
+    echo "${__STEP_OK__} instalar_helm"
+
+    # ── 1. Instalar kyverno via helm ──────────────────────────────
     echo "${__STEP_START__} instalar_kyverno"
-    _apply "install-config" "apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: kyverno-install-config
-  namespace: ${NS}
-  labels:
-    app: kyverno
-    sbos-managed: \"true\"
-data:
-  install_mode: \"helm-delegated\"
-  version: \"1.13.0\"
-  helm_values: |
-    admissionController:
-      replicas: 1
-    backgroundController:
-      enabled: true
-    cleanupController:
-      enabled: true
-    reportsController:
-      enabled: true
-    features:
-      audit: true" || {
-        echo "${__STEP_FAIL__} instalar_kyverno"; return 1
-    }
-    _log "Kyverno — instalación delegada a helm chart (ghcr.io/kyverno/charts/kyverno)"
+    helm repo add kyverno https://kyverno.github.io/kyverno/ >> "$FICHA_LOG" 2>&1 || true
+    helm repo update >> "$FICHA_LOG" 2>&1 || true
+
+    if helm status kyverno -n "$NS" &>/dev/null; then
+        _log "Kyverno ya instalado via helm — omitiendo install"
+    else
+        _log "Instalando Kyverno via helm chart..."
+        helm install kyverno kyverno/kyverno \
+            --namespace "$NS" --create-namespace \
+            --set admissionController.replicas=1 \
+            --set backgroundController.enabled=true \
+            --set cleanupController.enabled=true \
+            --set reportsController.enabled=true \
+            --timeout 5m \
+            >> "$FICHA_LOG" 2>&1 || {
+            echo "${__STEP_FAIL__} instalar_kyverno: helm install falló"
+            return 1
+        }
+    fi
 
     # Esperar a que los CRDs de Kyverno estén registrados antes de aplicar ClusterPolicy
-    _log "Esperando CRDs de Kyverno (hasta 120s)..."
+    _log "Esperando CRDs de Kyverno (hasta 180s)..."
     local crd_ok=0
-    for _i in $(seq 1 24); do
-        if kubectl get crd clusterpolicies.kyverno.io >/dev/null 2>&1; then
+    for _i in $(seq 1 36); do
+        if _k get crd clusterpolicies.kyverno.io >/dev/null 2>&1; then
             crd_ok=1; break
         fi
-        _log "  CRDs no listos aún, esperando 5s... (${_i}/24)"
+        _log "  CRDs no listos aún, esperando 5s... (${_i}/36)"
         sleep 5
     done
     if [[ "$crd_ok" -eq 0 ]]; then
-        echo "${__STEP_FAIL__} instalar_kyverno: CRDs no registrados en 120s"
+        echo "${__STEP_FAIL__} instalar_kyverno: CRDs no registrados en 180s"
         return 1
     fi
     _log "CRDs de Kyverno listos"

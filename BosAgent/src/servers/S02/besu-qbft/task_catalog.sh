@@ -181,10 +181,17 @@ except:
 ficha_pre_install() {
     mkdir -p "$(dirname "$FICHA_LOG")" /etc/bos
 
-    # Verificar que podman está disponible
+    # Instalar podman si no está disponible
     echo "${__STEP_START__} verificar_podman"
     if ! command -v podman > /dev/null 2>&1; then
-        echo "${__STEP_FAIL__} verificar_podman: podman no instalado"
+        _log "Podman no encontrado — instalando desde apt..."
+        DEBIAN_FRONTEND=noninteractive apt-get install -y podman >> "$FICHA_LOG" 2>&1 || {
+            echo "${__STEP_FAIL__} verificar_podman: apt-get install podman falló"
+            return 1
+        }
+    fi
+    if ! command -v podman > /dev/null 2>&1; then
+        echo "${__STEP_FAIL__} verificar_podman: podman no disponible tras instalación"
         return 1
     fi
     echo "${__STEP_OK__} verificar_podman $(podman --version)"
@@ -257,17 +264,18 @@ ficha_install() {
     echo "${__STEP_START__} desplegar_validator_key"
     if [[ -f "$KEY_PRIV" ]]; then
         _log "Clave de validador ya existe: $KEY_PRIV — CONSERVADA (no se regenera)"
+        chmod 644 "$KEY_PRIV" 2>/dev/null || true  # Asegurar que Besu UID 1000 pueda leerla
         echo "${__STEP_OK__} desplegar_validator_key (existente, conservada)"
     elif [[ -f "$BOS_KEY_BACKUP" ]]; then
         _log "Restaurando clave desde backup: $BOS_KEY_BACKUP"
         mkdir -p "$KEYS_DIR"
         cp "$BOS_KEY_BACKUP" "$KEY_PRIV"
-        chmod 600 "$KEY_PRIV"
+        chmod 644 "$KEY_PRIV"  # Besu UID 1000 necesita lectura
         echo "${__STEP_OK__} desplegar_validator_key (restaurada de backup)"
     else
-        _log "Generando NUEVA clave de validador (32 bytes hex)..."
-        python3 -c "import secrets; print(secrets.token_hex(32))" > "$KEY_PRIV"
-        chmod 600 "$KEY_PRIV"
+        _log "Generando NUEVA clave de validador (0x + 32 bytes hex, formato Besu)..."
+        python3 -c "import secrets,sys; sys.stdout.write('0x' + secrets.token_hex(32))" > "$KEY_PRIV"
+        chmod 644 "$KEY_PRIV"  # Besu corre como UID 1000; 644 permite lectura dentro del contenedor
         # Generar la clave pública correspondiente
         python3 -c "
 import secrets, hashlib, coincurve

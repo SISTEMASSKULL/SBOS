@@ -60,10 +60,8 @@ ports:
     internal_only: true
 
 health:
-  type: http
-  endpoint: "/liveness"
-  port: 8545
-  expected_code: 200
+  type: command
+  command: "podman inspect --format '{{.State.Running}}' besu-qbft 2>/dev/null | grep -q true"
   timeout_seconds: 15
 
 audit:
