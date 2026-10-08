@@ -228,10 +228,22 @@ spec:
           privileged: false
           allowPrivilegeEscalation: false
         env:
-        - name: REDIS_URL
-          value: "${REDIS_URL}"
+        - name: REDIS_HOST
+          value: "${REDIS_HOST}"
+        - name: REDIS_PORT
+          value: "6379"
         - name: REDIS_PASSWORD
           value: "${REDIS_PASSWORD}"
+        - name: REDIS_URL
+          value: "${REDIS_URL}"
+        - name: MONGO_URL
+          value: "${FERRETDB_URL}"
+        - name: JWT_SECRET
+          value: "${JWT_SECRET}"
+        - name: NOVU_SECRET_KEY
+          value: "${JWT_SECRET}"
+        - name: STORE_ENCRYPTION_KEY
+          value: "${STORE_KEY}"
         ports:
         - containerPort: 3002
         readinessProbe:

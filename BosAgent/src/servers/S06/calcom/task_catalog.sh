@@ -50,6 +50,10 @@ ficha_install() {
     _pg_pass=$(_k get secret -n sbos-data pg-master-credentials -o jsonpath='{.data.password}' 2>/dev/null | base64 -d 2>/dev/null || echo "postgres")
     local DB_URL="postgresql://postgres:${_pg_pass}@postgresql.sbos-data.svc.cluster.local:5432/calcom_db"
 
+    echo "${__STEP_START__} crear_namespace"
+    _k create namespace "$NS" --dry-run=client -o yaml 2>/dev/null | _k apply -f - >> "$FICHA_LOG" 2>&1 || true
+    echo "${__STEP_OK__} crear_namespace"
+
     echo "${__STEP_START__} deploy_calcom"
     _k apply -f - >> "$FICHA_LOG" 2>&1 <<YAML
 apiVersion: apps/v1
