@@ -176,6 +176,8 @@ spec:
                   - X(hostPort): 0" || true
 
     # Política 3: forbid-privileged
+    # NOTA: usar ancla condicional =(securityContext)/=(privileged) — solo valida cuando
+    # el campo existe. Pattern sin ancla requiere el campo explícito → bloquea pods normales.
     _apply "policy-forbid-privileged" "apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -199,8 +201,8 @@ spec:
         pattern:
           spec:
             containers:
-              - securityContext:
-                  privileged: false" || true
+              - =(securityContext):
+                  =(privileged): false" || true
 
     # Política 4: require-networkpolicy
     _apply "policy-require-networkpolicy" "apiVersion: kyverno.io/v1
