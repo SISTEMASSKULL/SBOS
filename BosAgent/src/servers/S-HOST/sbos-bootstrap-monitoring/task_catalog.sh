@@ -76,10 +76,49 @@ metadata:
   name: sbos-monitoring-reader
 rules:
   - apiGroups: [\"\"]
-    resources: [nodes, nodes/metrics, services, endpoints, pods, configmaps, namespaces]
+    resources:
+      - nodes
+      - nodes/metrics
+      - nodes/spec
+      - services
+      - endpoints
+      - pods
+      - configmaps
+      - namespaces
+      - persistentvolumes
+      - persistentvolumeclaims
+      - resourcequotas
+      - limitranges
+      - replicationcontrollers
+      - secrets
+      - serviceaccounts
     verbs: [get, list, watch]
   - apiGroups: [apps]
     resources: [deployments, daemonsets, replicasets, statefulsets]
+    verbs: [get, list, watch]
+  - apiGroups: [batch]
+    resources: [jobs, cronjobs]
+    verbs: [get, list, watch]
+  - apiGroups: [autoscaling]
+    resources: [horizontalpodautoscalers]
+    verbs: [get, list, watch]
+  - apiGroups: [networking.k8s.io]
+    resources: [ingresses, networkpolicies]
+    verbs: [get, list, watch]
+  - apiGroups: [policy]
+    resources: [poddisruptionbudgets]
+    verbs: [get, list, watch]
+  - apiGroups: [storage.k8s.io]
+    resources: [storageclasses, volumeattachments]
+    verbs: [get, list, watch]
+  - apiGroups: [admissionregistration.k8s.io]
+    resources: [mutatingwebhookconfigurations, validatingwebhookconfigurations]
+    verbs: [get, list, watch]
+  - apiGroups: [coordination.k8s.io]
+    resources: [leases]
+    verbs: [get, list, watch]
+  - apiGroups: [certificates.k8s.io]
+    resources: [certificatesigningrequests]
     verbs: [get, list, watch]
   - nonResourceURLs: [/metrics, /metrics/cadvisor]
     verbs: [get]
