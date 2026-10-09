@@ -280,6 +280,8 @@ spec:
     metadata:
       labels:
         app: kube-state-metrics
+      annotations:
+        linkerd.io/inject: disabled
     spec:
       serviceAccountName: sbos-monitoring
       containers:
@@ -393,6 +395,36 @@ spec:
           port: 8080
         - protocol: TCP
           port: 8081" || true
+
+    # allow-kube-state-metrics-apiserver: KSM necesita conectarse al API server
+    # de Kubernetes (kubernetes.default ClusterIP:443) para listar recursos.
+    # Sin este egress el proceso crashea con exit code 2 al inicio.
+    _apply "np-ksm-apiserver" "apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-kube-state-metrics-apiserver
+  namespace: ${NAMESPACE}
+spec:
+  podSelector:
+    matchLabels:
+      app: kube-state-metrics
+  policyTypes:
+    - Egress
+  egress:
+    - ports:
+        - port: 443
+          protocol: TCP
+      to:
+        - ipBlock:
+            cidr: 10.96.0.1/32
+    - ports:
+        - port: 6443
+          protocol: TCP
+      to:
+        - ipBlock:
+            cidr: 10.96.0.1/32
+        - ipBlock:
+            cidr: 13.140.128.230/32" || true
 
     echo "${__STEP_OK__} networkpolicies_monitoring"
 
@@ -519,6 +551,7 @@ ficha_uninstall() {
     _kubectl delete service prometheus-node-exporter kube-state-metrics \
         -n "$NAMESPACE" 2>/dev/null || true
     _kubectl delete networkpolicy allow-intra-monitoring allow-monitoring-scrape \
+        allow-kube-state-metrics-apiserver \
         -n "$NAMESPACE" 2>/dev/null || true
     _kubectl delete clusterrole sbos-monitoring-reader 2>/dev/null || true
     _kubectl delete clusterrolebinding sbos-monitoring-reader 2>/dev/null || true
