@@ -162,6 +162,9 @@ func (svc *FichaService) Update(fichaID, version string) (*SagaOutcome, error) {
 	if !result.Success {
 		return nil, &SagaError{Command: "update", ExitCode: result.ExitCode, FailedSteps: result.FailedSteps()}
 	}
+	if svc.state != nil {
+		_ = svc.state.Transition(fichaID, state.StateInstalled)
+	}
 	return &SagaOutcome{FichaID: fichaID, Command: "update", Success: true, Duration: result.Duration}, nil
 }
 
@@ -178,9 +181,14 @@ func (svc *FichaService) Repair(fichaID string) (*SagaOutcome, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrSagaFailed, err.Error())
 	}
-	if result.Success && svc.events != nil {
-		srv, _ := svc.resolveServerInfo(fichaID)
-		svc.events.PublishFichaEvent("ficha.repaired", fichaID, srv, "", "bos-repair")
+	if result.Success {
+		if svc.state != nil {
+			_ = svc.state.Transition(fichaID, state.StateInstalled)
+		}
+		if svc.events != nil {
+			srv, _ := svc.resolveServerInfo(fichaID)
+			svc.events.PublishFichaEvent("ficha.repaired", fichaID, srv, "", "bos-repair")
+		}
 	}
 	return &SagaOutcome{FichaID: fichaID, Command: "repair", Success: result.Success, Duration: result.Duration}, nil
 }

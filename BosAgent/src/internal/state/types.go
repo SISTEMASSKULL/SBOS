@@ -115,7 +115,9 @@ func (s FichaState) IsHealthy() bool { return s == StateInstalled }
 // Toda transición no listada aquí es rechazada por Transition().
 var ValidTransitions = map[FichaState][]FichaState{
 	// ── Pre-install ─────────────────────────────────────────────────────
-	StatePending: {StateReady},      // deps satisfechas
+	// StatePending: READY (deps satisfechas, flujo normal DAG) |
+	// INSTALLING (repair/install forzado cuando recursos ya existen en K8s)
+	StatePending: {StateReady, StateInstalling, StateInstalled},
 	StateReady:     {StateInstalling}, // DAG otorga slot
 
 	// ── Flujo de instalación ─────────────────────────────────────────────

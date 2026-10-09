@@ -249,22 +249,32 @@ func cmdFichaInstall(args []string) int {
 		return 2
 	}
 
-	svc, err := buildFichaSvc()
+	fichaID := fs.Arg(0)
+	params := map[string]interface{}{"ficha_id": fichaID}
+	if *version != "" {
+		params["version"] = *version
+	}
+	rawParams, _ := json.Marshal(params)
+	resp, err := doRPCCall("bos.ficha.install", rawParams)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "bosctl ficha install: %v\n", err)
+		return 6
+	}
+	if resp.Error != nil {
+		fmt.Fprintf(os.Stderr, "bosctl ficha install: error %d: %s\n", resp.Error.Code, resp.Error.Message)
 		return 1
 	}
-
-	outcome, err := svc.Install(fs.Arg(0), *version)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "bosctl ficha install: %v\n", err)
-		return 1
+	data, _ := json.Marshal(resp.Result)
+	var result struct {
+		FichaID  string `json:"ficha_id"`
+		Success  bool   `json:"success"`
+		Duration string `json:"duration"`
 	}
-
-	if outcome.Success {
-		fmt.Printf("✅ %s instalado (%v)\n", fs.Arg(0), outcome.Duration)
+	json.Unmarshal(data, &result) //nolint:errcheck
+	if result.Success {
+		fmt.Printf("✅ %s instalado (%s)\n", fichaID, result.Duration)
 	} else {
-		fmt.Printf("❌ %s falló (exit %d)\n", fs.Arg(0), outcome.ExitCode)
+		fmt.Printf("❌ %s falló\n", fichaID)
 		return 1
 	}
 	return 0
@@ -279,22 +289,28 @@ func cmdFichaRepair(args []string) int {
 		return 2
 	}
 
-	svc, err := buildFichaSvc()
+	fichaID := fs.Arg(0)
+	rawParams, _ := json.Marshal(map[string]interface{}{"ficha_id": fichaID})
+	resp, err := doRPCCall("bos.ficha.repair", rawParams)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "bosctl ficha repair: %v\n", err)
+		return 6
+	}
+	if resp.Error != nil {
+		fmt.Fprintf(os.Stderr, "bosctl ficha repair: error %d: %s\n", resp.Error.Code, resp.Error.Message)
 		return 1
 	}
-
-	outcome, err := svc.Repair(fs.Arg(0))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "bosctl ficha repair: %v\n", err)
-		return 1
+	data, _ := json.Marshal(resp.Result)
+	var result struct {
+		FichaID  string `json:"ficha_id"`
+		Success  bool   `json:"success"`
+		Duration string `json:"duration"`
 	}
-
-	if outcome.Success {
-		fmt.Printf("✅ %s reparado (%v)\n", fs.Arg(0), outcome.Duration)
+	json.Unmarshal(data, &result) //nolint:errcheck
+	if result.Success {
+		fmt.Printf("✅ %s reparado (%s)\n", fichaID, result.Duration)
 	} else {
-		fmt.Printf("❌ repair de %s falló\n", fs.Arg(0))
+		fmt.Printf("❌ repair de %s falló\n", fichaID)
 		return 1
 	}
 	return 0
@@ -585,22 +601,31 @@ func cmdFichaUpdate(args []string) int {
 		return 2
 	}
 
-	svc, err := buildFichaSvc()
+	fichaID := fs.Arg(0)
+	rawParams, _ := json.Marshal(map[string]interface{}{
+		"ficha_id": fichaID,
+		"version":  *version,
+	})
+	resp, err := doRPCCall("bos.ficha.update", rawParams)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "bosctl ficha update: %v\n", err)
+		return 6
+	}
+	if resp.Error != nil {
+		fmt.Fprintf(os.Stderr, "bosctl ficha update: error %d: %s\n", resp.Error.Code, resp.Error.Message)
 		return 1
 	}
-
-	outcome, err := svc.Update(fs.Arg(0), *version)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "bosctl ficha update: %v\n", err)
-		return 1
+	data, _ := json.Marshal(resp.Result)
+	var result struct {
+		FichaID  string `json:"ficha_id"`
+		Success  bool   `json:"success"`
+		Duration string `json:"duration"`
 	}
-
-	if outcome.Success {
-		fmt.Printf("✅ %s actualizado a %s (%v)\n", fs.Arg(0), *version, outcome.Duration)
+	json.Unmarshal(data, &result) //nolint:errcheck
+	if result.Success {
+		fmt.Printf("✅ %s actualizado a %s (%s)\n", fichaID, *version, result.Duration)
 	} else {
-		fmt.Printf("❌ update de %s falló (exit %d)\n", fs.Arg(0), outcome.ExitCode)
+		fmt.Printf("❌ update de %s falló\n", fichaID)
 		return 1
 	}
 	return 0
@@ -615,22 +640,28 @@ func cmdFichaRemove(args []string) int {
 		return 2
 	}
 
-	svc, err := buildFichaSvc()
+	fichaID := fs.Arg(0)
+	rawParams, _ := json.Marshal(map[string]interface{}{"ficha_id": fichaID})
+	resp, err := doRPCCall("bos.ficha.remove", rawParams)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "bosctl ficha remove: %v\n", err)
+		return 6
+	}
+	if resp.Error != nil {
+		fmt.Fprintf(os.Stderr, "bosctl ficha remove: error %d: %s\n", resp.Error.Code, resp.Error.Message)
 		return 1
 	}
-
-	outcome, err := svc.Remove(fs.Arg(0))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "bosctl ficha remove: %v\n", err)
-		return 1
+	data, _ := json.Marshal(resp.Result)
+	var result struct {
+		FichaID  string `json:"ficha_id"`
+		Success  bool   `json:"success"`
+		Duration string `json:"duration"`
 	}
-
-	if outcome.Success {
-		fmt.Printf("✅ %s eliminado (%v)\n", fs.Arg(0), outcome.Duration)
+	json.Unmarshal(data, &result) //nolint:errcheck
+	if result.Success {
+		fmt.Printf("✅ %s eliminado (%s)\n", fichaID, result.Duration)
 	} else {
-		fmt.Printf("❌ remove de %s falló\n", fs.Arg(0))
+		fmt.Printf("❌ remove de %s falló\n", fichaID)
 		return 1
 	}
 	return 0
