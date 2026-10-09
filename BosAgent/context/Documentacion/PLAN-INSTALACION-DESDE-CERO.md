@@ -1,9 +1,9 @@
 # Plan de Instalación desde Cero — VPS Limpia Ubuntu 26.04
 
-**Versión:** 1.2.0  
-**Fecha:** 2026-10-07  
+**Versión:** 1.3.0  
+**Fecha:** 2026-10-09  
 **Autor:** bos-developer  
-**Estado:** ✅ LISTO PARA PRUEBA — todos los checks en verde · FIX-01..FIX-13 aplicados  
+**Estado:** ✅ PT-01..PT-02b COMPLETADOS — 31/31 fichas INSTALLED/UPDATE_AVAILABLE en VPS de prueba  
 **Prerrequisito:** Ubuntu 26.04 Server LTS — instalación por defecto, sin software adicional
 
 ---
@@ -35,8 +35,11 @@ Los siguientes bugs fueron encontrados y corregidos antes de poder ejecutar las 
 | **FIX-12** | `cmd/bosctl/deploy.go` | 🔴 CRÍTICO | Cadena de compensación incompleta: si PASO 2 o posteriores fallaban, el rollback no eliminaba el StorageClass/PVs del PASO 1.5, dejando PVs huérfanos en el cluster | Agregar `compensateStep1_5()` que encadena namespace + storage; actualizar `compensateSteps12` y fallo de PASO 2 |
 | **FIX-13** | `cmd/bosctl/system_install.go::runPreflightFicha()` | 🟡 CALIDAD | Objeto `cmd` (`exec.Command`) construido pero nunca ejecutado — solo se usaba para copiar el env a `wrapper`; código muerto confuso | Eliminar `cmd`; construir `fichaEnv` directamente y asignarlo a `wrapper` |
 | **FIX-DOC** | `BosAgent/CLAUDE.md` tabla "Rutas canónicas" | 📄 DOC | Rutas TLS documentadas como `/etc/bos/tls/bos.crt` pero `paths.CertFile` apunta a `/etc/bos/certs/bos.crt` — cualquier agente que leyera el CLAUDE.md buscaría la ruta incorrecta | Corregir a `/etc/bos/certs/bos.crt` y `/etc/bos/certs/bos.key` |
+| **FIX-14** | `internal/state/types.go` | 🔴 CRÍTICO | `ValidTransitions[StatePending]` no incluía `StateInstalled` ni `StateInstalling` — `Transition(fichaID, StateInstalled)` fallaba silenciosamente (error ignorado con `_`) en fichas PENDING con recursos ya corriendo en K8s | Agregar `StateInstalling, StateInstalled` como destinos válidos desde `StatePending` |
+| **FIX-15** | `internal/domain/ficha_service.go` | 🔴 CRÍTICO | `Repair()` y `Update()` no llamaban `svc.state.Transition(fichaID, StateInstalled)` al completar con éxito — solo `Install()` actualizaba el estado | Agregar `svc.state.Transition(fichaID, state.StateInstalled)` en ambas funciones |
+| **FIX-16** | `cmd/bosctl/ficha.go` | 🔴 CRÍTICO | `cmdFichaRepair/Install/Update/Remove` usaban `buildFichaSvc()` que crea `FichaService(installer=nil)` → `ErrInstallerUnavailable` | Cambiar a `doRPCCall()` al daemon (que tiene el orchestrator real), siguiendo el patrón de `cmdFichaLogs` |
 
-**Resultado tras FIX-01..FIX-13:** `CGO_ENABLED=0 go build ./...` — ✅ sin errores
+**Resultado tras FIX-01..FIX-16:** `CGO_ENABLED=0 go build ./...` — ✅ sin errores · 31/31 fichas INSTALLED/UPDATE_AVAILABLE en VPS de prueba (commit b4550e7)
 
 ---
 
@@ -326,25 +329,27 @@ Techo permitido hasta **800 líneas** cuando la cohesión semántica lo justific
 
 ---
 
-## 5. Próximos pasos tras prueba exitosa
+## 5. Estado de la prueba y próximos pasos
 
 ```
-[AHORA]  Commit correcciones FIX-01..FIX-09 + recompilar BOS
+[✅ HECHO] Commit correcciones FIX-01..FIX-16 (b4550e7)
     ↓
-[PT-01]  scp bin/bos + bin/bosctl + core/ + servers/ → VPS
+[✅ HECHO] PT-01:  scp bin/bos + bin/bosctl + core/ + servers/ → VPS
     ↓
-[PT-01b] bosctl system-install --mode=dev en VPS limpia
+[✅ HECHO] PT-01b: bosctl system-install --mode=dev en VPS limpia
     ↓
-[PT-02]  bosctl deploy --seed seed-skull.yml
+[✅ HECHO] PT-02:  bosctl deploy --seed seed-skull.yml
     ↓
-[PT-02b] Verificar C-01..C-08
+[✅ HECHO] PT-02b: Verificar C-01..C-08 + 31/31 fichas INSTALLED/UPDATE_AVAILABLE
     ↓
-[PT-03]  Compilar + desplegar bAuth · bhnexus · banexus · bkernel
+[ PENDIENTE ] PT-03:  Compilar + desplegar bAuth · bhnexus · banexus · bkernel
     ↓
-[PT-04]  bosctl ficha install (4 fichas VDI)
+[ PENDIENTE ] PT-04:  bosctl ficha install (4 fichas VDI)
     ↓
-[PT-05]  Prueba end-to-end NFC → Fedora KDE → Nextcloud → OnlyOffice
+[ PENDIENTE ] PT-05:  Prueba end-to-end NFC → Fedora KDE → Nextcloud → OnlyOffice
 ```
+
+**Resultado VPS de prueba (2026-10-09):** 39 pods Running · 29 fichas INSTALLED · 2 fichas UPDATE_AVAILABLE
 
 ---
 
