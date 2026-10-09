@@ -342,14 +342,27 @@ Techo permitido hasta **800 líneas** cuando la cohesión semántica lo justific
     ↓
 [✅ HECHO] PT-02b: Verificar C-01..C-08 + 31/31 fichas INSTALLED/UPDATE_AVAILABLE
     ↓
-[ PENDIENTE ] PT-03:  Compilar + desplegar bAuth · bhnexus · banexus · bkernel
+[✅ HECHO] PT-03:  bAuth real v3.0.0 + stubs bkernel/bhnexus activos como servicios systemd
     ↓
 [ PENDIENTE ] PT-04:  bosctl ficha install (4 fichas VDI)
     ↓
 [ PENDIENTE ] PT-05:  Prueba end-to-end NFC → Fedora KDE → Nextcloud → OnlyOffice
 ```
 
-**Resultado VPS de prueba (2026-10-09):** 39 pods Running · 29 fichas INSTALLED · 2 fichas UPDATE_AVAILABLE
+**Resultado VPS de prueba (2026-10-09):**
+- 39 pods Running en K8s
+- 29 fichas INSTALLED · 2 fichas UPDATE_AVAILABLE (31/31 OK)
+- 3 daemons host activos: bauth (real v3.0.0) · bkernel (stub) · bhnexus (stub)
+- Port-forwards: postgresql→15432 · redis→16379
+
+**PT-03 — Daemons desplegados:**
+| Daemon | Tipo | Socket | Servicio systemd |
+|--------|------|--------|-----------------|
+| bAuth | Real v3.0.0 (Rust MUSL) | `/run/bos/bauth.sock` | `bauth.service` |
+| bkernel | Stub Go (placeholder) | `/run/bos/bkernel.sock` | `bkernel.service` |
+| bhnexus | Stub Go (placeholder) | `/run/bos/bhnexus.sock` | `bhnexus.service` |
+
+Stub fuente: `BosAgent/src/tools/sbos-stub-daemon/` (reemplazar por real cuando esté desarrollado)
 
 ---
 
