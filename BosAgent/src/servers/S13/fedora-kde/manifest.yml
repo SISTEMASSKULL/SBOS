@@ -1,0 +1,43 @@
+identity:
+  id: "fedora-kde"
+  name: "Fedora KDE — Escritorio Virtual Corporativo"
+  version: "41.0.0"
+  server: "S13"
+  namespace: "sbos-vdi"
+  category: 2
+  criticality: true
+
+workload:
+  type: "kubernetes"
+  state: "prod"
+
+order:
+  execution_order: 230
+
+parameters:
+  FEDORA_VNC_PORT: "5900"
+  FEDORA_NOVNC_PORT: "6080"
+  FEDORA_RESOLUTION: "1920x1080"
+
+requirements:
+  ram_mb: 4096
+  cpu_cores: 4
+  disk_gb: 30
+  dependencies:
+    - keycloak
+    - kong
+    - guacamole
+
+deployment:
+  namespace: "sbos-vdi"
+  workload_type: "Deployment"
+  k8s_manifest: "fedora-kde.k8s.yml"
+
+health:
+  check_via: "kubectl_exec"
+  pod_selector: "app=fedora-kde"
+  interval_seconds: 60
+  failure_threshold: 3
+
+compatibility:
+  min_iam_installer_version: "1.0.0"

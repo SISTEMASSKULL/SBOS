@@ -122,7 +122,7 @@ var ValidTransitions = map[FichaState][]FichaState{
 
 	// ── Flujo de instalación ─────────────────────────────────────────────
 	StateInstalling:       {StateInstalled, StateInstallFailed},
-	StateInstallFailed: {StateCleanup, StateInstalling}, // limpiar o reintentar
+	StateInstallFailed: {StateCleanup, StateInstalling, StateInstalled}, // limpiar, reintentar o marcar OK tras repair exitoso
 	StateCleanup:         {StateReady, StatePending},     // listo o re-evaluar
 
 	// ── Instalada estable → ramas ────────────────────────────────────────

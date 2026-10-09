@@ -1,9 +1,9 @@
 # Plan de Instalación desde Cero — VPS Limpia Ubuntu 26.04
 
-**Versión:** 1.3.0  
+**Versión:** 1.4.0  
 **Fecha:** 2026-10-09  
 **Autor:** bos-developer  
-**Estado:** ✅ PT-01..PT-02b COMPLETADOS — 31/31 fichas INSTALLED/UPDATE_AVAILABLE en VPS de prueba  
+**Estado:** ✅ PT-01..PT-04 COMPLETADOS — 35/35 fichas (33 INSTALLED + 2 UPDATE_AVAILABLE) · 4 fichas VDI corriendo  
 **Prerrequisito:** Ubuntu 26.04 Server LTS — instalación por defecto, sin software adicional
 
 ---
@@ -34,12 +34,13 @@ Los siguientes bugs fueron encontrados y corregidos antes de poder ejecutar las 
 | **FIX-11** | `cmd/bosctl/deploy.go::deployTenant()` | 🟡 CALIDAD | PASO 0 y PASO 1.5 tenían triple sangría incorrecta; comentario de PASO 2 aparecía antes del código de PASO 1.5 — código visualmente engañoso | Normalizar sangría a 1 tab; reordenar comentarios según ejecución real |
 | **FIX-12** | `cmd/bosctl/deploy.go` | 🔴 CRÍTICO | Cadena de compensación incompleta: si PASO 2 o posteriores fallaban, el rollback no eliminaba el StorageClass/PVs del PASO 1.5, dejando PVs huérfanos en el cluster | Agregar `compensateStep1_5()` que encadena namespace + storage; actualizar `compensateSteps12` y fallo de PASO 2 |
 | **FIX-13** | `cmd/bosctl/system_install.go::runPreflightFicha()` | 🟡 CALIDAD | Objeto `cmd` (`exec.Command`) construido pero nunca ejecutado — solo se usaba para copiar el env a `wrapper`; código muerto confuso | Eliminar `cmd`; construir `fichaEnv` directamente y asignarlo a `wrapper` |
+| **FIX-17** | `internal/state/types.go` | 🔴 CRÍTICO | `ValidTransitions[StateInstallFailed]` no incluía `StateInstalled` — `Repair()` con éxito no podía transicionar desde INSTALL_FAILED; el error se descartaba silenciosamente | Agregar `StateInstalled` a las transiciones desde `StateInstallFailed` |
 | **FIX-DOC** | `BosAgent/CLAUDE.md` tabla "Rutas canónicas" | 📄 DOC | Rutas TLS documentadas como `/etc/bos/tls/bos.crt` pero `paths.CertFile` apunta a `/etc/bos/certs/bos.crt` — cualquier agente que leyera el CLAUDE.md buscaría la ruta incorrecta | Corregir a `/etc/bos/certs/bos.crt` y `/etc/bos/certs/bos.key` |
 | **FIX-14** | `internal/state/types.go` | 🔴 CRÍTICO | `ValidTransitions[StatePending]` no incluía `StateInstalled` ni `StateInstalling` — `Transition(fichaID, StateInstalled)` fallaba silenciosamente (error ignorado con `_`) en fichas PENDING con recursos ya corriendo en K8s | Agregar `StateInstalling, StateInstalled` como destinos válidos desde `StatePending` |
 | **FIX-15** | `internal/domain/ficha_service.go` | 🔴 CRÍTICO | `Repair()` y `Update()` no llamaban `svc.state.Transition(fichaID, StateInstalled)` al completar con éxito — solo `Install()` actualizaba el estado | Agregar `svc.state.Transition(fichaID, state.StateInstalled)` en ambas funciones |
 | **FIX-16** | `cmd/bosctl/ficha.go` | 🔴 CRÍTICO | `cmdFichaRepair/Install/Update/Remove` usaban `buildFichaSvc()` que crea `FichaService(installer=nil)` → `ErrInstallerUnavailable` | Cambiar a `doRPCCall()` al daemon (que tiene el orchestrator real), siguiendo el patrón de `cmdFichaLogs` |
 
-**Resultado tras FIX-01..FIX-16:** `CGO_ENABLED=0 go build ./...` — ✅ sin errores · 31/31 fichas INSTALLED/UPDATE_AVAILABLE en VPS de prueba (commit b4550e7)
+**Resultado tras FIX-01..FIX-17:** `CGO_ENABLED=0 go build ./...` — ✅ sin errores · 35/35 fichas INSTALLED/UPDATE_AVAILABLE en VPS de prueba (PT-04 completado)
 
 ---
 
@@ -344,14 +345,14 @@ Techo permitido hasta **800 líneas** cuando la cohesión semántica lo justific
     ↓
 [✅ HECHO] PT-03:  bAuth real v3.0.0 + stubs bkernel/bhnexus activos como servicios systemd
     ↓
-[ PENDIENTE ] PT-04:  bosctl ficha install (4 fichas VDI)
+[✅ HECHO] PT-04:  4 fichas VDI instaladas (nextcloud, guacamole, onlyoffice, fedora-kde)
     ↓
 [ PENDIENTE ] PT-05:  Prueba end-to-end NFC → Fedora KDE → Nextcloud → OnlyOffice
 ```
 
 **Resultado VPS de prueba (2026-10-09):**
-- 39 pods Running en K8s
-- 29 fichas INSTALLED · 2 fichas UPDATE_AVAILABLE (31/31 OK)
+- Pods Running en K8s: sbos-vdi (fedora-kde, guacamole, guacd, nextcloud, onlyoffice) + sbos-data + sbos-security + sbos-gateway + ...
+- **35 fichas: 33 INSTALLED · 2 UPDATE_AVAILABLE (besu-qbft, sbos-bootstrap-monitoring)**
 - 3 daemons host activos: bauth (real v3.0.0) · bkernel (stub) · bhnexus (stub)
 - Port-forwards: postgresql→15432 · redis→16379
 
@@ -364,7 +365,17 @@ Techo permitido hasta **800 líneas** cuando la cohesión semántica lo justific
 
 Stub fuente: `BosAgent/src/tools/sbos-stub-daemon/` (reemplazar por real cuando esté desarrollado)
 
+**PT-04 — Fichas VDI instaladas:**
+| Ficha | Imagen | Namespace | Estado |
+|-------|--------|-----------|--------|
+| nextcloud | nextcloud:30.0.2-apache | sbos-vdi | INSTALLED |
+| guacamole | guacamole/guacamole:1.5.5 + guacd:1.5.5 | sbos-vdi | INSTALLED |
+| onlyoffice | onlyoffice/documentserver:8.2.2 | sbos-vdi | INSTALLED |
+| fedora-kde | dorowu/ubuntu-desktop-lxde-vnc:focal (placeholder) | sbos-vdi | INSTALLED |
+
+NetworkPolicies aplicadas: `allow-vdi-postgresql` + `allow-vdi-redis` en sbos-data (ingress desde sbos-vdi).
+
 ---
 
-*Documento v1.2.0 — bos-developer · 2026-10-07*  
+*Documento v1.4.0 — bos-developer · 2026-10-09*  
 *Plan completo de instalación: `PLAN-IMPLEMENTACION-BOS-VDI.md` (artefacto interactivo: https://claude.ai/artifact/8KqeXT172Cwgzh7vWoF86f)*

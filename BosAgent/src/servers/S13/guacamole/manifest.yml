@@ -1,0 +1,42 @@
+identity:
+  id: "guacamole"
+  name: "Apache Guacamole — Remote Desktop Gateway"
+  version: "1.5.5"
+  server: "S13"
+  namespace: "sbos-vdi"
+  category: 2
+  criticality: true
+
+workload:
+  type: "kubernetes"
+  state: "prod"
+
+order:
+  execution_order: 210
+
+parameters:
+  GUACAMOLE_HOSTNAME: "guacamole.sbos.local"
+  GUACAMOLE_OIDC_AUTHORIZATION_ENDPOINT: "https://auth.sbos.local/realms/tenant-{id}/protocol/openid-connect/auth"
+
+requirements:
+  ram_mb: 1024
+  cpu_cores: 2
+  disk_gb: 10
+  dependencies:
+    - postgresql
+    - keycloak
+    - kong
+
+deployment:
+  namespace: "sbos-vdi"
+  workload_type: "Deployment"
+  k8s_manifest: "guacamole.k8s.yml"
+
+health:
+  check_via: "kubectl_exec"
+  pod_selector: "app=guacamole"
+  interval_seconds: 30
+  failure_threshold: 3
+
+compatibility:
+  min_iam_installer_version: "1.0.0"

@@ -1,0 +1,45 @@
+identity:
+  id: "nextcloud"
+  name: "Nextcloud — Almacenamiento y Colaboración"
+  version: "30.0.2"
+  server: "S13"
+  namespace: "sbos-vdi"
+  category: 2
+  criticality: true
+
+workload:
+  type: "kubernetes"
+  state: "prod"
+
+order:
+  execution_order: 200
+
+parameters:
+  NEXTCLOUD_ADMIN_USER: "admin"
+  NEXTCLOUD_TRUSTED_DOMAINS: "nextcloud.sbos.local"
+  NEXTCLOUD_OIDC_PROVIDER: "https://auth.sbos.local/realms/tenant-{id}"
+
+requirements:
+  ram_mb: 2048
+  cpu_cores: 2
+  disk_gb: 50
+  dependencies:
+    - postgresql
+    - redis
+    - minio
+    - keycloak
+    - kong
+
+deployment:
+  namespace: "sbos-vdi"
+  workload_type: "Deployment"
+  k8s_manifest: "nextcloud.k8s.yml"
+
+health:
+  check_via: "kubectl_exec"
+  pod_selector: "app=nextcloud"
+  interval_seconds: 60
+  failure_threshold: 3
+
+compatibility:
+  min_iam_installer_version: "1.0.0"

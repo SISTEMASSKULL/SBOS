@@ -1,0 +1,42 @@
+identity:
+  id: "onlyoffice"
+  name: "OnlyOffice Document Server"
+  version: "8.2.2"
+  server: "S13"
+  namespace: "sbos-vdi"
+  category: 2
+  criticality: true
+
+workload:
+  type: "kubernetes"
+  state: "prod"
+
+order:
+  execution_order: 220
+
+parameters:
+  ONLYOFFICE_JWT_ENABLED: "true"
+  ONLYOFFICE_HOSTNAME: "onlyoffice.sbos.local"
+
+requirements:
+  ram_mb: 2048
+  cpu_cores: 2
+  disk_gb: 20
+  dependencies:
+    - postgresql
+    - redis
+    - kong
+
+deployment:
+  namespace: "sbos-vdi"
+  workload_type: "Deployment"
+  k8s_manifest: "onlyoffice.k8s.yml"
+
+health:
+  check_via: "kubectl_exec"
+  pod_selector: "app=onlyoffice"
+  interval_seconds: 60
+  failure_threshold: 3
+
+compatibility:
+  min_iam_installer_version: "1.0.0"
