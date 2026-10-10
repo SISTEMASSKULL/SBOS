@@ -128,7 +128,10 @@ EOF
     echo "${__STEP_START__} instalar_paquetes_base"
     export DEBIAN_FRONTEND=noninteractive
     apt-get update -qq 2>/dev/null || { _log "ADVERTENCIA: apt-get update falló (sin internet?)"; }
-    local packages=(curl gnupg apt-transport-https ca-certificates jq socat conntrack ipset lsof net-tools iproute2 kmod)
+    # iptables-persistent + netfilter-persistent: necesarios para persistir la regla
+    # hairpin NAT que sbos-bootstrap-k8s añade después de kubeadm init.
+    # Sin ellos la regla desaparece en el próximo reinicio del host.
+    local packages=(curl gnupg apt-transport-https ca-certificates jq socat conntrack ipset lsof net-tools iproute2 kmod iptables-persistent netfilter-persistent)
     local to_install=()
     for pkg in "${packages[@]}"; do
         if ! dpkg -l "$pkg" 2>/dev/null | grep -q "^ii"; then
@@ -142,6 +145,8 @@ EOF
     echo "${__STEP_OK__} instalar_paquetes_base"
 
     echo "${__STEP_START__} crear_directorios_data"
+    # /etc/iptables: requerido por iptables-save para persistir reglas hairpin NAT
+    mkdir -p /etc/iptables
     local dirs=(
         "/data:0755:root:root"
         "/data/postgres:0700:70:70"
@@ -219,6 +224,7 @@ ficha_repair() {
     echo "${__STEP_OK__} reparar_sysctl"
 
     echo "${__STEP_START__} reparar_directorios"
+    mkdir -p /etc/iptables
     for dir in /data /data/postgres /data/redis /data/vault; do
         [[ -d "$dir" ]] || mkdir -p "$dir"
     done

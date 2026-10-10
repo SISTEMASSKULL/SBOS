@@ -1,9 +1,9 @@
 # Plan de Instalación desde Cero — VPS Limpia Ubuntu 26.04
 
-**Versión:** 1.4.0  
-**Fecha:** 2026-10-09  
+**Versión:** 1.5.0  
+**Fecha:** 2026-10-10  
 **Autor:** bos-developer  
-**Estado:** ✅ PT-01..PT-04 COMPLETADOS — 35/35 fichas (33 INSTALLED + 2 UPDATE_AVAILABLE) · 4 fichas VDI corriendo  
+**Estado:** 🔄 PT-05 EN CURSO — VPS anterior contaminada (Kyverno buggy) reemplazada por Ubuntu 26.04 limpio · correcciones bootstrap aplicadas y listas  
 **Prerrequisito:** Ubuntu 26.04 Server LTS — instalación por defecto, sin software adicional
 
 ---
@@ -41,6 +41,25 @@ Los siguientes bugs fueron encontrados y corregidos antes de poder ejecutar las 
 | **FIX-16** | `cmd/bosctl/ficha.go` | 🔴 CRÍTICO | `cmdFichaRepair/Install/Update/Remove` usaban `buildFichaSvc()` que crea `FichaService(installer=nil)` → `ErrInstallerUnavailable` | Cambiar a `doRPCCall()` al daemon (que tiene el orchestrator real), siguiendo el patrón de `cmdFichaLogs` |
 
 **Resultado tras FIX-01..FIX-17:** `CGO_ENABLED=0 go build ./...` — ✅ sin errores · 35/35 fichas INSTALLED/UPDATE_AVAILABLE en VPS de prueba (PT-04 completado)
+
+---
+
+## 0b. Correcciones de infraestructura (bootstrap — sesión 2026-10-10)
+
+Bugs encontrados durante PT-05 al intentar instalación post-PT-04. Causa raíz: Hetzner VPS no provee hairpin NAT — los pods no podían alcanzar el apiserver en su IP pública.
+
+| ID | Archivo | Severidad | Descripción | Commit |
+|----|---------|-----------|-------------|--------|
+| **FIX-18** | `S-HOST/sbos-bootstrap-k8s/resources/kubeadm-config.yaml` | 🔴 CRÍTICO | Faltaban `certSANs` con `127.0.0.1` — sin ellos kubectl desde el host no podía conectar via localhost; solo valía con la IP pública | Agregar `certSANs: ["127.0.0.1", "__NODE_IP__", "__NODE_NAME__"]` |
+| **FIX-19** | `S-HOST/sbos-bootstrap-k8s/task_catalog.sh` | 🔴 CRÍTICO | Sin hairpin NAT (Hetzner lo bloquea), los pods no podían alcanzar el apiserver en su IP pública → Kyverno `kyvernopre` init container no podía sincronizar ConfigMaps → Kyverno nunca arrancaba → su webhook con `failurePolicy: Fail` bloqueaba todo `kubectl apply` en el cluster | Detectar IP pública post-kubeadm e insertar regla `iptables -t nat -A OUTPUT -d <pub_ip>/32 -p tcp --dport 6443 -j REDIRECT --to-port 6443` |
+| **FIX-20** | `S-HOST/sbos-bootstrap-os/task_catalog.sh` | 🔴 CRÍTICO | `iptables-persistent` y `netfilter-persistent` no estaban en la lista de paquetes base — la regla hairpin NAT (FIX-19) se perdía en cada reinicio del host | Añadir `iptables-persistent netfilter-persistent` a `packages` + `mkdir -p /etc/iptables` |
+| **FIX-21** | `S03/kyverno/task_catalog.sh` | 🔴 CRÍTICO | Chart Kyverno v3.3.x (app v1.19.1) tiene bug en K8s 1.32: `kyvernopre` init container cuelga indefinidamente en `configmap informer cache failed to sync` — Kyverno nunca arranca | Pinear chart a `3.3.4` (app v1.13.4) — estable en K8s 1.32 |
+| **FIX-22** | `S13/nextcloud/task_catalog.sh` | 🔴 CRÍTICO | `readinessProbe: httpGet:/status.php` — Apache `mpm_prefork` bloquea durante inicialización; kubelet siempre obtiene timeout → pod nunca marca Ready | Cambiar a `exec: [su, www-data, -s, /bin/sh, -c, "php /var/www/html/occ status --output=json 2>/dev/null \| grep -q installed"]` |
+| **FIX-23** | `S13/nextcloud/task_catalog.sh` | 🔴 CRÍTICO | `ficha_repair` tenía `readinessProbe: httpGet` mientras `ficha_install` tenía `exec` — probe diferente entre install y repair | Unificar ambas a exec |
+| **FIX-24** | `S13/onlyoffice/task_catalog.sh` | 🟡 CALIDAD | Memory limit `2Gi` insuficiente — `allthemesgen`/`pluginsmanager`/`x2t` al arrancar causan OOMKill + CPU spike a 146 load. CPU request `500m` causaba `Insufficient CPU` al rolling update con el nodo a 96% CPU | Límite → `3Gi`; request CPU → `200m` |
+| **FIX-25** | `S13/nextcloud/task_catalog.sh` | 🟡 CALIDAD | Sin protección frente a Kyverno webhook `failurePolicy: Fail` cuando el admission controller no responde — `kubectl apply` falla silenciosamente | Añadir `_k_apply_safe()`: intenta apply normal; si detecta `connection refused` en webhook Kyverno, parcha temporalmente `failurePolicy: Ignore`, aplica y restaura |
+
+**Resultado tras FIX-18..FIX-25:** Bootstrap corregido · VPS contaminada descartada · Ubuntu 26.04 limpio disponible para PT-05
 
 ---
 
@@ -287,6 +306,11 @@ bosctl ficha health onlyoffice
 | `bos.sock: no such file` | bos.service no arrancó | `journalctl -u bos.service -n 50` |
 | `containerd: text file busy` | Binario ya cargado en memoria | Ignorable — `system-install` lo maneja |
 | `dpkg locked 30s` | unattended-upgrades en VPS nueva | El bootstrap espera 30s y fuerza liberación |
+| `kyverno kyvernopre init container Running indefinitely` | Bug Kyverno v1.19 en K8s 1.32 (FIX-21 corregido) | Chart 3.3.4 ya pinado; si ocurre igual: `helm upgrade kyverno kyverno/kyverno --version 3.3.4 -n kyverno --reuse-values` |
+| `kubectl apply: connection refused (kyverno webhook)` | Kyverno no arrancó — hairpin NAT faltante (FIX-19 corregido) | Verificar regla NAT: `iptables -t nat -L OUTPUT -n \| grep 6443`; si falta, ejecutar `bosctl ficha repair sbos-bootstrap-k8s` |
+| `TLS handshake timeout` al conectar a apiserver desde pods | Hairpin NAT no aplicado o perdido tras reinicio | `iptables -t nat -A OUTPUT -d <pub_ip>/32 -p tcp --dport 6443 -j REDIRECT --to-port 6443` + `iptables-save > /etc/iptables/rules.v4` |
+| `nextcloud pod CrashLoopBackOff / never Ready` | Apache mpm_prefork bloquea httpGet probe (FIX-22 corregido) | Exec probe ya implementado; si ocurre: verificar que readinessProbe usa `php /var/www/html/occ status` |
+| `onlyoffice OOMKilled` | Memory limit insuficiente (FIX-24 corregido) | Límite 3Gi ya configurado; node con alta carga → reducir CPU request a 200m |
 
 ---
 
@@ -347,14 +371,16 @@ Techo permitido hasta **800 líneas** cuando la cohesión semántica lo justific
     ↓
 [✅ HECHO] PT-04:  4 fichas VDI instaladas (nextcloud, guacamole, onlyoffice, fedora-kde)
     ↓
-[ PENDIENTE ] PT-05:  Prueba end-to-end NFC → Fedora KDE → Nextcloud → OnlyOffice
+[🔄 EN CURSO] Correcciones bootstrap FIX-18..FIX-25 aplicadas · VPS limpia disponible
+    ↓
+[ SIGUIENTE ] PT-05b: Reinstalar en Ubuntu limpio con bootstrap corregido · verificar end-to-end
 ```
 
-**Resultado VPS de prueba (2026-10-09):**
-- Pods Running en K8s: sbos-vdi (fedora-kde, guacamole, guacd, nextcloud, onlyoffice) + sbos-data + sbos-security + sbos-gateway + ...
-- **35 fichas: 33 INSTALLED · 2 UPDATE_AVAILABLE (besu-qbft, sbos-bootstrap-monitoring)**
-- 3 daemons host activos: bauth (real v3.0.0) · bkernel (stub) · bhnexus (stub)
-- Port-forwards: postgresql→15432 · redis→16379
+**Estado post-correcciones (2026-10-10):**
+- VPS anterior: descartada (Kyverno colgado + Kyverno webhook bloqueando nextcloud)
+- VPS nueva: Ubuntu 26.04 limpio disponible
+- Correcciones aplicadas: FIX-18..FIX-25 (hairpin NAT + certSANs + Kyverno 3.3.4 + nextcloud exec probe + onlyoffice 3Gi)
+- Commits: `ac032ae` (hairpin NAT + certSANs + Kyverno pin) · `39fdb23` (nextcloud exec probe)
 
 **PT-03 — Daemons desplegados:**
 | Daemon | Tipo | Socket | Servicio systemd |
@@ -377,5 +403,5 @@ NetworkPolicies aplicadas: `allow-vdi-postgresql` + `allow-vdi-redis` en sbos-da
 
 ---
 
-*Documento v1.4.0 — bos-developer · 2026-10-09*  
+*Documento v1.5.0 — bos-developer · 2026-10-10*  
 *Plan completo de instalación: `PLAN-IMPLEMENTACION-BOS-VDI.md` (artefacto interactivo: https://claude.ai/artifact/8KqeXT172Cwgzh7vWoF86f)*
