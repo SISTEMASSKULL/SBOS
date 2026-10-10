@@ -5,6 +5,11 @@ kubernetesVersion: __K8S_VERSION__
 networking:
   podSubnet: "__POD_CIDR__"
   serviceSubnet: "__SERVICE_CIDR__"
+apiServer:
+  certSANs:
+  - "127.0.0.1"
+  - "__NODE_IP__"
+  - "__NODE_NAME__"
 controllerManager:
   extraArgs:
     bind-address: "127.0.0.1"

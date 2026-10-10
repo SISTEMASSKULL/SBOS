@@ -271,10 +271,14 @@ https://pkgs.k8s.io/core:/stable:/v${K8S_VERSION}/deb/ /" \
         local preflight_ignore="Swap,NumCPU,FileExisting-tc,FileExisting-ethtool,SystemVerification,Hostname"
 
         if [[ -f "$cfg" ]]; then
+            local node_ip
+            node_ip=$(ip route get 1.1.1.1 2>/dev/null | awk '/src/{print $7}' | head -1)
+            [[ -z "$node_ip" ]] && node_ip=$(hostname -I | awk '{print $1}')
             sed -e "s|__K8S_VERSION__|${k8s_exact}|g" \
                 -e "s|__POD_CIDR__|${POD_CIDR}|g" \
                 -e "s|__SERVICE_CIDR__|${SERVICE_CIDR}|g" \
                 -e "s|__NODE_NAME__|$(hostname)|g" \
+                -e "s|__NODE_IP__|${node_ip}|g" \
                 "$cfg" > /tmp/kubeadm-rendered.yaml
             kubeadm init \
                 --config=/tmp/kubeadm-rendered.yaml \
@@ -301,6 +305,27 @@ https://pkgs.k8s.io/core:/stable:/v${K8S_VERSION}/deb/ /" \
         fi
         _log "kubeadm init exitoso"
         echo "${__STEP_OK__} kubeadm_init"
+
+        # Hairpin NAT: permite que pods y el init container de componentes K8s
+        # (Kyverno, CoreDNS, etc.) se conecten al apiserver vía la IP del nodo.
+        # En Hetzner y similares, el tráfico desde el host hacia su propia IP pública
+        # puede fallar (no hay hairpin NAT en la red del proveedor).
+        echo "${__STEP_START__} hairpin_nat"
+        local pub_ip
+        pub_ip=$(ip route get 1.1.1.1 2>/dev/null | awk '/src/{print $7}' | head -1)
+        if [[ -n "$pub_ip" ]]; then
+            iptables -t nat -C OUTPUT -d "${pub_ip}/32" -p tcp --dport 6443 -j REDIRECT --to-port 6443 2>/dev/null || \
+                iptables -t nat -A OUTPUT -d "${pub_ip}/32" -p tcp --dport 6443 -j REDIRECT --to-port 6443
+            # Persistir si iptables-persistent está disponible
+            if command -v iptables-save > /dev/null 2>&1 && [[ -d /etc/iptables ]]; then
+                iptables-save > /etc/iptables/rules.v4 2>/dev/null || true
+            fi
+            _log "Hairpin NAT configurado para ${pub_ip}:6443"
+            echo "${__STEP_OK__} hairpin_nat"
+        else
+            _log "No se pudo detectar IP pública — hairpin NAT omitido"
+            echo "${__STEP_SKIP__} hairpin_nat: IP no detectada"
+        fi
     fi
 
     # ── 7. kubeconfig ────────────────────────────────────────────

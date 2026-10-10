@@ -87,6 +87,7 @@ ficha_install() {
         _log "Instalando Kyverno via helm chart..."
         helm install kyverno kyverno/kyverno \
             --namespace "$NS" --create-namespace \
+            --version 3.3.4 \
             --set admissionController.replicas=1 \
             --set backgroundController.enabled=true \
             --set cleanupController.enabled=true \
