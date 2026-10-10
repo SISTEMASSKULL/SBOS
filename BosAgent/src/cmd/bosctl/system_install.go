@@ -58,6 +58,7 @@ func cmdSystemInstall(args []string) int {
 		{"binarios", installBinaries},
 		{"core", installCore},
 		{"blibs", installBlibs},
+		{"ddls", installDDLs},
 		{"env", installEnvTemplate},
 		{"servicios", installServices},
 		{"preflight", func() error { return runPreflightFicha(*mode) }},
@@ -202,6 +203,42 @@ func installBlibs() error {
 	cmd := exec.Command("cp", "-a", serversDir+"/.", dest+"/")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("copiar servers/ a blibs: %w — %s", err, out)
+	}
+	return nil
+}
+
+// installDDLs copia el directorio ddls/ del paquete de deploy a /etc/bos/ddls/.
+// Contiene SBOS_db_V2_DDL.sql, bos_01__control_plane.sql, migrations/ y seeds/.
+// El PASO 2.5 de bosctl deploy los aplica en SBOSDB tras instalar PostgreSQL.
+// No es un error crítico si ddls/ no está en el paquete — deploy lo detecta y avisa.
+func installDDLs() error {
+	const dest = paths.DDLsPath
+	if err := os.MkdirAll(dest, 0755); err != nil {
+		return fmt.Errorf("crear %s: %w", dest, err)
+	}
+
+	self, _ := os.Executable()
+	selfDir := filepath.Dir(self)
+
+	ddlsDir := ""
+	for _, d := range []string{
+		filepath.Join(selfDir, "ddls"),
+		"ddls",
+		filepath.Join(selfDir, "../ddls"),
+	} {
+		if info, err := os.Stat(d); err == nil && info.IsDir() {
+			ddlsDir = d
+			break
+		}
+	}
+	if ddlsDir == "" {
+		// No bloquear la instalación — bosctl deploy avisará si los necesita.
+		return nil
+	}
+
+	cmd := exec.Command("cp", "-a", ddlsDir+"/.", dest+"/")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("copiar ddls/ a %s: %w — %s", dest, err, out)
 	}
 	return nil
 }

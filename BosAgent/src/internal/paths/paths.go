@@ -48,6 +48,7 @@ const (
 	KubeconfigPath = "/etc/bos/.kube/config"      // kubeconfig del cluster K8s
 	BlibsDir       = "/etc/bos/blibs"             // biblioteca de fichas declarativas
 	ServersPath    = "/etc/bos/blibs/servers"     // fichas organizadas por servidor
+	DDLsPath       = "/etc/bos/ddls"             // DDLs, migraciones y seeds del sistema SBOS
 	RBACRoles      = "/etc/bos/rbac/roles.json"   // roles RBAC del daemon (eliminar en F4.4)
 
 	// Certificados TLS

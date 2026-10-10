@@ -4,13 +4,16 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -41,6 +44,8 @@ type SeedConfig struct {
 		EntityStatus               string `yaml:"entity_status"`
 		RegistrationDate           string `yaml:"registration_date"`
 		LegalEntityIdentifier      string `yaml:"legal_entity_identifier,omitempty"`
+		CountryCode                string `yaml:"country_code,omitempty"`  // ISO 3166-1 alpha-2 (BO, AR, etc.)
+		Domain                     string `yaml:"domain,omitempty"`        // dominio SBOS (default: <trading_name>.sbos.local)
 	} `yaml:"enterprise_tenant"`
 
 	// ═══ MODELO B — Dominio Técnico (§5) ═══
@@ -120,6 +125,163 @@ type SeedConfig struct {
 // Si un paso falla, los pasos anteriores se compensan en orden inverso.
 //
 // Documentado en: REGISTRO-ESTADO.md §F10.C, BOS-CONTRATOS-SBOS.md §C-2
+// writeBootstrapEnv genera /etc/bos/bos-bootstrap.env desde los datos del seed.
+// No sobreescribe si ya existe (instalación existente).
+// La contraseña admin se genera aleatoriamente — nunca se almacena en el seed.
+func writeBootstrapEnv(cfg *SeedConfig) error {
+	dest := paths.BootstrapEnv
+	if _, err := os.Stat(dest); err == nil {
+		return nil // ya existe — no sobreescribir
+	}
+	if err := os.MkdirAll(paths.EtcBos, 0750); err != nil {
+		return err
+	}
+
+	name := cfg.EnterpriseTenant.TradingName
+	domain := cfg.EnterpriseTenant.Domain
+	if domain == "" {
+		domain = strings.ToLower(name) + ".sbos.local"
+	}
+	country := cfg.EnterpriseTenant.CountryCode
+	if country == "" {
+		country = "BO"
+	}
+	rootUser := "admin"
+	if len(cfg.Users) > 0 && cfg.Users[0].Username != "" {
+		rootUser = cfg.Users[0].Username
+	}
+
+	// Contraseña aleatoria de 20 caracteres — se guarda en el archivo
+	buf := make([]byte, 16)
+	if _, err := rand.Read(buf); err != nil {
+		return fmt.Errorf("generar contraseña admin: %w", err)
+	}
+	adminPass := base64.StdEncoding.EncodeToString(buf)[:20]
+
+	content := fmt.Sprintf("# Generado por bosctl deploy — no editar manualmente\n"+
+		"BOS_TENANT_NAME=%s\n"+
+		"BOS_TENANT_ID=%s\n"+
+		"BOS_TENANT_PAIS=%s\n"+
+		"BOS_TENANT_DOMAIN=%s\n"+
+		"BOS_ROOT_USER=%s\n"+
+		"BOS_ROOT_PASSWORD=%s\n"+
+		"BOS_MFA_ENABLED=false\n",
+		name, cfg.EnterpriseTenant.TaxIdentifier, country, domain, rootUser, adminPass)
+
+	if err := os.WriteFile(dest, []byte(content), 0600); err != nil {
+		return fmt.Errorf("escribir %s: %w", dest, err)
+	}
+	fmt.Printf("  📝 bos-bootstrap.env generado (tenant=%s, admin=%s)\n", name, rootUser)
+	return nil
+}
+
+// applyDDLs aplica el DDL completo de SBOS en la BD SBOSDB:
+//  1. SBOS_db_V2_DDL.sql       — schemas bauth, bglobal, bcalendar + tablas
+//  2. bauth_atomlang_schema.sql — schema AtomLang de bAuth
+//  3. bos_01__control_plane.sql — schema BOS (Context Plane)
+//  4. migrations/*.sql          — migraciones en orden alfabético
+//  5. seeds/*.sql               — seeds en orden alfabético (incluye los dos tenants del sistema)
+//
+// Todos los SQLs se ejecutan via kubectl exec en postgresql-0 (sbos-data).
+// Usa ON_ERROR_STOP=off — los DDLs son idempotentes (IF NOT EXISTS / ON CONFLICT DO NOTHING).
+func applyDDLs(kubeconfig string) error {
+	ddlsPath := paths.DDLsPath
+	if _, err := os.Stat(ddlsPath); os.IsNotExist(err) {
+		return fmt.Errorf("DDLs no encontrados en %s — incluir ddls/ en el paquete de deploy junto a los binarios", ddlsPath)
+	}
+
+	// psqlExec aplica un archivo SQL en la BD dada via kubectl exec -i.
+	psqlExec := func(db, filePath string) error {
+		content, err := os.ReadFile(filePath)
+		if err != nil {
+			return fmt.Errorf("leer %s: %w", filepath.Base(filePath), err)
+		}
+		cmd := exec.Command("kubectl", "--kubeconfig", kubeconfig,
+			"exec", "-i", "postgresql-0", "-n", "sbos-data", "--",
+			"psql", "-U", "postgres", "-d", db, "-v", "ON_ERROR_STOP=off", "-q")
+		cmd.Stdin = bytes.NewReader(content)
+		out, err := cmd.CombinedOutput()
+		errCount := bytes.Count(out, []byte("ERROR:"))
+		if errCount > 0 {
+			fmt.Printf("      ⚠  %d aviso(s) en %s\n", errCount, filepath.Base(filePath))
+		}
+		if err != nil {
+			return fmt.Errorf("%s: %w\n%s", filepath.Base(filePath), err, string(out))
+		}
+		return nil
+	}
+
+	// psqlSQL ejecuta SQL inline (sin archivo).
+	psqlSQL := func(db, sql string) {
+		cmd := exec.Command("kubectl", "--kubeconfig", kubeconfig,
+			"exec", "-i", "postgresql-0", "-n", "sbos-data", "--",
+			"psql", "-U", "postgres", "-d", db, "-q")
+		cmd.Stdin = strings.NewReader(sql)
+		_ = cmd.Run()
+	}
+
+	// Crear SBOSDB si no existe (idempotente: CREATE DATABASE no tiene IF NOT EXISTS en PG)
+	psqlSQL("postgres", `DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'SBOSDB') THEN
+    PERFORM dblink_exec('dbname=postgres', 'CREATE DATABASE "SBOSDB" OWNER postgres');
+  END IF;
+END $$;`)
+	// Fallback directo — si dblink no está disponible
+	psqlSQL("postgres", `CREATE DATABASE "SBOSDB" OWNER postgres;`)
+
+	// Extensiones necesarias antes del DDL
+	psqlSQL("SBOSDB", `CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE EXTENSION IF NOT EXISTS "pg_trgm";`)
+
+	// Fase 1: DDLs principales (orden obligatorio — FK cruzadas)
+	mainFiles := []struct{ label, path string }{
+		{"DDL principal (bauth+bglobal+bcalendar)", filepath.Join(ddlsPath, "SBOS_db_V2_DDL.sql")},
+		{"DDL AtomLang (bauth)", filepath.Join(ddlsPath, "bauth_atomlang_schema.sql")},
+		{"DDL BOS Control Plane", filepath.Join(ddlsPath, "bos_01__control_plane.sql")},
+	}
+	for _, f := range mainFiles {
+		if _, err := os.Stat(f.path); os.IsNotExist(err) {
+			fmt.Printf("    ⏭  %s — no encontrado, omitiendo\n", filepath.Base(f.path))
+			continue
+		}
+		fmt.Printf("    → %s\n", f.label)
+		if err := psqlExec("SBOSDB", f.path); err != nil {
+			return fmt.Errorf("DDL %s: %w", f.label, err)
+		}
+	}
+
+	// Fase 2: Migraciones (orden alfabético)
+	migrPattern := filepath.Join(ddlsPath, "migrations", "*.sql")
+	migrations, _ := filepath.Glob(migrPattern)
+	if len(migrations) > 0 {
+		sort.Strings(migrations)
+		fmt.Printf("    → %d migraciones\n", len(migrations))
+		for _, m := range migrations {
+			fmt.Printf("      %s\n", filepath.Base(m))
+			if err := psqlExec("SBOSDB", m); err != nil {
+				return fmt.Errorf("migración %s: %w", filepath.Base(m), err)
+			}
+		}
+	}
+
+	// Fase 3: Seeds (orden alfabético — los seeds respetan FK entre ellos)
+	seedsPattern := filepath.Join(ddlsPath, "seeds", "*.sql")
+	seeds, _ := filepath.Glob(seedsPattern)
+	if len(seeds) > 0 {
+		sort.Strings(seeds)
+		fmt.Printf("    → %d seeds\n", len(seeds))
+		for _, s := range seeds {
+			fmt.Printf("      %s\n", filepath.Base(s))
+			if err := psqlExec("SBOSDB", s); err != nil {
+				return fmt.Errorf("seed %s: %w", filepath.Base(s), err)
+			}
+		}
+	}
+
+	return nil
+}
+
 func deployTenant(seedPath string) error {
 	data, err := os.ReadFile(seedPath)
 	if err != nil {
@@ -140,6 +302,12 @@ func deployTenant(seedPath string) error {
 		cfg.EnterpriseTenant.EntityStatus)
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
+	// ── PRE: Generar bos-bootstrap.env desde el seed ───────────────────
+	// El daemon necesita este archivo para conocer tenant, dominio y usuario root.
+	// Lo generamos aquí para que ningún operador tenga que editarlo manualmente.
+	if err := writeBootstrapEnv(&cfg); err != nil {
+		return fmt.Errorf("PRE (bootstrap.env): %w", err)
+	}
 
 	// ── PASO 0: Instalar K8s (kubeadm) ────────────────────────────────
 	// Prerequisito absoluto — sin K8s no hay dónde desplegar el resto.
@@ -185,6 +353,17 @@ func deployTenant(seedPath string) error {
 	fmt.Printf("  ✅ PostgreSQL %s + %d databases (ClusterIP %s)\n",
 		cfg.Databases.Version, len(cfg.Databases.DBs), cfg.Databases.ClusterIP)
 
+	// ── PASO 2.5: DDL completo + seeds en SBOSDB ──────────────────────
+	// Aplica en orden: DDL principal (bauth+bglobal+bcalendar) →
+	// DDL AtomLang → DDL BOS → migraciones → seeds (incluyendo tenant skull).
+	// Todo via kubectl exec -i en postgresql-0 (sbos-data).
+	fmt.Println("[2.5/7] Aplicando DDL completo + seeds en SBOSDB...")
+	if err := applyDDLs(paths.KubeconfigPath); err != nil {
+		compensateSteps12(tenantID)
+		return fmt.Errorf("PASO 2.5 (DDL): %w", err)
+	}
+	fmt.Println("  ✅ SBOSDB inicializada (schemas bauth+bglobal+bcalendar+bos + 32 seeds)")
+
 	// ── PASO 3: Redis + Context Registry ────────────────────────────
 	fmt.Println("[3/7] Configurando Redis + Context Registry...")
 	if err := installFicha("redis", map[string]string{
@@ -229,8 +408,10 @@ func deployTenant(seedPath string) error {
 		cfg.Identity.Realm, len(cfg.Identity.SPIs),
 		cfg.Identity.SSOSessionMax, cfg.Identity.AccessTokenLifespan)
 
-	// ── PASO 6: Context Plane DDL ────────────────────────────────────
-	fmt.Println("[6/7] Aplicando DDL Context Plane...")
+	// ── PASO 6: Context Plane — índices y políticas dinámicas ──────────
+	// Las tablas ya fueron creadas en PASO 2.5 (bos_01__control_plane.sql).
+	// Este paso aplica índices dinámicos por tenant y políticas RLS via JSON-RPC.
+	fmt.Println("[6/7] Registrando Context Plane para tenant...")
 	if cfg.ContextPlane.AutoMigrate {
 		if err := runBosRPC("bos.ctx.auto_migrate", map[string]interface{}{
 			"tenant_id": tenantID,

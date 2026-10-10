@@ -16,6 +16,8 @@ enterprise_tenant:
   registered_address: "Av. Arce 1234, La Paz"
   entity_status: ACTIVA
   registration_date: "2024-01-15"
+  country_code: "BO"                        # ISO 3166-1 alpha-2
+  domain: "skull.sbos.local"               # dominio SBOS del tenant
 
 # ═══ MODELO B — Dominio Técnico (Capa de Plataforma) ═══
 # Gobernado por: bos (bosctl deploy). Cardinalidad 1:N con Modelo A.
