@@ -122,6 +122,26 @@ YAML
 ficha_install() {
     ficha_pre_install
 
+    echo "${__STEP_START__} pvc_nextcloud"
+    _k apply -n "$NS" -f - >> "$FICHA_LOG" 2>&1 <<YAML
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nextcloud-data
+  namespace: ${NS}
+  labels:
+    app: nextcloud
+    sbos-managed: "true"
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: local-path
+YAML
+    echo "${__STEP_OK__} pvc_nextcloud"
+
     echo "${__STEP_START__} deploy_nextcloud"
     local pg_pass; pg_pass=$(_pg_pass)
     _k apply -n "$NS" -f - >> "$FICHA_LOG" 2>&1 <<YAML
@@ -174,6 +194,9 @@ spec:
           value: "nextcloud.sbos.local"
         - name: REDIS_HOST
           value: redis.sbos-data.svc.cluster.local
+        volumeMounts:
+        - name: nextcloud-data
+          mountPath: /var/www/html
         resources:
           requests:
             memory: "512Mi"
@@ -182,13 +205,22 @@ spec:
             memory: "2Gi"
             cpu: "2000m"
         readinessProbe:
-          httpGet:
-            path: /status.php
-            port: 80
+          exec:
+            command:
+            - su
+            - www-data
+            - -s
+            - /bin/sh
+            - -c
+            - php /var/www/html/occ status --output=json 2>/dev/null | grep -q installed
           initialDelaySeconds: 60
-          timeoutSeconds: 10
+          timeoutSeconds: 15
           periodSeconds: 20
           failureThreshold: 15
+      volumes:
+      - name: nextcloud-data
+        persistentVolumeClaim:
+          claimName: nextcloud-data
 ---
 apiVersion: v1
 kind: Service
@@ -219,6 +251,26 @@ ficha_repair() {
     ficha_pre_install
 
     echo "${__STEP_START__} repair"
+    echo "${__STEP_START__} pvc_nextcloud"
+    _k apply -n "$NS" -f - >> "$FICHA_LOG" 2>&1 <<YAML
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nextcloud-data
+  namespace: ${NS}
+  labels:
+    app: nextcloud
+    sbos-managed: "true"
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: local-path
+YAML
+    echo "${__STEP_OK__} pvc_nextcloud"
+
     echo "${__STEP_START__} deploy_nextcloud"
     local pg_pass; pg_pass=$(_pg_pass)
     _k apply -n "$NS" -f - >> "$FICHA_LOG" 2>&1 <<YAML
@@ -271,6 +323,9 @@ spec:
           value: "nextcloud.sbos.local"
         - name: REDIS_HOST
           value: redis.sbos-data.svc.cluster.local
+        volumeMounts:
+        - name: nextcloud-data
+          mountPath: /var/www/html
         resources:
           requests:
             memory: "512Mi"
@@ -279,13 +334,22 @@ spec:
             memory: "2Gi"
             cpu: "2000m"
         readinessProbe:
-          httpGet:
-            path: /status.php
-            port: 80
+          exec:
+            command:
+            - su
+            - www-data
+            - -s
+            - /bin/sh
+            - -c
+            - php /var/www/html/occ status --output=json 2>/dev/null | grep -q installed
           initialDelaySeconds: 60
-          timeoutSeconds: 10
+          timeoutSeconds: 15
           periodSeconds: 20
           failureThreshold: 15
+      volumes:
+      - name: nextcloud-data
+        persistentVolumeClaim:
+          claimName: nextcloud-data
 ---
 apiVersion: v1
 kind: Service

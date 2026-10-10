@@ -124,9 +124,9 @@ spec:
         resources:
           requests:
             memory: "1Gi"
-            cpu: "500m"
+            cpu: "200m"
           limits:
-            memory: "2Gi"
+            memory: "3Gi"
             cpu: "2000m"
         readinessProbe:
           httpGet:
