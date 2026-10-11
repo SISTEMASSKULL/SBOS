@@ -8,8 +8,7 @@ ENV LANG=es_ES.UTF-8 \
     LC_ALL=es_ES.UTF-8 \
     DISPLAY=:1 \
     RESOLUTION=1920x1080 \
-    DEPTH=24 \
-    VNC_PASSWORD=sbos_desk
+    DEPTH=24
 
 # Instalar KDE Plasma 6 + TigerVNC + noVNC desde repos oficiales Fedora 44
 # --skip-unavailable evita fallos por paquetes renombrados entre versiones

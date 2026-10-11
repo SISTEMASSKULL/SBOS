@@ -3,10 +3,8 @@
 # Inicia Xvnc directamente (bypasa wrapper vncserver deprecated) + KDE + noVNC
 set -e
 
-VNC_PASS="${VNC_PASSWORD:-sbos_desk}"
 VNC_RES="${RESOLUTION:-1920x1080}"
 VNC_DEPTH="${DEPTH:-24}"
-VNC_PASS="${VNC_PASS:0:8}"
 VNC_DISPLAY=":1"
 VNC_PORT="5900"
 HOME_DIR="/home/sbosuser"
@@ -17,10 +15,8 @@ mkdir -p "/run/user/${UID_USER}"
 chmod 700 "/run/user/${UID_USER}"
 chown sbosuser:sbosuser "/run/user/${UID_USER}"
 
-# Preparar directorio VNC
+# Preparar directorio .vnc y xstartup (sin contraseña VNC — auth vía Keycloak SSO)
 mkdir -p "$HOME_DIR/.vnc"
-printf '%s' "$VNC_PASS" | vncpasswd -f > "$HOME_DIR/.vnc/passwd"
-chmod 600 "$HOME_DIR/.vnc/passwd"
 
 # Copiar xstartup si aún no existe
 if [[ ! -x "$HOME_DIR/.vnc/xstartup" ]]; then
@@ -32,14 +28,12 @@ chown -R sbosuser:sbosuser "$HOME_DIR/.vnc"
 # Limpiar locks de sesiones anteriores
 rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true
 
-# Iniciar Xvnc directamente con puerto explícito 5900
-# (bypasa el wrapper "vncserver" que está deprecado y usa 5901 por defecto)
+# Iniciar Xvnc sin autenticación VNC — la autenticación la maneja Keycloak + oauth2-proxy
 su sbosuser -c "
     Xvnc $VNC_DISPLAY \
         -geometry '$VNC_RES' \
         -depth '$VNC_DEPTH' \
-        -rfbauth '$HOME_DIR/.vnc/passwd' \
-        -SecurityTypes VncAuth \
+        -SecurityTypes None \
         -localhost no \
         -rfbport $VNC_PORT \
         -desktop 'SBOS Desktop' \
