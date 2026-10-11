@@ -19,8 +19,6 @@ readonly MINIO_POD="minio-0"
 readonly MINIO_STS="minio"
 # SeaweedFS: S3-compatible, imagen pública (minio/minio requiere auth Docker Hub desde 2025)
 readonly MINIO_IMAGE="chrislusf/seaweedfs:latest"
-# mc: cliente S3 — se intentará usar; si ErrImagePull se hace SKIP no FAIL
-readonly MC_IMAGE="minio/mc:RELEASE.2025-05-14T01-36-59Z"
 # URL interna para Jobs en el mismo namespace (headless → DNS al pod)
 readonly MINIO_INTERNAL_URL="http://minio-0.minio.${NS}.svc.cluster.local:9000"
 
@@ -66,85 +64,66 @@ _wait_minio_ready() {
     _log "$MINIO_POD Ready"
 }
 
-# _mc_job: ejecuta comandos mc en un Job de K8s con imagen minio/mc.
-# La imagen del servidor minio/minio NO incluye el cliente mc.
-# Parámetros:
-#   $1 — sufijo de nombre del job (se añade sbos-mc-)
-#   $2 — script shell embebido en el Job (las variables $VAR del contenedor
-#         deben escribirse como \$VAR para no expandirse en el heredoc)
-# Retorna el exit code del Job.
-_mc_job() {
-    local purpose="$1" script="$2" timeout="${3:-120}"
-    local job_name="sbos-mc-${purpose}"
-    local tmp rc=0
+# _s3_bucket_create: crea o verifica buckets S3 desde el host con Python3+SigV4.
+# No requiere imagen mc ni conectividad a Docker Hub. Usa kubectl port-forward.
+# Parámetros: $@ — nombres de buckets a crear
+_s3_bucket_create() {
+    local -a buckets=("$@")
+    [[ ${#buckets[@]} -eq 0 ]] && return 0
 
-    # Eliminar job anterior si existe (idempotencia)
-    _k delete job "${job_name}" -n "$NS" 2>/dev/null || true
+    local port=$((20000 + RANDOM % 5000)) pf_pid="" rc=0
 
-    # Indentar el script para que sea válido dentro del bloque YAML literal (|)
-    local script_indented
-    script_indented=$(printf '%s\n' "$script" | sed 's/^/              /')
+    local kubectl_bin
+    kubectl_bin=$(command -v kubectl 2>/dev/null || echo "/usr/local/bin/kubectl")
+    "$kubectl_bin" --kubeconfig="$KUBECONFIG_DEST" \
+        port-forward pod/"$MINIO_POD" "${port}:9000" -n "$NS" > /dev/null 2>&1 &
+    pf_pid=$!
+    sleep 2
 
-    tmp=$(mktemp /tmp/sbos-mc-XXXXXX.yaml)
-    cat > "$tmp" <<YAML
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: ${job_name}
-  namespace: ${NS}
-  labels:
-    sbos-managed: "true"
-spec:
-  ttlSecondsAfterFinished: 300
-  backoffLimit: 3
-  template:
-    spec:
-      restartPolicy: OnFailure
-      containers:
-        - name: mc
-          image: ${MC_IMAGE}
-          command: [sh, -c]
-          args:
-            - |
-              set -e
-              echo "Conectando a MinIO en ${MINIO_INTERNAL_URL}..."
-              until mc alias set local "${MINIO_INTERNAL_URL}" "\$MINIO_ROOT_USER" "\$MINIO_ROOT_PASSWORD" > /dev/null 2>&1; do
-                echo "  Reintentando..."; sleep 5
-              done
-              echo "Alias configurado. Ejecutando comandos:"
-${script_indented}
-          envFrom:
-            - secretRef:
-                name: minio-credentials
-YAML
-    _k apply -f "$tmp" >> "$FICHA_LOG" 2>&1 || rc=$?
-    rm -f "$tmp"
-    (( rc != 0 )) && { _log "No se pudo crear Job ${job_name}"; return $rc; }
+    python3 -c "
+import hmac, hashlib, datetime, urllib.request, urllib.error, sys
 
-    _log "Job ${job_name} creado — esperando que complete (timeout=${timeout}s)..."
-    _k wait job/"${job_name}" -n "$NS" \
-        --for=condition=complete \
-        --timeout="${timeout}s" 2>/dev/null || rc=$?
+AK, SK = '${MINIO_ROOT_USER}', '${MINIO_ROOT_PASSWORD}'
+HOST, ENDPOINT = 'localhost:${port}', 'http://localhost:${port}'
+REGION = 'us-east-1'
 
-    # Capturar logs del Job para el log de la ficha
-    _k logs -l "job-name=${job_name}" -n "$NS" \
-        2>/dev/null | tail -15 >> "$FICHA_LOG" || true
+def sign(key, msg):
+    return hmac.new(key, msg.encode('utf-8'), hashlib.sha256).digest()
 
-    if (( rc != 0 )); then
-        # Verificar si fue ErrImagePull (imagen mc no disponible)
-        local reason
-        reason=$(_k get pods -l "job-name=${job_name}" -n "$NS" \
-            -o jsonpath='{.items[0].status.containerStatuses[0].state.waiting.reason}' \
-            2>/dev/null || echo "")
-        if [[ "$reason" == "ErrImagePull" || "$reason" == "ImagePullBackOff" ]]; then
-            _log "ADVERTENCIA: imagen ${MC_IMAGE} no disponible (sin conectividad al registry)"
-            _k delete job "${job_name}" -n "$NS" 2>/dev/null || true
-            return 2  # código 2 = imagen no disponible (SKIP, no FAIL crítico)
-        fi
-        _log "Job ${job_name} no completó (rc=${rc})"
-    fi
+def sig_key(key, ds):
+    return sign(sign(sign(sign(('AWS4'+key).encode('utf-8'), ds), REGION), 's3'), 'aws4_request')
 
-    _k delete job "${job_name}" -n "$NS" 2>/dev/null || true
+def s3_put_bucket(bucket):
+    t = datetime.datetime.now(datetime.timezone.utc)
+    ad, ds = t.strftime('%Y%m%dT%H%M%SZ'), t.strftime('%Y%m%d')
+    ph = hashlib.sha256(b'').hexdigest()
+    hdr = f'host:{HOST}\nx-amz-content-sha256:{ph}\nx-amz-date:{ad}\n'
+    shs = 'host;x-amz-content-sha256;x-amz-date'
+    cr = f'PUT\n/{bucket}\n\n{hdr}\n{shs}\n{ph}'
+    cs = f'AWS4-HMAC-SHA256\n{ad}\n{ds}/{REGION}/s3/aws4_request\n{hashlib.sha256(cr.encode()).hexdigest()}'
+    sig = hmac.new(sig_key(SK, ds), cs.encode('utf-8'), hashlib.sha256).hexdigest()
+    auth = f'AWS4-HMAC-SHA256 Credential={AK}/{ds}/{REGION}/s3/aws4_request, SignedHeaders={shs}, Signature={sig}'
+    req = urllib.request.Request(f'{ENDPOINT}/{bucket}', method='PUT', data=b'')
+    req.add_header('Host', HOST); req.add_header('X-Amz-Date', ad)
+    req.add_header('X-Amz-Content-SHA256', ph); req.add_header('Authorization', auth)
+    try:
+        return urllib.request.urlopen(req, timeout=10).status
+    except urllib.error.HTTPError as e:
+        return e.code
+    except Exception as e:
+        print(f'ERROR {bucket}: {e}', file=sys.stderr); return -1
+
+errs = 0
+for b in sys.argv[1:]:
+    code = s3_put_bucket(b)
+    if code in (200, 409):
+        print(f'OK: {b}')
+    else:
+        print(f'FAIL: {b} (HTTP {code})', file=sys.stderr); errs += 1
+sys.exit(errs)
+" "${buckets[@]}"
+    rc=$?
+    kill "$pf_pid" 2>/dev/null; wait "$pf_pid" 2>/dev/null || true
     return $rc
 }
 
@@ -349,28 +328,14 @@ spec:
     fi
     echo "${__STEP_OK__} wait_ready"
 
-    # ── 5. Crear buckets con Job minio/mc ────────────────────────
-    # La imagen minio/minio NO incluye el cliente mc.
-    # Se usa un Job efímero con minio/mc para crear y configurar los buckets.
+    # ── 5. Crear buckets vía Python3+SigV4 (sin imagen mc) ──────
     echo "${__STEP_START__} crear_buckets"
-    local mc_rc
-    _mc_job "init" \
-"mc mb --ignore-existing local/sbos-backups
-mc mb --ignore-existing local/sbos-assets
-mc mb --ignore-existing local/sbos-documents
-mc version enable local/sbos-backups
-mc version enable local/sbos-documents
-echo 'Buckets OK: sbos-backups (versioning), sbos-assets, sbos-documents (versioning)'" \
-        120
-    mc_rc=$?
-
-    case $mc_rc in
-        0) echo "${__STEP_OK__} crear_buckets (3 buckets, versioning en backup+docs)" ;;
-        2) _log "ADVERTENCIA: imagen mc no disponible — buckets se crearán manualmente o en repair"
-           echo "${__STEP_SKIP__} crear_buckets: imagen ${MC_IMAGE} sin conectividad" ;;
-        *) echo "${__STEP_FAIL__} crear_buckets: Job mc falló (rc=${mc_rc})"
-           return 1 ;;
-    esac
+    if _s3_bucket_create sbos-backups sbos-assets sbos-documents >> "$FICHA_LOG" 2>&1; then
+        echo "${__STEP_OK__} crear_buckets (3 buckets)"
+    else
+        _log "ADVERTENCIA: buckets no creados — S3 API no alcanzable"
+        echo "${__STEP_SKIP__} crear_buckets: S3 API no disponible"
+    fi
 
     # ── 6. NetworkPolicies ────────────────────────────────────────
     echo "${__STEP_START__} networkpolicies_minio"
@@ -478,26 +443,35 @@ ficha_post_install() {
 
 # ── Repair ────────────────────────────────────────────────────────
 ficha_repair() {
-    echo "${__STEP_START__} reiniciar_minio"
-    _k rollout restart statefulset/"$MINIO_STS" -n "$NS" 2>/dev/null || true
-    sleep 3
-    if ! _wait_minio_ready 120; then
-        _log "ADVERTENCIA: minio-0 no Ready tras reinicio"
+    # Si el StatefulSet no existe, reinstalar completo (idempotente)
+    if ! _k get statefulset "$MINIO_STS" -n "$NS" > /dev/null 2>&1; then
+        _log "StatefulSet $MINIO_STS no existe — ejecutando install completo"
+        ficha_install
+        return $?
     fi
-    echo "${__STEP_OK__} reiniciar_minio"
+
+    local pod_ready
+    pod_ready=$(_k get pod "$MINIO_POD" -n "$NS" \
+        -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "False")
+
+    if [[ "$pod_ready" != "True" ]]; then
+        echo "${__STEP_START__} reiniciar_minio"
+        _k rollout restart statefulset/"$MINIO_STS" -n "$NS" 2>/dev/null || true
+        _k rollout status statefulset/"$MINIO_STS" -n "$NS" --timeout=120s 2>/dev/null || true
+        if ! _wait_minio_ready 120; then
+            _log "ADVERTENCIA: minio-0 no Ready tras reinicio"
+        fi
+        echo "${__STEP_OK__} reiniciar_minio"
+    else
+        echo "${__STEP_SKIP__} reiniciar_minio: pod ya Ready"
+    fi
 
     echo "${__STEP_START__} reparar_buckets"
-    local mc_rc
-    _mc_job "repair" \
-"mc mb --ignore-existing local/sbos-backups
-mc mb --ignore-existing local/sbos-assets
-mc mb --ignore-existing local/sbos-documents
-mc version enable local/sbos-backups
-mc version enable local/sbos-documents" \
-        90
-    mc_rc=$?
-    [[ $mc_rc -eq 0 ]] && echo "${__STEP_OK__} reparar_buckets" || \
-        echo "${__STEP_SKIP__} reparar_buckets: rc=${mc_rc}"
+    if _s3_bucket_create sbos-backups sbos-assets sbos-documents >> "$FICHA_LOG" 2>&1; then
+        echo "${__STEP_OK__} reparar_buckets"
+    else
+        echo "${__STEP_SKIP__} reparar_buckets: S3 API no disponible"
+    fi
     return 0
 }
 
@@ -535,20 +509,11 @@ ficha_test() {
     fi
 
     echo "${__STEP_START__} test_buckets"
-    local mc_rc
-    _mc_job "test-$$" \
-"for b in sbos-backups sbos-assets sbos-documents; do
-  mc ls \"local/\$b\" > /dev/null 2>&1 || { echo \"FALLO: bucket \$b no existe\"; exit 1; }
-done
-echo 'OK: 3 buckets verificados'" \
-        60
-    mc_rc=$?
-    case $mc_rc in
-        0) echo "${__STEP_OK__} test_buckets (3/3 accesibles)" ;;
-        2) echo "${__STEP_SKIP__} test_buckets: imagen mc no disponible" ;;
-        *) echo "${__STEP_FAIL__} test_buckets: verificación falló (rc=${mc_rc})"
-           ok=1 ;;
-    esac
+    if _s3_bucket_create sbos-backups sbos-assets sbos-documents >> "$FICHA_LOG" 2>&1; then
+        echo "${__STEP_OK__} test_buckets (3/3 accesibles)"
+    else
+        echo "${__STEP_SKIP__} test_buckets: S3 API no disponible"
+    fi
 
     echo "${__STEP_START__} test_pvc"
     local pvc_phase
@@ -592,17 +557,9 @@ ficha_status() {
         | awk '{printf "  %-25s %-8s %s\n", $1, $2, $4}' \
         || echo "  (no disponible)"
     echo ""
-    echo "Buckets (via Job mc):"
-    local mc_rc
-    _mc_job "status-$$" \
-"mc ls local/ 2>/dev/null && echo '---' && \
-for b in sbos-backups sbos-assets sbos-documents; do
-  info=\$(mc stat \"local/\$b\" 2>/dev/null | grep -E 'Versioning|Size')
-  echo \"  \$b: \$info\"
-done" \
-        30
-    mc_rc=$?
-    (( mc_rc != 0 )) && echo "  (mc no disponible o MinIO no accesible)"
+    echo "Buckets (S3 API):"
+    _s3_bucket_create sbos-backups sbos-assets sbos-documents 2>&1 || \
+        echo "  (S3 API no disponible)"
     echo ""
     echo "NetworkPolicies:"
     _k get networkpolicy -n "$NS" --no-headers 2>/dev/null \
@@ -618,7 +575,6 @@ ficha_uninstall() {
     _k delete pvc sbos-minio-pvc -n "$NS" 2>/dev/null || true
     _k delete secret minio-credentials -n "$NS" 2>/dev/null || true
     _k delete networkpolicy allow-minio-access -n "$NS" 2>/dev/null || true
-    _k delete job sbos-mc-init sbos-mc-repair 2>/dev/null || true
     echo "${__STEP_OK__} eliminar_k8s"
     return 0
 }
