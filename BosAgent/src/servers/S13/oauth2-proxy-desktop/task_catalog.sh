@@ -295,7 +295,7 @@ spec:
         - --cookie-name=_sbos_desktop
         - --cookie-secure=false
         - --email-domain=*
-        - --skip-provider-button=false
+        - --skip-provider-button=true
         - --pass-access-token=true
         - --set-xauthrequest=true
         - --pass-user-headers=true
