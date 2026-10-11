@@ -26,6 +26,8 @@ RUN dnf install -y --setopt=install_weak_deps=False --skip-unavailable \
     spectacle \
     kate \
     ark \
+    # openbox: gestor de ventanas X11 (kwin_x11 fue eliminado en Plasma 6)
+    openbox \
     # Browser para SSO con Keycloak
     chromium \
     # VNC: TigerVNC crea su propio display virtual (Xvnc)
@@ -67,6 +69,10 @@ RUN chmod +x /etc/sbos-desktop/xstartup
 
 # Configuración KDE inicial (tema profesional, barra inferior)
 COPY resources/kde-defaults/ /etc/sbos-desktop/kde-defaults/
+
+# index.html personalizado: redirige WebSocket al path correcto cuando nginx
+# sirve el desktop bajo /desktop/ en lugar de /
+COPY resources/novnc-index.html /usr/share/novnc/index.html
 
 # Punto de entrada del contenedor
 COPY resources/start-desktop.sh /start-desktop.sh

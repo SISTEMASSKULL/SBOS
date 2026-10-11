@@ -1,23 +1,44 @@
 #!/bin/bash
-# xstartup — inicia KDE Plasma 6 en la sesión TigerVNC
-unset SESSION_MANAGER
-unset DBUS_SESSION_BUS_ADDRESS
+# xstartup — sesión KDE Plasma 6 para Xvnc (container-friendly)
+# Inicia kwin + plasmashell directamente sin el pesado startplasma.
 
 export XDG_SESSION_TYPE=x11
 export XDG_CURRENT_DESKTOP=KDE
 export DESKTOP_SESSION=plasma
 export QT_QPA_PLATFORM=xcb
 export KDE_FULL_SESSION=true
-export PLASMA_USE_QT_SCALING=1
+export XDG_RUNTIME_DIR="/run/user/$(id -u)"
 
-# Configurar directorio de usuario si no existe
+# Directorios de configuración
 xdg-user-dirs-update 2>/dev/null || true
 
-# Aplicar configuración KDE inicial si no ha sido aplicada
-if [[ ! -f "$HOME/.config/kde-sbos-initialized" ]]; then
-    cp -r /etc/sbos-desktop/kde-defaults/. "$HOME/.config/" 2>/dev/null || true
-    touch "$HOME/.config/kde-sbos-initialized"
+# dbus session
+if [[ -z "${DBUS_SESSION_BUS_ADDRESS}" ]]; then
+    eval "$(dbus-launch --sh-syntax 2>/dev/null)" || true
+    export DBUS_SESSION_BUS_ADDRESS
 fi
 
-# Iniciar gestor de ventanas y shell Plasma
-exec startplasma-x11
+# Deshabilitar KWallet (no funciona en contenedor sin PAM)
+mkdir -p ~/.config
+cat > ~/.config/kwalletrc << 'KWALLET'
+[Wallet]
+Enabled=false
+First Use=false
+KWALLET
+
+# Aplicar configuración KDE inicial (tema, locale)
+if [[ ! -f ~/.config/kde-sbos-initialized ]]; then
+    cp -r /etc/sbos-desktop/kde-defaults/. ~/.config/ 2>/dev/null || true
+    touch ~/.config/kde-sbos-initialized
+fi
+
+# openbox como WM para X11: kwin en Plasma 6 es kwin_wayland y no ejecuta en Xvnc
+# openbox provee gestión de ventanas nativa X11 sin GPU, compatible con contenedores
+/usr/bin/openbox --replace 2>/dev/null &
+sleep 2
+
+# plasmashell: escritorio + barra de tareas KDE (funciona con cualquier WM)
+/usr/bin/plasmashell --no-respawn 2>/dev/null &
+
+# Mantener la sesión activa hasta que Xvnc cierre
+wait

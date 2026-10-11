@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SBOS Desktop</title>
+  <script>
+    // Detecta el path base (funciona tanto en /desktop/ como en /)
+    // y redirige a vnc.html con el path correcto para el WebSocket.
+    var base = window.location.pathname.replace(/\/[^/]*$/, "/");
+    var params = new URLSearchParams({
+      path:             base,
+      autoconnect:      "1",
+      reconnect:        "1",
+      reconnect_delay:  "3000",
+      resize:           "scale",
+      quality:          "9",
+      compression:      "2"
+    });
+    window.location.href = "vnc.html?" + params.toString();
+  </script>
+</head>
+<body>Conectando a SBOS Desktop...</body>
+</html>
