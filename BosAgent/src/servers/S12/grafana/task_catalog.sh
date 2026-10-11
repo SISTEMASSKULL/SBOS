@@ -318,8 +318,9 @@ ficha_post_install() {
 
 ficha_repair() {
     echo "${__STEP_START__} reiniciar_grafana"
+    # Asegurar que Linkerd está deshabilitado antes de reiniciar (evita sidecar CrashLoopBackOff)
+    _k annotate namespace "$NS" linkerd.io/inject=disabled --overwrite >> "$FICHA_LOG" 2>&1 || true
     _k rollout restart deployment/grafana -n "$NS" 2>/dev/null || true
-    sleep 5
     _wait_gf_ready 90 || _log "ADVERTENCIA: grafana no Ready tras reinicio"
     echo "${__STEP_OK__} reiniciar_grafana"
     return 0

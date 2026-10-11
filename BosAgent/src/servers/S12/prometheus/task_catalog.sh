@@ -52,10 +52,30 @@ ficha_pre_install() {
         echo "${__STEP_FAIL__} verificar_pv: sbos-prometheus-pv no existe"
         return 1
     fi
+    # Liberar PV si está en Released con claimRef obsoleto
+    local pv_phase
+    pv_phase=$(_k get pv sbos-prometheus-pv -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
+    if [[ "$pv_phase" == "Released" ]]; then
+        _log "PV en Released — eliminando claimRef obsoleto"
+        _k patch pv sbos-prometheus-pv -p '{"spec":{"claimRef":null}}' >> "$FICHA_LOG" 2>&1 || true
+        sleep 2
+    fi
     echo "${__STEP_OK__} verificar_pv"
 
+    echo "${__STEP_START__} verificar_permisos_datos"
+    # prometheus corre como UID 65534 — asegurar permisos del hostPath
+    if [[ -d /data/prometheus ]]; then
+        chown -R 65534:65534 /data/prometheus 2>/dev/null || true
+    fi
+    echo "${__STEP_OK__} verificar_permisos_datos"
+
     echo "${__STEP_START__} verificar_namespace"
-    _k get namespace "$NS" > /dev/null 2>&1 || _k create namespace "$NS" >> "$FICHA_LOG" 2>&1
+    if ! _k get namespace "$NS" > /dev/null 2>&1; then
+        _k create namespace "$NS" >> "$FICHA_LOG" 2>&1
+    fi
+    # Deshabilitar inyección Linkerd en sbos-monitoring: prometheus es infraestructura
+    # de monitoreo y no debe ser parte del mesh (evita dependencia circular)
+    _k annotate namespace "$NS" linkerd.io/inject=disabled --overwrite >> "$FICHA_LOG" 2>&1 || true
     echo "${__STEP_OK__} verificar_namespace"
     return 0
 }
@@ -238,6 +258,8 @@ metadata:
     sbos-managed: \"true\"
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: prometheus
@@ -328,7 +350,7 @@ spec:
     echo "${__STEP_OK__} deploy_prometheus"
 
     echo "${__STEP_START__} wait_ready"
-    _wait_prom_ready 120 && echo "${__STEP_OK__} wait_ready" || { echo "${__STEP_FAIL__} wait_ready: timeout"; return 1; }
+    _wait_prom_ready 300 && echo "${__STEP_OK__} wait_ready" || { echo "${__STEP_FAIL__} wait_ready: timeout"; return 1; }
 
     echo "${__STEP_START__} networkpolicy_prometheus"
     _apply "np-prometheus" "apiVersion: networking.k8s.io/v1
@@ -392,9 +414,10 @@ ficha_post_install() {
 
 ficha_repair() {
     echo "${__STEP_START__} reiniciar_prometheus"
+    # Asegurar que Linkerd está deshabilitado antes de reiniciar (evita sidecar CrashLoopBackOff)
+    _k annotate namespace "$NS" linkerd.io/inject=disabled --overwrite >> "$FICHA_LOG" 2>&1 || true
     _k rollout restart deployment/prometheus -n "$NS" 2>/dev/null || true
-    sleep 5
-    _wait_prom_ready 90 || _log "ADVERTENCIA: prometheus no Ready tras reinicio"
+    _wait_prom_ready 300 || _log "ADVERTENCIA: prometheus no Ready tras reinicio"
     echo "${__STEP_OK__} reiniciar_prometheus"
     return 0
 }

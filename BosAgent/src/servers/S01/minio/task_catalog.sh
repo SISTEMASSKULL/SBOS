@@ -17,9 +17,9 @@ KUBECONFIG_DEST="${KUBECONFIG_DEST:-/etc/bos/.kube/config}"
 readonly NS="sbos-data"
 readonly MINIO_POD="minio-0"
 readonly MINIO_STS="minio"
-readonly MINIO_IMAGE="quay.io/minio/minio:RELEASE.2025-05-24T17-08-30Z"
+readonly MINIO_IMAGE="minio/minio:RELEASE.2025-05-24T17-08-30Z"
 # mc compatible con el release del servidor (mismo período)
-readonly MC_IMAGE="quay.io/minio/mc:RELEASE.2025-05-14T01-36-59Z"
+readonly MC_IMAGE="minio/mc:RELEASE.2025-05-14T01-36-59Z"
 # URL interna para Jobs en el mismo namespace (headless → DNS al pod)
 readonly MINIO_INTERNAL_URL="http://minio-0.minio.${NS}.svc.cluster.local:9000"
 

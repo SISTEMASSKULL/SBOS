@@ -192,7 +192,7 @@ spec:
         done < <(_k get clusterpolicy --no-headers \
             -o custom-columns=NAME:.metadata.name 2>/dev/null || true)
 
-        # sbos-require-probes
+        # sbos-require-probes — usa deny/JMESPath para soportar campos objeto (Kyverno 1.13+)
         _apply_manifest "sbos-require-probes" 'apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -214,13 +214,15 @@ spec:
                 - sbos-monitoring
       validate:
         message: "Los contenedores SBOS deben tener readinessProbe y livenessProbe."
-        pattern:
-          spec:
-            template:
-              spec:
-                containers:
-                  - readinessProbe: "?*"
-                    livenessProbe: "?*"' || true
+        deny:
+          conditions:
+            any:
+            - key: "{{ request.object.spec.template.spec.containers[0].livenessProbe || '"'"''"'"' }}"
+              operator: Equals
+              value: ""
+            - key: "{{ request.object.spec.template.spec.containers[0].readinessProbe || '"'"''"'"' }}"
+              operator: Equals
+              value: ""' || true
 
         # sbos-require-resource-limits
         _apply_manifest "sbos-require-limits" 'apiVersion: kyverno.io/v1

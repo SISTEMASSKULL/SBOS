@@ -133,6 +133,7 @@ spec:
             path: /healthcheck
             port: 80
           initialDelaySeconds: 60
+          timeoutSeconds: 15
           periodSeconds: 30
           failureThreshold: 6
 ---

@@ -242,16 +242,11 @@ spec:
             memory: "2Gi"
             cpu: "2000m"
         readinessProbe:
-          exec:
-            command:
-            - su
-            - www-data
-            - -s
-            - /bin/sh
-            - -c
-            - php /var/www/html/occ status --output=json 2>/dev/null | grep -q installed
+          httpGet:
+            path: /status.php
+            port: 80
           initialDelaySeconds: 60
-          timeoutSeconds: 15
+          timeoutSeconds: 10
           periodSeconds: 20
           failureThreshold: 15
       volumes:
@@ -371,16 +366,11 @@ spec:
             memory: "2Gi"
             cpu: "2000m"
         readinessProbe:
-          exec:
-            command:
-            - su
-            - www-data
-            - -s
-            - /bin/sh
-            - -c
-            - php /var/www/html/occ status --output=json 2>/dev/null | grep -q installed
+          httpGet:
+            path: /status.php
+            port: 80
           initialDelaySeconds: 60
-          timeoutSeconds: 15
+          timeoutSeconds: 10
           periodSeconds: 20
           failureThreshold: 15
       volumes:

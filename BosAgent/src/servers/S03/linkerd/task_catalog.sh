@@ -248,7 +248,8 @@ ficha_install() {
     for _i in $(seq 1 90); do
         local ready_count
         ready_count=$(_k get pod -n "$NS" --no-headers 2>/dev/null | \
-            grep -v "^$" | grep "1/1\|2/2\|3/3" | wc -l || echo "0")
+            grep -v "^$" | grep -E "^[a-z0-9-]+ +[0-9]+/[0-9]+ +Running" | \
+            awk -F'[ /]+' '{if ($2==$3) print}' | wc -l || echo "0")
         local total_count
         total_count=$(_k get pod -n "$NS" --no-headers 2>/dev/null | grep -v "^$" | wc -l || echo "0")
         if [[ "$total_count" -gt 0 && "$ready_count" -ge "$total_count" ]]; then
