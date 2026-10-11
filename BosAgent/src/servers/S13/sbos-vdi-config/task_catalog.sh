@@ -53,6 +53,7 @@ ficha_install() {
 
     # ── NetworkPolicies para acceso VDI → data ─────────────────────
     echo "${__STEP_START__} network_policies_vdi"
+    # Ingress en sbos-data: permitir que sbos-vdi alcance PostgreSQL y Redis
     _k apply -f - >> "$FICHA_LOG" 2>&1 <<'EOF'
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -71,8 +72,47 @@ spec:
         - protocol: TCP
           port: 5432
         - protocol: TCP
+          port: 6432
+        - protocol: TCP
           port: 6379
 EOF
+    # Egress en sbos-vdi: pods VDI pueden conectar a sbos-data (PostgreSQL/Redis)
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'EOF2'
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-to-data
+  namespace: sbos-vdi
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: sbos-data
+      ports:
+        - protocol: TCP
+          port: 5432
+        - protocol: TCP
+          port: 6432
+        - protocol: TCP
+          port: 6379
+EOF2
+    # Egress intra-vdi: nextcloud puede conectar a onlyoffice, etc.
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'EOF3'
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-intra-vdi-egress
+  namespace: sbos-vdi
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector: {}
+EOF3
     echo "${__STEP_OK__} network_policies_vdi"
 
     # ── NetworkPolicy: Kong → VDI ──────────────────────────────────
