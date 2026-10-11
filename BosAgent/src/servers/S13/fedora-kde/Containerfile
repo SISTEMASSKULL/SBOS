@@ -53,9 +53,6 @@ RUN dnf install -y --setopt=install_weak_deps=False --skip-unavailable \
     && dnf clean all \
     && rm -rf /var/cache/dnf /var/log/dnf*
 
-# Configurar locale español
-RUN localedef -i es_ES -f UTF-8 es_ES.UTF-8
-
 # Crear usuario del desktop (uid fijo para volúmenes persistentes)
 RUN useradd -u 1001 -ms /bin/bash sbosuser && \
     echo "sbosuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/sbosuser && \
