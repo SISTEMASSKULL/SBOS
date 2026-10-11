@@ -98,9 +98,9 @@ spec:
               name: fedora-kde-credentials
               key: VNC_PASSWORD
         - name: RESOLUTION
-          value: "1280x720"
+          value: "1920x1080"
         - name: DEPTH
-          value: "16"
+          value: "24"
         resources:
           requests:
             memory: "512Mi"
@@ -122,17 +122,14 @@ metadata:
   namespace: ${NS}
   labels:
     app: fedora-kde
-    sbos-managed: "true"
+    sbos-managed: managed
 spec:
   selector:
     app: fedora-kde
   ports:
-  - name: novnc
+  - name: webconsole
     port: 80
     targetPort: 80
-  - name: vnc
-    port: 5900
-    targetPort: 5900
 YAML
 }
 
