@@ -26,6 +26,201 @@ readonly NGINX_CONF="/etc/nginx"
 readonly NGINX_WEBROOT="/var/www/html"
 readonly KONG_SVC="kong.sbos-gateway.svc.cluster.local"
 
+# _kong_ip: ClusterIP de Kong — se resuelve en tiempo de instalación via kubectl.
+# Si kubectl no está disponible, usa la dirección de servicio DNS de K8s como fallback.
+_kong_ip() {
+    _kubectl get svc kong -n sbos-gateway \
+        -o jsonpath='{.spec.clusterIP}' 2>/dev/null | grep -E '^[0-9]' || echo "$KONG_SVC"
+}
+
+# _svc_ip: ClusterIP de un servicio K8s dado namespace y nombre.
+_svc_ip() {
+    local ns="$1" name="$2"
+    _kubectl get svc "$name" -n "$ns" \
+        -o jsonpath='{.spec.clusterIP}' 2>/dev/null | grep -E '^[0-9]' || echo ""
+}
+
+# _escribir_nginx_conf: genera y escribe nginx.conf con IPs actuales de Kong y VDI.
+# Llamado desde install y repair para garantizar idempotencia.
+_escribir_nginx_conf() {
+    local kong_ip
+    kong_ip=$(_kong_ip)
+    _log "Kong upstream: $kong_ip:8000"
+
+    # IPs VDI (pueden estar vacías si el namespace no existe aún)
+    local ip_fedora ip_guac ip_nextcloud ip_grafana ip_onlyoffice
+    ip_fedora=$(_svc_ip "sbos-vdi"        "fedora-kde")
+    ip_guac=$(_svc_ip   "sbos-vdi"        "guacamole")
+    ip_nextcloud=$(_svc_ip "sbos-vdi"     "nextcloud")
+    ip_grafana=$(_svc_ip "sbos-monitoring" "grafana")
+    ip_onlyoffice=$(_svc_ip "sbos-vdi"    "onlyoffice")
+    _log "VDI IPs: fedora=$ip_fedora guac=$ip_guac nextcloud=$ip_nextcloud grafana=$ip_grafana onlyoffice=$ip_onlyoffice"
+
+    # Bloques de rutas VDI — solo se generan si la IP existe
+    local vdi_blocks=""
+    [[ -n "$ip_fedora" ]] && vdi_blocks+="
+        # Fedora KDE (noVNC web — puerto 80 del pod)
+        location /desktop/ {
+            proxy_pass http://${ip_fedora}/;
+            proxy_http_version 1.1;
+            proxy_set_header Host \$host;
+            proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header Upgrade \$http_upgrade;
+            proxy_set_header Connection \$connection_upgrade;
+            proxy_read_timeout 3600;
+        }"
+    [[ -n "$ip_guac" ]] && vdi_blocks+="
+        # Guacamole (VNC/RDP/SSH web gateway)
+        location /guacamole/ {
+            proxy_pass http://${ip_guac}:8080/guacamole/;
+            proxy_http_version 1.1;
+            proxy_set_header Host \$host;
+            proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header Upgrade \$http_upgrade;
+            proxy_set_header Connection \$connection_upgrade;
+            proxy_buffering off;
+            proxy_read_timeout 3600;
+        }"
+    [[ -n "$ip_nextcloud" ]] && vdi_blocks+="
+        # Nextcloud
+        location /nextcloud/ {
+            proxy_pass http://${ip_nextcloud}/;
+            proxy_http_version 1.1;
+            proxy_set_header Host \$host;
+            proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto \$scheme;
+            proxy_buffering off;
+            client_max_body_size 10G;
+        }"
+    [[ -n "$ip_grafana" ]] && vdi_blocks+="
+        # Grafana
+        location /grafana/ {
+            proxy_pass http://${ip_grafana}:3000/grafana/;
+            proxy_http_version 1.1;
+            proxy_set_header Host \$host;
+            proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        }"
+    [[ -n "$ip_onlyoffice" ]] && vdi_blocks+="
+        # OnlyOffice
+        location /onlyoffice/ {
+            proxy_pass http://${ip_onlyoffice}/;
+            proxy_http_version 1.1;
+            proxy_set_header Host \$host;
+            proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        }"
+
+    cat > "${NGINX_CONF}/nginx.conf" <<NGINX_EOF
+# ============================================================================
+# nginx.conf — SBOS NGINX Ingress (HOST S02)  [generado por ficha nginx]
+# Arquitectura: nginx → Kong (routing soberano) + rutas VDI directas (Iter.1)
+# Generado: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+# ============================================================================
+
+user www-data;
+worker_processes auto;
+worker_rlimit_nofile 65535;
+pid /run/nginx.pid;
+error_log /var/log/nginx/error.log warn;
+
+include /etc/nginx/modules-enabled/*.conf;
+
+events {
+    worker_connections 4096;
+    use epoll;
+    multi_accept on;
+}
+
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    keepalive_timeout 65;
+    types_hash_max_size 2048;
+    server_tokens off;
+    client_max_body_size 1G;
+
+    map \$http_upgrade \$connection_upgrade {
+        default upgrade;
+        ''      close;
+    }
+
+    log_format sbos 'ctx_id="\$http_x_sbos_ctx_id" '
+                    'tenant="\$http_x_sbos_tenant" '
+                    'remote=\$remote_addr '
+                    'host=\$host '
+                    'method=\$request_method '
+                    'uri=\$request_uri '
+                    'status=\$status '
+                    'upstream=\$upstream_addr '
+                    'duration=\$request_time '
+                    'ua="\$http_user_agent"';
+
+    access_log /var/log/nginx/access.log sbos buffer=32k flush=5s;
+    error_log /var/log/nginx/error.log warn;
+
+    server {
+        listen 80 default_server;
+        listen [::]:80 default_server;
+        server_name _;
+
+        root /var/www/html;
+
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header X-XSS-Protection "1; mode=block" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+        location = /health {
+            return 200 '{"status":"ok","service":"nginx-ingress"}';
+            add_header Content-Type 'application/json';
+        }
+        location = /health/ready {
+            return 200 '{"status":"ok","service":"nginx-ingress"}';
+            add_header Content-Type 'application/json';
+        }
+        location = /nginx_status {
+            stub_status on;
+            allow 127.0.0.1;
+            deny all;
+        }
+        location /.well-known/acme-challenge/ {
+            root /var/www/certbot;
+            default_type text/plain;
+        }
+${vdi_blocks}
+        # Kong — gateway soberano (catch-all)
+        location @kong {
+            proxy_pass http://${kong_ip}:8000;
+            proxy_set_header Host \$host;
+            proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto \$scheme;
+            proxy_set_header X-Forwarded-Host \$host;
+            proxy_set_header X-Original-URI \$request_uri;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade \$http_upgrade;
+            proxy_set_header Connection \$connection_upgrade;
+            proxy_read_timeout 120s;
+            proxy_connect_timeout 10s;
+            proxy_send_timeout 60s;
+        }
+
+        location / {
+            try_files \$uri /index.html @kong;
+        }
+    }
+}
+NGINX_EOF
+}
+
 _log()   { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [nginx] $*" | tee -a "$FICHA_LOG"; }
 
 # _kubectl: solo para verificar dependencia kong en pre_install.
@@ -89,160 +284,7 @@ ficha_install() {
 
     # ── 2. Configurar nginx.conf principal ───────────────────────
     echo "${__STEP_START__} configurar_nginx_conf"
-    cat > "${NGINX_CONF}/nginx.conf" <<'NGINX_EOF'
-# ============================================================================
-# nginx.conf — SBOS NGINX Ingress (HOST S02)
-# §8.4 Proyecto Master: DNS → Load Balancer → NGINX Ingress → Kong
-#
-# Responsabilidad de nginx: recibir tráfico externo y pasar TODO a Kong.
-# Responsabilidad de Kong: Domain Resolver, CTX Resolver, JWT+ctx_id,
-#                          X-SBOS-* headers, routing a servicios.
-#
-# nginx NO decide a qué servicio va cada request. Kong lo decide.
-# ============================================================================
-
-user www-data;
-worker_processes auto;
-worker_rlimit_nofile 65535;
-pid /run/nginx.pid;
-error_log /var/log/nginx/error.log warn;
-
-include /etc/nginx/modules-enabled/*.conf;
-
-events {
-    worker_connections 4096;
-    use epoll;
-    multi_accept on;
-}
-
-http {
-    include /etc/nginx/mime.types;
-    default_type application/octet-stream;
-
-    # ── Performance ──────────────────────────────────────────────
-    sendfile on;
-    tcp_nopush on;
-    tcp_nodelay on;
-    keepalive_timeout 65;
-    types_hash_max_size 2048;
-    server_tokens off;
-    client_max_body_size 50m;
-
-    # ── WebSocket: correcto upgrade/close según tipo de conexión ─
-    # "upgrade" para conexiones WebSocket, "close" para HTTP normal
-    map $http_upgrade $connection_upgrade {
-        default upgrade;
-        ''      close;
-    }
-
-    # ── Log formato SBOS — incluye ctx_id inyectado por Kong ─────
-    # ctx_id viaja en X-Ctx-Id desde Kong hacia upstream; nginx lo
-    # registra para trazabilidad de auditoría (ISO 27001 A.8.15)
-    log_format sbos 'ctx_id="$http_x_sbos_ctx_id" '
-                    'tenant="$http_x_sbos_tenant" '
-                    'remote=$remote_addr '
-                    'host=$host '
-                    'method=$request_method '
-                    'uri=$request_uri '
-                    'status=$status '
-                    'upstream=$upstream_addr '
-                    'duration=$request_time '
-                    'ua="$http_user_agent"';
-
-    access_log /var/log/nginx/access.log sbos buffer=32k flush=5s;
-    error_log /var/log/nginx/error.log warn;
-
-    # ── SERVIDOR PRINCIPAL :80 ──────────────────────────────────
-    # Iteración 2: agregar listen 443 ssl + certbot + return 301 https://
-    server {
-        listen 80 default_server;
-        listen [::]:80 default_server;
-        server_name _;
-
-        root /var/www/html;
-
-        # ── Hardening headers (CIS + OWASP) ──────────────────────
-        add_header X-Frame-Options "DENY" always;
-        add_header X-Content-Type-Options "nosniff" always;
-        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-        add_header X-XSS-Protection "1; mode=block" always;
-        add_header Content-Security-Policy "default-src 'self'; connect-src 'self' wss: *.sksistemas.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'" always;
-        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-        add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
-        add_header X-Permitted-Cross-Domain-Policies "none" always;
-
-        # ── Health check del Ingress (sin pasar por Kong) ─────────
-        location = /health {
-            return 200 '{"status":"ok","service":"nginx-ingress"}';
-            add_header Content-Type 'application/json';
-        }
-        location = /health/ready {
-            return 200 '{"status":"ok","service":"nginx-ingress"}';
-            add_header Content-Type 'application/json';
-        }
-
-        # ── Nginx stub_status para Prometheus (localhost only) ────
-        # Scrapeado por nginx-exporter en :9113
-        location = /nginx_status {
-            stub_status on;
-            allow 127.0.0.1;
-            deny all;
-        }
-
-        # ── Página de bienvenida SBOS (raíz sin dominio conocido) ─
-        location = / {
-            try_files /index.html @kong;
-        }
-
-        # ── TODO: TODA la lógica de routing va aquí → Kong ────────
-        # Kong recibe el $host completo (ej: lpz.empresaa.com) y:
-        #   1. Consulta Domain Resolver → tenant/empresa/sucursal
-        #   2. Crea dctx_id anónimo si no hay ctx_id (CTX Resolver)
-        #   3. Valida JWT+ctx_id si el request requiere auth
-        #   4. Inyecta X-SBOS-Tenant, X-SBOS-Empresa, X-SBOS-Ctx-Id, X-SBOS-Bitmask
-        #   5. Rutea al servicio correcto (Website Engine, pos-service, etc.)
-        location @kong {
-            proxy_pass http://127.0.0.1:8000;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-            proxy_set_header X-Forwarded-Host $host;
-            proxy_set_header X-Forwarded-Port $server_port;
-            proxy_set_header X-Original-URI $request_uri;
-            proxy_http_version 1.1;
-            proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection $connection_upgrade;
-            proxy_read_timeout 120s;
-            proxy_connect_timeout 10s;
-            proxy_send_timeout 60s;
-            proxy_buffering on;
-            proxy_buffer_size 16k;
-            proxy_buffers 32 16k;
-        }
-
-        location / {
-            proxy_pass http://127.0.0.1:8000;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-            proxy_set_header X-Forwarded-Host $host;
-            proxy_set_header X-Forwarded-Port $server_port;
-            proxy_set_header X-Original-URI $request_uri;
-            proxy_http_version 1.1;
-            proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection $connection_upgrade;
-            proxy_read_timeout 120s;
-            proxy_connect_timeout 10s;
-            proxy_send_timeout 60s;
-            proxy_buffering on;
-            proxy_buffer_size 16k;
-            proxy_buffers 32 16k;
-        }
-    }
-}
-NGINX_EOF
+    _escribir_nginx_conf
     echo "${__STEP_OK__} configurar_nginx_conf"
 
     # ── 3. Página de bienvenida SBOS ────────────────────────────
@@ -334,7 +376,7 @@ HTML_EOF
 
     # ── 4. Validar sintaxis ─────────────────────────────────────
     echo "${__STEP_START__} validar_sintaxis"
-    if nginx -t 2>&1 | grep -q "syntax is ok\|test is successful"; then
+    if nginx -t 2>&1 | grep -qE "syntax is ok|test is successful"; then
         echo "${__STEP_OK__} validar_sintaxis"
     else
         local err
@@ -393,14 +435,17 @@ ficha_post_install() {
 
 # ── Repair ────────────────────────────────────────────────────────
 ficha_repair() {
+    # Regenerar nginx.conf con IPs actuales (idempotente)
+    echo "${__STEP_START__} regenerar_nginx_conf"
+    _escribir_nginx_conf
+    echo "${__STEP_OK__} regenerar_nginx_conf"
+
     echo "${__STEP_START__} reparar_nginx"
-    # Validar sintaxis
-    if ! nginx -t 2>&1 | grep -q "syntax is ok\|test is successful"; then
-        _log "ADVERTENCIA: sintaxis rota — se necesita intervención manual"
+    if ! nginx -t 2>&1 | grep -qE "syntax is ok|test is successful"; then
+        _log "ERROR: sintaxis nginx inválida tras regeneración"
         echo "${__STEP_FAIL__} reparar_nginx: sintaxis inválida"
         return 1
     fi
-    # Reiniciar si no está activo
     if ! systemctl is-active nginx > /dev/null 2>&1; then
         systemctl restart nginx 2>/dev/null || true
     else
@@ -413,6 +458,7 @@ ficha_repair() {
         echo "${__STEP_FAIL__} reparar_nginx: no se pudo levantar"
         return 1
     fi
+    return 0
 }
 
 # ── Test ──────────────────────────────────────────────────────────
