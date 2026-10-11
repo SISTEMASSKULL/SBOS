@@ -79,6 +79,10 @@ _escribir_nginx_conf() {
             proxy_set_header X-Real-IP \$remote_addr;
             proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto \$scheme;
+            # oauth2-proxy pone el JWT completo en Set-Cookie (header grande)
+            proxy_buffer_size 32k;
+            proxy_buffers 8 32k;
+            proxy_busy_buffers_size 64k;
         }
         location /desktop/ {
             proxy_pass ${desktop_backend}/;

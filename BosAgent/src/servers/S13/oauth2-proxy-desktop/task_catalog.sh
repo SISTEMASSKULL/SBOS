@@ -187,6 +187,53 @@ ficha_install() {
     }
     echo "${__STEP_OK__} crear_cliente_keycloak (client_id=${CLIENT_ID})"
 
+    # ── 1b. Audience mapper + emailVerified para usuario admin ───────────────
+    # El Audience mapper agrega client_id al aud del id_token (oauth2-proxy lo verifica)
+    # emailVerified=true es requerido por oauth2-proxy para aceptar el token
+    echo "${__STEP_START__} configurar_kc_audience_y_usuario"
+    local client_uuid
+    client_uuid=$(_kexec /opt/keycloak/bin/kcadm.sh get clients \
+        -r "$KC_REALM" --fields clientId,id 2>/dev/null | \
+        python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+for c in d:
+    if c.get('clientId') == '${CLIENT_ID}':
+        print(c['id'])
+        break
+" 2>/dev/null || true)
+
+    if [[ -n "$client_uuid" ]]; then
+        # Verificar si el mapper ya existe
+        local mapper_exists
+        mapper_exists=$(_kexec /opt/keycloak/bin/kcadm.sh get \
+            clients/"$client_uuid"/protocol-mappers/models \
+            -r "$KC_REALM" --fields name 2>/dev/null | \
+            grep -c 'audience-sbos-desktop' 2>/dev/null || echo "0")
+        if [[ "$mapper_exists" -eq 0 ]]; then
+            _kexec sh -c "cat > /tmp/aud-mapper.json << 'ENDJSON'
+{\"name\":\"audience-sbos-desktop\",\"protocol\":\"openid-connect\",\"protocolMapper\":\"oidc-audience-mapper\",\"config\":{\"included.client.audience\":\"${CLIENT_ID}\",\"access.token.claim\":\"true\",\"id.token.claim\":\"true\"}}
+ENDJSON
+/opt/keycloak/bin/kcadm.sh create clients/${client_uuid}/protocol-mappers/models -r ${KC_REALM} -f /tmp/aud-mapper.json" \
+                >> "$FICHA_LOG" 2>&1 || true
+        fi
+    fi
+
+    # Marcar emailVerified para usuarios existentes en el realm
+    _kexec /opt/keycloak/bin/kcadm.sh get users -r "$KC_REALM" --fields id 2>/dev/null | \
+        python3 -c "
+import sys, json, subprocess
+users = json.load(sys.stdin)
+for u in users:
+    uid = u['id']
+    print(uid)
+" 2>/dev/null | while read -r uid; do
+        _kexec /opt/keycloak/bin/kcadm.sh update users/"$uid" \
+            -r "$KC_REALM" -s emailVerified=true \
+            >> "$FICHA_LOG" 2>&1 || true
+    done
+    echo "${__STEP_OK__} configurar_kc_audience_y_usuario"
+
     # ── 2. Secret con credenciales oauth2-proxy ───────────────────────────────
     echo "${__STEP_START__} crear_secret_oauth2"
     local cookie_secret
@@ -211,6 +258,10 @@ stringData:
 
     # ── 3. Deployment oauth2-proxy-desktop ───────────────────────────────────
     echo "${__STEP_START__} deployment_oauth2_proxy"
+    # Usar ClusterIP directa del svc fedora-kde para evitar resolución DNS lenta
+    local fedora_ip
+    fedora_ip=$(_k get svc -n "$NS" fedora-kde -o jsonpath='{.spec.clusterIP}' 2>/dev/null || true)
+    local upstream_url="http://${fedora_ip:-fedora-kde.${NS}.svc.cluster.local}:80"
     _apply "deployment_oauth2" "
 apiVersion: apps/v1
 kind: Deployment
@@ -236,7 +287,7 @@ spec:
         args:
         - --provider=keycloak-oidc
         - --http-address=0.0.0.0:4180
-        - --upstream=${DESKTOP_SVC}
+        - --upstream=${upstream_url}
         - --oidc-issuer-url=${PUBLIC_URL}/realms/${KC_REALM}
         - --redirect-url=${REDIRECT_URL}
         - --proxy-prefix=/desktop/oauth2
@@ -371,6 +422,29 @@ spec:
           app: oauth2-proxy-desktop
     ports:
     - port: 8080
+      protocol: TCP
+"
+    # Ingress en fedora-kde: permite que oauth2-proxy llegue al pod (targetPort=6901)
+    # NetworkPolicy aplica al puerto del POD, no al del Service (port:80→targetPort:6901)
+    _apply "netpol_fedorakde_from_o2" "
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-oauth2-to-fedora-kde
+  namespace: ${NS}
+spec:
+  podSelector:
+    matchLabels:
+      app: fedora-kde
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: oauth2-proxy-desktop
+    ports:
+    - port: 6901
       protocol: TCP
 "
     echo "${__STEP_OK__} network_policy"
