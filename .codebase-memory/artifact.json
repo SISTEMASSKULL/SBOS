@@ -1,11 +1,11 @@
 {
     "schema_version": 2,
-    "commit": "10fae80ba3cf399a6a9c0dc3f56fffb73c9fbec8",
-    "indexed_at": "2026-08-04T23:15:04Z",
+    "commit": "fccaca21b66c7614193807307e557fb8ffc5d4d3",
+    "indexed_at": "2026-10-09T01:59:42Z",
     "project": "opt-skull-orquestador-proyectos-SBOS",
-    "nodes": 111487,
-    "edges": 238193,
-    "original_size": 225247232,
-    "compressed_size": 30125003,
+    "nodes": 112571,
+    "edges": 251546,
+    "original_size": 232128512,
+    "compressed_size": 31085188,
     "compression_level": 3
 }
