@@ -17,8 +17,9 @@ KUBECONFIG_DEST="${KUBECONFIG_DEST:-/etc/bos/.kube/config}"
 readonly NS="sbos-data"
 readonly MINIO_POD="minio-0"
 readonly MINIO_STS="minio"
-readonly MINIO_IMAGE="minio/minio:RELEASE.2025-05-24T17-08-30Z"
-# mc compatible con el release del servidor (mismo período)
+# SeaweedFS: S3-compatible, imagen pública (minio/minio requiere auth Docker Hub desde 2025)
+readonly MINIO_IMAGE="chrislusf/seaweedfs:latest"
+# mc: cliente S3 — se intentará usar; si ErrImagePull se hace SKIP no FAIL
 readonly MC_IMAGE="minio/mc:RELEASE.2025-05-14T01-36-59Z"
 # URL interna para Jobs en el mismo namespace (headless → DNS al pod)
 readonly MINIO_INTERNAL_URL="http://minio-0.minio.${NS}.svc.cluster.local:9000"
@@ -201,6 +202,20 @@ ficha_install() {
     }
     echo "${__STEP_OK__} crear_secret"
 
+    # ── 1b. ConfigMap SeaweedFS S3 ───────────────────────────────
+    echo "${__STEP_START__} crear_configmap_seaweedfs"
+    local s3_json
+    s3_json="{\"identities\":[{\"name\":\"admin\",\"credentials\":[{\"accessKey\":\"${MINIO_ROOT_USER}\",\"secretKey\":\"${MINIO_ROOT_PASSWORD}\"}],\"actions\":[\"Admin\",\"Read\",\"Write\",\"Tagging\",\"List\"]}]}"
+    _k create configmap seaweedfs-s3-config \
+        --namespace="$NS" \
+        --from-literal=s3.json="$s3_json" \
+        --dry-run=client -o yaml 2>/dev/null \
+        | _k apply -f - >> "$FICHA_LOG" 2>&1 || {
+        echo "${__STEP_FAIL__} crear_configmap_seaweedfs"
+        return 1
+    }
+    echo "${__STEP_OK__} crear_configmap_seaweedfs"
+
     # ── 2. PVC ───────────────────────────────────────────────────
     echo "${__STEP_START__} crear_pvc"
     _apply "pvc" "apiVersion: v1
@@ -240,19 +255,35 @@ spec:
     metadata:
       labels:
         app: minio
+      annotations:
+        linkerd.io/inject: disabled
     spec:
       containers:
         - name: minio
           image: ${MINIO_IMAGE}
-          command: [minio, server, /data, --console-address, \":9001\"]
+          command:
+            - weed
+            - server
+            - -dir=/data
+            - -s3
+            - -s3.port=9000
+            - -s3.config=/etc/seaweedfs/s3.json
           ports:
             - containerPort: 9000
-              name: api
-            - containerPort: 9001
-              name: console
-          envFrom:
-            - secretRef:
-                name: minio-credentials
+              name: s3api
+            - containerPort: 9333
+              name: master
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: MINIO_ROOT_USER
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: MINIO_ROOT_PASSWORD
           resources:
             requests:
               cpu: \"200m\"
@@ -261,15 +292,13 @@ spec:
               cpu: \"1\"
               memory: \"1Gi\"
           readinessProbe:
-            httpGet:
-              path: /minio/health/ready
+            tcpSocket:
               port: 9000
-            initialDelaySeconds: 10
+            initialDelaySeconds: 15
             periodSeconds: 10
             timeoutSeconds: 5
           livenessProbe:
-            httpGet:
-              path: /minio/health/live
+            tcpSocket:
               port: 9000
             initialDelaySeconds: 30
             periodSeconds: 15
@@ -277,17 +306,16 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /data
-            - name: tls
-              mountPath: /root/.minio/certs
+            - name: seaweedfs-config
+              mountPath: /etc/seaweedfs
               readOnly: true
       volumes:
         - name: data
           persistentVolumeClaim:
             claimName: sbos-minio-pvc
-        - name: tls
-          secret:
-            secretName: minio-tls
-            optional: true
+        - name: seaweedfs-config
+          configMap:
+            name: seaweedfs-s3-config
 ---
 apiVersion: v1
 kind: Service
