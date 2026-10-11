@@ -162,6 +162,23 @@ ficha_pre_install() {
 
 # ── Install ───────────────────────────────────────────────────────────────────
 ficha_install() {
+    # ── 0. Configurar realm skull para HTTP + redirects públicos ─────────────
+    # sslRequired=none: KC acepta HTTP (no TLS entre pods)
+    # frontendUrl: browser recibe URLs públicas en los redirects OIDC
+    echo "${__STEP_START__} configurar_realm_skull"
+    _kexec /opt/keycloak/bin/kcadm.sh config credentials \
+        --server http://localhost:8080 --realm master \
+        --user "$(kubectl --kubeconfig="$KUBECONFIG_DEST" get secret -n "$NS_KC" keycloak-admin \
+            -o jsonpath='{.data.KEYCLOAK_ADMIN}' 2>/dev/null | base64 -d)" \
+        --password "$(kubectl --kubeconfig="$KUBECONFIG_DEST" get secret -n "$NS_KC" keycloak-admin \
+            -o jsonpath='{.data.KEYCLOAK_ADMIN_PASSWORD}' 2>/dev/null | base64 -d)" \
+        >> "$FICHA_LOG" 2>&1
+    _kexec /opt/keycloak/bin/kcadm.sh update "realms/${KC_REALM}" \
+        -s sslRequired=none \
+        -s "attributes.frontendUrl=${PUBLIC_URL}" \
+        >> "$FICHA_LOG" 2>&1
+    echo "${__STEP_OK__} configurar_realm_skull"
+
     # ── 1. Crear cliente OIDC en Keycloak ────────────────────────────────────
     echo "${__STEP_START__} crear_cliente_keycloak"
     _crear_cliente_keycloak || {
@@ -220,7 +237,7 @@ spec:
         - --provider=keycloak-oidc
         - --http-address=0.0.0.0:4180
         - --upstream=${DESKTOP_SVC}
-        - --oidc-issuer-url=${KC_HOST}/realms/${KC_REALM}
+        - --oidc-issuer-url=${PUBLIC_URL}/realms/${KC_REALM}
         - --redirect-url=${REDIRECT_URL}
         - --proxy-prefix=/desktop/oauth2
         - --cookie-path=/desktop
@@ -414,6 +431,21 @@ ficha_verify() {
 
 # ── Repair ────────────────────────────────────────────────────────────────────
 ficha_repair() {
+    # Re-aplicar configuración del realm (idempotente — sobrescribe si cambió)
+    echo "${__STEP_START__} repair_realm_skull"
+    _kexec /opt/keycloak/bin/kcadm.sh config credentials \
+        --server http://localhost:8080 --realm master \
+        --user "$(_k get secret -n "$NS_KC" keycloak-admin \
+            -o jsonpath='{.data.KEYCLOAK_ADMIN}' 2>/dev/null | base64 -d)" \
+        --password "$(_k get secret -n "$NS_KC" keycloak-admin \
+            -o jsonpath='{.data.KEYCLOAK_ADMIN_PASSWORD}' 2>/dev/null | base64 -d)" \
+        >> "$FICHA_LOG" 2>&1
+    _kexec /opt/keycloak/bin/kcadm.sh update "realms/${KC_REALM}" \
+        -s sslRequired=none \
+        -s "attributes.frontendUrl=${PUBLIC_URL}" \
+        >> "$FICHA_LOG" 2>&1 || true
+    echo "${__STEP_OK__} repair_realm_skull"
+
     # Verificar si hay que re-crear el cliente Keycloak
     echo "${__STEP_START__} repair_verificar_cliente_keycloak"
     local KC_ADMIN_USER KC_ADMIN_PASS
