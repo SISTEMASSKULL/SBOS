@@ -244,7 +244,7 @@ metadata:
   namespace: ${NS}
   labels:
     app: minio
-    sbos-managed: \"true\"
+    sbos-managed: managed
 spec:
   serviceName: minio
   replicas: 1
@@ -286,11 +286,11 @@ spec:
                   key: MINIO_ROOT_PASSWORD
           resources:
             requests:
-              cpu: \"200m\"
-              memory: \"512Mi\"
+              cpu: 200m
+              memory: 512Mi
             limits:
-              cpu: \"1\"
-              memory: \"1Gi\"
+              cpu: 1000m
+              memory: 1Gi
           readinessProbe:
             tcpSocket:
               port: 9000
@@ -324,17 +324,16 @@ metadata:
   namespace: ${NS}
   labels:
     app: minio
-    sbos-managed: \"true\"
+    sbos-managed: managed
 spec:
-  type: ClusterIP
   clusterIP: None
   ports:
     - port: 9000
       targetPort: 9000
-      name: api
-    - port: 9001
-      targetPort: 9001
-      name: console
+      name: s3api
+    - port: 9333
+      targetPort: 9333
+      name: master
   selector:
     app: minio" || {
         echo "${__STEP_FAIL__} deploy_statefulset"
