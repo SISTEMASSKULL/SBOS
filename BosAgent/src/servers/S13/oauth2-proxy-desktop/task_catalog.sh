@@ -298,6 +298,7 @@ spec:
 
     # ── 5. NetworkPolicy ─────────────────────────────────────────────────────
     echo "${__STEP_START__} network_policy"
+    # Ingress: nginx y cualquier cliente interno pueden llegar al proxy
     _apply "netpol_oauth2_ingress" "
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -313,6 +314,7 @@ spec:
   ingress:
   - {}
 "
+    # Egress: oauth2-proxy necesita llegar a Keycloak (sbos-security) y fedora-kde
     _apply "netpol_oauth2_egress" "
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -327,6 +329,32 @@ spec:
   - Egress
   egress:
   - {}
+"
+    # Ingress en sbos-security: permite que oauth2-proxy-desktop llegue a Keycloak
+    # La NetworkPolicy default en sbos-security bloquea tráfico desde sbos-vdi
+    _apply "netpol_keycloak_from_vdi" "
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-oauth2-desktop-to-keycloak
+  namespace: ${NS_KC}
+spec:
+  podSelector:
+    matchLabels:
+      app: keycloak
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: ${NS}
+      podSelector:
+        matchLabels:
+          app: oauth2-proxy-desktop
+    ports:
+    - port: 8080
+      protocol: TCP
 "
     echo "${__STEP_OK__} network_policy"
 
