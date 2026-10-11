@@ -427,17 +427,24 @@ func deployTenant(seedPath string) error {
 	}
 
 	// ── PASO 7: Fichas del tenant en orden topológico ───────────────
+	// Las fichas de aplicación son opcionales: un fallo no hace rollback
+	// de infraestructura (K8s, PG, Vault, KC ya están operativos).
+	// El estado INSTALL_FAILED se registra y el observer lo reintenta en Day 1.
 	fmt.Println("[7/7] Instalando fichas del tenant...")
+	var fichasFallidas []string
 	for _, ficha := range cfg.Fichas {
 		fmt.Printf("  📦 %s...", ficha)
 		if err := installFicha(ficha, map[string]string{
 			"TENANT_ID": tenantID,
 		}); err != nil {
-			fmt.Println(" ❌")
-			compensateSteps123456(tenantID)
-			return fmt.Errorf("PASO 7 (ficha %s): %w", ficha, err)
+			fmt.Printf(" ⚠️  PENDIENTE (%v)\n", err)
+			fichasFallidas = append(fichasFallidas, ficha)
+		} else {
+			fmt.Println(" ✅")
 		}
-		fmt.Println(" ✅")
+	}
+	if len(fichasFallidas) > 0 {
+		fmt.Printf("  ⚠️  %d ficha(s) pendiente(s) para Day 1: %v\n", len(fichasFallidas), fichasFallidas)
 	}
 
 	// ── Usuarios iniciales ──────────────────────────────────────────

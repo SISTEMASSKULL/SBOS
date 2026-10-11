@@ -102,8 +102,7 @@ context_plane:
 # ── PASO 7: Fichas del tenant (instalación en orden DAG) ──────────────
 fichas:
   - sbos-bkernel           # bKernel CDC daemon (daemon soberano)
-  - kong                   # API gateway (prerequisito: tryton-kong.k8s.yml)
-  - tryton                 # ERP soberano 7.4 — contabilidad, inventario, ventas
+  - kong                   # API gateway (prerequisito de todas las fichas de aplicación)
 
 # ── Usuarios iniciales ────────────────────────────────────────────────
 users:

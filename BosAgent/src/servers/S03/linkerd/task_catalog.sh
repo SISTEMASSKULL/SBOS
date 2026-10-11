@@ -233,6 +233,7 @@ ficha_install() {
         --set "proxy.resources.cpu.limit=500m" \
         --set "proxy.resources.memory.request=64Mi" \
         --set "proxy.resources.memory.limit=256Mi" \
+        --set "proxyInit.iptablesMode=nft" \
         --timeout 10m \
         >> "$FICHA_LOG" 2>&1 || {
         echo "${__STEP_FAIL__} instalar_control_plane: helm upgrade --install falló"
@@ -242,9 +243,9 @@ ficha_install() {
 
     # ── 4. Esperar que los pods del control plane estén Ready ─────
     echo "${__STEP_START__} wait_control_plane_ready"
-    _log "Esperando pods linkerd control plane (hasta 5m)..."
+    _log "Esperando pods linkerd control plane (hasta 15m — descarga de imágenes puede tardar)..."
     local pods_ok=0
-    for _i in $(seq 1 30); do
+    for _i in $(seq 1 90); do
         local ready_count
         ready_count=$(_k get pod -n "$NS" --no-headers 2>/dev/null | \
             grep -v "^$" | grep "1/1\|2/2\|3/3" | wc -l || echo "0")
@@ -253,11 +254,11 @@ ficha_install() {
         if [[ "$total_count" -gt 0 && "$ready_count" -ge "$total_count" ]]; then
             pods_ok=1; break
         fi
-        _log "  Control plane pods ready: ${ready_count}/${total_count} (${_i}/30)"
+        _log "  Control plane pods ready: ${ready_count}/${total_count} (${_i}/90)"
         sleep 10
     done
     if [[ "$pods_ok" -eq 0 ]]; then
-        echo "${__STEP_FAIL__} wait_control_plane_ready: pods no Ready en 5m"
+        echo "${__STEP_FAIL__} wait_control_plane_ready: pods no Ready en 15m"
         return 1
     fi
     _log "Control plane listo"
