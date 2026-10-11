@@ -11,32 +11,29 @@ ENV LANG=es_ES.UTF-8 \
     DEPTH=24 \
     VNC_PASSWORD=sbos_desk
 
-# Instalar KDE Plasma 6 (foco) + TigerVNC + noVNC desde repos oficiales Fedora
-RUN dnf install -y --setopt=install_weak_deps=False \
+# Instalar KDE Plasma 6 + TigerVNC + noVNC desde repos oficiales Fedora 44
+# --skip-unavailable evita fallos por paquetes renombrados entre versiones
+RUN dnf install -y --setopt=install_weak_deps=False --skip-unavailable \
     # Entorno de escritorio KDE Plasma 6
     plasma-workspace \
-    plasma-workspace-x11 \
     kwin \
     plasma-systemsettings \
     plasma-nm \
     plasma-pa \
-    powerdevil \
-    kscreen \
-    knotifyconfig \
-    # Aplicaciones esenciales
+    # Aplicaciones esenciales del desktop
     konsole \
     dolphin \
     spectacle \
     kate \
     ark \
-    # Browser (SSO con Keycloak)
+    # Browser para SSO con Keycloak
     chromium \
-    # VNC (TigerVNC crea su propio display virtual Xvnc)
+    # VNC: TigerVNC crea su propio display virtual (Xvnc)
     tigervnc-server \
-    # noVNC: cliente web HTML5 para VNC
+    # noVNC: cliente web HTML5 + proxy websocket
     novnc \
     python3-websockify \
-    # Soporte X11 / dbus
+    # Soporte X11 y dbus
     dbus-x11 \
     xdg-user-dirs \
     xdg-utils \
@@ -46,10 +43,8 @@ RUN dnf install -y --setopt=install_weak_deps=False \
     google-noto-emoji-fonts \
     liberation-fonts \
     # Localización español
-    langpacks-es \
     glibc-langpack-es \
     # Utilidades de sistema
-    sudo \
     procps-ng \
     net-tools \
     curl \
