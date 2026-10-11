@@ -1,7 +1,7 @@
 identity:
   id: "fedora-kde"
   name: "Fedora KDE — Escritorio Virtual Corporativo"
-  version: "41.0.0"
+  version: "44.0.0"
   server: "S13"
   namespace: "sbos-vdi"
   category: 2

@@ -1,0 +1,86 @@
+FROM registry.fedoraproject.org/fedora:44
+
+LABEL maintainer="SBOS" \
+      description="SBOS Corporate Desktop — Fedora 44 KDE Plasma 6 + TigerVNC + noVNC" \
+      version="1.0.0"
+
+ENV LANG=es_ES.UTF-8 \
+    LC_ALL=es_ES.UTF-8 \
+    DISPLAY=:1 \
+    RESOLUTION=1920x1080 \
+    DEPTH=24 \
+    VNC_PASSWORD=sbos_desk
+
+# Instalar KDE Plasma 6 (foco) + TigerVNC + noVNC desde repos oficiales Fedora
+RUN dnf install -y --setopt=install_weak_deps=False \
+    # Entorno de escritorio KDE Plasma 6
+    plasma-workspace \
+    plasma-workspace-x11 \
+    kwin \
+    plasma-systemsettings \
+    plasma-nm \
+    plasma-pa \
+    powerdevil \
+    kscreen \
+    knotifyconfig \
+    # Aplicaciones esenciales
+    konsole \
+    dolphin \
+    spectacle \
+    kate \
+    ark \
+    # Browser (SSO con Keycloak)
+    chromium \
+    # VNC (TigerVNC crea su propio display virtual Xvnc)
+    tigervnc-server \
+    # noVNC: cliente web HTML5 para VNC
+    novnc \
+    python3-websockify \
+    # Soporte X11 / dbus
+    dbus-x11 \
+    xdg-user-dirs \
+    xdg-utils \
+    # Fuentes profesionales
+    google-noto-sans-fonts \
+    google-noto-serif-fonts \
+    google-noto-emoji-fonts \
+    liberation-fonts \
+    # Localización español
+    langpacks-es \
+    glibc-langpack-es \
+    # Utilidades de sistema
+    sudo \
+    procps-ng \
+    net-tools \
+    curl \
+    wget \
+    which \
+    && dnf clean all \
+    && rm -rf /var/cache/dnf /var/log/dnf*
+
+# Configurar locale español
+RUN localedef -i es_ES -f UTF-8 es_ES.UTF-8
+
+# Crear usuario del desktop (uid fijo para volúmenes persistentes)
+RUN useradd -u 1001 -ms /bin/bash sbosuser && \
+    echo "sbosuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/sbosuser && \
+    chmod 440 /etc/sudoers.d/sbosuser
+
+# Directorio para los archivos de configuración del sistema
+RUN mkdir -p /etc/sbos-desktop
+
+# Script de inicio KDE para TigerVNC
+COPY resources/xstartup /etc/sbos-desktop/xstartup
+RUN chmod +x /etc/sbos-desktop/xstartup
+
+# Configuración KDE inicial (tema profesional, barra inferior)
+COPY resources/kde-defaults/ /etc/sbos-desktop/kde-defaults/
+
+# Punto de entrada del contenedor
+COPY resources/start-desktop.sh /start-desktop.sh
+RUN chmod +x /start-desktop.sh
+
+# noVNC sirve en :6901 (websockify proxy → VNC :5900)
+EXPOSE 6901
+
+CMD ["/start-desktop.sh"]

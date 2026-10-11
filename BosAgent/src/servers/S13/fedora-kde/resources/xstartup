@@ -1,0 +1,23 @@
+#!/bin/bash
+# xstartup — inicia KDE Plasma 6 en la sesión TigerVNC
+unset SESSION_MANAGER
+unset DBUS_SESSION_BUS_ADDRESS
+
+export XDG_SESSION_TYPE=x11
+export XDG_CURRENT_DESKTOP=KDE
+export DESKTOP_SESSION=plasma
+export QT_QPA_PLATFORM=xcb
+export KDE_FULL_SESSION=true
+export PLASMA_USE_QT_SCALING=1
+
+# Configurar directorio de usuario si no existe
+xdg-user-dirs-update 2>/dev/null || true
+
+# Aplicar configuración KDE inicial si no ha sido aplicada
+if [[ ! -f "$HOME/.config/kde-sbos-initialized" ]]; then
+    cp -r /etc/sbos-desktop/kde-defaults/. "$HOME/.config/" 2>/dev/null || true
+    touch "$HOME/.config/kde-sbos-initialized"
+fi
+
+# Iniciar gestor de ventanas y shell Plasma
+exec startplasma-x11

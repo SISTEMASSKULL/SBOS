@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # task_catalog.sh — fedora-kde
-# Fedora KDE 41 — escritorio virtual corporativo (VNC + noVNC)
-# Dependencias: keycloak, kong, guacamole
-# Nota: imagen personalizada con KDE Plasma + herramientas corporativas
+# SBOS Corporate Desktop: Fedora 44 + KDE Plasma 6 + TigerVNC + noVNC
+# La ficha construye su propia imagen soberana con buildah (sin Docker Hub).
+# SSO: oauth2-proxy + Keycloak autentica el acceso al desktop y a todas las apps.
 set -euo pipefail
 
 __STEP_START__="${__SBOS__STEP_START__:-__SBOS__STEP_START__}"
@@ -13,9 +13,14 @@ __STEP_SKIP__="${__SBOS__STEP_SKIP__:-__SBOS__STEP_SKIP__}"
 FICHA_LOG="${FICHA_LOG:-/var/log/bos/fichas/fedora-kde.log}"
 KUBECONFIG_DEST="${KUBECONFIG_DEST:-/etc/bos/.kube/config}"
 NS="${NS:-sbos-vdi}"
-# Imagen base con KDE + noVNC — usar dorowu/ubuntu-desktop-lxde-vnc como base
-# hasta que esté disponible la imagen personalizada Fedora SBOS
-FEDORA_IMAGE="${FEDORA_IMAGE:-dorowu/ubuntu-desktop-lxde-vnc:focal}"
+
+# Directorio de la ficha — contexto de build para buildah
+FICHA_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Imagen soberana construida localmente con buildah
+SBOS_IMAGE="${SBOS_IMAGE:-docker.io/sbos/fedora-desktop:1.0.0}"
+# Ruta del OCI archive exportado (persistente entre reparaciones)
+SBOS_OCI_ARCHIVE="/opt/sbos-images/sbos-fedora-desktop.tar"
 
 _log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [fedora-kde] $*" | tee -a "$FICHA_LOG"; }
 _k()   { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@"; }
@@ -31,6 +36,62 @@ _wait_pod() {
     return 1
 }
 
+# ── Build de imagen soberana ──────────────────────────────────────
+# Construye la imagen con buildah desde el Containerfile local.
+# Solo construye si la imagen no existe ya en containerd.
+_build_image() {
+    echo "${__STEP_START__} build_imagen_soberana"
+
+    # Verificar si ya existe en el namespace k8s.io de containerd
+    if crictl images 2>/dev/null | grep -qF "sbos/fedora-desktop"; then
+        _log "imagen $SBOS_IMAGE ya existe en containerd"
+        echo "${__STEP_SKIP__} build_imagen_soberana (ya existe)"
+        return 0
+    fi
+
+    # Verificar prerrequisito: buildah disponible
+    if ! command -v buildah &>/dev/null; then
+        _log "ERROR: buildah no encontrado en PATH"
+        echo "${__STEP_FAIL__} build_imagen_soberana"
+        return 1
+    fi
+
+    _log "iniciando build de $SBOS_IMAGE desde $FICHA_DIR (~30-45 min)"
+    _log "los logs de buildah se escriben en $FICHA_LOG"
+
+    # Build (--layers activa cache de capas para reconstrucciones rápidas)
+    buildah build \
+        --layers \
+        --format oci \
+        -t "$SBOS_IMAGE" \
+        "$FICHA_DIR/" >> "$FICHA_LOG" 2>&1 || {
+            _log "ERROR: buildah build falló — ver $FICHA_LOG"
+            echo "${__STEP_FAIL__} build_imagen_soberana"
+            return 1
+        }
+
+    _log "build completado, exportando OCI archive..."
+    mkdir -p "$(dirname "$SBOS_OCI_ARCHIVE")"
+
+    # Exportar a OCI archive con el tag completo
+    buildah push "$SBOS_IMAGE" \
+        "oci-archive:${SBOS_OCI_ARCHIVE}:${SBOS_IMAGE}" >> "$FICHA_LOG" 2>&1 || {
+            _log "ERROR: buildah push (OCI archive) falló"
+            echo "${__STEP_FAIL__} build_imagen_soberana"
+            return 1
+        }
+
+    # Importar al namespace k8s.io de containerd para uso por K8s
+    ctr -n k8s.io images import "$SBOS_OCI_ARCHIVE" >> "$FICHA_LOG" 2>&1 || {
+        _log "ERROR: ctr images import falló"
+        echo "${__STEP_FAIL__} build_imagen_soberana"
+        return 1
+    }
+
+    _log "imagen $SBOS_IMAGE importada a containerd OK"
+    echo "${__STEP_OK__} build_imagen_soberana"
+}
+
 # ── Pre-install ───────────────────────────────────────────────────
 ficha_pre_install() {
     echo "${__STEP_START__} crear_namespace"
@@ -40,15 +101,17 @@ ficha_pre_install() {
     fi
     echo "${__STEP_OK__} crear_namespace"
 
+    # Construir imagen soberana si no existe
+    _build_image
+
     echo "${__STEP_START__} fedora_kde_secret"
-    # VNC protocol limita passwords a 8 chars — usar hex de 4 bytes (8 chars alfanuméricos)
+    # VNC limita contraseñas a 8 chars — usar hex de 4 bytes (8 chars)
     local vnc_pass_actual=""
     if _k get secret -n "$NS" fedora-kde-credentials &>/dev/null; then
         vnc_pass_actual=$(_k get secret fedora-kde-credentials -n "$NS" \
             -o jsonpath='{.data.VNC_PASSWORD}' 2>/dev/null | base64 -d || echo "")
     fi
     if [[ "${#vnc_pass_actual}" -gt 8 || -z "$vnc_pass_actual" ]]; then
-        # Regenerar: password anterior demasiado largo o inexistente
         local vnc_pass; vnc_pass=$(openssl rand -hex 4)
         _k create secret generic fedora-kde-credentials \
             --namespace="$NS" \
@@ -85,12 +148,11 @@ spec:
     spec:
       containers:
       - name: fedora-kde
-        image: ${FEDORA_IMAGE}
+        image: ${SBOS_IMAGE}
+        imagePullPolicy: Never
         ports:
-        - containerPort: 80
-          name: novnc
-        - containerPort: 5900
-          name: vnc
+        - containerPort: 6901
+          name: webconsole
         env:
         - name: VNC_PASSWORD
           valueFrom:
@@ -103,17 +165,17 @@ spec:
           value: "24"
         resources:
           requests:
-            memory: "512Mi"
-            cpu: "250m"
+            memory: "1Gi"
+            cpu: "500m"
           limits:
-            memory: "2Gi"
+            memory: "4Gi"
             cpu: "2000m"
         readinessProbe:
           tcpSocket:
-            port: 5900
-          initialDelaySeconds: 15
-          periodSeconds: 10
-          failureThreshold: 6
+            port: 6901
+          initialDelaySeconds: 60
+          periodSeconds: 15
+          failureThreshold: 12
 ---
 apiVersion: v1
 kind: Service
@@ -129,7 +191,7 @@ spec:
   ports:
   - name: webconsole
     port: 80
-    targetPort: 80
+    targetPort: 6901
 YAML
 }
 
@@ -141,7 +203,7 @@ ficha_install() {
     echo "${__STEP_OK__} deploy_fedora_kde"
 
     echo "${__STEP_START__} verify"
-    _wait_pod "fedora-kde" 300
+    _wait_pod "fedora-kde" 600
     echo "${__STEP_OK__} verify"
 }
 
@@ -149,9 +211,7 @@ ficha_install() {
 ficha_repair() {
     ficha_pre_install
     echo "${__STEP_START__} repair"
-    echo "${__STEP_START__} deploy_fedora_kde"
     _apply_fedora_kde
-    echo "${__STEP_OK__} deploy_fedora_kde"
     _log "repair: $(_k get pods -n $NS -l app=fedora-kde --no-headers 2>/dev/null | head -1)"
     echo "${__STEP_OK__} repair"
 

@@ -1,0 +1,15 @@
+[General]
+ColorScheme=BreezeDark
+Name=BreezeDark
+widgetStyle=Breeze
+
+[Icons]
+Theme=breeze-dark
+
+[KDE]
+LookAndFeelPackage=org.kde.breezedark.desktop
+ShowDeleteCommand=false
+SingleClick=false
+
+[Colors:Window]
+BackgroundNormal=49,54,59
