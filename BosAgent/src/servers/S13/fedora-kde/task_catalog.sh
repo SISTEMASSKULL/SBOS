@@ -41,14 +41,23 @@ ficha_pre_install() {
     echo "${__STEP_OK__} crear_namespace"
 
     echo "${__STEP_START__} fedora_kde_secret"
+    # VNC protocol limita passwords a 8 chars — usar hex de 4 bytes (8 chars alfanuméricos)
+    local vnc_pass_actual=""
     if _k get secret -n "$NS" fedora-kde-credentials &>/dev/null; then
-        echo "${__STEP_SKIP__} secret fedora-kde-credentials ya existe"
-    else
-        local vnc_pass; vnc_pass=$(openssl rand -base64 12)
+        vnc_pass_actual=$(_k get secret fedora-kde-credentials -n "$NS" \
+            -o jsonpath='{.data.VNC_PASSWORD}' 2>/dev/null | base64 -d || echo "")
+    fi
+    if [[ "${#vnc_pass_actual}" -gt 8 || -z "$vnc_pass_actual" ]]; then
+        # Regenerar: password anterior demasiado largo o inexistente
+        local vnc_pass; vnc_pass=$(openssl rand -hex 4)
         _k create secret generic fedora-kde-credentials \
             --namespace="$NS" \
-            --from-literal=VNC_PASSWORD="$vnc_pass" >> "$FICHA_LOG" 2>&1
-        echo "${__STEP_OK__} fedora_kde_secret"
+            --from-literal=VNC_PASSWORD="$vnc_pass" \
+            --dry-run=client -o yaml 2>/dev/null | _k apply -f - >> "$FICHA_LOG" 2>&1
+        _log "VNC password regenerado (8 chars): $vnc_pass"
+        echo "${__STEP_OK__} fedora_kde_secret (password corregido)"
+    else
+        echo "${__STEP_SKIP__} fedora_kde_secret ya OK (${#vnc_pass_actual} chars)"
     fi
 }
 
@@ -61,7 +70,7 @@ metadata:
   namespace: ${NS}
   labels:
     app: fedora-kde
-    sbos-managed: "true"
+    sbos-managed: managed
 spec:
   replicas: 1
   selector:
@@ -71,6 +80,8 @@ spec:
     metadata:
       labels:
         app: fedora-kde
+      annotations:
+        linkerd.io/inject: disabled
     spec:
       containers:
       - name: fedora-kde
@@ -87,14 +98,16 @@ spec:
               name: fedora-kde-credentials
               key: VNC_PASSWORD
         - name: RESOLUTION
-          value: "1920x1080"
+          value: "1280x720"
+        - name: DEPTH
+          value: "16"
         resources:
           requests:
-            memory: "1Gi"
-            cpu: "500m"
+            memory: "512Mi"
+            cpu: "250m"
           limits:
-            memory: "4Gi"
-            cpu: "4000m"
+            memory: "2Gi"
+            cpu: "2000m"
         readinessProbe:
           tcpSocket:
             port: 5900
