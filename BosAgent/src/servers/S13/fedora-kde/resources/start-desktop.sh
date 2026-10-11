@@ -57,5 +57,14 @@ su sbosuser -c "
     bash '$HOME_DIR/.vnc/xstartup' >> /tmp/xstartup.log 2>&1 &
 "
 
+# Crear subdirectorio /desktop/ dentro del directorio web de noVNC.
+# nginx pasa el path completo (/desktop/...) a oauth2-proxy, que lo reenvía al upstream.
+# websockify busca archivos en /usr/share/novnc/desktop/ para servir GET /desktop/*.
+NOVNC_WEB="/usr/share/novnc"
+if [[ ! -d "${NOVNC_WEB}/desktop" ]]; then
+    cp -a "${NOVNC_WEB}/." "${NOVNC_WEB}/desktop/"
+    echo "[start-desktop] Creado subdirectorio noVNC: ${NOVNC_WEB}/desktop/"
+fi
+
 echo "[start-desktop] noVNC en :6901 → VNC :${VNC_PORT}"
 exec websockify --web /usr/share/novnc/ 6901 "localhost:${VNC_PORT}"

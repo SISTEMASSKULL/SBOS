@@ -23,8 +23,9 @@ readonly KC_HOST="http://keycloak.${NS_KC}.svc.cluster.local:8080"
 readonly DESKTOP_SVC="http://fedora-kde.${NS}.svc.cluster.local:80"
 readonly CLIENT_ID="${DESKTOP_CLIENT_ID:-sbos-desktop}"
 readonly KC_REALM="${KC_REALM:-skull}"
-readonly PUBLIC_URL="${SBOS_PUBLIC_URL:-http://13.140.128.230}"
+readonly PUBLIC_URL="${SBOS_PUBLIC_URL:-https://13.140.128.230}"
 readonly REDIRECT_URL="${PUBLIC_URL}/desktop/oauth2/callback"
+readonly KC_INTERNAL_URL="http://keycloak.${NS_KC}.svc.cluster.local:8080"
 
 _log()   { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [oauth2-proxy-desktop] $*" | tee -a "$FICHA_LOG"; }
 _k()     { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@"; }
@@ -288,7 +289,7 @@ spec:
         - --provider=keycloak-oidc
         - --http-address=0.0.0.0:4180
         - --upstream=${upstream_url}
-        - --oidc-issuer-url=${PUBLIC_URL}/realms/${KC_REALM}
+        - --oidc-issuer-url=${KC_INTERNAL_URL}/realms/${KC_REALM}
         - --redirect-url=${REDIRECT_URL}
         - --proxy-prefix=/desktop/oauth2
         - --cookie-path=/desktop
@@ -301,6 +302,8 @@ spec:
         - --pass-user-headers=true
         - --reverse-proxy=true
         - --real-client-ip-header=X-Real-IP
+        - --insecure-oidc-skip-issuer-verification=true
+        - --ssl-insecure-skip-verify=true
         env:
         - name: OAUTH2_PROXY_CLIENT_ID
           valueFrom:

@@ -25,6 +25,9 @@ KUBECONFIG_DEST="${KUBECONFIG_DEST:-/etc/bos/.kube/config}"
 readonly NGINX_CONF="/etc/nginx"
 readonly NGINX_WEBROOT="/var/www/html"
 readonly KONG_SVC="kong.sbos-gateway.svc.cluster.local"
+readonly NGINX_CERTS="${NGINX_CONF}/certs"
+readonly CERT_FILE="${NGINX_CERTS}/sbos.crt"
+readonly CERT_KEY="${NGINX_CERTS}/sbos.key"
 
 # _kong_ip: ClusterIP de Kong — se resuelve en tiempo de instalación via kubectl.
 # Si kubectl no está disponible, usa la dirección de servicio DNS de K8s como fallback.
@@ -38,6 +41,43 @@ _svc_ip() {
     local ns="$1" name="$2"
     _kubectl get svc "$name" -n "$ns" \
         -o jsonpath='{.spec.clusterIP}' 2>/dev/null | grep -E '^[0-9]' || echo ""
+}
+
+# _generar_cert_tls: genera certificado TLS autofirmado con SAN para IP del servidor.
+# Idempotente — no regenera si el cert ya existe y es válido (>30 días de vida restante).
+_generar_cert_tls() {
+    mkdir -p "$NGINX_CERTS"
+    chmod 700 "$NGINX_CERTS"
+
+    # Detectar IP pública del servidor para el SAN
+    local server_ip
+    server_ip=$(curl -sf --max-time 3 https://ifconfig.me 2>/dev/null \
+             || hostname -I 2>/dev/null | awk '{print $1}' \
+             || echo "127.0.0.1")
+    _log "IP del servidor para TLS SAN: $server_ip"
+
+    # No regenerar si el cert ya existe y le quedan >30 días
+    if [[ -f "$CERT_FILE" && -f "$CERT_KEY" ]]; then
+        local dias_restantes
+        dias_restantes=$(openssl x509 -in "$CERT_FILE" -noout -checkend 2592000 2>/dev/null && echo "ok" || echo "vence")
+        if [[ "$dias_restantes" == "ok" ]]; then
+            _log "Certificado TLS existente válido — no se regenera"
+            return 0
+        fi
+        _log "Certificado TLS próximo a vencer — regenerando"
+    fi
+
+    openssl req -x509 -newkey rsa:2048 \
+        -days 3650 -nodes \
+        -keyout "$CERT_KEY" \
+        -out "$CERT_FILE" \
+        -subj "/CN=${server_ip}/O=SBOS/OU=Infraestructura" \
+        -addext "subjectAltName=IP:${server_ip},IP:127.0.0.1" \
+        2>/dev/null
+
+    chmod 600 "$CERT_KEY"
+    chmod 644 "$CERT_FILE"
+    _log "Certificado TLS autofirmado generado: $CERT_FILE (SAN: $server_ip)"
 }
 
 # _escribir_nginx_conf: genera y escribe nginx.conf con IPs actuales de Kong y VDI.
@@ -72,6 +112,8 @@ _escribir_nginx_conf() {
     local vdi_blocks=""
     [[ -n "$desktop_backend" ]] && vdi_blocks+="
         # Fedora KDE Desktop — pasa por oauth2-proxy SSO si está instalado
+        # NOTA: proxy_pass debe preservar el prefijo /desktop/ para que oauth2-proxy
+        # guarde rd=/desktop/ y redirija ahí tras el callback de Keycloak.
         location /desktop/oauth2/ {
             proxy_pass ${desktop_backend}/desktop/oauth2/;
             proxy_http_version 1.1;
@@ -85,7 +127,7 @@ _escribir_nginx_conf() {
             proxy_busy_buffers_size 64k;
         }
         location /desktop/ {
-            proxy_pass ${desktop_backend}/;
+            proxy_pass ${desktop_backend}/desktop/;
             proxy_http_version 1.1;
             proxy_set_header Host \$host;
             proxy_set_header X-Real-IP \$remote_addr;
@@ -141,7 +183,7 @@ _escribir_nginx_conf() {
     cat > "${NGINX_CONF}/nginx.conf" <<NGINX_EOF
 # ============================================================================
 # nginx.conf — SBOS NGINX Ingress (HOST S02)  [generado por ficha nginx]
-# Arquitectura: nginx → Kong (routing soberano) + rutas VDI directas (Iter.1)
+# Arquitectura: HTTP→HTTPS redirect + nginx 443 SSL → Kong + rutas VDI (Iter.1)
 # Generado: $(date -u +%Y-%m-%dT%H:%M:%SZ)
 # ============================================================================
 
@@ -189,10 +231,26 @@ http {
     access_log /var/log/nginx/access.log sbos buffer=32k flush=5s;
     error_log /var/log/nginx/error.log warn;
 
+    # HTTP → HTTPS redirect (todo el tráfico HTTP se eleva a HTTPS)
     server {
         listen 80 default_server;
         listen [::]:80 default_server;
         server_name _;
+        return 301 https://\$host\$request_uri;
+    }
+
+    # HTTPS — servidor principal SBOS
+    server {
+        listen 443 ssl default_server;
+        listen [::]:443 ssl default_server;
+        server_name _;
+
+        ssl_certificate     ${CERT_FILE};
+        ssl_certificate_key ${CERT_KEY};
+        ssl_protocols       TLSv1.2 TLSv1.3;
+        ssl_ciphers         HIGH:!aNULL:!MD5;
+        ssl_session_cache   shared:SSL:10m;
+        ssl_session_timeout 10m;
 
         root /var/www/html;
 
@@ -237,8 +295,9 @@ ${vdi_blocks}
             proxy_send_timeout 60s;
         }
 
+        # Raíz: redirigir al desktop directamente (sin página de índice SBOS)
         location / {
-            try_files \$uri /index.html @kong;
+            return 302 /desktop/;
         }
     }
 }
@@ -306,12 +365,20 @@ ficha_install() {
     _log "nginx versión $nginx_ver instalado"
     echo "${__STEP_OK__} instalar_nginx_paquete (v${nginx_ver})"
 
-    # ── 2. Configurar nginx.conf principal ───────────────────────
+    # ── 2. Generar certificado TLS autofirmado ───────────────────
+    echo "${__STEP_START__} generar_cert_tls"
+    if ! command -v openssl > /dev/null 2>&1; then
+        apt-get install -y -qq openssl 2>/dev/null || true
+    fi
+    _generar_cert_tls
+    echo "${__STEP_OK__} generar_cert_tls"
+
+    # ── 3. Configurar nginx.conf principal ───────────────────────
     echo "${__STEP_START__} configurar_nginx_conf"
     _escribir_nginx_conf
     echo "${__STEP_OK__} configurar_nginx_conf"
 
-    # ── 3. Página de bienvenida SBOS ────────────────────────────
+    # ── 4. Página de bienvenida SBOS ────────────────────────────
     echo "${__STEP_START__} crear_pagina_bienvenida"
     cat > "${NGINX_WEBROOT}/index.html" <<'HTML_EOF'
 <!DOCTYPE html>
@@ -398,7 +465,7 @@ HTML_EOF
     chown www-data:www-data "${NGINX_WEBROOT}/index.html" 2>/dev/null || true
     echo "${__STEP_OK__} crear_pagina_bienvenida"
 
-    # ── 4. Validar sintaxis ─────────────────────────────────────
+    # ── 5. Validar sintaxis ─────────────────────────────────────
     echo "${__STEP_START__} validar_sintaxis"
     if nginx -t 2>&1 | grep -qE "syntax is ok|test is successful"; then
         echo "${__STEP_OK__} validar_sintaxis"
@@ -410,7 +477,7 @@ HTML_EOF
         return 1
     fi
 
-    # ── 5. Habilitar e iniciar nginx ────────────────────────────
+    # ── 6. Habilitar e iniciar nginx ────────────────────────────
     echo "${__STEP_START__} iniciar_nginx"
     systemctl enable nginx 2>/dev/null || true
     systemctl restart nginx 2>/dev/null || {
@@ -426,7 +493,7 @@ HTML_EOF
         return 1
     fi
 
-    # ── 6. Firewall UFW (si está activo) ────────────────────────
+    # ── 7. Firewall UFW (si está activo) ────────────────────────
     echo "${__STEP_START__} configurar_firewall"
     if command -v ufw > /dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
         ufw allow 80/tcp 2>/dev/null || true
@@ -459,6 +526,11 @@ ficha_post_install() {
 
 # ── Repair ────────────────────────────────────────────────────────
 ficha_repair() {
+    # Verificar/regenerar certificado TLS si está ausente o próximo a vencer
+    echo "${__STEP_START__} verificar_cert_tls"
+    _generar_cert_tls
+    echo "${__STEP_OK__} verificar_cert_tls"
+
     # Regenerar nginx.conf con IPs actuales (idempotente)
     echo "${__STEP_START__} regenerar_nginx_conf"
     _escribir_nginx_conf
