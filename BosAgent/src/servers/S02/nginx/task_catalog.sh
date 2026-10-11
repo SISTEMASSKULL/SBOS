@@ -48,20 +48,40 @@ _escribir_nginx_conf() {
     _log "Kong upstream: $kong_ip:8000"
 
     # IPs VDI (pueden estar vacías si el namespace no existe aún)
-    local ip_fedora ip_guac ip_nextcloud ip_grafana ip_onlyoffice
+    local ip_fedora ip_guac ip_nextcloud ip_grafana ip_onlyoffice ip_oauth2_desktop
     ip_fedora=$(_svc_ip "sbos-vdi"        "fedora-kde")
     ip_guac=$(_svc_ip   "sbos-vdi"        "guacamole")
     ip_nextcloud=$(_svc_ip "sbos-vdi"     "nextcloud")
     ip_grafana=$(_svc_ip "sbos-monitoring" "grafana")
     ip_onlyoffice=$(_svc_ip "sbos-vdi"    "onlyoffice")
-    _log "VDI IPs: fedora=$ip_fedora guac=$ip_guac nextcloud=$ip_nextcloud grafana=$ip_grafana onlyoffice=$ip_onlyoffice"
+    # oauth2-proxy-desktop: SSO para /desktop/ — usa su IP si está instalado
+    ip_oauth2_desktop=$(_svc_ip "sbos-vdi" "oauth2-proxy-desktop")
+    _log "VDI IPs: fedora=$ip_fedora guac=$ip_guac nextcloud=$ip_nextcloud grafana=$ip_grafana onlyoffice=$ip_onlyoffice oauth2_desktop=$ip_oauth2_desktop"
+
+    # Backend del desktop: oauth2-proxy si está instalado, fedora-kde directamente si no
+    local desktop_backend=""
+    if [[ -n "$ip_oauth2_desktop" ]]; then
+        desktop_backend="http://${ip_oauth2_desktop}:4180"
+        _log "Desktop via SSO oauth2-proxy: $desktop_backend"
+    elif [[ -n "$ip_fedora" ]]; then
+        desktop_backend="http://${ip_fedora}"
+        _log "Desktop directo (sin SSO): $desktop_backend"
+    fi
 
     # Bloques de rutas VDI — solo se generan si la IP existe
     local vdi_blocks=""
-    [[ -n "$ip_fedora" ]] && vdi_blocks+="
-        # Fedora KDE (noVNC web — puerto 80 del pod)
+    [[ -n "$desktop_backend" ]] && vdi_blocks+="
+        # Fedora KDE Desktop — pasa por oauth2-proxy SSO si está instalado
+        location /desktop/oauth2/ {
+            proxy_pass ${desktop_backend}/desktop/oauth2/;
+            proxy_http_version 1.1;
+            proxy_set_header Host \$host;
+            proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto \$scheme;
+        }
         location /desktop/ {
-            proxy_pass http://${ip_fedora}/;
+            proxy_pass ${desktop_backend}/;
             proxy_http_version 1.1;
             proxy_set_header Host \$host;
             proxy_set_header X-Real-IP \$remote_addr;

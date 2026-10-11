@@ -1,0 +1,42 @@
+identity:
+  id: "oauth2-proxy-desktop"
+  name: "OAuth2-Proxy Desktop — SSO Fedora KDE con Keycloak"
+  version: "7.8.0"
+  server: "S13"
+  namespace: "sbos-vdi"
+  category: 1
+  criticality: true
+
+workload:
+  type: "kubernetes"
+  state: "prod"
+
+order:
+  execution_order: 225
+
+parameters:
+  SBOS_PUBLIC_URL: "http://13.140.128.230"
+  KC_REALM: "skull"
+  DESKTOP_CLIENT_ID: "sbos-desktop"
+
+requirements:
+  ram_mb: 256
+  cpu_cores: 1
+  disk_gb: 1
+  dependencies:
+    - keycloak
+    - fedora-kde
+
+deployment:
+  namespace: "sbos-vdi"
+  workload_type: "Deployment"
+
+health:
+  check_via: "http"
+  path: "/ping"
+  port: 4180
+  interval_seconds: 30
+  failure_threshold: 3
+
+compatibility:
+  min_iam_installer_version: "1.0.0"
