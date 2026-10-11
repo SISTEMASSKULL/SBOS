@@ -1,0 +1,19 @@
+# yaml_engine.yml — tryton-workers
+# Workers asíncronos de Tryton ERP.
+
+deployment:
+  image: "tryton/tryton:7.4"
+  command: ["python3", "-m", "trytond.worker"]
+  replicas: 2
+  namespace: sbos-erp
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+
+config:
+  shares_config_with: tryton
+  config_map: tryton-config

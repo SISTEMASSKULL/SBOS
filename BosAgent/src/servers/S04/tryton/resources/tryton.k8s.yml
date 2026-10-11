@@ -1,0 +1,132 @@
+---
+# Service headless para StatefulSet (DNS por pod: tryton-0.tryton.sbos-erp).
+# Solo para uso interno del StatefulSet — NO usar como upstream del proxy.
+apiVersion: v1
+kind: Service
+metadata:
+  name: tryton
+  namespace: sbos-erp
+  labels:
+    app: tryton
+    managed-by: bos
+spec:
+  clusterIP: None
+  selector:
+    app: tryton
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+---
+# Service ClusterIP para upstream de oauth2-proxy-tryton.
+# Con 1 réplica es equivalente al headless; con 2+ réplicas kube-proxy balancea correctamente.
+apiVersion: v1
+kind: Service
+metadata:
+  name: tryton-upstream
+  namespace: sbos-erp
+  labels:
+    app: tryton
+    managed-by: bos
+spec:
+  selector:
+    app: tryton
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+---
+# StatefulSet Tryton ERP 7.4.
+# 1 réplica inicial — escalar a 2 con 'bosctl ficha repair tryton' tras validación.
+# Credenciales PG inyectadas desde Secret tryton-pg-secret (generado por Vault en install).
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: tryton
+  namespace: sbos-erp
+  labels:
+    app: tryton
+    managed-by: bos
+    version: "7.4"
+spec:
+  serviceName: tryton
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tryton
+  template:
+    metadata:
+      labels:
+        app: tryton
+        managed-by: bos
+    spec:
+      serviceAccountName: tryton-sa
+
+      containers:
+        - name: tryton
+          image: docker.io/tryton/tryton:7.4
+          ports:
+            - containerPort: 8000
+              name: http
+
+          # Credencial PG desde Secret — URI completa con contraseña (Vault → K8s Secret).
+          # Tryton 7.x lee TRYTOND_<SECCION>__<CLAVE> como override del fichero de config.
+          env:
+            - name: TRYTOND_DATABASE__URI
+              valueFrom:
+                secretKeyRef:
+                  name: tryton-pg-secret
+                  key: TRYTOND_DATABASE__URI
+            - name: TRYTOND_WEB__HOSTNAME
+              value: "erp.skull.sbos.local"
+
+          # Configuración sin credenciales montada desde ConfigMap.
+          volumeMounts:
+            - name: config
+              mountPath: /etc/trytond.conf
+              subPath: trytond.conf
+              readOnly: true
+            - name: data
+              mountPath: /var/lib/tryton
+
+          securityContext:
+            privileged: false
+            runAsNonRoot: false
+            allowPrivilegeEscalation: false
+
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 2000m
+              memory: 2Gi
+
+          livenessProbe:
+            tcpSocket:
+              port: 8000
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            failureThreshold: 3
+
+          readinessProbe:
+            tcpSocket:
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 5
+
+      volumes:
+        - name: config
+          configMap:
+            name: tryton-config
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 50Gi

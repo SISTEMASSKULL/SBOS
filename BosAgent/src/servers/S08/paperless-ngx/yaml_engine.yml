@@ -1,0 +1,18 @@
+# yaml_engine.yml — paperless-ngx
+# Paperless-NGX 2.14.7 — gestor documental con OCR y búsqueda full-text.
+
+deployment:
+  image: "ghcr.io/paperless-ngx/paperless-ngx:2.14.7"
+  namespace: sbos-docs
+  replicas: 1
+  port: 8000
+  storage:
+    media: 50Gi
+    consume: 5Gi
+
+config:
+  ocr_language: spa+eng
+  ocr_mode: redo
+  consumer_polling: 0
+  time_zone: "America/La_Paz"
+  url: "/docs"

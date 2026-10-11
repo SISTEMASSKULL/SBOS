@@ -1,0 +1,34 @@
+---
+# PersistentVolume estático para tryton-0 (local-path, no-provisioner).
+# El StorageClass local-path en esta instalación usa kubernetes.io/no-provisioner
+# (sin aprovisionamiento dinámico) — el PV debe crearse explícitamente.
+# El claimRef vincula este PV únicamente al PVC data-tryton-0 en sbos-erp.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: sbos-tryton-pv
+  labels:
+    app: tryton
+    managed-by: bos
+spec:
+  capacity:
+    storage: 50Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-path
+  volumeMode: Filesystem
+  claimRef:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    name: data-tryton-0
+    namespace: sbos-erp
+  hostPath:
+    path: /data/tryton
+    type: DirectoryOrCreate
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: Exists

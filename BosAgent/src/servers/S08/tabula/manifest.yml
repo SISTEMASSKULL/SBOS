@@ -1,0 +1,50 @@
+identity:
+  id: tabula
+  server: S08
+  version: "1.0.5"
+  category: 3
+  criticality: false
+  description: "Tabula 1.0.5 — extractor de tablas desde PDFs. Expone API REST para que Paperless-NGX extraiga datos estructurados de facturas, contratos y reportes fiscales bolivianos."
+
+workload:
+  type: deployment
+  runtime: docker
+  namespace: sbos-docs
+  replicas: 1
+
+order:
+  execution_order: 365
+
+requirements:
+  dependencies:
+    - paperless-ngx
+
+governance:
+  auto_install: false
+  requires_approval: false
+  category_label: "gestion-documental"
+
+meta:
+  backend: k8s
+  idempotent: true
+  estimated_minutes: 3
+  rollback_support: true
+
+ports:
+  - name: http
+    port: 9000
+    protocol: TCP
+    internal_only: true
+
+health:
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get deployment tabula -n sbos-docs -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
+  expected_output: "1"
+  timeout_seconds: 30
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/tabula.log
+
+versions:
+  tabula: "1.0.5"

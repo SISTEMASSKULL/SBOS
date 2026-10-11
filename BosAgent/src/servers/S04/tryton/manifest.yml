@@ -1,0 +1,73 @@
+identity:
+  id: tryton
+  server: S04
+  version: "7.4"
+  category: 1
+  criticality: true
+  description: "Tryton ERP 7.4 — Contabilidad, inventario, ventas, RRHH. MDM hub via bKernel CDC."
+
+workload:
+  type: statefulset
+  runtime: docker
+  namespace: sbos-erp
+  replicas: 1   # iniciar con 1; escalar a 2 con 'bosctl ficha repair tryton' tras validación
+
+order:
+  execution_order: 170
+
+requirements:
+  dependencies:
+    - postgresql
+    - vault
+    - kong
+
+governance:
+  auto_install: false
+  requires_approval: false
+  category_label: "aplicacion-erp"
+
+meta:
+  backend: k8s
+  idempotent: true
+  estimated_minutes: 15
+  rollback_support: true
+
+ports:
+  - name: http
+    port: 8000
+    protocol: TCP
+
+resources:
+  manifests:
+    - resources/tryton-rbac.k8s.yml      # ServiceAccount + Role + RoleBinding
+    - resources/tryton-config.k8s.yml    # ConfigMap trytond.conf (sin credenciales)
+    - resources/tryton.k8s.yml           # Service + StatefulSet
+    - resources/tryton-auth.k8s.yml      # ConfigMap tryton-auth + oauth2-proxy-tryton Deployment + Service
+    - resources/tryton-kong.k8s.yml      # Kong Ingress → oauth2-proxy-tryton:4180 + KongPlugin rate-limit
+    - resources/tryton.network           # NetworkPolicy
+
+vault:
+  secret_path: "secret/tenants/{{ tenant_id }}/tryton"
+  keys:
+    - pg_password
+    - pg_user
+    - pg_db
+  oidc_secret_path: "secret/tenants/{{ tenant_id }}/tryton/oidc"
+  oidc_keys:
+    - client_secret    # Secreto del cliente OIDC registrado en Keycloak/bAuth
+    - cookie_secret    # Cookie secret de oauth2-proxy (32 bytes base64)
+    - client_id        # Siempre "tryton-erp"
+
+health:
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get statefulset tryton -n sbos-erp -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
+  expected_output: "1"
+  timeout_seconds: 30
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/tryton.log
+
+versions:
+  tryton: "7.4"
+  postgresql: "18.4"

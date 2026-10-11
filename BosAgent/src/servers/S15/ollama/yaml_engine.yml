@@ -1,0 +1,9 @@
+# yaml_engine.yml — ollama
+# image: "ollama/ollama:0.6.2"
+
+deployment:
+  image: "ollama/ollama:0.6.2"
+namespace: sbos-ai
+models_default: [llama3.2:3b, mistral:7b]
+gpu_enabled: false
+port: 11434

@@ -1,0 +1,8 @@
+# yaml_engine.yml — docuseal
+# image: "docuseal/docuseal:1.8.9"
+
+deployment:
+  image: "docuseal/docuseal:1.8.9"
+namespace: sbos-docs
+port: 3000
+storage: minio

@@ -1,0 +1,10 @@
+# yaml_engine.yml — qdrant
+# image: "qdrant/qdrant:v1.14.0"
+
+deployment:
+  image: "qdrant/qdrant:v1.14.0"
+namespace: sbos-ai
+type: statefulset
+http_port: 6333
+grpc_port: 6334
+storage: 20Gi

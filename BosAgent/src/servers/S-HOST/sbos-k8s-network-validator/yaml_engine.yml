@@ -1,0 +1,27 @@
+# yaml_engine.yml — sbos-k8s-network-validator
+# Tres pruebas obligatorias antes de instalar PostgreSQL.
+
+validations:
+  dns:
+    description: "CoreDNS resuelve kubernetes.default.svc.cluster.local"
+    namespace: sbos-data
+    timeout_seconds: 30
+
+  pod_to_pod:
+    description: "Dos pods en sbos-data pueden comunicarse entre sí"
+    namespace: sbos-data
+    timeout_seconds: 60
+    cleanup_on_success: true
+
+  storage_class:
+    description: "StorageClass local-path provee un PVC 1Mi en WaitForFirstConsumer"
+    namespace: sbos-data
+    pvc_size: 1Mi
+    storage_class: local-path
+    timeout_seconds: 60
+    cleanup_on_success: true
+
+result_marker:
+  kind: ConfigMap
+  name: sbos-network-validated
+  namespace: sbos-data

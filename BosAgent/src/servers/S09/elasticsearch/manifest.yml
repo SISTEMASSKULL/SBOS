@@ -1,0 +1,60 @@
+identity:
+  id: elasticsearch
+  server: S09
+  version: "8.17.3"
+  category: 1
+  criticality: false
+  description: "Elasticsearch 8.17.3 — motor de búsqueda y análisis full-text. Backend de búsqueda para bsearch, Kibana y aplicaciones SBOS que requieren búsqueda semántica."
+
+workload:
+  type: statefulset
+  runtime: docker
+  namespace: sbos-search
+  replicas: 1
+
+order:
+  execution_order: 400
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-platform
+
+governance:
+  auto_install: false
+  requires_approval: false
+  category_label: "busqueda"
+
+meta:
+  backend: k8s
+  idempotent: true
+  estimated_minutes: 10
+  rollback_support: true
+
+ports:
+  - name: http
+    port: 9200
+    protocol: TCP
+    internal_only: true
+  - name: transport
+    port: 9300
+    protocol: TCP
+    internal_only: true
+
+health:
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get statefulset elasticsearch -n sbos-search -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
+  expected_output: "1"
+  timeout_seconds: 60
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/elasticsearch.log
+
+vault:
+  secret_path: "secret/tenants/{{ tenant_id }}/elasticsearch"
+  keys:
+    - elastic_password
+    - keystore_password
+
+versions:
+  elasticsearch: "8.17.3"
