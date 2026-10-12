@@ -18,7 +18,7 @@ NS="${NS:-sbos-vdi}"
 FICHA_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Imagen soberana construida localmente con buildah
-SBOS_IMAGE="${SBOS_IMAGE:-docker.io/sbos/fedora-desktop:2.0.0}"
+SBOS_IMAGE="${SBOS_IMAGE:-docker.io/sbos/fedora-desktop:1.0.0}"
 # Ruta del OCI archive exportado (persistente entre reparaciones)
 SBOS_OCI_ARCHIVE="/opt/sbos-images/sbos-fedora-desktop.tar"
 
@@ -146,6 +146,9 @@ spec:
       annotations:
         linkerd.io/inject: disabled
     spec:
+      securityContext:
+        seccompProfile:
+          type: Unconfined
       containers:
       - name: fedora-kde
         image: ${SBOS_IMAGE}
@@ -163,6 +166,12 @@ spec:
           value: "1920x1080"
         - name: DEPTH
           value: "24"
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+            - SYS_ADMIN
+            - SYS_PTRACE
         resources:
           requests:
             memory: "1Gi"

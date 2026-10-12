@@ -1,174 +1,89 @@
-FROM ubuntu:24.04 AS theme-build
-
-ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git curl ca-certificates sassc libglib2.0-dev-bin libxml2-utils imagemagick \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN mkdir -p /out/themes /out/icons /out/wallpapers
-
-# ── GTK base: Fluent-round-Dark ───────────────────────────────────────────────
-RUN curl -fsSL "https://github.com/vinceliuice/Fluent-gtk-theme/archive/refs/heads/master.tar.gz" \
-        -o /tmp/fluent-gtk.tar.gz \
-    && tar -xzf /tmp/fluent-gtk.tar.gz -C /tmp/ \
-    && FLUENTDIR=$(find /tmp -maxdepth 1 -type d -name 'Fluent-gtk-theme-*' | head -1) \
-    && bash "$FLUENTDIR/install.sh" -d /out/themes --tweaks round \
-    && rm -rf /tmp/fluent-gtk.tar.gz "$FLUENTDIR"
-
-# ── Tema Windows-11 = Fluent-round-Dark + override CSS colores W11 ────────────
-RUN cp -r /out/themes/Fluent-round-Dark /out/themes/Windows-11 \
-    && sed -i 's/name=Fluent-round-Dark/name=Windows-11/' /out/themes/Windows-11/index.theme \
-    && sed -i 's/Comment=.*/Comment=Windows 11 Dark Theme/' /out/themes/Windows-11/index.theme
-
-# CSS override: colores exactos de Windows 11 Dark
-RUN printf '/* Windows 11 Dark — color override sobre Fluent */\n\
-@define-color accent_color #0078d4;\n\
-@define-color accent_bg_color #0078d4;\n\
-@define-color accent_fg_color #ffffff;\n\
-@define-color window_bg_color #202020;\n\
-@define-color window_fg_color #ffffff;\n\
-@define-color view_bg_color #1f1f1f;\n\
-@define-color view_fg_color #ffffff;\n\
-@define-color headerbar_bg_color #202020;\n\
-@define-color headerbar_fg_color #ffffff;\n\
-@define-color sidebar_bg_color #1a1a1a;\n\
-@define-color card_bg_color #2d2d2d;\n\
-@define-color popover_bg_color #252525;\n\
-@define-color dialog_bg_color #202020;\n\
-' >> /out/themes/Windows-11/gtk-3.0/gtk.css \
-    && printf '/* Windows 11 Dark */\n\
-@define-color accent_color #0078d4;\n\
-@define-color window_bg_color #202020;\n\
-@define-color window_fg_color #ffffff;\n\
-@define-color headerbar_bg_color #202020;\n\
-' >> /out/themes/Windows-11/gtk-4.0/gtk.css 2>/dev/null || true
-
-# ── Icon theme: Fluent-dark ───────────────────────────────────────────────────
-RUN curl -fsSL "https://github.com/vinceliuice/Fluent-icon-theme/archive/refs/heads/master.tar.gz" \
-        -o /tmp/fluent-icons.tar.gz \
-    && tar -xzf /tmp/fluent-icons.tar.gz -C /tmp/ \
-    && bash /tmp/Fluent-icon-theme-master/install.sh -d /out/icons \
-    && rm -rf /tmp/fluent-icons.tar.gz /tmp/Fluent-icon-theme-master
-
-# ── Wallpaper Windows 11 "Bloom" — 4 flores de luz azul sobre negro ───────────
-RUN convert -size 1920x1080 xc:'#020b18' \
-      \( -size 1920x1080 xc:none \
-         -fill '#0078d4' -draw 'circle 870,470 870,360' \
-         -blur 0x120 \) -composite \
-      \( -size 1920x1080 xc:none \
-         -fill '#0050a0' -draw 'circle 1020,470 1020,360' \
-         -blur 0x120 \) -composite \
-      \( -size 1920x1080 xc:none \
-         -fill '#0064b4' -draw 'circle 870,600 870,510' \
-         -blur 0x120 \) -composite \
-      \( -size 1920x1080 xc:none \
-         -fill '#004a8a' -draw 'circle 1020,600 1020,510' \
-         -blur 0x120 \) -composite \
-      \( -size 1920x1080 xc:none \
-         -fill '#00b4ff' -draw 'circle 945,535 945,475' \
-         -blur 0x70 \) -composite \
-      -colorspace sRGB \
-      -quality 95 \
-      /out/wallpapers/windows11-bloom.jpg 2>/dev/null \
-    || convert -size 1920x1080 gradient:'#020b18-#0a2040' \
-         -colorspace sRGB /out/wallpapers/windows11-bloom.jpg
-
-# ── Imagen final ───────────────────────────────────────────────────────────────
-FROM ubuntu:24.04
+FROM fedora:44
 
 LABEL maintainer="SBOS" \
-      description="SBOS Corporate Desktop — Ubuntu 24.04 + XFCE4 + TigerVNC + noVNC + Windows 11" \
-      version="6.1.0"
+      description="SBOS VDI — Fedora 44 + KDE Plasma 6 + TigerVNC + noVNC 1.5.0" \
+      version="1.0.0"
 
-ENV DEBIAN_FRONTEND=noninteractive \
-    LANG=es_ES.UTF-8 \
+ENV LANG=es_ES.UTF-8 \
     LC_ALL=es_ES.UTF-8 \
     DISPLAY=:1 \
     RESOLUTION=1920x1080 \
     DEPTH=24 \
     LIBGL_ALWAYS_SOFTWARE=1 \
     GALLIUM_DRIVER=llvmpipe \
-    NO_AT_BRIDGE=1
+    NO_AT_BRIDGE=1 \
+    HOME=/home/vdiuser
 
-# ── Paquetes base ──────────────────────────────────────────────────────────────
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    xfce4 xfce4-terminal xfce4-notifyd xfce4-whiskermenu-plugin \
-    xfce4-taskmanager xfce4-screenshooter xfce4-power-manager \
-    mousepad thunar thunar-archive-plugin \
-    tigervnc-standalone-server websockify \
-    libgdk-pixbuf2.0-0 gdk-pixbuf2.0-bin librsvg2-common \
-    gtk2-engines-murrine gtk2-engines-pixbuf \
-    libgl1-mesa-dri \
-    fonts-noto-core fonts-noto-color-emoji fonts-liberation \
-    fonts-open-sans fonts-ubuntu \
-    adwaita-icon-theme adwaita-icon-theme-full \
-    dbus-x11 xdg-user-dirs xdg-utils x11-xserver-utils x11-utils \
-    hsetroot feh scrot xdotool \
-    locales tini \
-    sudo procps curl wget ca-certificates file \
-    && locale-gen es_ES.UTF-8 \
-    && rm -rf /var/lib/apt/lists/*
+# ── Locales ────────────────────────────────────────────────────────────────────
+RUN dnf install -y glibc-langpack-es && dnf clean all
 
-# ── Aplicaciones de productividad ─────────────────────────────────────────────
-# Firefox ESR desde Mozilla PPA (chromium-browser en Ubuntu 24.04 = solo snap, no funciona en K8s)
-RUN apt-get update && apt-get install -y --no-install-recommends software-properties-common \
-    && add-apt-repository -y ppa:mozillateam/ppa \
-    && printf 'Package: firefox*\nPin: release o=LP-PPA-mozillateam\nPin-Priority: 1001\n' \
-       > /etc/apt/preferences.d/mozilla-firefox \
-    && apt-get update && apt-get install -y --no-install-recommends \
-       firefox-esr \
-    && rm -rf /var/lib/apt/lists/*
+# ── KDE Plasma 6 mínimo ────────────────────────────────────────────────────────
+RUN dnf install -y \
+    plasma-desktop \
+    plasma-workspace \
+    kwin \
+    kde-settings \
+    polkit-kde \
+    plasma-breeze \
+    plasma-breeze-common \
+    breeze-gtk \
+    breeze-cursor-theme \
+    kde-gtk-config \
+    xdg-user-dirs \
+    xdg-utils \
+    dbus-x11 \
+    && dnf clean all
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libreoffice-writer libreoffice-calc libreoffice-impress libreoffice-draw \
-    libreoffice-l10n-es libreoffice-help-es \
-    galculator file-roller eog \
-    && rm -rf /var/lib/apt/lists/*
+# ── Aplicaciones corporativas base ─────────────────────────────────────────────
+RUN dnf install -y \
+    konsole \
+    dolphin \
+    kate \
+    firefox \
+    libreoffice-writer \
+    libreoffice-calc \
+    libreoffice-impress \
+    libreoffice-draw \
+    libreoffice-langpack-es \
+    && dnf clean all
+
+# ── VNC + utilidades X11 ───────────────────────────────────────────────────────
+RUN dnf install -y \
+    tigervnc-server \
+    python3-websockify \
+    xrandr \
+    scrot \
+    tini \
+    procps-ng \
+    wget \
+    && dnf clean all
+
+# ── KWin X11 backend (requerido para VNC — Plasma 6 usa Wayland por defecto) ──
+RUN dnf install -y kwin-x11 && dnf clean all
 
 # ── noVNC 1.5.0 desde GitHub ──────────────────────────────────────────────────
 RUN curl -fsSL https://github.com/novnc/noVNC/archive/refs/tags/v1.5.0.tar.gz \
         -o /tmp/novnc.tar.gz \
     && tar -xzf /tmp/novnc.tar.gz -C /tmp/ \
     && mkdir -p /usr/share/novnc \
-    && cp -r /tmp/noVNC-1.5.0/core /usr/share/novnc/ \
-    && cp -r /tmp/noVNC-1.5.0/vendor /usr/share/novnc/ \
-    && cp /tmp/noVNC-1.5.0/vnc.html /usr/share/novnc/ \
-    && cp /tmp/noVNC-1.5.0/vnc_lite.html /usr/share/novnc/ \
+    && cp -r /tmp/noVNC-1.5.0/core    /usr/share/novnc/ \
+    && cp -r /tmp/noVNC-1.5.0/vendor  /usr/share/novnc/ \
+    && cp    /tmp/noVNC-1.5.0/vnc.html      /usr/share/novnc/ \
+    && cp    /tmp/noVNC-1.5.0/vnc_lite.html /usr/share/novnc/ \
     && rm -rf /tmp/novnc.tar.gz /tmp/noVNC-1.5.0
 
-# ── Temas desde stage build ───────────────────────────────────────────────────
-COPY --from=theme-build /out/themes/ /usr/share/themes/
-COPY --from=theme-build /out/icons/  /usr/share/icons/
-COPY --from=theme-build /out/wallpapers/ /usr/share/backgrounds/sbos/
+# ── Usuario VDI (futuro: PAM + Keycloak JWT lo reemplazará) ───────────────────
+RUN useradd -u 1001 -ms /bin/bash vdiuser \
+    && echo "vdiuser ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/vdiuser \
+    && chmod 440 /etc/sudoers.d/vdiuser
 
-RUN gtk-update-icon-cache -f /usr/share/icons/Fluent-dark 2>/dev/null || true \
-    && gtk-update-icon-cache -f /usr/share/icons/hicolor 2>/dev/null || true
-
-# ── Tema XFWM4 Win11-Dark ─────────────────────────────────────────────────────
-RUN mkdir -p /usr/share/xfwm4/themes/Win11-Dark
-COPY resources/xfwm4-win11/ /usr/share/xfwm4/themes/Win11-Dark/
-
-# ── LibreOffice: integración con tema oscuro ──────────────────────────────────
-RUN mkdir -p /etc/libreoffice \
-    && printf '[Bootstrap]\nUserInstallation=$SYSUSERCONFIG/libreoffice\n' \
-       > /etc/libreoffice/bootstraprc
-
-# ── Usuario del desktop ───────────────────────────────────────────────────────
-RUN useradd -u 1001 -ms /bin/bash sbosuser \
-    && echo "sbosuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/sbosuser \
-    && chmod 440 /etc/sudoers.d/sbosuser
-
-RUN mkdir -p /etc/sbos-desktop
+# ── Estructura base para integración futura de sbos-vdi-run y bAuth Client ────
+RUN mkdir -p \
+    /etc/sbos-vdi/rights \
+    /usr/local/bin/sbos \
+    /var/log/sbos-vdi
 
 # ── Archivos del sistema ──────────────────────────────────────────────────────
-COPY resources/xstartup /etc/sbos-desktop/xstartup
-RUN chmod +x /etc/sbos-desktop/xstartup
-
-RUN mkdir -p /etc/xdg/xfce4/xfconf/xfce-perchannel-xml
-COPY resources/xfce-defaults/xfce4/xfconf/xfce-perchannel-xml/ \
-     /etc/xdg/xfce4/xfconf/xfce-perchannel-xml/
-
 COPY resources/novnc-index.html /usr/share/novnc/index.html
 COPY resources/start-desktop.sh /start-desktop.sh
 RUN chmod +x /start-desktop.sh
