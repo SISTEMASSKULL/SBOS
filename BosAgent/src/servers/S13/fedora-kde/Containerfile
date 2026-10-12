@@ -2,7 +2,7 @@ FROM registry.fedoraproject.org/fedora:44
 
 LABEL maintainer="SBOS" \
       description="SBOS Corporate Desktop — Fedora 44 KDE Plasma 6 + TigerVNC + noVNC + Windows 11 Theme (kwin + Fluent-kde + Kvantum)" \
-      version="3.0.1"
+      version="3.1.0"
 
 ENV LANG=es_ES.UTF-8 \
     LC_ALL=es_ES.UTF-8 \
@@ -130,6 +130,26 @@ RUN curl -sL "https://github.com/vinceliuice/Fluent-icon-theme/archive/refs/head
     && rm -rf /tmp/Fluent-icon-theme-master \
     && gtk-update-icon-cache -f /usr/share/icons/Fluent-dark 2>/dev/null || true \
     && gtk-update-icon-cache -f /usr/share/icons/Fluent 2>/dev/null || true
+
+# ── Wallpaper Windows 11 ────────────────────────────────────────────────────
+# Descarga el wallpaper oficial "Bloom" de Windows 11 (dark variant)
+RUN mkdir -p /usr/share/wallpapers/Windows11/contents/images \
+    && curl -sL \
+      "https://raw.githubusercontent.com/kkrypt0nn/Windows-11-Wallpapers/main/Wallpapers/Bloom/img0_dark.jpg" \
+      -o /usr/share/wallpapers/Windows11/contents/images/1920x1080.jpg 2>/dev/null \
+    || curl -sL \
+      "https://raw.githubusercontent.com/kkrypt0nn/Windows-11-Wallpapers/main/Wallpapers/Bloom/img0.jpg" \
+      -o /usr/share/wallpapers/Windows11/contents/images/1920x1080.jpg 2>/dev/null \
+    || true \
+    && cat > /usr/share/wallpapers/Windows11/metadata.json << 'WPJSON'
+{
+    "KPlugin": {
+        "Id": "Windows11",
+        "Name": "Windows 11 Bloom",
+        "License": "CC-BY"
+    }
+}
+WPJSON
 
 # Crear usuario del desktop (uid fijo para volúmenes persistentes)
 RUN useradd -u 1001 -ms /bin/bash sbosuser && \

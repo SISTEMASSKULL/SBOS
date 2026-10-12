@@ -1,6 +1,6 @@
 #!/bin/bash
-# xstartup — sesión KDE Plasma 6 + Windows 11 theme para Xvnc
-# WM: openbox (kwin_x11 eliminado en Plasma 6) + Fluent plasma theme + Win11-Dark decs
+# xstartup — KDE Plasma 6 + Windows 11 theme completo (Fluent-kde + Win11-Dark)
+# WM: openbox (kwin_x11 eliminado en Plasma 6) + Fluent plasma theme
 
 export XDG_SESSION_TYPE=x11
 export XDG_CURRENT_DESKTOP=KDE
@@ -8,9 +8,9 @@ export DESKTOP_SESSION=plasma
 export QT_QPA_PLATFORM=xcb
 export KDE_FULL_SESSION=true
 export XDG_RUNTIME_DIR="/run/user/$(id -u)"
-export QT_STYLE_OVERRIDE=kvantum-dark
+export XCURSOR_THEME=Fluent-dark
+export XCURSOR_SIZE=24
 
-# dbus session
 if [[ -z "${DBUS_SESSION_BUS_ADDRESS}" ]]; then
     eval "$(dbus-launch --sh-syntax 2>/dev/null)" || true
     export DBUS_SESSION_BUS_ADDRESS
@@ -18,7 +18,6 @@ fi
 
 xdg-user-dirs-update 2>/dev/null || true
 
-# Deshabilitar KWallet
 mkdir -p ~/.config
 cat > ~/.config/kwalletrc << 'KWALLET'
 [Wallet]
@@ -27,24 +26,38 @@ First Use=false
 KWALLET
 
 if [[ ! -f ~/.config/kde-sbos-initialized ]]; then
-    # Copiar config KDE defaults (kdeglobals, kwinrc, plasmarc, plasma-localerc)
+    # Config KDE completa: kdeglobals, kwinrc, plasmarc, kcminputrc, Kvantum/
     cp -r /etc/sbos-desktop/kde-defaults/. ~/.config/ 2>/dev/null || true
 
-    # Openbox: tema Win11-Dark
+    # Openbox Win11-Dark
     mkdir -p ~/.config/openbox
     cp /etc/sbos-desktop/kde-defaults/openbox/rc.xml ~/.config/openbox/rc.xml 2>/dev/null || true
 
-    # Aplicar color scheme FluentDark a la sesión Plasma
+    # Wallpaper Windows 11 (se genera al arrancar plasmashell con Fluent-dark)
+    # Parchar path hardcodeado del dev del tema (/home/vince/ → /usr/share/)
+    # Se ejecuta DESPUÉS de que plasmashell escriba su config
+
+    # Aplicar color scheme FluentDark
     plasma-apply-colorscheme FluentDark 2>/dev/null || true
 
     touch ~/.config/kde-sbos-initialized
 fi
 
-# ── OpenBox: WM con tema Win11-Dark ─────────────────────────────────────────
+# ── OpenBox: WM Win11-Dark ───────────────────────────────────────────────────
 /usr/bin/openbox --replace 2>/dev/null &
 sleep 2
 
-# ── plasmashell: panel/escritorio KDE con tema Fluent ───────────────────────
+# ── plasmashell: panel Fluent-dark + escritorio ──────────────────────────────
 /usr/bin/plasmashell --no-respawn 2>/dev/null &
+
+# Parchar wallpaper path del look-and-feel Fluent (/home/vince/ hardcodeado)
+sleep 8
+APLETSRC="$HOME/.config/plasma-org.kde.plasma.desktop-appletsrc"
+if [[ -f "$APLETSRC" ]]; then
+    sed -i 's|/home/vince/[^,=]*wallpapers/Fluent|/usr/share/wallpapers/Fluent|g' \
+        "$APLETSRC" 2>/dev/null || true
+    # Recargar wallpaper en sesión activa
+    qdbus org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.refreshCurrentShell 2>/dev/null || true
+fi
 
 wait
