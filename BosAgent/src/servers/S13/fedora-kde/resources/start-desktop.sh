@@ -62,7 +62,10 @@ su sbosuser -c "
 # websockify busca archivos en /usr/share/novnc/desktop/ para servir GET /desktop/*.
 NOVNC_WEB="/usr/share/novnc"
 if [[ ! -d "${NOVNC_WEB}/desktop" ]]; then
-    cp -a "${NOVNC_WEB}/." "${NOVNC_WEB}/desktop/"
+    mkdir "${NOVNC_WEB}/desktop"
+    # Copiar solo los items en el primer nivel, excluye el propio desktop/ para no entrar en loop
+    find "${NOVNC_WEB}" -maxdepth 1 -mindepth 1 -not -name 'desktop' \
+        -exec cp -a {} "${NOVNC_WEB}/desktop/" \;
     echo "[start-desktop] Creado subdirectorio noVNC: ${NOVNC_WEB}/desktop/"
 fi
 
