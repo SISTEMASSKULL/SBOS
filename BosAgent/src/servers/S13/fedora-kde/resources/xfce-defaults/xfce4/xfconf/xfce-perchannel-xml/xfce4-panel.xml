@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<channel name="xfce4-panel" version="1.0">
+  <property name="configver" type="int" value="2"/>
+  <property name="panels" type="array">
+    <value type="int" value="1"/>
+  </property>
+  <property name="panel-1" type="empty">
+    <property name="position" type="string" value="p=8;x=960;y=1056"/>
+    <property name="length" type="uint" value="100"/>
+    <property name="position-locked" type="bool" value="true"/>
+    <property name="size" type="uint" value="48"/>
+    <property name="icon-size" type="uint" value="22"/>
+    <property name="nrows" type="uint" value="1"/>
+    <property name="background-style" type="uint" value="1"/>
+    <property name="background-color" type="string" value="#1c1c1cff"/>
+    <property name="enter-opacity" type="uint" value="100"/>
+    <property name="leave-opacity" type="uint" value="100"/>
+    <property name="autohide-behavior" type="uint" value="0"/>
+    <property name="plugin-ids" type="array">
+      <value type="int" value="1"/>
+      <value type="int" value="2"/>
+      <value type="int" value="3"/>
+      <value type="int" value="4"/>
+      <value type="int" value="5"/>
+      <value type="int" value="6"/>
+      <value type="int" value="7"/>
+    </property>
+  </property>
+  <property name="plugins" type="empty">
+    <!-- 1: menú de aplicaciones (botón inicio Win11) -->
+    <property name="plugin-1" type="string" value="whiskermenu"/>
+    <!-- 2: separador expandible izquierdo -->
+    <property name="plugin-2" type="string" value="separator">
+      <property name="expand" type="bool" value="true"/>
+      <property name="style" type="uint" value="0"/>
+    </property>
+    <!-- 3: listado de ventanas abiertas (centro) -->
+    <property name="plugin-3" type="string" value="tasklist">
+      <property name="show-labels" type="bool" value="true"/>
+      <property name="show-handle" type="bool" value="false"/>
+      <property name="grouping" type="uint" value="1"/>
+      <property name="window-scrolling" type="bool" value="false"/>
+      <property name="middle-click" type="uint" value="0"/>
+      <property name="include-all-workspaces" type="bool" value="false"/>
+      <property name="flat-buttons" type="bool" value="true"/>
+      <property name="show-wireframes" type="bool" value="false"/>
+    </property>
+    <!-- 4: separador expandible derecho -->
+    <property name="plugin-4" type="string" value="separator">
+      <property name="expand" type="bool" value="true"/>
+      <property name="style" type="uint" value="0"/>
+    </property>
+    <!-- 5: notificaciones del sistema -->
+    <property name="plugin-5" type="string" value="notification-plugin"/>
+    <!-- 6: bandeja del sistema (systray) -->
+    <property name="plugin-6" type="string" value="systray">
+      <property name="size-max" type="uint" value="22"/>
+      <property name="icon-size" type="uint" value="0"/>
+      <property name="show-frame" type="bool" value="false"/>
+    </property>
+    <!-- 7: reloj digital (esquina derecha, como Windows 11) -->
+    <property name="plugin-7" type="string" value="clock">
+      <property name="digital-layout" type="uint" value="3"/>
+      <property name="digital-time-font" type="string" value="Noto Sans 10"/>
+      <property name="digital-time-format" type="string" value="%H:%M"/>
+      <property name="digital-date-format" type="string" value="%d/%m/%Y"/>
+      <property name="show-military" type="bool" value="true"/>
+      <property name="digital-time-color" type="string" value="#f0f0f0ff"/>
+    </property>
+  </property>
+</channel>

@@ -1,8 +1,8 @@
 FROM registry.fedoraproject.org/fedora:44
 
 LABEL maintainer="SBOS" \
-      description="SBOS Corporate Desktop — Fedora 44 KDE Plasma 6 + TigerVNC + noVNC + Windows 11 Theme (kwin + Fluent-kde + Kvantum)" \
-      version="3.1.0"
+      description="SBOS Corporate Desktop — Fedora 44 XFCE 4 + TigerVNC + noVNC + Windows 11 Theme (Fluent-Dark + Kvantum)" \
+      version="4.0.0"
 
 ENV LANG=es_ES.UTF-8 \
     LC_ALL=es_ES.UTF-8 \
@@ -10,46 +10,47 @@ ENV LANG=es_ES.UTF-8 \
     RESOLUTION=1920x1080 \
     DEPTH=24
 
-# Instalar KDE Plasma 6 + TigerVNC + noVNC + compositor + utilidades
+# ── Paquetes base ─────────────────────────────────────────────────────────────
+# xfwm4 tiene compositor software propio — no necesita GPU ni kwin
 RUN dnf install -y --setopt=install_weak_deps=False --skip-unavailable \
-    # Entorno de escritorio KDE Plasma 6
-    plasma-workspace \
-    kwin \
-    plasma-systemsettings \
-    plasma-nm \
-    plasma-pa \
-    # Aplicaciones esenciales del desktop
-    konsole \
-    dolphin \
-    spectacle \
-    kate \
+    # XFCE4 — desktop environment ligero, funciona en VNC sin GPU
+    xfce4-session \
+    xfwm4 \
+    xfce4-panel \
+    xfdesktop \
+    xfce4-settings \
+    xfconf \
+    xfce4-power-manager \
+    # Aplicaciones XFCE
+    xfce4-terminal \
+    thunar \
+    xfce4-notifyd \
+    mousepad \
+    # Gestión de archivos
     ark \
-    # kwin es el WM nativo de KDE — decoraciones Aurorae + compositor XRender (compatible VNC)
-    # openbox se mantiene como fallback de emergencia
-    openbox \
-    # kvantum: motor de estilos Qt — aspecto Windows 11 para apps Qt/KDE
+    # kvantum: estilo Qt/Fluent para aplicaciones Qt
     kvantum \
-    # Browser para SSO con Keycloak
+    # Browser
     chromium \
-    # VNC: TigerVNC crea su propio display virtual (Xvnc)
+    # VNC
     tigervnc-server \
-    # noVNC: cliente web HTML5 + proxy websocket
     novnc \
     python3-websockify \
-    # Soporte X11 y dbus
+    # X11 utils
     dbus-x11 \
     xdg-user-dirs \
     xdg-utils \
-    # GTK icon cache (para iconos Fluent)
+    xsetroot \
+    # Iconos GTK
     gtk-update-icon-cache \
-    # Fuentes Windows-compatible (Win11 usa Segoe UI — aproximamos con Noto/Liberation)
+    # Fuentes Windows-compatible
     google-noto-sans-fonts \
     google-noto-serif-fonts \
     google-noto-emoji-fonts \
     liberation-fonts \
-    # Localización español
+    # Español
     glibc-langpack-es \
-    # Utilidades de sistema
+    # Sistema
     procps-ng \
     net-tools \
     curl \
@@ -58,61 +59,17 @@ RUN dnf install -y --setopt=install_weak_deps=False --skip-unavailable \
     && dnf clean all \
     && rm -rf /var/cache/dnf /var/log/dnf*
 
-# ── Win11-Dark: tema openbox para decoraciones de ventana estilo Windows 11 ──
-# openbox es el WM en KDE Plasma 6 (kwin_x11 fue eliminado en Plasma 6)
-RUN mkdir -p /usr/share/themes/Win11-Dark/openbox-3 \
-    && cat > /usr/share/themes/Win11-Dark/openbox-3/themerc <<'THEMERC'
-border.width: 1
-border.color: #3a3a3a
-padding.width: 6
-padding.height: 5
-window.active.title.bg: flat solid
-window.active.title.bg.color: #202020
-window.active.label.bg: parentrelative
-window.active.label.text.color: #ffffff
-window.active.label.text.font: Sans:size=9:bold
-window.active.handle.bg: flat solid
-window.active.handle.bg.color: #202020
-window.active.grip.bg: flat solid
-window.active.grip.bg.color: #505050
-window.inactive.title.bg: flat solid
-window.inactive.title.bg.color: #2a2a2a
-window.inactive.label.bg: parentrelative
-window.inactive.label.text.color: #888888
-window.inactive.handle.bg: flat solid
-window.inactive.handle.bg.color: #2a2a2a
-window.inactive.grip.bg: flat solid
-window.inactive.grip.bg.color: #3a3a3a
-window.active.button.unpressed.bg: flat solid
-window.active.button.unpressed.bg.color: #202020
-window.active.button.unpressed.image.color: #cccccc
-window.active.button.hover.bg: flat solid
-window.active.button.hover.bg.color: #505050
-window.active.button.hover.image.color: #ffffff
-window.active.button.pressed.bg: flat solid
-window.active.button.pressed.bg.color: #303030
-window.active.button.pressed.image.color: #ffffff
-window.active.button.close.hover.bg: flat solid
-window.active.button.close.hover.bg.color: #c42b1c
-window.active.button.close.hover.image.color: #ffffff
-window.inactive.button.unpressed.bg: flat solid
-window.inactive.button.unpressed.bg.color: #2a2a2a
-window.inactive.button.unpressed.image.color: #555555
-menu.items.bg: flat solid
-menu.items.bg.color: #2d2d2d
-menu.items.text.color: #e0e0e0
-menu.items.active.bg: flat solid
-menu.items.active.bg.color: #0078d4
-menu.items.active.text.color: #ffffff
-osd.bg: flat solid
-osd.bg.color: #202020
-osd.border.color: #3a3a3a
-osd.border.width: 1
-osd.label.text.color: #ffffff
-THEMERC
+# ── Fluent-gtk-theme — tema GTK estilo Windows 11 / Fluent Design ─────────────
+RUN curl -sL "https://github.com/vinceliuice/Fluent-gtk-theme/archive/refs/heads/main.tar.gz" \
+        -o /tmp/fluent-gtk.tar.gz 2>/dev/null \
+    || curl -sL "https://github.com/vinceliuice/Fluent-gtk-theme/archive/refs/heads/master.tar.gz" \
+        -o /tmp/fluent-gtk.tar.gz 2>/dev/null \
+    && tar -xzC /tmp/ -f /tmp/fluent-gtk.tar.gz \
+    && FLUENTDIR=$(find /tmp -maxdepth 1 -type d -name 'Fluent-gtk-theme-*' | head -1) \
+    && bash "$FLUENTDIR/install.sh" -d /usr/share/themes --tweaks round 2>/dev/null || true \
+    && rm -rf /tmp/fluent-gtk.tar.gz "$FLUENTDIR"
 
-# ── Fluent-kde: Plasma theme + Kvantum + colores ────────────────────────────
-# Plasma 6: kwin_x11 eliminado → openbox como WM, Fluent para panel y colores
+# ── Fluent-kde — Kvantum theme estilo Windows 11 para apps Qt ─────────────────
 RUN curl -sL "https://github.com/vinceliuice/Fluent-kde/archive/refs/heads/main.tar.gz" \
         -o /tmp/fluent-kde.tar.gz 2>/dev/null \
     || curl -sL "https://github.com/vinceliuice/Fluent-kde/archive/refs/heads/master.tar.gz" \
@@ -122,8 +79,7 @@ RUN curl -sL "https://github.com/vinceliuice/Fluent-kde/archive/refs/heads/main.
     && bash "$FLUENTDIR/install.sh" 2>/dev/null || true \
     && rm -rf /tmp/fluent-kde.tar.gz "$FLUENTDIR"
 
-# ── Iconos Fluent (estilo Windows 11) ──────────────────────────────────────
-# vinceliuice/Fluent-icon-theme: iconos modernos tipo Fluent Design de Microsoft
+# ── Fluent icons — iconos estilo Windows 11 / Fluent Design ──────────────────
 RUN curl -sL "https://github.com/vinceliuice/Fluent-icon-theme/archive/refs/heads/master.tar.gz" \
         | tar -xzC /tmp/ \
     && bash /tmp/Fluent-icon-theme-master/install.sh 2>/dev/null || true \
@@ -131,8 +87,42 @@ RUN curl -sL "https://github.com/vinceliuice/Fluent-icon-theme/archive/refs/head
     && gtk-update-icon-cache -f /usr/share/icons/Fluent-dark 2>/dev/null || true \
     && gtk-update-icon-cache -f /usr/share/icons/Fluent 2>/dev/null || true
 
-# ── Wallpaper Windows 11 ────────────────────────────────────────────────────
-# Descarga el wallpaper oficial "Bloom" de Windows 11 (dark variant)
+# ── Cursor Fluent-dark ────────────────────────────────────────────────────────
+RUN curl -sL "https://github.com/vinceliuice/Fluent-icon-theme/archive/refs/heads/master.tar.gz" \
+        | tar -xzC /tmp/ 2>/dev/null || true \
+    && (ls /usr/share/icons/Fluent-dark/cursors/ 2>/dev/null | grep -q xcursor && echo "cursor ok") || \
+       (find /tmp/Fluent-icon-theme-master -name "install.sh" -exec bash {} \; 2>/dev/null || true) \
+    && rm -rf /tmp/Fluent-icon-theme-master 2>/dev/null || true
+
+# ── Tema XFWM4 Win11-Dark — decoraciones de ventana estilo Windows 11 ─────────
+RUN mkdir -p /usr/share/xfwm4/themes/Win11-Dark \
+    && printf '%s\n' \
+       'active_color_1=#202020' \
+       'active_color_2=#202020' \
+       'active_mid_color=#202020' \
+       'inactive_color_1=#2a2a2a' \
+       'inactive_color_2=#2a2a2a' \
+       'inactive_mid_color=#2a2a2a' \
+       'active_text_color=#f0f0f0' \
+       'inactive_text_color=#888888' \
+       'active_border_color=#3a3a3a' \
+       'inactive_border_color=#3a3a3a' \
+       'active_hilight_1=#0078d4' \
+       'active_hilight_2=#005fb8' \
+       'inactive_hilight_1=#3a3a3a' \
+       'inactive_hilight_2=#3a3a3a' \
+       'button_layout=O|HMC' \
+       'button_offset=2' \
+       'button_spacing=6' \
+       'full_width_title=true' \
+       'show_app_icon=true' \
+       'title_shadow_active=false' \
+       'title_shadow_inactive=false' \
+       'title_vertical_offset_active=1' \
+       'title_vertical_offset_inactive=1' \
+       > /usr/share/xfwm4/themes/Win11-Dark/themerc
+
+# ── Wallpaper Windows 11 Bloom ────────────────────────────────────────────────
 RUN mkdir -p /usr/share/wallpapers/Windows11/contents/images \
     && curl -sL \
       "https://raw.githubusercontent.com/kkrypt0nn/Windows-11-Wallpapers/main/Wallpapers/Bloom/img0_dark.jpg" \
@@ -140,33 +130,24 @@ RUN mkdir -p /usr/share/wallpapers/Windows11/contents/images \
     || curl -sL \
       "https://raw.githubusercontent.com/kkrypt0nn/Windows-11-Wallpapers/main/Wallpapers/Bloom/img0.jpg" \
       -o /usr/share/wallpapers/Windows11/contents/images/1920x1080.jpg 2>/dev/null \
-    || true \
-    && printf '{\n    "KPlugin": {\n        "Id": "Windows11",\n        "Name": "Windows 11 Bloom",\n        "License": "CC-BY"\n    }\n}\n' \
-       > /usr/share/wallpapers/Windows11/metadata.json
+    || true
 
-# Crear usuario del desktop (uid fijo para volúmenes persistentes)
+# ── Usuario del desktop ───────────────────────────────────────────────────────
 RUN useradd -u 1001 -ms /bin/bash sbosuser && \
     echo "sbosuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/sbosuser && \
     chmod 440 /etc/sudoers.d/sbosuser
 
-# Directorio para los archivos de configuración del sistema
 RUN mkdir -p /etc/sbos-desktop
 
-# Script de inicio KDE para TigerVNC
+# ── Archivos del sistema ───────────────────────────────────────────────────────
 COPY resources/xstartup /etc/sbos-desktop/xstartup
 RUN chmod +x /etc/sbos-desktop/xstartup
 
-# Configuración KDE inicial — tema Windows 11
-COPY resources/kde-defaults/ /etc/sbos-desktop/kde-defaults/
-
-# index.html personalizado para noVNC
+COPY resources/xfce-defaults/ /etc/sbos-desktop/xfce-defaults/
 COPY resources/novnc-index.html /usr/share/novnc/index.html
-
-# Punto de entrada del contenedor
 COPY resources/start-desktop.sh /start-desktop.sh
 RUN chmod +x /start-desktop.sh
 
-# noVNC sirve en :6901 (websockify proxy → VNC :5900)
 EXPOSE 6901
 
 CMD ["/start-desktop.sh"]

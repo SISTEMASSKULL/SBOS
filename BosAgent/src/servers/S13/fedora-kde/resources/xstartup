@@ -1,15 +1,15 @@
 #!/bin/bash
-# xstartup — KDE Plasma 6 + Windows 11 theme completo (Fluent-kde + Win11-Dark)
-# WM: openbox (kwin_x11 eliminado en Plasma 6) + Fluent plasma theme
+# xstartup — XFCE4 + Windows 11 theme (Fluent-Dark + Win11-Dark xfwm4 + Kvantum)
+# xfwm4 tiene compositor software propio — no necesita kwin ni GPU
 
 export XDG_SESSION_TYPE=x11
-export XDG_CURRENT_DESKTOP=KDE
-export DESKTOP_SESSION=plasma
+export XDG_CURRENT_DESKTOP=XFCE
+export DESKTOP_SESSION=xfce
 export QT_QPA_PLATFORM=xcb
-export KDE_FULL_SESSION=true
-export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+export QT_STYLE_OVERRIDE=kvantum
 export XCURSOR_THEME=Fluent-dark
 export XCURSOR_SIZE=24
+export XDG_RUNTIME_DIR="/run/user/$(id -u)"
 
 if [[ -z "${DBUS_SESSION_BUS_ADDRESS}" ]]; then
     eval "$(dbus-launch --sh-syntax 2>/dev/null)" || true
@@ -18,46 +18,41 @@ fi
 
 xdg-user-dirs-update 2>/dev/null || true
 
-mkdir -p ~/.config
-cat > ~/.config/kwalletrc << 'KWALLET'
-[Wallet]
-Enabled=false
-First Use=false
-KWALLET
-
-if [[ ! -f ~/.config/kde-sbos-initialized ]]; then
-    # Config KDE completa: kdeglobals, kwinrc, plasmarc, kcminputrc, Kvantum/
-    cp -r /etc/sbos-desktop/kde-defaults/. ~/.config/ 2>/dev/null || true
-
-    # Openbox Win11-Dark
-    mkdir -p ~/.config/openbox
-    cp /etc/sbos-desktop/kde-defaults/openbox/rc.xml ~/.config/openbox/rc.xml 2>/dev/null || true
-
-    # Wallpaper Windows 11 (se genera al arrancar plasmashell con Fluent-dark)
-    # Parchar path hardcodeado del dev del tema (/home/vince/ → /usr/share/)
-    # Se ejecuta DESPUÉS de que plasmashell escriba su config
-
-    # Aplicar color scheme FluentDark
-    plasma-apply-colorscheme FluentDark 2>/dev/null || true
-
-    touch ~/.config/kde-sbos-initialized
+# Copiar config XFCE la primera vez (o si el flag no existe)
+if [[ ! -f ~/.config/xfce-sbos-initialized ]]; then
+    mkdir -p ~/.config
+    cp -r /etc/sbos-desktop/xfce-defaults/. ~/.config/ 2>/dev/null || true
+    touch ~/.config/xfce-sbos-initialized
 fi
 
-# ── OpenBox: WM Win11-Dark ───────────────────────────────────────────────────
-/usr/bin/openbox --replace 2>/dev/null &
+# ── xfwm4: WM + compositor software (XRender, sin GPU) ──────────────────────
+/usr/bin/xfwm4 --compositor=on --display=:1 2>/dev/null &
+sleep 1
+
+# ── xfdesktop: fondo de pantalla Win11 + iconos del escritorio ───────────────
+/usr/bin/xfdesktop --display=:1 2>/dev/null &
+sleep 1
+
+# ── xfce4-panel: taskbar estilo Windows 11 (panel inferior) ─────────────────
+/usr/bin/xfce4-panel --display=:1 2>/dev/null &
+sleep 1
+
+# ── Aplicar configuración vía xfconf (fondo + tema) ─────────────────────────
+# xfconf-query necesita DBUS activo — esperar a que xfce4-panel arranque
 sleep 2
 
-# ── plasmashell: panel Fluent-dark + escritorio ──────────────────────────────
-/usr/bin/plasmashell --no-respawn 2>/dev/null &
+# Fondo Windows 11 Bloom (intentar múltiples monitores que Xvnc puede reportar)
+for monitor in VNC-0 0; do
+    xfconf-query -c xfce4-desktop \
+        -p "/backdrop/screen0/monitor${monitor}/workspace0/last-image" \
+        -s "/usr/share/wallpapers/Windows11/contents/images/1920x1080.jpg" \
+        2>/dev/null || true
+    xfconf-query -c xfce4-desktop \
+        -p "/backdrop/screen0/monitor${monitor}/workspace0/image-style" \
+        -s 5 2>/dev/null || true
+done
 
-# Parchar wallpaper path del look-and-feel Fluent (/home/vince/ hardcodeado)
-sleep 8
-APLETSRC="$HOME/.config/plasma-org.kde.plasma.desktop-appletsrc"
-if [[ -f "$APLETSRC" ]]; then
-    sed -i 's|/home/vince/[^,=]*wallpapers/Fluent|/usr/share/wallpapers/Fluent|g' \
-        "$APLETSRC" 2>/dev/null || true
-    # Recargar wallpaper en sesión activa
-    qdbus org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.refreshCurrentShell 2>/dev/null || true
-fi
+# Recargar escritorio para aplicar wallpaper
+xfdesktop --reload 2>/dev/null || true
 
 wait
