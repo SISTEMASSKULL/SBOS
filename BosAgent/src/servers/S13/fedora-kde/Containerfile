@@ -27,7 +27,7 @@ FROM ubuntu:24.04
 
 LABEL maintainer="SBOS" \
       description="SBOS Corporate Desktop — Ubuntu 24.04 + XFCE4 + TigerVNC + noVNC + Windows 11 Theme" \
-      version="5.1.0"
+      version="5.2.0"
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANG=es_ES.UTF-8 \
@@ -47,9 +47,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xfce4-whiskermenu-plugin \
     mousepad \
     thunar \
-    # VNC + noVNC
+    # VNC + websockify (noVNC 1.5.0 se instala desde GitHub más abajo)
     tigervnc-standalone-server \
-    novnc \
     websockify \
     # GTK / rendering (loaders nativos PNG/JPEG — sin glycin, sin bwrap)
     libgdk-pixbuf2.0-0 \
@@ -87,6 +86,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && locale-gen es_ES.UTF-8 \
     && rm -rf /var/lib/apt/lists/*
+
+# ── noVNC 1.5.0 desde GitHub (Ubuntu 24.04 trae 1.3.0 — incompleto) ───────────
+RUN curl -fsSL https://github.com/novnc/noVNC/archive/refs/tags/v1.5.0.tar.gz \
+        -o /tmp/novnc.tar.gz \
+    && tar -xzf /tmp/novnc.tar.gz -C /tmp/ \
+    && mkdir -p /usr/share/novnc \
+    && cp -r /tmp/noVNC-1.5.0/core /usr/share/novnc/ \
+    && cp -r /tmp/noVNC-1.5.0/vendor /usr/share/novnc/ \
+    && cp /tmp/noVNC-1.5.0/vnc.html /usr/share/novnc/ \
+    && cp /tmp/noVNC-1.5.0/vnc_lite.html /usr/share/novnc/ \
+    && rm -rf /tmp/novnc.tar.gz /tmp/noVNC-1.5.0
 
 # ── Temas desde stage build ────────────────────────────────────────────────────
 COPY --from=theme-build /out/themes/ /usr/share/themes/
