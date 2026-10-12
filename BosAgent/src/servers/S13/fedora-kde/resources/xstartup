@@ -1,6 +1,6 @@
 #!/bin/bash
-# xstartup — sesión KDE Plasma 6 para Xvnc (container-friendly)
-# Inicia kwin + plasmashell directamente sin el pesado startplasma.
+# xstartup — sesión KDE Plasma 6 + tema Windows 11 para Xvnc (container-friendly)
+# Inicia picom (compositor) + openbox (WM) + plasmashell (panel/escritorio)
 
 export XDG_SESSION_TYPE=x11
 export XDG_CURRENT_DESKTOP=KDE
@@ -26,18 +26,38 @@ Enabled=false
 First Use=false
 KWALLET
 
-# Aplicar configuración KDE inicial (tema, locale)
+# Aplicar configuración KDE + tema Windows 11 al primer arranque
 if [[ ! -f ~/.config/kde-sbos-initialized ]]; then
+    # Config KDE (colores, iconos, fuentes)
     cp -r /etc/sbos-desktop/kde-defaults/. ~/.config/ 2>/dev/null || true
+
+    # Config OpenBox (tema Win11-Dark)
+    mkdir -p ~/.config/openbox
+    cp /etc/sbos-desktop/kde-defaults/openbox/rc.xml ~/.config/openbox/rc.xml 2>/dev/null || true
+
+    # Config picom (bordes redondeados)
+    cp /etc/sbos-desktop/kde-defaults/picom.conf ~/.config/picom.conf 2>/dev/null || true
+
+    # Aplicar color scheme Windows11Dark a KDE Plasma
+    if command -v plasma-apply-colorscheme > /dev/null 2>&1; then
+        plasma-apply-colorscheme Windows11Dark 2>/dev/null || true
+    fi
+
     touch ~/.config/kde-sbos-initialized
 fi
 
-# openbox como WM para X11: kwin en Plasma 6 es kwin_wayland y no ejecuta en Xvnc
-# openbox provee gestión de ventanas nativa X11 sin GPU, compatible con contenedores
+# ── Picom: compositor X11 — bordes redondeados + sombras (Win11 style) ─────
+if command -v picom > /dev/null 2>&1; then
+    picom --config ~/.config/picom.conf --daemon 2>/dev/null &
+    sleep 1
+fi
+
+# ── OpenBox: gestor de ventanas X11 con tema Win11-Dark ────────────────────
+# openbox provee gestión de ventanas nativa X11 sin GPU, compatible con VNC
 /usr/bin/openbox --replace 2>/dev/null &
 sleep 2
 
-# plasmashell: escritorio + barra de tareas KDE (funciona con cualquier WM)
+# ── plasmashell: escritorio + barra de tareas KDE ──────────────────────────
 /usr/bin/plasmashell --no-respawn 2>/dev/null &
 
 # Mantener la sesión activa hasta que Xvnc cierre
