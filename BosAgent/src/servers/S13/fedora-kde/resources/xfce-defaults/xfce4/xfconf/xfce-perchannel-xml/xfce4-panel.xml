@@ -4,6 +4,7 @@
   <property name="panels" type="array">
     <value type="int" value="1"/>
     <property name="panel-1" type="empty">
+      <!-- Barra en la parte inferior, centrada como Windows 11 -->
       <property name="position" type="string" value="p=12;x=960;y=1055"/>
       <property name="length" type="uint" value="100"/>
       <property name="position-locked" type="bool" value="true"/>
@@ -21,83 +22,88 @@
         <value type="int" value="10"/>
         <value type="int" value="11"/>
         <value type="int" value="12"/>
-        <value type="int" value="13"/>
       </property>
       <property name="background-style" type="uint" value="1"/>
       <property name="background-color" type="string" value="#1a1a1a"/>
-      <property name="background-alpha" type="uint" value="95"/>
+      <property name="background-alpha" type="uint" value="97"/>
       <property name="enable-struts" type="bool" value="true"/>
     </property>
   </property>
   <property name="plugins" type="empty">
-    <!-- 1: Menú de aplicaciones (Whisker) -->
-    <property name="plugin-1" type="string" value="whiskermenu">
+    <!-- 1: Separador expansible izquierdo — empuja iconos al centro -->
+    <property name="plugin-1" type="string" value="separator">
+      <property name="expand" type="bool" value="true"/>
+      <property name="style" type="uint" value="0"/>
+    </property>
+
+    <!-- 2: Botón de inicio Windows (Whisker Menu con logo Windows) -->
+    <property name="plugin-2" type="string" value="whiskermenu">
       <property name="show-button-title" type="bool" value="false"/>
-      <property name="button-icon" type="string" value="distributor-logo"/>
+      <property name="button-icon" type="string" value="distributor-logo-windows"/>
       <property name="button-single-row" type="bool" value="true"/>
     </property>
-    <!-- 2: Lanzador: Navegador -->
-    <property name="plugin-2" type="string" value="launcher">
+
+    <!-- 3: Lanzador: Chromium (navegador) -->
+    <property name="plugin-3" type="string" value="launcher">
       <property name="items" type="array">
         <value type="string" value="chromium-browser.desktop"/>
       </property>
     </property>
-    <!-- 3: Lanzador: Gestor de archivos -->
-    <property name="plugin-3" type="string" value="launcher">
+
+    <!-- 4: Lanzador: Gestor de archivos -->
+    <property name="plugin-4" type="string" value="launcher">
       <property name="items" type="array">
         <value type="string" value="thunar.desktop"/>
       </property>
     </property>
-    <!-- 4: Lanzador: Terminal -->
-    <property name="plugin-4" type="string" value="launcher">
+
+    <!-- 5: Lanzador: Terminal -->
+    <property name="plugin-5" type="string" value="launcher">
       <property name="items" type="array">
         <value type="string" value="xfce4-terminal.desktop"/>
       </property>
     </property>
-    <!-- 5: Lanzador: LibreOffice Writer -->
-    <property name="plugin-5" type="string" value="launcher">
+
+    <!-- 6: Lanzador: LibreOffice Writer -->
+    <property name="plugin-6" type="string" value="launcher">
       <property name="items" type="array">
         <value type="string" value="libreoffice-writer.desktop"/>
       </property>
     </property>
-    <!-- 6: Separador expansible izquierdo -->
-    <property name="plugin-6" type="string" value="separator">
+
+    <!-- 7: Separador expansible derecho — empuja systray/reloj a la derecha -->
+    <property name="plugin-7" type="string" value="separator">
       <property name="expand" type="bool" value="true"/>
       <property name="style" type="uint" value="0"/>
     </property>
-    <!-- 7: Lista de ventanas abiertas (taskbar) -->
-    <property name="plugin-7" type="string" value="tasklist">
-      <property name="show-labels" type="bool" value="true"/>
+
+    <!-- 8: Lista de ventanas abiertas (entre separadores, siempre visible) -->
+    <property name="plugin-8" type="string" value="tasklist">
+      <property name="show-labels" type="bool" value="false"/>
       <property name="show-handle" type="bool" value="false"/>
       <property name="flat-buttons" type="bool" value="true"/>
       <property name="grouping" type="uint" value="1"/>
-      <property name="middle-click" type="uint" value="0"/>
       <property name="include-all-workspaces" type="bool" value="false"/>
+      <property name="middle-click" type="uint" value="0"/>
     </property>
-    <!-- 8: Separador expansible derecho -->
-    <property name="plugin-8" type="string" value="separator">
-      <property name="expand" type="bool" value="true"/>
-      <property name="style" type="uint" value="0"/>
-    </property>
-    <!-- 9: Indicador de red/teclado -->
-    <property name="plugin-9" type="string" value="separator">
-      <property name="expand" type="bool" value="false"/>
-      <property name="style" type="uint" value="0"/>
-    </property>
-    <!-- 10: Bandeja del sistema -->
-    <property name="plugin-10" type="string" value="systray">
+
+    <!-- 9: Bandeja del sistema -->
+    <property name="plugin-9" type="string" value="systray">
       <property name="size-max" type="uint" value="22"/>
       <property name="square-icons" type="bool" value="true"/>
     </property>
-    <!-- 11: Notificaciones -->
-    <property name="plugin-11" type="string" value="notification-plugin"/>
-    <!-- 12: Separador pequeño -->
-    <property name="plugin-12" type="string" value="separator">
+
+    <!-- 10: Notificaciones -->
+    <property name="plugin-10" type="string" value="notification-plugin"/>
+
+    <!-- 11: Separador visual pequeño -->
+    <property name="plugin-11" type="string" value="separator">
       <property name="expand" type="bool" value="false"/>
       <property name="style" type="uint" value="0"/>
     </property>
-    <!-- 13: Reloj estilo Windows 11 -->
-    <property name="plugin-13" type="string" value="clock">
+
+    <!-- 12: Reloj estilo Windows 11 (hora arriba, fecha abajo) -->
+    <property name="plugin-12" type="string" value="clock">
       <property name="digital-format" type="string" value="%H:%M&#xA;%d/%m/%Y"/>
       <property name="tooltip-format" type="string" value="%A, %d de %B de %Y"/>
     </property>

@@ -8,13 +8,41 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN mkdir -p /out/themes /out/icons /out/wallpapers
 
-# ── GTK theme: Fluent-round-Dark ──────────────────────────────────────────────
+# ── GTK base: Fluent-round-Dark ───────────────────────────────────────────────
 RUN curl -fsSL "https://github.com/vinceliuice/Fluent-gtk-theme/archive/refs/heads/master.tar.gz" \
         -o /tmp/fluent-gtk.tar.gz \
     && tar -xzf /tmp/fluent-gtk.tar.gz -C /tmp/ \
     && FLUENTDIR=$(find /tmp -maxdepth 1 -type d -name 'Fluent-gtk-theme-*' | head -1) \
     && bash "$FLUENTDIR/install.sh" -d /out/themes --tweaks round \
     && rm -rf /tmp/fluent-gtk.tar.gz "$FLUENTDIR"
+
+# ── Tema Windows-11 = Fluent-round-Dark + override CSS colores W11 ────────────
+RUN cp -r /out/themes/Fluent-round-Dark /out/themes/Windows-11 \
+    && sed -i 's/name=Fluent-round-Dark/name=Windows-11/' /out/themes/Windows-11/index.theme \
+    && sed -i 's/Comment=.*/Comment=Windows 11 Dark Theme/' /out/themes/Windows-11/index.theme
+
+# CSS override: colores exactos de Windows 11 Dark
+RUN printf '/* Windows 11 Dark — color override sobre Fluent */\n\
+@define-color accent_color #0078d4;\n\
+@define-color accent_bg_color #0078d4;\n\
+@define-color accent_fg_color #ffffff;\n\
+@define-color window_bg_color #202020;\n\
+@define-color window_fg_color #ffffff;\n\
+@define-color view_bg_color #1f1f1f;\n\
+@define-color view_fg_color #ffffff;\n\
+@define-color headerbar_bg_color #202020;\n\
+@define-color headerbar_fg_color #ffffff;\n\
+@define-color sidebar_bg_color #1a1a1a;\n\
+@define-color card_bg_color #2d2d2d;\n\
+@define-color popover_bg_color #252525;\n\
+@define-color dialog_bg_color #202020;\n\
+' >> /out/themes/Windows-11/gtk-3.0/gtk.css \
+    && printf '/* Windows 11 Dark */\n\
+@define-color accent_color #0078d4;\n\
+@define-color window_bg_color #202020;\n\
+@define-color window_fg_color #ffffff;\n\
+@define-color headerbar_bg_color #202020;\n\
+' >> /out/themes/Windows-11/gtk-4.0/gtk.css 2>/dev/null || true
 
 # ── Icon theme: Fluent-dark ───────────────────────────────────────────────────
 RUN curl -fsSL "https://github.com/vinceliuice/Fluent-icon-theme/archive/refs/heads/master.tar.gz" \
@@ -23,33 +51,35 @@ RUN curl -fsSL "https://github.com/vinceliuice/Fluent-icon-theme/archive/refs/he
     && bash /tmp/Fluent-icon-theme-master/install.sh -d /out/icons \
     && rm -rf /tmp/fluent-icons.tar.gz /tmp/Fluent-icon-theme-master
 
-
-# ── xfwm4 theme: Fluent-round-Dark (botones reales desde el repo) ─────────────
-RUN curl -fsSL "https://github.com/vinceliuice/Fluent-gtk-theme/archive/refs/heads/master.tar.gz" \
-        -o /tmp/fluent2.tar.gz \
-    && tar -xzf /tmp/fluent2.tar.gz -C /tmp/ \
-    && FLUENTDIR=$(find /tmp -maxdepth 1 -type d -name 'Fluent-gtk-theme-*' | head -1) \
-    && if [ -d "$FLUENTDIR/xfwm4" ]; then \
-         cp -r "$FLUENTDIR/xfwm4" /out/xfwm4/; \
-       fi \
-    && rm -rf /tmp/fluent2.tar.gz "$FLUENTDIR"
-
-# ── Wallpaper Windows 11 Bloom (descarga oficial) ────────────────────────────
-RUN curl -fsSL "https://raw.githubusercontent.com/microsoft/fluentui-emoji/main/assets/Hibiscus/3D/hibiscus_3d.png" \
-        -o /tmp/test.png 2>/dev/null || true
-# Generar wallpaper oscuro estilo W11 con gradiente azul midnight
-RUN convert -size 1920x1080 \
-        gradient:'#0a1628-#1a3a5c' \
-        -colorspace sRGB \
-        /out/wallpapers/windows11-dark.jpg 2>/dev/null \
-    || printf '\x89PNG\r\n' > /out/wallpapers/windows11-dark.jpg
+# ── Wallpaper Windows 11 "Bloom" — 4 flores de luz azul sobre negro ───────────
+RUN convert -size 1920x1080 xc:'#020b18' \
+      \( -size 1920x1080 xc:none \
+         -fill '#0078d4' -draw 'circle 870,470 870,360' \
+         -blur 0x120 \) -composite \
+      \( -size 1920x1080 xc:none \
+         -fill '#0050a0' -draw 'circle 1020,470 1020,360' \
+         -blur 0x120 \) -composite \
+      \( -size 1920x1080 xc:none \
+         -fill '#0064b4' -draw 'circle 870,600 870,510' \
+         -blur 0x120 \) -composite \
+      \( -size 1920x1080 xc:none \
+         -fill '#004a8a' -draw 'circle 1020,600 1020,510' \
+         -blur 0x120 \) -composite \
+      \( -size 1920x1080 xc:none \
+         -fill '#00b4ff' -draw 'circle 945,535 945,475' \
+         -blur 0x70 \) -composite \
+      -colorspace sRGB \
+      -quality 95 \
+      /out/wallpapers/windows11-bloom.jpg 2>/dev/null \
+    || convert -size 1920x1080 gradient:'#020b18-#0a2040' \
+         -colorspace sRGB /out/wallpapers/windows11-bloom.jpg
 
 # ── Imagen final ───────────────────────────────────────────────────────────────
 FROM ubuntu:24.04
 
 LABEL maintainer="SBOS" \
-      description="SBOS Corporate Desktop — Ubuntu 24.04 + XFCE4 + TigerVNC + noVNC + Windows 11 Theme" \
-      version="5.3.0"
+      description="SBOS Corporate Desktop — Ubuntu 24.04 + XFCE4 + TigerVNC + noVNC + Windows 11" \
+      version="6.0.0"
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANG=es_ES.UTF-8 \
@@ -63,44 +93,29 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 # ── Paquetes base ──────────────────────────────────────────────────────────────
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    # XFCE4 escritorio
     xfce4 xfce4-terminal xfce4-notifyd xfce4-whiskermenu-plugin \
     xfce4-taskmanager xfce4-screenshooter xfce4-power-manager \
     mousepad thunar thunar-archive-plugin \
-    # VNC + websockify (noVNC 1.5.0 desde GitHub)
     tigervnc-standalone-server websockify \
-    # GTK/rendering
     libgdk-pixbuf2.0-0 gdk-pixbuf2.0-bin librsvg2-common \
     gtk2-engines-murrine gtk2-engines-pixbuf \
     libgl1-mesa-dri \
-    # Fuentes Windows 11
     fonts-noto-core fonts-noto-color-emoji fonts-liberation \
     fonts-open-sans fonts-ubuntu \
-    # Iconos base
     adwaita-icon-theme adwaita-icon-theme-full \
-    # X11 utils
     dbus-x11 xdg-user-dirs xdg-utils x11-xserver-utils x11-utils \
     hsetroot feh scrot xdotool \
-    # Locales
-    locales \
-    # PID 1
-    tini \
-    # Sistema
+    locales tini \
     sudo procps curl wget ca-certificates file \
     && locale-gen es_ES.UTF-8 \
     && rm -rf /var/lib/apt/lists/*
 
 # ── Aplicaciones de productividad ─────────────────────────────────────────────
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    # Navegador web
     chromium-browser \
-    # Office suite
     libreoffice-writer libreoffice-calc libreoffice-impress libreoffice-draw \
     libreoffice-l10n-es libreoffice-help-es \
-    # Herramientas del sistema
-    galculator file-roller \
-    # Visor de imágenes
-    eog \
+    galculator file-roller eog \
     && rm -rf /var/lib/apt/lists/*
 
 # ── noVNC 1.5.0 desde GitHub ──────────────────────────────────────────────────
@@ -117,15 +132,12 @@ RUN curl -fsSL https://github.com/novnc/noVNC/archive/refs/tags/v1.5.0.tar.gz \
 # ── Temas desde stage build ───────────────────────────────────────────────────
 COPY --from=theme-build /out/themes/ /usr/share/themes/
 COPY --from=theme-build /out/icons/  /usr/share/icons/
-
 COPY --from=theme-build /out/wallpapers/ /usr/share/backgrounds/sbos/
 
-# Actualizar caches de iconos
 RUN gtk-update-icon-cache -f /usr/share/icons/Fluent-dark 2>/dev/null || true \
-    && gtk-update-icon-cache -f /usr/share/icons/Fluent 2>/dev/null || true \
-&& gtk-update-icon-cache -f /usr/share/icons/hicolor 2>/dev/null || true
+    && gtk-update-icon-cache -f /usr/share/icons/hicolor 2>/dev/null || true
 
-# ── Tema XFWM4 Win11-Dark con botones visuales ───────────────────────────────
+# ── Tema XFWM4 Win11-Dark ─────────────────────────────────────────────────────
 RUN mkdir -p /usr/share/xfwm4/themes/Win11-Dark
 COPY resources/xfwm4-win11/ /usr/share/xfwm4/themes/Win11-Dark/
 

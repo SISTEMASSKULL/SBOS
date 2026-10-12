@@ -1,5 +1,5 @@
 #!/bin/bash
-# xstartup — SBOS Corporate Desktop (Ubuntu 24.04 + XFCE4 + Win11 Theme)
+# xstartup — SBOS Corporate Desktop (Windows 11 Theme)
 
 export XDG_SESSION_TYPE=x11
 export XDG_CURRENT_DESKTOP=XFCE
@@ -8,9 +8,10 @@ export XDG_RUNTIME_DIR="/run/user/$(id -u)"
 export NO_AT_BRIDGE=1
 export LIBGL_ALWAYS_SOFTWARE=1
 export GALLIUM_DRIVER=llvmpipe
-export GTK_THEME=Fluent-round-Dark
+export GTK_THEME=Windows-11
 export XCURSOR_THEME=Adwaita
 export XCURSOR_SIZE=24
+export GTK2_RC_FILES=/usr/share/themes/Windows-11/gtk-2.0/gtkrc
 
 # D-Bus sesión
 eval "$(dbus-launch --sh-syntax 2>/dev/null)" || true
@@ -19,49 +20,49 @@ export DBUS_SESSION_BUS_ADDRESS
 mkdir -p /tmp/.ICE-unix && chmod 1777 /tmp/.ICE-unix 2>/dev/null || true
 xdg-user-dirs-update 2>/dev/null || true
 
-# Cursor theme
+# Cursor
 xsetroot -cursor_name left_ptr 2>/dev/null || true
 
-# Wallpaper Windows 11 — gradiente oscuro corporativo
-if [ -f /usr/share/backgrounds/sbos/windows11-dark.jpg ]; then
-    feh --bg-fill /usr/share/backgrounds/sbos/windows11-dark.jpg 2>/dev/null || \
-    hsetroot -fill /usr/share/backgrounds/sbos/windows11-dark.jpg 2>/dev/null || \
-    hsetroot -solid '#0a1628' 2>/dev/null || true
+# Wallpaper Windows 11 Bloom
+WALLPAPER=/usr/share/backgrounds/sbos/windows11-bloom.jpg
+if [ -f "$WALLPAPER" ]; then
+    feh --bg-fill "$WALLPAPER" 2>/dev/null || \
+    hsetroot -fill "$WALLPAPER" 2>/dev/null || \
+    hsetroot -solid '#020b18' 2>/dev/null || true
 else
-    hsetroot -solid '#0a1628' 2>/dev/null || xsetroot -solid '#0a1628' 2>/dev/null || true
+    hsetroot -solid '#020b18' 2>/dev/null || xsetroot -solid '#020b18' 2>/dev/null || true
 fi
 
-# Gestor de ventanas con compositing
+# Gestor de ventanas Windows 11
 xfwm4 --compositor=on &
 
-# Configuración XFCE (temas, fuentes, cursores)
+# Configuración XFCE (aplica themes, fuentes, cursores desde xsettings.xml)
 xfsettingsd --daemon &
 
 sleep 1
 
-# Panel de tareas en la parte inferior
+# Panel de tareas
 xfce4-panel &
 
-# Thunar en background (apertura rápida de archivos)
+# Servicios de fondo
 thunar --daemon 2>/dev/null &
-
-# Notificaciones
 xfce4-notifyd 2>/dev/null &
 
-# Esperar que el panel esté corriendo y verificar posición
+# Configurar tema Windows-11 en runtime después de que el panel arranque
 (
     for i in $(seq 1 30); do
         pgrep -x xfce4-panel > /dev/null 2>&1 && break
         sleep 1
     done
-    sleep 4
+    sleep 3
 
-    # Aplicar configuración xfconf en runtime para garantizar el tema
-    xfconf-query -c xsettings -p /Net/ThemeName -s "Fluent-round-Dark" 2>/dev/null || true
+    xfconf-query -c xsettings -p /Net/ThemeName -s "Windows-11" 2>/dev/null || true
     xfconf-query -c xsettings -p /Net/IconThemeName -s "Fluent-dark" 2>/dev/null || true
     xfconf-query -c xsettings -p /Gtk/CursorThemeName -s "Adwaita" 2>/dev/null || true
     xfconf-query -c xfwm4 -p /general/theme -s "Win11-Dark" 2>/dev/null || true
     xfconf-query -c xfwm4 -p /general/use_compositing -t bool -s true 2>/dev/null || true
+    xfconf-query -c xfwm4 -p /general/title_alignment -s "left" 2>/dev/null || true
+    xfconf-query -c xfwm4 -p /general/button_layout -s "O|HMC" 2>/dev/null || true
 ) &
 
 wait
