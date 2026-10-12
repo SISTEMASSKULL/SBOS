@@ -1,58 +1,68 @@
 #!/bin/bash
-# xstartup — XFCE4 + Windows 11 theme (Fluent-Dark + Win11-Dark xfwm4 + Kvantum)
-# xfwm4 tiene compositor software propio — no necesita kwin ni GPU
+# xstartup — Ubuntu 24.04 XFCE4 VDI
+# Lanza los componentes directamente (sin xfce4-session) — más confiable en K8s
 
 export XDG_SESSION_TYPE=x11
 export XDG_CURRENT_DESKTOP=XFCE
 export DESKTOP_SESSION=xfce
-export QT_QPA_PLATFORM=xcb
-export QT_STYLE_OVERRIDE=kvantum
-export XCURSOR_THEME=Fluent-dark
-export XCURSOR_SIZE=24
 export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+export NO_AT_BRIDGE=1
+export LIBGL_ALWAYS_SOFTWARE=1
+export GALLIUM_DRIVER=llvmpipe
+export GTK_THEME=Fluent-round-Dark
 
-if [[ -z "${DBUS_SESSION_BUS_ADDRESS}" ]]; then
-    eval "$(dbus-launch --sh-syntax 2>/dev/null)" || true
-    export DBUS_SESSION_BUS_ADDRESS
-fi
+# D-Bus de sesión
+eval "$(dbus-launch --sh-syntax 2>/dev/null)" || true
+export DBUS_SESSION_BUS_ADDRESS
+
+mkdir -p /tmp/.ICE-unix
+chmod 1777 /tmp/.ICE-unix 2>/dev/null || true
 
 xdg-user-dirs-update 2>/dev/null || true
 
-# Copiar config XFCE la primera vez (o si el flag no existe)
-if [[ ! -f ~/.config/xfce-sbos-initialized ]]; then
-    mkdir -p ~/.config
-    cp -r /etc/sbos-desktop/xfce-defaults/. ~/.config/ 2>/dev/null || true
-    touch ~/.config/xfce-sbos-initialized
-fi
+# Fondo azul oscuro
+hsetroot -solid '#0a1628' 2>/dev/null || \
+  xsetroot -solid '#0a1628' 2>/dev/null || true
 
-# ── xfwm4: WM + compositor software (XRender, sin GPU) ──────────────────────
-/usr/bin/xfwm4 --compositor=on --display=:1 2>/dev/null &
+# Gestor de ventanas
+xfwm4 &
+
+# Daemon de configuración XFCE (aplica temas GTK, fuentes, cursores)
+xfsettingsd --daemon &
+
 sleep 1
 
-# ── xfdesktop: fondo de pantalla Win11 + iconos del escritorio ───────────────
-/usr/bin/xfdesktop --display=:1 2>/dev/null &
-sleep 1
+# Panel y utilidades
+xfce4-panel &
+Thunar --daemon 2>/dev/null &
 
-# ── xfce4-panel: taskbar estilo Windows 11 (panel inferior) ─────────────────
-/usr/bin/xfce4-panel --display=:1 2>/dev/null &
-sleep 1
+# Mover panel al bottom si arrancó arriba (idempotente)
+(
+  for i in $(seq 1 30); do
+    pgrep -x xfce4-panel > /dev/null 2>&1 && break
+    sleep 1
+  done
+  sleep 3
+  PANEL_WIN=$(DISPLAY=:1 xdotool search --classname "xfce4-panel" 2>/dev/null | head -1)
+  if [[ -n "$PANEL_WIN" ]]; then
+    PANEL_Y=$(DISPLAY=:1 xdotool getwindowgeometry "$PANEL_WIN" 2>/dev/null | grep -oP 'Y: \K\d+')
+    if [[ -z "$PANEL_Y" ]] || [[ "$PANEL_Y" -lt 200 ]]; then
+      xfconf-query -c xfce4-panel -p /panels/panel-1/position-locked -t bool -s false 2>/dev/null || true
+      sleep 0.5
+      DISPLAY=:1 xdotool mousemove 75 20
+      sleep 0.3
+      DISPLAY=:1 xdotool mousedown 1
+      sleep 0.3
+      DISPLAY=:1 xdotool mousemove 960 700
+      sleep 0.2
+      DISPLAY=:1 xdotool mousemove 960 1056
+      sleep 0.3
+      DISPLAY=:1 xdotool mouseup 1
+      sleep 2
+      xfconf-query -c xfce4-panel -p /panels/panel-1/position-locked -t bool -s true 2>/dev/null || true
+    fi
+  fi
+) &
 
-# ── Aplicar configuración vía xfconf (fondo + tema) ─────────────────────────
-# xfconf-query necesita DBUS activo — esperar a que xfce4-panel arranque
-sleep 2
-
-# Fondo Windows 11 Bloom (intentar múltiples monitores que Xvnc puede reportar)
-for monitor in VNC-0 0; do
-    xfconf-query -c xfce4-desktop \
-        -p "/backdrop/screen0/monitor${monitor}/workspace0/last-image" \
-        -s "/usr/share/wallpapers/Windows11/contents/images/1920x1080.jpg" \
-        2>/dev/null || true
-    xfconf-query -c xfce4-desktop \
-        -p "/backdrop/screen0/monitor${monitor}/workspace0/image-style" \
-        -s 5 2>/dev/null || true
-done
-
-# Recargar escritorio para aplicar wallpaper
-xfdesktop --reload 2>/dev/null || true
-
+# Mantener el xstartup vivo mientras xfwm4 esté corriendo
 wait

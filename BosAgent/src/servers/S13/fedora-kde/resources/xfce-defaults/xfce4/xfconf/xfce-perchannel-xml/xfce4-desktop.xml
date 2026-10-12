@@ -19,13 +19,6 @@
     </property>
   </property>
   <property name="desktop-icons" type="empty">
-    <property name="style" type="int" value="2"/>
-    <property name="icon-size" type="uint" value="48"/>
-    <property name="tooltip-size" type="double" value="128.000000"/>
-    <property name="show-thumbnails" type="bool" value="false"/>
-    <property name="show-home" type="bool" value="false"/>
-    <property name="show-trash" type="bool" value="false"/>
-    <property name="show-filesystem" type="bool" value="false"/>
-    <property name="show-removable" type="bool" value="false"/>
+    <property name="style" type="int" value="0"/>
   </property>
 </channel>

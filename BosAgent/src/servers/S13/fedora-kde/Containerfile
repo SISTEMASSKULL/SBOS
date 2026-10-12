@@ -1,100 +1,102 @@
-FROM registry.fedoraproject.org/fedora:44
+FROM ubuntu:24.04 AS theme-build
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git curl ca-certificates sassc libglib2.0-dev-bin libxml2-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+# Crear directorios de salida — COPY --from falla si no existen
+RUN mkdir -p /out/themes /out/icons
+
+RUN curl -fsSL "https://github.com/vinceliuice/Fluent-gtk-theme/archive/refs/heads/master.tar.gz" \
+        -o /tmp/fluent-gtk.tar.gz \
+    && tar -xzf /tmp/fluent-gtk.tar.gz -C /tmp/ \
+    && FLUENTDIR=$(find /tmp -maxdepth 1 -type d -name 'Fluent-gtk-theme-*' | head -1) \
+    && bash "$FLUENTDIR/install.sh" -d /out/themes --tweaks round \
+    && rm -rf /tmp/fluent-gtk.tar.gz "$FLUENTDIR"
+
+RUN curl -fsSL "https://github.com/vinceliuice/Fluent-icon-theme/archive/refs/heads/master.tar.gz" \
+        -o /tmp/fluent-icons.tar.gz \
+    && tar -xzf /tmp/fluent-icons.tar.gz -C /tmp/ \
+    && bash /tmp/Fluent-icon-theme-master/install.sh -d /out/icons \
+    && rm -rf /tmp/fluent-icons.tar.gz /tmp/Fluent-icon-theme-master
+
+# ── Imagen final ───────────────────────────────────────────────────────────────
+FROM ubuntu:24.04
 
 LABEL maintainer="SBOS" \
-      description="SBOS Corporate Desktop — Fedora 44 XFCE 4 + TigerVNC + noVNC + Windows 11 Theme (Fluent-Dark + Kvantum)" \
-      version="4.0.0"
+      description="SBOS Corporate Desktop — Ubuntu 24.04 + XFCE4 + TigerVNC + noVNC + Windows 11 Theme" \
+      version="5.1.0"
 
-ENV LANG=es_ES.UTF-8 \
+ENV DEBIAN_FRONTEND=noninteractive \
+    LANG=es_ES.UTF-8 \
     LC_ALL=es_ES.UTF-8 \
     DISPLAY=:1 \
     RESOLUTION=1920x1080 \
-    DEPTH=24
+    DEPTH=24 \
+    LIBGL_ALWAYS_SOFTWARE=1 \
+    GALLIUM_DRIVER=llvmpipe \
+    NO_AT_BRIDGE=1
 
-# ── Paquetes base ─────────────────────────────────────────────────────────────
-# xfwm4 tiene compositor software propio — no necesita GPU ni kwin
-RUN dnf install -y --setopt=install_weak_deps=False --skip-unavailable \
-    # XFCE4 — desktop environment ligero, funciona en VNC sin GPU
-    xfce4-session \
-    xfwm4 \
-    xfce4-panel \
-    xfdesktop \
-    xfce4-settings \
-    xfconf \
-    xfce4-power-manager \
-    # Aplicaciones XFCE
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # XFCE4
+    xfce4 \
     xfce4-terminal \
-    thunar \
     xfce4-notifyd \
+    xfce4-whiskermenu-plugin \
     mousepad \
-    # Gestión de archivos
-    ark \
-    # kvantum: estilo Qt/Fluent para aplicaciones Qt
-    kvantum \
-    # Browser
-    chromium \
-    # VNC
-    tigervnc-server \
+    thunar \
+    # VNC + noVNC
+    tigervnc-standalone-server \
     novnc \
-    python3-websockify \
+    websockify \
+    # GTK / rendering (loaders nativos PNG/JPEG — sin glycin, sin bwrap)
+    libgdk-pixbuf2.0-0 \
+    gdk-pixbuf2.0-bin \
+    librsvg2-common \
+    # Motor de temas GTK2 (algunos widgets XFCE usan GTK2)
+    gtk2-engines-murrine \
+    # Mesa software rendering (xfwm4 compositor por CPU)
+    libgl1-mesa-dri \
+    # Iconos y cursors
+    adwaita-icon-theme \
+    adwaita-icon-theme-full \
+    # Fuentes
+    fonts-noto-core \
+    fonts-noto-color-emoji \
+    fonts-liberation \
     # X11 utils
     dbus-x11 \
     xdg-user-dirs \
     xdg-utils \
-    xsetroot \
-    # Iconos GTK
-    gtk-update-icon-cache \
-    # Fuentes Windows-compatible
-    google-noto-sans-fonts \
-    google-noto-serif-fonts \
-    google-noto-emoji-fonts \
-    liberation-fonts \
+    x11-xserver-utils \
+    x11-utils \
+    hsetroot \
+    scrot \
+    xdotool \
     # Español
-    glibc-langpack-es \
+    locales \
+    # tini: PID 1 reaper de zombies para contenedor de larga vida
+    tini \
     # Sistema
-    procps-ng \
-    net-tools \
+    sudo \
+    procps \
     curl \
     wget \
-    which \
-    && dnf clean all \
-    && rm -rf /var/cache/dnf /var/log/dnf*
+    ca-certificates \
+    && locale-gen es_ES.UTF-8 \
+    && rm -rf /var/lib/apt/lists/*
 
-# ── Fluent-gtk-theme — tema GTK estilo Windows 11 / Fluent Design ─────────────
-RUN curl -sL "https://github.com/vinceliuice/Fluent-gtk-theme/archive/refs/heads/main.tar.gz" \
-        -o /tmp/fluent-gtk.tar.gz 2>/dev/null \
-    || curl -sL "https://github.com/vinceliuice/Fluent-gtk-theme/archive/refs/heads/master.tar.gz" \
-        -o /tmp/fluent-gtk.tar.gz 2>/dev/null \
-    && tar -xzC /tmp/ -f /tmp/fluent-gtk.tar.gz \
-    && FLUENTDIR=$(find /tmp -maxdepth 1 -type d -name 'Fluent-gtk-theme-*' | head -1) \
-    && bash "$FLUENTDIR/install.sh" -d /usr/share/themes --tweaks round 2>/dev/null || true \
-    && rm -rf /tmp/fluent-gtk.tar.gz "$FLUENTDIR"
+# ── Temas desde stage build ────────────────────────────────────────────────────
+COPY --from=theme-build /out/themes/ /usr/share/themes/
+COPY --from=theme-build /out/icons/  /usr/share/icons/
 
-# ── Fluent-kde — Kvantum theme estilo Windows 11 para apps Qt ─────────────────
-RUN curl -sL "https://github.com/vinceliuice/Fluent-kde/archive/refs/heads/main.tar.gz" \
-        -o /tmp/fluent-kde.tar.gz 2>/dev/null \
-    || curl -sL "https://github.com/vinceliuice/Fluent-kde/archive/refs/heads/master.tar.gz" \
-        -o /tmp/fluent-kde.tar.gz 2>/dev/null \
-    && tar -xzC /tmp/ -f /tmp/fluent-kde.tar.gz \
-    && FLUENTDIR=$(find /tmp -maxdepth 1 -type d -name 'Fluent-kde-*' | head -1) \
-    && bash "$FLUENTDIR/install.sh" 2>/dev/null || true \
-    && rm -rf /tmp/fluent-kde.tar.gz "$FLUENTDIR"
+RUN gtk-update-icon-cache -f /usr/share/icons/Fluent-dark 2>/dev/null || true \
+    && gtk-update-icon-cache -f /usr/share/icons/Fluent 2>/dev/null || true \
+    && gtk-update-icon-cache -f /usr/share/icons/hicolor 2>/dev/null || true
 
-# ── Fluent icons — iconos estilo Windows 11 / Fluent Design ──────────────────
-RUN curl -sL "https://github.com/vinceliuice/Fluent-icon-theme/archive/refs/heads/master.tar.gz" \
-        | tar -xzC /tmp/ \
-    && bash /tmp/Fluent-icon-theme-master/install.sh 2>/dev/null || true \
-    && rm -rf /tmp/Fluent-icon-theme-master \
-    && gtk-update-icon-cache -f /usr/share/icons/Fluent-dark 2>/dev/null || true \
-    && gtk-update-icon-cache -f /usr/share/icons/Fluent 2>/dev/null || true
-
-# ── Cursor Fluent-dark ────────────────────────────────────────────────────────
-RUN curl -sL "https://github.com/vinceliuice/Fluent-icon-theme/archive/refs/heads/master.tar.gz" \
-        | tar -xzC /tmp/ 2>/dev/null || true \
-    && (ls /usr/share/icons/Fluent-dark/cursors/ 2>/dev/null | grep -q xcursor && echo "cursor ok") || \
-       (find /tmp/Fluent-icon-theme-master -name "install.sh" -exec bash {} \; 2>/dev/null || true) \
-    && rm -rf /tmp/Fluent-icon-theme-master 2>/dev/null || true
-
-# ── Tema XFWM4 Win11-Dark — decoraciones de ventana estilo Windows 11 ─────────
+# ── Tema XFWM4 Win11-Dark ──────────────────────────────────────────────────────
 RUN mkdir -p /usr/share/xfwm4/themes/Win11-Dark \
     && printf '%s\n' \
        'active_color_1=#202020' \
@@ -122,17 +124,7 @@ RUN mkdir -p /usr/share/xfwm4/themes/Win11-Dark \
        'title_vertical_offset_inactive=1' \
        > /usr/share/xfwm4/themes/Win11-Dark/themerc
 
-# ── Wallpaper Windows 11 Bloom ────────────────────────────────────────────────
-RUN mkdir -p /usr/share/wallpapers/Windows11/contents/images \
-    && curl -sL \
-      "https://raw.githubusercontent.com/kkrypt0nn/Windows-11-Wallpapers/main/Wallpapers/Bloom/img0_dark.jpg" \
-      -o /usr/share/wallpapers/Windows11/contents/images/1920x1080.jpg 2>/dev/null \
-    || curl -sL \
-      "https://raw.githubusercontent.com/kkrypt0nn/Windows-11-Wallpapers/main/Wallpapers/Bloom/img0.jpg" \
-      -o /usr/share/wallpapers/Windows11/contents/images/1920x1080.jpg 2>/dev/null \
-    || true
-
-# ── Usuario del desktop ───────────────────────────────────────────────────────
+# ── Usuario del desktop ────────────────────────────────────────────────────────
 RUN useradd -u 1001 -ms /bin/bash sbosuser && \
     echo "sbosuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/sbosuser && \
     chmod 440 /etc/sudoers.d/sbosuser
@@ -143,11 +135,15 @@ RUN mkdir -p /etc/sbos-desktop
 COPY resources/xstartup /etc/sbos-desktop/xstartup
 RUN chmod +x /etc/sbos-desktop/xstartup
 
-COPY resources/xfce-defaults/ /etc/sbos-desktop/xfce-defaults/
+# Defaults XFCE al path canónico del sistema — xfce4-session los carga automáticamente
+RUN mkdir -p /etc/xdg/xfce4/xfconf/xfce-perchannel-xml
+COPY resources/xfce-defaults/xfce4/xfconf/xfce-perchannel-xml/ /etc/xdg/xfce4/xfconf/xfce-perchannel-xml/
+
 COPY resources/novnc-index.html /usr/share/novnc/index.html
 COPY resources/start-desktop.sh /start-desktop.sh
 RUN chmod +x /start-desktop.sh
 
 EXPOSE 6901
 
+ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["/start-desktop.sh"]
