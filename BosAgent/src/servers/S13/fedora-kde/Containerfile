@@ -141,15 +141,8 @@ RUN mkdir -p /usr/share/wallpapers/Windows11/contents/images \
       "https://raw.githubusercontent.com/kkrypt0nn/Windows-11-Wallpapers/main/Wallpapers/Bloom/img0.jpg" \
       -o /usr/share/wallpapers/Windows11/contents/images/1920x1080.jpg 2>/dev/null \
     || true \
-    && cat > /usr/share/wallpapers/Windows11/metadata.json << 'WPJSON'
-{
-    "KPlugin": {
-        "Id": "Windows11",
-        "Name": "Windows 11 Bloom",
-        "License": "CC-BY"
-    }
-}
-WPJSON
+    && printf '{\n    "KPlugin": {\n        "Id": "Windows11",\n        "Name": "Windows 11 Bloom",\n        "License": "CC-BY"\n    }\n}\n' \
+       > /usr/share/wallpapers/Windows11/metadata.json
 
 # Crear usuario del desktop (uid fijo para volúmenes persistentes)
 RUN useradd -u 1001 -ms /bin/bash sbosuser && \
