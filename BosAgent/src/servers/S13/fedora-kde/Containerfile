@@ -1,8 +1,8 @@
 FROM registry.fedoraproject.org/fedora:44
 
 LABEL maintainer="SBOS" \
-      description="SBOS Corporate Desktop — Fedora 44 KDE Plasma 6 + TigerVNC + noVNC + Win11 Theme" \
-      version="2.0.0"
+      description="SBOS Corporate Desktop — Fedora 44 KDE Plasma 6 + TigerVNC + noVNC + Windows 11 Theme (kwin + Fluent-kde + Kvantum)" \
+      version="3.0.0"
 
 ENV LANG=es_ES.UTF-8 \
     LC_ALL=es_ES.UTF-8 \
@@ -24,10 +24,11 @@ RUN dnf install -y --setopt=install_weak_deps=False --skip-unavailable \
     spectacle \
     kate \
     ark \
-    # openbox: gestor de ventanas X11 (kwin_x11 fue eliminado en Plasma 6)
+    # kwin es el WM nativo de KDE — decoraciones Aurorae + compositor XRender (compatible VNC)
+    # openbox se mantiene como fallback de emergencia
     openbox \
-    # picom: compositor X11 — bordes redondeados + sombras (Windows 11 style)
-    picom \
+    # kvantum: motor de estilos Qt — aspecto Windows 11 para apps Qt/KDE
+    kvantum \
     # Browser para SSO con Keycloak
     chromium \
     # VNC: TigerVNC crea su propio display virtual (Xvnc)
@@ -57,218 +58,18 @@ RUN dnf install -y --setopt=install_weak_deps=False --skip-unavailable \
     && dnf clean all \
     && rm -rf /var/cache/dnf /var/log/dnf*
 
-# ── Tema Windows 11 Dark para OpenBox ──────────────────────────────────────
-# Marco de ventana moderno: barra de título oscura, botones de control Win11
-RUN mkdir -p /usr/share/themes/Win11-Dark/openbox-3 \
-    && cat > /usr/share/themes/Win11-Dark/openbox-3/themerc <<'THEMERC'
-# Win11-Dark — OpenBox window theme inspired by Windows 11 Fluent Design
-border.width: 1
-border.color: #3a3a3a
-padding.width: 6
-padding.height: 5
-menu.border.width: 1
-menu.border.color: #3a3a3a
-
-# Ventana activa
-window.active.title.bg:                    flat solid
-window.active.title.bg.color:              #202020
-window.active.label.bg:                    parentrelative
-window.active.label.text.color:            #ffffff
-window.active.label.text.font:             Sans:size=9:bold
-window.active.handle.bg:                   flat solid
-window.active.handle.bg.color:             #202020
-window.active.grip.bg:                     flat solid
-window.active.grip.bg.color:               #505050
-
-# Ventana inactiva
-window.inactive.title.bg:                  flat solid
-window.inactive.title.bg.color:            #2a2a2a
-window.inactive.label.bg:                  parentrelative
-window.inactive.label.text.color:          #888888
-window.inactive.label.text.font:           Sans:size=9
-window.inactive.handle.bg:                 flat solid
-window.inactive.handle.bg.color:           #2a2a2a
-window.inactive.grip.bg:                   flat solid
-window.inactive.grip.bg.color:             #3a3a3a
-
-# Botones de control (activos)
-window.active.button.unpressed.bg:         flat solid
-window.active.button.unpressed.bg.color:   #202020
-window.active.button.unpressed.image.color: #cccccc
-window.active.button.hover.bg:             flat solid
-window.active.button.hover.bg.color:       #505050
-window.active.button.hover.image.color:    #ffffff
-window.active.button.pressed.bg:           flat solid
-window.active.button.pressed.bg.color:     #303030
-window.active.button.pressed.image.color:  #ffffff
-# Botón cerrar — rojo al pasar el cursor (igual que Win11)
-window.active.button.close.hover.bg:       flat solid
-window.active.button.close.hover.bg.color: #c42b1c
-window.active.button.close.hover.image.color: #ffffff
-window.active.button.close.pressed.bg:     flat solid
-window.active.button.close.pressed.bg.color: #d32f2f
-
-# Botones inactivos
-window.inactive.button.unpressed.bg:       flat solid
-window.inactive.button.unpressed.bg.color: #2a2a2a
-window.inactive.button.unpressed.image.color: #555555
-
-# Menú contextual
-menu.items.bg:                             flat solid
-menu.items.bg.color:                       #2d2d2d
-menu.items.text.color:                     #e0e0e0
-menu.items.font:                           Sans:size=9
-menu.items.active.bg:                      flat solid
-menu.items.active.bg.color:                #0078d4
-menu.items.active.text.color:              #ffffff
-menu.title.bg:                             flat solid
-menu.title.bg.color:                       #1a1a1a
-menu.title.text.color:                     #c0c0c0
-menu.title.text.font:                      Sans:size=9:bold
-osd.bg:                                    flat solid
-osd.bg.color:                              #202020
-osd.border.color:                          #3a3a3a
-osd.border.width:                          1
-osd.label.text.color:                      #ffffff
-THEMERC
-
-# ── Esquema de colores Windows 11 Dark para KDE Plasma ─────────────────────
-RUN mkdir -p /usr/share/color-schemes \
-    && cat > /usr/share/color-schemes/Windows11Dark.colors <<'COLORS'
-[ColorEffects:Disabled]
-Color=56,56,56
-ColorAmount=0
-ColorEffect=0
-ContrastAmount=0.65
-ContrastEffect=1
-IntensityAmount=0.1
-IntensityEffect=2
-
-[ColorEffects:Inactive]
-ChangeSelectionColor=true
-Color=112,111,110
-ColorAmount=0.025
-ColorEffect=2
-ContrastAmount=0.1
-ContrastEffect=2
-Enable=false
-IntensityAmount=0
-IntensityEffect=0
-
-[Colors:Button]
-BackgroundAlternate=43,45,48
-BackgroundNormal=43,45,48
-DecorationFocus=0,120,212
-DecorationHover=0,120,212
-ForegroundActive=0,120,212
-ForegroundInactive=128,128,128
-ForegroundLink=0,120,212
-ForegroundNegative=218,68,83
-ForegroundNeutral=246,116,0
-ForegroundNormal=255,255,255
-ForegroundPositive=39,174,96
-ForegroundVisited=100,74,155
-
-[Colors:Complementary]
-BackgroundAlternate=42,44,48
-BackgroundNormal=32,32,32
-DecorationFocus=0,120,212
-DecorationHover=0,120,212
-ForegroundActive=0,120,212
-ForegroundInactive=128,128,128
-ForegroundLink=0,120,212
-ForegroundNegative=218,68,83
-ForegroundNeutral=246,116,0
-ForegroundNormal=255,255,255
-ForegroundPositive=39,174,96
-ForegroundVisited=100,74,155
-
-[Colors:Header]
-BackgroundAlternate=42,44,48
-BackgroundNormal=32,32,32
-DecorationFocus=0,120,212
-DecorationHover=0,120,212
-ForegroundActive=0,120,212
-ForegroundInactive=128,128,128
-ForegroundLink=0,120,212
-ForegroundNegative=218,68,83
-ForegroundNeutral=246,116,0
-ForegroundNormal=255,255,255
-ForegroundPositive=39,174,96
-ForegroundVisited=100,74,155
-
-[Colors:Selection]
-BackgroundAlternate=0,90,160
-BackgroundNormal=0,120,212
-DecorationFocus=0,120,212
-DecorationHover=0,120,212
-ForegroundActive=255,255,255
-ForegroundInactive=255,255,255
-ForegroundLink=255,255,255
-ForegroundNegative=255,255,255
-ForegroundNeutral=255,255,255
-ForegroundNormal=255,255,255
-ForegroundPositive=255,255,255
-ForegroundVisited=255,255,255
-
-[Colors:Tooltip]
-BackgroundAlternate=42,46,50
-BackgroundNormal=32,32,32
-DecorationFocus=0,120,212
-DecorationHover=0,120,212
-ForegroundActive=0,120,212
-ForegroundInactive=128,128,128
-ForegroundLink=0,120,212
-ForegroundNegative=218,68,83
-ForegroundNeutral=246,116,0
-ForegroundNormal=255,255,255
-ForegroundPositive=39,174,96
-ForegroundVisited=100,74,155
-
-[Colors:View]
-BackgroundAlternate=30,30,30
-BackgroundNormal=25,25,25
-DecorationFocus=0,120,212
-DecorationHover=0,120,212
-ForegroundActive=0,120,212
-ForegroundInactive=128,128,128
-ForegroundLink=0,120,212
-ForegroundNegative=218,68,83
-ForegroundNeutral=246,116,0
-ForegroundNormal=255,255,255
-ForegroundPositive=39,174,96
-ForegroundVisited=100,74,155
-
-[Colors:Window]
-BackgroundAlternate=35,35,35
-BackgroundNormal=32,32,32
-DecorationFocus=0,120,212
-DecorationHover=0,120,212
-ForegroundActive=0,120,212
-ForegroundInactive=128,128,128
-ForegroundLink=0,120,212
-ForegroundNegative=218,68,83
-ForegroundNeutral=246,116,0
-ForegroundNormal=255,255,255
-ForegroundPositive=39,174,96
-ForegroundVisited=100,74,155
-
-[General]
-ColorScheme=Windows11Dark
-Name=Windows 11 Dark
-shadeSortColumn=true
-
-[KDE]
-contrast=4
-
-[WM]
-activeBackground=32,32,32
-activeBlend=32,32,32
-activeForeground=255,255,255
-inactiveBackground=45,45,45
-inactiveBlend=45,45,45
-inactiveForeground=128,128,128
-COLORS
+# ── Fluent-kde: Windows 11 theme completo para KDE ─────────────────────────
+# Incluye: Aurorae (decoraciones ventana) + Kvantum + Plasma theme + colores
+# Autor: vinceliuice — el mismo que los iconos Fluent ya instalados
+RUN curl -sL "https://github.com/vinceliuice/Fluent-kde/archive/refs/heads/main.tar.gz" \
+        -o /tmp/fluent-kde.tar.gz 2>/dev/null \
+    || curl -sL "https://github.com/vinceliuice/Fluent-kde/archive/refs/heads/master.tar.gz" \
+        -o /tmp/fluent-kde.tar.gz 2>/dev/null \
+    && tar -xzC /tmp/ -f /tmp/fluent-kde.tar.gz \
+    && FLUENTDIR=$(find /tmp -maxdepth 1 -type d -name 'Fluent-kde-*' | head -1) \
+    && echo "Instalando Fluent-kde desde: $FLUENTDIR" \
+    && bash "$FLUENTDIR/install.sh" 2>/dev/null || true \
+    && rm -rf /tmp/fluent-kde.tar.gz "$FLUENTDIR"
 
 # ── Iconos Fluent (estilo Windows 11) ──────────────────────────────────────
 # vinceliuice/Fluent-icon-theme: iconos modernos tipo Fluent Design de Microsoft

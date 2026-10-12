@@ -1,7 +1,7 @@
 [General]
-ColorScheme=Windows11Dark
-Name=Windows11Dark
-widgetStyle=Breeze
+ColorScheme=FluentDark
+Name=FluentDark
+widgetStyle=kvantum-dark
 fixed=Monospace,10,-1,5,50,0,0,0,0,0
 font=Noto Sans,10,-1,5,50,0,0,0,0,0
 menuFont=Noto Sans,10,-1,5,50,0,0,0,0,0
@@ -12,11 +12,7 @@ toolBarFont=Noto Sans,10,-1,5,50,0,0,0,0,0
 Theme=Fluent-dark
 
 [KDE]
-LookAndFeelPackage=org.kde.breezedark.desktop
+LookAndFeelPackage=com.github.vinceliuice.Fluent.dark
 ShowDeleteCommand=false
 SingleClick=false
 AnimationDurationFactor=0.5
-
-[Colors:Window]
-BackgroundNormal=32,32,32
-ForegroundNormal=255,255,255
