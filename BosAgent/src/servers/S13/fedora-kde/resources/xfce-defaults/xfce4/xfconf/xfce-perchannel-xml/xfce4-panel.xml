@@ -43,10 +43,10 @@
       <property name="button-single-row" type="bool" value="true"/>
     </property>
 
-    <!-- 3: Lanzador: Chromium (navegador) -->
+    <!-- 3: Lanzador: Firefox (navegador) -->
     <property name="plugin-3" type="string" value="launcher">
       <property name="items" type="array">
-        <value type="string" value="chromium-browser.desktop"/>
+        <value type="string" value="firefox-esr.desktop"/>
       </property>
     </property>
 

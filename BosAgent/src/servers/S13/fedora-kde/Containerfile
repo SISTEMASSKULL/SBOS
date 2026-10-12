@@ -79,7 +79,7 @@ FROM ubuntu:24.04
 
 LABEL maintainer="SBOS" \
       description="SBOS Corporate Desktop — Ubuntu 24.04 + XFCE4 + TigerVNC + noVNC + Windows 11" \
-      version="6.0.0"
+      version="6.1.0"
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANG=es_ES.UTF-8 \
@@ -111,8 +111,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # ── Aplicaciones de productividad ─────────────────────────────────────────────
+# Firefox ESR desde Mozilla PPA (chromium-browser en Ubuntu 24.04 = solo snap, no funciona en K8s)
+RUN apt-get update && apt-get install -y --no-install-recommends software-properties-common \
+    && add-apt-repository -y ppa:mozillateam/ppa \
+    && printf 'Package: firefox*\nPin: release o=LP-PPA-mozillateam\nPin-Priority: 1001\n' \
+       > /etc/apt/preferences.d/mozilla-firefox \
+    && apt-get update && apt-get install -y --no-install-recommends \
+       firefox-esr \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    chromium-browser \
     libreoffice-writer libreoffice-calc libreoffice-impress libreoffice-draw \
     libreoffice-l10n-es libreoffice-help-es \
     galculator file-roller eog \
