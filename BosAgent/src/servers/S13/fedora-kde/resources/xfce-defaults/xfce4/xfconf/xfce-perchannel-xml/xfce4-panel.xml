@@ -5,16 +5,9 @@
     <value type="int" value="1"/>
     <property name="panel-1" type="empty">
       <property name="position" type="string" value="p=12;x=960;y=1055"/>
-      <property name="position-locked" type="bool" value="false"/>
-      <property name="size" type="uint" value="48"/>
       <property name="length" type="uint" value="100"/>
-      <property name="icon-size" type="uint" value="22"/>
-      <property name="nrows" type="uint" value="1"/>
-      <property name="background-style" type="uint" value="1"/>
-      <property name="background-color" type="string" value="#1c1c1cff"/>
-      <property name="enter-opacity" type="uint" value="100"/>
-      <property name="leave-opacity" type="uint" value="100"/>
-      <property name="autohide-behavior" type="uint" value="0"/>
+      <property name="position-locked" type="bool" value="true"/>
+      <property name="size" type="uint" value="48"/>
       <property name="plugin-ids" type="array">
         <value type="int" value="1"/>
         <value type="int" value="2"/>
@@ -22,32 +15,91 @@
         <value type="int" value="4"/>
         <value type="int" value="5"/>
         <value type="int" value="6"/>
+        <value type="int" value="7"/>
+        <value type="int" value="8"/>
+        <value type="int" value="9"/>
+        <value type="int" value="10"/>
+        <value type="int" value="11"/>
+        <value type="int" value="12"/>
+        <value type="int" value="13"/>
       </property>
+      <property name="background-style" type="uint" value="1"/>
+      <property name="background-color" type="string" value="#1a1a1a"/>
+      <property name="background-alpha" type="uint" value="95"/>
+      <property name="enable-struts" type="bool" value="true"/>
     </property>
   </property>
   <property name="plugins" type="empty">
-    <property name="plugin-1" type="string" value="whiskermenu"/>
-    <property name="plugin-2" type="string" value="separator">
+    <!-- 1: Menú de aplicaciones (Whisker) -->
+    <property name="plugin-1" type="string" value="whiskermenu">
+      <property name="show-button-title" type="bool" value="false"/>
+      <property name="button-icon" type="string" value="distributor-logo"/>
+      <property name="button-single-row" type="bool" value="true"/>
+    </property>
+    <!-- 2: Lanzador: Navegador -->
+    <property name="plugin-2" type="string" value="launcher">
+      <property name="items" type="array">
+        <value type="string" value="chromium-browser.desktop"/>
+      </property>
+    </property>
+    <!-- 3: Lanzador: Gestor de archivos -->
+    <property name="plugin-3" type="string" value="launcher">
+      <property name="items" type="array">
+        <value type="string" value="thunar.desktop"/>
+      </property>
+    </property>
+    <!-- 4: Lanzador: Terminal -->
+    <property name="plugin-4" type="string" value="launcher">
+      <property name="items" type="array">
+        <value type="string" value="xfce4-terminal.desktop"/>
+      </property>
+    </property>
+    <!-- 5: Lanzador: LibreOffice Writer -->
+    <property name="plugin-5" type="string" value="launcher">
+      <property name="items" type="array">
+        <value type="string" value="libreoffice-writer.desktop"/>
+      </property>
+    </property>
+    <!-- 6: Separador expansible izquierdo -->
+    <property name="plugin-6" type="string" value="separator">
       <property name="expand" type="bool" value="true"/>
       <property name="style" type="uint" value="0"/>
     </property>
-    <property name="plugin-3" type="string" value="separator">
+    <!-- 7: Lista de ventanas abiertas (taskbar) -->
+    <property name="plugin-7" type="string" value="tasklist">
+      <property name="show-labels" type="bool" value="true"/>
+      <property name="show-handle" type="bool" value="false"/>
+      <property name="flat-buttons" type="bool" value="true"/>
+      <property name="grouping" type="uint" value="1"/>
+      <property name="middle-click" type="uint" value="0"/>
+      <property name="include-all-workspaces" type="bool" value="false"/>
+    </property>
+    <!-- 8: Separador expansible derecho -->
+    <property name="plugin-8" type="string" value="separator">
       <property name="expand" type="bool" value="true"/>
       <property name="style" type="uint" value="0"/>
     </property>
-    <property name="plugin-4" type="string" value="notification-plugin"/>
-    <property name="plugin-5" type="string" value="systray">
+    <!-- 9: Indicador de red/teclado -->
+    <property name="plugin-9" type="string" value="separator">
+      <property name="expand" type="bool" value="false"/>
+      <property name="style" type="uint" value="0"/>
+    </property>
+    <!-- 10: Bandeja del sistema -->
+    <property name="plugin-10" type="string" value="systray">
       <property name="size-max" type="uint" value="22"/>
-      <property name="icon-size" type="uint" value="0"/>
-      <property name="show-frame" type="bool" value="false"/>
+      <property name="square-icons" type="bool" value="true"/>
     </property>
-    <property name="plugin-6" type="string" value="clock">
-      <property name="digital-layout" type="uint" value="3"/>
-      <property name="digital-time-font" type="string" value="Noto Sans 10"/>
-      <property name="digital-time-format" type="string" value="%H:%M"/>
-      <property name="digital-date-format" type="string" value="%d/%m/%Y"/>
-      <property name="show-military" type="bool" value="true"/>
-      <property name="digital-time-color" type="string" value="#f0f0f0ff"/>
+    <!-- 11: Notificaciones -->
+    <property name="plugin-11" type="string" value="notification-plugin"/>
+    <!-- 12: Separador pequeño -->
+    <property name="plugin-12" type="string" value="separator">
+      <property name="expand" type="bool" value="false"/>
+      <property name="style" type="uint" value="0"/>
+    </property>
+    <!-- 13: Reloj estilo Windows 11 -->
+    <property name="plugin-13" type="string" value="clock">
+      <property name="digital-format" type="string" value="%H:%M&#xA;%d/%m/%Y"/>
+      <property name="tooltip-format" type="string" value="%A, %d de %B de %Y"/>
     </property>
   </property>
 </channel>

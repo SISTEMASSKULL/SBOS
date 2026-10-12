@@ -14,7 +14,7 @@
     <property name="DPI" type="int" value="96"/>
   </property>
   <property name="Gtk" type="empty">
-    <property name="CursorThemeName" type="string" value="Fluent-cursors"/>
+    <property name="CursorThemeName" type="string" value="Adwaita"/>
     <property name="CursorThemeSize" type="int" value="24"/>
     <property name="FontName" type="string" value="Noto Sans 10"/>
     <property name="MonospaceFontName" type="string" value="Noto Sans Mono 10"/>

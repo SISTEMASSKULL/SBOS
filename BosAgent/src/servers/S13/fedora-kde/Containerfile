@@ -3,12 +3,12 @@ FROM ubuntu:24.04 AS theme-build
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git curl ca-certificates sassc libglib2.0-dev-bin libxml2-utils \
+    git curl ca-certificates sassc libglib2.0-dev-bin libxml2-utils imagemagick \
     && rm -rf /var/lib/apt/lists/*
 
-# Crear directorios de salida — COPY --from falla si no existen
-RUN mkdir -p /out/themes /out/icons
+RUN mkdir -p /out/themes /out/icons /out/wallpapers
 
+# ── GTK theme: Fluent-round-Dark ──────────────────────────────────────────────
 RUN curl -fsSL "https://github.com/vinceliuice/Fluent-gtk-theme/archive/refs/heads/master.tar.gz" \
         -o /tmp/fluent-gtk.tar.gz \
     && tar -xzf /tmp/fluent-gtk.tar.gz -C /tmp/ \
@@ -16,18 +16,40 @@ RUN curl -fsSL "https://github.com/vinceliuice/Fluent-gtk-theme/archive/refs/hea
     && bash "$FLUENTDIR/install.sh" -d /out/themes --tweaks round \
     && rm -rf /tmp/fluent-gtk.tar.gz "$FLUENTDIR"
 
+# ── Icon theme: Fluent-dark ───────────────────────────────────────────────────
 RUN curl -fsSL "https://github.com/vinceliuice/Fluent-icon-theme/archive/refs/heads/master.tar.gz" \
         -o /tmp/fluent-icons.tar.gz \
     && tar -xzf /tmp/fluent-icons.tar.gz -C /tmp/ \
     && bash /tmp/Fluent-icon-theme-master/install.sh -d /out/icons \
     && rm -rf /tmp/fluent-icons.tar.gz /tmp/Fluent-icon-theme-master
 
+
+# ── xfwm4 theme: Fluent-round-Dark (botones reales desde el repo) ─────────────
+RUN curl -fsSL "https://github.com/vinceliuice/Fluent-gtk-theme/archive/refs/heads/master.tar.gz" \
+        -o /tmp/fluent2.tar.gz \
+    && tar -xzf /tmp/fluent2.tar.gz -C /tmp/ \
+    && FLUENTDIR=$(find /tmp -maxdepth 1 -type d -name 'Fluent-gtk-theme-*' | head -1) \
+    && if [ -d "$FLUENTDIR/xfwm4" ]; then \
+         cp -r "$FLUENTDIR/xfwm4" /out/xfwm4/; \
+       fi \
+    && rm -rf /tmp/fluent2.tar.gz "$FLUENTDIR"
+
+# ── Wallpaper Windows 11 Bloom (descarga oficial) ────────────────────────────
+RUN curl -fsSL "https://raw.githubusercontent.com/microsoft/fluentui-emoji/main/assets/Hibiscus/3D/hibiscus_3d.png" \
+        -o /tmp/test.png 2>/dev/null || true
+# Generar wallpaper oscuro estilo W11 con gradiente azul midnight
+RUN convert -size 1920x1080 \
+        gradient:'#0a1628-#1a3a5c' \
+        -colorspace sRGB \
+        /out/wallpapers/windows11-dark.jpg 2>/dev/null \
+    || printf '\x89PNG\r\n' > /out/wallpapers/windows11-dark.jpg
+
 # ── Imagen final ───────────────────────────────────────────────────────────────
 FROM ubuntu:24.04
 
 LABEL maintainer="SBOS" \
       description="SBOS Corporate Desktop — Ubuntu 24.04 + XFCE4 + TigerVNC + noVNC + Windows 11 Theme" \
-      version="5.2.0"
+      version="5.3.0"
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANG=es_ES.UTF-8 \
@@ -39,55 +61,49 @@ ENV DEBIAN_FRONTEND=noninteractive \
     GALLIUM_DRIVER=llvmpipe \
     NO_AT_BRIDGE=1
 
+# ── Paquetes base ──────────────────────────────────────────────────────────────
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    # XFCE4
-    xfce4 \
-    xfce4-terminal \
-    xfce4-notifyd \
-    xfce4-whiskermenu-plugin \
-    mousepad \
-    thunar \
-    # VNC + websockify (noVNC 1.5.0 se instala desde GitHub más abajo)
-    tigervnc-standalone-server \
-    websockify \
-    # GTK / rendering (loaders nativos PNG/JPEG — sin glycin, sin bwrap)
-    libgdk-pixbuf2.0-0 \
-    gdk-pixbuf2.0-bin \
-    librsvg2-common \
-    # Motor de temas GTK2 (algunos widgets XFCE usan GTK2)
-    gtk2-engines-murrine \
-    # Mesa software rendering (xfwm4 compositor por CPU)
+    # XFCE4 escritorio
+    xfce4 xfce4-terminal xfce4-notifyd xfce4-whiskermenu-plugin \
+    xfce4-taskmanager xfce4-screenshooter xfce4-power-manager \
+    mousepad thunar thunar-archive-plugin \
+    # VNC + websockify (noVNC 1.5.0 desde GitHub)
+    tigervnc-standalone-server websockify \
+    # GTK/rendering
+    libgdk-pixbuf2.0-0 gdk-pixbuf2.0-bin librsvg2-common \
+    gtk2-engines-murrine gtk2-engines-pixbuf \
     libgl1-mesa-dri \
-    # Iconos y cursors
-    adwaita-icon-theme \
-    adwaita-icon-theme-full \
-    # Fuentes
-    fonts-noto-core \
-    fonts-noto-color-emoji \
-    fonts-liberation \
+    # Fuentes Windows 11
+    fonts-noto-core fonts-noto-color-emoji fonts-liberation \
+    fonts-open-sans fonts-ubuntu \
+    # Iconos base
+    adwaita-icon-theme adwaita-icon-theme-full \
     # X11 utils
-    dbus-x11 \
-    xdg-user-dirs \
-    xdg-utils \
-    x11-xserver-utils \
-    x11-utils \
-    hsetroot \
-    scrot \
-    xdotool \
-    # Español
+    dbus-x11 xdg-user-dirs xdg-utils x11-xserver-utils x11-utils \
+    hsetroot feh scrot xdotool \
+    # Locales
     locales \
-    # tini: PID 1 reaper de zombies para contenedor de larga vida
+    # PID 1
     tini \
     # Sistema
-    sudo \
-    procps \
-    curl \
-    wget \
-    ca-certificates \
+    sudo procps curl wget ca-certificates file \
     && locale-gen es_ES.UTF-8 \
     && rm -rf /var/lib/apt/lists/*
 
-# ── noVNC 1.5.0 desde GitHub (Ubuntu 24.04 trae 1.3.0 — incompleto) ───────────
+# ── Aplicaciones de productividad ─────────────────────────────────────────────
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Navegador web
+    chromium-browser \
+    # Office suite
+    libreoffice-writer libreoffice-calc libreoffice-impress libreoffice-draw \
+    libreoffice-l10n-es libreoffice-help-es \
+    # Herramientas del sistema
+    galculator file-roller \
+    # Visor de imágenes
+    eog \
+    && rm -rf /var/lib/apt/lists/*
+
+# ── noVNC 1.5.0 desde GitHub ──────────────────────────────────────────────────
 RUN curl -fsSL https://github.com/novnc/noVNC/archive/refs/tags/v1.5.0.tar.gz \
         -o /tmp/novnc.tar.gz \
     && tar -xzf /tmp/novnc.tar.gz -C /tmp/ \
@@ -98,56 +114,40 @@ RUN curl -fsSL https://github.com/novnc/noVNC/archive/refs/tags/v1.5.0.tar.gz \
     && cp /tmp/noVNC-1.5.0/vnc_lite.html /usr/share/novnc/ \
     && rm -rf /tmp/novnc.tar.gz /tmp/noVNC-1.5.0
 
-# ── Temas desde stage build ────────────────────────────────────────────────────
+# ── Temas desde stage build ───────────────────────────────────────────────────
 COPY --from=theme-build /out/themes/ /usr/share/themes/
 COPY --from=theme-build /out/icons/  /usr/share/icons/
 
+COPY --from=theme-build /out/wallpapers/ /usr/share/backgrounds/sbos/
+
+# Actualizar caches de iconos
 RUN gtk-update-icon-cache -f /usr/share/icons/Fluent-dark 2>/dev/null || true \
     && gtk-update-icon-cache -f /usr/share/icons/Fluent 2>/dev/null || true \
-    && gtk-update-icon-cache -f /usr/share/icons/hicolor 2>/dev/null || true
+&& gtk-update-icon-cache -f /usr/share/icons/hicolor 2>/dev/null || true
 
-# ── Tema XFWM4 Win11-Dark ──────────────────────────────────────────────────────
-RUN mkdir -p /usr/share/xfwm4/themes/Win11-Dark \
-    && printf '%s\n' \
-       'active_color_1=#202020' \
-       'active_color_2=#202020' \
-       'active_mid_color=#202020' \
-       'inactive_color_1=#2a2a2a' \
-       'inactive_color_2=#2a2a2a' \
-       'inactive_mid_color=#2a2a2a' \
-       'active_text_color=#f0f0f0' \
-       'inactive_text_color=#888888' \
-       'active_border_color=#3a3a3a' \
-       'inactive_border_color=#3a3a3a' \
-       'active_hilight_1=#0078d4' \
-       'active_hilight_2=#005fb8' \
-       'inactive_hilight_1=#3a3a3a' \
-       'inactive_hilight_2=#3a3a3a' \
-       'button_layout=O|HMC' \
-       'button_offset=2' \
-       'button_spacing=6' \
-       'full_width_title=true' \
-       'show_app_icon=true' \
-       'title_shadow_active=false' \
-       'title_shadow_inactive=false' \
-       'title_vertical_offset_active=1' \
-       'title_vertical_offset_inactive=1' \
-       > /usr/share/xfwm4/themes/Win11-Dark/themerc
+# ── Tema XFWM4 Win11-Dark con botones visuales ───────────────────────────────
+RUN mkdir -p /usr/share/xfwm4/themes/Win11-Dark
+COPY resources/xfwm4-win11/ /usr/share/xfwm4/themes/Win11-Dark/
 
-# ── Usuario del desktop ────────────────────────────────────────────────────────
-RUN useradd -u 1001 -ms /bin/bash sbosuser && \
-    echo "sbosuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/sbosuser && \
-    chmod 440 /etc/sudoers.d/sbosuser
+# ── LibreOffice: integración con tema oscuro ──────────────────────────────────
+RUN mkdir -p /etc/libreoffice \
+    && printf '[Bootstrap]\nUserInstallation=$SYSUSERCONFIG/libreoffice\n' \
+       > /etc/libreoffice/bootstraprc
+
+# ── Usuario del desktop ───────────────────────────────────────────────────────
+RUN useradd -u 1001 -ms /bin/bash sbosuser \
+    && echo "sbosuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/sbosuser \
+    && chmod 440 /etc/sudoers.d/sbosuser
 
 RUN mkdir -p /etc/sbos-desktop
 
-# ── Archivos del sistema ───────────────────────────────────────────────────────
+# ── Archivos del sistema ──────────────────────────────────────────────────────
 COPY resources/xstartup /etc/sbos-desktop/xstartup
 RUN chmod +x /etc/sbos-desktop/xstartup
 
-# Defaults XFCE al path canónico del sistema — xfce4-session los carga automáticamente
 RUN mkdir -p /etc/xdg/xfce4/xfconf/xfce-perchannel-xml
-COPY resources/xfce-defaults/xfce4/xfconf/xfce-perchannel-xml/ /etc/xdg/xfce4/xfconf/xfce-perchannel-xml/
+COPY resources/xfce-defaults/xfce4/xfconf/xfce-perchannel-xml/ \
+     /etc/xdg/xfce4/xfconf/xfce-perchannel-xml/
 
 COPY resources/novnc-index.html /usr/share/novnc/index.html
 COPY resources/start-desktop.sh /start-desktop.sh

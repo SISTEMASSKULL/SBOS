@@ -1,6 +1,5 @@
 #!/bin/bash
-# xstartup — Ubuntu 24.04 XFCE4 VDI
-# Lanza los componentes directamente (sin xfce4-session) — más confiable en K8s
+# xstartup — SBOS Corporate Desktop (Ubuntu 24.04 + XFCE4 + Win11 Theme)
 
 export XDG_SESSION_TYPE=x11
 export XDG_CURRENT_DESKTOP=XFCE
@@ -10,59 +9,59 @@ export NO_AT_BRIDGE=1
 export LIBGL_ALWAYS_SOFTWARE=1
 export GALLIUM_DRIVER=llvmpipe
 export GTK_THEME=Fluent-round-Dark
+export XCURSOR_THEME=Adwaita
+export XCURSOR_SIZE=24
 
-# D-Bus de sesión
+# D-Bus sesión
 eval "$(dbus-launch --sh-syntax 2>/dev/null)" || true
 export DBUS_SESSION_BUS_ADDRESS
 
-mkdir -p /tmp/.ICE-unix
-chmod 1777 /tmp/.ICE-unix 2>/dev/null || true
-
+mkdir -p /tmp/.ICE-unix && chmod 1777 /tmp/.ICE-unix 2>/dev/null || true
 xdg-user-dirs-update 2>/dev/null || true
 
-# Fondo azul oscuro
-hsetroot -solid '#0a1628' 2>/dev/null || \
-  xsetroot -solid '#0a1628' 2>/dev/null || true
+# Cursor theme
+xsetroot -cursor_name left_ptr 2>/dev/null || true
 
-# Gestor de ventanas
-xfwm4 &
+# Wallpaper Windows 11 — gradiente oscuro corporativo
+if [ -f /usr/share/backgrounds/sbos/windows11-dark.jpg ]; then
+    feh --bg-fill /usr/share/backgrounds/sbos/windows11-dark.jpg 2>/dev/null || \
+    hsetroot -fill /usr/share/backgrounds/sbos/windows11-dark.jpg 2>/dev/null || \
+    hsetroot -solid '#0a1628' 2>/dev/null || true
+else
+    hsetroot -solid '#0a1628' 2>/dev/null || xsetroot -solid '#0a1628' 2>/dev/null || true
+fi
 
-# Daemon de configuración XFCE (aplica temas GTK, fuentes, cursores)
+# Gestor de ventanas con compositing
+xfwm4 --compositor=on &
+
+# Configuración XFCE (temas, fuentes, cursores)
 xfsettingsd --daemon &
 
 sleep 1
 
-# Panel y utilidades
+# Panel de tareas en la parte inferior
 xfce4-panel &
-Thunar --daemon 2>/dev/null &
 
-# Mover panel al bottom si arrancó arriba (idempotente)
+# Thunar en background (apertura rápida de archivos)
+thunar --daemon 2>/dev/null &
+
+# Notificaciones
+xfce4-notifyd 2>/dev/null &
+
+# Esperar que el panel esté corriendo y verificar posición
 (
-  for i in $(seq 1 30); do
-    pgrep -x xfce4-panel > /dev/null 2>&1 && break
-    sleep 1
-  done
-  sleep 3
-  PANEL_WIN=$(DISPLAY=:1 xdotool search --classname "xfce4-panel" 2>/dev/null | head -1)
-  if [[ -n "$PANEL_WIN" ]]; then
-    PANEL_Y=$(DISPLAY=:1 xdotool getwindowgeometry "$PANEL_WIN" 2>/dev/null | grep -oP 'Y: \K\d+')
-    if [[ -z "$PANEL_Y" ]] || [[ "$PANEL_Y" -lt 200 ]]; then
-      xfconf-query -c xfce4-panel -p /panels/panel-1/position-locked -t bool -s false 2>/dev/null || true
-      sleep 0.5
-      DISPLAY=:1 xdotool mousemove 75 20
-      sleep 0.3
-      DISPLAY=:1 xdotool mousedown 1
-      sleep 0.3
-      DISPLAY=:1 xdotool mousemove 960 700
-      sleep 0.2
-      DISPLAY=:1 xdotool mousemove 960 1056
-      sleep 0.3
-      DISPLAY=:1 xdotool mouseup 1
-      sleep 2
-      xfconf-query -c xfce4-panel -p /panels/panel-1/position-locked -t bool -s true 2>/dev/null || true
-    fi
-  fi
+    for i in $(seq 1 30); do
+        pgrep -x xfce4-panel > /dev/null 2>&1 && break
+        sleep 1
+    done
+    sleep 4
+
+    # Aplicar configuración xfconf en runtime para garantizar el tema
+    xfconf-query -c xsettings -p /Net/ThemeName -s "Fluent-round-Dark" 2>/dev/null || true
+    xfconf-query -c xsettings -p /Net/IconThemeName -s "Fluent-dark" 2>/dev/null || true
+    xfconf-query -c xsettings -p /Gtk/CursorThemeName -s "Adwaita" 2>/dev/null || true
+    xfconf-query -c xfwm4 -p /general/theme -s "Win11-Dark" 2>/dev/null || true
+    xfconf-query -c xfwm4 -p /general/use_compositing -t bool -s true 2>/dev/null || true
 ) &
 
-# Mantener el xstartup vivo mientras xfwm4 esté corriendo
 wait
