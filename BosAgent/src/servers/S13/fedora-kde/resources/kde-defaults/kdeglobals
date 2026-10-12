@@ -12,7 +12,7 @@ toolBarFont=Noto Sans,10,-1,5,50,0,0,0,0,0
 Theme=Fluent-dark
 
 [KDE]
-LookAndFeelPackage=com.github.vinceliuice.Fluent.dark
+LookAndFeelPackage=com.github.vinceliuice.Fluent-dark
 ShowDeleteCommand=false
 SingleClick=false
 AnimationDurationFactor=0.5

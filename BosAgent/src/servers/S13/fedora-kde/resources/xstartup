@@ -1,6 +1,6 @@
 #!/bin/bash
 # xstartup — sesión KDE Plasma 6 + Windows 11 theme para Xvnc
-# kwin_x11 (nativo KDE) + Fluent-kde + Kvantum + plasmashell
+# WM: openbox (kwin_x11 eliminado en Plasma 6) + Fluent plasma theme + Win11-Dark decs
 
 export XDG_SESSION_TYPE=x11
 export XDG_CURRENT_DESKTOP=KDE
@@ -8,8 +8,7 @@ export DESKTOP_SESSION=plasma
 export QT_QPA_PLATFORM=xcb
 export KDE_FULL_SESSION=true
 export XDG_RUNTIME_DIR="/run/user/$(id -u)"
-# kwin: forzar backend XRender (compatible con VNC sin GPU)
-export KWIN_COMPOSE=XRender
+export QT_STYLE_OVERRIDE=kvantum-dark
 
 # dbus session
 if [[ -z "${DBUS_SESSION_BUS_ADDRESS}" ]]; then
@@ -19,7 +18,7 @@ fi
 
 xdg-user-dirs-update 2>/dev/null || true
 
-# Deshabilitar KWallet (no funciona en contenedor sin PAM)
+# Deshabilitar KWallet
 mkdir -p ~/.config
 cat > ~/.config/kwalletrc << 'KWALLET'
 [Wallet]
@@ -27,44 +26,25 @@ Enabled=false
 First Use=false
 KWALLET
 
-# Aplicar configuración KDE + tema Windows 11 al primer arranque
 if [[ ! -f ~/.config/kde-sbos-initialized ]]; then
-    # Config KDE (colores, iconos, fuentes, kwin, plasma)
+    # Copiar config KDE defaults (kdeglobals, kwinrc, plasmarc, plasma-localerc)
     cp -r /etc/sbos-desktop/kde-defaults/. ~/.config/ 2>/dev/null || true
 
-    # Aplicar Look-and-Feel Fluent dark (panel + decoraciones + colores)
-    if command -v plasma-apply-lookandfeel > /dev/null 2>&1; then
-        plasma-apply-lookandfeel -a com.github.vinceliuice.Fluent.dark 2>/dev/null || \
-        plasma-apply-lookandfeel -a com.github.vinceliuice.Fluent 2>/dev/null || true
-    fi
+    # Openbox: tema Win11-Dark
+    mkdir -p ~/.config/openbox
+    cp /etc/sbos-desktop/kde-defaults/openbox/rc.xml ~/.config/openbox/rc.xml 2>/dev/null || true
 
-    # Aplicar color scheme Fluent dark
-    if command -v plasma-apply-colorscheme > /dev/null 2>&1; then
-        plasma-apply-colorscheme FluentDark 2>/dev/null || true
-    fi
+    # Aplicar color scheme FluentDark a la sesión Plasma
+    plasma-apply-colorscheme FluentDark 2>/dev/null || true
 
     touch ~/.config/kde-sbos-initialized
 fi
 
-# ── kwin_x11: WM nativo KDE con decoraciones Aurorae Fluent ─────────────────
-# Reemplaza openbox — proporciona decoraciones Windows 11 reales (Fluent-round-dark)
-if command -v kwin_x11 > /dev/null 2>&1; then
-    kwin_x11 --replace 2>/dev/null &
-    KWIN_PID=$!
-    sleep 2
-    # Verificar que kwin arrancó correctamente
-    if ! kill -0 $KWIN_PID 2>/dev/null; then
-        # Fallback a openbox si kwin falla
-        /usr/bin/openbox --replace 2>/dev/null &
-        sleep 1
-    fi
-else
-    /usr/bin/openbox --replace 2>/dev/null &
-    sleep 2
-fi
+# ── OpenBox: WM con tema Win11-Dark ─────────────────────────────────────────
+/usr/bin/openbox --replace 2>/dev/null &
+sleep 2
 
-# ── plasmashell: escritorio + barra de tareas KDE ──────────────────────────
+# ── plasmashell: panel/escritorio KDE con tema Fluent ───────────────────────
 /usr/bin/plasmashell --no-respawn 2>/dev/null &
 
-# Mantener la sesión activa hasta que Xvnc cierre
 wait
