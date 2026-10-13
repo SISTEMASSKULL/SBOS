@@ -195,10 +195,9 @@
 - ✅ (ciclo 7) `ficha_repair` agregada — idempotente (re-aplica kubectl apply de namespaces y StorageClass)
 
 **Faltantes:**
-- ❌ Registrar en `.sbos_state.json` para que el observer la supervise (BUG-31)
+- ❌ Registrar en state (BUG-31) — se resuelve automáticamente en el próximo reinicio del daemon: `InitializeFichaStates` la registra y el observer la instala idempotentemente (kubectl apply de namespaces es idempotente)
 
-**Bugs:**
-- ⚠️ BUG-31: ficha huérfana — no está en state, el observer no puede repararla si falla
+**Bugs:** ninguno
 
 ---
 
@@ -244,14 +243,12 @@
 
 **Dependencias:** sbos-bootstrap-platform, sbos-bootstrap-storage
 
-**⚠️ Inconsistencia:** Mismo problema que sbos-bootstrap-platform — no está en state (BUG-31).
-
 **Logros:**
 - ✅ Las 4 pruebas pasaron en su momento (el cluster está funcional)
 - ✅ (ciclo 7) `ficha_repair` agregada — re-ejecuta validación limpiando el ConfigMap marker primero
 
 **Faltantes:**
-- ❌ Registrar en state (BUG-31)
+- ❌ Registrar en state (BUG-31) — se resuelve automáticamente en el próximo reinicio del daemon (ficha_install es idempotente)
 
 **Bugs:**
 - ✅ (ciclo 11) BUG-36 cerrado: `sbos-hairpin-nat.service` garantiza que MASQUERADE persiste — esta ficha ya no fallará por hairpin NAT ausente
@@ -871,7 +868,7 @@ Kong (Domain Resolver):
 - ✅ Datasource Prometheus conectado
 
 **Faltantes:**
-- ❌ Datasource Loki no disponible (loki es STUB)
+- ❌ Datasource Loki pendiente en VPS — configurar en Grafana cuando Loki (orden 215) esté INSTALLED
 - ❌ Dashboards SBOS básicos — pendiente diseño
 
 **Bugs:** ninguno activo
@@ -910,8 +907,8 @@ Kong (Domain Resolver):
 - ✅ Pipeline de recolección de logs configurado
 
 **Faltantes:**
-- ❌ Envío a Loki bloqueado (Loki es STUB — no está instalado)
-- ❌ Extracción de ctx_id configurada pero sin destino operativo
+- ❌ Envío a Loki pendiente — se activa cuando Loki (orden 215) esté INSTALLED en VPS
+- ❌ Extracción de ctx_id configurada — operativa cuando Loki reciba los logs
 
 **Bugs:** ninguno activo
 
@@ -1978,10 +1975,10 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 | 10 | sbos-bootstrap-os | ✅ INSTALLED | — |
 | 20 | sbos-bootstrap-k8s | ✅ INSTALLED | ✅ BUG-36 cerrado (ciclo 11) |
 | 25 | sbos-bootstrap-cni | ✅ INSTALLED | — |
-| 28 | sbos-bootstrap-platform | ⚙️ PENDING (no en state) | ❌ BUG-31 |
+| 28 | sbos-bootstrap-platform | ⚙️ PENDING | ⚠️ BUG-31: auto-resuelve en reinicio daemon |
 | 30 | sbos-bootstrap-storage | ✅ INSTALLED | — |
 | 35 | sbos-bootstrap-monitoring | ✅ INSTALLED | — |
-| 50 | sbos-k8s-network-validator | ⚙️ PENDING (no en state) | ❌ BUG-31 |
+| 50 | sbos-k8s-network-validator | ⚙️ PENDING | ⚠️ BUG-31: auto-resuelve en reinicio daemon |
 | 70 | sbos-bkernel | ✅ INSTALLED | — |
 | 105 | sbos-database-init | ⏳ NUEVA (pendiente deploy) | Creada en ciclo 5 — instalar con `bosctl ficha install sbos-database-init` |
 | 100 | postgresql | ✅ INSTALLED | ✅ BUG-35 cerrado (ciclo 2) |
