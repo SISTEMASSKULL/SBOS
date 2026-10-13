@@ -1,6 +1,6 @@
 # Plan de Instalación desde Cero — VPS Limpia Ubuntu 26.04
 
-**Versión:** 2.1.0  
+**Versión:** 2.2.0  
 **Fecha:** 2026-10-13  
 **Autor:** bos-developer  
 **Estado:** 🔄 PT-05 EN CURSO — 24/35 fichas INSTALLED · 2 PHYSICAL_ERROR (Vault, oauth2-proxy) · 1 INSTALL_FAILED (tryton) bloqueado por Vault  
@@ -1292,5 +1292,149 @@ Con P0-P3 ejecutados, el estado esperado es: **30+/35 fichas INSTALLED** · Vaul
 
 ---
 
-*Documento v2.1.0 — bos-developer · 2026-10-13*  
+## 10. Análisis de escalabilidad del VDI — Arquitectura actual vs arquitectura objetivo
+
+> **Este análisis es urgente.** El VDI es el producto de cara al usuario. La arquitectura actual tiene un defecto fundamental de escala que debe resolverse antes de que llegue el primer cliente real.
+
+### 10.1 Diagnóstico: la arquitectura actual NO escala
+
+#### Qué hay hoy en producción
+
+| Componente | Recurso por instancia | Diseño actual |
+|------------|----------------------|---------------|
+| `fedora-kde` | 1–4 GB RAM · 0.5–2 CPU | `replicas: 1` — todos los usuarios comparten **el mismo escritorio** |
+| `guacamole` | 256 MB–1 GB RAM · 0.1–1 CPU | Sin conexiones configuradas — no apunta a ningún servidor |
+| VNC (TigerVNC) | Embebido en fedora-kde | 1 sesión X11 compartida entre todos los usuarios conectados |
+| noVNC | Embebido en fedora-kde | WebSocket que expone la sesión VNC — acceso compartido |
+
+**El problema fundamental:** `replicas: 1` significa que si 100 usuarios se conectan vía noVNC al escritorio, los 100 ven y usan **el mismo escritorio KDE al mismo tiempo**. No hay aislamiento, no hay sesiones separadas, no hay identidad por usuario en el escritorio.
+
+#### Proyección de costo si se intenta escalar 1 pod por usuario
+
+Si se cambia a 1 pod por usuario (modelo correcto de VDI):
+
+| Usuarios simultáneos | RAM necesaria | CPU necesaria | Costo estimado (cloud) |
+|----------------------|--------------|--------------|------------------------|
+| 1 | 4 GB | 2 cores | base |
+| 10 | 40 GB | 20 cores | ~10× |
+| 100 | 400 GB | 200 cores | ~100× |
+| 1 000 | 4 TB | 2 000 cores | ~1 000× |
+| 10 000 | 40 TB | 20 000 cores | **imposible** |
+
+KDE Plasma 6 con LibreOffice y dos navegadores (Firefox + Chrome) en cada pod es el diseño más costoso posible para un VDI corporativo. Es técnicamente correcto para demostración pero inviable en producción con más de 20-30 usuarios simultáneos.
+
+---
+
+### 10.2 Análisis de necesidad: ¿para qué sirve realmente cada componente?
+
+#### Todas las apps SBOS son web — el escritorio KDE es innecesario para la mayoría de usuarios
+
+Las aplicaciones que el VDI sirve hoy:
+
+| App | Tipo | ¿Necesita escritorio KDE? |
+|-----|------|--------------------------|
+| Nextcloud | Web (navegador) | ❌ No — el usuario puede abrir su propio navegador |
+| Tryton | Web (navegador) | ❌ No |
+| OnlyOffice | Web (navegador) | ❌ No |
+| Grafana | Web (navegador) | ❌ No |
+| LibreOffice | App de escritorio | ✅ Sí — solo si se edita localmente |
+| Acceso SSH a servidores | Terminal | ⚠️ Guacamole SSH es más eficiente |
+| Acceso RDP a Windows | Escritorio remoto | ⚠️ Guacamole RDP es más eficiente |
+
+**Conclusión:** Para el 90% de casos de uso de SBOS, el usuario solo necesita un **portal web con links** a las apps. No necesita un escritorio KDE completo dentro de un pod.
+
+#### Guacamole: valioso en el caso correcto — hoy sin configurar
+
+Apache Guacamole tiene valor real cuando:
+- El usuario necesita acceder a **múltiples servidores externos** (SSH a un Linux, RDP a una máquina Windows, telnet a un router).
+- Como gateway de acceso remoto centralizado y auditado — cada conexión queda logueada.
+- Para administradores IT que gestionan la infraestructura del cliente.
+
+Guacamole NO tiene valor si:
+- Solo apunta a `fedora-kde` como único servidor VNC → en ese caso noVNC directo es más simple y eficiente.
+- Las apps que se usan son todas web → el usuario puede acceder directamente con su navegador.
+
+**Estado actual:** Guacamole está instalado pero la tabla `guacamole_connection` está **vacía** — no apunta a ningún servidor. Es infraestructura sin propósito definido todavía.
+
+---
+
+### 10.3 Arquitectura objetivo — tres productos diferenciados
+
+El VDI SBOS debe diferenciarse en tres capas según el caso de uso, cada una con su escala propia:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    PRODUCTO VDI SBOS                                │
+│                                                                     │
+│  CAPA 1 — Portal Web SBOS (todos los usuarios)                      │
+│  ─────────────────────────────────────────────                      │
+│  SPA web con acceso a todas las apps SBOS                           │
+│  Escala: stateless · 1-3 pods · millones de usuarios               │
+│  Costo incremental por usuario adicional: ~0                        │
+│                                                                     │
+│  CAPA 2 — Gateway de acceso remoto (IT + admins)                    │
+│  ────────────────────────────────────────────────                   │
+│  Guacamole → SSH/RDP/VNC a servidores del cliente                   │
+│  Escala: 1 pod Guacamole sirve ~500 sesiones concurrentes           │
+│  Costo incremental: muy bajo (Guacamole es eficiente)               │
+│                                                                     │
+│  CAPA 3 — Escritorio corporativo (usuarios que lo necesitan)        │
+│  ──────────────────────────────────────────────────────────         │
+│  1 pod VDI por SESIÓN ACTIVA (no por usuario registrado)            │
+│  Auto-scaling: crea pod al conectar, destruye al desconectar        │
+│  Imagen ligera: XFCE/LXDE (~512 MB) en lugar de KDE (~4 GB)        │
+│  Datos del usuario en PVC separado (persiste entre sesiones)        │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 10.4 Plan de rediseño — qué cambiar y qué mantener
+
+#### Mantener (ya está bien)
+
+| Componente | Por qué mantener |
+|------------|-----------------|
+| `nextcloud` | App web soberana — correcta |
+| `onlyoffice` | Editor web colaborativo — correcto |
+| `guacamole` | Base correcta — necesita configurarse con conexiones reales |
+| `oauth2-proxy-desktop` | SSO via Keycloak — correcto, reutilizable |
+| Stack Kong + Keycloak | Gateway y autenticación — correcto |
+
+#### Rediseñar (cambio de arquitectura)
+
+| Componente actual | Problema | Arquitectura objetivo |
+|------------------|----------|----------------------|
+| `fedora-kde` (KDE Plasma 6, 4 GB) | Demasiado pesado · compartido · no escala | **Opción A:** Portal web SBOS (Capa 1) · **Opción B:** Pod XFCE por sesión activa (Capa 3) |
+| noVNC embebido en fedora-kde | Sesión X11 compartida entre todos los usuarios | VNC multi-sesión vía Guacamole (1 sesión por usuario, autenticada) |
+| `replicas: 1` hardcodeado | 1 escritorio para todos | HPA · pod por sesión · PVC por usuario |
+| LibreOffice + Firefox + Chrome en la imagen | 3-4 GB de imagen innecesaria para el 90% de casos | Solo lo que el caso de uso requiera |
+
+#### La pregunta de diseño que debe responder el humano (HITL)
+
+Antes de rediseñar, se necesita definir cuál es el caso de uso real del VDI SBOS:
+
+**¿El VDI es para:**
+1. **Solo portal de acceso** → Capa 1 (portal web) es suficiente. Eliminar fedora-kde completamente.
+2. **Escritorio corporativo persistente** → Capa 3 con sesiones por usuario, PVC, auto-scaling. Rediseñar imagen.
+3. **Acceso remoto a infraestructura del cliente** → Capa 2 (Guacamole configurado con los servidores del cliente).
+4. **Los tres casos** → Implementar las tres capas en orden de impacto.
+
+---
+
+### 10.5 Correcciones inmediatas independientes del rediseño
+
+Independientemente de qué arquitectura se elija, estos cambios son correctos ahora:
+
+| Acción | Impacto | Esfuerzo |
+|--------|---------|----------|
+| **Agregar autenticación VNC** — hoy cualquier usuario que conoce la URL accede al escritorio | Seguridad crítica | Bajo — ya generada la `VNC_PASSWORD` en el Secret |
+| **Configurar Guacamole** con al menos 1 conexión real (SSH al host, VNC a fedora-kde) | Da valor real a Guacamole instalado | Bajo |
+| **Eliminar ConfigMap `fedora-kde-start-script`** (doble fuente de verdad, VDI-4) | Consistencia · P-VDI-1 | Muy bajo |
+| **Sincronizar versión manifest ↔ tag imagen** (fedora-kde 41.0.0 vs 1.3.0) | P-VDI-2 | Muy bajo |
+| **Definir PVC por usuario** si se mantiene escritorio | Sesiones no se borran entre reinicios | Medio |
+
+---
+
+*Documento v2.2.0 — bos-developer · 2026-10-13*  
 *Plan completo de instalación: `PLAN-IMPLEMENTACION-BOS-VDI.md`*
