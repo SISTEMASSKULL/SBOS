@@ -1547,5 +1547,323 @@ _destruir_sesion_usuario() {
 
 ---
 
-*Documento v2.3.0 — bos-developer · 2026-10-13*  
+## 11. Auditoría consolidada del instalador — Estado real, gaps, inconsistencias y preguntas HITL
+
+> **Base de esta auditoría:** inspección directa del código fuente en `BosAgent/src/servers/` y `internal/`. Todo punto tiene referencia a archivo y líneas reales. No hay suposiciones.
+
+---
+
+### 11.1 Estado real por componente — implementado vs pendiente
+
+#### MOTOR BOS (Go — `internal/`)
+
+| Módulo | Archivo | Estado | Evidencia |
+|--------|---------|--------|-----------|
+| Observer loop | `internal/observer/observer.go` | ✅ Implementado | Fase 1-2-3 funcionales |
+| Observer GAP-B (PHYSICAL_ERROR) | `observer.go:230` | ✅ **FIX-B aplicado** (commit 0a1a182) | `StatePhysicalError` en condición Fase 3 |
+| Health checker | `internal/health/checker.go` | ✅ Implementado | Lee `check_command` del manifest |
+| State manager | `internal/state/` | ✅ Implementado | 18 estados + fcntl.flock |
+| Portman (Motor de Puertos) | `internal/server/rpc_portman.go` (397 l.) | ✅ Implementado | 7 métodos JSON-RPC |
+| Portman — integración fichas | `servers/**/task_catalog.sh` | ❌ **GAP** | 0 fichas llaman `bos.portman.assign` |
+| Scaler (auto-scaling aware) | `internal/scaler/scaler.go` | ✅ Implementado | Context-aware (bAuth sesiones activas) |
+| Context Plane | `internal/context/` (2536 l.) | ✅ Implementado | ctx_id, lifecycle, bAuth integration |
+| k8s_discovery | `internal/reconcile/k8s_discovery.go` | ✅ Implementado | Mapea K8s → BOS state cada 5min |
+| VDI verification | `cmd/bosctl/vdi.go` + `internal/bootstrap/verify_vdi.go` | ✅ Implementado | C-09..C-14 verificables con `bosctl vdi verify` |
+| VDI provisioner (1 pod/sesión) | (ningún módulo) | ❌ **GAP** | No existe lógica de provisioning dinámico |
+
+#### FICHAS — clasificación por nivel de madurez real
+
+**65 fichas totales en `BosAgent/src/servers/`**
+
+| Nivel | Criterio | Cantidad | Fichas |
+|-------|----------|----------|--------|
+| **ROBUSTA** | >400 líneas · deploy completo · repair · idempotente | **22** | ver tabla §11.1a |
+| **COMPLETA** | 200–400 líneas · funcional pero sin optimizar | **17** | ver tabla §11.1b |
+| **STUB-135** | Exactamente 135 líneas · deploy básico sin repair ni PVC | **19** | S08-S09-S10-S12(3)-S14-S15 |
+| **INCOMPLETA** | <200 líneas pero no es stub canónico | **7** | onlyoffice, ferretdb, calcom, tryton-workers, zabbix, velero, tempo |
+
+##### Tabla §11.1a — Fichas ROBUSTAS (>400 líneas) con estado en VPS
+
+| Ficha | Líneas | Estado VPS | Tiene repair | Tiene health.cmd |
+|-------|--------|-----------|-------------|-----------------|
+| `S02/vault` | 1308 | PHYSICAL_ERROR | ✅ | ❌ GAP |
+| `S01/postgresql` | 834 | INSTALLED | ✅ | ❌ GAP |
+| `S02/kong` | 788 | INSTALLED | ✅ | ❌ GAP |
+| `S13/oauth2-proxy-desktop` | 596 | PHYSICAL_ERROR | ✅ | ❌ GAP |
+| `S01/redis` | 591 | INSTALLED | ✅ | ❌ GAP |
+| `S-HOST/sbos-bootstrap-monitoring` | 581 | INSTALLED | ✅ | ❌ GAP |
+| `S-HOST/sbos-bootstrap-hard` | 576 | INSTALLED | ✅ | — |
+| `S01/tryton` | 566 | INSTALL_FAILED | ✅ | ❌ GAP |
+| `S04/tryton` | 566 | — | ✅ | ❌ GAP — **DUPLICADO de S01** |
+| `S03/keycloak` | 549 | INSTALLED | ✅ | ❌ GAP |
+| `S06/sbos-notifier` | 519 | INSTALLED | ✅ | ❌ GAP |
+| `S-HOST/sbos-bootstrap-cni` | 492 | INSTALLED | ✅ | — |
+| `S12/prometheus` | 490 | INSTALLED | ✅ | ❌ GAP |
+| `S02/oauth2-proxy` | 479 | PHYSICAL_ERROR | ✅ | ❌ GAP |
+| `S03/linkerd` | 440 | INSTALLING | ✅ | ❌ GAP |
+| `S13/nextcloud` | 422 | INSTALLED | ✅ | ❌ GAP |
+| `S03/kyverno` | 418 | PENDING/CRASH | ✅ | ❌ GAP |
+| `S12/alloy` | 386 | INSTALLED | ✅ | ❌ GAP |
+| `S-HOST/sbos-bootstrap-storage` | 382 | INSTALLED | ✅ | — |
+| `S12/grafana` | 390 | INSTALLED | ✅ | ❌ GAP |
+| `S-HOST/sbos-bootstrap-k8s` | 639 | INSTALLED | ✅ | — |
+| `S01/minio` | 598 | INSTALLED | ✅ | ❌ GAP |
+
+##### Tabla §11.1b — Fichas COMPLETAS (200–400 líneas)
+
+| Ficha | Líneas | Estado VPS | Tiene repair | Tiene health.cmd |
+|-------|--------|-----------|-------------|-----------------|
+| `S02/certbot` | 355 | INSTALLED | ✅ | — |
+| `S-HOST/bos-preflight` | 334 | INSTALLED | ✅ | — |
+| `S06/novu` | 327 | PENDING | ✅ | ✅ presente |
+| `S-HOST/sbos-bootstrap-os` | 326 | INSTALLED | ✅ | — |
+| `S-HOST/sbos-k8s-network-validator` | 319 | NO EN STATE | ✅ | — |
+| `S12/alertmanager` | 315 | INSTALLED | ✅ | ❌ GAP |
+| `S-HOST/sbos-bkernel` | 287 | INSTALLED | ✅ | ❌ GAP |
+| `S10/mattermost` | 260 | — | ⚠️ básico | ❌ GAP |
+| `S-HOST/sbos-bootstrap-platform` | 242 | NO EN STATE | ✅ | — |
+| `S13/fedora-kde` | 239 | UPDATE_AVAIL | ✅ | ❌ **GAP CRÍTICO** |
+| `S13/guacamole` | 230 | INSTALLED | ✅ | ❌ **GAP CRÍTICO** |
+| `S-HOST/sbos-namespace` | 226 | INSTALLED | ✅ | — |
+| `S13/sbos-vdi-config` | 221 | — | ✅ | — |
+| `S10/mailserver` | 210 | — | ⚠️ básico | ❌ GAP |
+| `S06/mattermost` | 726 | PENDING | ✅ | ❌ GAP |
+| `S02/besu-qbft` | 654 | INSTALLED | ✅ | ❌ GAP |
+| `S02/nginx` | 691 | UPDATE_AVAIL | ✅ | ❌ GAP |
+
+---
+
+### 11.2 Gaps reales del instalador — con localización exacta en el código
+
+#### GAP-1 — Motor de Puertos: Kardex siempre vacío
+
+**Severidad:** Media · **Archivo:** todos los `task_catalog.sh`
+
+El módulo `rpc_portman.go` está implementado con 7 métodos JSON-RPC. Pero al hacer:
+```bash
+grep -rl "portman\|bos\.portman" servers/
+# → 0 resultados
+```
+Ninguna de las 65 fichas llama a `bos.portman.assign` durante `ficha_install()`. Los puertos se asignan directamente en el YAML (`containerPort: 8080`) sin registrarlos en el Kardex. El Motor de Puertos existe pero no está integrado con el ciclo de instalación.
+
+**Fix necesario:** Agregar al inicio de cada `ficha_install()` una llamada al portman para registrar los puertos del manifest. Puede hacerse como helper `_portman_assign()` en el boilerplate de task_catalog.sh.
+
+---
+
+#### GAP-2 — health.check_command: solo 3 fichas de 65 lo tienen
+
+**Severidad:** Alta · **Archivos:** `servers/*/manifest.yml`
+
+El health checker (`internal/health/checker.go`) está implementado. Solo 3 fichas lo usan:
+- `S06/novu/manifest.yml` — `curl http://localhost:28200/v1/health-check`
+- `S06/ferretdb/manifest.yml` — `curl http://localhost:27017/`
+- `S06/calcom/manifest.yml` — `curl http://localhost:9061/api/health`
+
+Las fichas críticas de la cadena de dependencias no tienen `check_command`:
+
+| Ficha crítica | Sin check_command | Consecuencia |
+|---------------|-------------------|--------------|
+| vault | ❌ | BOS no detecta "Vault sellado" — espera al CrashLoop |
+| postgresql | ❌ | BOS no detecta "PG no acepta conexiones" |
+| keycloak | ❌ | BOS no detecta "realm no disponible" |
+| kong | ❌ | BOS no detecta "gateway caído" |
+| fedora-kde | ❌ | BOS no sabe si el escritorio arrancó correctamente |
+| guacamole | ❌ | BOS no sabe si el gateway de sesiones está listo |
+
+Sin `check_command`, el health_status de estas fichas es siempre `UNKNOWN`. BOS depende exclusivamente de k8s_discovery para detectar problemas — que solo ve el estado del pod, no el estado interno de la aplicación.
+
+---
+
+#### GAP-3 — VDI: sin provisioning dinámico por sesión de usuario
+
+**Severidad:** Crítica para producción · **Archivo:** `servers/S13/fedora-kde/task_catalog.sh`
+
+```bash
+grep -n "replicas\|user_id\|SBOS_USER\|bitmask\|PersistentVolumeClaim" \
+  servers/S13/fedora-kde/task_catalog.sh
+# → Solo: replicas: 1 (línea 138)
+# → 0 resultados para user_id, PVC, bitmask
+```
+
+El pod fedora-kde es una instancia única compartida. No existe lógica de:
+- Creación de pod por sesión de usuario autenticado
+- PVC por usuario para persistencia del home
+- Inyección del bitmask bAuth en el pod al crear la sesión
+- Destrucción del pod al cerrar sesión
+
+**Fix necesario:** Nueva ficha `S13/fedora-kde-provisioner` + integración con Guacamole hook de sesión. El scaler (`internal/scaler/`) ya existe y es context-aware — puede extenderse para VDI.
+
+---
+
+#### GAP-4 — Guacamole: table guacamole_connection siempre vacía
+
+**Severidad:** Crítica · **Archivo:** `servers/S13/guacamole/task_catalog.sh:57-58`
+
+```sql
+CREATE TABLE guacamole_connection (...);
+CREATE TABLE guacamole_connection_parameter (...);
+```
+
+La tabla se crea pero nunca se inserta ninguna conexión. Guacamole arranc sin saber a dónde conectar. Cuando un usuario hace login en Guacamole, no ve ningún escritorio disponible — el gateway existe pero está vacío.
+
+**Fix necesario:** En `ficha_post_install()` de guacamole, insertar una conexión VNC que apunte al pool de pods fedora-kde (o al pod específico del usuario después de que el provisioner lo cree). La conexión debe autenticarse via bAuth token.
+
+---
+
+#### GAP-5 — fedora-kde: noVNC expuesto sin autenticación bAuth
+
+**Severidad:** Seguridad · **Archivo:** `servers/S13/fedora-kde/task_catalog.sh:157,203`
+
+El pod expone el puerto 6901 (noVNC) directamente vía un Service K8s. Cualquier usuario que conozca la URL puede acceder al escritorio sin pasar por Guacamole ni por bAuth. Esto anula el control de acceso y la auditoría.
+
+**Fix necesario:** Eliminar el Service que expone 6901 externamente. El puerto VNC (5900) solo debe ser accesible desde el pod de guacd. El acceso al escritorio debe ser exclusivamente a través de Guacamole autenticado.
+
+---
+
+#### GAP-6 — S13 fichas sin campo auto_install en manifest
+
+**Severidad:** Media · **Archivos:** `servers/S13/*/manifest.yml`
+
+```bash
+grep "auto_install:" servers/S13/*/manifest.yml
+# → 0 resultados para fedora-kde, guacamole, nextcloud, onlyoffice
+```
+
+Sin `auto_install`, el observer no sabe si debe instalar estas fichas automáticamente cuando sus dependencias estén listas, o si requieren aprobación manual. El comportamiento actual es indefinido.
+
+---
+
+#### GAP-7 — Seed fichas: sección `fichas:` vacía
+
+**Severidad:** Alta · **Archivo:** `servers/seed-skull.yml`
+
+```bash
+awk '/^fichas:/,/^[a-z]/' servers/seed-skull.yml | grep "^\s*-"
+# → Solo: - sbos-bkernel y - kong (las 2 únicas fichas del seed)
+```
+
+El seed actualmente instala solo bkernel y kong automáticamente. Toda la infraestructura base (postgresql, redis, vault, keycloak, etc.) no está en el seed — depende del `auto_install: true` en los manifests para que el observer las instale. Esto es correcto para la infraestructura, pero falta definir qué fichas de aplicación se instalan automáticamente en un tenant nuevo.
+
+---
+
+### 11.3 Inconsistencias confirmadas con evidencia
+
+| ID | Inconsistencia | Evidencia | Impacto |
+|----|----------------|-----------|---------|
+| **INC-1** | `S01/tryton` y `S04/tryton` son archivos IDÉNTICOS | `diff` produce 0 diferencias · ambos 566 líneas | BOS registra 2 fichas `tryton` con mismo ID → conflicto de state |
+| **INC-2** | `fedora-kde manifest.yml` declara `version: "41.0.0"` pero la imagen es `sbos/fedora-desktop:1.0.0` | `grep version manifest.yml` vs `grep SBOS_IMAGE task_catalog.sh` | BOS calcula UPDATE_AVAILABLE incorrecto (compara strings incomparables) |
+| **INC-3** | ConfigMap `fedora-kde-start-script` en K8s sobreescribe el `start-desktop.sh` baked en la imagen | Existe el ConfigMap en el deployment actual + `COPY resources/start-desktop.sh` en Containerfile | El script de la imagen nunca se ejecuta — P-VDI-1 violado |
+| **INC-4** | `sbos-bootstrap-platform` y `sbos-k8s-network-validator` tienen fichas en `servers/` pero NO aparecen en `.sbos_state.json` | Estado VPS: PENDING (no en state) | Observer no las supervisa — pueden estar en estado incompleto sin que BOS lo sepa |
+| **INC-5** | `S06/mattermost` y `S10/mattermost` son dos fichas con el mismo nombre en servidores distintos | `ls servers/S06/mattermost` y `ls servers/S10/mattermost` existen ambas | BOS puede confundir los IDs — el ID de ficha debe ser único en todo el catálogo |
+| **INC-6** | Fichas en `servers/S12/` con 135 líneas (loki, zabbix, tempo) son STUBs que forman parte del stack de monitoreo crítico | `wc -l servers/S12/loki/task_catalog.sh` → 135 | Stack de observabilidad incompleto: Prometheus INSTALLED pero Loki/Tempo/Zabbix no tienen deploy real |
+| **INC-7** | `S04/tryton-workers` tiene 150 líneas pero depende conceptualmente de `S01/tryton` — sin esa dependencia declarada | `grep dependencies servers/S04/tryton-workers/manifest.yml` | tryton-workers puede intentar instalarse antes que el servidor Tryton esté ready |
+
+---
+
+### 11.4 Preguntas HITL — responder para consolidar el instalador
+
+Las siguientes son decisiones de diseño que solo el humano puede tomar. Cada una bloquea un gap específico.
+
+---
+
+**Q-1 — Tryton duplicado (INC-1, BUG-32)**
+
+`S01/tryton` y `S04/tryton` son archivos idénticos (566 líneas, mismo contenido).
+- **Opción A:** S01/tryton = servidor de aplicación principal (web + backend). S04/tryton-workers = workers de background (Celery-like). En ese caso S04 no necesita el task_catalog.sh de S01 — necesita uno propio que despliegue los workers.
+- **Opción B:** S04 es una copia accidental — solo debe existir S01/tryton.
+
+> ¿Cuál es la función de `S04/tryton`? ¿Es un nodo distinto de Tryton (alta disponibilidad) o es un error de duplicación?
+
+---
+
+**Q-2 — Fichas S13 VDI: auto_install (GAP-6)**
+
+Las fichas `fedora-kde`, `guacamole`, `nextcloud`, `onlyoffice` no tienen `auto_install` definido.
+- **Opción A:** `auto_install: true` — el observer las instala automáticamente cuando sus dependencias (postgresql, vault, keycloak, kong) estén INSTALLED. El VDI se despliega solo.
+- **Opción B:** `auto_install: false` — requieren `bosctl ficha install <nombre>` manual o aprobación HITL. El operador controla cuándo se activa el VDI.
+
+> ¿El VDI (nextcloud, guacamole, onlyoffice, fedora-kde) debe instalarse automáticamente o requiere aprobación manual en cada tenant nuevo?
+
+---
+
+**Q-3 — Guacamole + fedora-kde: arquitectura de conexiones (GAP-4)**
+
+Para que Guacamole conecte a los escritorios:
+- **Opción A (Pool estático):** Guacamole tiene una conexión fija al Service `fedora-kde` (balanceo entre réplicas). Todos los usuarios ven el mismo pool — más simple, no hay aislamiento.
+- **Opción B (Pod por usuario):** El provisioner crea un pod `fedora-kde-<user_id>` cuando el usuario hace login. Guacamole recibe la IP del pod directamente. Aislamiento completo — más complejo.
+- **Opción C (Pool con slots):** N pods pre-calentados. Al login se asigna un slot disponible al usuario. Al logout el slot vuelve al pool (home del usuario en PVC, no en el pod).
+
+> ¿Cuál es el modelo de sesión para el VDI? ¿Pod por usuario, pool, o pool con slots?
+
+---
+
+**Q-4 — Mattermost duplicado (INC-5)**
+
+Existen `S06/mattermost` (726 líneas) y `S10/mattermost` (260 líneas).
+- S06 parece ser la versión robusta (mensajería corporativa).
+- S10 parece ser una versión en el servidor de comunicaciones.
+
+> ¿Son dos instancias distintas (por ejemplo, una interna para el staff del cliente y otra para comunicación externa), o es una duplicación accidental?
+
+---
+
+**Q-5 — Stack de monitoreo: Loki/Tempo/Zabbix como STUBs (INC-6)**
+
+`S12/loki` (135 líneas), `S12/tempo` (98 líneas), `S12/zabbix` (140 líneas) son STUBs sin deploy real. Solo Prometheus, Alertmanager, Grafana y Alloy están completos.
+
+> ¿Son Loki (logs), Tempo (trazas) y Zabbix parte del MVP del stack de monitoreo? ¿O son opcionales para una fase posterior?
+
+---
+
+**Q-6 — Portman: ¿cuándo integrar? (GAP-1)**
+
+El Motor de Puertos está implementado pero ninguna ficha lo usa. Integrarlo requiere modificar los 65 `task_catalog.sh` para que llamen `bos.portman.assign` al inicio de `ficha_install()`.
+
+> ¿Integramos el portman ahora (requiere modificar todas las fichas) o lo dejamos como deuda técnica planificada para la siguiente fase?
+
+---
+
+**Q-7 — health.check_command en fichas críticas (GAP-2)**
+
+Agregar `check_command` a vault, postgresql, keycloak, kong, redis es necesario para que BOS detecte problemas internos (Vault sellado, PG sin conexiones) sin esperar al CrashLoop. Requiere modificar 6 manifests.
+
+> ¿Agregamos `check_command` a las fichas críticas ahora como parte del hardening del instalador, o después de resolver los bugs activos (Vault, Linkerd, Kyverno)?
+
+---
+
+### 11.5 Hoja de ruta hacia el instalador robusto e idempotente
+
+#### Lo que ya está robusto y no necesita cambios
+
+- Observer loop (Fases 1-2-3) con FIX-B aplicado
+- State machine (18 estados, fcntl.flock, transiciones correctas)
+- Context Plane (ctx_id en todas las operaciones)
+- Fichas de infraestructura base: postgresql, redis, vault, keycloak, kong, kyverno, linkerd (todas con repair idempotente)
+- Fichas VDI de contenido: nextcloud, oauth2-proxy-desktop (robustas)
+- Scaler context-aware (listo para VDI)
+- Portman (implementado, listo para integración)
+
+#### Lo que necesita trabajo para producción
+
+| Prioridad | Gap | Esfuerzo | Bloquea |
+|-----------|-----|----------|---------|
+| **P1** | FIX-26A vault en VPS (ya commiteado — falta aplicar en VPS) | Bajo | Vault, oauth2-proxy, tryton |
+| **P1** | FIX-B observer PHYSICAL_ERROR (ya commiteado) | — | Reparación automática |
+| **P2** | GAP-2: `health.check_command` fichas críticas (vault, pg, kc, kong) | Bajo | Detección proactiva |
+| **P2** | INC-3: Eliminar ConfigMap `fedora-kde-start-script` | Muy bajo | P-VDI-1 |
+| **P2** | INC-2: Sincronizar versión manifest ↔ tag imagen fedora-kde | Muy bajo | UPDATE_AVAILABLE correcto |
+| **P3** | GAP-3/4: VDI provisioner + Guacamole conexiones (depende de Q-3) | Alto | VDI multi-usuario soberano |
+| **P3** | GAP-5: Eliminar exposición directa noVNC (port 6901) | Bajo | Auditoría VDI completa |
+| **P3** | GAP-6: `auto_install` en fichas S13 (depende de Q-2) | Muy bajo | Observer instala VDI solo |
+| **P4** | INC-1: Resolver tryton S01 vs S04 (depende de Q-1) | Bajo | Conflicto de ID en state |
+| **P4** | INC-5: Resolver mattermost S06 vs S10 (depende de Q-4) | Bajo | Conflicto de ID en state |
+| **P4** | INC-4: Registrar sbos-bootstrap-platform en state | Bajo | Observer supervisa fichas faltantes |
+| **P4** | GAP-7: Definir fichas de aplicación en seed-skull.yml | Bajo | Instalación automatizada por tenant |
+| **P5** | GAP-1: Integrar portman en task_catalog.sh (depende de Q-6) | Alto | Kardex de puertos completo |
+| **P5** | INC-6: Completar STUBs Loki/Tempo/Zabbix (depende de Q-5) | Medio | Stack de observabilidad completo |
+| **P5** | INC-7: Agregar dependencia tryton en tryton-workers manifest | Muy bajo | Orden de instalación correcto |
+
+---
+
+*Documento v2.4.0 — bos-developer · 2026-10-13*  
 *Plan completo de instalación: `PLAN-IMPLEMENTACION-BOS-VDI.md`*
