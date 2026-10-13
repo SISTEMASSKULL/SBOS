@@ -1991,7 +1991,9 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 **Correcciones ciclo 9:** env vars críticas sin las cuales los servicios no arrancan — langfuse (DATABASE_URL/NEXTAUTH_SECRET/SALT/NEXTAUTH_URL/TELEMETRY) · open-webui (OLLAMA_BASE_URL/WEBUI_SECRET_KEY) + PVC open-webui-data 5Gi · flowise (DATABASE_TYPE/HOST/USER/PASS/NAME + FLOWISE_USERNAME/PASSWORD) · embedding-worker (OLLAMA_URL/QDRANT_URL/REDIS_URL) · docuseal (DATABASE_URL/SECRET_KEY_BASE/APP_URL) · kimios (DB_HOST/PORT/NAME/USER/PASS + KIMIOS_ADMIN_PASSWORD) + resources 256Mi→512Mi · limpieza cosmética `spec: + línea vacía` en tabula/tesseract-ocr/velero
 
+**Correcciones ciclo 10:** `ficha_test` agregada a 5 fichas `auto_install=true` que faltaban — sbos-bootstrap-platform (7 namespaces + StorageClass) · sbos-k8s-network-validator (ConfigMap + CoreDNS) · loki (helm status=deployed + pod) · tempo (helm status=deployed + pod) · oauth2-proxy-desktop (pod Running + /ping 200) — **estado final: 0 bugs sistemáticos pendientes**
+
 ---
 
-*Documento v2.4.1 — bos-developer · 2026-10-13*  
+*Documento v2.5.0 — bos-developer · 2026-10-13*  
 *Panel de control de reparación: `PLAN-INSTALACION-DESDE-CERO.md §13`*
