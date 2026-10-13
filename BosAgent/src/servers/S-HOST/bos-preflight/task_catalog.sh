@@ -193,12 +193,18 @@ ficha_install() {
     done
     echo "${__STEP_OK__} crear_directorios"
 
-    # kubectl symlink (ficha 00)
+    # kubectl symlink — se crea solo si kubectl ya está instalado.
+    # En primera instalación kubectl no existe aún (lo instala sbos-bootstrap-k8s, orden 20).
+    # El repair de esta ficha (después de orden 20) sí lo crea.
     echo "${__STEP_START__} configurar_kubectl"
     kubectl_path=$(which kubectl 2>/dev/null || echo "")
     [ -z "$kubectl_path" ] && [ -f /usr/bin/kubectl ] && kubectl_path=/usr/bin/kubectl
-    [ -n "$kubectl_path" ] && [ ! -f /usr/local/bin/kubectl ] && ln -sf "$kubectl_path" /usr/local/bin/kubectl
-    echo "${__STEP_OK__} configurar_kubectl"
+    if [ -n "$kubectl_path" ]; then
+        [ ! -f /usr/local/bin/kubectl ] && ln -sf "$kubectl_path" /usr/local/bin/kubectl
+        echo "${__STEP_OK__} configurar_kubectl: symlink → $kubectl_path"
+    else
+        echo "${__STEP_SKIP__} configurar_kubectl: kubectl no instalado aún (se creará tras sbos-bootstrap-k8s)"
+    fi
 
     # RPC token: generado con openssl si no existe — nunca hardcodeado (P6)
     echo "${__STEP_START__} configurar_rpc_token"

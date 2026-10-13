@@ -66,7 +66,8 @@ ports: []
 
 health:
   type: command
-  command: "id bosagent &>/dev/null && test -d /etc/bos && test -d /etc/sbos && test -d /run/bos && echo HEALTHY"
+  # /run/bos es tmpfs — desaparece en reboot. Verificar solo paths persistentes.
+  command: "id bosagent &>/dev/null && test -d /etc/bos && test -d /etc/sbos && test -f /etc/bos/rpc-token && test -f /etc/bos/certs/bos.crt && echo HEALTHY"
   timeout_seconds: 10
 
 audit:

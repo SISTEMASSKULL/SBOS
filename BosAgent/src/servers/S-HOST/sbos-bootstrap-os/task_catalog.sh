@@ -171,12 +171,15 @@ EOF
     done
     echo "${__STEP_OK__} crear_directorios_data"
 
+    # containerd lo instala sbos-bootstrap-k8s (orden 20), que corre DESPUÉS de esta ficha.
+    # En primera instalación este paso hace SKIP — es correcto y esperado.
+    # La configuración real de containerd ocurre en sbos-bootstrap-k8s.
+    # Este paso solo sirve si se hace repair de esta ficha con containerd ya instalado.
     echo "${__STEP_START__} configurar_containerd"
     if command -v containerd > /dev/null 2>&1; then
         mkdir -p /etc/containerd
         if [[ ! -f /etc/containerd/config.toml ]]; then
             containerd config default > /etc/containerd/config.toml 2>/dev/null || true
-            # Forzar cgroup driver systemd (requerido por kubeadm)
             if [[ -f /etc/containerd/config.toml ]]; then
                 sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml || true
             fi
@@ -186,7 +189,7 @@ EOF
         _log "containerd configurado con SystemdCgroup=true"
         echo "${__STEP_OK__} configurar_containerd"
     else
-        echo "${__STEP_SKIP__} configurar_containerd: containerd no instalado aún"
+        echo "${__STEP_SKIP__} configurar_containerd: containerd no instalado (lo instala sbos-bootstrap-k8s en orden 20)"
     fi
 
     echo "${__STEP_START__} deshabilitar_swap"

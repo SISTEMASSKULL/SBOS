@@ -1903,10 +1903,20 @@ Agregar `check_command` a vault, postgresql, keycloak, kong, redis es necesario 
 
 | Orden | Ficha | Servidor | `auto_install` | Qué hace |
 |-------|-------|----------|---------------|---------|
-| 1 | `bos-preflight` | S-HOST | `true` | Crea usuario `bosagent`, directorios `/etc/bos /var/log/bos /run/bos`, instala paquetes del SO (declarados en `system_packages`), verifica cgroup v2 |
-| 10 | `sbos-bootstrap-os` | S-HOST | `true` | Aplica módulos kernel requeridos (`br_netfilter`, `overlay`), ajusta `sysctl` para K8s, crea estructura `/data/` para PVs, instala herramientas base (curl, jq, openssl, containerd) |
+| 1 | `bos-preflight` | S-HOST | `true` | Verifica OS 26.04, RAM ≥16 GB, disco ≥165 GB, CPU ≥8 cores, puertos libres. Crea usuario `bosagent` + grupo, directorios `/etc/bos /etc/sbos /var/log/bos /opt/bos`, instala paquetes del SO declarados en `system_packages` (curl, jq, openssl, python3, etc.), genera token RPC aleatorio, genera certificado TLS autofirmado `/etc/bos/certs/bos.crt`, configura cgroup v2 delegation, sudoers para bosagent |
+| 10 | `sbos-bootstrap-os` | S-HOST | `true` | Carga módulos kernel requeridos (`br_netfilter`, `overlay`, `ip_tables`, etc.) · configura `sysctl` para K8s (ip_forward, bridge-nf-call, vm.max_map_count) · instala herramientas base (socat, conntrack, ipset, iptables-persistent, etc.) · crea estructura `/data/postgres`, `/data/redis`, `/data/vault`, etc. con permisos correctos por UID · deshabilita swap |
 
-**Criterio de completitud:** `bosctl ficha status bos-preflight` → INSTALLED · `bosctl ficha status sbos-bootstrap-os` → INSTALLED.
+**Comportamiento en servidor ya configurado:** Ambas fichas verifican antes de actuar — si el usuario ya existe, los directorios ya están y los módulos ya están cargados, salen con STEP_OK sin tocar nada. Esto es **idempotencia correcta**, no un error.
+
+**Limitaciones conocidas (verificadas en código):**
+
+| Limitación | Ficha | Detalle |
+|-----------|-------|---------|
+| `configurar_kubectl` hace SKIP en primera instalación | `bos-preflight:198` | kubectl lo instala `sbos-bootstrap-k8s` (orden 20) — este symlink solo se crea en un repair posterior |
+| `configurar_containerd` hace SKIP en primera instalación | `sbos-bootstrap-os:174` | containerd lo instala `sbos-bootstrap-k8s` (orden 20) — este paso solo actúa en repair |
+| health check corregido | `bos-preflight manifest` | Antes usaba `/run/bos` (tmpfs, desaparece en reboot). Ahora verifica `/etc/bos/rpc-token` y `/etc/bos/certs/bos.crt` (persistentes) |
+
+**Criterio de completitud:** `bosctl ficha status bos-preflight` → INSTALLED · `bosctl ficha status sbos-bootstrap-os` → INSTALLED · `id bosagent` OK · `/etc/bos/certs/bos.crt` existe · `sysctl net.ipv4.ip_forward` = 1 · swap = 0.
 
 ---
 
