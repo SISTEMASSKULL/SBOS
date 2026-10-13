@@ -1,6 +1,6 @@
 # Plan de Instalación desde Cero — VPS Limpia Ubuntu 26.04
 
-**Versión:** 2.0.0  
+**Versión:** 2.1.0  
 **Fecha:** 2026-10-13  
 **Autor:** bos-developer  
 **Estado:** 🔄 PT-05 EN CURSO — 24/35 fichas INSTALLED · 2 PHYSICAL_ERROR (Vault, oauth2-proxy) · 1 INSTALL_FAILED (tryton) bloqueado por Vault  
@@ -1132,7 +1132,37 @@ kubectl delete pod -n kyverno -l app.kubernetes.io/component=admission-controlle
 
 ---
 
-### 8.3 Dudas de concepción — VDI (fedora-kde)
+### 8.3 VDI (fedora-kde) — Principios de diseño y dudas de concepción
+
+> **El VDI es el producto de cara al usuario final.** Es la ventana a través de la cual el cliente accede a toda la suite SBOS. Cualquier fallo en el escritorio es el primer contacto del usuario con el sistema — y un fallo mal manejado destruye la confianza en todo el producto. **Los cambios al VDI deben ser profesionales, reproducibles y recuperables sin intervención humana.**
+
+#### Principios irrenunciables del VDI
+
+| Principio | Regla | Consecuencia si se viola |
+|-----------|-------|--------------------------|
+| **P-VDI-1 — Imagen como fuente de verdad** | Toda configuración del escritorio vive en el `Containerfile`. Nada en ConfigMaps, nada en `kubectl exec`, nada fuera de la imagen. | El ConfigMap `fedora-kde-start-script` viola este principio → debe eliminarse (VDI-4). |
+| **P-VDI-2 — Versión semántica sincronizada** | La versión en `manifest.yml` DEBE coincidir exactamente con el tag Docker de la imagen. `version: "1.4.0"` → imagen `sbos/fedora-kde:1.4.0`. | BOS no puede comparar versiones correctamente → UPDATE_AVAILABLE nunca se resuelve. |
+| **P-VDI-3 — Resurrección sin intervención** | Si el pod muere (reinicio, OOMKill, node drain), K8s levanta uno nuevo y el escritorio arranca exactamente igual. El usuario ve el mismo escritorio en menos de 2 minutos — sin que nadie toque nada. | Cualquier configuración fuera de la imagen se pierde en el reinicio. |
+| **P-VDI-4 — Cambio atómico** | Un cambio en el escritorio sigue este flujo: `Containerfile` → commit → buildah build → nueva versión de imagen → `manifest.yml version:` → `bosctl ficha update fedora-kde`. Nunca aplicar configuraciones a mano y luego "recordar" escribirlas en la imagen. | Configuraciones aplicadas manualmente no sobreviven al próximo rebuild. |
+| **P-VDI-5 — Testeo antes de producción** | Antes de hacer `bosctl ficha update`, verificar visualmente en noVNC que el escritorio arranca correctamente: panel visible, apps del menú accesibles, sin popups de error. | Una actualización de imagen rota deja al usuario sin escritorio hasta el rollback. |
+| **P-VDI-6 — Rollback trivial** | Cada versión de imagen se guarda en el registry local antes de hacer update. Si la nueva imagen falla, `bosctl ficha repair fedora-kde` debe volver a la última versión estable en segundos. | Sin versión anterior disponible, el rollback requiere rebuild completo (~15 min). |
+
+#### Protocolo de cambio al VDI (obligatorio para cualquier modificación)
+
+```
+1. Modificar Containerfile con el cambio
+2. Probar localmente (buildah build + run manual)
+3. Commit con versión semántica: git commit -m "feat(vdi): v1.5.0 — descripción"
+4. Actualizar manifest.yml: version: "1.5.0"
+5. Transferir imagen a VPS: buildah push o scp del .tar
+6. bosctl ficha update fedora-kde
+7. Verificar en noVNC: escritorio visible, apps del menú funcionando
+8. Si algo falla: bosctl ficha repair fedora-kde → imagen anterior
+```
+
+**Nunca:** `kubectl exec` para cambiar configuración → `kubectl edit` deployment → `kubectl apply` de YAML editado a mano. Esos cambios no sobreviven al próximo `bosctl ficha update`.
+
+---
 
 #### VDI-1 — ¿Cómo se mantiene la configuración del escritorio entre reinicios del pod?
 
@@ -1262,5 +1292,5 @@ Con P0-P3 ejecutados, el estado esperado es: **30+/35 fichas INSTALLED** · Vaul
 
 ---
 
-*Documento v2.0.0 — bos-developer · 2026-10-13*  
+*Documento v2.1.0 — bos-developer · 2026-10-13*  
 *Plan completo de instalación: `PLAN-IMPLEMENTACION-BOS-VDI.md`*
