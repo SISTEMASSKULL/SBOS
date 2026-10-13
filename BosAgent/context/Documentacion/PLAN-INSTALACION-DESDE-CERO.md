@@ -1,6 +1,6 @@
 # Plan de Instalación desde Cero — VPS Limpia Ubuntu 26.04
 
-**Versión:** 2.3.0  
+**Versión:** 2.5.0  
 **Fecha:** 2026-10-13  
 **Autor:** bos-developer  
 **Estado:** 🔄 PT-05 EN CURSO — 24/35 fichas INSTALLED · 2 PHYSICAL_ERROR (Vault, oauth2-proxy) · 1 INSTALL_FAILED (tryton) bloqueado por Vault  
@@ -1865,5 +1865,300 @@ Agregar `check_command` a vault, postgresql, keycloak, kong, redis es necesario 
 
 ---
 
-*Documento v2.4.0 — bos-developer · 2026-10-13*  
+---
+
+## 12. Ruta de instalación completa — ficha por ficha hasta el VDI
+
+> Esta sección es el **mapa de construcción** del sistema. Cada etapa tiene un objetivo claro, sus fichas ordenadas, los requerimientos que deben cumplirse antes de iniciar, y el criterio que define cuándo esa etapa está completa. El orden numérico (`execution_order`) es el que el observer sigue internamente.
+
+---
+
+### Visión general del pipeline (resumen de 12 etapas)
+
+```
+[ETAPA 0] Pre-vuelo del host ────── bos-preflight, sbos-bootstrap-os
+[ETAPA 1] Cluster Kubernetes ──────  sbos-namespace, sbos-bootstrap-k8s, sbos-bootstrap-cni
+[ETAPA 2] Infraestructura K8s ───── sbos-bootstrap-platform, sbos-bootstrap-storage, sbos-bootstrap-monitoring
+[ETAPA 3] Validación de red ──────── sbos-k8s-network-validator
+[ETAPA 4] Base de datos y objetos ── postgresql, redis, minio
+[ETAPA 5] Seguridad: mesh y policy ─ kyverno, linkerd
+[ETAPA 6] Secretos ──────────────── vault, besu-qbft
+[ETAPA 7] Identidad y gateway ────── keycloak, kong, oauth2-proxy, nginx, certbot
+[ETAPA 8] Daemons host y notif. ─── sbos-bkernel, sbos-notifier
+[ETAPA 9] Observabilidad ────────── prometheus, alertmanager, grafana, loki, alloy, tempo
+[ETAPA 10] Hardening final ─────── sbos-bootstrap-hard
+[ETAPA 11] VDI: Plataforma ──────── nextcloud, guacamole, onlyoffice
+[ETAPA 12] VDI: Escritorio ─────── fedora-kde, oauth2-proxy-desktop, sbos-vdi-config
+─────────────────────────────────────────────────────────────────────
+[OPCIONALES] Aplicaciones de negocio (auto_install: false — instalar por tenant)
+```
+
+---
+
+### ETAPA 0 — Pre-vuelo del host
+
+**Objetivo:** Verificar que el servidor cumple los prerrequisitos mínimos e instalar las dependencias del SO que BOS necesita para operar. Sin esta etapa, ningún binario ni comando funciona.
+
+**Requerimientos previos:** Ubuntu 26.04 Server LTS instalado · acceso root · conexión a internet.
+
+| Orden | Ficha | Servidor | `auto_install` | Qué hace |
+|-------|-------|----------|---------------|---------|
+| 1 | `bos-preflight` | S-HOST | `true` | Crea usuario `bosagent`, directorios `/etc/bos /var/log/bos /run/bos`, instala paquetes del SO (declarados en `system_packages`), verifica cgroup v2 |
+| 10 | `sbos-bootstrap-os` | S-HOST | `true` | Aplica módulos kernel requeridos (`br_netfilter`, `overlay`), ajusta `sysctl` para K8s, crea estructura `/data/` para PVs, instala herramientas base (curl, jq, openssl, containerd) |
+
+**Criterio de completitud:** `bosctl ficha status bos-preflight` → INSTALLED · `bosctl ficha status sbos-bootstrap-os` → INSTALLED.
+
+---
+
+### ETAPA 1 — Cluster Kubernetes
+
+**Objetivo:** Levantar el plano de control K8s y la red de pods (CNI). Al final de esta etapa hay un nodo K8s funcional con red entre pods y con el mecanismo de namespaces listo.
+
+**Requerimientos previos:** ETAPA 0 completa · `containerd` corriendo · módulos kernel activos.
+
+| Orden | Ficha | Servidor | `auto_install` | Qué hace |
+|-------|-------|----------|---------------|---------|
+| 5 | `sbos-namespace` | S-HOST | `true` | Crea el namespace base `sbos-system` con `NetworkPolicy default-deny` por tenant. Requiere K8s activo para aplicar. Dep: `sbos-bootstrap-k8s` |
+| 20 | `sbos-bootstrap-k8s` | S-HOST | `true` | Inicializa el cluster con `kubeadm init` + configura `containerd` runtime · instala `kubectl` + `kubeconfig` en `/etc/bos/.kube/config` · instala Calico básico como CNI · verifica node Ready |
+| 25 | `sbos-bootstrap-cni` | S-HOST | `true` | Calico completo: `IPPool`, `NetworkPolicy default-deny` global, verificación pod-to-pod · Dep: `sbos-bootstrap-k8s` |
+
+**Criterio:** `kubectl get nodes` → `Ready` · `kubectl get pods -n calico-system` → Running.
+
+---
+
+### ETAPA 2 — Infraestructura del cluster
+
+**Objetivo:** Instalar los recursos transversales que todas las fichas de aplicación necesitan: clases de almacenamiento, volúmenes persistentes, espacio de nombres SBOS y base de observabilidad del cluster.
+
+**Requerimientos previos:** ETAPA 1 completa · nodo K8s Ready · CNI funcional.
+
+| Orden | Ficha | Servidor | `auto_install` | Qué hace |
+|-------|-------|----------|---------------|---------|
+| 28 | `sbos-bootstrap-platform` | S-HOST | `true` | Crea los 12 namespaces SBOS (`sbos-data`, `sbos-security`, `sbos-gateway`, `sbos-erp`, `sbos-collab`, `sbos-vdi`, `sbos-monitoring`, etc.) · instala `local-path-provisioner` (StorageClass dinámica) · configura RBAC base para service accounts SBOS |
+| 30 | `sbos-bootstrap-storage` | S-HOST | `true` | Crea los 19 PersistentVolumes hostPath en `/data/` con política `Retain` (los datos sobreviven a la eliminación de pods) · Dep: `sbos-bootstrap-k8s`, `sbos-bootstrap-cni` |
+| 35 | `sbos-bootstrap-monitoring` | S-HOST | `true` | Despliega `prometheus-node-exporter` (métricas del host) y `kube-state-metrics` (estado del cluster K8s) como base de observabilidad · Dep: `sbos-bootstrap-k8s`, `sbos-bootstrap-cni`, `sbos-bootstrap-storage` |
+
+**Criterio:** 12 namespaces existentes · StorageClass `local-path` presente · `node-exporter` y `kube-state-metrics` Running.
+
+---
+
+### ETAPA 3 — Validación de conectividad de red
+
+**Objetivo:** Confirmar empíricamente que el cluster funciona antes de instalar workloads. Si algo falla aquí, se detecta antes de invertir tiempo en instalaciones.
+
+**Requerimientos previos:** ETAPA 2 completa.
+
+| Orden | Ficha | Servidor | `auto_install` | Qué hace |
+|-------|-------|----------|---------------|---------|
+| 50 | `sbos-k8s-network-validator` | S-HOST | `true` | Ejecuta 4 pruebas: resolución DNS interna (`service.namespace.svc.cluster.local`) · comunicación pod-to-pod entre namespaces · creación y montaje de PVC · verificación de hairpin NAT hacia el apiserver · Dep: `sbos-bootstrap-platform`, `sbos-bootstrap-storage` |
+
+**Criterio:** 4/4 pruebas en verde · log `[VALIDACION OK]` en `bosctl ficha status sbos-k8s-network-validator`.
+
+> ⚠️ **BUG-36 conocido:** El validador puede fallar en la prueba de hairpin NAT si la regla iptables no está aplicada. Ver §8.2 BUG-36 para el fix manual antes de continuar.
+
+---
+
+### ETAPA 4 — Base de datos, caché y almacenamiento de objetos
+
+**Objetivo:** Instalar los tres servicios de persistencia que todo el stack SBOS consume. Ninguna aplicación puede instalarse sin que estos estén INSTALLED.
+
+**Requerimientos previos:** ETAPA 2 completa · PVs disponibles · `vault` **NO** es requisito aquí — postgresql se instala antes de vault (vault necesita postgresql para su backend).
+
+| Orden | Ficha | Servidor | `auto_install` | Qué hace |
+|-------|-------|----------|---------------|---------|
+| 100 | `postgresql` | S01 | `true` | PostgreSQL 18.4 · StatefulSet con PVC 50 Gi · Crea 10 BDs SBOS (`SBOSDB`, `kong_db`, `keycloak_db`, `tryton_db`, etc.) · Configura WAL logical replication (`pgoutput`) para bKernel CDC · `pg_hba` restringido a IPs de pods específicos (P5 Zero Trust) |
+| 110 | `redis` | S01 | `true` | Redis 8.6.2 · 3 DBs lógicas: caché(0), ctx_id(1), streams(2) · password obligatorio · Usado por bKernel para Streams y por Context Plane para ctx_id |
+| 120 | `minio` | S01 | `true` | MinIO/SeaweedFS S3-compatible · 3 buckets: `sbos-backups`, `sbos-assets`, `sbos-documents` · Credenciales S3 en ConfigMap · Usado por Nextcloud, Paperless, Grafana, backups |
+
+**Criterio:** Los 3 pods `1/1 Running` · `psql -c "\l"` muestra las 10 BDs · `redis-cli ping` → PONG · bucket `sbos-backups` existente.
+
+---
+
+### ETAPA 5 — Mesh de servicios y control de admisión
+
+**Objetivo:** Aplicar mTLS automático entre todos los pods (confidencialidad en tránsito) y políticas de seguridad que impiden despliegues sin probes, con hostPort, o sin NetworkPolicy.
+
+**Requerimientos previos:** ETAPA 1 completa · CNI funcional. Estas fichas no necesitan BD pero sí un cluster limpio antes de que lleguen workloads de aplicación.
+
+| Orden | Ficha | Servidor | `auto_install` | Qué hace |
+|-------|-------|----------|---------------|---------|
+| 100 | `kyverno` | S03 | `true` | Kyverno 1.13.0 · 4 políticas: require liveness/readiness probes · forbid hostPort · verify OCI signatures · require NetworkPolicy · Modo `audit` en Iter1 → `enforce` en Iter2 |
+| 110 | `linkerd` | S03 | `true` | Linkerd stable-2.14.10 · mTLS automático con iptables mode `nft` (requerido en Ubuntu 26.04 con kernel nf_tables) · injection via anotación de namespace · ServiceProfile por servicio |
+
+**Criterio:** `linkerd check` sin errores · `kyverno` 4 pods Running · políticas en modo audit activas.
+
+> ⚠️ **BUG conocido (linkerd):** Requiere `--set proxyInit.iptablesMode=nft` y timeout 15 min. Ya corregido en `task_catalog.sh`.
+
+---
+
+### ETAPA 6 — Secretos y blockchain soberana
+
+**Objetivo:** Instalar el gestor de secretos centralizado (Vault) y la red blockchain de auditoría (Besu QBFT). Vault es la fuente de verdad para todas las credenciales del stack — ninguna aplicación obtiene secretos de otro lugar.
+
+**Requerimientos previos:** `postgresql` INSTALLED (Vault backend HA) · `sbos-bootstrap-storage` INSTALLED (PVC).
+
+| Orden | Ficha | Servidor | `auto_install` | Qué hace |
+|-------|-------|----------|---------------|---------|
+| 130 | `vault` | S02 | `true` | HashiCorp Vault 2.0.1 · StatefulSet 1 réplica · AppRole `sbos-pods` para todos los pods · PKI engine para certificados internos · KV v2 para secretos · **Requiere unseal manual tras primer arranque** (ver §8.2 BUG-26) · Dep: postgresql, sbos-bootstrap-storage |
+| 135 | `besu-qbft` | S02 | `true` | Hyperledger Besu 24.12.0 · Red blockchain QBFT 1 validador · `SettlementEngine.sol` + `AuditAnchor.sol` · RPC :8545, WS :8546, P2P :30303 · Chain ID 1337 · Dep: postgresql, vault |
+
+**Criterio:** `vault status` → `Initialized: true, Sealed: false` · bloque genesis de besu creado · `curl localhost:8545` responde JSON-RPC.
+
+> ⚠️ **ACCIÓN MANUAL REQUERIDA:** Después de que Vault arranque por primera vez, ejecutar `vault operator init` → guardar las 5 unseal keys → `vault operator unseal` (3 veces). Sin esto, Vault queda sellado y todo el stack falla en cadena (BUG-26 / FIX-26A).
+
+---
+
+### ETAPA 7 — Identidad, gateway y TLS
+
+**Objetivo:** Establecer la capa de identidad centralizada (Keycloak + oauth2-proxy) y el punto único de entrada al sistema (Kong + nginx). Al final de esta etapa, el sistema tiene autenticación SSO funcional y un reverse proxy con HTTPS.
+
+**Requerimientos previos:** `vault` INSTALLED y **desbloqueado** · `postgresql` INSTALLED · `sbos-bootstrap-cni` INSTALLED.
+
+| Orden | Ficha | Servidor | `auto_install` | Qué hace |
+|-------|-------|----------|---------------|---------|
+| 140 | `keycloak` | S03 | `true` | Keycloak 26.6.2 · Realm `master` + Realm `skull` · 5 SPIs SKULL · OIDC/OAuth2 para todo el ecosistema · Dep: postgresql, vault |
+| 160 | `kong` | S02 | `true` | Kong 3.9.x LTS · DB mode PostgreSQL `kong_db` · JWT validation, rate limiting, plugin Lua `SBOS-Context` (inyecta ctx_id) · Admin API :8001, Proxy :8000/:8443, Status :8007 · Dep: postgresql, keycloak, vault |
+| 150 | `oauth2-proxy` | S02 | `true` | OAuth2-Proxy 7.8.0 · Valida tokens contra Keycloak · Inyecta headers `X-Forwarded-User/Email/Groups` · Protege apps sin lógica de auth propia · Dep: keycloak, vault, kong |
+| 170 | `nginx` | S02 | `true` | Reverse proxy y servidor web · Enruta `/api/` → kong · `/desktop/` → oauth2-proxy-desktop · Sirve `/.well-known/acme-challenge/` para Certbot · Dep: kong |
+| 180 | `certbot` | S02 | `true` | Certbot 3.2.0 · Certificados TLS Let's Encrypt vía HTTP-01 challenge (webroot nginx) · **No es pod K8s** — es un `systemd timer` en el host · Renovación automática cada 60 días · Dep: nginx |
+
+**Criterio:** `curl http://localhost:8001/` → Kong Admin 200 · Keycloak realm `skull` accesible · oauth2-proxy `/ping` → 200 · nginx sirviendo · certificado TLS válido.
+
+---
+
+### ETAPA 8 — Daemons host y notificador
+
+**Objetivo:** Activar los daemons del ecosistema SBOS que corren en el host (no en K8s): bKernel para el pipeline de eventos CDC desde PostgreSQL WAL, y bNotify para notificaciones push y MFA step-up.
+
+**Requerimientos previos:** `postgresql` INSTALLED (WAL logical) · `redis` INSTALLED (Streams) · `vault` INSTALLED · todas las fichas de ETAPA 7.
+
+| Orden | Ficha | Servidor | `auto_install` | Qué hace |
+|-------|-------|----------|---------------|---------|
+| 70 | `sbos-bkernel` | S-HOST | `true` | bKernel CDC Daemon · Escucha WAL de PostgreSQL (pgoutput) · Normaliza eventos de dominio · Publica intenciones en Redis Streams · **CERO puertos TCP** (F-02) · Dep: postgresql, redis, vault |
+| 170 | `sbos-notifier` | S06 | `true` | SBOS Notifier (bnotify) · Push MFA (OTP, TOTP, WebAuthn) · Alertas críticas del sistema · Mensajes a usuarios · Requerido por bAuth para Step-Up (RFC 9470) · Dep: postgresql, redis, vault, keycloak, kong |
+
+**Criterio:** `systemctl status sbos-bkernel` → active · `bosctl ficha status sbos-notifier` → INSTALLED · WAL replication slot activo en PostgreSQL.
+
+---
+
+### ETAPA 9 — Observabilidad completa
+
+**Objetivo:** Instalar el stack de monitoreo, métricas, logs y trazas que da visibilidad a todo el sistema. El criterio "instalador robusto" requiere que BOS pueda ver en tiempo real el estado de cada componente.
+
+**Requerimientos previos:** `sbos-bootstrap-monitoring` INSTALLED · `vault` INSTALLED · `minio` INSTALLED (para Loki/Tempo).
+
+| Orden | Ficha | Servidor | `auto_install` | Qué hace |
+|-------|-------|----------|---------------|---------|
+| 200 | `prometheus` | S12 | `true` | Prometheus 3.4.0 · Scraping de daemons SBOS (9400-9499), K8s nodes/pods · Alertmanager integrado · PVC 20 Gi con `strategy: Recreate` (evita lock) · Dep: sbos-bootstrap-storage, sbos-bootstrap-monitoring, vault |
+| 205 | `alertmanager` | S12 | `true` | Alertmanager 0.28.1 · Reglas SBOS (WAL lag, Vault sealed, DLQ depth, pod down) · Routing hacia bnotify · Dep: prometheus |
+| 215 | `grafana` | S12 | `true` | Grafana 12.0.1 · OAuth2 Keycloak · Dashboards SBOS precargados · Datasources Prometheus + PostgreSQL + Loki · Dep: prometheus, keycloak, vault |
+| 215 | `loki` | S12 | `true` | Grafana Loki — logs · Extrae y almacena logs de todos los pods con ctx_id · Dep: prometheus, grafana, minio — ⚠️ **STUB** actualmente |
+| 220 | `alloy` | S12 | `true` | Grafana Alloy 1.8.3 · Pipelines de logs y métricas · Extrae `ctx_id` de logs SBOS · Envía a Loki · Dep: prometheus |
+| 220 | `tempo` | S12 | `true` | Grafana Tempo — trazas distribuidas · Dep: loki, prometheus — ⚠️ **STUB** actualmente |
+| 225 | `zabbix` | S12 | `false` | Zabbix — monitoreo de infraestructura tradicional · Dep: postgresql, grafana — ⚠️ **STUB** / `auto_install: false` |
+
+**Criterio:** Prometheus scrapea al menos 20 targets · Grafana accesible con SSO Keycloak · dashboards SBOS cargados.
+
+---
+
+### ETAPA 10 — Hardening final del cluster
+
+**Objetivo:** Aplicar el endurecimiento de seguridad definitivo: firewall, políticas de red Calico en modo enforce, Kyverno en modo enforce y benchmarks CIS. Esta etapa se ejecuta DESPUÉS de que todo el stack esté up — aplicarlo antes bloqueaería la instalación.
+
+**Requerimientos previos:** TODAS las fichas de infraestructura INSTALLED · prometheus y grafana Running (el hardening los necesita para monitorear las políticas).
+
+| Orden | Ficha | Servidor | `auto_install` | Qué hace |
+|-------|-------|----------|---------------|---------|
+| 250 | `sbos-bootstrap-hard` | S-HOST | `true` | UFW deny-all (solo 22/80/443 permitidos) · Calico `default-deny` enforcement · Kyverno modo `enforce` (deja de ser solo audit) · CIS Ubuntu 26.04 Benchmark · CIS K8s Benchmark · Dep: sbos-bootstrap-cni, sbos-bootstrap-k8s, sbos-bootstrap-monitoring, prometheus, grafana |
+
+**Criterio:** `ufw status` → activo con 3 reglas · Kyverno en modo enforce · `lynis audit system` sin hallazgos críticos.
+
+> ⚠️ Después de esta etapa, cualquier pod sin `livenessProbe`/`readinessProbe` será rechazado por Kyverno. Todas las fichas ROBUSTAS ya tienen probes. Los STUBs sin probes fallarán — no instalar fichas STUB después del hardening sin agregarles probes primero.
+
+---
+
+### ETAPA 11 — VDI Plataforma: almacenamiento, documentos y gateway de escritorio
+
+**Objetivo:** Instalar la capa de productividad colaborativa y el gateway que permitirá el acceso al escritorio virtual. Al final de esta etapa, los usuarios pueden acceder a archivos, documentos y colaborar — pero el escritorio aún no está disponible.
+
+**Requerimientos previos:** `postgresql`, `redis`, `minio`, `keycloak`, `kong` INSTALLED · Etapa 10 completa.
+
+| Orden | Ficha | Servidor | `auto_install` | Qué hace |
+|-------|-------|----------|---------------|---------|
+| 200 | `nextcloud` | S13 | — (*Q-2*) | Nextcloud 30.0.2 · Almacenamiento personal y colaborativo · Integración OIDC Keycloak (SSO) · Backend MinIO S3 · Editor Nextcloud-Office vía OnlyOffice · Dep: postgresql, redis, minio, keycloak, kong |
+| 210 | `guacamole` | S13 | — (*Q-2*) | Apache Guacamole 1.5.5 + guacd · **Gateway de escritorio remoto** · Autenticación OIDC Keycloak · Proxy VNC/RDP hacia pods fedora-kde · Auditoría de sesiones · Dep: postgresql, keycloak, kong |
+| 220 | `onlyoffice` | S13 | — (*Q-2*) | OnlyOffice Document Server 8.2.2 · Edición colaborativa de documentos Office en tiempo real · Integrado con Nextcloud · Dep: postgresql, redis, kong |
+
+**Criterio:** Nextcloud accesible con SSO · guacamole dashboard disponible · onlyoffice server health OK.
+
+---
+
+### ETAPA 12 — VDI Escritorio: Fedora KDE corporativo
+
+**Objetivo:** Instalar y configurar el escritorio virtual soberano. **Esta es la etapa final del MVP.** Al completarla, un usuario puede autenticarse con sus credenciales SBOS y acceder a un escritorio Fedora KDE completo con todas las aplicaciones corporativas, con aislamiento por usuario, persistencia de datos y auditoría completa.
+
+**Requerimientos previos:** `guacamole`, `keycloak`, `kong`, `nextcloud`, `onlyoffice` INSTALLED.
+
+| Orden | Ficha | Servidor | `auto_install` | Qué hace |
+|-------|-------|----------|---------------|---------|
+| 225 | `oauth2-proxy-desktop` | S13 | — (*Q-2*) | OAuth2-Proxy v7.8.0 · Intercepta acceso a `/desktop/` · Valida token Keycloak · Inyecta headers de identidad en la sesión VNC · **SSO del escritorio** · Dep: keycloak, fedora-kde |
+| 230 | `fedora-kde` | S13 | — (*Q-2*) | Fedora KDE — Escritorio Virtual Corporativo · Pod TigerVNC + KDE Plasma · noVNC HTML5 (acceso vía browser) · KWallet deshabilitado · sbos-webapp (`--password-store=basic`) · **Actualmente: 1 pod compartido** — VDI-GAP-3 · Dep: keycloak, kong, guacamole |
+| 420 | `sbos-vdi-config` | S13 | — (*Q-2*) | Configuración final del VDI: rutas Kong para VDI (`/nextcloud/`, `/onlyoffice/`, `/desktop/`) · Client OIDC `sbos-desktop` en realm Keycloak · NetworkPolicies: sbos-vdi puede conectar a sbos-data y sbos-security · Dep: nextcloud, onlyoffice, guacamole, keycloak, kong |
+
+**Criterio de VDI completado (C-09 a C-14):**
+
+| Check | Verificación | Estado actual |
+|-------|-------------|---------------|
+| C-09 | Semáforo VDI verde (`bosctl vdi verify`) | ✅ Implementado |
+| C-10 | Guacamole accesible con SSO Keycloak | ✅ Funcional |
+| C-11 | Fedora KDE arranca dentro del pod | ✅ Funcional |
+| C-12 | Home del usuario montado (PVC por usuario) | ❌ VDI-GAP-2 (1 PVC compartido) |
+| C-13 | Aplicaciones abren con SSO (Nextcloud, mail) | ⚠️ Parcial |
+| C-14 | Archivo persiste tras cerrar sesión | ❌ VDI-GAP-2 |
+
+---
+
+### Fichas opcionales — instalar por necesidad del tenant (`auto_install: false`)
+
+Estas fichas **no se instalan automáticamente**. Requieren `bosctl ficha install <nombre>` o aprobación HITL. Se agrupan por módulo de negocio.
+
+| Módulo | Fichas | Orden | Dependencias principales |
+|--------|--------|-------|--------------------------|
+| **ERP (S01/S04)** | `tryton`, `tryton-workers` | 170, 175 | postgresql, vault, kong |
+| **Colaboración (S06)** | `ferretdb`, `calcom`, `novu`, `mattermost`(S06) | 174-177 | postgresql, redis, keycloak |
+| **Correo (S10)** | `mailserver`, `postfixadmin`, `roundcube`, `cypht` | 300-315 | postgresql, kong, keycloak |
+| **Documentos (S08)** | `tesseract-ocr`, `paperless-ngx`, `docuseal`, `kimios`, `tabula` | 345-365 | postgresql, minio, keycloak |
+| **Búsqueda (S09)** | `elasticsearch`, `rabbitmq` | 400, 405 | sbos-bootstrap-platform |
+| **DevOps (S14)** | `gitlab`, `bareos`, `velero` | 450-460 | postgresql, minio, keycloak |
+| **IA (S15)** | `ollama`, `qdrant`, `open-webui`, `embedding-worker`, `langfuse`, `flowise` | 500-525 | ollama, qdrant, postgresql |
+
+---
+
+### Resumen del pipeline completo hasta el VDI
+
+```
+HORAS ESTIMADAS DESDE UBUNTU VIRGEN
+
+ 0:00 ─── ETAPA 0  (bos-preflight + sbos-bootstrap-os)            ~5 min
+ 0:05 ─── ETAPA 1  (K8s + CNI)                                    ~15 min
+ 0:20 ─── ETAPA 2  (platform + storage + monitoring base)         ~8 min
+ 0:28 ─── ETAPA 3  (network validator)                            ~3 min
+ 0:31 ─── ETAPA 4  (postgresql + redis + minio)                   ~10 min
+ 0:41 ─── ETAPA 5  (kyverno + linkerd)                            ~12 min
+ 0:53 ─── ETAPA 6  (vault [+ unseal manual] + besu-qbft)          ~10 min + HITL unseal
+ 1:03 ─── ETAPA 7  (keycloak + kong + oauth2-proxy + nginx)       ~10 min
+ 1:13 ─── ETAPA 8  (bkernel + sbos-notifier)                      ~5 min
+ 1:18 ─── ETAPA 9  (prometheus + alertmanager + grafana + alloy)  ~10 min
+ 1:28 ─── ETAPA 10 (sbos-bootstrap-hard)                          ~5 min
+ 1:33 ─── ETAPA 11 (nextcloud + guacamole + onlyoffice)           ~12 min
+ 1:45 ─── ETAPA 12 (fedora-kde + oauth2-proxy-desktop + vdi-config) ~8 min
+ 1:53 ─── VDI OPERATIVO ✓                                         ~114 min total
+
+ ÚNICO PUNTO DE INTERVENCIÓN MANUAL: unseal de Vault (~2 min)
+ TODO LO DEMÁS ES AUTOMÁTICO VÍA EL OBSERVER DE BOS
+```
+
+---
+
+*Documento v2.5.0 — bos-developer · 2026-10-13*  
 *Plan completo de instalación: `PLAN-IMPLEMENTACION-BOS-VDI.md`*
