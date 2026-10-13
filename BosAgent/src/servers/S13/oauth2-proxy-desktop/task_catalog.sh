@@ -574,6 +574,32 @@ stringData:
     ficha_verify
 }
 
+# ── Test ─────────────────────────────────────────────────────────────────────
+ficha_test() {
+    local ok=0
+    echo "${__STEP_START__} test_pod_running"
+    local pods
+    pods=$(_k get pods -n "$NS" -l app=oauth2-proxy-desktop --no-headers 2>/dev/null | grep -c Running || echo "0")
+    if (( pods >= 1 )); then
+        echo "${__STEP_OK__} test_pod_running ($pods Running)"
+    else
+        echo "${__STEP_FAIL__} test_pod_running: 0 pods Running"; ok=1
+    fi
+
+    echo "${__STEP_START__} test_ping_endpoint"
+    local cluster_ip http_code
+    cluster_ip=$(_k get svc -n "$NS" oauth2-proxy-desktop \
+        -o jsonpath='{.spec.clusterIP}' 2>/dev/null)
+    http_code=$(curl -s -o /dev/null -w '%{http_code}' \
+        "http://${cluster_ip}:4180/ping" --max-time 5 2>/dev/null || echo "000")
+    if [[ "$http_code" == "200" ]]; then
+        echo "${__STEP_OK__} test_ping_endpoint (/ping HTTP 200)"
+    else
+        echo "${__STEP_FAIL__} test_ping_endpoint: HTTP $http_code"; ok=1
+    fi
+    return $ok
+}
+
 # ── Remove ────────────────────────────────────────────────────────────────────
 ficha_remove() {
     _log "Eliminando oauth2-proxy-desktop..."

@@ -225,6 +225,29 @@ ficha_repair() {
     ficha_install
 }
 
+# ── Test ─────────────────────────────────────────────────────────
+ficha_test() {
+    local ok=0
+    local critical_ns=(sbos-data sbos-security sbos-gateway sbos-monitor sbos-ai sbos-docs sbos-ops)
+
+    echo "${__STEP_START__} test_namespaces_criticos"
+    local missing=0
+    for ns in "${critical_ns[@]}"; do
+        _k get namespace "$ns" > /dev/null 2>&1 || { _log "FALTA namespace: $ns"; missing=$((missing+1)); }
+    done
+    if (( missing == 0 )); then
+        echo "${__STEP_OK__} test_namespaces_criticos (${#critical_ns[@]} presentes)"
+    else
+        echo "${__STEP_FAIL__} test_namespaces_criticos: ${missing} namespaces faltantes"; ok=1
+    fi
+
+    echo "${__STEP_START__} test_storageclass_local_path"
+    _k get storageclass local-path > /dev/null 2>&1 \
+        && echo "${__STEP_OK__} test_storageclass_local_path" \
+        || { echo "${__STEP_FAIL__} test_storageclass_local_path: local-path no existe"; ok=1; }
+    return $ok
+}
+
 # ── Health ────────────────────────────────────────────────────────
 ficha_health() {
     local ns_count

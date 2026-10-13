@@ -307,6 +307,28 @@ ficha_repair() {
     ficha_install
 }
 
+# ── Test ─────────────────────────────────────────────────────────
+ficha_test() {
+    local ok=0
+    echo "${__STEP_START__} test_marker_validacion"
+    if _k get configmap sbos-network-validated -n "$TEST_NS" > /dev/null 2>&1; then
+        echo "${__STEP_OK__} test_marker_validacion (ConfigMap sbos-network-validated presente)"
+    else
+        echo "${__STEP_FAIL__} test_marker_validacion: ConfigMap no encontrado — red no validada"
+        ok=1
+    fi
+
+    echo "${__STEP_START__} test_coredns_activo"
+    local dns_pods
+    dns_pods=$(_k get pods -n kube-system -l k8s-app=kube-dns --no-headers 2>/dev/null | grep -c Running || echo "0")
+    if (( dns_pods >= 1 )); then
+        echo "${__STEP_OK__} test_coredns_activo ($dns_pods pods Running)"
+    else
+        echo "${__STEP_FAIL__} test_coredns_activo: CoreDNS no disponible"; ok=1
+    fi
+    return $ok
+}
+
 # ── Health ────────────────────────────────────────────────────────
 ficha_health() {
     if _k get configmap sbos-network-validated -n "$TEST_NS" > /dev/null 2>&1; then

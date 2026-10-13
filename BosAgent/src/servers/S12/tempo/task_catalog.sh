@@ -95,6 +95,28 @@ ficha_repair() {
     ficha_install
 }
 
+ficha_test() {
+    local ok=0
+    echo "${__STEP_START__} test_tempo_ready"
+    local ready
+    ready=$(helm status tempo -n "$NS" --output json 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('info',{}).get('status','unknown'))" 2>/dev/null || echo "unknown")
+    if [[ "$ready" == "deployed" ]]; then
+        echo "${__STEP_OK__} test_tempo_ready (helm status=deployed)"
+    else
+        echo "${__STEP_FAIL__} test_tempo_ready: helm status=${ready}"; ok=1
+    fi
+
+    echo "${__STEP_START__} test_tempo_pod"
+    local pods
+    pods=$(_k get pods -n "$NS" -l app.kubernetes.io/name=tempo --no-headers 2>/dev/null | grep -c Running || echo "0")
+    if (( pods >= 1 )); then
+        echo "${__STEP_OK__} test_tempo_pod ($pods Running)"
+    else
+        echo "${__STEP_FAIL__} test_tempo_pod: 0 pods Running"; ok=1
+    fi
+    return $ok
+}
+
 ficha_remove() {
     echo "${__STEP_START__} eliminar_tempo"
     helm uninstall tempo -n "$NS" >> "$FICHA_LOG" 2>&1 || true
