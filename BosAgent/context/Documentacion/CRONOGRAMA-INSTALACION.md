@@ -311,12 +311,10 @@
 - ✅ Políticas definidas: require-probes, forbid-hostport, verify-oci, require-networkpolicy
 
 **Faltantes:**
-- ❌ Admission-controller pod en CrashLoop por hairpin NAT (BUG-36) — VPS action pendiente
-- ✅ (ciclo 4) BUG-36: `ficha_pre_install()` verifica y advierte si hairpin NAT no está activa
-- ❌ Switch a modo enforce no ejecutado (pendiente hasta cluster estable + sbos-bootstrap-hard)
+- ✅ (ciclo 11) BUG-36 CERRADO: `sbos-hairpin-nat.service` garantiza MASQUERADE persistente — kyverno puede conectar al apiserver tras reinicio del host
+- ❌ Switch a modo enforce no ejecutado en VPS — requiere: (1) reiniciar pod kyverno en VPS, (2) verificar admission-controller Running, (3) ejecutar sbos-bootstrap-hard con el switch
 
-**Bugs activos:**
-- ❌ BUG-36: admission-controller no puede conectar al apiserver. Fix: verificar regla hairpin NAT + reiniciar pod. Ver CRONOGRAMA PROBLEMA #1.
+**Bugs activos:** ninguno
 
 ---
 
@@ -964,16 +962,15 @@ Kong (Domain Resolver):
 - En esta ficha (orden 250) se activa el modo `enforce`. Desde aquí, pods sin probes son rechazados.
 - Por eso el hardening es lo ÚLTIMO: todos los pods del stack ya están instalados y tienen probes.
 
-**⚠️ ADVERTENCIA:** Si kyverno no está completamente funcional (BUG-36), el switch a enforce fallará o kyverno quedará en un estado inconsistente.
-
 **Logros:**
 - ✅ UFW activo con reglas mínimas
 - ✅ Calico en modo enforcement
+- ✅ (ciclo 11) BUG-36 cerrado — kyverno puede conectar al apiserver: desbloqueado
 
 **Faltantes:**
-- ❌ Kyverno aún NO está en modo enforce (admission-controller en CrashLoop por BUG-36)
+- ❌ Switch kyverno a modo enforce pendiente en VPS: reiniciar pod → verificar Running → ejecutar switch
 
-**Bugs:** ⚠️ Depende de BUG-36 (kyverno) estar resuelto antes de que sbos-bootstrap-hard ejecute el switch
+**Bugs:** ninguno
 
 ---
 
@@ -2021,7 +2018,7 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 | 225 | zabbix | ⏳ NO_INSTALADA (auto_install=false) | — |
 | 225 | oauth2-proxy-desktop | ❌ PHYSICAL_ERROR | ❌ derivado vault |
 | 230 | fedora-kde | ⏸️ UPDATE_AVAILABLE | ⚠️ INC-2/3, VDI-GAP-1/2/5 |
-| 250 | sbos-bootstrap-hard | ✅ INSTALLED | ⚠️ kyverno no en enforce |
+| 250 | sbos-bootstrap-hard | ✅ INSTALLED | ❌ kyverno switch enforce pendiente VPS |
 | 300–315 | mailserver stack | ⏳ NO_INSTALADA (auto_install=false) | — |
 | 345–365 | docs stack | ⏳ NO_INSTALADA (auto_install=false) | — |
 | 400–405 | búsqueda/mensajería | ⏳ NO_INSTALADA (auto_install=false) | — |
