@@ -18,6 +18,9 @@ requirements:
     - sbos-bootstrap-k8s
     - sbos-bootstrap-cni
     - sbos-bootstrap-storage
+    # vault NO es dependencia de instalación — Redis arranca con password bootstrap.
+    # Vault se instala DESPUÉS y rota las credenciales. La dependencia es runtime, no install.
+  runtime_dependencies:
     - vault
 
 governance:

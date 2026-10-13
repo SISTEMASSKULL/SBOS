@@ -18,6 +18,9 @@ requirements:
     - sbos-bootstrap-k8s
     - sbos-bootstrap-cni
     - postgresql
+    # keycloak y vault no bloquean el inicio de Kong — son runtime:
+    # Kong arranca con kong_db en PG; JWT plugin y credenciales se configuran después.
+  runtime_dependencies:
     - keycloak
     - vault
 

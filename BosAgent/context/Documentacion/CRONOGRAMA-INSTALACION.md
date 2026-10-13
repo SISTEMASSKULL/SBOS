@@ -288,12 +288,11 @@
 - ✅ WAL logical replication habilitada (slot `sbos_cdc`)
 - ✅ PVC 50 Gi con política Retain
 
+**Logros adicionales:**
+- ✅ (ciclo 2) BUG-35 cerrado en postgresql: `vault` ya es `runtime_dependency`, no `dependency`
+
 **Faltantes:**
 - ❌ health.check_command ausente en manifest — BOS no detecta "PG no acepta conexiones" proactivamente (GAP-2)
-- ❌ Dependencia circular con vault debe eliminarse del manifest (BUG-35)
-
-**Bugs:**
-- ⚠️ BUG-35: dependencia circular postgresql → vault → postgresql declarada (no funcional pero conceptualmente incorrecta)
 
 ---
 
@@ -324,20 +323,18 @@
 
 **Propósito:** Caché y bus de eventos del stack SBOS. Tres bases de datos lógicas: caché genérica (DB 0), registro de ctx_id del Context Plane (DB 1) y Redis Streams para bKernel CDC (DB 2). Requerido por bKernel, Context Plane y múltiples apps.
 
-**Dependencias:** sbos-bootstrap-k8s, sbos-bootstrap-cni, sbos-bootstrap-storage, vault
+**Dependencias:** sbos-bootstrap-k8s, sbos-bootstrap-cni, sbos-bootstrap-storage
 
-**🔶 Huevo y gallina:** Mismo patrón que postgresql — declara `vault` como dependencia pero vault se instala después. Fix pendiente: eliminar vault de deps (BUG-35).
+**🔶 Huevo y gallina:** Resuelto — `vault` movido a `runtime_dependencies` (BUG-35 cerrado).
 
 **Logros:**
 - ✅ Redis 8.6.2 corriendo (1/1 Running)
 - ✅ Autenticación con password obligatoria
 - ✅ PVC persistente
+- ✅ (ciclo 2) BUG-35 cerrado: `vault` como `runtime_dependency`, no `dependency`
 
 **Faltantes:**
 - ❌ health.check_command ausente (GAP-2)
-- ❌ Dependencia circular con vault debe eliminarse (BUG-35)
-
-**Bugs:** ⚠️ BUG-35 (mismo que postgresql)
 
 ---
 
@@ -371,19 +368,18 @@
 
 **Propósito:** Almacenamiento de objetos compatible S3. Aloja backups SBOS, assets estáticos, documentos de Nextcloud y Paperless, datos de Grafana Loki y Tempo. Tres buckets: `sbos-backups`, `sbos-assets`, `sbos-documents`.
 
-**Dependencias:** sbos-bootstrap-k8s, sbos-bootstrap-cni, sbos-bootstrap-storage, vault
+**Dependencias:** sbos-bootstrap-k8s, sbos-bootstrap-cni, sbos-bootstrap-storage
 
-**🔶 Huevo y gallina:** Misma declaración circular con vault (BUG-35). MinIO no necesita Vault para arrancar.
+**🔶 Huevo y gallina:** Resuelto — `vault` movido a `runtime_dependencies` (BUG-35 cerrado).
 
 **Logros:**
 - ✅ MinIO/SeaweedFS corriendo (1/1 Running) — imagen `chrislusf/seaweedfs` (no requiere auth Docker Hub)
 - ✅ 3 buckets S3 creados: sbos-backups, sbos-assets, sbos-documents
 - ✅ API S3 en puerto 9000
+- ✅ (ciclo 2) BUG-35 cerrado: `vault` como `runtime_dependency`, no `dependency`
 
 **Faltantes:**
 - ❌ health.check_command ausente (GAP-2)
-
-**Bugs:** ⚠️ BUG-35 (declaración circular vault, misma que PG/Redis)
 
 ---
 
@@ -467,17 +463,16 @@
 
 **Logros:**
 - ✅ StatefulSet desplegado con PVC Retain
-- ✅ Backend PostgreSQL configurado (HA Raft)
-- ✅ FIX-26A commiteado: liveness probe corregido a `sealedok=true` (pod no muere cuando sellado)
+- ✅ Backend Raft configurado (PostgreSQL para HA)
+- ✅ FIX-26A commiteado: liveness probe `sealedok=true` (pod no crashea cuando sellado)
+- ✅ (ciclo 2) GAP-2 cerrado: health check real — verifica `initialized=true + sealed=false` con `vault status -format=json`
 
 **Faltantes:**
-- ❌ FIX-26A no aplicado en VPS aún — vault sigue en CrashLoop (95+ reinicios)
-- ❌ health.check_command ausente: `vault status | grep "Sealed: false"` (GAP-2)
-- ❌ Auto-unseal: aún requiere intervención manual tras cada reinicio del pod
+- ❌ FIX-26A no aplicado en VPS aún — aplicar con: `kubectl rollout restart statefulset/vault -n sbos-security`
+- ❌ Unseal pendiente en VPS: `vault operator unseal` (3 de 5 keys desde `/etc/bos/vault-init-keys.json`)
 
 **Bugs activos:**
-- ❌ BUG-26: pod en CrashLoop (liveness probe sin sealedok=true). Fix: CRONOGRAMA PROBLEMA #2.
-- ❌ BUG-27: oauth2-proxy y tryton bloqueados en cascada hasta que vault sea estable.
+- ❌ BUG-27: oauth2-proxy y tryton bloqueados en cascada hasta que vault sea unsealed en VPS.
 
 ---
 
@@ -543,14 +538,14 @@
 **Logros:**
 - ✅ Deployment configurado con AppRole de Vault
 - ✅ NetworkPolicy hacia Keycloak configurada
+- ✅ (ciclo 2) BUG-33 cerrado: `linkerd.io/inject: disabled` en pod template annotations
 
 **Faltantes:**
-- ❌ Pod en PHYSICAL_ERROR — se recupera automáticamente cuando vault sea estable (FIX-B observer activo)
-- ❌ Sidecar linkerd debe deshabilitarse en este namespace (BUG-33)
+- ❌ Pod en PHYSICAL_ERROR — se recupera cuando vault sea unsealed en VPS (BUG-27 depende de vault)
+- ❌ `rollout restart deployment/oauth2-proxy` necesario en VPS para aplicar BUG-33
 
 **Bugs activos:**
-- ❌ BUG-27: PHYSICAL_ERROR derivado de vault. Fix: aplicar FIX-26A en VPS (CRONOGRAMA PROBLEMA #3).
-- ❌ BUG-33: inyección de sidecar linkerd prematura. Fix: `linkerd.io/inject=disabled` en namespace.
+- ❌ BUG-27: PHYSICAL_ERROR derivado de vault sin unseal. Bloqueante externo.
 
 ---
 
@@ -558,15 +553,16 @@
 
 **Propósito:** API Gateway soberano. Punto único de entrada a todas las APIs del sistema. JWT validation, rate limiting, plugin Lua `SBOS-Context` que inyecta el `ctx_id` en cada request para trazabilidad. DB mode con `kong_db` en PostgreSQL.
 
-**Dependencias:** sbos-bootstrap-k8s, sbos-bootstrap-cni, postgresql, keycloak, vault
+**Dependencias:** sbos-bootstrap-k8s, sbos-bootstrap-cni, postgresql
 
 **Logros:**
 - ✅ Kong 3.9.x LTS corriendo (1/1 Running)
 - ✅ Admin API :8001, Proxy :8000/:8443, Status :8007
 - ✅ Base de datos `kong_db` inicializada
+- ✅ Health check: `kong health | grep -c healthy` (ya presente en manifest)
+- ✅ (ciclo 2) `vault` y `keycloak` movidos a `runtime_dependencies` — Kong arranca solo con PG
 
 **Faltantes:**
-- ❌ health.check_command ausente (GAP-2)
 - ❌ Plugin Lua SBOS-Context (ctx_id injection) no desplegado — pendiente desarrollo
 - ❌ Rutas y servicios de aplicaciones configurados manualmente (no via ficha declarativa)
 
@@ -997,14 +993,13 @@ Kong (Domain Resolver):
 - ✅ Apache Guacamole 1.5.5 + guacd corriendo
 - ✅ Base de datos `guacamole_db` creada con schema completo
 - ✅ Autenticación OIDC Keycloak funcional
+- ✅ (ciclo 2) GAP-4 cerrado: `ficha_post_install()` inserta conexión VNC "Escritorio SBOS" → `fedora-kde.sbos-vdi.svc.cluster.local:5900`
+- ✅ (ciclo 2) fedora-kde Service: puerto 5900 expuesto internamente para guacd
 
 **Faltantes:**
-- ❌ Tabla `guacamole_connection` vacía — ningún escritorio configurado (GAP-4 crítico)
 - ❌ health.check_command ausente (GAP-2)
 - ❌ auto_install no definido en manifest (GAP-6)
-
-**Bugs:**
-- ❌ GAP-4: guacamole arranca sin conexiones. El gateway existe pero no apunta a ningún escritorio.
+- ❌ `bosctl ficha repair guacamole` en VPS para ejecutar `ficha_post_install()` y registrar la conexión
 
 ---
 

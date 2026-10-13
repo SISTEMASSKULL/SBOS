@@ -44,9 +44,10 @@ ports:
 
 health:
   type: command
-  command: "kubectl --kubeconfig=/etc/bos/.kube/config get pod vault-0 -n sbos-security --no-headers 2>/dev/null | grep -c Running"
-  expected_output: "1"
-  timeout_seconds: 30
+  # Verifica que vault-0 esté Running Y que el estado sea initialized=true + sealed=false.
+  # Un pod Running con sealed=true es "muerto vivo" — no puede servir secretos a ningún cliente.
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config exec vault-0 -n sbos-security -- sh -c 'VAULT_ADDR=http://127.0.0.1:8200 vault status -format=json 2>/dev/null' | python3 -c \"import sys,json; d=json.load(sys.stdin); exit(0 if d.get('initialized') and not d.get('sealed') else 1)\""
+  timeout_seconds: 15
 
 audit:
   ctx_id_required: true

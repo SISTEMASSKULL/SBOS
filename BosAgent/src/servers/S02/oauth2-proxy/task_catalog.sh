@@ -150,6 +150,11 @@ spec:
         prometheus.io/scrape: \"true\"
         prometheus.io/port: \"44180\"
         prometheus.io/path: \"/metrics\"
+        # BUG-33: deshabilitar inyección de sidecar linkerd en este pod.
+        # Si linkerd no está completamente estable al momento del install, el sidecar
+        # entra en failfast y bloquea todo el tráfico del pod (PHYSICAL_ERROR en cascada).
+        # oauth2-proxy no necesita mTLS de linkerd — el proxy nginx + Kong maneja TLS.
+        linkerd.io/inject: \"disabled\"
     spec:
       containers:
         - name: oauth2-proxy

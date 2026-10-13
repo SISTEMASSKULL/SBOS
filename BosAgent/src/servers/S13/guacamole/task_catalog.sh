@@ -203,6 +203,52 @@ ficha_install() {
     echo "${__STEP_START__} verify"
     _wait_pod "guacamole" 300
     echo "${__STEP_OK__} verify"
+
+    ficha_post_install
+}
+
+# ── Post-install ─────────────────────────────────────────────────
+ficha_post_install() {
+    echo "${__STEP_START__} registrar_conexion_vnc"
+    # GAP-4: registrar la conexión VNC al escritorio fedora-kde en guacamole_db.
+    # Sin esta entrada, Guacamole no sabe a dónde conectar al usuario.
+    # VNC sin contraseña (-SecurityTypes None en start-desktop.sh).
+    local vnc_host="fedora-kde.sbos-vdi.svc.cluster.local"
+    local vnc_port="5900"
+
+    # Verificar si la conexión ya existe (idempotente)
+    local existe
+    existe=$(_k exec "$PG_POD" -n "$PG_NS" -- psql -U postgres -d guacamole_db -tc \
+        "SELECT COUNT(*) FROM guacamole_connection WHERE connection_name='Escritorio SBOS';" \
+        2>/dev/null | tr -d ' ')
+
+    if [[ "$existe" == "1" ]]; then
+        echo "${__STEP_SKIP__} registrar_conexion_vnc: conexión ya existe"
+        return 0
+    fi
+
+    _k exec "$PG_POD" -n "$PG_NS" -- psql -U postgres -d guacamole_db -c "
+        INSERT INTO guacamole_connection (connection_name) VALUES ('Escritorio SBOS') RETURNING connection_id;
+    " >> "$FICHA_LOG" 2>&1 || { echo "${__STEP_FAIL__} registrar_conexion_vnc: INSERT falló"; return 1; }
+
+    local conn_id
+    conn_id=$(_k exec "$PG_POD" -n "$PG_NS" -- psql -U postgres -d guacamole_db -tc \
+        "SELECT connection_id FROM guacamole_connection WHERE connection_name='Escritorio SBOS';" \
+        2>/dev/null | tr -d ' ')
+
+    if [[ -z "$conn_id" ]]; then
+        echo "${__STEP_FAIL__} registrar_conexion_vnc: no se pudo obtener connection_id"
+        return 1
+    fi
+
+    _k exec "$PG_POD" -n "$PG_NS" -- psql -U postgres -d guacamole_db -c "
+        INSERT INTO guacamole_connection_parameter VALUES
+            ($conn_id, 'hostname', '${vnc_host}'),
+            ($conn_id, 'port',     '${vnc_port}');
+    " >> "$FICHA_LOG" 2>&1 || { echo "${__STEP_FAIL__} registrar_conexion_vnc: parámetros fallaron"; return 1; }
+
+    _log "Conexión VNC 'Escritorio SBOS' → ${vnc_host}:${vnc_port} registrada (conn_id=${conn_id})"
+    echo "${__STEP_OK__} registrar_conexion_vnc"
 }
 
 # ── Repair ───────────────────────────────────────────────────────

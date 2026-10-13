@@ -201,6 +201,11 @@ spec:
   - name: webconsole
     port: 80
     targetPort: 6901
+  # Puerto VNC nativo expuesto internamente para guacd (Guacamole).
+  # Sin este port, guacd no puede conectar al escritorio vía VNC.
+  - name: vnc
+    port: 5900
+    targetPort: 5900
 YAML
 }
 
