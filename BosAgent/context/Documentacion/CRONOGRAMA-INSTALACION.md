@@ -1,6 +1,6 @@
 # Cronograma de Instalación — Ficha por Ficha
 
-**Versión:** 2.0.0  
+**Versión:** 2.3.0  
 **Fecha:** 2026-10-13  
 **Autor:** bos-developer  
 
@@ -522,10 +522,11 @@
 - ✅ `KC_CACHE_STACK=jdbc-ping` (FIX sesión 9: evita crash ISPN)
 - ✅ `sslRequired=none` + `frontendUrl=http://IP_PUBLICA` configurados para el flujo OIDC
 - ✅ Cliente OIDC `sbos-desktop` creado para el VDI
+- ✅ (14d1a6a) health check: `curl :9000/health/ready | grep UP` (GAP-2 cerrado)
 
 **Faltantes:**
-- ❌ health.check_command ausente (GAP-2)
 - ❌ SPIs SKULL sin implementar (pendiente desarrollo bAuth)
+- ❌ `Web Origins: *.empresa.sbos.app` para SSO multi-subdominio (SSO-2)
 
 **Bugs:** ninguno activo
 
@@ -722,11 +723,14 @@ Kong (Domain Resolver):
 - ✅ Página de bienvenida SBOS en `/var/www/html/index.html`
 - ✅ Firewall UFW: puertos 80 y 443 abiertos
 
+**Logros:**
+- ✅ (14d1a6a) `location /`: sirve `index.html` con `try_files` (INC-nginx-1 cerrado)
+- ✅ (14d1a6a) `index.html`: botón "Iniciar sesión" → `/desktop/`, manejo `?error=auth` con JS
+
 **Faltantes:**
-- ❌ INC-nginx-1: raíz `/` redirige a `/desktop/` en lugar de servir index.html (la bienvenida SBOS no se ve)
 - ❌ GAP-nginx-1: no hay ficha `sbos-kong-tenant` para automatizar rutas Kong por tenant
-- ❌ GAP-nginx-2: Certbot (TLS Let's Encrypt real) solo funciona cuando hay dominio DNS público apuntado
-- ❌ UPDATE_AVAILABLE: verificar si versión VPS coincide con manifest o corregir manifest
+- ❌ GAP-nginx-2: Certbot (TLS Let's Encrypt real) solo funciona con dominio DNS público
+- ❌ UPDATE_AVAILABLE: imagen nginx en VPS puede diferir de manifest v1.28.0
 
 **Bugs:** ninguno activo (nginx corre correctamente — UPDATE_AVAILABLE es de versión, no de funcionalidad)
 
@@ -1216,20 +1220,10 @@ fedora-kde pod  ← UN SOLO POD COMPARTIDO (VDI-GAP-1)
 
 ---
 
-**VDI-PROBLEMA #1 — INC-2: manifest versión incorrecta → UPDATE_AVAILABLE falso**
+**VDI-PROBLEMA #1 — ✅ NO EXISTE: versión ya era correcta**
 
-- **Síntoma:** BOS muestra `UPDATE_AVAILABLE` para fedora-kde permanentemente.
-- **Causa:** `manifest.yml` tiene `version: "41.0.0"` (número de versión Fedora) pero la imagen Docker tiene tag `sbos/fedora-desktop:1.0.0`. BOS compara strings → siempre diferentes.
-- **Impacto:** Observer intenta hacer update de la ficha en cada ciclo (si auto_install=true) aunque nada cambió.
-- **Solución (1 línea):**
-  ```yaml
-  # En servers/S13/fedora-kde/manifest.yml
-  # Cambiar:
-  version: "41.0.0"
-  # Por:
-  version: "1.0.0"
-  ```
-- **Verificación:** `bosctl ficha status fedora-kde` debe mostrar `INSTALLED` (no UPDATE_AVAILABLE).
+- **Verificado (commit 14d1a6a):** `manifest.yml` ya tenía `version: "1.0.0"`. El UPDATE_AVAILABLE en VPS tiene otra causa (imagen no rebuildeada con los cambios del Containerfile v1.4.0).
+- **Estado real:** El Containerfile avanzó de v1.1.0 a v1.4.0 (Chrome, menús, sbos-webapp). La imagen debe rebuildearse y desplegarse en VPS para que BOS deje de detectar la diferencia.
 
 ---
 
@@ -1321,19 +1315,22 @@ fedora-kde pod  ← UN SOLO POD COMPARTIDO (VDI-GAP-1)
 - ✅ sbos-webapp con `--password-store=basic` (sin solicitar keyring en cada arranque)
 - ✅ SSO vía oauth2-proxy-desktop → Keycloak verificado end-to-end (cuando vault estaba estable)
 - ✅ TigerVNC con contraseña generada aleatoriamente (no hardcodeada)
+- ✅ (14d1a6a) Chrome instalado + sbos-webapp con perfil SSO compartido (`sbos-session`)
+- ✅ (14d1a6a) Menús KDE: `.desktop` para Nextcloud, Grafana, Guacamole, OnlyOffice, Tryton
+- ✅ (14d1a6a) Categoría SBOS en menú KDE, klipper portapapeles, noVNC app/ dir
+- ✅ (14d1a6a) `auto_install: false` + `requires_approval: true` agregados al manifest
+- ✅ (14d1a6a) health check: `type: command` con pod count
 
 **Faltantes:**
-- ❌ VDI-PROBLEMA #1: corregir versión manifest (1 línea)
 - ❌ VDI-PROBLEMA #2: eliminar ConfigMap y rebuildar imagen (1-2 días)
 - ❌ VDI-PROBLEMA #3: crear sbos-vdi-provisioner (semana, depende HITL Q-3)
 - ❌ VDI-PROBLEMA #4: agregar PVC por usuario (depende del provisioner)
-- ❌ VDI-PROBLEMA #5: bloquear puerto 6901 (30 minutos — urgente)
-- ❌ SSO-1: `.desktop` files con `--profile-directory=sbos-session` (en imagen)
+- ❌ VDI-PROBLEMA #5: bloquear puerto 6901 (30 minutos — urgente, en VPS)
+- ❌ Rebuild imagen `sbos/fedora-desktop:1.4.0` y desplegar en VPS
 - ❌ SSO-2: Keycloak `Web Origins: *.empresa.sbos.app` (configuración realm)
 - ❌ SSO-3: Kong plugin JWT → Bearer token relay a upstream
 - ❌ SSO-4: Nextcloud plugin OIDC activado (app ya instalada — solo config)
 - ❌ AUDIT-1: oauth2-proxy registra inicio/fin sesión VDI en `bos.bos_ctx_session`
-- ❌ auto_install no definido en manifest (GAP-6)
 
 **Orden recomendado de resolución:** #5 (urgente seguridad) → #1 (trivial) → #2 (bajo riesgo) → #6 (Keycloak Web Origins) → #3+#4 (provisioner, requiere HITL)
 
