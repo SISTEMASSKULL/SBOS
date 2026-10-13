@@ -1,9 +1,9 @@
 # Plan de Instalación desde Cero — VPS Limpia Ubuntu 26.04
 
-**Versión:** 2.5.0  
+**Versión:** 2.6.0  
 **Fecha:** 2026-10-13  
 **Autor:** bos-developer  
-**Estado:** 🔄 PT-05 EN CURSO — 24/35 fichas INSTALLED · 2 PHYSICAL_ERROR (Vault, oauth2-proxy) · 1 INSTALL_FAILED (tryton) bloqueado por Vault  
+**Estado:** 🔄 PT-05 EN CURSO — 24/35 fichas INSTALLED · 2 PHYSICAL_ERROR (vault, oauth2-proxy — FIX-26A commiteado, pendiente deploy VPS) · 1 INSTALL_FAILED (tryton — desbloqueado tras vault) · 2 fixes críticos aplicados en código (FIX-26A + FIX-B observer)  
 **Prerrequisito:** Ubuntu 26.04 Server LTS — instalación por defecto, sin software adicional
 
 ---
@@ -421,24 +421,19 @@ NetworkPolicies aplicadas: `allow-vdi-postgresql` + `allow-vdi-redis` en sbos-da
 ### 6.2 Problemas activos — bloqueadores
 
 #### BUG-26 — Vault: CrashLoopBackOff por liveness probe con Vault sellado
-**Severidad:** 🔴 CRÍTICO  
-**Síntoma:** `vault-0` reinicia cada ~4 minutos (95 reinicios). Al arrancar, Vault está sellado; el liveness probe `/v1/sys/health?standbyok=true` devuelve 503 → K8s lo mata. La ventana de 60s (`initialDelaySeconds: 60`) no es suficiente para hacer unseal manual antes del primer check.
+**Severidad:** 🔴 CRÍTICO → ✅ **FIX-26A COMMITEADO** (commit `0a1a182`) · **Pendiente: aplicar en VPS**  
+**Síntoma original:** `vault-0` reiniciaba cada ~4 minutos (95+ reinicios). Al arrancar, Vault está sellado; el liveness probe `/v1/sys/health?standbyok=true` devolvía 503 → K8s lo mataba.
 
-**Causa raíz:** El liveness probe no incluye `sealedok=true` en la query string. El endpoint de health de Vault devuelve 503 cuando está sellado sin ese parámetro.
+**Causa raíz:** El liveness probe no incluía `sealedok=true`. El endpoint de health de Vault devuelve 503 cuando está sellado sin ese parámetro.
 
-**Impacto en cascada:**
-- `oauth2-proxy` → PHYSICAL_ERROR (CrashLoopBackOff, no puede obtener secretos OIDC de Vault)
-- `tryton` → INSTALL_FAILED (task_catalog.sh requiere Vault para credenciales PG y secreto OIDC)
-- Cualquier otra ficha que use AppRole de Vault bloqueada
+**Estado del fix:**
+- FIX-26A aplicado en `S02/vault/task_catalog.sh` — liveness probe ahora usa `?standbyok=true&sealedok=true`
+- FIX-B aplicado en `observer.go` — BOS repara fichas en PHYSICAL_ERROR automáticamente
+- **Para activar en VPS:** copiar task_catalog.sh actualizado + `bosctl ficha repair vault` + unseal manual (ver §6.2 instrucciones)
 
-**Fix pendiente (FIX-26):** Dos correcciones necesarias:
-1. **Corto plazo — liveness probe:** Cambiar el probe a `sealedok=true&standbyok=true` para que no mate Vault cuando está sellado:
-   ```yaml
-   livenessProbe:
-     httpGet:
-       path: /v1/sys/health?standbyok=true&sealedok=true
-   ```
-2. **Largo plazo — auto-unseal:** Agregar init container o CronJob que lea `/etc/bos/vault-init-keys.json` y ejecute `vault operator unseal` automáticamente tras cada reinicio.
+**Impacto en cascada (activo hasta aplicar fix en VPS):**
+- `oauth2-proxy` → PHYSICAL_ERROR (no puede obtener secretos OIDC de Vault)
+- `tryton` → INSTALL_FAILED (requiere Vault para credenciales PG y secreto OIDC)
 
 **Unseal manual (hasta aplicar fix):**
 ```bash
@@ -453,9 +448,9 @@ kubectl exec -n sbos-security vault-0 -- vault status
 ```
 
 #### BUG-27 — oauth2-proxy: CrashLoopBackOff derivado de Vault caído
-**Severidad:** 🔴 CRÍTICO (derivado de BUG-26)  
-**Síntoma:** 2 pods `oauth2-proxy` en CrashLoopBackOff con 75 reinicios. No pueden leer secretos OIDC desde Vault.  
-**Solución:** Arreglar Vault (BUG-26) → oauth2-proxy se recupera automáticamente.
+**Severidad:** 🔴 CRÍTICO → se resuelve automáticamente al aplicar FIX-26A en VPS  
+**Síntoma:** `oauth2-proxy` en PHYSICAL_ERROR (78+ reinicios). No puede leer secretos OIDC desde Vault.  
+**Solución:** Aplicar FIX-26A en VPS → vault estable → FIX-B del observer detecta PHYSICAL_ERROR → llama repair → oauth2-proxy se recupera automáticamente sin intervención adicional.
 
 #### BUG-28 — bosctl: timeout conectando al daemon BOS por WebSocket
 **Severidad:** 🟡 CALIDAD  
@@ -470,7 +465,8 @@ kubectl exec -n sbos-security vault-0 -- vault status
 | **No destruye fichas ya instaladas en re-ejecución** | ✅ Verificado | 24 fichas INSTALLED sobrevivieron múltiples sesiones |
 | **Fichas con auto_install=false esperan aprobación** | ✅ Correcto | kyverno, calcom, ferretdb, mattermost, novu en PENDING |
 | **Compensación por fallo no hace rollback total** | ✅ Diseño | Sagas con compensación parcial (FIX-12) |
-| **Vault: unseal no es idempotente entre reinicios** | ❌ BUG-26 | Vault sellado en cada reinicio del pod → cascada de fallos |
+| **Vault: unseal no es idempotente entre reinicios** | ⚠️ FIX-26A commiteado — pendiente VPS | Liveness probe corregido en repo; aún no aplicado en VPS — vault sigue en PHYSICAL_ERROR |
+| **BOS repara fichas en PHYSICAL_ERROR automáticamente** | ✅ FIX-B aplicado (commit 0a1a182) | observer.go Fase 3 ahora incluye StatePhysicalError |
 | **bosctl disponible desde cualquier contexto** | ⚠️ BUG-28 | WebSocket falla en SSH; JSON-RPC directo funciona |
 | **Diagnóstico de fichas en error no destruye cluster** | ✅ Verificado | `INSTALL_FAILED` en tryton no afectó otras 24 fichas |
 
@@ -478,10 +474,14 @@ kubectl exec -n sbos-security vault-0 -- vault status
 
 ```
 [✅ INSTALADO] 24/35 fichas INSTALLED — base funcional
+[✅ COMMITEADO] FIX-26A (vault liveness probe) + FIX-B (observer PHYSICAL_ERROR) — commit 0a1a182
     ↓
-[ BLOQUEADOR ] Aplicar FIX-26: corregir liveness probe vault + script auto-unseal
+[ PENDIENTE VPS ] Copiar S02/vault/task_catalog.sh actualizado a /etc/bos/blibs/servers/S02/vault/
+                  → bosctl ficha repair vault
+                  → unseal manual (3 de 5 keys)
     ↓
-[ SIGUIENTE  ] Verificar Vault unsealed → oauth2-proxy se recupera
+[ AUTO ] FIX-B observer detecta vault PHYSICAL_ERROR → llama repair → vault queda INSTALLED
+[ AUTO ] oauth2-proxy: observer detecta PHYSICAL_ERROR → repair → INSTALLED
     ↓
 [ SIGUIENTE  ] bosctl ficha install tryton → verificar INSTALLED
     ↓
@@ -558,7 +558,7 @@ La máquina de estados de una ficha tiene 18 estados (ADR-021). Los relevantes p
 ```
 PENDING → READY → INSTALLING → INSTALLED ← → DEGRADADA → REPAIRING → INSTALLED
                                           ↑               ↓
-                                    PHYSICAL_ERROR → REPAIRING  (GAP-B: observer no entra aquí)
+                                    PHYSICAL_ERROR → REPAIRING  ✅ FIX-B aplicado (commit 0a1a182)
 ```
 
 #### Motor de Puertos (portman) — Kardex soberano de asignaciones
@@ -653,16 +653,18 @@ Este pipeline **YA EXISTE en el código** de BOS. El problema de Vault no es un 
 
 #### GAP-A — El liveness probe de K8s mata el pod antes de que llegue a DEGRADADA
 
-**Código en `S02/vault/task_catalog.sh` (la ficha lo define así):**
+> ✅ **FIX-26A APLICADO** — commit `0a1a182` · Pendiente deploy en VPS (copiar task_catalog.sh + `bosctl ficha repair vault`)
+
+**Código CORREGIDO en `S02/vault/task_catalog.sh`:**
 ```yaml
 livenessProbe:
   httpGet:
-    path: /v1/sys/health?standbyok=true        # ← SIN sealedok=true
+    path: /v1/sys/health?standbyok=true&sealedok=true   # ← FIX-26A: sealedok=true agregado
   initialDelaySeconds: 60
   failureThreshold: 3
 readinessProbe:
   httpGet:
-    path: /v1/sys/health?standbyok=true&sealedok=true&uninitok=true   # ← correcto
+    path: /v1/sys/health?standbyok=true&sealedok=true&uninitok=true   # ← correcto (sin cambio)
 ```
 
 **Lo que hace el k8s_discovery (`internal/reconcile/k8s_discovery.go:172-183`):**
@@ -687,18 +689,22 @@ func workloadStatusToFichaState(ws *k8s.WorkloadStatus) state.FichaState {
 - `IsReady()=false`, `IsDegraded()=true` (réplicas deseadas=1, Ready=0 pero Running=1) → **DEGRADADA**
 - Observer Fase 3 detecta DEGRADADA → llama `ficha_repair` → unseal → pod queda Ready → INSTALLED
 
-#### GAP-B — El observer ignora PHYSICAL_ERROR
+#### GAP-B — El observer ignoraba PHYSICAL_ERROR
 
-**Código en `internal/observer/observer.go:227-229`:**
+> ✅ **FIX-B APLICADO** — commit `0a1a182` · Ya activo en el binario de la VPS tras rebuild
+
+**Código CORREGIDO en `internal/observer/observer.go:228-230`:**
 ```go
-// Fase 3 — reparar fichas DEGRADADA
+// Fase 3 — reparar fichas DEGRADADA o PHYSICAL_ERROR
 for name, fichaEntry := range st.Fichas {
-    if fichaEntry.State != state.StateDegraded && fichaEntry.State != state.StateRepairing {
-        continue   // ← PHYSICAL_ERROR queda fuera
+    if fichaEntry.State != state.StateDegraded &&
+        fichaEntry.State != state.StateRepairing &&
+        fichaEntry.State != state.StatePhysicalError {  // ← FIX-B: PHYSICAL_ERROR incluido
+        continue
     }
 ```
 
-La máquina de estados **sí permite** `PHYSICAL_ERROR → REPAIRING` (`types.go:144: StatePhysicalError: {StateRepairing}`), pero el observer nunca dispara esa transición.
+La máquina de estados ya permitía `PHYSICAL_ERROR → REPAIRING` (`types.go:144`). Ahora el observer también lo dispara.
 
 #### GAP-C — Manifests sin `health.check_command`
 
@@ -710,22 +716,21 @@ Sin `check_command`, BOS solo detecta problemas a través del k8s_discovery — 
 
 ### 7.0.2 Los dos fixes que cierran los tres gaps
 
-**FIX-A (en task_catalog.sh de vault) — Corregir el liveness probe:**
+**FIX-A / FIX-26A (task_catalog.sh de vault) — ✅ APLICADO (commit 0a1a182) · Pendiente deploy VPS:**
 ```bash
-# En ficha_install_pasada2() donde se define el StatefulSet:
 # ANTES:
 path: /v1/sys/health?standbyok=true
-# DESPUÉS:
+# DESPUÉS (activo en repositorio):
 path: /v1/sys/health?standbyok=true&sealedok=true
 ```
 Con esto: pod sellado → Running+NotReady → DEGRADADA → observer lo repara.
 
-**FIX-B (en observer.go) — Incluir PHYSICAL_ERROR en la Fase 3:**
+**FIX-B (observer.go) — ✅ APLICADO (commit 0a1a182):**
 ```go
 // ANTES:
 if fichaEntry.State != state.StateDegraded && fichaEntry.State != state.StateRepairing {
 
-// DESPUÉS:
+// DESPUÉS (activo):
 if fichaEntry.State != state.StateDegraded &&
    fichaEntry.State != state.StateRepairing &&
    fichaEntry.State != state.StatePhysicalError {
@@ -828,35 +833,37 @@ Orden  Ficha                       Servidor  auto  Dependencias clave
 
 #### BUG-26 — Vault: CrashLoopBackOff — pod sellado mata el liveness probe
 
-**Estado:** PHYSICAL_ERROR · 97 reinicios · bloqueador principal del cluster
+**Estado:** ✅ **FIX-26A COMMITEADO** (commit `0a1a182`) · Vault sigue en PHYSICAL_ERROR en VPS hasta que se aplique el fix
 
-**Error exacto (logs):**
+**Error original (logs):**
 ```
 ==> Vault server started!
-==> Vault shutdown triggered   ← K8s lo mató por liveness probe
+==> Vault shutdown triggered   ← K8s lo mataba por liveness probe
 ```
 ```yaml
-# Probe actual (INCORRECTO para Vault sellado):
+# Probe ANTES (incorrecto):
 livenessProbe:
   httpGet:
-    path: /v1/sys/health?standbyok=true   ← devuelve 503 si sellado → K8s mata el pod
-  initialDelaySeconds: 60
+    path: /v1/sys/health?standbyok=true   ← devolvía 503 si sellado → K8s mataba el pod
+
+# Probe DESPUÉS (fix aplicado en repositorio):
+livenessProbe:
+  httpGet:
+    path: /v1/sys/health?standbyok=true&sealedok=true   ← pod permanece Running aunque sellado
 ```
 
-**Por qué ocurre:** Vault con Raft reinicia sellado tras cada muerte del pod. El endpoint `/v1/sys/health` devuelve 503 cuando está sellado a menos que lleve `sealedok=true`. K8s interpreta 503 como fallo → mata el pod → ciclo infinito.
+**Por qué ocurre:** Vault con Raft reinicia sellado tras cada muerte del pod. El endpoint devuelve 503 cuando está sellado sin `sealedok=true`. K8s interpreta 503 como fallo → mata el pod → ciclo infinito.
 
-**Impacto en cascada:**
+**Impacto en cascada (activo hasta deploy del fix en VPS):**
 - `oauth2-proxy` → PHYSICAL_ERROR (no puede leer secretos OIDC de Vault)
 - `tryton` → INSTALL_FAILED (task_catalog.sh necesita credenciales de Vault)
 - `grafana`, `prometheus`, `kong`, `keycloak` → funcionan porque sus secretos ya están en K8s Secrets desde la instalación inicial
 
-**Solución FIX-26 (dos partes):**
-
-*Parte A — Corregir liveness probe en `S02/vault/task_catalog.sh`:*
+**FIX-26A aplicado en `S02/vault/task_catalog.sh` (commit 0a1a182):**
 ```yaml
 livenessProbe:
   httpGet:
-    path: /v1/sys/health?standbyok=true&sealedok=true   ← CORRECTO
+    path: /v1/sys/health?standbyok=true&sealedok=true   ← CORRECTO — en repositorio
   initialDelaySeconds: 60
   periodSeconds: 15
   failureThreshold: 3
@@ -1241,9 +1248,10 @@ NIVEL 5 — Deuda técnica (no bloquean)
 | Prioridad | Bug | Esfuerzo | Impacto | Nivel |
 |-----------|-----|----------|---------|-------|
 | P0 | **BUG-36/FIX-19** Verificar hairpin NAT en host | Bajo | Desbloquea kyverno admission-controller | 0 |
+| P0 | **FIX-26A** Copiar vault/task_catalog.sh a VPS + repair + unseal | Muy bajo | Desbloquea vault, oauth2-proxy, tryton | 0 |
 | P1 | **BUG-26** Vault liveness probe `sealedok=true` | Bajo | Vault deja de crashear — raíz de la cascada | 1 |
 | P1 | **BUG-26** Vault init container auto-unseal | Medio | Vault se abre solo tras cada reinicio | 1 |
-| P1 | **GAP-B** observer.go incluir PHYSICAL_ERROR Fase 3 | Bajo | BOS repara vault automáticamente | 1 |
+| P1 | **GAP-B** observer.go incluir PHYSICAL_ERROR Fase 3 | — | ✅ Ya aplicado (commit 0a1a182) | 1 |
 | P2 | **BUG-33** oauth2-proxy excluir de linkerd mesh | Bajo | oauth2-proxy arranca sin esperar linkerd | 2 |
 | P2 | **Tryton** bosctl ficha install tryton | Bajo | Despliega ERP tras vault estable | 2 |
 | P3 | **BUG-29** Linkerd escalar ReplicaSets huérfanos | Bajo | Elimina CrashLoop en linkerd | 3 |
@@ -1273,12 +1281,13 @@ BOS como instalador soberano está correctamente diseñado:
 
 Los problemas actuales son **dos gaps de implementación**, no fallas de diseño:
 
-| Gap | Componente | Efecto | Fix |
-|-----|-----------|--------|-----|
-| **GAP-A** | Liveness probe Vault sin `sealedok=true` | Vault en CrashLoop → cascada | FIX-26A |
-| **GAP-B** | Observer ignora `PHYSICAL_ERROR` en Fase 3 | BOS no repara fichas en CrashLoop | FIX-B observer.go |
-| **GAP-C** | Sin `health.check_command` en manifests | Detección tardía — BOS espera K8s, no actúa proactivamente | FIX-C manifests |
-| **GAP-portman** | task_catalog.sh no llama a portman | Kardex vacío — motor de puertos no registra asignaciones | FIX pendiente |
+| Gap | Componente | Efecto | Estado |
+|-----|-----------|--------|--------|
+| **GAP-A** | Liveness probe Vault sin `sealedok=true` | Vault en CrashLoop → cascada | ✅ **FIX-26A commiteado** (0a1a182) · pendiente VPS |
+| **GAP-B** | Observer ignoraba `PHYSICAL_ERROR` en Fase 3 | BOS no reparaba fichas en CrashLoop | ✅ **FIX-B aplicado** (0a1a182) · activo en binario |
+| **GAP-C** | Sin `health.check_command` en manifests | Detección tardía — BOS espera K8s, no actúa proactivamente | ⚠️ Pendiente (P2) — no bloqueante |
+| **GAP-portman** | task_catalog.sh no llama a portman | Kardex vacío — motor de puertos no registra asignaciones | ⚠️ Pendiente (P5) — deuda técnica |
+| **health check bos-preflight (tmpfs)** | Health check usaba `/run/bos` (tmpfs) | False-UNHEALTHY tras reboot | ✅ **Corregido** (de927a0) · verifica paths persistentes |
 
 ### Secuencia de fix — de lo más urgente a deuda técnica
 
@@ -1561,6 +1570,7 @@ _destruir_sesion_usuario() {
 |--------|---------|--------|-----------|
 | Observer loop | `internal/observer/observer.go` | ✅ Implementado | Fase 1-2-3 funcionales |
 | Observer GAP-B (PHYSICAL_ERROR) | `observer.go:230` | ✅ **FIX-B aplicado** (commit 0a1a182) | `StatePhysicalError` en condición Fase 3 |
+| bos-preflight health check (tmpfs) | `bos-preflight/manifest.yml` | ✅ **Corregido** (commit de927a0) | health check usa `/etc/bos/rpc-token` + `/etc/bos/certs/bos.crt` — paths persistentes |
 | Health checker | `internal/health/checker.go` | ✅ Implementado | Lee `check_command` del manifest |
 | State manager | `internal/state/` | ✅ Implementado | 18 estados + fcntl.flock |
 | Portman (Motor de Puertos) | `internal/server/rpc_portman.go` (397 l.) | ✅ Implementado | 7 métodos JSON-RPC |
@@ -1586,23 +1596,23 @@ _destruir_sesion_usuario() {
 
 | Ficha | Líneas | Estado VPS | Tiene repair | Tiene health.cmd |
 |-------|--------|-----------|-------------|-----------------|
-| `S02/vault` | 1308 | PHYSICAL_ERROR | ✅ | ❌ GAP |
+| `S02/vault` | 1308 | PHYSICAL_ERROR (FIX-26A commiteado, pendiente VPS) | ✅ | ❌ GAP |
 | `S01/postgresql` | 834 | INSTALLED | ✅ | ❌ GAP |
 | `S02/kong` | 788 | INSTALLED | ✅ | ❌ GAP |
-| `S13/oauth2-proxy-desktop` | 596 | PHYSICAL_ERROR | ✅ | ❌ GAP |
+| `S13/oauth2-proxy-desktop` | 596 | PHYSICAL_ERROR (derivado vault — se resuelve con FIX-26A) | ✅ | ❌ GAP |
 | `S01/redis` | 591 | INSTALLED | ✅ | ❌ GAP |
 | `S-HOST/sbos-bootstrap-monitoring` | 581 | INSTALLED | ✅ | ❌ GAP |
 | `S-HOST/sbos-bootstrap-hard` | 576 | INSTALLED | ✅ | — |
-| `S01/tryton` | 566 | INSTALL_FAILED | ✅ | ❌ GAP |
+| `S01/tryton` | 566 | INSTALL_FAILED (desbloqueado tras FIX-26A en VPS) | ✅ | ❌ GAP |
 | `S04/tryton` | 566 | — | ✅ | ❌ GAP — **DUPLICADO de S01** |
 | `S03/keycloak` | 549 | INSTALLED | ✅ | ❌ GAP |
 | `S06/sbos-notifier` | 519 | INSTALLED | ✅ | ❌ GAP |
 | `S-HOST/sbos-bootstrap-cni` | 492 | INSTALLED | ✅ | — |
 | `S12/prometheus` | 490 | INSTALLED | ✅ | ❌ GAP |
-| `S02/oauth2-proxy` | 479 | PHYSICAL_ERROR | ✅ | ❌ GAP |
-| `S03/linkerd` | 440 | INSTALLING | ✅ | ❌ GAP |
+| `S02/oauth2-proxy` | 479 | PHYSICAL_ERROR (derivado vault — se resuelve con FIX-26A) | ✅ | ❌ GAP |
+| `S03/linkerd` | 440 | INSTALLING (en progreso — timeout 15 min esperado) | ✅ | ❌ GAP |
 | `S13/nextcloud` | 422 | INSTALLED | ✅ | ❌ GAP |
-| `S03/kyverno` | 418 | PENDING/CRASH | ✅ | ❌ GAP |
+| `S03/kyverno` | 418 | PENDING (hairpin NAT issue — BUG-36) | ✅ | ❌ GAP |
 | `S12/alloy` | 386 | INSTALLED | ✅ | ❌ GAP |
 | `S-HOST/sbos-bootstrap-storage` | 382 | INSTALLED | ✅ | — |
 | `S12/grafana` | 390 | INSTALLED | ✅ | ❌ GAP |
@@ -1847,8 +1857,10 @@ Agregar `check_command` a vault, postgresql, keycloak, kong, redis es necesario 
 
 | Prioridad | Gap | Esfuerzo | Bloquea |
 |-----------|-----|----------|---------|
-| **P1** | FIX-26A vault en VPS (ya commiteado — falta aplicar en VPS) | Bajo | Vault, oauth2-proxy, tryton |
-| **P1** | FIX-B observer PHYSICAL_ERROR (ya commiteado) | — | Reparación automática |
+| **P0** | FIX-26A vault en VPS — copiar task_catalog.sh + `bosctl ficha repair vault` + unseal | Muy bajo | Desbloquea vault, oauth2-proxy, tryton |
+| **P0** | BUG-36: Verificar hairpin NAT en VPS → reiniciar kyverno admission-controller | Muy bajo | Desbloquea kyverno |
+| **P1** | FIX-B observer PHYSICAL_ERROR | ✅ Ya aplicado (0a1a182) | Reparación automática |
+| **P1** | FIX health check bos-preflight (tmpfs /run/bos) | ✅ Ya aplicado (de927a0) | Health check correcto tras reboot |
 | **P2** | GAP-2: `health.check_command` fichas críticas (vault, pg, kc, kong) | Bajo | Detección proactiva |
 | **P2** | INC-3: Eliminar ConfigMap `fedora-kde-start-script` | Muy bajo | P-VDI-1 |
 | **P2** | INC-2: Sincronizar versión manifest ↔ tag imagen fedora-kde | Muy bajo | UPDATE_AVAILABLE correcto |
