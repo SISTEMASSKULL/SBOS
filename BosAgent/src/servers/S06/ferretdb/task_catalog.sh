@@ -171,6 +171,20 @@ ficha_repair() {
     ficha_install
 }
 
+# ── Test ─────────────────────────────────────────────────────────
+ficha_test() {
+    local ok=0
+    echo "${__STEP_START__} test_ferretdb_pod"
+    local pods
+    pods=$(_k get pods -n "$NS" -l app=ferretdb --no-headers 2>/dev/null | grep -c Running || echo "0")
+    if (( pods >= 1 )); then
+        echo "${__STEP_OK__} test_ferretdb_pod ($pods Running)"
+    else
+        echo "${__STEP_FAIL__} test_ferretdb_pod: 0 pods Running"; ok=1
+    fi
+    return $ok
+}
+
 # ── Uninstall ─────────────────────────────────────────────────────
 ficha_uninstall() {
     echo "${__STEP_START__} remove_ferretdb"

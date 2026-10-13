@@ -300,6 +300,13 @@ ficha_verify() {
     return 0
 }
 
+# ── Repair ───────────────────────────────────────────────────────
+ficha_repair() {
+    _log "ficha_repair: eliminando marker y re-ejecutando validación de red"
+    _k delete configmap sbos-network-validated -n "$TEST_NS" --ignore-not-found=true >> "$FICHA_LOG" 2>&1 || true
+    ficha_install
+}
+
 # ── Health ────────────────────────────────────────────────────────
 ficha_health() {
     if _k get configmap sbos-network-validated -n "$TEST_NS" > /dev/null 2>&1; then

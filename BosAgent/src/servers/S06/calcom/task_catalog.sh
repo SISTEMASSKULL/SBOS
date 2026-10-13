@@ -154,6 +154,30 @@ ficha_repair() {
     ficha_install
 }
 
+# ── Test ─────────────────────────────────────────────────────────
+ficha_test() {
+    local ok=0
+    echo "${__STEP_START__} test_calcom_pod"
+    local pods
+    pods=$(_k get pods -n "$NS" -l app=calcom --no-headers 2>/dev/null | grep -c Running || echo "0")
+    if (( pods >= 1 )); then
+        echo "${__STEP_OK__} test_calcom_pod ($pods Running)"
+    else
+        echo "${__STEP_FAIL__} test_calcom_pod: 0 pods Running"; ok=1
+    fi
+
+    echo "${__STEP_START__} test_calcom_http"
+    local status
+    status=$(_k exec -n "$NS" deploy/calcom -- \
+        curl -sf -o /dev/null -w '%{http_code}' http://localhost:3000/api/health 2>/dev/null || echo "000")
+    if [[ "$status" == "200" ]]; then
+        echo "${__STEP_OK__} test_calcom_http (/api/health 200)"
+    else
+        echo "${__STEP_FAIL__} test_calcom_http: HTTP $status"; ok=1
+    fi
+    return $ok
+}
+
 # ── Uninstall ─────────────────────────────────────────────────────
 ficha_uninstall() {
     echo "${__STEP_START__} remove_calcom"
@@ -162,4 +186,4 @@ ficha_uninstall() {
     echo "${__STEP_OK__} calcom removido"
 }
 
-export -f ficha_pre_install ficha_install ficha_repair ficha_health_check ficha_uninstall
+export -f ficha_pre_install ficha_install ficha_repair ficha_health_check ficha_test ficha_uninstall

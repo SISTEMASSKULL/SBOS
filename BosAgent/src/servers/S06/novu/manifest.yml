@@ -38,7 +38,8 @@ deployment:
   network_policy: "novu.network"
 
 governance:
-  category: 2
+  auto_install: true
+  category_label: "notificaciones"
   backup_required: true
   backup_schedule: "0 3 * * *"
 

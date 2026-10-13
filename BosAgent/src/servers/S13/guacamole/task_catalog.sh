@@ -267,6 +267,35 @@ ficha_repair() {
     echo "${__STEP_OK__} verify"
 }
 
+ficha_test() {
+    local ok=0
+    echo "${__STEP_START__} test_guacamole_pod"
+    local pods
+    pods=$(_k get pods -n "$NS" -l app=guacamole --no-headers 2>/dev/null | grep -c Running || echo "0")
+    if (( pods >= 1 )); then
+        echo "${__STEP_OK__} test_guacamole_pod ($pods Running)"
+    else
+        echo "${__STEP_FAIL__} test_guacamole_pod: 0 pods Running"; ok=1
+    fi
+
+    echo "${__STEP_START__} test_conexion_vnc"
+    local PG_POD PG_NS
+    PG_POD=$(grep "PG_POD" "$(dirname "$0")/task_catalog.sh" 2>/dev/null | head -1 | awk -F'"' '{print $2}' || echo "postgresql-0")
+    PG_NS="sbos-data"
+    local conn_count
+    conn_count=$(_k exec "${PG_POD:-postgresql-0}" -n "$PG_NS" -- \
+        psql -U postgres -d guacamole_db -tc \
+        "SELECT COUNT(*) FROM guacamole_connection WHERE connection_name='Escritorio SBOS';" \
+        2>/dev/null | tr -d ' \n' || echo "0")
+    if [[ "$conn_count" =~ ^[0-9]+$ ]] && (( conn_count >= 1 )); then
+        echo "${__STEP_OK__} test_conexion_vnc (conexión VNC registrada)"
+    else
+        echo "${__STEP_FAIL__} test_conexion_vnc: guacamole_connection vacía (ejecutar ficha_post_install)"
+        ok=1
+    fi
+    return $ok
+}
+
 # ── Remove ────────────────────────────────────────────────────────
 ficha_remove() {
     echo "${__STEP_START__} remove_guacamole"

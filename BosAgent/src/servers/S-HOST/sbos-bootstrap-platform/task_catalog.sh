@@ -218,6 +218,13 @@ ficha_verify() {
     return 0
 }
 
+# ── Repair ───────────────────────────────────────────────────────
+ficha_repair() {
+    _log "ficha_repair: re-creando namespaces y StorageClass faltantes"
+    # Re-ejecutar install es idempotente: kubectl apply no destruye namespaces existentes.
+    ficha_install
+}
+
 # ── Health ────────────────────────────────────────────────────────
 ficha_health() {
     local ns_count

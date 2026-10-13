@@ -126,6 +126,11 @@ ficha_health() {
     return 1
 }
 
+ficha_repair() {
+    _log "ficha_repair: re-aplicando manifests rabbitmq (idempotente)"
+    ficha_install
+}
+
 ficha_remove() {
     echo "${__STEP_START__} eliminar_rabbitmq"
     _k delete statefulset rabbitmq -n "$NS" --ignore-not-found=true >> "$FICHA_LOG" 2>&1

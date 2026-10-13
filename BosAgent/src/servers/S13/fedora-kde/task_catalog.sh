@@ -235,6 +235,39 @@ ficha_repair() {
     echo "${__STEP_OK__} verify"
 }
 
+ficha_test() {
+    local ok=0
+    echo "${__STEP_START__} test_fedora_kde_pod"
+    local pods
+    pods=$(_k get pods -n "$NS" -l app=fedora-kde --no-headers 2>/dev/null | grep -c Running || echo "0")
+    if (( pods >= 1 )); then
+        echo "${__STEP_OK__} test_fedora_kde_pod ($pods Running)"
+    else
+        echo "${__STEP_FAIL__} test_fedora_kde_pod: 0 pods Running"; ok=1
+    fi
+
+    echo "${__STEP_START__} test_novnc_http"
+    local status
+    status=$(_k exec -n "$NS" deploy/fedora-kde -- \
+        curl -sf -o /dev/null -w '%{http_code}' http://localhost:6901/ 2>/dev/null || echo "000")
+    if [[ "$status" == "200" ]]; then
+        echo "${__STEP_OK__} test_novnc_http (noVNC :6901 200)"
+    else
+        echo "${__STEP_FAIL__} test_novnc_http: noVNC HTTP $status"; ok=1
+    fi
+
+    echo "${__STEP_START__} test_vnc_port"
+    local vnc_up
+    vnc_up=$(_k exec -n "$NS" deploy/fedora-kde -- \
+        sh -c 'ss -tlnp 2>/dev/null | grep -c ":5900"' 2>/dev/null || echo "0")
+    if (( vnc_up >= 1 )); then
+        echo "${__STEP_OK__} test_vnc_port (VNC :5900 activo)"
+    else
+        echo "${__STEP_FAIL__} test_vnc_port: VNC :5900 no escucha"; ok=1
+    fi
+    return $ok
+}
+
 # ── Remove ────────────────────────────────────────────────────────
 ficha_remove() {
     echo "${__STEP_START__} remove_fedora_kde"

@@ -132,6 +132,11 @@ ficha_health() {
     return 1
 }
 
+ficha_repair() {
+    _log "ficha_repair: re-aplicando Helm zabbix (idempotente via upgrade --install)"
+    ficha_install
+}
+
 ficha_remove() {
     echo "${__STEP_START__} eliminar_zabbix"
     helm uninstall zabbix -n "$NS" >> "$FICHA_LOG" 2>&1 || true

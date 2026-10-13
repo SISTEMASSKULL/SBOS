@@ -1,6 +1,6 @@
 # Cronograma de Instalación — Ficha por Ficha
 
-**Versión:** 2.3.8  
+**Versión:** 2.3.9  
 **Fecha:** 2026-10-13  
 **Autor:** bos-developer  
 
@@ -193,6 +193,7 @@
 **Logros:**
 - ✅ 12 namespaces SBOS presentes en cluster (verificado por pods corriendo en ellos)
 - ✅ `local-path-provisioner` activo (StorageClass `local-path`)
+- ✅ (ciclo 7) `ficha_repair` agregada — idempotente (re-aplica kubectl apply de namespaces y StorageClass)
 
 **Faltantes:**
 - ❌ Registrar en `.sbos_state.json` para que el observer la supervise (BUG-31)
@@ -248,6 +249,7 @@
 
 **Logros:**
 - ✅ Las 4 pruebas pasaron en su momento (el cluster está funcional)
+- ✅ (ciclo 7) `ficha_repair` agregada — re-ejecuta validación limpiando el ConfigMap marker primero
 
 **Faltantes:**
 - ❌ Registrar en state (BUG-31)
@@ -972,9 +974,10 @@ Kong (Domain Resolver):
 - ✅ SSO Keycloak configurado
 - ✅ Backend MinIO S3 configurado
 - ✅ readinessProbe via `occ status` (FIX-22: exec probe — httpGet bloqueaba con Apache mpm_prefork)
+- ✅ (ciclo 3) GAP-2 y GAP-6 cerrados: health `type: http /status.php :80` + governance auto_install: true
+- ✅ (ciclo 7) `ficha_test` agregada: verifica deployment Ready + /status.php HTTP 200
 
 **Faltantes:**
-- ✅ (ciclo 3) GAP-2 y GAP-6 cerrados: health `type: http /status.php :80` + governance auto_install: true
 - ❌ Editor OnlyOffice sin conectar a nextcloud (requiere configuración manual post-install)
 
 **Bugs:** ninguno activo
@@ -998,10 +1001,11 @@ Kong (Domain Resolver):
 - ✅ Autenticación OIDC Keycloak funcional
 - ✅ (ciclo 2) GAP-4 cerrado: `ficha_post_install()` inserta conexión VNC "Escritorio SBOS" → `fedora-kde.sbos-vdi.svc.cluster.local:5900`
 - ✅ (ciclo 2) fedora-kde Service: puerto 5900 expuesto internamente para guacd
-
-**Faltantes:**
 - ✅ (ciclo 3) GAP-2 cerrado: health check `type: http, path: /guacamole/, port: 8080`
 - ✅ (ciclo 3) GAP-6 cerrado: `governance: auto_install: true, category_label: vdi-gateway`
+- ✅ (ciclo 7) `ficha_test` agregada: verifica pod Running + conexión VNC en guacamole_connection
+
+**Faltantes:**
 - ❌ `bosctl ficha repair guacamole` en VPS para ejecutar `ficha_post_install()` y registrar la conexión
 
 ---
@@ -1016,10 +1020,11 @@ Kong (Domain Resolver):
 - ✅ OnlyOffice Document Server 8.2.2 corriendo (1/1 Running)
 - ✅ Memory limit 3Gi (FIX-24: antes 2Gi causaba OOMKill)
 - ✅ CPU request 200m (FIX-24: antes 500m causaba Insufficient CPU)
+- ✅ (ciclo 3) GAP-2 y GAP-6 cerrados: health `type: http /healthcheck :80` + governance auto_install: true
+- ✅ (ciclo 7) `ficha_test` agregada: verifica pod Running + /healthcheck HTTP 200
 
 **Faltantes:**
 - ❌ Conectado a Nextcloud pero sin configuración declarativa (manual post-install)
-- ✅ (ciclo 3) GAP-2 y GAP-6 cerrados: health `type: http /healthcheck :80` + governance auto_install: true
 
 **Bugs:** ninguno activo
 
@@ -1318,6 +1323,7 @@ fedora-kde pod  ← UN SOLO POD COMPARTIDO (VDI-GAP-1)
 - ✅ (14d1a6a) Categoría SBOS en menú KDE, klipper portapapeles, noVNC app/ dir
 - ✅ (14d1a6a) `auto_install: false` + `requires_approval: true` agregados al manifest
 - ✅ (14d1a6a) health check: `type: command` con pod count
+- ✅ (ciclo 7) `ficha_test` agregada: verifica pod Running + noVNC :6901 HTTP 200 + VNC :5900 escuchando
 
 **Faltantes:**
 - ❌ VDI-PROBLEMA #2: eliminar ConfigMap y rebuildar imagen (1-2 días)
@@ -1425,6 +1431,9 @@ fedora-kde pod  ← UN SOLO POD COMPARTIDO (VDI-GAP-1)
 **Logros:**
 - ✅ (ciclo 3) ferretdb, calcom, novu: health checks corregidos de formato legacy `check_via:` a `type: command`
 - ✅ ferretdb: health verifica pod Running (27017 = MongoDB wire protocol, no HTTP)
+- ✅ (ciclo 7) ferretdb/calcom/novu: `auto_install: true` + `category_label` agregados a manifest.yml (faltaban)
+- ✅ (ciclo 7) ferretdb/calcom/novu: `ficha_test` agregada a cada task_catalog.sh
+- ✅ (ciclo 7) loki/tempo/zabbix: `ficha_repair` agregada (re-aplica Helm idempotente)
 
 **Faltantes:** Vault estable → instalación automática o manual según auto_install
 
@@ -1960,6 +1969,8 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 **Fichas INSTALLED:** 24 · **PHYSICAL_ERROR:** 3 · **INSTALL_FAILED:** 1 · **INSTALLING:** 1 · **UPDATE_AVAILABLE:** 2 · **PENDING/NO_INSTALADA:** 35 · **A DESPLEGAR:** 1 (`sbos-database-init`)
 
 **Correcciones ciclo 5 (c77c12e):** `sbos-database-init` ficha creada · `runtime: docker → kubernetes` corregido en 23 fichas (S10/S12/S08/S09/S14/S15/S01/S04) · loki/tempo/zabbix confirmados como implementaciones Helm reales · sbos-vdi-config auditada
+
+**Correcciones ciclo 7:** `ficha_repair` agregada a TODAS las fichas (100% cobertura) · `ficha_test` agregada a fichas S13 activas (nextcloud/guacamole/onlyoffice/fedora-kde) y S06 (ferretdb/calcom/novu) · `auto_install: true + category_label` agregados a ferretdb/calcom/novu manifests · `ficha_repair` loki/tempo/zabbix (Helm idempotente) · sbos-bootstrap-platform y sbos-k8s-network-validator con `ficha_repair`
 
 ---
 

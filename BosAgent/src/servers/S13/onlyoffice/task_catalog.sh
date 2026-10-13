@@ -182,6 +182,29 @@ ficha_repair() {
     echo "${__STEP_OK__} verify"
 }
 
+ficha_test() {
+    local ok=0
+    echo "${__STEP_START__} test_onlyoffice_ready"
+    local pods
+    pods=$(_k get pods -n "$NS" -l app=onlyoffice --no-headers 2>/dev/null | grep -c Running || echo "0")
+    if (( pods >= 1 )); then
+        echo "${__STEP_OK__} test_onlyoffice_ready ($pods Running)"
+    else
+        echo "${__STEP_FAIL__} test_onlyoffice_ready: 0 pods Running"; ok=1
+    fi
+
+    echo "${__STEP_START__} test_onlyoffice_http"
+    local status
+    status=$(_k exec -n "$NS" deploy/onlyoffice -- \
+        curl -sf -o /dev/null -w '%{http_code}' http://localhost:80/healthcheck 2>/dev/null || echo "000")
+    if [[ "$status" == "200" ]]; then
+        echo "${__STEP_OK__} test_onlyoffice_http (/healthcheck 200)"
+    else
+        echo "${__STEP_FAIL__} test_onlyoffice_http: HTTP $status"; ok=1
+    fi
+    return $ok
+}
+
 # ── Remove ────────────────────────────────────────────────────────
 ficha_remove() {
     echo "${__STEP_START__} remove_onlyoffice"

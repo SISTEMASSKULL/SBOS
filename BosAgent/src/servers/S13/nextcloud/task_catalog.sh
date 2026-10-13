@@ -413,6 +413,29 @@ YAML
     echo "${__STEP_OK__} verify"
 }
 
+ficha_test() {
+    local ok=0
+    echo "${__STEP_START__} test_nextcloud_ready"
+    local ready
+    ready=$(_k get deployment nextcloud -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    if [[ "$ready" =~ ^[0-9]+$ ]] && (( ready >= 1 )); then
+        echo "${__STEP_OK__} test_nextcloud_ready ($ready/1)"
+    else
+        echo "${__STEP_FAIL__} test_nextcloud_ready: ${ready}/1"; ok=1
+    fi
+
+    echo "${__STEP_START__} test_nextcloud_http"
+    local status
+    status=$(_k exec deploy/nextcloud -n "$NS" -- \
+        curl -sf -o /dev/null -w '%{http_code}' http://localhost:80/status.php 2>/dev/null || echo "000")
+    if [[ "$status" == "200" ]]; then
+        echo "${__STEP_OK__} test_nextcloud_http (/status.php 200)"
+    else
+        echo "${__STEP_FAIL__} test_nextcloud_http: HTTP $status"; ok=1
+    fi
+    return $ok
+}
+
 # ── Remove ────────────────────────────────────────────────────────
 ficha_remove() {
     echo "${__STEP_START__} remove_nextcloud"

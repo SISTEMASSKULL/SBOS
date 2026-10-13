@@ -32,7 +32,8 @@ deployment:
   network_policy: "ferretdb.network"
 
 governance:
-  category: 1
+  auto_install: true
+  category_label: "notificaciones"
   backup_required: false
   backup_schedule: ""
 

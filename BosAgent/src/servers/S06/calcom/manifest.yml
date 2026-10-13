@@ -37,7 +37,8 @@ deployment:
   network_policy: "calcom.network"
 
 governance:
-  category: 2
+  auto_install: true
+  category_label: "colaboracion"
   backup_required: true
   backup_schedule: "0 3 * * *"
 
