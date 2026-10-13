@@ -223,9 +223,11 @@ func (l *Loop) tick(fichaIndex map[string]*plugin.FichaManifest) {
 		return
 	}
 
-	// Fase 3 — reparar fichas DEGRADADA (solo auto_install, secuencial)
+	// Fase 3 — reparar fichas DEGRADADA o PHYSICAL_ERROR (solo auto_install, secuencial)
 	for name, fichaEntry := range st.Fichas {
-		if fichaEntry.State != state.StateDegraded && fichaEntry.State != state.StateRepairing {
+		if fichaEntry.State != state.StateDegraded &&
+			fichaEntry.State != state.StateRepairing &&
+			fichaEntry.State != state.StatePhysicalError {
 			continue
 		}
 		mf, ok := fichaIndex[name]

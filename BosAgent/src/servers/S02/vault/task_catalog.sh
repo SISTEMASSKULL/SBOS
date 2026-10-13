@@ -520,7 +520,9 @@ spec:
             failureThreshold: 6
           livenessProbe:
             httpGet:
-              path: /v1/sys/health?standbyok=true
+              # sealedok=true: Vault sellado devuelve 200 en liveness — no mata el pod.
+              # Sin esto, Vault en CrashLoop: sellado → 503 → K8s lo mata → ciclo infinito.
+              path: /v1/sys/health?standbyok=true&sealedok=true
               port: 8200
             initialDelaySeconds: 60
             periodSeconds: 15
