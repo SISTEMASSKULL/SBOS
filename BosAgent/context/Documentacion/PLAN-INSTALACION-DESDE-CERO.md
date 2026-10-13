@@ -1,6 +1,6 @@
 # Plan de Instalación desde Cero — VPS Limpia Ubuntu 26.04
 
-**Versión:** 2.2.0  
+**Versión:** 2.3.0  
 **Fecha:** 2026-10-13  
 **Autor:** bos-developer  
 **Estado:** 🔄 PT-05 EN CURSO — 24/35 fichas INSTALLED · 2 PHYSICAL_ERROR (Vault, oauth2-proxy) · 1 INSTALL_FAILED (tryton) bloqueado por Vault  
@@ -1292,149 +1292,260 @@ Con P0-P3 ejecutados, el estado esperado es: **30+/35 fichas INSTALLED** · Vaul
 
 ---
 
-## 10. Análisis de escalabilidad del VDI — Arquitectura actual vs arquitectura objetivo
+## 10. Análisis del VDI — Propósito real, componentes necesarios y arquitectura de escala
 
-> **Este análisis es urgente.** El VDI es el producto de cara al usuario. La arquitectura actual tiene un defecto fundamental de escala que debe resolverse antes de que llegue el primer cliente real.
+> **El VDI de SBOS no es un escritorio remoto genérico — es un escritorio corporativo soberano** donde bAuth/Keycloak controlan el acceso a archivos, carpetas, recursos y aplicaciones; donde cada usuario tiene su propio espacio persistente; y donde cada acción queda auditada con `ctx_id`. Guacamole y VNC son los componentes correctos para este propósito. El único problema real es la arquitectura de provisioning.
 
-### 10.1 Diagnóstico: la arquitectura actual NO escala
-
-#### Qué hay hoy en producción
-
-| Componente | Recurso por instancia | Diseño actual |
-|------------|----------------------|---------------|
-| `fedora-kde` | 1–4 GB RAM · 0.5–2 CPU | `replicas: 1` — todos los usuarios comparten **el mismo escritorio** |
-| `guacamole` | 256 MB–1 GB RAM · 0.1–1 CPU | Sin conexiones configuradas — no apunta a ningún servidor |
-| VNC (TigerVNC) | Embebido en fedora-kde | 1 sesión X11 compartida entre todos los usuarios conectados |
-| noVNC | Embebido en fedora-kde | WebSocket que expone la sesión VNC — acceso compartido |
-
-**El problema fundamental:** `replicas: 1` significa que si 100 usuarios se conectan vía noVNC al escritorio, los 100 ven y usan **el mismo escritorio KDE al mismo tiempo**. No hay aislamiento, no hay sesiones separadas, no hay identidad por usuario en el escritorio.
-
-#### Proyección de costo si se intenta escalar 1 pod por usuario
-
-Si se cambia a 1 pod por usuario (modelo correcto de VDI):
-
-| Usuarios simultáneos | RAM necesaria | CPU necesaria | Costo estimado (cloud) |
-|----------------------|--------------|--------------|------------------------|
-| 1 | 4 GB | 2 cores | base |
-| 10 | 40 GB | 20 cores | ~10× |
-| 100 | 400 GB | 200 cores | ~100× |
-| 1 000 | 4 TB | 2 000 cores | ~1 000× |
-| 10 000 | 40 TB | 20 000 cores | **imposible** |
-
-KDE Plasma 6 con LibreOffice y dos navegadores (Firefox + Chrome) en cada pod es el diseño más costoso posible para un VDI corporativo. Es técnicamente correcto para demostración pero inviable en producción con más de 20-30 usuarios simultáneos.
+**Criterio de éxito (PLAN-IMPLEMENTACION-BOS-VDI.md §1):**
+> *NFC → banexus → bAuth evalúa → BOS genera ctx_id → Guacamole abre sesión Fedora KDE → usuario trabaja en Nextcloud/OnlyOffice*
 
 ---
 
-### 10.2 Análisis de necesidad: ¿para qué sirve realmente cada componente?
+### 10.1 Por qué cada componente es necesario — y cuál es el único problema real
 
-#### Todas las apps SBOS son web — el escritorio KDE es innecesario para la mayoría de usuarios
+#### Guacamole — el gateway de identidad y auditoría del escritorio
 
-Las aplicaciones que el VDI sirve hoy:
+Guacamole no está en el VDI simplemente para "abrir un escritorio remoto". Su rol en SBOS es:
 
-| App | Tipo | ¿Necesita escritorio KDE? |
-|-----|------|--------------------------|
-| Nextcloud | Web (navegador) | ❌ No — el usuario puede abrir su propio navegador |
-| Tryton | Web (navegador) | ❌ No |
-| OnlyOffice | Web (navegador) | ❌ No |
-| Grafana | Web (navegador) | ❌ No |
-| LibreOffice | App de escritorio | ✅ Sí — solo si se edita localmente |
-| Acceso SSH a servidores | Terminal | ⚠️ Guacamole SSH es más eficiente |
-| Acceso RDP a Windows | Escritorio remoto | ⚠️ Guacamole RDP es más eficiente |
+| Función | Cómo la cumple Guacamole |
+|---------|--------------------------|
+| **Punto de entrada único autenticado** | Integrado con Keycloak via OIDC — el usuario solo hace login una vez |
+| **Control de qué sesiones puede abrir el usuario** | Las `guacamole_connection` se asignan por usuario/grupo en Keycloak — un contador solo ve su escritorio, un admin ve todos |
+| **Auditoría completa de sesiones** | Guacamole registra inicio/fin de sesión, duración, actividad — integrable con ctx_id de bAuth |
+| **Aislamiento de acceso** | El usuario no conoce la IP ni el puerto VNC de su pod — solo llega via el proxy de Guacamole |
+| **Gateway a múltiples recursos** | El mismo Guacamole que abre fedora-kde puede abrir SSH a un servidor, RDP a una máquina Windows del cliente, etc. |
 
-**Conclusión:** Para el 90% de casos de uso de SBOS, el usuario solo necesita un **portal web con links** a las apps. No necesita un escritorio KDE completo dentro de un pod.
+Sin Guacamole, el único acceso es noVNC directo — que no tiene autenticación de identidad, no controla quién puede acceder, y no audita las sesiones.
 
-#### Guacamole: valioso en el caso correcto — hoy sin configurar
+#### VNC (TigerVNC) — el protocolo correcto dentro del pod
 
-Apache Guacamole tiene valor real cuando:
-- El usuario necesita acceder a **múltiples servidores externos** (SSH a un Linux, RDP a una máquina Windows, telnet a un router).
-- Como gateway de acceso remoto centralizado y auditado — cada conexión queda logueada.
-- Para administradores IT que gestionan la infraestructura del cliente.
+TigerVNC dentro del pod fedora-kde es correcto porque:
+- Es el protocolo que guacd (el daemon de Guacamole) entiende para conectarse al escritorio
+- Es ligero, maduro, y no requiere agentes especiales en el escritorio
+- Funciona con KDE Plasma sobre X11 sin modificaciones
 
-Guacamole NO tiene valor si:
-- Solo apunta a `fedora-kde` como único servidor VNC → en ese caso noVNC directo es más simple y eficiente.
-- Las apps que se usan son todas web → el usuario puede acceder directamente con su navegador.
+**noVNC embebido en el pod:** puede eliminarse. Hoy el pod expone el puerto 6901 con noVNC que da acceso directo al escritorio sin pasar por Guacamole — es un bypass de seguridad. En producción, el puerto VNC (5900) solo debe ser accesible desde guacd, no desde el exterior.
 
-**Estado actual:** Guacamole está instalado pero la tabla `guacamole_connection` está **vacía** — no apunta a ningún servidor. Es infraestructura sin propósito definido todavía.
+#### KDE Plasma 6 — justificado por el propósito real
+
+El escritorio KDE tiene sentido en SBOS porque:
+- **Control de acceso a archivos/carpetas**: bAuth define qué directorios puede ver el usuario. Esto requiere un filesystem real montado en el escritorio, no un portal web.
+- **Configuración del escritorio por rol**: El tema, las apps del menú, los atajos de teclado, los fondos — todo puede personalizarse según el rol del usuario en bAuth (un empleado de contabilidad ve apps de Tryton, un técnico ve la consola).
+- **LibreOffice local**: Para documentos complejos, formatos propietarios o trabajo sin conexión a OnlyOffice.
+- **Persistencia del espacio de trabajo**: El usuario puede tener archivos en `~/Documentos` que persisten entre sesiones — no en la nube, en su disco soberano.
 
 ---
 
-### 10.3 Arquitectura objetivo — tres productos diferenciados
+### 10.2 El único problema real: arquitectura de provisioning
 
-El VDI SBOS debe diferenciarse en tres capas según el caso de uso, cada una con su escala propia:
+El escritorio KDE, Guacamole y VNC son correctos. El problema es uno solo:
+
+> **`replicas: 1` hardcodeado — un solo pod de escritorio compartido entre todos los usuarios.**
+
+Con la implementación actual, si 10 usuarios se conectan a Guacamole y abren "su escritorio", los 10 ven y controlan el mismo KDE. No hay aislamiento. No hay identidad por usuario en el escritorio.
+
+La solución no es cambiar la tecnología — es cambiar la arquitectura de provisioning:
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                    PRODUCTO VDI SBOS                                │
-│                                                                     │
-│  CAPA 1 — Portal Web SBOS (todos los usuarios)                      │
-│  ─────────────────────────────────────────────                      │
-│  SPA web con acceso a todas las apps SBOS                           │
-│  Escala: stateless · 1-3 pods · millones de usuarios               │
-│  Costo incremental por usuario adicional: ~0                        │
-│                                                                     │
-│  CAPA 2 — Gateway de acceso remoto (IT + admins)                    │
-│  ────────────────────────────────────────────────                   │
-│  Guacamole → SSH/RDP/VNC a servidores del cliente                   │
-│  Escala: 1 pod Guacamole sirve ~500 sesiones concurrentes           │
-│  Costo incremental: muy bajo (Guacamole es eficiente)               │
-│                                                                     │
-│  CAPA 3 — Escritorio corporativo (usuarios que lo necesitan)        │
-│  ──────────────────────────────────────────────────────────         │
-│  1 pod VDI por SESIÓN ACTIVA (no por usuario registrado)            │
-│  Auto-scaling: crea pod al conectar, destruye al desconectar        │
-│  Imagen ligera: XFCE/LXDE (~512 MB) en lugar de KDE (~4 GB)        │
-│  Datos del usuario en PVC separado (persiste entre sesiones)        │
-└─────────────────────────────────────────────────────────────────────┘
+ARQUITECTURA ACTUAL (incorrecta):
+──────────────────────────────────
+Usuario A ─┐
+Usuario B ─┼── Guacamole ──── guacd ──── fedora-kde pod único (replicas:1)
+Usuario C ─┘                              (todos comparten el mismo escritorio)
+
+
+ARQUITECTURA OBJETIVO (correcta):
+──────────────────────────────────
+                                         fedora-kde-<usuario-A> pod + PVC-A
+                                        /
+Usuario A ─┐                           /
+Usuario B ─┼── Guacamole ──── guacd ──┼── fedora-kde-<usuario-B> pod + PVC-B
+Usuario C ─┘                           \
+                                        \
+                                         fedora-kde-<usuario-C> pod + PVC-C
+
+Cada usuario tiene:
+  • Su propio pod fedora-kde (creado al login, destruido al logout o en standby)
+  • Su propio PVC de 20Gi (persiste para siempre — sobrevive al pod)
+  • Su propia configuración KDE (tema, apps, permisos) según su rol en bAuth
+  • Sus archivos en ~/Documentos, ~/Nextcloud, ~/Desktop
 ```
 
 ---
 
-### 10.4 Plan de rediseño — qué cambiar y qué mantener
+### 10.3 Cómo bAuth y Keycloak controlan el escritorio
 
-#### Mantener (ya está bien)
+El control de acceso en el VDI opera en cuatro capas:
 
-| Componente | Por qué mantener |
-|------------|-----------------|
-| `nextcloud` | App web soberana — correcta |
-| `onlyoffice` | Editor web colaborativo — correcto |
-| `guacamole` | Base correcta — necesita configurarse con conexiones reales |
-| `oauth2-proxy-desktop` | SSO via Keycloak — correcto, reutilizable |
-| Stack Kong + Keycloak | Gateway y autenticación — correcto |
+```
+CAPA 1 — Autenticación (Keycloak + bAuth)
+  Usuario presenta credenciales (o NFC via banexus)
+  Keycloak valida → bAuth genera token bitmask de 64 bits
+  El bitmask define: qué apps puede abrir, qué archivos puede ver,
+  qué acciones puede ejecutar.
 
-#### Rediseñar (cambio de arquitectura)
+CAPA 2 — Autorización de sesión (Guacamole + bAuth)
+  Guacamole consulta: ¿tiene este usuario permiso para abrir escritorio VDI?
+  Si el bitmask incluye el bit VDI_ACCESS → Guacamole abre la conexión VNC
+  Guacamole registra inicio de sesión con ctx_id
 
-| Componente actual | Problema | Arquitectura objetivo |
-|------------------|----------|----------------------|
-| `fedora-kde` (KDE Plasma 6, 4 GB) | Demasiado pesado · compartido · no escala | **Opción A:** Portal web SBOS (Capa 1) · **Opción B:** Pod XFCE por sesión activa (Capa 3) |
-| noVNC embebido en fedora-kde | Sesión X11 compartida entre todos los usuarios | VNC multi-sesión vía Guacamole (1 sesión por usuario, autenticada) |
-| `replicas: 1` hardcodeado | 1 escritorio para todos | HPA · pod por sesión · PVC por usuario |
-| LibreOffice + Firefox + Chrome en la imagen | 3-4 GB de imagen innecesaria para el 90% de casos | Solo lo que el caso de uso requiera |
+CAPA 3 — Configuración del escritorio (bAuth → PAM + envvars)
+  Al crear el pod fedora-kde-<usuario>, BOS inyecta:
+    • SBOS_USER_ROLES=contabilidad,documentos (del bitmask)
+    • SBOS_HOME_PVC=fedora-kde-home-<user-id>
+    • SBOS_ACCESSIBLE_APPS=[tryton,nextcloud,onlyoffice] (filtrado por bitmask)
+  El script de inicio del escritorio lee estas variables y:
+    • Monta solo las carpetas autorizadas de Nextcloud
+    • Muestra solo los íconos de apps autorizados en el menú
+    • Aplica el tema y fondo corporativo del tenant
 
-#### La pregunta de diseño que debe responder el humano (HITL)
-
-Antes de rediseñar, se necesita definir cuál es el caso de uso real del VDI SBOS:
-
-**¿El VDI es para:**
-1. **Solo portal de acceso** → Capa 1 (portal web) es suficiente. Eliminar fedora-kde completamente.
-2. **Escritorio corporativo persistente** → Capa 3 con sesiones por usuario, PVC, auto-scaling. Rediseñar imagen.
-3. **Acceso remoto a infraestructura del cliente** → Capa 2 (Guacamole configurado con los servidores del cliente).
-4. **Los tres casos** → Implementar las tres capas en orden de impacto.
-
----
-
-### 10.5 Correcciones inmediatas independientes del rediseño
-
-Independientemente de qué arquitectura se elija, estos cambios son correctos ahora:
-
-| Acción | Impacto | Esfuerzo |
-|--------|---------|----------|
-| **Agregar autenticación VNC** — hoy cualquier usuario que conoce la URL accede al escritorio | Seguridad crítica | Bajo — ya generada la `VNC_PASSWORD` en el Secret |
-| **Configurar Guacamole** con al menos 1 conexión real (SSH al host, VNC a fedora-kde) | Da valor real a Guacamole instalado | Bajo |
-| **Eliminar ConfigMap `fedora-kde-start-script`** (doble fuente de verdad, VDI-4) | Consistencia · P-VDI-1 | Muy bajo |
-| **Sincronizar versión manifest ↔ tag imagen** (fedora-kde 41.0.0 vs 1.3.0) | P-VDI-2 | Muy bajo |
-| **Definir PVC por usuario** si se mantiene escritorio | Sesiones no se borran entre reinicios | Medio |
+CAPA 4 — Auditoría (ctx_id en cada operación)
+  Cada acción del usuario genera un evento:
+    • Apertura de sesión → ctx_id en Guacamole
+    • Acceso a archivo → ctx_id en Nextcloud
+    • Edición de documento → ctx_id en OnlyOffice
+    • Cierre de sesión → ctx_id en Guacamole
+  Todos los ctx_id van al Context Plane (bos.ctx.*)
+  Audit trail inmutable disponible para compliance ISO 27001
+```
 
 ---
 
-*Documento v2.2.0 — bos-developer · 2026-10-13*  
+### 10.4 Análisis de escala real — con la arquitectura correcta
+
+Con provisioning dinámico de pods (1 pod por sesión activa, no por usuario registrado):
+
+| Usuarios registrados | Sesiones activas típicas (20%) | Pods activos | RAM | ¿Factible? |
+|----------------------|-------------------------------|-------------|-----|-----------|
+| 100 | 20 | 20 pods | 40–80 GB | ✅ 1 servidor 96 GB |
+| 500 | 100 | 100 pods | 200–400 GB | ✅ cluster 2-4 nodos |
+| 1 000 | 200 | 200 pods | 400–800 GB | ✅ cluster 4-8 nodos |
+| 10 000 | 2 000 | 2 000 pods | 4–8 TB | ⚠️ datacenter dedicado |
+
+La imagen actual de 4 GB RAM por pod es optimizable. Las oportunidades:
+- Eliminar Firefox del pod (el usuario usa Chrome para las apps SBOS vía Guacamole)
+- Cambiar Chrome `--app` por links del menú KDE que abren en sesión Guacamole
+- Reducir LibreOffice a solo Writer+Calc (sin Impress/Draw si no se usan)
+- Resultado esperado: ~1.5–2 GB RAM por pod activo (reducción de 50%)
+
+Con 2 GB por pod: 1000 sesiones activas = 2 TB — un cluster de 4 nodos de 512 GB cada uno.
+
+---
+
+### 10.5 Lo que hay que implementar para que el VDI sea lo que debe ser
+
+El VDI actual es una demostración funcional pero no es el producto final. Estos son los gaps de implementación en orden de prioridad:
+
+| Gap | Descripción | Impacto | Responsable |
+|-----|-------------|---------|-------------|
+| **VDI-GAP-1** | `replicas: 1` compartido — todo en un pod | Crítico — no hay aislamiento por usuario | task_catalog.sh fedora-kde |
+| **VDI-GAP-2** | Sin PVC por usuario — escritorio se borra en reinicio | Crítico — P15: persistencia requerida | task_catalog.sh + provisioner |
+| **VDI-GAP-3** | Guacamole sin conexiones configuradas — tabla vacía | Crítico — el gateway no apunta a nada | task_catalog.sh guacamole |
+| **VDI-GAP-4** | noVNC expuesto directamente (bypass de Guacamole) | Seguridad — acceso sin autenticación bAuth | Eliminar o bloquear puerto 6901 externamente |
+| **VDI-GAP-5** | Sin inyección del bitmask bAuth en el escritorio | Funcional — el escritorio no se personaliza por rol | init script fedora-kde |
+| **VDI-GAP-6** | Provisioning manual — nadie crea pods por usuario | Funcional — requiere operación manual | BOS operator o CronJob |
+| **VDI-GAP-7** | Sin destrucción de pod al cerrar sesión | Costo — pods inactivos consumen recursos | Guacamole hook + BOS |
+
+#### VDI-GAP-1 y VDI-GAP-2 — La solución técnica
+
+El provisioning dinámico de pods por usuario puede implementarse como una ficha BOS nueva (`fedora-kde-provisioner`) con dos funciones:
+
+```bash
+# ficha_install(): instala el provisioner (un CronJob o un Operator ligero)
+# El provisioner escucha eventos de Guacamole (login/logout) y:
+
+_crear_sesion_usuario() {
+    local user_id="$1" bitmask="$2"
+    # 1. Crear PVC si no existe (persiste para siempre)
+    kubectl apply -f - <<EOF
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: fedora-kde-home-${user_id}
+  namespace: sbos-vdi
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 20Gi
+EOF
+    # 2. Crear pod con el PVC del usuario y el bitmask como env var
+    kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Pod
+metadata:
+  name: fedora-kde-${user_id}
+  namespace: sbos-vdi
+spec:
+  containers:
+  - name: desktop
+    image: docker.io/sbos/fedora-kde:1.4.0
+    env:
+    - name: SBOS_USER_ID
+      value: "${user_id}"
+    - name: SBOS_BITMASK
+      value: "${bitmask}"
+    volumeMounts:
+    - name: home
+      mountPath: /home/vdiuser
+  volumes:
+  - name: home
+    persistentVolumeClaim:
+      claimName: fedora-kde-home-${user_id}
+EOF
+    # 3. Registrar la conexión en Guacamole apuntando al nuevo pod
+    _guacamole_crear_conexion "$user_id" "fedora-kde-${user_id}.sbos-vdi.svc.cluster.local"
+}
+
+_destruir_sesion_usuario() {
+    local user_id="$1"
+    # Eliminar el pod — el PVC NO se elimina (datos persisten)
+    kubectl delete pod "fedora-kde-${user_id}" -n sbos-vdi
+    # El PVC permanece para la próxima sesión del usuario
+}
+```
+
+---
+
+### 10.6 El flujo completo del VDI soberano (criterio C-14)
+
+```
+1. Usuario toca tarjeta NFC en el lector físico
+      ↓
+2. banexus captura el evento → bhnexus → bAuth
+   bAuth consulta SBOSDB: ¿está registrado este NFC? ¿tiene acceso VDI?
+   bAuth genera token + bitmask (ej: VDI_ACCESS | NEXTCLOUD | TRYTON | ONLYOFFICE)
+      ↓
+3. BOS recibe el evento via ctx_id y llama fedora-kde-provisioner:
+   "crear sesión para user_id=U42, bitmask=0x0F3A"
+      ↓
+4. fedora-kde-provisioner:
+   - Crea PVC fedora-kde-home-U42 (si no existe)
+   - Crea pod fedora-kde-U42 con el PVC montado en /home/vdiuser
+   - Inyecta SBOS_BITMASK=0x0F3A en el pod
+   - Registra conexión en Guacamole apuntando al pod
+      ↓
+5. El pod arranca en ~60s. El script start-desktop.sh lee SBOS_BITMASK:
+   - Muestra solo los íconos de Tryton, Nextcloud, OnlyOffice (no Grafana)
+   - Monta ~/Nextcloud via WebDAV autenticado con token bAuth
+   - Aplica tema corporativo del tenant
+      ↓
+6. Guacamole notifica al navegador del usuario: "sesión lista"
+   El usuario ve el escritorio KDE, con sus archivos, sus apps, su configuración
+      ↓
+7. El usuario trabaja. Cada acción genera eventos en bAuth con ctx_id:
+   - Abrir archivo: evento AUDIT_FILE_ACCESS
+   - Guardar en Nextcloud: evento AUDIT_STORAGE_WRITE
+   - Abrir Tryton: evento AUDIT_APP_LAUNCH
+      ↓
+8. Al cerrar sesión:
+   - fedora-kde-provisioner elimina el pod
+   - El PVC permanece (20Gi de datos del usuario)
+   - Guacamole registra fin de sesión con ctx_id
+   - Próxima sesión: el usuario ve exactamente donde lo dejó
+```
+
+---
+
+*Documento v2.3.0 — bos-developer · 2026-10-13*  
 *Plan completo de instalación: `PLAN-IMPLEMENTACION-BOS-VDI.md`*
