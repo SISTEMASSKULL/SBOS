@@ -37,11 +37,12 @@ governance:
   backup_schedule: ""
 
 health:
-  check_command: "curl -sf http://localhost:27017/"
-  check_via: "kubectl_exec"
-  pod_selector: "app=ferretdb"
-  interval_seconds: 30
-  failure_threshold: 2
+  type: command
+  # FerretDB expone el endpoint /debug/metrics en el puerto de diagnóstico :8088.
+  # Puerto 27017 es MongoDB wire protocol — no responde a HTTP.
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get pods -n sbos-notifier -l app=ferretdb --no-headers 2>/dev/null | grep -c Running"
+  expected_output: "1"
+  timeout_seconds: 10
 
 integrations:
   provides_to:

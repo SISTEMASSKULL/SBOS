@@ -31,12 +31,16 @@ deployment:
   namespace: "sbos-vdi"
   workload_type: "Deployment"
 
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "sso-vdi"
+
 health:
-  check_via: "http"
-  path: "/ping"
+  type: http
+  path: /ping
   port: 4180
-  interval_seconds: 30
-  failure_threshold: 3
+  timeout_seconds: 10
 
 compatibility:
   min_iam_installer_version: "1.0.0"

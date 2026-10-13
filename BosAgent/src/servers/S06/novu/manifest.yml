@@ -43,11 +43,9 @@ governance:
   backup_schedule: "0 3 * * *"
 
 health:
-  check_command: "curl -sf http://localhost:28200/v1/health-check"
-  check_via: "kubectl_exec"
-  pod_selector: "app=novu-api"
-  interval_seconds: 30
-  failure_threshold: 3
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config exec -n sbos-notifier deploy/novu-api -- curl -sf http://localhost:3000/v1/health-check 2>/dev/null | grep -q ok"
+  timeout_seconds: 15
 
 integrations:
   provides_to:

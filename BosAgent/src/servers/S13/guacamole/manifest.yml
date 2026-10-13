@@ -32,11 +32,16 @@ deployment:
   workload_type: "Deployment"
   k8s_manifest: "guacamole.k8s.yml"
 
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "vdi-gateway"
+
 health:
-  check_via: "kubectl_exec"
-  pod_selector: "app=guacamole"
-  interval_seconds: 30
-  failure_threshold: 3
+  type: http
+  path: /guacamole/
+  port: 8080
+  timeout_seconds: 15
 
 compatibility:
   min_iam_installer_version: "1.0.0"

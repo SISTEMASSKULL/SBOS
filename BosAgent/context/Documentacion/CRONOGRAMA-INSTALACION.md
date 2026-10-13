@@ -971,7 +971,7 @@ Kong (Domain Resolver):
 - ✅ readinessProbe via `occ status` (FIX-22: exec probe — httpGet bloqueaba con Apache mpm_prefork)
 
 **Faltantes:**
-- ❌ auto_install no definido en manifest (GAP-6)
+- ✅ (ciclo 3) GAP-2 y GAP-6 cerrados: health `type: http /status.php :80` + governance auto_install: true
 - ❌ Editor OnlyOffice sin conectar a nextcloud (requiere configuración manual post-install)
 
 **Bugs:** ninguno activo
@@ -997,8 +997,8 @@ Kong (Domain Resolver):
 - ✅ (ciclo 2) fedora-kde Service: puerto 5900 expuesto internamente para guacd
 
 **Faltantes:**
-- ❌ health.check_command ausente (GAP-2)
-- ❌ auto_install no definido en manifest (GAP-6)
+- ✅ (ciclo 3) GAP-2 cerrado: health check `type: http, path: /guacamole/, port: 8080`
+- ✅ (ciclo 3) GAP-6 cerrado: `governance: auto_install: true, category_label: vdi-gateway`
 - ❌ `bosctl ficha repair guacamole` en VPS para ejecutar `ficha_post_install()` y registrar la conexión
 
 ---
@@ -1016,7 +1016,7 @@ Kong (Domain Resolver):
 
 **Faltantes:**
 - ❌ Conectado a Nextcloud pero sin configuración declarativa (manual post-install)
-- ❌ auto_install no definido en manifest (GAP-6)
+- ✅ (ciclo 3) GAP-2 y GAP-6 cerrados: health `type: http /healthcheck :80` + governance auto_install: true
 
 **Bugs:** ninguno activo
 
@@ -1040,7 +1040,7 @@ Kong (Domain Resolver):
 
 **Faltantes:**
 - ❌ Pod en PHYSICAL_ERROR — derivado de vault (misma cadena que oauth2-proxy)
-- ❌ auto_install no definido en manifest (GAP-6)
+- ✅ (ciclo 3) GAP-2 y GAP-6 cerrados: health `type: http /ping :4180` + governance auto_install: true
 
 **Bugs activos:**
 - ❌ PHYSICAL_ERROR derivado de vault. Se resuelve con FIX-26A + FIX-B observer.
@@ -1382,11 +1382,11 @@ fedora-kde pod  ← UN SOLO POD COMPARTIDO (VDI-GAP-1)
 
 **Dependencias:** tryton
 
-**⚠️ INC-7:** No declara dependencia en `tryton` (S01) en su manifest. Puede intentar instalarse antes que Tryton esté listo.
+**~~INC-7 FALSO POSITIVO~~:** El manifest ya tiene `dependencies: [tryton]` — la dependencia estaba correcta. Error en el diagnóstico inicial.
 
-**Logros:** ninguno
+**Logros:** ninguno (bloqueado por tryton INSTALL_FAILED — derivado de vault)
 
-**Faltantes:** Agregar `tryton` a dependencies del manifest + instalar tras tryton INSTALLED
+**Faltantes:** Instalar tras tryton INSTALLED
 
 ---
 
@@ -1414,7 +1414,9 @@ fedora-kde pod  ← UN SOLO POD COMPARTIDO (VDI-GAP-1)
 
 **Estado:** En PENDING esperando dependencias (vault caído bloquea la cadena). Se instalarán automáticamente tras vault INSTALLED (auto_install:true en algunos).
 
-**Logros:** ninguno
+**Logros:**
+- ✅ (ciclo 3) ferretdb, calcom, novu: health checks corregidos de formato legacy `check_via:` a `type: command`
+- ✅ ferretdb: health verifica pod Running (27017 = MongoDB wire protocol, no HTTP)
 
 **Faltantes:** Vault estable → instalación automática o manual según auto_install
 

@@ -35,11 +35,17 @@ deployment:
   workload_type: "Deployment"
   k8s_manifest: "nextcloud.k8s.yml"
 
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "colaboracion"
+
 health:
-  check_via: "kubectl_exec"
-  pod_selector: "app=nextcloud"
-  interval_seconds: 60
-  failure_threshold: 3
+  type: http
+  # /status.php devuelve JSON con instalado=true cuando Nextcloud está operativo.
+  path: /status.php
+  port: 80
+  timeout_seconds: 30
 
 compatibility:
   min_iam_installer_version: "1.0.0"
