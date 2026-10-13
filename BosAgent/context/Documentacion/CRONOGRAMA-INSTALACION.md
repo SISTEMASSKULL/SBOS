@@ -359,9 +359,8 @@
 
 **Faltantes:**
 - 🔄 Instalación en progreso — estado en VPS pendiente de verificar
-- ❌ ReplicaSets huérfanos de crash anterior consumen recursos (BUG-29)
 
-**Bugs activos:**
+**Bugs activos:** ninguno
 - ✅ (ciclo 4) BUG-29 cerrado: `ficha_repair()` limpia ReplicaSets huérfanos automáticamente
 - ✅ (ciclo 2) BUG-33 cerrado: oauth2-proxy pod template tiene `linkerd.io/inject: disabled`
 
@@ -380,17 +379,17 @@
 - ✅ 3 buckets S3 creados: sbos-backups, sbos-assets, sbos-documents
 - ✅ API S3 en puerto 9000
 - ✅ (ciclo 2) BUG-35 cerrado: `vault` como `runtime_dependency`, no `dependency`
+- ✅ (ciclo 3) GAP-2 cerrado: health check `type: http, path: /minio/health/live, port: 9000` en manifest.yml
 
-**Faltantes:**
-- ❌ health.check_command ausente (GAP-2)
+**Faltantes:** ninguno activo
 
 ---
 
-## FASE 4B — Inicialización de la base de datos SBOS (orden ~105) ⚠️ FICHA FALTANTE
+## FASE 4B — Inicialización de la base de datos SBOS (orden 105)
 
-> **Este es un GAP crítico del instalador.** PostgreSQL Running ≠ SBOS_db lista.
-> El pod de PostgreSQL puede estar corriendo (INSTALLED) pero la base de datos
-> `SBOSDB` con sus 158 tablas, 12 schemas y seeds puede no existir.
+> PostgreSQL Running ≠ SBOS_db lista. El pod puede estar corriendo (INSTALLED)
+> pero la base de datos `SBOSDB` con sus 158 tablas, 12 schemas y seeds debe
+> inicializarse explícitamente con la ficha `sbos-database-init`.
 > Actualmente esto se hace manualmente con psql. Debe existir una ficha
 > `sbos-database-init` que lo automatice.
 
@@ -740,9 +739,9 @@ Kong (Domain Resolver):
 **Logros:**
 - ✅ sbos-notifier (bnotify) corriendo (1/1 Running)
 - ✅ Integrado con keycloak para autenticación
+- ✅ (ciclo 3) GAP-2 cerrado: health check `type: http, path: /health/ready, port: 28200` en manifest.yml
 
-**Faltantes:**
-- ❌ health.check_command ausente (GAP-2)
+**Faltantes:** ninguno activo
 
 **Bugs:** ninguno activo
 
@@ -786,9 +785,9 @@ Kong (Domain Resolver):
 - ✅ bkernel daemon activo (systemd service)
 - ✅ Socket en `/run/bos/bkernel.sock`
 - ✅ Replication slot configurado en PostgreSQL
+- ✅ (ciclo 3) GAP-2 cerrado: health check `type: command, command: systemctl is-active bkernel` en manifest.yml
 
 **Faltantes:**
-- ❌ health.check_command ausente (GAP-2)
 - ❌ Streams Redis sin consumidores activos aún (pendiente desarrollo de consumidores bAuth/bsearch)
 
 **Bugs:** ninguno activo
@@ -813,10 +812,10 @@ Kong (Domain Resolver):
 - ✅ Prometheus 3.4.0 corriendo (1/1 Running)
 - ✅ PVC 20 Gi con `strategy: Recreate` (evita lock en rolling update)
 - ✅ Linkerd disabled en namespace sbos-monitoring (evita PostStartHookError en sidecar proxy)
+- ✅ (ciclo 3) GAP-2 cerrado: health check `type: http, path: /-/ready, port: 9090` en manifest.yml
 
 **Faltantes:**
-- ❌ health.check_command ausente (GAP-2)
-- ❌ Scraping de daemons SBOS (9400-9499) incompleto — daemons aún no exponen métricas
+- ❌ Scraping de daemons SBOS (9400-9499) incompleto — daemons aún no exponen métricas (pendiente desarrollo de daemons)
 
 **Bugs:** ninguno activo
 
@@ -1837,12 +1836,23 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 ---
 
-**PROBLEMA B-4 — GAP-2: health.check_command ausente en fichas críticas**
+**PROBLEMA B-4 — GAP-2: health.check_command ausente en fichas críticas** ✅ CERRADO (ciclo 3)
 
-- **Síntoma:** BOS no puede detectar proactivamente si postgresql, redis, vault, keycloak, kong, minio están respondiendo correctamente (solo detecta si el pod está Running/CrashLoop via k8s_discovery).
-- **Causa:** Las fichas no tienen `health.check_command` definido en sus `manifest.yml`. Solo tienen `health.type: k8s_pod`.
-- **Impacto:** BOS puede reportar una ficha como INSTALLED aunque el servicio esté respondiendo errores — solo detecta el crash a nivel de pod, no a nivel de protocolo.
-- **Solución — agregar a cada manifest:**
+- **Síntoma original:** BOS no podía detectar proactivamente si los servicios respondían (solo detectaba CrashLoop via k8s_discovery).
+- **Causa original:** Las fichas no tenían `health.check_command` definido.
+- **Solución aplicada (ciclo 3):** Se agregó health check canónico a todas las fichas críticas. Manifests verificados:
+  - postgresql: `type: command` → `pg_isready -U postgres`
+  - redis: `type: command` → `redis-cli ping | grep PONG`
+  - vault: `type: http` → `/v1/sys/health`
+  - keycloak: `type: http` → `/health/ready`
+  - kong: `type: http` → `/status port 8007`
+  - minio: `type: http` → `/minio/health/live`
+  - prometheus: `type: http` → `/-/ready`
+  - sbos-notifier: `type: http` → `/health/ready`
+  - sbos-bkernel: `type: command` → `systemctl is-active bkernel`
+- **Estado:** ✅ Todos los manifests tienen health check real. GAP-2 cerrado.
+
+> *Referencia histórica (solución que se aplicó):*
   ```yaml
   # postgresql:
   health:
@@ -1938,10 +1948,10 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 | 50 | sbos-k8s-network-validator | ⚙️ PENDING (no en state) | ❌ BUG-31 |
 | 70 | sbos-bkernel | ✅ INSTALLED | — |
 | 105 | sbos-database-init | ⏳ NUEVA (pendiente deploy) | Creada en ciclo 5 — instalar con `bosctl ficha install sbos-database-init` |
-| 100 | postgresql | ✅ INSTALLED | ⚠️ BUG-35 dep circular |
+| 100 | postgresql | ✅ INSTALLED | ✅ BUG-35 cerrado (ciclo 2) |
 | 100 | kyverno | ⚙️ PENDING (CrashLoop) | ❌ BUG-36 hairpin NAT |
-| 110 | redis | ✅ INSTALLED | ⚠️ BUG-35 dep circular |
-| 110 | linkerd | 🔄 INSTALLING | ⚠️ BUG-29 RS huérfanos |
+| 110 | redis | ✅ INSTALLED | ✅ BUG-35 cerrado (ciclo 2) |
+| 110 | linkerd | 🔄 INSTALLING | ✅ BUG-29 cerrado (ciclo 4) |
 | 120 | minio | ✅ INSTALLED | — |
 | 130 | vault | ❌ PHYSICAL_ERROR | ❌ FIX-26A pendiente VPS |
 | 135 | besu-qbft | ✅ INSTALLED | — |
