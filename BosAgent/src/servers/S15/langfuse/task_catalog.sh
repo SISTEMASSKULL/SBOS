@@ -63,7 +63,6 @@ metadata:
     app: langfuse
     sbos.app/managed-by: bos
 spec:
-
   replicas: 1
   selector:
     matchLabels:
@@ -78,6 +77,19 @@ spec:
           image: langfuse/langfuse:3.32.0
           ports:
             - containerPort: 3000
+          env:
+            - name: DATABASE_URL
+              value: postgresql://postgres:sbos_bootstrap_pass@postgresql.sbos-data.svc.cluster.local:5432/langfuse_db
+            - name: NEXTAUTH_SECRET
+              value: sbos_langfuse_nextauth_secret_change_in_prod
+            - name: SALT
+              value: sbos_langfuse_salt_change_in_prod
+            - name: NEXTAUTH_URL
+              value: https://langfuse.sbos.local
+            - name: TELEMETRY_ENABLED
+              value: "false"
+            - name: LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES
+              value: "false"
           resources:
             requests:
               cpu: "100m"

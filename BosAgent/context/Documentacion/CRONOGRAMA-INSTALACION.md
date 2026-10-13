@@ -1989,7 +1989,9 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 **Correcciones ciclo 8:** BUG-capitalización `kind: Statefulset → StatefulSet` en 4 fichas (elasticsearch/rabbitmq/gitlab/qdrant) · PVCs y volumeMounts en 7 fichas stateful (elasticsearch 20Gi · rabbitmq 5Gi · qdrant 10Gi · gitlab 56Gi · ollama 30Gi · paperless-ngx 25Gi · bareos 10Gi) · env vars obligatorias (ES discovery.type/JAVA_OPTS · GitLab OMNIBUS_CONFIG · RabbitMQ credenciales) · initContainer sysctl ES · resources ajustados (elasticsearch 1→2Gi · gitlab 256Mi→6Gi · ollama 256Mi→8Gi)
 
+**Correcciones ciclo 9:** env vars críticas sin las cuales los servicios no arrancan — langfuse (DATABASE_URL/NEXTAUTH_SECRET/SALT/NEXTAUTH_URL/TELEMETRY) · open-webui (OLLAMA_BASE_URL/WEBUI_SECRET_KEY) + PVC open-webui-data 5Gi · flowise (DATABASE_TYPE/HOST/USER/PASS/NAME + FLOWISE_USERNAME/PASSWORD) · embedding-worker (OLLAMA_URL/QDRANT_URL/REDIS_URL) · docuseal (DATABASE_URL/SECRET_KEY_BASE/APP_URL) · kimios (DB_HOST/PORT/NAME/USER/PASS + KIMIOS_ADMIN_PASSWORD) + resources 256Mi→512Mi · limpieza cosmética `spec: + línea vacía` en tabula/tesseract-ocr/velero
+
 ---
 
-*Documento v2.4.0 — bos-developer · 2026-10-13*  
+*Documento v2.4.1 — bos-developer · 2026-10-13*  
 *Panel de control de reparación: `PLAN-INSTALACION-DESDE-CERO.md §13`*

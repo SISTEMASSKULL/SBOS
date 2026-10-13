@@ -63,7 +63,6 @@ metadata:
     app: docuseal
     sbos.app/managed-by: bos
 spec:
-
   replicas: 1
   selector:
     matchLabels:
@@ -78,6 +77,13 @@ spec:
           image: docuseal/docuseal:1.8.9
           ports:
             - containerPort: 3000
+          env:
+            - name: DATABASE_URL
+              value: postgres://postgres:sbos_bootstrap_pass@postgresql.sbos-data.svc.cluster.local:5432/docuseal_db
+            - name: SECRET_KEY_BASE
+              value: sbos_docuseal_secret_key_change_in_prod
+            - name: APP_URL
+              value: https://docuseal.sbos.local
           resources:
             requests:
               cpu: "100m"

@@ -63,7 +63,6 @@ metadata:
     app: velero
     sbos.app/managed-by: bos
 spec:
-
   replicas: 1
   selector:
     matchLabels:

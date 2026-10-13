@@ -63,7 +63,6 @@ metadata:
     app: embedding-worker
     sbos.app/managed-by: bos
 spec:
-
   replicas: 1
   selector:
     matchLabels:
@@ -78,6 +77,13 @@ spec:
           image: sbos/embedding-worker:1.0.0
           ports:
             - containerPort: 8090
+          env:
+            - name: OLLAMA_URL
+              value: http://ollama.sbos-ai.svc.cluster.local:11434
+            - name: QDRANT_URL
+              value: http://qdrant.sbos-ai.svc.cluster.local:6333
+            - name: REDIS_URL
+              value: redis://:sbos_redis_bootstrap@redis.sbos-data.svc.cluster.local:6379/5
           resources:
             requests:
               cpu: "100m"

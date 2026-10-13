@@ -63,7 +63,6 @@ metadata:
     app: tesseract-ocr
     sbos.app/managed-by: bos
 spec:
-
   replicas: 1
   selector:
     matchLabels:

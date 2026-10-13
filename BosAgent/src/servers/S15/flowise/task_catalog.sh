@@ -63,7 +63,6 @@ metadata:
     app: flowise
     sbos.app/managed-by: bos
 spec:
-
   replicas: 1
   selector:
     matchLabels:
@@ -78,6 +77,25 @@ spec:
           image: flowiseai/flowise:2.2.6
           ports:
             - containerPort: 3000
+          env:
+            - name: DATABASE_TYPE
+              value: postgres
+            - name: DATABASE_HOST
+              value: postgresql.sbos-data.svc.cluster.local
+            - name: DATABASE_PORT
+              value: "5432"
+            - name: DATABASE_USER
+              value: postgres
+            - name: DATABASE_PASSWORD
+              value: sbos_bootstrap_pass
+            - name: DATABASE_NAME
+              value: flowise_db
+            - name: FLOWISE_USERNAME
+              value: admin
+            - name: FLOWISE_PASSWORD
+              value: sbos_flowise_admin_change_in_prod
+            - name: SECRETKEY_PATH
+              value: /root/.flowise
           resources:
             requests:
               cpu: "100m"

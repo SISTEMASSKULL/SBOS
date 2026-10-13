@@ -63,7 +63,6 @@ metadata:
     app: kimios
     sbos.app/managed-by: bos
 spec:
-
   replicas: 1
   selector:
     matchLabels:
@@ -78,10 +77,23 @@ spec:
           image: kimios/kimios:7.1.24
           ports:
             - containerPort: 8080
+          env:
+            - name: DB_HOST
+              value: postgresql.sbos-data.svc.cluster.local
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              value: kimios_db
+            - name: DB_USER
+              value: postgres
+            - name: DB_PASSWORD
+              value: sbos_bootstrap_pass
+            - name: KIMIOS_ADMIN_PASSWORD
+              value: sbos_kimios_admin_change_in_prod
           resources:
             requests:
               cpu: "100m"
-              memory: "256Mi"
+              memory: "512Mi"
             limits:
               cpu: "1000m"
               memory: "1Gi"

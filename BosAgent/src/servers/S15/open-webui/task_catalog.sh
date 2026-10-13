@@ -52,6 +52,25 @@ ficha_install() {
         return 0
     fi
 
+    echo "${__STEP_START__} crear_pvc_open_webui"
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'PVCEOF'
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: open-webui-data
+  namespace: sbos-ai
+  labels:
+    app: open-webui
+    sbos.app/managed-by: bos
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 5Gi
+PVCEOF
+    echo "${__STEP_OK__} crear_pvc_open_webui"
+
     echo "${__STEP_START__} aplicar_manifest_open-webui"
     _k apply -f - >> "$FICHA_LOG" 2>&1 <<'K8SEOF'
 apiVersion: apps/v1
@@ -63,7 +82,6 @@ metadata:
     app: open-webui
     sbos.app/managed-by: bos
 spec:
-
   replicas: 1
   selector:
     matchLabels:
@@ -78,6 +96,17 @@ spec:
           image: ghcr.io/open-webui/open-webui:v0.5.20
           ports:
             - containerPort: 8080
+          env:
+            - name: OLLAMA_BASE_URL
+              value: http://ollama.sbos-ai.svc.cluster.local:11434
+            - name: WEBUI_SECRET_KEY
+              value: sbos_openwebui_secret_change_in_prod
+            - name: DATABASE_URL
+              value: sqlite:////app/backend/data/webui.db
+            - name: ENABLE_SIGNUP
+              value: "true"
+            - name: DEFAULT_LOCALE
+              value: es
           resources:
             requests:
               cpu: "100m"
@@ -85,6 +114,13 @@ spec:
             limits:
               cpu: "1000m"
               memory: "1Gi"
+          volumeMounts:
+            - name: open-webui-data
+              mountPath: /app/backend/data
+      volumes:
+        - name: open-webui-data
+          persistentVolumeClaim:
+            claimName: open-webui-data
 K8SEOF
     _k apply -f - >> "$FICHA_LOG" 2>&1 <<'SVCINNER'
 apiVersion: v1
