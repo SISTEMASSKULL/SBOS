@@ -52,6 +52,40 @@ ficha_install() {
         return 0
     fi
 
+    echo "${__STEP_START__} crear_pvcs_paperless"
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'PVCEOF'
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: paperless-media
+  namespace: sbos-docs
+  labels:
+    app: paperless-ngx
+    sbos.app/managed-by: bos
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: paperless-data
+  namespace: sbos-docs
+  labels:
+    app: paperless-ngx
+    sbos.app/managed-by: bos
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 5Gi
+PVCEOF
+    echo "${__STEP_OK__} crear_pvcs_paperless"
+
     echo "${__STEP_START__} aplicar_manifest_paperless-ngx"
     _k apply -f - >> "$FICHA_LOG" 2>&1 <<'K8SEOF'
 apiVersion: apps/v1
@@ -63,7 +97,6 @@ metadata:
     app: paperless-ngx
     sbos.app/managed-by: bos
 spec:
-
   replicas: 1
   selector:
     matchLabels:
@@ -78,13 +111,38 @@ spec:
           image: ghcr.io/paperless-ngx/paperless-ngx:2.14.7
           ports:
             - containerPort: 8000
+          env:
+            - name: PAPERLESS_REDIS
+              value: redis://:sbos_redis_bootstrap@redis.sbos-data.svc.cluster.local:6379/4
+            - name: PAPERLESS_DBHOST
+              value: postgresql.sbos-data.svc.cluster.local
+            - name: PAPERLESS_DBNAME
+              value: paperless_db
+            - name: PAPERLESS_DBUSER
+              value: postgres
+            - name: PAPERLESS_SECRET_KEY
+              value: sbos_paperless_secret_key_change_in_prod
+            - name: PAPERLESS_URL
+              value: https://paperless.sbos.local
           resources:
             requests:
               cpu: "100m"
-              memory: "256Mi"
+              memory: "512Mi"
             limits:
               cpu: "1000m"
               memory: "1Gi"
+          volumeMounts:
+            - name: paperless-media
+              mountPath: /usr/src/paperless/media
+            - name: paperless-data
+              mountPath: /usr/src/paperless/data
+      volumes:
+        - name: paperless-media
+          persistentVolumeClaim:
+            claimName: paperless-media
+        - name: paperless-data
+          persistentVolumeClaim:
+            claimName: paperless-data
 K8SEOF
     _k apply -f - >> "$FICHA_LOG" 2>&1 <<'SVCINNER'
 apiVersion: v1

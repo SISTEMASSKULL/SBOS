@@ -52,6 +52,25 @@ ficha_install() {
         return 0
     fi
 
+    echo "${__STEP_START__} crear_pvc_bareos"
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'PVCEOF'
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: bareos-data
+  namespace: sbos-ops
+  labels:
+    app: bareos-director
+    sbos.app/managed-by: bos
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 10Gi
+PVCEOF
+    echo "${__STEP_OK__} crear_pvc_bareos"
+
     echo "${__STEP_START__} aplicar_manifest_bareos-director"
     _k apply -f - >> "$FICHA_LOG" 2>&1 <<'K8SEOF'
 apiVersion: apps/v1
@@ -63,7 +82,6 @@ metadata:
     app: bareos-director
     sbos.app/managed-by: bos
 spec:
-
   replicas: 1
   selector:
     matchLabels:
@@ -78,6 +96,13 @@ spec:
           image: barcosystems/bareos-director:23.0.1
           ports:
             - containerPort: 9100
+          env:
+            - name: DB_HOST
+              value: postgresql.sbos-data.svc.cluster.local
+            - name: DB_USER
+              value: postgres
+            - name: DB_NAME
+              value: bareos_db
           resources:
             requests:
               cpu: "100m"
@@ -85,6 +110,13 @@ spec:
             limits:
               cpu: "1000m"
               memory: "1Gi"
+          volumeMounts:
+            - name: bareos-data
+              mountPath: /var/lib/bareos
+      volumes:
+        - name: bareos-data
+          persistentVolumeClaim:
+            claimName: bareos-data
 K8SEOF
     _k apply -f - >> "$FICHA_LOG" 2>&1 <<'SVCINNER'
 apiVersion: v1

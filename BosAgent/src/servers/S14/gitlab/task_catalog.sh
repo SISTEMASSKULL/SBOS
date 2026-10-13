@@ -55,7 +55,7 @@ ficha_install() {
     echo "${__STEP_START__} aplicar_manifest_gitlab"
     _k apply -f - >> "$FICHA_LOG" 2>&1 <<'K8SEOF'
 apiVersion: apps/v1
-kind: Statefulset
+kind: StatefulSet
 metadata:
   name: gitlab
   namespace: sbos-ops
@@ -78,13 +78,55 @@ spec:
           image: gitlab/gitlab-ce:17.9.6-ce.0
           ports:
             - containerPort: 80
+            - containerPort: 22
+          env:
+            - name: GITLAB_OMNIBUS_CONFIG
+              value: |
+                external_url 'http://gitlab.sbos-ops.svc.cluster.local'
+                gitlab_rails['initial_root_password'] = ENV['GITLAB_ROOT_PASSWORD'] || 'SBOSgitlab2024!'
+                gitlab_rails['time_zone'] = 'UTC'
+                puma['worker_processes'] = 2
+                sidekiq['max_concurrency'] = 5
+                prometheus_monitoring['enable'] = false
           resources:
             requests:
-              cpu: "100m"
-              memory: "256Mi"
-            limits:
               cpu: "1000m"
-              memory: "1Gi"
+              memory: "2Gi"
+            limits:
+              cpu: "4000m"
+              memory: "6Gi"
+          volumeMounts:
+            - name: gitlab-data
+              mountPath: /var/opt/gitlab
+            - name: gitlab-config
+              mountPath: /etc/gitlab
+            - name: gitlab-logs
+              mountPath: /var/log/gitlab
+  volumeClaimTemplates:
+    - metadata:
+        name: gitlab-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 50Gi
+    - metadata:
+        name: gitlab-config
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 1Gi
+    - metadata:
+        name: gitlab-logs
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 5Gi
 K8SEOF
     _k apply -f - >> "$FICHA_LOG" 2>&1 <<'SVCINNER'
 apiVersion: v1

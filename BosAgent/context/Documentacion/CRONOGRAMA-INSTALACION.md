@@ -1586,6 +1586,9 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 ### [345] tesseract-ocr · [350] paperless-ngx · [355] docuseal · [360] kimios · [365] tabula · S08 · ⏳ NO_INSTALADAS
 
+**Ciclo 8 — logros:**
+- `paperless-ngx`: PVCs `paperless-media` 20Gi + `paperless-data` 5Gi + volumeMounts · env PAPERLESS_REDIS/DBHOST/DBNAME/SECRET_KEY · resources 256Mi→512Mi · limpiado `spec: + línea vacía`
+
 **Propósito:** Gestión documental soberana: OCR automático (tesseract), archivo digital con indexado full-text (paperless-ngx), firma digital (docuseal), ECM empresarial (kimios), extractor de tablas de PDFs (tabula).
 
 **Estado:** Todas STUBs 135 líneas. No instaladas.
@@ -1604,7 +1607,11 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 **Propósito:** Motor de búsqueda full-text (elasticsearch) y broker de mensajes AMQP (rabbitmq). Backend de bsearch y bus de eventos entre servicios.
 
-**Estado:** STUBs 135 líneas. No instaladas.
+**Estado:** Implementaciones reales. No instaladas.
+
+**Ciclo 8 — logros:**
+- `elasticsearch`: BUG-capitalización `kind: Statefulset → StatefulSet` corregido · PVC `es-data` 20Gi (local-path) + volumeMount `/usr/share/elasticsearch/data` · env `discovery.type=single-node`, `ES_JAVA_OPTS=-Xms512m -Xmx512m`, `xpack.security.enabled=false` · initContainer `sysctl vm.max_map_count=262144` (obligatorio para ES) · resources 500m→2000m / 1Gi→2Gi
+- `rabbitmq`: BUG-capitalización `kind: Statefulset → StatefulSet` corregido · PVC `rabbitmq-data` 5Gi + volumeMount `/var/lib/rabbitmq` · env `RABBITMQ_DEFAULT_USER/PASS` + nodename canónico
 
 ---
 
@@ -1616,7 +1623,11 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 **Propósito:** Plataforma DevOps soberana (GitLab CE), backup empresarial (Bareos) y backup K8s (Velero).
 
-**Estado:** STUBs 135 líneas. No instaladas.
+**Estado:** Implementaciones reales. No instaladas.
+
+**Ciclo 8 — logros:**
+- `gitlab`: BUG-capitalización `kind: Statefulset → StatefulSet` corregido · PVCs `gitlab-data` 50Gi + `gitlab-config` 1Gi + `gitlab-logs` 5Gi · env `GITLAB_OMNIBUS_CONFIG` con external_url, root_password, puma 2 workers · resources 1Gi→4Gi / 2Gi→6Gi
+- `bareos`: PVC `bareos-data` 10Gi + volumeMount `/var/lib/bareos` · env DB_HOST/USER/NAME · limpiado `spec: + línea vacía`
 
 ---
 
@@ -1628,7 +1639,11 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 **Propósito:** Stack de IA soberana: servidor de modelos LLM locales (ollama), base de datos vectorial RAG (qdrant), interfaz web de chat (open-webui), worker de embeddings de documentos (embedding-worker), observabilidad de LLMs (langfuse), orquestador visual de flujos LLM (flowise).
 
-**Estado:** Todas STUBs 135 líneas. No instaladas.
+**Estado:** Implementaciones reales. No instaladas.
+
+**Ciclo 8 — logros:**
+- `qdrant`: BUG-capitalización `kind: Statefulset → StatefulSet` corregido · PVC `qdrant-storage` 10Gi + volumeMount `/qdrant/storage` · resources 256Mi→512Mi / 1Gi→2Gi
+- `ollama`: PVC separado `ollama-models` 30Gi + volumeMount `/root/.ollama` (modelos LLM persisten entre reinicios) · resources 256Mi→2Gi / 1Gi→8Gi · limpiado `spec: + línea vacía`
 
 ---
 
@@ -1972,7 +1987,9 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 **Correcciones ciclo 7:** `ficha_repair` agregada a TODAS las fichas (100% cobertura) · `ficha_test` agregada a fichas S13 activas (nextcloud/guacamole/onlyoffice/fedora-kde) y S06 (ferretdb/calcom/novu) · `auto_install: true + category_label` agregados a ferretdb/calcom/novu manifests · `ficha_repair` loki/tempo/zabbix (Helm idempotente) · sbos-bootstrap-platform y sbos-k8s-network-validator con `ficha_repair`
 
+**Correcciones ciclo 8:** BUG-capitalización `kind: Statefulset → StatefulSet` en 4 fichas (elasticsearch/rabbitmq/gitlab/qdrant) · PVCs y volumeMounts en 7 fichas stateful (elasticsearch 20Gi · rabbitmq 5Gi · qdrant 10Gi · gitlab 56Gi · ollama 30Gi · paperless-ngx 25Gi · bareos 10Gi) · env vars obligatorias (ES discovery.type/JAVA_OPTS · GitLab OMNIBUS_CONFIG · RabbitMQ credenciales) · initContainer sysctl ES · resources ajustados (elasticsearch 1→2Gi · gitlab 256Mi→6Gi · ollama 256Mi→8Gi)
+
 ---
 
-*Documento v2.0.0 — bos-developer · 2026-10-13*  
+*Documento v2.4.0 — bos-developer · 2026-10-13*  
 *Panel de control de reparación: `PLAN-INSTALACION-DESDE-CERO.md §13`*

@@ -52,6 +52,25 @@ ficha_install() {
         return 0
     fi
 
+    echo "${__STEP_START__} crear_pvc_ollama"
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'PVCEOF'
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ollama-models
+  namespace: sbos-ai
+  labels:
+    app: ollama
+    sbos.app/managed-by: bos
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 30Gi
+PVCEOF
+    echo "${__STEP_OK__} crear_pvc_ollama"
+
     echo "${__STEP_START__} aplicar_manifest_ollama"
     _k apply -f - >> "$FICHA_LOG" 2>&1 <<'K8SEOF'
 apiVersion: apps/v1
@@ -63,7 +82,6 @@ metadata:
     app: ollama
     sbos.app/managed-by: bos
 spec:
-
   replicas: 1
   selector:
     matchLabels:
@@ -80,11 +98,18 @@ spec:
             - containerPort: 11434
           resources:
             requests:
-              cpu: "100m"
-              memory: "256Mi"
+              cpu: "500m"
+              memory: "2Gi"
             limits:
-              cpu: "1000m"
-              memory: "1Gi"
+              cpu: "4000m"
+              memory: "8Gi"
+          volumeMounts:
+            - name: ollama-models
+              mountPath: /root/.ollama
+      volumes:
+        - name: ollama-models
+          persistentVolumeClaim:
+            claimName: ollama-models
 K8SEOF
     _k apply -f - >> "$FICHA_LOG" 2>&1 <<'SVCINNER'
 apiVersion: v1

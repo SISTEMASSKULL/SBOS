@@ -55,7 +55,7 @@ ficha_install() {
     echo "${__STEP_START__} aplicar_manifest_qdrant"
     _k apply -f - >> "$FICHA_LOG" 2>&1 <<'K8SEOF'
 apiVersion: apps/v1
-kind: Statefulset
+kind: StatefulSet
 metadata:
   name: qdrant
   namespace: sbos-ai
@@ -78,13 +78,26 @@ spec:
           image: qdrant/qdrant:v1.14.0
           ports:
             - containerPort: 6333
+            - containerPort: 6334
           resources:
             requests:
               cpu: "100m"
-              memory: "256Mi"
+              memory: "512Mi"
             limits:
               cpu: "1000m"
-              memory: "1Gi"
+              memory: "2Gi"
+          volumeMounts:
+            - name: qdrant-storage
+              mountPath: /qdrant/storage
+  volumeClaimTemplates:
+    - metadata:
+        name: qdrant-storage
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 10Gi
 K8SEOF
     _k apply -f - >> "$FICHA_LOG" 2>&1 <<'SVCINNER'
 apiVersion: v1

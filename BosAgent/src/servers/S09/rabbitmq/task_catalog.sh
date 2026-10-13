@@ -55,7 +55,7 @@ ficha_install() {
     echo "${__STEP_START__} aplicar_manifest_rabbitmq"
     _k apply -f - >> "$FICHA_LOG" 2>&1 <<'K8SEOF'
 apiVersion: apps/v1
-kind: Statefulset
+kind: StatefulSet
 metadata:
   name: rabbitmq
   namespace: sbos-search
@@ -78,6 +78,14 @@ spec:
           image: rabbitmq:4.0.7-management
           ports:
             - containerPort: 5672
+            - containerPort: 15672
+          env:
+            - name: RABBITMQ_DEFAULT_USER
+              value: sbos
+            - name: RABBITMQ_DEFAULT_PASS
+              value: sbos_rabbitmq_pass
+            - name: RABBITMQ_NODENAME
+              value: rabbit@rabbitmq-0.rabbitmq.sbos-search.svc.cluster.local
           resources:
             requests:
               cpu: "100m"
@@ -85,6 +93,18 @@ spec:
             limits:
               cpu: "1000m"
               memory: "1Gi"
+          volumeMounts:
+            - name: rabbitmq-data
+              mountPath: /var/lib/rabbitmq
+  volumeClaimTemplates:
+    - metadata:
+        name: rabbitmq-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 5Gi
 K8SEOF
     _k apply -f - >> "$FICHA_LOG" 2>&1 <<'SVCINNER'
 apiVersion: v1
