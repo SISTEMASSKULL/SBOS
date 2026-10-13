@@ -292,7 +292,7 @@
 - ✅ (ciclo 2) BUG-35 cerrado en postgresql: `vault` ya es `runtime_dependency`, no `dependency`
 
 **Faltantes:**
-- ❌ health.check_command ausente en manifest — BOS no detecta "PG no acepta conexiones" proactivamente (GAP-2)
+- ✅ GAP-2 FALSO POSITIVO: health check presente — `pg_isready -U postgres` con kubectl exec
 
 ---
 
@@ -334,7 +334,7 @@
 - ✅ (ciclo 2) BUG-35 cerrado: `vault` como `runtime_dependency`, no `dependency`
 
 **Faltantes:**
-- ❌ health.check_command ausente (GAP-2)
+- ✅ GAP-2 FALSO POSITIVO: health check presente — `redis-cli ping` expected_output: PONG
 
 ---
 
@@ -488,7 +488,7 @@
 - ✅ RPC :8545, WS :8546 accesibles
 
 **Faltantes:**
-- ❌ health.check_command ausente (GAP-2)
+- ✅ GAP-2 FALSO POSITIVO: health check ya presente — `podman inspect {{.State.Running}}` (runtime: podman)
 - ❌ Contratos AuditAnchor.sol y SettlementEngine.sol no desplegados (pendiente fase de bAuth D12)
 
 **Bugs:** ninguno activo
