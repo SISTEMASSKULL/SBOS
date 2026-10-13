@@ -8,7 +8,7 @@ identity:
 
 workload:
   type: statefulset
-  runtime: docker
+  runtime: kubernetes
   namespace: sbos-comms
   replicas: 1
 

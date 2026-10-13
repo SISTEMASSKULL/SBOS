@@ -1,6 +1,6 @@
 # Cronograma de Instalación — Ficha por Ficha
 
-**Versión:** 2.3.0  
+**Versión:** 2.3.7  
 **Fecha:** 2026-10-13  
 **Autor:** bos-developer  
 
@@ -394,49 +394,45 @@
 
 ---
 
-### [~105] sbos-database-init · S01 · ⚠️ FICHA FALTANTE (GAP crítico)
+### [105] sbos-database-init · S01 · ⏳ NUEVA FICHA CREADA (pendiente primer deploy)
 
-**Propósito:** Desplegar el schema completo de `SBOSDB` en el pod de PostgreSQL recién instalado. Ejecutar `SBOS_db_V2_DDL.sql` (158 tablas en 12 schemas: `bos`, `bauth`, `bkernel`, `biedata`, `bsearch`, `bnexus`, `bnotify`, `kong`, `keycloak`, `tryton`, `mattermost`, `audit`). Cargar los seeds iniciales (enums T060, menús contextuales T061, roles template T162, etc.). Verificar que todas las tablas existen y los índices están creados.
+**Propósito:** Desplegar el schema completo de `SBOSDB` en el pod de PostgreSQL recién instalado. Ejecutar `SBOS_db_V2_DDL.sql` (158 tablas en 12 schemas: `bos`, `bauth`, `bkernel`, `biedata`, `bsearch`, `bnexus`, `bnotify`, `kong`, `keycloak`, `tryton`, `mattermost`, `audit`). Verificar que todas las tablas existen. Idempotente: re-ejecutar no destruye datos.
 
 **Dependencias:** postgresql
 
-**Por qué es el orden ~105:** postgresql tiene orden 100. Este inicializador debe correr cuando el pod está Running pero ANTES de que las aplicaciones (keycloak, kong, tryton, etc.) intenten usar sus schemas. Slot ideal: orden 105.
+**Por qué es el orden 105:** postgresql tiene orden 100. Este inicializador debe correr cuando el pod está Running pero ANTES de que las aplicaciones (keycloak, kong, tryton, etc.) intenten usar sus schemas.
 
 **🔶 Huevo y gallina — SCHEMA VS APP:**
-- **Fase A (orden ~105):** Crear todos los schemas y tablas vacías con DDL idempotente (`CREATE TABLE IF NOT EXISTS`, `CREATE SCHEMA IF NOT EXISTS`). Los schemas deben existir antes que las apps.
-- **Fase B (orden ~160+):** Las apps (keycloak, kong, tryton) crean sus propios registros al arrancar — no van en este seed.
-- **Fase C (post-instalación completa):** Seeds de dominio SBOS (bloques de roles, menús contextuales, configuración inicial de tenants) se cargan desde scripts individuales por módulo.
+- **Fase A (orden 105):** Crear todos los schemas y tablas vacías con DDL idempotente (`CREATE TABLE IF NOT EXISTS`, `CREATE SCHEMA IF NOT EXISTS`). Los schemas deben existir antes que las apps.
+- **Fase B (orden 160+):** Las apps (keycloak, kong, tryton) crean sus propios registros al arrancar — no van en este seed.
+- **Fase C (post-instalación completa):** Seeds de dominio SBOS se cargan desde scripts individuales por módulo.
 
 **Estado actual en VPS:**
-- `SBOSDB` existe con 158 tablas (se creó manualmente con psql)
-- 62 tablas verificadas OK, el resto sin verificar exhaustivamente
-- Sin ficha BOS que lo supervise — si se destruye el pod PG, el schema se pierde (PVC Retain conserva los datos pero la ficha no puede repararlos)
+- `SBOSDB` existe con 158 tablas (se creó manualmente en sesión anterior)
+- La ficha ahora puede supervisarlo: `ficha_repair()` re-aplica el DDL si el schema se degrada.
 
-**Faltantes:**
-- ❌ Crear ficha `servers/S01/sbos-database-init/manifest.yml` con:
-  - `execution_order: 105`
-  - `dependencies: [postgresql]`
-  - `auto_install: true`
-- ❌ Crear `task_catalog.sh` que:
-  1. Verifica conexión a postgresql: `pg_isready -h <pod-ip> -U postgres`
-  2. Ejecuta DDL idempotente: `psql ... -f DDLs/SBOS_db_V2_DDL.sql`
-  3. Verifica tabla count: `SELECT count(*) FROM information_schema.tables WHERE table_schema NOT IN ('pg_catalog','information_schema')`
-  4. Carga seeds críticos: enums de T060, si no existen
-  5. Health check: consulta a una tabla crítica (`SELECT 1 FROM bos.bos_ctx_session LIMIT 1`)
-- ❌ Crear `health.check_command` que verifique que las tablas existen y el schema está desplegado
+**Logros (ciclo 5):**
+- ✅ `servers/S01/sbos-database-init/manifest.yml` creado — `execution_order: 105`, `dependencies: [postgresql]`, `auto_install: true`
+- ✅ `servers/S01/sbos-database-init/task_catalog.sh` creado — 7 funciones: `pre_install`, `install`, `post_install`, `repair`, `test`, `status`, `diagnosis`
+- ✅ `ficha_pre_install()`: verifica pg_isready + existencia del DDL en `/etc/bos/ddl/SBOS_db_V2_DDL.sql`
+- ✅ `ficha_install()`: crea SBOSDB, copia DDL al pod con `kubectl cp`, ejecuta `psql -f` idempotente, verifica ≥50 tablas y ≥6 schemas
+- ✅ `ficha_repair()`: re-aplica DDL idempotente para convergir schemas faltantes
+- ✅ `ficha_test()`: 4 assertions — DB existe, tabla count ≥50, schema bauth presente, schema bos presente
+- ✅ `ficha_uninstall()`: NO elimina SBOSDB (datos protegidos por diseño)
 
-**Solución paso a paso:**
+**Faltantes / pendiente:**
+- ⚠️ DDL file: BOS setup debe copiar `DDLs/SBOS_db_V2_DDL.sql` → `/etc/bos/ddl/` durante el `bosctl setup`. Hasta que se implemente eso, el operador puede hacer `mkdir -p /etc/bos/ddl && cp <ruta>/SBOS_db_V2_DDL.sql /etc/bos/ddl/` y luego `bosctl ficha install sbos-database-init`.
+- ⚠️ Seeds (T060/T061/T162): no se cargan en este instalador — se cargan por módulo en Fase C.
+
+**Acciones VPS pendientes:**
+```bash
+# 1. Copiar DDL al host de la VPS (si no existe)
+mkdir -p /etc/bos/ddl
+cp /opt/skull/orquestador/proyectos/SBOS/DDLs/SBOS_db_V2_DDL.sql /etc/bos/ddl/
+
+# 2. Instalar la ficha (SBOSDB ya existe — el DDL idempotente converge diferencias)
+bosctl ficha install sbos-database-init
 ```
-1. Crear servers/S01/sbos-database-init/ con manifest.yml + task_catalog.sh
-2. Execution order: 105 (después de postgresql=100, antes de apps=130+)
-3. El task_catalog.sh ejecuta DDLs/SBOS_db_V2_DDL.sql via kubectl exec al pod postgresql
-4. Verificar: SELECT count(*) FROM information_schema.tables = 158
-5. bosctl ficha install sbos-database-init
-```
-
-**Riesgo si no se crea:**
-- Si el pod de postgresql se destruye (o el PVC se pierde), la base de datos hay que recrear manualmente. BOS no puede repararlo.
-- Las apps que arrancan por primera vez asumen que sus tablas existen → falla silenciosa.
 
 ---
 
@@ -860,20 +856,22 @@ Kong (Domain Resolver):
 
 ---
 
-### [215] loki · S12 · ⚙️ PENDING (STUB — 135 líneas)
+### [215] loki · S12 · ⚙️ PENDING (auto_install=true, esperando deps)
 
 **Propósito:** Agregación y búsqueda de logs de todos los pods del cluster. Recibe logs de Grafana Alloy, los indexa con labels de K8s (namespace, pod, container) y el `ctx_id` SBOS extraído por Alloy. Grafana los visualiza.
 
 **Dependencias:** prometheus, grafana, minio
 
-**⚠️ STUB:** La ficha tiene solo 135 líneas — deploy básico sin configuración real de almacenamiento en MinIO, sin retención configurada, sin pipeline de labels ctx_id.
-
-**Logros:** ninguno (STUB sin deploy real completado)
+**Logros (ciclo 5):**
+- ✅ Implementación real confirmada: usa `helm upgrade --install loki grafana/loki` versión 6.9.0
+- ✅ `runtime: docker` corregido a `runtime: kubernetes` en manifest.yml
+- ✅ PV Retain 20 Gi en `/data/loki` + modo singleBinary (1 réplica, bajo consumo)
+- ✅ Replicación deshabilitada (development mode para cluster monodo)
 
 **Faltantes:**
-- ❌ Deploy completo de Loki con backend S3 en MinIO
-- ❌ Pipeline de labels ctx_id configurado
-- ❌ Política de retención definida
+- ❌ Backend S3/MinIO deshabilitado (chunksCache=false, resultsCache=false) — logs van a disco local
+- ❌ Pipeline de labels ctx_id — Alloy ya extrae ctx_id pero Loki no tiene reglas de parseo configuradas
+- ❌ Política de retención no configurada
 
 **Bugs:** ninguno activo (no está instalado)
 
@@ -897,31 +895,35 @@ Kong (Domain Resolver):
 
 ---
 
-### [220] tempo · S12 · ⚙️ PENDING (STUB — 98 líneas)
+### [220] tempo · S12 · ⚙️ PENDING (auto_install=true, esperando deps)
 
 **Propósito:** Trazado distribuido (distributed tracing). Recibe spans de aplicaciones instrumentadas con OpenTelemetry, los almacena y los hace consultables desde Grafana.
 
 **Dependencias:** loki, prometheus
 
-**⚠️ STUB:** 98 líneas — la ficha más corta del catálogo. Sin configuración de backend S3.
+**Logros (ciclo 5):**
+- ✅ Implementación real confirmada: usa `helm upgrade --install tempo grafana/tempo` (Helm)
+- ✅ `runtime: docker` corregido a `runtime: kubernetes` en manifest.yml
+- ✅ 98 líneas pero deploy Helm completo + `ficha_remove` con `helm uninstall`
 
-**Logros:** ninguno (STUB)
-
-**Faltantes:** deploy completo con backend MinIO y correlación ctx_id
+**Faltantes:**
+- ❌ Backend S3/MinIO no configurado — trazas van a disco local
+- ❌ Correlación ctx_id no configurada
 
 **Bugs:** ninguno activo
 
 ---
 
-### [225] zabbix · S12 · ⏳ NO_INSTALADA (auto_install: false — STUB)
+### [225] zabbix · S12 · ⏳ NO_INSTALADA (auto_install: false)
 
 **Propósito:** Monitoreo de infraestructura tradicional (host, red, hardware). Complementa Prometheus para alertas de hardware y disponibilidad de servicios no K8s.
 
 **Dependencias:** postgresql, grafana
 
-**Estado:** No instalado. auto_install=false + STUB 140 líneas.
-
-**Logros:** ninguno
+**Logros (ciclo 5):**
+- ✅ Implementación real confirmada: usa `helm upgrade --install zabbix zabbix-community/zabbix` (Helm)
+- ✅ `runtime: docker` corregido a `runtime: kubernetes` en manifest.yml
+- ✅ 140 líneas con PG config, Helm install, `ficha_remove`
 
 **Faltantes:** decisión de si es parte del MVP (Q-5 HITL §11.4)
 
@@ -1334,17 +1336,22 @@ fedora-kde pod  ← UN SOLO POD COMPARTIDO (VDI-GAP-1)
 
 ### [420] sbos-vdi-config · S13 · ⏳ NO_INSTALADA (auto_install: false)
 
-**Propósito:** Configuración final del ecosistema VDI: rutas Kong para `/nextcloud/`, `/onlyoffice/`, `/desktop/`, cliente OIDC `sbos-desktop` en realm Keycloak, NetworkPolicies que permiten sbos-vdi → sbos-data y sbos-security.
+**Propósito:** Configuración final del ecosistema VDI: NetworkPolicies que permiten sbos-vdi → sbos-data y sbos-security, y política de egress a internet para fedora-kde. Usa un ConfigMap `sbos-vdi-configured` como marcador de idempotencia.
 
 **Dependencias:** nextcloud, onlyoffice, guacamole, keycloak, kong
 
 **Estado:** No instalada. Depende de que todas las fichas VDI estén INSTALLED primero.
 
-**Logros:** ninguno (no instalada — parte de su configuración se hizo manualmente)
+**Logros (ciclo 5):**
+- ✅ Implementación auditada: 221 líneas con 4 NetworkPolicies, `ficha_pre_install`, `ficha_install`, `ficha_repair`, `ficha_verify`, `ficha_health`, `ficha_remove`
+- ✅ Idempotencia por ConfigMap `sbos-vdi-configured` — si ya existe, `ficha_install` hace SKIP
+- ✅ `ficha_repair` re-aplica NetworkPolicies sin destruir el marker
+- ✅ Estructura correcta: rutas Kong y Keycloak OIDC ya se configuraron manualmente (fuera de este ciclo); esta ficha cubre la capa de red
+- ✅ `allow-fedora-kde-internet-egress` NetworkPolicy correctamente referenciada en `ficha_verify` y `ficha_health`
 
 **Faltantes:**
-- ❌ Instalar con `bosctl ficha install sbos-vdi-config` cuando todas las fichas VDI estén INSTALLED
-- ❌ Rutas Kong VDI configuradas manualmente en lugar de via esta ficha
+- ⚠️ Instalar cuando todas las fichas VDI estén INSTALLED: `bosctl ficha install sbos-vdi-config`
+- ⚠️ Rutas Kong VDI (`/nextcloud/`, `/onlyoffice/`, `/desktop/`) configuradas manualmente — considerar moverlas a esta ficha en iteración futura
 
 ---
 
@@ -1482,15 +1489,17 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 - Postfix autentica remitentes via Dovecot SASL
 - Resultado: `login juan.perez + contraseña Keycloak` → acceso al buzón IMAP
 
-**Logros:** ninguno (STUB 135 líneas)
+**Logros (ciclo 5):**
+- ✅ `runtime: docker` corregido a `runtime: kubernetes` en manifest.yml
+- ✅ Implementación real confirmada: 210 líneas con PV Retain (50 Gi) + PVC + StatefulSet + Service (5 puertos: 25, 465, 587, 143, 993)
+- ✅ `ficha_health` y `ficha_verify` implementadas
 
 **Faltantes:**
-- ❌ Completar ficha a nivel ROBUSTO (target: 400+ líneas)
-- ❌ Configurar Dovecot SASL → Keycloak LDAP
+- ❌ Env vars Keycloak LDAP en contenedor (OVERRIDE_HOSTNAME, SSL_TYPE ya están; faltan SASL_LDAP_*)
 - ❌ Crear `mailserver_db` schema en PostgreSQL (tabla `virtual_mailboxes`, `virtual_aliases`)
-- ❌ Configurar PVC `/data/mailserver/` con política Retain
-- ❌ Abrir puertos 25/465/587 (SMTP) y 993 (IMAPS) en UFW cuando se instale
-- ❌ health.check_command: `postfix status && dovecot --version`
+- ❌ `ficha_repair` y `ficha_test` (funciones canónicas BOS — tiene `ficha_remove` pero no repair)
+- ❌ health.check_command más preciso: `postfix status && dovecot --version` via kubectl exec
+- ❌ Abrir puertos 25/465/587/993 en UFW cuando se instale
 
 ---
 
@@ -1498,9 +1507,14 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 **Propósito:** UI web de administración del mailserver. Crear/eliminar buzones, alias, dominios. Alternativa a editar la BD directamente. Autenticación via Keycloak SSO (solo admins con grupo `mail_admin`).
 
-**Logros:** ninguno (STUB 135 líneas)
+**Logros (ciclo 5):**
+- ✅ `runtime: docker` corregido a `runtime: kubernetes` en manifest.yml
+- ✅ Implementación básica: Deployment + Service (postfixadmin/postfixadmin:3.3.15, puerto 80)
 
-**Faltantes:** Completar ficha ROBUSTO + integración Keycloak
+**Faltantes:**
+- ❌ Env vars: `POSTFIXADMIN_DB_TYPE=pgsql`, `POSTFIXADMIN_DB_HOST`, `POSTFIXADMIN_DB_USER`, etc.
+- ❌ Integración Keycloak SSO (OIDC OAuth2)
+- ❌ `ficha_repair` y `ficha_test` (funciones canónicas BOS)
 
 ---
 
@@ -1508,9 +1522,14 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 **Propósito:** Cliente webmail para usuarios. Acceden a su correo desde el navegador (o desde el escritorio VDI — Roundcube se puede instalar como app en el menú KDE de Fedora). Login con credenciales Keycloak via IMAP OAuth2.
 
-**Logros:** ninguno (STUB 135 líneas)
+**Logros (ciclo 5):**
+- ✅ `runtime: docker` corregido a `runtime: kubernetes` en manifest.yml
+- ✅ Implementación básica: Deployment + Service (roundcube/roundcubemail:1.6.10, puerto 80)
 
-**Faltantes:** Completar ficha ROBUSTO + OAuth2 Keycloak como método de login
+**Faltantes:**
+- ❌ Env vars: `ROUNDCUBEMAIL_DEFAULT_HOST=mailserver`, `ROUNDCUBEMAIL_SMTP_SERVER`, DB config
+- ❌ OAuth2 Keycloak como método de login
+- ❌ `ficha_repair` y `ficha_test` (funciones canónicas BOS)
 
 ---
 
@@ -1518,9 +1537,13 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 **Propósito:** Webmail alternativo modular con soporte para múltiples cuentas (IMAP, calendarios, RSS). Más ligero que Roundcube. Puede convivir con Roundcube como opción de cliente.
 
-**Logros:** ninguno (STUB 135 líneas)
+**Logros (ciclo 5):**
+- ✅ `runtime: docker` corregido a `runtime: kubernetes` en manifest.yml
+- ✅ Implementación básica: Deployment + Service (sailfishsoftware/cypht:latest, puerto 80)
 
-**Faltantes:** Completar ficha ROBUSTO
+**Faltantes:**
+- ❌ Env vars: IMAP host, DB config, Keycloak OIDC
+- ❌ `ficha_repair` y `ficha_test` (funciones canónicas BOS)
 
 ---
 
