@@ -29,6 +29,40 @@
 
 ---
 
+## Arquitectura de identidad unificada — principio rector
+
+> Este principio atraviesa todo el cronograma. Entenderlo antes de leer las fichas
+> evita confusión sobre por qué las dependencias son como son.
+
+**Un usuario SBOS = una identidad Keycloak = todos los servicios.**
+
+```
+                    ┌─────────────────────────────────────────┐
+                    │           KEYCLOAK (S03)                │
+                    │   Fuente de verdad de identidad          │
+                    │   juan.perez@empresa.sbos.app            │
+                    │   grupos: [empleados, contabilidad,      │
+                    │            fedora_user, correo_activo]   │
+                    └────────────────┬────────────────────────┘
+                                     │ SSO (OIDC/SAML/LDAP)
+              ┌──────────────────────┼──────────────────────────┐
+              │                      │                          │
+              ▼                      ▼                          ▼
+    VDI (fedora-kde)        Correo (mailserver)       Apps (Tryton, Nextcloud)
+    Pod personalizado        Buzón IMAP propio         Acceso según rol
+    PVC con home del         Misma contraseña          Misma contraseña
+    usuario                  Keycloak                  Keycloak
+    Apps según grupo
+```
+
+**Consecuencia para el instalador:**
+- Keycloak se instala antes que cualquier app de usuario (orden 140)
+- Mailserver NO tiene usuarios propios — autentica contra Keycloak
+- VDI NO tiene usuarios Linux fijos — los crea al vuelo según el JWT de Keycloak
+- Cada app que se instala debe configurar su conector OIDC/SAML hacia Keycloak
+
+---
+
 ## FASE 1 — Preparación del host (órdenes 1–10)
 
 > El host Ubuntu 26.04 se prepara para alojar el cluster K8s. Estas fichas corren
@@ -572,13 +606,72 @@ Internet
 
 ---
 
+#### Flujo de autenticación correcto (objetivo de diseño)
+
+```
+Usuario → https://IP/
+                │
+                ▼
+        ┌─────────────────────────────────┐
+        │   SBOS Landing Page (index.html) │
+        │   "Sistema Operativo Soberano"   │
+        │   [Botón: Iniciar sesión]        │
+        └────────────────┬────────────────┘
+                         │ click
+                         ▼
+                    /desktop/
+                         │
+                oauth2-proxy-desktop
+                         │
+                         ▼
+              ┌──────────────────────┐
+              │  Keycloak Login Page  │
+              │  (tema SBOS/tenant)   │
+              └──────┬───────────────┘
+                     │
+          ┌──────────┴──────────┐
+          │                     │
+       EXITOSO               FALLIDO
+          │                     │
+          ▼                     ▼
+   fedora-kde VDI         /?error=auth
+   (escritorio del      (vuelve a landing
+    usuario)             con mensaje)
+```
+
+**Bug actual:** `location / { return 302 /desktop/; }` — la landing page nunca se muestra. El usuario llega al login de Keycloak directamente sin pasar por la página de bienvenida SBOS.
+
+**Fix en nginx task_catalog.sh:**
+```nginx
+# INCORRECTO (actual):
+location / {
+    return 302 /desktop/;
+}
+
+# CORRECTO (objetivo):
+location / {
+    root /var/www/html;
+    index index.html;
+    try_files $uri $uri/ =404;
+    # El botón "Iniciar sesión" en index.html apunta a /desktop/
+    # El parámetro ?error=auth muestra mensaje si el login falló
+}
+```
+
+**El index.html también necesita:**
+- Leer `?error=auth` y mostrar mensaje "Credenciales incorrectas, intente nuevamente"
+- Botón prominente "Iniciar sesión" → `/desktop/`
+- Mostrar el nombre/logo del tenant (si aplica — Kong puede inyectar un header `X-SBOS-Tenant`)
+
+---
+
 #### Web de SBOS (página de bienvenida)
 
 nginx sirve `/var/www/html/index.html` — la página de bienvenida del sistema SBOS:
 - **Diseño:** fondo gradiente oscuro, logo, "Sistema Operativo Empresarial Soberano"
 - **Links:** `/admin` (Core UI), `/api` (Kong), `/monitor` (Grafana), `/docs`
 - **Stack visible:** Ubuntu 26.04, K8s 1.32, Go, Rust, Python, PostgreSQL 18, Keycloak 26
-- **NOTA:** La raíz `/` hace `return 302 /desktop/` → redirige al escritorio VDI directamente. El index.html NO se sirve al acceder a `/` — solo si se accede por una ruta exacta que no coincida con otro location. **Este comportamiento es un GAP** — el index.html debería servirse en `/` y el escritorio estar en `/desktop/`.
+- **Estado actual:** La raíz `/` hace `return 302 /desktop/` → el index.html nunca se sirve (INC-nginx-1).
 
 ---
 
@@ -957,13 +1050,71 @@ Kong (Domain Resolver):
 
 ### [230] fedora-kde · S13 · ⏸️ UPDATE_AVAILABLE
 
-**Propósito:** Escritorio virtual corporativo. Pod que ejecuta KDE Plasma 6 + TigerVNC sobre Fedora 44. Accesible desde el navegador web via noVNC HTML5 (puerto 6901) o via Guacamole (VNC sobre WebSocket). Cada usuario corporativo accede a su escritorio Fedora con las aplicaciones SBOS preconfiguradas (Tryton cliente, sbos-webapp, Nextcloud).
+**Propósito:** Escritorio virtual corporativo soberano. Un usuario Keycloak autenticado recibe un pod Fedora 44 + KDE Plasma 6 personalizado: sus archivos, sus apps permitidas según su rol, su configuración de escritorio — todo persistente entre sesiones. Accesible desde cualquier navegador sin instalar nada en el cliente.
 
 **Dependencias:** keycloak, kong, guacamole
 
 ---
 
-#### Arquitectura VDI actual (simplificada)
+#### Arquitectura VDI completa (objetivo de diseño)
+
+```
+                    IDENTIDAD ÚNICA POR USUARIO
+                           │
+                    Keycloak JWT contiene:
+                    - username: juan.perez
+                    - email: juan.perez@empresa.sbos.app
+                    - groups: [empleados, contabilidad, fedora_user]
+                           │
+nginx → oauth2-proxy-desktop (extrae JWT) → sbos-vdi-provisioner
+                                                    │
+                         ┌──────────────────────────┤
+                         ▼                          ▼
+              Pod fedora-kde-juan.perez    PVC fedora-home-juan.perez
+              (creado si no existe)        10 Gi, /home/juan.perez/
+                         │                  archivos, config KDE,
+              Perfil cargado según          historial, escritorio
+              grupos Keycloak:
+              - Apps en menú KDE
+              - Nivel sudo
+              - Acceso a impresoras/USB
+```
+
+---
+
+#### Perfiles de usuario — grupos Keycloak → capacidades Fedora
+
+| Grupo Keycloak | Perfil Fedora | Sudo | Apps disponibles | Persistencia |
+|----------------|---------------|------|------------------|--------------|
+| `fedora_admin` | wheel | Completo | Todas + terminal | PVC 20 Gi |
+| `fedora_user` | usuarios | Sin sudo | Apps empresa (Tryton, correo, Nextcloud) | PVC 10 Gi |
+| `fedora_readonly` | readonly | Sin sudo | Solo lectura, sin instalar | PVC 5 Gi |
+| `fedora_guest` | guest | Sin sudo | Navegador, visor documentos | Sin PVC (tmpfs) |
+
+**Implementación del perfil:**
+1. `sbos-vdi-provisioner` crea el pod con variables de entorno `SBOS_USER`, `SBOS_GROUPS`
+2. El `start-desktop.sh` de la imagen lee esas variables y:
+   - Crea el usuario Linux si no existe (`useradd -m -u <uid> <username>`)
+   - Monta el PVC como `/home/<username>/`
+   - Genera `~/.config/menus/applications.menu` con las apps del grupo
+   - Configura sudoers si el grupo es `fedora_admin`
+3. TigerVNC arranca como ese usuario (no como `sbosuser` genérico)
+
+---
+
+#### Identidad de correo = identidad VDI
+
+El email del usuario (`juan.perez@empresa.sbos.app`) es su identidad principal:
+- **Mailserver (Postfix+Dovecot):** autentica via Keycloak SASL → el buzón se crea automáticamente cuando el usuario existe en Keycloak
+- **VDI:** el email del JWT (`X-Forwarded-Email`) determina qué pod y qué PVC se asignan
+- **Nextcloud:** el mismo usuario Keycloak tiene acceso a sus archivos en la nube
+- **Tryton ERP:** el mismo usuario con sus permisos de módulo
+
+**Un solo usuario, una sola contraseña, todos los servicios.**
+
+---
+
+#### Arquitectura VDI actual (simplificada — estado real en VPS)
 
 ```
 Usuario en navegador
@@ -974,9 +1125,10 @@ https://IP:443/desktop/
 nginx (HOST) → oauth2-proxy-desktop (SSO Keycloak)
         │
         ▼
-fedora-kde pod
+fedora-kde pod  ← UN SOLO POD COMPARTIDO (VDI-GAP-1)
   TigerVNC :5901
-  noVNC :6901 (HTML5)
+  noVNC :6901 (expuesto sin auth — VDI-GAP-5 URGENTE)
+  home: ephemeral (VDI-GAP-2 — se pierde en reboot)
 ```
 
 ---
@@ -1194,23 +1346,124 @@ fedora-kde pod
 
 ## FASE 12 — Correo (S10, órdenes 300–315)
 
-> Módulo de correo electrónico soberano. Requiere dominio público con MX configurado.
-> Todas con auto_install: false — instalar cuando el tenant lo requiera.
+> Módulo de correo electrónico soberano. La identidad de correo ES la identidad SBOS:
+> el mismo usuario Keycloak que accede al VDI tiene su buzón de correo en el mailserver.
+> Requiere dominio público con registro MX configurado en DNS.
+
+---
+
+#### Concepto: correo como capa de identidad, no sistema separado
+
+El mailserver SBOS NO es un sistema de correo independiente con sus propios usuarios. Es una **extensión de identidad Keycloak**:
+
+```
+Administrador crea usuario en Keycloak:
+  username: juan.perez
+  email: juan.perez@empresa.sbos.app
+  groups: [empleados, fedora_user, correo_activo]
+              │
+              ├── Keycloak gestiona la contraseña y el SSO
+              ├── mailserver (Postfix+Dovecot) autentica CONTRA Keycloak
+              │   via SASL → el buzón se crea automáticamente
+              ├── VDI: ese usuario tiene su pod Fedora y su PVC
+              └── Roundcube/Cypht: login con las mismas credenciales
+```
+
+**El usuario NUNCA tiene contraseñas separadas.** Una contraseña Keycloak → todo el ecosistema SBOS.
+
+---
+
+#### ¿Cuándo levantar el mailserver?
+
+El mailserver se puede instalar en cualquier momento después de Keycloak y PostgreSQL. No bloquea el VDI ni las apps de negocio. Se levanta cuando el tenant necesita correo corporativo propio.
+
+**Prerrequisitos técnicos:**
+- Dominio público: `empresa.sbos.app` (o el dominio propio del cliente)
+- Registro DNS `MX empresa.sbos.app → IP-VPS`
+- Registro DNS `A empresa.sbos.app → IP-VPS`
+- Puerto 25 (SMTP) abierto en UFW (actualmente bloqueado por sbos-bootstrap-hard)
+- Puerto 993 (IMAPS) abierto en UFW para clientes externos
+
+**Prerrequisitos de configuración:**
+- Keycloak realm con el dominio del tenant configurado como `email domain`
+- Plugin SASL configurado para verificar passwords contra Keycloak LDAP federation
+- Base de datos `mailserver_db` en PostgreSQL (tabla de buzones virtual)
 
 ---
 
 ### [300] mailserver · S10 · ⏳ NO_INSTALADA
+
+**Propósito:** Servidor de correo soberano. Postfix (SMTP, envío/recepción), Dovecot (IMAP/POP3, lectura), SpamAssassin (filtro de spam), ClamAV (antivirus de adjuntos). Un buzón por usuario Keycloak del tenant. Los datos del correo persisten en PVC `/data/mailserver/` con política Retain.
+
+**Dependencias:** postgresql, keycloak, vault
+
+**🔶 Autenticación — conexión con Keycloak:**
+- Dovecot usa SASL con backend LDAP apuntando a Keycloak LDAP federation
+- Keycloak expone los usuarios del realm como árbol LDAP (`dc=empresa,dc=sbos,dc=app`)
+- Postfix autentica remitentes via Dovecot SASL
+- Resultado: `login juan.perez + contraseña Keycloak` → acceso al buzón IMAP
+
+**Logros:** ninguno (STUB 135 líneas)
+
+**Faltantes:**
+- ❌ Completar ficha a nivel ROBUSTO (target: 400+ líneas)
+- ❌ Configurar Dovecot SASL → Keycloak LDAP
+- ❌ Crear `mailserver_db` schema en PostgreSQL (tabla `virtual_mailboxes`, `virtual_aliases`)
+- ❌ Configurar PVC `/data/mailserver/` con política Retain
+- ❌ Abrir puertos 25/465/587 (SMTP) y 993 (IMAPS) en UFW cuando se instale
+- ❌ health.check_command: `postfix status && dovecot --version`
+
+---
+
 ### [305] postfixadmin · S10 · ⏳ NO_INSTALADA
+
+**Propósito:** UI web de administración del mailserver. Crear/eliminar buzones, alias, dominios. Alternativa a editar la BD directamente. Autenticación via Keycloak SSO (solo admins con grupo `mail_admin`).
+
+**Logros:** ninguno (STUB 135 líneas)
+
+**Faltantes:** Completar ficha ROBUSTO + integración Keycloak
+
+---
+
 ### [310] roundcube · S10 · ⏳ NO_INSTALADA
+
+**Propósito:** Cliente webmail para usuarios. Acceden a su correo desde el navegador (o desde el escritorio VDI — Roundcube se puede instalar como app en el menú KDE de Fedora). Login con credenciales Keycloak via IMAP OAuth2.
+
+**Logros:** ninguno (STUB 135 líneas)
+
+**Faltantes:** Completar ficha ROBUSTO + OAuth2 Keycloak como método de login
+
+---
+
 ### [315] cypht · S10 · ⏳ NO_INSTALADA
 
-**Propósito:** Stack completo de correo soberano: `mailserver` (Postfix + Dovecot + SpamAssassin), `postfixadmin` (UI de administración), `roundcube` (cliente webmail), `cypht` (webmail alternativo modular).
+**Propósito:** Webmail alternativo modular con soporte para múltiples cuentas (IMAP, calendarios, RSS). Más ligero que Roundcube. Puede convivir con Roundcube como opción de cliente.
 
-**Estado:** No instaladas. Requieren configuración de DNS MX + dominio público.
+**Logros:** ninguno (STUB 135 líneas)
 
-**Logros:** ninguno (todas son STUBs de 135 líneas)
+**Faltantes:** Completar ficha ROBUSTO
 
-**Faltantes:** Completar fichas a nivel ROBUSTO + configurar DNS + instalar por tenant
+---
+
+#### Flujo completo: usuario nuevo con correo en SBOS
+
+```
+1. Admin crea usuario en Keycloak:
+   juan.perez@empresa.sbos.app + grupo [correo_activo]
+
+2. Keycloak notifica via webhook a sbos-notifier → sbos-notifier
+   llama a mailserver API: "crear buzón juan.perez@empresa.sbos.app"
+
+3. Mailserver crea entrada en mailserver_db + directorio /var/mail/juan.perez/
+
+4. El usuario puede hacer login en:
+   - Roundcube/Cypht con su contraseña Keycloak (webmail)
+   - Thunderbird/Outlook configurando IMAP :993 + SMTP :587 (cliente desktop)
+   - Desde el VDI Fedora: Thunderbird ya aparece en el menú de apps del grupo correo_activo
+
+5. Cuando el usuario accede al VDI, su Thunderbird ya está configurado
+   con su cuenta de correo (el pod carga la configuración desde su PVC)
+```
 
 ---
 
