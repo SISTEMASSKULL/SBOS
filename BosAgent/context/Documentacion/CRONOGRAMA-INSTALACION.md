@@ -1,6 +1,6 @@
 # Cronograma de Instalación — Ficha por Ficha
 
-**Versión:** 2.6.0  
+**Versión:** 2.7.0  
 **Fecha:** 2026-10-14  
 **Autor:** bos-developer  
 
@@ -1525,10 +1525,13 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 - ✅ Implementación real confirmada: 210 líneas con PV Retain (50 Gi) + PVC + StatefulSet + Service (5 puertos: 25, 465, 587, 143, 993)
 - ✅ `ficha_health` y `ficha_verify` implementadas
 
+**Logros (ciclo 12):**
+- ✅ `ficha_test()` agregada: test_pod_running (StatefulSet readyReplicas) + test_smtp_puerto (TCP :25)
+- ✅ `ficha_repair()` ya existía — confirmada
+
 **Faltantes:**
-- ❌ Env vars Keycloak LDAP en contenedor (OVERRIDE_HOSTNAME, SSL_TYPE ya están; faltan SASL_LDAP_*)
-- ❌ Crear `mailserver_db` schema en PostgreSQL (tabla `virtual_mailboxes`, `virtual_aliases`)
-- ❌ `ficha_repair` y `ficha_test` (funciones canónicas BOS — tiene `ficha_remove` pero no repair)
+- ❌ Env vars Keycloak LDAP (SASL_LDAP_*) — depende de Keycloak estable
+- ❌ Crear schema `mailserver_db` en PostgreSQL (tabla `virtual_mailboxes`, `virtual_aliases`)
 - ❌ health.check_command más preciso: `postfix status && dovecot --version` via kubectl exec
 - ❌ Abrir puertos 25/465/587/993 en UFW cuando se instale
 
@@ -1542,10 +1545,14 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 - ✅ `runtime: docker` corregido a `runtime: kubernetes` en manifest.yml
 - ✅ Implementación básica: Deployment + Service (postfixadmin/postfixadmin:3.3.15, puerto 80)
 
+**Logros (ciclo 12):**
+- ✅ Env vars DB: `POSTFIXADMIN_DB_TYPE=pgsql`, `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD=sbos_bootstrap_pass`, `DB_NAME=postfixadmin_db`, `SMTP_SERVER/PORT`, `SETUP_PASSWORD`
+- ✅ `ficha_test()` agregada: test_pod_running + test_http_responde (HTTP 200/302 en ClusterIP:80/postfixadmin/)
+- ✅ Línea en blanco `spec:\n\n  replicas:` eliminada
+- ✅ `ficha_repair()` ya existía — confirmada
+
 **Faltantes:**
-- ❌ Env vars: `POSTFIXADMIN_DB_TYPE=pgsql`, `POSTFIXADMIN_DB_HOST`, `POSTFIXADMIN_DB_USER`, etc.
-- ❌ Integración Keycloak SSO (OIDC OAuth2)
-- ❌ `ficha_repair` y `ficha_test` (funciones canónicas BOS)
+- ❌ Integración Keycloak SSO (OIDC OAuth2) — depende de Keycloak estable
 
 ---
 
@@ -1557,10 +1564,14 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 - ✅ `runtime: docker` corregido a `runtime: kubernetes` en manifest.yml
 - ✅ Implementación básica: Deployment + Service (roundcube/roundcubemail:1.6.10, puerto 80)
 
+**Logros (ciclo 12):**
+- ✅ Env vars: `ROUNDCUBEMAIL_DEFAULT_HOST=ssl://mailserver...`, `DEFAULT_PORT=993`, `SMTP_SERVER=tls://mailserver...`, `SMTP_PORT=587`, `DB_TYPE=pgsql`, `DB_HOST`, `DB_USER`, `DB_PASSWORD=sbos_bootstrap_pass`, `DB_NAME=roundcube_db`, `SKIN=elastic`, `PLUGINS`
+- ✅ `ficha_test()` agregada: test_pod_running + test_http_responde (HTTP 200/302)
+- ✅ Línea en blanco `spec:\n\n  replicas:` eliminada
+- ✅ `ficha_repair()` ya existía — confirmada
+
 **Faltantes:**
-- ❌ Env vars: `ROUNDCUBEMAIL_DEFAULT_HOST=mailserver`, `ROUNDCUBEMAIL_SMTP_SERVER`, DB config
-- ❌ OAuth2 Keycloak como método de login
-- ❌ `ficha_repair` y `ficha_test` (funciones canónicas BOS)
+- ❌ OAuth2 Keycloak como método de login — depende de Keycloak estable
 
 ---
 
@@ -1572,9 +1583,14 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 - ✅ `runtime: docker` corregido a `runtime: kubernetes` en manifest.yml
 - ✅ Implementación básica: Deployment + Service (sailfishsoftware/cypht:latest, puerto 80)
 
+**Logros (ciclo 12):**
+- ✅ Env vars: `IMAP_SERVER`, `IMAP_PORT=993`, `SMTP_SERVER`, `SMTP_PORT=587`, `DB_CONNECTION_TYPE=pgsql`, `DB_HOST`, `DB_PORT=5432`, `DB_USER`, `DB_PASS=sbos_bootstrap_pass`, `DB_NAME=cypht_db`, `CYPHT_SESSION_TYPE=DB`
+- ✅ `ficha_test()` agregada: test_pod_running + test_http_responde (HTTP 200/302)
+- ✅ Línea en blanco `spec:\n\n  replicas:` eliminada
+- ✅ `ficha_repair()` ya existía — confirmada
+
 **Faltantes:**
-- ❌ Env vars: IMAP host, DB config, Keycloak OIDC
-- ❌ `ficha_repair` y `ficha_test` (funciones canónicas BOS)
+- ❌ Keycloak OIDC login — depende de Keycloak estable
 
 ---
 
@@ -2029,7 +2045,9 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 **Correcciones ciclo 11:** automatización completa de intervenciones manuales — (1) **vault-unsealer** nueva ficha (orden 131, auto_install=true): CronJob que desella Vault automáticamente cada minuto leyendo keys de K8s Secret `vault-unseal-keys`, elimina la intervención manual del Fase 2 de vault (ADR-022) · (2) **BUG-36 CERRADO**: `sbos-hairpin-nat.service` (systemd `Type=oneshot`) instalado por `ficha_install()` de sbos-bootstrap-k8s — `iptables MASQUERADE 10.244.0.0/16 POSTROUTING` persiste en cada reinicio del host sin depender de iptables-persistent
 
+**Correcciones ciclo 12:** fichas S10 correo (4 fichas) — `ficha_test()` agregada a mailserver (StatefulSet + TCP :25) · postfixadmin · roundcube · cypht (pod running + HTTP 200/302) + env vars de DB/SMTP críticas en postfixadmin (`POSTFIXADMIN_DB_*`, `SMTP_SERVER`), roundcube (`ROUNDCUBEMAIL_DEFAULT_HOST ssl://`, `DB_*`), cypht (`IMAP_SERVER`, `DB_*`, `CYPHT_SESSION_TYPE=DB`) + limpieza `spec: + línea vacía` en 3 fichas
+
 ---
 
-*Documento v2.6.0 — bos-developer · 2026-10-14*  
+*Documento v2.7.0 — bos-developer · 2026-10-14*  
 *Panel de control de reparación: `PLAN-INSTALACION-DESDE-CERO.md §13`*

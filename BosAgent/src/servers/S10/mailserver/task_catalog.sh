@@ -204,6 +204,37 @@ ficha_repair() {
     ficha_install
 }
 
+ficha_test() {
+    local ok=0
+    echo "${__STEP_START__} test_pod_running"
+    local r
+    r=$(_k get statefulset mailserver -n "$NS" \
+        -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    if (( r >= 1 )); then
+        echo "${__STEP_OK__} test_pod_running (${r}/1)"
+    else
+        echo "${__STEP_FAIL__} test_pod_running: ${r}/1"
+        ok=1
+    fi
+
+    echo "${__STEP_START__} test_smtp_puerto"
+    local clusterip
+    clusterip=$(_k get service mailserver -n "$NS" \
+        -o jsonpath='{.spec.clusterIP}' 2>/dev/null || echo "")
+    if [[ -n "$clusterip" ]]; then
+        if timeout 5 bash -c "echo '' > /dev/tcp/${clusterip}/25" 2>/dev/null; then
+            echo "${__STEP_OK__} test_smtp_puerto (puerto 25 accesible)"
+        else
+            echo "${__STEP_FAIL__} test_smtp_puerto: puerto 25 no responde"
+            ok=1
+        fi
+    else
+        echo "${__STEP_FAIL__} test_smtp_puerto: ClusterIP no encontrada"
+        ok=1
+    fi
+    return $ok
+}
+
 ficha_remove() {
     echo "${__STEP_START__} eliminar_mailserver"
     _k delete statefulset mailserver -n "$NS" --ignore-not-found=true >> "$FICHA_LOG" 2>&1

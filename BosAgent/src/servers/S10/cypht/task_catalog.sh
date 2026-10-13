@@ -63,7 +63,6 @@ metadata:
     app: cypht
     sbos.app/managed-by: bos
 spec:
-
   replicas: 1
   selector:
     matchLabels:
@@ -78,6 +77,29 @@ spec:
           image: sailfishsoftware/cypht:latest
           ports:
             - containerPort: 80
+          env:
+            - name: IMAP_SERVER
+              value: "mailserver.sbos-comms.svc.cluster.local"
+            - name: IMAP_PORT
+              value: "993"
+            - name: SMTP_SERVER
+              value: "mailserver.sbos-comms.svc.cluster.local"
+            - name: SMTP_PORT
+              value: "587"
+            - name: DB_CONNECTION_TYPE
+              value: "pgsql"
+            - name: DB_HOST
+              value: "postgresql.sbos-data.svc.cluster.local"
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_USER
+              value: "postgres"
+            - name: DB_PASS
+              value: "sbos_bootstrap_pass"
+            - name: DB_NAME
+              value: "cypht_db"
+            - name: CYPHT_SESSION_TYPE
+              value: "DB"
           resources:
             requests:
               cpu: "100m"
@@ -129,6 +151,39 @@ ficha_health() {
 ficha_repair() {
     _log "ficha_repair: re-aplicando manifests cypht (kubectl apply idempotente)"
     ficha_install
+}
+
+ficha_test() {
+    local ok=0
+    echo "${__STEP_START__} test_pod_running"
+    local r
+    r=$(_k get deployment cypht -n "$NS" \
+        -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    if (( r >= 1 )); then
+        echo "${__STEP_OK__} test_pod_running (${r}/1)"
+    else
+        echo "${__STEP_FAIL__} test_pod_running: ${r}/1"
+        ok=1
+    fi
+
+    echo "${__STEP_START__} test_http_responde"
+    local clusterip
+    clusterip=$(_k get service cypht -n "$NS" \
+        -o jsonpath='{.spec.clusterIP}' 2>/dev/null || echo "")
+    if [[ -n "$clusterip" ]]; then
+        local code
+        code=$(curl -sk --max-time 5 -o /dev/null -w "%{http_code}" "http://${clusterip}/" 2>/dev/null || echo "000")
+        if [[ "$code" == "200" || "$code" == "302" ]]; then
+            echo "${__STEP_OK__} test_http_responde (HTTP ${code})"
+        else
+            echo "${__STEP_FAIL__} test_http_responde: HTTP ${code}"
+            ok=1
+        fi
+    else
+        echo "${__STEP_FAIL__} test_http_responde: ClusterIP no encontrada"
+        ok=1
+    fi
+    return $ok
 }
 
 ficha_remove() {

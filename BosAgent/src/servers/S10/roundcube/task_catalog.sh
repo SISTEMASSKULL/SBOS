@@ -63,7 +63,6 @@ metadata:
     app: roundcube
     sbos.app/managed-by: bos
 spec:
-
   replicas: 1
   selector:
     matchLabels:
@@ -78,6 +77,31 @@ spec:
           image: roundcube/roundcubemail:1.6.10
           ports:
             - containerPort: 80
+          env:
+            - name: ROUNDCUBEMAIL_DEFAULT_HOST
+              value: "ssl://mailserver.sbos-comms.svc.cluster.local"
+            - name: ROUNDCUBEMAIL_DEFAULT_PORT
+              value: "993"
+            - name: ROUNDCUBEMAIL_SMTP_SERVER
+              value: "tls://mailserver.sbos-comms.svc.cluster.local"
+            - name: ROUNDCUBEMAIL_SMTP_PORT
+              value: "587"
+            - name: ROUNDCUBEMAIL_DB_TYPE
+              value: "pgsql"
+            - name: ROUNDCUBEMAIL_DB_HOST
+              value: "postgresql.sbos-data.svc.cluster.local"
+            - name: ROUNDCUBEMAIL_DB_PORT
+              value: "5432"
+            - name: ROUNDCUBEMAIL_DB_USER
+              value: "postgres"
+            - name: ROUNDCUBEMAIL_DB_PASSWORD
+              value: "sbos_bootstrap_pass"
+            - name: ROUNDCUBEMAIL_DB_NAME
+              value: "roundcube_db"
+            - name: ROUNDCUBEMAIL_SKIN
+              value: "elastic"
+            - name: ROUNDCUBEMAIL_PLUGINS
+              value: "archive,zipdownload"
           resources:
             requests:
               cpu: "100m"
@@ -129,6 +153,39 @@ ficha_health() {
 ficha_repair() {
     _log "ficha_repair: re-aplicando manifests roundcube (kubectl apply idempotente)"
     ficha_install
+}
+
+ficha_test() {
+    local ok=0
+    echo "${__STEP_START__} test_pod_running"
+    local r
+    r=$(_k get deployment roundcube -n "$NS" \
+        -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    if (( r >= 1 )); then
+        echo "${__STEP_OK__} test_pod_running (${r}/1)"
+    else
+        echo "${__STEP_FAIL__} test_pod_running: ${r}/1"
+        ok=1
+    fi
+
+    echo "${__STEP_START__} test_http_responde"
+    local clusterip
+    clusterip=$(_k get service roundcube -n "$NS" \
+        -o jsonpath='{.spec.clusterIP}' 2>/dev/null || echo "")
+    if [[ -n "$clusterip" ]]; then
+        local code
+        code=$(curl -sk --max-time 5 -o /dev/null -w "%{http_code}" "http://${clusterip}/" 2>/dev/null || echo "000")
+        if [[ "$code" == "200" || "$code" == "302" ]]; then
+            echo "${__STEP_OK__} test_http_responde (HTTP ${code})"
+        else
+            echo "${__STEP_FAIL__} test_http_responde: HTTP ${code}"
+            ok=1
+        fi
+    else
+        echo "${__STEP_FAIL__} test_http_responde: ClusterIP no encontrada"
+        ok=1
+    fi
+    return $ok
 }
 
 ficha_remove() {
