@@ -43,6 +43,23 @@ ficha_pre_install() {
         return 1
     fi
 
+    # BUG-36: verificar que hairpin NAT está activa antes de instalar kyverno.
+    # Sin ella, kyvernopre falla con "dial tcp 10.96.0.1:443: i/o timeout".
+    echo "${__STEP_START__} verificar_hairpin_nat"
+    local apiserver_ip="10.96.0.1"
+    local hairpin_ok
+    hairpin_ok=$(iptables -t nat -L POSTROUTING -n 2>/dev/null | grep -c MASQUERADE || echo "0")
+    if [[ "$hairpin_ok" -gt 0 ]]; then
+        echo "${__STEP_OK__} verificar_hairpin_nat (MASQUERADE regla activa)"
+    else
+        _log "ADVERTENCIA: no se encontró regla MASQUERADE en iptables nat POSTROUTING"
+        _log "BUG-36: pods no pueden alcanzar el apiserver ($apiserver_ip). Ejecutar:"
+        _log "  iptables -t nat -A POSTROUTING -s 10.244.0.0/16 -j MASQUERADE"
+        # No bloquear la instalación — kyverno puede funcionar si la regla ya existe
+        # en otra cadena o si el entorno no la necesita. Solo advertir.
+        echo "${__STEP_SKIP__} verificar_hairpin_nat: sin regla MASQUERADE detectada (verificar manualmente)"
+    fi
+
     echo "${__STEP_START__} verificar_namespace"
     _k get namespace "$NS" > /dev/null 2>&1 || \
         _k create namespace "$NS" >> "$FICHA_LOG" 2>&1

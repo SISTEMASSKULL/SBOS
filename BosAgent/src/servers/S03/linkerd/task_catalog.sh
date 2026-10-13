@@ -338,6 +338,22 @@ ficha_repair() {
         return $?
     fi
 
+    # BUG-29: limpiar ReplicaSets huérfanos (0/0/0) de instalaciones/crashes anteriores.
+    # Consumen registros en la API pero no sirven ningún propósito.
+    echo "${__STEP_START__} limpiar_replicasets_huerfanos"
+    local orphan_rs
+    orphan_rs=$(_k get rs -n "$NS" --no-headers 2>/dev/null | awk '$2==0 && $3==0 && $4==0 {print $1}')
+    if [[ -n "$orphan_rs" ]]; then
+        local count=0
+        while IFS= read -r rs; do
+            _k delete rs "$rs" -n "$NS" 2>/dev/null && count=$((count+1)) || true
+        done <<< "$orphan_rs"
+        _log "ReplicaSets huérfanos eliminados: $count"
+        echo "${__STEP_OK__} limpiar_replicasets_huerfanos ($count eliminados)"
+    else
+        echo "${__STEP_SKIP__} limpiar_replicasets_huerfanos: ninguno"
+    fi
+
     echo "${__STEP_START__} reparar_auto_inject"
     local repaired=0
     for ns in "${AUTO_INJECT_NAMESPACES[@]}"; do
