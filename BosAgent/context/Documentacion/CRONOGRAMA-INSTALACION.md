@@ -1,7 +1,7 @@
 # Cronograma de Instalación — Ficha por Ficha
 
-**Versión:** 2.3.9  
-**Fecha:** 2026-10-13  
+**Versión:** 2.6.0  
+**Fecha:** 2026-10-14  
 **Autor:** bos-developer  
 
 > Este documento es el **registro cronológico de construcción** del instalador SBOS.
@@ -156,12 +156,11 @@
 - ✅ Calico CNI básico funcionando
 - ✅ Hairpin NAT aplicado (FIX-19): regla iptables para que pods alcancen apiserver en IP pública
 - ✅ certSANs con `127.0.0.1` (FIX-18): kubectl funciona desde localhost
+- ✅ (ciclo 11) BUG-36 CERRADO: `sbos-hairpin-nat.service` (systemd) instalado — MASQUERADE `10.244.0.0/16` persiste en cada reinicio del host
 
-**Faltantes:**
-- ⚠️ La regla hairpin NAT puede perderse si el pod de kyverno arranca antes de que se aplique (BUG-36)
+**Faltantes:** ninguno
 
-**Bugs:**
-- ⚠️ BUG-36: hairpin NAT puede no estar activa cuando kyverno admission-controller arranca → falla con `dial tcp 10.96.0.1:443: i/o timeout`. Ver CRONOGRAMA PROBLEMA #1.
+**Bugs:** ninguno
 
 ---
 
@@ -253,10 +252,9 @@
 
 **Faltantes:**
 - ❌ Registrar en state (BUG-31)
-- ❌ La prueba de hairpin NAT puede fallar si la regla se pierde (BUG-36)
 
 **Bugs:**
-- ⚠️ BUG-36: si hairpin NAT no está activa, esta ficha fallará al verificar conectividad al apiserver
+- ✅ (ciclo 11) BUG-36 cerrado: `sbos-hairpin-nat.service` garantiza que MASQUERADE persiste — esta ficha ya no fallará por hairpin NAT ausente
 
 ---
 
@@ -455,9 +453,9 @@ bosctl ficha install sbos-database-init
 
 **🔶 Huevo y gallina — MULTI-FASE CRÍTICA:**
 - **Fase 1 (orden 130):** Pod Vault arranca. Estado: SEALED. No puede servir secretos.
-- **Fase 2 (MANUAL OBLIGATORIA):** `vault operator init` (genera 5 unseal keys) + `vault operator unseal` (3 de 5 keys). Sin esto el pod está Running pero no sirve nada.
+- **Fase 2 (AUTOMÁTICA — ciclo 11):** `vault operator init` (genera 5 unseal keys, guardadas en `/etc/bos/vault-init-keys.json`) + vault-unsealer (orden 131) se encarga del unseal automático. Solo la inicialización inicial es manual (una sola vez).
 - **Fase 3 (automática post-unseal):** Vault configura AppRole `sbos-pods`, PKI engine, KV v2, políticas. Las aplicaciones obtienen tokens de AppRole para leer sus credenciales.
-- **Fase 4 (permanente):** Cada vez que el pod se reinicia, vuelve a sellarse → necesita el proceso de unseal de nuevo. FIX-26A (liveness probe) previene el CrashLoop → FIX-B (observer) lo repara automáticamente.
+- **Fase 4 (permanente):** Cada vez que el pod se reinicia, vault-unsealer (orden 131) lo desella automáticamente en el siguiente ciclo de 1 minuto.
 
 **Logros:**
 - ✅ StatefulSet desplegado con PVC Retain
@@ -471,6 +469,31 @@ bosctl ficha install sbos-database-init
 
 **Bugs activos:**
 - ❌ BUG-27: oauth2-proxy y tryton bloqueados en cascada hasta que vault sea unsealed en VPS.
+
+---
+
+### [131] vault-unsealer · S02 · ⚙️ NUEVA (ciclo 11)
+
+**Propósito:** CronJob que monitorea el pod de Vault cada minuto y lo desella automáticamente cuando está sealed. Elimina la intervención manual obligatoria del Fase 2 de vault — cumple ADR-022 (sin intervención manual) y P15 (idempotencia). Las unseal keys se leen de `/etc/bos/vault-init-keys.json` en el host y se almacenan en un K8s Secret `vault-unseal-keys` en `sbos-security`.
+
+**Dependencias:** vault
+
+**Cómo funciona:**
+1. `ficha_pre_install()`: verifica que `/etc/bos/vault-init-keys.json` existe con ≥3 keys
+2. `ficha_install()`: crea Secret K8s con keys + RBAC (ServiceAccount/Role/RoleBinding) + CronJob `* * * * *`
+3. CronJob: cada minuto comprueba `vault status -format=json | .sealed` → si `true`, ejecuta 3× `vault operator unseal`
+4. `ficha_repair()`: fuerza unseal inmediato leyendo keys del Secret K8s (sin esperar el CronJob)
+
+**Logros:**
+- ✅ (ciclo 11) manifest.yml creado (execution_order: 131, auto_install: true, dependency: vault)
+- ✅ (ciclo 11) task_catalog.sh completo: pre_install / install / verify / health / repair / test / remove
+- ✅ (ciclo 11) Secret vault-unseal-keys: almacena keys dentro del cluster (no en disco host)
+- ✅ (ciclo 11) RBAC mínimo: solo puede leer ese Secret + exec en vault-0
+
+**Faltantes:**
+- ❌ No desplegado en VPS aún — requiere que vault esté inicializado primero: `bosctl ficha install vault-unsealer`
+
+**Bugs activos:** ninguno
 
 ---
 
@@ -1940,7 +1963,7 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 | 1 | bos-preflight | ✅ INSTALLED | — |
 | 5 | sbos-namespace | ✅ INSTALLED | — |
 | 10 | sbos-bootstrap-os | ✅ INSTALLED | — |
-| 20 | sbos-bootstrap-k8s | ✅ INSTALLED | ⚠️ BUG-36 hairpin NAT |
+| 20 | sbos-bootstrap-k8s | ✅ INSTALLED | ✅ BUG-36 cerrado (ciclo 11) |
 | 25 | sbos-bootstrap-cni | ✅ INSTALLED | — |
 | 28 | sbos-bootstrap-platform | ⚙️ PENDING (no en state) | ❌ BUG-31 |
 | 30 | sbos-bootstrap-storage | ✅ INSTALLED | — |
@@ -1949,11 +1972,12 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 | 70 | sbos-bkernel | ✅ INSTALLED | — |
 | 105 | sbos-database-init | ⏳ NUEVA (pendiente deploy) | Creada en ciclo 5 — instalar con `bosctl ficha install sbos-database-init` |
 | 100 | postgresql | ✅ INSTALLED | ✅ BUG-35 cerrado (ciclo 2) |
-| 100 | kyverno | ⚙️ PENDING (CrashLoop) | ❌ BUG-36 hairpin NAT |
+| 100 | kyverno | ⚙️ PENDING | ✅ BUG-36 cerrado (ciclo 11) — sbos-hairpin-nat.service persistente |
 | 110 | redis | ✅ INSTALLED | ✅ BUG-35 cerrado (ciclo 2) |
 | 110 | linkerd | 🔄 INSTALLING | ✅ BUG-29 cerrado (ciclo 4) |
 | 120 | minio | ✅ INSTALLED | — |
 | 130 | vault | ❌ PHYSICAL_ERROR | ❌ FIX-26A pendiente VPS |
+| 131 | vault-unsealer | ⏳ NUEVA | Creada ciclo 11 — instalar tras init de vault |
 | 135 | besu-qbft | ✅ INSTALLED | — |
 | 140 | keycloak | ✅ INSTALLED | — |
 | 150 | oauth2-proxy | ❌ PHYSICAL_ERROR | ❌ derivado vault |
@@ -2003,7 +2027,9 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 **Correcciones ciclo 10:** `ficha_test` agregada a 5 fichas `auto_install=true` que faltaban — sbos-bootstrap-platform (7 namespaces + StorageClass) · sbos-k8s-network-validator (ConfigMap + CoreDNS) · loki (helm status=deployed + pod) · tempo (helm status=deployed + pod) · oauth2-proxy-desktop (pod Running + /ping 200) — **estado final: 0 bugs sistemáticos pendientes**
 
+**Correcciones ciclo 11:** automatización completa de intervenciones manuales — (1) **vault-unsealer** nueva ficha (orden 131, auto_install=true): CronJob que desella Vault automáticamente cada minuto leyendo keys de K8s Secret `vault-unseal-keys`, elimina la intervención manual del Fase 2 de vault (ADR-022) · (2) **BUG-36 CERRADO**: `sbos-hairpin-nat.service` (systemd `Type=oneshot`) instalado por `ficha_install()` de sbos-bootstrap-k8s — `iptables MASQUERADE 10.244.0.0/16 POSTROUTING` persiste en cada reinicio del host sin depender de iptables-persistent
+
 ---
 
-*Documento v2.5.0 — bos-developer · 2026-10-13*  
+*Documento v2.6.0 — bos-developer · 2026-10-14*  
 *Panel de control de reparación: `PLAN-INSTALACION-DESDE-CERO.md §13`*

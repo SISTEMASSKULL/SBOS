@@ -435,6 +435,32 @@ volumeBindingMode: WaitForFirstConsumer
 EOF
     echo "${__STEP_OK__} crear_storageclass"
 
+    # BUG-36: MASQUERADE persistente para tráfico de pods hacia internet.
+    # Sin esta regla los pods (Kyverno, CoreDNS, etc.) no pueden salir a internet
+    # tras un reinicio del host porque iptables no persiste por defecto.
+    echo "${__STEP_START__} hairpin_nat_masquerade_persistente"
+    cat > /etc/systemd/system/sbos-hairpin-nat.service <<'UNITEOF'
+[Unit]
+Description=SBOS Hairpin NAT — MASQUERADE para pods K8s
+Documentation=https://sbos.app/docs/networking
+After=network.target
+Wants=network.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c "iptables -t nat -C POSTROUTING -s 10.244.0.0/16 -j MASQUERADE 2>/dev/null || iptables -t nat -A POSTROUTING -s 10.244.0.0/16 -j MASQUERADE"
+ExecStop=/bin/sh -c "iptables -t nat -D POSTROUTING -s 10.244.0.0/16 -j MASQUERADE 2>/dev/null || true"
+
+[Install]
+WantedBy=multi-user.target
+UNITEOF
+    systemctl daemon-reload 2>/dev/null || true
+    systemctl enable sbos-hairpin-nat.service 2>/dev/null || true
+    systemctl start  sbos-hairpin-nat.service 2>/dev/null || true
+    _log "sbos-hairpin-nat.service instalado y habilitado (MASQUERADE persistente)"
+    echo "${__STEP_OK__} hairpin_nat_masquerade_persistente"
+
     _log "Instalación sbos-bootstrap-k8s completada"
     return 0
 }
@@ -482,6 +508,14 @@ ficha_repair() {
         kubectl create namespace "$ns" 2>/dev/null || true
     done
     echo "${__STEP_OK__} reparar_namespaces"
+
+    echo "${__STEP_START__} reparar_hairpin_nat"
+    if ! iptables -t nat -C POSTROUTING -s 10.244.0.0/16 -j MASQUERADE 2>/dev/null; then
+        iptables -t nat -A POSTROUTING -s 10.244.0.0/16 -j MASQUERADE && \
+            _log "MASQUERADE re-aplicado" || \
+            _log "ADVERTENCIA: no se pudo re-aplicar MASQUERADE"
+    fi
+    echo "${__STEP_OK__} reparar_hairpin_nat"
 
     return 0
 }
