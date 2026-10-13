@@ -1114,6 +1114,85 @@ El email del usuario (`juan.perez@empresa.sbos.app`) es su identidad principal:
 
 ---
 
+#### SSO dentro del escritorio — apps sin segundo login
+
+Cuando el usuario se autentica para entrar al VDI, el token Keycloak que oauth2-proxy valida **no debe volver a pedirse** al abrir Tryton, Nextcloud o Roundcube. El usuario ya demostró su identidad — todas las apps del escritorio deben reconocerlo automáticamente.
+
+**Mecanismo: perfil Chromium compartido + cookie de sesión Keycloak**
+
+Todas las apps web del escritorio se abren con el mismo perfil de Chromium. La cookie de sesión de Keycloak (almacenada en ese perfil) es válida para todos los subdominios del tenant (`*.empresa.sbos.app`). Resultado: el usuario abre Tryton y ya está autenticado.
+
+```bash
+# Todos los .desktop usan --profile-directory=sbos-session (mismo perfil)
+# apps definidas en la imagen para el grupo fedora_user:
+
+/usr/share/applications/sbos-tryton.desktop:
+  Exec=chromium --app=https://tryton.empresa.sbos.app \
+                --profile-directory=sbos-session \
+                --disable-background-networking
+
+/usr/share/applications/sbos-nextcloud.desktop:
+  Exec=chromium --app=https://nextcloud.empresa.sbos.app \
+                --profile-directory=sbos-session
+
+/usr/share/applications/sbos-correo.desktop:
+  Exec=chromium --app=https://roundcube.empresa.sbos.app \
+                --profile-directory=sbos-session
+```
+
+**Condición para que funcione:** Keycloak debe tener configurado el dominio como `Web Origins: https://*.empresa.sbos.app` y `Valid Redirect URIs: https://*.empresa.sbos.app/*` para que la cookie sea válida en todos los subdominios del tenant.
+
+**Token relay en Kong:** Kong recibe el Bearer token de la cookie Keycloak, lo valida y lo pasa como header `Authorization: Bearer <token>` a cada servicio upstream. Tryton, Nextcloud y Roundcube leen ese header y no piden login.
+
+---
+
+#### Persistencia de datos — auditoría y trazabilidad
+
+El PVC `fedora-home-{username}` almacena TODO lo que el usuario genera o configura. Es la huella digital soberana del usuario en el sistema.
+
+**Lo que persiste en el PVC:**
+
+| Ruta en el PVC | Contenido | Para qué sirve |
+|----------------|-----------|----------------|
+| `~/.config/chromium/sbos-session/` | Perfil Chromium: cookies, caché, historial de navegación, configuración de cada app | SSO entre sesiones, estado de apps |
+| `~/.config/plasma*/`, `~/.kde*/` | Configuración escritorio KDE: tema, widgets, disposición de paneles | El escritorio se ve igual en cada sesión |
+| `~/Documents/`, `~/Downloads/` | Archivos descargados, documentos editados | Archivos del usuario |
+| `~/.local/share/recently-used.xbel` | Archivos abiertos recientemente | UX — acceso rápido a trabajo anterior |
+| `~/.bash_history`, `~/.zsh_history` | Historial de comandos en terminal | Auditoría — registro de operaciones |
+| `~/.config/menus/applications.menu` | Menú de apps generado por el provisioner | Control de acceso a apps |
+
+**Trazabilidad del sistema (no en el PVC — en la BD):**
+
+| Qué se registra | Dónde | Quién lo escribe |
+|-----------------|-------|-----------------|
+| Inicio/fin de sesión VDI | `bos.bos_ctx_session` (PostgreSQL) | oauth2-proxy-desktop al autenticar |
+| Cada request a cada app | Kong access log + `bos.bos_ctx_request` | Kong plugin SBOS-Context |
+| Operaciones en Tryton | `audit.audit_log` | Tryton audit module |
+| Cambios en archivos Nextcloud | Nextcloud activity log | Nextcloud activity app |
+| Comandos ejecutados en terminal | `~/.bash_history` en PVC | bash/zsh |
+
+**Consecuencia de diseño crítica:** El PVC debe tener política `Retain`. Si el pod se destruye (falla, se actualiza, se migra), el PVC sobrevive y el usuario recupera exactamente donde estaba — con sus apps abiertas, su historial y su configuración.
+
+---
+
+#### Lo que falta para tener SSO + persistencia completos
+
+| # | Qué falta | Complejidad | Bloqueado por |
+|---|-----------|-------------|---------------|
+| 1 | Vault estable (unseal) | Bajo | Problema A-2/A-3 VPS |
+| 2 | oauth2-proxy-desktop Running | Automático | Vault estable |
+| 3 | `sbos-vdi-provisioner` (1 pod/usuario + PVC) | Alto | Decisión HITL Q-3 |
+| 4 | `.desktop` con `--profile-directory=sbos-session` | Bajo | Dentro de la imagen |
+| 5 | Keycloak: `Web Origins *.empresa.sbos.app` configurado | Bajo | Manualidad actual |
+| 6 | Kong: plugin JWT que extrae token de cookie y lo pasa como Bearer | Medio | Plugin Lua pendiente |
+| 7 | Tryton: módulo OIDC configurado para aceptar tokens Keycloak | Medio | Tryton no instalado |
+| 8 | Nextcloud: plugin OIDC configurado | Bajo | Ya instalado — configuración manual |
+| 9 | Roundcube: OAuth2 IMAP login con Keycloak | Medio | Roundcube no instalado |
+| 10 | sbos-database-init: registrar sesiones VDI en `bos.bos_ctx_session` | Medio | Ficha faltante |
+| 11 | Bloquear puerto 6901 (VDI-GAP-5) | Urgente/Bajo | Nadie — 30 min en VPS |
+
+---
+
 #### Arquitectura VDI actual (simplificada — estado real en VPS)
 
 ```
@@ -1246,12 +1325,17 @@ fedora-kde pod  ← UN SOLO POD COMPARTIDO (VDI-GAP-1)
 **Faltantes:**
 - ❌ VDI-PROBLEMA #1: corregir versión manifest (1 línea)
 - ❌ VDI-PROBLEMA #2: eliminar ConfigMap y rebuildar imagen (1-2 días)
-- ❌ VDI-PROBLEMA #3: crear sbos-vdi-provisioner (semana de desarrollo, depende HITL Q-3)
+- ❌ VDI-PROBLEMA #3: crear sbos-vdi-provisioner (semana, depende HITL Q-3)
 - ❌ VDI-PROBLEMA #4: agregar PVC por usuario (depende del provisioner)
 - ❌ VDI-PROBLEMA #5: bloquear puerto 6901 (30 minutos — urgente)
+- ❌ SSO-1: `.desktop` files con `--profile-directory=sbos-session` (en imagen)
+- ❌ SSO-2: Keycloak `Web Origins: *.empresa.sbos.app` (configuración realm)
+- ❌ SSO-3: Kong plugin JWT → Bearer token relay a upstream
+- ❌ SSO-4: Nextcloud plugin OIDC activado (app ya instalada — solo config)
+- ❌ AUDIT-1: oauth2-proxy registra inicio/fin sesión VDI en `bos.bos_ctx_session`
 - ❌ auto_install no definido en manifest (GAP-6)
 
-**Orden recomendado de resolución:** #5 (urgente seguridad) → #1 (trivial) → #2 (bajo riesgo) → #3+#4 (complejo, requiere HITL)
+**Orden recomendado de resolución:** #5 (urgente seguridad) → #1 (trivial) → #2 (bajo riesgo) → #6 (Keycloak Web Origins) → #3+#4 (provisioner, requiere HITL)
 
 ---
 
