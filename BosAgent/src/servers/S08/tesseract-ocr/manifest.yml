@@ -8,7 +8,7 @@ identity:
 
 workload:
   type: deployment
-  runtime: docker
+  runtime: kubernetes
   namespace: sbos-docs
   replicas: 1
 

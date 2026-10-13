@@ -8,7 +8,7 @@ identity:
 
 workload:
   type: statefulset
-  runtime: docker
+  runtime: kubernetes
   namespace: sbos-erp
   replicas: 1   # iniciar con 1; escalar a 2 con 'bosctl ficha repair tryton' tras validación
 

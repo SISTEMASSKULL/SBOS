@@ -1,6 +1,6 @@
 # Cronograma de Instalación — Ficha por Ficha
 
-**Versión:** 2.3.7  
+**Versión:** 2.3.8  
 **Fecha:** 2026-10-13  
 **Autor:** bos-developer  
 
@@ -1913,7 +1913,7 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 | 35 | sbos-bootstrap-monitoring | ✅ INSTALLED | — |
 | 50 | sbos-k8s-network-validator | ⚙️ PENDING (no en state) | ❌ BUG-31 |
 | 70 | sbos-bkernel | ✅ INSTALLED | — |
-| ~105 | sbos-database-init | ⚠️ FICHA FALTANTE | ❌ No existe — BD creada manualmente |
+| 105 | sbos-database-init | ⏳ NUEVA (pendiente deploy) | Creada en ciclo 5 — instalar con `bosctl ficha install sbos-database-init` |
 | 100 | postgresql | ✅ INSTALLED | ⚠️ BUG-35 dep circular |
 | 100 | kyverno | ⚙️ PENDING (CrashLoop) | ❌ BUG-36 hairpin NAT |
 | 110 | redis | ✅ INSTALLED | ⚠️ BUG-35 dep circular |
@@ -1940,24 +1940,26 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 | 205 | alertmanager | ✅ INSTALLED | — |
 | 210 | guacamole | ✅ INSTALLED | ❌ GAP-4 sin conexiones |
 | 215 | grafana | ✅ INSTALLED | — |
-| 215 | loki | ⏳ NO_INSTALADA (STUB) | — |
+| 215 | loki | ⚙️ PENDING (Helm, esperando deps) | — |
 | 220 | alloy | ✅ INSTALLED | ⚠️ Loki no disponible |
-| 220 | tempo | ⏳ NO_INSTALADA (STUB) | — |
+| 220 | tempo | ⚙️ PENDING (Helm, esperando deps) | — |
 | 220 | onlyoffice | ✅ INSTALLED | — |
-| 225 | zabbix | ⏳ NO_INSTALADA (STUB) | — |
+| 225 | zabbix | ⏳ NO_INSTALADA (auto_install=false) | — |
 | 225 | oauth2-proxy-desktop | ❌ PHYSICAL_ERROR | ❌ derivado vault |
 | 230 | fedora-kde | ⏸️ UPDATE_AVAILABLE | ⚠️ INC-2/3, VDI-GAP-1/2/5 |
 | 250 | sbos-bootstrap-hard | ✅ INSTALLED | ⚠️ kyverno no en enforce |
-| 300–315 | mailserver stack | ⏳ NO_INSTALADA (STUB) | — |
-| 345–365 | docs stack | ⏳ NO_INSTALADA (STUB) | — |
-| 400–405 | búsqueda/mensajería | ⏳ NO_INSTALADA (STUB) | — |
-| 420 | sbos-vdi-config | ⏳ NO_INSTALADA | VDI incompleto |
-| 450–460 | devops stack | ⏳ NO_INSTALADA (STUB) | — |
-| 500–525 | IA stack | ⏳ NO_INSTALADA (STUB) | — |
+| 300–315 | mailserver stack | ⏳ NO_INSTALADA (auto_install=false) | — |
+| 345–365 | docs stack | ⏳ NO_INSTALADA (auto_install=false) | — |
+| 400–405 | búsqueda/mensajería | ⏳ NO_INSTALADA (auto_install=false) | — |
+| 420 | sbos-vdi-config | ⏳ NO_INSTALADA (auto_install=false) | Instalar tras VDI completo |
+| 450–460 | devops stack | ⏳ NO_INSTALADA (auto_install=false) | — |
+| 500–525 | IA stack | ⏳ NO_INSTALADA (auto_install=false) | — |
 
 ---
 
-**Fichas INSTALLED:** 24 · **PHYSICAL_ERROR:** 3 · **INSTALL_FAILED:** 1 · **INSTALLING:** 1 · **UPDATE_AVAILABLE:** 2 · **PENDING/NO_INSTALADA:** 34 · **FALTANTE (a crear):** 2 (`sbos-database-init`, `sbos-kong-tenant`)
+**Fichas INSTALLED:** 24 · **PHYSICAL_ERROR:** 3 · **INSTALL_FAILED:** 1 · **INSTALLING:** 1 · **UPDATE_AVAILABLE:** 2 · **PENDING/NO_INSTALADA:** 35 · **A DESPLEGAR:** 1 (`sbos-database-init`)
+
+**Correcciones ciclo 5 (c77c12e):** `sbos-database-init` ficha creada · `runtime: docker → kubernetes` corregido en 23 fichas (S10/S12/S08/S09/S14/S15/S01/S04) · loki/tempo/zabbix confirmados como implementaciones Helm reales · sbos-vdi-config auditada
 
 ---
 
