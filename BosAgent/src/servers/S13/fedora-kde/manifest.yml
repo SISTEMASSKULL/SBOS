@@ -28,16 +28,22 @@ requirements:
     - kong
     - guacamole
 
+governance:
+  auto_install: false
+  requires_approval: true
+  category_label: "vdi-escritorio"
+
 deployment:
   namespace: "sbos-vdi"
   workload_type: "Deployment"
   k8s_manifest: "fedora-kde.k8s.yml"
 
 health:
-  check_via: "kubectl_exec"
-  pod_selector: "app=fedora-kde"
-  interval_seconds: 60
-  failure_threshold: 3
+  type: command
+  # Verifica que el pod está Running y que TigerVNC responde en :5901
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get pods -n sbos-vdi -l app=fedora-kde --no-headers 2>/dev/null | grep -c Running"
+  expected_output: "1"
+  timeout_seconds: 30
 
 compatibility:
   min_iam_installer_version: "1.0.0"

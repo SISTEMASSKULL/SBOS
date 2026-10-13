@@ -2,7 +2,7 @@ FROM fedora:44
 
 LABEL maintainer="SBOS" \
       description="SBOS VDI — Fedora 44 + KDE Plasma 6 + TigerVNC + noVNC 1.5.0" \
-      version="1.1.0"
+      version="1.4.0"
 
 ENV LANG=es_ES.UTF-8 \
     LC_ALL=es_ES.UTF-8 \
@@ -48,6 +48,35 @@ RUN dnf install -y \
     libreoffice-langpack-es \
     && dnf clean all
 
+# ── Herramientas de escritorio básicas ────────────────────────────────────────
+RUN dnf install -y \
+    nano \
+    vim-minimal \
+    kcalc \
+    gwenview \
+    ark \
+    spectacle \
+    okular \
+    korganizer \
+    plasma-systemmonitor \
+    kvantum \
+    && dnf clean all
+
+# ── Chrome ────────────────────────────────────────────────────────────────────
+RUN printf '[google-chrome]\nname=Google Chrome\nbaseurl=https://dl.google.com/linux/chrome/rpm/stable/x86_64\nenabled=1\ngpgcheck=1\ngpgkey=https://dl.google.com/linux/linux_signing_key.pub\n' \
+        > /etc/yum.repos.d/google-chrome.repo \
+    && dnf install -y google-chrome-stable \
+    && dnf clean all \
+    && printf '#!/bin/bash\nexec /usr/bin/google-chrome-stable --no-sandbox --disable-dev-shm-usage "$@"\n' \
+        > /usr/local/bin/chrome \
+    && chmod +x /usr/local/bin/chrome
+
+# ── Portapapeles ──────────────────────────────────────────────────────────────
+RUN dnf install -y \
+    xdotool \
+    xclip \
+    && dnf clean all
+
 # ── VNC + utilidades ──────────────────────────────────────────────────────────
 RUN dnf install -y \
     tigervnc-server \
@@ -64,6 +93,7 @@ RUN curl -fsSL https://github.com/novnc/noVNC/archive/refs/tags/v1.5.0.tar.gz \
     && mkdir -p /usr/share/novnc \
     && cp -r /tmp/noVNC-1.5.0/core   /usr/share/novnc/ \
     && cp -r /tmp/noVNC-1.5.0/vendor /usr/share/novnc/ \
+    && cp -r /tmp/noVNC-1.5.0/app    /usr/share/novnc/ \
     && cp    /tmp/noVNC-1.5.0/vnc.html      /usr/share/novnc/ \
     && cp    /tmp/noVNC-1.5.0/vnc_lite.html /usr/share/novnc/ \
     && rm -rf /tmp/novnc.tar.gz /tmp/noVNC-1.5.0
@@ -79,10 +109,79 @@ RUN mkdir -p /home/vdiuser/.config \
        > /home/vdiuser/.config/kwinrc \
     && printf '[General]\nShouldShow=false\n' \
        > /home/vdiuser/.config/plasma-welcomerc \
+    && printf '[Wallet]\nEnabled=false\nFirst Use=false\n' \
+       > /home/vdiuser/.config/kwalletrc \
     && chown -R vdiuser:vdiuser /home/vdiuser/.config
 
-# ── Estructura SBOS VDI (integración futura bAuth + sbos-vdi-run) ─────────────
+# ── Estructura SBOS VDI ───────────────────────────────────────────────────────
 RUN mkdir -p /etc/sbos-vdi/rights /usr/local/bin/sbos /var/log/sbos-vdi
+
+# ── Menú SBOS: script universal webapp + iconos + entradas de menú ────────────
+RUN mkdir -p /usr/share/icons/sbos \
+             /usr/share/applications/sbos \
+             /usr/share/desktop-directories \
+    \
+    # Script contenedor universal: abre cualquier URL SBOS como app de escritorio
+    && printf '#!/bin/bash\n\
+# sbos-webapp — contenedor universal para servicios SBOS\n\
+# Uso: sbos-webapp --name=NombreApp --url=http://servicio.namespace.svc.cluster.local\n\
+NAME="SBOS App"\n\
+URL="about:blank"\n\
+for arg in "$@"; do\n\
+  case "$arg" in\n\
+    --name=*) NAME="${arg#--name=}" ;;\n\
+    --url=*)  URL="${arg#--url=}"  ;;\n\
+  esac\n\
+done\n\
+# Perfil compartido: todas las apps usan la misma sesión Keycloak (SSO).\n\
+# Con --user-data-dir compartido, la cookie de Keycloak es válida para todas.\n\
+PROFILE_DIR="$HOME/.config/sbos-webapps/sbos-session"\n\
+mkdir -p "$PROFILE_DIR"\n\
+exec /usr/bin/google-chrome-stable \\\n\
+  --no-sandbox --disable-dev-shm-usage \\\n\
+  --password-store=basic \\\n\
+  --app="$URL" \\\n\
+  --user-data-dir="$PROFILE_DIR" \\\n\
+  --class="sbos-$NAME" \\\n\
+  --window-name="$NAME"\n' > /usr/local/bin/sbos-webapp \
+    && chmod +x /usr/local/bin/sbos-webapp \
+    \
+    # Iconos oficiales de cada servicio
+    && curl -fsSL "https://raw.githubusercontent.com/nextcloud/server/master/core/img/logo/logo.svg" \
+         -o /usr/share/icons/sbos/nextcloud.svg \
+    && curl -fsSL "https://raw.githubusercontent.com/grafana/grafana/main/public/img/grafana_icon.svg" \
+         -o /usr/share/icons/sbos/grafana.svg \
+    && curl -fsSL "https://raw.githubusercontent.com/apache/guacamole-client/master/guacamole/src/main/webapp/images/logo-144.png" \
+         -o /usr/share/icons/sbos/guacamole.png \
+    && curl -fsSL "https://download.onlyoffice.com/assets/logo/onlyoffice_logo.svg" \
+         -o /usr/share/icons/sbos/onlyoffice.svg 2>/dev/null \
+         || curl -fsSL "https://raw.githubusercontent.com/ONLYOFFICE/onlyoffice.github.io/master/assets/img/favicon.ico" \
+         -o /usr/share/icons/sbos/onlyoffice.png \
+    && curl -fsSL "https://raw.githubusercontent.com/tryton/tryton/master/tryton/tryton.svg" \
+         -o /usr/share/icons/sbos/tryton.svg 2>/dev/null \
+         || curl -fsSL "https://www.tryton.org/favicon.ico" \
+         -o /usr/share/icons/sbos/tryton.png \
+    \
+    # Categoría SBOS en el menú KDE
+    && printf '[Desktop Entry]\nVersion=1.0\nType=Directory\nName=SBOS\nComment=Servicios SBOS\nIcon=/usr/share/icons/sbos/sbos-logo.svg\n' \
+         > /usr/share/desktop-directories/SBOS.directory \
+    \
+    # Entradas de menú: un .desktop por servicio
+    && printf '[Desktop Entry]\nVersion=1.0\nType=Application\nName=Nextcloud\nGenericName=Documentos corporativos\nComment=Gestor de archivos y documentos SBOS\nExec=sbos-webapp --name=Nextcloud --url=http://nextcloud.sbos-vdi.svc.cluster.local/\nIcon=/usr/share/icons/sbos/nextcloud.svg\nTerminal=false\nCategories=SBOS;\nStartupWMClass=sbos-Nextcloud\n' \
+         > /usr/share/applications/sbos/nextcloud.desktop \
+    && printf '[Desktop Entry]\nVersion=1.0\nType=Application\nName=Grafana\nGenericName=Monitoreo\nComment=Dashboard de monitoreo SBOS\nExec=sbos-webapp --name=Grafana --url=http://grafana.sbos-monitoring.svc.cluster.local:3000/\nIcon=/usr/share/icons/sbos/grafana.svg\nTerminal=false\nCategories=SBOS;\nStartupWMClass=sbos-Grafana\n' \
+         > /usr/share/applications/sbos/grafana.desktop \
+    && printf '[Desktop Entry]\nVersion=1.0\nType=Application\nName=Guacamole\nGenericName=Escritorio remoto\nComment=Acceso remoto a servidores SBOS\nExec=sbos-webapp --name=Guacamole --url=http://guacamole.sbos-vdi.svc.cluster.local:8080/guacamole/\nIcon=/usr/share/icons/sbos/guacamole.png\nTerminal=false\nCategories=SBOS;\nStartupWMClass=sbos-Guacamole\n' \
+         > /usr/share/applications/sbos/guacamole.desktop \
+    && printf '[Desktop Entry]\nVersion=1.0\nType=Application\nName=OnlyOffice\nGenericName=Suite ofimática\nComment=Editor de documentos colaborativo SBOS\nExec=sbos-webapp --name=OnlyOffice --url=http://onlyoffice.sbos-vdi.svc.cluster.local/\nIcon=/usr/share/icons/sbos/onlyoffice.svg\nTerminal=false\nCategories=SBOS;\nStartupWMClass=sbos-OnlyOffice\n' \
+         > /usr/share/applications/sbos/onlyoffice.desktop \
+    && printf '[Desktop Entry]\nVersion=1.0\nType=Application\nName=Tryton\nGenericName=Tryton\nComment=Tryton — software de gestión empresarial\nExec=sbos-webapp --name=Tryton --url=http://tryton.sbos-erp.svc.cluster.local:8000/\nIcon=/usr/share/icons/sbos/tryton.svg\nTerminal=false\nCategories=SBOS;\nStartupWMClass=sbos-Tryton\n' \
+         > /usr/share/applications/sbos/tryton.desktop \
+    \
+    # Menú KDE: registrar la categoría SBOS
+    && mkdir -p /etc/xdg/menus/applications-merged \
+    && printf '<Menu>\n  <Name>Applications</Name>\n  <Menu>\n    <Name>SBOS</Name>\n    <Directory>SBOS.directory</Directory>\n    <Include><Category>SBOS</Category></Include>\n  </Menu>\n</Menu>\n' \
+         > /etc/xdg/menus/applications-merged/sbos.menu
 
 # ── Archivos del sistema ──────────────────────────────────────────────────────
 COPY resources/novnc-index.html /usr/share/novnc/index.html

@@ -43,7 +43,10 @@ ports:
     internal_only: true
 
 health:
-  type: none
+  type: command
+  # Puerto 9000 es el management port de Keycloak — no requiere autenticación.
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config exec -n sbos-security deploy/keycloak -- curl -sf http://localhost:9000/health/ready 2>/dev/null | grep -q UP"
+  timeout_seconds: 30
 
 audit:
   ctx_id_required: true

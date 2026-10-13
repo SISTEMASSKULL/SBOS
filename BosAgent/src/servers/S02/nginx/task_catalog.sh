@@ -295,9 +295,14 @@ ${vdi_blocks}
             proxy_send_timeout 60s;
         }
 
-        # Raíz: redirigir al desktop directamente (sin página de índice SBOS)
+        # Raíz: sirve la landing page SBOS (index.html).
+        # El botón "Iniciar sesión" en index.html lleva a /desktop/.
+        # Si el login falla, oauth2-proxy redirige a /?error=auth
+        # y el JS de index.html muestra el mensaje de error.
         location / {
-            return 302 /desktop/;
+            root /var/www/html;
+            index index.html;
+            try_files $uri $uri/ =404;
         }
     }
 }
@@ -427,6 +432,13 @@ ficha_install() {
             padding: 0.3rem 0.8rem; border-radius: 1rem; font-size: 0.75rem;
             color: #8892b0;
         }
+        .login-btn {
+            display: inline-block; background: #00d4aa; color: #0a0e27;
+            font-size: 1.1rem; font-weight: 700; padding: 0.8rem 3rem;
+            border-radius: 2rem; text-decoration: none; margin-bottom: 2rem;
+            transition: background 0.2s, transform 0.1s;
+        }
+        .login-btn:hover { background: #00ffcc; transform: translateY(-2px); }
         .footer { font-size: 0.8rem; color: #555; }
         .footer a { color: #666; text-decoration: none; }
         .footer a:hover { color: #00d4aa; }
@@ -440,11 +452,15 @@ ficha_install() {
         <div class="status">
             <span class="status-dot"></span> Operativo
         </div>
+        <div id="error-msg" style="display:none;background:#ff3c3c22;border:1px solid #ff3c3c88;color:#ff8888;padding:0.7rem 1.5rem;border-radius:0.5rem;margin-bottom:1.5rem;font-size:0.95rem;">
+            Credenciales incorrectas o sesión expirada. Intente nuevamente.
+        </div>
+        <a href="/desktop/" class="login-btn">Iniciar sesión</a>
         <div class="links">
-            <a href="/admin"><strong>🔧 Panel Admin</strong>Core UI · Administración del sistema</a>
-            <a href="/api"><strong>🔌 API Gateway</strong>Kong · Servicios integrados</a>
-            <a href="/monitor"><strong>📊 Monitoreo</strong>Grafana · Métricas y dashboards</a>
-            <a href="/docs"><strong>📚 Documentación</strong>Manual SBOS · Referencia técnica</a>
+            <a href="/api"><strong>API Gateway</strong>Kong · Servicios integrados</a>
+            <a href="/grafana/"><strong>Monitoreo</strong>Grafana · Métricas y dashboards</a>
+            <a href="/guacamole/"><strong>Escritorios remotos</strong>Guacamole · VNC / RDP</a>
+            <a href="/nextcloud/"><strong>Archivos</strong>Nextcloud · Documentos corporativos</a>
         </div>
         <div class="stack">
             <span>Ubuntu 26.04 LTS</span>
@@ -456,9 +472,15 @@ ficha_install() {
             <span>Keycloak 26</span>
         </div>
         <p class="footer">
-            <a href="https://sksistemas.com">SKULL Sistemas</a> &middot; SBOS v3.1 &middot; Junio 2026
+            <a href="https://sksistemas.com">SKULL Sistemas</a> &middot; SBOS v3.1 &middot; 2026
         </p>
     </div>
+    <script>
+        // Mostrar error si oauth2-proxy redirigió con ?error=auth tras login fallido
+        if (new URLSearchParams(window.location.search).get('error') === 'auth') {
+            document.getElementById('error-msg').style.display = 'block';
+        }
+    </script>
 </body>
 </html>
 HTML_EOF

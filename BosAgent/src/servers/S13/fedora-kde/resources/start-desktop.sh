@@ -58,6 +58,8 @@ su ${VDIUSER} -c "
     kwin_x11 &
     sleep 3
     plasmashell &
+    sleep 2
+    klipper 2>/dev/null || true
 " &
 
 # ── noVNC ─────────────────────────────────────────────────────────────────────
