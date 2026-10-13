@@ -1,6 +1,6 @@
 # Cronograma de Instalación — Ficha por Ficha
 
-**Versión:** 1.0.0  
+**Versión:** 2.0.0  
 **Fecha:** 2026-10-13  
 **Autor:** bos-developer  
 
@@ -353,6 +353,62 @@
 
 ---
 
+## FASE 4B — Inicialización de la base de datos SBOS (orden ~105) ⚠️ FICHA FALTANTE
+
+> **Este es un GAP crítico del instalador.** PostgreSQL Running ≠ SBOS_db lista.
+> El pod de PostgreSQL puede estar corriendo (INSTALLED) pero la base de datos
+> `SBOSDB` con sus 158 tablas, 12 schemas y seeds puede no existir.
+> Actualmente esto se hace manualmente con psql. Debe existir una ficha
+> `sbos-database-init` que lo automatice.
+
+---
+
+### [~105] sbos-database-init · S01 · ⚠️ FICHA FALTANTE (GAP crítico)
+
+**Propósito:** Desplegar el schema completo de `SBOSDB` en el pod de PostgreSQL recién instalado. Ejecutar `SBOS_db_V2_DDL.sql` (158 tablas en 12 schemas: `bos`, `bauth`, `bkernel`, `biedata`, `bsearch`, `bnexus`, `bnotify`, `kong`, `keycloak`, `tryton`, `mattermost`, `audit`). Cargar los seeds iniciales (enums T060, menús contextuales T061, roles template T162, etc.). Verificar que todas las tablas existen y los índices están creados.
+
+**Dependencias:** postgresql
+
+**Por qué es el orden ~105:** postgresql tiene orden 100. Este inicializador debe correr cuando el pod está Running pero ANTES de que las aplicaciones (keycloak, kong, tryton, etc.) intenten usar sus schemas. Slot ideal: orden 105.
+
+**🔶 Huevo y gallina — SCHEMA VS APP:**
+- **Fase A (orden ~105):** Crear todos los schemas y tablas vacías con DDL idempotente (`CREATE TABLE IF NOT EXISTS`, `CREATE SCHEMA IF NOT EXISTS`). Los schemas deben existir antes que las apps.
+- **Fase B (orden ~160+):** Las apps (keycloak, kong, tryton) crean sus propios registros al arrancar — no van en este seed.
+- **Fase C (post-instalación completa):** Seeds de dominio SBOS (bloques de roles, menús contextuales, configuración inicial de tenants) se cargan desde scripts individuales por módulo.
+
+**Estado actual en VPS:**
+- `SBOSDB` existe con 158 tablas (se creó manualmente con psql)
+- 62 tablas verificadas OK, el resto sin verificar exhaustivamente
+- Sin ficha BOS que lo supervise — si se destruye el pod PG, el schema se pierde (PVC Retain conserva los datos pero la ficha no puede repararlos)
+
+**Faltantes:**
+- ❌ Crear ficha `servers/S01/sbos-database-init/manifest.yml` con:
+  - `execution_order: 105`
+  - `dependencies: [postgresql]`
+  - `auto_install: true`
+- ❌ Crear `task_catalog.sh` que:
+  1. Verifica conexión a postgresql: `pg_isready -h <pod-ip> -U postgres`
+  2. Ejecuta DDL idempotente: `psql ... -f DDLs/SBOS_db_V2_DDL.sql`
+  3. Verifica tabla count: `SELECT count(*) FROM information_schema.tables WHERE table_schema NOT IN ('pg_catalog','information_schema')`
+  4. Carga seeds críticos: enums de T060, si no existen
+  5. Health check: consulta a una tabla crítica (`SELECT 1 FROM bos.bos_ctx_session LIMIT 1`)
+- ❌ Crear `health.check_command` que verifique que las tablas existen y el schema está desplegado
+
+**Solución paso a paso:**
+```
+1. Crear servers/S01/sbos-database-init/ con manifest.yml + task_catalog.sh
+2. Execution order: 105 (después de postgresql=100, antes de apps=130+)
+3. El task_catalog.sh ejecuta DDLs/SBOS_db_V2_DDL.sql via kubectl exec al pod postgresql
+4. Verificar: SELECT count(*) FROM information_schema.tables = 158
+5. bosctl ficha install sbos-database-init
+```
+
+**Riesgo si no se crea:**
+- Si el pod de postgresql se destruye (o el PVC se pierde), la base de datos hay que recrear manualmente. BOS no puede repararlo.
+- Las apps que arrancan por primera vez asumen que sus tablas existen → falla silenciosa.
+
+---
+
 ## FASE 5 — Seguridad: secretos y blockchain (órdenes 130–135)
 
 > Vault se instala DESPUÉS de postgresql porque usa PG como backend HA.
@@ -485,19 +541,101 @@
 
 ### [170] nginx · S02 · ⏸️ UPDATE_AVAILABLE
 
-**Propósito:** Reverse proxy y servidor web del host S02. Enruta `/api/` → kong, `/desktop/` → oauth2-proxy-desktop. Sirve `/.well-known/acme-challenge/` para Certbot. Punto de entrada HTTP/HTTPS para usuarios finales.
+**Propósito:** Ingress único del host S02. Recibe TODO el tráfico externo (:80/:443) y lo delega a Kong o directamente a los servicios VDI. nginx NO decide el enrutamiento por tenant ni por dominio — eso es exclusivamente responsabilidad de Kong. nginx es el terminador TLS y el punto de entrada; Kong es el enrutador soberano.
 
 **Dependencias:** kong
 
+---
+
+#### Arquitectura de nginx: una sola entrada, dos destinos
+
+```
+Internet
+   │
+   ▼
+:80 nginx HOST ──────────────→ 301 redirect a :443
+   │
+   ▼
+:443 nginx HOST (TLS autofirmado / Certbot)
+   │
+   ├── /desktop/       → oauth2-proxy-desktop → fedora-kde pod
+   ├── /guacamole/     → guacamole pod
+   ├── /nextcloud/     → nextcloud pod
+   ├── /grafana/       → grafana pod
+   ├── /onlyoffice/    → onlyoffice pod
+   ├── /desktop/oauth2/→ oauth2-proxy-desktop (callback OIDC)
+   ├── /.well-known/   → certbot webroot
+   └── (todo lo demás) → Kong :8000 (catch-all @kong)
+```
+
+**Regla clave:** nginx NO hace routing por dominio. Usa `server_name _` (acepta cualquier Host). El header `Host` llega intacto a Kong, que es quien rutea según el tenant/empresa/sucursal.
+
+---
+
+#### Web de SBOS (página de bienvenida)
+
+nginx sirve `/var/www/html/index.html` — la página de bienvenida del sistema SBOS:
+- **Diseño:** fondo gradiente oscuro, logo, "Sistema Operativo Empresarial Soberano"
+- **Links:** `/admin` (Core UI), `/api` (Kong), `/monitor` (Grafana), `/docs`
+- **Stack visible:** Ubuntu 26.04, K8s 1.32, Go, Rust, Python, PostgreSQL 18, Keycloak 26
+- **NOTA:** La raíz `/` hace `return 302 /desktop/` → redirige al escritorio VDI directamente. El index.html NO se sirve al acceder a `/` — solo si se accede por una ruta exacta que no coincida con otro location. **Este comportamiento es un GAP** — el index.html debería servirse en `/` y el escritorio estar en `/desktop/`.
+
+---
+
+#### Webs por tenants, empresas y sucursales
+
+**La arquitectura multi-tenant de nginx es transparente — nginx no hace nada especial.** El enrutamiento por tenant ocurre en Kong:
+
+```
+Empresa A accede a: empresa-a.sbos.app
+Empresa B accede a: empresa-b.sbos.app
+
+nginx (catch-all):
+  Host: empresa-a.sbos.app → @kong (pasa el header Host)
+  Host: empresa-b.sbos.app → @kong (pasa el header Host)
+
+Kong (Domain Resolver):
+  Host: empresa-a.sbos.app → Route #1 → Service empresa-a → Tryton tenant A
+  Host: empresa-b.sbos.app → Route #2 → Service empresa-b → Tryton tenant B
+```
+
+**Pasos para agregar un tenant nuevo con web propia:**
+1. En DNS: apuntar `empresa-a.sbos.app` a la IP de la VPS
+2. En Kong Admin API: crear `Route` con `hosts: ["empresa-a.sbos.app"]` y `Service` que apunte al pod del tenant
+3. En Kong: configurar plugin JWT y rate-limit para esa Route
+4. nginx no requiere ningún cambio — el `server_name _` ya acepta ese dominio
+
+**Faltante crítico:** No existe una ficha `sbos-kong-tenant` que automatice el paso 2. Actualmente las Routes de Kong se configuran manualmente. Una empresa nueva requiere intervención manual.
+
+---
+
+#### Estado VPS y problema de versión
+
+- **Estado en VPS:** UPDATE_AVAILABLE (⏸️)
+- **Causa:** `manifest.yml` declara `version: "1.28.0"` pero la imagen instalada vía apt puede ser una versión diferente. BOS calcula UPDATE_AVAILABLE por diferencia de versiones.
+- **Impacto:** nginx está corriendo correctamente (systemd active) — UPDATE_AVAILABLE es falso si la versión actual sirve bien.
+- **Fix:** Verificar versión real con `nginx -v` en VPS y actualizar manifest si coincide. O ejecutar `bosctl ficha repair nginx` para sincronizar.
+
+---
+
 **Logros:**
-- ✅ nginx instalado y sirviendo
-- ✅ Rutas `/desktop/` y `/api/` configuradas
-- ✅ Webroot para Certbot configurado
+- ✅ nginx 1.28.0+ instalado en host S02 como servicio systemd
+- ✅ TLS autofirmado con SAN para la IP del servidor (idempotente — no regenera si queda >30 días)
+- ✅ HTTP→HTTPS redirect (:80 → :443)
+- ✅ Rutas VDI: `/desktop/`, `/guacamole/`, `/nextcloud/`, `/grafana/`, `/onlyoffice/`
+- ✅ Headers de seguridad CIS+OWASP: `X-Frame-Options`, `X-Content-Type-Options`, `HSTS`, `X-XSS-Protection`
+- ✅ Log format SBOS con `ctx_id` y `tenant` extraídos de headers Kong
+- ✅ Webroot Certbot en `/.well-known/acme-challenge/`
+- ✅ Página de bienvenida SBOS en `/var/www/html/index.html`
+- ✅ Firewall UFW: puertos 80 y 443 abiertos
 
 **Faltantes:**
-- ⏸️ UPDATE_AVAILABLE — versión nueva disponible pero no actualizada aún
+- ❌ INC-nginx-1: raíz `/` redirige a `/desktop/` en lugar de servir index.html (la bienvenida SBOS no se ve)
+- ❌ GAP-nginx-1: no hay ficha `sbos-kong-tenant` para automatizar rutas Kong por tenant
+- ❌ GAP-nginx-2: Certbot (TLS Let's Encrypt real) solo funciona cuando hay dominio DNS público apuntado
+- ❌ UPDATE_AVAILABLE: verificar si versión VPS coincide con manifest o corregir manifest
 
-**Bugs:** ninguno activo
+**Bugs:** ninguno activo (nginx corre correctamente — UPDATE_AVAILABLE es de versión, no de funcionalidad)
 
 ---
 
@@ -819,36 +957,149 @@
 
 ### [230] fedora-kde · S13 · ⏸️ UPDATE_AVAILABLE
 
-**Propósito:** Escritorio virtual corporativo. Pod que ejecuta KDE Plasma sobre TigerVNC. Accesible desde el navegador via noVNC HTML5 → Guacamole. Cada usuario corporativo accede a su escritorio Fedora con sus aplicaciones SBOS preconfiguradas (Tryton, Nextcloud, etc.).
+**Propósito:** Escritorio virtual corporativo. Pod que ejecuta KDE Plasma 6 + TigerVNC sobre Fedora 44. Accesible desde el navegador web via noVNC HTML5 (puerto 6901) o via Guacamole (VNC sobre WebSocket). Cada usuario corporativo accede a su escritorio Fedora con las aplicaciones SBOS preconfiguradas (Tryton cliente, sbos-webapp, Nextcloud).
 
 **Dependencias:** keycloak, kong, guacamole
 
-**🔶 Huevo y gallina — ARQUITECTURA INCOMPLETA:**
-- **Problema crítico (VDI-GAP-1):** `replicas: 1` — todo el sistema comparte UN SOLO escritorio. Si dos usuarios se conectan al mismo tiempo, ven lo mismo.
-- **Solución necesaria:** Provisioner dinámico que cree 1 pod por sesión de usuario autenticado.
-- **Problema crítico (VDI-GAP-2):** Sin PVC por usuario — el home del usuario desaparece cuando el pod se reinicia.
-- **INC-3:** ConfigMap `fedora-kde-start-script` sobreescribe el `start-desktop.sh` baked en la imagen — viola P-VDI-1 (imagen como fuente de verdad).
-- **INC-2:** manifest dice `version: "41.0.0"` pero la imagen es `sbos/fedora-desktop:1.0.0` → BOS calcula UPDATE_AVAILABLE incorrecto.
+---
+
+#### Arquitectura VDI actual (simplificada)
+
+```
+Usuario en navegador
+        │
+        ▼
+https://IP:443/desktop/
+        │
+nginx (HOST) → oauth2-proxy-desktop (SSO Keycloak)
+        │
+        ▼
+fedora-kde pod
+  TigerVNC :5901
+  noVNC :6901 (HTML5)
+```
+
+---
+
+#### Problemas VDI — Detalle exhaustivo y soluciones
+
+---
+
+**VDI-PROBLEMA #1 — INC-2: manifest versión incorrecta → UPDATE_AVAILABLE falso**
+
+- **Síntoma:** BOS muestra `UPDATE_AVAILABLE` para fedora-kde permanentemente.
+- **Causa:** `manifest.yml` tiene `version: "41.0.0"` (número de versión Fedora) pero la imagen Docker tiene tag `sbos/fedora-desktop:1.0.0`. BOS compara strings → siempre diferentes.
+- **Impacto:** Observer intenta hacer update de la ficha en cada ciclo (si auto_install=true) aunque nada cambió.
+- **Solución (1 línea):**
+  ```yaml
+  # En servers/S13/fedora-kde/manifest.yml
+  # Cambiar:
+  version: "41.0.0"
+  # Por:
+  version: "1.0.0"
+  ```
+- **Verificación:** `bosctl ficha status fedora-kde` debe mostrar `INSTALLED` (no UPDATE_AVAILABLE).
+
+---
+
+**VDI-PROBLEMA #2 — INC-3: ConfigMap sobreescribe start-desktop.sh de la imagen**
+
+- **Síntoma:** El script de arranque del escritorio no viene de la imagen Docker — viene de un ConfigMap K8s `fedora-kde-start-script` que se monta en `/start-desktop.sh`.
+- **Causa:** Se modificó `start-desktop.sh` fuera del proceso de build de la imagen y se puso en un ConfigMap para no reconstruir la imagen. Viola P-VDI-1.
+- **Impacto:** Si alguien hace `kubectl delete configmap fedora-kde-start-script`, el escritorio no arranca. La imagen y el ConfigMap pueden divergir silenciosamente.
+- **Solución:**
+  1. Copiar el contenido actual del ConfigMap al `start-desktop.sh` del Containerfile
+  2. Reconstruir la imagen: `docker build -t sbos/fedora-desktop:1.0.1 .`
+  3. Actualizar el Deployment para usar la nueva imagen
+  4. Eliminar el ConfigMap y el volume mount del Deployment
+- **Verificación:** `kubectl describe deployment fedora-kde -n sbos-vdi | grep -i configmap` → no debe aparecer.
+
+---
+
+**VDI-PROBLEMA #3 — VDI-GAP-1: 1 pod compartido para TODOS los usuarios**
+
+- **Síntoma:** Si dos usuarios hacen login al mismo tiempo, ambos ven el mismo escritorio.
+- **Causa:** `replicas: 1` en el Deployment — hay un solo pod para todo el sistema.
+- **Impacto:** Multi-usuario imposible. Privacidad comprometida (usuario A ve lo que hizo usuario B).
+- **Arquitectura objetivo:**
+  ```
+  Guacamole recibe conexión de usuario A
+    → Consulta sbos-vdi-provisioner (nuevo daemon a crear)
+    → provisioner busca/crea pod fedora-kde-userA
+    → Guacamole conecta al VNC del pod específico de ese usuario
+  ```
+- **Solución:** Crear `sbos-vdi-provisioner` — un daemon Go que:
+  1. Expone API: `POST /api/vdi/session {user_id}` → devuelve IP:puerto del pod VNC del usuario
+  2. Al recibir la solicitud: verifica si existe pod `fedora-kde-{user_id}`, si no → crea Deployment dinámico
+  3. Limpia pods inactivos (TTL configurable)
+- **Dependencia de HITL:** Decisión Q-3 pendiente sobre arquitectura de sesiones (1-pod-por-usuario vs pod-pool vs pod-compartido-con-sesiones).
+- **Verificación:** Dos usuarios distintos conectados simultáneamente → escritorios completamente independientes.
+
+---
+
+**VDI-PROBLEMA #4 — VDI-GAP-2: sin PVC por usuario (home temporal)**
+
+- **Síntoma:** Al reiniciar el pod fedora-kde, el home del usuario (`/home/sbosuser/`) desaparece — archivos, configuración, historial de trabajo, todo perdido.
+- **Causa:** El pod no tiene PVC propio. El sistema de archivos es ephemeral (emptyDir o la capa de escritura del contenedor).
+- **Impacto:** Cada login es como entrar por primera vez. Inaceptable para uso corporativo.
+- **Solución:**
+  1. Agregar al Deployment de fedora-kde un PVC por usuario:
+     ```yaml
+     volumes:
+     - name: user-home
+       persistentVolumeClaim:
+         claimName: "fedora-kde-home-{user_id}"
+     ```
+  2. El PVC se crea en el mismo `sbos-vdi-provisioner` cuando crea el pod de usuario
+  3. Política: `Retain` → datos sobreviven aunque el pod se destruya
+  4. Cuota por usuario: 10 Gi (configurable en sbos-vdi-config)
+- **Verificación:** Crear archivo en `/home/sbosuser/test.txt` → reiniciar pod → el archivo sigue existiendo.
+
+---
+
+**VDI-PROBLEMA #5 — VDI-GAP-5: puerto 6901 (noVNC) expuesto sin autenticación**
+
+- **Síntoma:** Cualquier persona que conozca `http://IP-VPS:6901` accede directamente al escritorio VDI sin pasar por Keycloak ni por Guacamole.
+- **Causa:** El Deployment tiene un `NodePort` en :6901 expuesto en todos los nodos K8s. UFW permite tráfico entrante en puertos nodePort range (30000-32767) pero :6901 es un hostPort directo.
+- **Impacto:** Bypass completo de autenticación. Riesgo de seguridad crítico.
+- **Solución inmediata (2 pasos):**
+  1. En K8s: quitar el `hostPort: 6901` del Deployment (solo mantener containerPort: 6901 sin exposición)
+  2. En UFW: `ufw deny 6901/tcp`
+  - El acceso al escritorio queda SOLO via nginx:443/desktop/ → oauth2-proxy → pod
+- **Solución definitiva:** Agregar NetworkPolicy que prohíba tráfico externo directo al pod fedora-kde en :5901 y :6901.
+- **Verificación:** `curl http://IP-VPS:6901` desde fuera → debe fallar (connection refused/timeout).
+
+---
+
+**🔶 Huevo y gallina — CADENA DE ARRANQUE VDI:**
+1. **Vault** (orden 130) → estable → oauth2-proxy-desktop obtiene client_secret
+2. **oauth2-proxy-desktop** → Running → puede autenticar usuarios
+3. **fedora-kde** → Running → el escritorio existe
+4. **guacamole** (orden 210) → Running + tabla `guacamole_connection` con VNC de fedora-kde
+5. **nginx** (orden 170) → regenera config con IPs actuales de todos los servicios VDI
+6. **Usuario** → accede a nginx → oauth2-proxy → Keycloak → escritorio
+
+**El eslabón roto actualmente: vault caído → oauth2-proxy caído → SSO no funciona.**
+
+---
 
 **Logros:**
 - ✅ Imagen `sbos/fedora-desktop:1.0.0` con KDE Plasma 6 + openbox como WM X11
 - ✅ noVNC HTML5 funcional (novnc-index.html baked en imagen)
 - ✅ KWallet deshabilitado (no bloquea arranque del escritorio)
-- ✅ sbos-webapp con `--password-store=basic`
-- ✅ SSO vía oauth2-proxy-desktop → Keycloak verificado end-to-end
+- ✅ sbos-webapp con `--password-store=basic` (sin solicitar keyring en cada arranque)
+- ✅ SSO vía oauth2-proxy-desktop → Keycloak verificado end-to-end (cuando vault estaba estable)
+- ✅ TigerVNC con contraseña generada aleatoriamente (no hardcodeada)
 
 **Faltantes:**
-- ❌ VDI-GAP-1: sin provisioning dinámico — 1 pod compartido (depende Q-3 HITL)
-- ❌ VDI-GAP-2: sin PVC por usuario (home temporal — se pierde en reboot)
-- ❌ VDI-GAP-5: puerto noVNC 6901 expuesto externamente sin autenticación (bypass de Guacamole)
-- ❌ INC-2: versión manifest incompatible con tag imagen (1 línea de fix)
-- ❌ INC-3: ConfigMap sobreescribe start-desktop.sh de imagen (eliminar ConfigMap)
+- ❌ VDI-PROBLEMA #1: corregir versión manifest (1 línea)
+- ❌ VDI-PROBLEMA #2: eliminar ConfigMap y rebuildar imagen (1-2 días)
+- ❌ VDI-PROBLEMA #3: crear sbos-vdi-provisioner (semana de desarrollo, depende HITL Q-3)
+- ❌ VDI-PROBLEMA #4: agregar PVC por usuario (depende del provisioner)
+- ❌ VDI-PROBLEMA #5: bloquear puerto 6901 (30 minutos — urgente)
 - ❌ auto_install no definido en manifest (GAP-6)
 
-**Bugs activos:**
-- ⚠️ INC-2: UPDATE_AVAILABLE falso (versiones incomparables)
-- ⚠️ INC-3: P-VDI-1 violado (imagen no es fuente de verdad del script)
-- ❌ VDI-GAP-5: acceso directo por puerto 6901 sin pasar por bAuth/Guacamole
+**Orden recomendado de resolución:** #5 (urgente seguridad) → #1 (trivial) → #2 (bajo riesgo) → #3+#4 (complejo, requiere HITL)
 
 ---
 
@@ -1017,6 +1268,282 @@
 
 ---
 
+## Mapa de problemas activos — con soluciones concretas
+
+> Esta sección agrupa todos los bugs activos por prioridad con:
+> **síntoma → causa raíz → solución paso a paso → verificación**.
+> El orden es el de resolución recomendado (cada bloque desbloquea el siguiente).
+
+---
+
+### BLOQUE A — VPS inmediata (desbloquean toda la cadena)
+
+---
+
+**PROBLEMA A-1 — BUG-36: hairpin NAT puede no estar activa → kyverno admission-controller falla**
+
+- **Síntoma:** `kubectl logs -n kyverno deploy/kyverno-admission-controller` muestra `dial tcp 10.96.0.1:443: i/o timeout`. kyverno queda en PENDING sin poder registrar sus webhooks.
+- **Causa raíz:** Hetzner VPS no provee hairpin NAT. Los pods no pueden alcanzar la IP pública del servidor (que es el endppoint del apiserver K8s externamente). La regla iptables que FIX-19 agrega puede perderse al reiniciar el host o al reiniciar iptables.
+- **Solución:**
+  ```bash
+  # 1. Verificar si la regla existe actualmente en VPS
+  iptables -t nat -L PREROUTING -n | grep "10.96.0.1"
+  iptables -t nat -L OUTPUT -n | grep "10.96.0.1"
+  
+  # 2. Si no existe, agregarla:
+  SERVER_IP=$(curl -sf https://ifconfig.me)
+  iptables -t nat -A PREROUTING -d $SERVER_IP -p tcp --dport 6443 -j DNAT --to-destination 10.96.0.1:443
+  iptables -t nat -A OUTPUT -d $SERVER_IP -p tcp --dport 6443 -j DNAT --to-destination 10.96.0.1:443
+  iptables -t nat -A POSTROUTING -d 10.96.0.1 -p tcp --dport 443 -j MASQUERADE
+  
+  # 3. Persistir para que sobreviva reboot:
+  iptables-save > /etc/iptables/rules.v4
+  
+  # 4. Reiniciar el pod de kyverno admission-controller:
+  kubectl rollout restart deployment kyverno-admission-controller -n kyverno
+  
+  # 5. Verificar que kyverno está Running y sus webhooks registrados:
+  kubectl get validatingwebhookconfigurations | grep kyverno
+  ```
+- **Verificación:** `kubectl get pods -n kyverno | grep admission-controller` → todos Running (no CrashLoopBackOff).
+
+---
+
+**PROBLEMA A-2 — BUG-26: vault en CrashLoop por liveness probe sin `sealedok=true`**
+
+- **Síntoma:** Pod vault tiene 95+ reinicios. `kubectl describe pod vault-0 -n sbos-security` muestra `Liveness probe failed: HTTP probe failed with statuscode: 503` (vault sellado devuelve 503 en /v1/sys/health sin sealedok=true).
+- **Causa raíz:** La liveness probe original es `/v1/sys/health?standbyok=true` — cuando vault está sellado devuelve 503, Kubernetes lo mata y reinicia el pod, que vuelve a quedar sellado. Ciclo infinito.
+- **Fix commiteado (FIX-26A en de927a0):** La probe correcta es `/v1/sys/health?standbyok=true&sealedok=true`. Vault sellado devuelve 200 y K8s no mata el pod.
+- **Solución — desplegar en VPS:**
+  ```bash
+  # Copiar task_catalog.sh actualizado al pod o via kubectl patch:
+  kubectl patch statefulset vault -n sbos-security --type=json -p='[
+    {"op":"replace",
+     "path":"/spec/template/spec/containers/0/livenessProbe/httpGet/path",
+     "value":"/v1/sys/health?standbyok=true&sealedok=true"}
+  ]'
+  
+  # Verificar que el StatefulSet se actualizó:
+  kubectl get statefulset vault -n sbos-security -o jsonpath='{.spec.template.spec.containers[0].livenessProbe}'
+  
+  # Esperar que el pod se reinicie con la nueva probe:
+  kubectl rollout status statefulset vault -n sbos-security
+  ```
+- **Verificación:** `kubectl get pods -n sbos-security | grep vault` → Running sin reinicios acumulándose.
+
+---
+
+**PROBLEMA A-3 — Vault debe desellar manualmente tras cada reinicio**
+
+- **Síntoma:** Vault está Running (liveness probe ok tras A-2) pero en estado SEALED. Las apps que necesitan secretos no pueden obtenerlos.
+- **Causa raíz:** Vault seal por diseño de seguridad — las unseal keys no se almacenan en el sistema (si lo hicieran, cualquiera con acceso al cluster tendría acceso a todos los secretos).
+- **Solución:**
+  ```bash
+  # Obtener las unseal keys del archivo seguro (guardadas en el momento del vault init)
+  # Ejecutar 3 de 5 operaciones de unseal:
+  kubectl exec -n sbos-security vault-0 -- vault operator unseal <unseal-key-1>
+  kubectl exec -n sbos-security vault-0 -- vault operator unseal <unseal-key-2>
+  kubectl exec -n sbos-security vault-0 -- vault operator unseal <unseal-key-3>
+  
+  # Verificar estado:
+  kubectl exec -n sbos-security vault-0 -- vault status | grep "Sealed"
+  # Debe mostrar: Sealed: false
+  ```
+- **Nota larga:** Para auto-unseal soberano (sin dependencia de HashiCorp Cloud), usar Vault Transit seal con un segundo Vault dedicado (arquitectura compleja — pendiente decisión HITL).
+- **Verificación:** `kubectl exec -n sbos-security vault-0 -- vault status | grep "Sealed"` → `Sealed: false`.
+
+---
+
+**PROBLEMA A-4 — oauth2-proxy en PHYSICAL_ERROR derivado de vault**
+
+- **Síntoma:** Pod oauth2-proxy en CrashLoopBackOff. Error: `failed to get provider configuration: ... connection refused` o `vault: 503 Service Unavailable`.
+- **Causa raíz:** oauth2-proxy intenta leer el `client_secret` de Keycloak desde Vault al arrancar. Vault está sellado/caído → lectura falla → pod no arranca → K8s lo reinicia → ciclo.
+- **Solución:** Se resuelve automáticamente al completar A-2 + A-3. FIX-B (observer) ya está activo en el binary actual — detecta PHYSICAL_ERROR y lanza repair automáticamente.
+- **Proceso automático tras A-3:**
+  1. Vault unseal → AppRole de oauth2-proxy obtiene token
+  2. oauth2-proxy lee client_secret de Keycloak de Vault
+  3. Pod arranca correctamente
+  4. Observer detecta PHYSICAL_ERROR → StatePhysicalError → lanza repair
+  5. Estado pasa a INSTALLED
+- **Si no ocurre automáticamente:** `bosctl ficha repair oauth2-proxy`
+- **Verificación:** `kubectl get pods -n sbos-gateway | grep oauth2` → Running.
+
+---
+
+**PROBLEMA A-5 — tryton INSTALL_FAILED derivado de vault**
+
+- **Síntoma:** `bosctl ficha status tryton` → INSTALL_FAILED. El pod no arranca porque no puede obtener credenciales de BD de Vault.
+- **Causa raíz:** Misma que A-4 — Vault sellado impide obtener el DSN de PostgreSQL para Tryton.
+- **Solución:** Completar A-2+A-3, luego: `bosctl ficha repair tryton`
+- **Prerequisito:** Resolver INC-1 (duplicado S01/S04) antes — ver BLOQUE C.
+- **Verificación:** `kubectl get pods -n sbos-erp | grep tryton` → Running.
+
+---
+
+**PROBLEMA A-6 — linkerd ReplicaSets huérfanos consumen recursos**
+
+- **Síntoma:** `kubectl get rs -n linkerd | grep "0/0/0"` muestra varios ReplicaSets con 0 pods deseados/actuales/listos.
+- **Causa:** Instalaciones anteriores fallidas de linkerd dejaron ReplicaSets obsoletos. Consumen entradas en etcd y confunden al observer.
+- **Solución:**
+  ```bash
+  # Ver RS huérfanos:
+  kubectl get rs -n linkerd | grep -E "^.*\s+0\s+0\s+0\s+"
+  
+  # Eliminarlos:
+  kubectl get rs -n linkerd | grep -E "\s+0\s+0\s+0\s+" | awk '{print $1}' | \
+    xargs kubectl delete rs -n linkerd
+  ```
+- **Verificación:** `kubectl get rs -n linkerd` → solo RSs con replicas > 0.
+
+---
+
+### BLOQUE B — Código (correcciones en fichas)
+
+---
+
+**PROBLEMA B-1 — BUG-35: dependencia circular PG/Redis/MinIO → vault**
+
+- **Síntoma:** `bosctl ficha status postgresql` muestra dependencias bloqueadas. El DAG del observer puede calcular orden incorrecto.
+- **Causa:** `manifest.yml` de postgresql, redis y minio declaran `vault` como dependencia. Vault declara `postgresql` como dependencia. Ciclo: PG→Vault→PG.
+- **Solución (3 archivos a editar):**
+  ```yaml
+  # En servers/S01/postgresql/manifest.yml — ELIMINAR vault de dependencies
+  # En servers/S01/redis/manifest.yml — ELIMINAR vault de dependencies
+  # En servers/S01/minio/manifest.yml — ELIMINAR vault de dependencies
+  # (Ninguno de estos 3 necesita Vault para arrancar)
+  ```
+- **Razonamiento:** PG, Redis y MinIO arrancan con credenciales generadas en el momento (openssl rand). Vault los toma bajo control DESPUÉS de instalarse. La dependencia es Vault→PG, no PG→Vault.
+- **Verificación:** `bosctl observer dag` → no debe mostrar ciclos en el grafo de dependencias.
+
+---
+
+**PROBLEMA B-2 — BUG-31: fichas huérfanas no están en .sbos_state.json**
+
+- **Síntoma:** `sbos-bootstrap-platform` y `sbos-k8s-network-validator` existen en `servers/` y están desplegadas en el cluster, pero no aparecen en `.sbos_state.json`. El observer no las supervisa.
+- **Causa:** Se instalaron antes de que BOS tuviera el state manager completo, o se instalaron fuera del flujo normal de BOS.
+- **Solución:**
+  ```bash
+  # Registrar manualmente en state (o via bosctl):
+  bosctl ficha repair sbos-bootstrap-platform
+  bosctl ficha repair sbos-k8s-network-validator
+  # Estos comandos deben detectar que la ficha ya está instalada y solo registrarla en state
+  ```
+- **Si repair no registra en state:** Agregar método `bosctl ficha adopt` que detecta estado real y lo registra.
+- **Verificación:** `bosctl state list | grep sbos-bootstrap-platform` → aparece en la lista.
+
+---
+
+**PROBLEMA B-3 — GAP-4: guacamole sin conexiones → escritorio inaccesible vía Guacamole**
+
+- **Síntoma:** El usuario hace login en Guacamole (`/guacamole/`), ve la interfaz, pero la lista de conexiones está vacía. No puede conectar a ningún escritorio.
+- **Causa:** `guacamole_connection` en la BD `guacamole_db` está vacía. Guacamole no autodetecta los pods VNC — hay que decirle explícitamente a qué IP:puerto conectar.
+- **Solución — agregar a `ficha_post_install()` de guacamole:**
+  ```bash
+  # En servers/S13/guacamole/task_catalog.sh — ficha_post_install():
+  # Insertar la conexión VNC al pod fedora-kde:
+  FEDORA_IP=$(kubectl get svc fedora-kde -n sbos-vdi -o jsonpath='{.spec.clusterIP}' 2>/dev/null)
+  if [[ -n "$FEDORA_IP" ]]; then
+      kubectl exec -n sbos-data deployment/postgresql -- psql -U postgres -d guacamole_db -c "
+        INSERT INTO guacamole_connection (connection_name, protocol, max_connections)
+        VALUES ('Escritorio SBOS', 'vnc', 10)
+        ON CONFLICT DO NOTHING;
+        INSERT INTO guacamole_connection_parameter (connection_id, parameter_name, parameter_value)
+        SELECT connection_id, 'hostname', '${FEDORA_IP}' FROM guacamole_connection WHERE connection_name='Escritorio SBOS' ON CONFLICT DO NOTHING;
+        INSERT INTO guacamole_connection_parameter (connection_id, parameter_name, parameter_value)
+        SELECT connection_id, 'port', '5901' FROM guacamole_connection WHERE connection_name='Escritorio SBOS' ON CONFLICT DO NOTHING;
+      " 2>/dev/null || true
+  fi
+  ```
+- **Verificación:** Login en `/guacamole/` → lista "Escritorio SBOS" → conectar → desktop visible.
+
+---
+
+**PROBLEMA B-4 — GAP-2: health.check_command ausente en fichas críticas**
+
+- **Síntoma:** BOS no puede detectar proactivamente si postgresql, redis, vault, keycloak, kong, minio están respondiendo correctamente (solo detecta si el pod está Running/CrashLoop via k8s_discovery).
+- **Causa:** Las fichas no tienen `health.check_command` definido en sus `manifest.yml`. Solo tienen `health.type: k8s_pod`.
+- **Impacto:** BOS puede reportar una ficha como INSTALLED aunque el servicio esté respondiendo errores — solo detecta el crash a nivel de pod, no a nivel de protocolo.
+- **Solución — agregar a cada manifest:**
+  ```yaml
+  # postgresql:
+  health:
+    type: command
+    command: "kubectl exec -n sbos-data deployment/postgresql -- pg_isready -U postgres"
+    timeout_seconds: 5
+  
+  # redis:
+  health:
+    type: command
+    command: "kubectl exec -n sbos-data deployment/redis -- redis-cli ping | grep -q PONG"
+    timeout_seconds: 5
+  
+  # vault:
+  health:
+    type: command
+    command: "kubectl exec -n sbos-security vault-0 -- vault status | grep -q 'Sealed.*false'"
+    timeout_seconds: 10
+  
+  # kong:
+  health:
+    type: command
+    command: "kubectl exec -n sbos-gateway deployment/kong -- curl -sf http://localhost:8007/status"
+    timeout_seconds: 5
+  ```
+- **Verificación:** `bosctl ficha health postgresql` → responde OK/DEGRADED según el estado real del servicio.
+
+---
+
+### BLOQUE C — HITL (requieren decisión del humano)
+
+---
+
+**PROBLEMA C-1 — INC-1: duplicado S01/tryton = S04/tryton**
+
+- **Síntoma:** `diff servers/S01/tryton/manifest.yml servers/S04/tryton/manifest.yml` → sin diferencias.
+- **Causa:** Se creó una copia sin propósito distinto.
+- **Decisión HITL requerida (Q-1):**
+  - Opción A: `S01/tryton` = instancia ERP tenant principal (auto_install:true). `S04/tryton` = reservado para tenant secundario (auto_install:false, requiere customización). → Diferenciarlos en descripciones y namesapce K8s.
+  - Opción B: Eliminar `S04/tryton` completamente (solo un ERP por instalación).
+  - Opción C: `S04/tryton` es la instancia de staging/test (namespace diferente).
+
+---
+
+**PROBLEMA C-2 — INC-5: duplicado S06/mattermost = S10/mattermost**
+
+- **Síntoma:** S06 tiene 726 líneas (robusta, auto_install:true) y S10 tiene 260 líneas (básica, auto_install:false).
+- **Decisión HITL requerida (Q-4):**
+  - Opción A: S06 = instancia de chat empresarial (usar esta, eliminar S10).
+  - Opción B: S10 = instancia de soporte externo (diferente config, diferente namespace).
+
+---
+
+**PROBLEMA C-3 — SBOS-database-init: falta ficha de inicialización de BD**
+
+- **Decisión HITL:** El DDL (`DDLs/SBOS_db_V2_DDL.sql`) tiene 158 tablas. ¿Se despliega todo en un solo paso o por módulo (bos-schema, bauth-schema, etc.)?
+  - Opción A (recomendada): Una sola ficha `sbos-database-init` que ejecuta el DDL completo. Simple, mantenible.
+  - Opción B: Una ficha por daemon (`bos-schema`, `bauth-schema`, etc.). Más granular pero más complejo.
+
+---
+
+### BLOQUE D — Seguridad urgente
+
+---
+
+**PROBLEMA D-1 — VDI-GAP-5: puerto 6901 expuesto sin auth (URGENTE)**
+
+- **Ver VDI-PROBLEMA #5 arriba.** Es el único problema de seguridad activo que requiere acción inmediata, independientemente del estado de vault.
+- **Tiempo estimado:** 30 minutos.
+- **Acción:**
+  ```bash
+  # En VPS:
+  ufw deny 6901/tcp
+  ufw status | grep 6901
+  # Verificar que el acceso desde fuera falla:
+  # curl http://IP-VPS:6901 → debe fallar
+  ```
+
+---
+
 ## Resumen de estado por ficha
 
 | Orden | Ficha | Estado | Bloqueo principal |
@@ -1031,6 +1558,7 @@
 | 35 | sbos-bootstrap-monitoring | ✅ INSTALLED | — |
 | 50 | sbos-k8s-network-validator | ⚙️ PENDING (no en state) | ❌ BUG-31 |
 | 70 | sbos-bkernel | ✅ INSTALLED | — |
+| ~105 | sbos-database-init | ⚠️ FICHA FALTANTE | ❌ No existe — BD creada manualmente |
 | 100 | postgresql | ✅ INSTALLED | ⚠️ BUG-35 dep circular |
 | 100 | kyverno | ⚙️ PENDING (CrashLoop) | ❌ BUG-36 hairpin NAT |
 | 110 | redis | ✅ INSTALLED | ⚠️ BUG-35 dep circular |
@@ -1074,9 +1602,9 @@
 
 ---
 
-**Fichas INSTALLED:** 24 · **PHYSICAL_ERROR:** 3 · **INSTALL_FAILED:** 1 · **INSTALLING:** 1 · **UPDATE_AVAILABLE:** 2 · **PENDING/NO_INSTALADA:** 34
+**Fichas INSTALLED:** 24 · **PHYSICAL_ERROR:** 3 · **INSTALL_FAILED:** 1 · **INSTALLING:** 1 · **UPDATE_AVAILABLE:** 2 · **PENDING/NO_INSTALADA:** 34 · **FALTANTE (a crear):** 2 (`sbos-database-init`, `sbos-kong-tenant`)
 
 ---
 
-*Documento v1.0.0 — bos-developer · 2026-10-13*  
+*Documento v2.0.0 — bos-developer · 2026-10-13*  
 *Panel de control de reparación: `PLAN-INSTALACION-DESDE-CERO.md §13`*
