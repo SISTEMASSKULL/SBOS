@@ -1,6 +1,6 @@
 # Plan de Instalación desde Cero — VPS Limpia Ubuntu 26.04
 
-**Versión:** 2.6.0  
+**Versión:** 2.7.0  
 **Fecha:** 2026-10-13  
 **Autor:** bos-developer  
 **Estado:** 🔄 PT-05 EN CURSO — 24/35 fichas INSTALLED · 2 PHYSICAL_ERROR (vault, oauth2-proxy — FIX-26A commiteado, pendiente deploy VPS) · 1 INSTALL_FAILED (tryton — desbloqueado tras vault) · 2 fixes críticos aplicados en código (FIX-26A + FIX-B observer)  
@@ -2182,5 +2182,372 @@ HORAS ESTIMADAS DESDE UBUNTU VIRGEN
 
 ---
 
-*Documento v2.5.0 — bos-developer · 2026-10-13*  
+---
+
+## 13. Plan de acción — lista maestra de problemas en orden de ejecución
+
+> **Cómo usar esta sección:** Es el único punto de entrada para el trabajo de reparación y desarrollo. Los §0–§12 son referencia de detalle — este §13 es el dashboard. Cada problema tiene un número fijo. Empezar por el #1 y avanzar en orden: los siguientes dependen de los anteriores.
+
+**Leyenda de estado:**
+- ✅ `LISTO` — ya corregido en código, sin acción pendiente
+- 🔄 `COMMITEADO` — fix en repositorio, falta aplicar en VPS
+- ⏳ `PENDIENTE` — no iniciado, listo para trabajar
+- ❓ `HITL` — bloqueado por decisión del humano (pregunta HITL en §11.4)
+
+---
+
+### BLOQUE A — Reparar el cluster VPS actual (ejecución en VPS)
+
+> Estos problemas hacen que el instalador no pueda completarse. Son acciones manuales sobre el servidor. Una vez resueltos, el observer de BOS toma el control automáticamente.
+
+---
+
+#### PROBLEMA #1 — Hairpin NAT ausente: kyverno admission-controller no puede conectar al apiserver
+
+**Estado:** ⏳ PENDIENTE  
+**Tipo:** Acción en VPS (no requiere código)  
+**Síntoma:** kyverno en PENDING en state · admission-controller en CrashLoopBackOff · `dial tcp 10.96.0.1:443: i/o timeout`  
+**Por qué primero:** Kyverno con `failurePolicy: Fail` bloquea todo `kubectl apply`. Sin esto, ningún repair puede aplicarse al cluster.  
+**Referencia detallada:** §8.2 BUG-36
+
+```bash
+# En la VPS como root:
+export KUBECONFIG=/root/.kube/config
+
+# 1. Verificar si la regla existe
+iptables -t nat -L OUTPUT -n | grep 6443
+
+# 2. Si NO existe, reaplicarla (reemplazar 13.140.128.230 con la IP pública del servidor)
+PUB_IP=$(curl -s ifconfig.me)
+iptables -t nat -A OUTPUT -d ${PUB_IP}/32 -p tcp --dport 6443 -j REDIRECT --to-port 6443
+
+# 3. Persistir la regla (no se pierde en reboot)
+iptables-save > /etc/iptables/rules.v4
+
+# 4. Reiniciar el admission-controller de kyverno
+kubectl rollout restart deployment/kyverno-admission-controller -n kyverno
+```
+
+**Verificación:** `kubectl get pods -n kyverno` → todos 1/1 Running · `kubectl apply` sin errores de webhook.
+
+---
+
+#### PROBLEMA #2 — Vault en CrashLoop: liveness probe mata el pod sellado
+
+**Estado:** 🔄 COMMITEADO (commit `0a1a182`) — falta aplicar en VPS  
+**Tipo:** Copiar archivo + ejecutar repair + unseal manual  
+**Síntoma:** vault PHYSICAL_ERROR · 95+ reinicios · `vault-0 CrashLoopBackOff`  
+**Por qué segundo:** vault bloqueado bloquea oauth2-proxy y tryton en cascada.  
+**Referencia detallada:** §8.2 BUG-26 / §7.0.1 GAP-A
+
+```bash
+# En la máquina de desarrollo — copiar el fix a la VPS:
+scp BosAgent/src/servers/S02/vault/task_catalog.sh \
+    root@13.140.128.230:/etc/bos/blibs/servers/S02/vault/task_catalog.sh
+
+# En la VPS como root:
+export KUBECONFIG=/root/.kube/config
+bosctl ficha repair vault
+
+# Esperar 60s hasta que el pod arranque, luego hacer unseal (3 de 5 keys):
+sleep 70
+for KEY in $(python3 -c "
+import json
+d=json.load(open('/etc/bos/vault-init-keys.json'))
+[print(k) for k in d['unseal_keys_b64'][:3]]
+"); do
+  kubectl exec -n sbos-security vault-0 -- vault operator unseal $KEY
+done
+```
+
+**Verificación:** `kubectl exec -n sbos-security vault-0 -- vault status | grep Sealed` → `Sealed: false` · `bosctl ficha status vault` → INSTALLED.
+
+---
+
+#### PROBLEMA #3 — oauth2-proxy y oauth2-proxy-desktop en PHYSICAL_ERROR (derivado de vault)
+
+**Estado:** ⏳ PENDIENTE — se resuelve automáticamente tras PROBLEMA #2  
+**Tipo:** Automático vía observer (FIX-B ya activo)  
+**Síntoma:** oauth2-proxy y oauth2-proxy-desktop en PHYSICAL_ERROR · no puede obtener secretos OIDC  
+**Por qué tercero:** depende de vault estable.  
+**Referencia detallada:** §8.2 BUG-27 / §7.0.1 GAP-B
+
+```bash
+# No requiere acción manual.
+# FIX-B (commit 0a1a182) ya activo: observer Fase 3 detecta PHYSICAL_ERROR → llama repair.
+# Tras vault INSTALLED, el observer repara oauth2-proxy automáticamente en el siguiente tick (5s).
+
+# Verificar:
+bosctl ficha status oauth2-proxy
+bosctl ficha status oauth2-proxy-desktop
+```
+
+**Verificación:** Ambos → INSTALLED · pods `1/1 Running` sin reinicios.
+
+---
+
+#### PROBLEMA #4 — tryton INSTALL_FAILED (bloqueado por vault caído)
+
+**Estado:** ⏳ PENDIENTE — instalar manualmente tras PROBLEMA #2+#3  
+**Tipo:** Comando en VPS  
+**Síntoma:** tryton INSTALL_FAILED · task_catalog.sh necesita credenciales de Vault  
+**Referencia detallada:** §8.2 BUG-32 (duplicado S01/S04) — ver también Q-1 en §11.4
+
+```bash
+# Tras vault INSTALLED:
+bosctl ficha install tryton
+# Verificar:
+bosctl ficha status tryton
+```
+
+**Verificación:** tryton → INSTALLED · pod `1/1 Running`.
+
+> ⚠️ BUG-32: existe duplicado `S01/tryton` = `S04/tryton`. Antes de instalar, responder Q-1 del §11.4.
+
+---
+
+#### PROBLEMA #5 — Linkerd: ReplicaSets huérfanos de instalación anterior
+
+**Estado:** ⏳ PENDIENTE — tras #1 kyverno estable  
+**Tipo:** Limpieza K8s  
+**Síntoma:** Linkerd INSTALLING en state · ReplicaSets huérfanos de crash anterior consumen recursos  
+**Referencia detallada:** §8.2 BUG-29 / §8.2 BUG-33
+
+```bash
+export KUBECONFIG=/root/.kube/config
+
+# Escalar a 0 los ReplicaSets huérfanos de linkerd
+kubectl get rs -n linkerd | grep "0/0/0" | awk '{print $1}' | \
+  xargs -I{} kubectl scale rs {} --replicas=0 -n linkerd
+
+# Anotar oauth2-proxy para excluirlo del mesh de linkerd (BUG-33)
+kubectl annotate namespace sbos-gateway linkerd.io/inject=disabled --overwrite
+kubectl rollout restart deployment/oauth2-proxy -n sbos-gateway
+```
+
+**Verificación:** `kubectl get rs -n linkerd` sin ReplicaSets en 0/0/0 · `linkerd check` sin errores críticos.
+
+---
+
+### BLOQUE B — Correcciones de código y configuración (sin intervención en VPS)
+
+> Estos problemas no bloquean el cluster actual pero sí afectan la idempotencia y corrección del instalador. Se resuelven editando ficheros en el repositorio.
+
+---
+
+#### PROBLEMA #6 — fedora-kde: versión en manifest incompatible con tag de imagen
+
+**Estado:** ⏳ PENDIENTE  
+**Tipo:** Edición de manifest (1 línea)  
+**Síntoma:** manifest dice `version: "41.0.0"` · imagen es `sbos/fedora-desktop:1.0.0` → BOS calcula UPDATE_AVAILABLE incorrecto  
+**Referencia detallada:** §11.3 INC-2
+
+```bash
+# Editar servers/S13/fedora-kde/manifest.yml:
+# version: "41.0.0"  → version: "1.0.0"
+# Después: bosctl ficha update fedora-kde (cuando VDI provisioner esté listo)
+```
+
+**Verificación:** `bosctl ficha status fedora-kde` → INSTALLED (no UPDATE_AVAILABLE).
+
+---
+
+#### PROBLEMA #7 — fedora-kde: ConfigMap sobreescribe el script baked en la imagen
+
+**Estado:** ⏳ PENDIENTE  
+**Tipo:** Eliminar ConfigMap del deployment  
+**Síntoma:** El ConfigMap `fedora-kde-start-script` sobreescribe `start-desktop.sh` de la imagen → viola P-VDI-1 (imagen como fuente de verdad)  
+**Referencia detallada:** §11.3 INC-3
+
+```bash
+# En servers/S13/fedora-kde/task_catalog.sh:
+# Eliminar la sección que crea el ConfigMap fedora-kde-start-script
+# y el volumeMount correspondiente en el Deployment.
+# El script ya está en la imagen (COPY resources/start-desktop.sh).
+```
+
+**Verificación:** `kubectl get cm -n sbos-vdi | grep fedora-kde-start-script` → no existe.
+
+---
+
+#### PROBLEMA #8 — sbos-bootstrap-platform y sbos-k8s-network-validator: fichas sin registrar en state
+
+**Estado:** ⏳ PENDIENTE  
+**Tipo:** Investigar y registrar en state  
+**Síntoma:** Ambas fichas existen en `servers/` pero no aparecen en `.sbos_state.json` → el observer no las supervisa  
+**Referencia detallada:** §11.3 INC-4 / §8.2 BUG-31
+
+```bash
+# En la VPS, verificar si están instaladas realmente:
+kubectl get pods -A | grep -E "local-path|network-validator"
+# Si están instaladas: registrar manualmente en state via bosctl
+bosctl ficha status sbos-bootstrap-platform
+bosctl ficha status sbos-k8s-network-validator
+```
+
+**Verificación:** Ambas aparecen en `bosctl ficha list` con estado correcto.
+
+---
+
+#### PROBLEMA #9 — Dependencia circular: postgresql/redis declaran vault como dependencia
+
+**Estado:** ⏳ PENDIENTE  
+**Tipo:** Edición de manifests (3 líneas)  
+**Síntoma:** postgresql (orden 100) y redis (orden 110) declaran `vault` como dependencia, pero vault (orden 130) declara `postgresql` — dependencia circular en el grafo de instalación  
+**Referencia detallada:** §8.2 BUG-35
+
+```bash
+# Editar servers/S01/postgresql/manifest.yml → quitar "vault" de dependencies
+# Editar servers/S01/redis/manifest.yml → quitar "vault" de dependencies
+# La realidad: postgresql y redis NO necesitan vault para arrancar.
+# Vault necesita postgresql para su backend HA — esa dependencia SÍ es correcta.
+```
+
+**Verificación:** `grep -A10 "dependencies:" servers/S01/postgresql/manifest.yml` → vault no aparece.
+
+---
+
+### BLOQUE C — Preguntas HITL (decisiones de diseño — responder antes de implementar)
+
+> Estos problemas requieren una decisión del humano antes de poder implementar el fix. No tienen una respuesta técnica única — dependen del diseño del negocio.
+
+---
+
+#### PROBLEMA #10 — ❓ HITL: tryton duplicado S01 vs S04
+
+**Estado:** ❓ HITL — ver Q-1 en §11.4  
+**Pregunta:** `S01/tryton` y `S04/tryton` son archivos idénticos. ¿Son dos nodos distintos de Tryton (HA) o es un error de duplicación?
+
+---
+
+#### PROBLEMA #11 — ❓ HITL: auto_install fichas VDI (S13)
+
+**Estado:** ❓ HITL — ver Q-2 en §11.4  
+**Pregunta:** `fedora-kde`, `guacamole`, `nextcloud`, `onlyoffice` no tienen `auto_install` definido. ¿Se instalan automáticamente o requieren aprobación manual por tenant?
+
+---
+
+#### PROBLEMA #12 — ❓ HITL: arquitectura de sesiones VDI
+
+**Estado:** ❓ HITL — ver Q-3 en §11.4  
+**Pregunta:** ¿Pod por usuario, pool estático, o pool con slots? Define la arquitectura del provisioner fedora-kde.
+
+---
+
+#### PROBLEMA #13 — ❓ HITL: mattermost duplicado S06 vs S10
+
+**Estado:** ❓ HITL — ver Q-4 en §11.4  
+**Pregunta:** ¿Dos instancias con propósitos distintos o error de duplicación?
+
+---
+
+### BLOQUE D — Desarrollo VDI (implementar tras responder HITL)
+
+> Estos gaps requieren código nuevo. Se implementan en orden porque cada uno habilita el siguiente.
+
+---
+
+#### PROBLEMA #14 — Guacamole sin conexiones: tabla guacamole_connection vacía
+
+**Estado:** ⏳ PENDIENTE — bloquea el VDI (usuario no ve ningún escritorio al hacer login)  
+**Tipo:** Código en task_catalog.sh  
+**Acción:** En `ficha_post_install()` de guacamole, insertar una conexión VNC que apunte al Service `fedora-kde.sbos-vdi:5900`  
+**Referencia detallada:** §11.2 GAP-4
+
+---
+
+#### PROBLEMA #15 — noVNC expuesto sin autenticación bAuth (puerto 6901)
+
+**Estado:** ⏳ PENDIENTE — riesgo de seguridad  
+**Tipo:** Código en task_catalog.sh (eliminar Service externo)  
+**Acción:** Eliminar el Service K8s que expone el puerto 6901 al exterior. Solo guacd debe poder conectar al puerto VNC del pod fedora-kde  
+**Referencia detallada:** §11.2 GAP-5
+
+---
+
+#### PROBLEMA #16 — S13 fichas sin campo auto_install (depende de HITL #11)
+
+**Estado:** ❓ Bloqueado por PROBLEMA #11  
+**Tipo:** Edición de manifests (4 líneas)  
+**Acción:** Agregar `auto_install: true|false` a manifests de fedora-kde, guacamole, nextcloud, onlyoffice según respuesta HITL
+
+---
+
+#### PROBLEMA #17 — VDI provisioner: 1 pod compartido para todos los usuarios (depende de HITL #12)
+
+**Estado:** ❓ Bloqueado por PROBLEMA #12  
+**Tipo:** Desarrollo nuevo (ficha `fedora-kde-provisioner` + integración con scaler)  
+**Acción:** Implementar provisioner según arquitectura elegida (pod/usuario, pool, o slots)  
+**Referencia detallada:** §10.2, §11.2 GAP-3, VDI-GAP-1, VDI-GAP-2
+
+---
+
+### BLOQUE E — Deuda técnica (no bloqueante — planificar cuando el cluster esté estable)
+
+---
+
+#### PROBLEMA #18 — health.check_command ausente en fichas críticas
+
+**Estado:** ⏳ PENDIENTE (P2) — no bloqueante  
+**Acción:** Agregar `check_command` a manifests de vault, postgresql, keycloak, kong, fedora-kde, guacamole  
+**Referencia detallada:** §11.2 GAP-2
+
+---
+
+#### PROBLEMA #19 — Motor de Puertos sin integración: Kardex vacío
+
+**Estado:** ⏳ PENDIENTE (P5) — deuda técnica  
+**Acción:** Agregar llamada a `bos.portman.assign` al inicio de `ficha_install()` en cada task_catalog.sh  
+**Referencia detallada:** §11.2 GAP-1
+
+---
+
+#### PROBLEMA #20 — STUBs de monitoreo: Loki, Tempo, Zabbix incompletos
+
+**Estado:** ❓ HITL — ver Q-5 en §11.4  
+**Acción:** Completar STUBs si son parte del MVP, o marcar como `auto_install: false` explícitamente
+
+---
+
+### Resumen visual del plan de acción
+
+```
+BLOQUE A — VPS (hacer en orden estricto)
+  #1  ⏳ Hairpin NAT → kyverno recovery        [sin código — acción VPS]
+  #2  🔄 FIX-26A vault en VPS                  [copiar archivo + repair + unseal]
+  #3  ⏳ oauth2-proxy auto-repair              [automático tras #2 — FIX-B activo]
+  #4  ⏳ tryton install                        [manual tras #2+#3]
+  #5  ⏳ linkerd cleanup + oauth2-proxy mesh   [limpieza K8s]
+
+BLOQUE B — Código (en cualquier orden, sin dependencias entre sí)
+  #6  ⏳ fedora-kde versión manifest
+  #7  ⏳ fedora-kde eliminar ConfigMap
+  #8  ⏳ fichas huérfanas en state
+  #9  ⏳ dependencia circular postgresql/redis→vault
+
+BLOQUE C — HITL (responder para desbloquear Bloque D)
+  #10 ❓ tryton S01 vs S04
+  #11 ❓ auto_install VDI
+  #12 ❓ arquitectura sesiones VDI
+  #13 ❓ mattermost duplicado
+
+BLOQUE D — VDI desarrollo (en orden)
+  #14 ⏳ guacamole conexiones [depende de #12 respondido]
+  #15 ⏳ noVNC bloquear puerto 6901
+  #16 ❓ auto_install S13 [depende de #11]
+  #17 ❓ VDI provisioner [depende de #12]
+
+BLOQUE E — Deuda técnica (planificar tras cluster estable)
+  #18 ⏳ health.check_command fichas críticas
+  #19 ⏳ portman integración task_catalog.sh
+  #20 ❓ Loki/Tempo/Zabbix STUBs
+
+ESTADO ESPERADO TRAS BLOQUE A COMPLETO:
+  27+ fichas INSTALLED · vault estable · tryton funcionando
+  oauth2-proxy INSTALLED · kyverno Running · linkerd limpio
+```
+
+---
+
+*Documento v2.7.0 — bos-developer · 2026-10-13*  
 *Plan completo de instalación: `PLAN-IMPLEMENTACION-BOS-VDI.md`*
