@@ -311,7 +311,8 @@
 - ✅ Políticas definidas: require-probes, forbid-hostport, verify-oci, require-networkpolicy
 
 **Faltantes:**
-- ❌ Admission-controller pod en CrashLoop por hairpin NAT (BUG-36)
+- ❌ Admission-controller pod en CrashLoop por hairpin NAT (BUG-36) — VPS action pendiente
+- ✅ (ciclo 4) BUG-36: `ficha_pre_install()` verifica y advierte si hairpin NAT no está activa
 - ❌ Switch a modo enforce no ejecutado (pendiente hasta cluster estable + sbos-bootstrap-hard)
 
 **Bugs activos:**
@@ -359,8 +360,8 @@
 - ❌ ReplicaSets huérfanos de crash anterior consumen recursos (BUG-29)
 
 **Bugs activos:**
-- ⚠️ BUG-29: ReplicaSets huérfanos de instalación anterior en namespace `linkerd`. Limpiar con `kubectl get rs -n linkerd | grep "0/0/0"`.
-- ⚠️ BUG-33: oauth2-proxy fue inyectado en el mesh antes de que linkerd estuviera completamente estable → sidecar en failfast. Fix: anotar namespace `sbos-gateway` con `linkerd.io/inject=disabled` + rollout restart oauth2-proxy.
+- ✅ (ciclo 4) BUG-29 cerrado: `ficha_repair()` limpia ReplicaSets huérfanos automáticamente
+- ✅ (ciclo 2) BUG-33 cerrado: oauth2-proxy pod template tiene `linkerd.io/inject: disabled`
 
 ---
 
