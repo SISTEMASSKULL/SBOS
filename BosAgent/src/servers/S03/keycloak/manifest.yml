@@ -4,7 +4,14 @@ identity:
   version: 26.6.2
   category: 1
   criticality: true
-  description: "Keycloak 26.6.2 — proveedor de identidad OIDC/OAuth2. Realm master, 5 SPIs SKULL, fuente de autenticación de todo el ecosistema SBOS."
+  description: >
+    Keycloak 26.6.2 — IAM transitorio del ecosistema SBOS.
+    Asume el rol de bAuth mientras el daemon bAuth completa su desarrollo.
+    Gestiona su propio ciclo de vida y sus propios SPIs (5 extensiones SKULL)
+    de forma completamente independiente de bAuth.
+    Una vez que bAuth entre en operación plena, Keycloak será descontinuado
+    y retirado — bAuth lo reemplaza en su totalidad.
+    Keycloak NO depende de bAuth y bAuth NO depende de Keycloak.
 
 workload:
   type: Deployment
@@ -24,6 +31,8 @@ governance:
   auto_install: true
   requires_approval: false
   category_label: "seguridad-critica"
+  lifecycle: transitorio
+  successor: bauth
 
 meta:
   backend: helm
@@ -56,3 +65,21 @@ versions:
   image: "quay.io/keycloak/keycloak:26.6.2"
   namespace: sbos-security
   db: keycloak_db
+
+# NOTA ARQUITECTÓNICA — INDEPENDENCIA KEYCLOAK / bAuth
+# ─────────────────────────────────────────────────────
+# Keycloak y bAuth son totalmente independientes entre sí:
+#
+#   ANTES (diseño anterior): Keycloak era una herramienta al servicio de bAuth.
+#   AHORA: bAuth es un daemon soberano que no depende de Keycloak en absoluto.
+#
+# Durante la transición, Keycloak ASUME el papel de bAuth:
+#   - Los 5 SPIs SKULL que esta ficha despliega son extensiones propias de
+#     Keycloak para cubrir el rol IAM que bAuth cubrirá en el futuro.
+#   - Los SPIs NO son responsabilidad de bAuth ni son invocados por bAuth.
+#   - Esta ficha los instala, configura y mantiene de forma autónoma.
+#
+# Plan de descontinuación:
+#   - Cuando bAuth entre en operación plena, se ejecutará `bosctl ficha remove keycloak`.
+#   - Las apps del ecosistema apuntarán al socket de bAuth en vez del endpoint KC.
+#   - Keycloak NO reaparecerá como dependencia de ningún daemon futuro.

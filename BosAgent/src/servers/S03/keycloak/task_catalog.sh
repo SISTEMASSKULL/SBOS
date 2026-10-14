@@ -1,10 +1,25 @@
 #!/usr/bin/env bash
 # ============================================================================
-# task_catalog.sh — keycloak
-# Iteración 1: Deployment Keycloak 26.6.2 start-dev + DB PostgreSQL
-# Iteración 2: start --optimized producción + TLS (Kong edge) + KC_DB_URL ssl +
-#              5 SPIs SKULL + credenciales Vault KV
+# task_catalog.sh — keycloak  [IAM TRANSITORIO]
+#
+# Keycloak actúa como IAM soberano del ecosistema SBOS mientras bAuth
+# completa su desarrollo. Es independiente de bAuth: no depende de él
+# ni lo invoca. bAuth tampoco depende de Keycloak.
+#
+# Responsabilidades PROPIAS de esta ficha (sin delegación a bAuth):
+#   - Desplegar y operar Keycloak 26.6.2
+#   - Instalar y registrar los 5 SPIs SKULL (extensiones IAM propias)
+#   - Gestionar realms, clientes OIDC y Web Origins
+#   - Guardar secrets de clientes en K8s para las apps del ecosistema
+#
+# Los SPIs SKULL son extensiones NATIVAS de Keycloak para el dominio SBOS.
+# NO son responsabilidad de bAuth. Cuando bAuth entre en operación plena,
+# esta ficha se retira completa — bAuth la reemplaza en su totalidad.
+#
+# Iteración 1: Deployment start-dev + DB PostgreSQL (activa)
+# Iteración 2: start --optimized producción + TLS (Kong edge) + SPIs JARs reales
 # Iteración 3: 2+ réplicas + Infinispan session sharing + rolling update
+#
 # Dependencias: postgresql (keycloak_db + usuario keycloak), vault
 # ============================================================================
 
@@ -194,8 +209,8 @@ spec:
               value: \"false\"
             - name: KC_HTTP_ENABLED
               value: \"true\"
-            # ADR-040: SPIs deshabilitados PASADA 1 (JARs no existen aún)
-            # PASADA 2: activar cuando providers/ esté poblado
+            # SPIs Iter1: registrados via kcadm como componentes (sin JARs)
+            # SPIs Iter2: JARs compilados montados en providers/ del pod
             - name: JAVA_OPTS_APPEND
               value: \"-Xms256m -Xmx512m\"
           envFrom:
@@ -385,8 +400,13 @@ spec:
 	    _log "Realm ${REALM_ID} creado/verificado"
 	    echo "${__STEP_OK__} crear_realm_tenant"
 
-	    # ── 7. SPIs SKULL via kcadm.sh ──────────────────────────────
-	    echo "${__STEP_START__} registrar_spis"
+	    # ── 7. SPIs SKULL — extensiones IAM propias de Keycloak ────────
+    # Estos SPIs son responsabilidad EXCLUSIVA de esta ficha.
+    # Extienden Keycloak para cubrir el dominio IAM de SBOS mientras
+    # bAuth no está en operación. No son invocados ni gestionados por bAuth.
+    # En Iteración 1 se registran via kcadm como componentes; en Iteración 2
+    # se añaden los JARs compilados al directorio providers/ del pod.
+	    echo "${__STEP_START__} registrar_spis_skull"
 	    local spis_ok=0
 
 	    for spi in \
@@ -401,12 +421,12 @@ spec:
 	            -s providerType="$ptype" -s enabled=true > /dev/null 2>&1; then
 	            ((spis_ok++))
 	        else
-	            _log "SPI ${pname}: ya registrado o no disponible"
+	            _log "SPI ${pname}: ya registrado o no disponible en Iter1"
 	        fi
 	    done
 
-	    _log "SPIs registrados: ${spis_ok}/5"
-	    echo "${__STEP_OK__} registrar_spis (${spis_ok}/5)"
+	    _log "SPIs SKULL registrados: ${spis_ok}/5"
+	    echo "${__STEP_OK__} registrar_spis_skull (${spis_ok}/5)"
 }
 
 # _kc_ensure_client: crea un cliente OIDC en el realm si no existe. Idempotente.
