@@ -1,6 +1,6 @@
 # Cronograma de Instalación — Ficha por Ficha
 
-**Versión:** 2.13.0  
+**Versión:** 2.14.0  
 **Fecha:** 2026-10-14  
 **Autor:** bos-developer  
 
@@ -2049,6 +2049,8 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 **Correcciones ciclo 15:** (1) **mailserver**: `ficha_post_install()` crea schema `mailserver_db` con tablas `virtual_mailboxes` + `virtual_aliases` (idempotente via `information_schema`) · (2) **onlyoffice**: `ficha_post_install()` + `ficha_repair()` configuran plugin OnlyOffice en Nextcloud via `occ`: `app:enable onlyoffice`, `DocumentServerUrl=https://<domain>/onlyoffice/`, `DocumentServerInternalUrl` (ClusterIP), `StorageUrl`; graceful si Nextcloud no está listo
 
+**Correcciones ciclo 19:** **calidad Go — suite completa verde** — (1) `gofmt` aplicado a 105 archivos (0 archivos con formato incorrecto) · (2) `go vet` limpio: fix `fmt.Println` con `\n` redundante en `install_ui.go:68` · (3) 2 tests fallidos corregidos: `timeout_test.go` esperaba 600s para sagas pero el código usa 30min (actualizado), `manager_test.go` marcaba `InstallFailed→Installed` como inválida pero la transición fue habilitada intencionalmente (caso eliminado) · (4) exports corregidos en ferretdb y mattermost S10 (faltaban `ficha_health` y `ficha_test`); resultado: **0 errores build · 0 advertencias vet · 48 paquetes 100% green**
+
 **Correcciones ciclo 18:** **ficha_health() cobertura 100%** — agregada a las 20 fichas restantes: S-HOST/bos-preflight (binario ejecutable) · S-HOST/sbos-bkernel (systemctl is-active) · S-HOST/sbos-namespace (kubectl get namespace) · S-HOST/sbos-bootstrap-os (sysctl net.bridge) · S-HOST/sbos-bootstrap-k8s (kubelet activo) · S-HOST/sbos-bootstrap-cni (calico-node pods Running) · S-HOST/sbos-bootstrap-storage (storageclass local-path) · S-HOST/sbos-bootstrap-monitoring (namespace sbos-monitoring) · S-HOST/sbos-bootstrap-hard (K8s nodes Ready) · S01/sbos-database-init (SBOS_db existe en PG) · S01/tryton · S02/besu-qbft (podman inspect Running) · S02/certbot (cert.pem en /etc/letsencrypt) · S03/kyverno (wrapper ficha_health_check) · S03/linkerd (pods Running en NS linkerd) · S04/tryton · S06/calcom · S06/ferretdb · S06/novu (wrappers) · S10/mattermost (deployment readyReplicas); resultado: **100% fichas con ficha_health()** — observer puede evaluar salud completa del ecosistema
 
 **Correcciones ciclo 17b:** **ficha_health() adicionales** — S02/oauth2-proxy · S06/mattermost · S13/oauth2-proxy-desktop (deployments) + S10/mattermost (ficha_health explícita junto a ficha_health_check)
@@ -2059,5 +2061,5 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 ---
 
-*Documento v2.13.0 — bos-developer · 2026-10-14*  
+*Documento v2.14.0 — bos-developer · 2026-10-14*  
 *Panel de control de reparación: `PLAN-INSTALACION-DESDE-CERO.md §13`*
