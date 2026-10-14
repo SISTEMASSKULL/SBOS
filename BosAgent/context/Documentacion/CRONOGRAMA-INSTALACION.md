@@ -449,10 +449,10 @@ bosctl ficha install sbos-database-init
 **Dependencias:** sbos-bootstrap-k8s, sbos-bootstrap-cni, sbos-bootstrap-storage, postgresql
 
 **🔶 Huevo y gallina — MULTI-FASE CRÍTICA:**
-- **Fase 1 (orden 130):** Pod Vault arranca. Estado: SEALED. No puede servir secretos.
-- **Fase 2 (AUTOMÁTICA — ciclo 11):** `vault operator init` (genera 5 unseal keys, guardadas en `/etc/bos/vault-init-keys.json`) + vault-unsealer (orden 131) se encarga del unseal automático. Solo la inicialización inicial es manual (una sola vez).
+- **Fase 1 (orden 130):** Pod Vault arranca. Estado: SEALED. No puede servir secretos. Esto es correcto — Vault siempre arranca sellado por diseño.
+- **Fase 2 — CEREMONIA DE UNSEAL (ver abajo):** Los custodios introducen sus fragmentos de clave. Solo entonces Vault puede servir secretos.
 - **Fase 3 (automática post-unseal):** Vault configura AppRole `sbos-pods`, PKI engine, KV v2, políticas. Las aplicaciones obtienen tokens de AppRole para leer sus credenciales.
-- **Fase 4 (permanente):** Cada vez que el pod se reinicia, vault-unsealer (orden 131) lo desella automáticamente en el siguiente ciclo de 1 minuto.
+- **Fase 4 (permanente post-unseal):** vault-unsealer (orden 131) mantiene Vault unsealed entre reinicios del pod.
 
 **Logros:**
 - ✅ StatefulSet desplegado con PVC Retain
@@ -460,35 +460,48 @@ bosctl ficha install sbos-database-init
 - ✅ FIX-26A commiteado: liveness probe `sealedok=true` (pod no crashea cuando sellado)
 - ✅ (ciclo 2) GAP-2 cerrado: health check real — verifica `initialized=true + sealed=false` con `vault status -format=json`
 
-**Acciones VPS pendientes (el código está correcto — falta ejecutar en producción):**
-- ❌ FIX-26A no aplicado en VPS aún — aplicar con: `kubectl rollout restart statefulset/vault -n sbos-security`
-- ❌ Unseal pendiente en VPS: `vault operator unseal` (3 de 5 keys desde `/etc/bos/vault-init-keys.json`). Vault solo puede unsealearse con las keys físicas — BOS no las conoce por diseño de seguridad (HSM-like). Esta operación SIEMPRE requiere intervención del operador.
+**Acción VPS técnica pendiente:**
+- ❌ FIX-26A no aplicado en VPS aún — aplicar con: `kubectl rollout restart statefulset/vault -n sbos-security`. Una vez hecho, vault dejará de crashear y pasará a estado SELLADO estable.
+
+**🔑 Por qué vault SIEMPRE requiere que los custodios intervengan — y por qué eso es correcto:**
+
+Vault implementa **Shamir Secret Sharing**: durante la inicialización genera N fragmentos de clave (`unseal keys`). Se necesitan M de esos N fragmentos para abrir el vault (típicamente 3 de 5). Cada fragmento se entrega a un custodio distinto (personas de confianza de la organización — no servidores ni archivos).
+
+Esto significa que **ningún sistema automatizado puede abrir Vault por sí solo** — ni BOS, ni un script, ni un archivo en disco. Si alguien obtiene acceso físico al servidor, los datos siguen cifrados porque las claves están distribuidas entre personas reales. Eso es soberanía real.
+
+**La intervención de los custodios NO es intervención técnica.** No se trata de ejecutar comandos, reparar pods, ni correr kubectl. Es una *ceremonia de seguridad*: el instalador BOS presenta una pantalla interactiva (entrada enmascarada, como una contraseña) y cada custodio introduce su fragmento por teclado. El instalador acepta los fragmentos, desella Vault, y continúa automáticamente. El custodio no necesita saber nada de Kubernetes ni de infraestructura.
+
+Esta pantalla de introducción de fragmentos está documentada en `context/Documentacion/PENDIENTE-VAULT-UNSEAL-INTERACTIVO.md` y su implementación está en suspenso hasta que el instalador funcione end-to-end.
 
 **Bugs activos:**
-- ❌ BUG-27: oauth2-proxy y tryton en cascada — se desbloquean automáticamente en cuanto vault sea unsealed en VPS. No requiere cambios de código.
+- ❌ BUG-27: oauth2-proxy y tryton en cascada — se desbloquean automáticamente en cuanto los custodios hayan completado la ceremonia de unseal. No requiere cambios de código.
 
 ---
 
 ### [131] vault-unsealer · S02 · ⚙️ NUEVA (ciclo 11)
 
-**Propósito:** CronJob que monitorea el pod de Vault cada minuto y lo desella automáticamente cuando está sealed. Elimina la intervención manual obligatoria del Fase 2 de vault — cumple ADR-022 (sin intervención manual) y P15 (idempotencia). Las unseal keys se leen de `/etc/bos/vault-init-keys.json` en el host y se almacenan en un K8s Secret `vault-unseal-keys` en `sbos-security`.
+**Propósito:** CronJob que monitorea el pod de Vault cada minuto y lo re-desella automáticamente si se reinicia el pod (lo que vuelve a sellarlo). Su función NO es la ceremonia inicial de unseal — esa la hacen los custodios una sola vez. Su función es mantener Vault unsealado entre reinicios del pod sin requerir que los custodios repitan la ceremonia en cada reinicio.
 
-**Dependencias:** vault
+**Dependencias:** vault (debe estar previamente unsealed por los custodios)
 
 **Cómo funciona:**
-1. `ficha_pre_install()`: verifica que `/etc/bos/vault-init-keys.json` existe con ≥3 keys
+1. `ficha_pre_install()`: verifica que Vault ya fue inicializado y que existen las unseal keys en K8s Secret (las pone el instalador después de la ceremonia inicial)
 2. `ficha_install()`: crea Secret K8s con keys + RBAC (ServiceAccount/Role/RoleBinding) + CronJob `* * * * *`
-3. CronJob: cada minuto comprueba `vault status -format=json | .sealed` → si `true`, ejecuta 3× `vault operator unseal`
+3. CronJob: cada minuto comprueba `vault status -format=json | .sealed` → si `true` (por reinicio del pod), ejecuta 3× `vault operator unseal` usando las keys del Secret
 4. `ficha_repair()`: fuerza unseal inmediato leyendo keys del Secret K8s (sin esperar el CronJob)
+
+**Nota de diseño — archivo vs. custodios:**
+- **Producción:** los custodios entregan sus fragmentos en la ceremonia inicial via prompt interactivo de BOS. BOS guarda las keys en K8s Secret (cifrado en etcd) para que vault-unsealer pueda usarlas en reinicios futuros. El custodio solo interviene una vez.
+- **Dev/CI (`--dev-mode`):** las keys pueden leerse de `/etc/bos/vault-init-keys.json` para entornos no productivos donde no hay custodios reales.
 
 **Logros:**
 - ✅ (ciclo 11) manifest.yml creado (execution_order: 131, auto_install: true, dependency: vault)
 - ✅ (ciclo 11) task_catalog.sh completo: pre_install / install / verify / health / repair / test / remove
-- ✅ (ciclo 11) Secret vault-unseal-keys: almacena keys dentro del cluster (no en disco host)
+- ✅ (ciclo 11) Secret vault-unseal-keys: almacena keys dentro del cluster (cifrado en etcd)
 - ✅ (ciclo 11) RBAC mínimo: solo puede leer ese Secret + exec en vault-0
 
 **Acción VPS pendiente:**
-- ❌ No desplegado en VPS aún — bloqueado por vault sin unseal (BUG-27). Una vez vault esté unsealed: `bosctl ficha install vault-unsealer`. El código de la ficha está completo y correcto.
+- ❌ No desplegado en VPS aún — bloqueado por vault sin unseal (BUG-27). Una vez los custodios completen la ceremonia de unseal, este CronJob se instala automáticamente. El código está completo y correcto.
 
 **Bugs activos:** ninguno
 
