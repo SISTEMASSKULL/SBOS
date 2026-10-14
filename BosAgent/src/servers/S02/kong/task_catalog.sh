@@ -651,6 +651,36 @@ except: print('')
     _log "  plugin '$plugin_name' agregado a ruta '$route_name'"
 }
 
+# _kong_ensure_global_plugin: activa un plugin a nivel global (todos los requests).
+# Idempotente: si ya existe con el mismo nombre, no lo duplica.
+# Args: $1=plugin_name  $2=config_json
+_kong_ensure_global_plugin() {
+    local plugin_name="$1" config_json="${2:-{}}"
+    # Buscar si el plugin ya existe globalmente (sin route/service asociado)
+    local existing
+    existing=$(_k exec deploy/kong -n "$NS" -- \
+        curl -s --max-time 5 \
+        "http://127.0.0.1:${ADMIN_PORT}/plugins" 2>/dev/null | \
+        python3 -c "
+import sys,json
+try:
+    d=json.load(sys.stdin)
+    for p in d.get('data',[]):
+        if p.get('name')=='${plugin_name}' and not p.get('route') and not p.get('service'):
+            print('exists')
+            break
+except: pass
+" 2>/dev/null || echo "")
+    if [[ "$existing" == "exists" ]]; then
+        _log "  plugin global '$plugin_name' ya activo — skip"
+        return 0
+    fi
+    _kong_curl_post "/plugins" \
+        "{\"name\":\"${plugin_name}\",\"config\":${config_json}}" >> "$FICHA_LOG" 2>&1 || \
+        _log "  ADVERTENCIA: no se pudo activar plugin global '$plugin_name'"
+    _log "  plugin global '$plugin_name' activado"
+}
+
 # _kong_configure_app_routes: declara servicios+rutas para las 5 apps SBOS.
 # Idempotente — puede llamarse desde post_install y repair.
 _kong_configure_app_routes() {
@@ -695,10 +725,19 @@ ficha_post_install() {
         return 1
     fi
 
+    # SBOS-049 Context Plane: plugin correlation-id global → inyecta X-Ctx-ID
+    # en TODOS los requests. Usa el plugin bundled de Kong — cero Lua custom.
+    # Si el request ya trae X-Ctx-ID (llamada interna de otro daemon), lo propaga.
+    # Si no, genera un UUID v4 nuevo. echo_downstream=true lo devuelve al cliente.
+    # biedata NO es necesario para esto — el ctx_id lo genera Kong de forma autónoma.
+    echo "${__STEP_START__} ctx_id_plugin"
+    _kong_ensure_global_plugin "correlation-id" \
+        "{\"header_name\":\"X-Ctx-ID\",\"generator\":\"uuid\",\"echo_downstream\":true}"
+    echo "${__STEP_OK__} ctx_id_plugin (X-Ctx-ID en todos los requests)"
+
     # SSO-3: plugin JWT en rutas que requieren autenticación
     echo "${__STEP_START__} jwt_plugin"
     local realm="${TENANT_ID:-skull}"
-    local kc_internal="http://keycloak.sbos-security.svc.cluster.local:8080/realms/${realm}"
     local jwt_cfg="{\"uri_param_names\":[\"jwt\"],\"cookie_names\":[],\"header_names\":[\"authorization\"],\"claims_to_verify\":[\"exp\"]}"
     for route in nextcloud-route grafana-route guacamole-route mattermost-route; do
         _kong_ensure_plugin "$route" "jwt" "$jwt_cfg"
@@ -760,6 +799,12 @@ ficha_repair() {
     else
         echo "${__STEP_FAIL__} reparar_rutas_sbos: ${failed} error(es)"
     fi
+
+    # Re-aplicar ctx_id plugin global (idempotente)
+    echo "${__STEP_START__} ctx_id_plugin"
+    _kong_ensure_global_plugin "correlation-id" \
+        "{\"header_name\":\"X-Ctx-ID\",\"generator\":\"uuid\",\"echo_downstream\":true}"
+    echo "${__STEP_OK__} ctx_id_plugin"
 
     # Re-aplicar plugins JWT (idempotente)
     echo "${__STEP_START__} jwt_plugin"
@@ -861,6 +906,27 @@ ficha_test() {
         echo "${__STEP_OK__} test_rutas_sbos (${routes_n} rutas configuradas)"
     else
         echo "${__STEP_FAIL__} test_rutas_sbos: solo ${routes_n}/5 rutas — ejecutar ficha_repair"
+        ok=1
+    fi
+
+    echo "${__STEP_START__} test_ctx_id_plugin"
+    local ctx_active
+    ctx_active=$(_kong_admin "/plugins" 2>/dev/null | \
+        python3 -c "
+import sys,json
+try:
+    d=json.load(sys.stdin)
+    for p in d.get('data',[]):
+        if p.get('name')=='correlation-id' and not p.get('route') and not p.get('service'):
+            h=p.get('config',{}).get('header_name','')
+            print('ok:' + h)
+            break
+except: pass
+" 2>/dev/null || echo "")
+    if [[ "$ctx_active" == "ok:X-Ctx-ID" ]]; then
+        echo "${__STEP_OK__} test_ctx_id_plugin (X-Ctx-ID global activo)"
+    else
+        echo "${__STEP_FAIL__} test_ctx_id_plugin: plugin correlation-id no activo — ejecutar ficha_repair"
         ok=1
     fi
 
