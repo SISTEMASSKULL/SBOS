@@ -178,6 +178,18 @@ EOF
     echo "${__STEP_START__} esperar_mailserver_ready"
     _wait_sts_ready mailserver "$NS" 180 || { echo "${__STEP_FAIL__} esperar_mailserver_ready: timeout 180s"; return 1; }
     echo "${__STEP_OK__} esperar_mailserver_ready"
+
+    # Abrir puertos de correo en UFW si está activo (idempotente con --force)
+    echo "${__STEP_START__} abrir_puertos_ufw"
+    if command -v ufw > /dev/null 2>&1 && ufw status 2>/dev/null | grep -q "active"; then
+        for port in 25 465 587 143 993; do
+            ufw allow "$port/tcp" >> "$FICHA_LOG" 2>&1 || true
+        done
+        _log "UFW: puertos SMTP/IMAP abiertos (25/465/587/143/993)"
+        echo "${__STEP_OK__} abrir_puertos_ufw"
+    else
+        echo "${__STEP_SKIP__} abrir_puertos_ufw: UFW no activo"
+    fi
     return 0
 }
 
@@ -194,8 +206,19 @@ ficha_verify() {
 ficha_health() {
     local r
     r=$(_k get statefulset mailserver -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
-    (( r >= 1 )) && echo "HEALTHY" && return 0
-    echo "DEGRADED"
+    if (( r < 1 )); then
+        echo "DEGRADED: StatefulSet mailserver ${r}/1"
+        return 1
+    fi
+    # Verificar que postfix está activo dentro del pod
+    local postfix_ok
+    postfix_ok=$(_k exec mailserver-0 -n "$NS" -- \
+        sh -c "postfix status 2>/dev/null && echo ok || echo fail" 2>/dev/null | tail -1 || echo "fail")
+    if [[ "$postfix_ok" == "ok" ]]; then
+        echo "HEALTHY"
+        return 0
+    fi
+    echo "DEGRADED: pod Running pero postfix no activo"
     return 1
 }
 

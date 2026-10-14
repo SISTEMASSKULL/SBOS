@@ -1,6 +1,6 @@
 # Cronograma de Instalación — Ficha por Ficha
 
-**Versión:** 2.7.0  
+**Versión:** 2.8.0  
 **Fecha:** 2026-10-14  
 **Autor:** bos-developer  
 
@@ -415,7 +415,7 @@
 - ✅ `ficha_uninstall()`: NO elimina SBOSDB (datos protegidos por diseño)
 
 **Faltantes / pendiente:**
-- ⚠️ DDL file: BOS setup debe copiar `DDLs/SBOS_db_V2_DDL.sql` → `/etc/bos/ddl/` durante el `bosctl setup`. Hasta que se implemente eso, el operador puede hacer `mkdir -p /etc/bos/ddl && cp <ruta>/SBOS_db_V2_DDL.sql /etc/bos/ddl/` y luego `bosctl ficha install sbos-database-init`.
+- ✅ (ciclo 13) DDL auto-copiado: `ficha_pre_install` busca el DDL en 4 rutas candidatas (`SBOS_SERVERS_DIR/../DDLs/`, `/opt/skull/.../DDLs/`, `/etc/bos/blibs/DDLs/`, relativa a `BASH_SOURCE`) y lo copia a `/etc/bos/ddl/` — cero intervención manual (ADR-022)
 - ⚠️ Seeds (T060/T061/T162): no se cargan en este instalador — se cargan por módulo en Fase C.
 
 **Acciones VPS pendientes:**
@@ -888,9 +888,9 @@ Kong (Domain Resolver):
 - ✅ Replicación deshabilitada (development mode para cluster monodo)
 
 **Faltantes:**
-- ❌ Backend S3/MinIO deshabilitado (chunksCache=false, resultsCache=false) — logs van a disco local
-- ❌ Pipeline de labels ctx_id — Alloy ya extrae ctx_id pero Loki no tiene reglas de parseo configuradas
-- ❌ Política de retención no configurada
+- ✅ (ciclo 13) Retención configurada: `retention_period=720h` (30 días) + `compactor.retention_enabled=true`
+- ✅ (ciclo 13) `structuredMetadata.enabled=true` — Loki puede recibir ctx_id como metadata estructurada de Alloy
+- ❌ Backend S3/MinIO — logs en disco local (PVC 20Gi) hasta que MinIO esté estable
 
 **Bugs:** ninguno activo (no está instalado)
 
@@ -926,8 +926,8 @@ Kong (Domain Resolver):
 - ✅ 98 líneas pero deploy Helm completo + `ficha_remove` con `helm uninstall`
 
 **Faltantes:**
-- ❌ Backend S3/MinIO no configurado — trazas van a disco local
-- ❌ Correlación ctx_id no configurada
+- ✅ (ciclo 13) Retención configurada: `tempo.retention=720h` + `tempo.search.enabled=true`
+- ❌ Backend S3/MinIO — trazas en disco local hasta MinIO estable
 
 **Bugs:** ninguno activo
 
@@ -1342,10 +1342,10 @@ fedora-kde pod  ← UN SOLO POD COMPARTIDO (VDI-GAP-1)
 - ✅ (ciclo 7) `ficha_test` agregada: verifica pod Running + noVNC :6901 HTTP 200 + VNC :5900 escuchando
 
 **Faltantes:**
+- ✅ (ciclo 13) VDI-PROBLEMA #5 CERRADO: NetworkPolicy `deny-direct-novnc-external` — puerto 6901 solo accesible desde `sbos-gateway`; acceso directo sin auth bloqueado
 - ❌ VDI-PROBLEMA #2: eliminar ConfigMap y rebuildar imagen (1-2 días)
 - ❌ VDI-PROBLEMA #3: crear sbos-vdi-provisioner (semana, depende HITL Q-3)
 - ❌ VDI-PROBLEMA #4: agregar PVC por usuario (depende del provisioner)
-- ❌ VDI-PROBLEMA #5: bloquear puerto 6901 (30 minutos — urgente, en VPS)
 - ❌ Rebuild imagen `sbos/fedora-desktop:1.4.0` y desplegar en VPS
 - ❌ SSO-2: Keycloak `Web Origins: *.empresa.sbos.app` (configuración realm)
 - ❌ SSO-3: Kong plugin JWT → Bearer token relay a upstream
@@ -1524,10 +1524,10 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 - ✅ `ficha_repair()` ya existía — confirmada
 
 **Faltantes:**
+- ✅ (ciclo 13) `ficha_health()` mejorada: verifica `postfix status` via `kubectl exec mailserver-0`
+- ✅ (ciclo 13) Apertura automática de puertos UFW en `ficha_install`: 25/465/587/143/993 (si UFW activo)
 - ❌ Env vars Keycloak LDAP (SASL_LDAP_*) — depende de Keycloak estable
 - ❌ Crear schema `mailserver_db` en PostgreSQL (tabla `virtual_mailboxes`, `virtual_aliases`)
-- ❌ health.check_command más preciso: `postfix status && dovecot --version` via kubectl exec
-- ❌ Abrir puertos 25/465/587/993 en UFW cuando se instale
 
 ---
 
@@ -2041,7 +2041,9 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 **Correcciones ciclo 12:** fichas S10 correo (4 fichas) — `ficha_test()` agregada a mailserver (StatefulSet + TCP :25) · postfixadmin · roundcube · cypht (pod running + HTTP 200/302) + env vars de DB/SMTP críticas en postfixadmin (`POSTFIXADMIN_DB_*`, `SMTP_SERVER`), roundcube (`ROUNDCUBEMAIL_DEFAULT_HOST ssl://`, `DB_*`), cypht (`IMAP_SERVER`, `DB_*`, `CYPHT_SESSION_TYPE=DB`) + limpieza `spec: + línea vacía` en 3 fichas
 
+**Correcciones ciclo 13:** (1) **sbos-database-init**: DDL auto-copiado — `ficha_pre_install` busca en 4 rutas candidatas y copia sin intervención manual · (2) **loki**: retención 720h + `structuredMetadata.enabled` para ctx_id · (3) **tempo**: retención 720h + search habilitado · (4) **mailserver**: `ficha_health` con `postfix status` via kubectl exec + puertos UFW automáticos en `ficha_install` · (5) **VDI-PROBLEMA #5 CERRADO**: NetworkPolicy `deny-direct-novnc-external` en sbos-vdi-config bloquea acceso directo a puerto 6901
+
 ---
 
-*Documento v2.7.0 — bos-developer · 2026-10-14*  
+*Documento v2.8.0 — bos-developer · 2026-10-14*  
 *Panel de control de reparación: `PLAN-INSTALACION-DESDE-CERO.md §13`*

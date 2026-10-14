@@ -59,6 +59,9 @@ ficha_install() {
         --version "1.14.0" \
         --set tempo.storage.trace.backend=local \
         --set tempo.storage.trace.local.path=/var/tempo \
+        --set "tempo.retention=720h" \
+        --set "tempo.search.enabled=true" \
+        --set "tempo.global_overrides.ingestion_rate_limit_bytes=15000000" \
         --set "resources.requests.cpu=50m" \
         --set "resources.requests.memory=128Mi" \
         --set "resources.limits.cpu=500m" \

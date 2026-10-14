@@ -63,14 +63,39 @@ ficha_pre_install() {
 
     echo "${__STEP_START__} verificar_ddl_file"
     if [[ ! -f "$DDL_PATH" ]]; then
-        _log "ERROR: DDL no encontrado en $DDL_PATH"
-        _log "Asegurarse de que BOS setup copió DDLs/ → /etc/bos/ddl/ o definir BOS_DDL_PATH"
-        echo "${__STEP_FAIL__} verificar_ddl_file: $DDL_PATH no existe"
-        return 1
+        # Buscar el DDL en ubicaciones canónicas y copiarlo automáticamente (ADR-022)
+        local found=""
+        local candidates=(
+            # Producción: blibs junto a servers/
+            "$(dirname "${SBOS_SERVERS_DIR:-/etc/bos/blibs/servers}")/DDLs/SBOS_db_V2_DDL.sql"
+            # VPS de desarrollo SKULL
+            "/opt/skull/orquestador/proyectos/SBOS/DDLs/SBOS_db_V2_DDL.sql"
+            # Instalación manual alternativa
+            "/etc/bos/blibs/DDLs/SBOS_db_V2_DDL.sql"
+            # Junto al task_catalog.sh de la ficha
+            "$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd -P)/../../../../DDLs/SBOS_db_V2_DDL.sql"
+        )
+        for candidate in "${candidates[@]}"; do
+            if [[ -f "$candidate" ]]; then
+                found="$candidate"
+                break
+            fi
+        done
+
+        if [[ -n "$found" ]]; then
+            mkdir -p "$(dirname "$DDL_PATH")"
+            cp "$found" "$DDL_PATH"
+            _log "DDL copiado automáticamente: $found → $DDL_PATH"
+        else
+            _log "ERROR: DDL no encontrado en ninguna ruta candidata"
+            _log "Rutas buscadas: ${candidates[*]}"
+            echo "${__STEP_FAIL__} verificar_ddl_file: DDL no encontrado"
+            return 1
+        fi
     fi
     local ddl_lines
     ddl_lines=$(wc -l < "$DDL_PATH" 2>/dev/null || echo "0")
-    _log "DDL encontrado: $DDL_PATH ($ddl_lines líneas)"
+    _log "DDL listo: $DDL_PATH ($ddl_lines líneas)"
     echo "${__STEP_OK__} verificar_ddl_file ($ddl_lines líneas)"
     return 0
 }

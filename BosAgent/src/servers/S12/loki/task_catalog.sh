@@ -96,6 +96,10 @@ EOF
         --set write.replicas=0 \
         --set chunksCache.enabled=false \
         --set resultsCache.enabled=false \
+        --set "loki.limits_config.retention_period=720h" \
+        --set "loki.compactor.retention_enabled=true" \
+        --set "loki.compactor.delete_request_store=filesystem" \
+        --set "loki.structuredMetadata.enabled=true" \
         --timeout 8m \
         >> "$FICHA_LOG" 2>&1
     echo "${__STEP_OK__} instalar_loki_helm"

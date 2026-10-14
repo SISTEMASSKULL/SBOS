@@ -122,6 +122,31 @@ spec:
   egress:
     - {}
 EOF5
+
+    # VDI-PROBLEMA #5: bloquear puerto 6901 (noVNC directo) para tráfico externo.
+    # El acceso al escritorio debe ir SOLO a través de Kong/oauth2-proxy (puerto 443).
+    # Sin esta política, 6901 es accesible sin autenticación desde fuera del cluster.
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'EOF6'
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-direct-novnc-external
+  namespace: sbos-vdi
+spec:
+  podSelector:
+    matchLabels:
+      app: fedora-kde
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: sbos-gateway
+      ports:
+        - protocol: TCP
+          port: 6901
+EOF6
+    _log "Puerto 6901 restringido: solo acceso desde sbos-gateway (VDI-PROBLEMA #5)"
 }
 
 ficha_pre_install() {
