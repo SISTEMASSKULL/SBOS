@@ -235,6 +235,27 @@ CREATE TABLE IF NOT EXISTS virtual_aliases (
     }
     _log "Schema mailserver_db: tablas virtual_mailboxes + virtual_aliases creadas"
     echo "${__STEP_OK__} schema_mailserver_db"
+
+    # ── Configurar OAuth2 Dovecot con Keycloak (idempotente) ──────────────────
+    echo "${__STEP_START__} configurar_oauth2_dovecot"
+    local realm="${TENANT_ID:-skull}"
+    local kc_introspect="http://keycloak.sbos-security.svc.cluster.local:8080/realms/${realm}/protocol/openid-connect/token/introspect"
+    local cur_oauth
+    cur_oauth=$(_k get statefulset mailserver -n "$NS" \
+        -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="ENABLE_OAUTH2")].value}' \
+        2>/dev/null || echo "")
+    if [[ "$cur_oauth" == "1" ]]; then
+        echo "${__STEP_SKIP__} configurar_oauth2_dovecot: ya configurado"
+    else
+        _k patch statefulset mailserver -n "$NS" --type=json -p="[
+            {\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"ENABLE_OAUTH2\",\"value\":\"1\"}},
+            {\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"OAUTH2_INTROSPECTION_URL\",\"value\":\"${kc_introspect}\"}}
+        ]" >> "$FICHA_LOG" 2>&1 && \
+            _log "  OAuth2 Dovecot configurado (Keycloak introspection)" || \
+            _log "  ADVERTENCIA: no se pudo configurar OAuth2 en mailserver"
+        echo "${__STEP_OK__} configurar_oauth2_dovecot"
+    fi
+
     return 0
 }
 
