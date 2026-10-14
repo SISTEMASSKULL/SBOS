@@ -1,6 +1,6 @@
 # Cronograma de Instalación — Ficha por Ficha
 
-**Versión:** 2.11.0  
+**Versión:** 2.12.0  
 **Fecha:** 2026-10-14  
 **Autor:** bos-developer  
 
@@ -2049,9 +2049,11 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 **Correcciones ciclo 15:** (1) **mailserver**: `ficha_post_install()` crea schema `mailserver_db` con tablas `virtual_mailboxes` + `virtual_aliases` (idempotente via `information_schema`) · (2) **onlyoffice**: `ficha_post_install()` + `ficha_repair()` configuran plugin OnlyOffice en Nextcloud via `occ`: `app:enable onlyoffice`, `DocumentServerUrl=https://<domain>/onlyoffice/`, `DocumentServerInternalUrl` (ClusterIP), `StorageUrl`; graceful si Nextcloud no está listo
 
+**Correcciones ciclo 17:** **ficha_health() en fichas core** — agregada a 16 fichas que la tenían pendiente: S01/postgresql · S01/redis · S01/minio (StatefulSet) · S02/kong · S02/vault · S02/nginx (systemctl is-active) · S03/keycloak · S06/sbos-notifier · S12/grafana · S12/prometheus · S12/alertmanager · S12/alloy (DaemonSet numberReady) · S13/nextcloud · S13/guacamole · S13/onlyoffice · S13/fedora-kde
+
 **Correcciones ciclo 16:** **ficha_test() cobertura 100%** — agregada a las 20 fichas que la tenían pendiente: S04/tryton-workers · S08/docuseal · S08/paperless-ngx · S08/kimios · S08/tabula · S08/tesseract-ocr · S09/elasticsearch · S09/rabbitmq · S10/mattermost · S12/zabbix · S13/sbos-vdi-config (configmap + 3 NetworkPolicies) · S14/bareos · S14/gitlab · S14/velero · S15/ollama · S15/qdrant · S15/flowise · S15/langfuse · S15/open-webui · S15/embedding-worker; 0 fichas sin ficha_test en todo el proyecto
 
 ---
 
-*Documento v2.11.0 — bos-developer · 2026-10-14*  
+*Documento v2.12.0 — bos-developer · 2026-10-14*  
 *Panel de control de reparación: `PLAN-INSTALACION-DESDE-CERO.md §13`*

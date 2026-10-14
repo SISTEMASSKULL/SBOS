@@ -442,6 +442,14 @@ ficha_post_install() {
 }
 
 # ── Repair ────────────────────────────────────────────────────────
+ficha_health() {
+    local r
+    r=$(_k get statefulset minio -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    (( r >= 1 )) && echo "HEALTHY" && return 0
+    echo "DEGRADED: minio ${r}/1"
+    return 1
+}
+
 ficha_repair() {
     # Si el StatefulSet no existe, reinstalar completo (idempotente)
     if ! _k get statefulset "$MINIO_STS" -n "$NS" > /dev/null 2>&1; then

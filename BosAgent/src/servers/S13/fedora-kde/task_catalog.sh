@@ -222,6 +222,14 @@ ficha_install() {
 }
 
 # ── Repair ───────────────────────────────────────────────────────
+ficha_health() {
+    local r
+    r=$(_k get deployment fedora-kde -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    (( r >= 1 )) && echo "HEALTHY" && return 0
+    echo "DEGRADED: fedora-kde ${r}/1"
+    return 1
+}
+
 ficha_repair() {
     ficha_pre_install
     echo "${__STEP_START__} repair"

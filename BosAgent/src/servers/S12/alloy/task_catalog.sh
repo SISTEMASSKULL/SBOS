@@ -327,6 +327,15 @@ ficha_post_install() {
     return 0
 }
 
+ficha_health() {
+    local desired ready
+    desired=$(_k get daemonset alloy -n "$NS" -o jsonpath='{.status.desiredNumberScheduled}' 2>/dev/null || echo "0")
+    ready=$(_k get daemonset alloy -n "$NS" -o jsonpath='{.status.numberReady}' 2>/dev/null || echo "0")
+    (( ready >= 1 )) && echo "HEALTHY (${ready}/${desired})" && return 0
+    echo "DEGRADED: alloy ${ready}/${desired}"
+    return 1
+}
+
 ficha_repair() {
     echo "${__STEP_START__} reiniciar_alloy"
     _k rollout restart daemonset/alloy -n "$NS" 2>/dev/null || true

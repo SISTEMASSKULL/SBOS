@@ -547,6 +547,15 @@ ficha_post_install() {
 }
 
 # ── Repair ────────────────────────────────────────────────────────
+ficha_health() {
+    if systemctl is-active --quiet nginx 2>/dev/null; then
+        echo "HEALTHY"
+        return 0
+    fi
+    echo "DEGRADED: nginx.service no activo"
+    return 1
+}
+
 ficha_repair() {
     # Verificar/regenerar certificado TLS si está ausente o próximo a vencer
     echo "${__STEP_START__} verificar_cert_tls"

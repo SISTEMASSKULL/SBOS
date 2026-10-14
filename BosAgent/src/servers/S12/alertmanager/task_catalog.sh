@@ -244,6 +244,14 @@ ficha_post_install() {
     return 0
 }
 
+ficha_health() {
+    local r
+    r=$(_k get deployment alertmanager -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    (( r >= 1 )) && echo "HEALTHY" && return 0
+    echo "DEGRADED: alertmanager ${r}/1"
+    return 1
+}
+
 ficha_repair() {
     echo "${__STEP_START__} reiniciar_alertmanager"
     _k rollout restart deployment/alertmanager -n "$NS" 2>/dev/null || true

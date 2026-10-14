@@ -429,6 +429,14 @@ ficha_post_install() {
 }
 
 # ── Repair ────────────────────────────────────────────────────────
+ficha_health() {
+    local r
+    r=$(_k get statefulset redis -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    (( r >= 1 )) && echo "HEALTHY" && return 0
+    echo "DEGRADED: redis ${r}/1"
+    return 1
+}
+
 ficha_repair() {
     echo "${__STEP_START__} reiniciar_redis"
     _k rollout restart statefulset/"$REDIS_STS" -n "$NS" 2>/dev/null || true
