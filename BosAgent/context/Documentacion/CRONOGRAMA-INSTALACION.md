@@ -1,6 +1,6 @@
 # Cronograma de Instalación — Ficha por Ficha
 
-**Versión:** 2.15.0  
+**Versión:** 2.16.0  
 **Fecha:** 2026-10-14  
 **Autor:** bos-developer  
 
@@ -537,7 +537,7 @@ bosctl ficha install sbos-database-init
 
 **Faltantes:**
 - ❌ SPIs SKULL sin implementar (pendiente desarrollo bAuth)
-- ❌ `Web Origins: *.empresa.sbos.app` para SSO multi-subdominio (SSO-2)
+- ✅ `Web Origins: *.sbos.app` para SSO multi-subdominio (SSO-2) — implementado en ficha_post_install ciclo 20
 
 **Bugs:** ninguno activo
 
@@ -866,11 +866,13 @@ Kong (Domain Resolver):
 
 **Logros:**
 - ✅ Grafana 12.0.1 corriendo (1/1 Running)
-- ✅ OAuth2 Keycloak configurado (SSO)
-- ✅ Datasource Prometheus conectado
+- ✅ Datasource Prometheus conectado (ConfigMap provisioning)
+- ✅ OAuth2/OIDC Keycloak — implementado ciclo 20 en ficha_post_install
 
 **Faltantes:**
-- ❌ Datasource Loki pendiente en VPS — configurar en Grafana cuando Loki (orden 215) esté INSTALLED
+- ✅ Datasource Loki — implementado en ficha_post_install ciclo 21: se agrega automáticamente via Grafana API cuando Loki pod esté Running (idempotente)
+- ✅ Datasource PostgreSQL (SBOS_db) — implementado en ficha_post_install ciclo 21: se agrega via Grafana API cuando PG disponible y PG_AUX_PASSWORD seteado
+- ✅ OIDC Keycloak (SSO) — implementado en ficha_post_install ciclo 20: env vars GF_AUTH_GENERIC_OAUTH_* via K8s Secret sbos-grafana-oidc
 - ❌ Dashboards SBOS básicos — pendiente diseño
 
 **Bugs:** ninguno activo
@@ -909,8 +911,8 @@ Kong (Domain Resolver):
 - ✅ Pipeline de recolección de logs configurado
 
 **Faltantes:**
-- ❌ Envío a Loki pendiente — se activa cuando Loki (orden 215) esté INSTALLED en VPS
-- ❌ Extracción de ctx_id configurada — operativa cuando Loki reciba los logs
+- ✅ Envío a Loki — ciclo 21: `forward_to = [loki.write.loki_endpoint.receiver]` en pipeline (antes era `[]`); Alloy buffer y reintenta si Loki no está disponible; activo en cuanto Loki se instale
+- ✅ Extracción de ctx_id — operativa: pipeline `loki.process.extract_ctx_id` ya extrae `traceparent` y `ctx_id`; ahora sí llegan a Loki (forward_to corregido ciclo 21)
 
 **Bugs:** ninguno activo
 
@@ -1208,7 +1210,7 @@ El PVC `fedora-home-{username}` almacena TODO lo que el usuario genera o configu
 | 2 | oauth2-proxy-desktop Running | Automático | Vault estable |
 | 3 | `sbos-vdi-provisioner` (1 pod/usuario + PVC) | Alto | Decisión HITL Q-3 |
 | 4 | `.desktop` con `--profile-directory=sbos-session` | Bajo | Dentro de la imagen |
-| 5 | Keycloak: `Web Origins *.empresa.sbos.app` configurado | Bajo | Manualidad actual |
+| 5 | Keycloak: `Web Origins *.sbos.app` configurado | ✅ ciclo 20 | keycloak/ficha_post_install |
 | 6 | Kong: plugin JWT que extrae token de cookie y lo pasa como Bearer | Medio | Plugin Lua pendiente |
 | 7 | Tryton: módulo OIDC configurado para aceptar tokens Keycloak | Medio | Tryton no instalado |
 | 8 | Nextcloud: plugin OIDC configurado | Bajo | Ya instalado — configuración manual |
@@ -1349,9 +1351,9 @@ fedora-kde pod  ← UN SOLO POD COMPARTIDO (VDI-GAP-1)
 - ❌ VDI-PROBLEMA #3: crear sbos-vdi-provisioner (semana, depende HITL Q-3)
 - ❌ VDI-PROBLEMA #4: agregar PVC por usuario (depende del provisioner)
 - ❌ Rebuild imagen `sbos/fedora-desktop:1.4.0` y desplegar en VPS
-- ❌ SSO-2: Keycloak `Web Origins: *.empresa.sbos.app` (configuración realm)
-- ❌ SSO-3: Kong plugin JWT → Bearer token relay a upstream
-- ❌ SSO-4: Nextcloud plugin OIDC activado (app ya instalada — solo config)
+- ✅ SSO-2: Keycloak `Web Origins: *.sbos.app` (ciclo 20 — keycloak/ficha_post_install)
+- ✅ SSO-3: Kong plugin JWT en 4 rutas (ciclo 20 — kong/ficha_post_install + _kong_ensure_plugin)
+- ✅ SSO-4: Nextcloud OIDC via user_oidc app (ciclo 20 — nextcloud/ficha_post_install)
 - ❌ AUDIT-1: oauth2-proxy registra inicio/fin sesión VDI en `bos.bos_ctx_session`
 
 **Orden recomendado de resolución:** #5 (urgente seguridad) → #1 (trivial) → #2 (bajo riesgo) → #6 (Keycloak Web Origins) → #3+#4 (provisioner, requiere HITL)
@@ -2023,6 +2025,8 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 **Correcciones ciclo 15:** (1) **mailserver**: `ficha_post_install()` crea schema `mailserver_db` con tablas `virtual_mailboxes` + `virtual_aliases` (idempotente via `information_schema`) · (2) **onlyoffice**: `ficha_post_install()` + `ficha_repair()` configuran plugin OnlyOffice en Nextcloud via `occ`: `app:enable onlyoffice`, `DocumentServerUrl=https://<domain>/onlyoffice/`, `DocumentServerInternalUrl` (ClusterIP), `StorageUrl`; graceful si Nextcloud no está listo
 
+**Correcciones ciclo 20:** **SSO declarativo — identidad unificada Keycloak** — (1) **keycloak/ficha_post_install**: SSO-2 Web Origins `*.sbos.app` + crea 4 clientes OIDC (`sbos-nextcloud`, `sbos-grafana`, `sbos-mattermost`, `sbos-guacamole`) y guarda secrets en K8s Secrets namespace `sbos-security` (idempotente con `_kc_ensure_client` + kcadm.sh); `ficha_repair()` re-aplica SSO en cada ciclo · (2) **nextcloud/ficha_post_install**: SSO-4 — lee K8s Secret `sbos-nextcloud-oidc`, habilita app `user_oidc` y configura proveedor OIDC Keycloak via `occ user_oidc:provider add` (idempotente, skip si KC no listo) · (3) **kong/ficha_post_install**: SSO-3 — JWT plugin en 4 rutas (`nextcloud-route`, `grafana-route`, `guacamole-route`, `mattermost-route`) via Kong Admin API (idempotente con `_kong_ensure_plugin`); `ficha_repair()` re-aplica plugins · (4) **grafana/ficha_post_install**: OIDC Keycloak via env vars `GF_AUTH_GENERIC_OAUTH_*` patch al deployment, leídas de K8s Secret `sbos-grafana-oidc` (skip graceful si secret no disponible); commit: `17a4ff6`
+
 **Correcciones ciclo 19:** **calidad Go — suite completa verde** — (1) `gofmt` aplicado a 105 archivos (0 archivos con formato incorrecto) · (2) `go vet` limpio: fix `fmt.Println` con `\n` redundante en `install_ui.go:68` · (3) 2 tests fallidos corregidos: `timeout_test.go` esperaba 600s para sagas pero el código usa 30min (actualizado), `manager_test.go` marcaba `InstallFailed→Installed` como inválida pero la transición fue habilitada intencionalmente (caso eliminado) · (4) exports corregidos en ferretdb y mattermost S10 (faltaban `ficha_health` y `ficha_test`); resultado: **0 errores build · 0 advertencias vet · 48 paquetes 100% green**
 
 **Correcciones ciclo 18:** **ficha_health() cobertura 100%** — agregada a las 20 fichas restantes: S-HOST/bos-preflight (binario ejecutable) · S-HOST/sbos-bkernel (systemctl is-active) · S-HOST/sbos-namespace (kubectl get namespace) · S-HOST/sbos-bootstrap-os (sysctl net.bridge) · S-HOST/sbos-bootstrap-k8s (kubelet activo) · S-HOST/sbos-bootstrap-cni (calico-node pods Running) · S-HOST/sbos-bootstrap-storage (storageclass local-path) · S-HOST/sbos-bootstrap-monitoring (namespace sbos-monitoring) · S-HOST/sbos-bootstrap-hard (K8s nodes Ready) · S01/sbos-database-init (SBOS_db existe en PG) · S01/tryton · S02/besu-qbft (podman inspect Running) · S02/certbot (cert.pem en /etc/letsencrypt) · S03/kyverno (wrapper ficha_health_check) · S03/linkerd (pods Running en NS linkerd) · S04/tryton · S06/calcom · S06/ferretdb · S06/novu (wrappers) · S10/mattermost (deployment readyReplicas); resultado: **100% fichas con ficha_health()** — observer puede evaluar salud completa del ecosistema
@@ -2035,5 +2039,5 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 ---
 
-*Documento v2.15.0 — bos-developer · 2026-10-14*  
+*Documento v2.16.0 — bos-developer · 2026-10-14*  
 *Panel de control de reparación: `PLAN-INSTALACION-DESDE-CERO.md §13`*

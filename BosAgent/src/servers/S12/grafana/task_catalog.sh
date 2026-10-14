@@ -361,6 +361,47 @@ ficha_post_install() {
         _log "  ADVERTENCIA: no se pudo aplicar patch OIDC a grafana"
 
     echo "${__STEP_OK__} configurar_oidc_grafana"
+
+    # ── Datasources adicionales (Loki + PostgreSQL) — idempotente via API ──────
+    _gf_add_datasource() {
+        local ds_name="$1" ds_json="$2"
+        local admin_auth="${GF_ADMIN}:${GF_ADMIN_PASS}"
+        # Verificar si ya existe
+        local exists
+        exists=$(_k exec deploy/grafana -n "$NS" -- sh -c \
+            "curl -sf -u '${admin_auth}' http://localhost:3000/api/datasources/name/${ds_name}" \
+            2>/dev/null | grep -c '"name"' || echo "0")
+        if [[ "$exists" -gt 0 ]]; then
+            _log "  datasource $ds_name ya existe — skip"
+            return 0
+        fi
+        _k exec deploy/grafana -n "$NS" -- sh -c \
+            "curl -sf -u '${admin_auth}' -X POST http://localhost:3000/api/datasources \
+             -H 'Content-Type: application/json' -d '${ds_json}'" >> "$FICHA_LOG" 2>&1 && \
+            _log "  datasource $ds_name agregado" || \
+            _log "  ADVERTENCIA: no se pudo agregar datasource $ds_name"
+    }
+
+    echo "${__STEP_START__} configurar_datasource_loki"
+    if _k get pod -n "$NS" -l app=loki --no-headers 2>/dev/null | grep -q "Running"; then
+        _gf_add_datasource "Loki" \
+            '{"name":"Loki","type":"loki","access":"proxy","url":"http://loki:3100","isDefault":false,"editable":false}'
+        echo "${__STEP_OK__} configurar_datasource_loki"
+    else
+        echo "${__STEP_SKIP__} configurar_datasource_loki: Loki no disponible aún"
+    fi
+
+    echo "${__STEP_START__} configurar_datasource_postgresql"
+    local pg_host="${PG_HOST:-postgresql.sbos-data.svc.cluster.local}"
+    local pg_pass="${PG_AUX_PASSWORD:-}"
+    if [[ -n "$pg_pass" ]] && _k get pod -n sbos-data -l app=postgresql --no-headers 2>/dev/null | grep -q "Running"; then
+        _gf_add_datasource "SBOS_db" \
+            "{\"name\":\"SBOS_db\",\"type\":\"postgres\",\"access\":\"proxy\",\"url\":\"${pg_host}:5432\",\"database\":\"SBOS_db\",\"user\":\"postgres\",\"secureJsonData\":{\"password\":\"${pg_pass}\"},\"jsonData\":{\"sslmode\":\"disable\",\"postgresVersion\":1800},\"isDefault\":false,\"editable\":false}"
+        echo "${__STEP_OK__} configurar_datasource_postgresql"
+    else
+        echo "${__STEP_SKIP__} configurar_datasource_postgresql: PostgreSQL no disponible o PG_AUX_PASSWORD no seteado"
+    fi
+
     return 0
 }
 
@@ -374,11 +415,12 @@ ficha_health() {
 
 ficha_repair() {
     echo "${__STEP_START__} reiniciar_grafana"
-    # Asegurar que Linkerd está deshabilitado antes de reiniciar (evita sidecar CrashLoopBackOff)
     _k annotate namespace "$NS" linkerd.io/inject=disabled --overwrite >> "$FICHA_LOG" 2>&1 || true
     _k rollout restart deployment/grafana -n "$NS" 2>/dev/null || true
     _wait_gf_ready 90 || _log "ADVERTENCIA: grafana no Ready tras reinicio"
     echo "${__STEP_OK__} reiniciar_grafana"
+    # Re-aplicar OIDC y datasources tras reinicio
+    ficha_post_install 2>/dev/null || true
     return 0
 }
 

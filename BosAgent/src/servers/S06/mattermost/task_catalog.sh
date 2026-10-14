@@ -223,12 +223,17 @@ ficha_install() {
     pg_password=$(_get_pg_password)
     local db_url="postgres://postgres:${pg_password}@${PG_HOST}:5432/${DB_NAME}?sslmode=disable"
 
-    local oidc_secret
-    oidc_secret=$(_vault_read "secret/bauth/collab/mattermost" "oidc-client-secret")
+    # Leer OIDC secret: primero K8s Secret creado por keycloak/ficha_post_install,
+    # luego Vault como fallback, y por último generar uno nuevo.
+    local oidc_secret oidc_client_id="sbos-mattermost"
+    oidc_secret=$(_k get secret -n sbos-security sbos-mattermost-oidc \
+        -o jsonpath='{.data.client_secret}' 2>/dev/null | base64 -d || echo "")
+    if [[ -z "$oidc_secret" ]]; then
+        oidc_secret=$(_vault_read "secret/bauth/collab/mattermost" "oidc-client-secret" 2>/dev/null || echo "")
+    fi
     if [[ -z "$oidc_secret" ]]; then
         oidc_secret=$(python3 -c "import secrets; print(secrets.token_urlsafe(32))" 2>/dev/null || echo "mattermost-dev-secret")
-        _vault_write "secret/bauth/collab/mattermost" "oidc-client-secret" "$oidc_secret"
-        _log "Nuevo OIDC client secret generado y guardado en Vault"
+        _log "ADVERTENCIA: OIDC secret no encontrado en K8s ni Vault — usando secret temporal"
     fi
 
     # ── 1. Secrets ───────────────────────────────────────────────
@@ -279,9 +284,9 @@ spec:
             - name: MM_OPENIDSETTINGS_ENABLE
               value: \"true\"
             - name: MM_OPENIDSETTINGS_DISCOVERYENDPOINT
-              value: \"https://keycloak.sbos-security.svc.cluster.local:8080/realms/sbos/.well-known/openid-configuration\"
+              value: \"http://keycloak.sbos-security.svc.cluster.local:8080/realms/${TENANT_ID:-skull}/.well-known/openid-configuration\"
             - name: MM_OPENIDSETTINGS_CLIENTID
-              value: \"mattermost\"
+              value: \"${oidc_client_id}\"
             - name: MM_OPENIDSETTINGS_BUTTONTEXT
               value: \"Login con Keycloak\"
             - name: MM_TEAMSETTINGS_SITENAME

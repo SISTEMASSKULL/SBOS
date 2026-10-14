@@ -165,7 +165,14 @@ data:
         expression = \"ctx_id=(?P<ctx_id>[a-f0-9\\\\-]{36,})\"
       }
       stage.labels { values = { ctx_id = \"\" } }
-      forward_to = []
+      forward_to = [loki.write.loki_endpoint.receiver]
+    }
+
+    loki.write \"loki_endpoint\" {
+      endpoint {
+        url = \"http://loki.${NS}.svc.cluster.local:3100/loki/api/v1/push\"
+      }
+      external_labels = { cluster = \"sbos\", env = \"prod\" }
     }
 
     prometheus.exporter.self \"alloy_metrics\" {}
