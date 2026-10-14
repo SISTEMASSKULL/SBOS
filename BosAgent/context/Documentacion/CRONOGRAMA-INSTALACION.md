@@ -595,8 +595,7 @@ Esta pantalla de introducción de fragmentos está documentada en `context/Docum
 - ✅ Health check: `kong health | grep -c healthy` (ya presente en manifest)
 - ✅ (ciclo 2) `vault` y `keycloak` movidos a `runtime_dependencies` — Kong arranca solo con PG
 
-**Pendiente de desarrollo externo:**
-- ❌ Plugin Lua SBOS-Context (ctx_id injection) no desplegado — requiere desarrollo del plugin Lua por parte del equipo Kong/biedata. Es un módulo que se carga en Kong para inyectar `ctx_id` en cada request. BOS instala Kong pero no puede crear el plugin — es un entregable de otro daemon, no un faltante del instalador.
+- ✅ (ciclo 28) Plugin `correlation-id` global activado con header `X-Ctx-ID` — inyecta ctx_id en TODOS los requests (SBOS-049). Propaga el header si ya existe (llamadas internas entre daemons); genera UUID v4 nuevo si no existe. `echo_downstream=true` lo devuelve al cliente. Plugin ya bundled en Kong — cero Lua custom, cero dependencia de biedata. biedata es consumidor del ctx_id, no su fuente.
 - ✅ (ciclo 14) Rutas y servicios de aplicaciones declarados automáticamente en `ficha_post_install()` + `ficha_repair()`
 
 **Bugs:** ninguno activo
