@@ -41,15 +41,23 @@ lint:
 PKGDIR ?= dist/
 
 package: build
-	@mkdir -p $(PKGDIR)
+	@rm -rf $(PKGDIR) && mkdir -p $(PKGDIR)
 	cp $(BUILDDIR)bos    $(PKGDIR)bos
 	cp $(BUILDDIR)bosctl $(PKGDIR)bosctl
-	cp core/00_MASTER_INSTALL_SBOS.sh  $(PKGDIR)
-	cp core/00_TASK_CATALOG_SBOS.sh    $(PKGDIR)
-	cp core/00_YAML_ENGINE_SBOS.sh     $(PKGDIR)
-	cp core/00_CLEANUP_SBOS.sh         $(PKGDIR)
-	cp core/host-setup.sh              $(PKGDIR)
+	@mkdir -p $(PKGDIR)core
+	cp core/00_MASTER_INSTALL_SBOS.sh  $(PKGDIR)core/
+	cp core/00_TASK_CATALOG_SBOS.sh    $(PKGDIR)core/
+	cp core/00_YAML_ENGINE_SBOS.sh     $(PKGDIR)core/
+	cp core/00_CLEANUP_SBOS.sh         $(PKGDIR)core/
+	cp core/host-setup.sh              $(PKGDIR)core/
 	@cp -r servers $(PKGDIR)servers
+	@if [ -d "../../DDLs" ]; then \
+		mkdir -p $(PKGDIR)ddls && \
+		cp -r ../../DDLs/seeds $(PKGDIR)ddls/ 2>/dev/null || true && \
+		cp ../../DDLs/SBOS_db_V2_DDL.sql $(PKGDIR)ddls/ 2>/dev/null || true && \
+		cp ../../DDLs/bos_01__control_plane.sql $(PKGDIR)ddls/ 2>/dev/null || true && \
+		echo "DDLs incluidos en el paquete"; \
+	fi
 	@echo "Paquete generado en $(PKGDIR)"
 	@ls -lh $(PKGDIR)
 

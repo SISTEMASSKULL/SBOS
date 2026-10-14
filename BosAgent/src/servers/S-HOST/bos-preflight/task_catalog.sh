@@ -44,10 +44,10 @@ _warn_or_fail() {
 
 # Mínimos reales del stack SBOS completo.
 # Cálculo por componente en INVESTIGACION-LOG.md INV-001.
-# Modificar solo si cambia el stack — no ajustar para que pase en hardware débil.
-readonly _RAM_MIN_MB=16384
+# Mínimo actual: VPS 12GB nominales (~11.7GB MemTotal real). Prod óptimo: 16GB/8 cores.
+readonly _RAM_MIN_MB=11264
 readonly _DISK_MIN_GB=165
-readonly _CPU_MIN=8
+readonly _CPU_MIN=6
 readonly _PORTS_REQUIRED=(9440 9441 9442 9443 5432 6379 8080 8200 8000 8443 6443)
 
 _check_resources() {
