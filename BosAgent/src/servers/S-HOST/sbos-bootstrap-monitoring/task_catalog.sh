@@ -443,6 +443,15 @@ ficha_post_install() {
 }
 
 # ── Repair ────────────────────────────────────────────────────────
+ficha_health() {
+    if kubectl --kubeconfig="${KUBECONFIG_DEST:-/etc/bos/.kube/config}"         get namespace sbos-monitoring > /dev/null 2>&1; then
+        echo "HEALTHY"
+        return 0
+    fi
+    echo "DEGRADED: namespace sbos-monitoring no existe"
+    return 1
+}
+
 ficha_repair() {
     echo "${__STEP_START__} reiniciar_componentes"
     _kubectl rollout restart daemonset/prometheus-node-exporter \

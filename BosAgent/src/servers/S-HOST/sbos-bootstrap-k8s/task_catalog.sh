@@ -475,6 +475,15 @@ ficha_post_install() {
 }
 
 # ── Repair ────────────────────────────────────────────────────────
+ficha_health() {
+    if systemctl is-active --quiet kubelet 2>/dev/null; then
+        echo "HEALTHY"
+        return 0
+    fi
+    echo "DEGRADED: kubelet.service no activo"
+    return 1
+}
+
 ficha_repair() {
     export KUBECONFIG="$KUBECONFIG_DEST"
     _log "Reparando sbos-bootstrap-k8s..."

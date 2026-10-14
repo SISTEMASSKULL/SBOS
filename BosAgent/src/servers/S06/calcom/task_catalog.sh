@@ -142,6 +142,10 @@ YAML
 }
 
 # ── Health ────────────────────────────────────────────────────────
+ficha_health() {
+    ficha_health_check
+}
+
 ficha_health_check() {
     _k exec deploy/calcom -n "$NS" -- curl -sf http://localhost:3000/api/auth/session > /dev/null 2>&1 \
         && { echo "${__STEP_OK__} calcom health OK"; return 0; } \

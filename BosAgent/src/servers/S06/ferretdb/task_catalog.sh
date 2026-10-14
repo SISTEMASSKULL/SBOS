@@ -158,6 +158,10 @@ YAML
 }
 
 # ── Health ────────────────────────────────────────────────────────
+ficha_health() {
+    ficha_health_check
+}
+
 ficha_health_check() {
     local phase
     phase=$(_k get pod -n "$NS" -l app=ferretdb -o jsonpath='{.items[0].status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "False")

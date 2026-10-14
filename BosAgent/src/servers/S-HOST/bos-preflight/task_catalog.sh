@@ -281,6 +281,16 @@ ficha_post_install() {
 }
 
 # ── Repair ────────────────────────────────────────────────────────
+ficha_health() {
+    local bos_bin="${BOS_BINARY_PATH:-/usr/local/bin/bos}"
+    if [[ -x "$bos_bin" ]]; then
+        echo "HEALTHY"
+        return 0
+    fi
+    echo "DEGRADED: binario bos no encontrado en $bos_bin"
+    return 1
+}
+
 ficha_repair() {
     _log "Reparando bos-preflight..."
     ficha_install

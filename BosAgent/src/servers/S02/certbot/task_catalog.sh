@@ -218,6 +218,15 @@ ficha_post_install() {
 }
 
 # ── Repair ────────────────────────────────────────────────────────
+ficha_health() {
+    if find /etc/letsencrypt/live -name "cert.pem" 2>/dev/null | grep -q .; then
+        echo "HEALTHY"
+        return 0
+    fi
+    echo "DEGRADED: sin certificados Let'''s Encrypt en /etc/letsencrypt/live"
+    return 1
+}
+
 ficha_repair() {
     echo "${__STEP_START__} reparar_certbot"
 

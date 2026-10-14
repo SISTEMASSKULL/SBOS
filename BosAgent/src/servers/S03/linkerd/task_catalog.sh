@@ -328,6 +328,14 @@ ficha_post_install() {
 }
 
 # ── Repair ────────────────────────────────────────────────────────
+ficha_health() {
+    local pods
+    pods=$(_k get pods -n "$NS" --no-headers 2>/dev/null | grep -c Running || echo "0")
+    (( pods >= 1 )) && echo "HEALTHY (${pods} pods Running)" && return 0
+    echo "DEGRADED: namespace $NS sin pods Running"
+    return 1
+}
+
 ficha_repair() {
     # Si el control plane no está desplegado (stub previo), re-instalar completamente
     local pod_count

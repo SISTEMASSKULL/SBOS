@@ -189,6 +189,16 @@ ficha_post_install() {
 }
 
 # ── Test ──────────────────────────────────────────────────────────────
+ficha_health() {
+    local svc="${BKERNEL_SERVICE:-bkernel.service}"
+    if systemctl is-active --quiet "$svc" 2>/dev/null; then
+        echo "HEALTHY"
+        return 0
+    fi
+    echo "DEGRADED: $svc no activo"
+    return 1
+}
+
 ficha_test() {
     local ok=0
 

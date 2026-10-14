@@ -218,6 +218,16 @@ ficha_post_install() {
 }
 
 # ── Repair ────────────────────────────────────────────────────────
+ficha_health() {
+    local pg_pod="postgresql-0" pg_ns="sbos-data"
+    local kubeconfig="${KUBECONFIG_DEST:-/etc/bos/.kube/config}"
+    local exists
+    exists=$(kubectl --kubeconfig="$kubeconfig" exec "$pg_pod" -n "$pg_ns" --         psql -U postgres -tAc "SELECT COUNT(*) FROM pg_database WHERE datname='SBOS_db'"         2>/dev/null | tr -d '[:space:]' || echo "0")
+    [[ "$exists" == "1" ]] && echo "HEALTHY" && return 0
+    echo "DEGRADED: BD SBOS_db no existe o PG no disponible"
+    return 1
+}
+
 ficha_repair() {
     # Re-ejecuta el DDL idempotente para convergir tablas faltantes.
     _log "ficha_repair: re-aplicando DDL idempotente para convergir schema"

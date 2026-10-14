@@ -208,6 +208,15 @@ ficha_post_install() {
 }
 
 # ── Repair ────────────────────────────────────────────────────────
+ficha_health() {
+    if kubectl --kubeconfig="${KUBECONFIG_DEST:-/etc/bos/.kube/config}"         get storageclass local-path > /dev/null 2>&1; then
+        echo "HEALTHY"
+        return 0
+    fi
+    echo "DEGRADED: StorageClass local-path no existe"
+    return 1
+}
+
 ficha_repair() {
     echo "${__STEP_START__} reparar_pvs"
     local repaired=0

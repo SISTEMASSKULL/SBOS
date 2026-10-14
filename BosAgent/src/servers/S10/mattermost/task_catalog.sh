@@ -236,6 +236,14 @@ ficha_post_install() {
 }
 
 # ── Health ──────────────────────────────────────────────────────────────────
+ficha_health() {
+    local r
+    r=$(_k get deployment mattermost -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    (( r >= 1 )) && echo "HEALTHY" && return 0
+    echo "DEGRADED: mattermost ${r}/1"
+    return 1
+}
+
 ficha_health_check() {
     local phase
     phase=$(_k get pod -n "$NS" -l app=mattermost -o jsonpath='{.items[0].status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "False")

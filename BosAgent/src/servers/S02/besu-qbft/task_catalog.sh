@@ -400,6 +400,14 @@ ficha_post_install() {
 }
 
 # ── Repair ──────────────────────────────────────────────────────────
+ficha_health() {
+    local running
+    running=$(podman inspect --format "{{.State.Running}}" "${BESU_CONTAINER:-besu-qbft}" 2>/dev/null || echo "false")
+    [[ "$running" == "true" ]] && echo "HEALTHY" && return 0
+    echo "DEGRADED: contenedor ${BESU_CONTAINER:-besu-qbft} no corriendo"
+    return 1
+}
+
 ficha_repair() {
     # Primero, verificar idempotencia
     if idempotency_check; then

@@ -321,6 +321,10 @@ ficha_repair() {
 # El observer de BOS ejecuta este check periódicamente.
 # Si detecta drift (políticas sin namespaceSelector), marca unhealthy
 # y ejecuta ficha_repair automáticamente, que re-aplica las políticas.
+ficha_health() {
+    ficha_health_check
+}
+
 ficha_health_check() {
     local ok=0
 

@@ -211,6 +211,14 @@ ficha_post_install() {
 }
 
 # ── Repair: reparación idempotente ───────────────────────────────
+ficha_health() {
+    local br
+    br=$(sysctl -n net.bridge.bridge-nf-call-iptables 2>/dev/null || echo "0")
+    [[ "$br" == "1" ]] && echo "HEALTHY" && return 0
+    echo "DEGRADED: net.bridge.bridge-nf-call-iptables != 1"
+    return 1
+}
+
 ficha_repair() {
     _log "Reparando sbos-bootstrap-os..."
 

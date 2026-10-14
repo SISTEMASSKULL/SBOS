@@ -370,6 +370,14 @@ ficha_post_install() {
 }
 
 # ── Repair ────────────────────────────────────────────────────────
+ficha_health() {
+    local ready
+    ready=$(kubectl --kubeconfig="${KUBECONFIG_DEST:-/etc/bos/.kube/config}"         get nodes --no-headers 2>/dev/null | grep -c " Ready " || echo "0")
+    (( ready >= 1 )) && echo "HEALTHY (${ready} nodo(s) Ready)" && return 0
+    echo "DEGRADED: 0 nodos K8s Ready"
+    return 1
+}
+
 ficha_repair() {
     _log "Reparando sbos-bootstrap-hard..."
 

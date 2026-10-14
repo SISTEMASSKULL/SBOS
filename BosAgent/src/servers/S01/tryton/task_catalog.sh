@@ -417,6 +417,14 @@ ficha_post_install() {
 }
 
 # ── Repair ───────────────────────────────────────────────────────────────
+ficha_health() {
+    local r
+    r=$(kubectl --kubeconfig="${KUBECONFIG_DEST:-/etc/bos/.kube/config}"         get statefulset tryton -n "${NAMESPACE:-sbos-erp}"         -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    (( r >= 1 )) && echo "HEALTHY" && return 0
+    echo "DEGRADED: tryton ${r}/1"
+    return 1
+}
+
 ficha_repair() {
     _log "Reparando Tryton..."
     echo "${__STEP_START__} reparar_tryton"
