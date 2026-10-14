@@ -1,6 +1,6 @@
 # Cronograma de Instalación — Ficha por Ficha
 
-**Versión:** 2.14.0  
+**Versión:** 2.15.0  
 **Fecha:** 2026-10-14  
 **Autor:** bos-developer  
 
@@ -1693,10 +1693,11 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 ---
 
-**PROBLEMA A-1 — BUG-36: hairpin NAT puede no estar activa → kyverno admission-controller falla**
+**PROBLEMA A-1 — BUG-36: hairpin NAT puede no estar activa → kyverno admission-controller falla** ✅ CERRADO (ciclo 11)
 
-- **Síntoma:** `kubectl logs -n kyverno deploy/kyverno-admission-controller` muestra `dial tcp 10.96.0.1:443: i/o timeout`. kyverno queda en PENDING sin poder registrar sus webhooks.
-- **Causa raíz:** Hetzner VPS no provee hairpin NAT. Los pods no pueden alcanzar la IP pública del servidor (que es el endppoint del apiserver K8s externamente). La regla iptables que FIX-19 agrega puede perderse al reiniciar el host o al reiniciar iptables.
+- **Síntoma original:** `kubectl logs -n kyverno deploy/kyverno-admission-controller` muestra `dial tcp 10.96.0.1:443: i/o timeout`. kyverno queda en PENDING sin poder registrar sus webhooks.
+- **Causa raíz:** Hetzner VPS no provee hairpin NAT. Los pods no pueden alcanzar la IP pública del servidor (que es el endpoint del apiserver K8s externamente). La regla iptables podía perderse al reiniciar el host.
+- **Solución aplicada (ciclo 11):** `sbos-bootstrap-k8s/ficha_install()` instala `sbos-hairpin-nat.service` (systemd Type=oneshot) que aplica `iptables MASQUERADE 10.244.0.0/16 POSTROUTING` en cada arranque del host. Permanente sin depender de iptables-persistent.
 - **Solución:**
   ```bash
   # 1. Verificar si la regla existe actualmente en VPS
@@ -1793,11 +1794,12 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 ---
 
-**PROBLEMA A-6 — linkerd ReplicaSets huérfanos consumen recursos**
+**PROBLEMA A-6 — linkerd ReplicaSets huérfanos consumen recursos** ✅ CERRADO (ciclo 4)
 
-- **Síntoma:** `kubectl get rs -n linkerd | grep "0/0/0"` muestra varios ReplicaSets con 0 pods deseados/actuales/listos.
-- **Causa:** Instalaciones anteriores fallidas de linkerd dejaron ReplicaSets obsoletos. Consumen entradas en etcd y confunden al observer.
-- **Solución:**
+- **Síntoma original:** `kubectl get rs -n linkerd | grep "0/0/0"` mostraba varios ReplicaSets con 0 pods deseados/actuales/listos.
+- **Causa:** Instalaciones anteriores fallidas de linkerd dejaron ReplicaSets obsoletos.
+- **Solución aplicada (ciclo 4):** `ficha_repair()` de linkerd limpia automáticamente todos los ReplicaSets con 0 réplicas antes de re-aplicar el deployment (BUG-29 cerrado).
+- **Solución manual si aún hay huérfanos:**
   ```bash
   # Ver RS huérfanos:
   kubectl get rs -n linkerd | grep -E "^.*\s+0\s+0\s+0\s+"
@@ -1814,19 +1816,12 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 ---
 
-**PROBLEMA B-1 — BUG-35: dependencia circular PG/Redis/MinIO → vault**
+**PROBLEMA B-1 — BUG-35: dependencia circular PG/Redis/MinIO → vault** ✅ CERRADO (ciclo 2)
 
-- **Síntoma:** `bosctl ficha status postgresql` muestra dependencias bloqueadas. El DAG del observer puede calcular orden incorrecto.
-- **Causa:** `manifest.yml` de postgresql, redis y minio declaran `vault` como dependencia. Vault declara `postgresql` como dependencia. Ciclo: PG→Vault→PG.
-- **Solución (3 archivos a editar):**
-  ```yaml
-  # En servers/S01/postgresql/manifest.yml — ELIMINAR vault de dependencies
-  # En servers/S01/redis/manifest.yml — ELIMINAR vault de dependencies
-  # En servers/S01/minio/manifest.yml — ELIMINAR vault de dependencies
-  # (Ninguno de estos 3 necesita Vault para arrancar)
-  ```
-- **Razonamiento:** PG, Redis y MinIO arrancan con credenciales generadas en el momento (openssl rand). Vault los toma bajo control DESPUÉS de instalarse. La dependencia es Vault→PG, no PG→Vault.
-- **Verificación:** `bosctl observer dag` → no debe mostrar ciclos en el grafo de dependencias.
+- **Síntoma original:** Ciclo de dependencias PG→Vault→PG bloqueaba el DAG del observer.
+- **Causa original:** `manifest.yml` de postgresql, redis y minio declaraban `vault` como dependencia directa.
+- **Solución aplicada (ciclo 2):** `vault` movido a `runtime_dependencies` (no `dependencies`) en los manifests de postgresql, redis y minio. PG/Redis/MinIO arrancan con credenciales propias; Vault los gestiona después de instalarse.
+- **Verificación:** `bosctl observer dag` → no muestra ciclos. Estado actual: los 3 servicios INSTALLED sin bloqueo.
 
 ---
 
@@ -1846,26 +1841,13 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 ---
 
-**PROBLEMA B-3 — GAP-4: guacamole sin conexiones → escritorio inaccesible vía Guacamole**
+**PROBLEMA B-3 — GAP-4: guacamole sin conexiones → escritorio inaccesible vía Guacamole** ✅ CERRADO EN CÓDIGO (ciclo 2) — pendiente VPS
 
-- **Síntoma:** El usuario hace login en Guacamole (`/guacamole/`), ve la interfaz, pero la lista de conexiones está vacía. No puede conectar a ningún escritorio.
-- **Causa:** `guacamole_connection` en la BD `guacamole_db` está vacía. Guacamole no autodetecta los pods VNC — hay que decirle explícitamente a qué IP:puerto conectar.
-- **Solución — agregar a `ficha_post_install()` de guacamole:**
+- **Síntoma original:** Lista de conexiones vacía en Guacamole.
+- **Solución aplicada (ciclo 2):** `ficha_post_install()` en `servers/S13/guacamole/task_catalog.sh` inserta automáticamente la conexión VNC "Escritorio SBOS" apuntando a `fedora-kde.sbos-vdi.svc.cluster.local:5900`. Idempotente via `ON CONFLICT DO NOTHING`.
+- **Pendiente VPS (única acción requerida):**
   ```bash
-  # En servers/S13/guacamole/task_catalog.sh — ficha_post_install():
-  # Insertar la conexión VNC al pod fedora-kde:
-  FEDORA_IP=$(kubectl get svc fedora-kde -n sbos-vdi -o jsonpath='{.spec.clusterIP}' 2>/dev/null)
-  if [[ -n "$FEDORA_IP" ]]; then
-      kubectl exec -n sbos-data deployment/postgresql -- psql -U postgres -d guacamole_db -c "
-        INSERT INTO guacamole_connection (connection_name, protocol, max_connections)
-        VALUES ('Escritorio SBOS', 'vnc', 10)
-        ON CONFLICT DO NOTHING;
-        INSERT INTO guacamole_connection_parameter (connection_id, parameter_name, parameter_value)
-        SELECT connection_id, 'hostname', '${FEDORA_IP}' FROM guacamole_connection WHERE connection_name='Escritorio SBOS' ON CONFLICT DO NOTHING;
-        INSERT INTO guacamole_connection_parameter (connection_id, parameter_name, parameter_value)
-        SELECT connection_id, 'port', '5901' FROM guacamole_connection WHERE connection_name='Escritorio SBOS' ON CONFLICT DO NOTHING;
-      " 2>/dev/null || true
-  fi
+  bosctl ficha repair guacamole
   ```
 - **Verificación:** Login en `/guacamole/` → lista "Escritorio SBOS" → conectar → desktop visible.
 
@@ -1941,11 +1923,11 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 ---
 
-**PROBLEMA C-3 — SBOS-database-init: falta ficha de inicialización de BD**
+**PROBLEMA C-3 — SBOS-database-init: falta ficha de inicialización de BD** ✅ CERRADO (ciclo 5 + ciclo 13)
 
-- **Decisión HITL:** El DDL (`DDLs/SBOS_db_V2_DDL.sql`) tiene 158 tablas. ¿Se despliega todo en un solo paso o por módulo (bos-schema, bauth-schema, etc.)?
-  - Opción A (recomendada): Una sola ficha `sbos-database-init` que ejecuta el DDL completo. Simple, mantenible.
-  - Opción B: Una ficha por daemon (`bos-schema`, `bauth-schema`, etc.). Más granular pero más complejo.
+- **Solución aplicada (ciclo 5):** Ficha `sbos-database-init` creada en `servers/S01/sbos-database-init/` (orden 105, auto_install=true, dependencia: postgresql).
+- **Mejora (ciclo 13):** `ficha_pre_install()` busca el DDL en 4 rutas candidatas y lo copia automáticamente sin intervención manual (ADR-022).
+- **Pendiente VPS:** Ejecutar `bosctl ficha install sbos-database-init` para desplegar el DDL (158 tablas SBOS_db) en la VPS.
 
 ---
 
@@ -1953,18 +1935,10 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 ---
 
-**PROBLEMA D-1 — VDI-GAP-5: puerto 6901 expuesto sin auth (URGENTE)**
+**PROBLEMA D-1 — VDI-GAP-5: puerto 6901 expuesto sin auth** ✅ CERRADO (ciclo 13)
 
-- **Ver VDI-PROBLEMA #5 arriba.** Es el único problema de seguridad activo que requiere acción inmediata, independientemente del estado de vault.
-- **Tiempo estimado:** 30 minutos.
-- **Acción:**
-  ```bash
-  # En VPS:
-  ufw deny 6901/tcp
-  ufw status | grep 6901
-  # Verificar que el acceso desde fuera falla:
-  # curl http://IP-VPS:6901 → debe fallar
-  ```
+- **Solución aplicada (ciclo 13):** NetworkPolicy `deny-direct-novnc-external` en `sbos-vdi-config/task_catalog.sh` bloquea el acceso al puerto 6901 desde fuera del namespace `sbos-gateway`. El acceso al escritorio solo es posible a través de Guacamole (que autentica con Keycloak).
+- **Verificación:** `kubectl get networkpolicy -n sbos-vdi deny-direct-novnc-external` → existe. Acceso directo `curl http://IP-VPS:6901` → timeout/rechazado.
 
 ---
 
@@ -2008,7 +1982,7 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 | 200 | prometheus | ✅ INSTALLED | — |
 | 200 | nextcloud | ✅ INSTALLED | — |
 | 205 | alertmanager | ✅ INSTALLED | — |
-| 210 | guacamole | ✅ INSTALLED | ❌ GAP-4 sin conexiones |
+| 210 | guacamole | ✅ INSTALLED | ❌ `bosctl ficha repair guacamole` pendiente VPS (código ✅ ciclo 2) |
 | 215 | grafana | ✅ INSTALLED | — |
 | 215 | loki | ⚙️ PENDING (Helm, esperando deps) | — |
 | 220 | alloy | ✅ INSTALLED | ⚠️ Loki no disponible |
@@ -2016,7 +1990,7 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 | 220 | onlyoffice | ✅ INSTALLED | — |
 | 225 | zabbix | ⏳ NO_INSTALADA (auto_install=false) | — |
 | 225 | oauth2-proxy-desktop | ❌ PHYSICAL_ERROR | ❌ derivado vault |
-| 230 | fedora-kde | ⏸️ UPDATE_AVAILABLE | ⚠️ INC-2/3, VDI-GAP-1/2/5 |
+| 230 | fedora-kde | ⏸️ UPDATE_AVAILABLE | ⚠️ INC-2/3, VDI-GAP-1/2 (GAP-5 ✅ ciclo 13) |
 | 250 | sbos-bootstrap-hard | ✅ INSTALLED | ❌ kyverno switch enforce pendiente VPS |
 | 300–315 | mailserver stack | ⏳ NO_INSTALADA (auto_install=false) | — |
 | 345–365 | docs stack | ⏳ NO_INSTALADA (auto_install=false) | — |
@@ -2061,5 +2035,5 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 ---
 
-*Documento v2.14.0 — bos-developer · 2026-10-14*  
+*Documento v2.15.0 — bos-developer · 2026-10-14*  
 *Panel de control de reparación: `PLAN-INSTALACION-DESDE-CERO.md §13`*
