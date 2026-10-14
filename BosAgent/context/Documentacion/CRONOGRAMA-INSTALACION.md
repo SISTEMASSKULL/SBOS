@@ -1482,7 +1482,7 @@ Si juan.perez se va 10 horas y vuelve:
 - ✅ SSO-2: Keycloak `Web Origins: *.sbos.app` (ciclo 20 — keycloak/ficha_post_install)
 - ✅ SSO-3: Kong plugin JWT en 4 rutas (ciclo 20 — kong/ficha_post_install + _kong_ensure_plugin)
 - ✅ SSO-4: Nextcloud OIDC via user_oidc app (ciclo 20 — nextcloud/ficha_post_install)
-- 📋 VDI-PROBLEMA #2 (ConfigMap/imagen): el script `start-desktop.sh` llega vía ConfigMap en lugar de estar baked en la imagen. Resolver requiere decisión de diseño sobre la imagen base (HITL). Acción cuando se apruebe: eliminar ConfigMap, reconstruir `sbos/fedora-desktop:1.4.0` con el script incluido y redesplegar. Sin cambios de código en BOS hasta entonces.
+- ✅ (ciclo 31) VDI-PROBLEMA #2 CERRADO EN CÓDIGO: `start-desktop.sh` ya está baked en Containerfile (`COPY resources/start-desktop.sh /start-desktop.sh`); Deployment no monta ConfigMap. Añadidos theme files Fluent-dark al Containerfile (`kdeglobals`, `plasmarc`, `Kvantum`, `kcminputrc`). Versión sincronizada a `1.4.0` en task_catalog.sh. **Pendiente VPS:** rebuildar imagen con `bosctl ficha repair fedora-kde` o manualmente (ver instrucciones ciclo 31 al final del CRONOGRAMA).
 - 📋 VDI-PROBLEMA #3 (sbos-vdi-provisioner): 1 pod compartido para todos los usuarios (VDI-GAP-1). Solución = daemon Go que crea un pod `fedora-kde-{user_id}` por usuario al autenticarse. **Bloqueado por HITL Q-3** — requiere aprobación de arquitectura antes de implementar.
 - 📋 VDI-PROBLEMA #4 (PVC por usuario): home efímero — se pierde en cada reboot del pod (VDI-GAP-2). Solución = PVC `fedora-kde-home-{user_id}` creado por el provisioner. **Bloqueado por VDI-PROBLEMA #3** — no se puede implementar sin el provisioner.
 - 📋 Rebuild imagen `sbos/fedora-desktop:1.4.0`: acción VPS pura — no requiere cambios de código en BOS. Ejecutar cuando se resuelva VDI-PROBLEMA #2: `docker build` + `kubectl rollout restart`.
@@ -2298,7 +2298,9 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 **Correcciones ciclo 30:** **nginx S02 preparado para bcms** — (1) `include /etc/nginx/conf.d/domains/*.conf;` añadido al bloque `http {}` del nginx.conf generado: bcms puede depositar `.conf` por dominio sin tocar el config principal; (2) nuevo paso 4 en `ficha_install`: crea `/etc/nginx/conf.d/domains/` y genera `sbos-institucional.conf` placeholder para `sbos.app`; (3) CRONOGRAMA: documentada arquitectura S02 vs S16, modelo de dominios A.03 (institucional/tenant/sucursal), flujo bcms, plan S16-webserver. nginx S02 no requiere más cambios para recibir bcms.
 
+**Correcciones ciclo 31:** **VDI-PROBLEMA #2 CERRADO + theme Fluent-dark baked + decisiones HITL VDI formalizadas** — (1) **Containerfile**: `start-desktop.sh` ya estaba baked (confirmado); añadidos `resources/kde-defaults/` al Containerfile: `kdeglobals` (FluentDark color scheme, Noto Sans), `plasmarc` (Plasma Fluent-dark), `Kvantum/kvantum.kvconfig` (motor Qt Fluent), `kcminputrc`, `plasma-localerc`; kwinrc ampliado con `BorderlessMaximizedWindows=true` + TabBox settings (compositing sigue OFF — mandatorio para VNC); (2) **task_catalog.sh**: `SBOS_IMAGE` sincronizado de `1.0.0` → `1.4.0` (coincide con LABEL del Containerfile); (3) **CRONOGRAMA**: decisiones HITL Q-A/C/D/E formalizadas; modelo canónico VDI; modelo de identidad SBOS (correo corporativo); regla sin eliminación física; **Pendiente VPS:** `bosctl ficha repair fedora-kde` para rebuild y redespliegue de imagen 1.4.0.
+
 ---
 
-*Documento v2.20.0 — bos-developer · 2026-10-14*  
+*Documento v2.21.0 — bos-developer · 2026-10-14*  
 *Panel de control de reparación: `PLAN-INSTALACION-DESDE-CERO.md §13`*

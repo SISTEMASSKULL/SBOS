@@ -18,7 +18,7 @@ NS="${NS:-sbos-vdi}"
 FICHA_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Imagen soberana construida localmente con buildah
-SBOS_IMAGE="${SBOS_IMAGE:-docker.io/sbos/fedora-desktop:1.0.0}"
+SBOS_IMAGE="${SBOS_IMAGE:-docker.io/sbos/fedora-desktop:1.4.0}"
 # Ruta del OCI archive exportado (persistente entre reparaciones)
 SBOS_OCI_ARCHIVE="/opt/sbos-images/sbos-fedora-desktop.tar"
 

@@ -103,9 +103,11 @@ RUN useradd -u 1001 -ms /bin/bash vdiuser \
     && echo "vdiuser ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/vdiuser \
     && chmod 440 /etc/sudoers.d/vdiuser
 
-# ── Configuración KDE por defecto: sin compositing (óptimo para VNC) ─────────
-RUN mkdir -p /home/vdiuser/.config \
-    && printf '[Compositing]\nEnabled=false\nAnimationSpeed=0\n[Plugins]\nblurEnabled=false\ncontrastEnabled=false\nkwin4_effect_fadeEnabled=false\nslidingpopupsEnabled=false\n' \
+# ── Configuración KDE + theme Fluent-dark ────────────────────────────────────
+# kwinrc: compositing OFF (obligatorio para rendimiento VNC) + decoraciones Breeze
+# + resto de defaults de performance. Los archivos de theme se copian más abajo.
+RUN mkdir -p /home/vdiuser/.config/Kvantum \
+    && printf '[Compositing]\nEnabled=false\nAnimationSpeed=0\nBackend=XRender\nOpenGLIsUnsafe=true\n[Plugins]\nblurEnabled=false\ncontrastEnabled=false\nkwin4_effect_dimscreenEnabled=false\nkwin4_effect_fadeEnabled=false\nslideEnabled=false\nslidingpopupsEnabled=false\nwobblyWindowsEnabled=false\n[TabBox]\nActivationDelay=0\nDelayTime=90\n[Windows]\nBorderlessMaximizedWindows=true\n[Effect-overview]\nBorderActivate=9\n' \
        > /home/vdiuser/.config/kwinrc \
     && printf '[General]\nShouldShow=false\n' \
        > /home/vdiuser/.config/plasma-welcomerc \
@@ -183,10 +185,20 @@ exec /usr/bin/google-chrome-stable \\\n\
     && printf '<Menu>\n  <Name>Applications</Name>\n  <Menu>\n    <Name>SBOS</Name>\n    <Directory>SBOS.directory</Directory>\n    <Include><Category>SBOS</Category></Include>\n  </Menu>\n</Menu>\n' \
          > /etc/xdg/menus/applications-merged/sbos.menu
 
-# ── Archivos del sistema ──────────────────────────────────────────────────────
+# ── Archivos del sistema + theme Fluent-dark ─────────────────────────────────
 COPY resources/novnc-index.html /usr/share/novnc/index.html
 COPY resources/start-desktop.sh /start-desktop.sh
 RUN chmod +x /start-desktop.sh
+
+# Theme Fluent-dark: kdeglobals (colores/fuentes), plasmarc (tema Plasma),
+# Kvantum config (motor de estilo Qt). kwinrc se define arriba (compositing OFF
+# es mandatorio para VNC — NO usar el resources/kde-defaults/kwinrc).
+COPY resources/kde-defaults/kdeglobals              /home/vdiuser/.config/kdeglobals
+COPY resources/kde-defaults/plasmarc                /home/vdiuser/.config/plasmarc
+COPY resources/kde-defaults/plasma-localerc         /home/vdiuser/.config/plasma-localerc
+COPY resources/kde-defaults/kcminputrc              /home/vdiuser/.config/kcminputrc
+COPY resources/kde-defaults/Kvantum/kvantum.kvconfig /home/vdiuser/.config/Kvantum/kvantum.kvconfig
+RUN chown -R vdiuser:vdiuser /home/vdiuser/.config
 
 EXPOSE 6901
 
