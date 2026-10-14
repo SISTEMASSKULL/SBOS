@@ -552,8 +552,8 @@ Esta pantalla de introducción de fragmentos está documentada en `context/Docum
 - ✅ Cliente OIDC `sbos-desktop` creado para el VDI
 - ✅ (14d1a6a) health check: `curl :9000/health/ready | grep UP` (GAP-2 cerrado)
 
-**Pendiente de desarrollo externo (bAuth):**
-- ❌ SPIs SKULL sin implementar — los SPIs (Service Provider Interfaces) de Keycloak son extensiones Java que personaliza bAuth para autenticación soberana. BOS instala Keycloak vanilla; bAuth es quien desarrolla e inyecta los SPIs como JARs en el pod. No es un faltante del instalador.
+**Pendiente de desarrollo (propio de Keycloak — Iteración 2):**
+- 📋 SPIs SKULL en Iter1: registrados via `kcadm` como componentes (sin JARs). En Iteración 2 se compilarán los JARs Java y se montarán en el directorio `providers/` del pod. Los SPIs son extensiones **propias de Keycloak** para el dominio IAM de SBOS — no son responsabilidad de bAuth ni los invoca bAuth. Keycloak y bAuth son totalmente independientes entre sí.
 - ✅ `Web Origins: *.sbos.app` para SSO multi-subdominio (SSO-2) — implementado en ficha_post_install ciclo 20
 
 **Bugs:** ninguno activo
