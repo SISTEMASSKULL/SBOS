@@ -51,7 +51,6 @@ health:
 integrations:
   provides_to:
     - "calcom"
-    - "mattermost"
 
 bsearch_config:
   enabled: false

@@ -55,3 +55,27 @@ versions:
   image: "postgres:18.4-alpine"
   pv_name: sbos-postgres-pv
   namespace: sbos-data
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ADVERTENCIA — DDL pendiente para servidor web (T-415)
+# ─────────────────────────────────────────────────────────────────────────────
+# T-415: tabla bos.net_web_domain — PENDIENTE APROBACIÓN HITL
+#
+# Antes de desarrollar bcms (CMS multi-tenant) se debe aprobar y crear:
+#
+#   CREATE TABLE bos.net_web_domain (
+#     id         BIGSERIAL PRIMARY KEY,
+#     domain     TEXT NOT NULL UNIQUE,   -- "www.empresa.com" o "empresa.sbos.app"
+#     target     TEXT NOT NULL,          -- "bcms.sbos-cms.svc.cluster.local:9480"
+#     ssl_auto   BOOLEAN NOT NULL DEFAULT false,
+#     empresa_id TEXT,                   -- empresa propietaria del dominio
+#     sucursal_id TEXT,                  -- sucursal asociada (opcional)
+#     ctx_id     TEXT NOT NULL DEFAULT '',
+#     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+#   );
+#
+# Sin esta tabla los dominios web se almacenan solo en RAM (MemWebDomain)
+# y se pierden al reiniciar BOS. El comando `bosctl web domain add` ya
+# existe pero no persiste. Ver: context/Documentacion/PROPUESTA-T415-net_web_domain.md
+# Ver también: context/Documentacion/7.01_MANUAL-NGINX-WEB-CMS.md §8
+# ─────────────────────────────────────────────────────────────────────────────

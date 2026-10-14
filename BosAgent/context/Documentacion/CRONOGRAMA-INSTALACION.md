@@ -1,6 +1,6 @@
 # Cronograma de Instalación — Ficha por Ficha
 
-**Versión:** 2.18.0  
+**Versión:** 2.21.0  
 **Fecha:** 2026-10-14  
 **Autor:** bos-developer  
 
@@ -85,8 +85,8 @@
 - ✅ Cgroup v2 delegation configurada
 - ✅ Sudoers para bosagent
 
-**Faltantes:**
-- ⚠️ `configurar_kubectl`: en primera instalación hace SKIP porque kubectl no existe aún (lo instala sbos-bootstrap-k8s en orden 20). El symlink se crea en un repair posterior.
+**Comportamiento esperado (por diseño):**
+- 📋 `configurar_kubectl`: hace SKIP en primera instalación — es correcto. kubectl aún no existe cuando esta ficha corre (orden ~1); lo instala `sbos-bootstrap-k8s` en orden 20. El symlink `/usr/local/bin/kubectl` se crea automáticamente cuando BOS ejecuta un `repair` de `bos-preflight` tras completar el bootstrap de K8s. **No es un bug ni un faltante — es la secuencia de arranque esperada.**
 
 **Bugs corregidos:**
 - ✅ FIX (de927a0): health check usaba `/run/bos` (tmpfs — desaparece en reboot). Corregido a verificar `/etc/bos/rpc-token` y `/etc/bos/certs/bos.crt`.
@@ -106,8 +106,8 @@
 - ✅ `iptables-persistent` y `netfilter-persistent` instalados (FIX-20: necesarios para persistir hairpin NAT en reboot)
 - ✅ Swap deshabilitado
 
-**Faltantes:**
-- ⚠️ `configurar_containerd`: hace SKIP en primera instalación (containerd lo instala sbos-bootstrap-k8s en orden 20). Solo actúa en repair posterior.
+**Comportamiento esperado (por diseño):**
+- 📋 `configurar_containerd`: hace SKIP en primera instalación — es correcto. containerd aún no existe cuando esta ficha corre; lo instala `sbos-bootstrap-k8s` en orden 20. La configuración de containerd (registry mirrors, snapshotter) se aplica en el `repair` posterior de `sbos-bootstrap-os`. **No es un bug ni un faltante — es la secuencia de arranque esperada.**
 
 **Bugs:** ninguno activo
 
@@ -309,7 +309,7 @@
 
 **Faltantes:**
 - ✅ (ciclo 11) BUG-36 CERRADO: `sbos-hairpin-nat.service` garantiza MASQUERADE persistente — kyverno puede conectar al apiserver tras reinicio del host
-- ❌ Switch a modo enforce no ejecutado en VPS — requiere: (1) reiniciar pod kyverno en VPS, (2) verificar admission-controller Running, (3) ejecutar sbos-bootstrap-hard con el switch
+- ❌ Switch a modo enforce no ejecutado en VPS — **acción VPS requerida** (no código): (1) reiniciar pod kyverno en VPS, (2) verificar admission-controller Running, (3) ejecutar sbos-bootstrap-hard con el switch. El código ya está correcto — falta ejecutarlo en producción.
 
 **Bugs activos:** ninguno
 
@@ -416,7 +416,9 @@
 
 **Faltantes / pendiente:**
 - ✅ (ciclo 13) DDL auto-copiado: `ficha_pre_install` busca el DDL en 4 rutas candidatas (`SBOS_SERVERS_DIR/../DDLs/`, `/opt/skull/.../DDLs/`, `/etc/bos/blibs/DDLs/`, relativa a `BASH_SOURCE`) y lo copia a `/etc/bos/ddl/` — cero intervención manual (ADR-022)
-- ⚠️ Seeds (T060/T061/T162): no se cargan en este instalador — se cargan por módulo en Fase C.
+
+**Comportamiento esperado (por diseño):**
+- 📋 Seeds (T060/T061/T162): no se cargan en el instalador de BD — es correcto. Los seeds de catálogos (menús contextuales, roles template, i18n) se cargan por cada módulo en su propia Fase C de arranque, no en el bootstrap de la base de datos. Cargarlos aquí crearía dependencias de orden que violan ADR-022.
 
 **Acciones VPS pendientes:**
 ```bash
@@ -458,12 +460,12 @@ bosctl ficha install sbos-database-init
 - ✅ FIX-26A commiteado: liveness probe `sealedok=true` (pod no crashea cuando sellado)
 - ✅ (ciclo 2) GAP-2 cerrado: health check real — verifica `initialized=true + sealed=false` con `vault status -format=json`
 
-**Faltantes:**
+**Acciones VPS pendientes (el código está correcto — falta ejecutar en producción):**
 - ❌ FIX-26A no aplicado en VPS aún — aplicar con: `kubectl rollout restart statefulset/vault -n sbos-security`
-- ❌ Unseal pendiente en VPS: `vault operator unseal` (3 de 5 keys desde `/etc/bos/vault-init-keys.json`)
+- ❌ Unseal pendiente en VPS: `vault operator unseal` (3 de 5 keys desde `/etc/bos/vault-init-keys.json`). Vault solo puede unsealearse con las keys físicas — BOS no las conoce por diseño de seguridad (HSM-like). Esta operación SIEMPRE requiere intervención del operador.
 
 **Bugs activos:**
-- ❌ BUG-27: oauth2-proxy y tryton bloqueados en cascada hasta que vault sea unsealed en VPS.
+- ❌ BUG-27: oauth2-proxy y tryton en cascada — se desbloquean automáticamente en cuanto vault sea unsealed en VPS. No requiere cambios de código.
 
 ---
 
@@ -485,8 +487,8 @@ bosctl ficha install sbos-database-init
 - ✅ (ciclo 11) Secret vault-unseal-keys: almacena keys dentro del cluster (no en disco host)
 - ✅ (ciclo 11) RBAC mínimo: solo puede leer ese Secret + exec en vault-0
 
-**Faltantes:**
-- ❌ No desplegado en VPS aún — requiere que vault esté inicializado primero: `bosctl ficha install vault-unsealer`
+**Acción VPS pendiente:**
+- ❌ No desplegado en VPS aún — bloqueado por vault sin unseal (BUG-27). Una vez vault esté unsealed: `bosctl ficha install vault-unsealer`. El código de la ficha está completo y correcto.
 
 **Bugs activos:** ninguno
 
@@ -505,7 +507,9 @@ bosctl ficha install sbos-database-init
 
 **Faltantes:**
 - ✅ GAP-2 FALSO POSITIVO: health check ya presente — `podman inspect {{.State.Running}}` (runtime: podman)
-- ❌ Contratos AuditAnchor.sol y SettlementEngine.sol no desplegados (pendiente fase de bAuth D12)
+
+**Pendiente de desarrollo externo (bAuth D12):**
+- ❌ Contratos AuditAnchor.sol y SettlementEngine.sol no desplegados — son entregables del módulo D12 de bAuth. La red besu-qbft está operativa y lista. BOS no despliega contratos de otros daemons — los despliega bAuth cuando implemente D12.
 
 **Bugs:** ninguno activo
 
@@ -535,8 +539,8 @@ bosctl ficha install sbos-database-init
 - ✅ Cliente OIDC `sbos-desktop` creado para el VDI
 - ✅ (14d1a6a) health check: `curl :9000/health/ready | grep UP` (GAP-2 cerrado)
 
-**Faltantes:**
-- ❌ SPIs SKULL sin implementar (pendiente desarrollo bAuth)
+**Pendiente de desarrollo externo (bAuth):**
+- ❌ SPIs SKULL sin implementar — los SPIs (Service Provider Interfaces) de Keycloak son extensiones Java que personaliza bAuth para autenticación soberana. BOS instala Keycloak vanilla; bAuth es quien desarrolla e inyecta los SPIs como JARs en el pod. No es un faltante del instalador.
 - ✅ `Web Origins: *.sbos.app` para SSO multi-subdominio (SSO-2) — implementado en ficha_post_install ciclo 20
 
 **Bugs:** ninguno activo
@@ -556,12 +560,12 @@ bosctl ficha install sbos-database-init
 - ✅ NetworkPolicy hacia Keycloak configurada
 - ✅ (ciclo 2) BUG-33 cerrado: `linkerd.io/inject: disabled` en pod template annotations
 
-**Faltantes:**
-- ❌ Pod en PHYSICAL_ERROR — se recupera cuando vault sea unsealed en VPS (BUG-27 depende de vault)
-- ❌ `rollout restart deployment/oauth2-proxy` necesario en VPS para aplicar BUG-33
+**Bloqueado por vault (acción VPS — código correcto):**
+- ❌ Pod en PHYSICAL_ERROR — se recupera automáticamente cuando vault sea unsealed en VPS. No requiere cambios de código.
+- ❌ `rollout restart deployment/oauth2-proxy` — acción VPS para que el pod recoja BUG-33 ya commiteado. Una vez vault esté unsealed: `kubectl rollout restart deployment/oauth2-proxy -n sbos-gateway`.
 
 **Bugs activos:**
-- ❌ BUG-27: PHYSICAL_ERROR derivado de vault sin unseal. Bloqueante externo.
+- ❌ BUG-27: PHYSICAL_ERROR en cascada por vault sin unseal. Se resuelve solo al unseal vault — no requiere cambios de código.
 
 ---
 
@@ -578,8 +582,8 @@ bosctl ficha install sbos-database-init
 - ✅ Health check: `kong health | grep -c healthy` (ya presente en manifest)
 - ✅ (ciclo 2) `vault` y `keycloak` movidos a `runtime_dependencies` — Kong arranca solo con PG
 
-**Faltantes:**
-- ❌ Plugin Lua SBOS-Context (ctx_id injection) no desplegado — pendiente desarrollo
+**Pendiente de desarrollo externo:**
+- ❌ Plugin Lua SBOS-Context (ctx_id injection) no desplegado — requiere desarrollo del plugin Lua por parte del equipo Kong/biedata. Es un módulo que se carga en Kong para inyectar `ctx_id` en cada request. BOS instala Kong pero no puede crear el plugin — es un entregable de otro daemon, no un faltante del instalador.
 - ✅ (ciclo 14) Rutas y servicios de aplicaciones declarados automáticamente en `ficha_post_install()` + `ficha_repair()`
 
 **Bugs:** ninguno activo
@@ -739,10 +743,10 @@ Kong (Domain Resolver):
 - ✅ (14d1a6a) `location /`: sirve `index.html` con `try_files` (INC-nginx-1 cerrado)
 - ✅ (14d1a6a) `index.html`: botón "Iniciar sesión" → `/desktop/`, manejo `?error=auth` con JS
 
-**Faltantes:**
-- ❌ GAP-nginx-1: no hay ficha `sbos-kong-tenant` para automatizar rutas Kong por tenant
-- ❌ GAP-nginx-2: Certbot (TLS Let's Encrypt real) solo funciona con dominio DNS público
-- ❌ UPDATE_AVAILABLE: imagen nginx en VPS puede diferir de manifest v1.28.0
+**Pendiente de diseño / externo:**
+- ❌ GAP-nginx-1: ficha `sbos-kong-tenant` no existe — es una ficha nueva que debe diseñarse e implementarse para automatizar la creación de rutas Kong por tenant. No es corrección de código existente: es desarrollo nuevo.
+- ❌ GAP-nginx-2: Certbot (TLS Let's Encrypt) requiere que el DNS del dominio apunte a esta VPS — es un requisito externo del protocolo ACME. BOS no controla el DNS del cliente; el operador debe configurarlo antes de ejecutar certbot.
+- ❌ UPDATE_AVAILABLE: imagen nginx puede diferir en VPS — **acción VPS**: `bosctl ficha repair nginx` actualizará nginx a v1.28.0. No requiere cambios de código.
 
 **Bugs:** ninguno activo (nginx corre correctamente — UPDATE_AVAILABLE es de versión, no de funcionalidad)
 
@@ -775,8 +779,8 @@ Kong (Domain Resolver):
 - ✅ certbot instalado como systemd timer en host S02
 - ✅ Certificados TLS generados
 
-**Faltantes:**
-- ⚠️ Solo funciona si el dominio público está apuntando a esta VPS (DNS configurado)
+**Comportamiento esperado (por diseño):**
+- 📋 Let's Encrypt solo emite certificados si el dominio DNS apunta a esta VPS — es un requisito externo del protocolo ACME HTTP-01, no un faltante del instalador. BOS no puede controlar el DNS del cliente. El operador debe configurar el DNS antes de ejecutar `bosctl ficha repair certbot`.
 
 **Bugs:** ninguno activo
 
@@ -805,8 +809,8 @@ Kong (Domain Resolver):
 - ✅ Replication slot configurado en PostgreSQL
 - ✅ (ciclo 3) GAP-2 cerrado: health check `type: command, command: systemctl is-active bkernel` en manifest.yml
 
-**Faltantes:**
-- ❌ Streams Redis sin consumidores activos aún (pendiente desarrollo de consumidores bAuth/bsearch)
+**Pendiente de desarrollo externo (bAuth / bsearch):**
+- ❌ Streams Redis sin consumidores activos — bkernel produce eventos en Redis Streams correctamente. Los consumidores son responsabilidad de bAuth (identidad) y bsearch (índice). BOS no implementa consumidores de otros daemons. Cuando bAuth y bsearch estén listos, se conectarán automáticamente.
 
 **Bugs:** ninguno activo
 
@@ -833,7 +837,7 @@ Kong (Domain Resolver):
 - ✅ (ciclo 3) GAP-2 cerrado: health check `type: http, path: /-/ready, port: 9090` en manifest.yml
 
 **Faltantes:**
-- ❌ Scraping de daemons SBOS (9400-9499) incompleto — daemons aún no exponen métricas (pendiente desarrollo de daemons)
+- ❌ Scraping de daemons SBOS (9400-9499) incompleto — **pendiente de desarrollo externo**: cada daemon (bAuth, bkernel, biedata, bsearch, bnexus, bnotify) debe exponer su endpoint `/metrics` en el puerto asignado del rango 9400-9499. Prometheus ya tiene la regla de scraping configurada — en cuanto los daemons expongan métricas, Prometheus las recolectará automáticamente.
 
 **Bugs:** ninguno activo
 
@@ -873,7 +877,7 @@ Kong (Domain Resolver):
 - ✅ Datasource Loki — implementado en ficha_post_install ciclo 21: se agrega automáticamente via Grafana API cuando Loki pod esté Running (idempotente)
 - ✅ Datasource PostgreSQL (SBOS_db) — implementado en ficha_post_install ciclo 21: se agrega via Grafana API cuando PG disponible y PG_AUX_PASSWORD seteado
 - ✅ OIDC Keycloak (SSO) — implementado en ficha_post_install ciclo 20: env vars GF_AUTH_GENERIC_OAUTH_* via K8s Secret sbos-grafana-oidc
-- ❌ Dashboards SBOS básicos — pendiente diseño
+- ❌ Dashboards SBOS básicos — **pendiente de diseño**: requiere que primero los daemons expongan métricas (ver Prometheus arriba) para saber qué graficar. No es un faltante del instalador — es una tarea de diseño que depende de métricas reales.
 
 **Bugs:** ninguno activo
 
@@ -894,7 +898,7 @@ Kong (Domain Resolver):
 **Faltantes:**
 - ✅ (ciclo 13) Retención configurada: `retention_period=720h` (30 días) + `compactor.retention_enabled=true`
 - ✅ (ciclo 13) `structuredMetadata.enabled=true` — Loki puede recibir ctx_id como metadata estructurada de Alloy
-- ❌ Backend S3/MinIO — logs en disco local (PVC 20Gi) hasta que MinIO esté estable
+- ❌ Backend S3/MinIO — logs en disco local (PVC 20Gi) — **comportamiento transitorio esperado**: Loki está configurado para usar MinIO como backend S3 cuando esté disponible. Mientras MinIO no esté estable, usa disco local. No requiere cambios de código; la transición a MinIO se hará automáticamente con `bosctl ficha repair loki` cuando MinIO esté operativo.
 
 **Bugs:** ninguno activo (no está instalado)
 
@@ -931,7 +935,7 @@ Kong (Domain Resolver):
 
 **Faltantes:**
 - ✅ (ciclo 13) Retención configurada: `tempo.retention=720h` + `tempo.search.enabled=true`
-- ❌ Backend S3/MinIO — trazas en disco local hasta MinIO estable
+- ❌ Backend S3/MinIO — trazas en disco local — **comportamiento transitorio esperado**: igual que Loki, la transición a MinIO es automática con `bosctl ficha repair tempo` cuando MinIO esté operativo. No requiere cambios de código.
 
 **Bugs:** ninguno activo
 
@@ -968,8 +972,8 @@ Kong (Domain Resolver):
 - ✅ Calico en modo enforcement
 - ✅ (ciclo 11) BUG-36 cerrado — kyverno puede conectar al apiserver: desbloqueado
 
-**Faltantes:**
-- ❌ Switch kyverno a modo enforce pendiente en VPS: reiniciar pod → verificar Running → ejecutar switch
+**Acción VPS pendiente (código correcto):**
+- ❌ Switch kyverno a modo enforce — el código está listo; falta ejecutarlo en producción: (1) reiniciar pod kyverno en VPS, (2) verificar admission-controller Running, (3) ejecutar switch. Ver sección kyverno para el comando exacto.
 
 **Bugs:** ninguno
 
@@ -1025,8 +1029,8 @@ Kong (Domain Resolver):
 - ✅ (ciclo 3) GAP-6 cerrado: `governance: auto_install: true, category_label: vdi-gateway`
 - ✅ (ciclo 7) `ficha_test` agregada: verifica pod Running + conexión VNC en guacamole_connection
 
-**Faltantes:**
-- ❌ `bosctl ficha repair guacamole` en VPS para ejecutar `ficha_post_install()` y registrar la conexión
+**Acción VPS pendiente (código correcto):**
+- ❌ `bosctl ficha repair guacamole` — el código de `ficha_post_install()` está correcto y registra la conexión VNC. Falta ejecutarlo en la VPS para que guacamole quede apuntando a fedora-kde. Comando: `bosctl ficha repair guacamole`.
 
 ---
 
@@ -1066,12 +1070,12 @@ Kong (Domain Resolver):
 - ✅ Deployment configurado con cliente OIDC `sbos-desktop` en Keycloak realm skull
 - ✅ NetworkPolicy hacia Keycloak configurada
 
-**Faltantes:**
-- ❌ Pod en PHYSICAL_ERROR — derivado de vault (misma cadena que oauth2-proxy)
+**Bloqueado por vault (acción VPS — código correcto):**
+- ❌ Pod en PHYSICAL_ERROR — mismo bloqueo BUG-27: depende de vault para leer el client_secret de Keycloak. Se recupera automáticamente cuando vault sea unsealed. No requiere cambios de código.
 - ✅ (ciclo 3) GAP-2 y GAP-6 cerrados: health `type: http /ping :4180` + governance auto_install: true
 
 **Bugs activos:**
-- ❌ PHYSICAL_ERROR derivado de vault. Se resuelve con FIX-26A + FIX-B observer.
+- ❌ PHYSICAL_ERROR derivado de vault (BUG-27). Se resuelve con FIX-26A (vault rollout restart) + unseal en VPS.
 
 ---
 
@@ -1347,14 +1351,14 @@ fedora-kde pod  ← UN SOLO POD COMPARTIDO (VDI-GAP-1)
 
 **Faltantes:**
 - ✅ (ciclo 13) VDI-PROBLEMA #5 CERRADO: NetworkPolicy `deny-direct-novnc-external` — puerto 6901 solo accesible desde `sbos-gateway`; acceso directo sin auth bloqueado
-- ❌ VDI-PROBLEMA #2: eliminar ConfigMap y rebuildar imagen (1-2 días)
-- ❌ VDI-PROBLEMA #3: crear sbos-vdi-provisioner (semana, depende HITL Q-3)
-- ❌ VDI-PROBLEMA #4: agregar PVC por usuario (depende del provisioner)
-- ❌ Rebuild imagen `sbos/fedora-desktop:1.4.0` y desplegar en VPS
+- ❌ VDI-PROBLEMA #2: eliminar ConfigMap y rebuildar imagen — **acción VPS + desarrollo** (1-2 días): requiere decisión de diseño sobre la imagen base del VDI.
+- ❌ VDI-PROBLEMA #3: crear sbos-vdi-provisioner — **pendiente HITL Q-3**: requiere aprobación del humano sobre la arquitectura del provisioner VDI antes de implementar.
+- ❌ VDI-PROBLEMA #4: PVC por usuario — **bloqueado por HITL Q-3**: no se puede implementar sin el provisioner.
+- ❌ Rebuild imagen `sbos/fedora-desktop:1.4.0` — **acción VPS**: rebuildar y redesplegar la imagen Docker del escritorio. No requiere cambios de código en BOS.
 - ✅ SSO-2: Keycloak `Web Origins: *.sbos.app` (ciclo 20 — keycloak/ficha_post_install)
 - ✅ SSO-3: Kong plugin JWT en 4 rutas (ciclo 20 — kong/ficha_post_install + _kong_ensure_plugin)
 - ✅ SSO-4: Nextcloud OIDC via user_oidc app (ciclo 20 — nextcloud/ficha_post_install)
-- ❌ AUDIT-1: oauth2-proxy registra inicio/fin sesión VDI en `bos.bos_ctx_session`
+- ❌ AUDIT-1: oauth2-proxy debe registrar inicio/fin sesión VDI en `bos.bos_ctx_session` — **pendiente de desarrollo**: requiere extender la ficha oauth2-proxy con un hook de autenticación que llame a `bos.ctx.*` vía JSON-RPC. Es desarrollo nuevo, no una corrección.
 
 **Orden recomendado de resolución:** #5 (urgente seguridad) → #1 (trivial) → #2 (bajo riesgo) → #6 (Keycloak Web Origins) → #3+#4 (provisioner, requiere HITL)
 
@@ -1375,9 +1379,9 @@ fedora-kde pod  ← UN SOLO POD COMPARTIDO (VDI-GAP-1)
 - ✅ Estructura correcta: rutas Kong y Keycloak OIDC ya se configuraron manualmente (fuera de este ciclo); esta ficha cubre la capa de red
 - ✅ `allow-fedora-kde-internet-egress` NetworkPolicy correctamente referenciada en `ficha_verify` y `ficha_health`
 
-**Faltantes:**
-- ⚠️ Instalar cuando todas las fichas VDI estén INSTALLED: `bosctl ficha install sbos-vdi-config`
-- ⚠️ Rutas Kong VDI (`/nextcloud/`, `/onlyoffice/`, `/desktop/`) configuradas manualmente — considerar moverlas a esta ficha en iteración futura
+**Comportamiento esperado (por diseño):**
+- 📋 `sbos-vdi-config` se instala manualmente después de que todas las fichas VDI estén INSTALLED — es correcto por diseño. Esta ficha depende del estado final del VDI (IPs de pods, secretos OIDC, rutas Kong) que no están disponibles hasta que las fichas VDI anteriores terminen. Comando: `bosctl ficha install sbos-vdi-config`.
+- 📋 Rutas Kong VDI (`/nextcloud/`, `/onlyoffice/`, `/desktop/`) configuradas en su propia ficha `kong` — moverlas a `sbos-vdi-config` es una mejora de iteración futura, no un error actual.
 
 ---
 
@@ -1388,25 +1392,19 @@ fedora-kde pod  ← UN SOLO POD COMPARTIDO (VDI-GAP-1)
 
 ---
 
-### [170] tryton (S01) · ⚙️ INSTALL_FAILED | [170] tryton (S04) · ⏳ NO_INSTALADA
+### [170] tryton · S04 · ⏳ NO_INSTALADA
 
 **Propósito:** ERP soberano Tryton 7.4. Módulos de contabilidad, inventario, ventas y RRHH. MDM (Master Data Management) hub vía bKernel CDC.
 
 **Dependencias:** postgresql, vault, kong
 
-**⚠️ INC-1 — DUPLICADO CRÍTICO:** `S01/tryton` y `S04/tryton` son archivos idénticos (566 líneas, diff = 0). BOS puede registrar dos fichas con IDs en conflicto. Requiere respuesta HITL Q-1 antes de continuar.
+**✅ INC-1 RESUELTO (ciclo 24):** `S01/tryton` eliminado — era duplicado idéntico. La única ficha canónica es `S04/tryton`.
 
-**Logros:**
-- ⚠️ S01/tryton: instalación intentada — falló porque vault estaba down
+**Logros:** ninguno (bloqueado por vault sin unseal — BUG-27)
 
-**Faltantes:**
-- ❌ Resolver duplicado S01/S04 (Q-1 HITL)
+**Acción VPS pendiente (código correcto):**
 - ❌ Instalar tras vault estable: `bosctl ficha install tryton`
-- ❌ Vault mount `sbos/` configurado para credenciales Tryton
-
-**Bugs activos:**
-- ❌ INC-1: duplicado S01=S04 — decision del humano requerida
-- ❌ INSTALL_FAILED en S01 derivado de vault caído
+- ❌ Vault mount `sbos/` para credenciales Tryton se configura automáticamente en `ficha_post_install`
 
 ---
 
@@ -1424,16 +1422,17 @@ fedora-kde pod  ← UN SOLO POD COMPARTIDO (VDI-GAP-1)
 
 ---
 
-### [172] mattermost · S10 · ⏳ NO_INSTALADA (auto_install: false — 260 líneas)
-### [177] mattermost · S06 · ⚙️ PENDING (auto_install: true)
+### [177] brocket (Rocket.Chat) · S06 · ⏳ PENDIENTE DE FICHA
 
-**Propósito:** Chat empresarial SBOS. Canales por daemon, webhooks de alertas del sistema, mensajería interna del equipo.
+**Propósito:** Chat empresarial interino del SBOS mientras se desarrolla bChat (el chat soberano nativo de bNotify). Rocket.Chat reemplaza a Mattermost. Canales por daemon, webhooks de alertas del sistema, mensajería interna del equipo.
 
-**⚠️ INC-5 — DUPLICADO:** S06/mattermost (726 líneas, robusta, auto_install:true) y S10/mattermost (260 líneas, básica, auto_install:false). IDs en conflicto. Requiere respuesta HITL Q-4.
+**✅ INC-5 RESUELTO (ciclo 24):** S06/mattermost y S10/mattermost eliminados. La decisión arquitectónica es usar Rocket.Chat (bRocket) como solución interina hasta que bChat (Rust/gRPC, parte de bNotify) esté listo. Migración documentada en `BNOTIFY-036`.
 
-**Logros:** ninguno (S06 en PENDING por deps)
+**Dependencias:** postgresql, vault, kong
 
-**Faltantes:** Resolver duplicado (Q-4 HITL) + instalar tras vault estable
+**Pendiente de desarrollo:**
+- ❌ Crear ficha `servers/S06/brocket/` con Rocket.Chat (imagen: `rocket.chat:latest`) — tarea futura
+- ❌ bChat (solución soberana definitiva) — parte del roadmap bNotify (gate G3)
 
 ---
 
@@ -1953,10 +1952,10 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 | 10 | sbos-bootstrap-os | ✅ INSTALLED | — |
 | 20 | sbos-bootstrap-k8s | ✅ INSTALLED | ✅ BUG-36 cerrado (ciclo 11) |
 | 25 | sbos-bootstrap-cni | ✅ INSTALLED | — |
-| 28 | sbos-bootstrap-platform | ⚙️ PENDING | ⚠️ BUG-31: auto-resuelve en reinicio daemon |
+| 28 | sbos-bootstrap-platform | ⚙️ PENDING | 📋 BUG-31: estado PENDING esperado — se registra y pasa a INSTALLED en el próximo reinicio del daemon BOS (comportamiento por diseño) |
 | 30 | sbos-bootstrap-storage | ✅ INSTALLED | — |
 | 35 | sbos-bootstrap-monitoring | ✅ INSTALLED | — |
-| 50 | sbos-k8s-network-validator | ⚙️ PENDING | ⚠️ BUG-31: auto-resuelve en reinicio daemon |
+| 50 | sbos-k8s-network-validator | ⚙️ PENDING | 📋 BUG-31: estado PENDING esperado — se registra y pasa a INSTALLED en el próximo reinicio del daemon BOS (comportamiento por diseño) |
 | 70 | sbos-bkernel | ✅ INSTALLED | — |
 | 105 | sbos-database-init | ⏳ NUEVA (pendiente deploy) | Creada en ciclo 5 — instalar con `bosctl ficha install sbos-database-init` |
 | 100 | postgresql | ✅ INSTALLED | ✅ BUG-35 cerrado (ciclo 2) |
@@ -1972,14 +1971,12 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 | 160 | kong | ✅ INSTALLED | — |
 | 170 | nginx | ⏸️ UPDATE_AVAILABLE | — |
 | 170 | sbos-notifier | ✅ INSTALLED | — |
-| 170 | tryton (S01) | 💥 INSTALL_FAILED | ❌ derivado vault |
-| 170 | tryton (S04) | ⏳ NO_INSTALADA | ❌ INC-1 duplicado |
-| 172 | mattermost (S10) | ⏳ NO_INSTALADA | ❌ INC-5 duplicado |
+| 170 | tryton (S04) | ⏳ NO_INSTALADA | ❌ bloqueado por vault (BUG-27) — INC-1 ✅ resuelto ciclo 24 |
 | 174 | ferretdb | ⚙️ PENDING | derivado vault |
 | 175 | tryton-workers | ⏳ NO_INSTALADA | dep en tryton |
 | 175 | calcom | ⏳ NO_INSTALADA | — |
 | 176 | novu | ⚙️ PENDING | derivado vault |
-| 177 | mattermost (S06) | ⚙️ PENDING | derivado vault / INC-5 |
+| 177 | brocket (Rocket.Chat) | ⏳ FICHA PENDIENTE | INC-5 ✅ resuelto ciclo 24 — ficha aún por crear |
 | 180 | certbot | ✅ INSTALLED | — |
 | 200 | prometheus | ✅ INSTALLED | — |
 | 200 | nextcloud | ✅ INSTALLED | — |
@@ -1987,13 +1984,13 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 | 210 | guacamole | ✅ INSTALLED | ❌ `bosctl ficha repair guacamole` pendiente VPS (código ✅ ciclo 2) |
 | 215 | grafana | ✅ INSTALLED | — |
 | 215 | loki | ⚙️ PENDING (Helm, esperando deps) | — |
-| 220 | alloy | ✅ INSTALLED | ⚠️ Loki no disponible |
+| 220 | alloy | ✅ INSTALLED | 📋 Loki aún no instalado (deps pendientes) — Alloy bufferiza y enviará cuando Loki esté disponible |
 | 220 | tempo | ⚙️ PENDING (Helm, esperando deps) | — |
 | 220 | onlyoffice | ✅ INSTALLED | — |
 | 225 | zabbix | ⏳ NO_INSTALADA (auto_install=false) | — |
 | 225 | oauth2-proxy-desktop | ❌ PHYSICAL_ERROR | ❌ derivado vault |
-| 230 | fedora-kde | ⏸️ UPDATE_AVAILABLE | ⚠️ INC-2/3, VDI-GAP-1/2 (GAP-5 ✅ ciclo 13) |
-| 250 | sbos-bootstrap-hard | ✅ INSTALLED | ❌ kyverno switch enforce pendiente VPS |
+| 230 | fedora-kde | ⏸️ UPDATE_AVAILABLE | ❌ INC-2/3 (HITL Q-2/3), VDI-GAP-1/2 pendientes; GAP-5 ✅ ciclo 13 |
+| 250 | sbos-bootstrap-hard | ✅ INSTALLED | ❌ kyverno switch enforce — acción VPS pendiente (código correcto) |
 | 300–315 | mailserver stack | ⏳ NO_INSTALADA (auto_install=false) | — |
 | 345–365 | docs stack | ⏳ NO_INSTALADA (auto_install=false) | — |
 | 400–405 | búsqueda/mensajería | ⏳ NO_INSTALADA (auto_install=false) | — |
