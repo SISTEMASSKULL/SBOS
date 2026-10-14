@@ -22,10 +22,47 @@ readonly PG_USER="postgres"
 # El DDL se copia aquí durante el install de BOS (desde el repo DDLs/).
 # bos setup copia DDLs/ → /etc/bos/ddl/ junto con las fichas.
 readonly DDL_PATH="${BOS_DDL_PATH:-/etc/bos/ddl/SBOS_db_V2_DDL.sql}"
+readonly SEEDS_DIR="${BOS_SEEDS_DIR:-/etc/bos/ddl/seeds}"
 # Mínimo de tablas esperadas para considerar el schema desplegado.
 readonly MIN_TABLES=50
 
 _log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [sbos-database-init] $*" | tee -a "$FICHA_LOG"; }
+
+# _cargar_seed: copia un archivo SQL al pod y lo ejecuta. Idempotente (ON CONFLICT en los seeds).
+_cargar_seed() {
+    local seed_file="$1" seed_name
+    seed_name=$(basename "$seed_file")
+    if [[ ! -f "$seed_file" ]]; then
+        _log "ADVERTENCIA: seed $seed_name no encontrado en $seed_file — omitiendo"
+        return 0
+    fi
+    local tmp="/tmp/${seed_name}"
+    _k cp "$seed_file" "${PG_NS}/${PG_POD}:${tmp}" >> "$FICHA_LOG" 2>&1 || {
+        _log "ERROR: no se pudo copiar $seed_name al pod"
+        return 1
+    }
+    _k exec "$PG_POD" -n "$PG_NS" -- \
+        psql -U "$PG_USER" -d "$DB_NAME" -v ON_ERROR_STOP=0 -f "$tmp" \
+        >> "$FICHA_LOG" 2>&1 || true
+    _k exec "$PG_POD" -n "$PG_NS" -- rm -f "$tmp" 2>/dev/null || true
+    _log "  seed cargado: $seed_name"
+}
+
+# _resolver_seeds_dir: busca el directorio de seeds en rutas canónicas.
+_resolver_seeds_dir() {
+    local candidates=(
+        "$SEEDS_DIR"
+        "$(dirname "${SBOS_SERVERS_DIR:-/etc/bos/blibs/servers}")/DDLs/seeds"
+        "/opt/skull/orquestador/proyectos/SBOS/DDLs/seeds"
+        "/etc/bos/blibs/DDLs/seeds"
+        "$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd -P)/../../../../DDLs/seeds"
+    )
+    for d in "${candidates[@]}"; do
+        [[ -d "$d" ]] && echo "$d" && return 0
+    done
+    return 1
+}
+
 _k() {
     local kubectl_bin
     kubectl_bin=$(command -v kubectl 2>/dev/null || echo "/usr/local/bin/kubectl")
@@ -198,6 +235,63 @@ ficha_install() {
     else
         echo "${__STEP_FAIL__} verificar_schemas: solo $schemas_ok/${#schemas_esperados[@]} schemas presentes"
         return 1
+    fi
+
+    # ── 5. Crear base de datos mailserver_db ─────────────────────────
+    echo "${__STEP_START__} crear_mailserver_db"
+    local mail_existe
+    mail_existe=$(_pg_exec "postgres" \
+        "SELECT 1 FROM pg_database WHERE datname='mailserver_db';" \
+        2>/dev/null | tr -d ' \n' || echo "")
+    if [[ "$mail_existe" == "1" ]]; then
+        echo "${__STEP_SKIP__} crear_mailserver_db: ya existe"
+    else
+        _k exec "$PG_POD" -n "$PG_NS" -- \
+            psql -U "$PG_USER" -c "CREATE DATABASE mailserver_db;" \
+            >> "$FICHA_LOG" 2>&1 && \
+            _log "mailserver_db creada" || \
+            _log "ADVERTENCIA: no se pudo crear mailserver_db"
+        echo "${__STEP_OK__} crear_mailserver_db"
+    fi
+
+    # ── 6. Cargar seeds bglobal (idiomas, países, monedas, timezones) ─
+    echo "${__STEP_START__} cargar_seeds_bglobal"
+    local seeds_dir
+    if seeds_dir=$(_resolver_seeds_dir); then
+        _log "Directorio de seeds: $seeds_dir"
+        # Seeds ordenados: T001 idiomas → T002 países+monedas → T004 timezones
+        # Son prerequisito de bi18n para resolver locales y validar datos por país.
+        for seed in \
+            "bglobal_T001__global_language.sql" \
+            "bglobal_T002__global_country.sql" \
+            "bglobal_T004__geo_timezone.sql"; do
+            _cargar_seed "${seeds_dir}/${seed}"
+        done
+        echo "${__STEP_OK__} cargar_seeds_bglobal"
+    else
+        _log "ADVERTENCIA: directorio de seeds no encontrado — seeds bglobal omitidos"
+        echo "${__STEP_SKIP__} cargar_seeds_bglobal: directorio no disponible"
+    fi
+
+    # ── 7. Cargar seeds de mailserver (buzones iniciales) ─────────────
+    echo "${__STEP_START__} cargar_seeds_mailserver"
+    if [[ -n "${seeds_dir:-}" ]]; then
+        local mail_seed="${seeds_dir}/mailserver_T001__initial_accounts.sql"
+        if [[ -f "$mail_seed" ]]; then
+            # Ejecutar el seed en mailserver_db (no en SBOSDB)
+            local tmp_mail="/tmp/mailserver_seed.sql"
+            _k cp "$mail_seed" "${PG_NS}/${PG_POD}:${tmp_mail}" >> "$FICHA_LOG" 2>&1 && \
+            _k exec "$PG_POD" -n "$PG_NS" -- \
+                psql -U "$PG_USER" -d "mailserver_db" -v ON_ERROR_STOP=0 -f "$tmp_mail" \
+                >> "$FICHA_LOG" 2>&1 || true
+            _k exec "$PG_POD" -n "$PG_NS" -- rm -f "$tmp_mail" 2>/dev/null || true
+            _log "  seeds mailserver cargados"
+            echo "${__STEP_OK__} cargar_seeds_mailserver"
+        else
+            echo "${__STEP_SKIP__} cargar_seeds_mailserver: seed no encontrado (se creará al instalar mailserver)"
+        fi
+    else
+        echo "${__STEP_SKIP__} cargar_seeds_mailserver: sin directorio de seeds"
     fi
 
     _log "sbos-database-init completado: $tabla_count_post tablas en $DB_NAME"
