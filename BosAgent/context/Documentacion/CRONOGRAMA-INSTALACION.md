@@ -1343,44 +1343,45 @@ fedora-kde pod  ← UN SOLO POD COMPARTIDO (VDI-GAP-1)
 
 ---
 
-**VDI-PROBLEMA #3 — VDI-GAP-1: 1 pod compartido para TODOS los usuarios**
+**VDI-PROBLEMA #3/#4 — Arquitectura multi-sesión (REDEFINICIÓN CONFIRMADA)**
 
-- **Síntoma:** Si dos usuarios hacen login al mismo tiempo, ambos ven el mismo escritorio.
-- **Causa:** `replicas: 1` en el Deployment — hay un solo pod para todo el sistema.
-- **Impacto:** Multi-usuario imposible. Privacidad comprometida (usuario A ve lo que hizo usuario B).
-- **Arquitectura objetivo:**
-  ```
-  Guacamole recibe conexión de usuario A
-    → Consulta sbos-vdi-provisioner (nuevo daemon a crear)
-    → provisioner busca/crea pod fedora-kde-userA
-    → Guacamole conecta al VNC del pod específico de ese usuario
-  ```
-- **Solución:** Crear `sbos-vdi-provisioner` — un daemon Go que:
-  1. Expone API: `POST /api/vdi/session {user_id}` → devuelve IP:puerto del pod VNC del usuario
-  2. Al recibir la solicitud: verifica si existe pod `fedora-kde-{user_id}`, si no → crea Deployment dinámico
-  3. Limpia pods inactivos (TTL configurable)
-- **Dependencia de HITL:** Decisión Q-3 pendiente sobre arquitectura de sesiones (1-pod-por-usuario vs pod-pool vs pod-compartido-con-sesiones).
-- **Verificación:** Dos usuarios distintos conectados simultáneamente → escritorios completamente independientes.
+> ⚠️ La arquitectura de "un pod por usuario" fue descartada. Ver análisis completo en la sección HITL más abajo.
 
----
+La arquitectura correcta para SBOS VDI es **multi-sesión dentro de un pod compartido**, con PVC de home por usuario independiente del pod:
 
-**VDI-PROBLEMA #4 — VDI-GAP-2: sin PVC por usuario (home temporal)**
+```
+fedora-kde pod (siempre vivo — NUNCA se destruye)
+│
+├── juan.perez se conecta → display :1 (VNC :5901) · home PVC-juan.perez montado
+├── maria.gomez se conecta → display :2 (VNC :5902) · home PVC-maria.gomez montado
+└── admin se conecta     → display :3 (VNC :5903) · home PVC-admin montado
 
-- **Síntoma:** Al reiniciar el pod fedora-kde, el home del usuario (`/home/sbosuser/`) desaparece — archivos, configuración, historial de trabajo, todo perdido.
-- **Causa:** El pod no tiene PVC propio. El sistema de archivos es ephemeral (emptyDir o la capa de escritura del contenedor).
-- **Impacto:** Cada login es como entrar por primera vez. Inaceptable para uso corporativo.
-- **Solución:**
-  1. Agregar al Deployment de fedora-kde un PVC por usuario:
-     ```yaml
-     volumes:
-     - name: user-home
-       persistentVolumeClaim:
-         claimName: "fedora-kde-home-{user_id}"
-     ```
-  2. El PVC se crea en el mismo `sbos-vdi-provisioner` cuando crea el pod de usuario
-  3. Política: `Retain` → datos sobreviven aunque el pod se destruya
-  4. Cuota por usuario: 10 Gi (configurable en sbos-vdi-config)
-- **Verificación:** Crear archivo en `/home/sbosuser/test.txt` → reiniciar pod → el archivo sigue existiendo.
+Si juan.perez se va 10 horas y vuelve:
+  → su sesión KDE sigue exactamente como la dejó (pod no se destruyó)
+  → sus archivos intactos en PVC-juan.perez (no efímero)
+  → su hoja de cálculo abierta, su edición en curso, todo esperando
+```
+
+**Qué aporta el JWT de Keycloak/bAuth a cada sesión:**
+- Identidad: `sub` → crea usuario de sistema si no existe
+- Roles → genera menús KDE personalizados según el rol (contabilidad ve apps distintas que RRHH)
+- Cuotas → `sbos-vdi-provisioner` aplica cgroups: CPU, RAM limitados por claim del token
+- Disco → tamaño del PVC definido por claim `disk_quota` (ej. 10 Gi)
+
+**Responsabilidades del `sbos-vdi-provisioner` (concepto correcto):**
+
+| Responsabilidad | Descripción |
+|---|---|
+| Autenticación | Valida JWT de Keycloak/bAuth al recibir solicitud de sesión |
+| Gestión de displays | Asigna display `:N` libre (TigerVNC), registra asignación user↔display |
+| Home mounting | Crea PVC-{user} si no existe (política `Retain`), monta en `/home/{user}` |
+| Cuotas | Aplica cgroups al proceso de sesión según claims del JWT |
+| Perfil KDE | Escribe `.desktop` files y menús según rol antes de iniciar sesión |
+| Sesión persistente | Sesión suspendida en idle (NO destruida) — usuario retoma exactamente donde estaba |
+| Cleanup | Libera display tras N días sin actividad (configurable) · PVC NUNCA se borra automáticamente |
+
+- **Estado:** Pendiente de respuestas HITL Q-VDI-C/D/E (ver más abajo).
+- **Verificación:** Usuario A y B conectados simultáneamente → escritorios independientes, homes independientes, menús distintos según rol.
 
 ---
 
@@ -1441,29 +1442,63 @@ fedora-kde pod  ← UN SOLO POD COMPARTIDO (VDI-GAP-1)
 
 #### ⏳ HITL — Decisiones pendientes para VDI (responder aquí)
 
+> **Arquitectura confirmada:** pod compartido + multi-sesión VNC por usuario + PVC de home por usuario.
+> El pod nunca se destruye. La sesión del usuario persiste aunque se desconecte horas o días.
+> Las preguntas siguientes afinan los parámetros de implementación.
+
+---
+
 **Q-VDI-A — ¿Rebuildeamos la imagen fedora-desktop ahora?**
 
-Contexto: el script `start-desktop.sh` llega por ConfigMap en lugar de estar dentro de la imagen Docker. Si el ConfigMap se borra, el escritorio no arranca. Resolverlo requiere editar el Dockerfile, hacer `docker build` en la VPS y `kubectl rollout restart`. Es trabajo de código (1-2 h) + acción VPS.
+El script `start-desktop.sh` llega por ConfigMap en lugar de estar baked en la imagen Docker. Si el ConfigMap se borra, el escritorio no arranca. Resolverlo requiere editar el Dockerfile y el Deployment.
 
-Opciones:
-- `A1` — Sí, resolverlo ahora: bos-developer edita Dockerfile y Deployment, deja instrucciones de rebuild para VPS.
+- `A1` — Sí, resolverlo ahora (1-2 h de código + rebuild en VPS).
 - `A2` — No, diferir hasta que el instalador esté validado end-to-end en VPS.
 
 > **Respuesta:** _______
 
 ---
 
-**Q-VDI-B — ¿Cómo debe funcionar el escritorio VDI para múltiples usuarios?**
+**Q-VDI-C — ¿Cuántos usuarios simultáneos debe soportar la instalación inicial?**
 
-Contexto: hoy todos comparten UN solo pod fedora-kde. Si dos usuarios entran al mismo tiempo, ven el mismo escritorio.
+Esto define el sizing mínimo de la VPS. Cada sesión KDE activa ocupa ~1.5–2 GB RAM y ~0.5 cores.
 
-Opciones:
-- `B1` — **Un pod por usuario** (Opción A): cada empleado tiene su propio escritorio aislado con su home persistente. Requiere desarrollar `sbos-vdi-provisioner` (daemon Go nuevo). Para producción real con múltiples empleados.
-- `B2` — **Pod compartido** (Opción B): un solo escritorio, sin aislamiento. Sin provisioner. Válido si el VDI lo usa solo el administrador técnico del servidor.
+| Usuarios simultáneos | RAM mínima VPS |
+|---|---|
+| 5–10 | 16–32 GB |
+| 10–30 | 32–64 GB |
+| 30–80 | 128 GB |
+| 80+ | Cluster multi-nodo |
+
+> **Respuesta (número estimado de usuarios simultáneos en el primer cliente real):** _______
+
+---
+
+**Q-VDI-D — ¿Cuánto tiempo persiste una sesión idle antes de liberarse?**
+
+La sesión KDE del usuario permanece viva en el pod aunque no esté conectado. El display y sus recursos se liberan pasado este tiempo. Su home (PVC) NUNCA se borra.
+
+- `D1` — 8 horas (una jornada laboral): al día siguiente el usuario retoma donde estaba.
+- `D2` — 24 horas: trabajo seguro incluso con ausencias de un día completo.
+- `D3` — 72 horas (fin de semana): el usuario puede retomar el lunes lo que dejó el viernes.
+- `D4` — Configurable por tenant/empresa (cada organización define su política).
 
 > **Respuesta:** _______
 
-*Nota: si responde B1, VDI-PROBLEMA #4 (PVC por usuario) se resuelve automáticamente como parte del provisioner. AUDIT-1 se agenda para la sesión del Context Plane independientemente de esta decisión.*
+---
+
+**Q-VDI-E — ¿El perfil de escritorio (menús, apps disponibles) lo define el rol de Keycloak, o bAuth tendrá una capa adicional?**
+
+El provisioner necesita saber de dónde leer qué apps ve cada usuario en su escritorio KDE.
+
+- `E1` — Solo Keycloak por ahora: los grupos/roles del JWT de Keycloak determinan las apps del menú. Cuando bAuth esté operativo, el provisioner cambia de fuente sin cambiar la arquitectura.
+- `E2` — Esperar a bAuth: no implementar personalización de menús hasta que bAuth esté activo.
+
+> **Respuesta:** _______
+
+---
+
+*Con estas 5 respuestas, bos-developer implementa sbos-vdi-provisioner completo en una sola sesión.*
 
 ---
 
