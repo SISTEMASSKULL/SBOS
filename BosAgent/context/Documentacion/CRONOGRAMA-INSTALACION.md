@@ -2038,7 +2038,13 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 **Correcciones ciclo 16:** **ficha_test() cobertura 100%** — agregada a las 20 fichas que la tenían pendiente: S04/tryton-workers · S08/docuseal · S08/paperless-ngx · S08/kimios · S08/tabula · S08/tesseract-ocr · S09/elasticsearch · S09/rabbitmq · S10/mattermost · S12/zabbix · S13/sbos-vdi-config (configmap + 3 NetworkPolicies) · S14/bareos · S14/gitlab · S14/velero · S15/ollama · S15/qdrant · S15/flowise · S15/langfuse · S15/open-webui · S15/embedding-worker; 0 fichas sin ficha_test en todo el proyecto
 
+**Correcciones ciclo 24:** **INC-1 + INC-5 resueltas + fichas nuevas** — (1) **INC-1 CERRADA**: `S01/tryton` eliminado (`git rm`); S04 es la ubicación canónica (único ERP) · (2) **INC-5 CERRADA**: `S06/mattermost` + `S10/mattermost` eliminados (`git rm`); bRocket (Rocket.Chat) es el sucesor; referencias `provides_to` actualizadas en novu/calcom · (3) **sbos-bi18n nueva ficha** (S-HOST orden 75): daemon Rust MUSL, `ficha_pre_install/install/post_install/repair/test/remove` completos, unit systemd `Type=notify`, sockets `/run/bos/bi18n.sock` + `/run/bos/bi18n-grpc.sock`, idempotencia por versión; commit: `5d1046a`
+
+**Correcciones ciclo 25:** **documentación nginx+CMS + vault unseal en suspenso** — (1) **7.01_MANUAL-NGINX-WEB-CMS.md** creado: arquitectura bcms, modelo tenant/empresa/sucursal, DDL schema cms (6 tablas), plan 4 fases, 7 HITL; (2) T-415 `bos.net_web_domain` advertencia en postgresql/manifest.yml; (3) **PENDIENTE-VAULT-UNSEAL-INTERACTIVO.md** documenta implementación en suspenso (esperar end-to-end funcional); commit: `d0051b2`
+
+**Correcciones ciclo 26:** **seeds bglobal + mailserver_db en sbos-database-init** — (1) **sbos-database-init/task_catalog.sh**: pasos 5-7 en `ficha_install` — crea `mailserver_db` (idempotente), carga seeds bglobal (T001 idiomas · T002 países+monedas · T004 timezones) prerequisitos de bi18n, carga seed mailserver (PostfixAdmin schema + postmaster); helpers `_cargar_seed()` + `_resolver_seeds_dir()` · (2) **DDLs/seeds/mailserver_T001__initial_accounts.sql** nuevo: schema PostfixAdmin completo (domain/mailbox/alias/admin/domain_admins/log/quota2) + dominio `mail.sbos.local` + cuenta `postmaster@mail.sbos.local` con hash bcrypt; todo idempotente; commit: `2c395fb`
+
 ---
 
-*Documento v2.18.0 — bos-developer · 2026-10-14*  
+*Documento v2.19.0 — bos-developer · 2026-10-14*  
 *Panel de control de reparación: `PLAN-INSTALACION-DESDE-CERO.md §13`*
