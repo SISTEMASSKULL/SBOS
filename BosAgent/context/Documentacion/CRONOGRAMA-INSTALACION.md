@@ -756,10 +756,74 @@ Kong (Domain Resolver):
 - ✅ (14d1a6a) `index.html`: botón "Iniciar sesión" → `/desktop/`, manejo `?error=auth` con JS
 
 - ✅ (ciclo 29) GAP-nginx-1 CERRADO: ficha `sbos-kong-tenant` creada (S02, orden 165). Configura rutas Kong por Host-header para el tenant inicial: dominio raíz, subdominio `<tenant>.<domain>` y wildcard `*.<tenant>.<domain>`. JWT plugin + rate-limiting por ruta. Idempotente. Tenants adicionales → saga `bos.tenant.create`.
+- ✅ (ciclo 30) nginx preparado para bcms: `include /etc/nginx/conf.d/domains/*.conf;` añadido al bloque `http {}`. Directorio `/etc/nginx/conf.d/domains/` creado en `ficha_install`. Placeholder `sbos-institucional.conf` generado para `sbos.app`. Ver sección siguiente.
 - 📋 GAP-nginx-2: Certbot ya maneja el DNS gracefully — `ficha_pre_install` hace `dig` check y salta si el dominio no resuelve; nginx usa cert autofirmado mientras tanto. No hay acción de código pendiente: es un requisito externo del protocolo ACME (el DNS del cliente debe apuntar a la VPS).
 - 📋 UPDATE_AVAILABLE: nginx puede diferir en VPS — **acción VPS cuando convenga**: `bosctl ficha repair nginx`. No requiere cambios de código.
 
 **Bugs:** ninguno activo (nginx corre correctamente — UPDATE_AVAILABLE es de versión, no de funcionalidad)
+
+#### Arquitectura web SBOS — S02 vs S16 (preparación para bcms)
+
+nginx S02 tiene **dos roles que NO deben confundirse**:
+
+| Rol | Servidor lógico | Qué hace |
+|-----|----------------|---------|
+| **API/VDI Gateway** | S02 (este) | Recibe todo el tráfico, termina TLS, delega a Kong o directamente a servicios VDI (desktop, guacamole, nextcloud). `server_name _` — no distingue dominios. |
+| **Web Platform** | S16-webserver (futuro) | nginx dedicado a servir los sitios web de cada tenant/empresa/sucursal. Genera un `.conf` por dominio. Lo gestiona bcms. |
+
+**El servidor S16 aún no existe como fichas.** Se creará cuando arranque el desarrollo de bcms. Referencia de arquitectura: `context/Documentacion/Anexos/A.03_ANEXO-PLATAFORMA-WEB-MULTI-TENANT-NGINX.md`.
+
+##### Modelo de dominios (A.03)
+
+Tres tipos de sitio web en SBOS — **no se generan automáticamente**; el cliente registra sus propios dominios:
+
+| Tipo | Ejemplo | Quién lo define |
+|------|---------|----------------|
+| Institucional SBOS | `sbos.app`, `www.sbos.app` | El operador SKULL en instalación |
+| Tenant corporativo | `www.grupo-skull.com` | El cliente al contratar |
+| Sucursal | `tienda.lapaz.skull.com` | El tenant al crear sucursal |
+
+Los dominios se registran en la tabla `bos.web_domains` (schema `bos`, `bos_net_web_domain`). Cada dominio activado genera un archivo `.conf` en `/etc/nginx/conf.d/domains/` y se hace `nginx -s reload`.
+
+##### nginx S02 preparado para bcms (ciclo 30)
+
+El `nginx.conf` principal ahora tiene al final del bloque `http {}`:
+
+```nginx
+# bcms deposita aquí un .conf por cada dominio registrado en bos.web_domains.
+include /etc/nginx/conf.d/domains/*.conf;
+```
+
+El directorio `/etc/nginx/conf.d/domains/` se crea en `ficha_install`. Ya existe un placeholder:
+
+```
+/etc/nginx/conf.d/domains/sbos-institucional.conf  ←  sbos.app (placeholder JSON hasta que bcms esté)
+```
+
+**Flujo cuando bcms entre en operación:**
+
+```
+bcms genera: /etc/nginx/conf.d/domains/<dominio>.conf
+  server { listen 443 ssl; server_name <dominio>;
+           proxy_pass http://bcms-website-engine.sbos-web.svc.cluster.local:3000; }
+
+bcms ejecuta: nginx -s reload   ← nginx carga el nuevo .conf sin reiniciar
+```
+
+nginx NO necesita ningún cambio más. bcms puede desarrollarse con total independencia de nginx S02. Kong NO está en la ruta web — nginx va directo al website-engine con headers:
+- `X-SBOS-Tenant`, `X-SBOS-Empresa`, `X-SBOS-Sucursal` → identifican el contexto del sitio
+- `X-Ctx-ID` → correlación (inyectado por Kong en la ruta API, no en la ruta web)
+
+##### Plan S16-webserver (fichas futuras — inicio: sesión bcms)
+
+```
+S16/nginx-web/         ← nginx dedicado a sitios web (no API/VDI)
+S16/certbot-web/       ← Let's Encrypt para dominios de clientes
+S16/modsecurity/       ← WAF para protección de sitios públicos
+S16/website-engine/    ← bcms daemon (Rust) — sirve páginas por tenant/empresa/sucursal
+```
+
+Hasta que S16 exista, nginx S02 sirve como puente provisional a través del `include /etc/nginx/conf.d/domains/*.conf;`.
 
 ---
 
@@ -1980,7 +2044,7 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 | 140 | keycloak | ✅ INSTALLED | — |
 | 150 | oauth2-proxy | ❌ PHYSICAL_ERROR | ❌ derivado vault |
 | 160 | kong | ✅ INSTALLED | — |
-| 170 | nginx | ⏸️ UPDATE_AVAILABLE | — |
+| 170 | nginx | ⏸️ UPDATE_AVAILABLE (versión) · ✅ bcms-ready (ciclo 30) | — |
 | 170 | sbos-notifier | ✅ INSTALLED | — |
 | 170 | tryton (S04) | ⏳ NO_INSTALADA | ❌ bloqueado por vault (BUG-27) — INC-1 ✅ resuelto ciclo 24 |
 | 174 | ferretdb | ⚙️ PENDING | derivado vault |
@@ -2055,7 +2119,11 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 **Correcciones ciclo 26:** **seeds bglobal + mailserver_db en sbos-database-init** — (1) **sbos-database-init/task_catalog.sh**: pasos 5-7 en `ficha_install` — crea `mailserver_db` (idempotente), carga seeds bglobal (T001 idiomas · T002 países+monedas · T004 timezones) prerequisitos de bi18n, carga seed mailserver (PostfixAdmin schema + postmaster); helpers `_cargar_seed()` + `_resolver_seeds_dir()` · (2) **DDLs/seeds/mailserver_T001__initial_accounts.sql** nuevo: schema PostfixAdmin completo (domain/mailbox/alias/admin/domain_admins/log/quota2) + dominio `mail.sbos.local` + cuenta `postmaster@mail.sbos.local` con hash bcrypt; todo idempotente; commit: `2c395fb`
 
+**Correcciones ciclo 27–29:** Keycloak independiente de bAuth (IAM transitorio), ctx_id Kong sin biedata, sbos-kong-tenant. Ver entradas individuales.
+
+**Correcciones ciclo 30:** **nginx S02 preparado para bcms** — (1) `include /etc/nginx/conf.d/domains/*.conf;` añadido al bloque `http {}` del nginx.conf generado: bcms puede depositar `.conf` por dominio sin tocar el config principal; (2) nuevo paso 4 en `ficha_install`: crea `/etc/nginx/conf.d/domains/` y genera `sbos-institucional.conf` placeholder para `sbos.app`; (3) CRONOGRAMA: documentada arquitectura S02 vs S16, modelo de dominios A.03 (institucional/tenant/sucursal), flujo bcms, plan S16-webserver. nginx S02 no requiere más cambios para recibir bcms.
+
 ---
 
-*Documento v2.19.0 — bos-developer · 2026-10-14*  
+*Documento v2.20.0 — bos-developer · 2026-10-14*  
 *Panel de control de reparación: `PLAN-INSTALACION-DESDE-CERO.md §13`*

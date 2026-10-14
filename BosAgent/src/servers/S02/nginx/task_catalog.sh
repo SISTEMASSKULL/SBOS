@@ -305,6 +305,13 @@ ${vdi_blocks}
             try_files $uri $uri/ =404;
         }
     }
+
+    # ── Dominios web dinámicos (bcms / S16-webserver) ─────────────────────
+    # bcms deposita aquí un archivo .conf por cada dominio registrado
+    # en bos.web_domains. nginx carga los archivos en cada reload sin
+    # necesidad de editar este nginx.conf principal.
+    # Directorio gestionado por la ficha nginx — no editar manualmente.
+    include /etc/nginx/conf.d/domains/*.conf;
 }
 NGINX_EOF
 }
@@ -383,7 +390,43 @@ ficha_install() {
     _escribir_nginx_conf
     echo "${__STEP_OK__} configurar_nginx_conf"
 
-    # ── 4. Página de bienvenida SBOS ────────────────────────────
+    # ── 4. Directorio de dominios web y placeholder institucional ───
+    echo "${__STEP_START__} crear_dir_dominios"
+    mkdir -p /etc/nginx/conf.d/domains/
+    # Placeholder institucional: bcms lo reemplaza cuando entra en operación.
+    # El archivo queda intacto en repairs posteriores si ya existe.
+    if [[ ! -f /etc/nginx/conf.d/domains/sbos-institucional.conf ]]; then
+        cat > /etc/nginx/conf.d/domains/sbos-institucional.conf <<'INST_EOF'
+# sbos-institucional.conf — generado por ficha nginx (DO NOT EDIT MANUALLY)
+# Placeholder para el sitio institucional sbos.app.
+# bcms reemplaza este bloque server cuando entre en operación (S16-webserver).
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name sbos.app www.sbos.app;
+    ssl_certificate     /etc/nginx/certs/sbos.crt;
+    ssl_certificate_key /etc/nginx/certs/sbos.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    # bcms en producción usará:
+    # proxy_pass http://bcms-website-engine.sbos-web.svc.cluster.local:3000;
+    location / {
+        return 200 '{"status":"sbos-listo","bcms":"pendiente-desarrollo","dominio":"sbos.app"}';
+        add_header Content-Type 'application/json';
+    }
+}
+INST_EOF
+    fi
+    chown root:www-data /etc/nginx/conf.d/domains/ 2>/dev/null || true
+    chmod 755 /etc/nginx/conf.d/domains/ 2>/dev/null || true
+    echo "${__STEP_OK__} crear_dir_dominios"
+
+    # ── 5. Página de bienvenida SBOS ────────────────────────────
     echo "${__STEP_START__} crear_pagina_bienvenida"
     cat > "${NGINX_WEBROOT}/index.html" <<'HTML_EOF'
 <!DOCTYPE html>
@@ -487,7 +530,7 @@ HTML_EOF
     chown www-data:www-data "${NGINX_WEBROOT}/index.html" 2>/dev/null || true
     echo "${__STEP_OK__} crear_pagina_bienvenida"
 
-    # ── 5. Validar sintaxis ─────────────────────────────────────
+    # ── 6. Validar sintaxis ─────────────────────────────────────
     echo "${__STEP_START__} validar_sintaxis"
     if nginx -t 2>&1 | grep -qE "syntax is ok|test is successful"; then
         echo "${__STEP_OK__} validar_sintaxis"
@@ -499,7 +542,7 @@ HTML_EOF
         return 1
     fi
 
-    # ── 6. Habilitar e iniciar nginx ────────────────────────────
+    # ── 7. Habilitar e iniciar nginx ────────────────────────────
     echo "${__STEP_START__} iniciar_nginx"
     systemctl enable nginx 2>/dev/null || true
     systemctl restart nginx 2>/dev/null || {
@@ -515,7 +558,7 @@ HTML_EOF
         return 1
     fi
 
-    # ── 7. Firewall UFW (si está activo) ────────────────────────
+    # ── 8. Firewall UFW (si está activo) ────────────────────────
     echo "${__STEP_START__} configurar_firewall"
     if command -v ufw > /dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
         ufw allow 80/tcp 2>/dev/null || true
