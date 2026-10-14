@@ -755,10 +755,9 @@ Kong (Domain Resolver):
 - ✅ (14d1a6a) `location /`: sirve `index.html` con `try_files` (INC-nginx-1 cerrado)
 - ✅ (14d1a6a) `index.html`: botón "Iniciar sesión" → `/desktop/`, manejo `?error=auth` con JS
 
-**Pendiente de diseño / externo:**
-- ❌ GAP-nginx-1: ficha `sbos-kong-tenant` no existe — es una ficha nueva que debe diseñarse e implementarse para automatizar la creación de rutas Kong por tenant. No es corrección de código existente: es desarrollo nuevo.
-- ❌ GAP-nginx-2: Certbot (TLS Let's Encrypt) requiere que el DNS del dominio apunte a esta VPS — es un requisito externo del protocolo ACME. BOS no controla el DNS del cliente; el operador debe configurarlo antes de ejecutar certbot.
-- ❌ UPDATE_AVAILABLE: imagen nginx puede diferir en VPS — **acción VPS**: `bosctl ficha repair nginx` actualizará nginx a v1.28.0. No requiere cambios de código.
+- ✅ (ciclo 29) GAP-nginx-1 CERRADO: ficha `sbos-kong-tenant` creada (S02, orden 165). Configura rutas Kong por Host-header para el tenant inicial: dominio raíz, subdominio `<tenant>.<domain>` y wildcard `*.<tenant>.<domain>`. JWT plugin + rate-limiting por ruta. Idempotente. Tenants adicionales → saga `bos.tenant.create`.
+- 📋 GAP-nginx-2: Certbot ya maneja el DNS gracefully — `ficha_pre_install` hace `dig` check y salta si el dominio no resuelve; nginx usa cert autofirmado mientras tanto. No hay acción de código pendiente: es un requisito externo del protocolo ACME (el DNS del cliente debe apuntar a la VPS).
+- 📋 UPDATE_AVAILABLE: nginx puede diferir en VPS — **acción VPS cuando convenga**: `bosctl ficha repair nginx`. No requiere cambios de código.
 
 **Bugs:** ninguno activo (nginx corre correctamente — UPDATE_AVAILABLE es de versión, no de funcionalidad)
 
