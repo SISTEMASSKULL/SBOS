@@ -322,6 +322,130 @@ _log()   { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [nginx] $*" | tee -a "$FICHA_L
 # El resto de la ficha NO usa kubectl.
 _kubectl() { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@" 2>/dev/null; }
 
+# _gen_sbos_subdomain_blocks: genera un .conf por cada subdominio SBOS en conf.d/domains/.
+# Cada subdominio apunta a Kong (enruta por Host header) excepto desktop (WebSocket directo).
+# Idempotente — sobreescribe en cada llamada para reflejar IPs actuales.
+# bcms usa la misma carpeta conf.d/domains/ pero con prefijo "tenant-" (no hay conflicto).
+_gen_sbos_subdomain_blocks() {
+    local domain="${BOS_DOMAIN:-sksistemas.com}"
+    local domains_dir="/etc/nginx/conf.d/domains"
+    mkdir -p "$domains_dir"
+
+    # Preferir cert Let's Encrypt; fallback a autofirmado
+    local cert_file key_file
+    if [[ -f "/etc/letsencrypt/live/${domain}/fullchain.pem" ]]; then
+        cert_file="/etc/letsencrypt/live/${domain}/fullchain.pem"
+        key_file="/etc/letsencrypt/live/${domain}/privkey.pem"
+    else
+        cert_file="${CERT_FILE}"
+        key_file="${CERT_KEY}"
+    fi
+
+    local kong_ip
+    kong_ip=$(_kong_ip)
+
+    # Bloque reutilizable para subdominios que van directo a Kong
+    _subdom_kong() {
+        local sub="$1"
+        cat > "${domains_dir}/sbos-${sub}.conf" <<SUBDOM
+# sbos-${sub}.conf — generado por ficha nginx [DO NOT EDIT MANUALLY]
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name ${sub}.${domain};
+    ssl_certificate     ${cert_file};
+    ssl_certificate_key ${key_file};
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+        default_type text/plain;
+    }
+    location / {
+        proxy_pass         http://${kong_ip}:8000;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              \$host;
+        proxy_set_header   X-Real-IP         \$remote_addr;
+        proxy_set_header   X-Forwarded-For   \$proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto \$scheme;
+        proxy_set_header   X-Forwarded-Host  \$host;
+        proxy_read_timeout 120;
+    }
+}
+SUBDOM
+    }
+
+    # ── Subdominios estándar → Kong ──────────────────────────────
+    for sub in auth vault secrets api gateway documents sign find reports devops \
+               queues data connect security flows b2b web core status cards    \
+               insights track fleet pipeline bus sync projects support screens mail; do
+        _subdom_kong "$sub"
+    done
+
+    # ── desktop: WebSocket + tamaño de buffer grande (noVNC + oauth2-proxy) ──
+    local ip_oauth2_desktop; ip_oauth2_desktop=$(_svc_ip "sbos-vdi" "oauth2-proxy-desktop")
+    local ip_fedora;         ip_fedora=$(_svc_ip "sbos-vdi" "fedora-kde")
+    local desktop_backend=""
+    [[ -n "$ip_oauth2_desktop" ]] && desktop_backend="http://${ip_oauth2_desktop}:4180"
+    [[ -z "$desktop_backend" && -n "$ip_fedora" ]] && desktop_backend="http://${ip_fedora}"
+
+    if [[ -n "$desktop_backend" ]]; then
+        cat > "${domains_dir}/sbos-desktop.conf" <<DESKTOP_CONF
+# sbos-desktop.conf — generado por ficha nginx [DO NOT EDIT MANUALLY]
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name desktop.${domain};
+    ssl_certificate     ${cert_file};
+    ssl_certificate_key ${key_file};
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+        default_type text/plain;
+    }
+    # oauth2-proxy callback
+    location /oauth2/ {
+        proxy_pass         ${desktop_backend}/desktop/oauth2/;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              \$host;
+        proxy_set_header   X-Real-IP         \$remote_addr;
+        proxy_set_header   X-Forwarded-For   \$proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto \$scheme;
+        proxy_buffer_size  32k;
+        proxy_buffers      8 32k;
+        proxy_busy_buffers_size 64k;
+    }
+    # noVNC WebSocket + escritorio
+    location / {
+        proxy_pass            ${desktop_backend}/desktop/;
+        proxy_http_version    1.1;
+        proxy_set_header      Host              \$host;
+        proxy_set_header      X-Real-IP         \$remote_addr;
+        proxy_set_header      X-Forwarded-For   \$proxy_add_x_forwarded_for;
+        proxy_set_header      Upgrade           \$http_upgrade;
+        proxy_set_header      Connection        \$connection_upgrade;
+        proxy_read_timeout    3600;
+        proxy_send_timeout    3600;
+        proxy_buffering       off;
+    }
+}
+DESKTOP_CONF
+    else
+        # VDI no desplegado aún — placeholder vía Kong
+        _subdom_kong "desktop"
+    fi
+
+    _log "Subdominios SBOS generados en ${domains_dir}/ ($(ls "${domains_dir}/sbos-"*.conf 2>/dev/null | wc -l) archivos)"
+}
+
 # ── Pre-install ───────────────────────────────────────────────────
 ficha_pre_install() {
     echo "${__STEP_START__} verificar_root"
@@ -425,6 +549,11 @@ INST_EOF
     chown root:www-data /etc/nginx/conf.d/domains/ 2>/dev/null || true
     chmod 755 /etc/nginx/conf.d/domains/ 2>/dev/null || true
     echo "${__STEP_OK__} crear_dir_dominios"
+
+    # ── 4B. Generar bloques virtual-host por subdominio SBOS ─────
+    echo "${__STEP_START__} generar_subdominios_sbos"
+    _gen_sbos_subdomain_blocks
+    echo "${__STEP_OK__} generar_subdominios_sbos"
 
     # ── 5. Página de bienvenida SBOS ────────────────────────────
     echo "${__STEP_START__} crear_pagina_bienvenida"
@@ -609,6 +738,11 @@ ficha_repair() {
     echo "${__STEP_START__} regenerar_nginx_conf"
     _escribir_nginx_conf
     echo "${__STEP_OK__} regenerar_nginx_conf"
+
+    # Regenerar bloques de subdominios (cert path puede haber cambiado tras certbot)
+    echo "${__STEP_START__} regenerar_subdominios_sbos"
+    _gen_sbos_subdomain_blocks
+    echo "${__STEP_OK__} regenerar_subdominios_sbos"
 
     echo "${__STEP_START__} reparar_nginx"
     if ! nginx -t 2>&1 | grep -qE "syntax is ok|test is successful"; then

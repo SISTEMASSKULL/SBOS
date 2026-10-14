@@ -22,8 +22,19 @@ readonly CERTBOT_WEBROOT="/var/www/certbot"
 readonly CERTBOT_SCRIPT="/usr/local/sbin/sbos-certbot-renew.sh"
 readonly DOMAIN="${BOS_DOMAIN:-sksistemas.com}"
 readonly EMAIL="${SBOS_ADMIN_EMAIL:-admin@sksistemas.com}"
+# Subdominios SBOS — certificado SAN multi-dominio (todos apuntan a la misma IP)
+SBOS_SUBDOMAIN_LIST="www auth mail desktop documents sign find reports devops vault api gateway queues data connect security flows b2b web core status cards insights track fleet pipeline bus secrets sync projects support screens"
 
 _log()   { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [certbot] $*" | tee -a "$FICHA_LOG"; }
+
+# _san_args: construye array bash con un -d por dominio/subdominio para certbot SAN
+_san_args() {
+    local -n _out="$1"
+    _out=("-d" "${DOMAIN}")
+    for sub in $SBOS_SUBDOMAIN_LIST; do
+        _out+=("-d" "${sub}.${DOMAIN}")
+    done
+}
 
 # ── Pre-install ───────────────────────────────────────────────────
 ficha_pre_install() {
@@ -172,11 +183,15 @@ TIMER_EOF
     systemctl start certbot-renew.timer 2>/dev/null || true
     echo "${__STEP_OK__} crear_systemd_timer"
 
-    # ── 6. Primer intento: certificado staging ────────────────────
+    # ── 6. Primer intento: certificado staging (SAN multi-dominio) ───
     echo "${__STEP_START__} obtener_certificado_staging"
+    local san_staging=()
+    _san_args san_staging
+    local domain_count=${#san_staging[@]}
+    _log "Solicitando certificado staging SAN: $((domain_count / 2)) dominios"
     if certbot certonly \
         --webroot -w "$CERTBOT_WEBROOT" \
-        -d "$DOMAIN" \
+        "${san_staging[@]}" \
         --email "$EMAIL" \
         --agree-tos \
         --no-eff-email \
@@ -184,7 +199,7 @@ TIMER_EOF
         --non-interactive \
         --max-log-backups 10 \
         2>&1 | tee -a "$FICHA_LOG"; then
-        _log "Certificado staging obtenido para $DOMAIN"
+        _log "Certificado staging SAN obtenido: ${DOMAIN} + ${#SBOS_SUBDOMAIN_LIST} subdominios"
         systemctl reload nginx 2>/dev/null || true
         echo "${__STEP_OK__} obtener_certificado_staging"
     else
@@ -235,18 +250,20 @@ ficha_repair() {
         systemctl start certbot-renew.timer 2>/dev/null || true
     fi
 
-    # Reintentar obtener certificado si no hay ninguno
+    # Reintentar obtener certificado SAN si no hay ninguno
     if [[ ! -d "${CERTBOT_CERTS}/live/${DOMAIN}" ]]; then
-        _log "Sin certificado — reintentando staging"
+        _log "Sin certificado — reintentando staging SAN"
+        local san_repair=()
+        _san_args san_repair
         certbot certonly \
             --webroot -w "$CERTBOT_WEBROOT" \
-            -d "$DOMAIN" \
+            "${san_repair[@]}" \
             --email "$EMAIL" \
             --agree-tos \
             --no-eff-email \
             --staging \
             --non-interactive 2>&1 | tee -a "$FICHA_LOG" || \
-            _log "Staging falló nuevamente — requiere dominio real e internet"
+            _log "Staging SAN falló nuevamente — requiere dominio real e internet"
     fi
 
     echo "${__STEP_OK__} reparar_certbot"
