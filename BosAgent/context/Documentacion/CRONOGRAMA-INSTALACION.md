@@ -1439,6 +1439,34 @@ fedora-kde pod  ← UN SOLO POD COMPARTIDO (VDI-GAP-1)
 
 ---
 
+#### ⏳ HITL — Decisiones pendientes para VDI (responder aquí)
+
+**Q-VDI-A — ¿Rebuildeamos la imagen fedora-desktop ahora?**
+
+Contexto: el script `start-desktop.sh` llega por ConfigMap en lugar de estar dentro de la imagen Docker. Si el ConfigMap se borra, el escritorio no arranca. Resolverlo requiere editar el Dockerfile, hacer `docker build` en la VPS y `kubectl rollout restart`. Es trabajo de código (1-2 h) + acción VPS.
+
+Opciones:
+- `A1` — Sí, resolverlo ahora: bos-developer edita Dockerfile y Deployment, deja instrucciones de rebuild para VPS.
+- `A2` — No, diferir hasta que el instalador esté validado end-to-end en VPS.
+
+> **Respuesta:** _______
+
+---
+
+**Q-VDI-B — ¿Cómo debe funcionar el escritorio VDI para múltiples usuarios?**
+
+Contexto: hoy todos comparten UN solo pod fedora-kde. Si dos usuarios entran al mismo tiempo, ven el mismo escritorio.
+
+Opciones:
+- `B1` — **Un pod por usuario** (Opción A): cada empleado tiene su propio escritorio aislado con su home persistente. Requiere desarrollar `sbos-vdi-provisioner` (daemon Go nuevo). Para producción real con múltiples empleados.
+- `B2` — **Pod compartido** (Opción B): un solo escritorio, sin aislamiento. Sin provisioner. Válido si el VDI lo usa solo el administrador técnico del servidor.
+
+> **Respuesta:** _______
+
+*Nota: si responde B1, VDI-PROBLEMA #4 (PVC por usuario) se resuelve automáticamente como parte del provisioner. AUDIT-1 se agenda para la sesión del Context Plane independientemente de esta decisión.*
+
+---
+
 ### [420] sbos-vdi-config · S13 · ⏳ NO_INSTALADA (auto_install: false)
 
 **Propósito:** Configuración final del ecosistema VDI: NetworkPolicies que permiten sbos-vdi → sbos-data y sbos-security, y política de egress a internet para fedora-kde. Usa un ConfigMap `sbos-vdi-configured` como marcador de idempotencia.
