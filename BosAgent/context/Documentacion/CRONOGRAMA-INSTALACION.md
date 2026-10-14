@@ -1201,7 +1201,7 @@ Al reconectar: el provisioner remonta el PVC y reactiva la sesión suspendida
 |-------|------------|--------------|
 | Ciclo de vida del pod | Siempre Running; se reinicia solo por mantenimiento | Crear/destruir pods por actividad de usuario |
 | Ciclo de vida de la sesión | Suspender tras idle timeout (N horas); reactivar al reconectar | Destruir sesión al desconectarse |
-| Ciclo de vida del PVC home | Nunca borrar automáticamente (política `Retain`) | Borrar el PVC al destruir una sesión o pod |
+| Ciclo de vida del PVC home | Nunca desactivar ni tocar automáticamente (política `Retain`) | Desactivar el PVC al suspender una sesión o reiniciar pod |
 | Arquitectura de pods | 1 pod (o pool) compartido para todos los usuarios | 1 pod por usuario (`fedora-kde-juan.perez`) |
 | Fuente de identidad | JWT de Keycloak/bAuth → el provisioner construye el entorno | Variables hardcodeadas en el Deployment |
 
@@ -1430,7 +1430,7 @@ Si juan.perez se va 10 horas y vuelve:
 | Cuotas | Aplica cgroups al proceso de sesión según claims del JWT |
 | Perfil KDE | Escribe `.desktop` files y menús según rol antes de iniciar sesión |
 | Sesión persistente | Sesión suspendida en idle (NO destruida) — usuario retoma exactamente donde estaba |
-| Cleanup | Libera display tras N días sin actividad (configurable) · PVC NUNCA se borra automáticamente |
+| Cleanup | Libera display tras N días sin actividad (configurable) · PVC **NUNCA** se toca — persiste para siempre |
 
 - **Estado:** Pendiente de respuestas HITL Q-VDI-C/D/E (ver más abajo).
 - **Verificación:** Usuario A y B conectados simultáneamente → escritorios independientes, homes independientes, menús distintos según rol.
@@ -1674,7 +1674,7 @@ El provisioner necesita saber de dónde leer qué apps ve cada usuario en su esc
 **Por qué el correo es la identidad y no Keycloak:**
 - El correo corporativo es la credencial laboral que el empleado ya reconoce como propia
 - Una empresa = un dominio de correo = un conjunto de usuarios SBOS
-- Al dar de baja a un empleado: se elimina su buzón → automáticamente pierde acceso a todo SBOS
+- Al dar de baja a un empleado: se **desactiva** su buzón → automáticamente pierde acceso a todo SBOS · su historial y datos quedan intactos
 - No se puede crear un usuario "fantasma" en Keycloak sin que exista en el mailserver
 
 **Flujo de vida de un usuario SBOS:**
@@ -1703,12 +1703,35 @@ El provisioner necesita saber de dónde leer qué apps ve cada usuario en su esc
    Toda app → redirige a Keycloak/bAuth → vuelve con token.
 
 6. Administrador da de baja al empleado:
-      Elimina buzón en mailserver → Keycloak/bAuth revoca acceso
+      Desactiva el buzón en mailserver → Keycloak/bAuth suspende acceso
       → Juan no puede entrar a ninguna app SBOS
+      → Su historia, auditoría y datos quedan intactos (jamás se borran)
 ```
 
 **Resumen en una línea:**
 > *Cuenta de correo corporativo = identidad SBOS. Keycloak/bAuth = puerta de entrada obligatoria a todo.*
+
+---
+
+#### ⚠️ REGLA ABSOLUTA SBOS — Sin eliminación física (aplica a TODO el sistema)
+
+> **En SBOS no se elimina nada. Nada se borra. Nada se destruye de forma permanente.**
+> El vocabulario "eliminar", "borrar", "delete" (en contexto de datos de negocio) no existe en SBOS.
+
+| En lugar de | Se usa |
+|-------------|--------|
+| Eliminar usuario | Desactivar usuario |
+| Borrar buzón | Suspender buzón |
+| Eliminar cuenta | Bloquear cuenta |
+| Borrar registro | Marcar como inactivo (`active = false`, `deleted_at = now()`) |
+| Destruir sesión | Suspender sesión |
+| Eliminar archivo | Archivar / mover a papelera soberana |
+
+**Por qué:** eliminar = destruir historia, auditoría y trazabilidad. SBOS es un sistema empresarial soberano — toda acción queda registrada, todo dato tiene historia, toda cuenta tiene un ciclo de vida rastreable. ISO 27001 exige que los registros de auditoría sean íntegros e inalterables.
+
+**Único caso de eliminación física permitida:** borrado por mandato legal explícito (RGPD "derecho al olvido"), que requiere un proceso auditado, aprobado por el administrador del tenant y registrado en el log de auditoría con firma digital. Este proceso NO está automatizado — es una acción manual y deliberada.
+
+*Esta regla aplica a: usuarios, cuentas de correo, sesiones VDI, registros ERP, configuraciones, PVCs, logs, contratos, y cualquier entidad del dominio de negocio.*
 
 ---
 
@@ -1761,7 +1784,7 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 ### [305] postfixadmin · S10 · ⏳ NO_INSTALADA
 
-**Propósito:** UI web de administración del mailserver. Crear/eliminar buzones, alias, dominios. Alternativa a editar la BD directamente. Autenticación via Keycloak SSO (solo admins con grupo `mail_admin`).
+**Propósito:** UI web de administración del mailserver. Crear/desactivar buzones, alias, dominios. Alternativa a editar la BD directamente. Autenticación via Keycloak SSO (solo admins con grupo `mail_admin`).
 
 **Logros (ciclo 5):**
 - ✅ `runtime: docker` corregido a `runtime: kubernetes` en manifest.yml
