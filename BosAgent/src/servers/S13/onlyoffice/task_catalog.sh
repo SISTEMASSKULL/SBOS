@@ -166,6 +166,67 @@ ficha_install() {
     echo "${__STEP_OK__} verify"
 }
 
+# _onlyoffice_configure_nextcloud: configura el plugin OnlyOffice en Nextcloud (idempotente).
+# Requiere que nextcloud deployment esté Running en sbos-vdi.
+_onlyoffice_configure_nextcloud() {
+    local nc_pod_ns="sbos-vdi"
+    local nc_deploy="nextcloud"
+    local nc_ready
+    nc_ready=$(_k get deployment "$nc_deploy" -n "$nc_pod_ns" \
+        -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    if (( nc_ready < 1 )); then
+        _log "  Nextcloud no Ready ($nc_ready) — configuración OnlyOffice pospuesta"
+        return 1
+    fi
+
+    local onlyoffice_url="http://onlyoffice.${nc_pod_ns}.svc.cluster.local"
+    local domain="${BOS_DOMAIN:-sbos.app}"
+
+    # Activar app onlyoffice en Nextcloud si no está activa
+    local app_enabled
+    app_enabled=$(_k exec deploy/"$nc_deploy" -n "$nc_pod_ns" -- \
+        php /var/www/html/occ app:list --output=json 2>/dev/null | \
+        python3 -c "import sys,json; d=json.load(sys.stdin); print('1' if 'onlyoffice' in d.get('enabled',{}) else '0')" \
+        2>/dev/null || echo "0")
+    if [[ "$app_enabled" != "1" ]]; then
+        _k exec deploy/"$nc_deploy" -n "$nc_pod_ns" -- \
+            php /var/www/html/occ app:enable onlyoffice >> "$FICHA_LOG" 2>&1 || {
+            _log "  ADVERTENCIA: no se pudo activar app onlyoffice — puede no estar en el marketplace soberano"
+        }
+    fi
+
+    # Verificar si DocumentServerUrl ya configurada (idempotencia)
+    local current_url
+    current_url=$(_k exec deploy/"$nc_deploy" -n "$nc_pod_ns" -- \
+        php /var/www/html/occ config:app:get onlyoffice DocumentServerUrl 2>/dev/null || echo "")
+    if [[ "$current_url" == "$onlyoffice_url/"* || "$current_url" == *"/onlyoffice"* ]]; then
+        _log "  OnlyOffice ya configurado en Nextcloud (DocumentServerUrl=$current_url) — skip"
+        return 0
+    fi
+
+    # Configurar URLs: interna (ClusterIP) para comunicación server-server
+    _k exec deploy/"$nc_deploy" -n "$nc_pod_ns" -- \
+        php /var/www/html/occ config:app:set onlyoffice DocumentServerUrl \
+        --value="https://${domain}/onlyoffice/" >> "$FICHA_LOG" 2>&1 || true
+    _k exec deploy/"$nc_deploy" -n "$nc_pod_ns" -- \
+        php /var/www/html/occ config:app:set onlyoffice DocumentServerInternalUrl \
+        --value="${onlyoffice_url}/" >> "$FICHA_LOG" 2>&1 || true
+    _k exec deploy/"$nc_deploy" -n "$nc_pod_ns" -- \
+        php /var/www/html/occ config:app:set onlyoffice StorageUrl \
+        --value="http://${nc_deploy}.${nc_pod_ns}.svc.cluster.local/" >> "$FICHA_LOG" 2>&1 || true
+    _log "  OnlyOffice configurado en Nextcloud: DocumentServerUrl=https://${domain}/onlyoffice/"
+}
+
+ficha_post_install() {
+    echo "${__STEP_START__} conectar_nextcloud_onlyoffice"
+    if _onlyoffice_configure_nextcloud; then
+        echo "${__STEP_OK__} conectar_nextcloud_onlyoffice"
+    else
+        echo "${__STEP_SKIP__} conectar_nextcloud_onlyoffice: Nextcloud no listo — ejecutar ficha_repair cuando Nextcloud esté Running"
+    fi
+    return 0
+}
+
 # ── Repair ───────────────────────────────────────────────────────
 ficha_repair() {
     ficha_pre_install
@@ -180,6 +241,14 @@ ficha_repair() {
     local pods; pods=$(_k get pods -n "$NS" -l app=onlyoffice --no-headers 2>/dev/null | grep Running | wc -l)
     _log "$pods pods running"
     echo "${__STEP_OK__} verify"
+
+    # Re-aplicar configuración en Nextcloud (idempotente)
+    echo "${__STEP_START__} reconectar_nextcloud_onlyoffice"
+    if _onlyoffice_configure_nextcloud 2>/dev/null; then
+        echo "${__STEP_OK__} reconectar_nextcloud_onlyoffice"
+    else
+        echo "${__STEP_SKIP__} reconectar_nextcloud_onlyoffice: Nextcloud no listo"
+    fi
 }
 
 ficha_test() {

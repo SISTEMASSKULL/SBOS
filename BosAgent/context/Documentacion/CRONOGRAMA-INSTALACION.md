@@ -1,6 +1,6 @@
 # Cronograma de Instalación — Ficha por Ficha
 
-**Versión:** 2.9.0  
+**Versión:** 2.10.0  
 **Fecha:** 2026-10-14  
 **Autor:** bos-developer  
 
@@ -996,7 +996,7 @@ Kong (Domain Resolver):
 - ✅ (ciclo 7) `ficha_test` agregada: verifica deployment Ready + /status.php HTTP 200
 
 **Faltantes:**
-- ❌ Editor OnlyOffice sin conectar a nextcloud (requiere configuración manual post-install)
+- ✅ (ciclo 15) `ficha_post_install()` configura plugin OnlyOffice en Nextcloud: `occ app:enable onlyoffice` + `DocumentServerUrl` + `DocumentServerInternalUrl` + `StorageUrl` (idempotente)
 
 **Bugs:** ninguno activo
 
@@ -1042,7 +1042,7 @@ Kong (Domain Resolver):
 - ✅ (ciclo 7) `ficha_test` agregada: verifica pod Running + /healthcheck HTTP 200
 
 **Faltantes:**
-- ❌ Conectado a Nextcloud pero sin configuración declarativa (manual post-install)
+- ✅ (ciclo 15) Conexión declarativa con Nextcloud via `_onlyoffice_configure_nextcloud()` en `ficha_post_install()` y `ficha_repair()`
 
 **Bugs:** ninguno activo
 
@@ -1529,7 +1529,7 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 - ✅ (ciclo 13) `ficha_health()` mejorada: verifica `postfix status` via `kubectl exec mailserver-0`
 - ✅ (ciclo 13) Apertura automática de puertos UFW en `ficha_install`: 25/465/587/143/993 (si UFW activo)
 - ❌ Env vars Keycloak LDAP (SASL_LDAP_*) — depende de Keycloak estable
-- ❌ Crear schema `mailserver_db` en PostgreSQL (tabla `virtual_mailboxes`, `virtual_aliases`)
+- ✅ (ciclo 15) `ficha_post_install()` crea schema `mailserver_db`: tablas `virtual_mailboxes` + `virtual_aliases` (idempotente — skip si ya existen)
 
 ---
 
@@ -2047,7 +2047,9 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 **Correcciones ciclo 14:** **kong routing declarativo** — `ficha_post_install()` configura automáticamente 5 servicios + 5 rutas en Kong Admin API: `nextcloud→/nextcloud`, `onlyoffice→/onlyoffice`, `grafana→/grafana`, `guacamole→/desktop`, `sbos-notifier→/sbos-notifier`; helpers `_kong_ensure_service` + `_kong_ensure_route` idempotentes (skip si ya existen); `ficha_repair()` re-aplica rutas en cada ciclo de reparación; `ficha_test()` verifica ≥5 rutas activas
 
+**Correcciones ciclo 15:** (1) **mailserver**: `ficha_post_install()` crea schema `mailserver_db` con tablas `virtual_mailboxes` + `virtual_aliases` (idempotente via `information_schema`) · (2) **onlyoffice**: `ficha_post_install()` + `ficha_repair()` configuran plugin OnlyOffice en Nextcloud via `occ`: `app:enable onlyoffice`, `DocumentServerUrl=https://<domain>/onlyoffice/`, `DocumentServerInternalUrl` (ClusterIP), `StorageUrl`; graceful si Nextcloud no está listo
+
 ---
 
-*Documento v2.9.0 — bos-developer · 2026-10-14*  
+*Documento v2.10.0 — bos-developer · 2026-10-14*  
 *Panel de control de reparación: `PLAN-INSTALACION-DESDE-CERO.md §13`*

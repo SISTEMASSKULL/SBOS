@@ -193,6 +193,51 @@ EOF
     return 0
 }
 
+ficha_post_install() {
+    echo "${__STEP_START__} schema_mailserver_db"
+    local pg_pod pg_ns
+    pg_pod="postgresql-0"
+    pg_ns="sbos-data"
+
+    # Verificar acceso a PostgreSQL
+    if ! _k get pod "$pg_pod" -n "$pg_ns" > /dev/null 2>&1; then
+        echo "${__STEP_SKIP__} schema_mailserver_db: pod PG no disponible — se reintentará en repair"
+        return 0
+    fi
+
+    # Idempotencia: verificar si tabla ya existe
+    local tbl_exists
+    tbl_exists=$(_k exec "$pg_pod" -n "$pg_ns" -- psql -U postgres -tAc \
+        "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='virtual_mailboxes';" \
+        2>/dev/null | tr -d '[:space:]' || echo "0")
+    if [[ "$tbl_exists" == "1" ]]; then
+        echo "${__STEP_SKIP__} schema_mailserver_db: tablas ya existen — skip"
+        return 0
+    fi
+
+    _k exec "$pg_pod" -n "$pg_ns" -- psql -U postgres -d mailserver_db -c "
+CREATE TABLE IF NOT EXISTS virtual_mailboxes (
+    email    TEXT        NOT NULL PRIMARY KEY,
+    password TEXT        NOT NULL,
+    quota    TEXT        NOT NULL DEFAULT '1G',
+    enabled  BOOLEAN     NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS virtual_aliases (
+    alias       TEXT    NOT NULL,
+    destination TEXT    NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (alias, destination)
+);
+" >> "$FICHA_LOG" 2>&1 || {
+        echo "${__STEP_FAIL__} schema_mailserver_db: error al crear tablas"
+        return 1
+    }
+    _log "Schema mailserver_db: tablas virtual_mailboxes + virtual_aliases creadas"
+    echo "${__STEP_OK__} schema_mailserver_db"
+    return 0
+}
+
 ficha_verify() {
     echo "${__STEP_START__} verificar_mailserver"
     local ready
