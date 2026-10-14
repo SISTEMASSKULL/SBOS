@@ -1258,15 +1258,17 @@ Usuario ve su KDE personalizado en el navegador
 
 ---
 
-#### Identidad de correo = identidad VDI
+#### Identidad de correo = identidad VDI = identidad SBOS
 
-El email del usuario (`juan.perez@empresa.sbos.app`) es su identidad principal:
-- **Mailserver (Postfix+Dovecot):** autentica via Keycloak SASL → el buzón se crea automáticamente cuando el usuario existe en Keycloak
-- **VDI:** el email del JWT (`X-Forwarded-Email`) determina qué pod y qué PVC se asignan
-- **Nextcloud:** el mismo usuario Keycloak tiene acceso a sus archivos en la nube
-- **Tryton ERP:** el mismo usuario con sus permisos de módulo
+El email corporativo (`juan.perez@empresa.sbos.app`) es la identidad única del usuario en TODO el ecosistema. Ver **MODELO DE IDENTIDAD SBOS** en FASE 12 (sección mailserver) para el principio completo.
 
-**Un solo usuario, una sola contraseña, todos los servicios.**
+- **Mailserver:** el buzón corporativo ES la fuente de verdad del usuario — existe en mailserver → existe en SBOS
+- **VDI:** el email del JWT (`X-Forwarded-Email`) determina qué sesión KDE y qué PVC home se asignan en el pod compartido
+- **Nextcloud:** el mismo usuario accede a sus archivos corporativos sin segundo login
+- **Tryton ERP:** el mismo usuario con sus permisos de módulo según rol en Keycloak/bAuth
+- **Roundcube/Cypht:** accede a su buzón con las MISMAS credenciales (no hay contraseña separada de correo)
+
+**Un solo usuario, una sola contraseña, todos los servicios. Sin excepciones.**
 
 ---
 
@@ -1654,24 +1656,59 @@ El provisioner necesita saber de dónde leer qué apps ve cada usuario en su esc
 
 ---
 
-#### Concepto: correo como capa de identidad, no sistema separado
+#### ⚠️ MODELO DE IDENTIDAD SBOS — PRINCIPIO FUNDAMENTAL (leer antes de cualquier desarrollo de usuarios/auth)
 
-El mailserver SBOS NO es un sistema de correo independiente con sus propios usuarios. Es una **extensión de identidad Keycloak**:
+> **Un usuario SBOS = alguien con cuenta de correo corporativo en el mailserver del servidor.**
+> No hay otra definición. No hay otro origen de usuarios.
+
+**Reglas absolutas:**
+
+| Regla | Correcto ✅ | Incorrecto ❌ |
+|-------|------------|--------------|
+| Identidad | Cuenta de correo corporativo (`juan@empresa.com`) | Cuenta externa (Gmail, Outlook, Yahoo) |
+| Contraseña | La contraseña del buzón de correo = contraseña de TODO SBOS | Contraseña separada por aplicación |
+| Registro | Administrador crea cuenta en mailserver → automáticamente existe en todo SBOS | Crear usuario en Keycloak sin buzón de correo |
+| Gateway | Keycloak (transitorio) / bAuth (definitivo) — puerta obligatoria a TODA aplicación | Aplicación con su propia pantalla de login |
+| Dominio | Solo el dominio corporativo del cliente | Ningún proveedor externo |
+
+**Por qué el correo es la identidad y no Keycloak:**
+- El correo corporativo es la credencial laboral que el empleado ya reconoce como propia
+- Una empresa = un dominio de correo = un conjunto de usuarios SBOS
+- Al dar de baja a un empleado: se elimina su buzón → automáticamente pierde acceso a todo SBOS
+- No se puede crear un usuario "fantasma" en Keycloak sin que exista en el mailserver
+
+**Flujo de vida de un usuario SBOS:**
 
 ```
-Administrador crea usuario en Keycloak:
-  username: juan.perez
-  email: juan.perez@empresa.sbos.app
-  groups: [empleados, fedora_user, correo_activo]
-              │
-              ├── Keycloak gestiona la contraseña y el SSO
-              ├── mailserver (Postfix+Dovecot) autentica CONTRA Keycloak
-              │   via SASL → el buzón se crea automáticamente
-              ├── VDI: ese usuario tiene su pod Fedora y su PVC
-              └── Roundcube/Cypht: login con las mismas credenciales
+1. Administrador crea buzón en mailserver:
+      juan.perez@empresa.sbos.app  +  contraseña
+
+2. Mailserver notifica a Keycloak/bAuth → usuario sincronizado automáticamente
+      (grupos asignados según dominio o configuración del tenant)
+
+3. Juan recibe email de bienvenida con enlace de primer acceso
+
+4. Juan entra a la pantalla de Keycloak/bAuth:
+      email: juan.perez@empresa.sbos.app
+      contraseña: [la del buzón de correo]
+
+5. Keycloak/bAuth emite token SSO → Juan accede a:
+      ├── VDI (sesión KDE personalizada en fedora-kde)
+      ├── Nextcloud (sus archivos corporativos)
+      ├── Roundcube/Cypht (su buzón de correo, mismas credenciales)
+      ├── ERP Tryton (según permisos de su rol)
+      └── Cualquier otra app SBOS del servidor
+
+   NINGUNA aplicación tiene pantalla de login propia.
+   Toda app → redirige a Keycloak/bAuth → vuelve con token.
+
+6. Administrador da de baja al empleado:
+      Elimina buzón en mailserver → Keycloak/bAuth revoca acceso
+      → Juan no puede entrar a ninguna app SBOS
 ```
 
-**El usuario NUNCA tiene contraseñas separadas.** Una contraseña Keycloak → todo el ecosistema SBOS.
+**Resumen en una línea:**
+> *Cuenta de correo corporativo = identidad SBOS. Keycloak/bAuth = puerta de entrada obligatoria a todo.*
 
 ---
 
