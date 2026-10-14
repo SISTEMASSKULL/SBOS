@@ -235,6 +235,28 @@ ficha_health() {
     return 1
 }
 
+ficha_test() {
+    local ok=0
+    echo "${__STEP_START__} test_vdi_configurado"
+    if _k get configmap sbos-vdi-configured -n "$NS" > /dev/null 2>&1; then
+        echo "${__STEP_OK__} test_vdi_configurado"
+    else
+        echo "${__STEP_FAIL__} test_vdi_configurado: ConfigMap sbos-vdi-configured ausente"; ok=1
+    fi
+
+    echo "${__STEP_START__} test_network_policies"
+    local np_ok=0
+    _k get networkpolicy allow-gateway-ingress -n "$NS" > /dev/null 2>&1 && np_ok=$((np_ok+1))
+    _k get networkpolicy allow-fedora-kde-internet-egress -n "$NS" > /dev/null 2>&1 && np_ok=$((np_ok+1))
+    _k get networkpolicy deny-direct-novnc-external -n "$NS" > /dev/null 2>&1 && np_ok=$((np_ok+1))
+    if (( np_ok == 3 )); then
+        echo "${__STEP_OK__} test_network_policies (3/3)"
+    else
+        echo "${__STEP_FAIL__} test_network_policies: ${np_ok}/3"; ok=1
+    fi
+    return $ok
+}
+
 ficha_remove() {
     echo "${__STEP_START__} eliminar_vdi_config"
     _k delete configmap sbos-vdi-configured -n "$NS" --ignore-not-found=true >> "$FICHA_LOG" 2>&1

@@ -117,6 +117,19 @@ ficha_repair() {
     ficha_install
 }
 
+ficha_test() {
+    local ok=0
+    echo "${__STEP_START__} test_velero_ready"
+    local ready
+    ready=$(_k get deployment velero -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    if (( ready >= 1 )); then
+        echo "${__STEP_OK__} test_velero_ready (${ready}/1)"
+    else
+        echo "${__STEP_FAIL__} test_velero_ready: ${ready}/1"; ok=1
+    fi
+    return $ok
+}
+
 ficha_remove() {
     echo "${__STEP_START__} eliminar_velero"
     _k delete deployment velero -n "$NS" --ignore-not-found=true >> "$FICHA_LOG" 2>&1

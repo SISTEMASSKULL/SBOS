@@ -147,6 +147,19 @@ ficha_repair() {
     ficha_install
 }
 
+ficha_test() {
+    local ok=0
+    echo "${__STEP_START__} test_tryton_workers_ready"
+    local ready
+    ready=$(_k get deployment tryton-workers -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    if (( ready >= 1 )); then
+        echo "${__STEP_OK__} test_tryton_workers_ready (${ready}/2)"
+    else
+        echo "${__STEP_FAIL__} test_tryton_workers_ready: ${ready}/2"; ok=1
+    fi
+    return $ok
+}
+
 ficha_remove() {
     echo "${__STEP_START__} eliminar_tryton_workers"
     _k delete deployment tryton-workers -n "$NS" --ignore-not-found=true >> "$FICHA_LOG" 2>&1

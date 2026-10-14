@@ -249,6 +249,19 @@ ficha_repair() {
     ficha_install
 }
 
+ficha_test() {
+    local ok=0
+    echo "${__STEP_START__} test_mattermost_ready"
+    local ready
+    ready=$(_k get deployment mattermost -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    if (( ready >= 1 )); then
+        echo "${__STEP_OK__} test_mattermost_ready (${ready}/1)"
+    else
+        echo "${__STEP_FAIL__} test_mattermost_ready: ${ready}/1"; ok=1
+    fi
+    return $ok
+}
+
 # ── Uninstall ────────────────────────────────────────────────────────────────
 ficha_uninstall() {
     echo "${__STEP_START__} remove_mattermost"
