@@ -1,6 +1,6 @@
 # Cronograma de Instalación — Ficha por Ficha
 
-**Versión:** 2.16.0  
+**Versión:** 2.17.0  
 **Fecha:** 2026-10-14  
 **Autor:** bos-developer  
 
@@ -1550,7 +1550,7 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 - ✅ `ficha_repair()` ya existía — confirmada
 
 **Faltantes:**
-- ❌ Integración Keycloak SSO (OIDC OAuth2) — depende de Keycloak estable
+- ✅ Integración Keycloak SSO (OIDC OAuth2) — implementado en ficha_post_install ciclo 22 via K8s Secret sbos-postfixadmin-oidc
 
 ---
 
@@ -1569,7 +1569,7 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 - ✅ `ficha_repair()` ya existía — confirmada
 
 **Faltantes:**
-- ❌ OAuth2 Keycloak como método de login — depende de Keycloak estable
+- ✅ OAuth2 Keycloak como método de login — implementado en ficha_post_install ciclo 22 via ROUNDCUBEMAIL_OAUTH_* env vars y K8s Secret sbos-roundcube-oidc
 
 ---
 
@@ -1588,7 +1588,7 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 - ✅ `ficha_repair()` ya existía — confirmada
 
 **Faltantes:**
-- ❌ Keycloak OIDC login — depende de Keycloak estable
+- ✅ Keycloak OIDC login — implementado en ficha_post_install ciclo 22 via K8s Secret sbos-cypht-oidc
 
 ---
 
@@ -2025,6 +2025,8 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 **Correcciones ciclo 15:** (1) **mailserver**: `ficha_post_install()` crea schema `mailserver_db` con tablas `virtual_mailboxes` + `virtual_aliases` (idempotente via `information_schema`) · (2) **onlyoffice**: `ficha_post_install()` + `ficha_repair()` configuran plugin OnlyOffice en Nextcloud via `occ`: `app:enable onlyoffice`, `DocumentServerUrl=https://<domain>/onlyoffice/`, `DocumentServerInternalUrl` (ClusterIP), `StorageUrl`; graceful si Nextcloud no está listo
 
+**Correcciones ciclo 22:** **SSO OIDC stack de correo** — (1) **keycloak/ficha_post_install**: 3 clientes OIDC adicionales — `sbos-postfixadmin`, `sbos-roundcube`, `sbos-cypht` — con redirectURIs y secrets guardados en K8s `sbos-security` · (2) **postfixadmin/ficha_post_install**: OIDC via env vars `OIDC_CLIENT_ID/SECRET/DISCOVERY_URL` leídas de K8s Secret `sbos-postfixadmin-oidc` (idempotente, skip si KC no listo) · (3) **roundcube/ficha_post_install**: OAuth2 Keycloak via `ROUNDCUBEMAIL_OAUTH_*` env vars (auth/token/identity URIs) leídas de K8s Secret `sbos-roundcube-oidc` · (4) **cypht/ficha_post_install**: OIDC via env vars `OIDC_CLIENT_ID/SECRET/DISCOVERY_URL` leídas de K8s Secret `sbos-cypht-oidc`; commit: `da69d9f`
+
 **Correcciones ciclo 20:** **SSO declarativo — identidad unificada Keycloak** — (1) **keycloak/ficha_post_install**: SSO-2 Web Origins `*.sbos.app` + crea 4 clientes OIDC (`sbos-nextcloud`, `sbos-grafana`, `sbos-mattermost`, `sbos-guacamole`) y guarda secrets en K8s Secrets namespace `sbos-security` (idempotente con `_kc_ensure_client` + kcadm.sh); `ficha_repair()` re-aplica SSO en cada ciclo · (2) **nextcloud/ficha_post_install**: SSO-4 — lee K8s Secret `sbos-nextcloud-oidc`, habilita app `user_oidc` y configura proveedor OIDC Keycloak via `occ user_oidc:provider add` (idempotente, skip si KC no listo) · (3) **kong/ficha_post_install**: SSO-3 — JWT plugin en 4 rutas (`nextcloud-route`, `grafana-route`, `guacamole-route`, `mattermost-route`) via Kong Admin API (idempotente con `_kong_ensure_plugin`); `ficha_repair()` re-aplica plugins · (4) **grafana/ficha_post_install**: OIDC Keycloak via env vars `GF_AUTH_GENERIC_OAUTH_*` patch al deployment, leídas de K8s Secret `sbos-grafana-oidc` (skip graceful si secret no disponible); commit: `17a4ff6`
 
 **Correcciones ciclo 19:** **calidad Go — suite completa verde** — (1) `gofmt` aplicado a 105 archivos (0 archivos con formato incorrecto) · (2) `go vet` limpio: fix `fmt.Println` con `\n` redundante en `install_ui.go:68` · (3) 2 tests fallidos corregidos: `timeout_test.go` esperaba 600s para sagas pero el código usa 30min (actualizado), `manager_test.go` marcaba `InstallFailed→Installed` como inválida pero la transición fue habilitada intencionalmente (caso eliminado) · (4) exports corregidos en ferretdb y mattermost S10 (faltaban `ficha_health` y `ficha_test`); resultado: **0 errores build · 0 advertencias vet · 48 paquetes 100% green**
@@ -2039,5 +2041,5 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 ---
 
-*Documento v2.16.0 — bos-developer · 2026-10-14*  
+*Documento v2.17.0 — bos-developer · 2026-10-14*  
 *Panel de control de reparación: `PLAN-INSTALACION-DESDE-CERO.md §13`*
