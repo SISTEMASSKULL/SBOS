@@ -1156,55 +1156,105 @@ Hasta que S16 exista, nginx S02 sirve como puente provisional a través del `inc
 
 ### [230] fedora-kde · S13 · ⏸️ UPDATE_AVAILABLE
 
-**Propósito:** Escritorio virtual corporativo soberano. Un usuario Keycloak autenticado recibe un pod Fedora 44 + KDE Plasma 6 personalizado: sus archivos, sus apps permitidas según su rol, su configuración de escritorio — todo persistente entre sesiones. Accesible desde cualquier navegador sin instalar nada en el cliente.
+**Propósito:** Escritorio virtual corporativo soberano. Un usuario Keycloak/bAuth autenticado recibe una sesión KDE Plasma 6 personalizada dentro de un pod compartido: sus archivos propios, sus apps según su rol, su configuración de escritorio — todo persistente entre sesiones. Accesible desde cualquier navegador sin instalar nada en el cliente.
 
 **Dependencias:** keycloak, kong, guacamole
 
 ---
 
-#### Arquitectura VDI completa (objetivo de diseño)
+#### ⚠️ MODELO CANÓNICO SBOS VDI — LEER ANTES DE CUALQUIER DESARROLLO
+
+> **Este modelo es NO NEGOCIABLE y fue establecido en la concepción del proyecto.**
+> Todo agente que toque el VDI debe leer esta sección primero.
+> La arquitectura "un pod por usuario" fue EVALUADA Y DESCARTADA — no implementar.
+
+**El modelo es: un pod compartido + N sesiones VNC simultáneas + N PVCs de home independientes.**
 
 ```
-                    IDENTIDAD ÚNICA POR USUARIO
-                           │
-                    Keycloak JWT contiene:
-                    - username: juan.perez
-                    - email: juan.perez@empresa.sbos.app
-                    - groups: [empleados, contabilidad, fedora_user]
-                           │
-nginx → oauth2-proxy-desktop (extrae JWT) → sbos-vdi-provisioner
-                                                    │
-                         ┌──────────────────────────┤
-                         ▼                          ▼
-              Pod fedora-kde-juan.perez    PVC fedora-home-juan.perez
-              (creado si no existe)        10 Gi, /home/juan.perez/
-                         │                  archivos, config KDE,
-              Perfil cargado según          historial, escritorio
-              grupos Keycloak:
-              - Apps en menú KDE
-              - Nivel sudo
-              - Acceso a impresoras/USB
+┌─────────────────────────────────────────────────────────────────────┐
+│  fedora-kde POD  (SIEMPRE VIVO — jamás se destruye por usuario)     │
+│                                                                     │
+│  juan.perez   → sesión KDE en display :1 (VNC :5901)               │
+│                 home montado desde PVC-juan.perez (10 Gi, Retain)   │
+│                 menús según rol "contabilidad" del JWT               │
+│                 cuotas: 1 CPU / 2 GB RAM (cgroups del provisioner)  │
+│                                                                     │
+│  maria.gomez  → sesión KDE en display :2 (VNC :5902)               │
+│                 home montado desde PVC-maria.gomez (10 Gi, Retain)  │
+│                 menús según rol "rrhh" del JWT                       │
+│                                                                     │
+│  admin        → sesión KDE en display :3 (VNC :5903)               │
+│                 home montado desde PVC-admin (20 Gi, Retain)        │
+│                 menús completos + terminal + sudo                    │
+└─────────────────────────────────────────────────────────────────────┘
+
+juan.perez se desconecta 10 horas → su sesión QUEDA SUSPENDIDA en el pod
+juan.perez vuelve → retoma KDE exactamente donde lo dejó (hoja abierta, edición en curso)
+
+PVC-juan.perez persiste SIEMPRE — incluso si el pod se reinicia por mantenimiento
+Al reconectar: el provisioner remonta el PVC y reactiva la sesión suspendida
+```
+
+**Reglas absolutas del modelo:**
+
+| Regla | Correcto ✅ | Incorrecto ❌ |
+|-------|------------|--------------|
+| Ciclo de vida del pod | Siempre Running; se reinicia solo por mantenimiento | Crear/destruir pods por actividad de usuario |
+| Ciclo de vida de la sesión | Suspender tras idle timeout (N horas); reactivar al reconectar | Destruir sesión al desconectarse |
+| Ciclo de vida del PVC home | Nunca borrar automáticamente (política `Retain`) | Borrar el PVC al destruir una sesión o pod |
+| Arquitectura de pods | 1 pod (o pool) compartido para todos los usuarios | 1 pod por usuario (`fedora-kde-juan.perez`) |
+| Fuente de identidad | JWT de Keycloak/bAuth → el provisioner construye el entorno | Variables hardcodeadas en el Deployment |
+
+**Por qué NO es "un pod por usuario":**
+- 10.000 usuarios × 2 GB RAM = 20 TB RAM — inviable en cualquier infraestructura
+- Los usuarios no necesitan un pod propio; necesitan una **sesión aislada** dentro de un pod compartido
+- Es exactamente cómo funciona cualquier servidor de escritorios corporativo real (Citrix, RDS, LTSP)
+- Un pod puede servir ~30–80 sesiones simultáneas dependiendo del hardware del nodo
+
+**Escalabilidad horizontal:**
+Cuando un nodo se llena, K8s lanza otro pod `fedora-kde` en otro nodo — el provisioner sabe qué nodo tiene espacio y dirige al usuario allí. El PVC del usuario es accesible desde cualquier nodo (ReadWriteMany o NFS).
+
+---
+
+#### Arquitectura VDI completa — flujo de conexión
+
+```
+Usuario abre navegador → nginx:443/desktop/
+  → oauth2-proxy-desktop valida sesión Keycloak/bAuth
+  → extrae JWT: { sub, groups, resource_limits, disk_quota }
+  → llama sbos-vdi-provisioner: POST /api/vdi/session { jwt }
+
+sbos-vdi-provisioner:
+  1. Verifica si el usuario ya tiene sesión activa → si sí, devuelve su display
+  2. Si no: busca display libre en pod fedora-kde
+  3. Crea usuario Linux si no existe (useradd -m)
+  4. Monta PVC-{user} en /home/{user}/ (lo crea si es primera vez, Retain)
+  5. Aplica cgroups con cuotas del JWT (CPU, RAM)
+  6. Genera menús KDE según grupos del JWT (~/.config/menus/)
+  7. Lanza TigerVNC en display :N como ese usuario
+  8. Retorna URL noVNC con ese display
+
+Usuario ve su KDE personalizado en el navegador
 ```
 
 ---
 
-#### Perfiles de usuario — grupos Keycloak → capacidades Fedora
+#### Perfiles de usuario — grupos Keycloak/bAuth → entorno Fedora
 
-| Grupo Keycloak | Perfil Fedora | Sudo | Apps disponibles | Persistencia |
-|----------------|---------------|------|------------------|--------------|
-| `fedora_admin` | wheel | Completo | Todas + terminal | PVC 20 Gi |
-| `fedora_user` | usuarios | Sin sudo | Apps empresa (Tryton, correo, Nextcloud) | PVC 10 Gi |
-| `fedora_readonly` | readonly | Sin sudo | Solo lectura, sin instalar | PVC 5 Gi |
-| `fedora_guest` | guest | Sin sudo | Navegador, visor documentos | Sin PVC (tmpfs) |
+| Grupo | Perfil | Sudo | Apps en menú | PVC home |
+|-------|--------|------|--------------|----------|
+| `fedora_admin` | wheel | Completo | Todas + terminal | 20 Gi |
+| `fedora_user` | usuarios | Sin sudo | Apps empresa (ERP, correo, Nextcloud) | 10 Gi |
+| `fedora_readonly` | readonly | Sin sudo | Solo lectura, sin instalar | 5 Gi |
+| `fedora_guest` | guest | Sin sudo | Navegador, visor documentos | tmpfs (sin persistencia) |
 
-**Implementación del perfil:**
-1. `sbos-vdi-provisioner` crea el pod con variables de entorno `SBOS_USER`, `SBOS_GROUPS`
-2. El `start-desktop.sh` de la imagen lee esas variables y:
-   - Crea el usuario Linux si no existe (`useradd -m -u <uid> <username>`)
-   - Monta el PVC como `/home/<username>/`
-   - Genera `~/.config/menus/applications.menu` con las apps del grupo
-   - Configura sudoers si el grupo es `fedora_admin`
-3. TigerVNC arranca como ese usuario (no como `sbosuser` genérico)
+**El provisioner construye el entorno de cada usuario al iniciar sesión:**
+1. Lee JWT → extrae `sub` (username), `groups`, `resource_limits`, `disk_quota`
+2. Crea usuario Linux si no existe (`useradd -m -u <uid> <username>`)
+3. Monta PVC como `/home/<username>/` (crea el PVC la primera vez)
+4. Genera `~/.config/menus/applications.menu` según grupos
+5. Configura cgroups para el proceso de sesión
+6. Arranca TigerVNC como ese usuario en un display libre
 
 ---
 
