@@ -9,16 +9,17 @@
 // de confirmación. Sin las 2 aprobaciones, la operación es rechazada.
 //
 // Categorías:
-//   Cat 1 (lectura):   status, list, describe, plan, diff, logs, validate
-//   Cat 2 (escritura): install, update, repair, pause, resume, scale
-//   Cat 3 (destructiva): remove, scale a 0, reset_state
-//                        → 2 admins + ventana 60min + texto exacto
+//
+//	Cat 1 (lectura):   status, list, describe, plan, diff, logs, validate
+//	Cat 2 (escritura): install, update, repair, pause, resume, scale
+//	Cat 3 (destructiva): remove, scale a 0, reset_state
+//	                     → 2 admins + ventana 60min + texto exacto
 //
 // Flujo de aprobación dual:
-//   1. Admin A inicia la operación → se genera ApprovalRequest con token único
-//   2. Admin B confirma con el texto exacto dentro de 60min
-//   3. Si ambas aprobaciones son válidas → operación ejecutada
-//   4. Si expira la ventana → solicitud rechazada, audit_event registrado
+//  1. Admin A inicia la operación → se genera ApprovalRequest con token único
+//  2. Admin B confirma con el texto exacto dentro de 60min
+//  3. Si ambas aprobaciones son válidas → operación ejecutada
+//  4. Si expira la ventana → solicitud rechazada, audit_event registrado
 //
 // Estándares: ISO 27001 A.9.4.2 (segregation of duties), A.8.15 (audit),
 // NIST SP 800-207 Tenet 2 (least privilege), SBOS-019 §13.
@@ -39,8 +40,8 @@ import (
 type RiskCategory int
 
 const (
-	RiskRead       RiskCategory = 1 // lectura — sin restricciones
-	RiskWrite      RiskCategory = 2 // escritura — requiere auth
+	RiskRead        RiskCategory = 1 // lectura — sin restricciones
+	RiskWrite       RiskCategory = 2 // escritura — requiere auth
 	RiskDestructive RiskCategory = 3 // destructiva — dual-control ⛔ GATE
 )
 
@@ -85,17 +86,17 @@ func RequiresDualControl(op LifecycleOp) bool {
 
 // ApprovalRequest representa una solicitud de aprobación dual pendiente.
 type ApprovalRequest struct {
-	ID             string       // token único de la solicitud
-	FichaID        string       // ficha sobre la que se opera
-	Operation      LifecycleOp  // operación solicitada
-	ConfirmText    string       // texto exacto que Admin B debe escribir
-	RequesterID    string       // Admin A (quien inició)
-	ApproverID     string       // Admin B (quien debe aprobar)
-	Status         string       // "pending", "approved", "rejected", "expired"
-	CreatedAt      time.Time
-	ExpiresAt      time.Time    // ventana de 60 minutos
-	ApprovedAt     time.Time    // timestamp de aprobación
-	AuditEvents    []AuditEvent // registro de auditoría
+	ID          string      // token único de la solicitud
+	FichaID     string      // ficha sobre la que se opera
+	Operation   LifecycleOp // operación solicitada
+	ConfirmText string      // texto exacto que Admin B debe escribir
+	RequesterID string      // Admin A (quien inició)
+	ApproverID  string      // Admin B (quien debe aprobar)
+	Status      string      // "pending", "approved", "rejected", "expired"
+	CreatedAt   time.Time
+	ExpiresAt   time.Time    // ventana de 60 minutos
+	ApprovedAt  time.Time    // timestamp de aprobación
+	AuditEvents []AuditEvent // registro de auditoría
 }
 
 // AuditEvent registra un evento de auditoría de governance.
@@ -111,9 +112,9 @@ type AuditEvent struct {
 // GovernanceEngine gestiona el ciclo de vida de aprobaciones dual-control.
 // Thread-safe: usa sync.RWMutex para acceso concurrente desde gRPC/JSON-RPC.
 type GovernanceEngine struct {
-	mu              sync.RWMutex
-	pending         map[string]*ApprovalRequest // ID → solicitud pendiente
-	approvalWindow  time.Duration               // ventana de aprobación (default: 60min)
+	mu             sync.RWMutex
+	pending        map[string]*ApprovalRequest // ID → solicitud pendiente
+	approvalWindow time.Duration               // ventana de aprobación (default: 60min)
 }
 
 // NewGovernanceEngine crea un motor de governance.
@@ -294,4 +295,3 @@ func generateToken(bytes int) (string, error) {
 	}
 	return hex.EncodeToString(b), nil
 }
-

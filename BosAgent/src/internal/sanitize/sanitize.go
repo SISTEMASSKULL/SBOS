@@ -4,18 +4,19 @@
 // Cero dependencias externas. Todas las funciones son puras y thread-safe.
 //
 // Reglas implementadas:
-//   SAN-01  UUID(s)              — valida UUIDv4 canónico
-//   SAN-02  Slug(s)              — slug alfanumérico lowercase seguro
-//   SAN-03  IPAddr(s)            — IP v4 o v6 válida
-//   SAN-04  FilePath(s)          — ruta sin path traversal
-//   SAN-05  Email(s)             — dirección RFC 5321 válida
-//   SAN-06  JSONPayload(d, max)  — JSON válido dentro de límite de tamaño
-//   SAN-07  LogCtxID(s)          — ctx_id seguro para logs (8 chars + hash)
-//   SAN-08  TruncateField        — truncar campo a longitud máxima
-//   SAN-09  CtxIDParam(s)        — ctx_id válido como parámetro RPC
-//   SAN-10  HeaderValue(s)       — cabecera HTTP sin CRLF injection
-//   SAN-11  CrossTenantSlug      — tenant_id recurso == tenant_id sesión
-//   SAN-12  CrossTenantK8sName   — nombre K8s pertenece al tenant
+//
+//	SAN-01  UUID(s)              — valida UUIDv4 canónico
+//	SAN-02  Slug(s)              — slug alfanumérico lowercase seguro
+//	SAN-03  IPAddr(s)            — IP v4 o v6 válida
+//	SAN-04  FilePath(s)          — ruta sin path traversal
+//	SAN-05  Email(s)             — dirección RFC 5321 válida
+//	SAN-06  JSONPayload(d, max)  — JSON válido dentro de límite de tamaño
+//	SAN-07  LogCtxID(s)          — ctx_id seguro para logs (8 chars + hash)
+//	SAN-08  TruncateField        — truncar campo a longitud máxima
+//	SAN-09  CtxIDParam(s)        — ctx_id válido como parámetro RPC
+//	SAN-10  HeaderValue(s)       — cabecera HTTP sin CRLF injection
+//	SAN-11  CrossTenantSlug      — tenant_id recurso == tenant_id sesión
+//	SAN-12  CrossTenantK8sName   — nombre K8s pertenece al tenant
 //
 // Referencia: 1.04_MANUAL-IAM-INSTALLER-SEGURIDAD.md §SAN
 package sanitize

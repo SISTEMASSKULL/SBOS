@@ -6,8 +6,9 @@
 // de instalación (capacity.yaml).
 //
 // Métodos:
-//   bos.capacity.check  — verificar si una operación cabe en la capacidad declarada
-//   bos.capacity.status — consultar estimados y requisitos calculados
+//
+//	bos.capacity.check  — verificar si una operación cabe en la capacidad declarada
+//	bos.capacity.status — consultar estimados y requisitos calculados
 //
 // La capacidad se declara durante bosctl install --mode=interactive y se
 // persiste en /etc/bos/capacity.yaml. El Admission Controller la consulta
@@ -26,10 +27,11 @@ import (
 // límites de capacidad declarados en el wizard de instalación.
 //
 // Params:
-//   op_type  string — "tenant" | "empresa" | "sucursal" | "usuario"
-//   current  int    — unidades actuales del recurso limitante
-//   used_mb  int    — RAM o disco en uso actualmente (MB); 0 si no aplica
-//   req_mb   int    — incremento de MB que necesitaría la operación; 0 si no aplica
+//
+//	op_type  string — "tenant" | "empresa" | "sucursal" | "usuario"
+//	current  int    — unidades actuales del recurso limitante
+//	used_mb  int    — RAM o disco en uso actualmente (MB); 0 si no aplica
+//	req_mb   int    — incremento de MB que necesitaría la operación; 0 si no aplica
 //
 // Returns: { allowed: bool, reason: string, detail: string, thresholds: {...} }
 func (s *Server) rpcCapacityCheck(req *RPCRequest) RPCResponse {

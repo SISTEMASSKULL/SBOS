@@ -20,8 +20,8 @@ import (
 	"time"
 	"unicode"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"bos/internal/tui/styles"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 )
 
@@ -198,8 +198,12 @@ func StepUpCmd(user, pass string) tea.Cmd {
 			return StepUpResultMsg{Err: "error enviando solicitud: " + err.Error()}
 		}
 		var resp struct {
-			Result *struct{ OK bool `json:"ok"` } `json:"result"`
-			Error  *struct{ Message string `json:"message"` } `json:"error"`
+			Result *struct {
+				OK bool `json:"ok"`
+			} `json:"result"`
+			Error *struct {
+				Message string `json:"message"`
+			} `json:"error"`
 		}
 		if err := json.NewDecoder(conn).Decode(&resp); err != nil {
 			return StepUpResultMsg{Err: "error leyendo respuesta: " + err.Error()}

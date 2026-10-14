@@ -34,29 +34,29 @@ type FichaState string
 const (
 	// ── Estados pre-install ──────────────────────────────────────────
 	StatePending FichaState = "PENDING" // ficha declarada, verificando deps
-	StateReady     FichaState = "READY"     // deps OK, esperando turno en DAG
+	StateReady   FichaState = "READY"   // deps OK, esperando turno en DAG
 
 	// ── Estados de instalación ───────────────────────────────────────
-	StateInstalling       FichaState = "INSTALLING"        // saga install en progreso (30min)
-	StateInstalled        FichaState = "INSTALLED"         // pod Running + health OK
+	StateInstalling    FichaState = "INSTALLING"     // saga install en progreso (30min)
+	StateInstalled     FichaState = "INSTALLED"      // pod Running + health OK
 	StateInstallFailed FichaState = "INSTALL_FAILED" // saga install falló
 
 	// ── Estados de actualización ─────────────────────────────────────
-	StateUpdateAvailable     FichaState = "UPDATE_AVAILABLE" // nueva versión detectada
-	StateUpdateApproved FichaState = "UPDATE_APPROVED"   // tests OK, sin degradación
-	StateUpdating          FichaState = "UPDATING"             // saga update en progreso (15min)
-	StateUpdateFailed    FichaState = "UPDATE_FAILED"      // saga update falló
+	StateUpdateAvailable FichaState = "UPDATE_AVAILABLE" // nueva versión detectada
+	StateUpdateApproved  FichaState = "UPDATE_APPROVED"  // tests OK, sin degradación
+	StateUpdating        FichaState = "UPDATING"         // saga update en progreso (15min)
+	StateUpdateFailed    FichaState = "UPDATE_FAILED"    // saga update falló
 
 	// ── Estados de error ────────────────────────────────────────────
-	StateDegraded         FichaState = "DEGRADED"          // funciona reducido, auto-repara
-	StatePhysicalError       FichaState = "PHYSICAL_ERROR"       // disco/red/CPU/memoria
-	StateLogicalError       FichaState = "LOGICAL_ERROR"        // config/deps/schema drift
-	StateUnrecoverable FichaState = "UNRECOVERABLE" // reintentos agotados → HITL
+	StateDegraded      FichaState = "DEGRADED"       // funciona reducido, auto-repara
+	StatePhysicalError FichaState = "PHYSICAL_ERROR" // disco/red/CPU/memoria
+	StateLogicalError  FichaState = "LOGICAL_ERROR"  // config/deps/schema drift
+	StateUnrecoverable FichaState = "UNRECOVERABLE"  // reintentos agotados → HITL
 
 	// ── Estados transicionales ───────────────────────────────────────
 	StateRepairing FichaState = "REPAIRING" // diagnóstico + repair (10min)
 	StateRollback  FichaState = "ROLLBACK"  // restaurando versión anterior
-	StateCleanup  FichaState = "CLEANUP"  // eliminando artefactos, sin residuos
+	StateCleanup   FichaState = "CLEANUP"   // eliminando artefactos, sin residuos
 
 	// ── Estados administrativos ──────────────────────────────────────
 	StatePaused      FichaState = "PAUSED"      // admin suspendió (mantenimiento)
@@ -82,7 +82,7 @@ func (sm *StateMachine) CanInstall(state FichaState) bool {
 	switch state {
 	case StatePending, StateReady,
 		StateInstallFailed, // reintentar tras fallo
-		StateCleanup:         // tras limpiar artefactos
+		StateCleanup:       // tras limpiar artefactos
 		return true
 	}
 	return false
@@ -260,24 +260,24 @@ func (sm *StateMachine) NeedsHITL(state FichaState) bool {
 // Coincide exactamente con state.Manager.ValidTransitions.
 func (sm *StateMachine) ValidTransitions() map[FichaState][]FichaState {
 	return map[FichaState][]FichaState{
-		StatePending:             {StateReady},
-		StateReady:                 {StateInstalling},
-		StateInstalling:            {StateInstalled, StateInstallFailed},
-		StateInstallFailed:      {StateCleanup, StateInstalling},
-		StateCleanup:              {StateReady, StatePending},
-		StateInstalled:             {StateUpdateAvailable, StateUpdating, StateDegraded, StateRepairing, StatePaused, StateUninstalled},
-		StateUpdateAvailable:     {StateUpdateApproved, StateInstalled},
-		StateUpdateApproved: {StateUpdating},
-		StateUpdating:          {StateInstalled, StateUpdateFailed, StateRollback},
+		StatePending:         {StateReady},
+		StateReady:           {StateInstalling},
+		StateInstalling:      {StateInstalled, StateInstallFailed},
+		StateInstallFailed:   {StateCleanup, StateInstalling},
+		StateCleanup:         {StateReady, StatePending},
+		StateInstalled:       {StateUpdateAvailable, StateUpdating, StateDegraded, StateRepairing, StatePaused, StateUninstalled},
+		StateUpdateAvailable: {StateUpdateApproved, StateInstalled},
+		StateUpdateApproved:  {StateUpdating},
+		StateUpdating:        {StateInstalled, StateUpdateFailed, StateRollback},
 		StateUpdateFailed:    {StateRollback, StateInstalled},
-		StateRollback:              {StateInstalled, StateUnrecoverable},
-		StateDegraded:             {StateRepairing, StatePhysicalError, StateLogicalError},
-		StatePhysicalError:           {StateRepairing},
-		StateLogicalError:           {StateRepairing},
-		StateRepairing:             {StateInstalled, StateDegraded, StateUnrecoverable},
-		StateUnrecoverable:     {StateRepairing, StateUninstalled, StateCleanup},
-		StatePaused:               {StateInstalled, StateUninstalled},
-		StateUninstalled:          {},
+		StateRollback:        {StateInstalled, StateUnrecoverable},
+		StateDegraded:        {StateRepairing, StatePhysicalError, StateLogicalError},
+		StatePhysicalError:   {StateRepairing},
+		StateLogicalError:    {StateRepairing},
+		StateRepairing:       {StateInstalled, StateDegraded, StateUnrecoverable},
+		StateUnrecoverable:   {StateRepairing, StateUninstalled, StateCleanup},
+		StatePaused:          {StateInstalled, StateUninstalled},
+		StateUninstalled:     {},
 	}
 }
 

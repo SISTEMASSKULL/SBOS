@@ -9,7 +9,7 @@ func TestDiagnose_ErrPhysical(t *testing.T) {
 	lc := NewLifecycle(nil)
 
 	cases := []struct {
-		input    string
+		input     string
 		wantCause string
 	}{
 		{"no space left on device", "disco lleno o error de I/O"},

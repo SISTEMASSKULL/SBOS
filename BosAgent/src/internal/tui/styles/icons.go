@@ -84,12 +84,12 @@ const (
 // ── Categoría: Acciones del sistema ───────────────────────────────────────
 
 const (
-	IconPower      = "⏻" // U+23FB — color sugerido: error (apagado)
-	IconRestart    = "↺" // U+21BA — color sugerido: advertencia
-	IconRun        = "›" // U+203A — color sugerido: info/cyan (mismo glyph que IconInfo)
-	IconStepRun    = "›" // U+203A — color sugerido: advertencia (paso activo en instalación)
-	IconArrowUp    = "↑" // U+2191 — antes IconInstall/IconUpdate (mismo glyph, distinto color)
-	IconRepair     = "⚙" // U+2699 — color sugerido: advertencia
+	IconPower   = "⏻" // U+23FB — color sugerido: error (apagado)
+	IconRestart = "↺" // U+21BA — color sugerido: advertencia
+	IconRun     = "›" // U+203A — color sugerido: info/cyan (mismo glyph que IconInfo)
+	IconStepRun = "›" // U+203A — color sugerido: advertencia (paso activo en instalación)
+	IconArrowUp = "↑" // U+2191 — antes IconInstall/IconUpdate (mismo glyph, distinto color)
+	IconRepair  = "⚙" // U+2699 — color sugerido: advertencia
 )
 
 // ── Categoría: Fichas / Paquetes ────────────────────────────────────────────

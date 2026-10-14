@@ -8,9 +8,9 @@ import (
 	"os"
 	"time"
 
+	"bos/internal/paths"
 	"bos/internal/repair"
 	"bos/internal/state"
-	"bos/internal/paths"
 
 	"log/slog"
 )

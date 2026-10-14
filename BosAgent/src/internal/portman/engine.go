@@ -44,8 +44,8 @@ var serverBases = map[string]int{
 // PortRequest es la solicitud para asignar uno o más puertos a una ficha.
 type PortRequest struct {
 	FichaID       string
-	FichaIndex    int      // índice de la ficha dentro del servidor (0-based)
-	LogicalServer string   // ej: "S00", "S01"
+	FichaIndex    int    // índice de la ficha dentro del servidor (0-based)
+	LogicalServer string // ej: "S00", "S01"
 	PortTypes     []PortType
 	Namespace     string
 	ServiceName   string

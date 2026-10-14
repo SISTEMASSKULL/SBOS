@@ -131,12 +131,12 @@ func (m *syncWatchStream) first() *pb.FichaEvent {
 	}
 	return m.events[0]
 }
-func (m *syncWatchStream) Context() context.Context             { return m.ctx }
-func (m *syncWatchStream) SetHeader(metadata.MD) error          { return nil }
-func (m *syncWatchStream) SendHeader(metadata.MD) error         { return nil }
-func (m *syncWatchStream) SetTrailer(metadata.MD)               {}
-func (m *syncWatchStream) SendMsg(_ any) error                  { return nil }
-func (m *syncWatchStream) RecvMsg(_ any) error                  { return nil }
+func (m *syncWatchStream) Context() context.Context     { return m.ctx }
+func (m *syncWatchStream) SetHeader(metadata.MD) error  { return nil }
+func (m *syncWatchStream) SendHeader(metadata.MD) error { return nil }
+func (m *syncWatchStream) SetTrailer(metadata.MD)       {}
+func (m *syncWatchStream) SendMsg(_ any) error          { return nil }
+func (m *syncWatchStream) RecvMsg(_ any) error          { return nil }
 
 // mockLogStream implementa pb.FichaService_GetLogsServer.
 type mockLogStream struct {
@@ -160,12 +160,12 @@ func (m *mockLogStream) lineCount() int {
 	defer m.mu.Unlock()
 	return len(m.lines)
 }
-func (m *mockLogStream) Context() context.Context             { return m.ctx }
-func (m *mockLogStream) SetHeader(metadata.MD) error          { return nil }
-func (m *mockLogStream) SendHeader(metadata.MD) error         { return nil }
-func (m *mockLogStream) SetTrailer(metadata.MD)               {}
-func (m *mockLogStream) SendMsg(_ any) error                  { return nil }
-func (m *mockLogStream) RecvMsg(_ any) error                  { return nil }
+func (m *mockLogStream) Context() context.Context     { return m.ctx }
+func (m *mockLogStream) SetHeader(metadata.MD) error  { return nil }
+func (m *mockLogStream) SendHeader(metadata.MD) error { return nil }
+func (m *mockLogStream) SetTrailer(metadata.MD)       {}
+func (m *mockLogStream) SendMsg(_ any) error          { return nil }
+func (m *mockLogStream) RecvMsg(_ any) error          { return nil }
 
 // ── EventBus tests ────────────────────────────────────────────────
 

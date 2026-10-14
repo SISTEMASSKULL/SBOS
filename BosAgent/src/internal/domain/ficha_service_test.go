@@ -463,8 +463,8 @@ func TestDiffFichaFiles_SinDrift(t *testing.T) {
 	hash := sha256hex(content)
 
 	mf := &plugin.FichaManifest{
-		ID:   "redis",
-		Path: dir,
+		ID:    "redis",
+		Path:  dir,
 		Files: map[string]string{"manifest.yml": hash},
 	}
 	items := diffFichaFiles(mf)
@@ -478,8 +478,8 @@ func TestDiffFichaFiles_ConDriftChanged(t *testing.T) {
 	_ = os.WriteFile(filepath.Join(dir, "manifest.yml"), []byte("contenido nuevo"), 0o644)
 
 	mf := &plugin.FichaManifest{
-		ID:   "redis",
-		Path: dir,
+		ID:    "redis",
+		Path:  dir,
 		Files: map[string]string{"manifest.yml": "hashviejo000000000000000000000000"},
 	}
 	items := diffFichaFiles(mf)
@@ -499,8 +499,8 @@ func TestDiffFichaFiles_ConDriftMissing(t *testing.T) {
 	// No creamos el archivo — está declarado pero falta en disco.
 
 	mf := &plugin.FichaManifest{
-		ID:   "redis",
-		Path: dir,
+		ID:    "redis",
+		Path:  dir,
 		Files: map[string]string{"task_catalog.sh": "abc123"},
 	}
 	items := diffFichaFiles(mf)

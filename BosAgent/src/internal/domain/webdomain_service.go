@@ -31,8 +31,8 @@ type SSLStatus struct {
 // WebDomainRecord representa un dominio web registrado en el sistema.
 type WebDomainRecord struct {
 	Domain    string    `json:"domain"`
-	Target    string    `json:"target"`    // IP o CNAME de destino
-	SSLAuto   bool      `json:"ssl_auto"`  // provisionar SSL automáticamente (certbot)
+	Target    string    `json:"target"`   // IP o CNAME de destino
+	SSLAuto   bool      `json:"ssl_auto"` // provisionar SSL automáticamente (certbot)
 	CreatedAt time.Time `json:"created_at"`
 }
 

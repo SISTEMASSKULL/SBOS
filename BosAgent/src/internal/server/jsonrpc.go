@@ -12,15 +12,16 @@
 // multi-fuente (query_handlers.go + internal/query).
 //
 // Archivos del subsistema JSON-RPC:
-//   rpc_ficha.go        — handlers bos.ficha.* (install, update, repair, remove, status, probe, list, describe)
-//   rpc_ficha_f11.go    — handlers bos.ficha.* F11 (plan, diff, validate, scale, pause, resume, rescan, logs)
-//   rpc_bootstrap.go    — handlers bos.bootstrap.* y bos.saga.execute
-//   rpc_ctx.go          — handlers bos.ctx.*, bos.state.read, bos.health.check
-//   rpc_pg_auxiliar.go  — handlers bos.bootstrap.pg_auxiliar.*
-//   rpc_release.go      — handlers bos.release.*
-//   rpc_capacity.go     — handlers bos.capacity.*
-//   rpc_system.go       — handlers system.* y domainErrToRPC
-//   rpc_helpers.go      — parseParams, writeJSON, injectEnv, restoreEnv
+//
+//	rpc_ficha.go        — handlers bos.ficha.* (install, update, repair, remove, status, probe, list, describe)
+//	rpc_ficha_f11.go    — handlers bos.ficha.* F11 (plan, diff, validate, scale, pause, resume, rescan, logs)
+//	rpc_bootstrap.go    — handlers bos.bootstrap.* y bos.saga.execute
+//	rpc_ctx.go          — handlers bos.ctx.*, bos.state.read, bos.health.check
+//	rpc_pg_auxiliar.go  — handlers bos.bootstrap.pg_auxiliar.*
+//	rpc_release.go      — handlers bos.release.*
+//	rpc_capacity.go     — handlers bos.capacity.*
+//	rpc_system.go       — handlers system.* y domainErrToRPC
+//	rpc_helpers.go      — parseParams, writeJSON, injectEnv, restoreEnv
 package server
 
 import (
@@ -43,8 +44,8 @@ type RPCRequest struct {
 	JSONRPC string          `json:"jsonrpc"`
 	Method  string          `json:"method"`
 	Params  json.RawMessage `json:"params,omitempty"`
-	ID      interface{}     `json:"id"`              // string | number | null (notificación)
-	Ctx     context.Context `json:"-"`               // cancelable — asignado por runWithTimeout
+	ID      interface{}     `json:"id"` // string | number | null (notificación)
+	Ctx     context.Context `json:"-"`  // cancelable — asignado por runWithTimeout
 }
 
 // RPCResponse es el sobre de respuesta JSON-RPC 2.0.
@@ -71,19 +72,19 @@ type RPCError struct {
 // Rango estándar: -32768 a -32000 (reservado por spec).
 // Extensiones SBOS: -32001 a -32099 (definidas en ADR-019).
 const (
-	ErrParse            = -32700 // JSON inválido recibido por el servidor
-	ErrInvalidRequest   = -32600 // el JSON no es un Request object válido
-	ErrMethodNotFound   = -32601 // el método no existe o no está disponible
-	ErrInvalidParams    = -32602 // parámetros inválidos o ausentes
-	ErrInternal         = -32603 // error interno del servidor
-	ErrContextExpired   = -32001 // ctx_id expirado — requiere re-autenticación (F6.5)
-	ErrDepNotSatisfied  = -32002 // dependencia de ficha no satisfecha
-	ErrSagaFailed       = -32003 // la saga falló — data contiene pasos fallidos
-	ErrStateConflict    = -32004 // transición de estado no permitida
-	ErrGovernanceDeny   = -32005 // RBAC/Governance negó la operación
-	ErrTimeout          = -32006 // el método excedió el plazo de su categoría (F6.2)
-	ErrFichaNotFound    = -32010 // la ficha o recurso no está registrado
-	ErrRateLimit        = -32029 // rate limit excedido — demasiadas solicitudes por IP (NRS-08)
+	ErrParse           = -32700 // JSON inválido recibido por el servidor
+	ErrInvalidRequest  = -32600 // el JSON no es un Request object válido
+	ErrMethodNotFound  = -32601 // el método no existe o no está disponible
+	ErrInvalidParams   = -32602 // parámetros inválidos o ausentes
+	ErrInternal        = -32603 // error interno del servidor
+	ErrContextExpired  = -32001 // ctx_id expirado — requiere re-autenticación (F6.5)
+	ErrDepNotSatisfied = -32002 // dependencia de ficha no satisfecha
+	ErrSagaFailed      = -32003 // la saga falló — data contiene pasos fallidos
+	ErrStateConflict   = -32004 // transición de estado no permitida
+	ErrGovernanceDeny  = -32005 // RBAC/Governance negó la operación
+	ErrTimeout         = -32006 // el método excedió el plazo de su categoría (F6.2)
+	ErrFichaNotFound   = -32010 // la ficha o recurso no está registrado
+	ErrRateLimit       = -32029 // rate limit excedido — demasiadas solicitudes por IP (NRS-08)
 )
 
 // ── Constructores de respuesta ──────────────────────────────────────────

@@ -6,7 +6,6 @@ import (
 
 	"bos/internal/tui/ctrl/dash"
 	"bos/internal/tui/styles"
-
 )
 
 // Config renderiza la vista Configuración BosAgent.

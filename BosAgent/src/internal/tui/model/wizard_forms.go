@@ -18,7 +18,6 @@ import (
 	"github.com/charmbracelet/huh"
 )
 
-
 // NewWizardP1Form construye el form de bienvenida del wizard (S01).
 // Menú de selección: 0=Comenzar instalación, 1=Salir.
 // Resultado en m.WizardP1Selection.

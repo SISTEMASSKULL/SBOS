@@ -16,17 +16,17 @@ var logTabs = []struct {
 	Label  string // nombre del tab
 	Target string // identificador journald (-t) o unidad (.service)
 }{
-	{"TUI",         tuilog.JournalID},   // bos-tui — logs del propio TUI
-	{"bos",         "bos.service"},      // daemon IAM Installer
-	{"bkernel",     "bkernel.service"},  // Data Kernel CDC
-	{"biedata",     "biedata.service"},  // Data Gateway JSON-RPC
-	{"bauth",       "bauth.service"},    // Auth Enforce
-	{"bsearch",     "bsearch.service"},  // Motor de Búsqueda
-	{"kubelet",      "kubelet.service"},  // Kubernetes kubelet
-	{"postgresql",  "postgresql.service"},
-	{"redis",       "redis-server.service"},
-	{"keycloak",    "keycloak.service"},
-	{"Todos",       ""},                 // sin filtro — todos los logs del sistema
+	{"TUI", tuilog.JournalID},      // bos-tui — logs del propio TUI
+	{"bos", "bos.service"},         // daemon IAM Installer
+	{"bkernel", "bkernel.service"}, // Data Kernel CDC
+	{"biedata", "biedata.service"}, // Data Gateway JSON-RPC
+	{"bauth", "bauth.service"},     // Auth Enforce
+	{"bsearch", "bsearch.service"}, // Motor de Búsqueda
+	{"kubelet", "kubelet.service"}, // Kubernetes kubelet
+	{"postgresql", "postgresql.service"},
+	{"redis", "redis-server.service"},
+	{"keycloak", "keycloak.service"},
+	{"Todos", ""}, // sin filtro — todos los logs del sistema
 }
 
 // Logs renderiza el panel de logs con:

@@ -1,14 +1,15 @@
 // Package server — Handlers JSON-RPC 2.0 para bos.ficha.* — F11 (Ficha Engine v2).
 //
 // Métodos añadidos en la iteración F11 del Plan Maestro BOS-REPAIR v3:
-//   bos.ficha.plan     — orden topológico de instalación (oleadas paralelizables)
-//   bos.ficha.diff     — detección de drift declarado vs real
-//   bos.ficha.validate — validación de manifest.yml contra reglas SOV y SAN-10
-//   bos.ficha.scale    — escalar réplicas K8s
-//   bos.ficha.pause    — pausar ficha para mantenimiento (sin alertas)
-//   bos.ficha.resume   — reanudar ficha previamente pausada
-//   bos.ficha.rescan   — re-descubrir fichas en servers/
-//   bos.ficha.logs     — leer últimas N líneas del log
+//
+//	bos.ficha.plan     — orden topológico de instalación (oleadas paralelizables)
+//	bos.ficha.diff     — detección de drift declarado vs real
+//	bos.ficha.validate — validación de manifest.yml contra reglas SOV y SAN-10
+//	bos.ficha.scale    — escalar réplicas K8s
+//	bos.ficha.pause    — pausar ficha para mantenimiento (sin alertas)
+//	bos.ficha.resume   — reanudar ficha previamente pausada
+//	bos.ficha.rescan   — re-descubrir fichas en servers/
+//	bos.ficha.logs     — leer últimas N líneas del log
 //
 // Estos métodos usan directamente FichaService, siguiendo el patrón de
 // adaptadores delgados de ORQUESTA-043 §2.

@@ -35,12 +35,12 @@ func bosDomain() string {
 
 // AutoCapability representa una capacidad que BOS inyecta automáticamente.
 type AutoCapability struct {
-	ID          string   // identificador único: "sso", "ctx_id", "mtls", "metrics", "secrets"
-	Name        string   // nombre legible: "SSO (Keycloak)"
-	Description string   // qué hace esta capacidad por la ficha
-	Provider    string   // sistema que provee la capacidad: "Keycloak", "OpenTelemetry", "Linkerd", "Prometheus", "Vault"
-	Required    bool     // true = todas las fichas la reciben obligatoriamente
-	AutoConfig  bool     // true = BOS genera la configuración sin intervención
+	ID          string // identificador único: "sso", "ctx_id", "mtls", "metrics", "secrets"
+	Name        string // nombre legible: "SSO (Keycloak)"
+	Description string // qué hace esta capacidad por la ficha
+	Provider    string // sistema que provee la capacidad: "Keycloak", "OpenTelemetry", "Linkerd", "Prometheus", "Vault"
+	Required    bool   // true = todas las fichas la reciben obligatoriamente
+	AutoConfig  bool   // true = BOS genera la configuración sin intervención
 }
 
 // CapabilityConfig contiene la configuración generada para una capacidad específica.
@@ -144,57 +144,57 @@ func (g *CapabilityGenerator) generate(fichaID string, cap AutoCapability) Capab
 	switch cap.ID {
 	case "sso":
 		cfg.Config = map[string]string{
-			"client_id":              fmt.Sprintf("%s-client", fichaID),
-			"realm":                  g.tenantRealm,
-			"auth_endpoint":          fmt.Sprintf("https://keycloak.%s.%s/auth", g.tenantRealm, bosDomain()),
-			"token_endpoint":         fmt.Sprintf("https://keycloak.%s.%s/token", g.tenantRealm, bosDomain()),
-			"oauth2_proxy_enabled":   "true",
-			"grant_type":             "authorization_code",
-			"client_secret_source":   "vault",
-			"vault_path":             fmt.Sprintf("secret/tenants/%s/%s/sso", g.tenantRealm, fichaID),
+			"client_id":            fmt.Sprintf("%s-client", fichaID),
+			"realm":                g.tenantRealm,
+			"auth_endpoint":        fmt.Sprintf("https://keycloak.%s.%s/auth", g.tenantRealm, bosDomain()),
+			"token_endpoint":       fmt.Sprintf("https://keycloak.%s.%s/token", g.tenantRealm, bosDomain()),
+			"oauth2_proxy_enabled": "true",
+			"grant_type":           "authorization_code",
+			"client_secret_source": "vault",
+			"vault_path":           fmt.Sprintf("secret/tenants/%s/%s/sso", g.tenantRealm, fichaID),
 		}
 
 	case "ctx_id":
 		cfg.Config = map[string]string{
-			"otel_baggage_enabled":    "true",
-			"w3c_trace_context":       "true",
-			"ctx_id_header":           "X-SBOS-CtxId",
-			"tenant_id_header":        "X-SBOS-Tenant",
-			"bitmask_header":          "X-SBOS-Bitmask",
-			"propagation_injectors":   "baggage,tracecontext",
-			"log_with_ctx_id":         "true",
+			"otel_baggage_enabled":  "true",
+			"w3c_trace_context":     "true",
+			"ctx_id_header":         "X-SBOS-CtxId",
+			"tenant_id_header":      "X-SBOS-Tenant",
+			"bitmask_header":        "X-SBOS-Bitmask",
+			"propagation_injectors": "baggage,tracecontext",
+			"log_with_ctx_id":       "true",
 		}
 
 	case "mtls":
 		cfg.Config = map[string]string{
-			"linkerd_inject":          "enabled",
-			"linkerd_annotation":      fmt.Sprintf("linkerd.io/inject: enabled\nconfig.linkerd.io/proxy-cpu-limit: 500m\nconfig.linkerd.io/proxy-memory-limit: 256Mi"),
-			"ca_source":               "vault",
-			"vault_pki_path":          fmt.Sprintf("pki/tenants/%s", g.tenantRealm),
-			"tls_mode":                "strict",
-			"auto_rotate":             "true",
+			"linkerd_inject":     "enabled",
+			"linkerd_annotation": fmt.Sprintf("linkerd.io/inject: enabled\nconfig.linkerd.io/proxy-cpu-limit: 500m\nconfig.linkerd.io/proxy-memory-limit: 256Mi"),
+			"ca_source":          "vault",
+			"vault_pki_path":     fmt.Sprintf("pki/tenants/%s", g.tenantRealm),
+			"tls_mode":           "strict",
+			"auto_rotate":        "true",
 		}
 
 	case "metrics":
 		cfg.Config = map[string]string{
-			"metrics_port":            "9090",
-			"metrics_path":            "/metrics",
-			"prometheus_scrape":       "true",
-			"scrape_interval":         "30s",
-			"prometheus_job":          fmt.Sprintf("sbos-%s", fichaID),
-			"grafana_dashboard":       "auto",
-			"dashboard_uid":           fmt.Sprintf("sbos-%s", fichaID),
+			"metrics_port":      "9090",
+			"metrics_path":      "/metrics",
+			"prometheus_scrape": "true",
+			"scrape_interval":   "30s",
+			"prometheus_job":    fmt.Sprintf("sbos-%s", fichaID),
+			"grafana_dashboard": "auto",
+			"dashboard_uid":     fmt.Sprintf("sbos-%s", fichaID),
 		}
 
 	case "secrets":
 		cfg.Config = map[string]string{
-			"vault_approle":           fmt.Sprintf("sbos-%s", fichaID),
-			"vault_policy":            fmt.Sprintf("sbos-%s-read", fichaID),
-			"secret_paths":            fmt.Sprintf("secret/tenants/%s/%s/db,secret/tenants/%s/%s/api-key,secret/tenants/%s/%s/sso",
+			"vault_approle": fmt.Sprintf("sbos-%s", fichaID),
+			"vault_policy":  fmt.Sprintf("sbos-%s-read", fichaID),
+			"secret_paths": fmt.Sprintf("secret/tenants/%s/%s/db,secret/tenants/%s/%s/api-key,secret/tenants/%s/%s/sso",
 				g.tenantRealm, fichaID, g.tenantRealm, fichaID, g.tenantRealm, fichaID),
-			"approle_ttl":             "24h",
-			"renewal_enabled":         "true",
-			"vault_agent_sidecar":     "true",
+			"approle_ttl":         "24h",
+			"renewal_enabled":     "true",
+			"vault_agent_sidecar": "true",
 		}
 	}
 

@@ -28,7 +28,7 @@ func (b *BaseComponent) Focused() bool     { return b.FocusedBtn }
 func (b *BaseComponent) Enabled() bool     { return b.EnabledBtn }
 func (b *BaseComponent) SetEnabled(v bool) { b.EnabledBtn = v }
 func (b *BaseComponent) Focus() tea.Cmd    { b.FocusedBtn = true; return nil }
-func (b *BaseComponent) Blur() tea.Cmd      { b.FocusedBtn = false; return nil }
+func (b *BaseComponent) Blur() tea.Cmd     { b.FocusedBtn = false; return nil }
 
 // Manager orquesta el foco entre N componentes. Solo uno tiene foco a la vez.
 type Manager struct {

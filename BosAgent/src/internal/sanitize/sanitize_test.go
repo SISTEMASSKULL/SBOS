@@ -24,10 +24,10 @@ func TestUUID_Invalidos(t *testing.T) {
 		"",
 		"no-es-uuid",
 		"4bf92f35-77b3-4da6-a3ce-929d0e0e473",   // corto
-		"4bf92f35-77b3-4da6-a3ce-929d0e0e47360",  // largo
-		"4bf92f35-77b3-3da6-a3ce-929d0e0e4736",   // versión 3, no v4
-		"4bf92f35-77b3-4da6-03ce-929d0e0e4736",   // variante inválida (03)
-		"4bf92f35-77b3-4da6-z3ce-929d0e0e4736",   // caracter inválido
+		"4bf92f35-77b3-4da6-a3ce-929d0e0e47360", // largo
+		"4bf92f35-77b3-3da6-a3ce-929d0e0e4736",  // versión 3, no v4
+		"4bf92f35-77b3-4da6-03ce-929d0e0e4736",  // variante inválida (03)
+		"4bf92f35-77b3-4da6-z3ce-929d0e0e4736",  // caracter inválido
 	}
 	for _, s := range invalidos {
 		if UUID(s) {
@@ -81,14 +81,14 @@ func TestIPAddr_Invalidos(t *testing.T) {
 
 func TestFilePath_Limpia(t *testing.T) {
 	cases := []struct {
-		input    string
+		input     string
 		wantClean bool
 	}{
 		{"/etc/bos/bos.toml", true},
 		{"/var/log/bos/audit.log", true},
 		{"/etc/bos/../bos.toml", false}, // path traversal
 		{"/etc/bos/../../etc/passwd", false},
-		{"/etc/bos/\x00null", false},   // byte nulo
+		{"/etc/bos/\x00null", false}, // byte nulo
 	}
 	for _, tc := range cases {
 		_, err := FilePath(tc.input)

@@ -6,8 +6,9 @@
 // verificando firma Ed25519 + SHA-256 en cada release.
 //
 // Métodos:
-//   bos.release.check — verificar disponibilidad de actualizaciones para una ficha
-//   bos.release.list  — listar todas las releases conocidas
+//
+//	bos.release.check — verificar disponibilidad de actualizaciones para una ficha
+//	bos.release.list  — listar todas las releases conocidas
 //
 // Canales: canary → early → stable. El ReleaseChecker define la estrategia.
 package server

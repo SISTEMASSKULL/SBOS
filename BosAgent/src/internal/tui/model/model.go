@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"bos/internal/boslog"
-	"github.com/charmbracelet/bubbles/spinner"
 	"bos/internal/tui/ctrl"
 	"bos/internal/tui/ctrl/dash"
 	"bos/internal/tui/styles"
 	"bos/internal/tui/tuilog"
 	"bos/internal/wslib"
+	"github.com/charmbracelet/bubbles/spinner"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/progress"
@@ -90,16 +90,16 @@ type SysInfo struct {
 // Deben coincidir con las constantes EventType en internal/server/ws.go.
 
 const (
-	EvSagaStart  = "saga_start"
-	EvSagaOK     = "saga_ok"
-	EvSagaFail   = "saga_fail"
-	EvStepStart  = "step_start"
-	EvStepOK     = "step_ok"
-	EvStepFail   = "step_fail"
-	EvHealth     = "health_update"
-	EvReload     = "reload"
-	EvReconcile  = "reconcile"
-	EvFichaLog   = "ficha_log"
+	EvSagaStart = "saga_start"
+	EvSagaOK    = "saga_ok"
+	EvSagaFail  = "saga_fail"
+	EvStepStart = "step_start"
+	EvStepOK    = "step_ok"
+	EvStepFail  = "step_fail"
+	EvHealth    = "health_update"
+	EvReload    = "reload"
+	EvReconcile = "reconcile"
+	EvFichaLog  = "ficha_log"
 )
 
 // WsEventMsg es un mensaje recibido del daemon bos vía WebSocket.
@@ -171,16 +171,16 @@ type Model struct {
 	CompleteFocus int // 0=Tenant 1=Ubuntu 2=K8s 3=SBOS/bos
 
 	// Valores de los formularios wizard huh (vinculados por puntero en wizard_forms.go)
-	WizardP1Selection     int    // 0=Comenzar 1=Salir
-	WizardP4Confirm       bool   // true=iniciar instalación, false=volver
-	TenantName            string // BOS_TENANT_NAME
-	TenantNIT             string // BOS_TENANT_NIT
-	TenantPais            string // BOS_TENANT_PAIS
-	TenantDomain          string // BOS_TENANT_DOMAIN
-	AdminEmail            string // BOS_ROOT_USER
-	AdminNombre           string // BOS_ADMIN_NOMBRE
-	AdminPassword         string // BOS_ROOT_PASSWORD
-	AdminPasswordConfirm  string // BOS_ROOT_PASSWORD_CONFIRM
+	WizardP1Selection    int    // 0=Comenzar 1=Salir
+	WizardP4Confirm      bool   // true=iniciar instalación, false=volver
+	TenantName           string // BOS_TENANT_NAME
+	TenantNIT            string // BOS_TENANT_NIT
+	TenantPais           string // BOS_TENANT_PAIS
+	TenantDomain         string // BOS_TENANT_DOMAIN
+	AdminEmail           string // BOS_ROOT_USER
+	AdminNombre          string // BOS_ADMIN_NOMBRE
+	AdminPassword        string // BOS_ROOT_PASSWORD
+	AdminPasswordConfirm string // BOS_ROOT_PASSWORD_CONFIRM
 
 	// Forms wizard huh v1.0.0 — inicializados en HandleUpdate al entrar a cada pantalla
 	WizardP1Form *huh.Form
@@ -221,7 +221,7 @@ type Model struct {
 	FichasOK        int
 	FichasTotal     int
 	StartTime       time.Time
-	SpinnerFrame int
+	SpinnerFrame    int
 	ViewMode        string // "normal" | "fulllog" | "error"
 	ErrPanel        *FichaDetail
 	ErrFocus        int // 0=Reintentar 1=Saltar 2=Log 3=Cancelar
@@ -247,33 +247,33 @@ type Model struct {
 	Ctrl dash.DashModel
 
 	// Autenticación — nivel de acceso del operador de la sesión TUI
-	AuthLoA      int    // 0=anon, 1=pin, 2=password, 3=mfa (RFC 9470 LoA)
-	AuthUsername string // usuario autenticado (vacío si anon)
-	AuthToken    string // JWT efímero para la sesión TUI (emitido por bauth)
+	AuthLoA      int       // 0=anon, 1=pin, 2=password, 3=mfa (RFC 9470 LoA)
+	AuthUsername string    // usuario autenticado (vacío si anon)
+	AuthToken    string    // JWT efímero para la sesión TUI (emitido por bauth)
 	AuthForm     *huh.Form // formulario activo en ScreenAuthLogin; nil hasta primera entrada
 	AuthUser     string    // campo usuario vinculado a AuthForm (Value pointer)
 	AuthPass     string    // campo contraseña vinculado a AuthForm (Value pointer)
 	AuthErr      string    // mensaje de error de la última autenticación fallida
 
 	// Step-up LoA 3 (ScreenAuthConfirm)
-	AuthConfirmForm   *huh.Form    // formulario activo en ScreenAuthConfirm
-	AuthConfirmOK     bool         // resultado del huh.NewConfirm() — true = confirmar
-	AuthStepUpPass    string       // contraseña/PIN vinculado a AuthConfirmForm
-	AuthConfirmAction string       // texto de la acción que requiere elevación LoA 3
+	AuthConfirmForm   *huh.Form       // formulario activo en ScreenAuthConfirm
+	AuthConfirmOK     bool            // resultado del huh.NewConfirm() — true = confirmar
+	AuthStepUpPass    string          // contraseña/PIN vinculado a AuthConfirmForm
+	AuthConfirmAction string          // texto de la acción que requiere elevación LoA 3
 	PendingDashAction dash.DashAction // acción del dashboard pendiente de confirmación LoA 3 (reboot/shutdown)
 
 	// ── TUILog — logging de seguimiento interno del TUI ─────────────────────
 	// Ring escribe en journald (bos-tui) y mantiene buffer circular en memoria.
 	// Usar: m.TUILog.Info(tuilog.SrcWS, "conectado a bos.sock")
 	// Ver:  journalctl -t bos-tui -f
-	TUILog    *tuilog.Ring  // logger + buffer circular; inicializado en New()
-	TUILogCh  chan struct{}  // canal de suscripción al Ring (para WatchCmd)
+	TUILog   *tuilog.Ring  // logger + buffer circular; inicializado en New()
+	TUILogCh chan struct{} // canal de suscripción al Ring (para WatchCmd)
 
 	// Entries recibidas del viewer de journalctl (daemons externos)
 	// Poblado en Update() por tuilog.JournalEntryMsg
 	JournalEntries []tuilog.Entry
 	JournalCh      <-chan tuilog.Entry // canal del Follow() activo; nil si no hay viewer
-	JournalCancel  func()             // cancela el Follow() activo
+	JournalCancel  func()              // cancela el Follow() activo
 
 	// Ciclo de vida
 	StopCh     chan struct{}
@@ -489,9 +489,10 @@ func (m *Model) recalcBodyHeight() {
 	}
 }
 
-
 func (m *Model) SpinnerView() string {
 	f := styles.SpinnerFrames
-	if len(f) == 0 { return "" }
+	if len(f) == 0 {
+		return ""
+	}
 	return styles.Cyan.Render(f[m.SpinnerFrame%len(f)])
 }

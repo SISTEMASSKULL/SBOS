@@ -9,9 +9,10 @@
 //	icons.go             — íconos, RawXxx, SpinnerFrames (TUI-LIB-005)
 //
 // Sistema de color en 3 capas:
-//   Capa 1 — PrimXxx       : paleta de marca/diseño (Tailwind-compatible, 50–950)
-//   Capa 2 — StatusXxx     : estados UX independientes (WCAG AA, distinguibles)
-//   Capa 3 — ColorXxx      : roles semánticos que mapean capa 1 o capa 2 según contexto
+//
+//	Capa 1 — PrimXxx       : paleta de marca/diseño (Tailwind-compatible, 50–950)
+//	Capa 2 — StatusXxx     : estados UX independientes (WCAG AA, distinguibles)
+//	Capa 3 — ColorXxx      : roles semánticos que mapean capa 1 o capa 2 según contexto
 package styles
 
 // ── Backward-compat: alias HexXxx → PrimXxx ──────────────────────────────────

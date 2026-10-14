@@ -23,16 +23,16 @@ func scriptTag(msg string) (tag, rest string, tagSty, msgSty styles.Style, found
 		sty    func() (styles.Style, styles.Style)
 	}
 	entries := []entry{
-		{"[OK]",      func() (styles.Style, styles.Style) { return styles.Success.Bold(true), styles.Success }},
+		{"[OK]", func() (styles.Style, styles.Style) { return styles.Success.Bold(true), styles.Success }},
 		{"[SUCCESS]", func() (styles.Style, styles.Style) { return styles.Success.Bold(true), styles.Success }},
-		{"[INFO]",    func() (styles.Style, styles.Style) { return styles.TableHeader.Bold(true), styles.Muted }},
-		{"[DEBUG]",   func() (styles.Style, styles.Style) { return styles.DebugText, styles.DebugText }},
-		{"[STEP]",    func() (styles.Style, styles.Style) { return styles.Dim.Bold(true), styles.Dim }},
-		{"[WARN]",    func() (styles.Style, styles.Style) { return styles.Warning.Bold(true), styles.Warning }},
+		{"[INFO]", func() (styles.Style, styles.Style) { return styles.TableHeader.Bold(true), styles.Muted }},
+		{"[DEBUG]", func() (styles.Style, styles.Style) { return styles.DebugText, styles.DebugText }},
+		{"[STEP]", func() (styles.Style, styles.Style) { return styles.Dim.Bold(true), styles.Dim }},
+		{"[WARN]", func() (styles.Style, styles.Style) { return styles.Warning.Bold(true), styles.Warning }},
 		{"[WARNING]", func() (styles.Style, styles.Style) { return styles.Warning.Bold(true), styles.Warning }},
-		{"[ERROR]",   func() (styles.Style, styles.Style) { return styles.Error.Bold(true), styles.Error }},
-		{"[ERR]",     func() (styles.Style, styles.Style) { return styles.Error.Bold(true), styles.Error }},
-		{"[FAIL]",    func() (styles.Style, styles.Style) { return styles.Error.Bold(true), styles.Error }},
+		{"[ERROR]", func() (styles.Style, styles.Style) { return styles.Error.Bold(true), styles.Error }},
+		{"[ERR]", func() (styles.Style, styles.Style) { return styles.Error.Bold(true), styles.Error }},
+		{"[FAIL]", func() (styles.Style, styles.Style) { return styles.Error.Bold(true), styles.Error }},
 	}
 	for _, e := range entries {
 		if strings.HasPrefix(msg, e.prefix) {

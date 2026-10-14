@@ -5,30 +5,35 @@
 // con transiciones de estado, timeout, y compensación automática según ADR-021.
 //
 // Instalación (F11.B.2):
-//   LISTA → INSTALANDO (30min) → INSTALADA_vX.Y.Z
-//                              → FALLA_INSTALACION → LIMPIEZA (sin backup)
-//                                                   → ROLLBACK (si N-1 existe)
+//
+//	LISTA → INSTALANDO (30min) → INSTALADA_vX.Y.Z
+//	                           → FALLA_INSTALACION → LIMPIEZA (sin backup)
+//	                                                → ROLLBACK (si N-1 existe)
 //
 // Actualización (F11.B.3):
-//   INSTALADA → ACTUALIZANDO (15min) → INSTALADA_vX.Y.Z+1
-//                                    → FALLA_ACTUALIZACION → ROLLBACK
+//
+//	INSTALADA → ACTUALIZANDO (15min) → INSTALADA_vX.Y.Z+1
+//	                                 → FALLA_ACTUALIZACION → ROLLBACK
 //
 // Reparación (F11.B.4):
-//   DEGRADADA → REPARANDO (10min) → INSTALADA
-//                                 → ERROR_NO_CORREGIBLE (3 reintentos)
+//
+//	DEGRADADA → REPARANDO (10min) → INSTALADA
+//	                              → ERROR_NO_CORREGIBLE (3 reintentos)
 //
 // Eliminación (F11.B.4):
-//   INSTALADA → saga inversa → DESINSTALADA
+//
+//	INSTALADA → saga inversa → DESINSTALADA
 //
 // Cada operación registra audit_event con timestamp, duración y resultado.
 // Timeouts: install=30min, update=15min, repair=10min, remove=10min (ADR-021).
 //
 // Archivos del subsistema:
-//   diagnosis.go    — clasificación de errores y escalación HITL
-//   rollback.go     — orquestador de rollback
-//   cleanup.go      — orquestador de limpieza
-//   repair.go       — orquestador de reparación con reintentos
-//   degradation.go  — manejador de estado DEGRADADA
+//
+//	diagnosis.go    — clasificación de errores y escalación HITL
+//	rollback.go     — orquestador de rollback
+//	cleanup.go      — orquestador de limpieza
+//	repair.go       — orquestador de reparación con reintentos
+//	degradation.go  — manejador de estado DEGRADADA
 package ficha
 
 import (
@@ -96,12 +101,12 @@ type K8sLabelQuerier interface {
 }
 
 type Lifecycle struct {
-	sm              *StateMachine
-	logger          *slog.Logger
-	timeouts        map[LifecycleOp]time.Duration
-	exec            *Executor        // ejecutor de 5 fases (nil = simulación)
-	resolveTaskDir  TaskDirResolver  // resuelve fichaID → taskDir (nil = sin catálogo)
-	k8sLabels       K8sLabelQuerier  // nil-safe: si nil, verifyNoResidue omite la verificación K8s
+	sm             *StateMachine
+	logger         *slog.Logger
+	timeouts       map[LifecycleOp]time.Duration
+	exec           *Executor       // ejecutor de 5 fases (nil = simulación)
+	resolveTaskDir TaskDirResolver // resuelve fichaID → taskDir (nil = sin catálogo)
+	k8sLabels      K8sLabelQuerier // nil-safe: si nil, verifyNoResidue omite la verificación K8s
 }
 
 // SetK8sLabelQuerier inyecta el cliente K8s para verificación de residuos.

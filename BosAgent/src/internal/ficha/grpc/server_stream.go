@@ -131,7 +131,7 @@ func (s *FichaServer) GetLogs(req *pb.GetLogsRequest, stream pb.FichaService_Get
 			Level:      e.Level,
 			Message:    e.Message,
 			Timestamp:  timestamppb.New(e.Timestamp),
-			LineNumber:  e.LineNumber,
+			LineNumber: e.LineNumber,
 		}); err != nil {
 			return err
 		}
@@ -157,7 +157,7 @@ func (s *FichaServer) GetLogs(req *pb.GetLogsRequest, stream pb.FichaService_Get
 				Level:      e.Level,
 				Message:    e.Message,
 				Timestamp:  timestamppb.New(e.Timestamp),
-				LineNumber:  e.LineNumber,
+				LineNumber: e.LineNumber,
 			}); err != nil {
 				return err
 			}
@@ -166,4 +166,3 @@ func (s *FichaServer) GetLogs(req *pb.GetLogsRequest, stream pb.FichaService_Get
 		}
 	}
 }
-

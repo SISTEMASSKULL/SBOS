@@ -234,8 +234,8 @@ func HandleUpdate(m *Model, msg tea.Msg) (*Model, tea.Cmd) {
 		}
 	}
 
-		// Los forms huh producen comandos internos (NextField, nextGroup)
-		// que deben ejecutarse para que la máquina de estados avance.
+	// Los forms huh producen comandos internos (NextField, nextGroup)
+	// que deben ejecutarse para que la máquina de estados avance.
 	if len(cmds) > 0 {
 		switch msg.(type) {
 		case spinner.TickMsg, TickMsg:
@@ -244,7 +244,6 @@ func HandleUpdate(m *Model, msg tea.Msg) (*Model, tea.Cmd) {
 			return m, tea.Batch(cmds...)
 		}
 	}
-
 
 	switch msg := msg.(type) {
 
@@ -353,23 +352,46 @@ func HandleUpdate(m *Model, msg tea.Msg) (*Model, tea.Cmd) {
 
 	case TickMsg:
 		if m.CurrentScreen == ScreenReboot {
-			if m.CountdownSec > 0 { m.CountdownSec-- }
-			if m.CountdownSec == 0 { m.SetScreen(ScreenBoot); m.BootPct = 0; m.BootMsg = "Iniciando sistema..." }
+			if m.CountdownSec > 0 {
+				m.CountdownSec--
+			}
+			if m.CountdownSec == 0 {
+				m.SetScreen(ScreenBoot)
+				m.BootPct = 0
+				m.BootMsg = "Iniciando sistema..."
+			}
 			return m, TickCmd()
 		}
 		if m.CurrentScreen == ScreenBoot {
-			if m.BootPct < 1.0 { m.BootPct += 0.025; m.BootMsg = util.BootMessage(m.BootPct) }
-			if m.BootPct >= 1.0 { m.BootPct = 1.0; m.SetScreen(ScreenDashboard); return m, DashTickCmd() }
+			if m.BootPct < 1.0 {
+				m.BootPct += 0.025
+				m.BootMsg = util.BootMessage(m.BootPct)
+			}
+			if m.BootPct >= 1.0 {
+				m.BootPct = 1.0
+				m.SetScreen(ScreenDashboard)
+				return m, DashTickCmd()
+			}
 			return m, TickCmd()
 		}
 		if m.CurrentScreen == ScreenShutdown {
-			if m.ShutdownPct < 1.0 { m.ShutdownPct += 0.02 }
-			if m.ShutdownPct >= 1.0 { exec.Command("sudo","systemctl","reboot").Run(); return m, tea.Quit }
+			if m.ShutdownPct < 1.0 {
+				m.ShutdownPct += 0.02
+			}
+			if m.ShutdownPct >= 1.0 {
+				exec.Command("sudo", "systemctl", "reboot").Run()
+				return m, tea.Quit
+			}
 			return m, TickCmd()
 		}
 		if m.CurrentScreen == ScreenWelcome {
-			if m.BootPct < 1.0 { m.BootPct += 0.05; m.BootMsg = util.BootMessage(m.BootPct) }
-			if m.BootPct >= 1.0 { m.SetScreen(ScreenWizardP1) }
+			if m.BootPct < 1.0 {
+				m.BootPct += 0.05
+				m.BootMsg = util.BootMessage(m.BootPct)
+			}
+			if m.BootPct >= 1.0 {
+				m.SetScreen(ScreenWizardP1)
+			}
 			return m, TickCmd()
 		}
 		return m, TickCmd()
@@ -537,7 +559,6 @@ func HandleUpdate(m *Model, msg tea.Msg) (*Model, tea.Cmd) {
 		newBar, pc := m.ProgBar.Update(msg)
 		m.ProgBar = newBar.(progress.Model)
 		return m, pc
-
 
 	case tea.KeyMsg:
 		// Si hay un form huh activo en wizard o auth, las teclas de navegación
@@ -785,7 +806,6 @@ func keySplashWelcome(m *Model, msg tea.KeyMsg) tea.Cmd {
 	}
 	return nil
 }
-
 
 func keyCapacity(m *Model, msg tea.KeyMsg) tea.Cmd {
 	inputs := make([]interface{}, 0) // solo para compatibilidad con slice
@@ -1249,4 +1269,3 @@ func IsInstalled() bool {
 	_, err := os.Stat("/etc/sbos/tenant.conf")
 	return err == nil
 }
-

@@ -19,8 +19,8 @@ func RenderInstallLog(m tuimodel.Model) string {
 		sty   styles.Style
 	}
 	btns := []filterBtn{
-		{"Todos",                  tuimodel.LogInfo,  styles.Info},
-		{styles.IconWarn + " Warn", tuimodel.LogWarn,  styles.Warning},
+		{"Todos", tuimodel.LogInfo, styles.Info},
+		{styles.IconWarn + " Warn", tuimodel.LogWarn, styles.Warning},
 		{styles.IconErr + " Error", tuimodel.LogError, styles.Error},
 	}
 	var btnParts []string

@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"bos/internal/catalog"
-	"bos/internal/state"
 	"bos/internal/paths"
+	"bos/internal/state"
 )
 
 const statePath = paths.StatePath

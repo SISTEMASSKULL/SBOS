@@ -4,7 +4,8 @@
 // sin intervención manual (ADR-022). Criterio de verificación: C-04b.
 //
 // Flujo:
-//   postgresql healthy (C-04) → DbInitService.Init() → SBOS_db ready (C-04b)
+//
+//	postgresql healthy (C-04) → DbInitService.Init() → SBOS_db ready (C-04b)
 //
 // Principio P3 (domain separation): no importa nada de server/.
 // Principio P6 (sin credenciales hardcodeadas): DSN viene de BOS_PG_DSN.
@@ -36,8 +37,8 @@ type DBExecPort interface {
 // DBInitStatus describe el estado actual de la base de datos SBOS.
 type DBInitStatus struct {
 	Initialized  bool           `json:"initialized"`
-	Phase        string         `json:"phase"`         // idle | applying_ddl | applying_seeds | ready | error
-	Schemas      map[string]int `json:"schemas"`       // schema → total_tablas
+	Phase        string         `json:"phase"`   // idle | applying_ddl | applying_seeds | ready | error
+	Schemas      map[string]int `json:"schemas"` // schema → total_tablas
 	SeedsApplied int            `json:"seeds_applied"`
 	Error        string         `json:"error,omitempty"`
 	FinishedAt   *time.Time     `json:"finished_at,omitempty"`
@@ -45,9 +46,9 @@ type DBInitStatus struct {
 
 // C04bMinTables define el mínimo de tablas por schema para criterio C-04b.
 var C04bMinTables = map[string]int{
-	"bauth":    130,
-	"bos":      21,
-	"bglobal":  10,
+	"bauth":   130,
+	"bos":     21,
+	"bglobal": 10,
 }
 
 // DbInitService inicializa SBOS_db aplicando DDLs y seeds automáticamente.

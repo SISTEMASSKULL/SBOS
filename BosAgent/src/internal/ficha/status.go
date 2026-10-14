@@ -39,42 +39,42 @@ type FichaStatusDetail struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 
 	// Health
-	HealthStatus        string    `json:"health_status"`        // "healthy", "degraded", "down", "unknown"
+	HealthStatus        string    `json:"health_status"` // "healthy", "degraded", "down", "unknown"
 	LastHealthCheck     time.Time `json:"last_health_check,omitempty"`
 	ConsecutiveFailures int       `json:"consecutive_failures"`
 	HealthType          string    `json:"health_type,omitempty"`
 
 	// Drift
-	HasDrift      bool       `json:"has_drift"`
-	DriftItems    int        `json:"drift_items,omitempty"`
+	HasDrift       bool      `json:"has_drift"`
+	DriftItems     int       `json:"drift_items,omitempty"`
 	LastDriftCheck time.Time `json:"last_drift_check,omitempty"`
 
 	// Runtime (K8s) — stub hasta F9
-	Replicas     int32  `json:"replicas,omitempty"`
-	ReadyReplicas int32 `json:"ready_replicas,omitempty"`
-	CPUUsage     string `json:"cpu_usage,omitempty"`
-	MemoryUsage  string `json:"memory_usage,omitempty"`
-	Uptime       string `json:"uptime,omitempty"`
+	Replicas      int32  `json:"replicas,omitempty"`
+	ReadyReplicas int32  `json:"ready_replicas,omitempty"`
+	CPUUsage      string `json:"cpu_usage,omitempty"`
+	MemoryUsage   string `json:"memory_usage,omitempty"`
+	Uptime        string `json:"uptime,omitempty"`
 
 	// Metadatos
-	WorkloadType    string   `json:"workload_type,omitempty"`
-	ExecutionOrder  int      `json:"execution_order"`
-	Dependencies    []string `json:"dependencies,omitempty"`
-	AutoInstall     bool     `json:"auto_install"`
-	Backend         string   `json:"backend,omitempty"`
-	Policy          string   `json:"reconcile_policy,omitempty"`
+	WorkloadType   string   `json:"workload_type,omitempty"`
+	ExecutionOrder int      `json:"execution_order"`
+	Dependencies   []string `json:"dependencies,omitempty"`
+	AutoInstall    bool     `json:"auto_install"`
+	Backend        string   `json:"backend,omitempty"`
+	Policy         string   `json:"reconcile_policy,omitempty"`
 }
 
 // FichaStatusSummary resume el estado de todas las fichas.
 type FichaStatusSummary struct {
-	Total       int `json:"total"`
-	Installed   int `json:"installed"`
-	Degraded    int `json:"degraded"`
-	Error       int `json:"error"`
-	Pending     int `json:"pending"`
-	Paused      int `json:"paused"`
-	WithDrift   int `json:"with_drift"`
-	Unhealthy   int `json:"unhealthy"`
+	Total       int                 `json:"total"`
+	Installed   int                 `json:"installed"`
+	Degraded    int                 `json:"degraded"`
+	Error       int                 `json:"error"`
+	Pending     int                 `json:"pending"`
+	Paused      int                 `json:"paused"`
+	WithDrift   int                 `json:"with_drift"`
+	Unhealthy   int                 `json:"unhealthy"`
 	Fichas      []FichaStatusDetail `json:"fichas,omitempty"`
 	GeneratedAt time.Time           `json:"generated_at"`
 }
@@ -126,8 +126,8 @@ type StatusInput struct {
 	HealthType string
 
 	// Para drift
-	FichaPath    string
-	KnownHashes  map[string]string
+	FichaPath   string
+	KnownHashes map[string]string
 }
 
 // Collect recolecta el estado completo de una ficha.

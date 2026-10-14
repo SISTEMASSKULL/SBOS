@@ -12,9 +12,9 @@ import (
 
 	"bos/internal/config"
 	"bos/internal/health"
+	"bos/internal/paths"
 	"bos/internal/reconcile"
 	"bos/internal/state"
-	"bos/internal/paths"
 
 	"log/slog"
 )

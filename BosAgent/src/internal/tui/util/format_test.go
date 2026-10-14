@@ -9,11 +9,11 @@ import (
 
 // Alias para brevedad en tests.
 var (
-	FormatDur    = util.FormatDur
-	TruncA       = util.TruncA
-	WordWrap     = util.WordWrap
-	MaxInt       = util.MaxInt
-	BootMessage  = util.BootMessage
+	FormatDur     = util.FormatDur
+	TruncA        = util.TruncA
+	WordWrap      = util.WordWrap
+	MaxInt        = util.MaxInt
+	BootMessage   = util.BootMessage
 	StepMsgSuffix = util.StepMsgSuffix
 )
 

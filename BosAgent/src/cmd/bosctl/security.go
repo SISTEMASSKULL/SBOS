@@ -6,8 +6,8 @@ import (
 	"os"
 	"os/exec"
 
-	"bos/internal/security"
 	"bos/internal/paths"
+	"bos/internal/security"
 )
 
 // cmdSecurity es el dispatcher del subcomando "bosctl security" (scan | audit).

@@ -23,16 +23,16 @@ import (
 // NodeMetrics son las métricas en tiempo real de un nodo K8s.
 type NodeMetrics struct {
 	Name        string
-	CPUPct      float64   // porcentaje de uso CPU (0-100)
-	RAMPct      float64   // porcentaje de uso RAM (0-100)
+	CPUPct      float64 // porcentaje de uso CPU (0-100)
+	RAMPct      float64 // porcentaje de uso RAM (0-100)
 	CollectedAt time.Time
 }
 
 // ClusterMetrics agrega métricas de todos los nodos del clúster.
 type ClusterMetrics struct {
 	Nodes       []NodeMetrics
-	AvgCPUPct   float64   // promedio CPU de todos los nodos
-	AvgRAMPct   float64   // promedio RAM de todos los nodos
+	AvgCPUPct   float64 // promedio CPU de todos los nodos
+	AvgRAMPct   float64 // promedio RAM de todos los nodos
 	CollectedAt time.Time
 }
 

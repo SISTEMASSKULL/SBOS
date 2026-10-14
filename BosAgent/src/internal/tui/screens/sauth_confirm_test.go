@@ -104,4 +104,3 @@ func TestRenderAuthConfirm_NoPanic(t *testing.T) {
 		})
 	}
 }
-

@@ -16,8 +16,9 @@
 //  7. Semver validation en version
 //
 // Uso:
-//   errors := ParseManifestStrict(manifestContent, fichaPath)
-//   if len(errors) > 0 { ... }
+//
+//	errors := ParseManifestStrict(manifestContent, fichaPath)
+//	if len(errors) > 0 { ... }
 package ficha
 
 import (
@@ -33,10 +34,10 @@ import (
 
 // ParseError representa un error de validación de manifiesto.
 type ParseError struct {
-	Section  string // sección donde ocurrió el error (ej: "identity")
-	Field    string // campo específico (ej: "id", "version")
-	Message  string // descripción del error
-	Value    string // valor recibido (truncado a 80 chars)
+	Section string // sección donde ocurrió el error (ej: "identity")
+	Field   string // campo específico (ej: "id", "version")
+	Message string // descripción del error
+	Value   string // valor recibido (truncado a 80 chars)
 }
 
 func (e *ParseError) Error() string {
@@ -48,8 +49,8 @@ func (e *ParseError) Error() string {
 
 // ParseResult contiene el resultado de parsear y validar un manifiesto.
 type ParseResult struct {
-	Valid  bool
-	Errors []ParseError
+	Valid    bool
+	Errors   []ParseError
 	Warnings []string
 }
 

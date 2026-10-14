@@ -20,9 +20,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strings"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"bos/internal/boslog"
 	"bos/internal/paths"

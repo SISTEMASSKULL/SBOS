@@ -25,12 +25,12 @@ import (
 // SystemSnap es una captura puntual de métricas del sistema operativo.
 type SystemSnap struct {
 	// CPU
-	Cores   []float64     // uso por core (0-100)
-	Load1   float64       // load average 1 min
-	Load5   float64       // load average 5 min
-	Load15  float64       // load average 15 min
-	Procs   int           // procesos totales en ejecución
-	Uptime  time.Duration // tiempo desde el boot
+	Cores  []float64     // uso por core (0-100)
+	Load1  float64       // load average 1 min
+	Load5  float64       // load average 5 min
+	Load15 float64       // load average 15 min
+	Procs  int           // procesos totales en ejecución
+	Uptime time.Duration // tiempo desde el boot
 
 	// Memoria
 	TotalGB   float64

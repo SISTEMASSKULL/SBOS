@@ -118,12 +118,12 @@ var ValidTransitions = map[FichaState][]FichaState{
 	// StatePending: READY (deps satisfechas, flujo normal DAG) |
 	// INSTALLING (repair/install forzado cuando recursos ya existen en K8s)
 	StatePending: {StateReady, StateInstalling, StateInstalled},
-	StateReady:     {StateInstalling}, // DAG otorga slot
+	StateReady:   {StateInstalling}, // DAG otorga slot
 
 	// ── Flujo de instalación ─────────────────────────────────────────────
-	StateInstalling:       {StateInstalled, StateInstallFailed},
+	StateInstalling:    {StateInstalled, StateInstallFailed},
 	StateInstallFailed: {StateCleanup, StateInstalling, StateInstalled}, // limpiar, reintentar o marcar OK tras repair exitoso
-	StateCleanup:         {StateReady, StatePending},     // listo o re-evaluar
+	StateCleanup:       {StateReady, StatePending},                      // listo o re-evaluar
 
 	// ── Instalada estable → ramas ────────────────────────────────────────
 	StateInstalled: {
@@ -133,17 +133,17 @@ var ValidTransitions = map[FichaState][]FichaState{
 	},
 
 	// ── Flujo de actualización ────────────────────────────────────────────
-	StateUpdateAvailable:     {StateUpdateApproved, StateInstalled},
-	StateUpdateApproved: {StateUpdating},
-	StateUpdating:          {StateInstalled, StateUpdateFailed, StateRollback},
+	StateUpdateAvailable: {StateUpdateApproved, StateInstalled},
+	StateUpdateApproved:  {StateUpdating},
+	StateUpdating:        {StateInstalled, StateUpdateFailed, StateRollback},
 	StateUpdateFailed:    {StateRollback, StateInstalled},
-	StateRollback:              {StateInstalled, StateUnrecoverable},
+	StateRollback:        {StateInstalled, StateUnrecoverable},
 
 	// ── Degradada y reparación ────────────────────────────────────────────
-	StateDegraded:   {StateRepairing, StatePhysicalError, StateLogicalError},
+	StateDegraded:      {StateRepairing, StatePhysicalError, StateLogicalError},
 	StatePhysicalError: {StateRepairing},
-	StateLogicalError: {StateRepairing},
-	StateRepairing:   {StateInstalled, StateDegraded, StateUnrecoverable},
+	StateLogicalError:  {StateRepairing},
+	StateRepairing:     {StateInstalled, StateDegraded, StateUnrecoverable},
 
 	// ── Error fatal (requiere HITL) ───────────────────────────────────────
 	StateUnrecoverable: {StateRepairing, StateUninstalled, StateCleanup},

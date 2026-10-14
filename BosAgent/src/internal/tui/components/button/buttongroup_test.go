@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	zone "github.com/lrstanley/bubblezone"
 	"github.com/charmbracelet/lipgloss"
+	zone "github.com/lrstanley/bubblezone"
 )
 
 func TestMain(m *testing.M) {

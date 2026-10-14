@@ -1,10 +1,11 @@
 // Package server — Helpers compartidos para handlers JSON-RPC 2.0.
 //
 // Funciones utilitarias usadas por todos los handlers RPC:
-//   parseParams  — decodificar JSON params a struct tipada
-//   writeJSON    — escribir respuesta JSON al writer HTTP
-//   injectEnv    — inyectar variables de entorno para una saga
-//   restoreEnv   — restaurar entorno a su estado original
+//
+//	parseParams  — decodificar JSON params a struct tipada
+//	writeJSON    — escribir respuesta JSON al writer HTTP
+//	injectEnv    — inyectar variables de entorno para una saga
+//	restoreEnv   — restaurar entorno a su estado original
 //
 // La propagación de variables de entorno (TENANT_ID, TENANT_NAME, DOMAIN_ID, etc.)
 // viaja en el campo "env" del JSON-RPC y se inyecta antes de ejecutar la saga.

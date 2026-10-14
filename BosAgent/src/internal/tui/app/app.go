@@ -11,10 +11,10 @@
 package app
 
 import (
-	tuimodel "bos/internal/tui/model"
-	"bos/internal/tui/screens"
 	"bos/internal/tui/ctrl"
 	"bos/internal/tui/demo"
+	tuimodel "bos/internal/tui/model"
+	"bos/internal/tui/screens"
 
 	tea "github.com/charmbracelet/bubbletea"
 )

@@ -7,13 +7,14 @@
 //   - Los colores de estado (OK/Warn/Error/Crit) son perceptuales — NUNCA se tematizan.
 //
 // Temas disponibles:
-//   abyss     — slate profundo + cyan único (identidad Abyss, default nuevo)
-//   obsidian  — navy profundo + cyan eléctrico (identidad SBOS clásica)
-//   pizarron  — slate azul-gris + cyan brillante (look corporativo neutro)
-//   esmeralda — verde soberano
-//   indigo    — nocturno violeta
-//   fuchsia   — rosa vivaz
-//   ambar     — dorado cálido
+//
+//	abyss     — slate profundo + cyan único (identidad Abyss, default nuevo)
+//	obsidian  — navy profundo + cyan eléctrico (identidad SBOS clásica)
+//	pizarron  — slate azul-gris + cyan brillante (look corporativo neutro)
+//	esmeralda — verde soberano
+//	indigo    — nocturno violeta
+//	fuchsia   — rosa vivaz
+//	ambar     — dorado cálido
 //
 // Uso:
 //
@@ -216,32 +217,32 @@ func ApplyTheme(id string) {
 	ActiveTheme = t
 
 	// ── Mutar tokens de acento — escala completa (Capa 2B) ───────────────────
-	ColorAccent       = t.Accent
-	ColorAccentText   = t.AccentText
-	ColorAccentLight  = t.AccentLight  // v1.1 — necesario para temas no-cyan
-	ColorAccentDark   = t.AccentDark   // v1.1
+	ColorAccent = t.Accent
+	ColorAccentText = t.AccentText
+	ColorAccentLight = t.AccentLight   // v1.1 — necesario para temas no-cyan
+	ColorAccentDark = t.AccentDark     // v1.1
 	ColorAccentBorder = t.AccentBorder // v1.1
 
 	// ── Mutar tokens de superficie ────────────────────────────────────────────
-	ColorBgBase     = t.BgBase
-	ColorBgSurface  = t.BgSurface
+	ColorBgBase = t.BgBase
+	ColorBgSurface = t.BgSurface
 	ColorBgElevated = t.BgElevated
-	ColorBorder     = t.BgElevated // borde = superficie elevada
-	ColorBg1        = t.BgBase
-	ColorBg2        = t.BgSurface
-	ColorBg3        = t.BgElevated
-	ColorBlack      = t.BgBase // alias histórico
+	ColorBorder = t.BgElevated // borde = superficie elevada
+	ColorBg1 = t.BgBase
+	ColorBg2 = t.BgSurface
+	ColorBg3 = t.BgElevated
+	ColorBlack = t.BgBase // alias histórico
 
 	// ── Mutar tokens de layout ────────────────────────────────────────────────
-	ColorTopBarBg     = t.TopBarBg
+	ColorTopBarBg = t.TopBarBg
 	ColorMenuActiveBg = t.MenuBg
 
 	// ── Mutar tokens de texto — escala tipográfica del tema ──────────────────
 	// Cada tema define sus propios neutros. Sin esto, Slate/Dim/Muted siempre
 	// serían azul-gris (slate) aunque el tema sea verde, índigo o ámbar.
-	ColorTextPrimary   = t.TextPrimary
+	ColorTextPrimary = t.TextPrimary
 	ColorTextSecondary = t.TextSecondary
-	ColorTextDisabled  = t.TextDisabled
+	ColorTextDisabled = t.TextDisabled
 	// Mantener aliases históricos alineados con la escala del tema activo
 	ColorWhite = t.TextPrimary  // texto principal (no literalmente blanco)
 	ColorMuted = t.TextDisabled // texto tenue (alias → disabled del tema)
@@ -279,25 +280,25 @@ func rebuildThemeComponents() {
 	// ═══════════════════════════════════════════════════════════════════════════
 	// TEXTO
 	// ═══════════════════════════════════════════════════════════════════════════
-	Heading     = lipgloss.NewStyle().Foreground(ColorTextHeading).Bold(true)
-	Text        = lipgloss.NewStyle().Foreground(ColorTextPrimary)
-	TextBold    = lipgloss.NewStyle().Foreground(ColorTextPrimary).Bold(true)
-	Subtitle    = lipgloss.NewStyle().Foreground(ColorTextSecondary)
-	Muted       = lipgloss.NewStyle().Foreground(ColorTextSecondary)
-	Dim         = lipgloss.NewStyle().Foreground(ColorTextMuted)
-	Slate       = lipgloss.NewStyle().Foreground(ColorTextMuted)
-	Inactive    = lipgloss.NewStyle().Foreground(ColorTextDisabled)
-	DimItalic   = lipgloss.NewStyle().Foreground(ColorTextDisabled).Italic(true)
-	TextLink    = lipgloss.NewStyle().Foreground(ColorTextLink).Underline(true)
+	Heading = lipgloss.NewStyle().Foreground(ColorTextHeading).Bold(true)
+	Text = lipgloss.NewStyle().Foreground(ColorTextPrimary)
+	TextBold = lipgloss.NewStyle().Foreground(ColorTextPrimary).Bold(true)
+	Subtitle = lipgloss.NewStyle().Foreground(ColorTextSecondary)
+	Muted = lipgloss.NewStyle().Foreground(ColorTextSecondary)
+	Dim = lipgloss.NewStyle().Foreground(ColorTextMuted)
+	Slate = lipgloss.NewStyle().Foreground(ColorTextMuted)
+	Inactive = lipgloss.NewStyle().Foreground(ColorTextDisabled)
+	DimItalic = lipgloss.NewStyle().Foreground(ColorTextDisabled).Italic(true)
+	TextLink = lipgloss.NewStyle().Foreground(ColorTextLink).Underline(true)
 	TextInverse = lipgloss.NewStyle().Foreground(ColorTextInverse)
 
 	// ═══════════════════════════════════════════════════════════════════════════
 	// ACENTO
 	// ═══════════════════════════════════════════════════════════════════════════
-	Accent        = lipgloss.NewStyle().Foreground(ColorAccent)
-	AccentBold    = lipgloss.NewStyle().Foreground(ColorAccentText).Bold(true)
-	AccentText    = lipgloss.NewStyle().Foreground(ColorAccentText)
-	AccentHover   = lipgloss.NewStyle().Foreground(ColorAccentHover)
+	Accent = lipgloss.NewStyle().Foreground(ColorAccent)
+	AccentBold = lipgloss.NewStyle().Foreground(ColorAccentText).Bold(true)
+	AccentText = lipgloss.NewStyle().Foreground(ColorAccentText)
+	AccentHover = lipgloss.NewStyle().Foreground(ColorAccentHover)
 	AccentPressed = lipgloss.NewStyle().Foreground(ColorAccentPressed)
 
 	// ═══════════════════════════════════════════════════════════════════════════
@@ -310,33 +311,33 @@ func rebuildThemeComponents() {
 			Foreground(ColorTextPrimary).
 			Padding(0, 0)
 
-		PanelBlurred  = _panelBase.Copy().BorderForeground(ColorBorder)
-		PanelFocused  = _panelBase.Copy().BorderForeground(ColorBorderFocus)
+		PanelBlurred = _panelBase.Copy().BorderForeground(ColorBorder)
+		PanelFocused = _panelBase.Copy().BorderForeground(ColorBorderFocus)
 		PanelDisabled = _panelBase.Copy().BorderForeground(ColorBorderDisabled).Foreground(ColorTextDisabled)
-		PanelSurface  = PanelBlurred.Copy()
+		PanelSurface = PanelBlurred.Copy()
 		PanelElevated = _panelBase.Copy().Background(ColorBgElevated).BorderBackground(ColorBgElevated).BorderForeground(ColorBorder)
-		PanelActive   = _panelBase.Copy().Background(ColorBgSurfaceActive).BorderBackground(ColorBgSurfaceActive).BorderForeground(ColorBorder)
-		PanelSuccess  = _panelBase.Copy().BorderForeground(ColorStateOKBorder)
-		PanelWarning  = _panelBase.Copy().BorderForeground(ColorStateWarnBorder)
-		PanelError    = _panelBase.Copy().BorderForeground(ColorStateErrBorder)
-		PanelInfo     = _panelBase.Copy().BorderForeground(ColorStateInfoBorder)
+		PanelActive = _panelBase.Copy().Background(ColorBgSurfaceActive).BorderBackground(ColorBgSurfaceActive).BorderForeground(ColorBorder)
+		PanelSuccess = _panelBase.Copy().BorderForeground(ColorStateOKBorder)
+		PanelWarning = _panelBase.Copy().BorderForeground(ColorStateWarnBorder)
+		PanelError = _panelBase.Copy().BorderForeground(ColorStateErrBorder)
+		PanelInfo = _panelBase.Copy().BorderForeground(ColorStateInfoBorder)
 		PanelCritical = _panelBase.Copy().BorderForeground(ColorStateCritBorder).Background(ColorStateCritBg).BorderBackground(ColorStateCritBg)
-		Panel         = PanelBlurred
-		PanelHover    = PanelElevated
+		Panel = PanelBlurred
+		PanelHover = PanelElevated
 	}
 
 	// ═══════════════════════════════════════════════════════════════════════════
 	// BORDES
 	// ═══════════════════════════════════════════════════════════════════════════
-	Box           = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(ColorBorder).Padding(0, 1)
-	BoxFocus      = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(ColorBorderFocus).Padding(0, 1)
-	BoxActive     = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(ColorAccent).Padding(0, 1)
-	BoxError      = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(ColorInputErrorBorder).Padding(0, 1)
-	BoxSuccess    = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(ColorStateOKBorder).Padding(0, 1)
-	Divider       = lipgloss.NewStyle().Foreground(ColorDivider)
+	Box = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(ColorBorder).Padding(0, 1)
+	BoxFocus = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(ColorBorderFocus).Padding(0, 1)
+	BoxActive = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(ColorAccent).Padding(0, 1)
+	BoxError = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(ColorInputErrorBorder).Padding(0, 1)
+	BoxSuccess = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(ColorStateOKBorder).Padding(0, 1)
+	Divider = lipgloss.NewStyle().Foreground(ColorDivider)
 	DividerStrong = lipgloss.NewStyle().Foreground(ColorBorderStrong)
-	PanelDiv      = lipgloss.NewStyle().BorderLeft(true).BorderStyle(lipgloss.NormalBorder()).BorderForeground(ColorBorder).PaddingLeft(2)
-	HelpBox       = lipgloss.NewStyle().BorderLeft(true).BorderStyle(lipgloss.NormalBorder()).BorderForeground(ColorBorder).PaddingLeft(2).Foreground(ColorTextSecondary)
+	PanelDiv = lipgloss.NewStyle().BorderLeft(true).BorderStyle(lipgloss.NormalBorder()).BorderForeground(ColorBorder).PaddingLeft(2)
+	HelpBox = lipgloss.NewStyle().BorderLeft(true).BorderStyle(lipgloss.NormalBorder()).BorderForeground(ColorBorder).PaddingLeft(2).Foreground(ColorTextSecondary)
 
 	// ═══════════════════════════════════════════════════════════════════════════
 	// INPUTS / TEXTBOX (§11.15 — TX01–TX10)
@@ -351,23 +352,23 @@ func rebuildThemeComponents() {
 			Foreground(ColorTextPrimary).
 			Padding(0, 0)
 
-		Input         = _inputBase.Copy().BorderForeground(ColorTextDisabled)                               // TX01
-		InputFocus    = _inputBase.Copy().BorderForeground(ColorAccentBorder)                               // TX02
-		InputHover    = _inputBase.Copy().BorderForeground(ColorAccentSubtle).Foreground(ColorAccentLight)  // TX03
+		Input = _inputBase.Copy().BorderForeground(ColorTextDisabled)                                       // TX01
+		InputFocus = _inputBase.Copy().BorderForeground(ColorAccentBorder)                                  // TX02
+		InputHover = _inputBase.Copy().BorderForeground(ColorAccentSubtle).Foreground(ColorAccentLight)     // TX03
 		InputDisabled = _inputBase.Copy().BorderForeground(ColorTextDisabled).Foreground(ColorTextDisabled) // TX04
-		InputError    = lipgloss.NewStyle().Border(lipgloss.NormalBorder()).                                 // TX05 — bg propio
-				Background(ColorStateCritBg).BorderBackground(ColorStateCritBg).
-				BorderForeground(ColorStateCritBorder).
-				Foreground(ColorStateCritFg).Padding(0, 0)
-		InputSuccess  = _inputBase.Copy().BorderForeground(ColorStateOKBorder).Foreground(ColorStateOKFg)   // TX06
-		InputReadOnly = _inputBase.Copy().BorderForeground(ColorBgElevated).Foreground(ColorTextSecondary)  // TX07
+		InputError = lipgloss.NewStyle().Border(lipgloss.NormalBorder()).                                   // TX05 — bg propio
+															Background(ColorStateCritBg).BorderBackground(ColorStateCritBg).
+															BorderForeground(ColorStateCritBorder).
+															Foreground(ColorStateCritFg).Padding(0, 0)
+		InputSuccess = _inputBase.Copy().BorderForeground(ColorStateOKBorder).Foreground(ColorStateOKFg)   // TX06
+		InputReadOnly = _inputBase.Copy().BorderForeground(ColorBgElevated).Foreground(ColorTextSecondary) // TX07
 
-		Label       = lipgloss.NewStyle().Foreground(ColorTextMuted).Width(22)
+		Label = lipgloss.NewStyle().Foreground(ColorTextMuted).Width(22)
 		LabelActive = lipgloss.NewStyle().Foreground(ColorTextPrimary).Bold(true).Width(22)
-		Placeholder = lipgloss.NewStyle().Foreground(ColorAccentDark)   // TX08 — Cyan-700
-		Cursor      = lipgloss.NewStyle().Foreground(ColorAccentSubtle) // TX09 — Cyan-900
+		Placeholder = lipgloss.NewStyle().Foreground(ColorAccentDark) // TX08 — Cyan-700
+		Cursor = lipgloss.NewStyle().Foreground(ColorAccentSubtle)    // TX09 — Cyan-900
 
-		InputActive   = InputFocus
+		InputActive = InputFocus
 		InputInactive = Input
 	}
 
@@ -378,7 +379,7 @@ func rebuildThemeComponents() {
 	// ═══════════════════════════════════════════════════════════════════════════
 	{
 		_btnBorder := lipgloss.RoundedBorder()
-		_btnPad    := lipgloss.NewStyle().Padding(0, 0).Background(ColorBgSurface).BorderBackground(ColorBgSurface).Align(lipgloss.Center)
+		_btnPad := lipgloss.NewStyle().Padding(0, 0).Background(ColorBgSurface).BorderBackground(ColorBgSurface).Align(lipgloss.Center)
 
 		// BT01 - Primary
 		BtnPrimary = _btnPad.Copy().
@@ -461,27 +462,27 @@ func rebuildThemeComponents() {
 			Foreground(ColorAccentDark).Bold(true)
 
 		// Aliases de dashboard
-		BtnRestart  = BtnWarning
+		BtnRestart = BtnWarning
 		BtnShutdown = BtnDanger
 	}
 
 	// ═══════════════════════════════════════════════════════════════════════════
 	// MENÚ
 	// ═══════════════════════════════════════════════════════════════════════════
-	MenuItem         = lipgloss.NewStyle().Foreground(ColorMenuItemNormalFg)
-	MenuItemHover    = lipgloss.NewStyle().Foreground(ColorMenuItemNormalFg).Background(ColorMenuItemHoverBg)
-	MenuItemActive   = lipgloss.NewStyle().Foreground(ColorMenuItemActiveFg).Background(ColorMenuItemActiveBg).Bold(true)
+	MenuItem = lipgloss.NewStyle().Foreground(ColorMenuItemNormalFg)
+	MenuItemHover = lipgloss.NewStyle().Foreground(ColorMenuItemNormalFg).Background(ColorMenuItemHoverBg)
+	MenuItemActive = lipgloss.NewStyle().Foreground(ColorMenuItemActiveFg).Background(ColorMenuItemActiveBg).Bold(true)
 	MenuItemDisabled = lipgloss.NewStyle().Foreground(ColorMenuItemDisabledFg)
-	MenuSeparator    = lipgloss.NewStyle().Foreground(ColorDivider)
-	MenuGroupTitle   = lipgloss.NewStyle().Foreground(ColorTextMuted).Bold(true)
-	MenuIndicator    = lipgloss.NewStyle().Foreground(ColorMenuItemActiveIndicator)
+	MenuSeparator = lipgloss.NewStyle().Foreground(ColorDivider)
+	MenuGroupTitle = lipgloss.NewStyle().Foreground(ColorTextMuted).Bold(true)
+	MenuIndicator = lipgloss.NewStyle().Foreground(ColorMenuItemActiveIndicator)
 
 	// ═══════════════════════════════════════════════════════════════════════════
 	// TABS
 	// ═══════════════════════════════════════════════════════════════════════════
-	Tab         = lipgloss.NewStyle().Foreground(ColorTextSecondary)
-	TabActive   = lipgloss.NewStyle().Foreground(ColorTextPrimary).Bold(true).BorderBottom(true).BorderForeground(ColorAccent)
-	TabHover    = lipgloss.NewStyle().Foreground(ColorTextPrimary).Background(ColorBgSurfaceHover)
+	Tab = lipgloss.NewStyle().Foreground(ColorTextSecondary)
+	TabActive = lipgloss.NewStyle().Foreground(ColorTextPrimary).Bold(true).BorderBottom(true).BorderForeground(ColorAccent)
+	TabHover = lipgloss.NewStyle().Foreground(ColorTextPrimary).Background(ColorBgSurfaceHover)
 	TabDisabled = lipgloss.NewStyle().Foreground(ColorTextDisabled)
 
 	// ═══════════════════════════════════════════════════════════════════════════
@@ -493,32 +494,32 @@ func rebuildThemeComponents() {
 	// ═══════════════════════════════════════════════════════════════════════════
 	// PROGRESO
 	// ═══════════════════════════════════════════════════════════════════════════
-	ProgressFill          = lipgloss.NewStyle().Foreground(ColorProgressFill)
-	ProgressTrack         = lipgloss.NewStyle().Foreground(ColorProgressTrack)
+	ProgressFill = lipgloss.NewStyle().Foreground(ColorProgressFill)
+	ProgressTrack = lipgloss.NewStyle().Foreground(ColorProgressTrack)
 	ProgressIndeterminate = lipgloss.NewStyle().Foreground(ColorProgressIndeterminate) // v1.1
 
 	// ═══════════════════════════════════════════════════════════════════════════
 	// BADGES
 	// ═══════════════════════════════════════════════════════════════════════════
-	Badge        = lipgloss.NewStyle().Foreground(ColorAccentText).Background(ColorAccentSubtle).Padding(0, 1)
+	Badge = lipgloss.NewStyle().Foreground(ColorAccentText).Background(ColorAccentSubtle).Padding(0, 1)
 	BadgeCounter = lipgloss.NewStyle().Foreground(ColorTextHeading).Background(ColorStateErrFg).Bold(true).Padding(0, 1) // v1.1
-	BadgeDot     = lipgloss.NewStyle().Foreground(ColorAccentText)                                                        // v1.1
+	BadgeDot = lipgloss.NewStyle().Foreground(ColorAccentText)                                                           // v1.1
 
 	// ═══════════════════════════════════════════════════════════════════════════
 	// NOTIFICACIONES
 	// ═══════════════════════════════════════════════════════════════════════════
 	NotifySuccess = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(ColorStateOKBorder).Foreground(ColorStateOKFg).Background(ColorStateOKBg).Padding(0, 1)
 	NotifyWarning = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(ColorStateWarnBorder).Foreground(ColorStateWarnFg).Background(ColorStateWarnBg).Padding(0, 1)
-	NotifyError   = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(ColorStateErrBorder).Foreground(ColorStateErrFg).Background(ColorStateErrBg).Padding(0, 1)
-	NotifyInfo    = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(ColorStateInfoBorder).Foreground(ColorStateInfoFg).Background(ColorStateInfoBg).Padding(0, 1)
+	NotifyError = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(ColorStateErrBorder).Foreground(ColorStateErrFg).Background(ColorStateErrBg).Padding(0, 1)
+	NotifyInfo = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(ColorStateInfoBorder).Foreground(ColorStateInfoFg).Background(ColorStateInfoBg).Padding(0, 1)
 
 	// ═══════════════════════════════════════════════════════════════════════════
 	// STEPPER
 	// ═══════════════════════════════════════════════════════════════════════════
-	StepOK      = lipgloss.NewStyle().Foreground(ColorAccentText).Bold(true)
-	StepActive  = lipgloss.NewStyle().Foreground(ColorTextPrimary).Bold(true)
+	StepOK = lipgloss.NewStyle().Foreground(ColorAccentText).Bold(true)
+	StepActive = lipgloss.NewStyle().Foreground(ColorTextPrimary).Bold(true)
 	StepPending = lipgloss.NewStyle().Foreground(ColorTextDisabled)
-	StepFail    = lipgloss.NewStyle().Foreground(ColorStateErrFg).Bold(true) // v1.1
+	StepFail = lipgloss.NewStyle().Foreground(ColorStateErrFg).Bold(true) // v1.1
 
 	// ═══════════════════════════════════════════════════════════════════════════
 	// BARRA SUPERIOR / INFERIOR
@@ -526,42 +527,42 @@ func rebuildThemeComponents() {
 	// ═══════════════════════════════════════════════════════════════════════════
 	TopBar = lipgloss.NewStyle().Background(ColorBgBase).Foreground(ColorTextHeading).Bold(true).Padding(0, 1)
 	Footer = lipgloss.NewStyle().Background(ColorBgSurface).Foreground(ColorTextSecondary).Padding(0, 1)
-	Title  = lipgloss.NewStyle().Foreground(ColorTextHeading).Bold(true).Padding(0, 1)
+	Title = lipgloss.NewStyle().Foreground(ColorTextHeading).Bold(true).Padding(0, 1)
 
 	// ═══════════════════════════════════════════════════════════════════════════
 	// TABLAS
 	// ═══════════════════════════════════════════════════════════════════════════
-	TableHeader    = lipgloss.NewStyle().Foreground(ColorTextPrimary).Bold(true)
-	TableCell      = lipgloss.NewStyle().Foreground(ColorTextPrimary)
+	TableHeader = lipgloss.NewStyle().Foreground(ColorTextPrimary).Bold(true)
+	TableCell = lipgloss.NewStyle().Foreground(ColorTextPrimary)
 	TableCellMuted = lipgloss.NewStyle().Foreground(ColorTextSecondary)
 
 	// ═══════════════════════════════════════════════════════════════════════════
 	// ALIAS — Compatibilidad
 	// ═══════════════════════════════════════════════════════════════════════════
-	White             = Heading
-	Green             = AccentText
-	Cyan              = Accent
-	Red               = StatusErr
-	MenuItemFocused   = MenuItem
-	MenuItemNormal    = MenuItem
-	WizardMenuActive  = MenuItemActive
-	ListItemActive    = MenuItemActive
-	NotifyBarBg       = Panel
-	Rule              = Divider
-	SectionTitle      = Subtitle
-	Tooltip           = lipgloss.NewStyle().Foreground(ColorTextInverse).Background(ColorBgTooltip).Border(lipgloss.RoundedBorder()).BorderForeground(ColorBorder).Padding(0, 1)
-	BtnShutdown       = BtnDanger
-	BtnRestart        = BtnWarning
-	TopBarRestart     = lipgloss.NewStyle().Background(ColorRestartBg).Foreground(ColorRestartFg).Bold(true).Padding(0, 1)
-	TopBarCritical    = lipgloss.NewStyle().Background(ColorCriticalBg).Foreground(ColorCriticalFg).Bold(true).Padding(0, 1)
-	TopBarGoodbye     = lipgloss.NewStyle().Background(ColorGoodbyeBg).Foreground(ColorGoodbyeFg).Bold(true).Padding(0, 1)
-	MetricOK          = AccentText
-	MetricTX          = AccentText
-	CountErr          = StatusErr
-	BadgeAccent       = Badge
-	BadgeSubtle       = Badge
-	BadgeMuted        = Badge
-	ErrorBanner       = NotifyError
-	CriticalText      = StatusCrit
-	Disabled          = lipgloss.NewStyle().Foreground(ColorStateOffFg)
+	White = Heading
+	Green = AccentText
+	Cyan = Accent
+	Red = StatusErr
+	MenuItemFocused = MenuItem
+	MenuItemNormal = MenuItem
+	WizardMenuActive = MenuItemActive
+	ListItemActive = MenuItemActive
+	NotifyBarBg = Panel
+	Rule = Divider
+	SectionTitle = Subtitle
+	Tooltip = lipgloss.NewStyle().Foreground(ColorTextInverse).Background(ColorBgTooltip).Border(lipgloss.RoundedBorder()).BorderForeground(ColorBorder).Padding(0, 1)
+	BtnShutdown = BtnDanger
+	BtnRestart = BtnWarning
+	TopBarRestart = lipgloss.NewStyle().Background(ColorRestartBg).Foreground(ColorRestartFg).Bold(true).Padding(0, 1)
+	TopBarCritical = lipgloss.NewStyle().Background(ColorCriticalBg).Foreground(ColorCriticalFg).Bold(true).Padding(0, 1)
+	TopBarGoodbye = lipgloss.NewStyle().Background(ColorGoodbyeBg).Foreground(ColorGoodbyeFg).Bold(true).Padding(0, 1)
+	MetricOK = AccentText
+	MetricTX = AccentText
+	CountErr = StatusErr
+	BadgeAccent = Badge
+	BadgeSubtle = Badge
+	BadgeMuted = Badge
+	ErrorBanner = NotifyError
+	CriticalText = StatusCrit
+	Disabled = lipgloss.NewStyle().Foreground(ColorStateOffFg)
 }

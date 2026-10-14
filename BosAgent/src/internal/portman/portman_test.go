@@ -76,10 +76,10 @@ func TestIsReserved(t *testing.T) {
 		port     int
 		expected bool
 	}{
-		{80, true},    // IANA well-known
-		{443, true},   // IANA well-known
-		{9400, true},  // bos-daemon-rpc SBOS-050
-		{5432, true},  // postgresql
+		{80, true},     // IANA well-known
+		{443, true},    // IANA well-known
+		{9400, true},   // bos-daemon-rpc SBOS-050
+		{5432, true},   // postgresql
 		{20000, false}, // libre (base S00 sin ficha aún)
 		{25000, false}, // libre
 	}

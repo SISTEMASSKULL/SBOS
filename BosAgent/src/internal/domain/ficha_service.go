@@ -56,7 +56,7 @@ type FichaService struct {
 	installer InstallerPort
 	state     StatePort
 	catalog   CatalogPort
-	portman   PortAssignerPort  // nil-safe — si nil, registro de puertos desactivado
+	portman   PortAssignerPort   // nil-safe — si nil, registro de puertos desactivado
 	events    EventPublisherPort // nil-safe — si nil, publicación de eventos desactivada
 }
 
@@ -304,10 +304,10 @@ func (svc *FichaService) List() []FichaDetail {
 		// Enriquecer con estado real si el state manager lo conoce.
 		if st != nil {
 			if f, ok := st.Fichas[m.ID]; ok {
-				detail.State       = string(f.State)
-				detail.Health      = f.HealthStatus
+				detail.State = string(f.State)
+				detail.Health = f.HealthStatus
 				detail.InstalledAt = f.InstalledAt
-				detail.UpdatedAt   = f.UpdatedAt
+				detail.UpdatedAt = f.UpdatedAt
 			}
 		}
 		result = append(result, detail)

@@ -45,7 +45,7 @@ func Calculate(e Estimate) Requirements {
 
 	// ── Infraestructura fija (independiente del número de tenants) ─────────────
 	const (
-		k8sMB    = 2048 // control plane: API server + etcd + scheduler + controller-manager
+		k8sMB     = 2048 // control plane: API server + etcd + scheduler + controller-manager
 		daemonsMB = 2560 // bKernel + biedata + bAuth + bSearch + bnotify
 		bosMB     = 256  // daemon BOS
 		vaultMB   = 512
@@ -60,7 +60,7 @@ func Calculate(e Estimate) Requirements {
 	// PostgreSQL WAL: 1 GB por defecto + crecimiento proporcional
 	pgWALGB := max(1+pgDataGB/10, 5)
 	redisDiskGB := max(ceilGB(float64(redisTotalMB)/512), 2)
-	logDiskGB := 20 + int(float64(concurrent)*0.001) // 1 GB por cada 1000 concurrentes
+	logDiskGB := 20 + int(float64(concurrent)*0.001)                    // 1 GB por cada 1000 concurrentes
 	diskMinGB := 60 + pgDataGB + pgWALGB + redisDiskGB + logDiskGB + 30 // +30 buffer crecimiento
 	diskRecGB := diskMinGB * 2
 

@@ -29,31 +29,31 @@ import (
 
 // DashboardDef define el esquema mínimo de un dashboard Grafana por ficha.
 type DashboardDef struct {
-	Title       string            `json:"title"`       // "PostgreSQL — SBOS"
-	Description string            `json:"description"` // "Métricas de PostgreSQL 18.4"
-	Panels      []DashboardPanel  `json:"panels"`
-	Tags        []string          `json:"tags,omitempty"`        // ["sbos", "postgresql", "database"]
-	Refresh     string            `json:"refresh,omitempty"`     // "30s", "1m"
-	SchemaVersion int             `json:"schemaVersion"`         // 16 (Grafana 11+)
-	Variables   []DashboardVariable `json:"variables,omitempty"` // variables de filtro
+	Title         string              `json:"title"`       // "PostgreSQL — SBOS"
+	Description   string              `json:"description"` // "Métricas de PostgreSQL 18.4"
+	Panels        []DashboardPanel    `json:"panels"`
+	Tags          []string            `json:"tags,omitempty"`      // ["sbos", "postgresql", "database"]
+	Refresh       string              `json:"refresh,omitempty"`   // "30s", "1m"
+	SchemaVersion int                 `json:"schemaVersion"`       // 16 (Grafana 11+)
+	Variables     []DashboardVariable `json:"variables,omitempty"` // variables de filtro
 }
 
 // DashboardPanel representa un panel individual dentro del dashboard.
 type DashboardPanel struct {
-	ID          int      `json:"id"`
-	Title       string   `json:"title"`
-	Type        string   `json:"type"`        // "stat", "graph", "gauge", "table", "heatmap"
-	Description string   `json:"description,omitempty"`
-	Targets     []PanelTarget `json:"targets"`
-	GridPos     PanelGridPos  `json:"gridPos"`
+	ID          int               `json:"id"`
+	Title       string            `json:"title"`
+	Type        string            `json:"type"` // "stat", "graph", "gauge", "table", "heatmap"
+	Description string            `json:"description,omitempty"`
+	Targets     []PanelTarget     `json:"targets"`
+	GridPos     PanelGridPos      `json:"gridPos"`
 	FieldConfig *PanelFieldConfig `json:"fieldConfig,omitempty"`
 }
 
 // PanelTarget define una consulta de datos para un panel (PromQL).
 type PanelTarget struct {
-	Expr         string `json:"expr"`         // PromQL: "bos_ficha_health{id=\"postgresql\"}"
+	Expr         string `json:"expr"` // PromQL: "bos_ficha_health{id=\"postgresql\"}"
 	LegendFormat string `json:"legendFormat,omitempty"`
-	RefID        string `json:"refId"`        // "A", "B", "C"
+	RefID        string `json:"refId"` // "A", "B", "C"
 }
 
 // PanelGridPos define la posición del panel en la cuadrícula.
@@ -66,15 +66,15 @@ type PanelGridPos struct {
 
 // PanelFieldConfig define la configuración visual de un panel.
 type PanelFieldConfig struct {
-	Unit  string            `json:"unit,omitempty"`  // "percent", "bytes", "s"
-	Min   *float64          `json:"min,omitempty"`
-	Max   *float64          `json:"max,omitempty"`
+	Unit       string           `json:"unit,omitempty"` // "percent", "bytes", "s"
+	Min        *float64         `json:"min,omitempty"`
+	Max        *float64         `json:"max,omitempty"`
 	Thresholds *PanelThresholds `json:"thresholds,omitempty"`
 }
 
 // PanelThresholds define umbrales de color (verde/amarillo/rojo).
 type PanelThresholds struct {
-	Mode  string    `json:"mode"`  // "absolute"
+	Mode  string          `json:"mode"` // "absolute"
 	Steps []ThresholdStep `json:"steps"`
 }
 
@@ -200,43 +200,43 @@ func GenerateDefaultDashboard(fichaID, description string) *DashboardDef {
 func defaultPanels(fichaID string) []DashboardPanel {
 	return []DashboardPanel{
 		{
-			ID:    1,
-			Title: "Health",
-			Type:  "stat",
+			ID:          1,
+			Title:       "Health",
+			Type:        "stat",
 			Description: "Estado de salud del pod",
-			GridPos: PanelGridPos{X: 0, Y: 0, W: 6, H: 4},
+			GridPos:     PanelGridPos{X: 0, Y: 0, W: 6, H: 4},
 			Targets: []PanelTarget{
 				{Expr: fmt.Sprintf("bos_ficha_health{id=\"%s\"}", fichaID), RefID: "A"},
 			},
 		},
 		{
-			ID:    2,
-			Title: "Recursos",
-			Type:  "graph",
+			ID:          2,
+			Title:       "Recursos",
+			Type:        "graph",
 			Description: "CPU, memoria y disco",
-			GridPos: PanelGridPos{X: 6, Y: 0, W: 12, H: 8},
+			GridPos:     PanelGridPos{X: 6, Y: 0, W: 12, H: 8},
 			Targets: []PanelTarget{
 				{Expr: fmt.Sprintf("bos_ficha_cpu_usage{id=\"%s\"}", fichaID), LegendFormat: "CPU", RefID: "A"},
 				{Expr: fmt.Sprintf("bos_ficha_mem_usage{id=\"%s\"}", fichaID), LegendFormat: "RAM", RefID: "B"},
 			},
 		},
 		{
-			ID:    3,
-			Title: "Tráfico",
-			Type:  "graph",
+			ID:          3,
+			Title:       "Tráfico",
+			Type:        "graph",
 			Description: "Requests por segundo y latencia",
-			GridPos: PanelGridPos{X: 0, Y: 4, W: 12, H: 8},
+			GridPos:     PanelGridPos{X: 0, Y: 4, W: 12, H: 8},
 			Targets: []PanelTarget{
 				{Expr: fmt.Sprintf("rate(bos_ficha_requests_total{id=\"%s\"}[5m])", fichaID), LegendFormat: "RPS", RefID: "A"},
 				{Expr: fmt.Sprintf("histogram_quantile(0.99, bos_ficha_latency{id=\"%s\"})", fichaID), LegendFormat: "P99", RefID: "B"},
 			},
 		},
 		{
-			ID:    4,
-			Title: "Errores",
-			Type:  "stat",
+			ID:          4,
+			Title:       "Errores",
+			Type:        "stat",
 			Description: "Tasa de error y últimos errores",
-			GridPos: PanelGridPos{X: 18, Y: 0, W: 6, H: 4},
+			GridPos:     PanelGridPos{X: 18, Y: 0, W: 6, H: 4},
 			Targets: []PanelTarget{
 				{Expr: fmt.Sprintf("rate(bos_ficha_errors_total{id=\"%s\"}[5m])", fichaID), RefID: "A"},
 			},

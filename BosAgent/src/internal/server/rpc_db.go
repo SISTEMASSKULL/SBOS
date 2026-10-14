@@ -2,8 +2,9 @@
 //
 // BC-07: DbInitService — inicialización automática de SBOS_db (C-04b).
 // Métodos:
-//   bos.db.init   — aplicar DDLs + seeds a SBOS_db
-//   bos.db.status — consultar estado de inicialización y conteos de tablas
+//
+//	bos.db.init   — aplicar DDLs + seeds a SBOS_db
+//	bos.db.status — consultar estado de inicialización y conteos de tablas
 //
 // Principio P3: los handlers son adaptadores delgados — toda la lógica
 // vive en domain.DbInitService.
@@ -37,7 +38,8 @@ func (s *Server) dbInitSvc() *domain.DbInitService {
 // Si BOS_PG_DSN está definido, crea un PgExecAdapter real en el primer llamado.
 //
 // Params:
-//   ctx_id string — contexto de auditoría (SBOS-049)
+//
+//	ctx_id string — contexto de auditoría (SBOS-049)
 //
 // Returns: DBInitStatus { initialized, phase, schemas, seeds_applied, finished_at }
 func (s *Server) rpcDBInit(req *RPCRequest) RPCResponse {
@@ -84,8 +86,9 @@ func (s *Server) rpcDBStatus(req *RPCRequest) RPCResponse {
 // rutas canónicas de DDL derivadas de la ubicación del binario.
 //
 // Rutas canónicas:
-//   ddlDir  = BOS_DDL_DIR (env) o /opt/skull/orquestador/proyectos/SBOS/DDLs/
-//   seedDir = BOS_SEED_DIR (env) o /opt/skull/orquestador/proyectos/SBOS/DDLs/seeds/
+//
+//	ddlDir  = BOS_DDL_DIR (env) o /opt/skull/orquestador/proyectos/SBOS/DDLs/
+//	seedDir = BOS_SEED_DIR (env) o /opt/skull/orquestador/proyectos/SBOS/DDLs/seeds/
 func (s *Server) initRealDBAdapter(dsn string) error {
 	adapter, err := domain.NewPgExecAdapter(dsn)
 	if err != nil {

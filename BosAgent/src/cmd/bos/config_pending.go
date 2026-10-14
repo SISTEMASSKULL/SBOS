@@ -9,8 +9,8 @@ import (
 
 	"bos/internal/audit"
 	"bos/internal/config"
-	"bos/internal/server"
 	"bos/internal/paths"
+	"bos/internal/server"
 
 	"github.com/rs/zerolog/log"
 )

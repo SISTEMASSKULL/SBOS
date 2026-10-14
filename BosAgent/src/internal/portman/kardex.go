@@ -16,23 +16,23 @@ import (
 
 // KardexRow es la representación en memoria de una fila de bos.prt_port_assignment.
 type KardexRow struct {
-	PortID         string
-	ServiceName    string
-	Port           int
-	Transport      string
-	PortType       string
-	LogicalServer  string
-	Namespace      string
-	FichaID        string
-	AssignedBy     string
-	Description    string
-	DocReference   string
-	Status         string
-	Algorithm      string
-	AssignedAt     time.Time
-	ReleasedAt     *time.Time
+	PortID          string
+	ServiceName     string
+	Port            int
+	Transport       string
+	PortType        string
+	LogicalServer   string
+	Namespace       string
+	FichaID         string
+	AssignedBy      string
+	Description     string
+	DocReference    string
+	Status          string
+	Algorithm       string
+	AssignedAt      time.Time
+	ReleasedAt      *time.Time
 	LastValidatedAt *time.Time
-	CtxID          string
+	CtxID           string
 }
 
 // KardexPort define las operaciones del Kardex que el motor necesita.

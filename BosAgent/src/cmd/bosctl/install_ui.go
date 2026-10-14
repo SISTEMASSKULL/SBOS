@@ -65,7 +65,7 @@ func cmdSetup(args []string) int {
 		if err := os.Remove(paths.StatePath); err != nil && !os.IsNotExist(err) {
 			fmt.Fprintf(os.Stderr, "advertencia: no se pudo limpiar state file: %v\n", err)
 		}
-		fmt.Println("   Estado limpiado — procediendo con instalación limpia.\n")
+		fmt.Println("   Estado limpiado — procediendo con instalación limpia.")
 	}
 
 	// Verificar que el daemon RESPONDE, no solo que el socket existe como archivo.

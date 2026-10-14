@@ -5,8 +5,8 @@ package app_test
 import (
 	"testing"
 
-	"github.com/charmbracelet/huh"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/huh"
 )
 
 // TestHuh_FormInitUpdateView verifica el ciclo de vida básico de huh.Form

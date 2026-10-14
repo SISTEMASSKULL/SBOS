@@ -22,7 +22,7 @@ const (
 type ContextState int
 
 const (
-	StatePending  ContextState = iota // registrado, aún no validado
+	StatePending    ContextState = iota // registrado, aún no validado
 	StateActivo                         // validado, operativo
 	StateSuspendido                     // suspendido por admin (tenant o usuario)
 	StateBloqueado                      // bloqueado por política de seguridad

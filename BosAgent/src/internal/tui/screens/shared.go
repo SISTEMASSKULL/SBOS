@@ -3,8 +3,6 @@
 // Migrado de cmd/bosctl/install_ui_impl.go en F3.13 (BOS-REPAIR).
 package screens
 
-
-
 import (
 	"strings"
 	"time"
@@ -96,22 +94,22 @@ func RenderStepper(m tuimodel.Model) string {
 // Termina con una línea separadora ─────.
 func RenderHeader(m tuimodel.Model) string {
 	titles := map[tuimodel.Screen]string{
-		tuimodel.ScreenWelcome:     "",
-		tuimodel.ScreenWizardP1:    "Bienvenida",
-		tuimodel.ScreenWizardP2:    "Datos de la Empresa",
-		tuimodel.ScreenWizardP3:      "Cuenta de Administrador",
+		tuimodel.ScreenWelcome:        "",
+		tuimodel.ScreenWizardP1:       "Bienvenida",
+		tuimodel.ScreenWizardP2:       "Datos de la Empresa",
+		tuimodel.ScreenWizardP3:       "Cuenta de Administrador",
 		tuimodel.ScreenWizardCapacity: "Estimados de Capacidad",
 		tuimodel.ScreenWizardP4:       "Confirmar instalación",
-		tuimodel.ScreenInstalling:  "Instalando SBOS...",
-		tuimodel.ScreenInstallLog:  "Log completo",
-		tuimodel.ScreenInstallErr:  "Error de instalación",
-		tuimodel.ScreenInstallDone: "Instalación completada ✓",
-		tuimodel.ScreenReboot:      "Reiniciando sistema...",
-		tuimodel.ScreenBoot:        "Iniciando SBOS",
-		tuimodel.ScreenDashboard:   "Dashboard bos",
-		tuimodel.ScreenLogs:        "Logs del sistema",
-		tuimodel.ScreenShutdown:    "Apagando SBOS",
-		tuimodel.ScreenGoodbye:     "",
+		tuimodel.ScreenInstalling:     "Instalando SBOS...",
+		tuimodel.ScreenInstallLog:     "Log completo",
+		tuimodel.ScreenInstallErr:     "Error de instalación",
+		tuimodel.ScreenInstallDone:    "Instalación completada ✓",
+		tuimodel.ScreenReboot:         "Reiniciando sistema...",
+		tuimodel.ScreenBoot:           "Iniciando SBOS",
+		tuimodel.ScreenDashboard:      "Dashboard bos",
+		tuimodel.ScreenLogs:           "Logs del sistema",
+		tuimodel.ScreenShutdown:       "Apagando SBOS",
+		tuimodel.ScreenGoodbye:        "",
 	}
 	brand := "SBOS — Sistema Operativo Empresarial Soberano"
 	if m.Width < 60 {
@@ -274,4 +272,3 @@ func assembleScreen(m tuimodel.Model, body string) string {
 	bottom := styles.JoinV(styles.PosLeft, sep, footer)
 	return styles.JoinV(styles.PosLeft, header, body, bottom)
 }
-

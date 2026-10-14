@@ -58,10 +58,10 @@ func TestStatusCollector_DegradedHealth(t *testing.T) {
 	collector := NewStatusCollector(healthTracker, nil, nil)
 
 	input := StatusInput{
-		ID:             "redis",
-		State:          "INSTALLED",
-		Criticality:    true,
-		HealthType:     "command",
+		ID:          "redis",
+		State:       "INSTALLED",
+		Criticality: true,
+		HealthType:  "command",
 	}
 
 	detail := collector.Collect(input)
@@ -162,12 +162,12 @@ func TestStatusCollector_CollectAll(t *testing.T) {
 
 func TestFichaStatusDetail_TableRow(t *testing.T) {
 	detail := FichaStatusDetail{
-		ID:            "postgresql",
-		State:         "INSTALLED",
-		Version:       "18.4.0",
-		HealthStatus:  "healthy",
-		HasDrift:      false,
-		Policy:        "block_and_alert",
+		ID:           "postgresql",
+		State:        "INSTALLED",
+		Version:      "18.4.0",
+		HealthStatus: "healthy",
+		HasDrift:     false,
+		Policy:       "block_and_alert",
 	}
 
 	row := detail.TableRow()

@@ -28,32 +28,32 @@ import (
 
 // NetPolRule define una regla de ingress o egress en una NetworkPolicy.
 type NetPolRule struct {
-	Description string   // descripción legible
-	From        string   // origen del tráfico (namespace o label)
-	To          string   // destino del tráfico (namespace o label)
-	Ports       []int    // puertos permitidos
-	Protocol    string   // TCP, UDP (default: TCP)
+	Description string // descripción legible
+	From        string // origen del tráfico (namespace o label)
+	To          string // destino del tráfico (namespace o label)
+	Ports       []int  // puertos permitidos
+	Protocol    string // TCP, UDP (default: TCP)
 }
 
 // NetPolSpec contiene la especificación completa para generar una NetworkPolicy.
 type NetPolSpec struct {
-	FichaID      string        // ID de la ficha
-	Namespace    string        // namespace K8s (ej: "sbos-data")
-	WorkloadType string        // Deployment, StatefulSet, DaemonSet, bash
-	Ports        []int         // puertos que expone la ficha
-	NeedsDB      bool          // ¿necesita acceso a PostgreSQL?
-	NeedsCache   bool          // ¿necesita acceso a Redis?
-	NeedsSecrets bool          // ¿necesita acceso a Vault?
-	IngressRules []NetPolRule  // reglas de entrada adicionales
-	EgressRules  []NetPolRule  // reglas de salida adicionales
+	FichaID      string       // ID de la ficha
+	Namespace    string       // namespace K8s (ej: "sbos-data")
+	WorkloadType string       // Deployment, StatefulSet, DaemonSet, bash
+	Ports        []int        // puertos que expone la ficha
+	NeedsDB      bool         // ¿necesita acceso a PostgreSQL?
+	NeedsCache   bool         // ¿necesita acceso a Redis?
+	NeedsSecrets bool         // ¿necesita acceso a Vault?
+	IngressRules []NetPolRule // reglas de entrada adicionales
+	EgressRules  []NetPolRule // reglas de salida adicionales
 }
 
 // NetPolTemplate contiene una NetworkPolicy generada lista para serializar.
 type NetPolTemplate struct {
-	APIVersion string              `yaml:"apiVersion"`
-	Kind       string              `yaml:"kind"`
-	Metadata   NetPolMetadata      `yaml:"metadata"`
-	Spec       NetPolSpecYAML      `yaml:"spec"`
+	APIVersion string         `yaml:"apiVersion"`
+	Kind       string         `yaml:"kind"`
+	Metadata   NetPolMetadata `yaml:"metadata"`
+	Spec       NetPolSpecYAML `yaml:"spec"`
 }
 
 // NetPolMetadata contiene los metadatos de la NetworkPolicy.
@@ -136,10 +136,10 @@ func (g *NetworkPolicyGenerator) Generate(spec NetPolSpec) (*NetPolTemplate, err
 			Name:      fmt.Sprintf("%s-netpol", spec.FichaID),
 			Namespace: spec.Namespace,
 			Labels: map[string]string{
-				"app":            spec.FichaID,
-				"bos-ficha":      spec.FichaID,
-				"generated-by":   "bos",
-				"bos-managed":    "true",
+				"app":          spec.FichaID,
+				"bos-ficha":    spec.FichaID,
+				"generated-by": "bos",
+				"bos-managed":  "true",
 			},
 		},
 		Spec: NetPolSpecYAML{
@@ -284,9 +284,9 @@ func DefaultSpecFor(fichaID, namespace, workloadType string) NetPolSpec {
 
 	switch workloadType {
 	case "StatefulSet":
-		spec.NeedsDB = true       // StatefulSets casi siempre necesitan BD
-		spec.NeedsCache = true    // y caché
-		spec.NeedsSecrets = true  // y secretos
+		spec.NeedsDB = true      // StatefulSets casi siempre necesitan BD
+		spec.NeedsCache = true   // y caché
+		spec.NeedsSecrets = true // y secretos
 		spec.Ports = []int{5432} // puerto por defecto
 	case "Deployment":
 		spec.NeedsDB = true

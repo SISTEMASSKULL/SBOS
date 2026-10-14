@@ -29,9 +29,9 @@ import (
 // CleanupStep representa un paso individual del proceso de limpieza.
 // Cada paso identifica el recurso a limpiar y su estado de ejecución.
 type CleanupStep struct {
-	Name     string `json:"name"`               // nombre canónico del paso
-	Resource string `json:"resource"`           // qué se está limpiando
-	Status   string `json:"status"`             // "pending", "running", "ok", "fail", "skip"
+	Name     string `json:"name"`     // nombre canónico del paso
+	Resource string `json:"resource"` // qué se está limpiando
+	Status   string `json:"status"`   // "pending", "running", "ok", "fail", "skip"
 }
 
 // CleanupResult contiene el resultado completo de una operación de limpieza.

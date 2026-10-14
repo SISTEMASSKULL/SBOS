@@ -119,4 +119,3 @@ func (s *Server) tenantContextoSource(tenantID string) query.Source {
 		}, nil
 	}
 }
-

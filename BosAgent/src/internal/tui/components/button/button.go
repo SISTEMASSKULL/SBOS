@@ -672,13 +672,17 @@ func (g ButtonGroup) View() string {
 		// Calcular ancho total de esta fila para saber si sobra espacio
 		rowWidth := 0
 		for i, cell := range row {
-			if i > 0 { rowWidth += g.Gap }
+			if i > 0 {
+				rowWidth += g.Gap
+			}
 			rowWidth += lipgloss.Width(cell)
 		}
 
 		var withGaps []string
 		for i, cell := range row {
-			if i > 0 { withGaps = append(withGaps, gapSpacer) }
+			if i > 0 {
+				withGaps = append(withGaps, gapSpacer)
+			}
 			withGaps = append(withGaps, cell)
 		}
 		// Rellenar el hueco sobrante al final de la fila con fondo del panel.
@@ -701,10 +705,16 @@ var hSpacerCache = map[int]string{}
 // Necesita 3 lineas para que JoinHorizontal no deje huecos sin fondo en las
 // lineas 2 y 3 de los botones adyacentes.
 func hSpacer(width int) string {
-	if width <= 0 { return "" }
-	if s, ok := hSpacerCache[width]; ok { return s }
+	if width <= 0 {
+		return ""
+	}
+	if s, ok := hSpacerCache[width]; ok {
+		return s
+	}
 	buf := make([]byte, width)
-	for i := range buf { buf[i] = ' ' }
+	for i := range buf {
+		buf[i] = ' '
+	}
 	line := string(buf)
 	s := styles.BtnSpacer.Render(line + "\n" + line + "\n" + line)
 	hSpacerCache[width] = s

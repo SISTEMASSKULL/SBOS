@@ -21,7 +21,7 @@ func TestPhaseOrder(t *testing.T) {
 
 func TestDefaultPhaseConfigs(t *testing.T) {
 	tests := []struct {
-		workload     string
+		workload      string
 		expectInstall time.Duration
 	}{
 		{"StatefulSet", 10 * time.Minute},

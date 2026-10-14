@@ -4,14 +4,15 @@
 // Ningún hex literal debe aparecer fuera de este archivo.
 //
 // ORGANIZACIÓN:
-//   1. Paletas estándar completas (50–950)  — los 100% compatibles con Tailwind
-//   2. Paletas SBOS extendidas              — custom para el sistema de diseño del proyecto
-//   3. Aliases de migración                 — nombres heredados del código anterior
+//  1. Paletas estándar completas (50–950)  — los 100% compatibles con Tailwind
+//  2. Paletas SBOS extendidas              — custom para el sistema de diseño del proyecto
+//  3. Aliases de migración                 — nombres heredados del código anterior
 //
 // CONVENCIÓN:
-//   PrimXxx{N}    → paso estándar de la paleta (50–950)
-//   PrimXxxBrand  → tono custom SBOS que no cae en paso estándar
-//   HexXxx        → alias de compatibilidad (no usar en código nuevo)
+//
+//	PrimXxx{N}    → paso estándar de la paleta (50–950)
+//	PrimXxxBrand  → tono custom SBOS que no cae en paso estándar
+//	HexXxx        → alias de compatibilidad (no usar en código nuevo)
 package styles
 
 const (

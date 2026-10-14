@@ -13,7 +13,7 @@ import "fmt"
 // Estimate contiene los parámetros de capacidad declarados por el operador
 // durante la instalación. Se persiste en /etc/bos/capacity.yaml.
 type Estimate struct {
-	Tenants            int `yaml:"tenants"`             // número de tenants
+	Tenants            int `yaml:"tenants"`              // número de tenants
 	CompaniesPerTenant int `yaml:"companies_per_tenant"` // empresas por tenant
 	BranchesPerCompany int `yaml:"branches_per_company"` // sucursales por empresa
 	UsersPerBranch     int `yaml:"users_per_branch"`     // usuarios por sucursal

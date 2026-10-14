@@ -10,23 +10,23 @@ import "fmt"
 type Screen int
 
 const (
-	ScreenWelcome          Screen = iota // P0  — splash bienvenida
-	ScreenWizardP1                       // P1  — bienvenida instalador
-	ScreenWizardP2                       // P2  — datos empresa (tenant)
-	ScreenWizardP3                       // P3  — cuenta admin
-	ScreenWizardCapacity                 // P3B — estimados de capacidad (tenants, empresas, sucursales, usuarios)
-	ScreenWizardP4                       // P4  — confirmar instalación
-	ScreenInstalling                     // P5  — instalación en progreso
-	ScreenInstallLog                // P5B — log completo
-	ScreenInstallErr                // P5C — panel de error
-	ScreenInstallDone               // P6  — instalación completada
-	ScreenReboot                    // P7  — reinicio post-instalación
-	ScreenBoot                      // P8  — arranque bos
-	ScreenDashboard                 // P9  — dashboard permanente
-	ScreenLogs                      // P10 — logs puros
-	ScreenShutdown                  // P11 — apagado/reinicio
-	ScreenAuthLogin                 // P12 — login antes del dashboard
-	ScreenAuthConfirm               // P13 — step-up LoA 3 para acciones destructivas
+	ScreenWelcome        Screen = iota // P0  — splash bienvenida
+	ScreenWizardP1                     // P1  — bienvenida instalador
+	ScreenWizardP2                     // P2  — datos empresa (tenant)
+	ScreenWizardP3                     // P3  — cuenta admin
+	ScreenWizardCapacity               // P3B — estimados de capacidad (tenants, empresas, sucursales, usuarios)
+	ScreenWizardP4                     // P4  — confirmar instalación
+	ScreenInstalling                   // P5  — instalación en progreso
+	ScreenInstallLog                   // P5B — log completo
+	ScreenInstallErr                   // P5C — panel de error
+	ScreenInstallDone                  // P6  — instalación completada
+	ScreenReboot                       // P7  — reinicio post-instalación
+	ScreenBoot                         // P8  — arranque bos
+	ScreenDashboard                    // P9  — dashboard permanente
+	ScreenLogs                         // P10 — logs puros
+	ScreenShutdown                     // P11 — apagado/reinicio
+	ScreenAuthLogin                    // P12 — login antes del dashboard
+	ScreenAuthConfirm                  // P13 — step-up LoA 3 para acciones destructivas
 
 	ScreenGoodbye // P14 — splash despedida
 )
@@ -34,25 +34,44 @@ const (
 // String retorna el nombre legible de la pantalla — usado en tuilog.
 func (s Screen) String() string {
 	switch s {
-	case ScreenWelcome:        return "Welcome"
-	case ScreenWizardP1:       return "WizardP1"
-	case ScreenWizardP2:       return "WizardP2"
-	case ScreenWizardP3:       return "WizardP3"
-	case ScreenWizardCapacity: return "WizardCapacity"
-	case ScreenWizardP4:       return "WizardP4"
-	case ScreenInstalling:     return "Installing"
-	case ScreenInstallLog:     return "InstallLog"
-	case ScreenInstallErr:     return "InstallErr"
-	case ScreenInstallDone:    return "InstallDone"
-	case ScreenReboot:         return "Reboot"
-	case ScreenBoot:           return "Boot"
-	case ScreenDashboard:      return "Dashboard"
-	case ScreenLogs:           return "Logs"
-	case ScreenShutdown:       return "Shutdown"
-	case ScreenAuthLogin:      return "AuthLogin"
-	case ScreenAuthConfirm:    return "AuthConfirm"
-	case ScreenGoodbye:        return "Goodbye"
-	default:                   return fmt.Sprintf("Screen(%d)", int(s))
+	case ScreenWelcome:
+		return "Welcome"
+	case ScreenWizardP1:
+		return "WizardP1"
+	case ScreenWizardP2:
+		return "WizardP2"
+	case ScreenWizardP3:
+		return "WizardP3"
+	case ScreenWizardCapacity:
+		return "WizardCapacity"
+	case ScreenWizardP4:
+		return "WizardP4"
+	case ScreenInstalling:
+		return "Installing"
+	case ScreenInstallLog:
+		return "InstallLog"
+	case ScreenInstallErr:
+		return "InstallErr"
+	case ScreenInstallDone:
+		return "InstallDone"
+	case ScreenReboot:
+		return "Reboot"
+	case ScreenBoot:
+		return "Boot"
+	case ScreenDashboard:
+		return "Dashboard"
+	case ScreenLogs:
+		return "Logs"
+	case ScreenShutdown:
+		return "Shutdown"
+	case ScreenAuthLogin:
+		return "AuthLogin"
+	case ScreenAuthConfirm:
+		return "AuthConfirm"
+	case ScreenGoodbye:
+		return "Goodbye"
+	default:
+		return fmt.Sprintf("Screen(%d)", int(s))
 	}
 }
 

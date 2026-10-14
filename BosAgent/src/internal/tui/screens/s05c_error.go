@@ -43,10 +43,10 @@ func buildErrBody(m tuimodel.Model) string {
 		"Cancelar instalación",
 	}
 	errStyles := []styles.Style{
-		styles.AccentBold,  // Reintentar ficha
-		styles.Muted,       // Saltar ficha
-		styles.Dim,         // Ver log completo
-		styles.Error,       // Cancelar instalación
+		styles.AccentBold, // Reintentar ficha
+		styles.Muted,      // Saltar ficha
+		styles.Dim,        // Ver log completo
+		styles.Error,      // Cancelar instalación
 	}
 	var menuLines []string
 	for i, opt := range errOpts {

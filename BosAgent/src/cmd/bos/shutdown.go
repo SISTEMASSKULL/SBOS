@@ -16,11 +16,11 @@ import (
 	"bos/internal/audit"
 	"bos/internal/health"
 	"bos/internal/installer"
+	"bos/internal/paths"
 	"bos/internal/reconcile"
 	"bos/internal/server"
 	"bos/internal/system"
 	"bos/internal/watchdog"
-	"bos/internal/paths"
 
 	"github.com/rs/zerolog/log"
 )

@@ -58,9 +58,9 @@ type Scheduler struct {
 	autoRepair   bool
 	stopCh       chan struct{}
 	running      bool
-	k8sDiscovery *K8sDiscovery  // nil si K8s no está disponible
+	k8sDiscovery *K8sDiscovery   // nil si K8s no está disponible
 	portman      KardexValidator // nil-safe — si nil, ValidateKardex se omite
-	portmanEvery time.Duration  // frecuencia de validación del Kardex (default: 300s)
+	portmanEvery time.Duration   // frecuencia de validación del Kardex (default: 300s)
 }
 
 // NewScheduler crea un planificador de reconciliación.

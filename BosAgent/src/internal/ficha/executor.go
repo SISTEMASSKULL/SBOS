@@ -64,9 +64,9 @@ const (
 
 // PhaseConfig define la configuración de ejecución de una fase.
 type PhaseConfig struct {
-	Phase    Phase
-	Timeout  time.Duration
-	OnFail   OnFailure
+	Phase   Phase
+	Timeout time.Duration
+	OnFail  OnFailure
 }
 
 // DefaultPhaseConfigs retorna la configuración por defecto para las 5 fases.
@@ -108,13 +108,13 @@ func defaultPhaseTimeouts(workloadType string) phaseTimeouts {
 
 // PhaseResult contiene el resultado de ejecutar una fase.
 type PhaseResult struct {
-	Phase      Phase         `json:"phase"`
-	Status     string        `json:"status"` // "ok", "fail", "skip", "timeout"
-	Duration   time.Duration `json:"duration"`
-	Output     string        `json:"output"`
-	Error      string        `json:"error,omitempty"`
-	ExitCode   int           `json:"exit_code"`
-	Steps      []string      `json:"steps"` // pasos ejecutados dentro de la fase
+	Phase    Phase         `json:"phase"`
+	Status   string        `json:"status"` // "ok", "fail", "skip", "timeout"
+	Duration time.Duration `json:"duration"`
+	Output   string        `json:"output"`
+	Error    string        `json:"error,omitempty"`
+	ExitCode int           `json:"exit_code"`
+	Steps    []string      `json:"steps"` // pasos ejecutados dentro de la fase
 }
 
 // ExecutionResult contiene el resultado completo de la ejecución del pipeline.

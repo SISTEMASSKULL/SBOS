@@ -463,10 +463,10 @@ func TestRing_ConcurrenciaLecturaEscritura(t *testing.T) {
 
 func buildJournalJSON(priority, unit, message, ts string) []byte {
 	m := map[string]string{
-		"PRIORITY":              priority,
-		"_SYSTEMD_UNIT":         unit,
-		"MESSAGE":               message,
-		"__REALTIME_TIMESTAMP":  ts,
+		"PRIORITY":             priority,
+		"_SYSTEMD_UNIT":        unit,
+		"MESSAGE":              message,
+		"__REALTIME_TIMESTAMP": ts,
 	}
 	b, _ := json.Marshal(m)
 	return b

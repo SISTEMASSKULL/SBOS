@@ -24,8 +24,8 @@ import (
 
 	"bos/internal/boslog"
 	"bos/internal/config"
-	"bos/internal/security"
 	"bos/internal/paths"
+	"bos/internal/security"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"

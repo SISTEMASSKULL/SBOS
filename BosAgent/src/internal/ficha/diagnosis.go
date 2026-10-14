@@ -153,13 +153,13 @@ func (l *Lifecycle) ClassifyState(diag ErrorDiagnosis) FichaState {
 // Se genera cuando la reparación automática agota todos los reintentos configurados
 // y la ficha entra en estado ERROR_NO_CORREGIBLE (estado 12, ADR-021).
 type HITLRequest struct {
-	FichaID     string        `json:"ficha_id"`
-	State       FichaState    `json:"state"`
+	FichaID     string         `json:"ficha_id"`
+	State       FichaState     `json:"state"`
 	Diagnosis   ErrorDiagnosis `json:"diagnosis"`
-	Attempts    int           `json:"attempts"`
-	MaxAttempts int           `json:"max_attempts"`
-	Reason      string        `json:"reason"`
-	Timestamp   time.Time     `json:"timestamp"`
+	Attempts    int            `json:"attempts"`
+	MaxAttempts int            `json:"max_attempts"`
+	Reason      string         `json:"reason"`
+	Timestamp   time.Time      `json:"timestamp"`
 }
 
 // EscalateToHITL genera una solicitud de intervención humana cuando la reparación

@@ -5,22 +5,23 @@
 // negocio vive en domain.FichaService.
 //
 // Métodos expuestos:
-//   bos.ficha.install   — instalar una ficha
-//   bos.ficha.update    — actualizar una ficha
-//   bos.ficha.repair    — reparar una ficha degradada
-//   bos.ficha.remove    — eliminar una ficha
-//   bos.ficha.status    — consultar estado de una o todas las fichas
-//   bos.ficha.probe     — dry-run de instalación
-//   bos.ficha.list      — listar todas las fichas registradas
-//   bos.ficha.describe  — describir manifiesto completo con políticas
-//   bos.ficha.plan      — orden topológico de instalación
-//   bos.ficha.diff      — detectar drift declarado vs real
-//   bos.ficha.validate  — validar manifest.yml contra reglas SOV/SAN-10
-//   bos.ficha.scale     — escalar réplicas K8s
-//   bos.ficha.pause     — pausar ficha para mantenimiento
-//   bos.ficha.resume    — reanudar ficha pausada
-//   bos.ficha.rescan    — re-descubrir fichas en servers/
-//   bos.ficha.logs      — leer últimas N líneas del log
+//
+//	bos.ficha.install   — instalar una ficha
+//	bos.ficha.update    — actualizar una ficha
+//	bos.ficha.repair    — reparar una ficha degradada
+//	bos.ficha.remove    — eliminar una ficha
+//	bos.ficha.status    — consultar estado de una o todas las fichas
+//	bos.ficha.probe     — dry-run de instalación
+//	bos.ficha.list      — listar todas las fichas registradas
+//	bos.ficha.describe  — describir manifiesto completo con políticas
+//	bos.ficha.plan      — orden topológico de instalación
+//	bos.ficha.diff      — detectar drift declarado vs real
+//	bos.ficha.validate  — validar manifest.yml contra reglas SOV/SAN-10
+//	bos.ficha.scale     — escalar réplicas K8s
+//	bos.ficha.pause     — pausar ficha para mantenimiento
+//	bos.ficha.resume    — reanudar ficha pausada
+//	bos.ficha.rescan    — re-descubrir fichas en servers/
+//	bos.ficha.logs      — leer últimas N líneas del log
 //
 // Las variables en "env" se inyectan en el entorno del proceso antes de ejecutar
 // la saga, y se restauran al finalizar. El Orchestrator serializa con mutex.

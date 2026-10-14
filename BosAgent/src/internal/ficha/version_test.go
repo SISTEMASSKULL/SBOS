@@ -13,7 +13,7 @@ func TestParseVersion(t *testing.T) {
 		{"1.0.0", Version{1, 0, 0}, false},
 		{"18.4.0", Version{18, 4, 0}, false},
 		{"26.6.2", Version{26, 6, 2}, false},
-		{"2.0", Version{2, 0, 0}, false},     // sin patch
+		{"2.0", Version{2, 0, 0}, false}, // sin patch
 		{"0.1.0", Version{0, 1, 0}, false},
 		{"1.0", Version{1, 0, 0}, false},
 		{"", Version{}, true},
@@ -93,7 +93,7 @@ func TestIsCompatibleUpgrade(t *testing.T) {
 		wantErr         bool
 	}{
 		// MINOR/PATCH upgrades — siempre OK
-		{Version{1, 0, 0}, Version{2, 0, 0}, true},  // MAJOR → necesita migración
+		{Version{1, 0, 0}, Version{2, 0, 0}, true},    // MAJOR → necesita migración
 		{Version{1, 0, 0}, Version{1, 1, 0}, false},   // MINOR OK
 		{Version{1, 0, 0}, Version{1, 0, 1}, false},   // PATCH OK
 		{Version{18, 4, 0}, Version{18, 4, 1}, false}, // PATCH OK

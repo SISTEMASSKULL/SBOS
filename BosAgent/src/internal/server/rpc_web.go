@@ -2,11 +2,12 @@
 //
 // BC-06: Domain Manager S16-webserver
 // Métodos:
-//   bos.web.domain.add        — registrar dominio + vhost nginx
-//   bos.web.domain.remove     — eliminar dominio + vhost nginx
-//   bos.web.domain.list       — listar todos los dominios registrados
-//   bos.web.domain.resolve    — resolver un dominio a su destino
-//   bos.web.domain.ssl_status — consultar estado SSL del dominio
+//
+//	bos.web.domain.add        — registrar dominio + vhost nginx
+//	bos.web.domain.remove     — eliminar dominio + vhost nginx
+//	bos.web.domain.list       — listar todos los dominios registrados
+//	bos.web.domain.resolve    — resolver un dominio a su destino
+//	bos.web.domain.ssl_status — consultar estado SSL del dominio
 //
 // Principio P3: los handlers son adaptadores delgados — toda la lógica
 // vive en domain.WebDomainService.
@@ -34,10 +35,11 @@ func (s *Server) webDomainSvc() *domain.WebDomainService {
 // rpcWebDomainAdd registra un nuevo dominio web en nginx.
 //
 // Params:
-//   domain   string — hostname RFC 1123 (ej: api.empresa.com)
-//   target   string — IP o host:puerto de destino (ej: 10.0.0.5:8080)
-//   ssl_auto bool   — si true, solicita certificado Let's Encrypt automáticamente
-//   ctx_id   string — contexto de auditoría (SBOS-049)
+//
+//	domain   string — hostname RFC 1123 (ej: api.empresa.com)
+//	target   string — IP o host:puerto de destino (ej: 10.0.0.5:8080)
+//	ssl_auto bool   — si true, solicita certificado Let's Encrypt automáticamente
+//	ctx_id   string — contexto de auditoría (SBOS-049)
 //
 // Returns: WebDomainRecord { domain, target, ssl_auto, created_at }
 func (s *Server) rpcWebDomainAdd(req *RPCRequest) RPCResponse {
@@ -63,8 +65,9 @@ func (s *Server) rpcWebDomainAdd(req *RPCRequest) RPCResponse {
 // rpcWebDomainRemove elimina un dominio web y su vhost nginx.
 //
 // Params:
-//   domain string — hostname a eliminar
-//   ctx_id string — contexto de auditoría (SBOS-049)
+//
+//	domain string — hostname a eliminar
+//	ctx_id string — contexto de auditoría (SBOS-049)
 //
 // Returns: { ok: true }
 func (s *Server) rpcWebDomainRemove(req *RPCRequest) RPCResponse {
@@ -103,7 +106,8 @@ func (s *Server) rpcWebDomainList(_ *RPCRequest) RPCResponse {
 // rpcWebDomainResolve retorna el registro completo de un dominio.
 //
 // Params:
-//   domain string — hostname a resolver
+//
+//	domain string — hostname a resolver
 //
 // Returns: WebDomainRecord
 func (s *Server) rpcWebDomainResolve(req *RPCRequest) RPCResponse {
@@ -126,7 +130,8 @@ func (s *Server) rpcWebDomainResolve(req *RPCRequest) RPCResponse {
 // rpcWebDomainSSLStatus retorna el estado del certificado TLS del dominio.
 //
 // Params:
-//   domain string — hostname a consultar
+//
+//	domain string — hostname a consultar
 //
 // Returns: SSLStatus { provisioned, expires_at, issuer, error }
 func (s *Server) rpcWebDomainSSLStatus(req *RPCRequest) RPCResponse {

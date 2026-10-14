@@ -11,14 +11,14 @@ import (
 	"context"
 	"crypto/tls"
 
-	"net"
-	"fmt"
 	"encoding/json"
+	"fmt"
+	"net"
 	"net/http"
 	"os"
-	"strings"
 	"os/user"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -122,13 +122,13 @@ type Server struct {
 	maintSvc     *maintenance.Service      // sagas de mantenimiento (F9.6 — SetMaintenanceService)
 	metrics      *metrics.Registry         // métricas Prometheus (F9.7 — SetMetrics, nil-safe)
 	aiAgent      AIAgent                   // agente biaos (F10.8 — SetAIAgent, nil-safe)
-		releaseMgr   ReleaseChecker // SKULL Release Plane — pull-only, verificación Ed25519
+	releaseMgr   ReleaseChecker            // SKULL Release Plane — pull-only, verificación Ed25519
 
-	logReader  domain.LogPort          // lector de logs de ficha (nil-safe, inyectado via SetLogReader)
-	limiter    *ratelimit.IPLimiter    // rate limiter NRS-08 (nil-safe)
-	portman    PortManager             // Motor de puertos SBOS-050 (nil-safe, lazy init via BOS_PG_DSN)
-	webDomain  *domain.WebDomainService // BC-06: Domain Manager S16-webserver (nil-safe, lazy init en rpc_web.go)
-	dbInit     *domain.DbInitService    // BC-07: DbInitService SBOS_db (nil-safe, lazy init en rpc_db.go)
+	logReader domain.LogPort           // lector de logs de ficha (nil-safe, inyectado via SetLogReader)
+	limiter   *ratelimit.IPLimiter     // rate limiter NRS-08 (nil-safe)
+	portman   PortManager              // Motor de puertos SBOS-050 (nil-safe, lazy init via BOS_PG_DSN)
+	webDomain *domain.WebDomainService // BC-06: Domain Manager S16-webserver (nil-safe, lazy init en rpc_web.go)
+	dbInit    *domain.DbInitService    // BC-07: DbInitService SBOS_db (nil-safe, lazy init en rpc_db.go)
 
 	httpServer *http.Server
 	unixServer *http.Server
@@ -172,16 +172,16 @@ func NewServer(cfg Config, stateMgr StateManager, plugins PluginLoader, healthCh
 	fichaSvc.SetEventPublisher(NewFichaEventAdapter(bus))
 
 	s := &Server{
-		cfg:         cfg,
-		stateMgr:    stateMgr,
-		plugins:     plugins,
-		healthCheck: healthCheck,
-		installer:   installer,
-		rbac:        rbac,
-		identity:    identity,
-		logger:      logger,
-		wsHub:       NewHub(logger),
-		ShutdownCh:  make(chan struct{}),
+		cfg:          cfg,
+		stateMgr:     stateMgr,
+		plugins:      plugins,
+		healthCheck:  healthCheck,
+		installer:    installer,
+		rbac:         rbac,
+		identity:     identity,
+		logger:       logger,
+		wsHub:        NewHub(logger),
+		ShutdownCh:   make(chan struct{}),
 		fichaSvc:     fichaSvc,
 		bootstrapSvc: domain.NewBootstrapService(stateMgr),
 		bosCtxSvc:    ctxSvc,
@@ -398,7 +398,7 @@ func writeContextJSON(w http.ResponseWriter, status int, v interface{}) {
 func (s *Server) ListenAndServe() error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws", s.handleWebSocket)
-	mux.HandleFunc("/rpc", s.handleJSONRPC) // JSON-RPC 2.0 — ADR-019
+	mux.HandleFunc("/rpc", s.handleJSONRPC)                   // JSON-RPC 2.0 — ADR-019
 	mux.HandleFunc("/api/v1/context/", s.handleContextLookup) // C-5: Kong ctx_id validation
 
 	handler := s.withLogging(mux)

@@ -1,11 +1,12 @@
 // Package server — Handlers JSON-RPC 2.0 para bos.bootstrap.* y bos.saga.*.
 //
 // Métodos del plano de control:
-//   bos.bootstrap.start  — iniciar bootstrap del cluster
-//   bos.bootstrap.verify — verificar criterios C-01 a C-13
-//   bos.bootstrap.resume — reanudar bootstrap interrumpido
-//   bos.bootstrap.status — consultar progreso del bootstrap
-//   bos.saga.execute      — ejecutar una saga con compensación
+//
+//	bos.bootstrap.start  — iniciar bootstrap del cluster
+//	bos.bootstrap.verify — verificar criterios C-01 a C-13
+//	bos.bootstrap.resume — reanudar bootstrap interrumpido
+//	bos.bootstrap.status — consultar progreso del bootstrap
+//	bos.saga.execute      — ejecutar una saga con compensación
 package server
 
 // ── bos.bootstrap.* ─────────────────────────────────────────────────────

@@ -14,8 +14,8 @@ import (
 )
 
 var (
-	daemonName   = getEnv("DAEMON_NAME", "stub")
-	socketPath   = getEnv("DAEMON_SOCKET", "/run/bos/stub.sock")
+	daemonName    = getEnv("DAEMON_NAME", "stub")
+	socketPath    = getEnv("DAEMON_SOCKET", "/run/bos/stub.sock")
 	daemonVersion = getEnv("DAEMON_VERSION", "0.1.0-stub")
 )
 

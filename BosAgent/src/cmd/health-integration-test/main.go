@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"bos/internal/health"
-	"bos/internal/state"
 	"bos/internal/paths"
+	"bos/internal/state"
 	"log/slog"
 )
 

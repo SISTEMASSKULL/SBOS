@@ -5,10 +5,11 @@
 // auxiliar sincronizada para failover en caso de pérdida del primario.
 //
 // Métodos:
-//   bos.bootstrap.pg_auxiliar_start   — iniciar sincronización con el pod source
-//   bos.bootstrap.pg_auxiliar_sync    — disparar sincronización manual
-//   bos.bootstrap.pg_auxiliar_status  — consultar estado de la réplica auxiliar
-//   bos.bootstrap.pg_auxiliar_cleanup — limpiar artefactos de la réplica auxiliar
+//
+//	bos.bootstrap.pg_auxiliar_start   — iniciar sincronización con el pod source
+//	bos.bootstrap.pg_auxiliar_sync    — disparar sincronización manual
+//	bos.bootstrap.pg_auxiliar_status  — consultar estado de la réplica auxiliar
+//	bos.bootstrap.pg_auxiliar_cleanup — limpiar artefactos de la réplica auxiliar
 package server
 
 // ── bos.bootstrap.pg_auxiliar.start ────────────────────────────────────

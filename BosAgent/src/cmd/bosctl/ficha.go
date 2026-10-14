@@ -14,9 +14,9 @@ import (
 	"strings"
 
 	"bos/internal/domain"
+	"bos/internal/paths"
 	"bos/internal/plugin"
 	"bos/internal/state"
-	"bos/internal/paths"
 
 	"log/slog"
 )
@@ -367,7 +367,7 @@ func cmdFichaDescribe(args []string) int {
 
 	if *jsonOut {
 		result := map[string]interface{}{
-			"ficha":  single,
+			"ficha": single,
 		}
 		if manifest != nil {
 			result["manifest"] = map[string]interface{}{

@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"bos/internal/security"
 	"bos/internal/paths"
+	"bos/internal/security"
 )
 
 // rbacOnce + rbacInst: inicialización thread-safe del proveedor RBAC (P15 fix).

@@ -22,8 +22,8 @@ type Graph struct {
 // Node representa una ficha en el grafo de dependencias.
 type Node struct {
 	Name         string
-	Dependencies []string       // fichas de las que depende
-	Dependents   []string       // fichas que dependen de esta
+	Dependencies []string // fichas de las que depende
+	Dependents   []string // fichas que dependen de esta
 }
 
 // NewGraph crea un grafo vacío.
@@ -182,10 +182,10 @@ func (g *Graph) ValidateDependencies() []error {
 
 // Plan representa el plan de instalación completo.
 type Plan struct {
-	Order    []string   // Orden topológico total
-	Waves    [][]string // Oleadas paralelizables
-	Total    int        // Total de fichas
-	Cycles   bool       // true si hay ciclos
+	Order  []string   // Orden topológico total
+	Waves  [][]string // Oleadas paralelizables
+	Total  int        // Total de fichas
+	Cycles bool       // true si hay ciclos
 }
 
 // Resolver calcula el plan de instalación para un conjunto de fichas.

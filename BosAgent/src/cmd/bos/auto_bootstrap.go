@@ -10,8 +10,8 @@ import (
 	"bos/internal/bootstrap"
 	"bos/internal/cgroup"
 	"bos/internal/network"
-	"bos/internal/security"
 	"bos/internal/paths"
+	"bos/internal/security"
 
 	"github.com/rs/zerolog/log"
 )

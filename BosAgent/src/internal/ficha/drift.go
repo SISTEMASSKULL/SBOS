@@ -39,9 +39,9 @@ type DriftStatus string
 
 const (
 	DriftOK      DriftStatus = "ok"      // sin cambios
-	DriftChanged DriftStatus = "changed"  // el hash difiere
-	DriftMissing DriftStatus = "missing"  // el archivo ya no existe
-	DriftNew     DriftStatus = "new"      // archivo nuevo no declarado
+	DriftChanged DriftStatus = "changed" // el hash difiere
+	DriftMissing DriftStatus = "missing" // el archivo ya no existe
+	DriftNew     DriftStatus = "new"     // archivo nuevo no declarado
 )
 
 // DriftItem describe la divergencia de un recurso individual.
@@ -54,12 +54,12 @@ type DriftItem struct {
 
 // DriftReport contiene el resultado de detectar drift en una ficha.
 type DriftReport struct {
-	FichaID    string        `json:"ficha_id"`
-	FichaPath  string        `json:"ficha_path"`
-	HasDrift   bool          `json:"has_drift"`
-	Items      []DriftItem   `json:"items"`
-	CheckedAt  time.Time     `json:"checked_at"`
-	Duration   time.Duration `json:"duration"`
+	FichaID   string        `json:"ficha_id"`
+	FichaPath string        `json:"ficha_path"`
+	HasDrift  bool          `json:"has_drift"`
+	Items     []DriftItem   `json:"items"`
+	CheckedAt time.Time     `json:"checked_at"`
+	Duration  time.Duration `json:"duration"`
 }
 
 // DriftSummaryReport resume el drift de múltiples fichas.
@@ -221,9 +221,9 @@ func (d *DriftDetector) DetectAll(fichas map[string]DriftInput) *DriftSummaryRep
 
 // DriftInput contiene los datos necesarios para detectar drift en una ficha.
 type DriftInput struct {
-	FichaID      string
-	FichaPath    string            // ruta absoluta al directorio de la ficha
-	KnownHashes  map[string]string // hashes conocidos (del último scan/install)
+	FichaID     string
+	FichaPath   string            // ruta absoluta al directorio de la ficha
+	KnownHashes map[string]string // hashes conocidos (del último scan/install)
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────

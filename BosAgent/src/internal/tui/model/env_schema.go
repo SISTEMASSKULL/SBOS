@@ -13,7 +13,7 @@ type EnvField struct {
 	Section     string // "tenant" | "admin" | "capacity"
 	Secret      bool   // true → campo de contraseña (oculta caracteres)
 	Required    bool
-	Numeric     bool   // true → solo acepta enteros positivos; se valida en blur
+	Numeric     bool // true → solo acepta enteros positivos; se valida en blur
 }
 
 // TenantSchema define los campos del paso "Datos de la empresa" (S02).

@@ -147,7 +147,15 @@ func (s *Server) wsHandleFichaOp(client *Client, req *Request, op string) {
 	s.wsHub.sendResponse(client, req.ID, true, result, "")
 }
 
-func (s *Server) wsHandleFichaInstall(client *Client, req *Request) { s.wsHandleFichaOp(client, req, "install") }
-func (s *Server) wsHandleFichaUpdate(client *Client, req *Request)  { s.wsHandleFichaOp(client, req, "update") }
-func (s *Server) wsHandleFichaRepair(client *Client, req *Request)  { s.wsHandleFichaOp(client, req, "repair") }
-func (s *Server) wsHandleFichaRemove(client *Client, req *Request)  { s.wsHandleFichaOp(client, req, "remove") }
+func (s *Server) wsHandleFichaInstall(client *Client, req *Request) {
+	s.wsHandleFichaOp(client, req, "install")
+}
+func (s *Server) wsHandleFichaUpdate(client *Client, req *Request) {
+	s.wsHandleFichaOp(client, req, "update")
+}
+func (s *Server) wsHandleFichaRepair(client *Client, req *Request) {
+	s.wsHandleFichaOp(client, req, "repair")
+}
+func (s *Server) wsHandleFichaRemove(client *Client, req *Request) {
+	s.wsHandleFichaOp(client, req, "remove")
+}

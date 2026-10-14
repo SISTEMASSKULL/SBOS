@@ -217,9 +217,9 @@ func (m *Manager) List(fichaID string, limit int) ([]KardexRow, error) {
 
 // ValidationResult es el resultado de validar el Kardex contra el estado real.
 type ValidationResult struct {
-	Checked  int
-	OK       int
-	Drifted  []DriftItem
+	Checked int
+	OK      int
+	Drifted []DriftItem
 }
 
 // DriftItem describe una discrepancia entre el Kardex y el estado real de K8s.

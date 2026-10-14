@@ -36,8 +36,8 @@ type ContractStatus string
 
 const (
 	ContractOK      ContractStatus = "ok"      // presente y válido
-	ContractMissing ContractStatus = "missing"  // ausente (WARNING)
-	ContractInvalid ContractStatus = "invalid"  // presente pero malformado (ERROR)
+	ContractMissing ContractStatus = "missing" // ausente (WARNING)
+	ContractInvalid ContractStatus = "invalid" // presente pero malformado (ERROR)
 )
 
 // ContractCheck representa la verificación de un contrato de ficha.
@@ -49,27 +49,27 @@ type ContractCheck struct {
 
 // DiscoveredFicha representa una ficha encontrada durante el descubrimiento.
 type DiscoveredFicha struct {
-	ID          string          `json:"id"`
-	Path        string          `json:"path"`
-	Server      string          `json:"server"`
-	Version     string          `json:"version"`
-	Contracts   []ContractCheck `json:"contracts"`
-	Valid       bool            `json:"valid"`       // todos los contratos OK o solo warnings
-	IsNew       bool            `json:"is_new"`       // no estaba en el catálogo anterior
-	DiscoveredAt time.Time      `json:"discovered_at"`
+	ID           string          `json:"id"`
+	Path         string          `json:"path"`
+	Server       string          `json:"server"`
+	Version      string          `json:"version"`
+	Contracts    []ContractCheck `json:"contracts"`
+	Valid        bool            `json:"valid"`  // todos los contratos OK o solo warnings
+	IsNew        bool            `json:"is_new"` // no estaba en el catálogo anterior
+	DiscoveredAt time.Time       `json:"discovered_at"`
 }
 
 // DiscoveryResult contiene el resultado completo de un escaneo.
 type DiscoveryResult struct {
-	Path        string             `json:"path"`         // directorio escaneado
-	Total       int                `json:"total"`        // total de fichas encontradas
-	New         int                `json:"new"`          // fichas nuevas desde último scan
-	Valid       int                `json:"valid"`        // fichas sin errores
-	Warnings    int                `json:"warnings"`     // fichas con warnings (contrato faltante)
-	Errors      int                `json:"errors"`       // fichas con errores (manifiesto inválido)
-	Fichas      []DiscoveredFicha  `json:"fichas"`
-	ScannedAt   time.Time          `json:"scanned_at"`
-	Duration    time.Duration      `json:"duration"`
+	Path      string            `json:"path"`     // directorio escaneado
+	Total     int               `json:"total"`    // total de fichas encontradas
+	New       int               `json:"new"`      // fichas nuevas desde último scan
+	Valid     int               `json:"valid"`    // fichas sin errores
+	Warnings  int               `json:"warnings"` // fichas con warnings (contrato faltante)
+	Errors    int               `json:"errors"`   // fichas con errores (manifiesto inválido)
+	Fichas    []DiscoveredFicha `json:"fichas"`
+	ScannedAt time.Time         `json:"scanned_at"`
+	Duration  time.Duration     `json:"duration"`
 }
 
 // ── Descubridor ───────────────────────────────────────────────────────
@@ -78,10 +78,10 @@ type DiscoveryResult struct {
 // Envuelve el plugin.Loader existente, agregando validación de contratos
 // y tracking de fichas nuevas.
 type Discoverer struct {
-	mu        sync.RWMutex
-	path      string
-	known     map[string]string // ficha_id → path (catálogo conocido)
-	logger    *slog.Logger
+	mu     sync.RWMutex
+	path   string
+	known  map[string]string // ficha_id → path (catálogo conocido)
+	logger *slog.Logger
 }
 
 // NewDiscoverer crea un descubridor para el directorio dado.
@@ -207,10 +207,10 @@ func (d *Discoverer) Discover() (*DiscoveryResult, error) {
 // examineFicha verifica los 3 contratos mínimos de una ficha.
 func (d *Discoverer) examineFicha(id, path string) DiscoveredFicha {
 	ficha := DiscoveredFicha{
-		ID:          id,
-		Path:        path,
-		Version:     "0.1.0",
-		Contracts:   make([]ContractCheck, 0, 3),
+		ID:           id,
+		Path:         path,
+		Version:      "0.1.0",
+		Contracts:    make([]ContractCheck, 0, 3),
 		DiscoveredAt: time.Now(),
 	}
 

@@ -160,11 +160,13 @@ func (p *PgWebDomain) List() []WebDomainRecord {
 // NoopNginx implementa WebNginxPort sin efectos secundarios. Úsalo en tests.
 type NoopNginx struct{}
 
-func (NoopNginx) Reload() error                                     { return nil }
-func (NoopNginx) ProvisionSSL(_ string) error                       { return nil }
-func (NoopNginx) SSLExpiresAt(_ string) (time.Time, string, error)  { return time.Time{}, "", fmt.Errorf("sin certificado (noop)") }
-func (NoopNginx) WriteVhost(_, _ string) error                      { return nil }
-func (NoopNginx) RemoveVhost(_ string) error                        { return nil }
+func (NoopNginx) Reload() error               { return nil }
+func (NoopNginx) ProvisionSSL(_ string) error { return nil }
+func (NoopNginx) SSLExpiresAt(_ string) (time.Time, string, error) {
+	return time.Time{}, "", fmt.Errorf("sin certificado (noop)")
+}
+func (NoopNginx) WriteVhost(_, _ string) error { return nil }
+func (NoopNginx) RemoveVhost(_ string) error   { return nil }
 
 // ── NginxManager ─────────────────────────────────────────────────────────────
 

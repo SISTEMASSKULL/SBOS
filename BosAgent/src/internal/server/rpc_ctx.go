@@ -1,20 +1,22 @@
 // Package server — Handlers JSON-RPC 2.0 para bos.ctx.*, bos.state.* y bos.health.*.
 //
 // Context Plane (SBOS-049):
-//   bos.ctx.auto_migrate      — ejecutar DDL del Context Plane
-//   bos.ctx.create            — crear un ctx_id con traceparent W3C
-//   bos.ctx.validate          — validar un ctx_id activo
-//   bos.ctx.device.register   — registrar dispositivo (F5)
-//   bos.ctx.promote           — promover device → session (F5)
-//   bos.ctx.switch            — cambiar contexto activo (F5)
-//   bos.ctx.invalidate        — invalidar contexto (F5)
-//   bos.ctx.get               — obtener contexto por ID (F5)
-//   bos.ctx.list              — listar contextos por tenant (F5)
-//   bos.ctx.tenant.suspend    — suspender todos los contextos de un tenant (F5)
+//
+//	bos.ctx.auto_migrate      — ejecutar DDL del Context Plane
+//	bos.ctx.create            — crear un ctx_id con traceparent W3C
+//	bos.ctx.validate          — validar un ctx_id activo
+//	bos.ctx.device.register   — registrar dispositivo (F5)
+//	bos.ctx.promote           — promover device → session (F5)
+//	bos.ctx.switch            — cambiar contexto activo (F5)
+//	bos.ctx.invalidate        — invalidar contexto (F5)
+//	bos.ctx.get               — obtener contexto por ID (F5)
+//	bos.ctx.list              — listar contextos por tenant (F5)
+//	bos.ctx.tenant.suspend    — suspender todos los contextos de un tenant (F5)
 //
 // Estado y Health:
-//   bos.state.read  — leer .sbos_state.json completo (sin hashes, F6.4)
-//   bos.health.check — health check de una ficha o resumen global
+//
+//	bos.state.read  — leer .sbos_state.json completo (sin hashes, F6.4)
+//	bos.health.check — health check de una ficha o resumen global
 //
 // Mapeo de errores de dominio a códigos JSON-RPC 2.0 (domainErrToRPC).
 package server

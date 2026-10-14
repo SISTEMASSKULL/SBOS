@@ -43,14 +43,14 @@ const (
 
 // HealthDef define el health check de una ficha (desde manifest.yml).
 type HealthDef struct {
-	Type            HealthType `json:"type" yaml:"type"`
-	Command         string     `json:"command,omitempty" yaml:"command,omitempty"`
-	HTTPPath        string     `json:"http_path,omitempty" yaml:"http_path,omitempty"`
-	TCPAddress      string     `json:"tcp_address,omitempty" yaml:"tcp_address,omitempty"`
-	ExpectedOutput  string     `json:"expected_output,omitempty" yaml:"expected_output,omitempty"`
-	TimeoutSeconds  int        `json:"timeout_seconds" yaml:"timeout_seconds"`
-	IntervalSeconds int        `json:"interval_seconds" yaml:"interval_seconds"` // default: 30
-	FailureThreshold int      `json:"failure_threshold" yaml:"failure_threshold"` // default: 3
+	Type             HealthType `json:"type" yaml:"type"`
+	Command          string     `json:"command,omitempty" yaml:"command,omitempty"`
+	HTTPPath         string     `json:"http_path,omitempty" yaml:"http_path,omitempty"`
+	TCPAddress       string     `json:"tcp_address,omitempty" yaml:"tcp_address,omitempty"`
+	ExpectedOutput   string     `json:"expected_output,omitempty" yaml:"expected_output,omitempty"`
+	TimeoutSeconds   int        `json:"timeout_seconds" yaml:"timeout_seconds"`
+	IntervalSeconds  int        `json:"interval_seconds" yaml:"interval_seconds"`   // default: 30
+	FailureThreshold int        `json:"failure_threshold" yaml:"failure_threshold"` // default: 3
 }
 
 // DefaultHealthDef retorna un HealthDef con valores por defecto.
@@ -79,7 +79,7 @@ type HealthResult struct {
 // HealthTracker mantiene el conteo de fallos consecutivos por ficha.
 // Thread-safe: usa sync.Mutex para acceso concurrente desde el observer.
 type HealthTracker struct {
-	mu      sync.Mutex
+	mu       sync.Mutex
 	failures map[string]int // ficha_id → fallos consecutivos
 }
 

@@ -36,16 +36,16 @@ func HuhTheme() *huh.Theme {
 	t := huh.ThemeBase()
 
 	// ── Tokens del tema activo (Capa 2B, mutados por ApplyTheme) ────────────
-	accent   := ColorAccentText             // acento brillante del tema
-	textPri  := ActiveTheme.TextPrimary     // texto principal
-	textSec  := ActiveTheme.TextSecondary   // texto secundario
-	textOff  := ActiveTheme.TextDisabled    // texto inactivo/deshabilitado
-	surface  := ActiveTheme.BgSurface       // fondo de panel (bg medio)
-	elevated := ActiveTheme.BgElevated      // fondo elevado (bg claro)
+	accent := ColorAccentText            // acento brillante del tema
+	textPri := ActiveTheme.TextPrimary   // texto principal
+	textSec := ActiveTheme.TextSecondary // texto secundario
+	textOff := ActiveTheme.TextDisabled  // texto inactivo/deshabilitado
+	surface := ActiveTheme.BgSurface     // fondo de panel (bg medio)
+	elevated := ActiveTheme.BgElevated   // fondo elevado (bg claro)
 
 	// ── Tokens de estado (tokens_state.go — invariantes perceptuales) ──────
-	stateOK  := lipgloss.Color(ColorStateOKFg)    // teal-verde éxito
-	stateErr := lipgloss.Color(ColorStateErrFg)   // coral error
+	stateOK := lipgloss.Color(ColorStateOKFg)   // teal-verde éxito
+	stateErr := lipgloss.Color(ColorStateErrFg) // coral error
 
 	_ = surface
 	_ = elevated

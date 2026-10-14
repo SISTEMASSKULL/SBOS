@@ -31,9 +31,9 @@ const (
 // reservedRanges define rangos completos de puertos bloqueados por capa.
 // Fuente: IANA, K8s docs, SBOS-050.
 var reservedRanges = [][2]int{
-	{0, 1023},     // IANA well-known — nunca asignar
-	{2379, 2380},  // etcd — K8s core
-	{6443, 6443},  // kube-apiserver
+	{0, 1023},      // IANA well-known — nunca asignar
+	{2379, 2380},   // etcd — K8s core
+	{6443, 6443},   // kube-apiserver
 	{10250, 10252}, // kubelet, kube-controller-manager, kube-scheduler
 	{10255, 10255}, // kubelet read-only
 	{10257, 10259}, // K8s control plane adicional
@@ -62,11 +62,11 @@ var reservedPorts = map[int]string{
 	9406: "bnotify-daemon",
 
 	// PostgreSQL en K8s (ClusterIP interno) — solo acceso desde pods
-	5432: "postgresql-standard",
+	5432:  "postgresql-standard",
 	15432: "postgresql-sbos-aux",
 
 	// Redis
-	6379: "redis-standard",
+	6379:  "redis-standard",
 	16379: "redis-sbos",
 
 	// Kong Gateway
@@ -106,9 +106,9 @@ func IsReserved(port int) (bool, string) {
 // sbos050Catalog es el catálogo de puertos SBOS-050 (Capa 2).
 // Mapea (daemon, servicio) → puerto para verificar colisiones con otros daemons.
 var sbos050Catalog = map[string]int{
-	"bos:api":    9443,
-	"bos:rpc":    9400,
-	"bauth:rpc":  9401,
+	"bos:api":     9443,
+	"bos:rpc":     9400,
+	"bauth:rpc":   9401,
 	"bkernel:rpc": 9402,
 	"biedata:rpc": 9403,
 	"bsearch:rpc": 9404,

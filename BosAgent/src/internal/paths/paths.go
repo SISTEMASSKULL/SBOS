@@ -48,14 +48,14 @@ const (
 	KubeconfigPath = "/etc/bos/.kube/config"      // kubeconfig del cluster K8s
 	BlibsDir       = "/etc/bos/blibs"             // biblioteca de fichas declarativas
 	ServersPath    = "/etc/bos/blibs/servers"     // fichas organizadas por servidor
-	DDLsPath       = "/etc/bos/ddls"             // DDLs, migraciones y seeds del sistema SBOS
+	DDLsPath       = "/etc/bos/ddls"              // DDLs, migraciones y seeds del sistema SBOS
 	RBACRoles      = "/etc/bos/rbac/roles.json"   // roles RBAC del daemon (eliminar en F4.4)
 
 	// Certificados TLS
-	CertsDir    = "/etc/bos/certs"            // directorio de certificados
-	CertFile    = "/etc/bos/certs/bos.crt"    // certificado TLS del daemon
-	KeyFile     = "/etc/bos/certs/bos.key"    // llave privada TLS del daemon
-	RpcTokenFile = "/etc/bos/rpc-token"       // token compartido para JSON-RPC entre daemons
+	CertsDir     = "/etc/bos/certs"         // directorio de certificados
+	CertFile     = "/etc/bos/certs/bos.crt" // certificado TLS del daemon
+	KeyFile      = "/etc/bos/certs/bos.key" // llave privada TLS del daemon
+	RpcTokenFile = "/etc/bos/rpc-token"     // token compartido para JSON-RPC entre daemons
 )
 
 // ── Logs (/var/log/bos/) ──────────────────────────────────────────────────

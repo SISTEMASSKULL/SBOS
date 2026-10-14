@@ -1,6 +1,6 @@
 // Package server — Handlers JSON-RPC 2.0 para system.* y mapeo de errores.
 //
-//   system.listMethods — catálogo completo de métodos registrados (descubrimiento dinámico)
+//	system.listMethods — catálogo completo de métodos registrados (descubrimiento dinámico)
 //
 // Mapeo de errores de dominio a códigos JSON-RPC 2.0 estándar (ORQUESTA-043 §2):
 // el handler traduce, el dominio no conoce RPC. Cada error de dominio se mapea
@@ -39,11 +39,12 @@ func (s *Server) rpcSystemListMethods(req *RPCRequest) RPCResponse {
 // Usa errors.Is() para comparación semántica (no strings) según ORQUESTA-043 §2.
 //
 // Mapeo:
-//   ErrFichaNotFound      → -32010 (ErrFichaNotFound)
-//   Err*Required/Invalid  → -32602 (ErrInvalidParams)
-//   ErrBootstrapInProgress → -32004 (ErrStateConflict)
-//   ErrSagaFailed         → -32003 (ErrSagaFailed) con data de pasos fallidos
-//   default                → -32603 (ErrInternal)
+//
+//	ErrFichaNotFound      → -32010 (ErrFichaNotFound)
+//	Err*Required/Invalid  → -32602 (ErrInvalidParams)
+//	ErrBootstrapInProgress → -32004 (ErrStateConflict)
+//	ErrSagaFailed         → -32003 (ErrSagaFailed) con data de pasos fallidos
+//	default                → -32603 (ErrInternal)
 func domainErrToRPC(_ interface{}, err error) *RPCError {
 	switch {
 	case errors.Is(err, domain.ErrFichaNotFound):

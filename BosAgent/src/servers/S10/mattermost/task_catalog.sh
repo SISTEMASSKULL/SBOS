@@ -278,4 +278,4 @@ ficha_uninstall() {
     echo "${__STEP_OK__} mattermost removido"
 }
 
-export -f ficha_pre_install ficha_install ficha_post_install ficha_repair ficha_health_check ficha_uninstall
+export -f ficha_pre_install ficha_install ficha_post_install ficha_repair ficha_health ficha_health_check ficha_test ficha_uninstall

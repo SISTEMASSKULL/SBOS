@@ -44,8 +44,8 @@ type SeedConfig struct {
 		EntityStatus               string `yaml:"entity_status"`
 		RegistrationDate           string `yaml:"registration_date"`
 		LegalEntityIdentifier      string `yaml:"legal_entity_identifier,omitempty"`
-		CountryCode                string `yaml:"country_code,omitempty"`  // ISO 3166-1 alpha-2 (BO, AR, etc.)
-		Domain                     string `yaml:"domain,omitempty"`        // dominio SBOS (default: <trading_name>.sbos.local)
+		CountryCode                string `yaml:"country_code,omitempty"` // ISO 3166-1 alpha-2 (BO, AR, etc.)
+		Domain                     string `yaml:"domain,omitempty"`       // dominio SBOS (default: <trading_name>.sbos.local)
 	} `yaml:"enterprise_tenant"`
 
 	// ═══ MODELO B — Dominio Técnico (§5) ═══
@@ -395,10 +395,10 @@ func deployTenant(seedPath string) error {
 	// ── PASO 5: Keycloak + Realm + SPIs ─────────────────────────────
 	fmt.Println("[5/7] Desplegando Keycloak + Realm + SPIs...")
 	if err := installFicha("keycloak", map[string]string{
-		"TENANT_ID":           tenantID,
-		"TENANT_NAME":         cfg.EnterpriseTenant.TradingName,
-		"REALM":               cfg.Identity.Realm,
-		"SSO_SESSION_MAX":     cfg.Identity.SSOSessionMax,
+		"TENANT_ID":             tenantID,
+		"TENANT_NAME":           cfg.EnterpriseTenant.TradingName,
+		"REALM":                 cfg.Identity.Realm,
+		"SSO_SESSION_MAX":       cfg.Identity.SSOSessionMax,
 		"ACCESS_TOKEN_LIFESPAN": cfg.Identity.AccessTokenLifespan,
 	}); err != nil {
 		compensateSteps1234(tenantID)
@@ -601,7 +601,6 @@ func runBosRPC(method string, params map[string]interface{}) error {
 	}
 	return rpcCall(socket, method, params)
 }
-
 
 // rpcAuthToken lee el token compartido de /etc/bos/rpc-token y genera
 // el header Authorization: Basic base64(sbos_admin:dev:<token>).

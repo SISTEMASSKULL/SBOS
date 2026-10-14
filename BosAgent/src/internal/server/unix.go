@@ -2,12 +2,12 @@
 //
 // Mismo socket /run/bos/bos.sock, dos vías paralelas:
 //
-//   Vía 1: primer byte != '{' (típicamente 'G' en HTTP GET WebSocket upgrade)
-//           → WebSocket RPC → bosctl CLI, Core UI, humanos
+//	Vía 1: primer byte != '{' (típicamente 'G' en HTTP GET WebSocket upgrade)
+//	        → WebSocket RPC → bosctl CLI, Core UI, humanos
 //
-//   Vía 2: primer byte '{'
-//           → JSON-RPC 2.0 raw (una línea '\n' por request)
-//           → biedata, bkernel, bAuth, bSearch, agentes IA, sagas
+//	Vía 2: primer byte '{'
+//	        → JSON-RPC 2.0 raw (una línea '\n' por request)
+//	        → biedata, bkernel, bAuth, bSearch, agentes IA, sagas
 //
 // Protocolo Vía 2 (acordado en C-BOS-005, mismo que bAuth unix_socket.rs):
 //   - Un objeto JSON por línea, terminado en '\n'

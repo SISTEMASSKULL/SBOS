@@ -37,7 +37,7 @@ func renderConfirmBody(m tuimodel.Model) string {
 	leftContent := summaryTitle + "\n\n" + summary + "\n\n" + confirmView
 
 	if mode == "xs" || mode == "sm" {
-		return styles.Box.Width(w-4).Render(leftContent)
+		return styles.Box.Width(w - 4).Render(leftContent)
 	}
 
 	// md+: izquierda (resumen + confirm) | derecha (panel de fases)

@@ -45,14 +45,14 @@ type TimeoutConfig struct {
 // Ningún timeout declarado en manifest puede exceder estos valores.
 func GlobalTimeoutLimits() TimeoutConfig {
 	return TimeoutConfig{
-		Install:      30 * time.Minute,
-		Update:       15 * time.Minute,
-		Repair:       10 * time.Minute,
-		Remove:       10 * time.Minute,
-		PreInstall:   5 * time.Minute,
-		PostInstall:  5 * time.Minute,
-		Verify:       5 * time.Minute,
-		Commit:       2 * time.Minute,
+		Install:     30 * time.Minute,
+		Update:      15 * time.Minute,
+		Repair:      10 * time.Minute,
+		Remove:      10 * time.Minute,
+		PreInstall:  5 * time.Minute,
+		PostInstall: 5 * time.Minute,
+		Verify:      5 * time.Minute,
+		Commit:      2 * time.Minute,
 	}
 }
 
@@ -64,50 +64,50 @@ func DefaultTimeoutFor(workloadType string) TimeoutConfig {
 	case "StatefulSet":
 		// DB: más tiempo por migraciones, WAL, volumen persistente
 		return TimeoutConfig{
-			Install:      10 * time.Minute,
-			Update:       5 * time.Minute,
-			Repair:       10 * time.Minute,
-			Remove:       5 * time.Minute,
-			PreInstall:   3 * time.Minute,
-			PostInstall:  3 * time.Minute,
-			Verify:       2 * time.Minute,
-			Commit:       1 * time.Minute,
+			Install:     10 * time.Minute,
+			Update:      5 * time.Minute,
+			Repair:      10 * time.Minute,
+			Remove:      5 * time.Minute,
+			PreInstall:  3 * time.Minute,
+			PostInstall: 3 * time.Minute,
+			Verify:      2 * time.Minute,
+			Commit:      1 * time.Minute,
 		}
 	case "Deployment", "DaemonSet":
 		// K8s estándar
 		return TimeoutConfig{
-			Install:      5 * time.Minute,
-			Update:       3 * time.Minute,
-			Repair:       5 * time.Minute,
-			Remove:       3 * time.Minute,
-			PreInstall:   2 * time.Minute,
-			PostInstall:  2 * time.Minute,
-			Verify:       2 * time.Minute,
-			Commit:       1 * time.Minute,
+			Install:     5 * time.Minute,
+			Update:      3 * time.Minute,
+			Repair:      5 * time.Minute,
+			Remove:      3 * time.Minute,
+			PreInstall:  2 * time.Minute,
+			PostInstall: 2 * time.Minute,
+			Verify:      2 * time.Minute,
+			Commit:      1 * time.Minute,
 		}
 	case "bash", "systemd":
 		// Scripts y daemons de host
 		return TimeoutConfig{
-			Install:      2 * time.Minute,
-			Update:       1 * time.Minute,
-			Repair:       2 * time.Minute,
-			Remove:       1 * time.Minute,
-			PreInstall:   1 * time.Minute,
-			PostInstall:  1 * time.Minute,
-			Verify:       1 * time.Minute,
-			Commit:       30 * time.Second,
+			Install:     2 * time.Minute,
+			Update:      1 * time.Minute,
+			Repair:      2 * time.Minute,
+			Remove:      1 * time.Minute,
+			PreInstall:  1 * time.Minute,
+			PostInstall: 1 * time.Minute,
+			Verify:      1 * time.Minute,
+			Commit:      30 * time.Second,
 		}
 	default:
 		// Desconocido: usar el límite más seguro (K8s estándar)
 		return TimeoutConfig{
-			Install:      5 * time.Minute,
-			Update:       3 * time.Minute,
-			Repair:       5 * time.Minute,
-			Remove:       3 * time.Minute,
-			PreInstall:   2 * time.Minute,
-			PostInstall:  2 * time.Minute,
-			Verify:       2 * time.Minute,
-			Commit:       1 * time.Minute,
+			Install:     5 * time.Minute,
+			Update:      3 * time.Minute,
+			Repair:      5 * time.Minute,
+			Remove:      3 * time.Minute,
+			PreInstall:  2 * time.Minute,
+			PostInstall: 2 * time.Minute,
+			Verify:      2 * time.Minute,
+			Commit:      1 * time.Minute,
 		}
 	}
 }
@@ -124,14 +124,14 @@ func ResolveTimeout(manifest TimeoutConfig, workloadType string) TimeoutConfig {
 	limits := GlobalTimeoutLimits()
 
 	return TimeoutConfig{
-		Install:      resolveField(manifest.Install, defaults.Install, limits.Install),
-		Update:       resolveField(manifest.Update, defaults.Update, limits.Update),
-		Repair:       resolveField(manifest.Repair, defaults.Repair, limits.Repair),
-		Remove:       resolveField(manifest.Remove, defaults.Remove, limits.Remove),
-		PreInstall:   resolveField(manifest.PreInstall, defaults.PreInstall, limits.PreInstall),
-		PostInstall:  resolveField(manifest.PostInstall, defaults.PostInstall, limits.PostInstall),
-		Verify:       resolveField(manifest.Verify, defaults.Verify, limits.Verify),
-		Commit:       resolveField(manifest.Commit, defaults.Commit, limits.Commit),
+		Install:     resolveField(manifest.Install, defaults.Install, limits.Install),
+		Update:      resolveField(manifest.Update, defaults.Update, limits.Update),
+		Repair:      resolveField(manifest.Repair, defaults.Repair, limits.Repair),
+		Remove:      resolveField(manifest.Remove, defaults.Remove, limits.Remove),
+		PreInstall:  resolveField(manifest.PreInstall, defaults.PreInstall, limits.PreInstall),
+		PostInstall: resolveField(manifest.PostInstall, defaults.PostInstall, limits.PostInstall),
+		Verify:      resolveField(manifest.Verify, defaults.Verify, limits.Verify),
+		Commit:      resolveField(manifest.Commit, defaults.Commit, limits.Commit),
 	}
 }
 

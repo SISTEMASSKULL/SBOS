@@ -6,7 +6,6 @@ import (
 
 	"bos/internal/tui/ctrl/dash"
 	"bos/internal/tui/styles"
-
 )
 
 // Jobs renderiza la vista de instalaciones activas y su historial.

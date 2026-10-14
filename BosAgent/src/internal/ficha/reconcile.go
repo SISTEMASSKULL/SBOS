@@ -12,10 +12,11 @@
 //   - block_and_alert:  bloquea la ficha y escala a HITL (requiere 2 admins)
 //
 // El ciclo de reconciliación:
-//   drift detectado → health check → política decide →
-//     autonomous → Executor.Repair() → verify → INSTALADA o ERROR_NO_CORREGIBLE
-//     recommend  → log + notificar → ficha sigue DEGRADADA
-//     block_and_alert → 🚨 HITL → espera confirmación humana
+//
+//	drift detectado → health check → política decide →
+//	  autonomous → Executor.Repair() → verify → INSTALADA o ERROR_NO_CORREGIBLE
+//	  recommend  → log + notificar → ficha sigue DEGRADADA
+//	  block_and_alert → 🚨 HITL → espera confirmación humana
 //
 // Estándares: ADR-021 (18 estados), SBOS-019 §13 (governance),
 // ISO 27001 A.8.15 (audit_events), CIS Benchmark v8 §4.1.
@@ -64,13 +65,13 @@ func DefaultPolicy(critical bool) ReconcilePolicy {
 
 // ReconcileAction describe la acción tomada (o recomendada) por el reconciliador.
 type ReconcileAction struct {
-	FichaID   string          `json:"ficha_id"`
-	Policy    ReconcilePolicy `json:"policy"`
-	Trigger   string          `json:"trigger"` // "drift", "health_failure", "both"
-	Action    string          `json:"action"`   // "repair", "notify", "block", "none"
-	Reason    string          `json:"reason"`
-	AutoRepair bool           `json:"auto_repair"` // true si se ejecutó repair automático
-	Timestamp  time.Time      `json:"timestamp"`
+	FichaID    string          `json:"ficha_id"`
+	Policy     ReconcilePolicy `json:"policy"`
+	Trigger    string          `json:"trigger"` // "drift", "health_failure", "both"
+	Action     string          `json:"action"`  // "repair", "notify", "block", "none"
+	Reason     string          `json:"reason"`
+	AutoRepair bool            `json:"auto_repair"` // true si se ejecutó repair automático
+	Timestamp  time.Time       `json:"timestamp"`
 }
 
 // ReconcileResult contiene el resultado de un ciclo de reconciliación.

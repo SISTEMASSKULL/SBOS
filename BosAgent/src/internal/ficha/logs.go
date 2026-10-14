@@ -40,8 +40,8 @@ type LogEntry struct {
 
 // LogReader lee archivos de log de fichas desde disco.
 type LogReader struct {
-	logDir  string // directorio base: /var/log/bos/fichas
-	logger  *slog.Logger
+	logDir string // directorio base: /var/log/bos/fichas
+	logger *slog.Logger
 }
 
 // NewLogReader crea un lector de logs.
