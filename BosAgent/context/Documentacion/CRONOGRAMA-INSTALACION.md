@@ -1,6 +1,6 @@
 # Cronograma de Instalación — Ficha por Ficha
 
-**Versión:** 2.8.0  
+**Versión:** 2.9.0  
 **Fecha:** 2026-10-14  
 **Autor:** bos-developer  
 
@@ -580,7 +580,7 @@ bosctl ficha install sbos-database-init
 
 **Faltantes:**
 - ❌ Plugin Lua SBOS-Context (ctx_id injection) no desplegado — pendiente desarrollo
-- ❌ Rutas y servicios de aplicaciones configurados manualmente (no via ficha declarativa)
+- ✅ (ciclo 14) Rutas y servicios de aplicaciones declarados automáticamente en `ficha_post_install()` + `ficha_repair()`
 
 **Bugs:** ninguno activo
 
@@ -849,8 +849,10 @@ Kong (Domain Resolver):
 - ✅ Alertmanager 0.28.1 corriendo
 - ✅ Reglas SBOS configuradas
 
-**Faltantes:**
-- ❌ Routing hacia sbos-notifier no configurado aún
+**Faltantes:** ninguno activo
+
+**Logros adicionales:**
+- ✅ (ciclo 14) Routing hacia sbos-notifier declarado en kong `ficha_post_install()` via ruta `/sbos-notifier`
 
 **Bugs:** ninguno activo
 
@@ -2043,7 +2045,9 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 **Correcciones ciclo 13:** (1) **sbos-database-init**: DDL auto-copiado — `ficha_pre_install` busca en 4 rutas candidatas y copia sin intervención manual · (2) **loki**: retención 720h + `structuredMetadata.enabled` para ctx_id · (3) **tempo**: retención 720h + search habilitado · (4) **mailserver**: `ficha_health` con `postfix status` via kubectl exec + puertos UFW automáticos en `ficha_install` · (5) **VDI-PROBLEMA #5 CERRADO**: NetworkPolicy `deny-direct-novnc-external` en sbos-vdi-config bloquea acceso directo a puerto 6901
 
+**Correcciones ciclo 14:** **kong routing declarativo** — `ficha_post_install()` configura automáticamente 5 servicios + 5 rutas en Kong Admin API: `nextcloud→/nextcloud`, `onlyoffice→/onlyoffice`, `grafana→/grafana`, `guacamole→/desktop`, `sbos-notifier→/sbos-notifier`; helpers `_kong_ensure_service` + `_kong_ensure_route` idempotentes (skip si ya existen); `ficha_repair()` re-aplica rutas en cada ciclo de reparación; `ficha_test()` verifica ≥5 rutas activas
+
 ---
 
-*Documento v2.8.0 — bos-developer · 2026-10-14*  
+*Documento v2.9.0 — bos-developer · 2026-10-14*  
 *Panel de control de reparación: `PLAN-INSTALACION-DESDE-CERO.md §13`*

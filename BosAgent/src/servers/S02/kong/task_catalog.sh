@@ -570,6 +570,79 @@ spec:
     return 0
 }
 
+# ── Admin API helpers (POST sin sh -c) ───────────────────────────
+# _kong_admin_soft: GET a Admin API sin -f — no falla en 404.
+_kong_admin_soft() {
+    _k exec deploy/kong -n "$NS" -- \
+        curl -s --max-time 5 \
+        "http://127.0.0.1:${ADMIN_PORT}${1}" 2>/dev/null
+}
+
+# _kong_curl_post: POST a Admin API con JSON (args directos, sin sh -c).
+_kong_curl_post() {
+    local path="$1" data="$2"
+    _k exec deploy/kong -n "$NS" -- \
+        curl -sf --max-time 10 \
+        -X POST \
+        -H "Content-Type: application/json" \
+        -d "$data" \
+        "http://127.0.0.1:${ADMIN_PORT}${path}" 2>/dev/null
+}
+
+# _kong_ensure_service: crea servicio Kong si no existe (idempotente por nombre).
+_kong_ensure_service() {
+    local name="$1" url="$2"
+    local existing
+    existing=$(_kong_admin_soft "/services/${name}" | \
+        python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('name',''))" 2>/dev/null || echo "")
+    if [[ "$existing" == "$name" ]]; then
+        _log "  servicio '$name' ya existe — skip"
+        return 0
+    fi
+    _kong_curl_post "/services" "{\"name\":\"${name}\",\"url\":\"${url}\"}" >> "$FICHA_LOG" 2>&1 || {
+        _log "  ERROR al crear servicio '$name'"
+        return 1
+    }
+    _log "  servicio '$name' creado → $url"
+}
+
+# _kong_ensure_route: crea ruta en servicio Kong si no existe (idempotente por nombre).
+_kong_ensure_route() {
+    local rname="$1" sname="$2" path="$3" strip="${4:-false}"
+    local existing
+    existing=$(_kong_admin_soft "/services/${sname}/routes/${rname}" | \
+        python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('name',''))" 2>/dev/null || echo "")
+    if [[ "$existing" == "$rname" ]]; then
+        _log "  ruta '$rname' ya existe — skip"
+        return 0
+    fi
+    _kong_curl_post "/services/${sname}/routes" \
+        "{\"name\":\"${rname}\",\"paths\":[\"${path}\"],\"strip_path\":${strip}}" >> "$FICHA_LOG" 2>&1 || {
+        _log "  ERROR al crear ruta '$rname'"
+        return 1
+    }
+    _log "  ruta '$rname' creada → $path"
+}
+
+# _kong_configure_app_routes: declara servicios+rutas para las 5 apps SBOS.
+# Idempotente — puede llamarse desde post_install y repair.
+_kong_configure_app_routes() {
+    local failed=0
+    local svc url path
+    for svc in nextcloud onlyoffice grafana guacamole sbos-notifier; do
+        case "$svc" in
+            nextcloud)     url="http://nextcloud.sbos-vdi.svc.cluster.local";         path="/nextcloud" ;;
+            onlyoffice)    url="http://onlyoffice-ds.sbos-vdi.svc.cluster.local";     path="/onlyoffice" ;;
+            grafana)       url="http://grafana.sbos-monitor.svc.cluster.local";       path="/grafana" ;;
+            guacamole)     url="http://guacamole.sbos-vdi.svc.cluster.local:8080";    path="/desktop" ;;
+            sbos-notifier) url="http://sbos-notifier.sbos-comms.svc.cluster.local";   path="/sbos-notifier" ;;
+        esac
+        _kong_ensure_service "$svc" "$url"   || { failed=$((failed+1)); continue; }
+        _kong_ensure_route "${svc}-route" "$svc" "$path" false || failed=$((failed+1))
+    done
+    return $failed
+}
+
 # ── Post-install ──────────────────────────────────────────────────
 ficha_post_install() {
     _log "Estado Kong:"
@@ -579,6 +652,21 @@ ficha_post_install() {
     _k get pod -n "$NS" -l app=kong --no-headers 2>/dev/null \
         | awk '{printf "  pod=%s ready=%s status=%s restarts=%s\n", $1, $2, $3, $4}' \
         | tee -a "$FICHA_LOG" || true
+
+    echo "${__STEP_START__} configurar_rutas_sbos"
+    if ! echo "$health" | grep -q "healthy"; then
+        echo "${__STEP_SKIP__} configurar_rutas_sbos: Kong no healthy — convergerá en repair"
+        return 0
+    fi
+
+    local failed
+    _kong_configure_app_routes; failed=$?
+    if (( failed == 0 )); then
+        echo "${__STEP_OK__} configurar_rutas_sbos (5 servicios + 5 rutas)"
+    else
+        echo "${__STEP_FAIL__} configurar_rutas_sbos: ${failed} error(es)"
+        return 1
+    fi
     return 0
 }
 
@@ -617,6 +705,16 @@ ficha_repair() {
         return $?
     }
     echo "${__STEP_OK__} reparar_kong"
+
+    # Re-aplicar rutas de aplicaciones (idempotente — recupera drift de rutas)
+    echo "${__STEP_START__} reparar_rutas_sbos"
+    local failed
+    _kong_configure_app_routes; failed=$?
+    if (( failed == 0 )); then
+        echo "${__STEP_OK__} reparar_rutas_sbos"
+    else
+        echo "${__STEP_FAIL__} reparar_rutas_sbos: ${failed} error(es)"
+    fi
     return 0
 }
 
@@ -698,6 +796,18 @@ ficha_test() {
         echo "${__STEP_OK__} test_networkpolicy (3/3)"
     else
         echo "${__STEP_FAIL__} test_networkpolicy: ${np_ok}/3"
+        ok=1
+    fi
+
+    echo "${__STEP_START__} test_rutas_sbos"
+    local routes_n
+    routes_n=$(_kong_admin "/routes" 2>/dev/null | \
+        python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('data',[])))" \
+        2>/dev/null || echo "0")
+    if (( routes_n >= 5 )); then
+        echo "${__STEP_OK__} test_rutas_sbos (${routes_n} rutas configuradas)"
+    else
+        echo "${__STEP_FAIL__} test_rutas_sbos: solo ${routes_n}/5 rutas — ejecutar ficha_repair"
         ok=1
     fi
 
