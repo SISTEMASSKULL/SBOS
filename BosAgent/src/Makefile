@@ -7,7 +7,7 @@ CGO      ?= CGO_ENABLED=0
 VERSION  ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "0.1.0-dev")
 BUILDDIR ?= bin/
 
-.PHONY: all build test lint clean check
+.PHONY: all build test lint clean package release check
 
 all: build
 
@@ -49,10 +49,21 @@ package: build
 	cp core/00_YAML_ENGINE_SBOS.sh     $(PKGDIR)
 	cp core/00_CLEANUP_SBOS.sh         $(PKGDIR)
 	cp core/host-setup.sh              $(PKGDIR)
-	@mkdir -p $(PKGDIR)servers
-	@cp -r servers/ $(PKGDIR)servers/
+	@cp -r servers $(PKGDIR)servers
 	@echo "Paquete generado en $(PKGDIR)"
 	@ls -lh $(PKGDIR)
+
+clean:
+	rm -rf $(BUILDDIR) $(PKGDIR) $(RELEASEFILE)
+
+RELEASEFILE ?= bos-release.tar.gz
+
+release: package
+	@tar -czf $(RELEASEFILE) -C $(PKGDIR) .
+	@ls -lh $(RELEASEFILE)
+	@echo "Desplegar con:"
+	@echo "  scp $(RELEASEFILE) root@<PROD_IP>:/tmp/"
+	@echo "  ssh root@<PROD_IP> 'mkdir -p /opt/bos && tar -xzf /tmp/$(RELEASEFILE) -C /opt/bos && /opt/bos/bosctl setup --mode=prod'"
 
 # ── CI Gate ──────────────────────────────────────────────────
 

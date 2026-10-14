@@ -1,6 +1,6 @@
 # Cronograma de Instalación — Ficha por Ficha
 
-**Versión:** 2.23.0  
+**Versión:** 2.24.0  
 **Fecha:** 2026-10-14  
 **Autor:** bos-developer  
 
@@ -2304,7 +2304,9 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 **Correcciones ciclo 32:** **Dominio unificado sksistemas.com — 10 fichas** — (1) **Variable canónica**: `BOS_DOMAIN` es la única variable de dominio en todo el ecosistema; `SBOS_DOMAIN` en certbot era un bug — unificado a `BOS_DOMAIN`; (2) **Default corregido** de `sbos.app` → `sksistemas.com` en: `certbot`, `keycloak`, `mailserver`, `nextcloud`, `onlyoffice`, `sbos-vdi-config`, `sbos-kong-tenant`; (3) **nginx institucional**: `sbos-institucional.conf` placeholder corregido de `sbos.app www.sbos.app` → `sksistemas.com www.sksistemas.com`; (4) **oauth2-proxy-desktop**: `PUBLIC_URL` default cambiado de IP hardcodeada `https://13.140.128.230` → `https://sksistemas.com`; (5) **oauth2-proxy**: `--cookie-domain=.sksistemas.com` ya estaba correcto — sin cambio; (6) Para producción: configurar `BOS_DOMAIN=sksistemas.com` (ya es el default) y `BOS_DOMAIN` en env del host antes de correr fichas; DNS requerido: `sksistemas.com` + `www.sksistemas.com` → IP pública VPS.
 
+**Correcciones ciclo 34:** **Makefile: make package/release corregidos + modelo distribución binaria** — (1) **Bug doble-nesting corregido**: `cp -r servers/ dist/servers/` producía `dist/servers/servers/` — corregido a `cp -r servers dist/servers`; (2) **target `clean` añadido**: limpia `bin/ dist/ bos-release.tar.gz`; (3) **target `release` añadido**: genera `bos-release.tar.gz` (~17M) en raíz del proyecto con binarios + core scripts + fichas, listo para transferir a producción; (4) **PKGDIR `package` añadido a .PHONY**; (5) **modelo de distribución establecido**: dev VPS → `make release` → `scp bos-release.tar.gz root@13.140.128.230:/tmp/` → prod extrae en `/opt/bos/` → `./bosctl setup --mode=prod`; NUNCA fuentes en producción.
+
 ---
 
-*Documento v2.23.0 — bos-developer · 2026-10-14*  
+*Documento v2.24.0 — bos-developer · 2026-10-14*  
 *Panel de control de reparación: `PLAN-INSTALACION-DESDE-CERO.md §13`*
