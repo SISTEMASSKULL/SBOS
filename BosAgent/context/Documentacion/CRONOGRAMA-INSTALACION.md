@@ -1496,61 +1496,63 @@ Si juan.perez se va 10 horas y vuelve:
 
 > **Arquitectura confirmada:** pod compartido + multi-sesión VNC por usuario + PVC de home por usuario.
 > El pod nunca se destruye. La sesión del usuario persiste aunque se desconecte horas o días.
-> Las preguntas siguientes afinan los parámetros de implementación.
+> ✅ Todas las preguntas respondidas — ver decisiones formalizadas abajo.
 
 ---
 
-**Q-VDI-A — ¿Rebuildeamos la imagen fedora-desktop ahora?**
+**Q-VDI-A — Rebuild imagen** ✅ RESPONDIDA
 
-El script `start-desktop.sh` llega por ConfigMap en lugar de estar baked en la imagen Docker. Si el ConfigMap se borra, el escritorio no arranca. Resolverlo requiere editar el Dockerfile y el Deployment.
+> *A1: rebuild ahora. Condición: preservar íntegramente el theme y configuración visual actual.*
 
-- `A1` — Sí, resolverlo ahora (1-2 h de código + rebuild en VPS).
-- `A2` — No, diferir hasta que el instalador esté validado end-to-end en VPS.
-
-> **Respuesta:** _______
-
----
-
-**Q-VDI-C — ¿Cuántos usuarios simultáneos debe soportar la instalación inicial?**
-
-Esto define el sizing mínimo de la VPS. Cada sesión KDE activa ocupa ~1.5–2 GB RAM y ~0.5 cores.
-
-| Usuarios simultáneos | RAM mínima VPS |
-|---|---|
-| 5–10 | 16–32 GB |
-| 10–30 | 32–64 GB |
-| 30–80 | 128 GB |
-| 80+ | Cluster multi-nodo |
-
-> **Respuesta (número estimado de usuarios simultáneos en el primer cliente real):** _______
+**Decisión formalizada:**
+- `start-desktop.sh` se bake dentro de la imagen Docker (deja de venir por ConfigMap)
+- El Deployment elimina la referencia al ConfigMap `fedora-kde-start-script`
+- Todo el theme visual KDE actual (colores, fuentes, iconos, wallpaper) se preserva intacto en la imagen
+- **Acción:** bos-developer revisa el Dockerfile y el ConfigMap actual, identifica el theme, lo incluye en el build, e instruye el rebuild en VPS
 
 ---
 
-**Q-VDI-D — ¿Cuánto tiempo persiste una sesión idle antes de liberarse?**
+**Q-VDI-C — Capacidad de usuarios simultáneos** ✅ RESPONDIDA
 
-La sesión KDE del usuario permanece viva en el pod aunque no esté conectado. El display y sus recursos se liberan pasado este tiempo. Su home (PVC) NUNCA se borra.
+> *5–10 en fase de pruebas. Hasta 100 concurrentes en primera etapa productiva.*
 
-- `D1` — 8 horas (una jornada laboral): al día siguiente el usuario retoma donde estaba.
-- `D2` — 24 horas: trabajo seguro incluso con ausencias de un día completo.
-- `D3` — 72 horas (fin de semana): el usuario puede retomar el lunes lo que dejó el viernes.
-- `D4` — Configurable por tenant/empresa (cada organización define su política).
-
-> **Respuesta:** _______
+**Decisión formalizada:**
+- **VPS mínima para primera etapa:** 128 GB RAM / 32 cores (soporta ~60–80 sesiones cómodas; ~100 con optimización)
+- Para superar 100 concurrentes: cluster multi-nodo (el provisioner ya escala horizontalmente por diseño)
+- El provisioner implementa un control de capacidad: si el nodo está al 90% de RAM, redirige a otro nodo o devuelve error "sin capacidad disponible" antes de arrancar una sesión nueva
 
 ---
 
-**Q-VDI-E — ¿El perfil de escritorio (menús, apps disponibles) lo define el rol de Keycloak, o bAuth tendrá una capa adicional?**
+**Q-VDI-D — TTL de sesión idle** ✅ RESPONDIDA
 
-El provisioner necesita saber de dónde leer qué apps ve cada usuario en su escritorio KDE.
+> *Configurable por política de Keycloak/bAuth. El dominio lógico define la persistencia, no un valor hardcodeado.*
 
-- `E1` — Solo Keycloak por ahora: los grupos/roles del JWT de Keycloak determinan las apps del menú. Cuando bAuth esté operativo, el provisioner cambia de fuente sin cambiar la arquitectura.
-- `E2` — Esperar a bAuth: no implementar personalización de menús hasta que bAuth esté activo.
-
-> **Respuesta:** _______
+**Decisión formalizada:**
+- El provisioner NO tiene un TTL hardcodeado
+- Lee el claim `session_ttl_hours` del JWT (o un default del `sbos-vdi-config` ConfigMap si el claim no está presente)
+- Cada tenant/empresa puede definir su política de sesión en Keycloak/bAuth: `session_ttl_hours: 8` (jornada laboral), `24`, `72`, etc.
+- El claim viaja en el JWT → el provisioner lo respeta → transición a bAuth sin cambiar el provisioner
 
 ---
 
-*Con estas 5 respuestas, bos-developer implementa sbos-vdi-provisioner completo en una sola sesión.*
+**Q-VDI-E — Fuente del perfil de escritorio** ✅ RESPONDIDA
+
+> *Keycloak define los perfiles ahora (grupos → menús KDE). bAuth hereda el modelo en transición sin fricciones.*
+
+**Decisión formalizada:**
+- El provisioner lee los `groups` del JWT de Keycloak para construir los menús KDE
+- La estructura de grupos/roles define qué apps aparecen en el escritorio de cada usuario
+- Cuando bAuth esté operativo: el JWT de bAuth tendrá la misma estructura de claims → el provisioner no cambia, solo cambia el emisor del token
+- Esto garantiza la transición sin refactorizar el VDI
+
+---
+
+**✅ Todas las decisiones tomadas. `sbos-vdi-provisioner` puede implementarse.**
+
+Secuencia de implementación:
+1. Rebuild imagen fedora-desktop (VDI-PROBLEMA #2) — preservando theme actual
+2. Implementar `sbos-vdi-provisioner` con multi-sesión VNC + PVC por usuario + cgroups + menús desde JWT
+3. Actualizar ficha `fedora-kde` para eliminar el ConfigMap del Deployment
 
 ---
 
