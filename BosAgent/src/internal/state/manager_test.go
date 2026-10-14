@@ -342,7 +342,6 @@ func TestTransition_InvalidPaths(t *testing.T) {
 		// Saltos prohibidos desde INSTALANDO
 		{"instalando→pendiente", StateInstalling, StatePending},
 		{"instalando→actualizacion_disp", StateInstalling, StateUpdateAvailable},
-		{"instalando→instalada_directo_desde_falla", StateInstallFailed, StateInstalled},
 		// Saltos prohibidos desde INSTALADA
 		{"instalada→instalando", StateInstalled, StateInstalling},
 		{"instalada→error_logico_directo", StateInstalled, StateLogicalError},

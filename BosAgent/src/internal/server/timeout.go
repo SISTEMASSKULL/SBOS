@@ -6,7 +6,7 @@ package server
 //
 //	lectura   →   5s  (status, list, read, check, query, validate)
 //	escritura →  30s  (mutaciones del Context Plane, cleanup)
-//	saga      → 600s  (install/update/repair/remove, bootstrap, pg_auxiliar)
+//	saga      →  30m  (install/update/repair/remove, bootstrap, pg_auxiliar — kong migrations ~10min)
 //
 // El handler corre en una goroutine; si el plazo expira el cliente recibe
 // -32006 inmediatamente. La goroutine termina sola y su respuesta se
@@ -31,7 +31,7 @@ var timeoutByCategory = map[rpcCategory]time.Duration{
 	catSaga:      30 * time.Minute, // sagas de infraestructura (kong migrations ~10min en cold start)
 }
 
-// sagaMethods: operaciones largas con compensación — plazo 600s.
+// sagaMethods: operaciones largas con compensación — plazo 30m.
 var sagaMethods = map[string]bool{
 	"bos.ficha.install":               true,
 	"bos.ficha.update":                true,

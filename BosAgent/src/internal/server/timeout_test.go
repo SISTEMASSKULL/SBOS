@@ -47,7 +47,7 @@ func TestTimeout_LecturaExpira5s(t *testing.T) {
 }
 
 // TestTimeout_CategoriasCanonicas fija los plazos del plan:
-// 5s lectura, 30s escritura, 600s sagas.
+// 5s lectura, 30s escritura, 30m sagas.
 func TestTimeout_CategoriasCanonicas(t *testing.T) {
 	cases := []struct {
 		method string
@@ -59,10 +59,10 @@ func TestTimeout_CategoriasCanonicas(t *testing.T) {
 		{"system.listMethods", 5 * time.Second},
 		{"bos.ctx.promote", 30 * time.Second},
 		{"bos.ctx.invalidate", 30 * time.Second},
-		{"bos.ficha.install", 600 * time.Second},
-		{"bos.ficha.repair", 600 * time.Second},
-		{"bos.saga.execute", 600 * time.Second},
-		{"bos.bootstrap.start", 600 * time.Second},
+		{"bos.ficha.install", 30 * time.Minute},
+		{"bos.ficha.repair", 30 * time.Minute},
+		{"bos.saga.execute", 30 * time.Minute},
+		{"bos.bootstrap.start", 30 * time.Minute},
 	}
 	for _, c := range cases {
 		if got := methodTimeout(c.method); got != c.want {
