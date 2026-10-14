@@ -1,0 +1,55 @@
+identity:
+  id: sbos-bi18n
+  server: S-HOST
+  version: 1.0.0
+  category: 1
+  criticality: true
+  description: "bi18n — Orquestador Universal de Internacionalización. Formatea, valida, enmascara y traduce datos por locale del tenant. CERO puertos TCP — Unix socket únicamente."
+
+workload:
+  type: systemd
+  runtime: rust-musl
+  binary: /usr/local/bin/bi18nd
+  config: /etc/bos/bi18n.toml
+
+order:
+  execution_order: 75
+
+requirements:
+  dependencies:
+    - bos-preflight
+    - sbos-bootstrap-os
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "daemon-soberano"
+
+meta:
+  backend: systemd
+  idempotent: true
+  estimated_minutes: 2
+  rollback_support: true
+
+# bi18n: CERO puertos TCP en producción (SBOS-050 P9)
+# Puertos 9470-9475 solo para diagnóstico en host (no expuestos al exterior)
+ports:
+  - port: 9470
+    protocol: TCP
+    description: "bi18n diagnóstico (host-only)"
+    internal_only: true
+
+health:
+  type: command
+  command: "systemctl is-active bi18nd 2>/dev/null || echo inactive"
+  expected_output: "active"
+  timeout_seconds: 10
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/sbos-bi18n.log
+
+versions:
+  rust: "1.85"
+  systemd: "255"
+  bi18nd: "1.0.0"
