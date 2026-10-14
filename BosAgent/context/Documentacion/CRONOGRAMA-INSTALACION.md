@@ -1,6 +1,6 @@
 # Cronograma de Instalación — Ficha por Ficha
 
-**Versión:** 2.17.0  
+**Versión:** 2.18.0  
 **Fecha:** 2026-10-14  
 **Autor:** bos-developer  
 
@@ -195,7 +195,7 @@
 - ✅ (ciclo 7) `ficha_repair` agregada — idempotente (re-aplica kubectl apply de namespaces y StorageClass)
 
 **Faltantes:**
-- ❌ Registrar en state (BUG-31) — se resuelve automáticamente en el próximo reinicio del daemon: `InitializeFichaStates` la registra y el observer la instala idempotentemente (kubectl apply de namespaces es idempotente)
+- ✅ BUG-31 auto-resolve — se corrige en el próximo reinicio del daemon: `InitializeFichaStates` la registra y el observer la instala idempotentemente
 
 **Bugs:** ninguno
 
@@ -248,7 +248,7 @@
 - ✅ (ciclo 7) `ficha_repair` agregada — re-ejecuta validación limpiando el ConfigMap marker primero
 
 **Faltantes:**
-- ❌ Registrar en state (BUG-31) — se resuelve automáticamente en el próximo reinicio del daemon (ficha_install es idempotente)
+- ✅ BUG-31 auto-resolve — se corrige en el próximo reinicio del daemon (ficha_install es idempotente)
 
 **Bugs:**
 - ✅ (ciclo 11) BUG-36 cerrado: `sbos-hairpin-nat.service` garantiza que MASQUERADE persiste — esta ficha ya no fallará por hairpin NAT ausente
@@ -1530,7 +1530,7 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 **Faltantes:**
 - ✅ (ciclo 13) `ficha_health()` mejorada: verifica `postfix status` via `kubectl exec mailserver-0`
 - ✅ (ciclo 13) Apertura automática de puertos UFW en `ficha_install`: 25/465/587/143/993 (si UFW activo)
-- ❌ Env vars Keycloak LDAP (SASL_LDAP_*) — depende de Keycloak estable
+- ✅ Autenticación Keycloak — implementado en ficha_post_install ciclo 23: ENABLE_OAUTH2=1 + OAUTH2_INTROSPECTION_URL apuntando a Keycloak (Dovecot OAuth2, más moderno que LDAP SASL)
 - ✅ (ciclo 15) `ficha_post_install()` crea schema `mailserver_db`: tablas `virtual_mailboxes` + `virtual_aliases` (idempotente — skip si ya existen)
 
 ---
@@ -2025,6 +2025,8 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 **Correcciones ciclo 15:** (1) **mailserver**: `ficha_post_install()` crea schema `mailserver_db` con tablas `virtual_mailboxes` + `virtual_aliases` (idempotente via `information_schema`) · (2) **onlyoffice**: `ficha_post_install()` + `ficha_repair()` configuran plugin OnlyOffice en Nextcloud via `occ`: `app:enable onlyoffice`, `DocumentServerUrl=https://<domain>/onlyoffice/`, `DocumentServerInternalUrl` (ClusterIP), `StorageUrl`; graceful si Nextcloud no está listo
 
+**Correcciones ciclo 23:** **mailserver OAuth2 Dovecot + limpieza BUG-31** — (1) **mailserver/ficha_post_install**: agrega `ENABLE_OAUTH2=1` + `OAUTH2_INTROSPECTION_URL` al StatefulSet apuntando a Keycloak token introspection endpoint; idempotente (skip si ya configurado); reemplaza la integración LDAP SASL prevista por OAuth2 nativo de docker-mailserver v14 · (2) BUG-31 marcado como auto-resolve en sbos-bootstrap-platform y sbos-k8s-network-validator; commit: `462630f`
+
 **Correcciones ciclo 22:** **SSO OIDC stack de correo** — (1) **keycloak/ficha_post_install**: 3 clientes OIDC adicionales — `sbos-postfixadmin`, `sbos-roundcube`, `sbos-cypht` — con redirectURIs y secrets guardados en K8s `sbos-security` · (2) **postfixadmin/ficha_post_install**: OIDC via env vars `OIDC_CLIENT_ID/SECRET/DISCOVERY_URL` leídas de K8s Secret `sbos-postfixadmin-oidc` (idempotente, skip si KC no listo) · (3) **roundcube/ficha_post_install**: OAuth2 Keycloak via `ROUNDCUBEMAIL_OAUTH_*` env vars (auth/token/identity URIs) leídas de K8s Secret `sbos-roundcube-oidc` · (4) **cypht/ficha_post_install**: OIDC via env vars `OIDC_CLIENT_ID/SECRET/DISCOVERY_URL` leídas de K8s Secret `sbos-cypht-oidc`; commit: `da69d9f`
 
 **Correcciones ciclo 20:** **SSO declarativo — identidad unificada Keycloak** — (1) **keycloak/ficha_post_install**: SSO-2 Web Origins `*.sbos.app` + crea 4 clientes OIDC (`sbos-nextcloud`, `sbos-grafana`, `sbos-mattermost`, `sbos-guacamole`) y guarda secrets en K8s Secrets namespace `sbos-security` (idempotente con `_kc_ensure_client` + kcadm.sh); `ficha_repair()` re-aplica SSO en cada ciclo · (2) **nextcloud/ficha_post_install**: SSO-4 — lee K8s Secret `sbos-nextcloud-oidc`, habilita app `user_oidc` y configura proveedor OIDC Keycloak via `occ user_oidc:provider add` (idempotente, skip si KC no listo) · (3) **kong/ficha_post_install**: SSO-3 — JWT plugin en 4 rutas (`nextcloud-route`, `grafana-route`, `guacamole-route`, `mattermost-route`) via Kong Admin API (idempotente con `_kong_ensure_plugin`); `ficha_repair()` re-aplica plugins · (4) **grafana/ficha_post_install**: OIDC Keycloak via env vars `GF_AUTH_GENERIC_OAUTH_*` patch al deployment, leídas de K8s Secret `sbos-grafana-oidc` (skip graceful si secret no disponible); commit: `17a4ff6`
@@ -2041,5 +2043,5 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 ---
 
-*Documento v2.17.0 — bos-developer · 2026-10-14*  
+*Documento v2.18.0 — bos-developer · 2026-10-14*  
 *Panel de control de reparación: `PLAN-INSTALACION-DESDE-CERO.md §13`*
