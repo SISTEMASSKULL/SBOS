@@ -601,6 +601,14 @@ ficha_test() {
 }
 
 # ── Remove ────────────────────────────────────────────────────────────────────
+ficha_health() {
+    local r
+    r=$(_k get deployment oauth2-proxy-desktop -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    (( r >= 1 )) && echo "HEALTHY" && return 0
+    echo "DEGRADED: oauth2-proxy-desktop ${r}/1"
+    return 1
+}
+
 ficha_remove() {
     _log "Eliminando oauth2-proxy-desktop..."
     _k delete deployment,service,secret,networkpolicy \
