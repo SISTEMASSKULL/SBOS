@@ -624,6 +624,33 @@ _kong_ensure_route() {
     _log "  ruta '$rname' creada → $path"
 }
 
+# _kong_ensure_plugin: agrega plugin a una ruta si no existe. Idempotente.
+# Args: $1=route_name  $2=plugin_name  $3=config_json
+_kong_ensure_plugin() {
+    local route_name="$1" plugin_name="$2" config_json="${3:-{}}"
+    # Verificar si el plugin ya existe en esta ruta
+    local existing
+    existing=$(_k exec deploy/kong -n "$NS" -- \
+        curl -s --max-time 5 \
+        "http://127.0.0.1:${ADMIN_PORT}/routes/${route_name}/plugins" 2>/dev/null | \
+        python3 -c "
+import sys,json
+try:
+    d=json.load(sys.stdin)
+    names=[p.get('name','') for p in d.get('data',[])]
+    print('${plugin_name}' in names and 'exists' or '')
+except: print('')
+" 2>/dev/null || echo "")
+    if [[ "$existing" == "exists" ]]; then
+        _log "  plugin '$plugin_name' ya activo en ruta '$route_name' — skip"
+        return 0
+    fi
+    _kong_curl_post "/routes/${route_name}/plugins" \
+        "{\"name\":\"${plugin_name}\",\"config\":${config_json}}" >> "$FICHA_LOG" 2>&1 || \
+        _log "  ADVERTENCIA: no se pudo agregar plugin '$plugin_name' a ruta '$route_name'"
+    _log "  plugin '$plugin_name' agregado a ruta '$route_name'"
+}
+
 # _kong_configure_app_routes: declara servicios+rutas para las 5 apps SBOS.
 # Idempotente — puede llamarse desde post_install y repair.
 _kong_configure_app_routes() {
@@ -667,6 +694,16 @@ ficha_post_install() {
         echo "${__STEP_FAIL__} configurar_rutas_sbos: ${failed} error(es)"
         return 1
     fi
+
+    # SSO-3: plugin JWT en rutas que requieren autenticación
+    echo "${__STEP_START__} jwt_plugin"
+    local realm="${TENANT_ID:-skull}"
+    local kc_internal="http://keycloak.sbos-security.svc.cluster.local:8080/realms/${realm}"
+    local jwt_cfg="{\"uri_param_names\":[\"jwt\"],\"cookie_names\":[],\"header_names\":[\"authorization\"],\"claims_to_verify\":[\"exp\"]}"
+    for route in nextcloud-route grafana-route guacamole-route mattermost-route; do
+        _kong_ensure_plugin "$route" "jwt" "$jwt_cfg"
+    done
+    echo "${__STEP_OK__} jwt_plugin"
     return 0
 }
 
@@ -723,6 +760,14 @@ ficha_repair() {
     else
         echo "${__STEP_FAIL__} reparar_rutas_sbos: ${failed} error(es)"
     fi
+
+    # Re-aplicar plugins JWT (idempotente)
+    echo "${__STEP_START__} jwt_plugin"
+    local jwt_cfg="{\"uri_param_names\":[\"jwt\"],\"cookie_names\":[],\"header_names\":[\"authorization\"],\"claims_to_verify\":[\"exp\"]}"
+    for route in nextcloud-route grafana-route guacamole-route mattermost-route; do
+        _kong_ensure_plugin "$route" "jwt" "$jwt_cfg"
+    done
+    echo "${__STEP_OK__} jwt_plugin"
     return 0
 }
 

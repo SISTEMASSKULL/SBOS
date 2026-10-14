@@ -409,17 +409,111 @@ spec:
 	    echo "${__STEP_OK__} registrar_spis (${spis_ok}/5)"
 }
 
-# ── Post-install ──────────────────────────────────────────────────
+# _kc_ensure_client: crea un cliente OIDC en el realm si no existe. Idempotente.
+# Args: $1=clientId  $2=realm  $3=redirectUri  $4=secret (opcional, vacío=public)
+_kc_ensure_client() {
+    local client_id="$1" realm="$2" redirect_uri="$3" secret="${4:-}"
+
+    # Verificar si ya existe
+    if _kc_adm get "clients" -r "$realm" \
+            --fields clientId 2>/dev/null | grep -q "\"$client_id\""; then
+        _log "  cliente '$client_id' ya existe — skip"
+        return 0
+    fi
+
+    local secret_args=()
+    if [[ -n "$secret" ]]; then
+        secret_args=(-s "secret=${secret}" -s "publicClient=false")
+    else
+        secret_args=(-s "publicClient=true")
+    fi
+
+    _kc_adm create clients -r "$realm" \
+        -s "clientId=${client_id}" \
+        -s "enabled=true" \
+        -s "protocol=openid-connect" \
+        -s "standardFlowEnabled=true" \
+        -s "implicitFlowEnabled=false" \
+        -s "directAccessGrantsEnabled=false" \
+        -s "serviceAccountsEnabled=false" \
+        -s "redirectUris=[\"${redirect_uri}\"]" \
+        -s "webOrigins=[\"+\"]" \
+        "${secret_args[@]}" >> "$FICHA_LOG" 2>&1 || \
+        _log "  ADVERTENCIA: no se pudo crear cliente '$client_id'"
+}
+
+# ── Post-install — SSO: Web Origins + clients OIDC (idempotente) ──────────────
 ficha_post_install() {
-    _log "Estado Keycloak:"
-    local health
-    health=$(_k get pod -n "$NS" -l app=keycloak -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "?"
-        python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status','?'))" \
-        2>/dev/null || echo "?")
-    _log "  health=$health"
-    _k get pod -n "$NS" -l app=keycloak --no-headers 2>/dev/null \
-        | awk '{printf "  pod=%s status=%s ready=%s\n", $1, $3, $2}' \
-        | tee -a "$FICHA_LOG" || true
+    local realm="${TENANT_ID:-skull}"
+    local domain="${BOS_DOMAIN:-sbos.app}"
+
+    echo "${__STEP_START__} configurar_sso"
+
+    # Verificar que KC está accesible
+    if ! _wait_kc_ready 30; then
+        echo "${__STEP_SKIP__} configurar_sso: Keycloak no ready — ejecutar ficha_repair cuando esté Running"
+        return 0
+    fi
+
+    # Autenticar kcadm
+    if ! _kc_adm config credentials \
+            --server http://localhost:8080 \
+            --realm master \
+            --user "$KC_ADMIN" \
+            --password "$KC_ADMIN_PASS" > /dev/null 2>&1; then
+        _log "  Admin API no disponible — SSO diferido"
+        echo "${__STEP_SKIP__} configurar_sso: Admin API no disponible"
+        return 0
+    fi
+
+    # SSO-2: Web Origins para SSO multi-subdominio
+    echo "${__STEP_START__} web_origins"
+    _kc_adm update "realms/${realm}" \
+        -s 'webOrigins=["https://'"${domain}"'","https://*.'"${domain}"'"]' \
+        >> "$FICHA_LOG" 2>&1 || true
+    echo "${__STEP_OK__} web_origins"
+
+    # Clients OIDC para apps del ecosistema SBOS
+    echo "${__STEP_START__} oidc_clients"
+    _kc_ensure_client "sbos-nextcloud"  "$realm" "https://${domain}/nextcloud/*"     "$(openssl rand -hex 16)"
+    _kc_ensure_client "sbos-grafana"    "$realm" "https://${domain}/grafana/*"        "$(openssl rand -hex 16)"
+    _kc_ensure_client "sbos-mattermost" "$realm" "https://${domain}/mattermost/*"     "$(openssl rand -hex 16)"
+    _kc_ensure_client "sbos-guacamole"  "$realm" "https://${domain}/desktop/*"        "$(openssl rand -hex 16)"
+    echo "${__STEP_OK__} oidc_clients"
+
+    # Guardar secrets de clients en K8s Secrets para que las apps los lean
+    echo "${__STEP_START__} guardar_secrets_oidc"
+    for client_id in sbos-nextcloud sbos-grafana sbos-mattermost sbos-guacamole; do
+        local secret_name="${client_id}-oidc"
+        if _k get secret -n sbos-security "$secret_name" &>/dev/null; then
+            _log "  secret '$secret_name' ya existe — skip"
+            continue
+        fi
+        local client_secret
+        client_secret=$(_kc_adm get "clients" -r "$realm" \
+            --fields clientId,secret 2>/dev/null | \
+            python3 -c "
+import sys,json
+data=json.load(sys.stdin)
+for c in data:
+    if c.get('clientId')=='${client_id}':
+        print(c.get('secret',''))
+        break
+" 2>/dev/null || echo "")
+        if [[ -n "$client_secret" ]]; then
+            _k create secret generic "$secret_name" \
+                -n sbos-security \
+                --from-literal=client_id="$client_id" \
+                --from-literal=client_secret="$client_secret" \
+                --from-literal=realm="$realm" \
+                --from-literal=issuer="http://keycloak.sbos-security.svc.cluster.local:8080/realms/${realm}" \
+                >> "$FICHA_LOG" 2>&1 || true
+            _log "  secret '$secret_name' creado"
+        fi
+    done
+    echo "${__STEP_OK__} guardar_secrets_oidc"
+
+    echo "${__STEP_OK__} configurar_sso"
     return 0
 }
 
@@ -440,6 +534,7 @@ ficha_repair() {
         _log "ADVERTENCIA: keycloak no Ready tras reinicio"
     fi
     echo "${__STEP_OK__} reiniciar_keycloak"
+    ficha_post_install
     return 0
 }
 

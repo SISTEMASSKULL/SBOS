@@ -283,6 +283,74 @@ YAML
     echo "${__STEP_OK__} verify"
 }
 
+# ── Post-install — SSO-4: configurar OIDC con Keycloak (idempotente) ──────────
+ficha_post_install() {
+    local realm="${TENANT_ID:-skull}"
+    local domain="${BOS_DOMAIN:-sbos.app}"
+    local kc_ns="sbos-security"
+    local secret_name="sbos-nextcloud-oidc"
+
+    echo "${__STEP_START__} configurar_oidc_nextcloud"
+
+    # Verificar que Nextcloud está listo
+    local nc_ready
+    nc_ready=$(_k get deployment nextcloud -n "$NS" \
+        -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    if (( nc_ready < 1 )); then
+        echo "${__STEP_SKIP__} configurar_oidc_nextcloud: Nextcloud no ready"
+        return 0
+    fi
+
+    # Verificar que el secret OIDC existe (lo crea keycloak/ficha_post_install)
+    if ! _k get secret -n "$kc_ns" "$secret_name" &>/dev/null; then
+        echo "${__STEP_SKIP__} configurar_oidc_nextcloud: secret $secret_name no disponible — ejecutar ficha_repair de keycloak primero"
+        return 0
+    fi
+
+    local client_id client_secret issuer
+    client_id=$(_k get secret -n "$kc_ns" "$secret_name" \
+        -o jsonpath='{.data.client_id}' 2>/dev/null | base64 -d || echo "")
+    client_secret=$(_k get secret -n "$kc_ns" "$secret_name" \
+        -o jsonpath='{.data.client_secret}' 2>/dev/null | base64 -d || echo "")
+    issuer=$(_k get secret -n "$kc_ns" "$secret_name" \
+        -o jsonpath='{.data.issuer}' 2>/dev/null | base64 -d || echo "")
+
+    if [[ -z "$client_id" || -z "$client_secret" ]]; then
+        _log "  client_id o client_secret vacíos — OIDC diferido"
+        echo "${__STEP_SKIP__} configurar_oidc_nextcloud: credenciales OIDC no disponibles"
+        return 0
+    fi
+
+    # Verificar si OIDC ya configurado (idempotencia)
+    local current_issuer
+    current_issuer=$(_k exec deploy/nextcloud -n "$NS" -- \
+        php /var/www/html/occ user_oidc:provider list 2>/dev/null | \
+        grep -o "https://[^[:space:]]*" | head -1 || echo "")
+    if [[ "$current_issuer" == *"$realm"* ]]; then
+        _log "  OIDC ya configurado (issuer=$current_issuer) — skip"
+        echo "${__STEP_SKIP__} configurar_oidc_nextcloud: ya configurado"
+        return 0
+    fi
+
+    # Activar app user_oidc
+    _k exec deploy/nextcloud -n "$NS" -- \
+        php /var/www/html/occ app:enable user_oidc >> "$FICHA_LOG" 2>&1 || true
+
+    # Configurar proveedor OIDC
+    _k exec deploy/nextcloud -n "$NS" -- \
+        php /var/www/html/occ user_oidc:provider add keycloak \
+        --clientid="$client_id" \
+        --clientsecret="$client_secret" \
+        --discoveryuri="${issuer}/.well-known/openid-configuration" \
+        --unique-uid=0 \
+        --mapping-uid=preferred_username >> "$FICHA_LOG" 2>&1 \
+        && _log "  OIDC Keycloak configurado en Nextcloud" \
+        || _log "  ADVERTENCIA: no se pudo configurar OIDC (puede que user_oidc no esté disponible en esta imagen)"
+
+    echo "${__STEP_OK__} configurar_oidc_nextcloud"
+    return 0
+}
+
 # ── Repair ───────────────────────────────────────────────────────
 ficha_health() {
     local r
@@ -419,6 +487,9 @@ YAML
     local pods; pods=$(_k get pods -n "$NS" -l app=nextcloud --no-headers 2>/dev/null | grep Running | wc -l)
     _log "$pods pods running"
     echo "${__STEP_OK__} verify"
+
+    # Re-aplicar configuración OIDC (idempotente)
+    ficha_post_install 2>/dev/null || true
 }
 
 ficha_test() {

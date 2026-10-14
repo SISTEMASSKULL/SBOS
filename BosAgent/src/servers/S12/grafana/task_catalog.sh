@@ -307,12 +307,60 @@ spec:
     return 0
 }
 
+# ── Post-install — SSO: configurar OAuth2/OIDC con Keycloak (idempotente) ──────
 ficha_post_install() {
-    _log "Estado grafana:"
-    local health
-    health=$(_gf_curl "http://localhost:3000/api/health" 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('database','?'))" 2>/dev/null || echo "FAIL")
-    _log "  db_health=$health"
-    _k get pod -n "$NS" -l app=grafana --no-headers 2>/dev/null | awk '{printf "  pod=%s status=%s ready=%s\n", $1, $3, $2}' || true
+    local realm="${TENANT_ID:-skull}"
+    local kc_ns="sbos-security"
+    local secret_name="sbos-grafana-oidc"
+    local kc_base="http://keycloak.${kc_ns}.svc.cluster.local:8080/realms/${realm}"
+
+    echo "${__STEP_START__} configurar_oidc_grafana"
+
+    # Verificar que el secret OIDC existe (lo crea keycloak/ficha_post_install)
+    if ! _k get secret -n "$kc_ns" "$secret_name" &>/dev/null; then
+        echo "${__STEP_SKIP__} configurar_oidc_grafana: secret $secret_name no disponible — ejecutar ficha_repair de keycloak primero"
+        return 0
+    fi
+
+    local client_id client_secret
+    client_id=$(_k get secret -n "$kc_ns" "$secret_name" \
+        -o jsonpath='{.data.client_id}' 2>/dev/null | base64 -d || echo "")
+    client_secret=$(_k get secret -n "$kc_ns" "$secret_name" \
+        -o jsonpath='{.data.client_secret}' 2>/dev/null | base64 -d || echo "")
+
+    if [[ -z "$client_id" || -z "$client_secret" ]]; then
+        echo "${__STEP_SKIP__} configurar_oidc_grafana: credenciales OIDC no disponibles"
+        return 0
+    fi
+
+    # Verificar si OIDC ya configurado en el deployment (idempotencia)
+    local current_oidc
+    current_oidc=$(_k get deployment grafana -n "$NS" \
+        -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="GF_AUTH_GENERIC_OAUTH_ENABLED")].value}' \
+        2>/dev/null || echo "")
+    if [[ "$current_oidc" == "true" ]]; then
+        _log "  OIDC ya configurado en deployment — skip"
+        echo "${__STEP_SKIP__} configurar_oidc_grafana: ya configurado"
+        return 0
+    fi
+
+    # Patch del deployment para agregar env vars OIDC
+    _k patch deployment grafana -n "$NS" --type=json -p="[
+        {\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"GF_AUTH_GENERIC_OAUTH_ENABLED\",\"value\":\"true\"}},
+        {\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"GF_AUTH_GENERIC_OAUTH_NAME\",\"value\":\"Keycloak SBOS\"}},
+        {\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"GF_AUTH_GENERIC_OAUTH_CLIENT_ID\",\"value\":\"${client_id}\"}},
+        {\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET\",\"value\":\"${client_secret}\"}},
+        {\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"GF_AUTH_GENERIC_OAUTH_SCOPES\",\"value\":\"openid profile email\"}},
+        {\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"GF_AUTH_GENERIC_OAUTH_AUTH_URL\",\"value\":\"${kc_base}/protocol/openid-connect/auth\"}},
+        {\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"GF_AUTH_GENERIC_OAUTH_TOKEN_URL\",\"value\":\"${kc_base}/protocol/openid-connect/token\"}},
+        {\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"GF_AUTH_GENERIC_OAUTH_API_URL\",\"value\":\"${kc_base}/protocol/openid-connect/userinfo\"}},
+        {\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH\",\"value\":\"contains(groups[*], 'grafana_admin') && 'Admin' || 'Viewer'\"}},
+        {\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"GF_AUTH_DISABLE_LOGIN_FORM\",\"value\":\"false\"}}
+    ]" >> "$FICHA_LOG" 2>&1 && \
+        _log "  OIDC Keycloak configurado en Grafana — rollout restart iniciado" || \
+        _log "  ADVERTENCIA: no se pudo aplicar patch OIDC a grafana"
+
+    echo "${__STEP_OK__} configurar_oidc_grafana"
     return 0
 }
 
