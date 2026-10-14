@@ -398,12 +398,12 @@ ficha_install() {
     if [[ ! -f /etc/nginx/conf.d/domains/sbos-institucional.conf ]]; then
         cat > /etc/nginx/conf.d/domains/sbos-institucional.conf <<'INST_EOF'
 # sbos-institucional.conf — generado por ficha nginx (DO NOT EDIT MANUALLY)
-# Placeholder para el sitio institucional sbos.app.
+# Placeholder para el sitio institucional sksistemas.com.
 # bcms reemplaza este bloque server cuando entre en operación (S16-webserver).
 server {
     listen 443 ssl;
     listen [::]:443 ssl;
-    server_name sbos.app www.sbos.app;
+    server_name sksistemas.com www.sksistemas.com;
     ssl_certificate     /etc/nginx/certs/sbos.crt;
     ssl_certificate_key /etc/nginx/certs/sbos.key;
     ssl_protocols TLSv1.2 TLSv1.3;
@@ -416,7 +416,7 @@ server {
     # bcms en producción usará:
     # proxy_pass http://bcms-website-engine.sbos-web.svc.cluster.local:3000;
     location / {
-        return 200 '{"status":"sbos-listo","bcms":"pendiente-desarrollo","dominio":"sbos.app"}';
+        return 200 '{"status":"sbos-listo","bcms":"pendiente-desarrollo","dominio":"sksistemas.com"}';
         add_header Content-Type 'application/json';
     }
 }

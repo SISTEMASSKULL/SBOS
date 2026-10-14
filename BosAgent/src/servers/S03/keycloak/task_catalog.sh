@@ -465,7 +465,7 @@ _kc_ensure_client() {
 # ── Post-install — SSO: Web Origins + clients OIDC (idempotente) ──────────────
 ficha_post_install() {
     local realm="${TENANT_ID:-skull}"
-    local domain="${BOS_DOMAIN:-sbos.app}"
+    local domain="${BOS_DOMAIN:-sksistemas.com}"
 
     echo "${__STEP_START__} configurar_sso"
 

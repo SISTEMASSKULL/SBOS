@@ -15,7 +15,7 @@ FICHA_LOG="${FICHA_LOG:-/var/log/bos/fichas/mailserver.log}"
 KUBECONFIG_DEST="${KUBECONFIG_DEST:-/etc/bos/.kube/config}"
 NS="sbos-comms"
 MAIL_VERSION="${MAIL_VERSION:-14.0.0}"
-DOMAIN="${BOS_DOMAIN:-sbos.app}"
+DOMAIN="${BOS_DOMAIN:-sksistemas.com}"
 
 _log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [mailserver] $*" | tee -a "$FICHA_LOG"; }
 _k()   { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@"; }

@@ -180,7 +180,7 @@ _onlyoffice_configure_nextcloud() {
     fi
 
     local onlyoffice_url="http://onlyoffice.${nc_pod_ns}.svc.cluster.local"
-    local domain="${BOS_DOMAIN:-sbos.app}"
+    local domain="${BOS_DOMAIN:-sksistemas.com}"
 
     # Activar app onlyoffice en Nextcloud si no está activa
     local app_enabled

@@ -286,7 +286,7 @@ YAML
 # ── Post-install — SSO-4: configurar OIDC con Keycloak (idempotente) ──────────
 ficha_post_install() {
     local realm="${TENANT_ID:-skull}"
-    local domain="${BOS_DOMAIN:-sbos.app}"
+    local domain="${BOS_DOMAIN:-sksistemas.com}"
     local kc_ns="sbos-security"
     local secret_name="sbos-nextcloud-oidc"
 

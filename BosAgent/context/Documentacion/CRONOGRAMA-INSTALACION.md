@@ -1,6 +1,6 @@
 # Cronograma de Instalación — Ficha por Ficha
 
-**Versión:** 2.21.0  
+**Versión:** 2.22.0  
 **Fecha:** 2026-10-14  
 **Autor:** bos-developer  
 
@@ -2300,7 +2300,9 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 **Correcciones ciclo 31:** **VDI-PROBLEMA #2 CERRADO + theme Fluent-dark baked + decisiones HITL VDI formalizadas** — (1) **Containerfile**: `start-desktop.sh` ya estaba baked (confirmado); añadidos `resources/kde-defaults/` al Containerfile: `kdeglobals` (FluentDark color scheme, Noto Sans), `plasmarc` (Plasma Fluent-dark), `Kvantum/kvantum.kvconfig` (motor Qt Fluent), `kcminputrc`, `plasma-localerc`; kwinrc ampliado con `BorderlessMaximizedWindows=true` + TabBox settings (compositing sigue OFF — mandatorio para VNC); (2) **task_catalog.sh**: `SBOS_IMAGE` sincronizado de `1.0.0` → `1.4.0` (coincide con LABEL del Containerfile); (3) **CRONOGRAMA**: decisiones HITL Q-A/C/D/E formalizadas; modelo canónico VDI; modelo de identidad SBOS (correo corporativo); regla sin eliminación física; **Pendiente VPS:** `bosctl ficha repair fedora-kde` para rebuild y redespliegue de imagen 1.4.0.
 
+**Correcciones ciclo 32:** **Dominio unificado sksistemas.com — 10 fichas** — (1) **Variable canónica**: `BOS_DOMAIN` es la única variable de dominio en todo el ecosistema; `SBOS_DOMAIN` en certbot era un bug — unificado a `BOS_DOMAIN`; (2) **Default corregido** de `sbos.app` → `sksistemas.com` en: `certbot`, `keycloak`, `mailserver`, `nextcloud`, `onlyoffice`, `sbos-vdi-config`, `sbos-kong-tenant`; (3) **nginx institucional**: `sbos-institucional.conf` placeholder corregido de `sbos.app www.sbos.app` → `sksistemas.com www.sksistemas.com`; (4) **oauth2-proxy-desktop**: `PUBLIC_URL` default cambiado de IP hardcodeada `https://13.140.128.230` → `https://sksistemas.com`; (5) **oauth2-proxy**: `--cookie-domain=.sksistemas.com` ya estaba correcto — sin cambio; (6) Para producción: configurar `BOS_DOMAIN=sksistemas.com` (ya es el default) y `BOS_DOMAIN` en env del host antes de correr fichas; DNS requerido: `sksistemas.com` + `www.sksistemas.com` → IP pública VPS.
+
 ---
 
-*Documento v2.21.0 — bos-developer · 2026-10-14*  
+*Documento v2.22.0 — bos-developer · 2026-10-14*  
 *Panel de control de reparación: `PLAN-INSTALACION-DESDE-CERO.md §13`*

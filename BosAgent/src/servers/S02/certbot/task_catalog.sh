@@ -20,7 +20,7 @@ FICHA_LOG="${FICHA_LOG:-/var/log/bos/fichas/certbot.log}"
 readonly CERTBOT_CERTS="/etc/letsencrypt"
 readonly CERTBOT_WEBROOT="/var/www/certbot"
 readonly CERTBOT_SCRIPT="/usr/local/sbin/sbos-certbot-renew.sh"
-readonly DOMAIN="${SBOS_DOMAIN:-sbos.sksistemas.com}"
+readonly DOMAIN="${BOS_DOMAIN:-sksistemas.com}"
 readonly EMAIL="${SBOS_ADMIN_EMAIL:-admin@sksistemas.com}"
 
 _log()   { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [certbot] $*" | tee -a "$FICHA_LOG"; }
