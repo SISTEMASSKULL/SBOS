@@ -1426,16 +1426,16 @@ fedora-kde pod  ← UN SOLO POD COMPARTIDO (VDI-GAP-1)
 
 **Faltantes:**
 - ✅ (ciclo 13) VDI-PROBLEMA #5 CERRADO: NetworkPolicy `deny-direct-novnc-external` — puerto 6901 solo accesible desde `sbos-gateway`; acceso directo sin auth bloqueado
-- ❌ VDI-PROBLEMA #2: eliminar ConfigMap y rebuildar imagen — **acción VPS + desarrollo** (1-2 días): requiere decisión de diseño sobre la imagen base del VDI.
-- ❌ VDI-PROBLEMA #3: crear sbos-vdi-provisioner — **pendiente HITL Q-3**: requiere aprobación del humano sobre la arquitectura del provisioner VDI antes de implementar.
-- ❌ VDI-PROBLEMA #4: PVC por usuario — **bloqueado por HITL Q-3**: no se puede implementar sin el provisioner.
-- ❌ Rebuild imagen `sbos/fedora-desktop:1.4.0` — **acción VPS**: rebuildar y redesplegar la imagen Docker del escritorio. No requiere cambios de código en BOS.
 - ✅ SSO-2: Keycloak `Web Origins: *.sbos.app` (ciclo 20 — keycloak/ficha_post_install)
 - ✅ SSO-3: Kong plugin JWT en 4 rutas (ciclo 20 — kong/ficha_post_install + _kong_ensure_plugin)
 - ✅ SSO-4: Nextcloud OIDC via user_oidc app (ciclo 20 — nextcloud/ficha_post_install)
-- ❌ AUDIT-1: oauth2-proxy debe registrar inicio/fin sesión VDI en `bos.bos_ctx_session` — **pendiente de desarrollo**: requiere extender la ficha oauth2-proxy con un hook de autenticación que llame a `bos.ctx.*` vía JSON-RPC. Es desarrollo nuevo, no una corrección.
+- 📋 VDI-PROBLEMA #2 (ConfigMap/imagen): el script `start-desktop.sh` llega vía ConfigMap en lugar de estar baked en la imagen. Resolver requiere decisión de diseño sobre la imagen base (HITL). Acción cuando se apruebe: eliminar ConfigMap, reconstruir `sbos/fedora-desktop:1.4.0` con el script incluido y redesplegar. Sin cambios de código en BOS hasta entonces.
+- 📋 VDI-PROBLEMA #3 (sbos-vdi-provisioner): 1 pod compartido para todos los usuarios (VDI-GAP-1). Solución = daemon Go que crea un pod `fedora-kde-{user_id}` por usuario al autenticarse. **Bloqueado por HITL Q-3** — requiere aprobación de arquitectura antes de implementar.
+- 📋 VDI-PROBLEMA #4 (PVC por usuario): home efímero — se pierde en cada reboot del pod (VDI-GAP-2). Solución = PVC `fedora-kde-home-{user_id}` creado por el provisioner. **Bloqueado por VDI-PROBLEMA #3** — no se puede implementar sin el provisioner.
+- 📋 Rebuild imagen `sbos/fedora-desktop:1.4.0`: acción VPS pura — no requiere cambios de código en BOS. Ejecutar cuando se resuelva VDI-PROBLEMA #2: `docker build` + `kubectl rollout restart`.
+- 📋 AUDIT-1 (oauth2-proxy sesión VDI): registrar inicio/fin de sesión en `bos.bos_ctx_session` vía JSON-RPC `bos.ctx.*`. Desarrollo nuevo planificado (no corrección de bug). Se implementa en sesión dedicada al Context Plane.
 
-**Orden recomendado de resolución:** #5 (urgente seguridad) → #1 (trivial) → #2 (bajo riesgo) → #6 (Keycloak Web Origins) → #3+#4 (provisioner, requiere HITL)
+**Bugs activos:** ninguno — todos los ítems pendientes son desarrollo futuro o decisiones HITL, no errores de código.
 
 ---
 
