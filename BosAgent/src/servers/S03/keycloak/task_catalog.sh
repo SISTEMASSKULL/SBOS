@@ -475,15 +475,18 @@ ficha_post_install() {
 
     # Clients OIDC para apps del ecosistema SBOS
     echo "${__STEP_START__} oidc_clients"
-    _kc_ensure_client "sbos-nextcloud"  "$realm" "https://${domain}/nextcloud/*"     "$(openssl rand -hex 16)"
-    _kc_ensure_client "sbos-grafana"    "$realm" "https://${domain}/grafana/*"        "$(openssl rand -hex 16)"
-    _kc_ensure_client "sbos-mattermost" "$realm" "https://${domain}/mattermost/*"     "$(openssl rand -hex 16)"
-    _kc_ensure_client "sbos-guacamole"  "$realm" "https://${domain}/desktop/*"        "$(openssl rand -hex 16)"
+    _kc_ensure_client "sbos-nextcloud"     "$realm" "https://${domain}/nextcloud/*"      "$(openssl rand -hex 16)"
+    _kc_ensure_client "sbos-grafana"       "$realm" "https://${domain}/grafana/*"         "$(openssl rand -hex 16)"
+    _kc_ensure_client "sbos-mattermost"    "$realm" "https://${domain}/mattermost/*"      "$(openssl rand -hex 16)"
+    _kc_ensure_client "sbos-guacamole"     "$realm" "https://${domain}/desktop/*"         "$(openssl rand -hex 16)"
+    _kc_ensure_client "sbos-postfixadmin"  "$realm" "https://${domain}/postfixadmin/*"    "$(openssl rand -hex 16)"
+    _kc_ensure_client "sbos-roundcube"     "$realm" "https://${domain}/roundcube/*"       "$(openssl rand -hex 16)"
+    _kc_ensure_client "sbos-cypht"         "$realm" "https://${domain}/cypht/*"           "$(openssl rand -hex 16)"
     echo "${__STEP_OK__} oidc_clients"
 
     # Guardar secrets de clients en K8s Secrets para que las apps los lean
     echo "${__STEP_START__} guardar_secrets_oidc"
-    for client_id in sbos-nextcloud sbos-grafana sbos-mattermost sbos-guacamole; do
+    for client_id in sbos-nextcloud sbos-grafana sbos-mattermost sbos-guacamole sbos-postfixadmin sbos-roundcube sbos-cypht; do
         local secret_name="${client_id}-oidc"
         if _k get secret -n sbos-security "$secret_name" &>/dev/null; then
             _log "  secret '$secret_name' ya existe — skip"

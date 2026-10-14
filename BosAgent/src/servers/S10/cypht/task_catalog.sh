@@ -148,9 +148,46 @@ ficha_health() {
     return 1
 }
 
+ficha_post_install() {
+    local kc_ns="sbos-security"
+    local secret_name="sbos-cypht-oidc"
+    local realm="${TENANT_ID:-skull}"
+
+    echo "${__STEP_START__} configurar_oidc_cypht"
+    if ! _k get secret -n "$kc_ns" "$secret_name" &>/dev/null; then
+        echo "${__STEP_SKIP__} configurar_oidc_cypht: secret $secret_name no disponible"
+        return 0
+    fi
+    local client_id client_secret issuer
+    client_id=$(_k get secret -n "$kc_ns" "$secret_name" -o jsonpath='{.data.client_id}' 2>/dev/null | base64 -d || echo "")
+    client_secret=$(_k get secret -n "$kc_ns" "$secret_name" -o jsonpath='{.data.client_secret}' 2>/dev/null | base64 -d || echo "")
+    issuer=$(_k get secret -n "$kc_ns" "$secret_name" -o jsonpath='{.data.issuer}' 2>/dev/null | base64 -d || echo "")
+    if [[ -z "$client_id" || -z "$client_secret" ]]; then
+        echo "${__STEP_SKIP__} configurar_oidc_cypht: credenciales no disponibles"
+        return 0
+    fi
+    local cur
+    cur=$(_k get deployment cypht -n "$NS" \
+        -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="OIDC_CLIENT_ID")].value}' 2>/dev/null || echo "")
+    if [[ "$cur" == "$client_id" ]]; then
+        echo "${__STEP_SKIP__} configurar_oidc_cypht: ya configurado"
+        return 0
+    fi
+    _k patch deployment cypht -n "$NS" --type=json -p="[
+        {\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"OIDC_CLIENT_ID\",\"value\":\"${client_id}\"}},
+        {\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"OIDC_CLIENT_SECRET\",\"value\":\"${client_secret}\"}},
+        {\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"OIDC_DISCOVERY_URL\",\"value\":\"${issuer}/.well-known/openid-configuration\"}}
+    ]" >> "$FICHA_LOG" 2>&1 && \
+        _log "  OIDC Keycloak configurado en cypht" || \
+        _log "  ADVERTENCIA: no se pudo configurar OIDC en cypht"
+    echo "${__STEP_OK__} configurar_oidc_cypht"
+    return 0
+}
+
 ficha_repair() {
     _log "ficha_repair: re-aplicando manifests cypht (kubectl apply idempotente)"
     ficha_install
+    ficha_post_install 2>/dev/null || true
 }
 
 ficha_test() {

@@ -150,9 +150,49 @@ ficha_health() {
     return 1
 }
 
+ficha_post_install() {
+    local kc_ns="sbos-security"
+    local secret_name="sbos-roundcube-oidc"
+    local realm="${TENANT_ID:-skull}"
+
+    echo "${__STEP_START__} configurar_oidc_roundcube"
+    if ! _k get secret -n "$kc_ns" "$secret_name" &>/dev/null; then
+        echo "${__STEP_SKIP__} configurar_oidc_roundcube: secret $secret_name no disponible"
+        return 0
+    fi
+    local client_id client_secret issuer
+    client_id=$(_k get secret -n "$kc_ns" "$secret_name" -o jsonpath='{.data.client_id}' 2>/dev/null | base64 -d || echo "")
+    client_secret=$(_k get secret -n "$kc_ns" "$secret_name" -o jsonpath='{.data.client_secret}' 2>/dev/null | base64 -d || echo "")
+    issuer=$(_k get secret -n "$kc_ns" "$secret_name" -o jsonpath='{.data.issuer}' 2>/dev/null | base64 -d || echo "")
+    if [[ -z "$client_id" || -z "$client_secret" ]]; then
+        echo "${__STEP_SKIP__} configurar_oidc_roundcube: credenciales no disponibles"
+        return 0
+    fi
+    local cur
+    cur=$(_k get deployment roundcube -n "$NS" \
+        -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="ROUNDCUBEMAIL_OAUTH_PROVIDER")].value}' 2>/dev/null || echo "")
+    if [[ -n "$cur" ]]; then
+        echo "${__STEP_SKIP__} configurar_oidc_roundcube: ya configurado"
+        return 0
+    fi
+    _k patch deployment roundcube -n "$NS" --type=json -p="[
+        {\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"ROUNDCUBEMAIL_OAUTH_PROVIDER\",\"value\":\"keycloak\"}},
+        {\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"ROUNDCUBEMAIL_OAUTH_CLIENT_ID\",\"value\":\"${client_id}\"}},
+        {\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"ROUNDCUBEMAIL_OAUTH_CLIENT_SECRET\",\"value\":\"${client_secret}\"}},
+        {\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"ROUNDCUBEMAIL_OAUTH_AUTH_URI\",\"value\":\"${issuer}/protocol/openid-connect/auth\"}},
+        {\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"ROUNDCUBEMAIL_OAUTH_TOKEN_URI\",\"value\":\"${issuer}/protocol/openid-connect/token\"}},
+        {\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/env/-\",\"value\":{\"name\":\"ROUNDCUBEMAIL_OAUTH_IDENTITY_URI\",\"value\":\"${issuer}/protocol/openid-connect/userinfo\"}}
+    ]" >> "$FICHA_LOG" 2>&1 && \
+        _log "  OIDC Keycloak configurado en roundcube" || \
+        _log "  ADVERTENCIA: no se pudo configurar OIDC en roundcube"
+    echo "${__STEP_OK__} configurar_oidc_roundcube"
+    return 0
+}
+
 ficha_repair() {
     _log "ficha_repair: re-aplicando manifests roundcube (kubectl apply idempotente)"
     ficha_install
+    ficha_post_install 2>/dev/null || true
 }
 
 ficha_test() {
