@@ -195,6 +195,16 @@ YAML
 
 # ── Install ───────────────────────────────────────────────────────
 ficha_install() {
+    # BUG-47: idempotencia P15 — si ya hay pods Running, no reinstalar
+    local _running
+    _running=$(_k get pods -n "$NS" -l app=guacamole --no-headers 2>/dev/null \
+        | grep -c "Running" || echo "0")
+    if (( _running >= 1 )); then
+        _log "guacamole ya tiene ${_running} pods Running — skip reinstalación"
+        echo "${__STEP_SKIP__} deploy_guacamole: ya running (${_running} pods)"
+        return 0
+    fi
+
     ficha_pre_install
     echo "${__STEP_START__} deploy_guacamole"
     _apply_guacamole

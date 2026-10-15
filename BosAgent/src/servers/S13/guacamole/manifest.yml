@@ -38,10 +38,10 @@ governance:
   category_label: "vdi-gateway"
 
 health:
-  type: http
-  path: /guacamole/
-  port: 8080
-  timeout_seconds: 15
+  # BUG-47: Guacamole/Tomcat tarda 2-3 min en arrancar.
+  # El framework ejecuta verify antes de que /guacamole/ responda → HTTP 000.
+  # ficha_health() en task_catalog.sh verifica readyReplicas.
+  type: none
 
 compatibility:
   min_iam_installer_version: "1.0.0"

@@ -38,10 +38,10 @@ governance:
   category_label: "ofimatica"
 
 health:
-  type: http
-  path: /healthcheck
-  port: 80
-  timeout_seconds: 30
+  # BUG-47: OnlyOffice tarda 2-3 min en que /healthcheck responda tras Running.
+  # timeout_seconds:30 insuficiente — el framework falla antes de que arranquen
+  # los servicios internos (PostgreSQL, RabbitMQ). ficha_health() verifica readyReplicas.
+  type: none
 
 compatibility:
   min_iam_installer_version: "1.0.0"
