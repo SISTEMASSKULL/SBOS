@@ -20,6 +20,18 @@ type InstallConfig struct {
 	OrgName          string    `toml:"org_name"`
 	ClientDomain     string    `toml:"client_domain"`
 	ServerIP         string    `toml:"server_ip"`
+
+	// Identidad del cliente — empresa por empresa
+	AdminEmail    string `toml:"admin_email"`    // email superusuario inicial
+	AdminName     string `toml:"admin_name"`     // nombre del administrador
+	AdminPassword string `toml:"admin_password"` // contraseña inicial (se cambia en primer login)
+	Timezone      string `toml:"timezone"`       // ej: America/La_Paz
+	Country       string `toml:"country"`        // ej: BO (ISO 3166-1 alpha-2)
+	Language      string `toml:"language"`       // ej: es
+	SmtpHost      string `toml:"smtp_host"`      // relay SMTP para notificaciones
+	SmtpPort      int    `toml:"smtp_port"`      // default 587
+	SmtpUser      string `toml:"smtp_user"`      // cuenta SMTP
+	SmtpPassword  string `toml:"smtp_password"`  // contraseña SMTP
 	ReleaseServerURL string    `toml:"release_server_url"`
 	Channel          string    `toml:"channel"`
 	HTTPPort         int       `toml:"http_port"`
@@ -297,6 +309,32 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("BOS_BAUTH_TIMEOUT_MS"); v != "" {
 		fmt.Sscanf(v, "%d", &cfg.BauthTimeoutMs)
 	}
+	// Identidad del cliente
+	if v := os.Getenv("SBOS_ADMIN_EMAIL"); v != "" {
+		cfg.Install.AdminEmail = v
+	}
+	if v := os.Getenv("SBOS_ADMIN_NAME"); v != "" {
+		cfg.Install.AdminName = v
+	}
+	if v := os.Getenv("SBOS_TIMEZONE"); v != "" {
+		cfg.Install.Timezone = v
+	}
+	if v := os.Getenv("SBOS_COUNTRY"); v != "" {
+		cfg.Install.Country = v
+	}
+	if v := os.Getenv("SBOS_LANGUAGE"); v != "" {
+		cfg.Install.Language = v
+	}
+	if v := os.Getenv("SBOS_SMTP_HOST"); v != "" {
+		cfg.Install.SmtpHost = v
+	}
+	if v := os.Getenv("SBOS_SMTP_PORT"); v != "" {
+		fmt.Sscanf(v, "%d", &cfg.Install.SmtpPort)
+	}
+	if v := os.Getenv("SBOS_SMTP_USER"); v != "" {
+		cfg.Install.SmtpUser = v
+	}
+
 	// Context Plane — PG + Redis (M3.1, SBOS-049)
 	if v := os.Getenv("BOS_PG_DSN"); v != "" {
 		cfg.Install.PostgresDSN = v
