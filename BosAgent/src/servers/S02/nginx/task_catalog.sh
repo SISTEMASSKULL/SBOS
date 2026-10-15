@@ -302,7 +302,7 @@ ${vdi_blocks}
         location / {
             root /var/www/html;
             index index.html;
-            try_files $uri $uri/ =404;
+            try_files \$uri \$uri/ =404;
         }
     }
 
