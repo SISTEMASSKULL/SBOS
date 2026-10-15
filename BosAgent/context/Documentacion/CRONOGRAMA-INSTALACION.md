@@ -1,6 +1,6 @@
 # Cronograma de Instalación — Ficha por Ficha
 
-**Versión:** 2.29.0  
+**Versión:** 2.30.0  
 **Fecha:** 2026-10-16  
 **Autor:** bos-developer  
 
@@ -2350,5 +2350,665 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 ---
 
-*Documento v2.29.0 — bos-developer · 2026-10-16*  
+---
+
+## Catálogo completo de aplicaciones SBOS — decisiones de la empresa desarrolladora
+
+> Este catálogo cubre **todas** las aplicaciones del ecosistema SBOS agrupadas en tres estados:
+>
+> | Estado | Significado |
+> |--------|-------------|
+> | **⏳ PENDIENTE DE ACTIVACIÓN** | Ficha implementada con `auto_install:false`. Observer nunca la instala solo. Requiere decisión explícita. |
+> | **⚙️ INSTALADA — REQUIERE CONFIGURACIÓN** | Ficha con `auto_install:true`, ya en producción. Necesita configuración post-instalación para ser operable. |
+> | **📋 PLANIFICADA — SIN FICHA** | App en el catálogo `servers.yml` sin ficha Bash implementada aún. Requiere desarrollo antes de poder instalarla. |
+>
+> **Formato de cada entrada:**
+> - **¿Qué es?** — propósito en una línea
+> - **Estado actual:** — uno de los tres estados de arriba
+> - **Decisión:** — PENDIENTE / DEFINIDA / IMPLEMENTADA
+> - **Procedimiento:** — cómo activarla o configurarla (se completa cuando la decisión está tomada)
+
+---
+
+## Grupo A — Fichas implementadas · pendientes de activación (`auto_install:false`)
+
+*27 fichas implementadas. El observer las omite. Cada una requiere decisión explícita para activarse.*
+
+---
+
+### VDI — Escritorio corporativo (S13)
+
+---
+
+#### sbos-vdi-config v1.0.0 · S13
+**¿Qué es?** Configuración base del entorno VDI: políticas de escritorio, mapas de directorios compartidos, perfiles de usuario, scripts de inicio de sesión para fedora-kde.  
+**Estado actual:** ⏳ PENDIENTE DE ACTIVACIÓN  
+**Decisión:** PENDIENTE  
+**Procedimiento:** *(por definir)*
+
+#### fedora-kde v1.0.0 · S13
+**¿Qué es?** Escritorio corporativo Fedora 44 + KDE Plasma 6 como pod K8s. Cada usuario recibe un escritorio Linux personalizado accesible vía navegador (noVNC/RDP). Incluye OnlyOffice integrado.  
+**Estado actual:** ⏳ PENDIENTE DE ACTIVACIÓN  
+**Decisión:** PENDIENTE  
+**Procedimiento:** *(por definir)*
+
+#### onlyoffice v8.2.2 · S13
+**¿Qué es?** Suite ofimática (editor de documentos, hojas de cálculo, presentaciones) integrada dentro del escritorio fedora-kde. No funciona sin fedora-kde activo.  
+**Estado actual:** ⏳ PENDIENTE DE ACTIVACIÓN (depende de fedora-kde)  
+**Decisión:** PENDIENTE  
+**Procedimiento:** *(por definir)*
+
+---
+
+### Correo electrónico corporativo (S10)
+
+---
+
+#### mailserver v14.0.0 · S10
+**¿Qué es?** Servidor de correo completo (Postfix + Dovecot). Gestiona buzones IMAP, envío SMTP, antispam. Autentica usuarios contra Keycloak.  
+**Estado actual:** ⏳ PENDIENTE DE ACTIVACIÓN  
+**Decisión:** PENDIENTE  
+**Procedimiento:** *(por definir)*
+
+#### postfixadmin v3.3.15 · S10
+**¿Qué es?** Panel web de administración del mailserver: crear/eliminar dominios, alias, buzones.  
+**Estado actual:** ⏳ PENDIENTE DE ACTIVACIÓN (depende de mailserver)  
+**Decisión:** PENDIENTE  
+**Procedimiento:** *(por definir)*
+
+#### roundcube v1.6.10 · S10
+**¿Qué es?** Cliente webmail — interfaz web para leer/enviar correo desde el navegador.  
+**Estado actual:** ⏳ PENDIENTE DE ACTIVACIÓN (depende de mailserver)  
+**Decisión:** PENDIENTE  
+**Procedimiento:** *(por definir)*
+
+#### cypht v2.0.0 · S10
+**¿Qué es?** Cliente webmail alternativo a Roundcube, más ligero y modular.  
+**Estado actual:** ⏳ PENDIENTE DE ACTIVACIÓN (depende de mailserver)  
+**Decisión:** PENDIENTE  
+**Procedimiento:** *(por definir)*
+
+---
+
+### ERP — Planificación de recursos empresariales (S04)
+
+---
+
+#### tryton v7.4 · S04
+**¿Qué es?** ERP soberano open source: contabilidad, facturación, inventario, ventas, compras, proyectos.  
+**Estado actual:** ⏳ PENDIENTE DE ACTIVACIÓN  
+**Decisión:** PENDIENTE  
+**Procedimiento:** *(por definir)*
+
+#### tryton-workers v7.4 · S04
+**¿Qué es?** Procesos de background de Tryton: tareas programadas, reportes, procesamiento asíncrono.  
+**Estado actual:** ⏳ PENDIENTE DE ACTIVACIÓN (depende de tryton)  
+**Decisión:** PENDIENTE  
+**Procedimiento:** *(por definir)*
+
+---
+
+### Respaldo y recuperación (S14)
+
+---
+
+#### bareos v23.0.1 · S14
+**¿Qué es?** Sistema de backup empresarial (Backup Archiving REcovery Open Sourced). Respalda datos de todos los servicios SBOS.  
+**Estado actual:** ⏳ PENDIENTE DE ACTIVACIÓN  
+**Decisión:** PENDIENTE  
+**Procedimiento:** *(por definir)*
+
+#### velero v1.15.3 · S14
+**¿Qué es?** Backup y restore de recursos Kubernetes (manifests, PersistentVolumes). Complementa a Bareos.  
+**Estado actual:** ⏳ PENDIENTE DE ACTIVACIÓN  
+**Decisión:** PENDIENTE  
+**Procedimiento:** *(por definir)*
+
+---
+
+### DevOps y código fuente (S14)
+
+---
+
+#### gitlab v17.9.6-ce · S14
+**¿Qué es?** Plataforma DevOps soberana: repositorios Git, CI/CD pipelines, registro de contenedores, gestión de issues.  
+**Estado actual:** ⏳ PENDIENTE DE ACTIVACIÓN  
+**Decisión:** PENDIENTE  
+**Procedimiento:** *(por definir)*
+
+---
+
+### Gestión documental (S08)
+
+---
+
+#### tesseract-ocr v5.5.0 · S08
+**¿Qué es?** Motor OCR: convierte imágenes y PDFs escaneados en texto buscable. Prerequisito de paperless-ngx y kimios.  
+**Estado actual:** ⏳ PENDIENTE DE ACTIVACIÓN  
+**Decisión:** PENDIENTE  
+**Procedimiento:** *(por definir)*
+
+#### tabula v1.0.5 · S08
+**¿Qué es?** Extractor de tablas desde PDFs: importa datos de documentos escaneados a hojas de cálculo o bases de datos.  
+**Estado actual:** ⏳ PENDIENTE DE ACTIVACIÓN  
+**Decisión:** PENDIENTE  
+**Procedimiento:** *(por definir)*
+
+#### paperless-ngx v2.14.7 · S08
+**¿Qué es?** Gestión de documentos escaneados: digitaliza, clasifica, indexa y hace buscable la documentación en papel.  
+**Estado actual:** ⏳ PENDIENTE DE ACTIVACIÓN (depende de tesseract-ocr)  
+**Decisión:** PENDIENTE  
+**Procedimiento:** *(por definir)*
+
+#### kimios v7.1.24 · S08
+**¿Qué es?** DMS empresarial: flujos de aprobación, control de versiones, permisos por rol, trazabilidad de cambios.  
+**Estado actual:** ⏳ PENDIENTE DE ACTIVACIÓN  
+**Decisión:** PENDIENTE  
+**Procedimiento:** *(por definir)*
+
+#### docuseal v1.8.9 · S08
+**¿Qué es?** Firma electrónica: formularios firmables, firmas digitales de múltiples partes, archivo de documentos firmados.  
+**Estado actual:** ⏳ PENDIENTE DE ACTIVACIÓN  
+**Decisión:** PENDIENTE  
+**Procedimiento:** *(por definir)*
+
+---
+
+### Búsqueda y mensajería (S09)
+
+---
+
+#### elasticsearch v8.17.3 · S09
+**¿Qué es?** Motor de búsqueda y análisis de texto completo. Indexa datos de todos los servicios. Usado por bsearch.  
+**Estado actual:** ⏳ PENDIENTE DE ACTIVACIÓN  
+**Decisión:** PENDIENTE  
+**Procedimiento:** *(por definir)*
+
+#### rabbitmq v4.0.7 · S09
+**¿Qué es?** Message broker: comunicación asíncrona entre servicios. Usado por Tryton y servicios de IA.  
+**Estado actual:** ⏳ PENDIENTE DE ACTIVACIÓN  
+**Decisión:** PENDIENTE  
+**Procedimiento:** *(por definir)*
+
+---
+
+### Inteligencia Artificial local (S15)
+
+---
+
+#### ollama v0.6.2 · S15
+**¿Qué es?** Servidor de LLMs local: sirve modelos como Llama, Mistral, DeepSeek dentro del servidor del cliente.  
+**Estado actual:** ⏳ PENDIENTE DE ACTIVACIÓN  
+**Decisión:** PENDIENTE  
+**Procedimiento:** *(por definir)*
+
+#### open-webui v0.5.20 · S15
+**¿Qué es?** Interfaz web tipo ChatGPT que conecta con Ollama. Usuarios conversan con LLMs locales desde el navegador.  
+**Estado actual:** ⏳ PENDIENTE DE ACTIVACIÓN (depende de ollama)  
+**Decisión:** PENDIENTE  
+**Procedimiento:** *(por definir)*
+
+#### embedding-worker v1.0.0 · S15
+**¿Qué es?** Genera embeddings (vectores) de documentos usando Ollama. Alimenta a Qdrant para búsqueda semántica.  
+**Estado actual:** ⏳ PENDIENTE DE ACTIVACIÓN (depende de ollama + qdrant)  
+**Decisión:** PENDIENTE  
+**Procedimiento:** *(por definir)*
+
+#### qdrant v1.14.0 · S15
+**¿Qué es?** Base de datos vectorial: almacena y busca embeddings. Permite búsqueda semántica soberana sin servicios externos.  
+**Estado actual:** ⏳ PENDIENTE DE ACTIVACIÓN  
+**Decisión:** PENDIENTE  
+**Procedimiento:** *(por definir)*
+
+#### flowise v2.2.6 · S15
+**¿Qué es?** Constructor visual de flujos de IA (LLM pipelines): conecta LLMs, bases de datos, APIs y lógica sin código.  
+**Estado actual:** ⏳ PENDIENTE DE ACTIVACIÓN  
+**Decisión:** PENDIENTE  
+**Procedimiento:** *(por definir)*
+
+#### langfuse v3.32.0 · S15
+**¿Qué es?** Observabilidad para LLMs: traza llamadas a modelos, mide calidad, detecta errores, permite evaluar flujos.  
+**Estado actual:** ⏳ PENDIENTE DE ACTIVACIÓN  
+**Decisión:** PENDIENTE  
+**Procedimiento:** *(por definir)*
+
+---
+
+### Monitoreo extendido (S12)
+
+---
+
+#### zabbix v7.2.0 · S12
+**¿Qué es?** Monitoreo de infraestructura empresarial: métricas de hardware, red, servicios, alertas. Complementa Prometheus/Grafana.  
+**Estado actual:** ⏳ PENDIENTE DE ACTIVACIÓN  
+**Decisión:** PENDIENTE  
+**Procedimiento:** *(por definir)*
+
+---
+
+### Daemons SBOS soberanos (S-HOST)
+
+---
+
+#### sbos-bi18n v1.0.0 · S-HOST
+**¿Qué es?** Daemon de internacionalización soberano: traducciones, formatos de fecha/moneda/número, reglas CLDR. Consumido por todos los daemons SBOS.  
+**Estado actual:** ⏳ PENDIENTE DE ACTIVACIÓN — binario `bi18nd` no desplegado (desarrollo en curso)  
+**Decisión:** PENDIENTE  
+**Procedimiento:** *(pendiente de que bi18n complete su ciclo de desarrollo)*
+
+---
+
+## Grupo B — Fichas instaladas · requieren configuración post-instalación
+
+*Estas fichas ya están en producción (`auto_install:true`, estado INSTALLED). Sin embargo,
+su instalación solo levanta la infraestructura base — cada una necesita configuración
+específica para ser operable por los usuarios o por otras aplicaciones.*
+
+---
+
+### Identidad y acceso (S02, S03)
+
+---
+
+#### keycloak v26.6.2 · S03
+**¿Qué es?** IAM soberano: gestión de usuarios, realms, clientes OIDC, flujos de autenticación SSO.  
+**Estado actual:** ⚙️ INSTALADA — REQUIERE CONFIGURACIÓN  
+**Pendiente:**
+- Crear realm `SBOS` y realm por tenant
+- Registrar clientes OIDC para cada aplicación (nextcloud, guacamole, tryton, gitlab, grafana, etc.)
+- Configurar flujos de autenticación (MFA, passwordless)
+- Importar usuarios iniciales o conectar con directorio LDAP
+**Procedimiento:** *(por definir)*
+
+#### vault v2.0.1 · S02
+**¿Qué es?** Gestor de secretos soberano. Ya inicializado con Shamir (5 claves, umbral 3). PKI CA creada.  
+**Estado actual:** ⚙️ INSTALADA — REQUIERE CONFIGURACIÓN  
+**Pendiente:**
+- Crear políticas de acceso por aplicación
+- Crear AppRoles para cada servicio (keycloak, kong, postgresql, etc.)
+- Emitir certificados TLS internos via PKI engine
+- Rotar secretos iniciales
+**Procedimiento:** *(por definir)*
+
+#### oauth2-proxy v7.8.0 · S02
+**¿Qué es?** Proxy OIDC que autentica usuarios contra Keycloak antes de dar acceso a aplicaciones internas.  
+**Estado actual:** ⚙️ INSTALADA — REQUIERE CONFIGURACIÓN  
+**Pendiente:**
+- Registrar cada aplicación protegida en la configuración del proxy
+- Configurar grupos Keycloak que dan acceso a cada app
+**Procedimiento:** *(por definir)*
+
+#### oauth2-proxy-desktop v7.8.0 · S13
+**¿Qué es?** Instancia separada de oauth2-proxy específica para proteger el acceso al escritorio VDI.  
+**Estado actual:** ⚙️ INSTALADA — REQUIERE CONFIGURACIÓN (activa cuando fedora-kde esté disponible)  
+**Pendiente:**
+- Configurar ruta hacia guacamole + fedora-kde
+- Registrar cliente OIDC en realm Keycloak del VDI
+**Procedimiento:** *(por definir)*
+
+---
+
+### API Gateway y red (S02)
+
+---
+
+#### kong v3.9.0 · S02
+**¿Qué es?** API Gateway soberano. Punto único de entrada. Actualmente levantado con configuración mínima.  
+**Estado actual:** ⚙️ INSTALADA — REQUIERE CONFIGURACIÓN  
+**Pendiente:**
+- Declarar services y routes para cada aplicación (nextcloud, keycloak, grafana, tryton, etc.)
+- Configurar plugins JWT, rate-limiting, ctx_id (SBOS-Context Lua plugin)
+- Crear consumer por tenant
+- Emitir certificados TLS por dominio (integración Vault PKI)
+**Procedimiento:** *(por definir)*
+
+#### certbot v3.2.0 · S02
+**¿Qué es?** Certificados TLS Let's Encrypt. En VPS de desarrollo usa certificados de prueba.  
+**Estado actual:** ⚙️ INSTALADA — REQUIERE CONFIGURACIÓN  
+**Pendiente:**
+- Configurar dominio real del cliente (registro DNS)
+- Ejecutar primer challenge HTTP-01 para obtener certificado válido
+- Validar renovación automática (timer systemd)
+**Procedimiento:** *(por definir)*
+
+#### nginx v1.28.0 · S02
+**¿Qué es?** Proxy reverso frontal. Sirve el webroot para certbot y redirige tráfico HTTPS hacia Kong.  
+**Estado actual:** ⚙️ INSTALADA — REQUIERE CONFIGURACIÓN  
+**Pendiente:**
+- Configurar server_name con dominio real del cliente
+- Activar bloque HTTPS una vez certbot emita el certificado
+**Procedimiento:** *(por definir)*
+
+---
+
+### Almacenamiento (S01)
+
+---
+
+#### minio · S01
+**¿Qué es?** Almacenamiento de objetos compatible S3. Usado para backups, assets y archivos de apps.  
+**Estado actual:** ⚙️ INSTALADA — REQUIERE CONFIGURACIÓN  
+**Pendiente:**
+- Crear buckets por servicio (nextcloud-data, bareos-backup, gitlab-artifacts, etc.)
+- Configurar políticas de acceso por bucket
+- Crear credenciales (access key / secret key) por aplicación
+**Procedimiento:** *(por definir)*
+
+---
+
+### Colaboración y productividad (S13, S06)
+
+---
+
+#### nextcloud v30.0.2 · S13
+**¿Qué es?** Plataforma de colaboración soberana: almacenamiento de archivos, calendarios, contactos, videollamadas.  
+**Estado actual:** ⚙️ INSTALADA — REQUIERE CONFIGURACIÓN  
+**Pendiente:**
+- Completar asistente de configuración inicial (admin, BD, dominio)
+- Conectar autenticación SSO con Keycloak (OIDC)
+- Configurar almacenamiento externo en MinIO
+- Instalar y activar apps (Talk, Calendar, Contacts, OnlyOffice connector)
+**Procedimiento:** *(por definir)*
+
+#### guacamole v1.5.5 · S13
+**¿Qué es?** Gateway de escritorio remoto HTML5. Permite acceder a fedora-kde (VDI) desde el navegador sin cliente.  
+**Estado actual:** ⚙️ INSTALADA — REQUIERE CONFIGURACIÓN  
+**Pendiente:**
+- Configurar conexiones VNC/RDP hacia los pods fedora-kde
+- Integrar autenticación con Keycloak
+- Configurar grabación de sesiones (auditoría)
+**Procedimiento:** *(por definir)*
+
+#### calcom v6.1.0 · S06
+**¿Qué es?** Plataforma de agendamiento soberana: calendario de citas, reservas de salas, integración con calendarios externos.  
+**Estado actual:** ⚙️ INSTALADA — REQUIERE CONFIGURACIÓN  
+**Pendiente:**
+- Configurar dominio y tipos de eventos por organización
+- Integrar con Keycloak SSO
+**Procedimiento:** *(por definir)*
+
+#### ferretdb v2.0.0 · S06
+**¿Qué es?** Base de datos MongoDB-compatible sobre PostgreSQL. Permite usar aplicaciones que requieren MongoDB sin MongoDB.  
+**Estado actual:** ⚙️ INSTALADA — REQUIERE CONFIGURACIÓN  
+**Pendiente:**
+- Crear bases de datos y usuarios para cada aplicación que la consume
+**Procedimiento:** *(por definir)*
+
+#### novu v3.15.0 · S06
+**¿Qué es?** Plataforma de notificaciones multi-canal: email, SMS, push, in-app. Integrada con bNotify (sbos-notifier).  
+**Estado actual:** ⚙️ INSTALADA — REQUIERE CONFIGURACIÓN  
+**Pendiente:**
+- Configurar canales de entrega (email SMTP con mailserver, SMS provider)
+- Crear templates de notificaciones por evento del sistema
+- Conectar workflows con los eventos de bAuth (MFA, sesión, alertas)
+**Procediente:** *(por definir)*
+
+---
+
+### Observabilidad (S12)
+
+---
+
+#### grafana v12.0.1 · S12
+**¿Qué es?** Plataforma de visualización. Datasources Prometheus+Loki+PostgreSQL ya conectados en la instalación base.  
+**Estado actual:** ⚙️ INSTALADA — REQUIERE CONFIGURACIÓN  
+**Pendiente:**
+- Integrar autenticación con Keycloak SSO
+- Crear dashboards específicos por cliente (negocio, no solo infra)
+- Configurar alertas de negocio (no solo infra)
+**Procedimiento:** *(por definir)*
+
+---
+
+### Blockchain soberana (S02)
+
+---
+
+#### besu-qbft v24.12.0 · S02
+**¿Qué es?** Red blockchain soberana QBFT (Proof of Authority). Proporciona trazabilidad inmutable para auditoría.  
+**Estado actual:** ⚙️ INSTALADA — REQUIERE CONFIGURACIÓN  
+**Pendiente:**
+- Desplegar smart contracts SettlementEngine.sol y AuditAnchor.sol
+- Configurar conexión desde bAuth (D12 — dominio Blockchain)
+- Definir qué eventos SBOS se anclan en la cadena
+**Procedimiento:** *(por definir)*
+
+---
+
+## Grupo C — Aplicaciones planificadas · sin ficha implementada todavía
+
+*Estas apps están en el catálogo `servers.yml` pero NO tienen directorio de ficha en `BosAgent/src/servers/`.
+Requieren desarrollo de `manifest.yml` + `task_catalog.sh` antes de poder instalarlas.*
+
+---
+
+### S05 — devserver (aplicaciones propias SKULL/SBOS)
+
+*Directorio `/src/servers/S05/` no existe. 7 aplicaciones por implementar.*
+
+---
+
+#### SmartTax · S05
+**¿Qué es?** Módulo de cálculo y gestión tributaria soberana. Liquidación de impuestos según normativa local.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S05/smart-tax/`
+
+#### SmartReport · S05
+**¿Qué es?** Motor de reportes del ecosistema SBOS. Genera informes de negocio desde los datos de todas las apps.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S05/smart-report/`
+
+#### SmartRates · S05
+**¿Qué es?** Servicio de tasas de cambio y tipos de interés soberanos. Fuente de tasas para Tryton y facturación.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S05/smart-rates/`
+
+#### SmartORC · S05
+**¿Qué es?** Orquestador de reglas de negocio y compliance soberano.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S05/smart-orc/`
+
+#### SmartVaultFlow · S05
+**¿Qué es?** Orquestador de flujos de aprobación financiera con trazabilidad en Vault.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S05/smart-vault-flow/`
+
+#### SmartPortfolio · S05
+**¿Qué es?** Gestión de portafolio de proyectos e inversiones.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S05/smart-portfolio/`
+
+#### SmartPay · S05
+**¿Qué es?** Procesador de pagos soberano: integración con pasarelas de pago locales e internacionales.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S05/smart-pay/`
+
+---
+
+### S06 — appsserver (aplicaciones de productividad — parcialmente implementado)
+
+*S06 tiene 4 fichas. Faltan al menos 7 aplicaciones del catálogo.*
+
+---
+
+#### Saleor · S06
+**¿Qué es?** Plataforma de e-commerce headless: catálogo, pedidos, pagos, envíos. Backend para tiendas en línea soberanas.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S06/saleor/`
+
+#### Directus · S06
+**¿Qué es?** CMS headless y Data Platform: convierte cualquier base de datos en una API con panel de administración.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S06/directus/`
+
+#### OrangeHRM · S06
+**¿Qué es?** Sistema de RRHH soberano: empleados, contratos, asistencia, vacaciones, nómina.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S06/orangehrm/`
+
+#### Taiga · S06
+**¿Qué es?** Plataforma de gestión de proyectos ágiles (Scrum/Kanban) soberana. Alternativa a Jira.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S06/taiga/`
+
+#### EspoCRM · S06
+**¿Qué es?** CRM soberano: gestión de clientes, oportunidades, contactos, pipeline de ventas.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S06/espocrm/`
+
+#### Wiki.js · S06
+**¿Qué es?** Wiki corporativa soberana: documentación interna, base de conocimiento, manuales.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S06/wikijs/`
+
+#### Zammad · S06
+**¿Qué es?** Plataforma de helpdesk y tickets de soporte soberana. Gestión de solicitudes de clientes y empleados.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S06/zammad/`
+
+---
+
+### S07 — reportserver (reportes y analítica)
+
+*Directorio `/src/servers/S07/` no existe. 4 aplicaciones por implementar.*
+
+---
+
+#### JasperReports Server · S07
+**¿Qué es?** Motor de reportes empresariales: genera PDF/Excel/HTML desde datos de todas las apps SBOS.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S07/jasperserver/`
+
+#### Apache Superset · S07
+**¿Qué es?** Plataforma de BI y visualización de datos. Dashboards interactivos sobre PostgreSQL, Tryton, etc.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S07/superset/`
+
+#### Apache Airflow · S07
+**¿Qué es?** Orquestador de pipelines de datos: ETL, cargas batch, flujos de procesamiento programados.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S07/airflow/`
+
+#### OpenMetadata · S07
+**¿Qué es?** Plataforma de gobernanza de datos: catálogo, linaje, calidad, descubrimiento de datos soberano.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S07/openmetadata/`
+
+---
+
+### S10 — commsserver (comunicaciones — parcialmente implementado)
+
+*S10 tiene 4 fichas (correo). Faltan comunicaciones en tiempo real y telefonía.*
+
+---
+
+#### FreePBX · S10
+**¿Qué es?** Central telefónica IP soberana (PBX): llamadas internas, extensiones, IVR, grabación. Asterisk con interfaz web.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S10/freepbx/`
+
+#### Rocket.Chat · S10
+**¿Qué es?** Mensajería en tiempo real soberana: canales, mensajes directos, videollamadas, bots. Alternativa a Slack.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S10/rocket-chat/`
+
+#### Mattermost · S10
+**¿Qué es?** Plataforma de colaboración en equipo: mensajería, canales, integraciones DevOps. Alternativa a Slack/Teams.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S10/mattermost/`
+
+#### ClamAV · S10
+**¿Qué es?** Motor antivirus open source. Escanea archivos adjuntos en correo, uploads de Nextcloud y almacenamiento MinIO.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S10/clamav/`
+
+---
+
+### S13 — geoserver (aplicaciones geográficas y señalización)
+
+*Según servers.yml, S13 incluye apps de geolocalización y señalización digital. Las fichas VDI actuales en S13 serán migradas a S11.*
+
+---
+
+#### Traccar · S13
+**¿Qué es?** Plataforma de rastreo GPS soberana: flotas de vehículos, activos, empleados en campo.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S13/traccar/`
+
+#### Fleetbase · S13
+**¿Qué es?** Plataforma de gestión de operaciones logísticas y entregas (dispatch, rutas, tracking en tiempo real).  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S13/fleetbase/`
+
+#### Xibo · S13
+**¿Qué es?** Sistema de señalización digital (digital signage): gestiona pantallas informativas en sucursales y oficinas.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S13/xibo/`
+
+#### Novo SGA · S13
+**¿Qué es?** Sistema de gestión de atención al cliente: turnos, filas, llamado de números. Para sucursales con atención presencial.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S13/novo-sga/`
+
+#### CardMesh · S13
+**¿Qué es?** Gestión de tarjetas de identificación y credenciales físicas: emisión, registro, control de acceso.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S13/cardmesh/`
+
+---
+
+### S16 — webserver (plataforma web pública)
+
+*Directorio `/src/servers/S16/` no existe. Plataforma web multi-tenant con dominios personalizados.*
+
+---
+
+#### nginx (S16) · S16
+**¿Qué es?** nginx para la plataforma web pública: dominios personalizados por cliente, TLS por dominio, renderizado dinámico por tenant. Distinto del nginx S02 que es para red interna.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S16/nginx/`
+
+#### ModSecurity · S16
+**¿Qué es?** WAF (Web Application Firewall) para la plataforma pública. Protege contra OWASP Top 10.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S16/modsecurity/`
+
+#### Weblate · S16
+**¿Qué es?** Plataforma de traducción colaborativa soberana. Gestiona las traducciones de las interfaces de todas las apps SBOS.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S16/weblate/`
+
+---
+
+*Documento v2.30.0 — bos-developer · 2026-10-16*  
 *Panel de control de reparación: `PLAN-INSTALACION-DESDE-CERO.md §13`*
