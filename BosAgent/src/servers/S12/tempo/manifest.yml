@@ -42,9 +42,9 @@ ports:
     internal_only: true
 
 health:
-  # BUG-49: chart grafana/tempo v1.14.0 crea StatefulSet, no Deployment
+  # BUG-50: kubectl wait es más robusto que readyReplicas tras helm upgrade
   type: command
-  command: "kubectl --kubeconfig=/etc/bos/.kube/config get statefulset tempo -n sbos-monitor -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get pods -n sbos-monitor -l app.kubernetes.io/name=tempo --no-headers 2>/dev/null | grep -c Running"
   expected_output: "1"
   timeout_seconds: 30
 

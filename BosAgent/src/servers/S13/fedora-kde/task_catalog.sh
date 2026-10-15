@@ -230,6 +230,11 @@ ficha_health() {
     return 1
 }
 
+ficha_post_install() {
+    # Evitar post_install_generic (usa namespace default con label errado)
+    return 0
+}
+
 ficha_repair() {
     ficha_pre_install
     echo "${__STEP_START__} repair"

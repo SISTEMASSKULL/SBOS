@@ -162,6 +162,11 @@ ficha_health() {
     return 1
 }
 
+ficha_post_install() {
+    # Evitar post_install_generic (usa namespace default con label errado)
+    return 0
+}
+
 ficha_repair() {
     _log "ficha_repair: re-aplicando manifests open-webui (idempotente)"
     ficha_install

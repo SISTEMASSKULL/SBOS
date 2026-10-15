@@ -325,6 +325,11 @@ ficha_health_check() {
 }
 
 # ── Repair (re-aplica estado completo — idempotente) ─────────────
+ficha_post_install() {
+    # Evitar post_install_generic (usa namespace default con label errado)
+    return 0
+}
+
 ficha_repair() {
     ficha_pre_install
     ficha_install

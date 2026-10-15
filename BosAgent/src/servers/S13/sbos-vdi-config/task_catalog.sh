@@ -198,6 +198,11 @@ ficha_install() {
     return 0
 }
 
+ficha_post_install() {
+    # Evitar post_install_generic (usa namespace default con label errado)
+    return 0
+}
+
 ficha_repair() {
     # Re-aplica todas las NetworkPolicies (idempotente vía kubectl apply).
     # Corrige cualquier drift sin destruir el estado existente.

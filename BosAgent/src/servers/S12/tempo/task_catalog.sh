@@ -19,17 +19,14 @@ TEMPO_VERSION="${TEMPO_VERSION:-2.7.2}"
 _log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [tempo] $*" | tee -a "$FICHA_LOG"; }
 _k()   { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@"; }
 
-_wait_statefulset_ready() {
-    local sts="$1" ns="$2" timeout="${3:-120}" elapsed=0
-    while (( elapsed < timeout )); do
-        local ready
-        ready=$(_k get statefulset "$sts" -n "$ns" \
-            -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
-        (( ready >= 1 )) && return 0
-        sleep 5; elapsed=$((elapsed + 5))
-        (( elapsed % 30 == 0 )) && _log "Esperando $sts Ready... ${elapsed}/${timeout}s"
-    done
-    return 1
+_wait_tempo_ready() {
+    local ns="$1" timeout="${2:-180}"
+    # BUG-50: usar kubectl wait --for=condition=Ready que es robusto ante
+    # el estado de transición del StatefulSet tras helm upgrade.
+    _k wait --for=condition=Ready pod \
+        -l app.kubernetes.io/name=tempo \
+        -n "$ns" \
+        --timeout="${timeout}s" >> "$FICHA_LOG" 2>&1
 }
 
 ficha_pre_install() {
@@ -42,11 +39,12 @@ ficha_pre_install() {
 ficha_install() {
     mkdir -p "$(dirname "$FICHA_LOG")" /data/tempo
 
-    # BUG-49: chart grafana/tempo v1.14.0 crea StatefulSet, no Deployment
-    local ready
-    ready=$(_k get statefulset tempo -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
-    if (( ready >= 1 )); then
-        echo "${__STEP_SKIP__} tempo_install: StatefulSet tempo ya Ready — skip"
+    # BUG-49/50: verificar pods Running con label — más robusto que StatefulSet readyReplicas
+    local pods
+    pods=$(_k get pods -n "$NS" -l app.kubernetes.io/name=tempo \
+        --no-headers 2>/dev/null | grep -c Running || echo "0")
+    if (( pods >= 1 )); then
+        echo "${__STEP_SKIP__} tempo_install: pod tempo ya Running — skip"
         return 0
     fi
 
@@ -73,26 +71,35 @@ ficha_install() {
     echo "${__STEP_OK__} instalar_tempo_helm"
 
     echo "${__STEP_START__} esperar_tempo_ready"
-    _wait_statefulset_ready tempo "$NS" 120 || { echo "${__STEP_FAIL__} esperar_tempo_ready: timeout"; return 1; }
+    _wait_tempo_ready "$NS" 180 || { echo "${__STEP_FAIL__} esperar_tempo_ready: timeout"; return 1; }
     echo "${__STEP_OK__} esperar_tempo_ready"
     return 0
 }
 
 ficha_verify() {
     echo "${__STEP_START__} verificar_tempo"
-    local ready
-    ready=$(_k get statefulset tempo -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
-    (( ready >= 1 )) || { echo "${__STEP_FAIL__} verificar_tempo: ${ready}/1"; return 1; }
-    echo "${__STEP_OK__} verificar_tempo"
+    local pods
+    pods=$(_k get pods -n "$NS" -l app.kubernetes.io/name=tempo \
+        --no-headers 2>/dev/null | grep -c Running || echo "0")
+    (( pods >= 1 )) || { echo "${__STEP_FAIL__} verificar_tempo: 0 pods Running"; return 1; }
+    echo "${__STEP_OK__} verificar_tempo ($pods Running)"
     return 0
 }
 
 ficha_health() {
-    local ready
-    ready=$(_k get statefulset tempo -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
-    (( ready >= 1 )) && echo "HEALTHY" && return 0
-    echo "DEGRADED"
+    local pods
+    pods=$(_k get pods -n "$NS" -l app.kubernetes.io/name=tempo \
+        --no-headers 2>/dev/null | grep -c Running || echo "0")
+    (( pods >= 1 )) && echo "HEALTHY" && return 0
+    echo "DEGRADED: 0 pods Running"
     return 1
+}
+
+ficha_post_install() {
+    # BUG-50: post_install_generic busca 'app=tempo' en namespace 'default' (incorrecto).
+    # Tempo está en sbos-monitor con label app.kubernetes.io/name=tempo.
+    # Función vacía explícita para que el framework no llame a post_install_generic.
+    return 0
 }
 
 ficha_repair() {

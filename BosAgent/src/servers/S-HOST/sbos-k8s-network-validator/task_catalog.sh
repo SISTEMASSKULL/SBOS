@@ -271,6 +271,11 @@ ficha_verify() {
 }
 
 # ── Repair ───────────────────────────────────────────────────────
+ficha_post_install() {
+    # Evitar post_install_generic (usa namespace default con label errado)
+    return 0
+}
+
 ficha_repair() {
     # BUG-43: si el ConfigMap ya existe la red está validada — no destruir.
     # Solo re-validar si el marker no existe (validación perdida o corrupta).
