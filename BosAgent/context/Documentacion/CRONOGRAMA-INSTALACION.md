@@ -2235,7 +2235,7 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 | 215 | grafana | ✅ INSTALLED | — |
 | 215 | loki | ✅ INSTALLED | ✅ BUG-48 cerrado (ciclo 48) — 5 sub-bugs chart 6.9.0 resueltos |
 | 220 | alloy | ⚙️ READY | Loki INSTALLED — Alloy instalará en próximo ciclo observer |
-| 220 | tempo | 🔄 INSTALLING | saga en progreso (ciclo 48) |
+| 220 | tempo | ✅ INSTALLED | ✅ BUG-49/50 cerrados (ciclos 49-50) — StatefulSet + post_install_generic |
 | 220 | onlyoffice | ✅ INSTALLED (auto_install:false) | ✅ BUG-47 cerrado (ciclo 47); auto_install:false — solo con fedora-kde |
 | 225 | zabbix | ⏳ NO_INSTALADA (auto_install=false) | — |
 | 225 | oauth2-proxy-desktop | ❌ PHYSICAL_ERROR | ❌ derivado vault |
@@ -2250,7 +2250,7 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 ---
 
-**Fichas INSTALLED:** 27+ · **PHYSICAL_ERROR:** 3 · **INSTALL_FAILED:** 2 (sbos-bi18n=binario pendiente, onlyoffice=auto_install:false residual) · **INSTALLING:** 1 (tempo) · **UPDATE_AVAILABLE:** 5 · **PENDING/READY/NO_INSTALADA:** 31
+**Fichas INSTALLED:** 33 · **PHYSICAL_ERROR:** 3 · **INSTALL_FAILED:** 1 (sbos-bi18n=binario pendiente, auto_install:false) · **UPDATE_AVAILABLE:** 6 · **PENDING/NO_INSTALADA:** 23 (mayormente auto_install:false o deps bloqueadas)
 
 **Correcciones ciclo 5 (c77c12e):** `sbos-database-init` ficha creada · `runtime: docker → kubernetes` corregido en 23 fichas (S10/S12/S08/S09/S14/S15/S01/S04) · loki/tempo/zabbix confirmados como implementaciones Helm reales · sbos-vdi-config auditada
 
@@ -2332,9 +2332,13 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 **Correcciones ciclo 47:** **guacamole + onlyoffice — health.type:none + idempotencia + onlyoffice auto_install:false (BUG-47)** — (1) **BUG-47a — guacamole health.type: http timeout**: `curl http://{IP}:8080/guacamole/` retorna HTTP 000 (timeout) porque Guacamole/Tomcat tarda 2-3 min en arrancar. El framework ejecuta verify antes de que responda → loop INSTALL_FAILED → INSTALLING. Fix: `health.type: none` + idempotencia (si pods Running → skip). Resultado: guacamole INSTALLED en 1.5s (idempotency skip). (2) **BUG-47b — onlyoffice idéntico patrón**: misma causa (Document Server/Node.js tarda 2-3 min en iniciar servicios internos → HTTP 000 → loop). Fix: `health.type: none` + idempotencia. (3) **decisión de negocio**: `auto_install: false` en onlyoffice — solo tiene sentido dentro del entorno VDI fedora-kde; fuera del escritorio corporativo no aporta valor. Commits: `3e93b28` + `ec6c97a`.
 
+**Correcciones ciclo 49:** **tempo StatefulSet vs Deployment (BUG-49)** — (1) **BUG-49**: `manifest.yml health.type: command` y todo el `task_catalog.sh` verificaban `deployment tempo` pero el chart `grafana/tempo v1.14.0` crea un **StatefulSet** `tempo`, no un Deployment. `_wait_deploy_ready` loopea indefinidamente buscando un Deployment inexistente. Fix: (a) `_wait_deploy_ready` → `_wait_statefulset_ready` en función + todos los usos; (b) `manifest.yml health.command`: `deployment tempo` → `statefulset tempo`; (c) idempotencia: `statefulset readyReplicas` → `pods Running label app.kubernetes.io/name=tempo`. Commit: `ec5eca1`.
+
+**Correcciones ciclo 50:** **post_install_generic 300s en namespace incorrecto — 26 fichas (BUG-50)** — (1) **BUG-50a — raíz del problema**: el framework `00_TASK_CATALOG_SBOS.sh::post_install_generic()` llama a `wait_pod_healthy "$namespace" "app=$ficha_id" 300` donde `namespace` se lee de `.ficha.namespace` del manifest (campo inexistente → default `"default"`). Todas las fichas K8s de SBOS usan namespaces propios (`sbos-monitor`, `sbos-security`, etc.) y labels `app.kubernetes.io/name=X`, no `app=X`. El loop espera 300 segundos en vano, falla con `|| true` y continúa. Resultado: cada instalación tardaba ~5 minutos extra por el post_install silencioso. (2) **BUG-50b — tempo específico**: la saga de tempo veía exit=3 en `esperar_tempo_ready` por `_wait_statefulset_ready` (timeout 120s) porque el Helm upgrade ponía el StatefulSet en transición. Fix BUG-50b: `_wait_statefulset_ready` → `_wait_tempo_ready` con `kubectl wait --for=condition=Ready pod --timeout=180s`. (3) **Fix masivo**: `ficha_post_install() { return 0; }` agregada a las 26 fichas que no la tenían (impide que el framework llame a `post_install_generic`). (4) **Resultado**: tempo INSTALLED; 26 fichas liberadas del overhead de 300s; **33 fichas INSTALLED** en total. Commit: `dafc209`.
+
 **Correcciones ciclo 48:** **loki — 5 sub-bugs de compatibilidad Helm chart 6.9.0 (BUG-48a..e)** — (1) **BUG-48a — storage.type S3 por defecto**: chart 6.9.0 asume S3 y busca `loki.storage.bucketNames.chunks` → nil pointer en _helpers.tpl:228 durante `helm template`. Fix: `--set loki.storage.type=filesystem`. (2) **BUG-48b — schema_config requerido**: chart exige schema_config si no se usa TestSchema. Fix: `--set loki.useTestSchema=true`. (3) **BUG-48c — StatefulSet inexistente en modo distribuido**: sin `deploymentMode=SingleBinary`, el chart despliega modo distribuido (backend=0, read=0, write=0 con los flags de recursos) → solo crea DaemonSet `loki-canary` + Deployment `loki-gateway`, sin StatefulSet → `_wait_statefulset_ready loki` loopea indefinidamente. Fix: `--set deploymentMode=SingleBinary --set singleBinary.replicas=1`; todos los waits/verify/health cambiados a `deployment loki-gateway`. (4) **BUG-48d — PVC name mismatch**: PV `sbos-loki-pv` tenía `claimRef.name: loki-storage-loki-0` y `storageClassName: ""` pero el chart 6.9.0 crea PVC `storage-loki-0` con `storageClassName: local-path`. Fix: `claimRef.name: storage-loki-0`, `storageClassName: local-path`, + `nodeAffinity` para `local-path`. (5) **BUG-48e — permissions uid 10001**: loki corre como uid 10001; `/data/loki` era propiedad de root → `mkdir /var/loki/rules: permission denied` al arrancar. Fix: `mkdir -p /data/loki/rules /data/loki/chunks /data/loki/wal && chown -R 10001:10001 /data/loki` antes del Helm install. Resultado: loki INSTALLED (StatefulSet `loki` 1/1 Ready + Deployment `loki-gateway` 1/1 Running). Commits: `6c077b0` + `9584ff1` + `f74b48d` + `6f5ef94`.
 
 ---
 
-*Documento v2.27.0 — bos-developer · 2026-10-15*  
+*Documento v2.28.0 — bos-developer · 2026-10-15*  
 *Panel de control de reparación: `PLAN-INSTALACION-DESDE-CERO.md §13`*
