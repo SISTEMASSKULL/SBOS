@@ -33,7 +33,9 @@ deployment:
   k8s_manifest: "onlyoffice.k8s.yml"
 
 governance:
-  auto_install: true
+  # Depende de fedora-kde (escritorio VDI) que tiene auto_install:false.
+  # OnlyOffice no aporta valor fuera del entorno de escritorio corporativo.
+  auto_install: false
   requires_approval: false
   category_label: "ofimatica"
 
