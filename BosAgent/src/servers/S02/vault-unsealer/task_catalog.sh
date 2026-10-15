@@ -135,7 +135,38 @@ roleRef:
 RBACEOF
     echo "${__STEP_OK__} crear_rbac_unsealer"
 
-    # 3. CronJob que verifica y desella cada minuto
+    # 2b. NetworkPolicy: egress al vault HTTP API (no necesita kube-apiserver)
+    echo "${__STEP_START__} crear_networkpolicy_unsealer"
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<NPEOF
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-vault-unsealer-egress
+  namespace: ${NS}
+  labels:
+    sbos.app/managed-by: bos
+spec:
+  podSelector:
+    matchLabels:
+      app: vault-unsealer
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: vault
+      ports:
+        - protocol: TCP
+          port: 8200
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+NPEOF
+    echo "${__STEP_OK__} crear_networkpolicy_unsealer"
+
+    # 3. CronJob que verifica y desella cada minuto via API REST de Vault (sin kubectl)
     echo "${__STEP_START__} crear_cronjob_unsealer"
     _k apply -f - >> "$FICHA_LOG" 2>&1 <<CJEOF
 apiVersion: batch/v1
@@ -157,12 +188,14 @@ spec:
         metadata:
           labels:
             app: vault-unsealer
+          annotations:
+            linkerd.io/inject: disabled
         spec:
           serviceAccountName: vault-unsealer
           restartPolicy: OnFailure
           containers:
           - name: unsealer
-            image: bitnami/kubectl:1.31
+            image: busybox:1.36
             env:
             - name: VAULT_ADDR
               value: "http://vault.${NS}.svc.cluster.local:8200"
@@ -182,33 +215,22 @@ spec:
                   name: vault-unseal-keys
                   key: key2
             command:
-            - /bin/bash
+            - /bin/sh
             - -c
             - |
-              set -euo pipefail
-              # Verificar si vault está inicializado y sellado
-              SEALED=\$(kubectl exec vault-0 -n sbos-security -- \
-                sh -c "VAULT_ADDR=http://127.0.0.1:8200 vault status -format=json 2>/dev/null || echo '{}'" \
-                | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('sealed','true'))" 2>/dev/null || echo "true")
-
-              if [[ "\$SEALED" == "false" ]]; then
+              set -eu
+              # Verificar si vault está sellado via API REST (no necesita kubectl ni python3)
+              STATUS=\$(wget -qO- "\$VAULT_ADDR/v1/sys/health" 2>/dev/null || echo '{}')
+              if echo "\$STATUS" | grep -q '"sealed":false'; then
                 echo "Vault ya unsealed — ok"
                 exit 0
               fi
-
-              echo "Vault sealed — ejecutando unseal..."
-              kubectl exec vault-0 -n sbos-security -- \
-                sh -c "VAULT_ADDR=http://127.0.0.1:8200 vault operator unseal '\$KEY0'" || true
-              kubectl exec vault-0 -n sbos-security -- \
-                sh -c "VAULT_ADDR=http://127.0.0.1:8200 vault operator unseal '\$KEY1'" || true
-              kubectl exec vault-0 -n sbos-security -- \
-                sh -c "VAULT_ADDR=http://127.0.0.1:8200 vault operator unseal '\$KEY2'" || true
-
-              # Verificar resultado
-              SEALED_AFTER=\$(kubectl exec vault-0 -n sbos-security -- \
-                sh -c "VAULT_ADDR=http://127.0.0.1:8200 vault status -format=json 2>/dev/null || echo '{}'" \
-                | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('sealed','true'))" 2>/dev/null || echo "true")
-              if [[ "\$SEALED_AFTER" == "false" ]]; then
+              echo "Vault sealed — ejecutando unseal via API REST..."
+              wget -qO- --post-data "{\"key\":\"\$KEY0\"}" "\$VAULT_ADDR/v1/sys/unseal" 2>/dev/null || true
+              wget -qO- --post-data "{\"key\":\"\$KEY1\"}" "\$VAULT_ADDR/v1/sys/unseal" 2>/dev/null || true
+              wget -qO- --post-data "{\"key\":\"\$KEY2\"}" "\$VAULT_ADDR/v1/sys/unseal" 2>/dev/null || true
+              STATUS2=\$(wget -qO- "\$VAULT_ADDR/v1/sys/health" 2>/dev/null || echo '{}')
+              if echo "\$STATUS2" | grep -q '"sealed":false'; then
                 echo "Vault unsealed exitosamente"
               else
                 echo "ERROR: vault sigue sellado tras unseal"
@@ -226,6 +248,11 @@ CJEOF
     _log "vault-unsealer desplegado — vault se desellará automáticamente en el próximo ciclo de 1 minuto"
 }
 
+# ── Post-install ──────────────────────────────────────────────────
+# vault-unsealer es un CronJob — no tiene pods corriendo permanentemente.
+# post_install_generic esperaría indefinidamente. Esta función lo evita.
+ficha_post_install() { return 0; }
+
 # ── Verify ─────────────────────────────────────────────────────────
 ficha_verify() {
     echo "${__STEP_START__} verificar_cronjob"
@@ -236,12 +263,10 @@ ficha_verify() {
 
 # ── Health ──────────────────────────────────────────────────────────
 ficha_health() {
-    # El unsealer es sano si vault está unsealed
-    local sealed
-    sealed=$(_k exec "$VAULT_POD" -n "$NS" -- \
-        sh -c "VAULT_ADDR=http://127.0.0.1:8200 vault status -format=json 2>/dev/null || echo '{}'" \
-        | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('sealed','true'))" 2>/dev/null || echo "true")
-    if [[ "$sealed" == "false" ]]; then
+    # Verificar via API REST de Vault (sin kubectl exec ni python3)
+    local status
+    status=$(curl -sf "http://vault.${NS}.svc.cluster.local:8200/v1/sys/health" 2>/dev/null || echo '{}')
+    if echo "$status" | grep -q '"sealed":false'; then
         echo "HEALTHY"
         return 0
     fi
@@ -265,12 +290,11 @@ ficha_repair() {
         return $?
     fi
 
-    _k exec "$VAULT_POD" -n "$NS" -- \
-        sh -c "VAULT_ADDR=http://127.0.0.1:8200 vault operator unseal '${key0}'" >> "$FICHA_LOG" 2>&1 || true
-    _k exec "$VAULT_POD" -n "$NS" -- \
-        sh -c "VAULT_ADDR=http://127.0.0.1:8200 vault operator unseal '${key1}'" >> "$FICHA_LOG" 2>&1 || true
-    _k exec "$VAULT_POD" -n "$NS" -- \
-        sh -c "VAULT_ADDR=http://127.0.0.1:8200 vault operator unseal '${key2}'" >> "$FICHA_LOG" 2>&1 || true
+    # Unseal via API REST (sin kubectl exec)
+    local vault_url="http://vault.${NS}.svc.cluster.local:8200"
+    curl -sf -X POST -d "{\"key\":\"${key0}\"}" "${vault_url}/v1/sys/unseal" >> "$FICHA_LOG" 2>&1 || true
+    curl -sf -X POST -d "{\"key\":\"${key1}\"}" "${vault_url}/v1/sys/unseal" >> "$FICHA_LOG" 2>&1 || true
+    curl -sf -X POST -d "{\"key\":\"${key2}\"}" "${vault_url}/v1/sys/unseal" >> "$FICHA_LOG" 2>&1 || true
     echo "${__STEP_OK__} unseal_inmediato"
 }
 
@@ -288,14 +312,12 @@ ficha_test() {
         || { echo "${__STEP_FAIL__} test_secret_existe"; ok=1; }
 
     echo "${__STEP_START__} test_vault_unsealed"
-    local sealed
-    sealed=$(_k exec "$VAULT_POD" -n "$NS" -- \
-        sh -c "VAULT_ADDR=http://127.0.0.1:8200 vault status -format=json 2>/dev/null || echo '{}'" \
-        | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('sealed','true'))" 2>/dev/null || echo "true")
-    if [[ "$sealed" == "false" ]]; then
+    local status
+    status=$(curl -sf "http://vault.${NS}.svc.cluster.local:8200/v1/sys/health" 2>/dev/null || echo '{}')
+    if echo "$status" | grep -q '"sealed":false'; then
         echo "${__STEP_OK__} test_vault_unsealed"
     else
-        echo "${__STEP_FAIL__} test_vault_unsealed: vault sealed=true (CronJob actuará en próximo minuto)"
+        echo "${__STEP_FAIL__} test_vault_unsealed: vault sealed (CronJob actuará en próximo minuto)"
         ok=1
     fi
     return $ok
