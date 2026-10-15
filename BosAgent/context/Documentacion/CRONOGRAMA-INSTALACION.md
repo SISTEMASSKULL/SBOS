@@ -1,6 +1,6 @@
 # Cronograma de Instalación — Ficha por Ficha
 
-**Versión:** 2.30.0  
+**Versión:** 2.31.0  
 **Fecha:** 2026-10-16  
 **Autor:** bos-developer  
 
@@ -2612,13 +2612,15 @@ específica para ser operable por los usuarios o por otras aplicaciones.*
 
 #### keycloak v26.6.2 · S03
 **¿Qué es?** IAM soberano: gestión de usuarios, realms, clientes OIDC, flujos de autenticación SSO.  
-**Estado actual:** ⚙️ INSTALADA — REQUIERE CONFIGURACIÓN  
+**Estado actual:** ⚙️ PARCIALMENTE CONFIGURADA  
+**Completado (2026-10-16):**
+- Realm `skull` creado: `displayName="SKULL — Sovereign Business OS"`, SSO 12h, token 15m, bruteForce protegido
+- Superusuario `admin` creado con correo `admin@sksistemas.com`, rol `realm-admin`, contraseña temporal (cambio requerido)
 **Pendiente:**
-- Crear realm `SBOS` y realm por tenant
-- Registrar clientes OIDC para cada aplicación (nextcloud, guacamole, tryton, gitlab, grafana, etc.)
-- Configurar flujos de autenticación (MFA, passwordless)
-- Importar usuarios iniciales o conectar con directorio LDAP
-**Procedimiento:** *(por definir)*
+- Registrar clientes OIDC para cada aplicación (nextcloud, grafana, guacamole, tryton, gitlab, etc.) — lo hace `keycloak/ficha_post_install` al correr
+- Configurar MFA TOTP/WebAuthn
+- Conectar con bAuth cuando esté listo
+- Tenants adicionales: saga `bos.tenant.create`
 
 #### vault v2.0.1 · S02
 **¿Qué es?** Gestor de secretos soberano. Ya inicializado con Shamir (5 claves, umbral 3). PKI CA creada.  
@@ -2672,12 +2674,13 @@ específica para ser operable por los usuarios o por otras aplicaciones.*
 **Procedimiento:** *(por definir)*
 
 #### nginx v1.28.0 · S02
-**¿Qué es?** Proxy reverso frontal. Sirve el webroot para certbot y redirige tráfico HTTPS hacia Kong.  
-**Estado actual:** ⚙️ INSTALADA — REQUIERE CONFIGURACIÓN  
-**Pendiente:**
-- Configurar server_name con dominio real del cliente
-- Activar bloque HTTPS una vez certbot emita el certificado
-**Procedimiento:** *(por definir)*
+**¿Qué es?** Proxy reverso frontal. Dominio `sksistemas.com`. Sirve el webroot para certbot y redirige tráfico HTTPS hacia Kong.  
+**Estado actual:** ⚙️ CONFIGURADA — 32 subdominios SBOS generados en `/etc/nginx/conf.d/domains/`  
+**Completado (2026-10-16):**
+- `BOS_DOMAIN=sksistemas.com` aplicado en `bos-install.toml`
+- `ficha_repair` generó los 32 `.conf` de subdominios (auth, mail, desktop, documents, sign, find, reports, devops, vault, api, gateway, queues, data, connect, security, flows, b2b, web, core, status, cards, insights, track, fleet, pipeline, bus, secrets, sync, projects, support, screens, institucional)
+- `nginx -t` OK + `nginx -s reload` ejecutado
+**Pendiente:** Certbot emitir certificado TLS real para todos los subdominios (requiere DNS sksistemas.com apuntando a VPS)
 
 ---
 
@@ -2932,17 +2935,23 @@ Requieren desarrollo de `manifest.yml` + `task_catalog.sh` antes de poder instal
 **Decisión:** PENDIENTE  
 **Procedimiento:** Crear ficha en `servers/S10/rocket-chat/`
 
-#### Mattermost · S10
-**¿Qué es?** Plataforma de colaboración en equipo: mensajería, canales, integraciones DevOps. Alternativa a Slack/Teams.  
-**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
-**Decisión:** PENDIENTE  
-**Procedimiento:** Crear ficha en `servers/S10/mattermost/`
-
-#### ClamAV · S10
-**¿Qué es?** Motor antivirus open source. Escanea archivos adjuntos en correo, uploads de Nextcloud y almacenamiento MinIO.  
+#### ClamAV · S10 (mailserver en IAM v5.0)
+**¿Qué es?** Motor antivirus open source. Escanea adjuntos en correo (via Amavis), uploads de Nextcloud y archivos en MinIO. Daemon `clamd` en puerto 3310.  
 **Estado actual:** 📋 PLANIFICADA — SIN FICHA  
 **Decisión:** PENDIENTE  
 **Procedimiento:** Crear ficha en `servers/S10/clamav/`
+
+#### Amavis · S10 (mailserver en IAM v5.0)
+**¿Qué es?** Middleware entre Postfix y los motores de análisis (ClamAV + SpamAssassin). Recibe correo de Postfix en puerto 10024, escanea y reenvía limpio en puerto 10025. Sin Amavis, Postfix no puede conectarse eficientemente con ClamAV.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S10/amavis/`
+
+#### SpamAssassin · S10 (mailserver en IAM v5.0)
+**¿Qué es?** Motor anti-spam bayesiano y heurístico. Evalúa cada correo entrante con múltiples criterios (listas negras RBL, cabeceras, contenido). Trabaja con Amavis.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S10/spamassassin/`
 
 ---
 
@@ -3010,5 +3019,195 @@ Requieren desarrollo de `manifest.yml` + `task_catalog.sh` antes de poder instal
 
 ---
 
-*Documento v2.30.0 — bos-developer · 2026-10-16*  
+---
+
+### Aplicaciones adicionales del IAM Enterprise Stack v5.0 (no cubiertas en grupos anteriores)
+
+*Identificadas en la referencia IAM v5.0 — requieren ficha nueva o integración con fichas existentes.*
+
+---
+
+#### appserver — ERP y bases de conocimiento (S04/S06)
+
+##### GNU Health 4.4+ · appserver
+**¿Qué es?** Sistema de gestión hospitalaria y de salud pública: historias clínicas, laboratorio, farmacia, epidemiología. Para el sector salud latinoamericano.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S04/gnu-health/` (ERP vertical salud)
+
+##### Trilium Notes · appserver
+**¿Qué es?** Aplicación de notas personales jerárquicas con cifrado. Conocimiento personal o de equipo pequeño. Complementa Wiki.js.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S06/trilium/`
+
+---
+
+#### webserver — Backend propio SBOS (nuevo servidor S05 o S06)
+
+##### Laravel Framework + Vue.js 3 · webserver
+**¿Qué es?** Backend PHP API REST + frontend Vue.js para módulos de negocio propios: pagos QR boliviano, integraciones locales, lógica de negocio específica que no cubre ningún ERP.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear fichas `servers/S05/laravel/` + `servers/S05/vuejs/`
+
+##### Django REST + SIAT Bolivia · apigateway
+**¿Qué es?** API especializada de facturación electrónica según el SIN de Bolivia. Genera el Código Único de Factura (CUF), firma XML, envía al SIN, gestiona contingencia offline. CRÍTICO para cumplimiento fiscal boliviano.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE — es un requerimiento para cumplimiento fiscal boliviano  
+**Procedimiento:** Crear ficha en `servers/S02/django-siat/` (parte del API Gateway)
+
+##### TastyIgniter · webserver
+**¿Qué es?** Sistema de gestión de restaurantes y delivery: menús, pedidos online/presenciales, mesas con QR, repartidores.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S06/tastyigniter/`
+
+##### Easy!Appointments · webserver
+**¿Qué es?** Sistema de reserva de citas online para servicios: salones, consultorios, clínicas. Disponibilidad de personal, envío de recordatorios.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S06/easy-appointments/`
+
+---
+
+#### reportserver — Generación de reportes
+
+##### JasperStarter · reportserver
+**¿Qué es?** CLI de JasperReports para generación masiva y automatizada de reportes sin intervención humana. Invocado por Airflow o Celery.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE (prerequisito de JasperReports Studio)  
+**Procedimiento:** Crear ficha en `servers/S07/jasperstarter/`
+
+---
+
+#### commonserver — Infraestructura de datos complementaria
+
+##### PgAdmin 4 · commonserver
+**¿Qué es?** Interfaz web de administración para PostgreSQL. Explorar esquemas, ejecutar SQL, revisar planes de ejecución, monitorear queries activas.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE (solo red interna, no expuesto a internet)  
+**Procedimiento:** Crear ficha en `servers/S01/pgadmin/`
+
+##### Portainer CE · commonserver
+**¿Qué es?** Plataforma visual para gestionar contenedores Docker y Kubernetes. Desplegar stacks, monitorear recursos, ejecutar comandos sin SSH.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S01/portainer/`
+
+##### HAProxy · commonserver
+**¿Qué es?** Balanceador de carga para PostgreSQL. Con Patroni detecta qué nodo es master y distribuye escrituras/lecturas entre réplicas.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE (necesario para alta disponibilidad PostgreSQL)  
+**Procedimiento:** Crear ficha en `servers/S01/haproxy/`
+
+##### Patroni + etcd · commonserver (Alta Disponibilidad PostgreSQL)
+**¿Qué es?** Sistema de alta disponibilidad para PostgreSQL. Patroni = agente de failover automático. etcd = coordinación distribuida RAFT. Cluster 3 nodos, RPO=0, RTO<60s.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE (CRÍTICO para producción — PostgreSQL actualmente es single point of failure)  
+**Procedimiento:** Crear fichas `servers/S01/patroni/` + `servers/S01/etcd/`
+
+##### PgBouncer · commonserver
+**¿Qué es?** Connection pooler para PostgreSQL. Con 65+ apps conectando simultáneamente, PgBouncer evita saturar PostgreSQL con miles de conexiones directas.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE (CRÍTICO para producción con múltiples apps)  
+**Procedimiento:** Crear ficha en `servers/S01/pgbouncer/`
+
+##### pgBackRest · backupserver
+**¿Qué es?** Backup especializado para PostgreSQL con PITR (Point-In-Time Recovery). Backup incremental, compresión, cifrado. Restaurar a cualquier segundo del pasado.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S14/pgbackrest/`
+
+##### Goss · backupserver
+**¿Qué es?** Herramienta de validación de infraestructura como código. Define pruebas automáticas del estado correcto del sistema. Valida que los backups sean restaurables.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S14/goss/`
+
+---
+
+#### securityserver — Seguridad avanzada
+
+##### Wazuh 4.10+ · securityserver
+**¿Qué es?** SIEM (Security Information and Event Management) + XDR. Detecta intrusiones, monitorea integridad de archivos, ejecuta respuesta activa (bloqueo de IPs), genera reportes ISO 27001/PCI-DSS. Agentes en todos los servidores.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S03/wazuh/` (securityserver)
+
+##### OpenVAS / Greenbone 23+ · securityserver
+**¿Qué es?** Scanner de vulnerabilidades de red: detecta CVEs, configuraciones inseguras, servicios desactualizados. Escaneo semanal de todos los servidores.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S03/openvas/`
+
+---
+
+#### projectserver — Gestión de proyectos y CRM
+
+##### OpenProject 14+ · projectserver
+**¿Qué es?** Plataforma de gestión de proyectos con OKR (Objectives and Key Results), Gantt interactivo, EDT, presupuesto. Para proyectos formales con metodología tradicional.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S06/openproject/`
+
+---
+
+#### helpdeskserver — Atención al cliente
+
+##### LimeSurvey 6.0+ · helpdeskserver
+**¿Qué es?** Plataforma de encuestas online: Likert, NPS, selección múltiple, lógica condicional, multiidioma, análisis estadístico. Encuestas de satisfacción post-ticket.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE  
+**Procedimiento:** Crear ficha en `servers/S06/limesurvey/`
+
+---
+
+#### dbsyncserver — Sincronización de bases de datos
+
+##### SymmetricDS 3.16+ · dbsyncserver
+**¿Qué es?** Replicación y sincronización bidireccional entre PostgreSQL y MySQL. Necesario para integrar las 3 apps que requieren MySQL (OrangeHRM, FreePBX) con el resto del stack PostgreSQL. CDC (Change Data Capture) con resolución de conflictos.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE (necesario cuando se instalen OrangeHRM o FreePBX)  
+**Procedimiento:** Crear ficha en `servers/S01/symmetricds/` (capa de datos)
+
+---
+
+#### apigateway — Celery Workers y automatización
+
+##### Celery Workers · apigateway
+**¿Qué es?** Sistema de colas de tareas asíncronas para Python. Workers especializados: SIAT (envío facturas Bolivia), Reports (generación JasperReports), Email (envío masivo), Sync (inventario Tryton↔Saleor). Broker: Redis.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE (necesario cuando Django SIAT esté activo)  
+**Procedimiento:** Crear ficha en `servers/S02/celery-workers/`
+
+---
+
+#### cicdserver — Testing y seguridad en CI/CD
+
+##### K6 · cicdserver
+**¿Qué es?** Herramienta de testing de carga. Simula miles de usuarios concurrentes, mide p95/p99 de APIs. Se ejecuta en pipelines GitLab CI antes de cada deploy.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE (necesario cuando GitLab esté activo)  
+**Procedimiento:** Crear ficha en `servers/S14/k6/`
+
+##### Trivy · cicdserver
+**¿Qué es?** Scanner de seguridad para imágenes Docker y código. Detecta CVEs en dependencias, misconfigs en YAML K8s, secrets hardcodeados. Se ejecuta en cada pipeline antes de deploy.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA  
+**Decisión:** PENDIENTE (necesario cuando GitLab esté activo)  
+**Procedimiento:** Crear ficha en `servers/S14/trivy/`
+
+---
+
+#### vdiserver — VDI avanzado (Kasm Workspaces)
+
+##### Kasm Workspaces · vdiserver
+**¿Qué es?** Plataforma VDI que ejecuta escritorios completos en el navegador. Cada sesión es un contenedor aislado destruido al terminar. Alternativa empresarial a la combinación guacamole+fedora-kde.  
+**Estado actual:** 📋 PLANIFICADA — SIN FICHA (evaluar si reemplaza guacamole+fedora-kde o coexiste)  
+**Decisión:** PENDIENTE — definir si usamos Kasm o guacamole+fedora-kde como estrategia VDI  
+**Procedimiento:** *(decisión arquitectónica pendiente)*
+
+---
+
+*Documento v2.31.0 — bos-developer · 2026-10-16*  
 *Panel de control de reparación: `PLAN-INSTALACION-DESDE-CERO.md §13`*
