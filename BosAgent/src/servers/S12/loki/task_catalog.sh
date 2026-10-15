@@ -81,11 +81,14 @@ EOF
         helm repo update >> "$FICHA_LOG" 2>&1
     fi
 
+    # BUG-48: chart 6.9.0 asume S3 si no se especifica loki.storage.type=filesystem.
+    # Sin este flag, _helpers.tpl:228 busca bucketNames.chunks → nil → error de template.
     helm upgrade --install loki grafana/loki \
         --namespace "$NS" \
         --version "6.9.0" \
         --set loki.auth_enabled=false \
         --set loki.commonConfig.replication_factor=1 \
+        --set loki.storage.type=filesystem \
         --set singleBinary.replicas=1 \
         --set "singleBinary.resources.requests.cpu=50m" \
         --set "singleBinary.resources.requests.memory=128Mi" \
