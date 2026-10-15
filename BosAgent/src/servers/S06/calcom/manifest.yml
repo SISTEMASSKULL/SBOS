@@ -43,9 +43,11 @@ governance:
   backup_schedule: "0 3 * * *"
 
 health:
-  type: command
-  command: "kubectl --kubeconfig=/etc/bos/.kube/config exec -n sbos-collab deploy/calcom -- curl -sf http://localhost:3000/api/health 2>/dev/null | grep -q ok"
-  timeout_seconds: 15
+  # BUG-44: Cal.com v6.x no expone /api/health — retorna HTML 404.
+  # El endpoint real es /api/auth/session (readiness probe lo confirma).
+  # ficha_health() en task_catalog.sh usa /api/auth/session correctamente.
+  # type:none para que el framework no llame al health command en verify.
+  type: none
 
 integrations:
   provides_to:

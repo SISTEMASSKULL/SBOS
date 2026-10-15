@@ -44,9 +44,11 @@ governance:
   backup_schedule: "0 3 * * *"
 
 health:
-  type: command
-  command: "kubectl --kubeconfig=/etc/bos/.kube/config exec -n sbos-notifier deploy/novu-api -- curl -sf http://localhost:3000/v1/health-check 2>/dev/null | grep -q ok"
-  timeout_seconds: 15
+  # BUG-45: novu/api:3.15.0 no incluye curl en su imagen.
+  # El health check por comando falla con "executable file not found".
+  # ficha_health_check() en task_catalog.sh verifica Ready condition sin curl.
+  # type:none para que el framework no ejecute el health command en verify.
+  type: none
 
 integrations:
   provides_to:

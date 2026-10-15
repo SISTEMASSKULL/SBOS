@@ -66,6 +66,16 @@ YAML
 
 # ── Install ───────────────────────────────────────────────────────
 ficha_install() {
+    # BUG-44: idempotencia P15 — si ya hay pods Running, no reinstalar
+    local _running
+    _running=$(_k get pods -n "$NS" -l app=calcom --no-headers 2>/dev/null \
+        | grep -c "Running" || echo "0")
+    if (( _running >= 1 )); then
+        _log "calcom ya tiene ${_running} pods Running — skip reinstalación"
+        echo "${__STEP_SKIP__} deploy_calcom: ya running (${_running} pods)"
+        return 0
+    fi
+
     local _pg_pass _nextauth_secret _enc_key
     _pg_pass=$(_k get secret -n sbos-data postgresql-credentials \
         -o jsonpath='{.data.POSTGRES_PASSWORD}' 2>/dev/null | base64 -d 2>/dev/null || echo "sbos_bootstrap_pass")

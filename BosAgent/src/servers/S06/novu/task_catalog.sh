@@ -156,6 +156,18 @@ YAML
 
 # ── Install ───────────────────────────────────────────────────────
 ficha_install() {
+    # BUG-45: idempotencia P15 — si ya hay pods Running, no reinstalar
+    local _api_running _ws_running
+    _api_running=$(_k get pods -n "$NS" -l app=novu-api --no-headers 2>/dev/null \
+        | grep -c "Running" || echo "0")
+    _ws_running=$(_k get pods -n "$NS" -l app=novu-ws --no-headers 2>/dev/null \
+        | grep -c "Running" || echo "0")
+    if (( _api_running >= 1 && _ws_running >= 1 )); then
+        _log "novu ya tiene ${_api_running} novu-api + ${_ws_running} novu-ws Running — skip reinstalación"
+        echo "${__STEP_SKIP__} deploy_novu: ya running"
+        return 0
+    fi
+
     local _jwt_secret _store_key
     _jwt_secret=$(cat /etc/bos/.novu-jwt-secret 2>/dev/null || { openssl rand -hex 32 | tee /etc/bos/.novu-jwt-secret; chmod 600 /etc/bos/.novu-jwt-secret; cat /etc/bos/.novu-jwt-secret; })
     _store_key=$(cat /etc/bos/.novu-store-key 2>/dev/null || { openssl rand -hex 16 | tee /etc/bos/.novu-store-key; chmod 600 /etc/bos/.novu-store-key; cat /etc/bos/.novu-store-key; })
