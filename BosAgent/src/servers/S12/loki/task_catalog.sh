@@ -103,6 +103,7 @@ EOF
         --set "loki.compactor.retention_enabled=true" \
         --set "loki.compactor.delete_request_store=filesystem" \
         --set "loki.structuredMetadata.enabled=true" \
+        --set loki.useTestSchema=true \
         --timeout 8m \
         >> "$FICHA_LOG" 2>&1
     echo "${__STEP_OK__} instalar_loki_helm"
