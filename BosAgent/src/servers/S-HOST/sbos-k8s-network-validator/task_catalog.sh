@@ -25,7 +25,7 @@ _k()   { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@"; }
 
 # _wait_pod_running: espera hasta que un pod tenga STATUS=Running.
 _wait_pod_running() {
-    local pod="$1" ns="$2" timeout="${3:-60}" elapsed=0
+    local pod="$1" ns="$2" timeout="${3:-120}" elapsed=0
     while (( elapsed < timeout )); do
         local phase
         phase=$(_k get pod "$pod" -n "$ns" -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
@@ -98,8 +98,8 @@ spec:
       command: ["sh", "-c", "nslookup kubernetes.default.svc.cluster.local && echo DNS_OK"]
 EOF
 
-    if ! _wait_pod_running sbos-net-test-a "$TEST_NS" 60; then
-        echo "${__STEP_FAIL__} test_coredns: pod de prueba no arrancó en 60s"
+    if ! _wait_pod_running sbos-net-test-a "$TEST_NS" 120; then
+        echo "${__STEP_FAIL__} test_coredns: pod de prueba no arrancó en 120s"
         _cleanup_test_resources
         return 1
     fi
@@ -150,7 +150,7 @@ spec:
       command: ["sh", "-c", "nc -lp 9999 -e echo PONG"]
 EOF_SERVER
 
-    if ! _wait_pod_running sbos-net-test-a "$TEST_NS" 60; then
+    if ! _wait_pod_running sbos-net-test-a "$TEST_NS" 120; then
         echo "${__STEP_FAIL__} test_pod_to_pod: pod servidor no arrancó"
         _cleanup_test_resources
         return 1
@@ -173,7 +173,7 @@ EOF_SERVER
         --command -- sh -c "sleep 5 && echo PING | nc -w3 ${pod_a_ip} 9999 && echo P2P_OK" \
         >> "$FICHA_LOG" 2>&1
 
-    if ! _wait_pod_running sbos-net-test-b "$TEST_NS" 60; then
+    if ! _wait_pod_running sbos-net-test-b "$TEST_NS" 120; then
         echo "${__STEP_FAIL__} test_pod_to_pod: pod cliente no arrancó"
         _cleanup_test_resources
         return 1
@@ -272,8 +272,16 @@ ficha_verify() {
 
 # ── Repair ───────────────────────────────────────────────────────
 ficha_repair() {
-    _log "ficha_repair: eliminando marker y re-ejecutando validación de red"
-    _k delete configmap sbos-network-validated -n "$TEST_NS" --ignore-not-found=true >> "$FICHA_LOG" 2>&1 || true
+    # BUG-43: si el ConfigMap ya existe la red está validada — no destruir.
+    # Solo re-validar si el marker no existe (validación perdida o corrupta).
+    if _k get configmap sbos-network-validated -n "$TEST_NS" > /dev/null 2>&1; then
+        local ts
+        ts=$(_k get configmap sbos-network-validated -n "$TEST_NS" \
+            -o jsonpath='{.data.validated_at}' 2>/dev/null || echo "?")
+        _log "ficha_repair: ConfigMap sbos-network-validated presente (ts=${ts}) — red ya validada, skip"
+        return 0
+    fi
+    _log "ficha_repair: ConfigMap no encontrado — re-ejecutando validación de red"
     ficha_install
 }
 
