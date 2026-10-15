@@ -42,11 +42,11 @@ ficha_pre_install() {
 ficha_install() {
     mkdir -p "$(dirname "$FICHA_LOG")" /data/loki
 
-    # Idempotencia
+    # Idempotencia — verificar loki-gateway (chart 6.9.0 usa Deployment, no StatefulSet)
     local ready
-    ready=$(_k get statefulset loki -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    ready=$(_k get deployment loki-gateway -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
     if (( ready >= 1 )); then
-        echo "${__STEP_SKIP__} loki_install: StatefulSet ya Ready — skip"
+        echo "${__STEP_SKIP__} loki_install: loki-gateway ya Ready — skip"
         return 0
     fi
 
@@ -109,9 +109,23 @@ EOF
         >> "$FICHA_LOG" 2>&1
     echo "${__STEP_OK__} instalar_loki_helm"
 
+    # BUG-48d: chart 6.9.0 con storage.type=filesystem no crea StatefulSet.
+    # El componente principal es loki-gateway (Deployment). Verificar gateway.
     echo "${__STEP_START__} esperar_loki_ready"
-    if ! _wait_statefulset_ready loki "$NS" 180; then
-        echo "${__STEP_FAIL__} esperar_loki_ready: StatefulSet no Ready en 180s"
+    local elapsed=0
+    while (( elapsed < 180 )); do
+        local ready
+        ready=$(_k get deployment loki-gateway -n "$NS" \
+            -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+        if (( ready >= 1 )); then
+            _log "loki-gateway Running (${ready}/1)"
+            break
+        fi
+        sleep 10; elapsed=$((elapsed + 10))
+        (( elapsed % 30 == 0 )) && _log "Esperando loki-gateway Ready... ${elapsed}/180s"
+    done
+    if (( elapsed >= 180 )); then
+        echo "${__STEP_FAIL__} esperar_loki_ready: loki-gateway no Ready en 180s"
         return 1
     fi
     echo "${__STEP_OK__} esperar_loki_ready"
@@ -121,17 +135,17 @@ EOF
 ficha_verify() {
     echo "${__STEP_START__} verificar_loki_ready"
     local ready
-    ready=$(_k get statefulset loki -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
-    (( ready >= 1 )) || { echo "${__STEP_FAIL__} verificar_loki_ready: ${ready}/1"; return 1; }
+    ready=$(_k get deployment loki-gateway -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    (( ready >= 1 )) || { echo "${__STEP_FAIL__} verificar_loki_ready: loki-gateway ${ready}/1"; return 1; }
     echo "${__STEP_OK__} verificar_loki_ready (${ready}/1)"
     return 0
 }
 
 ficha_health() {
     local ready
-    ready=$(_k get statefulset loki -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    ready=$(_k get deployment loki-gateway -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
     (( ready >= 1 )) && echo "HEALTHY" && return 0
-    echo "DEGRADED: loki ${ready}/1"
+    echo "DEGRADED: loki-gateway ${ready}/1"
     return 1
 }
 
