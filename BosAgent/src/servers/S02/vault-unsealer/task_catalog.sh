@@ -187,28 +187,28 @@ spec:
             - |
               set -euo pipefail
               # Verificar si vault está inicializado y sellado
-              SEALED=$(kubectl exec vault-0 -n sbos-security -- \
+              SEALED=\$(kubectl exec vault-0 -n sbos-security -- \
                 sh -c "VAULT_ADDR=http://127.0.0.1:8200 vault status -format=json 2>/dev/null || echo '{}'" \
                 | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('sealed','true'))" 2>/dev/null || echo "true")
 
-              if [[ "$SEALED" == "false" ]]; then
+              if [[ "\$SEALED" == "false" ]]; then
                 echo "Vault ya unsealed — ok"
                 exit 0
               fi
 
               echo "Vault sealed — ejecutando unseal..."
               kubectl exec vault-0 -n sbos-security -- \
-                sh -c "VAULT_ADDR=http://127.0.0.1:8200 vault operator unseal '$KEY0'" || true
+                sh -c "VAULT_ADDR=http://127.0.0.1:8200 vault operator unseal '\$KEY0'" || true
               kubectl exec vault-0 -n sbos-security -- \
-                sh -c "VAULT_ADDR=http://127.0.0.1:8200 vault operator unseal '$KEY1'" || true
+                sh -c "VAULT_ADDR=http://127.0.0.1:8200 vault operator unseal '\$KEY1'" || true
               kubectl exec vault-0 -n sbos-security -- \
-                sh -c "VAULT_ADDR=http://127.0.0.1:8200 vault operator unseal '$KEY2'" || true
+                sh -c "VAULT_ADDR=http://127.0.0.1:8200 vault operator unseal '\$KEY2'" || true
 
               # Verificar resultado
-              SEALED_AFTER=$(kubectl exec vault-0 -n sbos-security -- \
+              SEALED_AFTER=\$(kubectl exec vault-0 -n sbos-security -- \
                 sh -c "VAULT_ADDR=http://127.0.0.1:8200 vault status -format=json 2>/dev/null || echo '{}'" \
                 | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('sealed','true'))" 2>/dev/null || echo "true")
-              if [[ "$SEALED_AFTER" == "false" ]]; then
+              if [[ "\$SEALED_AFTER" == "false" ]]; then
                 echo "Vault unsealed exitosamente"
               else
                 echo "ERROR: vault sigue sellado tras unseal"
