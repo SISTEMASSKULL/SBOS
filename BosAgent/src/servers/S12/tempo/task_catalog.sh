@@ -19,14 +19,15 @@ TEMPO_VERSION="${TEMPO_VERSION:-2.7.2}"
 _log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [tempo] $*" | tee -a "$FICHA_LOG"; }
 _k()   { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@"; }
 
-_wait_deploy_ready() {
-    local deploy="$1" ns="$2" timeout="${3:-120}" elapsed=0
+_wait_statefulset_ready() {
+    local sts="$1" ns="$2" timeout="${3:-120}" elapsed=0
     while (( elapsed < timeout )); do
         local ready
-        ready=$(_k get deployment "$deploy" -n "$ns" \
+        ready=$(_k get statefulset "$sts" -n "$ns" \
             -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
         (( ready >= 1 )) && return 0
         sleep 5; elapsed=$((elapsed + 5))
+        (( elapsed % 30 == 0 )) && _log "Esperando $sts Ready... ${elapsed}/${timeout}s"
     done
     return 1
 }
@@ -41,10 +42,11 @@ ficha_pre_install() {
 ficha_install() {
     mkdir -p "$(dirname "$FICHA_LOG")" /data/tempo
 
+    # BUG-49: chart grafana/tempo v1.14.0 crea StatefulSet, no Deployment
     local ready
-    ready=$(_k get deployment tempo -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    ready=$(_k get statefulset tempo -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
     if (( ready >= 1 )); then
-        echo "${__STEP_SKIP__} tempo_install: ya Ready — skip"
+        echo "${__STEP_SKIP__} tempo_install: StatefulSet tempo ya Ready — skip"
         return 0
     fi
 
@@ -71,7 +73,7 @@ ficha_install() {
     echo "${__STEP_OK__} instalar_tempo_helm"
 
     echo "${__STEP_START__} esperar_tempo_ready"
-    _wait_deploy_ready tempo "$NS" 120 || { echo "${__STEP_FAIL__} esperar_tempo_ready: timeout"; return 1; }
+    _wait_statefulset_ready tempo "$NS" 120 || { echo "${__STEP_FAIL__} esperar_tempo_ready: timeout"; return 1; }
     echo "${__STEP_OK__} esperar_tempo_ready"
     return 0
 }
@@ -79,7 +81,7 @@ ficha_install() {
 ficha_verify() {
     echo "${__STEP_START__} verificar_tempo"
     local ready
-    ready=$(_k get deployment tempo -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    ready=$(_k get statefulset tempo -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
     (( ready >= 1 )) || { echo "${__STEP_FAIL__} verificar_tempo: ${ready}/1"; return 1; }
     echo "${__STEP_OK__} verificar_tempo"
     return 0
@@ -87,7 +89,7 @@ ficha_verify() {
 
 ficha_health() {
     local ready
-    ready=$(_k get deployment tempo -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    ready=$(_k get statefulset tempo -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
     (( ready >= 1 )) && echo "HEALTHY" && return 0
     echo "DEGRADED"
     return 1

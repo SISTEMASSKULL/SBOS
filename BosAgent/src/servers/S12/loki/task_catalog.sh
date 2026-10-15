@@ -51,7 +51,10 @@ ficha_install() {
     fi
 
     echo "${__STEP_START__} crear_pv_loki"
-    mkdir -p /data/loki
+    # BUG-48e: loki corre como uid 10001 — crear dirs con ownership correcto
+    mkdir -p /data/loki/rules /data/loki/chunks /data/loki/wal
+    chown -R 10001:10001 /data/loki
+    chmod -R 755 /data/loki
     _k apply -f - >> "$FICHA_LOG" 2>&1 <<'EOF'
 apiVersion: v1
 kind: PersistentVolume
@@ -64,14 +67,21 @@ spec:
     storage: 20Gi
   accessModes: [ReadWriteOnce]
   persistentVolumeReclaimPolicy: Retain
-  storageClassName: ""
+  storageClassName: local-path
   hostPath:
     path: /data/loki
+    type: DirectoryOrCreate
   claimRef:
     apiVersion: v1
     kind: PersistentVolumeClaim
     namespace: sbos-monitor
-    name: loki-storage-loki-0
+    name: storage-loki-0
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: Exists
 EOF
     echo "${__STEP_OK__} crear_pv_loki"
 

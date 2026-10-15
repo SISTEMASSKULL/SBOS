@@ -42,8 +42,9 @@ ports:
     internal_only: true
 
 health:
+  # BUG-49: chart grafana/tempo v1.14.0 crea StatefulSet, no Deployment
   type: command
-  command: "kubectl --kubeconfig=/etc/bos/.kube/config get deployment tempo -n sbos-monitor -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get statefulset tempo -n sbos-monitor -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
   expected_output: "1"
   timeout_seconds: 30
 

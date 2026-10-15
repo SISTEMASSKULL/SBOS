@@ -2209,9 +2209,9 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 | 70 | sbos-bkernel | ✅ INSTALLED | — |
 | 105 | sbos-database-init | ⏳ NUEVA (pendiente deploy) | Creada en ciclo 5 — instalar con `bosctl ficha install sbos-database-init` |
 | 100 | postgresql | ✅ INSTALLED | ✅ BUG-35 cerrado (ciclo 2) |
-| 100 | kyverno | ⚙️ PENDING | ✅ BUG-36 cerrado (ciclo 11) — sbos-hairpin-nat.service persistente |
+| 100 | kyverno | ✅ INSTALLED | ✅ BUG-36 cerrado (ciclo 11); instalado en ciclo 48 |
 | 110 | redis | ✅ INSTALLED | ✅ BUG-35 cerrado (ciclo 2) |
-| 110 | linkerd | 🔄 INSTALLING | ✅ BUG-29 cerrado (ciclo 4) |
+| 110 | linkerd | ✅ INSTALLED | ✅ BUG-29 cerrado (ciclo 4); instalado en ciclo 48 |
 | 120 | minio | ✅ INSTALLED | — |
 | 130 | vault | ❌ PHYSICAL_ERROR | ❌ FIX-26A pendiente VPS |
 | 131 | vault-unsealer | ⏳ NUEVA | Creada ciclo 11 — instalar tras init de vault |
@@ -2229,14 +2229,14 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 | 177 | brocket (Rocket.Chat) | ⏳ FICHA PENDIENTE | INC-5 ✅ resuelto ciclo 24 — ficha aún por crear |
 | 180 | certbot | ✅ INSTALLED | — |
 | 200 | prometheus | ✅ INSTALLED | — |
-| 200 | nextcloud | ✅ INSTALLED | — |
+| 200 | nextcloud | ✅ INSTALLED (UPDATE_AVAILABLE) | ✅ BUG-46 cerrado (ciclo 46) — PV estático + health.type:none + idempotencia |
 | 205 | alertmanager | ✅ INSTALLED | — |
-| 210 | guacamole | ✅ INSTALLED | ❌ `bosctl ficha repair guacamole` pendiente VPS (código ✅ ciclo 2) |
+| 210 | guacamole | ✅ INSTALLED (UPDATE_AVAILABLE) | ✅ BUG-47 cerrado (ciclo 47) — health.type:none + idempotencia |
 | 215 | grafana | ✅ INSTALLED | — |
-| 215 | loki | ⚙️ PENDING (Helm, esperando deps) | — |
-| 220 | alloy | ✅ INSTALLED | 📋 Loki aún no instalado (deps pendientes) — Alloy bufferiza y enviará cuando Loki esté disponible |
-| 220 | tempo | ⚙️ PENDING (Helm, esperando deps) | — |
-| 220 | onlyoffice | ✅ INSTALLED | — |
+| 215 | loki | ✅ INSTALLED | ✅ BUG-48 cerrado (ciclo 48) — 5 sub-bugs chart 6.9.0 resueltos |
+| 220 | alloy | ⚙️ READY | Loki INSTALLED — Alloy instalará en próximo ciclo observer |
+| 220 | tempo | 🔄 INSTALLING | saga en progreso (ciclo 48) |
+| 220 | onlyoffice | ✅ INSTALLED (auto_install:false) | ✅ BUG-47 cerrado (ciclo 47); auto_install:false — solo con fedora-kde |
 | 225 | zabbix | ⏳ NO_INSTALADA (auto_install=false) | — |
 | 225 | oauth2-proxy-desktop | ❌ PHYSICAL_ERROR | ❌ derivado vault |
 | 230 | fedora-kde | ⏸️ UPDATE_AVAILABLE | ❌ INC-2/3 (HITL Q-2/3), VDI-GAP-1/2 pendientes; GAP-5 ✅ ciclo 13 |
@@ -2250,7 +2250,7 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 ---
 
-**Fichas INSTALLED:** 24 · **PHYSICAL_ERROR:** 3 · **INSTALL_FAILED:** 1 · **INSTALLING:** 1 · **UPDATE_AVAILABLE:** 2 · **PENDING/NO_INSTALADA:** 35 · **A DESPLEGAR:** 1 (`sbos-database-init`)
+**Fichas INSTALLED:** 27+ · **PHYSICAL_ERROR:** 3 · **INSTALL_FAILED:** 2 (sbos-bi18n=binario pendiente, onlyoffice=auto_install:false residual) · **INSTALLING:** 1 (tempo) · **UPDATE_AVAILABLE:** 5 · **PENDING/READY/NO_INSTALADA:** 31
 
 **Correcciones ciclo 5 (c77c12e):** `sbos-database-init` ficha creada · `runtime: docker → kubernetes` corregido en 23 fichas (S10/S12/S08/S09/S14/S15/S01/S04) · loki/tempo/zabbix confirmados como implementaciones Helm reales · sbos-vdi-config auditada
 
@@ -2328,7 +2328,13 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 **Correcciones ciclo 45:** **novu health.type: command + idempotencia** — Mismo patrón que ciclo 44 con calcom. (1) **BUG-45a**: `manifest.yml health.type: command` ejecuta `kubectl exec deploy/novu-api -- curl ...` pero la imagen `ghcr.io/novuhq/novu/api:3.15.0` **no incluye curl** → verify falla con "executable file not found in \$PATH" → exit=3 → loop infinito. Fix: `health.type: none`; `ficha_health_check()` verifica Ready condition via jsonpath sin curl. (2) **BUG-45b**: `ficha_install()` sin idempotencia → re-deploy aunque novu-api y novu-ws estuvieran Running. Fix: check doble al inicio — si `_api_running >= 1 && _ws_running >= 1` → skip. Resultado: kyverno INSTALLED (2.4s), linkerd INSTALLED (837ms); novu en progreso.
 
+**Correcciones ciclo 46:** **nextcloud — PV estático + health.type:none + idempotencia (BUG-46)** — (1) **BUG-46a — PV faltante**: `task_catalog.sh` creaba PVC `nextcloud-data` con `storageClassName: local-path` pero sin PV previo. Pod stuck Pending 136+ min con evento `0/1 nodes are available: 1 node(s) didn't find available persistent volumes to bind`. Fix: paso `pv_nextcloud` agrega PV estático `sbos-nextcloud-pv` (hostPath `/data/nextcloud`, 10Gi, Retain, `claimRef` pre-enlazado a `nextcloud-data` en namespace `sbos-nextcloud`, `nodeAffinity.kubernetes.io/hostname: Exists`) antes de crear el PVC. (2) **BUG-46b — health.type: http sin Host header**: el framework hace `curl http://{clusterIP}:{port}/` sin cabecera Host. Nextcloud rechaza cualquier request sin `NEXTCLOUD_TRUSTED_DOMAINS` configurado → HTTP 400 → exit=3 → loop infinito. Fix: `manifest.yml health.type: none`; `ficha_health()` en task_catalog verifica `readyReplicas` directamente via kubectl jsonpath. (3) **BUG-46c — sin idempotencia**: reinstalaba aunque nextcloud ya estuviera Running. Fix: check al inicio de `ficha_install()` — si pods Running → skip. Resultado: nextcloud INSTALLED. Commit: `fdbdb27`.
+
+**Correcciones ciclo 47:** **guacamole + onlyoffice — health.type:none + idempotencia + onlyoffice auto_install:false (BUG-47)** — (1) **BUG-47a — guacamole health.type: http timeout**: `curl http://{IP}:8080/guacamole/` retorna HTTP 000 (timeout) porque Guacamole/Tomcat tarda 2-3 min en arrancar. El framework ejecuta verify antes de que responda → loop INSTALL_FAILED → INSTALLING. Fix: `health.type: none` + idempotencia (si pods Running → skip). Resultado: guacamole INSTALLED en 1.5s (idempotency skip). (2) **BUG-47b — onlyoffice idéntico patrón**: misma causa (Document Server/Node.js tarda 2-3 min en iniciar servicios internos → HTTP 000 → loop). Fix: `health.type: none` + idempotencia. (3) **decisión de negocio**: `auto_install: false` en onlyoffice — solo tiene sentido dentro del entorno VDI fedora-kde; fuera del escritorio corporativo no aporta valor. Commits: `3e93b28` + `ec6c97a`.
+
+**Correcciones ciclo 48:** **loki — 5 sub-bugs de compatibilidad Helm chart 6.9.0 (BUG-48a..e)** — (1) **BUG-48a — storage.type S3 por defecto**: chart 6.9.0 asume S3 y busca `loki.storage.bucketNames.chunks` → nil pointer en _helpers.tpl:228 durante `helm template`. Fix: `--set loki.storage.type=filesystem`. (2) **BUG-48b — schema_config requerido**: chart exige schema_config si no se usa TestSchema. Fix: `--set loki.useTestSchema=true`. (3) **BUG-48c — StatefulSet inexistente en modo distribuido**: sin `deploymentMode=SingleBinary`, el chart despliega modo distribuido (backend=0, read=0, write=0 con los flags de recursos) → solo crea DaemonSet `loki-canary` + Deployment `loki-gateway`, sin StatefulSet → `_wait_statefulset_ready loki` loopea indefinidamente. Fix: `--set deploymentMode=SingleBinary --set singleBinary.replicas=1`; todos los waits/verify/health cambiados a `deployment loki-gateway`. (4) **BUG-48d — PVC name mismatch**: PV `sbos-loki-pv` tenía `claimRef.name: loki-storage-loki-0` y `storageClassName: ""` pero el chart 6.9.0 crea PVC `storage-loki-0` con `storageClassName: local-path`. Fix: `claimRef.name: storage-loki-0`, `storageClassName: local-path`, + `nodeAffinity` para `local-path`. (5) **BUG-48e — permissions uid 10001**: loki corre como uid 10001; `/data/loki` era propiedad de root → `mkdir /var/loki/rules: permission denied` al arrancar. Fix: `mkdir -p /data/loki/rules /data/loki/chunks /data/loki/wal && chown -R 10001:10001 /data/loki` antes del Helm install. Resultado: loki INSTALLED (StatefulSet `loki` 1/1 Ready + Deployment `loki-gateway` 1/1 Running). Commits: `6c077b0` + `9584ff1` + `f74b48d` + `6f5ef94`.
+
 ---
 
-*Documento v2.26.0 — bos-developer · 2026-10-15*  
+*Documento v2.27.0 — bos-developer · 2026-10-15*  
 *Panel de control de reparación: `PLAN-INSTALACION-DESDE-CERO.md §13`*
