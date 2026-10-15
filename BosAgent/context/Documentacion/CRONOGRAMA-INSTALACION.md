@@ -1,6 +1,6 @@
 # Cronograma de Instalación — Ficha por Ficha
 
-**Versión:** 2.31.0  
+**Versión:** 2.32.0  
 **Fecha:** 2026-10-16  
 **Autor:** bos-developer  
 
@@ -3209,5 +3209,46 @@ Requieren desarrollo de `manifest.yml` + `task_catalog.sh` antes de poder instal
 
 ---
 
-*Documento v2.31.0 — bos-developer · 2026-10-16*  
+---
+
+## Ciclo 52 — TLS Let's Encrypt + configuración por empresa (2026-10-16)
+
+### Bugs corregidos
+
+**BUG-52a — certbot HTTP-01 challenge bloqueado por nginx (commits 46cd397)**
+- nginx.conf tenía el bloque HTTP:80 con redirect 301 directo sin excepción para `/.well-known`
+- task_catalog.sh de certbot intentaba modificar `sites-enabled/default` (no existe en SBOS)
+- Fix: agregar `location /.well-known/acme-challenge/` antes del redirect en nginx.conf
+- Fix: eliminar creación de `acme-challenge.conf` separado — nginx.conf es el dueño correcto
+
+**BUG-52b — sbos-institucional.conf hardcodeaba certificado autofirmado**
+- El archivo usaba `/etc/nginx/certs/sbos.crt` incluso cuando Let's Encrypt estaba disponible
+- El archivo no se regeneraba en `ficha_repair` (solo en `ficha_install` con `if [[ ! -f ]]`)
+- Fix: mover la generación a `_gen_sbos_subdomain_blocks()` con lógica LE/fallback
+
+### Logros
+
+- ✅ **TLS Let's Encrypt real**: certificado SAN para `sksistemas.com` + 32 subdominios
+  - Válido hasta 2027-01-13, firmado por Let's Encrypt (YE2)
+  - `https://sksistemas.com/` responde con cert válido (no autofirmado)
+  - Renovación automática vía systemd timer semanal
+
+- ✅ **Configuración por empresa en bos-install.toml**: nuevo sistema de configuración
+  - `bos-install.toml` ahora incluye: `admin_email`, `admin_name`, `timezone`, `country`, `language`, `smtp_host`
+  - El master script `00_MASTER_INSTALL_SBOS.sh` carga automáticamente estas variables al inicio de cada saga
+  - Todas las fichas reciben `BOS_DOMAIN`, `SBOS_ADMIN_EMAIL`, `SBOS_TIMEZONE`, `SBOS_COUNTRY`, etc. sin necesidad de pasarlas manualmente
+  - `InstallConfig` en `config.go` ampliado con los nuevos campos
+
+### Estado actual VPS
+
+```
+nginx:    Let's Encrypt activo — sksistemas.com + 32 subdominios
+certbot:  INSTALLED — timer semanal de renovación activo
+keycloak: realm skull + admin@sksistemas.com CONFIGURADO
+bos:      activo (systemd)
+```
+
+---
+
+*Documento v2.32.0 — bos-developer · 2026-10-16*  
 *Panel de control de reparación: `PLAN-INSTALACION-DESDE-CERO.md §13`*
