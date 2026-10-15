@@ -84,12 +84,21 @@ _check_ports() {
     echo "${__STEP_START__} check_ports"
     local occupied=()
     for port in "${_PORTS_REQUIRED[@]}"; do
-        ss -tlnp 2>/dev/null | grep -q ":${port}\b" && occupied+=("$port")
+        if ss -tlnp 2>/dev/null | grep -q ":${port}\b"; then
+            local proc
+            proc=$(ss -tlnp 2>/dev/null | grep ":${port}\b" | grep -oP 'users:\(\("\K[^"]+' | head -1 || echo "")
+            # Puertos ocupados por K8s/SBOS son esperados (instalación existente)
+            if [[ "$proc" =~ kube|etcd|containerd|bos|vault|keycloak|postgres|redis|kubelet ]]; then
+                _log "Puerto ${port} en uso por ${proc} (componente SBOS/K8s) — esperado"
+            else
+                occupied+=("$port")
+            fi
+        fi
     done
     if (( ${#occupied[@]} > 0 )); then
-        _warn_or_fail "check_ports" "puertos ya ocupados: ${occupied[*]}" || return 1
+        _warn_or_fail "check_ports" "puertos ya ocupados por procesos no-SBOS: ${occupied[*]}" || return 1
     else
-        echo "${__STEP_OK__} check_ports: todos los puertos requeridos disponibles"
+        echo "${__STEP_OK__} check_ports: puertos libres o en uso por componentes SBOS/K8s"
     fi
     return 0
 }

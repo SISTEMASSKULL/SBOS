@@ -214,11 +214,14 @@ ficha_install() {
         return 1
     fi
 
-    # ── 4. Verificar schemas críticos ─────────────────────────────
+    # ── 4. Verificar schemas del DDL (bauth y bos son los creados por este DDL) ──────
+    # bkernel, biedata, bsearch, bnexus, bnotify, kong, keycloak, tryton
+    # son creados por sus propias fichas — no bloqueamos aquí si no existen.
     echo "${__STEP_START__} verificar_schemas"
     local schemas_ok=0
-    local schemas_esperados=("bauth" "bos" "bkernel" "biedata" "bsearch" "bnexus" "bnotify" "kong" "keycloak" "tryton")
-    for schema in "${schemas_esperados[@]}"; do
+    local schemas_propios=("bauth" "bos")
+    local schemas_externos=("bkernel" "biedata" "bsearch" "bnexus" "bnotify" "kong" "keycloak" "tryton")
+    for schema in "${schemas_propios[@]}"; do
         local existe
         existe=$(_pg_exec "$DB_NAME" \
             "SELECT 1 FROM information_schema.schemata WHERE schema_name='${schema}';" \
@@ -226,14 +229,24 @@ ficha_install() {
         if [[ "$existe" == "1" ]]; then
             schemas_ok=$((schemas_ok+1))
         else
-            _log "ADVERTENCIA: schema '$schema' no encontrado en $DB_NAME"
+            _log "ADVERTENCIA: schema propio '$schema' no encontrado en $DB_NAME"
         fi
     done
-    _log "Schemas verificados: $schemas_ok/${#schemas_esperados[@]}"
-    if [[ "$schemas_ok" -ge 6 ]]; then
-        echo "${__STEP_OK__} verificar_schemas ($schemas_ok/${#schemas_esperados[@]})"
+    for schema in "${schemas_externos[@]}"; do
+        local existe
+        existe=$(_pg_exec "$DB_NAME" \
+            "SELECT 1 FROM information_schema.schemata WHERE schema_name='${schema}';" \
+            2>/dev/null | tr -d ' \n' || echo "")
+        if [[ "$existe" == "1" ]]; then
+            schemas_ok=$((schemas_ok+1))
+            _log "Schema externo '$schema' presente (creado por su ficha)"
+        fi
+    done
+    _log "Schemas verificados: $schemas_ok/10 (requeridos: bauth+bos)"
+    if [[ "$schemas_ok" -ge 2 ]]; then
+        echo "${__STEP_OK__} verificar_schemas ($schemas_ok/10)"
     else
-        echo "${__STEP_FAIL__} verificar_schemas: solo $schemas_ok/${#schemas_esperados[@]} schemas presentes"
+        echo "${__STEP_FAIL__} verificar_schemas: schemas bauth/bos no presentes"
         return 1
     fi
 

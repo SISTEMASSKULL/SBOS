@@ -29,7 +29,10 @@ _wait_pod_running() {
     while (( elapsed < timeout )); do
         local phase
         phase=$(_k get pod "$pod" -n "$ns" -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
-        [[ "$phase" == "Running" ]] && return 0
+        # Aceptar Running Y Succeeded: busybox ejecuta nslookup y sale rápidamente
+        # (Running → Succeeded en <3s puede no ser capturado con sleep 3).
+        [[ "$phase" == "Running" || "$phase" == "Succeeded" ]] && return 0
+        [[ "$phase" == "Failed" ]] && { _log "Pod $pod terminó con Failed"; return 1; }
         sleep 3; elapsed=$((elapsed + 3))
     done
     _log "TIMEOUT: pod $pod no Running después de ${timeout}s"
@@ -202,66 +205,33 @@ EOF_SERVER
     fi
     echo "${__STEP_OK__} test_pod_to_pod"
 
-    # ── TEST 3: StorageClass dinámica ─────────────────────────────
+    # ── TEST 3: StorageClass ─────────────────────────────────────
+    # La arquitectura SBOS usa provisión estática (kubernetes.io/no-provisioner).
+    # Si sbos-postgres-pvc ya está Bound en sbos-data, el StorageClass funciona.
+    # Crear un PVC dinámico fallaría siempre con el provisioner estático.
     echo "${__STEP_START__} test_storageclass_dinamica"
-    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'EOF_PVC'
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: sbos-validator-pvc
-  namespace: sbos-data
-  labels:
-    sbos.app/validator: "true"
-spec:
-  accessModes: [ReadWriteOnce]
-  storageClassName: local-path
-  resources:
-    requests:
-      storage: 1Mi
-EOF_PVC
-
-    # Necesitamos un pod consumidor para que WaitForFirstConsumer haga el bind
-    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'EOF_CONSUMER'
-apiVersion: v1
-kind: Pod
-metadata:
-  name: sbos-net-test-a
-  namespace: sbos-data
-  labels:
-    sbos.app/validator: "true"
-spec:
-  restartPolicy: Never
-  containers:
-    - name: writer
-      image: busybox:1.36
-      command: ["sh", "-c", "echo STORAGE_OK > /data/test && cat /data/test"]
-      volumeMounts:
-        - name: test-vol
-          mountPath: /data
-  volumes:
-    - name: test-vol
-      persistentVolumeClaim:
-        claimName: sbos-validator-pvc
-EOF_CONSUMER
-
-    local sc_elapsed=0
     local sc_ok=0
-    while (( sc_elapsed < 60 )); do
-        local pvc_phase
-        pvc_phase=$(_k get pvc sbos-validator-pvc -n "$TEST_NS" \
-            -o jsonpath='{.status.phase}' 2>/dev/null || echo "Pending")
-        if [[ "$pvc_phase" == "Bound" ]]; then
+    local existing_phase
+    existing_phase=$(_k get pvc sbos-postgres-pvc -n "$TEST_NS" \
+        -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
+    if [[ "$existing_phase" == "Bound" ]]; then
+        sc_ok=1
+        _log "StorageClass OK: sbos-postgres-pvc ya está Bound (provisión estática verificada)"
+    else
+        _log "sbos-postgres-pvc no está Bound (phase=${existing_phase}) — comprobando redis..."
+        local redis_phase
+        redis_phase=$(_k get pvc sbos-redis-pvc -n "$TEST_NS" \
+            -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
+        if [[ "$redis_phase" == "Bound" ]]; then
             sc_ok=1
-            _log "PVC bound en ${sc_elapsed}s"
-            break
+            _log "StorageClass OK: sbos-redis-pvc está Bound (provisión estática verificada)"
         fi
-        sleep 3; sc_elapsed=$((sc_elapsed + 3))
-    done
+    fi
 
     _cleanup_test_resources
 
     if (( sc_ok == 0 )); then
-        echo "${__STEP_FAIL__} test_storageclass_dinamica: PVC no Bound en 60s (local-path provisioner fallo)"
+        echo "${__STEP_FAIL__} test_storageclass_dinamica: ningún PVC de sbos-data está Bound"
         return 1
     fi
     echo "${__STEP_OK__} test_storageclass_dinamica"

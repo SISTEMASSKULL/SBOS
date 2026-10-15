@@ -261,6 +261,11 @@ ficha_health() {
     return 1
 }
 
+# ── Post-install ─────────────────────────────────────────────────
+# sbos-bootstrap-platform no tiene pods propios — post_install_generic esperaría
+# 300s buscando pods que no existen. Esta función evita ese bloqueo.
+ficha_post_install() { return 0; }
+
 # ── Remove ────────────────────────────────────────────────────────
 ficha_remove() {
     # Eliminar namespaces SOLO si están vacíos (sin pods).

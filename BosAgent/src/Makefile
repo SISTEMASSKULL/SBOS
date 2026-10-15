@@ -71,7 +71,7 @@ release: package
 	@ls -lh $(RELEASEFILE)
 	@echo "Desplegar con:"
 	@echo "  scp $(RELEASEFILE) root@<PROD_IP>:/tmp/"
-	@echo "  ssh root@<PROD_IP> 'mkdir -p /opt/bos && tar -xzf /tmp/$(RELEASEFILE) -C /opt/bos && /opt/bos/bosctl setup --mode=prod'"
+	@echo "  ssh root@<PROD_IP> 'mkdir -p /opt/bos && tar -xzf /tmp/$(RELEASEFILE) -C /opt/bos && cp /opt/bos/bos /usr/local/bin/bos && cp /opt/bos/bosctl /usr/local/bin/bosctl && cp -r /opt/bos/servers/* /etc/bos/blibs/servers/ && mkdir -p /etc/bos/blibs/DDLs && cp -r /opt/bos/ddls/* /etc/bos/blibs/DDLs/ && systemctl restart bos.service'"
 
 # ── CI Gate ──────────────────────────────────────────────────
 

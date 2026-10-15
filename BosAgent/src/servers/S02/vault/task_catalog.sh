@@ -510,23 +510,23 @@ spec:
               add: [IPC_LOCK]
           readinessProbe:
             httpGet:
-              # sealedok=true + uninitok=true: Vault responde 200 aunque esté sellado/no-init.
+              # /v1/sys/init siempre retorna 200 (independiente del estado de Vault).
               # Necesario para romper el chicken-and-egg: pod debe estar Ready para que
               # kubectl exec pueda ejecutar vault operator init y vault operator unseal.
-              path: /v1/sys/health?standbyok=true&sealedok=true&uninitok=true
+              # Vault 2.0.1 Raft: uninitok=true en /sys/health retorna 501 — usar /sys/init.
+              path: /v1/sys/init
               port: 8200
             initialDelaySeconds: 10
             periodSeconds: 5
-            failureThreshold: 6
+            failureThreshold: 12
           livenessProbe:
             httpGet:
-              # sealedok=true: Vault sellado devuelve 200 en liveness — no mata el pod.
-              # Sin esto, Vault en CrashLoop: sellado → 503 → K8s lo mata → ciclo infinito.
-              path: /v1/sys/health?standbyok=true&sealedok=true
+              # /v1/sys/init: siempre 200, evita CrashLoop en vault sellado.
+              path: /v1/sys/init
               port: 8200
-            initialDelaySeconds: 60
+            initialDelaySeconds: 30
             periodSeconds: 15
-            failureThreshold: 3
+            failureThreshold: 4
           resources:
             requests:
               cpu: \"100m\"

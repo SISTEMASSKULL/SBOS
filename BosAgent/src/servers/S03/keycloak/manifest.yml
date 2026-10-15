@@ -53,8 +53,9 @@ ports:
 
 health:
   type: command
-  # Puerto 9000 es el management port de Keycloak — no requiere autenticación.
-  command: "kubectl --kubeconfig=/etc/bos/.kube/config exec -n sbos-security deploy/keycloak -- curl -sf http://localhost:9000/health/ready 2>/dev/null | grep -q UP"
+  # Iteración 1 (start-dev): KC usa UBI Micro sin curl/wget; verificar pod Running desde el host.
+  # Iteración 2 (start --optimized): cambiar a curl interno cuando se añada curl al contenedor.
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get pod -n sbos-security -l app=keycloak --no-headers 2>/dev/null | grep -q Running"
   timeout_seconds: 30
 
 audit:

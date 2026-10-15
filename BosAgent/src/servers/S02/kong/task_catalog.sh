@@ -199,9 +199,10 @@ ficha_install() {
     }
     echo "${__STEP_OK__} crear_secrets"
 
-    # ── 1b. NetworkPolicy para migrations (necesaria ANTES del Job) ──
-    # El Job kong-migrations tiene label app=kong-migrations (distinto de app=kong).
-    # Sin esta política, default-deny-all bloquea su egress hacia postgresql.
+    # ── 1b. NetworkPolicies de egress (ANTES del Deployment y del Job) ──
+    # Las NPs de egress deben existir ANTES de que los pods arranquen.
+    # Sin allow-kong-egress, el pod de kong no puede conectar a PostgreSQL → CrashLoop.
+    # Sin allow-kong-migrations-egress, el job de migrations tampoco conecta.
     _apply "np-migrations-egress" "apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -220,6 +221,37 @@ spec:
       ports:
         - protocol: TCP
           port: 5432
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53" || true
+
+    _apply "np-kong-egress-early" "apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-kong-egress
+  namespace: ${NS}
+spec:
+  podSelector:
+    matchLabels:
+      app: kong
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: sbos-data
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: sbos-security
+      ports:
+        - protocol: TCP
+          port: 8080
     - ports:
         - protocol: UDP
           port: 53
@@ -247,6 +279,10 @@ metadata:
 spec:
   ttlSecondsAfterFinished: 3600
   template:
+    metadata:
+      labels:
+        app: kong-migrations
+        sbos-managed: \"true\"
     spec:
       restartPolicy: OnFailure
       containers:
