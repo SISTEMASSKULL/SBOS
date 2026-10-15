@@ -150,6 +150,15 @@ ficha_pre_install() {
 ficha_install() {
     mkdir -p "$(dirname "$FICHA_LOG")"
 
+    # Idempotencia P15: si los pods de linkerd ya corren, no reinstalar
+    local running_pods
+    running_pods=$(_k get pods -n "$NS" --no-headers 2>/dev/null | grep -c Running || echo "0")
+    if (( running_pods >= 3 )); then
+        _log "Linkerd ya tiene ${running_pods} pods Running — skip reinstalación"
+        echo "${__STEP_SKIP__} instalacion_linkerd: ya running (${running_pods} pods)"
+        return 0
+    fi
+
     # ── 0. Verificar/instalar helm ────────────────────────────────
     echo "${__STEP_START__} verificar_helm"
     if ! command -v helm &>/dev/null; then
