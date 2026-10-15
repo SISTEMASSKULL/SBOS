@@ -41,11 +41,10 @@ governance:
   category_label: "colaboracion"
 
 health:
-  type: http
-  # /status.php devuelve JSON con instalado=true cuando Nextcloud está operativo.
-  path: /status.php
-  port: 80
-  timeout_seconds: 30
+  # BUG-46: health.type:http hace curl a ClusterIP sin Host header.
+  # Nextcloud rechaza con HTTP 400 cualquier request sin NEXTCLOUD_TRUSTED_DOMAINS.
+  # ficha_health() en task_catalog.sh verifica readyReplicas directamente.
+  type: none
 
 compatibility:
   min_iam_installer_version: "1.0.0"

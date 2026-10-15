@@ -157,7 +157,49 @@ YAML
 
 # ── Install ───────────────────────────────────────────────────────
 ficha_install() {
+    # BUG-46: idempotencia P15 — si ya hay pods Running, no reinstalar
+    local _running
+    _running=$(_k get pods -n "$NS" -l app=nextcloud --no-headers 2>/dev/null \
+        | grep -c "Running" || echo "0")
+    if (( _running >= 1 )); then
+        _log "nextcloud ya tiene ${_running} pods Running — skip reinstalación"
+        echo "${__STEP_SKIP__} deploy_nextcloud: ya running (${_running} pods)"
+        return 0
+    fi
+
     ficha_pre_install
+
+    # BUG-46: StorageClass local-path usa no-provisioner — PV estático obligatorio.
+    # Se crea antes del PVC con claimRef pre-bound para evitar Pending indefinido.
+    echo "${__STEP_START__} pv_nextcloud"
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<YAML
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: sbos-nextcloud-pv
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+  - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-path
+  hostPath:
+    path: /data/nextcloud
+    type: DirectoryOrCreate
+  claimRef:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    name: nextcloud-data
+    namespace: ${NS}
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: Exists
+YAML
+    echo "${__STEP_OK__} pv_nextcloud"
 
     echo "${__STEP_START__} pvc_nextcloud"
     _k apply -n "$NS" -f - >> "$FICHA_LOG" 2>&1 <<YAML
@@ -364,6 +406,36 @@ ficha_repair() {
     ficha_pre_install
 
     echo "${__STEP_START__} repair"
+    echo "${__STEP_START__} pv_nextcloud"
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<YAML
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: sbos-nextcloud-pv
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+  - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-path
+  hostPath:
+    path: /data/nextcloud
+    type: DirectoryOrCreate
+  claimRef:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    name: nextcloud-data
+    namespace: ${NS}
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: Exists
+YAML
+    echo "${__STEP_OK__} pv_nextcloud"
+
     echo "${__STEP_START__} pvc_nextcloud"
     _k apply -n "$NS" -f - >> "$FICHA_LOG" 2>&1 <<YAML
 apiVersion: v1
