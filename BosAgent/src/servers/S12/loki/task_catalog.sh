@@ -89,6 +89,7 @@ EOF
         --set loki.auth_enabled=false \
         --set loki.commonConfig.replication_factor=1 \
         --set loki.storage.type=filesystem \
+        --set deploymentMode=SingleBinary \
         --set singleBinary.replicas=1 \
         --set "singleBinary.resources.requests.cpu=50m" \
         --set "singleBinary.resources.requests.memory=128Mi" \
