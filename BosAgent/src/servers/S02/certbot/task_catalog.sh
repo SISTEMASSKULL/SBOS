@@ -93,24 +93,18 @@ ficha_install() {
     chmod 755 "$CERTBOT_WEBROOT"
     echo "${__STEP_OK__} crear_webroot"
 
-    # ── 3. Añadir location /.well-known a nginx ───────────────────
-    echo "${__STEP_START__} configurar_nginx_acme"
-    # Añadir el bloque acme-challenge en el server :80 si no existe
-    if [[ -f /etc/nginx/sites-enabled/default ]]; then
-        if ! grep -q "acme-challenge" /etc/nginx/sites-enabled/default 2>/dev/null; then
-            # Insertar antes del location / {
-            sed -i '/location \/ {/i \
-    # ACME challenge para Let'"'"'s Encrypt (certbot HTTP-01)\
-    location /.well-known/acme-challenge/ {\
-        root /var/www/certbot;\
-        default_type text/plain;\
-    }\
-' /etc/nginx/sites-enabled/default 2>/dev/null || true
-            _log "Bloque acme-challenge añadido a nginx"
-            systemctl reload nginx 2>/dev/null || true
-        fi
+    # ── 3. Verificar que nginx sirve el challenge path en :80 ─────────────
+    # nginx.conf ya incluye location /.well-known/acme-challenge/ en el bloque
+    # HTTP (80) desde la ficha nginx. Solo verificamos que el webroot exista.
+    echo "${__STEP_START__} verificar_nginx_acme"
+    mkdir -p "${CERTBOT_WEBROOT}/.well-known/acme-challenge"
+    if nginx -t 2>/dev/null; then
+        _log "nginx config OK — webroot: ${CERTBOT_WEBROOT}"
+        echo "${__STEP_OK__} verificar_nginx_acme"
+    else
+        _log "ADVERTENCIA: nginx -t falló — certbot puede no funcionar"
+        echo "${__STEP_SKIP__} verificar_nginx_acme: nginx -t falló"
     fi
-    echo "${__STEP_OK__} configurar_nginx_acme"
 
     # ── 4. Script de renovación ───────────────────────────────────
     echo "${__STEP_START__} crear_script_renovacion"
@@ -250,9 +244,13 @@ ficha_repair() {
         systemctl start certbot-renew.timer 2>/dev/null || true
     fi
 
+    # Asegurar que el webroot exista
+    mkdir -p "${CERTBOT_WEBROOT}/.well-known/acme-challenge"
+
     # Reintentar obtener certificado SAN si no hay ninguno
     if [[ ! -d "${CERTBOT_CERTS}/live/${DOMAIN}" ]]; then
-        _log "Sin certificado — reintentando staging SAN"
+        _log "Sin certificado — reintentando SAN"
+        mkdir -p "${CERTBOT_WEBROOT}/.well-known/acme-challenge"
         local san_repair=()
         _san_args san_repair
         certbot certonly \
@@ -261,9 +259,8 @@ ficha_repair() {
             --email "$EMAIL" \
             --agree-tos \
             --no-eff-email \
-            --staging \
             --non-interactive 2>&1 | tee -a "$FICHA_LOG" || \
-            _log "Staging SAN falló nuevamente — requiere dominio real e internet"
+            _log "SAN falló — revisar DNS y conectividad :80"
     fi
 
     echo "${__STEP_OK__} reparar_certbot"

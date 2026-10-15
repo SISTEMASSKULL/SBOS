@@ -231,12 +231,23 @@ http {
     access_log /var/log/nginx/access.log sbos buffer=32k flush=5s;
     error_log /var/log/nginx/error.log warn;
 
-    # HTTP → HTTPS redirect (todo el tráfico HTTP se eleva a HTTPS)
+    # HTTP → HTTPS redirect con excepción para Let's Encrypt HTTP-01 challenge
     server {
         listen 80 default_server;
         listen [::]:80 default_server;
         server_name _;
-        return 301 https://\$host\$request_uri;
+
+        # Certbot webroot — NO redirigir este path (certbot lo necesita en claro)
+        location /.well-known/acme-challenge/ {
+            root /var/www/certbot;
+            default_type text/plain;
+            try_files \$uri =404;
+        }
+
+        # Todo lo demás → HTTPS
+        location / {
+            return 301 https://\$host\$request_uri;
+        }
     }
 
     # HTTPS — servidor principal SBOS
@@ -245,8 +256,9 @@ http {
         listen [::]:443 ssl default_server;
         server_name _;
 
-        ssl_certificate     ${CERT_FILE};
-        ssl_certificate_key ${CERT_KEY};
+        # Usar cert Let's Encrypt si existe; fallback a autofirmado
+        ssl_certificate     $([ -f "/etc/letsencrypt/live/${BOS_DOMAIN:-sksistemas.com}/fullchain.pem" ] && echo "/etc/letsencrypt/live/${BOS_DOMAIN:-sksistemas.com}/fullchain.pem" || echo "${CERT_FILE}");
+        ssl_certificate_key $([ -f "/etc/letsencrypt/live/${BOS_DOMAIN:-sksistemas.com}/privkey.pem" ]   && echo "/etc/letsencrypt/live/${BOS_DOMAIN:-sksistemas.com}/privkey.pem"   || echo "${CERT_KEY}");
         ssl_protocols       TLSv1.2 TLSv1.3;
         ssl_ciphers         HIGH:!aNULL:!MD5;
         ssl_session_cache   shared:SSL:10m;
@@ -340,6 +352,37 @@ _gen_sbos_subdomain_blocks() {
         cert_file="${CERT_FILE}"
         key_file="${CERT_KEY}"
     fi
+
+    # Siempre regenerar sbos-institucional.conf para que use el cert actualizado
+    cat > "${domains_dir}/sbos-institucional.conf" <<INST_EOF
+# sbos-institucional.conf — generado por ficha nginx (DO NOT EDIT MANUALLY)
+# Placeholder para el sitio institucional ${domain}.
+# bcms reemplaza este bloque server cuando entre en operación (S16-webserver).
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name ${domain} www.${domain};
+    ssl_certificate     ${cert_file};
+    ssl_certificate_key ${key_file};
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+        default_type text/plain;
+    }
+    # bcms en producción usará:
+    # proxy_pass http://bcms-website-engine.sbos-web.svc.cluster.local:3000;
+    location / {
+        return 200 '{"status":"sbos-listo","bcms":"pendiente-desarrollo","dominio":"${domain}"}';
+        add_header Content-Type 'application/json';
+    }
+}
+INST_EOF
 
     local kong_ip
     kong_ip=$(_kong_ip)
@@ -517,19 +560,26 @@ ficha_install() {
     # ── 4. Directorio de dominios web y placeholder institucional ───
     echo "${__STEP_START__} crear_dir_dominios"
     mkdir -p /etc/nginx/conf.d/domains/
-    # Placeholder institucional: bcms lo reemplaza cuando entra en operación.
-    # El archivo queda intacto en repairs posteriores si ya existe.
-    if [[ ! -f /etc/nginx/conf.d/domains/sbos-institucional.conf ]]; then
-        cat > /etc/nginx/conf.d/domains/sbos-institucional.conf <<'INST_EOF'
+    local _inst_domain="${BOS_DOMAIN:-sksistemas.com}"
+    local _inst_cert _inst_key
+    if [[ -f "/etc/letsencrypt/live/${_inst_domain}/fullchain.pem" ]]; then
+        _inst_cert="/etc/letsencrypt/live/${_inst_domain}/fullchain.pem"
+        _inst_key="/etc/letsencrypt/live/${_inst_domain}/privkey.pem"
+    else
+        _inst_cert="${CERT_FILE}"
+        _inst_key="${CERT_KEY}"
+    fi
+    # Siempre regenerar para que el cert quede actualizado (Let's Encrypt vs autofirmado)
+    cat > /etc/nginx/conf.d/domains/sbos-institucional.conf <<INST_EOF
 # sbos-institucional.conf — generado por ficha nginx (DO NOT EDIT MANUALLY)
-# Placeholder para el sitio institucional sksistemas.com.
+# Placeholder para el sitio institucional ${_inst_domain}.
 # bcms reemplaza este bloque server cuando entre en operación (S16-webserver).
 server {
     listen 443 ssl;
     listen [::]:443 ssl;
-    server_name sksistemas.com www.sksistemas.com;
-    ssl_certificate     /etc/nginx/certs/sbos.crt;
-    ssl_certificate_key /etc/nginx/certs/sbos.key;
+    server_name ${_inst_domain} www.${_inst_domain};
+    ssl_certificate     ${_inst_cert};
+    ssl_certificate_key ${_inst_key};
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers HIGH:!aNULL:!MD5;
 
@@ -537,15 +587,18 @@ server {
     add_header X-Content-Type-Options "nosniff" always;
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+        default_type text/plain;
+    }
     # bcms en producción usará:
     # proxy_pass http://bcms-website-engine.sbos-web.svc.cluster.local:3000;
     location / {
-        return 200 '{"status":"sbos-listo","bcms":"pendiente-desarrollo","dominio":"sksistemas.com"}';
+        return 200 '{"status":"sbos-listo","bcms":"pendiente-desarrollo","dominio":"${_inst_domain}"}';
         add_header Content-Type 'application/json';
     }
 }
 INST_EOF
-    fi
     chown root:www-data /etc/nginx/conf.d/domains/ 2>/dev/null || true
     chmod 755 /etc/nginx/conf.d/domains/ 2>/dev/null || true
     echo "${__STEP_OK__} crear_dir_dominios"
