@@ -33,13 +33,10 @@ meta:
   rollback_support: true
 
 health:
-  type: command
-  command: >
-    kubectl --kubeconfig=/etc/bos/.kube/config exec -n sbos-gateway deploy/kong --
-    curl -sf http://127.0.0.1:8001/routes 2>/dev/null |
-    python3 -c "import sys,json; d=json.load(sys.stdin); print('ok' if len(d.get('data',[]))>=6 else 'fail')" 2>/dev/null
-  expected_output: "ok"
-  timeout_seconds: 15
+  # BUG-41: la imagen de Kong no tiene curl/wget — kubectl exec siempre falla.
+  # La verificación real la hace ficha_health() en task_catalog.sh usando port-forward.
+  # El framework usa type:none para skip el verify step y confiar en ficha_health().
+  type: none
 
 audit:
   ctx_id_required: true

@@ -45,42 +45,70 @@ _k() {
     "$kubectl_bin" --kubeconfig="$KUBECONFIG_DEST" "$@"
 }
 
-# _kong_exec: ejecuta curl dentro del pod de Kong contra el Admin API.
-_kong_exec() {
-    _k exec deploy/kong -n "$NS_KONG" -- \
-        curl -s --max-time 10 "$@" 2>/dev/null
+# ── Port-forward al Admin API de Kong ────────────────────────────
+# La imagen de Kong no tiene curl ni wget — las llamadas al Admin API se
+# hacen desde el HOST via port-forward al service kong-admin (puerto 8001).
+# BUG-41: kubectl exec deploy/kong -- curl siempre falla con "executable not found".
+_KONG_PF_PID=""
+_KONG_PF_PORT=19001
+
+_kong_pf_start() {
+    _kong_pf_stop  # Limpiar cualquier port-forward previo
+    _k port-forward -n "$NS_KONG" svc/kong-admin "${_KONG_PF_PORT}:${ADMIN_PORT}" \
+        >> "$FICHA_LOG" 2>&1 &
+    _KONG_PF_PID=$!
+    # Esperar hasta que el port-forward esté listo (max 8s)
+    local i=0
+    while (( i < 16 )); do
+        if curl -sf --connect-timeout 0.5 \
+                "http://127.0.0.1:${_KONG_PF_PORT}/" >/dev/null 2>&1; then
+            return 0
+        fi
+        sleep 0.5
+        i=$((i+1))
+    done
+    _log "ERROR: port-forward al Admin API de Kong no respondió en 8s"
+    _kong_pf_stop
+    return 1
 }
 
-# _kong_get: GET al Admin API. No falla en 404.
+_kong_pf_stop() {
+    if [[ -n "$_KONG_PF_PID" ]]; then
+        kill "$_KONG_PF_PID" 2>/dev/null || true
+        wait "$_KONG_PF_PID" 2>/dev/null || true
+        _KONG_PF_PID=""
+    fi
+}
+
+# _kong_get: GET al Admin API via port-forward del host.
 _kong_get() {
-    _kong_exec "http://127.0.0.1:${ADMIN_PORT}${1}"
+    curl -s --max-time 10 "http://127.0.0.1:${_KONG_PF_PORT}${1}" 2>/dev/null
 }
 
 # _kong_post: POST JSON al Admin API.
 _kong_post() {
     local path="$1" data="$2"
-    _kong_exec \
+    curl -s --max-time 10 \
         -X POST \
         -H "Content-Type: application/json" \
         -d "$data" \
-        "http://127.0.0.1:${ADMIN_PORT}${path}"
+        "http://127.0.0.1:${_KONG_PF_PORT}${path}" 2>/dev/null
 }
 
 # _kong_patch: PATCH JSON al Admin API.
 _kong_patch() {
     local path="$1" data="$2"
-    _kong_exec \
+    curl -s --max-time 10 \
         -X PATCH \
         -H "Content-Type: application/json" \
         -d "$data" \
-        "http://127.0.0.1:${ADMIN_PORT}${path}"
+        "http://127.0.0.1:${_KONG_PF_PORT}${path}" 2>/dev/null
 }
 
-# _kong_healthy: verifica que Kong Admin API responde.
+# _kong_healthy: verifica que Kong Admin API responde via port-forward.
 _kong_healthy() {
-    local health
-    health=$(_k exec deploy/kong -n "$NS_KONG" -- kong health 2>/dev/null || echo "")
-    echo "$health" | grep -q "healthy"
+    curl -sf --connect-timeout 3 \
+        "http://127.0.0.1:${_KONG_PF_PORT}/" >/dev/null 2>&1
 }
 
 # _ensure_service: crea servicio Kong si no existe. Idempotente.
@@ -167,17 +195,30 @@ ficha_pre_install() {
         echo "${__STEP_FAIL__} verificar_kong: Kong pod no Ready"
         return 1
     fi
+    _kong_pf_start || {
+        echo "${__STEP_FAIL__} verificar_kong: no se pudo abrir port-forward al Admin API"
+        return 1
+    }
     if ! _kong_healthy; then
+        _kong_pf_stop
         echo "${__STEP_FAIL__} verificar_kong: Admin API no responde"
         return 1
     fi
-    echo "${__STEP_OK__} verificar_kong (Admin API :${ADMIN_PORT} OK)"
+    echo "${__STEP_OK__} verificar_kong (Admin API :${ADMIN_PORT} OK via port-forward)"
     return 0
 }
 
 # ── Install ───────────────────────────────────────────────────────
 ficha_install() {
     mkdir -p "$(dirname "$FICHA_LOG")"
+
+    # Abrir port-forward al Admin API (puede estar ya abierto por pre_install)
+    _kong_pf_start || {
+        echo "${__STEP_FAIL__} instalacion_tenant: no se pudo acceder al Admin API de Kong"
+        return 1
+    }
+    # Asegurar cleanup del port-forward al salir de esta función
+    trap '_kong_pf_stop' RETURN
 
     local tenant="$TENANT_ID"
     local domain="$BOS_DOMAIN"
@@ -252,20 +293,24 @@ ficha_install() {
 
 # ── Post-install ──────────────────────────────────────────────────
 ficha_post_install() {
+    _kong_pf_start 2>/dev/null || true
     local total
     total=$(_kong_get "/routes" | \
         python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('data',[])))" \
         2>/dev/null || echo "?")
     _log "Rutas Kong totales después de configurar tenant: $total"
+    _kong_pf_stop
     return 0
 }
 
 # ── Health ────────────────────────────────────────────────────────
 ficha_health() {
     local tenant="$TENANT_ID"
+    _kong_pf_start 2>/dev/null || { echo "DEGRADED: port-forward al Admin API falló"; return 1; }
     local existing
     existing=$(_kong_get "/services/tenant-${tenant}" | \
         python3 -c "import sys,json; print(json.load(sys.stdin).get('name',''))" 2>/dev/null || echo "")
+    _kong_pf_stop
     if [[ "$existing" == "tenant-${tenant}" ]]; then
         echo "HEALTHY"
         return 0
