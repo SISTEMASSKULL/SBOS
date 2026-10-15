@@ -1,7 +1,7 @@
 # Cronograma de Instalación — Ficha por Ficha
 
-**Versión:** 2.24.0  
-**Fecha:** 2026-10-14  
+**Versión:** 2.29.0  
+**Fecha:** 2026-10-16  
 **Autor:** bos-developer  
 
 > Este documento es el **registro cronológico de construcción** del instalador SBOS.
@@ -2338,7 +2338,17 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 **Correcciones ciclo 48:** **loki — 5 sub-bugs de compatibilidad Helm chart 6.9.0 (BUG-48a..e)** — (1) **BUG-48a — storage.type S3 por defecto**: chart 6.9.0 asume S3 y busca `loki.storage.bucketNames.chunks` → nil pointer en _helpers.tpl:228 durante `helm template`. Fix: `--set loki.storage.type=filesystem`. (2) **BUG-48b — schema_config requerido**: chart exige schema_config si no se usa TestSchema. Fix: `--set loki.useTestSchema=true`. (3) **BUG-48c — StatefulSet inexistente en modo distribuido**: sin `deploymentMode=SingleBinary`, el chart despliega modo distribuido (backend=0, read=0, write=0 con los flags de recursos) → solo crea DaemonSet `loki-canary` + Deployment `loki-gateway`, sin StatefulSet → `_wait_statefulset_ready loki` loopea indefinidamente. Fix: `--set deploymentMode=SingleBinary --set singleBinary.replicas=1`; todos los waits/verify/health cambiados a `deployment loki-gateway`. (4) **BUG-48d — PVC name mismatch**: PV `sbos-loki-pv` tenía `claimRef.name: loki-storage-loki-0` y `storageClassName: ""` pero el chart 6.9.0 crea PVC `storage-loki-0` con `storageClassName: local-path`. Fix: `claimRef.name: storage-loki-0`, `storageClassName: local-path`, + `nodeAffinity` para `local-path`. (5) **BUG-48e — permissions uid 10001**: loki corre como uid 10001; `/data/loki` era propiedad de root → `mkdir /var/loki/rules: permission denied` al arrancar. Fix: `mkdir -p /data/loki/rules /data/loki/chunks /data/loki/wal && chown -R 10001:10001 /data/loki` antes del Helm install. Resultado: loki INSTALLED (StatefulSet `loki` 1/1 Ready + Deployment `loki-gateway` 1/1 Running). Commits: `6c077b0` + `9584ff1` + `f74b48d` + `6f5ef94`.
 
+**Correcciones ciclo 51 — Validación instalación limpia (Ubuntu reinstalado desde cero):**
+
+**BUG-51a — sbos-database-init: ruta DDL incorrecta `/etc/bos/ddl/` vs `/etc/bos/ddls/`** — `DDL_PATH` apuntaba a `/etc/bos/ddl/SBOS_db_V2_DDL.sql` (sin 's') pero `installDDLs()` del binario Go copia a `paths.DDLsPath = /etc/bos/ddls/` (con 's'). El mecanismo de autodescubrimiento tampoco incluía esa ruta. Fix: (a) `DDL_PATH` corregido a `/etc/bos/ddls/SBOS_db_V2_DDL.sql`; (b) `/etc/bos/ddls/` agregado como primer candidato en el autodescubrimiento. Este bug solo se manifiesta en instalación limpia — en la VPS anterior el DDL ya existía en la ruta vieja.
+
+**BUG-51b — sbos-database-init: schema `bos` no existe al aplicar DDL** — El DDL principal (`SBOS_db_V2_DDL.sql`) no tiene `CREATE SCHEMA bos` — ese schema lo crean los seeds del Context Plane (T-395..T-402) aplicados por `cmdDeploy` (paso 2.5/7). Sin embargo, el DDL tiene TRIGGERs sobre `bos.ctx_context_audit` (línea 7641) que fallan si el schema no existe. La verificación requería `schemas_ok >= 2` (bauth + bos). Fix: agregar `CREATE SCHEMA IF NOT EXISTS bos;` antes del paso 3 (aplicar DDL) en `ficha_install()`.
+
+**BUG-51c — vault: timeout insuficiente + Linkerd inyectado en namespace sbos-security** — El namespace `sbos-security` tiene `linkerd.io/inject: enabled`. Vault heredaba el sidecar de Linkerd (2 containers: linkerd-proxy + vault) que añade ~30s al startup. El timeout de PASADA 1 era 60s (insuficiente con Linkerd) y PASADA 2 era 120s. Fix: (a) anotación `linkerd.io/inject: disabled` en el Pod de PASADA 1 y en el template del StatefulSet de PASADA 2 — vault gestiona su propio TLS y no necesita el service mesh; (b) timeout PASADA 1: 60s → 180s; (c) timeout PASADA 2: 120s → 240s; (d) wait_ready PASADA 2: 90s → 120s.
+
+**Resultado ciclo 51:** **37 fichas INSTALLED** en instalación limpia desde Ubuntu recién instalado. Tiempo total ~70 minutos. Observer IDLE. Watchdog all_pass=true (ubuntu=3/3 k8s=2/2 bos=38/38). Solo 2 grupos de bugs encontrados (vs 10+ en ciclos anteriores) — la instalación desatendida está madura.
+
 ---
 
-*Documento v2.28.0 — bos-developer · 2026-10-15*  
+*Documento v2.29.0 — bos-developer · 2026-10-16*  
 *Panel de control de reparación: `PLAN-INSTALACION-DESDE-CERO.md §13`*

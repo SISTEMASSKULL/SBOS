@@ -282,6 +282,9 @@ metadata:
     app: vault
     sbos-managed: \"true\"
     sbos-pasada: \"1\"
+  annotations:
+    # Vault gestiona su propio TLS — sidecar de Linkerd no es necesario y aumenta el startup time
+    linkerd.io/inject: disabled
 spec:
   containers:
   - name: vault
@@ -331,9 +334,9 @@ spec:
     }
     echo "${__STEP_OK__} crear_service"
 
-    # Esperar que el pod esté Running
+    # Esperar que el pod esté Running (180s: sin Linkerd, vault -dev arranca en ~30s)
     echo "${__STEP_START__} wait_running"
-    if ! _wait_vault_phase 60; then
+    if ! _wait_vault_phase 180; then
         echo "${__STEP_FAIL__} wait_running: vault-0 no Running"
         return 1
     fi
@@ -485,6 +488,8 @@ spec:
     metadata:
       labels:
         app: vault
+      annotations:
+        linkerd.io/inject: disabled
     spec:
       serviceAccountName: vault
       # ADR-040: fsGroup=1000 permite a Vault (GID 1000) escribir en el PV montado.
@@ -586,14 +591,14 @@ spec:
     # que la readinessProbe HTTP pasó y el container acepta kubectl exec sin
     # "container not found" por transición. En dev mode la probe pasa en ~10-15s.
     echo "${__STEP_START__} wait_running"
-    if ! _wait_vault_phase 120; then
+    if ! _wait_vault_phase 240; then
         echo "${__STEP_FAIL__} wait_running: vault-0 no Running"
         return 1
     fi
     echo "${__STEP_OK__} wait_running"
 
     echo "${__STEP_START__} wait_ready"
-    if ! _wait_vault_ready 90; then
+    if ! _wait_vault_ready 120; then
         _log "ADVERTENCIA: vault-0 no Ready en 90s — continuando (kubectl exec puede fallar)"
         echo "${__STEP_SKIP__} wait_ready: timeout (readinessProbe pendiente)"
     else

@@ -20,9 +20,9 @@ readonly PG_POD="postgresql-0"
 readonly DB_NAME="SBOSDB"
 readonly PG_USER="postgres"
 # El DDL se copia aquí durante el install de BOS (desde el repo DDLs/).
-# bos setup copia DDLs/ → /etc/bos/ddl/ junto con las fichas.
-readonly DDL_PATH="${BOS_DDL_PATH:-/etc/bos/ddl/SBOS_db_V2_DDL.sql}"
-readonly SEEDS_DIR="${BOS_SEEDS_DIR:-/etc/bos/ddl/seeds}"
+# bos setup copia DDLs/ → /etc/bos/ddls/ (paths.DDLsPath).
+readonly DDL_PATH="${BOS_DDL_PATH:-/etc/bos/ddls/SBOS_db_V2_DDL.sql}"
+readonly SEEDS_DIR="${BOS_SEEDS_DIR:-/etc/bos/ddls/seeds}"
 # Mínimo de tablas esperadas para considerar el schema desplegado.
 readonly MIN_TABLES=50
 
@@ -103,6 +103,8 @@ ficha_pre_install() {
         # Buscar el DDL en ubicaciones canónicas y copiarlo automáticamente (ADR-022)
         local found=""
         local candidates=(
+            # Ruta canónica installDDLs (paths.DDLsPath = /etc/bos/ddls)
+            "/etc/bos/ddls/SBOS_db_V2_DDL.sql"
             # Producción: blibs junto a servers/
             "$(dirname "${SBOS_SERVERS_DIR:-/etc/bos/blibs/servers}")/DDLs/SBOS_db_V2_DDL.sql"
             # VPS de desarrollo SKULL
@@ -180,7 +182,16 @@ ficha_install() {
         echo "${__STEP_OK__} verificar_schema: schema a desplegar"
     fi
 
-    # ── 3. Aplicar DDL via kubectl cp + psql ─────────────────────
+    # ── 3. Crear schema bos si no existe (Context Plane) ─────────
+    # El DDL principal no tiene CREATE SCHEMA bos — lo crean los seeds del
+    # Context Plane. Si sbos-database-init corre antes que esos seeds, hay
+    # que crearlo aquí para que los TRIGGERs del DDL sobre bos.* no fallen.
+    _k exec "$PG_POD" -n "$PG_NS" -- \
+        psql -U "$PG_USER" -d "$DB_NAME" \
+        -c "CREATE SCHEMA IF NOT EXISTS bos;" \
+        >> "$FICHA_LOG" 2>&1 || true
+
+    # ── 4. Aplicar DDL via kubectl cp + psql ─────────────────────
     echo "${__STEP_START__} aplicar_ddl"
     local tmp_path="/tmp/SBOS_db_V2_DDL.sql"
     # Copiar DDL al pod y ejecutarlo
@@ -214,7 +225,7 @@ ficha_install() {
         return 1
     fi
 
-    # ── 4. Verificar schemas del DDL (bauth y bos son los creados por este DDL) ──────
+    # ── 5. Verificar schemas del DDL (bauth y bos son los creados por este DDL) ──────
     # bkernel, biedata, bsearch, bnexus, bnotify, kong, keycloak, tryton
     # son creados por sus propias fichas — no bloqueamos aquí si no existen.
     echo "${__STEP_START__} verificar_schemas"
