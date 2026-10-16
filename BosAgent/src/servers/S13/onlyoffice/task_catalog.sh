@@ -44,6 +44,36 @@ ficha_pre_install() {
     fi
     echo "${__STEP_OK__} crear_namespace"
 
+    echo "${__STEP_START__} networkpolicy_egress_vdi"
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<EOF
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-onlyoffice-egress-data
+  namespace: ${NS}
+spec:
+  podSelector:
+    matchLabels:
+      app: onlyoffice
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: sbos-data
+      ports:
+        - protocol: TCP
+          port: 5432
+        - protocol: TCP
+          port: 6379
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+EOF
+    echo "${__STEP_OK__} networkpolicy_egress_vdi"
+
     echo "${__STEP_START__} crear_onlyoffice_db"
     if _k exec "$PG_POD" -n "$PG_NS" -- psql -U postgres -tc \
         "SELECT 1 FROM pg_database WHERE datname='onlyoffice_db'" 2>/dev/null | grep -q 1; then

@@ -126,6 +126,36 @@ spec:
 YAML
     echo "${__STEP_OK__} networkpolicy_vdi_pg"
 
+    echo "${__STEP_START__} networkpolicy_nextcloud_egress"
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<YAML2
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-nextcloud-egress-data
+  namespace: ${NS}
+spec:
+  podSelector:
+    matchLabels:
+      app: nextcloud
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: sbos-data
+      ports:
+        - protocol: TCP
+          port: 5432
+        - protocol: TCP
+          port: 6379
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+YAML2
+    echo "${__STEP_OK__} networkpolicy_nextcloud_egress"
+
     echo "${__STEP_START__} crear_nextcloud_db"
     local pg_pass; pg_pass=$(_pg_pass)
     if _k exec "$PG_POD" -n "$PG_NS" -- psql -U postgres -tc \
