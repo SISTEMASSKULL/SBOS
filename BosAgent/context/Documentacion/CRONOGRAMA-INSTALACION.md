@@ -1,6 +1,6 @@
 # Plan de Instalación SBOS — Inventario y Plan de Acción
 
-**Versión:** 2.35.0  
+**Versión:** 2.36.0  
 **Fecha:** 2026-10-16  
 **Autor:** bos-developer  
 
@@ -41,33 +41,33 @@ Todas las fichas SBOS en orden de ejecución.
 | 12 | postgresql | S01 | 100 | Datos | Instalado | FALSE |
 | 13 | redis | S01 | 110 | Datos | Instalado | FALSE |
 | 14 | minio | S01 | 120 | Datos | Instalado | FALSE |
-| 15 | sbos-database-init | S01 | 105 | Datos | Programado | CONFIG |
-| 16 | vault | S02 | 130 | Seguridad | Programado | CONFIG |
+| 15 | sbos-database-init | S01 | 105 | Datos | Instalado | FALSE |
+| 16 | vault | S02 | 130 | Seguridad | Instalado | FALSE |
 | 17 | vault-unsealer | S02 | 131 | Seguridad | Programado | CONFIG |
 | 18 | besu-qbft | S02 | 135 | Blockchain | Instalado | FALSE |
 | 19 | kong | S02 | 160 | Gateway | Instalado | FALSE |
 | 20 | nginx | S02 | 170 | Proxy | Instalado | TRUE |
 | 21 | certbot | S02 | 180 | TLS | Instalado | FALSE |
-| 22 | oauth2-proxy | S02 | 150 | Seguridad | Programado | CONFIG |
-| 23 | kyverno | S03 | 100 | Políticas K8s | Programado | CONFIG |
-| 24 | linkerd | S03 | 110 | Service mesh | Programado | CONFIG |
+| 22 | oauth2-proxy | S02 | 150 | Seguridad | Instalado | FALSE |
+| 23 | kyverno | S03 | 100 | Políticas K8s | Instalado | FALSE |
+| 24 | linkerd | S03 | 110 | Service mesh | Instalado | FALSE |
 | 25 | keycloak | S03 | 140 | Identidad | Instalado | FALSE |
 | 26 | tryton | S04 | 170 | ERP | Programado | TRUE |
 | 27 | tryton-workers | S04 | 175 | ERP | Programado | TRUE |
 | 28 | orangehrm | S04 | 180 | RRHH | Programado | TRUE |
 | 29 | gnu-health | S04 | 190 | Salud | Descartado | FALSE |
-| 30 | ferretdb | S06 | 174 | Base de datos | Programado | CONFIG |
+| 30 | ferretdb | S06 | 174 | Base de datos | Instalado | FALSE |
 | 31 | brocket (Rocket.Chat) | S06 | 177 | Chat | Programado | CONFIG |
-| 32 | calcom | S06 | 175 | Calendario | Descartado | FALSE |
-| 33 | novu | S06 | 176 | Notificaciones | Descartado | FALSE |
+| 32 | calcom | S06 | 175 | Calendario | Instalado | FALSE |
+| 33 | novu | S06 | 176 | Notificaciones | Instalado | FALSE |
 | 34 | sbos-notifier | S06 | 170 | Notificaciones | Instalado | FALSE |
-| 35 | trilium-notes | S08 | 360 | Notas | Programado | TRUE |
+| 35 | trilium-notes | S08 | 360 | Notas | Instalado | FALSE |
 | 36 | tesseract-ocr | S08 | 345 | OCR | Programado | TRUE |
-| 37 | paperless-ngx | S08 | 350 | Documentos | Programado | TRUE |
+| 37 | paperless-ngx | S08 | 350 | Documentos | Instalado | FALSE |
 | 38 | docuseal | S08 | 355 | Firma digital | Programado | TRUE |
 | 39 | kimios | S08 | 360 | DMS | Descartado | FALSE |
 | 40 | tabula | S08 | 365 | Extracción PDF | Descartado | FALSE |
-| 41 | elasticsearch | S09 | 400 | Búsqueda | Programado | TRUE |
+| 41 | elasticsearch | S09 | 400 | Búsqueda | Instalado | FALSE |
 | 42 | rabbitmq | S09 | 405 | Cola mensajes | Instalado | FALSE |
 | 43 | mailserver | S10 | 300 | Correo | Instalado | FALSE |
 | 44 | postfixadmin | S10 | 305 | Admin correo | Instalado | FALSE |
@@ -76,9 +76,9 @@ Todas las fichas SBOS en orden de ejecución.
 | 47 | prometheus | S12 | 200 | Monitoreo | Instalado | FALSE |
 | 48 | alertmanager | S12 | 205 | Alertas | Instalado | FALSE |
 | 49 | grafana | S12 | 215 | Dashboards | Instalado | FALSE |
-| 50 | loki | S12 | 215 | Logs | Programado | CONFIG |
+| 50 | loki | S12 | 215 | Logs | Instalado | FALSE |
 | 51 | alloy | S12 | 220 | Agente telemetría | Instalado | FALSE |
-| 52 | tempo | S12 | 220 | Trazas | Programado | CONFIG |
+| 52 | tempo | S12 | 220 | Trazas | Instalado | FALSE |
 | 53 | zabbix | S12 | 225 | Monitoreo alt. | Descartado | FALSE |
 | 54 | postgresql-extensions | S12 | — | Extensiones PG | Programado | CONFIG |
 | 55 | nextcloud | S13 | 200 | Archivos/Drive | Instalado | FALSE |
@@ -126,7 +126,7 @@ Todas las fichas SBOS en orden de ejecución.
 | Ficha | Orden | ESTADO | ACCION | Notas |
 |-------|-------|--------|--------|-------|
 | postgresql | 100 | Instalado | FALSE | postgresql-0 Running |
-| sbos-database-init | 105 | Programado | CONFIG | ficha nueva — probar que aplica DDL sin errores |
+| sbos-database-init | 105 | Instalado | FALSE | UPDATE_AVAILABLE — DDL aplicado OK |
 | redis | 110 | Instalado | FALSE | redis-0 Running |
 | minio | 120 | Instalado | FALSE | minio-0 Running |
 
@@ -136,8 +136,8 @@ Todas las fichas SBOS en orden de ejecución.
 
 | Ficha | Orden | ESTADO | ACCION | Notas |
 |-------|-------|--------|--------|-------|
-| oauth2-proxy | 150 | Programado | CONFIG | PHYSICAL_ERROR — depende de vault |
-| vault | 130 | Programado | CONFIG | PHYSICAL_ERROR — FIX-26A commiteado, aplicar en VPS |
+| oauth2-proxy | 150 | Instalado | FALSE | 2 réplicas Running en sbos-security |
+| vault | 130 | Instalado | FALSE | vault-0 Running — unsealed OK |
 | vault-unsealer | 131 | Programado | CONFIG | ficha nueva — probar unsealing automático |
 | besu-qbft | 135 | Instalado | FALSE | blockchain OK |
 | kong | 160 | Instalado | FALSE | gateway OK |
@@ -150,8 +150,8 @@ Todas las fichas SBOS en orden de ejecución.
 
 | Ficha | Orden | ESTADO | ACCION | Notas |
 |-------|-------|--------|--------|-------|
-| kyverno | 100 | Programado | CONFIG | PENDING — issue hairpin NAT; probar fix |
-| linkerd | 110 | Programado | CONFIG | INSTALLING — completar; verificar inyección de proxy |
+| kyverno | 100 | Instalado | FALSE | 4 pods Running en namespace kyverno |
+| linkerd | 110 | Instalado | FALSE | 3 pods Running — race condition infra namespaces resuelto |
 | keycloak | 140 | Instalado | FALSE | SSO OK |
 
 ---
@@ -160,9 +160,9 @@ Todas las fichas SBOS en orden de ejecución.
 
 | Ficha | Orden | ESTADO | ACCION | Notas |
 |-------|-------|--------|--------|-------|
-| tryton | 170 | Programado | TRUE | ERP principal — instalar completo |
-| tryton-workers | 175 | Programado | TRUE | workers async de Tryton |
-| orangehrm | 180 | Programado | TRUE | RRHH — ficha nueva lista |
+| tryton | 170 | Programado | TRUE | INSTALLING — FICHA_DIR S01→S04 corregido en ciclo 55 |
+| tryton-workers | 175 | Programado | TRUE | PHYSICAL_ERROR — depende de tryton; se resuelve al instalar tryton |
+| orangehrm | 180 | Programado | TRUE | READY — pods no encontrados, pendiente verificar |
 | gnu-health | 190 | Descartado | FALSE | solo para clientes del sector salud |
 
 ---
@@ -172,10 +172,10 @@ Todas las fichas SBOS en orden de ejecución.
 | Ficha | Orden | ESTADO | ACCION | Notas |
 |-------|-------|--------|--------|-------|
 | sbos-notifier | 170 | Instalado | FALSE | notificaciones OK |
-| ferretdb | 174 | Programado | CONFIG | MongoDB-compat para Rocket.Chat — ficha en PENDING |
+| ferretdb | 174 | Instalado | FALSE | ferretdb-xxx Running en sbos-notifier |
 | brocket (Rocket.Chat) | 177 | Programado | CONFIG | falta ficha — crear task_catalog.sh |
-| calcom | 175 | Descartado | FALSE | reemplazado por agenda en Nextcloud |
-| novu | 176 | Descartado | FALSE | redundante con sbos-notifier |
+| calcom | 175 | Instalado | FALSE | calcom-xxx Running en sbos-collab |
+| novu | 176 | Instalado | FALSE | novu-api + novu-ws Running en sbos-notifier |
 
 ---
 
@@ -183,12 +183,12 @@ Todas las fichas SBOS en orden de ejecución.
 
 | Ficha | Orden | ESTADO | ACCION | Notas |
 |-------|-------|--------|--------|-------|
-| tesseract-ocr | 345 | Programado | TRUE | dependencia de paperless-ngx |
-| paperless-ngx | 350 | Programado | TRUE | gestión de documentos con OCR |
+| tesseract-ocr | 345 | Programado | TRUE | dependencia de paperless-ngx — instalar |
+| paperless-ngx | 350 | Instalado | FALSE | paperless-ngx-xxx Running en sbos-docs |
 | docuseal | 355 | Programado | TRUE | firma digital de documentos |
 | kimios | 360 | Descartado | FALSE | reemplazado por paperless-ngx |
 | tabula | 365 | Descartado | FALSE | extracción PDF — no esencial para v1 |
-| trilium-notes | 360 | Programado | TRUE | notas personales y wiki |
+| trilium-notes | 360 | Instalado | FALSE | trilium-notes Running (READY en BOS) |
 
 ---
 
@@ -196,7 +196,7 @@ Todas las fichas SBOS en orden de ejecución.
 
 | Ficha | Orden | ESTADO | ACCION | Notas |
 |-------|-------|--------|--------|-------|
-| elasticsearch | 400 | Programado | TRUE | motor de búsqueda para bsearch |
+| elasticsearch | 400 | Instalado | FALSE | elasticsearch-0 Running — UPDATE_AVAILABLE |
 | rabbitmq | 405 | Instalado | FALSE | cola OK — rabbitmq-0 Running |
 
 ---
@@ -205,10 +205,10 @@ Todas las fichas SBOS en orden de ejecución.
 
 | Ficha | Orden | ESTADO | ACCION | Notas |
 |-------|-------|--------|--------|-------|
-| mailserver | 300 | Programado | TRUE | servidor SMTP/IMAP (docker-mailserver) |
-| postfixadmin | 305 | Programado | TRUE | panel admin de correo |
-| roundcube | 310 | Programado | TRUE | webmail en mail.${domain} |
-| cypht | 315 | Descartado | FALSE | alternativa a roundcube — no necesaria |
+| mailserver | 300 | Instalado | FALSE | mailserver-0 Running — cuenta inicial postmaster creada |
+| postfixadmin | 305 | Instalado | FALSE | postfixadmin-xxx Running |
+| roundcube | 310 | Instalado | FALSE | roundcube-xxx Running |
+| cypht | 315 | Instalado | FALSE | cypht-xxx Running |
 
 ---
 
@@ -219,11 +219,11 @@ Todas las fichas SBOS en orden de ejecución.
 | prometheus | 200 | Instalado | FALSE | métricas OK |
 | alertmanager | 205 | Instalado | FALSE | alertas OK |
 | grafana | 215 | Instalado | FALSE | dashboards OK |
-| loki | 215 | Programado | CONFIG | PENDING — revisar deps y storage |
+| loki | 215 | Instalado | FALSE | loki-0 + canary + gateway Running |
 | alloy | 220 | Instalado | FALSE | agente telemetría OK |
-| tempo | 220 | Programado | CONFIG | PENDING — revisar deps |
+| tempo | 220 | Instalado | FALSE | tempo-0 Running |
 | zabbix | 225 | Descartado | FALSE | prometheus cubre el monitoreo |
-| postgresql-extensions | — | Programado | CONFIG | probar que detecta ext. disponibles en imagen alpine |
+| postgresql-extensions | — | Instalado | FALSE | UPDATE_AVAILABLE — pg_cron corregido ciclo 54 |
 
 ---
 
@@ -234,7 +234,7 @@ Todas las fichas SBOS en orden de ejecución.
 | nextcloud | 200 | Instalado | FALSE | drive OK |
 | guacamole | 210 | Instalado | FALSE | acceso remoto OK |
 | onlyoffice | 220 | Instalado | FALSE | ofimática OK |
-| oauth2-proxy-desktop | 225 | Programado | CONFIG | PHYSICAL_ERROR — depende de vault fix |
+| oauth2-proxy-desktop | 225 | Programado | CONFIG | vault OK — pendiente configuración OIDC desktop |
 | fedora-kde | 230 | Programado | CONFIG | UPDATE_AVAILABLE + issues pendientes VDI |
 | sbos-vdi-config | 420 | Programado | CONFIG | configurar auto-provisioning de usuarios VDI |
 
@@ -267,9 +267,9 @@ Todas las fichas SBOS en orden de ejecución.
 
 | ACCION | Cantidad | Fichas |
 |--------|----------|--------|
-| **TRUE** — instalar | 9 | nginx(update), tryton, tryton-workers, orangehrm, tesseract-ocr, paperless-ngx, docuseal, elasticsearch, trilium-notes, mailserver, postfixadmin, roundcube |
-| **CONFIG** — configurar | 14 | vault, vault-unsealer, oauth2-proxy, oauth2-proxy-desktop, kyverno, linkerd, sbos-database-init, sbos-bootstrap-platform, sbos-k8s-network-validator, ferretdb, brocket, loki, tempo, postgresql-extensions, fedora-kde, sbos-vdi-config |
-| **FALSE** — omitir | 24 | Todos los Instalados + Descartados sin acción |
+| **TRUE** — instalar | 4 | nginx(update), tryton, tryton-workers, orangehrm, tesseract-ocr, docuseal |
+| **CONFIG** — configurar | 5 | vault-unsealer, oauth2-proxy-desktop, brocket, fedora-kde, sbos-vdi-config |
+| **FALSE** — omitir | 50 | Todos los Instalados + Descartados sin acción |
 | **DELETE** — eliminar | 0 | ninguno por ahora |
 
 ---

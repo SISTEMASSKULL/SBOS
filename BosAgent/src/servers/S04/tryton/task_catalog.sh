@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# task_catalog.sh — Ficha tryton (S01 — erpserver)
+# task_catalog.sh — Ficha tryton (S04 — erpserver)
 #
 # Instala Tryton ERP 7.4 en K8s con:
 #   - PostgreSQL user + DB (tryton_db)
@@ -27,7 +27,7 @@ readonly __STEP_FAIL__="${__SBOS__STEP_FAIL__:-__SBOS__STEP_FAIL__}"
 readonly __STEP_SKIP__="${__SBOS__STEP_SKIP__:-__SBOS__STEP_SKIP__}"
 
 FICHA_LOG="${FICHA_LOG:-/var/log/bos/fichas/tryton.log}"
-FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S01/tryton}"
+FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S04/tryton}"
 KUBECONFIG_DEST="${KUBECONFIG_DEST:-/etc/bos/.kube/config}"
 NAMESPACE="${SBOS_NAMESPACE:-sbos-erp}"
 TENANT_ID="${TENANT_ID:-${BOS_ORG_SHORT:-tenant}}"
