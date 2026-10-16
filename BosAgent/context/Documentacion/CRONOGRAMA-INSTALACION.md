@@ -3301,7 +3301,8 @@ El observer de BOS las instalará automáticamente al siguiente ciclo.
 | Paperless-NGX | `docs.sksistemas.com` | sbos-docs |
 | Trilium Notes | `notas.sksistemas.com` | sbos-collab |
 | Mailserver SMTP | ports 25/465/587/993 | sbos-comms |
-| Roundcube webmail | `correo.sksistemas.com` | sbos-comms |
+| Roundcube webmail | `mail.sksistemas.com` | sbos-comms |
+| Postfixadmin | `mail.sksistemas.com/postfixadmin` | sbos-comms |
 | Elasticsearch | interno solamente | sbos-search |
 | RabbitMQ | interno solamente | sbos-search |
 

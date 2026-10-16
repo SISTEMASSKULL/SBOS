@@ -15,6 +15,7 @@ readonly __STEP_SKIP__="${__SBOS__STEP_SKIP__:-__SBOS__STEP_SKIP__}"
 FICHA_LOG="${FICHA_LOG:-/var/log/bos/fichas/roundcube.log}"
 KUBECONFIG_DEST="${KUBECONFIG_DEST:-/etc/bos/.kube/config}"
 NS="sbos-comms"
+DOMAIN="${BOS_DOMAIN:-sksistemas.com}"
 
 _log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [roundcube] $*" | tee -a "$FICHA_LOG"; }
 _k()   { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@"; }
@@ -124,6 +125,51 @@ spec:
       targetPort: 80
 SVCINNER
     echo "${__STEP_OK__} aplicar_manifest_roundcube"
+
+    echo "${__STEP_START__} registrar_ingress_mail"
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<EOF
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: roundcube-ingress
+  namespace: ${NS}
+  annotations:
+    konghq.com/strip-path: "false"
+    konghq.com/protocols: "https"
+spec:
+  ingressClassName: kong
+  rules:
+    - host: "mail.${DOMAIN}"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: roundcube
+                port:
+                  number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-roundcube-ingress
+  namespace: ${NS}
+spec:
+  podSelector:
+    matchLabels:
+      app: roundcube
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: sbos-gateway
+      ports:
+        - port: 80
+EOF
+    echo "${__STEP_OK__} registrar_ingress_mail"
 
     echo "${__STEP_START__} esperar_roundcube_ready"
     _wait_ready 180 || { echo "${__STEP_FAIL__} esperar_roundcube_ready: timeout 180s"; return 1; }
