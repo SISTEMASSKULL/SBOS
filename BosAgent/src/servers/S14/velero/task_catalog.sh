@@ -99,7 +99,7 @@ spec:
       serviceAccountName: velero
       containers:
         - name: velero
-          image: velero/velero:v1.15.3
+          image: velero/velero:v1.14.1
           command: ["/velero"]
           args:
             - server
@@ -120,11 +120,11 @@ spec:
               mountPath: /scratch
           resources:
             requests:
-              cpu: "100m"
-              memory: "128Mi"
+              cpu: "50m"
+              memory: "64Mi"
             limits:
-              cpu: "1000m"
-              memory: "512Mi"
+              cpu: "500m"
+              memory: "256Mi"
       volumes:
         - name: plugins
           emptyDir: {}

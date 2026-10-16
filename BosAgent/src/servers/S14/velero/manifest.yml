@@ -1,10 +1,10 @@
 identity:
   id: velero
   server: S14
-  version: "1.15.3"
+  version: "1.14.1"
   category: 1
   criticality: false
-  description: "Velero 1.15.3 — backup y restauración de recursos Kubernetes y volúmenes persistentes. Snapshots de namespaces completos hacia MinIO. Disaster recovery soberano."
+  description: "Velero 1.14.1 — backup y restauración de recursos Kubernetes y volúmenes persistentes. Snapshots de namespaces completos hacia MinIO. Disaster recovery soberano."
 
 workload:
   type: deployment
@@ -50,4 +50,4 @@ vault:
     - minio_secret_key
 
 versions:
-  velero: "1.15.3"
+  velero: "1.14.1"
