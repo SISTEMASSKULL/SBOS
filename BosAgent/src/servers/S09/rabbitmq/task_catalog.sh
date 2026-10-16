@@ -126,7 +126,9 @@ spec:
             - name: RABBITMQ_DEFAULT_PASS
               value: "${RABBITMQ_PASSWORD}"
             - name: RABBITMQ_NODENAME
-              value: "rabbit@rabbitmq-0.rabbitmq.${NS}.svc.cluster.local"
+              value: "rabbit@rabbitmq-0"
+            - name: RABBITMQ_USE_LONGNAME
+              value: "false"
           resources:
             requests:
               cpu: "100m"

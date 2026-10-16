@@ -74,7 +74,7 @@ spec:
     spec:
       containers:
         - name: cypht
-          image: sailfishsoftware/cypht:latest
+          image: cypht/cypht:latest
           ports:
             - containerPort: 80
           env:

@@ -75,7 +75,7 @@ spec:
     spec:
       containers:
         - name: postfixadmin
-          image: postfixadmin/postfixadmin:3.3.15
+          image: hardware/postfixadmin:latest
           ports:
             - containerPort: 80
           env:

@@ -52,6 +52,31 @@ ficha_install() {
         return 0
     fi
 
+    echo "${__STEP_START__} crear_pv_elasticsearch"
+    mkdir -p /data/elasticsearch
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<EOF
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: sbos-elasticsearch-pv
+  labels:
+    sbos.app/managed-by: bos
+spec:
+  capacity:
+    storage: 20Gi
+  accessModes: [ReadWriteOnce]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  hostPath:
+    path: /data/elasticsearch
+  claimRef:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    namespace: ${NS}
+    name: es-data-elasticsearch-0
+EOF
+    echo "${__STEP_OK__} crear_pv_elasticsearch"
+
     echo "${__STEP_START__} aplicar_manifest_elasticsearch"
     _k apply -f - >> "$FICHA_LOG" 2>&1 <<'K8SEOF'
 apiVersion: apps/v1
@@ -109,7 +134,7 @@ spec:
         name: es-data
       spec:
         accessModes: ["ReadWriteOnce"]
-        storageClassName: local-path
+        storageClassName: ""
         resources:
           requests:
             storage: 20Gi

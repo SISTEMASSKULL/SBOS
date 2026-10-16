@@ -75,7 +75,7 @@ spec:
     spec:
       containers:
         - name: roundcube
-          image: roundcube/roundcubemail:1.6.10
+          image: roundcube/roundcubemail:latest
           ports:
             - containerPort: 80
           env:

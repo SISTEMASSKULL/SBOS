@@ -52,8 +52,49 @@ ficha_install() {
         return 0
     fi
 
-    echo "${__STEP_START__} crear_pvcs_paperless"
-    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'PVCEOF'
+    echo "${__STEP_START__} crear_pvs_paperless"
+    mkdir -p /data/paperless/media /data/paperless/data
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<EOF
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: sbos-paperless-media-pv
+  labels:
+    sbos.app/managed-by: bos
+spec:
+  capacity:
+    storage: 20Gi
+  accessModes: [ReadWriteOnce]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  hostPath:
+    path: /data/paperless/media
+  claimRef:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    namespace: sbos-docs
+    name: paperless-media
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: sbos-paperless-data-pv
+  labels:
+    sbos.app/managed-by: bos
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes: [ReadWriteOnce]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  hostPath:
+    path: /data/paperless/data
+  claimRef:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    namespace: sbos-docs
+    name: paperless-data
+---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -64,7 +105,7 @@ metadata:
     sbos.app/managed-by: bos
 spec:
   accessModes: ["ReadWriteOnce"]
-  storageClassName: local-path
+  storageClassName: ""
   resources:
     requests:
       storage: 20Gi
@@ -79,12 +120,12 @@ metadata:
     sbos.app/managed-by: bos
 spec:
   accessModes: ["ReadWriteOnce"]
-  storageClassName: local-path
+  storageClassName: ""
   resources:
     requests:
       storage: 5Gi
-PVCEOF
-    echo "${__STEP_OK__} crear_pvcs_paperless"
+EOF
+    echo "${__STEP_OK__} crear_pvs_paperless"
 
     echo "${__STEP_START__} aplicar_manifest_paperless-ngx"
     _k apply -f - >> "$FICHA_LOG" 2>&1 <<'K8SEOF'

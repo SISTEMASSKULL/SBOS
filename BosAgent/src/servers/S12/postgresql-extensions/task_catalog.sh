@@ -19,7 +19,7 @@ PG_POD="${PG_POD:-postgresql-0}"
 
 _log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [pg-extensions] $*" | tee -a "$FICHA_LOG"; }
 _k()   { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@"; }
-_psql() { _k exec -n "$NS" "$PG_POD" -- psql -U postgres "$@"; }
+_psql() { _k exec -n "$NS" "$PG_POD" -c postgresql -- psql -U postgres "$@"; }
 
 _ext_exists() {
     local ext="$1"
@@ -56,7 +56,7 @@ ficha_install() {
     _log "PG major: $pg_major"
 
     # Instalar extensiones en el pod via apt-get (requiere imagen Debian-based)
-    _k exec -n "$NS" "$PG_POD" -- bash -c "
+    _k exec -n "$NS" "$PG_POD" -c postgresql -- bash -c "
         apt-get update -qq 2>/dev/null || true
         apt-get install -y -qq \
             postgresql-${pg_major}-postgis-3 \
@@ -72,7 +72,7 @@ ficha_install() {
     # Verificar antes de tocar shared_preload_libraries para evitar CrashLoop.
     echo "${__STEP_START__} configurar_shared_preload_libraries"
     local pg_cron_so
-    pg_cron_so=$(_k exec -n "$NS" "$PG_POD" -- \
+    pg_cron_so=$(_k exec -n "$NS" "$PG_POD" -c postgresql -- \
         find /usr/lib/postgresql /usr/local/lib/postgresql -name "pg_cron.so" 2>/dev/null | head -1 || echo "")
     if [[ -z "$pg_cron_so" ]]; then
         _log "pg_cron.so no encontrado en imagen — skipping shared_preload_libraries (imagen Alpine sin pg_cron)"
@@ -132,7 +132,7 @@ ficha_install() {
     echo "${__STEP_START__} crear_extensiones_template1"
     for ext in unaccent pg_trgm btree_gin; do
         if echo "$available" | grep -qw "$ext"; then
-            _k exec -n "$NS" "$PG_POD" -- psql -U postgres -d template1 \
+            _k exec -n "$NS" "$PG_POD" -c postgresql -- psql -U postgres -d template1 \
                 -c "CREATE EXTENSION IF NOT EXISTS \"$ext\";" >> "$FICHA_LOG" 2>&1 || true
         fi
     done
@@ -142,7 +142,7 @@ ficha_install() {
     echo "${__STEP_START__} crear_extensiones_sbosdb"
     for ext in unaccent pg_trgm btree_gin uuid-ossp hstore; do
         if echo "$available" | grep -qw "$ext"; then
-            _k exec -n "$NS" "$PG_POD" -- psql -U postgres -d SBOSDB \
+            _k exec -n "$NS" "$PG_POD" -c postgresql -- psql -U postgres -d SBOSDB \
                 -c "CREATE EXTENSION IF NOT EXISTS \"$ext\";" >> "$FICHA_LOG" 2>&1 || true
         fi
     done
