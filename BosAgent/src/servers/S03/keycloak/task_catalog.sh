@@ -108,6 +108,8 @@ ficha_pre_install() {
     echo "${__STEP_START__} verificar_namespace"
     _k get namespace "$NS" > /dev/null 2>&1 || \
         _k create namespace "$NS" >> "$FICHA_LOG" 2>&1
+    # Keycloak no usa Linkerd mesh — desactivar inject para evitar sidecars
+    _k annotate namespace "$NS" "linkerd.io/inject=disabled" --overwrite 2>/dev/null || true
     echo "${__STEP_OK__} verificar_namespace"
     return 0
 }
@@ -552,6 +554,19 @@ ficha_health() {
 }
 
 ficha_repair() {
+    # Asegurar que el namespace no tiene inject=enabled (provoca CrashLoop por proxy)
+    echo "${__STEP_START__} desactivar_linkerd_inject"
+    local ns_inject
+    ns_inject=$(_k get namespace "$NS" \
+        -o jsonpath='{.metadata.annotations.linkerd\.io/inject}' 2>/dev/null || echo "")
+    if [[ "$ns_inject" == "enabled" ]]; then
+        _k annotate namespace "$NS" "linkerd.io/inject=disabled" --overwrite 2>/dev/null || true
+        _log "linkerd.io/inject desactivado en namespace $NS — reiniciando pod"
+        _k delete pod -n "$NS" -l app=keycloak --grace-period=5 2>/dev/null || true
+        sleep 5
+    fi
+    echo "${__STEP_OK__} desactivar_linkerd_inject"
+
     echo "${__STEP_START__} reiniciar_keycloak"
     _k rollout restart deployment/keycloak -n "$NS" 2>/dev/null || true
     sleep 5

@@ -153,6 +153,8 @@ ficha_pre_install() {
     echo "${__STEP_START__} verificar_namespace"
     _k get namespace "$NS" > /dev/null 2>&1 || \
         _k create namespace "$NS" >> "$FICHA_LOG" 2>&1
+    # Kong no usa Linkerd mesh — desactivar inject para evitar sidecars en jobs y pods
+    _k annotate namespace "$NS" "linkerd.io/inject=disabled" --overwrite 2>/dev/null || true
     echo "${__STEP_OK__} verificar_namespace"
     return 0
 }
@@ -798,6 +800,17 @@ ficha_health() {
 }
 
 ficha_repair() {
+    # Asegurar que el namespace no tiene inject=enabled (provoca CrashLoop en jobs y pods)
+    local ns_inject
+    ns_inject=$(_k get namespace "$NS" \
+        -o jsonpath='{.metadata.annotations.linkerd\.io/inject}' 2>/dev/null || echo "")
+    if [[ "$ns_inject" == "enabled" ]]; then
+        _k annotate namespace "$NS" "linkerd.io/inject=disabled" --overwrite 2>/dev/null || true
+        _log "linkerd.io/inject desactivado en namespace $NS"
+        # Eliminar el job de migrations si quedó en estado Failed
+        _k delete job kong-migrations -n "$NS" 2>/dev/null || true
+    fi
+
     # Verificar idempotencia primero
     if idempotency_check; then
         _log "Repair: todo OK — sin acción necesaria"
