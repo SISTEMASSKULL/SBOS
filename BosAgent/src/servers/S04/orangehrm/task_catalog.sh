@@ -156,8 +156,8 @@ spec:
               mountPath: /bitnami/orangehrm
           resources:
             requests:
-              cpu: "200m"
-              memory: "512Mi"
+              cpu: "50m"
+              memory: "256Mi"
             limits:
               cpu: "1000m"
               memory: "1Gi"
