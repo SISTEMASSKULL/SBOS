@@ -15,6 +15,8 @@ readonly __STEP_SKIP__="${__SBOS__STEP_SKIP__:-__SBOS__STEP_SKIP__}"
 FICHA_LOG="${FICHA_LOG:-/var/log/bos/fichas/rabbitmq.log}"
 KUBECONFIG_DEST="${KUBECONFIG_DEST:-/etc/bos/.kube/config}"
 NS="sbos-search"
+RABBITMQ_USER="${RABBITMQ_USER:-sbos}"
+RABBITMQ_PASSWORD="${RABBITMQ_PASSWORD:-$(openssl rand -hex 16 2>/dev/null || echo 'sbos_mq_change_me')}"
 
 _log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [rabbitmq] $*" | tee -a "$FICHA_LOG"; }
 _k()   { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@"; }
@@ -52,13 +54,52 @@ ficha_install() {
         return 0
     fi
 
+    # Crear PV hostPath + PVC antes del StatefulSet
+    echo "${__STEP_START__} crear_pv_rabbitmq"
+    mkdir -p /data/rabbitmq
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<EOF
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: sbos-rabbitmq-pv
+  labels:
+    sbos.app/managed-by: bos
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes: [ReadWriteOnce]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  hostPath:
+    path: /data/rabbitmq
+  claimRef:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    namespace: ${NS}
+    name: rabbitmq-data-rabbitmq-0
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: rabbitmq-data-rabbitmq-0
+  namespace: ${NS}
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: ""
+  resources:
+    requests:
+      storage: 10Gi
+EOF
+    echo "${__STEP_OK__} crear_pv_rabbitmq"
+
     echo "${__STEP_START__} aplicar_manifest_rabbitmq"
-    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'K8SEOF'
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<EOF
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: rabbitmq
-  namespace: sbos-search
+  namespace: ${NS}
   labels:
     app: rabbitmq
     sbos.app/managed-by: bos
@@ -81,11 +122,11 @@ spec:
             - containerPort: 15672
           env:
             - name: RABBITMQ_DEFAULT_USER
-              value: sbos
+              value: "${RABBITMQ_USER}"
             - name: RABBITMQ_DEFAULT_PASS
-              value: sbos_rabbitmq_pass
+              value: "${RABBITMQ_PASSWORD}"
             - name: RABBITMQ_NODENAME
-              value: rabbit@rabbitmq-0.rabbitmq.sbos-search.svc.cluster.local
+              value: "rabbit@rabbitmq-0.rabbitmq.${NS}.svc.cluster.local"
           resources:
             requests:
               cpu: "100m"
@@ -96,16 +137,11 @@ spec:
           volumeMounts:
             - name: rabbitmq-data
               mountPath: /var/lib/rabbitmq
-  volumeClaimTemplates:
-    - metadata:
-        name: rabbitmq-data
-      spec:
-        accessModes: ["ReadWriteOnce"]
-        storageClassName: local-path
-        resources:
-          requests:
-            storage: 5Gi
-K8SEOF
+      volumes:
+        - name: rabbitmq-data
+          persistentVolumeClaim:
+            claimName: rabbitmq-data-rabbitmq-0
+EOF
     _k apply -f - >> "$FICHA_LOG" 2>&1 <<'SVCINNER'
 apiVersion: v1
 kind: Service

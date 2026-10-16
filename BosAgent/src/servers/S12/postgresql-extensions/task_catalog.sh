@@ -67,60 +67,81 @@ ficha_install() {
 
     echo "${__STEP_OK__} instalar_paquetes_extension"
 
-    # Habilitar pg_cron en postgresql.conf (requiere shared_preload_libraries)
+    # Habilitar pg_cron SOLO si la librería existe en el pod
+    # La imagen postgres:xx-alpine NO incluye pg_cron por defecto.
+    # Verificar antes de tocar shared_preload_libraries para evitar CrashLoop.
     echo "${__STEP_START__} configurar_shared_preload_libraries"
-    local current_libs
-    current_libs=$(_psql -tc "SELECT current_setting('shared_preload_libraries');" 2>/dev/null | tr -d ' \n' || echo "")
-    _log "shared_preload_libraries actual: $current_libs"
-
-    if echo "$current_libs" | grep -q "pg_cron"; then
-        echo "${__STEP_SKIP__} configurar_shared_preload_libraries: pg_cron ya en shared_preload_libraries"
+    local pg_cron_so
+    pg_cron_so=$(_k exec -n "$NS" "$PG_POD" -- \
+        find /usr/lib/postgresql /usr/local/lib/postgresql -name "pg_cron.so" 2>/dev/null | head -1 || echo "")
+    if [[ -z "$pg_cron_so" ]]; then
+        _log "pg_cron.so no encontrado en imagen — skipping shared_preload_libraries (imagen Alpine sin pg_cron)"
+        echo "${__STEP_SKIP__} configurar_shared_preload_libraries: pg_cron no disponible en imagen"
     else
-        # Agregar pg_cron via ALTER SYSTEM (persiste en postgresql.auto.conf)
-        _psql -c "ALTER SYSTEM SET shared_preload_libraries = '${current_libs:+$current_libs,}pg_cron';" >> "$FICHA_LOG" 2>&1 || true
-        _psql -c "ALTER SYSTEM SET cron.database_name = 'postgres';" >> "$FICHA_LOG" 2>&1 || true
-        _log "pg_cron agregado a shared_preload_libraries — reinicio del pod requerido"
-        _k rollout restart statefulset postgresql -n "$NS" >> "$FICHA_LOG" 2>&1 || true
-        # Esperar que el pod vuelva
-        _k rollout status statefulset postgresql -n "$NS" --timeout=120s >> "$FICHA_LOG" 2>&1 || true
-        echo "${__STEP_OK__} configurar_shared_preload_libraries"
+        local current_libs
+        current_libs=$(_psql -tc "SELECT current_setting('shared_preload_libraries');" 2>/dev/null | tr -d ' \n' || echo "")
+        if echo "$current_libs" | grep -q "pg_cron"; then
+            echo "${__STEP_SKIP__} configurar_shared_preload_libraries: pg_cron ya configurado"
+        else
+            _psql -c "ALTER SYSTEM SET shared_preload_libraries = '${current_libs:+$current_libs,}pg_cron';" >> "$FICHA_LOG" 2>&1 || true
+            _psql -c "ALTER SYSTEM SET cron.database_name = 'postgres';" >> "$FICHA_LOG" 2>&1 || true
+            _log "pg_cron agregado — reiniciando pod para activar"
+            _k rollout restart statefulset postgresql -n "$NS" >> "$FICHA_LOG" 2>&1 || true
+            _k rollout status statefulset postgresql -n "$NS" --timeout=120s >> "$FICHA_LOG" 2>&1 || true
+            echo "${__STEP_OK__} configurar_shared_preload_libraries"
+        fi
     fi
 
-    # Crear extensiones en la BD postgres (template para heredar a nuevas BDs)
-    echo "${__STEP_START__} crear_extensiones_postgres"
-    local exts=("postgis" "postgis_topology" "vector" "pg_cron" "pg_partman" "unaccent" "pg_trgm" "btree_gin")
-    for ext in "${exts[@]}"; do
-        if _ext_exists "$ext"; then
-            _log "Extensión $ext ya existe — skip"
+    # Instalar extensiones que sí estén disponibles en esta imagen
+    # Primero consultar pg_available_extensions (fuente de verdad del binario)
+    echo "${__STEP_START__} crear_extensiones_disponibles"
+    local available
+    available=$(_psql -tc "SELECT name FROM pg_available_extensions ORDER BY name;" 2>/dev/null | tr -d ' \n' || echo "")
+    _log "Extensiones disponibles en imagen: $(echo "$available" | tr '\n' ' ' | head -c 200)"
+
+    # Solo intentar las que pg_available_extensions confirma que existen
+    local wanted=("unaccent" "pg_trgm" "btree_gin" "btree_gist" "hstore" "uuid-ossp"
+                  "postgis" "postgis_topology" "vector" "pg_cron" "pg_partman"
+                  "timescaledb" "plpython3u")
+    for ext in "${wanted[@]}"; do
+        if echo "$available" | grep -qw "$ext"; then
+            if _ext_exists "$ext"; then
+                _log "Extensión $ext ya existe — skip"
+            else
+                _psql -c "CREATE EXTENSION IF NOT EXISTS \"$ext\";" >> "$FICHA_LOG" 2>&1 && \
+                    _log "Extensión $ext creada" || \
+                    _log "ADVERTENCIA: $ext disponible pero CREATE EXTENSION falló"
+            fi
         else
-            _psql -c "CREATE EXTENSION IF NOT EXISTS \"$ext\";" >> "$FICHA_LOG" 2>&1 && \
-                _log "Extensión $ext creada" || \
-                _log "ADVERTENCIA: No se pudo crear extensión $ext (puede no estar disponible en esta imagen)"
+            _log "Extensión $ext no disponible en esta imagen — skip"
         fi
     done
-    echo "${__STEP_OK__} crear_extensiones_postgres"
+    echo "${__STEP_OK__} crear_extensiones_disponibles"
 
-    # Crear extensiones en template1 para que las nuevas BDs las hereden
+    # Crear extensiones estándar en template1 (heredadas por nuevas BDs)
     echo "${__STEP_START__} crear_extensiones_template1"
     for ext in unaccent pg_trgm btree_gin; do
-        _k exec -n "$NS" "$PG_POD" -- psql -U postgres -d template1 \
-            -c "CREATE EXTENSION IF NOT EXISTS \"$ext\";" >> "$FICHA_LOG" 2>&1 || true
+        if echo "$available" | grep -qw "$ext"; then
+            _k exec -n "$NS" "$PG_POD" -- psql -U postgres -d template1 \
+                -c "CREATE EXTENSION IF NOT EXISTS \"$ext\";" >> "$FICHA_LOG" 2>&1 || true
+        fi
     done
     echo "${__STEP_OK__} crear_extensiones_template1"
 
-    # Habilitar extensiones en la BD SBOSDB
+    # Habilitar extensiones disponibles en SBOSDB
     echo "${__STEP_START__} crear_extensiones_sbosdb"
-    for ext in "postgis" "vector" "unaccent" "pg_trgm" "btree_gin"; do
-        _k exec -n "$NS" "$PG_POD" -- psql -U postgres -d SBOSDB \
-            -c "CREATE EXTENSION IF NOT EXISTS \"$ext\";" >> "$FICHA_LOG" 2>&1 || \
-            _log "ADVERTENCIA: No se pudo crear $ext en SBOSDB"
+    for ext in unaccent pg_trgm btree_gin uuid-ossp hstore; do
+        if echo "$available" | grep -qw "$ext"; then
+            _k exec -n "$NS" "$PG_POD" -- psql -U postgres -d SBOSDB \
+                -c "CREATE EXTENSION IF NOT EXISTS \"$ext\";" >> "$FICHA_LOG" 2>&1 || true
+        fi
     done
     echo "${__STEP_OK__} crear_extensiones_sbosdb"
 
     echo "${__STEP_START__} verificar_extensiones"
     local installed
-    installed=$(_psql -tc "SELECT extname FROM pg_extension WHERE extname IN ('postgis','vector','pg_cron','unaccent','pg_trgm') ORDER BY extname;" 2>/dev/null | tr -d ' ' | grep -v '^$' | paste -sd ',' || echo "ninguna")
-    _log "Extensiones instaladas en postgres: $installed"
+    installed=$(_psql -tc "SELECT extname FROM pg_extension ORDER BY extname;" 2>/dev/null | tr -d ' ' | grep -v '^$' | paste -sd ',' || echo "ninguna")
+    _log "Extensiones en BD postgres: $installed"
     echo "${__STEP_OK__} verificar_extensiones"
     return 0
 }
