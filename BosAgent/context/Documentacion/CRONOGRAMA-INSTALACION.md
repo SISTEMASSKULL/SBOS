@@ -32,11 +32,11 @@ Todas las fichas SBOS en orden de ejecución.
 | 3 | sbos-bootstrap-os | S-HOST | 10 | Bootstrap host | Instalado | FALSE |
 | 4 | sbos-bootstrap-k8s | S-HOST | 20 | Bootstrap K8s | Instalado | FALSE |
 | 5 | sbos-bootstrap-cni | S-HOST | 25 | Bootstrap K8s | Instalado | FALSE |
-| 6 | sbos-bootstrap-platform | S-HOST | 28 | Bootstrap K8s | Programado | CONFIG |
+| 6 | sbos-bootstrap-platform | S-HOST | 28 | Bootstrap K8s | Instalado | FALSE |
 | 7 | sbos-bootstrap-storage | S-HOST | 30 | Bootstrap K8s | Instalado | FALSE |
 | 8 | sbos-bootstrap-monitoring | S-HOST | 35 | Bootstrap K8s | Instalado | FALSE |
 | 9 | sbos-bkernel | S-HOST | 70 | Daemon SBOS | Instalado | FALSE |
-| 10 | sbos-k8s-network-validator | S-HOST | 50 | Validación | Programado | CONFIG |
+| 10 | sbos-k8s-network-validator | S-HOST | 50 | Validación | Instalado | FALSE |
 | 11 | sbos-bootstrap-hard | S-HOST | 250 | Bootstrap K8s | Instalado | FALSE |
 | 12 | postgresql | S01 | 100 | Datos | Instalado | FALSE |
 | 13 | redis | S01 | 110 | Datos | Instalado | FALSE |
@@ -112,10 +112,10 @@ Todas las fichas SBOS en orden de ejecución.
 | sbos-bootstrap-os | 10 | Instalado | FALSE | kernel + sysctl OK |
 | sbos-bootstrap-k8s | 20 | Instalado | FALSE | kubeadm + containerd OK |
 | sbos-bootstrap-cni | 25 | Instalado | FALSE | Calico OK |
-| sbos-bootstrap-platform | 28 | Programado | CONFIG | no aparece en state — revisar por qué |
+| sbos-bootstrap-platform | 28 | Instalado | FALSE | 17 namespaces OK + local-path-provisioner Running |
 | sbos-bootstrap-storage | 30 | Instalado | FALSE | hostPath PVs creados |
 | sbos-bootstrap-monitoring | 35 | Instalado | FALSE | node-exporter OK |
-| sbos-k8s-network-validator | 50 | Programado | CONFIG | validar hairpin NAT y CoreDNS |
+| sbos-k8s-network-validator | 50 | Instalado | FALSE | ConfigMap sbos-network-validated OK — 4 pruebas pasaron |
 | sbos-bkernel | 70 | Instalado | FALSE | CDC listener activo |
 | sbos-bootstrap-hard | 250 | Instalado | FALSE | hardening de K8s OK |
 
@@ -424,7 +424,7 @@ Todas las fichas SBOS en orden de ejecución.
 
 ---
 
-### [28] sbos-bootstrap-platform · S-HOST · ⚙️ PENDING (no en state)
+### [28] sbos-bootstrap-platform · S-HOST · ✅ INSTALLED
 
 **Propósito:** Crear los 12 namespaces SBOS (`sbos-data`, `sbos-security`, `sbos-gateway`, `sbos-erp`, `sbos-collab`, `sbos-vdi`, `sbos-monitoring`, etc.), instalar `local-path-provisioner` (StorageClass dinámica para PVCs de aplicaciones) y configurar RBAC base para service accounts.
 
@@ -480,7 +480,7 @@ Todas las fichas SBOS en orden de ejecución.
 
 ---
 
-### [50] sbos-k8s-network-validator · S-HOST · ⚙️ PENDING (no en state)
+### [50] sbos-k8s-network-validator · S-HOST · ✅ INSTALLED
 
 **Propósito:** Ejecutar 4 pruebas de validación antes de instalar workloads: resolución DNS interna, comunicación pod-to-pod entre namespaces, creación y montaje de PVC, y verificación de hairpin NAT hacia el apiserver. Si alguna prueba falla, el instalador se detiene con diagnóstico claro.
 
