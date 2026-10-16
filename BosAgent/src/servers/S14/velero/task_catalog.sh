@@ -19,6 +19,17 @@ NS="sbos-ops"
 _log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [velero] $*" | tee -a "$FICHA_LOG"; }
 _k()   { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@"; }
 
+# Motor de puertos BOS — asigna puerto ClusterIP según SBOS-050
+_portman() {
+    local ficha_id="$1" ficha_index="$2" server="$3" ns="${4:-default}"
+    local TOKEN; TOKEN="$(cat /etc/bos/rpc-token 2>/dev/null)"
+    BOS_RPC_TOKEN="$TOKEN" bosctl rpc bos.portman.assign \
+      "{\"ficha_id\":\"$ficha_id\",\"ficha_index\":$ficha_index,\"logical_server\":\"$server\",\"port_types\":[\"K8S_CLUSTER_IP\"],\"namespace\":\"$ns\",\"ctx_id\":\"install-$ficha_id\"}" \
+      2>/dev/null | python3 -I -c \
+      "import json,sys; d=json.load(sys.stdin); a=d.get('assignments',[]); print(a[0]['port'] if a else '')" \
+    2>/dev/null
+}
+
 _wait_ready() {
     local t="${1:-180}" e=0
     while (( e < t )); do
@@ -52,6 +63,12 @@ ficha_install() {
         return 0
     fi
 
+    echo "${__STEP_START__} portman_velero"
+    local SVC_PORT; SVC_PORT=$(_portman "velero" 2 "S14" "sbos-ops")
+    SVC_PORT="${SVC_PORT:-21420}"
+    _log "Puerto ClusterIP portman: ${SVC_PORT}"
+    echo "${__STEP_OK__} portman_velero"
+
     echo "${__STEP_START__} aplicar_manifest_velero"
     _k apply -f - >> "$FICHA_LOG" 2>&1 <<'K8SEOF'
 apiVersion: apps/v1
@@ -72,17 +89,40 @@ spec:
       labels:
         app: velero
     spec:
+      serviceAccountName: velero
       containers:
         - name: velero
           image: velero/velero:v1.15.3
-
+          command: ["/velero"]
+          args:
+            - server
+            - --uploader-type=kopia
+          env:
+            - name: VELERO_SCRATCH_DIR
+              value: /scratch
+            - name: VELERO_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: LD_LIBRARY_PATH
+              value: /plugins
+          volumeMounts:
+            - name: plugins
+              mountPath: /plugins
+            - name: scratch
+              mountPath: /scratch
           resources:
             requests:
               cpu: "100m"
-              memory: "256Mi"
+              memory: "128Mi"
             limits:
               cpu: "1000m"
-              memory: "1Gi"
+              memory: "512Mi"
+      volumes:
+        - name: plugins
+          emptyDir: {}
+        - name: scratch
+          emptyDir: {}
 K8SEOF
 
     echo "${__STEP_OK__} aplicar_manifest_velero"
