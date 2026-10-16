@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================================
 # task_catalog.sh — embedding-worker
-# Imagen: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5.0
+# Imagen: ghcr.io/huggingface/text-embeddings-inference:cpu-1.2.3
 # Namespace: sbos-ai
 # ============================================================================
 
@@ -107,11 +107,15 @@ spec:
     spec:
       containers:
         - name: embedding-worker
-          image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5.0
+          image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.2.3
           args: ["--model-id", "BAAI/bge-small-en-v1.5", "--port", "8090"]
           ports:
             - containerPort: 8090
           env:
+            - name: HF_ENDPOINT
+              value: https://huggingface.co
+            - name: HUGGINGFACE_HUB_CACHE
+              value: /data/cache
             - name: OLLAMA_URL
               value: http://ollama.sbos-ai.svc.cluster.local:${OLLAMA_SVC_PORT}
             - name: QDRANT_URL

@@ -165,8 +165,8 @@ spec:
               value: es
           resources:
             requests:
-              cpu: "100m"
-              memory: "256Mi"
+              cpu: "50m"
+              memory: "128Mi"
             limits:
               cpu: "1000m"
               memory: "1Gi"

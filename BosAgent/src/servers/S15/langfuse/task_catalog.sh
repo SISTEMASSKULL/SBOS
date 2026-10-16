@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================================
 # task_catalog.sh — langfuse
-# Imagen: langfuse/langfuse:2.90.3 (v2 — PostgreSQL sin ClickHouse)
+# Imagen: langfuse/langfuse:2.37.1 (v2 — PostgreSQL sin ClickHouse)
 # Namespace: sbos-ai
 # ============================================================================
 
@@ -49,11 +49,64 @@ ficha_pre_install() {
         _log "Namespace $NS creado"
     }
     echo "${__STEP_OK__} verificar_namespace"
+
+    echo "${__STEP_START__} networkpolicy_ai_to_data"
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'NPEOF'
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ai-postgresql
+  namespace: sbos-data
+spec:
+  podSelector:
+    matchLabels:
+      app: postgresql
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: sbos-ai
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ai-redis
+  namespace: sbos-data
+spec:
+  podSelector:
+    matchLabels:
+      app: redis
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: sbos-ai
+      ports:
+        - protocol: TCP
+          port: 6379
+NPEOF
+    echo "${__STEP_OK__} networkpolicy_ai_to_data"
+
+    echo "${__STEP_START__} crear_langfuse_db"
+    if _k exec postgresql-0 -n sbos-data -- psql -U postgres -tc \
+        "SELECT 1 FROM pg_database WHERE datname='langfuse_db'" 2>/dev/null | grep -q 1; then
+        echo "${__STEP_SKIP__} crear_langfuse_db: ya existe"
+    else
+        _k exec postgresql-0 -n sbos-data -- psql -U postgres -c \
+            "CREATE DATABASE langfuse_db;" >> "$FICHA_LOG" 2>&1
+        echo "${__STEP_OK__} crear_langfuse_db"
+    fi
     return 0
 }
 
 ficha_install() {
     mkdir -p "$(dirname "$FICHA_LOG")"
+    ficha_pre_install
 
     local r
     r=$(_k get deployment langfuse -n "$NS" \
@@ -85,7 +138,7 @@ spec:
     spec:
       containers:
         - name: langfuse
-          image: langfuse/langfuse:2.90.3
+          image: langfuse/langfuse:2.37.1
           ports:
             - containerPort: 3000
           env:
