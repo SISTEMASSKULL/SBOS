@@ -38,7 +38,7 @@ _portman_get() {
 import json,sys
 d=json.load(sys.stdin)
 for a in d.get('items',[]):
-    if a.get('ficha_id')=='$ficha_id' and a.get('port_type')=='$port_type':
+    if a.get('ficha_id')=='$ficha_id' and a.get('port_type')=='$port_type' and a.get('status')=='assigned':
         print(a.get('port',''))
         break
 " 2>/dev/null

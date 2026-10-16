@@ -38,7 +38,7 @@ _portman_get() {
 import json,sys
 d=json.load(sys.stdin)
 for a in d.get('items',[]):
-    if a.get('ficha_id')=='$ficha_id' and a.get('port_type')=='$port_type':
+    if a.get('ficha_id')=='$ficha_id' and a.get('port_type')=='$port_type' and a.get('status')=='assigned':
         print(a.get('port',''))
         break
 " 2>/dev/null
@@ -97,6 +97,8 @@ metadata:
     sbos.app/managed-by: bos
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: embedding-worker
@@ -124,10 +126,10 @@ spec:
               value: redis://:sbos_redis_bootstrap@redis.sbos-data.svc.cluster.local:6379/5
           resources:
             requests:
-              cpu: "200m"
-              memory: "512Mi"
+              cpu: "50m"
+              memory: "256Mi"
             limits:
-              cpu: "2000m"
+              cpu: "1000m"
               memory: "2Gi"
 K8SEOF
     echo "${__STEP_START__} portman_embedding-worker"

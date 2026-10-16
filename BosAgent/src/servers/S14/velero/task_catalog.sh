@@ -49,11 +49,18 @@ ficha_pre_install() {
         _log "Namespace $NS creado"
     }
     echo "${__STEP_OK__} verificar_namespace"
+
+    echo "${__STEP_START__} crear_serviceaccount_velero"
+    _k get serviceaccount velero -n "$NS" > /dev/null 2>&1 || {
+        _k create serviceaccount velero -n "$NS" >> "$FICHA_LOG" 2>&1
+    }
+    echo "${__STEP_OK__} crear_serviceaccount_velero"
     return 0
 }
 
 ficha_install() {
     mkdir -p "$(dirname "$FICHA_LOG")"
+    ficha_pre_install
 
     local r
     r=$(_k get deployment velero -n "$NS" \
