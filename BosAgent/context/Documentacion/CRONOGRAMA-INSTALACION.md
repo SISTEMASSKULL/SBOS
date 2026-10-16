@@ -2195,62 +2195,63 @@ El mailserver se puede instalar en cualquier momento después de Keycloak y Post
 
 ## Resumen de estado por ficha
 
-| Orden | Ficha | Estado | Bloqueo principal |
-|-------|-------|--------|-------------------|
+| Orden | Ficha | Estado | Nota |
+|-------|-------|--------|------|
 | 1 | bos-preflight | ✅ INSTALLED | — |
 | 5 | sbos-namespace | ✅ INSTALLED | — |
 | 10 | sbos-bootstrap-os | ✅ INSTALLED | — |
-| 20 | sbos-bootstrap-k8s | ✅ INSTALLED | ✅ BUG-36 cerrado (ciclo 11) |
+| 20 | sbos-bootstrap-k8s | ✅ INSTALLED | BUG-36 cerrado (ciclo 11) |
 | 25 | sbos-bootstrap-cni | ✅ INSTALLED | — |
-| 28 | sbos-bootstrap-platform | ⚙️ PENDING | 📋 BUG-31: estado PENDING esperado — se registra y pasa a INSTALLED en el próximo reinicio del daemon BOS (comportamiento por diseño) |
+| 28 | sbos-bootstrap-platform | ✅ INSTALLED | BUG-31 auto-resuelto |
 | 30 | sbos-bootstrap-storage | ✅ INSTALLED | — |
 | 35 | sbos-bootstrap-monitoring | ✅ INSTALLED | — |
-| 50 | sbos-k8s-network-validator | ⚙️ PENDING | 📋 BUG-31: estado PENDING esperado — se registra y pasa a INSTALLED en el próximo reinicio del daemon BOS (comportamiento por diseño) |
+| 50 | sbos-k8s-network-validator | ✅ INSTALLED | BUG-31 auto-resuelto |
 | 70 | sbos-bkernel | ✅ INSTALLED | — |
-| 105 | sbos-database-init | ⏳ NUEVA (pendiente deploy) | Creada en ciclo 5 — instalar con `bosctl ficha install sbos-database-init` |
-| 100 | postgresql | ✅ INSTALLED | ✅ BUG-35 cerrado (ciclo 2) |
-| 100 | kyverno | ✅ INSTALLED | ✅ BUG-36 cerrado (ciclo 11); instalado en ciclo 48 |
-| 110 | redis | ✅ INSTALLED | ✅ BUG-35 cerrado (ciclo 2) |
-| 110 | linkerd | ✅ INSTALLED | ✅ BUG-29 cerrado (ciclo 4); instalado en ciclo 48 |
+| 75 | sbos-bi18n | ⏳ PENDING | auto_install:false — binario bi18nd pendiente de despliegue |
+| 100 | postgresql | ✅ INSTALLED | BUG-35 cerrado (ciclo 2) |
+| 100 | kyverno | ✅ INSTALLED | BUG-36 cerrado; instalado ciclo 48 |
+| 105 | sbos-database-init | ⏸️ UPDATE_AVAILABLE | INSTALLED — task_catalog.sh actualizado ciclo 51/52 |
+| 110 | redis | ✅ INSTALLED | BUG-35 cerrado (ciclo 2) |
+| 110 | linkerd | ✅ INSTALLED | BUG-29 cerrado; instalado ciclo 48 |
 | 120 | minio | ✅ INSTALLED | — |
-| 130 | vault | ❌ PHYSICAL_ERROR | ❌ FIX-26A pendiente VPS |
-| 131 | vault-unsealer | ⏳ NUEVA | Creada ciclo 11 — instalar tras init de vault |
+| 130 | vault | ✅ INSTALLED | BUG-51c resuelto — Linkerd deshabilitado en pod vault |
+| 131 | vault-unsealer | ✅ INSTALLED | ciclo 11 — CronJob desella vault automáticamente |
 | 135 | besu-qbft | ✅ INSTALLED | — |
-| 140 | keycloak | ✅ INSTALLED | — |
-| 150 | oauth2-proxy | ❌ PHYSICAL_ERROR | ❌ derivado vault |
+| 140 | keycloak | ✅ INSTALLED | realm `skull` + admin@sksistemas.com configurado (ciclo 52) |
+| 150 | oauth2-proxy | ✅ INSTALLED | — |
 | 160 | kong | ✅ INSTALLED | — |
-| 170 | nginx | ⏸️ UPDATE_AVAILABLE (versión) · ✅ bcms-ready (ciclo 30) | — |
+| 170 | nginx | ⏸️ UPDATE_AVAILABLE | task_catalog.sh actualizado ciclo 52 — TLS Let's Encrypt activo |
 | 170 | sbos-notifier | ✅ INSTALLED | — |
-| 170 | tryton (S04) | ⏳ NO_INSTALADA | ❌ bloqueado por vault (BUG-27) — INC-1 ✅ resuelto ciclo 24 |
-| 174 | ferretdb | ⚙️ PENDING | derivado vault |
-| 175 | tryton-workers | ⏳ NO_INSTALADA | dep en tryton |
-| 175 | calcom | ⏳ NO_INSTALADA | — |
-| 176 | novu | ⚙️ PENDING | derivado vault |
-| 177 | brocket (Rocket.Chat) | ⏳ FICHA PENDIENTE | INC-5 ✅ resuelto ciclo 24 — ficha aún por crear |
-| 180 | certbot | ✅ INSTALLED | — |
+| 170 | tryton (S04) | ⏳ PENDING | auto_install:false — ERP |
+| 174 | ferretdb | ✅ INSTALLED | — |
+| 175 | tryton-workers | ⏳ PENDING | auto_install:false — dep tryton |
+| 175 | calcom | ✅ INSTALLED | — |
+| 176 | novu | ✅ INSTALLED | — |
+| 177 | brocket (Rocket.Chat) | ⏳ SIN FICHA | INC-5 resuelto ciclo 24 — ficha por crear |
+| 180 | certbot | ⏸️ UPDATE_AVAILABLE | task_catalog.sh actualizado ciclo 52 — cert Let's Encrypt real activo (válido hasta 2027-01-13) |
 | 200 | prometheus | ✅ INSTALLED | — |
-| 200 | nextcloud | ✅ INSTALLED (UPDATE_AVAILABLE) | ✅ BUG-46 cerrado (ciclo 46) — PV estático + health.type:none + idempotencia |
+| 200 | nextcloud | ✅ INSTALLED | BUG-46 cerrado (ciclo 46) |
 | 205 | alertmanager | ✅ INSTALLED | — |
-| 210 | guacamole | ✅ INSTALLED (UPDATE_AVAILABLE) | ✅ BUG-47 cerrado (ciclo 47) — health.type:none + idempotencia |
+| 210 | guacamole | ✅ INSTALLED | BUG-47 cerrado (ciclo 47) |
 | 215 | grafana | ✅ INSTALLED | — |
-| 215 | loki | ✅ INSTALLED | ✅ BUG-48 cerrado (ciclo 48) — 5 sub-bugs chart 6.9.0 resueltos |
-| 220 | alloy | ⚙️ READY | Loki INSTALLED — Alloy instalará en próximo ciclo observer |
-| 220 | tempo | ✅ INSTALLED | ✅ BUG-49/50 cerrados (ciclos 49-50) — StatefulSet + post_install_generic |
-| 220 | onlyoffice | ✅ INSTALLED (auto_install:false) | ✅ BUG-47 cerrado (ciclo 47); auto_install:false — solo con fedora-kde |
-| 225 | zabbix | ⏳ NO_INSTALADA (auto_install=false) | — |
-| 225 | oauth2-proxy-desktop | ❌ PHYSICAL_ERROR | ❌ derivado vault |
-| 230 | fedora-kde | ⏸️ UPDATE_AVAILABLE | ❌ INC-2/3 (HITL Q-2/3), VDI-GAP-1/2 pendientes; GAP-5 ✅ ciclo 13 |
-| 250 | sbos-bootstrap-hard | ✅ INSTALLED | ❌ kyverno switch enforce — acción VPS pendiente (código correcto) |
-| 300–315 | mailserver stack | ⏳ NO_INSTALADA (auto_install=false) | — |
-| 345–365 | docs stack | ⏳ NO_INSTALADA (auto_install=false) | — |
-| 400–405 | búsqueda/mensajería | ⏳ NO_INSTALADA (auto_install=false) | — |
-| 420 | sbos-vdi-config | ⏳ NO_INSTALADA (auto_install=false) | Instalar tras VDI completo |
-| 450–460 | devops stack | ⏳ NO_INSTALADA (auto_install=false) | — |
-| 500–525 | IA stack | ⏳ NO_INSTALADA (auto_install=false) | — |
+| 215 | loki | ✅ INSTALLED | BUG-48 cerrado (ciclo 48) |
+| 220 | alloy | ✅ INSTALLED | — |
+| 220 | tempo | ✅ INSTALLED | BUG-49/50 cerrados (ciclos 49-50) |
+| 220 | onlyoffice | ⏳ PENDING | auto_install:false — solo con fedora-kde |
+| 225 | zabbix | ⏳ PENDING | auto_install:false |
+| 225 | oauth2-proxy-desktop | ⏳ PENDING | auto_install:false — depende VDI |
+| 230 | fedora-kde | ⏳ PENDING | auto_install:false — VDI; HITL Q-2/3 pendientes |
+| 250 | sbos-bootstrap-hard | ✅ INSTALLED | — |
+| 300–315 | mailserver stack | ⏳ PENDING | auto_install:false |
+| 345–365 | docs stack (S08) | ⏳ PENDING | auto_install:false |
+| 400–405 | búsqueda/mensajería (S09) | ⏳ PENDING | auto_install:false |
+| 420 | sbos-vdi-config | ⏳ PENDING | auto_install:false — instalar tras VDI completo |
+| 450–460 | devops stack (S14) | ⏳ PENDING | auto_install:false |
+| 500–525 | IA stack (S15) | ⏳ PENDING | auto_install:false |
 
 ---
 
-**Fichas INSTALLED:** 33 · **PHYSICAL_ERROR:** 3 · **INSTALL_FAILED:** 1 (sbos-bi18n=binario pendiente, auto_install:false) · **UPDATE_AVAILABLE:** 6 · **PENDING/NO_INSTALADA:** 23 (mayormente auto_install:false o deps bloqueadas)
+**Estado VPS 2026-10-16:** INSTALLED: 35 · UPDATE_AVAILABLE: 3 (certbot, nginx, sbos-database-init — task_catalog.sh actualizado, funcional) · PENDING: 28 (mayormente auto_install:false) · SIN FICHA: brocket/Rocket.Chat
 
 **Correcciones ciclo 5 (c77c12e):** `sbos-database-init` ficha creada · `runtime: docker → kubernetes` corregido en 23 fichas (S10/S12/S08/S09/S14/S15/S01/S04) · loki/tempo/zabbix confirmados como implementaciones Helm reales · sbos-vdi-config auditada
 
