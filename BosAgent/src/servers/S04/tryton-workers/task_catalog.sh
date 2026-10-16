@@ -15,7 +15,7 @@ readonly __STEP_SKIP__="${__SBOS__STEP_SKIP__:-__SBOS__STEP_SKIP__}"
 FICHA_LOG="${FICHA_LOG:-/var/log/bos/fichas/tryton-workers.log}"
 KUBECONFIG_DEST="${KUBECONFIG_DEST:-/etc/bos/.kube/config}"
 NS="sbos-erp"
-TRYTON_VERSION="${TRYTON_VERSION:-7.4}"
+TRYTON_VERSION="${TRYTON_VERSION:-8.0}"
 
 _log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [tryton-workers] $*" | tee -a "$FICHA_LOG"; }
 _k()   { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@"; }
@@ -90,16 +90,22 @@ spec:
       labels:
         app: tryton-workers
     spec:
-      serviceAccountName: tryton
+      serviceAccountName: tryton-sa
       containers:
         - name: worker
           image: tryton/tryton:${TRYTON_VERSION}
-          command: ["python3", "-m", "trytond.worker"]
+          command: ["/bin/bash", "-c"]
+          args: ["while true; do trytond-worker -c /etc/trytond.conf -d tryton_db --timeout 60; sleep 5; done"]
+          volumeMounts:
+            - name: config
+              mountPath: /etc/trytond.conf
+              subPath: trytond.conf
+              readOnly: true
           envFrom:
             - configMapRef:
                 name: tryton-config
             - secretRef:
-                name: tryton-credentials
+                name: tryton-pg-secret
           resources:
             requests:
               cpu: "100m"
@@ -107,6 +113,10 @@ spec:
             limits:
               cpu: "500m"
               memory: "512Mi"
+      volumes:
+        - name: config
+          configMap:
+            name: tryton-config
 EOF
 
     if ! _wait_deploy_ready tryton-workers "$NS" 120; then

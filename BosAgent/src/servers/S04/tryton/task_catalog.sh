@@ -2,7 +2,7 @@
 # ============================================================================
 # task_catalog.sh — Ficha tryton (S04 — erpserver)
 #
-# Instala Tryton ERP 7.4 en K8s con:
+# Instala Tryton ERP 8.0 en K8s con:
 #   - PostgreSQL user + DB (tryton_db)
 #   - Credenciales almacenadas en Vault (P6 — sin hardcode)
 #   - K8s Secret generado desde Vault
@@ -240,6 +240,30 @@ spec:
       protocol: TCP
 YAML
     echo "${__STEP_OK__} networkpolicy_keycloak"
+
+    # Permitir acceso desde sbos-erp a postgresql en sbos-data
+    echo "${__STEP_START__} networkpolicy_erp_postgresql"
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'NPEOF'
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-erp-postgresql
+  namespace: sbos-data
+spec:
+  podSelector:
+    matchLabels:
+      app: postgresql
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: sbos-erp
+      ports:
+        - protocol: TCP
+          port: 5432
+NPEOF
+    echo "${__STEP_OK__} networkpolicy_erp_postgresql"
     return 0
 }
 
@@ -364,7 +388,86 @@ ficha_install() {
     fi
     echo "${__STEP_OK__} esperar_ready"
 
-    # 8.5. Configurar autenticación OIDC (oauth2-proxy-tryton + Keycloak/bAuth)
+    # 8.5. NetworkPolicy egress tryton → sbos-data (P7 Zero Trust)
+    echo "${__STEP_START__} networkpolicy_tryton_egress_data"
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'NPEOF2'
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-tryton-egress-data
+  namespace: sbos-erp
+spec:
+  podSelector:
+    matchLabels:
+      app: tryton
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: sbos-data
+      ports:
+        - protocol: TCP
+          port: 5432
+        - protocol: TCP
+          port: 6379
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+NPEOF2
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'NPEOF3'
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-tryton-workers-egress-data
+  namespace: sbos-erp
+spec:
+  podSelector:
+    matchLabels:
+      app: tryton-workers
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: sbos-data
+      ports:
+        - protocol: TCP
+          port: 5432
+        - protocol: TCP
+          port: 6379
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+NPEOF3
+    echo "${__STEP_OK__} networkpolicy_tryton_egress_data"
+
+    # 8.6. Inicializar BD tryton_db si está vacía (instala módulo base de Tryton)
+    echo "${__STEP_START__} inicializar_bd_tryton"
+    local tablas_count
+    tablas_count=$(_pg -d tryton_db -t -c "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'" 2>/dev/null | tr -d ' ' || echo "0")
+    if (( tablas_count < 5 )); then
+        _log "BD tryton_db vacía ($tablas_count tablas) — inicializando con trytond-admin"
+        local pg_pass
+        pg_pass=$(_k get secret tryton-pg-secret -n "$NAMESPACE" \
+            -o jsonpath='{.data.TRYTOND_DATABASE__URI}' 2>/dev/null | base64 -d | sed 's|.*://[^:]*:\([^@]*\)@.*|\1|' || echo "")
+        _k exec -n "$NAMESPACE" tryton-0 -- bash -c "
+            echo '' | TRYTOND_DATABASE__URI=postgresql://tryton:${pg_pass}@postgresql.sbos-data.svc.cluster.local:5432/tryton_db \
+            trytond-admin -c /etc/trytond.conf -d tryton_db --all 2>&1
+        " >> "$FICHA_LOG" 2>&1 || {
+            _log "ADVERTENCIA: inicialización BD falló — puede necesitar ejecución manual"
+        }
+        _log "BD tryton_db inicializada"
+    else
+        _log "BD tryton_db ya tiene $tablas_count tablas — skip inicialización"
+    fi
+    echo "${__STEP_OK__} inicializar_bd_tryton"
+
+    # 8.7. Configurar autenticación OIDC (oauth2-proxy-tryton + Keycloak/bAuth)
     echo "${__STEP_START__} configurar_autenticacion_oidc"
     configurar_autenticacion_oidc || {
         echo "${__STEP_FAIL__} configurar_autenticacion_oidc"

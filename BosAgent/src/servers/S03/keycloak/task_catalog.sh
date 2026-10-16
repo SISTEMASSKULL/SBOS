@@ -226,7 +226,7 @@ spec:
           # PASADA 2 las activa: readiness /health/ready :9000, liveness /health/live :9000
           resources:
             requests:
-              cpu: \"300m\"
+              cpu: \"100m\"
               memory: \"512Mi\"
             limits:
               cpu: \"2\"

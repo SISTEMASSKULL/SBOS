@@ -42,6 +42,30 @@ ficha_pre_install() {
         return 1
     }
     echo "${__STEP_OK__} verificar_namespace"
+
+    # Permitir acceso desde sbos-erp a postgresql en sbos-data (default-deny-all en sbos-data)
+    echo "${__STEP_START__} networkpolicy_erp_postgresql"
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'NPEOF'
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-erp-postgresql
+  namespace: sbos-data
+spec:
+  podSelector:
+    matchLabels:
+      app: postgresql
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: sbos-erp
+      ports:
+        - protocol: TCP
+          port: 5432
+NPEOF
+    echo "${__STEP_OK__} networkpolicy_erp_postgresql"
 }
 
 ficha_install() {
@@ -127,7 +151,7 @@ spec:
           command: ['sh', '-c', 'until nc -z postgresql.sbos-data.svc.cluster.local 5432; do sleep 3; done']
       containers:
         - name: orangehrm
-          image: bitnami/orangehrm:${OHR_VERSION}
+          image: docker.io/orangehrm/orangehrm:${OHR_VERSION}
           env:
             - name: ORANGEHRM_DATABASE_HOST
               value: "postgresql.sbos-data.svc.cluster.local"
@@ -153,7 +177,7 @@ spec:
             - containerPort: 80
           volumeMounts:
             - name: data
-              mountPath: /bitnami/orangehrm
+              mountPath: /var/www/html/lib/conftestdb
           resources:
             requests:
               cpu: "50m"
@@ -225,6 +249,39 @@ spec:
               kubernetes.io/metadata.name: sbos-gateway
       ports:
         - port: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-orangehrm-egress-data
+  namespace: ${NS}
+spec:
+  podSelector:
+    matchLabels:
+      app: orangehrm
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: sbos-data
+      ports:
+        - protocol: TCP
+          port: 5432
+        - protocol: TCP
+          port: 6379
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: sbos-comms
+      ports:
+        - protocol: TCP
+          port: 587
 EOF
     echo "${__STEP_OK__} aplicar_manifests_orangehrm"
 

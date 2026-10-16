@@ -64,7 +64,7 @@ spec:
 
       containers:
         - name: tryton
-          image: docker.io/tryton/tryton:7.4
+          image: docker.io/tryton/tryton:8.0
           ports:
             - containerPort: 8000
               name: http
