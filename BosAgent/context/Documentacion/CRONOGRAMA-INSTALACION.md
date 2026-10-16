@@ -1,6 +1,6 @@
 # Plan de Instalación SBOS — Inventario y Plan de Acción
 
-**Versión:** 2.36.0  
+**Versión:** 2.37.0  
 **Fecha:** 2026-10-16  
 **Autor:** bos-developer  
 
@@ -160,9 +160,9 @@ Todas las fichas SBOS en orden de ejecución.
 
 | Ficha | Orden | ESTADO | ACCION | Notas |
 |-------|-------|--------|--------|-------|
-| tryton | 170 | Programado | TRUE | INSTALLING — FICHA_DIR S01→S04 corregido en ciclo 55 |
-| tryton-workers | 175 | Programado | TRUE | PHYSICAL_ERROR — depende de tryton; se resuelve al instalar tryton |
-| orangehrm | 180 | Programado | TRUE | READY — pods no encontrados, pendiente verificar |
+| tryton | 170 | Instalado | FALSE | tryton-0 Running v8.0; BD tryton_db inicializada; NP egress configurada |
+| tryton-workers | 175 | Instalado | FALSE | 2/2 workers Running con loop bash; BD tryton_db; SA tryton-sa |
+| orangehrm | 180 | Instalado | FALSE | 1/1 Running docker.io/orangehrm/orangehrm:5.7; NP egress data+comms |
 | gnu-health | 190 | Descartado | FALSE | solo para clientes del sector salud |
 
 ---
