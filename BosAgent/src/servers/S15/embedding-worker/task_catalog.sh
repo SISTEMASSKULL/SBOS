@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================================
 # task_catalog.sh — embedding-worker
-# Imagen: sbos/embedding-worker:1.0.0
+# Imagen: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5.0
 # Namespace: sbos-ai
 # ============================================================================
 
@@ -18,6 +18,31 @@ NS="sbos-ai"
 
 _log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [embedding-worker] $*" | tee -a "$FICHA_LOG"; }
 _k()   { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@"; }
+
+# Motor de puertos BOS — asigna puerto ClusterIP según SBOS-050
+_portman() {
+    local ficha_id="$1" ficha_index="$2" server="$3" ns="${4:-default}"
+    local TOKEN; TOKEN="$(cat /etc/bos/rpc-token 2>/dev/null)"
+    BOS_RPC_TOKEN="$TOKEN" bosctl rpc bos.portman.assign \
+      "{\"ficha_id\":\"$ficha_id\",\"ficha_index\":$ficha_index,\"logical_server\":\"$server\",\"port_types\":[\"K8S_CLUSTER_IP\"],\"namespace\":\"$ns\",\"ctx_id\":\"install-$ficha_id\"}" \
+      2>/dev/null | python3 -I -c \
+      "import json,sys; d=json.load(sys.stdin); a=d.get('assignments',[]); print(a[0]['port'] if a else '')" \
+    2>/dev/null
+}
+
+# Consulta el puerto ya asignado a una ficha en el kardex portman
+_portman_get() {
+    local ficha_id="$1" port_type="${2:-K8S_CLUSTER_IP}"
+    local TOKEN; TOKEN="$(cat /etc/bos/rpc-token 2>/dev/null)"
+    BOS_RPC_TOKEN="$TOKEN" bosctl rpc bos.portman.list '{}' 2>/dev/null | python3 -I -c "
+import json,sys
+d=json.load(sys.stdin)
+for a in d.get('items',[]):
+    if a.get('ficha_id')=='$ficha_id' and a.get('port_type')=='$port_type':
+        print(a.get('port',''))
+        break
+" 2>/dev/null
+}
 
 _wait_ready() {
     local t="${1:-180}" e=0
@@ -52,8 +77,16 @@ ficha_install() {
         return 0
     fi
 
+    echo "${__STEP_START__} portman_obtener_dependencias"
+    local OLLAMA_SVC_PORT; OLLAMA_SVC_PORT=$(_portman_get "ollama")
+    OLLAMA_SVC_PORT="${OLLAMA_SVC_PORT:-21530}"
+    local QDRANT_SVC_PORT; QDRANT_SVC_PORT=$(_portman_get "qdrant")
+    QDRANT_SVC_PORT="${QDRANT_SVC_PORT:-21550}"
+    _log "Puertos portman: ollama=${OLLAMA_SVC_PORT} qdrant=${QDRANT_SVC_PORT}"
+    echo "${__STEP_OK__} portman_obtener_dependencias"
+
     echo "${__STEP_START__} aplicar_manifest_embedding-worker"
-    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'K8SEOF'
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<K8SEOF
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -74,25 +107,32 @@ spec:
     spec:
       containers:
         - name: embedding-worker
-          image: sbos/embedding-worker:1.0.0
+          image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5.0
+          args: ["--model-id", "BAAI/bge-small-en-v1.5", "--port", "8090"]
           ports:
             - containerPort: 8090
           env:
             - name: OLLAMA_URL
-              value: http://ollama.sbos-ai.svc.cluster.local:11434
+              value: http://ollama.sbos-ai.svc.cluster.local:${OLLAMA_SVC_PORT}
             - name: QDRANT_URL
-              value: http://qdrant.sbos-ai.svc.cluster.local:6333
+              value: http://qdrant.sbos-ai.svc.cluster.local:${QDRANT_SVC_PORT}
             - name: REDIS_URL
               value: redis://:sbos_redis_bootstrap@redis.sbos-data.svc.cluster.local:6379/5
           resources:
             requests:
-              cpu: "100m"
-              memory: "256Mi"
+              cpu: "200m"
+              memory: "512Mi"
             limits:
-              cpu: "1000m"
-              memory: "1Gi"
+              cpu: "2000m"
+              memory: "2Gi"
 K8SEOF
-    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'SVCINNER'
+    echo "${__STEP_START__} portman_embedding-worker"
+    local SVC_PORT; SVC_PORT=$(_portman "embedding-worker" 0 "S15" "sbos-ai")
+    SVC_PORT="${SVC_PORT:-21500}"
+    _log "Puerto ClusterIP portman: ${SVC_PORT}"
+    echo "${__STEP_OK__} portman_embedding-worker"
+
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<SVCINNER
 apiVersion: v1
 kind: Service
 metadata:
@@ -102,7 +142,7 @@ spec:
   selector:
     app: embedding-worker
   ports:
-    - port: 8090
+    - port: ${SVC_PORT}
       targetPort: 8090
 SVCINNER
     echo "${__STEP_OK__} aplicar_manifest_embedding-worker"

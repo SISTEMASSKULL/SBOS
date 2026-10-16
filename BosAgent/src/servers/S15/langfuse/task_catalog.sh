@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================================
 # task_catalog.sh — langfuse
-# Imagen: langfuse/langfuse:3.32.0
+# Imagen: langfuse/langfuse:2.90.3 (v2 — PostgreSQL sin ClickHouse)
 # Namespace: sbos-ai
 # ============================================================================
 
@@ -18,6 +18,17 @@ NS="sbos-ai"
 
 _log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [langfuse] $*" | tee -a "$FICHA_LOG"; }
 _k()   { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@"; }
+
+# Motor de puertos BOS — asigna puerto ClusterIP según SBOS-050
+_portman() {
+    local ficha_id="$1" ficha_index="$2" server="$3" ns="${4:-default}"
+    local TOKEN; TOKEN="$(cat /etc/bos/rpc-token 2>/dev/null)"
+    BOS_RPC_TOKEN="$TOKEN" bosctl rpc bos.portman.assign \
+      "{\"ficha_id\":\"$ficha_id\",\"ficha_index\":$ficha_index,\"logical_server\":\"$server\",\"port_types\":[\"K8S_CLUSTER_IP\"],\"namespace\":\"$ns\",\"ctx_id\":\"install-$ficha_id\"}" \
+      2>/dev/null | python3 -I -c \
+      "import json,sys; d=json.load(sys.stdin); a=d.get('assignments',[]); print(a[0]['port'] if a else '')" \
+    2>/dev/null
+}
 
 _wait_ready() {
     local t="${1:-180}" e=0
@@ -74,7 +85,7 @@ spec:
     spec:
       containers:
         - name: langfuse
-          image: langfuse/langfuse:3.32.0
+          image: langfuse/langfuse:2.90.3
           ports:
             - containerPort: 3000
           env:
@@ -98,7 +109,13 @@ spec:
               cpu: "1000m"
               memory: "1Gi"
 K8SEOF
-    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'SVCINNER'
+    echo "${__STEP_START__} portman_langfuse"
+    local SVC_PORT; SVC_PORT=$(_portman "langfuse" 2 "S15" "sbos-ai")
+    SVC_PORT="${SVC_PORT:-21520}"
+    _log "Puerto ClusterIP portman: ${SVC_PORT}"
+    echo "${__STEP_OK__} portman_langfuse"
+
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<SVCINNER
 apiVersion: v1
 kind: Service
 metadata:
@@ -108,7 +125,7 @@ spec:
   selector:
     app: langfuse
   ports:
-    - port: 3000
+    - port: ${SVC_PORT}
       targetPort: 3000
 SVCINNER
     echo "${__STEP_OK__} aplicar_manifest_langfuse"

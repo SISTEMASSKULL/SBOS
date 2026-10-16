@@ -19,6 +19,17 @@ NS="sbos-ai"
 _log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [ollama] $*" | tee -a "$FICHA_LOG"; }
 _k()   { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@"; }
 
+# Motor de puertos BOS — asigna puerto ClusterIP según SBOS-050 (fórmula Algoritmo A)
+_portman() {
+    local ficha_id="$1" ficha_index="$2" server="$3" ns="${4:-default}"
+    local TOKEN; TOKEN="$(cat /etc/bos/rpc-token 2>/dev/null)"
+    BOS_RPC_TOKEN="$TOKEN" bosctl rpc bos.portman.assign \
+      "{\"ficha_id\":\"$ficha_id\",\"ficha_index\":$ficha_index,\"logical_server\":\"$server\",\"port_types\":[\"K8S_CLUSTER_IP\"],\"namespace\":\"$ns\",\"ctx_id\":\"install-$ficha_id\"}" \
+      2>/dev/null | python3 -I -c \
+      "import json,sys; d=json.load(sys.stdin); a=d.get('assignments',[]); print(a[0]['port'] if a else '')" \
+    2>/dev/null
+}
+
 _wait_ready() {
     local t="${1:-180}" e=0
     while (( e < t )); do
@@ -51,6 +62,31 @@ ficha_install() {
         echo "${__STEP_SKIP__} ollama_install: ya Ready — skip"
         return 0
     fi
+
+    echo "${__STEP_START__} crear_pv_ollama"
+    mkdir -p /data/ollama
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'PVEOF'
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: sbos-ollama-pv
+  labels:
+    sbos.app/managed-by: bos
+spec:
+  capacity:
+    storage: 30Gi
+  accessModes: [ReadWriteOnce]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-path
+  hostPath:
+    path: /data/ollama
+  claimRef:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    namespace: sbos-ai
+    name: ollama-models
+PVEOF
+    echo "${__STEP_OK__} crear_pv_ollama"
 
     echo "${__STEP_START__} crear_pvc_ollama"
     _k apply -f - >> "$FICHA_LOG" 2>&1 <<'PVCEOF'
@@ -111,7 +147,13 @@ spec:
           persistentVolumeClaim:
             claimName: ollama-models
 K8SEOF
-    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'SVCINNER'
+    echo "${__STEP_START__} portman_ollama"
+    local SVC_PORT; SVC_PORT=$(_portman "ollama" 3 "S15" "sbos-ai")
+    SVC_PORT="${SVC_PORT:-21530}"
+    _log "Puerto ClusterIP portman: ${SVC_PORT}"
+    echo "${__STEP_OK__} portman_ollama"
+
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<SVCINNER
 apiVersion: v1
 kind: Service
 metadata:
@@ -121,7 +163,7 @@ spec:
   selector:
     app: ollama
   ports:
-    - port: 11434
+    - port: ${SVC_PORT}
       targetPort: 11434
 SVCINNER
     echo "${__STEP_OK__} aplicar_manifest_ollama"

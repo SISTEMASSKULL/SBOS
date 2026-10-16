@@ -19,6 +19,17 @@ PG_POD="postgresql-0"
 _log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [onlyoffice] $*" | tee -a "$FICHA_LOG"; }
 _k()   { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@"; }
 
+# Motor de puertos BOS — asigna puerto ClusterIP según SBOS-050
+_portman() {
+    local ficha_id="$1" ficha_index="$2" server="$3" ns="${4:-default}"
+    local TOKEN; TOKEN="$(cat /etc/bos/rpc-token 2>/dev/null)"
+    BOS_RPC_TOKEN="$TOKEN" bosctl rpc bos.portman.assign \
+      "{\"ficha_id\":\"$ficha_id\",\"ficha_index\":$ficha_index,\"logical_server\":\"$server\",\"port_types\":[\"K8S_CLUSTER_IP\"],\"namespace\":\"$ns\",\"ctx_id\":\"install-$ficha_id\"}" \
+      2>/dev/null | python3 -I -c \
+      "import json,sys; d=json.load(sys.stdin); a=d.get('assignments',[]); print(a[0]['port'] if a else '')" \
+    2>/dev/null
+}
+
 _pg_pass() {
     _k get secret -n "$PG_NS" postgresql-credentials \
         -o jsonpath="{.data.POSTGRES_PASSWORD}" 2>/dev/null | base64 -d
@@ -179,7 +190,7 @@ spec:
   selector:
     app: onlyoffice
   ports:
-  - port: 80
+  - port: ${SVC_PORT:-21340}
     targetPort: 80
 YAML
 }
@@ -197,6 +208,12 @@ ficha_install() {
     fi
 
     ficha_pre_install
+    echo "${__STEP_START__} portman_onlyoffice"
+    SVC_PORT=$(_portman "onlyoffice" 4 "S13" "sbos-vdi")
+    SVC_PORT="${SVC_PORT:-21340}"
+    _log "Puerto ClusterIP portman: ${SVC_PORT}"
+    echo "${__STEP_OK__} portman_onlyoffice"
+
     echo "${__STEP_START__} deploy_onlyoffice"
     _apply_onlyoffice
     echo "${__STEP_OK__} deploy_onlyoffice"

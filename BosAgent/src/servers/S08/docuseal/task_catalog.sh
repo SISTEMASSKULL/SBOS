@@ -38,6 +38,36 @@ ficha_pre_install() {
         _log "Namespace $NS creado"
     }
     echo "${__STEP_OK__} verificar_namespace"
+
+    echo "${__STEP_START__} networkpolicy_docuseal_egress"
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'NPEOF'
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-docuseal-egress-data
+  namespace: sbos-docs
+spec:
+  podSelector:
+    matchLabels:
+      app: docuseal
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: sbos-data
+      ports:
+        - protocol: TCP
+          port: 5432
+        - protocol: TCP
+          port: 6379
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+NPEOF
+    echo "${__STEP_OK__} networkpolicy_docuseal_egress"
     return 0
 }
 

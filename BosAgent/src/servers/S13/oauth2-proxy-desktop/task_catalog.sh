@@ -29,6 +29,17 @@ readonly KC_INTERNAL_URL="http://keycloak.${NS_KC}.svc.cluster.local:8080"
 
 _log()   { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [oauth2-proxy-desktop] $*" | tee -a "$FICHA_LOG"; }
 _k()     { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@"; }
+
+# Motor de puertos BOS — asigna puerto ClusterIP según SBOS-050
+_portman() {
+    local ficha_id="$1" ficha_index="$2" server="$3" ns="${4:-default}"
+    local TOKEN; TOKEN="$(cat /etc/bos/rpc-token 2>/dev/null)"
+    BOS_RPC_TOKEN="$TOKEN" bosctl rpc bos.portman.assign \
+      "{\"ficha_id\":\"$ficha_id\",\"ficha_index\":$ficha_index,\"logical_server\":\"$server\",\"port_types\":[\"K8S_CLUSTER_IP\"],\"namespace\":\"$ns\",\"ctx_id\":\"install-$ficha_id\"}" \
+      2>/dev/null | python3 -I -c \
+      "import json,sys; d=json.load(sys.stdin); a=d.get('assignments',[]); print(a[0]['port'] if a else '')" \
+    2>/dev/null
+}
 _kexec() { _k exec -n "$NS_KC" deploy/keycloak -- "$@"; }
 
 # _kc_admin: ejecuta kcadm.sh dentro del pod keycloak.
@@ -347,6 +358,12 @@ spec:
     echo "${__STEP_OK__} deployment_oauth2_proxy"
 
     # ── 4. Service oauth2-proxy-desktop ──────────────────────────────────────
+    echo "${__STEP_START__} portman_oauth2-proxy-desktop"
+    local SVC_PORT; SVC_PORT=$(_portman "oauth2-proxy-desktop" 3 "S13" "sbos-vdi")
+    SVC_PORT="${SVC_PORT:-21330}"
+    _log "Puerto ClusterIP portman: ${SVC_PORT}"
+    echo "${__STEP_OK__} portman_oauth2-proxy-desktop"
+
     echo "${__STEP_START__} service_oauth2_proxy"
     _apply "service_oauth2" "
 apiVersion: v1
@@ -360,7 +377,7 @@ spec:
   selector:
     app: oauth2-proxy-desktop
   ports:
-  - port: 4180
+  - port: ${SVC_PORT}
     targetPort: 4180
     protocol: TCP
     name: http

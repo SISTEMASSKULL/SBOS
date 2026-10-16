@@ -19,6 +19,31 @@ NS="sbos-ai"
 _log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [open-webui] $*" | tee -a "$FICHA_LOG"; }
 _k()   { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@"; }
 
+# Motor de puertos BOS — asigna puerto ClusterIP según SBOS-050
+_portman() {
+    local ficha_id="$1" ficha_index="$2" server="$3" ns="${4:-default}"
+    local TOKEN; TOKEN="$(cat /etc/bos/rpc-token 2>/dev/null)"
+    BOS_RPC_TOKEN="$TOKEN" bosctl rpc bos.portman.assign \
+      "{\"ficha_id\":\"$ficha_id\",\"ficha_index\":$ficha_index,\"logical_server\":\"$server\",\"port_types\":[\"K8S_CLUSTER_IP\"],\"namespace\":\"$ns\",\"ctx_id\":\"install-$ficha_id\"}" \
+      2>/dev/null | python3 -I -c \
+      "import json,sys; d=json.load(sys.stdin); a=d.get('assignments',[]); print(a[0]['port'] if a else '')" \
+    2>/dev/null
+}
+
+# Consulta el puerto ya asignado a una ficha en el kardex portman
+_portman_get() {
+    local ficha_id="$1" port_type="${2:-K8S_CLUSTER_IP}"
+    local TOKEN; TOKEN="$(cat /etc/bos/rpc-token 2>/dev/null)"
+    BOS_RPC_TOKEN="$TOKEN" bosctl rpc bos.portman.list '{}' 2>/dev/null | python3 -I -c "
+import json,sys
+d=json.load(sys.stdin)
+for a in d.get('items',[]):
+    if a.get('ficha_id')=='$ficha_id' and a.get('port_type')=='$port_type':
+        print(a.get('port',''))
+        break
+" 2>/dev/null
+}
+
 _wait_ready() {
     local t="${1:-180}" e=0
     while (( e < t )); do
@@ -52,6 +77,31 @@ ficha_install() {
         return 0
     fi
 
+    echo "${__STEP_START__} crear_pv_open_webui"
+    mkdir -p /data/open-webui
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'PVEOF'
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: sbos-open-webui-pv
+  labels:
+    sbos.app/managed-by: bos
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes: [ReadWriteOnce]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-path
+  hostPath:
+    path: /data/open-webui
+  claimRef:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    namespace: sbos-ai
+    name: open-webui-data
+PVEOF
+    echo "${__STEP_OK__} crear_pv_open_webui"
+
     echo "${__STEP_START__} crear_pvc_open_webui"
     _k apply -f - >> "$FICHA_LOG" 2>&1 <<'PVCEOF'
 apiVersion: v1
@@ -71,8 +121,14 @@ spec:
 PVCEOF
     echo "${__STEP_OK__} crear_pvc_open_webui"
 
+    echo "${__STEP_START__} portman_obtener_ollama"
+    local OLLAMA_PORT; OLLAMA_PORT=$(_portman_get "ollama")
+    OLLAMA_PORT="${OLLAMA_PORT:-21530}"
+    _log "Puerto portman ollama: ${OLLAMA_PORT}"
+    echo "${__STEP_OK__} portman_obtener_ollama"
+
     echo "${__STEP_START__} aplicar_manifest_open-webui"
-    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'K8SEOF'
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<K8SEOF
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -98,7 +154,7 @@ spec:
             - containerPort: 8080
           env:
             - name: OLLAMA_BASE_URL
-              value: http://ollama.sbos-ai.svc.cluster.local:11434
+              value: http://ollama.sbos-ai.svc.cluster.local:${OLLAMA_PORT}
             - name: WEBUI_SECRET_KEY
               value: sbos_openwebui_secret_change_in_prod
             - name: DATABASE_URL
@@ -122,7 +178,13 @@ spec:
           persistentVolumeClaim:
             claimName: open-webui-data
 K8SEOF
-    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'SVCINNER'
+    echo "${__STEP_START__} portman_open-webui"
+    local SVC_PORT; SVC_PORT=$(_portman "open-webui" 4 "S15" "sbos-ai")
+    SVC_PORT="${SVC_PORT:-21540}"
+    _log "Puerto ClusterIP portman: ${SVC_PORT}"
+    echo "${__STEP_OK__} portman_open-webui"
+
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<SVCINNER
 apiVersion: v1
 kind: Service
 metadata:
@@ -132,7 +194,7 @@ spec:
   selector:
     app: open-webui
   ports:
-    - port: 8080
+    - port: ${SVC_PORT}
       targetPort: 8080
 SVCINNER
     echo "${__STEP_OK__} aplicar_manifest_open-webui"

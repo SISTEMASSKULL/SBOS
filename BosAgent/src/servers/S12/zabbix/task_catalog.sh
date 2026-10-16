@@ -18,6 +18,17 @@ NS="sbos-monitor"
 _log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [zabbix] $*" | tee -a "$FICHA_LOG"; }
 _k()   { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@"; }
 
+# Motor de puertos BOS — asigna puerto ClusterIP según SBOS-050
+_portman() {
+    local ficha_id="$1" ficha_index="$2" server="$3" ns="${4:-default}"
+    local TOKEN; TOKEN="$(cat /etc/bos/rpc-token 2>/dev/null)"
+    BOS_RPC_TOKEN="$TOKEN" bosctl rpc bos.portman.assign \
+      "{\"ficha_id\":\"$ficha_id\",\"ficha_index\":$ficha_index,\"logical_server\":\"$server\",\"port_types\":[\"K8S_CLUSTER_IP\"],\"namespace\":\"$ns\",\"ctx_id\":\"install-$ficha_id\"}" \
+      2>/dev/null | python3 -I -c \
+      "import json,sys; d=json.load(sys.stdin); a=d.get('assignments',[]); print(a[0]['port'] if a else '')" \
+    2>/dev/null
+}
+
 _wait_deploy_ready() {
     local d="$1" n="$2" t="${3:-180}" e=0
     while (( e < t )); do
@@ -84,6 +95,12 @@ ficha_install() {
     fi
     echo "${__STEP_OK__} crear_bd_zabbix"
 
+    echo "${__STEP_START__} portman_zabbix"
+    local SVC_PORT; SVC_PORT=$(_portman "zabbix" 7 "S12" "sbos-monitor")
+    SVC_PORT="${SVC_PORT:-21270}"
+    _log "Puerto ClusterIP portman: ${SVC_PORT}"
+    echo "${__STEP_OK__} portman_zabbix"
+
     echo "${__STEP_START__} instalar_zabbix_helm"
     if ! helm repo list 2>/dev/null | grep -q "^zabbix-community"; then
         helm repo add zabbix-community https://zabbix-community.github.io/helm-zabbix >> "$FICHA_LOG" 2>&1
@@ -109,6 +126,7 @@ ficha_install() {
         --set zabbixServer.resources.requests.memory=256Mi \
         --set zabbixWeb.resources.requests.cpu=50m \
         --set zabbixWeb.resources.requests.memory=128Mi \
+        --set zabbixWeb.service.port="${SVC_PORT}" \
         --timeout 10m \
         >> "$FICHA_LOG" 2>&1
     echo "${__STEP_OK__} instalar_zabbix_helm"

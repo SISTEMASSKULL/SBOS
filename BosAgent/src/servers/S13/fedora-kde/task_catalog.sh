@@ -25,6 +25,17 @@ SBOS_OCI_ARCHIVE="/opt/sbos-images/sbos-fedora-desktop.tar"
 _log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [fedora-kde] $*" | tee -a "$FICHA_LOG"; }
 _k()   { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@"; }
 
+# Motor de puertos BOS — asigna puerto ClusterIP según SBOS-050
+_portman() {
+    local ficha_id="$1" ficha_index="$2" server="$3" ns="${4:-default}"
+    local TOKEN; TOKEN="$(cat /etc/bos/rpc-token 2>/dev/null)"
+    BOS_RPC_TOKEN="$TOKEN" bosctl rpc bos.portman.assign \
+      "{\"ficha_id\":\"$ficha_id\",\"ficha_index\":$ficha_index,\"logical_server\":\"$server\",\"port_types\":[\"K8S_CLUSTER_IP\"],\"namespace\":\"$ns\",\"ctx_id\":\"install-$ficha_id\"}" \
+      2>/dev/null | python3 -I -c \
+      "import json,sys; d=json.load(sys.stdin); a=d.get('assignments',[]); print(a[0]['port'] if a else '')" \
+    2>/dev/null
+}
+
 _wait_pod() {
     local label="$1" timeout="${2:-300}" elapsed=0
     while (( elapsed < timeout )); do
@@ -199,7 +210,7 @@ spec:
     app: fedora-kde
   ports:
   - name: webconsole
-    port: 80
+    port: ${SVC_PORT:-21300}
     targetPort: 6901
   # Puerto VNC nativo expuesto internamente para guacd (Guacamole).
   # Sin este port, guacd no puede conectar al escritorio vía VNC.
@@ -212,6 +223,12 @@ YAML
 # ── Install ───────────────────────────────────────────────────────
 ficha_install() {
     ficha_pre_install
+    echo "${__STEP_START__} portman_fedora-kde"
+    SVC_PORT=$(_portman "fedora-kde" 0 "S13" "sbos-vdi")
+    SVC_PORT="${SVC_PORT:-21300}"
+    _log "Puerto ClusterIP portman: ${SVC_PORT}"
+    echo "${__STEP_OK__} portman_fedora-kde"
+
     echo "${__STEP_START__} deploy_fedora_kde"
     _apply_fedora_kde
     echo "${__STEP_OK__} deploy_fedora_kde"

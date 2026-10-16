@@ -168,6 +168,8 @@ spec:
     metadata:
       labels:
         app: grafana
+      annotations:
+        linkerd.io/inject: disabled
     spec:
       securityContext:
         runAsUser: 472
@@ -209,8 +211,8 @@ spec:
             periodSeconds: 15
           resources:
             requests:
-              cpu: \"200m\"
-              memory: \"256Mi\"
+              cpu: \"30m\"
+              memory: \"128Mi\"
             limits:
               cpu: \"500m\"
               memory: \"512Mi\"
