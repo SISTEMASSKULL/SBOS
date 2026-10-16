@@ -76,6 +76,16 @@ ficha_install() {
         find /usr/lib/postgresql /usr/local/lib/postgresql -name "pg_cron.so" 2>/dev/null | head -1 || echo "")
     if [[ -z "$pg_cron_so" ]]; then
         _log "pg_cron.so no encontrado en imagen — skipping shared_preload_libraries (imagen Alpine sin pg_cron)"
+        # Limpiar pg_cron del auto.conf si quedó de ejecuciones previas.
+        # Sin pg_cron.so, PostgreSQL crashea al arrancar con esa librería cargada.
+        local pg_autoconf="/data/postgres/pgdata/postgresql.auto.conf"
+        if [[ -f "$pg_autoconf" ]] && grep -qE 'pg_cron|cron\.database_name' "$pg_autoconf" 2>/dev/null; then
+            sed -i '/pg_cron/d; /cron\.database_name/d' "$pg_autoconf"
+            _log "pg_cron eliminado de $pg_autoconf — reiniciando pod"
+            kubectl --kubeconfig="${KUBECONFIG_DEST:-/etc/bos/.kube/config}" \
+                delete pod "$PG_POD" -n "$NS" --grace-period=5 2>/dev/null || true
+            sleep 8
+        fi
         echo "${__STEP_SKIP__} configurar_shared_preload_libraries: pg_cron no disponible en imagen"
     else
         local current_libs

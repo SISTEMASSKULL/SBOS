@@ -33,10 +33,10 @@ export KUBECONFIG="${KUBECONFIG:-${KUBECONFIG_DEST}}"
 _LINKERD_CERT_TMP=""
 
 # Namespaces SBOS donde se activa auto-inject de linkerd
+# NOTA: sbos-data, sbos-security y sbos-gateway EXCLUIDOS intencionalmente.
+# Esos namespaces contienen infraestructura crítica (postgresql, keycloak, kong, vault)
+# que no tolera el sidecar de linkerd. Cada ficha gestiona su propio inject=disabled.
 readonly AUTO_INJECT_NAMESPACES=(
-    sbos-data
-    sbos-security
-    sbos-gateway
     sbos-system
     sbos-monitoring
 )
@@ -379,6 +379,24 @@ ficha_repair() {
         echo "${__STEP_SKIP__} limpiar_replicasets_huerfanos: ninguno"
     fi
 
+    # Namespaces de infraestructura que NUNCA deben tener inject=enabled.
+    # Estas fichas (postgresql, keycloak, kong, vault) gestionan su propio inject=disabled.
+    local -ra INFRA_NAMESPACES=(sbos-data sbos-security sbos-gateway)
+
+    echo "${__STEP_START__} proteger_infra_namespaces"
+    for ns in "${INFRA_NAMESPACES[@]}"; do
+        if _k get namespace "$ns" > /dev/null 2>&1; then
+            local cur_inject
+            cur_inject=$(_k get namespace "$ns" \
+                -o jsonpath='{.metadata.annotations.linkerd\.io/inject}' 2>/dev/null || echo "")
+            if [[ "$cur_inject" == "enabled" ]]; then
+                _k annotate namespace "$ns" "linkerd.io/inject=disabled" --overwrite 2>/dev/null || true
+                _log "inject=disabled FORZADO en namespace de infraestructura: $ns"
+            fi
+        fi
+    done
+    echo "${__STEP_OK__} proteger_infra_namespaces"
+
     echo "${__STEP_START__} reparar_auto_inject"
     # CRÍTICO: solo activar inject si el control plane está corriendo.
     # Si Linkerd no está listo, mantener inject=disabled para evitar que pods
@@ -386,7 +404,7 @@ ficha_repair() {
     local cp_running
     cp_running=$(_k get pods -n "$NS" --no-headers 2>/dev/null | grep -c "Running" || echo "0")
     if (( cp_running < 3 )); then
-        _log "Control plane no listo (${cp_running}/3 pods Running) — desactivando inject en todos los namespaces"
+        _log "Control plane no listo (${cp_running}/3 pods Running) — desactivando inject en namespaces de app"
         for ns in "${AUTO_INJECT_NAMESPACES[@]}"; do
             _k annotate namespace "$ns" "linkerd.io/inject=disabled" --overwrite 2>/dev/null || true
         done
