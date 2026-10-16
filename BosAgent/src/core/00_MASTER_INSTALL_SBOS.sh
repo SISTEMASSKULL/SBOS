@@ -40,7 +40,6 @@ _load_bos_install_config() {
     while IFS=' = ' read -r key value; do
         [[ "$key" =~ ^[[:space:]]*# ]] && continue
         [[ -z "$key" ]] && continue
-        # Limpiar comillas y espacios del valor
         value="${value//\"/}"
         value="${value//\'/}"
         value="${value## }"
@@ -61,7 +60,7 @@ _load_bos_install_config() {
             timezone)        [[ -z "${SBOS_TIMEZONE:-}" ]]           && export SBOS_TIMEZONE="$value" ;;
             country)         [[ -z "${SBOS_COUNTRY:-}" ]]            && export SBOS_COUNTRY="$value" ;;
             language)        [[ -z "${SBOS_LANGUAGE:-}" ]]           && export SBOS_LANGUAGE="$value" ;;
-            # Correo saliente
+            # Correo saliente externo (pre-mailserver)
             smtp_host)       [[ -z "${SBOS_SMTP_HOST:-}" ]]          && export SBOS_SMTP_HOST="$value" ;;
             smtp_port)       [[ -z "${SBOS_SMTP_PORT:-}" ]]          && export SBOS_SMTP_PORT="$value" ;;
             smtp_user)       [[ -z "${SBOS_SMTP_USER:-}" ]]          && export SBOS_SMTP_USER="$value" ;;
@@ -70,16 +69,172 @@ _load_bos_install_config() {
             pg_password)     [[ -z "${SBOS_PG_PASSWORD:-}" ]]        && export SBOS_PG_PASSWORD="$value" ;;
             pg_namespace)    [[ -z "${SBOS_PG_NS:-}" ]]              && export SBOS_PG_NS="$value" ;;
             redis_namespace) [[ -z "${SBOS_REDIS_NS:-}" ]]           && export SBOS_REDIS_NS="$value" ;;
-            # Canales y modo
             channel)         [[ -z "${SBOS_CHANNEL:-}" ]]            && export SBOS_CHANNEL="$value" ;;
+            # Overrides opcionales: servidor de correo
+            mail_hostname)              [[ -z "${SBOS_MAIL_HOSTNAME:-}" ]]        && export SBOS_MAIL_HOSTNAME="$value" ;;
+            mail_postmaster)            [[ -z "${SBOS_MAIL_POSTMASTER:-}" ]]      && export SBOS_MAIL_POSTMASTER="$value" ;;
+            mail_postmaster_password)   [[ -z "${SBOS_MAIL_POSTMASTER_PASS:-}" ]] && export SBOS_MAIL_POSTMASTER_PASS="$value" ;;
+            mail_initial_accounts)      [[ -z "${SBOS_MAIL_ACCOUNTS:-}" ]]        && export SBOS_MAIL_ACCOUNTS="$value" ;;
+            mail_aliases)               [[ -z "${SBOS_MAIL_ALIASES:-}" ]]         && export SBOS_MAIL_ALIASES="$value" ;;
+            mail_relay_host)            [[ -z "${SBOS_MAIL_RELAY_HOST:-}" ]]      && export SBOS_MAIL_RELAY_HOST="$value" ;;
+            mail_relay_user)            [[ -z "${SBOS_MAIL_RELAY_USER:-}" ]]      && export SBOS_MAIL_RELAY_USER="$value" ;;
+            mail_relay_password)        [[ -z "${SBOS_MAIL_RELAY_PASSWORD:-}" ]]  && export SBOS_MAIL_RELAY_PASSWORD="$value" ;;
+            mail_send_limit_hour)       [[ -z "${SBOS_MAIL_SEND_LIMIT:-}" ]]      && export SBOS_MAIL_SEND_LIMIT="$value" ;;
+            # Overrides opcionales: Keycloak
+            keycloak_admin_password)         [[ -z "${SBOS_KC_ADMIN_PASSWORD:-}" ]]  && export SBOS_KC_ADMIN_PASSWORD="$value" ;;
+            keycloak_realm_display_name)     [[ -z "${SBOS_KC_REALM_DISPLAY:-}" ]]   && export SBOS_KC_REALM_DISPLAY="$value" ;;
+            keycloak_session_timeout)        [[ -z "${SBOS_KC_SESSION_TIMEOUT:-}" ]] && export SBOS_KC_SESSION_TIMEOUT="$value" ;;
+            keycloak_access_token_lifespan)  [[ -z "${SBOS_KC_TOKEN_LIFESPAN:-}" ]]  && export SBOS_KC_TOKEN_LIFESPAN="$value" ;;
+            # Overrides opcionales: Tryton ERP
+            tryton_company_name)    [[ -z "${SBOS_TRYTON_COMPANY:-}" ]]      && export SBOS_TRYTON_COMPANY="$value" ;;
+            tryton_tax_id)          [[ -z "${SBOS_TRYTON_TAX_ID:-}" ]]       && export SBOS_TRYTON_TAX_ID="$value" ;;
+            tryton_account_plan)    [[ -z "${SBOS_TRYTON_ACCOUNT_PLAN:-}" ]] && export SBOS_TRYTON_ACCOUNT_PLAN="$value" ;;
+            tryton_currency)        [[ -z "${SBOS_CURRENCY:-}" ]]             && export SBOS_CURRENCY="$value" ;;
+            tryton_modules)         [[ -z "${SBOS_TRYTON_MODULES:-}" ]]      && export SBOS_TRYTON_MODULES="$value" ;;
+            tryton_fiscal_year_start)[[ -z "${SBOS_TRYTON_FY_START:-}" ]]    && export SBOS_TRYTON_FY_START="$value" ;;
+            # Overrides opcionales: aplicaciones
+            orangehrm_company_name)     [[ -z "${SBOS_OHR_COMPANY:-}" ]]      && export SBOS_OHR_COMPANY="$value" ;;
+            orangehrm_country)          [[ -z "${SBOS_OHR_COUNTRY:-}" ]]      && export SBOS_OHR_COUNTRY="$value" ;;
+            gnuhealth_institution_name) [[ -z "${SBOS_GH_INSTITUTION:-}" ]]   && export SBOS_GH_INSTITUTION="$value" ;;
+            gnuhealth_specialties)      [[ -z "${SBOS_GH_SPECIALTIES:-}" ]]   && export SBOS_GH_SPECIALTIES="$value" ;;
+            nextcloud_default_quota)    [[ -z "${SBOS_NC_QUOTA:-}" ]]         && export SBOS_NC_QUOTA="$value" ;;
+            nextcloud_apps)             [[ -z "${SBOS_NC_APPS:-}" ]]          && export SBOS_NC_APPS="$value" ;;
+            paperless_ocr_languages)    [[ -z "${SBOS_PAPERLESS_OCR:-}" ]]    && export SBOS_PAPERLESS_OCR="$value" ;;
+            trilium_password)           [[ -z "${SBOS_TRILIUM_PASSWORD:-}" ]] && export SBOS_TRILIUM_PASSWORD="$value" ;;
+            elasticsearch_heap)         [[ -z "${SBOS_ES_HEAP:-}" ]]          && export SBOS_ES_HEAP="$value" ;;
+            monitoring_alert_email)     [[ -z "${SBOS_MONITORING_EMAIL:-}" ]] && export SBOS_MONITORING_EMAIL="$value" ;;
+            grafana_admin_password)     [[ -z "${SBOS_GRAFANA_PASSWORD:-}" ]] && export SBOS_GRAFANA_PASSWORD="$value" ;;
         esac
     done < "$toml"
-    # Derivar variables secundarias a partir de las primarias
-    [[ -z "${TENANT_ID:-}" && -n "${BOS_ORG_SHORT:-}" ]] && export TENANT_ID="${BOS_ORG_SHORT}"
-    [[ -z "${TENANT_ID:-}" && -n "${BOS_DOMAIN:-}" ]]    && export TENANT_ID="${BOS_DOMAIN%%.*}"
-    [[ -z "${SBOS_ADMIN_USER:-}" && -n "${SBOS_ADMIN_EMAIL:-}" ]] && export SBOS_ADMIN_USER="${SBOS_ADMIN_EMAIL%%@*}"
 }
+
+# _derive_sbos_config: calcula TODAS las variables derivadas a partir de las base.
+# Regla: si ya tiene valor (del toml o env) no se sobreescribe.
+# Llamar DESPUÉS de _load_bos_install_config.
+_derive_sbos_config() {
+    local domain="${BOS_DOMAIN:-}"
+    local pass="${SBOS_ADMIN_PASSWORD:-}"
+
+    # ── Identidad ─────────────────────────────────────────────────────────────
+    [[ -z "${TENANT_ID:-}" ]] && export TENANT_ID="${BOS_ORG_SHORT:-${domain%%.*}}"
+    # admin_email deriva del dominio: admin@${client_domain}
+    [[ -z "${SBOS_ADMIN_EMAIL:-}" && -n "$domain" ]] && export SBOS_ADMIN_EMAIL="admin@${domain}"
+    [[ -z "${SBOS_ADMIN_USER:-}" && -n "${SBOS_ADMIN_EMAIL:-}" ]] \
+        && export SBOS_ADMIN_USER="${SBOS_ADMIN_EMAIL%%@*}"
+
+    # ── Servidor de correo — todo deriva del dominio ──────────────────────────
+    [[ -z "${SBOS_MAIL_HOSTNAME:-}" ]]        && export SBOS_MAIL_HOSTNAME="mail.${domain}"
+    [[ -z "${SBOS_MAIL_POSTMASTER:-}" ]]      && export SBOS_MAIL_POSTMASTER="postmaster@${domain}"
+    [[ -z "${SBOS_MAIL_POSTMASTER_PASS:-}" ]] && export SBOS_MAIL_POSTMASTER_PASS="${pass}"
+    [[ -z "${SBOS_MAIL_SEND_LIMIT:-}" ]]      && export SBOS_MAIL_SEND_LIMIT="500"
+    if [[ -z "${SBOS_MAIL_ACCOUNTS:-}" ]]; then
+        export SBOS_MAIL_ACCOUNTS="soporte@${domain}:${pass},info@${domain}:${pass}"
+    fi
+    if [[ -z "${SBOS_MAIL_ALIASES:-}" ]]; then
+        export SBOS_MAIL_ALIASES="noreply@${domain}:${SBOS_ADMIN_EMAIL:-admin@${domain}},abuse@${domain}:${SBOS_MAIL_POSTMASTER}"
+    fi
+
+    # ── Keycloak ──────────────────────────────────────────────────────────────
+    [[ -z "${SBOS_KC_ADMIN_PASSWORD:-}" ]]  && export SBOS_KC_ADMIN_PASSWORD="${pass}"
+    [[ -z "${SBOS_KC_REALM_DISPLAY:-}" ]]   && export SBOS_KC_REALM_DISPLAY="${BOS_ORG_NAME:-${TENANT_ID}}"
+    [[ -z "${SBOS_KC_SESSION_TIMEOUT:-}" ]] && export SBOS_KC_SESSION_TIMEOUT="480"
+    [[ -z "${SBOS_KC_TOKEN_LIFESPAN:-}" ]]  && export SBOS_KC_TOKEN_LIFESPAN="300"
+
+    # ── Tryton ERP — plan contable y moneda según country ────────────────────
+    [[ -z "${SBOS_TRYTON_COMPANY:-}" ]]     && export SBOS_TRYTON_COMPANY="${BOS_ORG_NAME:-}"
+    [[ -z "${SBOS_TRYTON_FY_START:-}" ]]    && export SBOS_TRYTON_FY_START="01-01"
+    if [[ -z "${SBOS_CURRENCY:-}" ]]; then
+        case "${SBOS_COUNTRY:-}" in
+            BO) export SBOS_CURRENCY="BOB" ;;
+            MX) export SBOS_CURRENCY="MXN" ;;
+            ES) export SBOS_CURRENCY="EUR" ;;
+            AR) export SBOS_CURRENCY="ARS" ;;
+            CO) export SBOS_CURRENCY="COP" ;;
+            EC) export SBOS_CURRENCY="USD" ;;
+            PE) export SBOS_CURRENCY="PEN" ;;
+            CL) export SBOS_CURRENCY="CLP" ;;
+            *)  export SBOS_CURRENCY="USD" ;;
+        esac
+    fi
+    if [[ -z "${SBOS_TRYTON_ACCOUNT_PLAN:-}" ]]; then
+        case "${SBOS_COUNTRY:-}" in
+            BO) export SBOS_TRYTON_ACCOUNT_PLAN="account_bo" ;;
+            MX) export SBOS_TRYTON_ACCOUNT_PLAN="account_mx" ;;
+            ES) export SBOS_TRYTON_ACCOUNT_PLAN="account_es" ;;
+            AR) export SBOS_TRYTON_ACCOUNT_PLAN="account_ar" ;;
+            CO) export SBOS_TRYTON_ACCOUNT_PLAN="account_co" ;;
+            EC) export SBOS_TRYTON_ACCOUNT_PLAN="account_ec" ;;
+            PE) export SBOS_TRYTON_ACCOUNT_PLAN="account_pe" ;;
+            *)  export SBOS_TRYTON_ACCOUNT_PLAN="account_generic" ;;
+        esac
+    fi
+    if [[ -z "${SBOS_TRYTON_MODULES:-}" ]]; then
+        local base="account_invoice,account_payment,account_statement,sale_crm,project,timesheet,hr,stock_lot"
+        case "${SBOS_COUNTRY:-}" in
+            BO) export SBOS_TRYTON_MODULES="${base},account_bo_invoice" ;;  # facturas SIN Bolivia
+            MX) export SBOS_TRYTON_MODULES="${base},account_mx_cfdi" ;;     # CFDI México
+            ES) export SBOS_TRYTON_MODULES="${base},account_es_aeat" ;;     # AEAT España
+            *)  export SBOS_TRYTON_MODULES="${base}" ;;
+        esac
+    fi
+
+    # ── OrangeHRM ─────────────────────────────────────────────────────────────
+    [[ -z "${SBOS_OHR_COMPANY:-}" ]] && export SBOS_OHR_COMPANY="${BOS_ORG_NAME:-}"
+    [[ -z "${SBOS_OHR_COUNTRY:-}" ]] && export SBOS_OHR_COUNTRY="${SBOS_COUNTRY:-}"
+
+    # ── GNU Health ────────────────────────────────────────────────────────────
+    [[ -z "${SBOS_GH_INSTITUTION:-}" ]]  && export SBOS_GH_INSTITUTION="${BOS_ORG_NAME:-}"
+    [[ -z "${SBOS_GH_SPECIALTIES:-}" ]]  && export SBOS_GH_SPECIALTIES="general,laboratory,pharmacy"
+
+    # ── Nextcloud ─────────────────────────────────────────────────────────────
+    [[ -z "${SBOS_NC_QUOTA:-}" ]] && export SBOS_NC_QUOTA="10240"
+    [[ -z "${SBOS_NC_APPS:-}" ]]  && export SBOS_NC_APPS="calendar,contacts,tasks,mail,talk,deck,forms"
+
+    # ── Paperless-NGX — idiomas OCR según language ────────────────────────────
+    if [[ -z "${SBOS_PAPERLESS_OCR:-}" ]]; then
+        case "${SBOS_LANGUAGE:-es}" in
+            es) export SBOS_PAPERLESS_OCR="spa+eng" ;;
+            fr) export SBOS_PAPERLESS_OCR="fra+eng" ;;
+            pt) export SBOS_PAPERLESS_OCR="por+eng" ;;
+            de) export SBOS_PAPERLESS_OCR="deu+eng" ;;
+            it) export SBOS_PAPERLESS_OCR="ita+eng" ;;
+            *)  export SBOS_PAPERLESS_OCR="eng" ;;
+        esac
+    fi
+
+    # ── Trilium ───────────────────────────────────────────────────────────────
+    [[ -z "${SBOS_TRILIUM_PASSWORD:-}" ]] && export SBOS_TRILIUM_PASSWORD="${pass}"
+
+    # ── Elasticsearch — heap = 25% de RAM (mín 512m, máx 4g) ─────────────────
+    if [[ -z "${SBOS_ES_HEAP:-}" ]]; then
+        local ram_mb
+        ram_mb=$(free -m 2>/dev/null | awk '/^Mem:/{v=int($2/4); if(v<512)v=512; if(v>4096)v=4096; print v}' || echo "512")
+        export SBOS_ES_HEAP="${ram_mb}m"
+    fi
+
+    # ── Monitoreo ─────────────────────────────────────────────────────────────
+    [[ -z "${SBOS_MONITORING_EMAIL:-}" ]]  && export SBOS_MONITORING_EMAIL="${SBOS_ADMIN_EMAIL:-}"
+    [[ -z "${SBOS_GRAFANA_PASSWORD:-}" ]]  && export SBOS_GRAFANA_PASSWORD="${pass}"
+
+    # ── URLs públicas derivadas del dominio ───────────────────────────────────
+    # Disponibles en TODOS los task_catalog.sh sin necesidad de calcularlas.
+    export SBOS_URL_BASE="https://${domain}"
+    export SBOS_URL_AUTH="https://auth.${domain}"
+    export SBOS_URL_MAIL="https://mail.${domain}"
+    export SBOS_URL_ERP="https://erp.${domain}"
+    export SBOS_URL_RRHH="https://rrhh.${domain}"
+    export SBOS_URL_HEALTH="https://salud.${domain}"
+    export SBOS_URL_DOCS="https://docs.${domain}"
+    export SBOS_URL_NOTES="https://notas.${domain}"
+    export SBOS_URL_DRIVE="https://drive.${domain}"
+    export SBOS_URL_MONITOR="https://monitor.${domain}"
+    export SBOS_URL_VAULT="https://vault.${domain}"
+    export SBOS_URL_API="https://api.${domain}"
+    export SBOS_URL_STATUS="https://status.${domain}"
+}
+
 _load_bos_install_config
+_derive_sbos_config
 
 # ── Usage ─────────────────────────────────────────────────────
 

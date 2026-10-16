@@ -1,306 +1,165 @@
 # ============================================================================
 # bos-install.toml — Configuración de instalación por empresa
 #
-# Copiar a /etc/bos/bos-install.toml en el servidor del cliente.
-# INSTRUCCIONES:
-#   1. cp bos-install.toml.template bos-install.toml
-#   2. Rellenar todos los campos REQUERIDO
-#   3. scp bos-install.toml root@IP:/etc/bos/bos-install.toml
-#   4. bosctl setup --mode=prod
+# FILOSOFÍA: define lo mínimo. El instalador deriva todo lo demás.
 #
-# SEGURIDAD: NO commitear este archivo con valores reales.
+# Ejemplo completo para una empresa boliviana:
+#   client_domain = "sksistemas.com"       → mail.sksistemas.com, admin@sksistemas.com,
+#                                             erp.sksistemas.com, docs.sksistemas.com, etc.
+#   country       = "BO"                   → moneda BOB, plan contable boliviano, idioma es
+#   admin_email   = "admin@sksistemas.com" → superusuario en Keycloak, Tryton, OrangeHRM, etc.
+#
+# Las secciones "DERIVADO AUTOMÁTICAMENTE" no necesitas tocarlas.
+# Solo las secciones "REQUERIDO" son obligatorias.
 # ============================================================================
 
-# ── SECCIÓN 1: Identidad de la empresa ────────────────────────────────────
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# BLOQUE 1 — IDENTIDAD DE LA EMPRESA
+# Estas 4 variables generan automáticamente TODOS los subdominios, nombres de
+# realm, rutas Vault, IDs de Kong, configuraciones de apps, etc.
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-# Nombre completo (aparece en paneles, emails, Keycloak, Tryton)
+# Dominio principal del servidor (sin https://, sin www)
+# → Genera: mail.${domain}, erp.${domain}, rrhh.${domain}, docs.${domain},
+#           notas.${domain}, correo.${domain}, auth.${domain}, drive.${domain},
+#           monitor.${domain}, vault.${domain}, api.${domain}, ...
+# → DNS A record debe apuntar a server_ip
 # REQUERIDO
-org_name = "Nombre de la Empresa S.A."
+client_domain = "sksistemas.com"
 
-# Slug corto: minúsculas, sin espacios, alfanumérico+guión (máx 20 chars)
-# Se convierte en: realm Keycloak, prefijo Vault, Kong consumer ID
-# Ejemplo: "acme", "mifirma", "grupoabc"
+# Nombre completo de la empresa
+# → Aparece en: Keycloak (nombre del realm), Tryton (empresa), OrangeHRM (empresa),
+#               GNU Health (institución), emails del sistema, Nextcloud (nombre instancia)
 # REQUERIDO
-org_short = "empresa"
+org_name = "Sistemas SKULL"
 
-# Dominio principal (sin https://, sin www, sin barra final)
-# DNS A record debe apuntar a server_ip para Let's Encrypt
+# Slug corto: minúsculas, sin espacios, máx 20 chars
+# → Se convierte en: TENANT_ID (realm Keycloak), prefijo Vault, ID Kong consumer,
+#                    nombre de namespace alternativo, etiquetas K8s
+# → Ejemplo: "acme", "mifirma", "sksistemas", "grupoabc"
 # REQUERIDO
-client_domain = "empresa.com"
+org_short = "SKULL"
 
 # IP pública del servidor
+# → Usada en: certbot (validación DNS), nginx, logs de auditoría
 # REQUERIDO
-server_ip = "1.2.3.4"
+server_ip = "13.140.128.230"
 
-# ID del primer tenant (vacío = se usa org_short automáticamente)
-# OPCIONAL
-tenant_id = ""
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# BLOQUE 2 — SUPERUSUARIO DEL PRIMER TENANT
+# Un solo usuario administra todas las aplicaciones del sistema.
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-# Canal de actualizaciones: stable | early | canary
-channel = "stable"
-
-# ── SECCIÓN 2: Superusuario del primer tenant ──────────────────────────────
-# Este usuario tendrá acceso de administrador a TODAS las aplicaciones.
-# Se crea en Keycloak, Tryton, OrangeHRM, Nextcloud, mailserver, etc.
-
-# Email del administrador principal (también es su login)
-# REQUERIDO
-admin_email = "admin@empresa.com"
+# Contraseña inicial única para todas las apps
+# → Se propaga a: Keycloak, keycloak_admin, Tryton, OrangeHRM, Nextcloud, Grafana
+# → CAMBIAR después del primer login
+# REQUERIDO — mín 16 chars con mayúsculas + minúsculas + números + símbolos
+admin_password = "12345678abcD_sksistemas"
 
 # Nombre completo del administrador
 # REQUERIDO
-admin_name = "Administrador Principal"
+admin_name = "Administrador Principal SBOS"
 
-# Username (vacío = parte antes del @ del email)
-# OPCIONAL — dejar vacío salvo que se necesite diferente
-admin_user = ""
+# Email del administrador — DERIVADO automáticamente: admin@${client_domain}
+# Solo definir aquí si quieres usar otro email diferente al derivado.
+# Ejemplo: si client_domain = "sksistemas.com" → admin_email = "admin@sksistemas.com"
+# admin_email = ""   # DERIVADO: admin@${client_domain}
 
-# Contraseña inicial — CAMBIAR después de primer login
-# Mínimo 16 chars: mayúsculas + minúsculas + números + símbolos
-# REQUERIDO
-admin_password = "CAMBIAR-ContraSeña!2025"
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# BLOQUE 3 — LOCALIZACIÓN
+# Todo el sistema se adapta automáticamente al país y idioma indicados.
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-# ── SECCIÓN 3: Localización ────────────────────────────────────────────────
-
-# Zona horaria: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
-# Afecta: cron jobs, timestamps, emails, Tryton (fiscal year)
+# Zona horaria
+# Ver: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+# → Afecta: cron jobs, timestamps, emails, Tryton (año fiscal), AlertManager
 # REQUERIDO
 timezone = "America/La_Paz"
 
 # Código de país ISO 3166-1 alpha-2
-# Afecta: plan contable Tryton, formato fecha, idioma RRHH OrangeHRM
-# Valores: BO (Bolivia) | MX (México) | ES (España) | AR (Argentina) | CO (Colombia)
+# → Deriva automáticamente:
+#     BO → moneda=BOB, plan_contable=account_bo, ocr=spa+eng, holidays=bolivianas
+#     MX → moneda=MXN, plan_contable=account_mx, ocr=spa+eng, holidays=mexicanas
+#     ES → moneda=EUR, plan_contable=account_es, ocr=spa+eng, holidays=españolas
+#     AR → moneda=ARS, plan_contable=account_ar
+#     CO → moneda=COP, plan_contable=account_co
+#     EC → moneda=USD, plan_contable=account_ec
 # REQUERIDO
 country = "BO"
 
-# Idioma principal del sistema
-# Afecta: idioma UI, emails, documentos Tryton, OrangeHRM
+# Idioma principal
+# → Afecta: idioma UI Keycloak, OrangeHRM, Tryton, idiomas OCR Paperless
 # REQUERIDO
 language = "es"
 
-# Moneda principal (código ISO 4217)
-# Afecta: Tryton ERP (plan de cuentas, facturas, contabilidad)
-# BO=BOB | MX=MXN | ES=EUR | AR=ARS | CO=COP | US=USD
-# REQUERIDO para Tryton
-currency = "BOB"
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# BLOQUE 4 — OVERRIDES OPCIONALES
+# Solo completar si el valor derivado automáticamente NO es correcto.
+# Dejar comentado = usar el valor derivado.
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-# ── SECCIÓN 4: Servidor de correo ─────────────────────────────────────────
-# docker-mailserver maneja SMTP+IMAP. Requiere registros DNS correctos.
-#
-# REGISTROS DNS OBLIGATORIOS (crear ANTES de instalar):
-#   A     mail.empresa.com   → server_ip
-#   MX    empresa.com        → mail.empresa.com (prioridad 10)
-#   TXT   empresa.com        → "v=spf1 mx a ~all"
-#   TXT   _dmarc.empresa.com → "v=DMARC1; p=quarantine; rua=mailto:postmaster@empresa.com"
-#   CNAME autoconfig.empresa.com → mail.empresa.com  (autodescubrimiento Thunderbird)
-#   CNAME autodiscover.empresa.com → mail.empresa.com (autodescubrimiento Outlook)
-# NOTA: DKIM se genera automáticamente al instalar y se debe agregar como TXT después
+# --- Tenant ---
+# tenant_id = ""                    # DERIVADO: org_short
+# admin_user = ""                   # DERIVADO: parte antes del @ de admin_email
 
-# Hostname del servidor de correo (debe tener PTR/rDNS en servidor)
-# REQUERIDO para mailserver
-mail_hostname = "mail.empresa.com"
-
-# Email del postmaster (recibe bounces, alertas del servidor)
-# REQUERIDO para mailserver
-mail_postmaster = "postmaster@empresa.com"
-
-# Contraseña del buzón postmaster
-# REQUERIDO para mailserver
-mail_postmaster_password = "CAMBIAR-PostmasterPass!2025"
-
-# Cuentas de correo iniciales a crear (separadas por coma)
-# Formato: usuario@dominio:contraseña
-# El admin ya se crea automáticamente desde admin_email+admin_password
-# OPCIONAL — agregar cuentas adicionales del primer tenant
-mail_initial_accounts = "soporte@empresa.com:CAMBIAR-Soporte!2025,info@empresa.com:CAMBIAR-Info!2025"
-
-# Aliases de correo iniciales (separados por coma)
-# Formato: alias@dominio:destino@dominio
-# OPCIONAL
-mail_aliases = "noreply@empresa.com:admin@empresa.com,abuse@empresa.com:postmaster@empresa.com"
-
-# Relay SMTP saliente (para evitar ser marcado como spam)
-# Dejar vacío para envío directo (requiere IP con buena reputación)
-# Ejemplo: smtp.sendgrid.net:587 o smtp.mailgun.org:587
-# OPCIONAL
-# mail_relay_host = ""
+# --- Correo ---
+# mail_hostname = ""                # DERIVADO: mail.${client_domain}
+# mail_postmaster = ""              # DERIVADO: postmaster@${client_domain}
+# mail_postmaster_password = ""     # DERIVADO: ${admin_password}
+# mail_initial_accounts = ""        # DERIVADO: soporte@${domain}, info@${domain}
+# mail_aliases = ""                 # DERIVADO: noreply→admin, abuse→postmaster
+# mail_send_limit_hour = ""         # DEFAULT: 500
+# mail_relay_host = ""              # DEFAULT: envío directo
 # mail_relay_user = ""
 # mail_relay_password = ""
 
-# Límite de envío por hora (protección anti-spam)
-# OPCIONAL — default: 500
-mail_send_limit_hour = "500"
+# --- Keycloak ---
+# keycloak_admin_password = ""      # DERIVADO: ${admin_password}
+# keycloak_realm_display_name = ""  # DERIVADO: ${org_name}
+# keycloak_session_timeout = ""     # DEFAULT: 480 (minutos = 8h)
+# keycloak_access_token_lifespan="" # DEFAULT: 300 (segundos = 5min)
 
-# ── SECCIÓN 5: Keycloak (IAM / SSO) ───────────────────────────────────────
-# Keycloak gestiona la identidad unificada. El realm = org_short.
-# TODOS los servicios autentican contra Keycloak.
+# --- Tryton ERP ---
+# tryton_company_name = ""          # DERIVADO: ${org_name}
+# tryton_tax_id = ""                # REQUERIDO si se instala Tryton
+# tryton_account_plan = ""          # DERIVADO del country (ver BLOQUE 3)
+# tryton_currency = ""              # DERIVADO del country
+# tryton_modules = ""               # DEFAULT por country (ver master script)
+# tryton_fiscal_year_start = ""     # DEFAULT: 01-01
 
-# Contraseña del admin de Keycloak (diferente del admin_password del tenant)
-# El usuario admin de Keycloak es 'admin' (interno, no del tenant)
-# REQUERIDO
-keycloak_admin_password = "CAMBIAR-KeycloakAdmin!2025"
+# --- OrangeHRM ---
+# orangehrm_company_name = ""       # DERIVADO: ${org_name}
+# orangehrm_country = ""            # DERIVADO: ${country}
 
-# Nombre del realm (vacío = org_short)
-# OPCIONAL
-keycloak_realm_display_name = ""
+# --- GNU Health ---
+# gnuhealth_institution_name = ""   # DERIVADO: ${org_name}
+# gnuhealth_specialties = ""        # DEFAULT: general,laboratory,pharmacy
 
-# Tiempo de expiración de sesión (minutos) — default 480 (8h)
-# OPCIONAL
-keycloak_session_timeout = "480"
+# --- Nextcloud ---
+# nextcloud_default_quota = ""      # DEFAULT: 10240 (MB = 10GB)
+# nextcloud_apps = ""               # DEFAULT: calendar,contacts,tasks,mail,talk,deck
 
-# Tiempo de expiración de tokens de acceso (segundos) — default 300 (5min)
-# OPCIONAL
-keycloak_access_token_lifespan = "300"
+# --- Paperless-NGX ---
+# paperless_ocr_languages = ""      # DERIVADO del language (spa+eng, fra+eng, etc.)
 
-# Requerir verificación de email al registrarse: true | false
-# OPCIONAL — default: true
-keycloak_verify_email = "true"
+# --- Trilium ---
+# trilium_password = ""             # DERIVADO: ${admin_password}
 
-# ── SECCIÓN 6: Tryton ERP ─────────────────────────────────────────────────
-# El ERP más importante del sistema. Requiere configuración fiscal correcta.
+# --- Elasticsearch ---
+# elasticsearch_heap = ""           # DERIVADO: 25% de RAM del servidor
 
-# Nombre de la empresa en Tryton (puede ser diferente de org_name)
-# REQUERIDO para Tryton
-tryton_company_name = "Nombre de la Empresa S.A."
+# --- Monitoreo ---
+# monitoring_alert_email = ""       # DERIVADO: ${admin_email}
+# grafana_admin_password = ""       # DERIVADO: ${admin_password}
 
-# Plan de cuentas a instalar
-# Valores disponibles (módulos Tryton):
-#   account_bo   → Bolivia (PCG boliviano, NIT, facturas SIN)
-#   account_mx   → México (SAT, CFDI 4.0, RFC)
-#   account_es   → España (PGC, IVA)
-#   account_ar   → Argentina (AFIP)
-#   account_co   → Colombia (DIAN)
-#   account_generic → Plan genérico internacional
-# REQUERIDO para Tryton
-tryton_account_plan = "account_bo"
+# --- SMTP externo (pre-mailserver) ---
+# smtp_host = ""
+# smtp_port = ""
+# smtp_user = ""
+# smtp_password = ""
 
-# Módulos adicionales a instalar (separados por coma)
-# Base siempre incluida: account, party, product, stock, sale, purchase
-# Módulos extra comunes:
-#   account_invoice    → Facturación (ya en base)
-#   account_payment    → Pagos bancarios
-#   account_statement  → Conciliación bancaria
-#   sale_crm           → CRM integrado
-#   project            → Gestión de proyectos
-#   timesheet          → Control de horas
-#   production         → Manufactura
-#   analytic_account   → Contabilidad analítica
-#   hr                 → RRHH básico (nómina con OrangeHRM)
-#   hr_timesheet       → Horas en proyectos RRHH
-#   stock_lot          → Lotes y series
-#   stock_supply       → Reaprovisionamiento
-# REQUERIDO
-tryton_modules = "account_invoice,account_payment,account_statement,sale_crm,project,timesheet,hr,stock_lot"
+# --- Base de datos ---
+# pg_password = ""                  # DEFAULT: generado aleatoriamente, guardado en Vault
 
-# NIT/RFC/CIF de la empresa (número de contribuyente)
-# REQUERIDO para plan contable Bolivia/México/España
-tryton_tax_id = "1234567890"
-
-# Inicio del año fiscal (formato: MM-DD)
-# BO/MX/ES = 01-01 (1 enero) | EC = 07-01 (1 julio)
-# OPCIONAL — default: 01-01
-tryton_fiscal_year_start = "01-01"
-
-# ── SECCIÓN 7: OrangeHRM (Recursos Humanos) ───────────────────────────────
-
-# Nombre de la empresa en OrangeHRM (puede ser diferente de org_name)
-# REQUERIDO para OrangeHRM
-orangehrm_company_name = "Nombre de la Empresa S.A."
-
-# País de la instalación (afecta legislación laboral)
-# Mismos códigos que country: BO | MX | ES | AR | CO
-# REQUERIDO
-orangehrm_country = "BO"
-
-# Módulos de RRHH habilitados: vacaciones, nómina, evaluación, reclutamiento
-# Todos habilitados por defecto. Comentar los que no se necesiten.
-# OPCIONAL
-orangehrm_modules = "leave,attendance,performance,recruitment,training,maintenance"
-
-# ── SECCIÓN 8: GNU Health (Sistema de Salud) ──────────────────────────────
-# Solo rellenar si la empresa necesita módulo de salud/clínica
-
-# Nombre de la institución de salud
-# REQUERIDO para gnu-health
-# gnuhealth_institution_name = "Clínica Empresa S.A."
-
-# Código de habilitación sanitaria (número de registro)
-# OPCIONAL
-# gnuhealth_health_license = ""
-
-# Especialidades de la institución (separadas por coma)
-# Valores: general, pediatrics, obstetrics, surgery, emergency, laboratory, pharmacy
-# OPCIONAL — default: general
-# gnuhealth_specialties = "general,laboratory,pharmacy"
-
-# ── SECCIÓN 9: Nextcloud ──────────────────────────────────────────────────
-
-# Quota de almacenamiento por usuario (MB, 0 = ilimitado)
-# OPCIONAL — default: 10240 (10 GB)
-nextcloud_default_quota = "10240"
-
-# Apps a instalar automáticamente (separadas por coma)
-# OPCIONAL
-nextcloud_apps = "calendar,contacts,tasks,mail,talk,deck,forms"
-
-# ── SECCIÓN 10: Paperless-NGX (Gestión documental) ───────────────────────
-
-# OCR: idiomas disponibles (separados por +)
-# Instala Tesseract con estos idiomas
-# REQUERIDO para OCR correcto
-paperless_ocr_languages = "spa+eng"
-
-# Zona de consumo de documentos (directorio de entrada)
-# OPCIONAL — default: /data/paperless/consume
-# paperless_consume_dir = "/data/paperless/consume"
-
-# ── SECCIÓN 11: Trilium Notes ─────────────────────────────────────────────
-
-# Contraseña de acceso inicial a Trilium
-# REQUERIDO
-trilium_password = "CAMBIAR-TriliumPass!2025"
-
-# ── SECCIÓN 12: Servidor de búsqueda (Elasticsearch) ─────────────────────
-
-# Heap size para Elasticsearch (debe ser ≤ 50% de RAM)
-# Ejemplo: 512m, 1g, 2g
-# OPCIONAL — default: 512m
-elasticsearch_heap = "512m"
-
-# ── SECCIÓN 13: Monitoreo ─────────────────────────────────────────────────
-
-# Email de alertas Grafana/AlertManager
-# REQUERIDO para recibir alertas
-monitoring_alert_email = "admin@empresa.com"
-
-# Contraseña del panel Grafana (usuario: admin)
-# REQUERIDO
-grafana_admin_password = "CAMBIAR-GrafanaAdmin!2025"
-
-# ── SECCIÓN 14: Correo saliente del SISTEMA (pre-mailserver) ──────────────
-# Para envío de notificaciones del instalador durante el bootstrap,
-# antes de que el mailserver interno esté disponible.
-# OPCIONAL — si no se configura, las notificaciones solo van al log.
-
-# smtp_host = "smtp.gmail.com"
-# smtp_port = "587"
-# smtp_user = "notificaciones@empresa.com"
-# smtp_password = "contraseña-app-gmail"
-
-# ── SECCIÓN 15: Base de datos ─────────────────────────────────────────────
-
-# Contraseña del superusuario PostgreSQL
-# Vacío = se genera aleatoriamente y se guarda en Vault
-# OPCIONAL
-# pg_password = ""
-
-# ── SECCIÓN 16: VDI / Escritorio corporativo ──────────────────────────────
-# Fedora KDE en navegador vía Guacamole + oauth2-proxy
-
-# Resolución por defecto del escritorio VDI
-# OPCIONAL — default: 1920x1080
-# vdi_resolution = "1920x1080"
-
-# Aplicaciones del escritorio habilitadas para el tenant
-# OPCIONAL
-# vdi_apps = "libreoffice,gimp,thunderbird,vscode"
+# --- Canal de actualizaciones ---
+channel = "stable"

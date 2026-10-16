@@ -1,38 +1,280 @@
-# Cronograma de Instalación — Ficha por Ficha
+# Plan de Instalación SBOS — Inventario y Plan de Acción
 
-**Versión:** 2.33.0  
+**Versión:** 2.34.0  
 **Fecha:** 2026-10-16  
 **Autor:** bos-developer  
 
-> Este documento es el **registro cronológico de construcción** del instalador SBOS.
-> Cada ficha está documentada con su propósito, estado real en la VPS, logros,
-> faltantes y bugs. El orden es el `execution_order` real que sigue el observer de BOS.
->
-> **Problema del huevo y la gallina:** Algunas fichas se instalan en múltiples fases
-> porque sus dependencias crean ciclos. Cuando esto ocurre, la ficha aparece con
-> sus fases descritas explícitamente.
+---
+
+## Guía de campos
+
+| Campo | Valores | Significado |
+|-------|---------|-------------|
+| **ESTADO** | `Instalado` | La ficha está desplegada y verificada en VPS |
+| | `Programado` | Está en el plan — pendiente de instalarse o corregirse |
+| | `Descartado` | No se instalará en esta versión (opcional o reemplazada) |
+| | `Anulado` | Fue planeada pero se canceló definitivamente |
+| **ACCION** | `TRUE` | Instalar — ejecutar la saga de instalación completa |
+| | `FALSE` | Omitir — ya está instalada o no aplica, no tocar |
+| | `CONFIG` | Configurar — ficha necesita ajustes/pruebas antes de auto-instalarse sin errores |
+| | `DELETE` | Eliminar — remover el pod/deployment porque ya no es necesario |
 
 ---
 
-## Leyenda de estado
+## PARTE 1 — Inventario global de fichas
 
-| Símbolo | Estado | Descripción |
-|---------|--------|-------------|
-| ✅ | INSTALLED | Instalada y verificada en VPS |
-| 🔄 | INSTALLING | En proceso (VPS) |
-| ❌ | PHYSICAL_ERROR | Pod en CrashLoop — ficha rota |
-| 💥 | INSTALL_FAILED | Instalación falló — requiere retry |
-| ⏸️ | UPDATE_AVAILABLE | Versión nueva disponible — sin actualizar |
-| ⚙️ | PENDING_DEPS | En PENDING esperando dependencias (auto_install=true) |
-| ⏳ | NO_INSTALADA | auto_install=false · no instalada aún |
-| 🔶 | HUEVO_GALLINA | Ficha multi-fase — leer nota de fases |
+Todas las fichas SBOS en orden de ejecución.
+
+| # | Ficha | Servidor | Orden | Categoría | ESTADO | ACCION |
+|---|-------|----------|-------|-----------|--------|--------|
+| 1 | bos-preflight | S-HOST | 1 | Bootstrap host | Instalado | FALSE |
+| 2 | sbos-namespace | S-HOST | 5 | Bootstrap host | Instalado | FALSE |
+| 3 | sbos-bootstrap-os | S-HOST | 10 | Bootstrap host | Instalado | FALSE |
+| 4 | sbos-bootstrap-k8s | S-HOST | 20 | Bootstrap K8s | Instalado | FALSE |
+| 5 | sbos-bootstrap-cni | S-HOST | 25 | Bootstrap K8s | Instalado | FALSE |
+| 6 | sbos-bootstrap-platform | S-HOST | 28 | Bootstrap K8s | Programado | CONFIG |
+| 7 | sbos-bootstrap-storage | S-HOST | 30 | Bootstrap K8s | Instalado | FALSE |
+| 8 | sbos-bootstrap-monitoring | S-HOST | 35 | Bootstrap K8s | Instalado | FALSE |
+| 9 | sbos-bkernel | S-HOST | 70 | Daemon SBOS | Instalado | FALSE |
+| 10 | sbos-k8s-network-validator | S-HOST | 50 | Validación | Programado | CONFIG |
+| 11 | sbos-bootstrap-hard | S-HOST | 250 | Bootstrap K8s | Instalado | FALSE |
+| 12 | postgresql | S01 | 100 | Datos | Instalado | FALSE |
+| 13 | redis | S01 | 110 | Datos | Instalado | FALSE |
+| 14 | minio | S01 | 120 | Datos | Instalado | FALSE |
+| 15 | sbos-database-init | S01 | 105 | Datos | Programado | CONFIG |
+| 16 | vault | S02 | 130 | Seguridad | Programado | CONFIG |
+| 17 | vault-unsealer | S02 | 131 | Seguridad | Programado | CONFIG |
+| 18 | besu-qbft | S02 | 135 | Blockchain | Instalado | FALSE |
+| 19 | kong | S02 | 160 | Gateway | Instalado | FALSE |
+| 20 | nginx | S02 | 170 | Proxy | Instalado | TRUE |
+| 21 | certbot | S02 | 180 | TLS | Instalado | FALSE |
+| 22 | oauth2-proxy | S02 | 150 | Seguridad | Programado | CONFIG |
+| 23 | kyverno | S03 | 100 | Políticas K8s | Programado | CONFIG |
+| 24 | linkerd | S03 | 110 | Service mesh | Programado | CONFIG |
+| 25 | keycloak | S03 | 140 | Identidad | Instalado | FALSE |
+| 26 | tryton | S04 | 170 | ERP | Programado | TRUE |
+| 27 | tryton-workers | S04 | 175 | ERP | Programado | TRUE |
+| 28 | orangehrm | S04 | 180 | RRHH | Programado | TRUE |
+| 29 | gnu-health | S04 | 190 | Salud | Descartado | FALSE |
+| 30 | ferretdb | S06 | 174 | Base de datos | Programado | CONFIG |
+| 31 | brocket (Rocket.Chat) | S06 | 177 | Chat | Programado | CONFIG |
+| 32 | calcom | S06 | 175 | Calendario | Descartado | FALSE |
+| 33 | novu | S06 | 176 | Notificaciones | Descartado | FALSE |
+| 34 | sbos-notifier | S06 | 170 | Notificaciones | Instalado | FALSE |
+| 35 | trilium-notes | S08 | 360 | Notas | Programado | TRUE |
+| 36 | tesseract-ocr | S08 | 345 | OCR | Programado | TRUE |
+| 37 | paperless-ngx | S08 | 350 | Documentos | Programado | TRUE |
+| 38 | docuseal | S08 | 355 | Firma digital | Programado | TRUE |
+| 39 | kimios | S08 | 360 | DMS | Descartado | FALSE |
+| 40 | tabula | S08 | 365 | Extracción PDF | Descartado | FALSE |
+| 41 | elasticsearch | S09 | 400 | Búsqueda | Programado | TRUE |
+| 42 | rabbitmq | S09 | 405 | Cola mensajes | Instalado | FALSE |
+| 43 | mailserver | S10 | 300 | Correo | Programado | TRUE |
+| 44 | postfixadmin | S10 | 305 | Admin correo | Programado | TRUE |
+| 45 | roundcube | S10 | 310 | Webmail | Programado | TRUE |
+| 46 | cypht | S10 | 315 | Webmail alt. | Descartado | FALSE |
+| 47 | prometheus | S12 | 200 | Monitoreo | Instalado | FALSE |
+| 48 | alertmanager | S12 | 205 | Alertas | Instalado | FALSE |
+| 49 | grafana | S12 | 215 | Dashboards | Instalado | FALSE |
+| 50 | loki | S12 | 215 | Logs | Programado | CONFIG |
+| 51 | alloy | S12 | 220 | Agente telemetría | Instalado | FALSE |
+| 52 | tempo | S12 | 220 | Trazas | Programado | CONFIG |
+| 53 | zabbix | S12 | 225 | Monitoreo alt. | Descartado | FALSE |
+| 54 | postgresql-extensions | S12 | — | Extensiones PG | Programado | CONFIG |
+| 55 | nextcloud | S13 | 200 | Archivos/Drive | Instalado | FALSE |
+| 56 | guacamole | S13 | 210 | Acceso remoto | Instalado | FALSE |
+| 57 | onlyoffice | S13 | 220 | Ofimática | Instalado | FALSE |
+| 58 | oauth2-proxy-desktop | S13 | 225 | Auth VDI | Programado | CONFIG |
+| 59 | fedora-kde | S13 | 230 | VDI desktop | Programado | CONFIG |
+| 60 | sbos-vdi-config | S13 | 420 | Config VDI | Programado | CONFIG |
+| 61 | gitlab | S14 | 450 | DevOps | Descartado | FALSE |
+| 62 | bareos | S14 | 455 | Backup | Descartado | FALSE |
+| 63 | velero | S14 | 460 | K8s backup | Descartado | FALSE |
+| 64 | ollama | S15 | 500 | IA local | Descartado | FALSE |
+| 65 | qdrant | S15 | 505 | Vector DB | Descartado | FALSE |
+| 66 | open-webui | S15 | 510 | UI IA | Descartado | FALSE |
+| 67 | embedding-worker | S15 | 515 | Embeddings | Descartado | FALSE |
+| 68 | langfuse | S15 | 520 | Observ. IA | Descartado | FALSE |
+| 69 | flowise | S15 | 525 | Flujos IA | Descartado | FALSE |
+
+> **S14 y S15 completos están marcados Descartado** porque son fase futura. Se activarán cuando el núcleo esté estable.
 
 ---
 
-## Arquitectura de identidad unificada — principio rector
+## PARTE 2 — Plan de acción por servidor
 
-> Este principio atraviesa todo el cronograma. Entenderlo antes de leer las fichas
-> evita confusión sobre por qué las dependencias son como son.
+### S-HOST — Servidor anfitrión (Ubuntu 26.04)
+
+| Ficha | Orden | ESTADO | ACCION | Notas |
+|-------|-------|--------|--------|-------|
+| bos-preflight | 1 | Instalado | FALSE | host preparado |
+| sbos-namespace | 5 | Instalado | FALSE | namespace sbos-system OK |
+| sbos-bootstrap-os | 10 | Instalado | FALSE | kernel + sysctl OK |
+| sbos-bootstrap-k8s | 20 | Instalado | FALSE | kubeadm + containerd OK |
+| sbos-bootstrap-cni | 25 | Instalado | FALSE | Calico OK |
+| sbos-bootstrap-platform | 28 | Programado | CONFIG | no aparece en state — revisar por qué |
+| sbos-bootstrap-storage | 30 | Instalado | FALSE | hostPath PVs creados |
+| sbos-bootstrap-monitoring | 35 | Instalado | FALSE | node-exporter OK |
+| sbos-k8s-network-validator | 50 | Programado | CONFIG | validar hairpin NAT y CoreDNS |
+| sbos-bkernel | 70 | Instalado | FALSE | CDC listener activo |
+| sbos-bootstrap-hard | 250 | Instalado | FALSE | hardening de K8s OK |
+
+---
+
+### S01 — Servidor de datos
+
+| Ficha | Orden | ESTADO | ACCION | Notas |
+|-------|-------|--------|--------|-------|
+| postgresql | 100 | Instalado | FALSE | postgresql-0 Running |
+| sbos-database-init | 105 | Programado | CONFIG | ficha nueva — probar que aplica DDL sin errores |
+| redis | 110 | Instalado | FALSE | redis-0 Running |
+| minio | 120 | Instalado | FALSE | minio-0 Running |
+
+---
+
+### S02 — Servidor de seguridad y gateway
+
+| Ficha | Orden | ESTADO | ACCION | Notas |
+|-------|-------|--------|--------|-------|
+| oauth2-proxy | 150 | Programado | CONFIG | PHYSICAL_ERROR — depende de vault |
+| vault | 130 | Programado | CONFIG | PHYSICAL_ERROR — FIX-26A commiteado, aplicar en VPS |
+| vault-unsealer | 131 | Programado | CONFIG | ficha nueva — probar unsealing automático |
+| besu-qbft | 135 | Instalado | FALSE | blockchain OK |
+| kong | 160 | Instalado | FALSE | gateway OK |
+| nginx | 170 | Instalado | TRUE | UPDATE_AVAILABLE — actualizar imagen |
+| certbot | 180 | Instalado | FALSE | TLS OK |
+
+---
+
+### S03 — Servidor de identidad
+
+| Ficha | Orden | ESTADO | ACCION | Notas |
+|-------|-------|--------|--------|-------|
+| kyverno | 100 | Programado | CONFIG | PENDING — issue hairpin NAT; probar fix |
+| linkerd | 110 | Programado | CONFIG | INSTALLING — completar; verificar inyección de proxy |
+| keycloak | 140 | Instalado | FALSE | SSO OK |
+
+---
+
+### S04 — Servidor ERP y RRHH
+
+| Ficha | Orden | ESTADO | ACCION | Notas |
+|-------|-------|--------|--------|-------|
+| tryton | 170 | Programado | TRUE | ERP principal — instalar completo |
+| tryton-workers | 175 | Programado | TRUE | workers async de Tryton |
+| orangehrm | 180 | Programado | TRUE | RRHH — ficha nueva lista |
+| gnu-health | 190 | Descartado | FALSE | solo para clientes del sector salud |
+
+---
+
+### S06 — Servidor colaboración y comunicación
+
+| Ficha | Orden | ESTADO | ACCION | Notas |
+|-------|-------|--------|--------|-------|
+| sbos-notifier | 170 | Instalado | FALSE | notificaciones OK |
+| ferretdb | 174 | Programado | CONFIG | MongoDB-compat para Rocket.Chat — ficha en PENDING |
+| brocket (Rocket.Chat) | 177 | Programado | CONFIG | falta ficha — crear task_catalog.sh |
+| calcom | 175 | Descartado | FALSE | reemplazado por agenda en Nextcloud |
+| novu | 176 | Descartado | FALSE | redundante con sbos-notifier |
+
+---
+
+### S08 — Servidor gestión documental
+
+| Ficha | Orden | ESTADO | ACCION | Notas |
+|-------|-------|--------|--------|-------|
+| tesseract-ocr | 345 | Programado | TRUE | dependencia de paperless-ngx |
+| paperless-ngx | 350 | Programado | TRUE | gestión de documentos con OCR |
+| docuseal | 355 | Programado | TRUE | firma digital de documentos |
+| kimios | 360 | Descartado | FALSE | reemplazado por paperless-ngx |
+| tabula | 365 | Descartado | FALSE | extracción PDF — no esencial para v1 |
+| trilium-notes | 360 | Programado | TRUE | notas personales y wiki |
+
+---
+
+### S09 — Servidor búsqueda y mensajería
+
+| Ficha | Orden | ESTADO | ACCION | Notas |
+|-------|-------|--------|--------|-------|
+| elasticsearch | 400 | Programado | TRUE | motor de búsqueda para bsearch |
+| rabbitmq | 405 | Instalado | FALSE | cola OK — rabbitmq-0 Running |
+
+---
+
+### S10 — Servidor de correo
+
+| Ficha | Orden | ESTADO | ACCION | Notas |
+|-------|-------|--------|--------|-------|
+| mailserver | 300 | Programado | TRUE | servidor SMTP/IMAP (docker-mailserver) |
+| postfixadmin | 305 | Programado | TRUE | panel admin de correo |
+| roundcube | 310 | Programado | TRUE | webmail en mail.${domain} |
+| cypht | 315 | Descartado | FALSE | alternativa a roundcube — no necesaria |
+
+---
+
+### S12 — Servidor monitoreo y observabilidad
+
+| Ficha | Orden | ESTADO | ACCION | Notas |
+|-------|-------|--------|--------|-------|
+| prometheus | 200 | Instalado | FALSE | métricas OK |
+| alertmanager | 205 | Instalado | FALSE | alertas OK |
+| grafana | 215 | Instalado | FALSE | dashboards OK |
+| loki | 215 | Programado | CONFIG | PENDING — revisar deps y storage |
+| alloy | 220 | Instalado | FALSE | agente telemetría OK |
+| tempo | 220 | Programado | CONFIG | PENDING — revisar deps |
+| zabbix | 225 | Descartado | FALSE | prometheus cubre el monitoreo |
+| postgresql-extensions | — | Programado | CONFIG | probar que detecta ext. disponibles en imagen alpine |
+
+---
+
+### S13 — Servidor VDI y productividad
+
+| Ficha | Orden | ESTADO | ACCION | Notas |
+|-------|-------|--------|--------|-------|
+| nextcloud | 200 | Instalado | FALSE | drive OK |
+| guacamole | 210 | Instalado | FALSE | acceso remoto OK |
+| onlyoffice | 220 | Instalado | FALSE | ofimática OK |
+| oauth2-proxy-desktop | 225 | Programado | CONFIG | PHYSICAL_ERROR — depende de vault fix |
+| fedora-kde | 230 | Programado | CONFIG | UPDATE_AVAILABLE + issues pendientes VDI |
+| sbos-vdi-config | 420 | Programado | CONFIG | configurar auto-provisioning de usuarios VDI |
+
+---
+
+### S14 — Servidor DevOps y backup *(fase futura)*
+
+| Ficha | Orden | ESTADO | ACCION | Notas |
+|-------|-------|--------|--------|-------|
+| gitlab | 450 | Descartado | FALSE | activar cuando núcleo sea estable |
+| bareos | 455 | Descartado | FALSE | activar cuando núcleo sea estable |
+| velero | 460 | Descartado | FALSE | activar cuando núcleo sea estable |
+
+---
+
+### S15 — Servidor IA soberana *(fase futura)*
+
+| Ficha | Orden | ESTADO | ACCION | Notas |
+|-------|-------|--------|--------|-------|
+| ollama | 500 | Descartado | FALSE | fase futura |
+| qdrant | 505 | Descartado | FALSE | fase futura |
+| open-webui | 510 | Descartado | FALSE | fase futura |
+| embedding-worker | 515 | Descartado | FALSE | fase futura |
+| langfuse | 520 | Descartado | FALSE | fase futura |
+| flowise | 525 | Descartado | FALSE | fase futura |
+
+---
+
+## Resumen ejecutivo
+
+| ACCION | Cantidad | Fichas |
+|--------|----------|--------|
+| **TRUE** — instalar | 9 | nginx(update), tryton, tryton-workers, orangehrm, tesseract-ocr, paperless-ngx, docuseal, elasticsearch, trilium-notes, mailserver, postfixadmin, roundcube |
+| **CONFIG** — configurar | 14 | vault, vault-unsealer, oauth2-proxy, oauth2-proxy-desktop, kyverno, linkerd, sbos-database-init, sbos-bootstrap-platform, sbos-k8s-network-validator, ferretdb, brocket, loki, tempo, postgresql-extensions, fedora-kde, sbos-vdi-config |
+| **FALSE** — omitir | 24 | Todos los Instalados + Descartados sin acción |
+| **DELETE** — eliminar | 0 | ninguno por ahora |
+
+---
+
+## Arquitectura de identidad unificada
 
 **Un usuario SBOS = una identidad Keycloak = todos los servicios.**
 
@@ -40,7 +282,7 @@
                     ┌─────────────────────────────────────────┐
                     │           KEYCLOAK (S03)                │
                     │   Fuente de verdad de identidad          │
-                    │   juan.perez@empresa.sbos.app            │
+                    │   juan.perez@empresa.com                 │
                     │   grupos: [empleados, contabilidad,      │
                     │            fedora_user, correo_activo]   │
                     └────────────────┬────────────────────────┘
@@ -55,11 +297,12 @@
     Apps según grupo
 ```
 
-**Consecuencia para el instalador:**
-- Keycloak se instala antes que cualquier app de usuario (orden 140)
-- Mailserver NO tiene usuarios propios — autentica contra Keycloak
-- VDI NO tiene usuarios Linux fijos — los crea al vuelo según el JWT de Keycloak
-- Cada app que se instala debe configurar su conector OIDC/SAML hacia Keycloak
+---
+
+## PARTE 3 — Detalle cronológico por ficha
+
+> Registro de logros, bugs, notas de diseño y comportamientos esperados.
+> Cada sección corresponde a una ficha. El orden es el `execution_order` del observer BOS.
 
 ---
 
