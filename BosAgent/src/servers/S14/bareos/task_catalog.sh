@@ -49,11 +49,45 @@ ficha_pre_install() {
         _log "Namespace $NS creado"
     }
     echo "${__STEP_OK__} verificar_namespace"
+
+    echo "${__STEP_START__} networkpolicy_ops_to_data"
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'NPEOF'
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ops-postgresql
+  namespace: sbos-data
+spec:
+  podSelector:
+    matchLabels:
+      app: postgresql
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: sbos-ops
+      ports:
+        - protocol: TCP
+          port: 5432
+NPEOF
+    echo "${__STEP_OK__} networkpolicy_ops_to_data"
+
+    echo "${__STEP_START__} crear_bareos_db"
+    if _k exec postgresql-0 -n sbos-data -- psql -U postgres -tc \
+        "SELECT 1 FROM pg_database WHERE datname='bareos_db'" 2>/dev/null | grep -q 1; then
+        echo "${__STEP_SKIP__} crear_bareos_db: ya existe"
+    else
+        _k exec postgresql-0 -n sbos-data -- psql -U postgres -c \
+            "CREATE DATABASE bareos_db;" >> "$FICHA_LOG" 2>&1
+        echo "${__STEP_OK__} crear_bareos_db"
+    fi
     return 0
 }
 
 ficha_install() {
     mkdir -p "$(dirname "$FICHA_LOG")"
+    ficha_pre_install
 
     local r
     r=$(_k get deployment bareos-director -n "$NS" \
@@ -62,6 +96,36 @@ ficha_install() {
         echo "${__STEP_SKIP__} bareos-director_install: ya Ready — skip"
         return 0
     fi
+
+    echo "${__STEP_START__} crear_pv_bareos"
+    mkdir -p /data/bareos
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'PVEOF'
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-bareos-data
+  labels:
+    app: bareos-director
+    sbos.app/managed-by: bos
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes: [ReadWriteOnce]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-path
+  local:
+    path: /data/bareos
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: Exists
+  claimRef:
+    name: bareos-data
+    namespace: sbos-ops
+PVEOF
+    echo "${__STEP_OK__} crear_pv_bareos"
 
     echo "${__STEP_START__} crear_pvc_bareos"
     _k apply -f - >> "$FICHA_LOG" 2>&1 <<'PVCEOF'
