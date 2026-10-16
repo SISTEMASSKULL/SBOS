@@ -91,9 +91,9 @@ ficha_install() {
     fi
 
     local pg_host="postgresql.sbos-data.svc"
-    helm upgrade --install zabbix zabbix-community/zabbix \
+    KUBECONFIG="$KUBECONFIG_DEST" helm upgrade --install zabbix zabbix-community/zabbix \
         --namespace "$NS" \
-        --version "4.5.0" \
+        --version "7.1.0" \
         --set zabbixServer.DB_SERVER_HOST="$pg_host" \
         --set zabbixServer.POSTGRES_USER="zabbix" \
         --set zabbixServer.POSTGRES_PASSWORD="zabbix_pass" \
@@ -105,6 +105,10 @@ ficha_install() {
         --set zabbixServer.replicaCount=1 \
         --set zabbixWeb.replicaCount=1 \
         --set postgresql.enabled=false \
+        --set zabbixServer.resources.requests.cpu=100m \
+        --set zabbixServer.resources.requests.memory=256Mi \
+        --set zabbixWeb.resources.requests.cpu=50m \
+        --set zabbixWeb.resources.requests.memory=128Mi \
         --timeout 10m \
         >> "$FICHA_LOG" 2>&1
     echo "${__STEP_OK__} instalar_zabbix_helm"

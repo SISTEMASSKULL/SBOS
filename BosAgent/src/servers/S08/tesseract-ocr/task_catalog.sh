@@ -74,9 +74,12 @@ spec:
     spec:
       containers:
         - name: tesseract-ocr
-          image: ghcr.io/minizinc/tesseract:5.5.0-1
+          image: docker.io/apache/tika:2.9.1.0
           ports:
-            - containerPort: 8884
+            - containerPort: 9998
+          env:
+            - name: TIKA_CHILD_JAVA_OPTS
+              value: "-Xms64m -Xmx256m"
           resources:
             requests:
               cpu: "100m"
@@ -95,8 +98,12 @@ spec:
   selector:
     app: tesseract-ocr
   ports:
+    - port: 9998
+      targetPort: 9998
+      name: tika
     - port: 8884
-      targetPort: 8884
+      targetPort: 9998
+      name: legacy
 SVCINNER
     echo "${__STEP_OK__} aplicar_manifest_tesseract-ocr"
 

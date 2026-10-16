@@ -308,8 +308,8 @@ spec:
           mountPath: /var/www/html
         resources:
           requests:
-            memory: "512Mi"
-            cpu: "250m"
+            memory: "256Mi"
+            cpu: "50m"
           limits:
             memory: "2Gi"
             cpu: "2000m"
@@ -543,8 +543,8 @@ spec:
           mountPath: /var/www/html
         resources:
           requests:
-            memory: "512Mi"
-            cpu: "250m"
+            memory: "256Mi"
+            cpu: "50m"
           limits:
             memory: "2Gi"
             cpu: "2000m"

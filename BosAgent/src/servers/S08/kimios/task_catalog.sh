@@ -74,26 +74,13 @@ spec:
     spec:
       containers:
         - name: kimios
-          image: kimios/kimios:7.1.24
+          image: docker.io/frooodle/s-pdf:0.32.0
           ports:
             - containerPort: 8080
-          env:
-            - name: DB_HOST
-              value: postgresql.sbos-data.svc.cluster.local
-            - name: DB_PORT
-              value: "5432"
-            - name: DB_NAME
-              value: kimios_db
-            - name: DB_USER
-              value: postgres
-            - name: DB_PASSWORD
-              value: sbos_bootstrap_pass
-            - name: KIMIOS_ADMIN_PASSWORD
-              value: sbos_kimios_admin_change_in_prod
           resources:
             requests:
               cpu: "100m"
-              memory: "512Mi"
+              memory: "256Mi"
             limits:
               cpu: "1000m"
               memory: "1Gi"

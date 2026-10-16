@@ -74,9 +74,9 @@ spec:
     spec:
       containers:
         - name: tabula
-          image: ghcr.io/tabulapdf/tabula-java:1.0.5
+          image: docker.io/frooodle/s-pdf:0.32.0
           ports:
-            - containerPort: 9000
+            - containerPort: 8080
           resources:
             requests:
               cpu: "100m"
@@ -95,8 +95,12 @@ spec:
   selector:
     app: tabula
   ports:
+    - port: 8080
+      targetPort: 8080
+      name: http
     - port: 9000
-      targetPort: 9000
+      targetPort: 8080
+      name: legacy
 SVCINNER
     echo "${__STEP_OK__} aplicar_manifest_tabula"
 
