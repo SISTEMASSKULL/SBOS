@@ -268,7 +268,15 @@ ficha_install() {
         sleep 10
     done
     if [[ "$pods_ok" -eq 0 ]]; then
-        echo "${__STEP_FAIL__} wait_control_plane_ready: pods no Ready en 15m"
+        # El control plane no levantó — eliminar el webhook para que no quede
+        # activo inyectando proxies sin identity service. Sin este paso, todos
+        # los pods nuevos en namespaces anotados harán CrashLoop indefinidamente.
+        _log "Control plane no ready — eliminando proxy-injector webhook para evitar CrashLoops en el cluster"
+        _k delete mutatingwebhookconfiguration linkerd-proxy-injector 2>/dev/null || true
+        for ns in "${AUTO_INJECT_NAMESPACES[@]}"; do
+            _k annotate namespace "$ns" "linkerd.io/inject=disabled" --overwrite 2>/dev/null || true
+        done
+        echo "${__STEP_FAIL__} wait_control_plane_ready: pods no Ready en 15m — webhook eliminado para proteger el cluster"
         return 1
     fi
     _log "Control plane listo"
@@ -372,6 +380,19 @@ ficha_repair() {
     fi
 
     echo "${__STEP_START__} reparar_auto_inject"
+    # CRÍTICO: solo activar inject si el control plane está corriendo.
+    # Si Linkerd no está listo, mantener inject=disabled para evitar que pods
+    # nuevos reciban el sidecar y hagan CrashLoop por falta de identity service.
+    local cp_running
+    cp_running=$(_k get pods -n "$NS" --no-headers 2>/dev/null | grep -c "Running" || echo "0")
+    if (( cp_running < 3 )); then
+        _log "Control plane no listo (${cp_running}/3 pods Running) — desactivando inject en todos los namespaces"
+        for ns in "${AUTO_INJECT_NAMESPACES[@]}"; do
+            _k annotate namespace "$ns" "linkerd.io/inject=disabled" --overwrite 2>/dev/null || true
+        done
+        echo "${__STEP_SKIP__} reparar_auto_inject: control plane no listo — inject desactivado hasta recuperación"
+        return 0
+    fi
     local repaired=0
     for ns in "${AUTO_INJECT_NAMESPACES[@]}"; do
         if _k get namespace "$ns" > /dev/null 2>&1; then
@@ -385,7 +406,7 @@ ficha_repair() {
         fi
     done
     _log "Reparado auto-inject en $repaired namespaces"
-    echo "${__STEP_OK__} reparar_auto_inject"
+    echo "${__STEP_OK__} reparar_auto_inject ($repaired corregidos)"
     return 0
 }
 

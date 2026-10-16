@@ -31,10 +31,10 @@ _k() {
 }
 
 # _psql: ejecuta SQL en la BD postgres (BD del sistema).
-_psql()    { _k exec "$PG_POD" -n "$NS" -- psql -U postgres -c "$1" 2>/dev/null; }
+_psql()    { _k exec "$PG_POD" -n "$NS" -c postgresql -- psql -U postgres -c "$1" 2>/dev/null; }
 
 # _psql_db: ejecuta SQL en una BD específica.
-_psql_db() { _k exec "$PG_POD" -n "$NS" -- psql -U postgres -d "$1" -c "$2" 2>/dev/null; }
+_psql_db() { _k exec "$PG_POD" -n "$NS" -c postgresql -- psql -U postgres -d "$1" -c "$2" 2>/dev/null; }
 
 # _apply: aplica un manifest desde archivo temporal; siempre limpia el tmp.
 _apply() {
@@ -100,6 +100,12 @@ ficha_pre_install() {
     chown 70:70 "$pg_data_dir" 2>/dev/null || true
     chmod 700 "$pg_data_dir" 2>/dev/null || true
     _log "Directorio host preparado para postgres:18.4-alpine (uid=70)"
+    # Limpiar extensiones no disponibles en postgres:18.4-alpine del auto.conf
+    local pg_autoconf="${pg_data_dir}/pgdata/postgresql.auto.conf"
+    if [[ -f "$pg_autoconf" ]] && grep -qE 'pg_cron|cron\.database_name' "$pg_autoconf" 2>/dev/null; then
+        sed -i '/pg_cron/d; /cron\.database_name/d' "$pg_autoconf"
+        _log "pg_cron eliminado de $pg_autoconf"
+    fi
     echo "${__STEP_OK__} preparar_directorio_host"
 
     echo "${__STEP_START__} verificar_namespace"
@@ -167,6 +173,8 @@ spec:
     metadata:
       labels:
         app: postgresql
+      annotations:
+        linkerd.io/inject: disabled
     spec:
       containers:
         - name: postgresql
@@ -670,6 +678,18 @@ ficha_health() {
 }
 
 ficha_repair() {
+    # Si pg_cron quedó en postgresql.auto.conf de instalación anterior, lo limpiamos.
+    # El data dir es hostPath (/data/postgres) accesible directamente desde el host.
+    echo "${__STEP_START__} limpiar_extensiones_legacy"
+    local pg_autoconf="/data/postgres/pgdata/postgresql.auto.conf"
+    if [[ -f "$pg_autoconf" ]] && grep -qE 'pg_cron|cron\.database_name' "$pg_autoconf" 2>/dev/null; then
+        sed -i '/pg_cron/d; /cron\.database_name/d' "$pg_autoconf"
+        _log "pg_cron eliminado de $pg_autoconf — pod será reiniciado"
+        _k delete pod "$PG_POD" -n "$NS" --grace-period=5 2>/dev/null || true
+        sleep 5
+    fi
+    echo "${__STEP_OK__} limpiar_extensiones_legacy"
+
     echo "${__STEP_START__} verificar_pod"
     if ! _k get pod "$PG_POD" -n "$NS" > /dev/null 2>&1; then
         _log "Pod $PG_POD no existe — reiniciando StatefulSet"
@@ -705,7 +725,7 @@ ficha_test() {
     local ok=0
 
     echo "${__STEP_START__} test_pg_ready"
-    if _k exec "$PG_POD" -n "$NS" -- pg_isready -U postgres 2>/dev/null; then
+    if _k exec "$PG_POD" -n "$NS" -c postgresql -- pg_isready -U postgres 2>/dev/null; then
         echo "${__STEP_OK__} test_pg_ready"
     else
         echo "${__STEP_FAIL__} test_pg_ready: pg_isready falló"

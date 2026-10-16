@@ -260,12 +260,15 @@ spec:
 
     # ── 2. Migrations Job ────────────────────────────────────────
     echo "${__STEP_START__} kong_migrations"
-    # Verificar si migrations ya se ejecutaron (idempotente)
+    # Verificar si migrations ya se ejecutaron consultando directamente la BD
+    # (más fiable que el job K8s, que puede haber sido borrado por ttlSecondsAfterFinished)
     local migrations_done
-    migrations_done=$(_k get job kong-migrations -n "$NS" \
-        -o jsonpath='{.status.succeeded}' 2>/dev/null || echo "0")
-    if [[ "$migrations_done" == "1" ]]; then
-        _log "Migrations ya completadas — saltando"
+    migrations_done=$(_k exec -n sbos-data postgresql-0 -c postgresql -- \
+        psql -U postgres -d kong_db \
+        -tc "SELECT COUNT(*) FROM schema_meta WHERE success=true;" \
+        2>/dev/null | tr -d ' \n' || echo "0")
+    if [[ -n "$migrations_done" && "$migrations_done" -gt "0" ]]; then
+        _log "Migrations ya completadas (${migrations_done} registros en schema_meta) — saltando"
         echo "${__STEP_OK__} kong_migrations (ya ejecutadas)"
     else
         _apply "migrations-job" "apiVersion: batch/v1
@@ -283,6 +286,8 @@ spec:
       labels:
         app: kong-migrations
         sbos-managed: \"true\"
+      annotations:
+        linkerd.io/inject: disabled
     spec:
       restartPolicy: OnFailure
       containers:
@@ -354,6 +359,7 @@ spec:
         prometheus.io/scrape: \"true\"
         prometheus.io/port: \"8001\"
         prometheus.io/path: \"/metrics\"
+        linkerd.io/inject: disabled
     spec:
       containers:
         - name: kong
