@@ -49,11 +49,22 @@ ficha_pre_install() {
         /opt/skull/country-rules \
         /opt/skull/locales/es-BO \
         /opt/skull/locales/en-US \
-        /run/bos \
         /var/log/bos/fichas
-    chown "${BI18N_USER}:${BI18N_GROUP}" /run/bos 2>/dev/null || true
-    chmod 2770 /run/bos 2>/dev/null || true
+    # bi18nd tiene su propio RuntimeDirectory — NO tocar /run/bos (pertenece al daemon bos)
     echo "${__STEP_OK__} verificar_directorios"
+
+    # ── Configuración regional Bolivia (siempre idempotente) ──────────────
+    echo "${__STEP_START__} configurar_region_bolivia"
+    if command -v timedatectl &>/dev/null; then
+        timedatectl set-timezone America/La_Paz >> "$FICHA_LOG" 2>&1 || true
+    fi
+    if command -v locale-gen &>/dev/null; then
+        locale-gen es_BO.UTF-8 >> "$FICHA_LOG" 2>&1 || true
+        update-locale LANG=es_BO.UTF-8 LC_ALL=es_BO.UTF-8 LC_TIME=es_BO.UTF-8 \
+            LC_MONETARY=es_BO.UTF-8 >> "$FICHA_LOG" 2>&1 || true
+    fi
+    _log "región Bolivia: TZ=America/La_Paz locale=es_BO.UTF-8"
+    echo "${__STEP_OK__} configurar_region_bolivia"
 
     return 0
 }
@@ -99,8 +110,8 @@ ficha_install() {
         # Configuración mínima bootstrap
         cat > "$BI18N_CONF_DST" <<'TOML'
 [server]
-socket_path = "/run/bos/bi18n.sock"
-grpc_socket_path = "/run/bos/bi18n-grpc.sock"
+socket_path = "/run/bi18nd/bi18n.sock"
+grpc_socket_path = "/run/bi18nd/bi18n-grpc.sock"
 max_connections = 256
 
 [locale]
@@ -167,9 +178,9 @@ NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
-ReadWritePaths=/run/bos
+ReadWritePaths=/run/bi18nd
 ReadOnlyPaths=/etc/bos /opt/skull/country-rules /opt/skull/locales
-RuntimeDirectory=bos
+RuntimeDirectory=bi18nd
 RuntimeDirectoryMode=2770
 LimitNOFILE=65536
 
@@ -199,11 +210,11 @@ ficha_post_install() {
     echo "${__STEP_START__} verificar_socket"
     local t=0
     while (( t < 15 )); do
-        [[ -S "/run/bos/bi18n.sock" ]] && break
+        [[ -S "/run/bi18nd/bi18n.sock" ]] && break
         sleep 1; t=$((t+1))
     done
-    if [[ ! -S "/run/bos/bi18n.sock" ]]; then
-        echo "${__STEP_FAIL__} verificar_socket: /run/bos/bi18n.sock no aparece tras 15s"
+    if [[ ! -S "/run/bi18nd/bi18n.sock" ]]; then
+        echo "${__STEP_FAIL__} verificar_socket: /run/bi18nd/bi18n.sock no aparece tras 15s"
         return 1
     fi
     echo "${__STEP_OK__} verificar_socket"
@@ -230,9 +241,10 @@ ficha_health() {
 }
 
 ficha_repair() {
-    _log "ficha_repair: reiniciando bi18nd"
+    _log "ficha_repair: aplicando configuración y reiniciando bi18nd"
+    ficha_pre_install
     systemctl restart bi18nd >> "$FICHA_LOG" 2>&1 && _log "bi18nd reiniciado" || {
-        _log "FALLO restart — reintentando instalación"
+        _log "FALLO restart — reintentando instalación completa"
         ficha_install
     }
 }
@@ -249,17 +261,17 @@ ficha_test() {
     fi
 
     echo "${__STEP_START__} test_socket"
-    if [[ -S "/run/bos/bi18n.sock" ]]; then
-        echo "${__STEP_OK__} test_socket (/run/bos/bi18n.sock presente)"
+    if [[ -S "/run/bi18nd/bi18n.sock" ]]; then
+        echo "${__STEP_OK__} test_socket (/run/bi18nd/bi18n.sock presente)"
     else
-        echo "${__STEP_FAIL__} test_socket: /run/bos/bi18n.sock no existe"
+        echo "${__STEP_FAIL__} test_socket: /run/bi18nd/bi18n.sock no existe"
         ok=1
     fi
 
     echo "${__STEP_START__} test_health_rpc"
     local resp
     resp=$(echo '{"jsonrpc":"2.0","id":1,"method":"bi18n.health.check","params":{}}' \
-        | socat - UNIX-CONNECT:/run/bos/bi18n.sock 2>/dev/null || echo "")
+        | socat - UNIX-CONNECT:/run/bi18nd/bi18n.sock 2>/dev/null || echo "")
     if echo "$resp" | grep -q '"status"'; then
         echo "${__STEP_OK__} test_health_rpc"
     else
