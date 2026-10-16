@@ -1,6 +1,6 @@
 # Plan de Instalación SBOS — Inventario y Plan de Acción
 
-**Versión:** 2.34.0  
+**Versión:** 2.35.0  
 **Fecha:** 2026-10-16  
 **Autor:** bos-developer  
 
@@ -69,10 +69,10 @@ Todas las fichas SBOS en orden de ejecución.
 | 40 | tabula | S08 | 365 | Extracción PDF | Descartado | FALSE |
 | 41 | elasticsearch | S09 | 400 | Búsqueda | Programado | TRUE |
 | 42 | rabbitmq | S09 | 405 | Cola mensajes | Instalado | FALSE |
-| 43 | mailserver | S10 | 300 | Correo | Programado | TRUE |
-| 44 | postfixadmin | S10 | 305 | Admin correo | Programado | TRUE |
-| 45 | roundcube | S10 | 310 | Webmail | Programado | TRUE |
-| 46 | cypht | S10 | 315 | Webmail alt. | Descartado | FALSE |
+| 43 | mailserver | S10 | 300 | Correo | Instalado | FALSE |
+| 44 | postfixadmin | S10 | 305 | Admin correo | Instalado | FALSE |
+| 45 | roundcube | S10 | 310 | Webmail | Instalado | FALSE |
+| 46 | cypht | S10 | 315 | Webmail alt. | Instalado | FALSE |
 | 47 | prometheus | S12 | 200 | Monitoreo | Instalado | FALSE |
 | 48 | alertmanager | S12 | 205 | Alertas | Instalado | FALSE |
 | 49 | grafana | S12 | 215 | Dashboards | Instalado | FALSE |

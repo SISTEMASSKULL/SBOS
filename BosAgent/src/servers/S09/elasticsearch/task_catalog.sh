@@ -54,6 +54,8 @@ ficha_install() {
 
     echo "${__STEP_START__} crear_pv_elasticsearch"
     mkdir -p /data/elasticsearch
+    chown 1000:0 /data/elasticsearch
+    chmod 750 /data/elasticsearch
     _k apply -f - >> "$FICHA_LOG" 2>&1 <<EOF
 apiVersion: v1
 kind: PersistentVolume
