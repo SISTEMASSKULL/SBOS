@@ -1,6 +1,6 @@
 # Cronograma de Instalación — Ficha por Ficha
 
-**Versión:** 2.32.0  
+**Versión:** 2.33.0  
 **Fecha:** 2026-10-16  
 **Autor:** bos-developer  
 
@@ -3251,5 +3251,105 @@ bos:      activo (systemd)
 
 ---
 
-*Documento v2.32.0 — bos-developer · 2026-10-16*  
+---
+
+## Ciclo 53 — Instalación masiva aplicaciones + nuevas fichas (2026-10-16)
+
+### Objetivo del ciclo
+
+Activar la instalación automática de todas las aplicaciones pendientes y crear las fichas
+que no existían. El usuario requirió explícitamente que todas las aplicaciones planeadas
+se instalen sin más demora.
+
+### Fichas activadas (auto_install:false → true)
+
+Las siguientes fichas tenían `auto_install: false` y se activaron en este ciclo.
+El observer de BOS las instalará automáticamente al siguiente ciclo.
+
+| Ficha | Servidor | Propósito | Orden |
+|-------|----------|-----------|-------|
+| **tryton** | S04 | ERP — la más importante del sistema | 170 |
+| **tryton-workers** | S04 | Workers asíncronos del ERP | 175 |
+| **orangehrm** | S04 | RRHH — nómina, vacaciones, evaluación | 180 |
+| **gnu-health** | S04 | EHR/HIS de salud — historia clínica | 190 |
+| **paperless-ngx** | S08 | Gestión documental con OCR | 350 |
+| **trilium-notes** | S08 | Base de conocimiento corporativa | 360 |
+| **elasticsearch** | S09 | Motor de búsqueda full-text | 250 |
+| **rabbitmq** | S09 | Cola de mensajes asíncronos | 255 |
+| **mailserver** | S10 | Servidor de correo (Postfix+Dovecot) | 300 |
+| **postfixadmin** | S10 | Administración web del correo | 305 |
+| **roundcube** | S10 | Webmail corporativo | 310 |
+| **cypht** | S10 | Webmail alternativo ligero | 315 |
+| **postgresql-extensions** | S12 | PostGIS, pgvector, pg_cron, TimescaleDB | 78 |
+
+### Fichas nuevas creadas en este ciclo
+
+| Ficha | Servidor | Archivo | Estado |
+|-------|----------|---------|--------|
+| **trilium-notes** | S08 | `servers/S08/trilium-notes/` | ✅ Creada — auto_install:true |
+| **orangehrm** | S04 | `servers/S04/orangehrm/` | ✅ Creada — auto_install:true |
+| **gnu-health** | S04 | `servers/S04/gnu-health/` | ✅ Creada — auto_install:true |
+| **postgresql-extensions** | S12 | `servers/S12/postgresql-extensions/` | ✅ Creada — auto_install:true |
+
+### Subdominios Kong que deben existir post-instalación
+
+| App | Subdominio | Namespace |
+|-----|-----------|-----------|
+| Tryton ERP | `erp.sksistemas.com` | sbos-erp |
+| OrangeHRM RRHH | `rrhh.sksistemas.com` | sbos-erp |
+| GNU Health | `salud.sksistemas.com` | sbos-erp |
+| Paperless-NGX | `docs.sksistemas.com` | sbos-docs |
+| Trilium Notes | `notas.sksistemas.com` | sbos-collab |
+| Mailserver SMTP | ports 25/465/587/993 | sbos-comms |
+| Roundcube webmail | `correo.sksistemas.com` | sbos-comms |
+| Elasticsearch | interno solamente | sbos-search |
+| RabbitMQ | interno solamente | sbos-search |
+
+### Servidor de correo — superusuario del primer tenant
+
+El usuario solicitó que el servidor de correo quede operativo y que el superusuario
+del primer tenant controle todas las aplicaciones. Esto requiere:
+
+1. **mailserver instalado** → domain `sksistemas.com` configurado
+2. **Cuenta admin@sksistemas.com** → ya existe en Keycloak (realm skull)
+3. **Buzón IMAP** → creado por postfixadmin o setup.sh de docker-mailserver
+4. **SSO** → todas las apps deben autenticar contra Keycloak (ya configurado)
+
+**⚠️ PENDIENTE — información requerida:**
+- ¿El primer tenant es `sksistemas.com`? *(asumido sí)*
+- ¿El superusuario es `admin@sksistemas.com`? *(asumido sí)*
+- ¿Necesita acceso a OrangeHRM como admin de RRHH? *(anotar: pendiente confirmar)*
+- ¿Tryton necesita un plan de cuentas contables preconfigurado (BO/MX/ES)? *(pendiente)*
+
+### Robustecimiento de infraestructura — PENDIENTE
+
+El usuario solicitó robustecimiento de PostgreSQL y Redis. Queda como siguiente ciclo:
+
+| Componente | Herramienta | Estado |
+|-----------|-------------|--------|
+| PostgreSQL HA | Patroni + etcd | ⏳ Sin ficha — crear S01/patroni |
+| PostgreSQL pool | PgBouncer | ⏳ Sin ficha — crear S01/pgbouncer |
+| PostgreSQL extensiones | PostGIS, pgvector, pg_cron | ✅ Ficha creada (S12/postgresql-extensions) |
+| Redis HA | Redis Sentinel | ⏳ Sin ficha — crear S01/redis-sentinel |
+
+### Procedimiento para sincronizar a la VPS
+
+Las fichas nuevas y los cambios de auto_install están en el código fuente.
+Para sincronizarlos a la VPS de producción, ejecutar:
+
+```bash
+! rsync -avz --delete \
+  /opt/skull/orquestador/proyectos/SBOS/BosAgent/src/servers/ \
+  root@13.140.128.230:/etc/bos/blibs/servers/
+```
+
+Luego reiniciar el observer para que detecte los cambios:
+
+```bash
+! sshpass -p "12345678ubuntu" ssh root@13.140.128.230 "systemctl restart bos.service"
+```
+
+---
+
+*Documento v2.33.0 — bos-developer · 2026-10-16*  
 *Panel de control de reparación: `PLAN-INSTALACION-DESDE-CERO.md §13`*

@@ -22,7 +22,7 @@ requirements:
     - kong
 
 governance:
-  auto_install: false
+  auto_install: true
   requires_approval: false
   category_label: "comunicaciones"
 

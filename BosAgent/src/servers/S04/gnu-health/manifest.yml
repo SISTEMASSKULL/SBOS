@@ -1,0 +1,65 @@
+identity:
+  id: gnu-health
+  server: S04
+  version: "4.4"
+  category: 1
+  criticality: false
+  description: "GNU Health 4.4 — sistema de salud soberano (EHR, HIS, clínica, laboratorio, farmacia). Basado en Tryton. Gestión de pacientes, prescripciones, historia clínica electrónica."
+
+workload:
+  type: deployment
+  runtime: kubernetes
+  namespace: sbos-erp
+  replicas: 1
+
+order:
+  execution_order: 190
+
+requirements:
+  dependencies:
+    - tryton
+    - postgresql
+    - kong
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "salud"
+
+meta:
+  backend: k8s
+  idempotent: true
+  estimated_minutes: 20
+  rollback_support: true
+
+ports:
+  - name: http
+    port: 8000
+    protocol: TCP
+    internal_only: false
+
+health:
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get deployment gnu-health -n sbos-erp -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
+  expected_output: "1"
+  timeout_seconds: 30
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/gnu-health.log
+
+vault:
+  secret_path: "secret/tenants/{{ tenant_id }}/gnu-health"
+  keys:
+    - db_password
+    - admin_password
+
+versions:
+  gnu_health: "4.4"
+  tryton: "7.4"
+
+notes: |
+  GNU Health corre como una instancia Tryton separada con los módulos de salud instalados.
+  La imagen gnuhealth/gnuhealth incluye trytond + módulos health_* preinstalados.
+  Requiere una BD PostgreSQL dedicada: gnuhealth_db.
+  PENDIENTE: configurar OIDC contra Keycloak cuando sea necesario.
