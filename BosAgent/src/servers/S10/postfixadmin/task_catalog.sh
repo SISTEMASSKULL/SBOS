@@ -79,23 +79,19 @@ spec:
           ports:
             - containerPort: 80
           env:
-            - name: POSTFIXADMIN_DB_TYPE
+            - name: DBTYPE
               value: "pgsql"
-            - name: POSTFIXADMIN_DB_HOST
+            - name: DBHOST
               value: "postgresql.sbos-data.svc.cluster.local"
-            - name: POSTFIXADMIN_DB_PORT
+            - name: DBPORT
               value: "5432"
-            - name: POSTFIXADMIN_DB_USER
+            - name: DBUSER
               value: "postgres"
-            - name: POSTFIXADMIN_DB_PASSWORD
+            - name: DBPASS
               value: "sbos_bootstrap_pass"
-            - name: POSTFIXADMIN_DB_NAME
+            - name: DBNAME
               value: "postfixadmin_db"
-            - name: POSTFIXADMIN_SMTP_SERVER
-              value: "mailserver.sbos-comms.svc.cluster.local"
-            - name: POSTFIXADMIN_SMTP_PORT
-              value: "25"
-            - name: POSTFIXADMIN_SETUP_PASSWORD
+            - name: ADMIN_PASSWD
               value: "sbos_postfixadmin_setup_pass"
           resources:
             requests:

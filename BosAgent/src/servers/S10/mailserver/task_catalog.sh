@@ -34,6 +34,25 @@ ficha_pre_install() {
     echo "${__STEP_START__} verificar_namespace"
     _k get namespace "$NS" > /dev/null 2>&1 || { echo "${__STEP_FAIL__} verificar_namespace: $NS no existe"; return 1; }
     echo "${__STEP_OK__} verificar_namespace"
+
+    # docker-mailserver requiere al menos una cuenta antes de iniciar Dovecot.
+    # Pre-crear postfix-accounts.cf con cuenta postmaster si no existe.
+    echo "${__STEP_START__} crear_cuenta_inicial"
+    local accounts_file="/data/mailserver/data/postfix-accounts.cf"
+    mkdir -p /data/mailserver/data
+    if [[ ! -s "$accounts_file" ]]; then
+        local hashed_pass
+        hashed_pass=$(openssl passwd -6 'sbos_mail_postmaster' 2>/dev/null || echo "")
+        if [[ -n "$hashed_pass" ]]; then
+            echo "postmaster@${DOMAIN}|${hashed_pass}" > "$accounts_file"
+            _log "Cuenta inicial creada: postmaster@${DOMAIN}"
+        else
+            _log "ADVERTENCIA: no se pudo generar hash — mailserver puede no iniciar"
+        fi
+    else
+        _log "Cuentas ya existen en $accounts_file"
+    fi
+    echo "${__STEP_OK__} crear_cuenta_inicial"
     return 0
 }
 
