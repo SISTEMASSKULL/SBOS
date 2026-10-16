@@ -34,8 +34,8 @@ KUBECONFIG_DEST="${KUBECONFIG_DEST:-/etc/bos/.kube/config}"
 readonly NS_KONG="sbos-gateway"
 readonly ADMIN_PORT=8001
 
-TENANT_ID="${TENANT_ID:-skull}"
-BOS_DOMAIN="${BOS_DOMAIN:-sksistemas.com}"
+TENANT_ID="${TENANT_ID:-${BOS_ORG_SHORT:-tenant}}"
+BOS_DOMAIN="${BOS_DOMAIN:-empresa.com}"
 
 _log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [sbos-kong-tenant] $*" | tee -a "$FICHA_LOG"; }
 

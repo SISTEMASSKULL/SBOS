@@ -1,0 +1,105 @@
+# ============================================================================
+# bos-install.toml — Configuración de instalación por empresa
+#
+# Este archivo se copia a /etc/bos/bos-install.toml en el servidor del cliente
+# ANTES de ejecutar el instalador SBOS.
+#
+# INSTRUCCIONES:
+#   1. Copiar este template: cp bos-install.toml.template bos-install.toml
+#   2. Rellenar TODOS los campos marcados como REQUERIDO
+#   3. Copiar al servidor: scp bos-install.toml root@IP:/etc/bos/bos-install.toml
+#   4. Ejecutar: bosctl setup --mode=prod
+#
+# SEGURIDAD: Este archivo contiene contraseñas. NO commitear con valores reales.
+# ============================================================================
+
+# ── Identidad de la empresa ────────────────────────────────────────────────
+
+# Nombre completo de la empresa (aparece en emails, paneles, TLS cert)
+# REQUERIDO
+org_name = "Nombre de la Empresa S.A."
+
+# Identificador corto (sin espacios, minúsculas, alfanumérico+guión)
+# Se usa como: nombre del realm Keycloak, prefijo en Vault, ID de Kong consumer
+# Ejemplo: "acme", "mifirma", "sksistemas"
+# REQUERIDO
+org_short = "empresa"
+
+# Dominio principal del servidor (sin https://, sin www)
+# DNS debe apuntar a server_ip
+# REQUERIDO
+client_domain = "empresa.com"
+
+# IP pública del servidor
+# REQUERIDO
+server_ip = "1.2.3.4"
+
+# Identificador del primer tenant (si se deja vacío, se deriva de org_short)
+# OPCIONAL — dejar vacío para usar org_short automáticamente
+tenant_id = ""
+
+# ── Superusuario del primer tenant ─────────────────────────────────────────
+
+# Email del administrador principal (también es su login en todas las apps)
+# REQUERIDO
+admin_email = "admin@empresa.com"
+
+# Nombre completo del administrador (aparece en UI y correos)
+# REQUERIDO
+admin_name = "Administrador Principal"
+
+# Username del admin (si se deja vacío, se deriva del email: admin@empresa.com → admin)
+# OPCIONAL
+admin_user = ""
+
+# Contraseña inicial del superusuario
+# REQUERIDO — cambiar después de la primera instalación
+# Mínimo 16 caracteres con mayúsculas, minúsculas, números y símbolos
+admin_password = "CAMBIAR-CONTRASEÑA-SEGURA-16CHARS"
+
+# ── Localización ───────────────────────────────────────────────────────────
+
+# Zona horaria (formato TZ Database: America/La_Paz, America/Mexico_City, Europe/Madrid)
+# REQUERIDO
+timezone = "America/La_Paz"
+
+# Código de país ISO 3166-1 alpha-2 (MX, BO, ES, AR, CO...)
+# Afecta: formato de fecha, moneda, reglas fiscales en Tryton ERP
+# REQUERIDO
+country = "BO"
+
+# Idioma preferido (es, en, fr, pt...)
+# REQUERIDO
+language = "es"
+
+# ── Correo saliente (SMTP externo para notificaciones del sistema) ──────────
+# El servidor de correo interno (mailserver) se configura automáticamente.
+# Estos parámetros son para correos de sistema durante el bootstrap,
+# antes de que mailserver esté disponible.
+
+# OPCIONAL — dejar comentado si no se tiene SMTP externo aún
+# smtp_host = "smtp.gmail.com"
+# smtp_port = "587"
+# smtp_user = "notificaciones@empresa.com"
+# smtp_password = "contraseña-smtp"
+
+# ── Canal de actualización ─────────────────────────────────────────────────
+
+# stable   → versiones probadas (recomendado producción)
+# early    → versiones recientes, ligera inestabilidad posible
+# canary   → últimas versiones, solo desarrollo
+channel = "stable"
+
+# ── Recursos del cluster (OPCIONAL — valores calculados automáticamente) ──
+
+# Contraseña de PostgreSQL (si se deja vacío, se genera aleatoriamente y se guarda en Vault)
+# OPCIONAL
+# pg_password = ""
+
+# Namespace de PostgreSQL en K8s (default: sbos-data)
+# OPCIONAL
+# pg_namespace = "sbos-data"
+
+# Namespace de Redis en K8s (default: sbos-data)
+# OPCIONAL
+# redis_namespace = "sbos-data"

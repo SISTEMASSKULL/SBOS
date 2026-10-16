@@ -46,20 +46,38 @@ _load_bos_install_config() {
         value="${value## }"
         value="${value%% }"
         case "$key" in
-            client_domain)   [[ -z "${BOS_DOMAIN:-}" ]]         && export BOS_DOMAIN="$value" ;;
-            org_name)        [[ -z "${BOS_ORG_NAME:-}" ]]       && export BOS_ORG_NAME="$value" ;;
-            server_ip)       [[ -z "${BOS_SERVER_IP:-}" ]]      && export BOS_SERVER_IP="$value" ;;
-            admin_email)     [[ -z "${SBOS_ADMIN_EMAIL:-}" ]]   && export SBOS_ADMIN_EMAIL="$value" ;;
-            admin_name)      [[ -z "${SBOS_ADMIN_NAME:-}" ]]    && export SBOS_ADMIN_NAME="$value" ;;
-            admin_password)  [[ -z "${SBOS_ADMIN_PASSWORD:-}" ]] && export SBOS_ADMIN_PASSWORD="$value" ;;
-            timezone)        [[ -z "${SBOS_TIMEZONE:-}" ]]      && export SBOS_TIMEZONE="$value" ;;
-            country)         [[ -z "${SBOS_COUNTRY:-}" ]]       && export SBOS_COUNTRY="$value" ;;
-            language)        [[ -z "${SBOS_LANGUAGE:-}" ]]      && export SBOS_LANGUAGE="$value" ;;
-            smtp_host)       [[ -z "${SBOS_SMTP_HOST:-}" ]]     && export SBOS_SMTP_HOST="$value" ;;
-            smtp_port)       [[ -z "${SBOS_SMTP_PORT:-}" ]]     && export SBOS_SMTP_PORT="$value" ;;
-            smtp_user)       [[ -z "${SBOS_SMTP_USER:-}" ]]     && export SBOS_SMTP_USER="$value" ;;
+            # Identidad de la empresa cliente
+            client_domain)   [[ -z "${BOS_DOMAIN:-}" ]]              && export BOS_DOMAIN="$value" ;;
+            org_name)        [[ -z "${BOS_ORG_NAME:-}" ]]            && export BOS_ORG_NAME="$value" ;;
+            org_short)       [[ -z "${BOS_ORG_SHORT:-}" ]]           && export BOS_ORG_SHORT="$value" ;;
+            server_ip)       [[ -z "${BOS_SERVER_IP:-}" ]]           && export BOS_SERVER_IP="$value" ;;
+            tenant_id)       [[ -z "${TENANT_ID:-}" ]]               && export TENANT_ID="$value" ;;
+            # Superusuario del primer tenant
+            admin_email)     [[ -z "${SBOS_ADMIN_EMAIL:-}" ]]        && export SBOS_ADMIN_EMAIL="$value" ;;
+            admin_user)      [[ -z "${SBOS_ADMIN_USER:-}" ]]         && export SBOS_ADMIN_USER="$value" ;;
+            admin_name)      [[ -z "${SBOS_ADMIN_NAME:-}" ]]         && export SBOS_ADMIN_NAME="$value" ;;
+            admin_password)  [[ -z "${SBOS_ADMIN_PASSWORD:-}" ]]     && export SBOS_ADMIN_PASSWORD="$value" ;;
+            # Localización
+            timezone)        [[ -z "${SBOS_TIMEZONE:-}" ]]           && export SBOS_TIMEZONE="$value" ;;
+            country)         [[ -z "${SBOS_COUNTRY:-}" ]]            && export SBOS_COUNTRY="$value" ;;
+            language)        [[ -z "${SBOS_LANGUAGE:-}" ]]           && export SBOS_LANGUAGE="$value" ;;
+            # Correo saliente
+            smtp_host)       [[ -z "${SBOS_SMTP_HOST:-}" ]]          && export SBOS_SMTP_HOST="$value" ;;
+            smtp_port)       [[ -z "${SBOS_SMTP_PORT:-}" ]]          && export SBOS_SMTP_PORT="$value" ;;
+            smtp_user)       [[ -z "${SBOS_SMTP_USER:-}" ]]          && export SBOS_SMTP_USER="$value" ;;
+            smtp_password)   [[ -z "${SBOS_SMTP_PASSWORD:-}" ]]      && export SBOS_SMTP_PASSWORD="$value" ;;
+            # Recursos del cluster
+            pg_password)     [[ -z "${SBOS_PG_PASSWORD:-}" ]]        && export SBOS_PG_PASSWORD="$value" ;;
+            pg_namespace)    [[ -z "${SBOS_PG_NS:-}" ]]              && export SBOS_PG_NS="$value" ;;
+            redis_namespace) [[ -z "${SBOS_REDIS_NS:-}" ]]           && export SBOS_REDIS_NS="$value" ;;
+            # Canales y modo
+            channel)         [[ -z "${SBOS_CHANNEL:-}" ]]            && export SBOS_CHANNEL="$value" ;;
         esac
     done < "$toml"
+    # Derivar variables secundarias a partir de las primarias
+    [[ -z "${TENANT_ID:-}" && -n "${BOS_ORG_SHORT:-}" ]] && export TENANT_ID="${BOS_ORG_SHORT}"
+    [[ -z "${TENANT_ID:-}" && -n "${BOS_DOMAIN:-}" ]]    && export TENANT_ID="${BOS_DOMAIN%%.*}"
+    [[ -z "${SBOS_ADMIN_USER:-}" && -n "${SBOS_ADMIN_EMAIL:-}" ]] && export SBOS_ADMIN_USER="${SBOS_ADMIN_EMAIL%%@*}"
 }
 _load_bos_install_config
 

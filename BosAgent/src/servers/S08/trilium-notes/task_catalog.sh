@@ -15,7 +15,7 @@ FICHA_LOG="${FICHA_LOG:-/var/log/bos/fichas/trilium-notes.log}"
 KUBECONFIG_DEST="${KUBECONFIG_DEST:-/etc/bos/.kube/config}"
 NS="sbos-collab"
 TRILIUM_VERSION="${TRILIUM_VERSION:-0.63.7}"
-DOMAIN="${BOS_DOMAIN:-sksistemas.com}"
+DOMAIN="${BOS_DOMAIN:-empresa.com}"
 
 _log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [trilium-notes] $*" | tee -a "$FICHA_LOG"; }
 _k()   { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@"; }

@@ -257,8 +257,8 @@ http {
         server_name _;
 
         # Usar cert Let's Encrypt si existe; fallback a autofirmado
-        ssl_certificate     $([ -f "/etc/letsencrypt/live/${BOS_DOMAIN:-sksistemas.com}/fullchain.pem" ] && echo "/etc/letsencrypt/live/${BOS_DOMAIN:-sksistemas.com}/fullchain.pem" || echo "${CERT_FILE}");
-        ssl_certificate_key $([ -f "/etc/letsencrypt/live/${BOS_DOMAIN:-sksistemas.com}/privkey.pem" ]   && echo "/etc/letsencrypt/live/${BOS_DOMAIN:-sksistemas.com}/privkey.pem"   || echo "${CERT_KEY}");
+        ssl_certificate     $([ -f "/etc/letsencrypt/live/${BOS_DOMAIN:-empresa.com}/fullchain.pem" ] && echo "/etc/letsencrypt/live/${BOS_DOMAIN:-empresa.com}/fullchain.pem" || echo "${CERT_FILE}");
+        ssl_certificate_key $([ -f "/etc/letsencrypt/live/${BOS_DOMAIN:-empresa.com}/privkey.pem" ]   && echo "/etc/letsencrypt/live/${BOS_DOMAIN:-empresa.com}/privkey.pem"   || echo "${CERT_KEY}");
         ssl_protocols       TLSv1.2 TLSv1.3;
         ssl_ciphers         HIGH:!aNULL:!MD5;
         ssl_session_cache   shared:SSL:10m;
@@ -339,7 +339,7 @@ _kubectl() { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@" 2>/dev/null; }
 # Idempotente — sobreescribe en cada llamada para reflejar IPs actuales.
 # bcms usa la misma carpeta conf.d/domains/ pero con prefijo "tenant-" (no hay conflicto).
 _gen_sbos_subdomain_blocks() {
-    local domain="${BOS_DOMAIN:-sksistemas.com}"
+    local domain="${BOS_DOMAIN:-empresa.com}"
     local domains_dir="/etc/nginx/conf.d/domains"
     mkdir -p "$domains_dir"
 
@@ -560,7 +560,7 @@ ficha_install() {
     # ── 4. Directorio de dominios web y placeholder institucional ───
     echo "${__STEP_START__} crear_dir_dominios"
     mkdir -p /etc/nginx/conf.d/domains/
-    local _inst_domain="${BOS_DOMAIN:-sksistemas.com}"
+    local _inst_domain="${BOS_DOMAIN:-empresa.com}"
     local _inst_cert _inst_key
     if [[ -f "/etc/letsencrypt/live/${_inst_domain}/fullchain.pem" ]]; then
         _inst_cert="/etc/letsencrypt/live/${_inst_domain}/fullchain.pem"

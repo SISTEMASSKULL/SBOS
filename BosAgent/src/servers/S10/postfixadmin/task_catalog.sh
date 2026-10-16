@@ -15,7 +15,7 @@ readonly __STEP_SKIP__="${__SBOS__STEP_SKIP__:-__SBOS__STEP_SKIP__}"
 FICHA_LOG="${FICHA_LOG:-/var/log/bos/fichas/postfixadmin.log}"
 KUBECONFIG_DEST="${KUBECONFIG_DEST:-/etc/bos/.kube/config}"
 NS="sbos-comms"
-DOMAIN="${BOS_DOMAIN:-sksistemas.com}"
+DOMAIN="${BOS_DOMAIN:-empresa.com}"
 
 _log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [postfixadmin] $*" | tee -a "$FICHA_LOG"; }
 _k()   { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@"; }
@@ -193,7 +193,7 @@ ficha_health() {
 ficha_post_install() {
     local kc_ns="sbos-security"
     local secret_name="sbos-postfixadmin-oidc"
-    local realm="${TENANT_ID:-skull}"
+    local realm="${TENANT_ID:-${BOS_ORG_SHORT:-tenant}}"
 
     echo "${__STEP_START__} configurar_oidc_postfixadmin"
     if ! _k get secret -n "$kc_ns" "$secret_name" &>/dev/null; then

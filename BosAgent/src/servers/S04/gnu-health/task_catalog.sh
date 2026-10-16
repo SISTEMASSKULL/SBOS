@@ -15,7 +15,7 @@ FICHA_LOG="${FICHA_LOG:-/var/log/bos/fichas/gnu-health.log}"
 KUBECONFIG_DEST="${KUBECONFIG_DEST:-/etc/bos/.kube/config}"
 NS="sbos-erp"
 GH_VERSION="${GH_VERSION:-4.4}"
-DOMAIN="${BOS_DOMAIN:-sksistemas.com}"
+DOMAIN="${BOS_DOMAIN:-empresa.com}"
 
 _log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [gnu-health] $*" | tee -a "$FICHA_LOG"; }
 _k()   { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@"; }

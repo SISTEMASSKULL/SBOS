@@ -15,7 +15,7 @@ FICHA_LOG="${FICHA_LOG:-/var/log/bos/fichas/orangehrm.log}"
 KUBECONFIG_DEST="${KUBECONFIG_DEST:-/etc/bos/.kube/config}"
 NS="sbos-erp"
 OHR_VERSION="${OHR_VERSION:-5.7}"
-DOMAIN="${BOS_DOMAIN:-sksistemas.com}"
+DOMAIN="${BOS_DOMAIN:-empresa.com}"
 
 _log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [orangehrm] $*" | tee -a "$FICHA_LOG"; }
 _k()   { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@"; }
@@ -144,7 +144,7 @@ spec:
                   key: password
                   optional: true
             - name: ORANGEHRM_ADMIN_USER
-              value: "admin"
+              value: "${SBOS_ADMIN_USER:-admin}"
             - name: ORANGEHRM_SMTP_HOST
               value: "mailserver.sbos-comms.svc.cluster.local"
             - name: ORANGEHRM_SMTP_PORT

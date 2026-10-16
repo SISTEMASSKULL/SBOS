@@ -30,7 +30,7 @@ _wait_deploy_ready() {
 
 _get_vault_secret() {
     local key="$1"
-    local path="${VAULT_PATH:-secret/tenants/skull/zabbix}"
+    local path="${VAULT_PATH:-secret/tenants/${TENANT_ID:-tenant}/zabbix}"
     VAULT_ADDR="${VAULT_ADDR:-http://vault.sbos-security.svc:8200}"
     VAULT_TOKEN="${VAULT_TOKEN:-}"
     if [[ -n "$VAULT_TOKEN" ]]; then

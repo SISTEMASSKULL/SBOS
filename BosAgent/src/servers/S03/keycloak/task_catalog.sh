@@ -351,7 +351,7 @@ spec:
 
     # ── 6. Realm del tenant + SPIs via kcadm.sh (F10.C.2) ──────────
 	    echo "${__STEP_START__} crear_realm_tenant"
-	    local REALM_ID="${TENANT_ID:-skull}"
+	    local REALM_ID="${TENANT_ID:-${BOS_ORG_SHORT:-tenant}}"
 	    local REALM_NAME="${TENANT_NAME:-SKULL — Sovereign Business OS}"
 	    local attempts=0 max_attempts=30
 
@@ -464,8 +464,8 @@ _kc_ensure_client() {
 
 # ── Post-install — SSO: Web Origins + clients OIDC (idempotente) ──────────────
 ficha_post_install() {
-    local realm="${TENANT_ID:-skull}"
-    local domain="${BOS_DOMAIN:-sksistemas.com}"
+    local realm="${TENANT_ID:-${BOS_ORG_SHORT:-tenant}}"
+    local domain="${BOS_DOMAIN:-empresa.com}"
 
     echo "${__STEP_START__} configurar_sso"
 

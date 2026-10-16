@@ -309,7 +309,7 @@ spec:
 
 # ── Post-install — SSO: configurar OAuth2/OIDC con Keycloak (idempotente) ──────
 ficha_post_install() {
-    local realm="${TENANT_ID:-skull}"
+    local realm="${TENANT_ID:-${BOS_ORG_SHORT:-tenant}}"
     local kc_ns="sbos-security"
     local secret_name="sbos-grafana-oidc"
     local kc_base="http://keycloak.${kc_ns}.svc.cluster.local:8080/realms/${realm}"
