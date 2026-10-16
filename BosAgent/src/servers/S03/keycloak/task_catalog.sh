@@ -169,6 +169,8 @@ spec:
     metadata:
       labels:
         app: keycloak
+      annotations:
+        linkerd.io/inject: disabled
     spec:
       containers:
         - name: keycloak

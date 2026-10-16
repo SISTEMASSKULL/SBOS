@@ -113,6 +113,8 @@ ficha_pre_install() {
         echo "${__STEP_FAIL__} verificar_namespace: $NS no existe"
         return 1
     fi
+    # PostgreSQL no usa Linkerd mesh — desactivar inject para evitar sidecars
+    _k annotate namespace "$NS" "linkerd.io/inject=disabled" --overwrite 2>/dev/null || true
     echo "${__STEP_OK__} verificar_namespace"
     return 0
 }
@@ -680,6 +682,8 @@ ficha_health() {
 ficha_repair() {
     # Si pg_cron quedó en postgresql.auto.conf de instalación anterior, lo limpiamos.
     # El data dir es hostPath (/data/postgres) accesible directamente desde el host.
+    # Si pg_cron quedó en postgresql.auto.conf de instalación anterior, lo limpiamos.
+    # El data dir es hostPath (/data/postgres) accesible directamente desde el host.
     echo "${__STEP_START__} limpiar_extensiones_legacy"
     local pg_autoconf="/data/postgres/pgdata/postgresql.auto.conf"
     if [[ -f "$pg_autoconf" ]] && grep -qE 'pg_cron|cron\.database_name' "$pg_autoconf" 2>/dev/null; then
@@ -689,6 +693,19 @@ ficha_repair() {
         sleep 5
     fi
     echo "${__STEP_OK__} limpiar_extensiones_legacy"
+
+    # PostgreSQL no usa Linkerd mesh — desactivar inject en el namespace
+    echo "${__STEP_START__} desactivar_linkerd_inject"
+    local ns_inject
+    ns_inject=$(_k get namespace "$NS" \
+        -o jsonpath='{.metadata.annotations.linkerd\.io/inject}' 2>/dev/null || echo "")
+    if [[ "$ns_inject" == "enabled" ]]; then
+        _k annotate namespace "$NS" "linkerd.io/inject=disabled" --overwrite 2>/dev/null || true
+        _log "linkerd.io/inject desactivado en namespace $NS"
+        _k delete pod "$PG_POD" -n "$NS" --grace-period=5 2>/dev/null || true
+        sleep 5
+    fi
+    echo "${__STEP_OK__} desactivar_linkerd_inject"
 
     echo "${__STEP_START__} verificar_pod"
     if ! _k get pod "$PG_POD" -n "$NS" > /dev/null 2>&1; then
