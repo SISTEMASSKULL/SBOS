@@ -49,11 +49,93 @@ ficha_pre_install() {
         _log "Namespace $NS creado"
     }
     echo "${__STEP_OK__} verificar_namespace"
+
+    echo "${__STEP_START__} crear_pv_gitlab_data"
+    mkdir -p /data/gitlab-data
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'K8SEOF'
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-gitlab-data
+spec:
+  capacity:
+    storage: 50Gi
+  accessModes: [ReadWriteOnce]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-path
+  local:
+    path: /data/gitlab-data
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: Exists
+  claimRef:
+    name: gitlab-data-gitlab-0
+    namespace: sbos-ops
+K8SEOF
+    echo "${__STEP_OK__} crear_pv_gitlab_data"
+
+    echo "${__STEP_START__} crear_pv_gitlab_config"
+    mkdir -p /data/gitlab-config
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'K8SEOF'
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-gitlab-config
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes: [ReadWriteOnce]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-path
+  local:
+    path: /data/gitlab-config
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: Exists
+  claimRef:
+    name: gitlab-config-gitlab-0
+    namespace: sbos-ops
+K8SEOF
+    echo "${__STEP_OK__} crear_pv_gitlab_config"
+
+    echo "${__STEP_START__} crear_pv_gitlab_logs"
+    mkdir -p /data/gitlab-logs
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'K8SEOF'
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-gitlab-logs
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes: [ReadWriteOnce]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-path
+  local:
+    path: /data/gitlab-logs
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: Exists
+  claimRef:
+    name: gitlab-logs-gitlab-0
+    namespace: sbos-ops
+K8SEOF
+    echo "${__STEP_OK__} crear_pv_gitlab_logs"
     return 0
 }
 
 ficha_install() {
     mkdir -p "$(dirname "$FICHA_LOG")"
+    ficha_pre_install
 
     local r
     r=$(_k get statefulset gitlab -n "$NS" \
@@ -62,6 +144,12 @@ ficha_install() {
         echo "${__STEP_SKIP__} gitlab_install: ya Ready — skip"
         return 0
     fi
+
+    echo "${__STEP_START__} portman_gitlab"
+    local SVC_PORT; SVC_PORT=$(_portman "gitlab" 1 "S14" "sbos-ops")
+    SVC_PORT="${SVC_PORT:-21410}"
+    _log "Puerto ClusterIP portman: ${SVC_PORT}"
+    echo "${__STEP_OK__} portman_gitlab"
 
     echo "${__STEP_START__} aplicar_manifest_gitlab"
     _k apply -f - >> "$FICHA_LOG" 2>&1 <<'K8SEOF'
@@ -96,13 +184,14 @@ spec:
                 external_url 'http://gitlab.sbos-ops.svc.cluster.local'
                 gitlab_rails['initial_root_password'] = ENV['GITLAB_ROOT_PASSWORD'] || 'SBOSgitlab2024!'
                 gitlab_rails['time_zone'] = 'UTC'
-                puma['worker_processes'] = 2
-                sidekiq['max_concurrency'] = 5
+                puma['worker_processes'] = 0
+                sidekiq['max_concurrency'] = 2
                 prometheus_monitoring['enable'] = false
+                gitlab_exporter['enable'] = false
           resources:
             requests:
-              cpu: "1000m"
-              memory: "2Gi"
+              cpu: "50m"
+              memory: "1Mi"
             limits:
               cpu: "4000m"
               memory: "6Gi"
@@ -139,11 +228,6 @@ spec:
           requests:
             storage: 5Gi
 K8SEOF
-    echo "${__STEP_START__} portman_gitlab"
-    local SVC_PORT; SVC_PORT=$(_portman "gitlab" 1 "S14" "sbos-ops")
-    SVC_PORT="${SVC_PORT:-21410}"
-    _log "Puerto ClusterIP portman: ${SVC_PORT}"
-    echo "${__STEP_OK__} portman_gitlab"
 
     _k apply -f - >> "$FICHA_LOG" 2>&1 <<SVCINNER
 apiVersion: v1

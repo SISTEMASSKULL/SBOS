@@ -64,6 +64,58 @@ ficha_pre_install() {
         -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
     (( pg_ready >= 1 )) || { echo "${__STEP_FAIL__} verificar_postgresql: no Ready"; return 1; }
     echo "${__STEP_OK__} verificar_postgresql"
+
+    echo "${__STEP_START__} networkpolicy_monitor_postgresql"
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'K8SEOF'
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-monitor-postgresql
+  namespace: sbos-data
+spec:
+  podSelector:
+    matchLabels:
+      app: postgresql
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: sbos-monitor
+    ports:
+    - port: 5432
+      protocol: TCP
+K8SEOF
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'K8SEOF'
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-monitor-egress-data
+  namespace: sbos-monitor
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: sbos-data
+    ports:
+    - port: 5432
+      protocol: TCP
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+    ports:
+    - port: 53
+      protocol: UDP
+    - port: 53
+      protocol: TCP
+K8SEOF
+    echo "${__STEP_OK__} networkpolicy_monitor_postgresql"
     return 0
 }
 
@@ -108,17 +160,19 @@ ficha_install() {
     fi
 
     local pg_host="postgresql.sbos-data.svc"
+    # Parchar secret existente antes de upgrade para que helm use el host correcto
+    local encoded_host; encoded_host=$(echo -n "$pg_host" | base64)
+    _k patch secret zabbix-db-access -n "$NS" --type=json \
+        -p "[{\"op\":\"replace\",\"path\":\"/data/host\",\"value\":\"${encoded_host}\"}]" \
+        >> "$FICHA_LOG" 2>&1 || true
+
     KUBECONFIG="$KUBECONFIG_DEST" helm upgrade --install zabbix zabbix-community/zabbix \
         --namespace "$NS" \
         --version "7.1.0" \
-        --set zabbixServer.DB_SERVER_HOST="$pg_host" \
-        --set zabbixServer.POSTGRES_USER="zabbix" \
-        --set zabbixServer.POSTGRES_PASSWORD="zabbix_pass" \
-        --set zabbixServer.POSTGRES_DB="zabbix_db" \
-        --set zabbixWeb.DB_SERVER_HOST="$pg_host" \
-        --set zabbixWeb.POSTGRES_USER="zabbix" \
-        --set zabbixWeb.POSTGRES_PASSWORD="zabbix_pass" \
-        --set zabbixWeb.POSTGRES_DB="zabbix_db" \
+        --set postgresAccess.host="$pg_host" \
+        --set postgresAccess.user="zabbix" \
+        --set postgresAccess.password="zabbix_pass" \
+        --set postgresAccess.database="zabbix_db" \
         --set zabbixServer.replicaCount=1 \
         --set zabbixWeb.replicaCount=1 \
         --set postgresql.enabled=false \

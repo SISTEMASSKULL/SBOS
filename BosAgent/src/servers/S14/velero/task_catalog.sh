@@ -55,6 +55,28 @@ ficha_pre_install() {
         _k create serviceaccount velero -n "$NS" >> "$FICHA_LOG" 2>&1
     }
     echo "${__STEP_OK__} crear_serviceaccount_velero"
+
+    echo "${__STEP_START__} networkpolicy_velero_apiserver"
+    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'K8SEOF'
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-velero-apiserver-egress
+  namespace: sbos-ops
+spec:
+  podSelector:
+    matchLabels:
+      app: velero
+  policyTypes:
+  - Egress
+  egress:
+  - ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 6443
+K8SEOF
+    echo "${__STEP_OK__} networkpolicy_velero_apiserver"
     return 0
 }
 
