@@ -1,0 +1,42 @@
+# manifest.yml — Ficha k8s-upgrader (SBOS-005 §hostserver)
+# SBOS-049 §4 · Order 310 · Deployment
+identity:
+  id: k8s-upgrader
+  name: K8s Upgrader
+  version: "1.0"
+  category: 1
+  criticality: false
+  server: hostserver
+  description: "Rolling K8s upgrades, node drain/cordon"
+
+workload:
+  type: Deployment
+  namespace: sbos-installer
+  replicas: 1
+  service_account: k8s-upgrader-sa
+
+order:
+  execution_order: 310
+  timeout_minutes: 30
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-hardening
+  cpu_request: "100m"
+  cpu_limit: "500m"
+  memory_request: "128Mi"
+  memory_limit: "256Mi"
+
+
+deployment:
+  strategy: Recreate
+
+governance:
+
+
+health:
+  check_command: "kubectl version"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

@@ -1,0 +1,15 @@
+# bhnexus.toml — Configuración del daemon bNexus Host
+# Generado por BOS en instalación — NO editar manualmente
+# Variables sustituidas: {{CA_CERT}}, {{CA_KEY}}
+
+[servidor]
+socket_unix    = "/run/bos/bhnexus.sock"
+puerto_puerta1 = 9444
+
+[tls]
+ca_cert = "{{CA_CERT}}"
+ca_key  = "{{CA_KEY}}"
+
+[bauth]
+jwks_socket = "/tmp/bauth/bauth.sock"
+jwks_method = "bauth.token.jwks"

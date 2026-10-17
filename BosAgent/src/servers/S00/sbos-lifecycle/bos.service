@@ -1,0 +1,27 @@
+[Unit]
+Description=SBOS Infrastructure Daemon — Kubernetes Lifecycle Supervisor
+Documentation=https://docs.sbos.internal/bos-daemon
+After=network-online.target
+Wants=network-online.target
+StartLimitBurst=5
+StartLimitIntervalSec=300
+
+[Service]
+Type=notify
+NotifyAccess=all
+ExecStart=/opt/bos/bin/bos --config /etc/bos/bos.toml
+ExecStop=/opt/bos/bin/bosctl shutdown --timeout 180
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=120
+TimeoutStopSec=210
+WatchdogSec=30
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=bos
+PrivateTmp=true
+NoNewPrivileges=false
+AmbientCapabilities=CAP_NET_ADMIN CAP_SYS_ADMIN
+
+[Install]
+WantedBy=multi-user.target

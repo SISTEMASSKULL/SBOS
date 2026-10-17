@@ -1,0 +1,43 @@
+# manifest.yml — Ficha rocketchat (SBOS-005 §commsserver)
+# SBOS-049 §4 · Order 340 · Deployment
+identity:
+  id: rocketchat
+  name: Rocket.Chat
+  version: "6.12"
+  category: 1
+  criticality: false
+  server: commsserver
+  description: "Messaging: channels, video, files"
+
+workload:
+  type: Deployment
+  namespace: sbos-comms
+  replicas: 1
+  service_account: rocketchat-sa
+
+order:
+  execution_order: 340
+  timeout_minutes: 15
+
+requirements:
+  dependencies:
+    - mongodb
+    - keycloak
+  cpu_request: "500m"
+  cpu_limit: "2000m"
+  memory_request: "512Mi"
+  memory_limit: "1Gi"
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+health:
+  check_command: "curl -sf http://localhost:3000/health"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

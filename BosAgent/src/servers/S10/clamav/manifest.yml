@@ -1,0 +1,43 @@
+# manifest.yml — Ficha clamav (SBOS-005 §commsserver)
+# SBOS-049 §4 · Order 335 · Deployment
+identity:
+  id: clamav
+  name: ClamAV + Amavis
+  version: "1.3"
+  category: 1
+  criticality: true
+  server: commsserver
+  description: "Antivirus for email attachments"
+
+workload:
+  type: Deployment
+  namespace: sbos-comms
+  replicas: 1
+  service_account: clamav-sa
+
+order:
+  execution_order: 335
+  timeout_minutes: 15
+
+requirements:
+  dependencies:
+    - postfix
+    - spamassassin
+  cpu_request: "200m"
+  cpu_limit: "1000m"
+  memory_request: "256Mi"
+  memory_limit: "512Mi"
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+health:
+  check_command: "clamscan --version"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

@@ -1,0 +1,43 @@
+# manifest.yml — Ficha symmetricds (SBOS-005 §dataserver)
+# SBOS-049 §4 · Order 125 · Deployment
+identity:
+  id: symmetricds
+  name: SymmetricDS
+  version: "3.15"
+  category: 1
+  criticality: false
+  server: dataserver
+  description: "CDC bidirectional PG <-> MySQL"
+
+workload:
+  type: Deployment
+  namespace: sbos-data
+  replicas: 1
+  service_account: symmetricds-sa
+
+order:
+  execution_order: 125
+  timeout_minutes: 15
+
+requirements:
+  dependencies:
+    - postgresql
+    - mysql
+  cpu_request: "200m"
+  cpu_limit: "1000m"
+  memory_request: "256Mi"
+  memory_limit: "512Mi"
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+health:
+  check_command: "curl -sf http://localhost:8080/health"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

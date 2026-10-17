@@ -1,0 +1,65 @@
+# manifest.yml — Ficha bhnexus (SBOS Proxy de Hardware Universal — Host)
+# BC-10 · Order 148 · SystemdService · servidor: gatewayserver
+identity:
+  id: bhnexus
+  name: bNexus Host
+  version: "1.0"
+  category: 1
+  criticality: true
+  server: gatewayserver
+  description: "Proxy de hardware universal — puerta de entrada TLS mutual para clientes NFC/chapas"
+
+workload:
+  type: SystemdService
+  host: true
+  binary: /usr/local/bin/bhnexus
+  service_unit: resources/bhnexus.service
+  user: root
+  working_dir: /etc/bhnexus
+
+order:
+  execution_order: 148
+  timeout_minutes: 5
+
+requirements:
+  dependencies:
+    - bauth
+    - kong
+    - vault
+  cpu_request: "100m"
+  cpu_limit: "500m"
+  memory_request: "32Mi"
+  memory_limit: "128Mi"
+
+ports:
+  - name: puerta1
+    protocol: tcp
+    port: 9444
+    host: true
+    description: "Escucha TLS mutual — clientes banexus y Flutter desktop"
+  - name: rpc
+    protocol: unix
+    path: /run/bos/bhnexus.sock
+    description: "Control RPC interno — consumido por bos y bosctl"
+
+governance:
+  auto_install: false
+  backup_enabled: false
+  encryption_required: true
+
+health:
+  check_command: "systemctl is-active bhnexus.service"
+  check_interval_seconds: 30
+  check_timeout_seconds: 5
+  consecutive_failures_threshold: 3
+  initial_delay_seconds: 5
+
+integrations:
+  bauth:
+    jwks_socket: /tmp/bauth/bauth.sock
+    jwks_method: bauth.token.jwks
+  config_file: /etc/bhnexus/bhnexus.toml
+  tls:
+    mode: mutual
+    ca_cert_env: BHNEXUS_CA_CERT
+    ca_key_env: BHNEXUS_CA_KEY

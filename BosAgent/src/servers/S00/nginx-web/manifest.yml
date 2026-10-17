@@ -1,0 +1,42 @@
+# manifest.yml — Ficha nginx-web (SBOS-005 §hostserver)
+# SBOS-049 §4 · Order 340 · Deployment
+identity:
+  id: nginx-web
+  name: NGINX Web Server
+  version: "1.26"
+  category: 1
+  criticality: false
+  server: hostserver
+  description: "Web institucional estática, criticality: false"
+
+workload:
+  type: Deployment
+  namespace: sbos-installer
+  replicas: 1
+  service_account: nginx-web-sa
+
+order:
+  execution_order: 340
+  timeout_minutes: 10
+
+requirements:
+  dependencies:
+    - network-validator
+  cpu_request: "100m"
+  cpu_limit: "500m"
+  memory_request: "128Mi"
+  memory_limit: "256Mi"
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+health:
+  check_command: "curl -sf http://localhost:80"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

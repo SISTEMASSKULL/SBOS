@@ -1,0 +1,44 @@
+# manifest.yml — Ficha dovecot (SBOS-005 §commsserver)
+# SBOS-049 §4 · Order 322 · StatefulSet
+identity:
+  id: dovecot
+  name: Dovecot IMAP/POP3
+  version: "2.4"
+  category: 1
+  criticality: true
+  server: commsserver
+  description: "IMAP/POP3 mailboxes with Maildir"
+
+workload:
+  type: StatefulSet
+  namespace: sbos-comms
+  replicas: 1
+  service_account: dovecot-sa
+
+order:
+  execution_order: 322
+  timeout_minutes: 15
+
+requirements:
+  dependencies:
+    - postfix
+  cpu_request: "100m"
+  cpu_limit: "500m"
+  memory_request: "128Mi"
+  memory_limit: "256Mi"
+pvc_size: "50Gi"
+  pvc_storage_class: "sbos-fast"
+
+deployment:
+  strategy: Recreate
+
+governance:
+backup_enabled: true
+  backup_schedule: "0 3 * * *"
+
+health:
+  check_command: "dovecot --version"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

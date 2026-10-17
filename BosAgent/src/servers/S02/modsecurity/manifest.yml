@@ -1,0 +1,42 @@
+# manifest.yml — Ficha modsecurity (SBOS-005 §gatewayserver)
+# SBOS-049 §4 · Order 144 · Deployment
+identity:
+  id: modsecurity
+  name: ModSecurity + OWASP CRS
+  version: "3.3"
+  category: 1
+  criticality: true
+  server: gatewayserver
+  description: "WAF: SQLi, XSS, CSRF protection"
+
+workload:
+  type: Deployment
+  namespace: sbos-gateway
+  replicas: 1
+  service_account: modsecurity-sa
+
+order:
+  execution_order: 144
+  timeout_minutes: 15
+
+requirements:
+  dependencies:
+    - nginx
+  cpu_request: "200m"
+  cpu_limit: "1000m"
+  memory_request: "256Mi"
+  memory_limit: "512Mi"
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+health:
+  check_command: "curl -sf http://localhost:80"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

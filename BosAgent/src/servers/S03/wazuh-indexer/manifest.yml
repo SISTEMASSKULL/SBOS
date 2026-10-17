@@ -1,0 +1,43 @@
+# manifest.yml — Ficha wazuh-indexer (SBOS-005 §identityserver)
+# SBOS-049 §4 · Order 162 · StatefulSet
+identity:
+  id: wazuh-indexer
+  name: Wazuh Indexer
+  version: "4.10"
+  category: 1
+  criticality: true
+  server: identityserver
+  description: "Wazuh indexer node (OpenSearch fork)"
+
+workload:
+  type: StatefulSet
+  namespace: sbos-identity
+  replicas: 1
+  service_account: wazuh-indexer-sa
+
+order:
+  execution_order: 162
+  timeout_minutes: 20
+
+requirements:
+  dependencies:
+
+  cpu_request: "1000m"
+  cpu_limit: "4000m"
+  memory_request: "2Gi"
+  memory_limit: "4Gi"
+pvc_size: "200Gi"
+  pvc_storage_class: "sbos-fast"
+
+deployment:
+  strategy: Recreate
+
+governance:
+
+
+health:
+  check_command: "curl -sf http://localhost:9200"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

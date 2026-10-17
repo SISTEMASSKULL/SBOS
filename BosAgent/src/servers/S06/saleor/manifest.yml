@@ -1,0 +1,45 @@
+# manifest.yml — Ficha saleor (SBOS-005 §appsserver)
+# SBOS-049 §4 · Order 205 · Deployment
+identity:
+  id: saleor
+  name: Saleor E-Commerce
+  version: "3.18"
+  category: 1
+  criticality: false
+  server: appsserver
+  description: "Headless GraphQL e-commerce"
+
+workload:
+  type: Deployment
+  namespace: sbos-apps
+  replicas: 1
+  service_account: saleor-sa
+
+order:
+  execution_order: 205
+  timeout_minutes: 15
+
+requirements:
+  dependencies:
+    - postgresql
+    - redis
+    - keycloak
+  cpu_request: "500m"
+  cpu_limit: "2000m"
+  memory_request: "512Mi"
+  memory_limit: "1Gi"
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+backup_enabled: true
+  backup_schedule: "0 2 * * *"
+
+health:
+  check_command: "curl -sf http://localhost:8000/health"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

@@ -1,0 +1,44 @@
+# manifest.yml — Ficha wazuh-manager (SBOS-005 §identityserver)
+# SBOS-049 §4 · Order 160 · StatefulSet
+identity:
+  id: wazuh-manager
+  name: Wazuh Manager
+  version: "4.10"
+  category: 1
+  criticality: true
+  server: identityserver
+  description: "SIEM/XDR manager: log analysis, file integrity, vulnerability detection"
+
+workload:
+  type: StatefulSet
+  namespace: sbos-identity
+  replicas: 1
+  service_account: wazuh-manager-sa
+
+order:
+  execution_order: 160
+  timeout_minutes: 20
+
+requirements:
+  dependencies:
+    - elasticsearch
+  cpu_request: "1000m"
+  cpu_limit: "4000m"
+  memory_request: "2Gi"
+  memory_limit: "4Gi"
+pvc_size: "100Gi"
+  pvc_storage_class: "sbos-fast"
+
+deployment:
+  strategy: Recreate
+
+governance:
+
+
+health:
+  check_command: "curl -sf http://localhost:55000"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+degraded_allowed: true
+  degraded_reason: "Elasticsearch may be unavailable"

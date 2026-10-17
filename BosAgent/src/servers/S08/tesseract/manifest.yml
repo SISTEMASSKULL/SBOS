@@ -1,0 +1,42 @@
+# manifest.yml — Ficha tesseract (SBOS-005 §docserver)
+# SBOS-049 §4 · Order 298 · Deployment
+identity:
+  id: tesseract
+  name: Tesseract + EasyOCR
+  version: "5.4"
+  category: 1
+  criticality: false
+  server: docserver
+  description: "OCR 100+ languages"
+
+workload:
+  type: Deployment
+  namespace: sbos-docs
+  replicas: 1
+  service_account: tesseract-sa
+
+order:
+  execution_order: 298
+  timeout_minutes: 10
+
+requirements:
+  dependencies:
+    - paperless-ngx
+  cpu_request: "200m"
+  cpu_limit: "1000m"
+  memory_request: "256Mi"
+  memory_limit: "512Mi"
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+health:
+  check_command: "tesseract --version"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

@@ -1,0 +1,110 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: stalwart
+  namespace: sbos-comms
+  labels:
+    app: stalwart
+    sbos-ficha: stalwart
+spec:
+  type: ClusterIP
+  selector:
+    app: stalwart
+  ports:
+    - name: smtp
+      port: 25
+      targetPort: 25
+    - name: submission
+      port: 587
+      targetPort: 587
+    - name: imap
+      port: 143
+      targetPort: 143
+    - name: imaps
+      port: 993
+      targetPort: 993
+    - name: pop3
+      port: 110
+      targetPort: 110
+    - name: pop3s
+      port: 995
+      targetPort: 995
+    - name: sieve
+      port: 4190
+      targetPort: 4190
+    - name: http-admin
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: stalwart
+  namespace: sbos-comms
+  labels:
+    app: stalwart
+    sbos-ficha: stalwart
+spec:
+  serviceName: stalwart
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stalwart
+  template:
+    metadata:
+      labels:
+        app: stalwart
+        sbos-ficha: stalwart
+    spec:
+      serviceAccountName: stalwart-sa
+      containers:
+        - name: stalwart
+          image: docker.io/stalwartlabs/stalwart:latest
+          ports:
+            - containerPort: 25
+              name: smtp
+            - containerPort: 587
+              name: submission
+            - containerPort: 143
+              name: imap
+            - containerPort: 993
+              name: imaps
+            - containerPort: 110
+              name: pop3
+            - containerPort: 995
+              name: pop3s
+            - containerPort: 4190
+              name: sieve
+            - containerPort: 8080
+              name: http-admin
+          resources:
+            requests:
+              cpu: 1000m
+              memory: 2048Mi
+            limits:
+              cpu: 4000m
+              memory: 8192Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          volumeMounts:
+            - name: stalwart-data
+              mountPath: /var/lib/stalwart
+  volumeClaimTemplates:
+    - metadata:
+        name: stalwart-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 100Gi

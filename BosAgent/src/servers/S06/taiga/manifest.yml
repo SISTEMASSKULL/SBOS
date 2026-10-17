@@ -1,0 +1,44 @@
+# manifest.yml — Ficha taiga (SBOS-005 §appsserver)
+# SBOS-049 §4 · Order 245 · Deployment
+identity:
+  id: taiga
+  name: Taiga PM
+  version: "6.7"
+  category: 1
+  criticality: false
+  server: appsserver
+  description: "Agile PM: Scrum, Kanban"
+
+workload:
+  type: Deployment
+  namespace: sbos-apps
+  replicas: 1
+  service_account: taiga-sa
+
+order:
+  execution_order: 245
+  timeout_minutes: 15
+
+requirements:
+  dependencies:
+    - postgresql
+    - keycloak
+  cpu_request: "500m"
+  cpu_limit: "2000m"
+  memory_request: "512Mi"
+  memory_limit: "1Gi"
+pvc_size: "20Gi"
+  pvc_storage_class: "sbos-fast"
+
+deployment:
+  strategy: Recreate
+
+governance:
+
+
+health:
+  check_command: "curl -sf http://localhost:8000/health"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

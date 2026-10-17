@@ -1,0 +1,42 @@
+# manifest.yml — Ficha local-path-provisioner
+# Provisionador de volúmenes locales para StorageClass sbos-local-path
+# Requerido por todas las fichas con PVC (StatefulSets)
+identity:
+  id: local-path-provisioner
+  name: Rancher Local Path Provisioner
+  version: "0.0.31"
+  category: 1
+  criticality: true
+  server: hostserver
+  description: "Dynamic local volume provisioner for sbos-local-path StorageClass"
+
+workload:
+  type: Deployment
+  namespace: kube-system
+  replicas: 1
+  service_account: local-path-provisioner-sa
+
+order:
+  execution_order: 25
+  timeout_minutes: 10
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-platform
+  cpu_request: "50m"
+  cpu_limit: "200m"
+  memory_request: "64Mi"
+  memory_limit: "256Mi"
+
+deployment:
+  strategy: Recreate
+
+governance:
+  backup_enabled: false
+  backup_schedule: ""
+
+health:
+  check_command: "kubectl get pods -n kube-system -l app=local-path-provisioner --field-selector=status.phase=Running --no-headers | grep -q ."
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3

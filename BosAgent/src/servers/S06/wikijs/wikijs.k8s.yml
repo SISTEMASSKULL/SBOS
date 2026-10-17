@@ -1,0 +1,71 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wikijs
+  namespace: sbos-apps
+spec:
+  clusterIP: None
+  selector:
+    app: wikijs
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: wikijs
+  namespace: sbos-apps
+spec:
+  serviceName: wikijs
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wikijs
+  template:
+    metadata:
+      labels:
+        app: wikijs
+    spec:
+      serviceAccountName: wikijs-sa
+      containers:
+        - name: wikijs
+          image: docker.io/requarks/wiki:3.0
+          ports:
+            - containerPort: 3000
+              name: http
+
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/wikijs
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: sbos-fast
+        resources:
+          requests:
+            storage: 10Gi
