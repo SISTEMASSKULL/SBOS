@@ -15,6 +15,16 @@
 
 ---
 
+## Instalación
+
+```bash
+git clone https://github.com/SISTEMASSKULL/SBOS.git && sudo SBOS/install.sh
+```
+
+Una sola instrucción. SBOS instala y configura todo automáticamente (~60 min).
+
+---
+
 El sistema operativo inteligente que unifica, gobierna y asegura los doce dominios de autenticación y control empresarial.
 
 Transforma la fragmentación operativa en control unificado, con identidad verificable en cada dominio y mejora continua sin límites.

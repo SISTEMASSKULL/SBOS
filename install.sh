@@ -2,16 +2,10 @@
 # ============================================================
 # SBOS — Instalador soberano
 # ============================================================
-# Uso estándar (git clone):
-#   git clone https://github.com/SISTEMASSKULL/SBOS.git
-#   cd SBOS
-#   sudo ./install.sh
 #
-# Uso one-liner (Ubuntu fresco):
-#   curl -fsSL https://raw.githubusercontent.com/SISTEMASSKULL/SBOS/main/install.sh | sudo bash
+#   git clone https://github.com/SISTEMASSKULL/SBOS.git && sudo SBOS/install.sh
 #
-# SBOS instala todo lo necesario automáticamente.
-# No se requiere ninguna otra acción manual.
+# Una sola instrucción. SBOS instala todo automáticamente.
 # ============================================================
 set -euo pipefail
 
@@ -23,10 +17,13 @@ ok()   { echo -e "${GREEN}✓${NC}  $*"; }
 warn() { echo -e "${YELLOW}⚠${NC}  $*"; }
 die()  { echo -e "${RED}✗${NC}  $*" >&2; exit 1; }
 
-# Detectar directorio del script
+# Detectar el directorio del repo — funciona con:
+#   sudo SBOS/install.sh   (desde directorio padre)
+#   sudo ./install.sh      (desde dentro del repo)
+#   curl ... | sudo bash   (sin directorio — clona)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || echo "/")"
 
-# Si se ejecuta vía pipe (curl | bash) o el binario no está disponible, clonar el repo
+# Si se ejecuta vía pipe (curl | bash) o no hay binario, clonar el repo
 if [[ ! -f "$SCRIPT_DIR/BosAgent/src/dist/bos" ]]; then
     echo "SBOS: descargando repositorio..."
     WORK_DIR="$(mktemp -d)"
@@ -47,7 +44,7 @@ echo "║        SBOS — Sistema Operativo Soberano             ║"
 echo "╚══════════════════════════════════════════════════════╝"
 echo ""
 
-[[ $EUID -eq 0 ]] || die "Ejecutar como root: sudo ./install.sh"
+[[ $EUID -eq 0 ]] || die "Ejecutar como root:  git clone https://github.com/SISTEMASSKULL/SBOS.git && sudo SBOS/install.sh"
 
 if [[ -f /etc/os-release ]]; then
     . /etc/os-release
@@ -61,7 +58,7 @@ ok "Binarios: bos + bosctl"
 
 FICHA_COUNT=$(find "$SERVERS_DIR" -name "manifest.yml" ! -path "*/_descartadas/*" 2>/dev/null | wc -l)
 [[ $FICHA_COUNT -gt 0 ]] || die "servers/ vacío"
-ok "Fichas declarativas: $FICHA_COUNT"
+ok "Fichas declarativas: $FICHA_COUNT aplicaciones"
 
 # ── prerequisitos del SO ──────────────────────────────────────
 echo ""
@@ -91,11 +88,11 @@ cd "$DEPLOY_DIR"
 ok "BOS instalado"
 
 # ── configurar auto-sync de fichas desde git ──────────────────
-# Al arrancar, BOS descarga las fichas más recientes del repo
+# Al arrancar, BOS descarga automáticamente las fichas más recientes del repo
 INSTALL_TOML="/etc/bos/bos-install.toml"
 if [[ -f "$INSTALL_TOML" ]] && ! grep -q "servers_git_url" "$INSTALL_TOML"; then
     echo "" >> "$INSTALL_TOML"
-    echo "# BOS auto-sincroniza fichas al arrancar (pull-only, P5)" >> "$INSTALL_TOML"
+    echo "# BOS sincroniza fichas automáticamente en cada arranque (pull-only, P5)" >> "$INSTALL_TOML"
     echo "servers_git_url = \"$SBOS_GIT_URL\"" >> "$INSTALL_TOML"
     ok "Auto-sync configurado: fichas se actualizan desde GitHub en cada arranque"
 fi
@@ -119,7 +116,7 @@ echo "╔═══════════════════════�
 echo "║  SBOS instalado                                      ║"
 echo "╚══════════════════════════════════════════════════════╝"
 echo ""
-echo "  BOS instala $FICHA_COUNT+ aplicaciones automáticamente."
+echo "  BOS está instalando $FICHA_COUNT+ aplicaciones automáticamente."
 echo "  No se requiere ninguna otra acción."
 echo ""
 echo "  Monitorear:  journalctl -u bos.service -f"
