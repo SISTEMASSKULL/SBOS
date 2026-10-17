@@ -35,6 +35,8 @@ deployment:
 governance:
 
 
+  auto_install: true
+  requires_approval: false
 health:
   check_command: "mongosh --eval 'db.runCommand({ping: 1})'"
   check_interval_seconds: 30

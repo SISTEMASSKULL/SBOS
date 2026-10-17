@@ -35,6 +35,8 @@ deployment:
 governance:
 
 
+  auto_install: false
+  requires_approval: false
 health:
   check_command: "kubectl get certificates -A"
   check_interval_seconds: 30

@@ -35,6 +35,8 @@ deployment:
 governance:
 
 
+  auto_install: true
+  requires_approval: false
 health:
   check_command: "rabbitmqctl status"
   check_interval_seconds: 30

@@ -36,6 +36,8 @@ deployment:
 governance:
 
 
+  auto_install: true
+  requires_approval: false
 health:
   check_command: "curl -sf http://localhost:8585/health"
   check_interval_seconds: 30

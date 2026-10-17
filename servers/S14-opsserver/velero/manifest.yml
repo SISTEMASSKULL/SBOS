@@ -34,6 +34,8 @@ deployment:
 governance:
 
 
+  auto_install: true
+  requires_approval: false
 health:
   check_command: "velero version"
   check_interval_seconds: 30

@@ -34,6 +34,8 @@ deployment:
 governance:
 
 
+  auto_install: false
+  requires_approval: false
 health:
   check_command: "k6 version"
   check_interval_seconds: 30

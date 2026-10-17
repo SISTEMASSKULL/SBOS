@@ -35,6 +35,8 @@ deployment:
 governance:
 
 
+  auto_install: true
+  requires_approval: false
 health:
   check_command: "psql -h localhost -c 'SELECT pg_partman_version()'"
   check_interval_seconds: 30

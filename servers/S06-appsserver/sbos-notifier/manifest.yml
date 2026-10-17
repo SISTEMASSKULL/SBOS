@@ -51,7 +51,11 @@ ports:
   http:       28200
   https:      28201
   metrics:    28202   # expone /metrics — Prometheus
-  health:     28203   # expone /health y /ready — K8s probes
+  governance:
+  auto_install: true
+  requires_approval: false
+
+health:     28203   # expone /health y /ready — K8s probes
   ntfy:       28204   # ntfy HTTP API interna
   ntfy_ws:    28205   # ntfy WebSocket — Vue / Flutter / CLI
 
