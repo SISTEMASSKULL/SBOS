@@ -166,17 +166,13 @@ ficha_install() {
         -p "[{\"op\":\"replace\",\"path\":\"/data/host\",\"value\":\"${encoded_host}\"}]" \
         >> "$FICHA_LOG" 2>&1 || true
 
-    # El helm chart de zabbix 7.1.0 deja el Service con puertos duplicados
-    # en upgrades sucesivos — eliminar antes para que helm lo recree limpio.
+    # El helm chart de Zabbix 7.1.0 tiene un bug: --set zabbixWeb.service.port
+    # agrega un SEGUNDO puerto "zabbix-web" duplicado en upgrades (BUG-37).
+    # Solución: eliminar el Service antes del upgrade para que helm lo recree
+    # limpio con un solo puerto, y luego parchear con el puerto portman.
     if _k get svc zabbix-zabbix-web -n "$NS" &>/dev/null; then
-        local dup
-        dup=$(_k get svc zabbix-zabbix-web -n "$NS" \
-            -o jsonpath='{.spec.ports[*].name}' 2>/dev/null | \
-            tr ' ' '\n' | sort | uniq -d || echo "")
-        if [[ -n "$dup" ]]; then
-            _log "Service zabbix-zabbix-web tiene puertos duplicados ($dup) — eliminando"
-            _k delete svc zabbix-zabbix-web -n "$NS" >> "$FICHA_LOG" 2>&1 || true
-        fi
+        _log "Eliminando Service zabbix-zabbix-web antes del upgrade (BUG-37: puerto duplicado)"
+        _k delete svc zabbix-zabbix-web -n "$NS" >> "$FICHA_LOG" 2>&1 || true
     fi
 
     # Verificar si zabbix_db tiene tablas; si está vacía, habilitar init del schema
@@ -210,10 +206,17 @@ ficha_install() {
         --set zabbixServer.resources.requests.memory=256Mi \
         --set zabbixWeb.resources.requests.cpu=50m \
         --set zabbixWeb.resources.requests.memory=128Mi \
-        --set zabbixWeb.service.port="${SVC_PORT}" \
         --timeout 10m \
         >> "$FICHA_LOG" 2>&1
     echo "${__STEP_OK__} instalar_zabbix_helm"
+
+    # Parchear el puerto del Service con el valor portman DESPUÉS del install (BUG-37)
+    echo "${__STEP_START__} parchear_puerto_service"
+    _k patch svc zabbix-zabbix-web -n "$NS" --type=json \
+        -p "[{\"op\":\"replace\",\"path\":\"/spec/ports/0/port\",\"value\":${SVC_PORT}}]" \
+        >> "$FICHA_LOG" 2>&1 || true
+    _log "Puerto Service zabbix-zabbix-web: ${SVC_PORT}"
+    echo "${__STEP_OK__} parchear_puerto_service"
 
     echo "${__STEP_START__} esperar_zabbix_ready"
     _wait_deploy_ready zabbix-server "$NS" 180 || { echo "${__STEP_FAIL__} esperar_zabbix_ready: timeout"; return 1; }

@@ -53,18 +53,29 @@ ficha_pre_install() {
     # bi18nd tiene su propio RuntimeDirectory — NO tocar /run/bos (pertenece al daemon bos)
     echo "${__STEP_OK__} verificar_directorios"
 
-    # ── Configuración regional Bolivia (siempre idempotente) ──────────────
-    echo "${__STEP_START__} configurar_region_bolivia"
+    # ── Configuración regional desde bos-install.toml (valores del tenant) ──
+    echo "${__STEP_START__} configurar_region_tenant"
+    local bos_toml="/etc/bos/bos-install.toml"
+    local tz country lang locale_name
+    tz=$(grep '^timezone' "$bos_toml" 2>/dev/null | sed 's/.*= *"\(.*\)"/\1/' || true)
+    country=$(grep '^country' "$bos_toml" 2>/dev/null | sed 's/.*= *"\(.*\)"/\1/' | tr '[:lower:]' '[:upper:]' || true)
+    lang=$(grep '^language' "$bos_toml" 2>/dev/null | sed 's/.*= *"\(.*\)"/\1/' || true)
+    tz="${tz:-America/La_Paz}"
+    country="${country:-BO}"
+    lang="${lang:-es}"
+    locale_name="${lang}_${country}.UTF-8"
+
     if command -v timedatectl &>/dev/null; then
-        timedatectl set-timezone America/La_Paz >> "$FICHA_LOG" 2>&1 || true
+        timedatectl set-timezone "$tz" >> "$FICHA_LOG" 2>&1 || true
     fi
     if command -v locale-gen &>/dev/null; then
-        locale-gen es_BO.UTF-8 >> "$FICHA_LOG" 2>&1 || true
-        update-locale LANG=es_BO.UTF-8 LC_ALL=es_BO.UTF-8 LC_TIME=es_BO.UTF-8 \
-            LC_MONETARY=es_BO.UTF-8 >> "$FICHA_LOG" 2>&1 || true
+        locale-gen "${locale_name}" >> "$FICHA_LOG" 2>&1 || true
+        update-locale "LANG=${locale_name}" "LC_ALL=${locale_name}" \
+            "LC_TIME=${locale_name}" "LC_MONETARY=${locale_name}" \
+            >> "$FICHA_LOG" 2>&1 || true
     fi
-    _log "región Bolivia: TZ=America/La_Paz locale=es_BO.UTF-8"
-    echo "${__STEP_OK__} configurar_region_bolivia"
+    _log "región del tenant: TZ=${tz} locale=${locale_name} (desde bos-install.toml)"
+    echo "${__STEP_OK__} configurar_region_tenant"
 
     return 0
 }

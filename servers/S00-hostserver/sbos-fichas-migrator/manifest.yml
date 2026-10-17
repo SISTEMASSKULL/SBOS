@@ -1,0 +1,13 @@
+id: sbos-fichas-migrator
+name: "SBOS Fichas Migrator"
+version: "1.0.0"
+description: |
+  Reorganiza la estructura de fichas en /opt/bos/servers/ para que cada ficha
+  esté en su servidor lógico correcto (S00-S15, S-HOST). Elimina duplicados
+  legacy en la raíz. Idempotente — seguro de ejecutar múltiples veces.
+logical_server: S00-hostserver
+auto_install: true
+dependencies: []
+health_check:
+  type: script
+  script: ficha_health
