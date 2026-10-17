@@ -106,6 +106,24 @@ func (l *Loop) Run() {
 
 	log.Info().Int("count", len(fichaIndex)).Msg("observer: vigilando estados de fichas")
 
+	if l.cfg.Maintainer != nil {
+		go func() {
+			mt := time.NewTicker(60 * time.Second)
+			defer mt.Stop()
+			for {
+				select {
+				case <-l.stopCh:
+					return
+				case <-mt.C:
+					if n := l.cfg.Maintainer.RunMaintenance(); n > 0 {
+						log.Info().Int("n", n).Msg("observer: mantenimiento automatico completado")
+					}
+					resources.SignalZombieParents()
+				}
+			}
+		}()
+	}
+
 	ticker := time.NewTicker(l.cfg.Interval)
 	defer ticker.Stop()
 

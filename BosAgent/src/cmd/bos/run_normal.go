@@ -195,6 +195,7 @@ func runNormal(cfg *config.Config, benv *bootstrapEnv) {
 		Orchestrator: orchestrator,
 		Loader:       pluginLoader,
 		StateMgr:     stateMgr,
+		Maintainer:   k8sCore,
 	})
 	defer observerLoop.Stop()
 	go observerLoop.Run()
