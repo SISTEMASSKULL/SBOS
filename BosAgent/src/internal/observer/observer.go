@@ -32,10 +32,15 @@ type Config struct {
 //
 // Thread safety: Run() y Stop() son seguros para llamar desde goroutines distintas.
 // Stop() es idempotente gracias a sync.Once.
+// failCount y failCooldown implementan backoff exponencial por ficha: una ficha
+// con fallos repetidos cede el slot de instalación a fichas más saludables.
 type Loop struct {
-	cfg    Config
-	stopCh chan struct{}
-	once   sync.Once
+	cfg          Config
+	stopCh       chan struct{}
+	once         sync.Once
+	failMu       sync.Mutex
+	failCount    map[string]int       // fallos consecutivos por ID de ficha
+	failCooldown map[string]time.Time // hasta cuándo está en cooldown la ficha
 }
 
 // New crea un Loop con la configuración dada.
@@ -56,8 +61,10 @@ func New(cfg Config) *Loop {
 		cfg.Interval = 5 * time.Second
 	}
 	return &Loop{
-		cfg:    cfg,
-		stopCh: make(chan struct{}),
+		cfg:          cfg,
+		stopCh:       make(chan struct{}),
+		failCount:    make(map[string]int),
+		failCooldown: make(map[string]time.Time),
 	}
 }
 
@@ -185,7 +192,18 @@ func (l *Loop) tick(fichaIndex map[string]*plugin.FichaManifest) {
 	}
 
 	// Fase 2 — instalar siguiente ficha elegible (una sola por tick, secuencial)
-	next := FindNextAutoInstall(st, fichaIndex)
+	// Fichas en cooldown de backoff se excluyen para no bloquear el slot.
+	l.failMu.Lock()
+	excluded := make(map[string]bool)
+	now := time.Now()
+	for id, until := range l.failCooldown {
+		if now.Before(until) {
+			excluded[id] = true
+		}
+	}
+	l.failMu.Unlock()
+
+	next := findNextAutoInstall(st, fichaIndex, excluded)
 	if next != nil {
 		log.Info().Str("ficha", next.ID).Str("version", next.Version).Msg("observer: iniciando instalación automática")
 		audit.Log(paths.AuditLog, "OBSERVER_INSTALL",
@@ -204,6 +222,21 @@ func (l *Loop) tick(fichaIndex map[string]*plugin.FichaManifest) {
 			log.Error().Err(err).Str("ficha", next.ID).Int("exit", result.ExitCode).Msg("observer: instalación falló")
 			// INSTALANDO → FALLA_INSTALACION (ADR-021 #3→#13)
 			_ = l.cfg.StateMgr.Transition(next.ID, state.StateInstallFailed)
+
+			// Backoff exponencial: cede el slot a otras fichas tras fallos repetidos.
+			l.failMu.Lock()
+			l.failCount[next.ID]++
+			cnt := l.failCount[next.ID]
+			bd := installBackoff(cnt)
+			if bd > 0 {
+				l.failCooldown[next.ID] = time.Now().Add(bd)
+				log.Warn().
+					Str("ficha", next.ID).
+					Int("intento", cnt).
+					Dur("cooldown", bd).
+					Msg("observer: backoff — slot liberado para otras fichas")
+			}
+			l.failMu.Unlock()
 			return
 		}
 
@@ -211,6 +244,12 @@ func (l *Loop) tick(fichaIndex map[string]*plugin.FichaManifest) {
 		if err := l.cfg.StateMgr.Transition(next.ID, state.StateInstalled); err != nil {
 			log.Warn().Err(err).Str("ficha", next.ID).Msg("observer: transición a INSTALADA falló")
 		}
+
+		// Instalación exitosa — resetear contadores de backoff
+		l.failMu.Lock()
+		delete(l.failCount, next.ID)
+		delete(l.failCooldown, next.ID)
+		l.failMu.Unlock()
 
 		log.Info().Str("ficha", next.ID).Dur("duration", result.Duration).Msg("observer: instalación completada")
 		audit.Log(paths.AuditLog, "OBSERVER_INSTALL_OK",
@@ -258,6 +297,59 @@ func (l *Loop) tick(fichaIndex map[string]*plugin.FichaManifest) {
 	}
 }
 
+// installBackoff devuelve el tiempo de espera según el número de fallos consecutivos.
+// Primer fallo: reintento inmediato; fallos siguientes: backoff 60s→120s→240s→600s.
+func installBackoff(failCount int) time.Duration {
+	switch failCount {
+	case 0, 1:
+		return 0
+	case 2:
+		return 60 * time.Second
+	case 3:
+		return 120 * time.Second
+	case 4:
+		return 240 * time.Second
+	default:
+		return 600 * time.Second
+	}
+}
+
+// findNextAutoInstall es la implementación interna que acepta un conjunto de IDs excluidos.
+// Las fichas en ese conjunto no se seleccionarán aunque sean elegibles (backoff activo).
+func findNextAutoInstall(st *state.SBOSState, index map[string]*plugin.FichaManifest, excluded map[string]bool) *plugin.FichaManifest {
+	var candidates []*plugin.FichaManifest
+
+	for _, mf := range index {
+		if !mf.AutoInstall {
+			continue
+		}
+		if excluded[mf.ID] {
+			continue
+		}
+		fichaEntry, ok := st.Fichas[mf.ID]
+		if !ok {
+			continue
+		}
+		if fichaEntry.State != state.StateReady && fichaEntry.State != state.StateInstallFailed {
+			continue
+		}
+		if !DepsSatisfied(mf.Dependencies, st) {
+			continue
+		}
+		candidates = append(candidates, mf)
+	}
+
+	if len(candidates) == 0 {
+		return nil
+	}
+
+	sort.Slice(candidates, func(i, j int) bool {
+		return candidates[i].ExecutionOrder < candidates[j].ExecutionOrder
+	})
+
+	return candidates[0]
+}
+
 // FindNextAutoInstall retorna la siguiente ficha elegible para instalación automática.
 //
 // Criterios de elegibilidad (todos deben cumplirse):
@@ -278,36 +370,11 @@ func (l *Loop) tick(fichaIndex map[string]*plugin.FichaManifest) {
 // Efectos secundarios: ninguno — función pura.
 //
 // Estándares: ADR-021 #2→#3, SBOS-018 §5.
+// FindNextAutoInstall retorna la siguiente ficha elegible sin filtro de backoff.
+// Usada directamente en tests. El observer usa findNextAutoInstall con el mapa
+// de cooldowns para implementar backoff exponencial.
 func FindNextAutoInstall(st *state.SBOSState, index map[string]*plugin.FichaManifest) *plugin.FichaManifest {
-	var candidates []*plugin.FichaManifest
-
-	for _, mf := range index {
-		if !mf.AutoInstall {
-			continue
-		}
-		ficha, ok := st.Fichas[mf.ID]
-		if !ok {
-			continue
-		}
-		// Elegibles: LISTA (primera instalación) o FALLA_INSTALACION (reintento automático).
-		if ficha.State != state.StateReady && ficha.State != state.StateInstallFailed {
-			continue
-		}
-		if !DepsSatisfied(mf.Dependencies, st) {
-			continue
-		}
-		candidates = append(candidates, mf)
-	}
-
-	if len(candidates) == 0 {
-		return nil
-	}
-
-	sort.Slice(candidates, func(i, j int) bool {
-		return candidates[i].ExecutionOrder < candidates[j].ExecutionOrder
-	})
-
-	return candidates[0]
+	return findNextAutoInstall(st, index, nil)
 }
 
 // DepsSatisfied retorna true si todas las dependencias declaradas están en INSTALADA.
