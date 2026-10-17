@@ -179,6 +179,22 @@ ficha_install() {
         fi
     fi
 
+    # Verificar si zabbix_db tiene tablas; si está vacía, habilitar init del schema
+    local has_tables
+    has_tables=$(kubectl --kubeconfig="$KUBECONFIG_DEST" exec -n sbos-data postgresql-0 -c postgresql -- \
+        psql -U postgres -d zabbix_db -tAc \
+        "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public'" \
+        2>/dev/null || echo "0")
+    local db_init_flag="false"
+    if [[ "${has_tables:-0}" -eq 0 ]]; then
+        _log "zabbix_db vacía — activando zabbixDBInit para aplicar schema"
+        db_init_flag="true"
+        # Eliminar job de init previo si existe (para poder re-ejecutarlo)
+        kubectl --kubeconfig="$KUBECONFIG_DEST" delete job \
+            -n "$NS" -l app.kubernetes.io/component=db-init \
+            >> "$FICHA_LOG" 2>&1 || true
+    fi
+
     KUBECONFIG="$KUBECONFIG_DEST" helm upgrade --install zabbix zabbix-community/zabbix \
         --namespace "$NS" \
         --version "7.1.0" \
@@ -189,6 +205,7 @@ ficha_install() {
         --set zabbixServer.replicaCount=1 \
         --set zabbixWeb.replicaCount=1 \
         --set postgresql.enabled=false \
+        --set zabbixDBInit.enable="${db_init_flag}" \
         --set zabbixServer.resources.requests.cpu=100m \
         --set zabbixServer.resources.requests.memory=256Mi \
         --set zabbixWeb.resources.requests.cpu=50m \
