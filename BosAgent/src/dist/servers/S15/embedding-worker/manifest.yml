@@ -20,6 +20,7 @@ requirements:
     - ollama
     - qdrant
     - paperless-ngx
+  memory_request: "1Gi"
 
 governance:
   auto_install: true

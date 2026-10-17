@@ -18,6 +18,7 @@ order:
 requirements:
   dependencies:
     - tryton
+  memory_request: "512Mi"
 
 governance:
   auto_install: true

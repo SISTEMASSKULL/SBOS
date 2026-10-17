@@ -26,6 +26,7 @@ requirements:
     - sbos-bootstrap-cni
     - postgresql
     - vault
+  memory_request: "768Mi"
 
 governance:
   auto_install: true

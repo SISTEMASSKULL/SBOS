@@ -22,6 +22,7 @@ requirements:
     # Vault se instala DESPUÉS y rota las credenciales. La dependencia es runtime, no install.
   runtime_dependencies:
     - vault
+  memory_request: "512Mi"
 
 governance:
   auto_install: true

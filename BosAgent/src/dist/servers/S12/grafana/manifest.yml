@@ -19,6 +19,7 @@ requirements:
     - prometheus
     - keycloak
     - vault
+  memory_request: "256Mi"
 
 governance:
   auto_install: true

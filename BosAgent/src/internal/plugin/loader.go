@@ -31,6 +31,8 @@ type FichaManifest struct {
 	Dependencies   []string
 	Criticality    bool              // false = Type 3 optional, never auto-install
 	AutoInstall    bool              // true = install automatically (bootstrap product)
+	MemoryRequest  string            // memoria mínima requerida (ej: "2Gi", "512Mi")
+	CPURequest     string            // CPU mínimo requerido (ej: "1000m", "2")
 	WorkloadType   string            // "bash", "Deployment", "StatefulSet", etc.
 	Files          map[string]string // relative path → SHA-256
 	Backend        string            // "apt", "pip", "helm" from meta.backend
@@ -289,6 +291,12 @@ func (l *Loader) parseManifest(path string, m *FichaManifest) error {
 			switch key {
 			case "dependencies":
 				inDeps = true
+			case "memory_request":
+				m.MemoryRequest = value
+				inDeps = false
+			case "cpu_request":
+				m.CPURequest = value
+				inDeps = false
 			default:
 				inDeps = false // runtime_dependencies u otra clave → cerrar lista de deps
 			}

@@ -20,6 +20,7 @@ requirements:
     - postgresql
     - vault
     - kong
+  memory_request: "1Gi"
 
 governance:
   auto_install: true

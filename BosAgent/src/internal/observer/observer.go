@@ -13,6 +13,7 @@ import (
 	"bos/internal/installer"
 	"bos/internal/paths"
 	"bos/internal/plugin"
+	"bos/internal/resources"
 	"bos/internal/state"
 	"github.com/rs/zerolog/log"
 )
@@ -41,6 +42,7 @@ type Loop struct {
 	failMu       sync.Mutex
 	failCount    map[string]int       // fallos consecutivos por ID de ficha
 	failCooldown map[string]time.Time // hasta cuándo está en cooldown la ficha
+	tickCount    int                  // contador de ticks para logs periódicos de recursos
 }
 
 // New crea un Loop con la configuración dada.
@@ -134,6 +136,13 @@ func (l *Loop) Stop() {
 //   - Fase 2: instala la siguiente ficha elegible (una por tick, secuencial).
 //   - Fase 3: repara fichas en DEGRADADA (secuencial, sin goroutines — ver doc.go §invariante).
 func (l *Loop) tick(fichaIndex map[string]*plugin.FichaManifest) {
+	l.tickCount++
+
+	// Log periódico del estado del sistema cada 60 ticks (~5 min con interval=5s).
+	if l.tickCount%60 == 1 {
+		resources.LogSystemStatus()
+	}
+
 	st, err := l.cfg.StateMgr.Read()
 	if err != nil {
 		log.Warn().Err(err).Msg("observer: no se puede leer estado")
@@ -205,6 +214,32 @@ func (l *Loop) tick(fichaIndex map[string]*plugin.FichaManifest) {
 
 	next := findNextAutoInstall(st, fichaIndex, excluded)
 	if next != nil {
+		// Verificación de recursos ANTES de instalar.
+		// Si no hay suficiente memoria, el instalador intenta recuperarla (drop_caches).
+		// Si tras la recuperación aun no alcanza, se difiere esta ficha un tick
+		// para que el observer pueda instalar otra ficha de menor consumo.
+		// El instalador NUNCA se detiene — solo reordena la instalación.
+		if next.MemoryRequest != "" || next.CPURequest != "" {
+			memOK, availMiB := resources.CheckAndRecover(next.ID, next.MemoryRequest)
+			cpuOK := !resources.CPUOverloaded()
+			if !memOK || !cpuOK {
+				reason := "memoria"
+				if !cpuOK {
+					reason = "cpu"
+				}
+				log.Warn().
+					Str("ficha", next.ID).
+					Str("memory_request", next.MemoryRequest).
+					Int64("available_mib", availMiB).
+					Str("motivo", reason).
+					Msg("observer: instalación diferida — recursos insuficientes, reintentando próximo tick")
+				audit.Log(paths.AuditLog, "OBSERVER_INSTALL_DEFERRED",
+					"ficha="+next.ID,
+					"motivo="+reason)
+				return
+			}
+		}
+
 		log.Info().Str("ficha", next.ID).Str("version", next.Version).Msg("observer: iniciando instalación automática")
 		audit.Log(paths.AuditLog, "OBSERVER_INSTALL",
 			"user=root",
