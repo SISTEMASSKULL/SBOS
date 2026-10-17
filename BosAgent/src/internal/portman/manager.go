@@ -51,6 +51,8 @@ type AssignResult struct {
 }
 
 // Assign asigna los puertos requeridos a una ficha.
+// Idempotente: si la ficha ya tiene asignaciones activas para los tipos pedidos,
+// las devuelve sin crear nuevas (evita crecimiento infinito del Kardex en repairs).
 // Aplica N1→N2→N3 para cada tipo de puerto pedido.
 // Si algún tipo no se puede resolver → NeedsHITL=true y se aborta.
 func (m *Manager) Assign(req PortRequest) (*AssignResult, error) {
@@ -71,6 +73,40 @@ func (m *Manager) Assign(req PortRequest) (*AssignResult, error) {
 	}
 	if req.Namespace == "" {
 		req.Namespace = "default"
+	}
+
+	// Idempotencia: devolver asignaciones existentes si ya están en el Kardex.
+	if existing, err := m.kardex.ListByFicha(req.FichaID); err == nil && len(existing) > 0 {
+		existingByType := make(map[string]KardexRow)
+		for _, row := range existing {
+			if row.Status == "assigned" {
+				existingByType[row.PortType] = row
+			}
+		}
+		// Si todos los tipos pedidos ya tienen asignación activa, devolver sin crear nuevas.
+		allPresent := true
+		for _, pt := range req.PortTypes {
+			if _, ok := existingByType[string(pt)]; !ok {
+				allPresent = false
+				break
+			}
+		}
+		if allPresent {
+			result := &AssignResult{}
+			for tipoT, pt := range req.PortTypes {
+				row := existingByType[string(pt)]
+				result.Assignments = append(result.Assignments, Assignment{
+					Port:        row.Port,
+					PortType:    pt,
+					Algorithm:   row.Algorithm,
+					TipoT:       tipoT,
+					ServiceName: row.ServiceName,
+					Namespace:   row.Namespace,
+					FichaID:     row.FichaID,
+				})
+			}
+			return result, nil
+		}
 	}
 
 	result := &AssignResult{}
