@@ -92,7 +92,14 @@ func (m *Manager) Register(name string, initialState FichaState, version string,
 // SetK8sDiscoveredState actualiza el estado de una ficha según lo que K8s reporta.
 //
 // Bypassa ValidTransitions porque el cluster K8s es la fuente de verdad para fichas
-// con runtime=kubernetes. No pisa estados transitorios ni administrativos.
+// con runtime=kubernetes, pero respeta estados del ciclo de vida del instalador.
+//
+// Reglas de precedencia:
+//   - Estados transitorios/admin (INSTALLING…UNINSTALLED): nunca se pisan.
+//   - Estados del instalador (PENDING, READY, INSTALL_FAILED): el observer los gestiona,
+//     el k8s_discovery no interfiere.
+//   - Si discovered=PENDING (workload no encontrado en K8s): se eleva a PHYSICAL_ERROR,
+//     porque "sin workload en K8s" después de una instalación no es "pendiente" sino un error.
 //
 // Callers conocidos: internal/reconcile/k8s_discovery.go:DiscoverK8sStates.
 func (m *Manager) SetK8sDiscoveredState(name string, discovered FichaState) error {
@@ -114,6 +121,20 @@ func (m *Manager) SetK8sDiscoveredState(name string, discovered FichaState) erro
 	case StateInstalling, StateUpdating, StateRepairing, StateRollback, StateCleanup,
 		StatePaused, StateUninstalled:
 		return nil
+	}
+
+	// No pisar estados del ciclo de instalación — el observer los gestiona.
+	// PENDING = esperando dependencias; READY = en cola para instalar;
+	// INSTALL_FAILED = reintento con backoff. El k8s_discovery no debe interferir.
+	switch ficha.State {
+	case StatePending, StateReady, StateInstallFailed:
+		return nil
+	}
+
+	// Workload no encontrado en K8s (StatePending del probe) tras instalación
+	// = error físico, no "pendiente de instalación".
+	if discovered == StatePending {
+		discovered = StatePhysicalError
 	}
 
 	if ficha.State == discovered {
