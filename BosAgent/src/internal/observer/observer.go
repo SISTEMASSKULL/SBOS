@@ -24,6 +24,9 @@ type SystemMaintainer interface {
 	// RunMaintenance ejecuta una pasada de mantenimiento y retorna el número
 	// de recursos del sistema que fueron limpiados en esta pasada.
 	RunMaintenance() int
+	// IsClusterReady verifica si el cluster K8s puede aceptar nuevos pods.
+	// Retorna (true, "") si está listo; (false, reason) si algún nodo está NotReady.
+	IsClusterReady() (bool, string)
 }
 
 // Config agrupa las dependencias necesarias para crear un Loop.
@@ -241,6 +244,22 @@ func (l *Loop) tick(fichaIndex map[string]*plugin.FichaManifest) {
 
 	next := findNextAutoInstall(st, fichaIndex, excluded)
 	if next != nil {
+		// Verificación de cluster K8s ANTES de instalar.
+		// Si el nodo no está Ready, diferimos sin consumir reintentos (no es un fallo
+		// de la ficha — es un fallo de infraestructura). El log limita a 1 por minuto
+		// usando tickCount para no saturar los logs.
+		if l.cfg.Maintainer != nil {
+			if ok, reason := l.cfg.Maintainer.IsClusterReady(); !ok {
+				if l.tickCount%12 == 1 {
+					log.Warn().
+						Str("ficha", next.ID).
+						Str("motivo", reason).
+						Msg("observer: instalación diferida — cluster K8s no está listo")
+				}
+				return
+			}
+		}
+
 		// Verificación de recursos ANTES de instalar.
 		// Si no hay suficiente memoria, el instalador intenta recuperarla (drop_caches).
 		// Si tras la recuperación aun no alcanza, se difiere esta ficha un tick

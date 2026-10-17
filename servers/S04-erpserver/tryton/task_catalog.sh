@@ -11,6 +11,9 @@ export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-erp}"
 # ── pre_install ────────────────────────────────────────────────
 ficha_pre_install() {
     echo "${__SBOS__STEP_START__} pre_install"
+    create_k8s_namespace "${SBOS_NAMESPACE}" "sbos.io/managed=true"
+    kubectl create serviceaccount tryton-sa -n "${SBOS_NAMESPACE}" \
+        --dry-run=client -o yaml | kubectl apply -f -
     echo "${__SBOS__STEP_OK__} pre_install"
 }
 

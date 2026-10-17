@@ -21,14 +21,24 @@ import (
 // ── stubMaintainer ────────────────────────────────────────────────────────────
 
 // stubMaintainer implementa SystemMaintainer para tests.
+// clusterNotReady=false (valor cero) significa "cluster listo" — comportamiento
+// por defecto para todos los tests existentes.
 type stubMaintainer struct {
-	llamadas atomic.Int32
-	retorno  int
+	llamadas        atomic.Int32
+	retorno         int
+	clusterNotReady bool // si true, IsClusterReady retorna (false, reason)
 }
 
 func (s *stubMaintainer) RunMaintenance() int {
 	s.llamadas.Add(1)
 	return s.retorno
+}
+
+func (s *stubMaintainer) IsClusterReady() (bool, string) {
+	if s.clusterNotReady {
+		return false, "cluster no listo (stub)"
+	}
+	return true, ""
 }
 
 // ── crearFichaConMemoria ──────────────────────────────────────────────────────

@@ -397,3 +397,26 @@ func (c *Core) RunMaintenance() int {
 	n, _ := c.CleanOrphanPods()
 	return n
 }
+
+// IsClusterReady implementa observer.SystemMaintainer.
+// Verifica si todos los nodos K8s están en estado Ready.
+// Usa timeout corto (3s) para no bloquear el ciclo del observer.
+// Retorna (true, "") si todos los nodos están listos; (false, reason) si alguno no lo está.
+func (c *Core) IsClusterReady() (bool, string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	out, err := c.kubectl(ctx, "get", "nodes", "--no-headers",
+		"-o", "custom-columns=NAME:.metadata.name,STATUS:.status.conditions[-1].type,READY:.status.conditions[-1].status")
+	if err != nil {
+		return false, "kubectl get nodes: " + err.Error()
+	}
+	for _, line := range splitOutput(out) {
+		parts := strings.Fields(line)
+		// custom-columns: NAME STATUS READY
+		// Ready=True cuando la última condición es Ready=True
+		if len(parts) >= 3 && (parts[1] != "Ready" || parts[2] != "True") {
+			return false, "nodo " + parts[0] + " no está Ready"
+		}
+	}
+	return true, ""
+}

@@ -146,6 +146,78 @@ func TestRunMaintenance_RetornaConteoCorrect(t *testing.T) {
 	}
 }
 
+// ── IsClusterReady ────────────────────────────────────────────────────────────
+
+func fakeKubectlNodoReady(t *testing.T) *Core {
+	t.Helper()
+	dir := t.TempDir()
+	script := `#!/bin/bash
+if [[ "$*" == *"get nodes"* ]]; then
+  printf 'master Ready True\n'
+  exit 0
+fi
+exit 0
+`
+	kp := filepath.Join(dir, "kubectl")
+	if err := os.WriteFile(kp, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	kc := filepath.Join(t.TempDir(), "admin.conf")
+	_ = os.WriteFile(kc, []byte("# fake"), 0600)
+	return NewCore(kc, 5*time.Second)
+}
+
+func fakeKubectlNodoNotReady(t *testing.T) *Core {
+	t.Helper()
+	dir := t.TempDir()
+	script := `#!/bin/bash
+if [[ "$*" == *"get nodes"* ]]; then
+  printf 'master NotReady False\n'
+  exit 0
+fi
+exit 0
+`
+	kp := filepath.Join(dir, "kubectl")
+	if err := os.WriteFile(kp, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	kc := filepath.Join(t.TempDir(), "admin.conf")
+	_ = os.WriteFile(kc, []byte("# fake"), 0600)
+	return NewCore(kc, 5*time.Second)
+}
+
+func TestIsClusterReady_NodoListo(t *testing.T) {
+	c := fakeKubectlNodoReady(t)
+	ok, reason := c.IsClusterReady()
+	if !ok {
+		t.Errorf("IsClusterReady() = false, reason=%q — esperaba true", reason)
+	}
+}
+
+func TestIsClusterReady_NodoNotReady(t *testing.T) {
+	c := fakeKubectlNodoNotReady(t)
+	ok, reason := c.IsClusterReady()
+	if ok {
+		t.Error("IsClusterReady() = true — esperaba false para nodo NotReady")
+	}
+	if reason == "" {
+		t.Error("IsClusterReady() reason vacío para nodo NotReady")
+	}
+}
+
+func TestIsClusterReady_KubectlNoDisponible(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	kc := filepath.Join(t.TempDir(), "admin.conf")
+	_ = os.WriteFile(kc, []byte("# fake"), 0600)
+	c := NewCore(kc, 5*time.Second)
+	ok, _ := c.IsClusterReady()
+	if ok {
+		t.Error("IsClusterReady() debe retornar false si kubectl no está disponible")
+	}
+}
+
 // ── splitOutput ───────────────────────────────────────────────────────────────
 
 func TestSplitOutput_LineasVacias(t *testing.T) {
