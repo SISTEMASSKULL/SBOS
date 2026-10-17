@@ -34,6 +34,7 @@ type InstallConfig struct {
 	SmtpPassword  string `toml:"smtp_password"`  // contraseña SMTP
 	ReleaseServerURL string    `toml:"release_server_url"`
 	Channel          string    `toml:"channel"`
+	ServersGitURL    string    `toml:"servers_git_url"` // URL git para auto-sync de fichas al arrancar
 	HTTPPort         int       `toml:"http_port"`
 	BosPath          string    `toml:"bos_path"`
 	CorePath         string    `toml:"core_path"`

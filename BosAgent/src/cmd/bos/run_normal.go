@@ -17,6 +17,7 @@ import (
 	"bos/internal/config"
 	bosctx "bos/internal/context"
 	"bos/internal/domain"
+	"bos/internal/fichasync"
 	"bos/internal/health"
 	"bos/internal/installer"
 	"bos/internal/k8s"
@@ -105,7 +106,6 @@ func initContextService(pgDSN, redisAddr string, redisDB int) *bosctx.Service {
 
 // maskDSN oculta el password de una DSN postgres://user:pass@host/db para logs.
 func maskDSN(dsn string) string {
-	// Busca el patrón ://user:password@ y lo reemplaza con ://user:***@
 	const marker = "://"
 	i := len(marker)
 	if j := len(dsn); j > i {
@@ -119,15 +119,9 @@ func maskDSN(dsn string) string {
 }
 
 // runNormal inicia todos los subsistemas y entra en el event loop principal.
-// Inicializa en orden: STATE_MANAGER → plugins → K8s → release → saga → observer → health
-// → reconcile → repair → watchdog → RBAC → API server → señales.
-//
-// Efectos secundarios:
-//   - Abre /etc/bos/.sbos_state.json con flock exclusivo.
-//   - Inicia goroutines para observer, health, reconcile, watchdog, API server.
-//   - Registra eventos en /var/log/bos/audit.log.
+// Orden: STATE_MANAGER → fichasync → plugins → K8s → release → saga → observer
+// → health → reconcile → repair → watchdog → RBAC → API server → señales.
 func runNormal(cfg *config.Config, benv *bootstrapEnv) {
-	// stopCh cierra todas las goroutinas que lo usan (StartWatchdog) al retornar.
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 
@@ -148,6 +142,11 @@ func runNormal(cfg *config.Config, benv *bootstrapEnv) {
 	// 1. Inicializar STATE_MANAGER
 	stateMgr := initStateManager(install.StateFile)
 	defer stateMgr.Close()
+
+	// 1.5 Sincronizar fichas desde git (P5 pull-only).
+	// servers_git_url en bos-install.toml activa el sync; vacío = desactivado.
+	// Nunca fatal — si git falla, BOS opera con las fichas existentes.
+	fichasync.SyncFromGit(install.ServersPath, install.ServersGitURL, newSlogLogger("fichasync"))
 
 	// 2. Inicializar plugin loader
 	pluginLoader := initPluginLoader(install.ServersPath)
@@ -171,26 +170,22 @@ func runNormal(cfg *config.Config, benv *bootstrapEnv) {
 	compensator := installer.NewCompensator(masterScript,
 		newSlogLogger("compensator"))
 
-	// Wire compensator into orchestrator
 	orchestrator.SetCompensator(compensator)
 	log.Info().Interface("core_dir", install.CorePath).Msg("installer ready")
 
-	// 5.25 Crear K8s discovery — necesario para P15-A2 y para el reconcile scheduler (M2.2).
-	// Se crea aquí (antes del observer) para poder proteger fichas existentes al arrancar.
+	// 5.25 Crear K8s discovery — necesario para P15-A2 y reconcile scheduler (M2.2).
 	k8sDiscovery := reconcile.NewK8sDiscovery(install.ServersPath, k8sCore, newSlogLogger("k8s-discovery"))
 
-	// 5.5 Inicializar estados de fichas y arrancar observer loop
+	// 5.5 Inicializar estados de fichas
 	observer.InitializeFichaStates(pluginLoader, stateMgr)
 
-	// 5.6 Recuperar sagas huérfanas: fichas en INSTALLING/UPDATING/REPAIRING por reinicio
-	// del daemon durante una saga activa. Las resuelve consultando K8s como fuente de verdad.
+	// 5.6 Recuperar sagas huérfanas (reinicio durante saga activa)
 	observer.RecoverOrphanedSagas(stateMgr, func() map[string]state.FichaState {
 		result := k8sDiscovery.DiscoverK8sStates()
 		return result.States
 	})
 
-	// P15-A2: Si el state.json fue reconstruido desde cero, proteger fichas ya
-	// instaladas en K8s antes de arrancar el observer — evita reinstalación destructiva.
+	// P15-A2: proteger fichas ya instaladas en K8s antes de arrancar el observer
 	observer.P15ReconcileAfterRebuild(stateMgr, func() map[string]state.FichaState {
 		result := k8sDiscovery.DiscoverK8sStates()
 		return result.States
@@ -216,7 +211,7 @@ func runNormal(cfg *config.Config, benv *bootstrapEnv) {
 		newSlogLogger("reconcile")).
 		WithK8sDiscovery(k8sDiscovery)
 
-	// 7.4 Inicializar repair manager (auto-repair del watchdog, desactivado por defecto)
+	// 7.4 Inicializar repair manager
 	repairMgr := repair.NewRepairManager(stateMgr, nil,
 		cfg.SagaTimeout("repair"), false, newSlogLogger("repair"))
 
@@ -269,21 +264,15 @@ func runNormal(cfg *config.Config, benv *bootstrapEnv) {
 		identityProvider,
 		newSlogLogger("api"),
 		pgAuxSvc,
-		ctxService, // nil → memStore (degradado); no-nil → PGRedisStore real
+		ctxService,
 	)
 	apiServer.SetReleaseManager(releaseAdapter)
-	// M-15: K8sQuerier — despacha kubectl vía k8s.Core (Principio P1)
 	apiServer.SetK8sQuerier(query.NewK8sQuerier(k8sCore))
-	// F9.5/F9.6 — Operator Soberano: k8sCore como operador del cluster y
-	// saga de mantenimiento con uncordon garantizado sobre el mismo Core
 	apiServer.SetK8sOperator(k8sCore)
 	apiServer.SetMaintenanceService(maintenance.NewService(k8sCore))
-	// K8sScanner: bos.ficha.rescan dispara descubrimiento K8s bajo demanda
-	// sin esperar el próximo ciclo de reconciliación (300s).
 	apiServer.SetK8sScanner(reconcile.NewK8sScanAdapter(k8sDiscovery, stateMgr))
 
-	// Port Manager (SBOS-050): cablear portman en apiServer + Scheduler si BOS_PG_DSN está disponible.
-	// SetPortManager también cablea el adaptador en FichaService (install→Assign, remove→Release).
+	// Port Manager (SBOS-050)
 	if pgDSN := os.Getenv("BOS_PG_DSN"); pgDSN != "" {
 		if pm, err := portman.NewWithDSN(pgDSN); err != nil {
 			log.Warn().Err(err).Msg("portman: no se pudo conectar — bos.portman.* degradado (Kardex desactivado)")
@@ -296,8 +285,7 @@ func runNormal(cfg *config.Config, benv *bootstrapEnv) {
 		log.Info().Msg("portman: BOS_PG_DSN no configurado — Kardex desactivado (modo standalone)")
 	}
 
-	// BC-06 — Domain Manager S16-webserver: PgWebDomain si BOS_PG_DSN, sino MemWebDomain.
-	// NginxManager requiere nginx + certbot instalados (ficha bos-nginx).
+	// BC-06 — Domain Manager S16-webserver
 	{
 		var webStore domain.WebDomainPort
 		if pgDSN := os.Getenv("BOS_PG_DSN"); pgDSN != "" {
@@ -315,9 +303,7 @@ func runNormal(cfg *config.Config, benv *bootstrapEnv) {
 		apiServer.SetWebDomainService(domain.NewWebDomainService(webStore, domain.NewNginxManager("")))
 	}
 
-	// F10 — agente biaos: catálogo ICAP + ReAct + HITL; sus herramientas son
-	// el propio dispatcher RPC (ToolExecutor). Degrada sin catálogo sin
-	// tumbar el daemon (biaos es opcional; el resto del bos funciona).
+	// F10 — agente biaos (opcional)
 	if biaosGW, err := biaos.New(biaos.Config{
 		CatalogPath:  paths.ConfigDir("ai/action_catalog.yml"),
 		AuditLogPath: paths.AIAuditLog,
@@ -332,7 +318,7 @@ func runNormal(cfg *config.Config, benv *bootstrapEnv) {
 		log.Info().Msg("biaos: agente OS inicializado (bos.ai.* activo)")
 	}
 
-	// F6.14 — el watchdog diagnostica (bos.query.repair) ANTES de auto-reparar
+	// F6.14 — watchdog diagnostica antes de auto-reparar
 	unifiedWatchdog.SetDiagnosticador(func(fichaID string) (string, int, error) {
 		out, err := apiServer.ToolExecutor("bos.query.repair",
 			map[string]interface{}{"ficha_id": fichaID})
@@ -382,7 +368,6 @@ func runNormal(cfg *config.Config, benv *bootstrapEnv) {
 		set("bos_fichas_en_error", errN)
 		set("bos_fichas_pendientes", pend)
 
-		// nodos Ready vía el Operator Soberano (F9.5)
 		if nodes, err := k8sCore.GetNodes(); err == nil {
 			var ready int64
 			for _, n := range nodes {
@@ -400,7 +385,7 @@ func runNormal(cfg *config.Config, benv *bootstrapEnv) {
 		}
 	}()
 
-	// 8.5 Wire observers: log crudo + pasos del saga → WebSocket → TUI
+	// 8.5 Wire observers: log crudo + pasos del saga → WebSocket
 	orchestrator.SetLogObserver(func(fichaID, line string) {
 		apiServer.BroadcastFichaLog(fichaID, line)
 	})
@@ -419,13 +404,11 @@ func runNormal(cfg *config.Config, benv *bootstrapEnv) {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
-	// 9.5 AutoMigrate Context Plane DDL (F10.B.12, M1.5)
-	// Verifica bos.registered_device + bos.context_session en sbos_db.
-	// Con memStore (dev) es no-op. Con PGRedisStore verifica existencia (DDL_bos_schema.sql).
+	// 9.5 AutoMigrate Context Plane DDL
 	ctxMigrate, cancelMigrate := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancelMigrate()
 	if err := apiServer.AutoMigrateContextPlane(ctxMigrate); err != nil {
-		log.Warn().Err(err).Msg("AutoMigrate Context Plane DDL falló — el daemon continúa. Las tablas se crearán cuando PostgreSQL esté disponible")
+		log.Warn().Err(err).Msg("AutoMigrate Context Plane DDL falló — el daemon continúa")
 	} else {
 		log.Info().Msg("Context Plane DDL verificado (AutoMigrate OK)")
 	}
@@ -447,16 +430,12 @@ func runNormal(cfg *config.Config, benv *bootstrapEnv) {
 	log.Info().Msg("bos daemon running — all subsystems started")
 	audit.Log(paths.AuditLog, "RUNNING", "user=root", "state=all_subsystems_started")
 
-	// 10.5 Reconciliación de arranque: verificar estado K8s antes de entrar al event loop.
-	// Si K8s estaba corriendo antes de que BOS se detuviera (o crasheara), restaurarlo inmediatamente.
+	// 10.5 Reconciliación de arranque
 	observer.StartupReconcile(stateMgr, healthChecker, system.SystemctlCmd)
 
-	// Notificar a systemd que BOS está listo.
 	system.SDNotify("READY=1\nSTATUS=BOS daemon running — K8s state verified")
 
-	// 10.6 Keep-alive systemd: WATCHDOG=1 al 50% del intervalo WatchdogSec (P12).
 	go system.StartWatchdog(stopCh)
-	// 10.7 Watchdog unificado (Ubuntu + K8s + BOS, ciclo cada 30s).
 	go unifiedWatchdog.Run()
 
 	// 11. Event loop principal
@@ -470,8 +449,6 @@ func runNormal(cfg *config.Config, benv *bootstrapEnv) {
 				releaseMgr.InvalidateCache()
 				log.Info().Msg("config reloaded (SIGHUP)")
 			default:
-				// SIGTERM/SIGINT = restart o stop del SERVICIO — el cluster
-				// no se toca (F9.0: un redeploy del binario derribaba el nodo)
 				log.Info().Msg("shutting down gracefully (solo daemon — cluster intacto)")
 				audit.Log(paths.AuditLog, "SHUTDOWN", "user=root", "signal="+sig.String())
 				shutdown(apiServer, healthChecker, reconcileScheduler, orchestrator, unifiedWatchdog, false)
@@ -485,8 +462,6 @@ func runNormal(cfg *config.Config, benv *bootstrapEnv) {
 			}
 
 		case <-apiServer.ShutdownCh:
-			// Orden explícita del operador (WS "shutdown" del dashboard P11):
-			// apagado completo del nodo — drain → kubelet → containerd
 			log.Info().Msg("shutdown requested via API (apagado completo del stack)")
 			audit.Log(paths.AuditLog, "SHUTDOWN", "user=root", "signal=api_request")
 			shutdown(apiServer, healthChecker, reconcileScheduler, orchestrator, unifiedWatchdog, true)
