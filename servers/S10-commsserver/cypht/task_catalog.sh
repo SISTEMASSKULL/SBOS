@@ -11,6 +11,35 @@ export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-comms}"
 # ── pre_install ────────────────────────────────────────────────
 ficha_pre_install() {
     echo "${__SBOS__STEP_START__} pre_install"
+
+    # 1. Namespace y ServiceAccount
+    create_k8s_namespace "${SBOS_NAMESPACE}" "sbos.io/managed=true"
+    kubectl create serviceaccount cypht-sa -n "${SBOS_NAMESPACE}" \
+        --dry-run=client -o yaml | kubectl apply -f -
+
+    # 2. Secret con password de BD (evita plaintext en manifest)
+    local pg_pass="${SBOS_PG_CYPHT_PASS:-sbos_bootstrap_pass}"
+    kubectl create secret generic cypht-db-secret \
+        -n "${SBOS_NAMESPACE}" \
+        --from-literal=password="${pg_pass}" \
+        --dry-run=client -o yaml | kubectl apply -f -
+
+    # 3. Crear base de datos cypht_db en PostgreSQL si no existe
+    local pg_pod
+    pg_pod=$(kubectl get pod -n sbos-data -l app=postgresql \
+        --field-selector=status.phase=Running \
+        -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+
+    if [ -z "${pg_pod}" ]; then
+        echo "ADVERTENCIA: pod postgresql no encontrado en sbos-data — cypht_db no creada"
+    else
+        kubectl exec "${pg_pod}" -n sbos-data -- \
+            psql -U postgres -c "CREATE DATABASE cypht_db;" 2>/dev/null || true
+        kubectl exec "${pg_pod}" -n sbos-data -- \
+            psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE cypht_db TO postgres;" 2>/dev/null || true
+        echo "cypht_db creada (o ya existía)"
+    fi
+
     echo "${__SBOS__STEP_OK__} pre_install"
 }
 
@@ -39,6 +68,17 @@ ficha_update() {
 # ── repair ─────────────────────────────────────────────────────
 ficha_repair() {
     echo "${__SBOS__STEP_START__} repair"
+
+    # Re-verificar que cypht_db existe (puede haberse perdido por re-instalación de PostgreSQL)
+    local pg_pod
+    pg_pod=$(kubectl get pod -n sbos-data -l app=postgresql \
+        --field-selector=status.phase=Running \
+        -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+    if [ -n "${pg_pod}" ]; then
+        kubectl exec "${pg_pod}" -n sbos-data -- \
+            psql -U postgres -c "CREATE DATABASE cypht_db;" 2>/dev/null || true
+    fi
+
     kubectl rollout restart deployment cypht -n "${SBOS_NAMESPACE}"
     echo "${__SBOS__STEP_OK__} repair"
 }

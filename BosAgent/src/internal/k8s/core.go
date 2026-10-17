@@ -391,11 +391,100 @@ func (c *Core) GetRawJSON(ctx context.Context, args ...string) ([]byte, error) {
 	return []byte(out), err
 }
 
+// crashRestartThreshold: mínimo de reinicios en CreateContainerError para
+// considerar que un workload no crítico está desperdiciando recursos.
+const crashRestartThreshold = 50
+
+// nsProtegidos: namespaces cuyo workload NUNCA se toca automáticamente.
+// Incluye infraestructura K8s, base de datos, identidad, policy enforcement y comms.
+var nsProtegidos = map[string]bool{
+	"kube-system":     true,
+	"kube-public":     true,
+	"kube-node-lease": true,
+	"sbos-data":       true,
+	"sbos-identity":   true,
+	"sbos-security":   true,
+	"sbos-comms":      true, // cypht — crítico
+	"kyverno":         true, // kyverno admission — crítico
+	"calico-system":   true,
+	"linkerd":         true,
+	"cert-manager":    true,
+}
+
+// SuspendCrashingPods libera recursos escalando a 0 workloads no críticos que
+// están en CrashLoop severo (CreateContainerError ≥ crashRestartThreshold).
+// Solo actúa sobre namespaces NO protegidos. Retorna el número de workloads pausados.
+func (c *Core) SuspendCrashingPods() (int, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	out, err := c.kubectl(ctx, "get", "pods", "-A", "--no-headers",
+		"-o", "custom-columns="+
+			"NS:.metadata.namespace,"+
+			"NAME:.metadata.name,"+
+			"REASON:.status.containerStatuses[0].state.waiting.reason,"+
+			"RESTARTS:.status.containerStatuses[0].restartCount,"+
+			"OWNERKIND:.metadata.ownerReferences[0].kind,"+
+			"OWNERNAME:.metadata.ownerReferences[0].name")
+	if err != nil {
+		return 0, nil
+	}
+
+	pausados := 0
+	vistos := make(map[string]bool)
+
+	for _, line := range splitOutput(out) {
+		parts := strings.Fields(line)
+		if len(parts) < 6 {
+			continue
+		}
+		ns, reason, restartsStr, ownerKind, ownerName :=
+			parts[0], parts[2], parts[3], parts[4], parts[5]
+
+		if reason != "CreateContainerError" || nsProtegidos[ns] {
+			continue
+		}
+		var restarts int
+		fmt.Sscanf(restartsStr, "%d", &restarts)
+		if restarts < crashRestartThreshold {
+			continue
+		}
+
+		// Resolver el Deployment real si el dueño directo es un ReplicaSet
+		workloadKind, workloadName := ownerKind, ownerName
+		if ownerKind == "ReplicaSet" {
+			rsOut, rsErr := c.kubectl(ctx, "get", "replicaset", ownerName, "-n", ns,
+				"-o", "jsonpath={.metadata.ownerReferences[0].kind}/{.metadata.ownerReferences[0].name}")
+			if rsErr == nil && strings.Contains(rsOut, "/") {
+				kv := strings.SplitN(rsOut, "/", 2)
+				workloadKind, workloadName = kv[0], kv[1]
+			}
+		}
+
+		key := ns + "/" + workloadKind + "/" + workloadName
+		if vistos[key] {
+			continue
+		}
+		vistos[key] = true
+
+		kind := strings.ToLower(workloadKind)
+		if kind != "deployment" && kind != "statefulset" {
+			continue
+		}
+		if _, err := c.kubectl(ctx, "scale", kind+"/"+workloadName,
+			"--replicas=0", "-n", ns); err == nil {
+			pausados++
+		}
+	}
+	return pausados, nil
+}
+
 // RunMaintenance implementa observer.SystemMaintainer.
 // Ejecuta una pasada de mantenimiento del cluster y retorna el número de recursos liberados.
 func (c *Core) RunMaintenance() int {
 	n, _ := c.CleanOrphanPods()
-	return n
+	m, _ := c.SuspendCrashingPods()
+	return n + m
 }
 
 // IsClusterReady implementa observer.SystemMaintainer.
