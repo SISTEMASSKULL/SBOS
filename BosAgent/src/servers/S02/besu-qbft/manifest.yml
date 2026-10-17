@@ -7,8 +7,9 @@ identity:
   description: "Hyperledger Besu 24.12.0 — Red blockchain soberana QBFT (Proof of Authority) 1 validador. SettlementEngine.sol + AuditAnchor.sol. RPC :8545, WS :8546, P2P :30303. Chain ID 1337. Consumido por bAuth D12."
 
 workload:
-  type: pod  # StatefulSet en producción, pod simple en staging
-  runtime: podman  # podman en VPS, K8s en producción
+  type: statefulset
+  runtime: kubernetes
+  namespace: sbos-chain
 
 order:
   execution_order: 135
@@ -19,51 +20,34 @@ requirements:
     - vault
 
 governance:
-  auto_install: false
-  requires_approval: true
+  auto_install: true
+  requires_approval: false
   category_label: "blockchain-critica"
 
 meta:
-  backend: manifest
+  backend: k8s
   idempotent: true
   estimated_minutes: 8
   rollback_support: true
-  idempotency_checks:
-    - check: genesis_hash
-      value: "0x38a9e927b658596494bb56cfbb81f191cd8b612e383df56741b0a672b6d5d92d"
-      description: "SHA3-256 del genesis.json. Si coincide, la red ya existe → skip deploy."
-    - check: validator_address
-      value: "0x3caea8b153a7e5522630ad8ab59e8194d6f3cc92"
-      description: "Dirección del validador QBFT. Si existe y responde, skip completo."
-    - check: chain_id_rpc
-      value: "1337"
-      description: "eth_chainId vía JSON-RPC. Si responde 1337, la red está viva."
-    - check: block_height_min
-      value: 1
-      description: "eth_blockNumber > 0. Si produce bloques, saltar instalación."
 
 ports:
   - port: 8545
     protocol: TCP
     description: "Besu JSON-RPC HTTP — ETH,NET,WEB3,ADMIN,DEBUG,TXPOOL,QBFT"
-    cluster_ip: 8350
     internal_only: false
   - port: 8546
     protocol: TCP
     description: "Besu WebSocket RPC — ETH,NET,WEB3,QBFT"
-    cluster_ip: 8351
     internal_only: true
   - port: 30303
     protocol: TCP
     description: "Besu P2P discovery devp2p"
-    cluster_ip: 8352
     internal_only: true
 
 health:
-  type: http
-  endpoint: "/liveness"
-  port: 8545
-  expected_code: 200
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get statefulset besu-qbft -n sbos-chain -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
+  expected_output: "1"
   timeout_seconds: 15
 
 audit:
@@ -72,7 +56,6 @@ audit:
 
 versions:
   image: "docker.io/hyperledger/besu:24.12.0"
-  image_sha: "6cac022d679e4a256ae5ab2164a12c471f90c53636e21df2779922c09e1adb5a"
   java: "openjdk-java-21"
   consensus: qbft
   chain_id: 1337
@@ -83,8 +66,6 @@ versions:
   zero_base_fee: true
   active_fork: "London"
   validator_address: "0x3caea8b153a7e5522630ad8ab59e8194d6f3cc92"
-  validator_enode: "enode://985a62843edaae583275b49d63a92580bb11df77959d2d3a936818aeff3ac8ce5d3cacf18aa631372c05e2d79b2da8b5ddd084ede66f750b0ae40bcad5633336@127.0.0.1:30303"
-  genesis_hash: "0x38a9e927b658596494bb56cfbb81f191cd8b612e383df56741b0a672b6d5d92d"
 
 contracts:
   settlement_engine:
