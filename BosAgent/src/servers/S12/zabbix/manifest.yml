@@ -43,7 +43,7 @@ ports:
 
 health:
   type: command
-  command: "kubectl --kubeconfig=/etc/bos/.kube/config get deployment zabbix-server -n sbos-monitor -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get deployment zabbix-zabbix-server -n sbos-monitor -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
   expected_output: "1"
   timeout_seconds: 30
 

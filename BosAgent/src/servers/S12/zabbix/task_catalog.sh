@@ -123,7 +123,7 @@ ficha_install() {
     mkdir -p "$(dirname "$FICHA_LOG")"
 
     local ready
-    ready=$(_k get deployment zabbix-server -n "$NS" \
+    ready=$(_k get deployment zabbix-zabbix-server -n "$NS" \
         -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
     if (( ready >= 1 )); then
         echo "${__STEP_SKIP__} zabbix_install: ya Ready — skip"
@@ -175,22 +175,6 @@ ficha_install() {
         _k delete svc zabbix-zabbix-web -n "$NS" >> "$FICHA_LOG" 2>&1 || true
     fi
 
-    # Verificar si zabbix_db tiene tablas; si está vacía, habilitar init del schema
-    local has_tables
-    has_tables=$(kubectl --kubeconfig="$KUBECONFIG_DEST" exec -n sbos-data postgresql-0 -c postgresql -- \
-        psql -U postgres -d zabbix_db -tAc \
-        "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public'" \
-        2>/dev/null || echo "0")
-    local db_init_flag="false"
-    if [[ "${has_tables:-0}" -eq 0 ]]; then
-        _log "zabbix_db vacía — activando zabbixDBInit para aplicar schema"
-        db_init_flag="true"
-        # Eliminar job de init previo si existe (para poder re-ejecutarlo)
-        kubectl --kubeconfig="$KUBECONFIG_DEST" delete job \
-            -n "$NS" -l app.kubernetes.io/component=db-init \
-            >> "$FICHA_LOG" 2>&1 || true
-    fi
-
     KUBECONFIG="$KUBECONFIG_DEST" helm upgrade --install zabbix zabbix-community/zabbix \
         --namespace "$NS" \
         --version "7.1.0" \
@@ -201,7 +185,7 @@ ficha_install() {
         --set zabbixServer.replicaCount=1 \
         --set zabbixWeb.replicaCount=1 \
         --set postgresql.enabled=false \
-        --set zabbixDBInit.enable="${db_init_flag}" \
+        --set zabbixDBInit.enable=false \
         --set zabbixServer.resources.requests.cpu=100m \
         --set zabbixServer.resources.requests.memory=256Mi \
         --set zabbixWeb.resources.requests.cpu=50m \
@@ -209,6 +193,73 @@ ficha_install() {
         --timeout 10m \
         >> "$FICHA_LOG" 2>&1
     echo "${__STEP_OK__} instalar_zabbix_helm"
+
+    # Inicializar schema si zabbix_db está vacía.
+    # NOTA: zabbixDBInit.enable=true del chart 7.1.0 NO crea Jobs en K8s —
+    # el flag existe pero no genera ningún recurso. Se usa un Job propio.
+    echo "${__STEP_START__} init_schema_zabbix"
+    local has_tables
+    has_tables=$(_k exec -n sbos-data postgresql-0 -c postgresql -- \
+        psql -U postgres -d zabbix_db -tAc \
+        "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public'" \
+        2>/dev/null || echo "0")
+    if [[ "${has_tables:-0}" -gt 0 ]]; then
+        _log "zabbix_db ya tiene ${has_tables} tablas — omitiendo init"
+        echo "${__STEP_SKIP__} init_schema_zabbix"
+    else
+        _log "zabbix_db vacía — aplicando schema via Job kubectl"
+        _k delete job zabbix-schema-init -n "$NS" >> "$FICHA_LOG" 2>&1 || true
+        local pg_pass
+        pg_pass=$(_k exec -n sbos-data postgresql-0 -c postgresql -- \
+            env 2>/dev/null | grep POSTGRES_PASSWORD | cut -d= -f2 || echo "sbos_bootstrap_pass")
+        _k apply -n "$NS" -f - >> "$FICHA_LOG" 2>&1 <<JOBEOF
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: zabbix-schema-init
+  namespace: ${NS}
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: init
+        image: zabbix/zabbix-server-pgsql:ubuntu-7.0.23
+        env:
+        - name: PGPASSWORD
+          value: "${pg_pass}"
+        command:
+        - sh
+        - -c
+        - |
+          set -e
+          psql -h postgresql.sbos-data.svc -U postgres -d zabbix_db \
+            -c 'GRANT ALL ON SCHEMA public TO zabbix;'
+          zcat /usr/share/doc/zabbix-server-postgresql/create.sql.gz | \
+            psql -h postgresql.sbos-data.svc -U postgres -d zabbix_db
+          psql -h postgresql.sbos-data.svc -U postgres -d zabbix_db -c \
+            'GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO zabbix; GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO zabbix;'
+          echo 'SCHEMA OK'
+JOBEOF
+        local elapsed=0
+        while (( elapsed < 300 )); do
+            local phase
+            phase=$(_k get job zabbix-schema-init -n "$NS" \
+                -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null || echo "")
+            [[ "$phase" == "True" ]] && break
+            local failed
+            failed=$(_k get job zabbix-schema-init -n "$NS" \
+                -o jsonpath='{.status.failed}' 2>/dev/null || echo "0")
+            (( failed >= 1 )) && { _log "ERROR: Job zabbix-schema-init falló"; echo "${__STEP_FAIL__} init_schema_zabbix"; return 1; }
+            sleep 5; elapsed=$((elapsed+5))
+            (( elapsed % 30 == 0 )) && _log "Esperando Job init schema... ${elapsed}/300s"
+        done
+        (( elapsed >= 300 )) && { _log "ERROR: timeout esperando Job zabbix-schema-init"; echo "${__STEP_FAIL__} init_schema_zabbix"; return 1; }
+        # Reiniciar server para que detecte la BD inicializada
+        _k rollout restart deployment/zabbix-zabbix-server -n "$NS" >> "$FICHA_LOG" 2>&1 || true
+        echo "${__STEP_OK__} init_schema_zabbix"
+    fi
 
     # Parchear el puerto del Service con el valor portman DESPUÉS del install (BUG-37)
     echo "${__STEP_START__} parchear_puerto_service"
@@ -219,7 +270,7 @@ ficha_install() {
     echo "${__STEP_OK__} parchear_puerto_service"
 
     echo "${__STEP_START__} esperar_zabbix_ready"
-    _wait_deploy_ready zabbix-server "$NS" 180 || { echo "${__STEP_FAIL__} esperar_zabbix_ready: timeout"; return 1; }
+    _wait_deploy_ready zabbix-zabbix-server "$NS" 180 || { echo "${__STEP_FAIL__} esperar_zabbix_ready: timeout"; return 1; }
     echo "${__STEP_OK__} esperar_zabbix_ready"
     return 0
 }
@@ -227,7 +278,7 @@ ficha_install() {
 ficha_verify() {
     echo "${__STEP_START__} verificar_zabbix"
     local ready
-    ready=$(_k get deployment zabbix-server -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    ready=$(_k get deployment zabbix-zabbix-server -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
     (( ready >= 1 )) || { echo "${__STEP_FAIL__} verificar_zabbix: ${ready}/1"; return 1; }
     echo "${__STEP_OK__} verificar_zabbix"
     return 0
@@ -235,7 +286,7 @@ ficha_verify() {
 
 ficha_health() {
     local ready
-    ready=$(_k get deployment zabbix-server -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    ready=$(_k get deployment zabbix-zabbix-server -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
     (( ready >= 1 )) && echo "HEALTHY" && return 0
     echo "DEGRADED"
     return 1
@@ -255,7 +306,7 @@ ficha_test() {
     local ok=0
     echo "${__STEP_START__} test_zabbix-server_ready"
     local ready
-    ready=$(_k get deployment zabbix-server -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    ready=$(_k get deployment zabbix-zabbix-server -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
     if (( ready >= 1 )); then
         echo "${__STEP_OK__} test_zabbix-server_ready (${ready}/1)"
     else
