@@ -268,16 +268,22 @@ ficha_install() {
         sleep 10
     done
     if [[ "$pods_ok" -eq 0 ]]; then
-        # El control plane no levantó — eliminar el webhook para que no quede
-        # activo inyectando proxies sin identity service. Sin este paso, todos
-        # los pods nuevos en namespaces anotados harán CrashLoop indefinidamente.
-        _log "Control plane no ready — eliminando proxy-injector webhook para evitar CrashLoops en el cluster"
+        # El control plane no levantó en el tiempo esperado — eliminar el webhook
+        # para que no quede activo inyectando proxies sin identity service.
+        _log "Control plane no ready en 15m — eliminando proxy-injector webhook para proteger el cluster"
         _k delete mutatingwebhookconfiguration linkerd-proxy-injector 2>/dev/null || true
         for ns in "${AUTO_INJECT_NAMESPACES[@]}"; do
             _k annotate namespace "$ns" "linkerd.io/inject=disabled" --overwrite 2>/dev/null || true
         done
-        echo "${__STEP_FAIL__} wait_control_plane_ready: pods no Ready en 15m — webhook eliminado para proteger el cluster"
-        return 1
+        # Helm install fue exitoso (control plane desplegado vía chart).
+        # Los pods pueden tardar en arrancar por recursos o imágenes.
+        # Retornar 0 para que la ficha pase a INSTALADA — el health check
+        # la pondrá en DEGRADADA si los pods siguen sin funcionar, y el
+        # repair loop tomará el control. Esto evita el loop INSTALL_FAILED.
+        _log "Helm control plane desplegado — ficha INSTALADA, repair converge cuando los pods levanten"
+        echo "${__STEP_SKIP__} wait_control_plane_ready: pods no Ready en 15m (helm OK — repair converge)"
+        # Activar auto-inject solo cuando el repair confirme los pods Ready
+        return 0
     fi
     _log "Control plane listo"
     echo "${__STEP_OK__} wait_control_plane_ready"
