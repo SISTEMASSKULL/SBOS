@@ -1,19 +1,23 @@
+# manifest.yml — Ficha paperless-ngx (SBOS-005 §docserver)
+# SBOS-049 §4 · Order 295 · StatefulSet
 identity:
   id: paperless-ngx
-  server: S08
-  version: "2.14.7"
-  category: 2
+  name: Paperless-NGX
+  version: "2.13"
+  category: 1
   criticality: false
-  description: "Paperless-NGX 2.14.7 — gestor documental con OCR automático, indexado full-text, etiquetado inteligente, reglas de clasificación y archivo soberano de documentos."
+  server: docserver
+  description: "DMS: OCR, ML classification, full-text search"
 
 workload:
-  type: deployment
-  runtime: kubernetes
+  type: StatefulSet
   namespace: sbos-docs
   replicas: 1
+  service_account: paperless-ngx-sa
 
 order:
-  execution_order: 350
+  execution_order: 295
+  timeout_minutes: 20
 
 requirements:
   dependencies:
@@ -21,39 +25,25 @@ requirements:
     - redis
     - minio
     - keycloak
+  cpu_request: "500m"
+  cpu_limit: "2000m"
+  memory_request: "512Mi"
+  memory_limit: "1Gi"
+  pvc_size: "100Gi"
+  pvc_storage_class: "sbos-fast"
+
+deployment:
+  strategy: Recreate
 
 governance:
   auto_install: true
   requires_approval: false
-  category_label: "gestion-documental"
-
-meta:
-  backend: k8s
-  idempotent: true
-  estimated_minutes: 10
-  rollback_support: true
-
-ports:
-  - name: http
-    port: 8000
-    protocol: TCP
-    internal_only: false
+  backup_enabled: true
+  backup_schedule: "0 4 * * *"
 
 health:
-  type: command
-  command: "kubectl --kubeconfig=/etc/bos/.kube/config get deployment paperless-ngx -n sbos-docs -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
-  expected_output: "1"
-  timeout_seconds: 30
+  check_command: "curl -sf http://localhost:8000/health"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
 
-audit:
-  ctx_id_required: true
-  log_path: /var/log/bos/fichas/paperless-ngx.log
-
-vault:
-  secret_path: "secret/tenants/{{ tenant_id }}/paperless-ngx"
-  keys:
-    - secret_key
-    - admin_password
-
-versions:
-  paperless_ngx: "2.14.7"

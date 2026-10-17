@@ -1,59 +1,45 @@
+# manifest.yml — Ficha langfuse (SBOS-005 §aiserver)
+# SBOS-049 §4 · Order 425 · Deployment
 identity:
   id: langfuse
-  server: S15
-  version: "3.32.0"
-  category: 3
+  name: Langfuse LLM Obs
+  version: "2.4"
+  category: 1
   criticality: false
-  description: "Langfuse 3.32.0 — observabilidad de LLMs (traces, métricas, evaluaciones). Instrumenta todas las llamadas IA del SBOS para detectar alucinaciones, latencia y costos."
+  server: aiserver
+  description: "LLM observability: traces, costs, evals"
 
 workload:
-  type: deployment
-  runtime: kubernetes
+  type: Deployment
   namespace: sbos-ai
   replicas: 1
+  service_account: langfuse-sa
 
 order:
-  execution_order: 520
+  execution_order: 425
+  timeout_minutes: 15
 
 requirements:
   dependencies:
     - postgresql
-    - redis
-    - ollama
+    - keycloak
+  cpu_request: "200m"
+  cpu_limit: "1000m"
+  memory_request: "256Mi"
+  memory_limit: "512Mi"
+
+
+deployment:
+  strategy: RollingUpdate
 
 governance:
-  auto_install: false
+
+
+  auto_install: true
   requires_approval: false
-  category_label: "ia-soberana"
-
-meta:
-  backend: k8s
-  idempotent: true
-  estimated_minutes: 8
-  rollback_support: true
-
-ports:
-  - name: http
-    port: 3000
-    protocol: TCP
-    internal_only: false
-
 health:
-  type: command
-  command: "kubectl --kubeconfig=/etc/bos/.kube/config get deployment langfuse -n sbos-ai -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
-  expected_output: "1"
-  timeout_seconds: 30
+  check_command: "curl -sf http://localhost:3000/api/public/health"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
 
-audit:
-  ctx_id_required: true
-  log_path: /var/log/bos/fichas/langfuse.log
-
-vault:
-  secret_path: "secret/tenants/{{ tenant_id }}/langfuse"
-  keys:
-    - nextauth_secret
-    - encryption_key
-    - salt
-
-versions:
-  langfuse: "3.32.0"

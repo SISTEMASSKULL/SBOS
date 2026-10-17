@@ -1,54 +1,45 @@
+# manifest.yml — Ficha qdrant (SBOS-005 §aiserver)
+# SBOS-049 §4 · Order 418 · StatefulSet
 identity:
   id: qdrant
-  server: S15
-  version: "1.14.0"
-  category: 3
+  name: Qdrant Vector DB
+  version: "1.11"
+  category: 1
   criticality: false
-  description: "Qdrant 1.14.0 — base de datos vectorial para búsqueda semántica y RAG (Retrieval Augmented Generation). Almacena embeddings de documentos SBOS para consultas por similitud."
+  server: aiserver
+  description: "Vector DB for RAG embeddings"
 
 workload:
-  type: statefulset
-  runtime: kubernetes
+  type: StatefulSet
   namespace: sbos-ai
   replicas: 1
+  service_account: qdrant-sa
 
 order:
-  execution_order: 505
+  execution_order: 418
+  timeout_minutes: 15
 
 requirements:
   dependencies:
-    - sbos-bootstrap-platform
+
+  cpu_request: "500m"
+  cpu_limit: "2000m"
+  memory_request: "1Gi"
+  memory_limit: "2Gi"
+  pvc_size: "100Gi"
+  pvc_storage_class: "sbos-fast"
+
+deployment:
+  strategy: Recreate
 
 governance:
-  auto_install: false
+
+
+  auto_install: true
   requires_approval: false
-  category_label: "ia-soberana"
-
-meta:
-  backend: k8s
-  idempotent: true
-  estimated_minutes: 5
-  rollback_support: true
-
-ports:
-  - name: http
-    port: 6333
-    protocol: TCP
-    internal_only: true
-  - name: grpc
-    port: 6334
-    protocol: TCP
-    internal_only: true
-
 health:
-  type: command
-  command: "kubectl --kubeconfig=/etc/bos/.kube/config get statefulset qdrant -n sbos-ai -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
-  expected_output: "1"
-  timeout_seconds: 30
+  check_command: "curl -sf http://localhost:6333/health"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
 
-audit:
-  ctx_id_required: true
-  log_path: /var/log/bos/fichas/qdrant.log
-
-versions:
-  qdrant: "1.14.0"

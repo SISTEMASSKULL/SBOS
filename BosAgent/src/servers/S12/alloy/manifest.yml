@@ -1,52 +1,54 @@
+# manifest.yml — Ficha alloy (SBOS-005 §S12)
+# SBOS-049 §4 · Order 215 · DaemonSet
+# Recolecta logs: journald (systemd daemons) + archivos de agente → Loki
 identity:
   id: alloy
-  server: S12
-  version: 1.8.3
+  name: Grafana Alloy
+  version: "1.7.0"
   category: 1
-  criticality: true
-  description: "Grafana Alloy 1.8.3 — pipelines de logs y métricas. Extrae ctx_id de logs SBOS, envía a Loki. Reemplaza Grafana Agent."
+  criticality: false
+  server: monitorserver
+  description: "Log collector — journald + archivos → Loki, reemplaza Promtail"
 
 workload:
   type: DaemonSet
-  runtime: kubernetes
+  namespace: sbos-monitor
+  replicas: 1
+  service_account: alloy-sa
 
 order:
-  execution_order: 220
+  execution_order: 215
+  timeout_minutes: 15
 
 requirements:
   dependencies:
-    - sbos-bootstrap-k8s
-    - sbos-bootstrap-cni
-    - prometheus
+    - loki
+  cpu_request: "100m"
+  cpu_limit: "500m"
+  memory_request: "256Mi"
+  memory_limit: "512Mi"
+  pvc_size: ""
+  pvc_storage_class: ""
+
+deployment:
+  strategy: RollingUpdate
 
 governance:
   auto_install: true
   requires_approval: false
-  category_label: "observabilidad"
-
-meta:
-  backend: helm
-  idempotent: true
-  estimated_minutes: 4
-  rollback_support: true
-
-ports:
-  - port: 12345
-    protocol: TCP
-    description: "Alloy UI + API"
-    cluster_ip: 12345
-    internal_only: true
+  backup_enabled: false
+  backup_schedule: ""
 
 health:
-  type: http
-  path: /-/ready
-  port: 12345
-  timeout_seconds: 10
+  check_command: "curl -sf http://localhost:12345/health"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+  degraded_allowed: true
+  degraded_reason: "Loki puede no estar disponible hasta que su ficha se construya"
 
-audit:
-  ctx_id_required: true
-  log_path: /var/log/bos/fichas/alloy.log
-
-versions:
-  image: "grafana/alloy:v1.8.3"
-  namespace: sbos-monitoring
+integrations:
+  loki:
+    url: "http://loki.sbos-monitor:3100"
+  exporters:
+    self_metrics: true

@@ -1,86 +1,62 @@
+# manifest.yml — Ficha keycloak (SBOS-035 Ficha 09)
+# SBOS-019 §9 · Order 130 · StatefulSet
 identity:
   id: keycloak
-  server: S03
-  version: 26.6.2
+  name: Keycloak 26.x
+  version: "26.1"
   category: 1
   criticality: true
-  description: >
-    Keycloak 26.6.2 — IAM transitorio del ecosistema SBOS.
-    Asume el rol de bAuth mientras el daemon bAuth completa su desarrollo.
-    Gestiona su propio ciclo de vida y sus propios SPIs (5 extensiones SKULL)
-    de forma completamente independiente de bAuth.
-    Una vez que bAuth entre en operación plena, Keycloak será descontinuado
-    y retirado — bAuth lo reemplaza en su totalidad.
-    Keycloak NO depende de bAuth y bAuth NO depende de Keycloak.
+  server: identityserver
+  description: "IAM empresarial con PostgreSQL backend y realm skbos"
 
 workload:
-  type: Deployment
-  runtime: kubernetes
+  type: StatefulSet
+  namespace: sbos-identity
+  replicas: 2
+  service_account: keycloak-sa
 
 order:
-  execution_order: 140
+  execution_order: 130
+  timeout_minutes: 20
 
 requirements:
   dependencies:
-    - sbos-bootstrap-k8s
-    - sbos-bootstrap-cni
     - postgresql
     - vault
+  cpu_request: "1000m"
+  cpu_limit: "2000m"
+  memory_request: "2Gi"
+  memory_limit: "4Gi"
+  pvc_size: "10Gi"
+  pvc_storage_class: "sbos-fast"
+
+deployment:
+  strategy: RollingUpdate
+  pod_management: OrderedReady
 
 governance:
-  auto_install: true
-  requires_approval: false
-  category_label: "seguridad-critica"
-  lifecycle: transitorio
-  successor: bauth
-
-meta:
-  backend: helm
-  idempotent: true
-  estimated_minutes: 12
-  rollback_support: true
-
-ports:
-  - port: 8080
-    protocol: TCP
-    description: "Keycloak HTTP (Iteración 1: sin TLS)"
-    cluster_ip: 8200
-    internal_only: true
-  - port: 9000
-    protocol: TCP
-    description: "Keycloak management (health)"
-    internal_only: true
+  auto_install: false
+  backup_enabled: true
+  backup_schedule: "0 3 * * *"
+  encryption_required: true
 
 health:
-  type: command
-  # Iteración 1 (start-dev): KC usa UBI Micro sin curl/wget; verificar pod Running desde el host.
-  # Iteración 2 (start --optimized): cambiar a curl interno cuando se añada curl al contenedor.
-  command: "kubectl --kubeconfig=/etc/bos/.kube/config get pod -n sbos-security -l app=keycloak --no-headers 2>/dev/null | grep -q Running"
-  timeout_seconds: 30
+  check_command: "curl -sf http://localhost:9000/health/live"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+  initial_delay_seconds: 60
 
-audit:
-  ctx_id_required: true
-  log_path: /var/log/bos/fichas/keycloak.log
-
-versions:
-  image: "quay.io/keycloak/keycloak:26.6.2"
-  namespace: sbos-security
-  db: keycloak_db
-
-# NOTA ARQUITECTÓNICA — INDEPENDENCIA KEYCLOAK / bAuth
-# ─────────────────────────────────────────────────────
-# Keycloak y bAuth son totalmente independientes entre sí:
-#
-#   ANTES (diseño anterior): Keycloak era una herramienta al servicio de bAuth.
-#   AHORA: bAuth es un daemon soberano que no depende de Keycloak en absoluto.
-#
-# Durante la transición, Keycloak ASUME el papel de bAuth:
-#   - Los 5 SPIs SKULL que esta ficha despliega son extensiones propias de
-#     Keycloak para cubrir el rol IAM que bAuth cubrirá en el futuro.
-#   - Los SPIs NO son responsabilidad de bAuth ni son invocados por bAuth.
-#   - Esta ficha los instala, configura y mantiene de forma autónoma.
-#
-# Plan de descontinuación:
-#   - Cuando bAuth entre en operación plena, se ejecutará `bosctl ficha remove keycloak`.
-#   - Las apps del ecosistema apuntarán al socket de bAuth en vez del endpoint KC.
-#   - Keycloak NO reaparecerá como dependencia de ningún daemon futuro.
+integrations:
+  database:
+    name: keycloak_db
+    host_from: postgresql
+    credentials_from: vault:secret/sbos/keycloak/db
+  oidc:
+    realm: skbos
+    clients:
+      - grafana
+      - kong
+      - core-ui
+  clustering:
+    protocol: jdbc-ping

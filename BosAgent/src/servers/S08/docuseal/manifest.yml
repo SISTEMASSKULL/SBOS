@@ -1,57 +1,46 @@
+# manifest.yml — Ficha docuseal (SBOS-005 §docserver)
+# SBOS-049 §4 · Order 310 · StatefulSet
 identity:
   id: docuseal
-  server: S08
-  version: "1.8.9"
-  category: 2
+  name: DocuSeal
+  version: "1.7"
+  category: 1
   criticality: false
-  description: "DocuSeal 1.8.9 — plataforma de firma digital de documentos open-source. Flujos de firma, plantillas PDF, OTP por correo/SMS, auditoría de firmas."
+  server: docserver
+  description: "Digital signatures multi-signer"
 
 workload:
-  type: deployment
-  runtime: kubernetes
+  type: StatefulSet
   namespace: sbos-docs
   replicas: 1
+  service_account: docuseal-sa
 
 order:
-  execution_order: 355
+  execution_order: 310
+  timeout_minutes: 15
 
 requirements:
   dependencies:
     - postgresql
-    - minio
     - keycloak
+  cpu_request: "200m"
+  cpu_limit: "1000m"
+  memory_request: "256Mi"
+  memory_limit: "512Mi"
+  pvc_size: "20Gi"
+  pvc_storage_class: "sbos-fast"
+
+deployment:
+  strategy: Recreate
 
 governance:
-  auto_install: false
+
+
+  auto_install: true
   requires_approval: false
-  category_label: "gestion-documental"
-
-meta:
-  backend: k8s
-  idempotent: true
-  estimated_minutes: 5
-  rollback_support: true
-
-ports:
-  - name: http
-    port: 3000
-    protocol: TCP
-    internal_only: false
-
 health:
-  type: command
-  command: "kubectl --kubeconfig=/etc/bos/.kube/config get deployment docuseal -n sbos-docs -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
-  expected_output: "1"
-  timeout_seconds: 30
+  check_command: "curl -sf http://localhost:3000/health"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
 
-audit:
-  ctx_id_required: true
-  log_path: /var/log/bos/fichas/docuseal.log
-
-vault:
-  secret_path: "secret/tenants/{{ tenant_id }}/docuseal"
-  keys:
-    - secret_key_base
-
-versions:
-  docuseal: "1.8.9"

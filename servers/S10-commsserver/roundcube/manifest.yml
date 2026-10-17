@@ -44,5 +44,5 @@ health:
   check_interval_seconds: 30
   check_timeout_seconds: 10
   consecutive_failures_threshold: 3
-degraded_allowed: true
+  degraded_allowed: true
   degraded_reason: "OAuth2-Proxy may be unavailable"

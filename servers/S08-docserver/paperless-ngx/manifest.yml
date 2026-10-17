@@ -29,7 +29,7 @@ requirements:
   cpu_limit: "2000m"
   memory_request: "512Mi"
   memory_limit: "1Gi"
-pvc_size: "100Gi"
+  pvc_size: "100Gi"
   pvc_storage_class: "sbos-fast"
 
 deployment:
@@ -38,7 +38,7 @@ deployment:
 governance:
   auto_install: true
   requires_approval: false
-backup_enabled: true
+  backup_enabled: true
   backup_schedule: "0 4 * * *"
 
 health:

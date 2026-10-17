@@ -1,44 +1,43 @@
+# manifest.yml — Ficha sbos-bootstrap-os (SBOS-005 §hostserver)
+# SBOS-049 §4 · Order 1 · Deployment
 identity:
   id: sbos-bootstrap-os
-  server: S-HOST
-  version: 1.0.0
+  name: SBOS Bootstrap OS
+  version: "1.0"
   category: 1
   criticality: true
-  description: "OS Bootstrap — módulos kernel, sysctl, estructura /data/, herramientas base Ubuntu 26.04"
+  server: hostserver
+  description: "Hardening Ubuntu + CRI-O + kernel tuning"
 
 workload:
-  type: bash
-  runtime: bash
+  type: Deployment
+  namespace: sbos-installer
+  replicas: 1
+  service_account: sbos-bootstrap-os-sa
 
 order:
-  execution_order: 10
+  execution_order: 1
+  timeout_minutes: 30
 
 requirements:
-  os: "Ubuntu 26.04 LTS"
-  kernel_min: "7.0.0"
-  ram_min_mb: 4096
-  disk_min_gb: 50
-  cpu_min: 2
-  dependencies: []
+  dependencies:
+
+  cpu_request: "100m"
+  cpu_limit: "500m"
+  memory_request: "128Mi"
+  memory_limit: "256Mi"
+
+
+deployment:
+  strategy: Recreate
 
 governance:
   auto_install: true
-  requires_approval: false
-  category_label: "infraestructura-critica"
 
-meta:
-  backend: bash
-  idempotent: true
-  estimated_minutes: 5
-  rollback_support: partial
-
-ports: []
 
 health:
-  type: command
-  command: "test -f /etc/sysctl.d/99-sbos-k8s.conf && test -d /data/postgres && test -d /data/redis && echo HEALTHY"
-  timeout_seconds: 10
+  check_command: "test -f /etc/sbos/.bootstrapped"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
 
-audit:
-  ctx_id_required: true
-  log_path: /var/log/bos/fichas/sbos-bootstrap-os.log

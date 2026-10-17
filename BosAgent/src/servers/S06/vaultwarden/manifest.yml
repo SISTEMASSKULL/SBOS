@@ -27,7 +27,7 @@ requirements:
   cpu_limit: "500m"
   memory_request: "128Mi"
   memory_limit: "256Mi"
-pvc_size: "10Gi"
+  pvc_size: "10Gi"
   pvc_storage_class: "sbos-fast"
 
 deployment:
@@ -36,6 +36,8 @@ deployment:
 governance:
 
 
+  auto_install: true
+  requires_approval: false
 health:
   check_command: "curl -sf http://localhost:8080/health"
   check_interval_seconds: 30

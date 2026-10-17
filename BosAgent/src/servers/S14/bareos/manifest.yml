@@ -1,66 +1,47 @@
+# manifest.yml — Ficha bareos (SBOS-005 §opsserver)
+# SBOS-049 §4 · Order 390 · StatefulSet
 identity:
   id: bareos
-  server: S14
-  version: "23.0.1"
+  name: Bareos Backup
+  version: "23.0"
   category: 1
-  criticality: false
-  description: "Bareos 23.0.1 — sistema de backup empresarial (Backup Archiving Recovery Open Sourced). Backup de BDs PostgreSQL, volúmenes K8s y configuraciones del host. Retención configurable."
+  criticality: true
+  server: opsserver
+  description: "Backup 16 servers, AES-256 encryption"
 
 workload:
-  type: deployment
-  runtime: kubernetes
+  type: StatefulSet
   namespace: sbos-ops
   replicas: 1
+  service_account: bareos-sa
 
 order:
-  execution_order: 455
+  execution_order: 390
+  timeout_minutes: 30
 
 requirements:
   dependencies:
     - postgresql
     - minio
+  cpu_request: "500m"
+  cpu_limit: "2000m"
+  memory_request: "512Mi"
+  memory_limit: "1Gi"
+  pvc_size: "500Gi"
+  pvc_storage_class: "sbos-fast"
+
+deployment:
+  strategy: Recreate
 
 governance:
   auto_install: false
   requires_approval: false
-  category_label: "backup"
-
-meta:
-  backend: k8s
-  idempotent: true
-  estimated_minutes: 10
-  rollback_support: false
-
-ports:
-  - name: bareos-dir
-    port: 9101
-    protocol: TCP
-    internal_only: true
-  - name: bareos-sd
-    port: 9103
-    protocol: TCP
-    internal_only: true
-  - name: bareos-web
-    port: 9100
-    protocol: TCP
-    internal_only: false
+  backup_enabled: true
+  backup_schedule: "0 1 * * *"
 
 health:
-  type: command
-  command: "kubectl --kubeconfig=/etc/bos/.kube/config get deployment bareos-director -n sbos-ops -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
-  expected_output: "1"
-  timeout_seconds: 30
+  check_command: "bareos-fd -t"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
 
-audit:
-  ctx_id_required: true
-  log_path: /var/log/bos/fichas/bareos.log
-
-vault:
-  secret_path: "secret/tenants/{{ tenant_id }}/bareos"
-  keys:
-    - director_password
-    - storage_password
-    - monitor_password
-
-versions:
-  bareos: "23.0.1"

@@ -1,52 +1,48 @@
+# manifest.yml — Ficha roundcube (SBOS-005 §commsserver)
+# SBOS-049 §4 · Order 325 · Deployment
 identity:
   id: roundcube
-  server: S10
-  version: "1.6.10"
-  category: 2
+  name: Roundcube Webmail
+  version: "1.6"
+  category: 1
   criticality: false
-  description: "Roundcube 1.6.10 — cliente webmail open-source. IMAP con interfaz moderna, filtros Sieve, carnet de contactos LDAP, integración CalDAV/CardDAV."
+  server: commsserver
+  description: "Webmail with SSO via OAuth2-Proxy"
 
 workload:
-  type: deployment
-  runtime: kubernetes
+  type: Deployment
   namespace: sbos-comms
   replicas: 1
+  service_account: roundcube-sa
 
 order:
-  execution_order: 310
+  execution_order: 325
+  timeout_minutes: 10
 
 requirements:
   dependencies:
-    - mailserver
+    - postfix
+    - dovecot
     - postgresql
-    - kong
+    - oauth2-proxy
+  cpu_request: "200m"
+  cpu_limit: "1000m"
+  memory_request: "256Mi"
+  memory_limit: "512Mi"
+
+
+deployment:
+  strategy: RollingUpdate
 
 governance:
+
+
   auto_install: true
   requires_approval: false
-  category_label: "comunicaciones"
-
-meta:
-  backend: k8s
-  idempotent: true
-  estimated_minutes: 5
-  rollback_support: true
-
-ports:
-  - name: http
-    port: 80
-    protocol: TCP
-    internal_only: false
-
 health:
-  type: command
-  command: "kubectl --kubeconfig=/etc/bos/.kube/config get deployment roundcube -n sbos-comms -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
-  expected_output: "1"
-  timeout_seconds: 30
-
-audit:
-  ctx_id_required: true
-  log_path: /var/log/bos/fichas/roundcube.log
-
-versions:
-  roundcube: "1.6.10"
+  check_command: "curl -sf http://localhost:80"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+  degraded_allowed: true
+  degraded_reason: "OAuth2-Proxy may be unavailable"

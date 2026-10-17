@@ -26,14 +26,16 @@ requirements:
   cpu_limit: "500m"
   memory_request: "128Mi"
   memory_limit: "256Mi"
-pvc_size: "50Gi"
+  pvc_size: "50Gi"
   pvc_storage_class: "sbos-fast"
 
 deployment:
   strategy: Recreate
 
 governance:
-backup_enabled: true
+  auto_install: true
+  requires_approval: false
+  backup_enabled: true
   backup_schedule: "0 3 * * *"
 
 health:

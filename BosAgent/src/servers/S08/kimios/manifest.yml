@@ -1,51 +1,45 @@
+# manifest.yml — Ficha kimios (SBOS-005 §docserver)
+# SBOS-049 §4 · Order 305 · Deployment
 identity:
   id: kimios
-  server: S08
-  version: "7.1.24"
-  category: 2
+  name: Kimios DMS
+  version: "1.3"
+  category: 1
   criticality: false
-  description: "Kimios 7.1.24 — sistema de gestión documental empresarial (ECM). Archivo con metadatos, flujos de trabajo, control de versiones, integración CMIS."
+  server: docserver
+  description: "Document BPM with workflows"
 
 workload:
-  type: deployment
-  runtime: kubernetes
+  type: Deployment
   namespace: sbos-docs
   replicas: 1
+  service_account: kimios-sa
 
 order:
-  execution_order: 360
+  execution_order: 305
+  timeout_minutes: 15
 
 requirements:
   dependencies:
     - postgresql
     - keycloak
+  cpu_request: "500m"
+  cpu_limit: "2000m"
+  memory_request: "512Mi"
+  memory_limit: "1Gi"
+
+
+deployment:
+  strategy: RollingUpdate
 
 governance:
-  auto_install: false
+
+
+  auto_install: true
   requires_approval: false
-  category_label: "gestion-documental"
-
-meta:
-  backend: k8s
-  idempotent: true
-  estimated_minutes: 8
-  rollback_support: true
-
-ports:
-  - name: http
-    port: 8080
-    protocol: TCP
-    internal_only: false
-
 health:
-  type: command
-  command: "kubectl --kubeconfig=/etc/bos/.kube/config get deployment kimios -n sbos-docs -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
-  expected_output: "1"
-  timeout_seconds: 30
+  check_command: "curl -sf http://localhost:8080/health"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
 
-audit:
-  ctx_id_required: true
-  log_path: /var/log/bos/fichas/kimios.log
-
-versions:
-  kimios: "7.1.24"

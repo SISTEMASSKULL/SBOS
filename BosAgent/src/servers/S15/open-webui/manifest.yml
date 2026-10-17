@@ -1,58 +1,45 @@
+# manifest.yml — Ficha open-webui (SBOS-005 §aiserver)
+# SBOS-049 §4 · Order 415 · Deployment
 identity:
   id: open-webui
-  server: S15
-  version: "0.5.20"
-  category: 3
+  name: Open WebUI
+  version: "0.5"
+  category: 1
   criticality: false
-  description: "Open WebUI 0.5.20 — interfaz web para Ollama (y APIs OpenAI). Chat con modelos locales, RAG con documentos, gestión de modelos, historial de conversaciones."
+  server: aiserver
+  description: "ChatGPT-like UI, multi-tenant, RAG"
 
 workload:
-  type: deployment
-  runtime: kubernetes
+  type: Deployment
   namespace: sbos-ai
   replicas: 1
+  service_account: open-webui-sa
 
 order:
-  execution_order: 510
+  execution_order: 415
+  timeout_minutes: 15
 
 requirements:
   dependencies:
     - ollama
-    - qdrant
     - keycloak
+  cpu_request: "200m"
+  cpu_limit: "1000m"
+  memory_request: "512Mi"
+  memory_limit: "1Gi"
+
+
+deployment:
+  strategy: RollingUpdate
 
 governance:
-  auto_install: false
+
+
+  auto_install: true
   requires_approval: false
-  category_label: "ia-soberana"
-
-meta:
-  backend: k8s
-  idempotent: true
-  estimated_minutes: 5
-  rollback_support: true
-
-ports:
-  - name: http
-    port: 8080
-    protocol: TCP
-    internal_only: false
-
 health:
-  type: command
-  command: "kubectl --kubeconfig=/etc/bos/.kube/config get deployment open-webui -n sbos-ai -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
-  expected_output: "1"
-  timeout_seconds: 30
+  check_command: "curl -sf http://localhost:8080/health"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
 
-audit:
-  ctx_id_required: true
-  log_path: /var/log/bos/fichas/open-webui.log
-
-vault:
-  secret_path: "secret/tenants/{{ tenant_id }}/open-webui"
-  keys:
-    - secret_key
-    - webui_secret_key
-
-versions:
-  open_webui: "0.5.20"

@@ -1,68 +1,53 @@
+# manifest.yml — Ficha 07: MinIO Object Storage
+# SBOS-019 §9 · Order 115 · StatefulSet
 identity:
   id: minio
-  server: S01
-  version: RELEASE.2025-05-24T17-08-30Z
+  name: MinIO Object Storage
+  version: "2025-02-28"
   category: 1
-  criticality: true
-  description: "MinIO — almacenamiento de objetos compatible S3. Backups SBOS, assets, archivos de apps."
+  criticality: false
+  server: dataserver
+  description: "Object storage S3-compatible para backups, uploads y archivos"
 
 workload:
   type: StatefulSet
-  runtime: kubernetes
+  namespace: sbos-data
+  replicas: 1
+  service_account: minio-sa
 
 order:
-  execution_order: 120
+  execution_order: 115
+  timeout_minutes: 15
 
 requirements:
   dependencies:
-    - sbos-bootstrap-k8s
-    - sbos-bootstrap-cni
-    - sbos-bootstrap-storage
-    # vault NO es dependencia de instalación — MinIO arranca con credenciales bootstrap.
-    # Vault se instala DESPUÉS y rota las credenciales. La dependencia es runtime, no install.
-  runtime_dependencies:
-    - vault
+    - network-validator
+  cpu_request: "1000m"
+  cpu_limit: "4000m"
+  memory_request: "2Gi"
+  memory_limit: "8Gi"
+  pvc_size: "500Gi"
+  pvc_storage_class: "sbos-standard"
+
+deployment:
+  strategy: Recreate
 
 governance:
-  auto_install: true
-  requires_approval: false
-  category_label: "datos-criticos"
-
-meta:
-  backend: helm
-  idempotent: true
-  estimated_minutes: 6
-  rollback_support: true
-
-ports:
-  - port: 9000
-    protocol: TCP
-    description: "MinIO API S3"
-    cluster_ip: 8130
-    internal_only: true
-  - port: 9001
-    protocol: TCP
-    description: "MinIO Console UI"
-    cluster_ip: 8131
-    internal_only: true
+  auto_install: false
+  backup_enabled: false
+  encryption_required: true
 
 health:
-  type: http
-  path: /minio/health/live
-  port: 9000
-  timeout_seconds: 10
+  check_command: "curl -sf http://localhost:9000/minio/health/live"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
 
-audit:
-  ctx_id_required: true
-  log_path: /var/log/bos/fichas/minio.log
-
-versions:
-  image: "minio/minio:RELEASE.2025-05-24T17-08-30Z"
-  mc_image: "minio/mc:latest"
-  pv_name: sbos-minio-pv
-  namespace: sbos-data
-
-buckets:
-  - sbos-backups
-  - sbos-assets
-  - sbos-documents
+integrations:
+  buckets:
+    - name: backups
+      policy: private
+    - name: uploads
+      policy: public-read
+    - name: archives
+      policy: private

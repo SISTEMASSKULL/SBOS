@@ -1,45 +1,44 @@
+# manifest.yml — Ficha certbot (SBOS-005 §gatewayserver)
+# SBOS-049 §4 · Order 142 · Deployment
 identity:
   id: certbot
-  server: S02
-  version: 3.2.0
-  category: 2
+  name: Certbot
+  version: "5.6.0"
+  category: 1
   criticality: true
-  description: "Certbot 3.2.0 en HOST S02 — certificados TLS Let's Encrypt. HTTP-01 challenge vía webroot de nginx. Renovación automática cada 60 días vía systemd timer. NO es pod K8s."
+  server: gatewayserver
+  description: "Let's Encrypt certificate renewal, DNS-01 challenge"
 
 workload:
-  type: bash
-  runtime: bash
+  type: Deployment
+  namespace: sbos-gateway
+  replicas: 1
+  service_account: certbot-sa
 
 order:
-  execution_order: 180
+  execution_order: 142
+  timeout_minutes: 15
 
 requirements:
-  os: "Ubuntu 26.04 LTS"
   dependencies:
-    - nginx
+    - nginx-web
+  cpu_request: "100m"
+  cpu_limit: "500m"
+  memory_request: "128Mi"
+  memory_limit: "256Mi"
+
+
+deployment:
+  strategy: Recreate
 
 governance:
+
+
   auto_install: true
   requires_approval: false
-  category_label: "seguridad-critica"
-
-meta:
-  backend: bash
-  idempotent: true
-  estimated_minutes: 5
-  rollback_support: true
-
-ports: []
-
 health:
-  type: command
-  command: "test -d /etc/letsencrypt/live && echo HEALTHY || echo DEGRADED"
-  timeout_seconds: 5
+  check_command: "certbot --version"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
 
-audit:
-  ctx_id_required: true
-  log_path: /var/log/bos/fichas/certbot.log
-
-versions:
-  package: "certbot=3.2.0-*"
-  namespace: null
