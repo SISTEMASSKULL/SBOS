@@ -1,0 +1,59 @@
+identity:
+  id: orangehrm
+  server: S04
+  version: "5.7"
+  category: 1
+  criticality: false
+  description: "OrangeHRM 5.7 — sistema RRHH soberano: nómina, vacaciones, reclutamiento, evaluación de desempeño, organigrama. SSO vía Keycloak."
+
+workload:
+  type: deployment
+  runtime: kubernetes
+  namespace: sbos-erp
+  replicas: 1
+
+order:
+  execution_order: 180
+
+requirements:
+  dependencies:
+    - postgresql
+    - kong
+    - keycloak
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "rrhh"
+
+meta:
+  backend: k8s
+  idempotent: true
+  estimated_minutes: 12
+  rollback_support: true
+
+ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    internal_only: false
+
+health:
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get deployment orangehrm -n sbos-erp -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
+  expected_output: "1"
+  timeout_seconds: 30
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/orangehrm.log
+
+vault:
+  secret_path: "secret/tenants/{{ tenant_id }}/orangehrm"
+  keys:
+    - db_password
+    - admin_password
+    - oidc_secret
+
+versions:
+  orangehrm: "5.7"

@@ -1,0 +1,40 @@
+# yaml_engine.yml — guacamole lifecycle phases (BOS-REPAIR-09 §5)
+# R16 Zero hardcoding — paths desde SBOS_FICHA_DIR
+pre_install:
+  - name: "create_namespace"
+    command: "kubectl create namespace sbos-vdi --dry-run=client -o yaml | kubectl apply -f -"
+    timeout_seconds: 30
+  - name: "create_db"
+    command: "bash ${SBOS_FICHA_DIR}/task_catalog.sh ficha_pre_install"
+    timeout_seconds: 60
+  - name: "apply_network_policy"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/guacamole.network -n sbos-vdi"
+    timeout_seconds: 30
+
+install:
+  - name: "apply_manifest"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/guacamole.k8s.yml -n sbos-vdi"
+    timeout_seconds: 300
+  - name: "wait_available"
+    command: "kubectl wait --for=condition=Available deployment/guacamole -n sbos-vdi --timeout=300s"
+    timeout_seconds: 300
+
+post_install:
+  - name: "register_oidc_and_kong"
+    command: "bash ${SBOS_FICHA_DIR}/task_catalog.sh ficha_post_install"
+    timeout_seconds: 60
+
+update:
+  - name: "rolling_restart"
+    command: "kubectl rollout restart deployment guacamole -n sbos-vdi"
+    timeout_seconds: 300
+
+repair:
+  - name: "restart"
+    command: "kubectl rollout restart deployment guacamole -n sbos-vdi"
+    timeout_seconds: 120
+
+uninstall:
+  - name: "delete_manifest"
+    command: "kubectl delete deployment guacamole -n sbos-vdi --ignore-not-found"
+    timeout_seconds: 120

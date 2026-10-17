@@ -1,0 +1,55 @@
+identity:
+  id: sbos-bootstrap-k8s
+  server: S-HOST
+  version: 1.0.0
+  category: 1
+  criticality: true
+  description: "K8s Bootstrap — kubeadm + containerd + Calico CNI básico"
+
+workload:
+  type: bash
+  runtime: bash
+
+order:
+  execution_order: 20
+
+requirements:
+  os: "Ubuntu 26.04 LTS"
+  dependencies:
+    - sbos-bootstrap-os
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "infraestructura-critica"
+
+meta:
+  backend: bash
+  idempotent: true
+  estimated_minutes: 15
+  rollback_support: partial
+
+ports:
+  - port: 6443
+    protocol: TCP
+    description: "kube-apiserver"
+    internal_only: true
+  - port: 10250
+    protocol: TCP
+    description: "kubelet API"
+    internal_only: true
+
+health:
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get nodes --no-headers 2>/dev/null | grep -c ' Ready '"
+  expected_output: "1"
+  timeout_seconds: 15
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/sbos-bootstrap-k8s.log
+
+versions:
+  kubernetes: "1.32"
+  calico: "3.32.0"
+  containerd: "1.7"

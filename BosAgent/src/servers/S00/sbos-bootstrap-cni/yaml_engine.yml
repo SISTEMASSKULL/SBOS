@@ -1,0 +1,36 @@
+# yaml_engine.yml — sbos-bootstrap-cni
+# Calico CNI completo con NetworkPolicies default-deny.
+# Iteración 1: hacer que arranque (BGP/VXLAN + pod-to-pod OK).
+
+calico:
+  version: "3.32.0"
+  ipv4pool_cidr: "192.168.0.0/16"
+  ipv4pool_ipip_mode: "Always"
+  nat_outgoing: true
+  node_selector: "all()"
+
+network_policies:
+  default_deny_namespaces:
+    - sbos-system
+    - sbos-data
+    - sbos-security
+    - sbos-gateway
+    - sbos-monitoring
+
+ip_pools:
+  - name: default-ipv4-ippool
+    cidr: "192.168.0.0/16"
+    ipipMode: Always
+    natOutgoing: true
+    disabled: false
+
+felix_config:
+  logSeverityScreen: Warning
+  reportingInterval: 0s
+  defaultEndpointToHostAction: Accept
+
+# Política base: permite DNS y kube-system en todos los namespaces
+base_allow_policies:
+  - allow_dns: true
+    dns_port: 53
+  - allow_kube_system: true

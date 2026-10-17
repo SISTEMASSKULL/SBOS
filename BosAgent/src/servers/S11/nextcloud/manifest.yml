@@ -1,0 +1,46 @@
+# manifest.yml — Ficha nextcloud (SBOS-005 §vdiserver)
+# SBOS-049 §4 · Order 358 · StatefulSet
+identity:
+  id: nextcloud
+  name: Nextcloud Files
+  version: "29.0"
+  category: 1
+  criticality: false
+  server: vdiserver
+  description: "Files + CalDAV/CardDAV"
+
+workload:
+  type: StatefulSet
+  namespace: sbos-vdi
+  replicas: 1
+  service_account: nextcloud-sa
+
+order:
+  execution_order: 358
+  timeout_minutes: 20
+
+requirements:
+  dependencies:
+    - postgresql
+    - redis
+    - keycloak
+  cpu_request: "500m"
+  cpu_limit: "2000m"
+  memory_request: "1Gi"
+  memory_limit: "2Gi"
+pvc_size: "200Gi"
+  pvc_storage_class: "sbos-fast"
+
+deployment:
+  strategy: Recreate
+
+governance:
+backup_enabled: true
+  backup_schedule: "0 3 * * *"
+
+health:
+  check_command: "curl -sf http://localhost:80/status.php"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

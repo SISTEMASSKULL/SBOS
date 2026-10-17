@@ -1,0 +1,42 @@
+# manifest.yml — Ficha fedora-kde (SBOS-005 §vdiserver)
+# SBOS-049 §4 · Order 355 · Deployment
+identity:
+  id: fedora-kde
+  name: Fedora KDE Desktop
+  version: "43"
+  category: 1
+  criticality: false
+  server: vdiserver
+  description: "Sovereign desktop via VDI, PEP with bAuth+banexus"
+
+workload:
+  type: Deployment
+  namespace: sbos-vdi
+  replicas: 1
+  service_account: fedora-kde-sa
+
+order:
+  execution_order: 355
+  timeout_minutes: 15
+
+requirements:
+  dependencies:
+    - keycloak
+  cpu_request: "1000m"
+  cpu_limit: "4000m"
+  memory_request: "2Gi"
+  memory_limit: "4Gi"
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+health:
+  check_command: "systemctl is-active sddm"
+  check_interval_seconds: 30
+  check_timeout_seconds: 10
+  consecutive_failures_threshold: 3
+

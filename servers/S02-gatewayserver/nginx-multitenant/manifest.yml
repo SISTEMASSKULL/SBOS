@@ -2,7 +2,7 @@
 # BC-13 · SBOS-049 §4 · SBOS-050 · Order 370
 # Reverse proxy + TLS termination para dominios de cliente multi-tenant
 identity:
-  id: nginx
+  id: nginx-multitenant
   name: nginx — Web Proxy Multi-tenant
   version: "1.26"
   category: 1

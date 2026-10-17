@@ -1,0 +1,44 @@
+identity:
+  id: sbos-bootstrap-platform
+  server: S-HOST
+  version: 1.0.0
+  category: 1
+  criticality: true
+  description: "Platform Bootstrap — namespaces SBOS, local-path provisioner (StorageClass dinámica), RBAC base. Prerequisito absoluto de todas las fichas K8s."
+
+workload:
+  type: bash
+  runtime: bash
+
+order:
+  execution_order: 28
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-cni
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "infraestructura-critica"
+
+meta:
+  backend: bash
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: partial
+
+ports: []
+
+health:
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get ns sbos-data sbos-security sbos-gateway sbos-monitor --no-headers 2>/dev/null | wc -l"
+  expected_output: "4"
+  timeout_seconds: 10
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/sbos-bootstrap-platform.log
+
+versions:
+  local_path_provisioner: "0.0.30"

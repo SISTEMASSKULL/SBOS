@@ -714,12 +714,12 @@ HTML_EOF
 
     # ── 6. Validar sintaxis ─────────────────────────────────────
     echo "${__STEP_START__} validar_sintaxis"
-    if nginx -t 2>&1 | grep -qE "syntax is ok|test is successful"; then
+    local nginx_test_out
+    nginx_test_out=$(nginx -t 2>&1 || true)
+    if echo "$nginx_test_out" | grep -qE "syntax is ok|test is successful"; then
         echo "${__STEP_OK__} validar_sintaxis"
     else
-        local err
-        err=$(nginx -t 2>&1 || true)
-        _log "ERROR: sintaxis nginx inválida: $err"
+        _log "ERROR: sintaxis nginx inválida: $nginx_test_out"
         echo "${__STEP_FAIL__} validar_sintaxis: error de configuración"
         return 1
     fi
@@ -798,8 +798,10 @@ ficha_repair() {
     echo "${__STEP_OK__} regenerar_subdominios_sbos"
 
     echo "${__STEP_START__} reparar_nginx"
-    if ! nginx -t 2>&1 | grep -qE "syntax is ok|test is successful"; then
-        _log "ERROR: sintaxis nginx inválida tras regeneración"
+    local rep_test_out
+    rep_test_out=$(nginx -t 2>&1 || true)
+    if ! echo "$rep_test_out" | grep -qE "syntax is ok|test is successful"; then
+        _log "ERROR: sintaxis nginx inválida tras regeneración: $rep_test_out"
         echo "${__STEP_FAIL__} reparar_nginx: sintaxis inválida"
         return 1
     fi

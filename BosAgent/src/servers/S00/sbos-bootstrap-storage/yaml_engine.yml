@@ -1,0 +1,86 @@
+# yaml_engine.yml — sbos-bootstrap-storage
+# Define los PersistentVolumes hostPath para todas las fichas iniciales.
+# Política Retain: los datos persisten aunque se elimine la PVC.
+
+persistent_volumes:
+  - name: sbos-postgres-pv
+    capacity: 100Gi
+    host_path: /data/postgres
+    access_modes: [ReadWriteOnce]
+    reclaim_policy: Retain
+    namespace: sbos-data
+    for_ficha: postgresql
+
+  - name: sbos-redis-pv
+    capacity: 10Gi
+    host_path: /data/redis
+    access_modes: [ReadWriteOnce]
+    reclaim_policy: Retain
+    namespace: sbos-data
+    for_ficha: redis
+
+  - name: sbos-minio-pv
+    capacity: 100Gi
+    host_path: /data/minio
+    access_modes: [ReadWriteOnce]
+    reclaim_policy: Retain
+    namespace: sbos-data
+    for_ficha: minio
+
+  - name: sbos-vault-pv
+    capacity: 5Gi
+    host_path: /data/vault
+    access_modes: [ReadWriteOnce]
+    reclaim_policy: Retain
+    namespace: sbos-security
+    for_ficha: vault
+
+  - name: sbos-keycloak-pv
+    capacity: 5Gi
+    host_path: /data/keycloak
+    access_modes: [ReadWriteOnce]
+    reclaim_policy: Retain
+    namespace: sbos-security
+    for_ficha: keycloak
+
+  - name: sbos-prometheus-pv
+    capacity: 20Gi
+    host_path: /data/prometheus
+    access_modes: [ReadWriteOnce]
+    reclaim_policy: Retain
+    namespace: sbos-monitoring
+    for_ficha: prometheus
+
+  - name: sbos-grafana-pv
+    capacity: 5Gi
+    host_path: /data/grafana
+    access_modes: [ReadWriteOnce]
+    reclaim_policy: Retain
+    namespace: sbos-monitoring
+    for_ficha: grafana
+
+  - name: sbos-bkernel-pv
+    capacity: 10Gi
+    host_path: /data/bkernel
+    access_modes: [ReadWriteOnce]
+    reclaim_policy: Retain
+    namespace: sbos-system
+    for_ficha: bkernel
+
+  - name: sbos-bauth-pv
+    capacity: 5Gi
+    host_path: /data/bauth
+    access_modes: [ReadWriteOnce]
+    reclaim_policy: Retain
+    namespace: sbos-system
+    for_ficha: bauth
+
+  - name: sbos-notifier-pv
+    capacity: 5Gi
+    host_path: /data/notifier
+    access_modes: [ReadWriteOnce]
+    reclaim_policy: Retain
+    namespace: sbos-system
+    for_ficha: sbos-notifier
+
+storage_class: local-path
