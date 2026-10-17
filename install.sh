@@ -34,8 +34,8 @@ fi
 BOS_BIN="$SCRIPT_DIR/BosAgent/src/dist/bos"
 BOSCTL_BIN="$SCRIPT_DIR/BosAgent/src/dist/bosctl"
 CORE_DIR="$SCRIPT_DIR/BosAgent/src/dist/core"
-SERVERS_DIR="$SCRIPT_DIR/servers"
-DDL_DIR="$SCRIPT_DIR/DDLs"
+SERVERS_DIR="$SCRIPT_DIR/BosAgent/src/dist/servers"
+DDL_DIR="$SCRIPT_DIR/BosAgent/src/dist/ddls"
 
 # ── verificaciones ────────────────────────────────────────────
 echo ""
