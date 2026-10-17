@@ -1,43 +1,54 @@
-# manifest.yml — Ficha kyverno (SBOS-005 §hostserver)
-# SBOS-049 §4 · Order 155 · Deployment
 identity:
   id: kyverno
-  name: Kyverno Policy Engine
-  version: "1.12"
+  server: S-HOST
+  version: 1.13.0
   category: 1
   criticality: true
-  server: hostserver
-  description: "K8s policy engine: deny-by-default, image verification, mutation"
+  description: "Kyverno 1.13.0 — admission control para políticas de seguridad SBOS. Require probes, forbid hostPort, verify OCI signature, require NetworkPolicy. Modo audit → enforce en Iteración 2."
 
 workload:
   type: Deployment
-  namespace: sbos-installer
-  replicas: 1
-  service_account: kyverno-sa
+  runtime: kubernetes
 
 order:
-  execution_order: 155
-  timeout_minutes: 15
+  execution_order: 100
 
 requirements:
   dependencies:
-    - network-validator
-  cpu_request: "200m"
-  cpu_limit: "1000m"
-  memory_request: "256Mi"
-  memory_limit: "1Gi"
-
-
-deployment:
-  strategy: RollingUpdate
+    - sbos-bootstrap-k8s
+    - sbos-bootstrap-cni
 
 governance:
-  auto_install: false
+  auto_install: true
+  requires_approval: false
+  category_label: "infraestructura-critica"
 
+meta:
+  backend: helm
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: true
+
+ports:
+  - port: 9443
+    protocol: TCP
+    description: "Kyverno webhook"
+    internal_only: true
+  - port: 8000
+    protocol: TCP
+    description: "Kyverno metrics"
+    internal_only: true
 
 health:
-  check_command: "kubectl get policies -A"
-  check_interval_seconds: 30
-  check_timeout_seconds: 10
-  consecutive_failures_threshold: 3
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get pods -n kyverno -l app.kubernetes.io/component=admission-controller -o jsonpath='{.items[*].status.conditions[?(@.type==\"Ready\")].status}' 2>/dev/null | grep -c True"
+  expected_output: "1"
+  timeout_seconds: 15
 
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/kyverno.log
+
+versions:
+  image: "ghcr.io/kyverno/kyverno:v1.13.0"
+  namespace: kyverno

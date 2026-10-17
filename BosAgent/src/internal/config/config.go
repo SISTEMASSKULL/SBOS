@@ -345,6 +345,9 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("BOS_REDIS_DB"); v != "" {
 		fmt.Sscanf(v, "%d", &cfg.Install.RedisDB)
 	}
+	if v := os.Getenv("SBOS_SERVERS_DIR"); v != "" {
+		cfg.Install.ServersPath = v
+	}
 }
 
 func (c *Config) validate() error {

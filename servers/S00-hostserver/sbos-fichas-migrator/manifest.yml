@@ -3,6 +3,7 @@ identity:
   name: "SBOS Fichas Migrator"
   version: "1.0.0"
   server: S-HOST
+  category: 1
   description: >
     Reorganiza /opt/bos/servers/ para que cada ficha esté en su servidor
     lógico correcto. Elimina duplicados legacy en la raíz. Idempotente.

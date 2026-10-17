@@ -1,42 +1,52 @@
-# manifest.yml — Ficha fedora-kde (SBOS-005 §vdiserver)
-# SBOS-049 §4 · Order 355 · Deployment
 identity:
-  id: fedora-kde
-  name: Fedora KDE Desktop
-  version: "43"
-  category: 1
-  criticality: false
-  server: vdiserver
-  description: "Sovereign desktop via VDI, PEP with bAuth+banexus"
+  id: "fedora-kde"
+  name: "Fedora KDE — Escritorio Virtual Corporativo (SBOS VDI)"
+  version: "1.0.0"
+  server: "S13"
+  namespace: "sbos-vdi"
+  category: 2
+  criticality: true
 
 workload:
-  type: Deployment
-  namespace: sbos-vdi
-  replicas: 1
-  service_account: fedora-kde-sa
+  type: "kubernetes"
+  state: "prod"
 
 order:
-  execution_order: 355
-  timeout_minutes: 15
+  execution_order: 230
+
+parameters:
+  FEDORA_VNC_PORT: "5900"
+  FEDORA_NOVNC_PORT: "6080"
+  FEDORA_RESOLUTION: "1920x1080"
 
 requirements:
+  ram_mb: 4096
+  cpu_cores: 4
+  disk_gb: 30
   dependencies:
     - keycloak
-  cpu_request: "1000m"
-  cpu_limit: "4000m"
-  memory_request: "2Gi"
-  memory_limit: "4Gi"
-
-
-deployment:
-  strategy: RollingUpdate
+    - kong
+    - guacamole
 
 governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "vdi-escritorio"
 
+deployment:
+  namespace: "sbos-vdi"
+  workload_type: "Deployment"
+  k8s_manifest: "fedora-kde.k8s.yml"
 
 health:
-  check_command: "systemctl is-active sddm"
-  check_interval_seconds: 30
-  check_timeout_seconds: 10
-  consecutive_failures_threshold: 3
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get pods -n sbos-vdi -l app=fedora-kde --no-headers 2>/dev/null | grep -c Running"
+  expected_output: "1"
+  timeout_seconds: 30
 
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/fedora-kde.log
+
+compatibility:
+  min_iam_installer_version: "1.0.0"
