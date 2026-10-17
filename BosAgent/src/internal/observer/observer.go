@@ -18,6 +18,14 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// SystemMaintainer es la interfaz que ejecuta mantenimiento proactivo del sistema.
+// Implementada por k8s.Core en producción; nil-safe en tests.
+type SystemMaintainer interface {
+	// RunMaintenance ejecuta una pasada de mantenimiento y retorna el número
+	// de recursos del sistema que fueron limpiados en esta pasada.
+	RunMaintenance() int
+}
+
 // Config agrupa las dependencias necesarias para crear un Loop.
 //
 // Thread safety: Config se pasa por valor en New(); no se comparte tras la construcción.
@@ -25,6 +33,7 @@ type Config struct {
 	Orchestrator *installer.Orchestrator // orquestador de sagas (install/repair)
 	Loader       *plugin.Loader          // cargador de manifests de fichas
 	StateMgr     *state.Manager          // gestor de estado centralizado
+	Maintainer   SystemMaintainer        // mantenimiento proactivo del sistema (nil = omitir)
 	// Interval: frecuencia del tick de observación. 0 → usa 5 segundos.
 	Interval time.Duration
 }

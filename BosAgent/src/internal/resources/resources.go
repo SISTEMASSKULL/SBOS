@@ -130,24 +130,33 @@ func ParseMemoryMiB(s string) int64 {
 	return n / (1024 * 1024)
 }
 
-// TryFreeMemory intenta liberar memoria del sistema sin matar procesos:
-//  1. Escribe en /proc/sys/vm/drop_caches (libera page cache + reclaimable slabs)
-//  2. Espera brevemente y vuelve a leer la memoria disponible
+// TryFreeMemory intenta liberar memoria del sistema:
+//  1. Señaliza padres de procesos zombie (SIGCHLD) para que los recolecten
+//  2. Libera cachés del kernel (drop_caches=1 — page cache)
+//  3. Espera brevemente y retorna la nueva memoria disponible
 //
-// Retorna la nueva memoria disponible en MiB. No falla si drop_caches no tiene
-// permiso (entorno de pruebas sin root) — solo loguea y continúa.
+// La limpieza de pods huérfanos K8s (Failed/Unknown/Succeeded) la realiza
+// el observer directamente vía k8s.Core.CleanOrphanPods() (Principio P1).
+//
+// Retorna la nueva memoria disponible en MiB.
 func TryFreeMemory() int64 {
-	log.Info().Msg("resources: intentando liberar cachés del kernel (drop_caches=1)")
+	log.Info().Msg("resources: iniciando recuperación de memoria")
 
-	// sync primero para que las cachés sucias estén limpias antes de liberarlas
-	if f, err := os.OpenFile("/proc/sys/vm/drop_caches", os.O_WRONLY, 0); err == nil {
-		_, _ = f.WriteString("1\n") // solo page cache (más seguro que 3)
-		_ = f.Close()
-	} else {
-		log.Warn().Err(err).Msg("resources: drop_caches no disponible (sin permiso root?)")
+	// Paso 1: recolectar procesos zombie (libera entradas en tabla de procesos)
+	n := SignalZombieParents()
+	if n > 0 {
+		log.Info().Int("zombies", n).Msg("resources: zombies señalados para recolección")
 	}
 
-	// Breve pausa para que el kernel procese la liberación
+	// Paso 2: liberar page cache del kernel
+	if f, err := os.OpenFile("/proc/sys/vm/drop_caches", os.O_WRONLY, 0); err == nil {
+		_, _ = f.WriteString("1\n")
+		_ = f.Close()
+		log.Info().Msg("resources: cachés del kernel liberadas (drop_caches=1)")
+	} else {
+		log.Warn().Err(err).Msg("resources: drop_caches no disponible")
+	}
+
 	time.Sleep(500 * time.Millisecond)
 
 	st, err := ReadMemStatus()
@@ -157,7 +166,7 @@ func TryFreeMemory() int64 {
 	log.Info().
 		Int64("available_mib", st.AvailableMiB).
 		Float64("used_pct", st.UsedPercent).
-		Msg("resources: memoria tras liberar cachés")
+		Msg("resources: memoria tras recuperación")
 	return st.AvailableMiB
 }
 

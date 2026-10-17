@@ -295,6 +295,87 @@ func (c *Core) DeletePod(name, namespace string) error {
 	return err
 }
 
+// CleanOrphanPods elimina pods en estados terminales que consumen RAM sin utilidad:
+//   - Phase=Failed   (Evicted, OOMKilled, Error — ya no se recuperan solos)
+//   - Phase=Unknown  (nodo desconectado — pods fantasma)
+//   - Phase=Succeeded sin ownerRef Job (pods standalone completados, > 5 min)
+//
+// Límite: 20 pods por llamada para no sobrecargar el api-server.
+// Retorna (eliminados, error). Un error parcial no impide eliminar el resto.
+func (c *Core) CleanOrphanPods() (int, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	eliminados := 0
+
+	for _, phase := range []string{"Failed", "Unknown"} {
+		out, err := c.kubectl(ctx,
+			"get", "pods", "--all-namespaces",
+			"--field-selector=status.phase="+phase,
+			"-o", "jsonpath={range .items[*]}{.metadata.namespace} {.metadata.name}\\n{end}",
+		)
+		if err != nil {
+			continue
+		}
+		for _, line := range splitOutput(out) {
+			if eliminados >= 20 {
+				break
+			}
+			parts := strings.Fields(line)
+			if len(parts) != 2 {
+				continue
+			}
+			ns, name := parts[0], parts[1]
+			if _, delErr := c.kubectl(ctx, "delete", "pod", name, "-n", ns,
+				"--grace-period=0", "--force", "--ignore-not-found"); delErr == nil {
+				eliminados++
+			}
+		}
+	}
+
+	// Pods Succeeded sin ownerRef Job — completados, ya no necesarios en memoria
+	out, err := c.kubectl(ctx,
+		"get", "pods", "--all-namespaces",
+		"--field-selector=status.phase=Succeeded",
+		"-o", "jsonpath={range .items[*]}{.metadata.namespace} {.metadata.name} {.metadata.ownerReferences[0].kind}\\n{end}",
+	)
+	if err == nil {
+		for _, line := range splitOutput(out) {
+			if eliminados >= 20 {
+				break
+			}
+			parts := strings.Fields(line)
+			if len(parts) < 2 {
+				continue
+			}
+			ns, name := parts[0], parts[1]
+			ownerKind := ""
+			if len(parts) >= 3 {
+				ownerKind = parts[2]
+			}
+			if ownerKind == "Job" {
+				continue // el Job gestiona su propio ciclo de vida
+			}
+			if _, delErr := c.kubectl(ctx, "delete", "pod", name, "-n", ns,
+				"--grace-period=0", "--force", "--ignore-not-found"); delErr == nil {
+				eliminados++
+			}
+		}
+	}
+
+	return eliminados, nil
+}
+
+func splitOutput(s string) []string {
+	var lines []string
+	for _, l := range strings.Split(s, "\n") {
+		if l = strings.TrimSpace(l); l != "" {
+			lines = append(lines, l)
+		}
+	}
+	return lines
+}
+
 // CopyToPod copia un archivo local a un pod mediante kubectl cp (timeout 2min).
 func (c *Core) CopyToPod(srcPath, pod, namespace, destPath string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
@@ -308,4 +389,11 @@ func (c *Core) CopyToPod(srcPath, pod, namespace, destPath string) error {
 func (c *Core) GetRawJSON(ctx context.Context, args ...string) ([]byte, error) {
 	out, err := c.kubectl(ctx, args...)
 	return []byte(out), err
+}
+
+// RunMaintenance implementa observer.SystemMaintainer.
+// Ejecuta una pasada de mantenimiento del cluster y retorna el número de recursos liberados.
+func (c *Core) RunMaintenance() int {
+	n, _ := c.CleanOrphanPods()
+	return n
 }
