@@ -1,0 +1,68 @@
+# yaml_engine.yml — alertmanager
+# Iteración 1: alertas base SBOS con receiver log
+# Iteración 2 (futura): routing a bnotify para Push MFA, inhibitions complejas
+
+namespace: sbos-monitoring
+image: "prom/alertmanager:v0.28.1"
+replicas: 1
+
+service:
+  port: 9093
+  cluster_ip_port: 9093
+
+config:
+  global:
+    resolve_timeout: 5m
+
+  receivers:
+    - name: "sbos-log"
+      note: "Iteración 1: log a stdout. Iteración 2: bnotify webhook"
+    - name: "null"
+
+  route:
+    receiver: "sbos-log"
+    group_by: [alertname, namespace, severity]
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 12h
+    routes:
+      - match:
+          severity: critical
+        receiver: "sbos-log"
+        continue: true
+      - match:
+          alertname: Watchdog
+        receiver: "null"
+
+sbos_alert_rules:
+  - name: vault_sealed
+    expr: "vault_core_unsealed == 0"
+    for: 2m
+    severity: critical
+    summary: "Vault sellado"
+
+  - name: wal_lag_high
+    expr: "pg_replication_slots_confirmed_flush_lsn < pg_current_wal_lsn() - 100000000"
+    for: 5m
+    severity: warning
+    summary: "WAL lag bkernel_slot alto"
+
+  - name: pod_crash_loop
+    expr: "kube_pod_container_status_waiting_reason{reason='CrashLoopBackOff'} == 1"
+    for: 5m
+    severity: critical
+    summary: "Pod en CrashLoopBackOff"
+
+  - name: node_disk_pressure
+    expr: "kube_node_status_condition{condition='DiskPressure',status='true'} == 1"
+    for: 2m
+    severity: warning
+    summary: "Nodo con presión de disco"
+
+resources:
+  requests:
+    cpu: "50m"
+    memory: "64Mi"
+  limits:
+    cpu: "200m"
+    memory: "128Mi"

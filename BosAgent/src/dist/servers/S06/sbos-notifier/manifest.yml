@@ -1,0 +1,77 @@
+identity:
+  id: sbos-notifier
+  server: S06
+  version: 1.0.0
+  category: 1
+  criticality: true
+  description: "SBOS Notifier (bnotify) — sistema de notificaciones universales. Push MFA (OTP, TOTP, WebAuthn), alertas críticas del sistema, mensajes a usuarios. Requerido por bAuth para Step-Up (RFC 9470)."
+
+workload:
+  type: Deployment
+  runtime: kubernetes
+
+order:
+  execution_order: 170
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-k8s
+    - sbos-bootstrap-cni
+    - postgresql
+    - redis
+    - vault
+    - keycloak
+    - kong
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "infraestructura-critica"
+
+meta:
+  backend: helm
+  idempotent: true
+  estimated_minutes: 6
+  rollback_support: true
+
+ports:
+  - port: 28200
+    protocol: TCP
+    description: "API principal bnotify (JSON-RPC 2.0)"
+    internal_only: true
+  - port: 28201
+    protocol: TCP
+    description: "Push WebSocket (notificaciones en tiempo real)"
+    internal_only: true
+  - port: 28202
+    protocol: TCP
+    description: "MFA Step-Up endpoint (RFC 9470)"
+    internal_only: true
+  - port: 28203
+    protocol: TCP
+    description: "Webhook receiver (alertmanager → bnotify)"
+    internal_only: true
+  - port: 28204
+    protocol: TCP
+    description: "Metrics (Prometheus scraping)"
+    internal_only: true
+  - port: 28205
+    protocol: TCP
+    description: "Admin API (restringida a sbos-system)"
+    internal_only: true
+
+health:
+  type: http
+  path: /health/ready
+  port: 28200
+  timeout_seconds: 10
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/sbos-notifier.log
+
+versions:
+  image: "ghcr.io/skull-sistemas/sbos-notifier:1.0.0"
+  image_fallback: "python:3.14-slim"
+  namespace: sbos-notifier
+  db: notifier_db

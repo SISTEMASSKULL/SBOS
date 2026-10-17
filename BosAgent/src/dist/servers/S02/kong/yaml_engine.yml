@@ -1,0 +1,95 @@
+# yaml_engine.yml — kong
+# Iteración 1: Kong 3.9.x DB-mode (PostgreSQL kong_db) + migrations + Status API :8007
+#   - IDEMPOTENTE: verifica deployment + admin API + proxy antes de reinstalar
+#   - Status API en :8007 (Kong 3.x separó health checks de Admin API :8001)
+#   - Probes SIN host (kubelet usa pod IP, no loopback)
+# Iteración 2: TLS Vault PKI, plugin Lua SBOS-Context, rate limiting por tier
+# Iteración 3: multi-réplica, Ingress Controller, observabilidad completa
+
+namespace: sbos-gateway
+image: "kong:3.9.0"
+replicas: 1
+
+database:
+  host: postgresql.sbos-data.svc.cluster.local
+  port: 5432
+  name: kong_db
+  user: kong
+  secret: kong-db-credentials
+  password_key: KONG_PG_PASSWORD
+
+service:
+  proxy_http: 8000
+  proxy_https: 8443
+  admin_api: 8001
+  status_api: 8007
+  cluster_ip_proxy: 8160
+
+mode: traditional
+
+# Kong 3.x separó Status API de Admin API
+# Admin :8001 = gestion/CRUD (restringido)
+# Status :8007 = health checks (accesible por kubelet)
+listen:
+  proxy: "0.0.0.0:8000, 0.0.0.0:8443 ssl"
+  admin: "127.0.0.1:8001"
+  status: "0.0.0.0:8007"
+
+probes:
+  startup:
+    path: /status
+    port: 8007
+    initial_delay: 10
+    period: 10
+    failure_threshold: 30
+    timeout: 5
+    note: "SIN host — kubelet usa la IP del pod, NO loopback"
+  readiness:
+    path: /status/ready
+    port: 8007
+    initial_delay: 5
+    period: 10
+    failure_threshold: 3
+    timeout: 5
+    note: "SIN host — idem"
+  liveness:
+    path: /status
+    port: 8007
+    initial_delay: 5
+    period: 15
+    failure_threshold: 3
+    timeout: 5
+    note: "SIN host — idem"
+
+plugins_enabled:
+  - bundled
+  - jwt
+  - rate-limiting
+  - correlation-id
+
+env_overrides:
+  KONG_STATUS_LISTEN: "0.0.0.0:8007"
+  KONG_ADMIN_LISTEN: "127.0.0.1:8001"
+  KONG_PROXY_LISTEN: "0.0.0.0:8000, 0.0.0.0:8443 ssl"
+  KONG_LOG_LEVEL: warn
+
+resources:
+  requests:
+    cpu: "200m"
+    memory: "256Mi"
+  limits:
+    cpu: "1"
+    memory: "512Mi"
+
+# Idempotencia
+idempotency:
+  checks:
+    check1_admin_status:
+      method: kong health
+      expected: "healthy"
+      description: "kong health dentro del pod. Si responde healthy, DB conectada y workers activos."
+    check2_proxy_port:
+      method: tcp_connect
+      host: "kong.sbos-gateway.svc.cluster.local"
+      port: 8000
+      description: "Si el proxy HTTP acepta TCP, Kong está routeando tráfico."

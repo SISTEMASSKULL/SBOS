@@ -1,0 +1,47 @@
+identity:
+  id: "guacamole"
+  name: "Apache Guacamole — Remote Desktop Gateway"
+  version: "1.5.5"
+  server: "S13"
+  namespace: "sbos-vdi"
+  category: 2
+  criticality: true
+
+workload:
+  type: "kubernetes"
+  state: "prod"
+
+order:
+  execution_order: 210
+
+parameters:
+  GUACAMOLE_HOSTNAME: "guacamole.sbos.local"
+  GUACAMOLE_OIDC_AUTHORIZATION_ENDPOINT: "https://auth.sbos.local/realms/tenant-{id}/protocol/openid-connect/auth"
+
+requirements:
+  ram_mb: 1024
+  cpu_cores: 2
+  disk_gb: 10
+  dependencies:
+    - postgresql
+    - keycloak
+    - kong
+
+deployment:
+  namespace: "sbos-vdi"
+  workload_type: "Deployment"
+  k8s_manifest: "guacamole.k8s.yml"
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "vdi-gateway"
+
+health:
+  # BUG-47: Guacamole/Tomcat tarda 2-3 min en arrancar.
+  # El framework ejecuta verify antes de que /guacamole/ responda → HTTP 000.
+  # ficha_health() en task_catalog.sh verifica readyReplicas.
+  type: none
+
+compatibility:
+  min_iam_installer_version: "1.0.0"

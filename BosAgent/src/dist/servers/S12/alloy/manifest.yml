@@ -1,0 +1,52 @@
+identity:
+  id: alloy
+  server: S12
+  version: 1.8.3
+  category: 1
+  criticality: true
+  description: "Grafana Alloy 1.8.3 — pipelines de logs y métricas. Extrae ctx_id de logs SBOS, envía a Loki. Reemplaza Grafana Agent."
+
+workload:
+  type: DaemonSet
+  runtime: kubernetes
+
+order:
+  execution_order: 220
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-k8s
+    - sbos-bootstrap-cni
+    - prometheus
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "observabilidad"
+
+meta:
+  backend: helm
+  idempotent: true
+  estimated_minutes: 4
+  rollback_support: true
+
+ports:
+  - port: 12345
+    protocol: TCP
+    description: "Alloy UI + API"
+    cluster_ip: 12345
+    internal_only: true
+
+health:
+  type: http
+  path: /-/ready
+  port: 12345
+  timeout_seconds: 10
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/alloy.log
+
+versions:
+  image: "grafana/alloy:v1.8.3"
+  namespace: sbos-monitoring

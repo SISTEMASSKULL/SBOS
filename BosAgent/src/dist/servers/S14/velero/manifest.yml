@@ -1,0 +1,53 @@
+identity:
+  id: velero
+  server: S14
+  version: "1.15.3"
+  category: 1
+  criticality: false
+  description: "Velero 1.15.3 — backup y restauración de recursos Kubernetes y volúmenes persistentes. Snapshots de namespaces completos hacia MinIO. Disaster recovery soberano."
+
+workload:
+  type: deployment
+  runtime: kubernetes
+  namespace: sbos-ops
+  replicas: 1
+
+order:
+  execution_order: 460
+
+requirements:
+  dependencies:
+    - minio
+    - sbos-bootstrap-platform
+
+governance:
+  auto_install: false
+  requires_approval: false
+  category_label: "backup"
+
+meta:
+  backend: k8s
+  idempotent: true
+  estimated_minutes: 8
+  rollback_support: false
+
+ports: []
+
+health:
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get deployment velero -n sbos-ops -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
+  expected_output: "1"
+  timeout_seconds: 30
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/velero.log
+
+vault:
+  secret_path: "secret/tenants/{{ tenant_id }}/velero"
+  keys:
+    - minio_access_key
+    - minio_secret_key
+
+versions:
+  velero: "1.15.3"

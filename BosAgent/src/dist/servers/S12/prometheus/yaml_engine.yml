@@ -1,0 +1,61 @@
+# yaml_engine.yml — prometheus
+# Iteración 1: scraping K8s + node-exporter + kube-state-metrics + daemons SBOS
+
+namespace: sbos-monitoring
+image: "prom/prometheus:v3.4.0"
+replicas: 1
+
+storage:
+  pv_name: sbos-prometheus-pv
+  pvc_name: sbos-prometheus-pvc
+  capacity: 20Gi
+  storage_class: local-path
+  retention: 30d
+
+service:
+  port: 9090
+  cluster_ip_port: 9090
+
+scrape_configs:
+  global_interval: 30s
+  global_timeout: 10s
+
+  targets:
+    kubernetes_nodes:
+      enabled: true
+      job: kubernetes-nodes
+    kubernetes_pods:
+      enabled: true
+      job: kubernetes-pods
+      annotation_prefix: prometheus.io
+    node_exporter:
+      enabled: true
+      job: node-exporter
+      namespace: sbos-monitoring
+      selector: "app=prometheus-node-exporter"
+      port: 9100
+    kube_state_metrics:
+      enabled: true
+      job: kube-state-metrics
+      namespace: sbos-monitoring
+      selector: "app=kube-state-metrics"
+      port: 8080
+    sbos_daemons:
+      enabled: true
+      job: sbos-daemons
+      port_range: "9400-9499"
+      note: "bAuth:9450, bKernel:9460, biedata:9470, bSearch:9493, bNexus:9444"
+
+alerting:
+  alertmanager_url: "http://alertmanager:9093"
+
+rule_files:
+  - /etc/prometheus/rules/sbos-alerts.yml
+
+resources:
+  requests:
+    cpu: "200m"
+    memory: "512Mi"
+  limits:
+    cpu: "1"
+    memory: "2Gi"

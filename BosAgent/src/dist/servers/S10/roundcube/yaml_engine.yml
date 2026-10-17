@@ -1,0 +1,8 @@
+# yaml_engine.yml — roundcube
+# image: "roundcube/roundcubemail:1.6.10"
+
+deployment:
+  image: "roundcube/roundcubemail:1.6.10"
+namespace: sbos-comms
+port: 80
+plugins: [archive, zipdownload, carddav]

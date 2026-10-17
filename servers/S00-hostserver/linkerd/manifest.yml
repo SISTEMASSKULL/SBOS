@@ -32,7 +32,7 @@ deployment:
   strategy: RollingUpdate
 
 governance:
-  auto_install: false
+  auto_install: true
 
 
 health:

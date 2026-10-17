@@ -1,0 +1,21 @@
+# yaml_engine.yml — loki
+# Grafana Loki — agregación de logs con backend MinIO S3.
+
+deployment:
+  image: "grafana/loki:3.4.3"
+  namespace: sbos-monitor
+  type: statefulset
+  replicas: 1
+  storage:
+    pvc_size: 20Gi
+    storage_class: local-path
+
+config:
+  auth_enabled: false
+  storage_backend: filesystem   # filesystem en nodo único; migrar a S3/MinIO en cluster
+  retention_period: 744h        # 31 días
+
+datasource_grafana:
+  type: loki
+  url: "http://loki:3100"
+  name: "SBOS Loki"

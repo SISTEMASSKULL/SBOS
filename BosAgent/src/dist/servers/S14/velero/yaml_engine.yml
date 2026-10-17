@@ -1,0 +1,8 @@
+# yaml_engine.yml — velero
+# image: "velero/velero:v1.15.3"
+
+deployment:
+  image: "velero/velero:v1.15.3"
+namespace: sbos-ops
+backup_storage: minio
+bucket: velero-backups

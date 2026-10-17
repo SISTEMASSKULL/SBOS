@@ -4,7 +4,7 @@ identity:
   version: "7.2.0"
   category: 1
   criticality: false
-  description: "Zabbix 7.2 LTS — monitoreo de infraestructura (host, red, hardware). Complementa Prometheus (métricas de apps) con SNMP/agente para hardware físico y alertas ITSM."
+  description: "Zabbix 7.2 LTS — monitoreo de infraestructura."
 
 workload:
   type: deployment
@@ -21,7 +21,7 @@ requirements:
     - grafana
 
 governance:
-  auto_install: false
+  auto_install: true
   requires_approval: false
   category_label: "observabilidad"
 
@@ -50,12 +50,6 @@ health:
 audit:
   ctx_id_required: true
   log_path: /var/log/bos/fichas/zabbix.log
-
-vault:
-  secret_path: "secret/tenants/{{ tenant_id }}/zabbix"
-  keys:
-    - pg_password
-    - admin_password
 
 versions:
   zabbix: "7.2.0"

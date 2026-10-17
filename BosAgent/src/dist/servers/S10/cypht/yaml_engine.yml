@@ -1,0 +1,7 @@
+# yaml_engine.yml — cypht
+# image: "sailfishsoftware/cypht:latest"
+
+deployment:
+  image: "sailfishsoftware/cypht:latest"
+namespace: sbos-comms
+port: 80

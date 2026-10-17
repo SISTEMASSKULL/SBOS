@@ -1,0 +1,51 @@
+identity:
+  id: kimios
+  server: S08
+  version: "7.1.24"
+  category: 2
+  criticality: false
+  description: "Kimios 7.1.24 — sistema de gestión documental empresarial (ECM). Archivo con metadatos, flujos de trabajo, control de versiones, integración CMIS."
+
+workload:
+  type: deployment
+  runtime: kubernetes
+  namespace: sbos-docs
+  replicas: 1
+
+order:
+  execution_order: 360
+
+requirements:
+  dependencies:
+    - postgresql
+    - keycloak
+
+governance:
+  auto_install: false
+  requires_approval: false
+  category_label: "gestion-documental"
+
+meta:
+  backend: k8s
+  idempotent: true
+  estimated_minutes: 8
+  rollback_support: true
+
+ports:
+  - name: http
+    port: 8080
+    protocol: TCP
+    internal_only: false
+
+health:
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get deployment kimios -n sbos-docs -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
+  expected_output: "1"
+  timeout_seconds: 30
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/kimios.log
+
+versions:
+  kimios: "7.1.24"

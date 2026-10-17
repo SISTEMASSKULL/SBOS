@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<channel name="xfce4-session" version="1.0">
+  <property name="general" type="empty">
+    <property name="SaveOnExit" type="bool" value="false"/>
+    <property name="AutoSave" type="bool" value="false"/>
+    <property name="PromptOnLogout" type="bool" value="false"/>
+  </property>
+  <property name="startup" type="empty">
+    <property name="screensaver-enabled" type="bool" value="false"/>
+    <property name="LockScreen" type="bool" value="false"/>
+  </property>
+  <property name="splash" type="empty">
+    <property name="Engine" type="string" value=""/>
+  </property>
+  <property name="Failsafe" type="empty">
+    <property name="Client0_Command" type="string" value="xfwm4"/>
+    <property name="Client0_Priority" type="int" value="15"/>
+    <property name="Client0_PerScreen" type="bool" value="false"/>
+    <property name="Client1_Command" type="string" value="xfsettingsd"/>
+    <property name="Client1_Priority" type="int" value="20"/>
+    <property name="Client1_PerScreen" type="bool" value="false"/>
+    <property name="Client2_Command" type="string" value="xfce4-panel"/>
+    <property name="Client2_Priority" type="int" value="25"/>
+    <property name="Client2_PerScreen" type="bool" value="false"/>
+    <property name="Client3_Command" type="string" value="Thunar --daemon"/>
+    <property name="Client3_Priority" type="int" value="35"/>
+    <property name="Client3_PerScreen" type="bool" value="false"/>
+    <property name="Count" type="int" value="4"/>
+  </property>
+</channel>

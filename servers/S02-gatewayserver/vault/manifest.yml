@@ -33,7 +33,7 @@ deployment:
   strategy: Recreate
 
 governance:
-  auto_install: false
+  auto_install: true
   backup_enabled: true
   backup_schedule: "0 1 * * *"
   encryption_required: true

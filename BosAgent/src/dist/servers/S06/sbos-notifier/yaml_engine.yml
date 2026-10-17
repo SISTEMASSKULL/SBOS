@@ -1,0 +1,65 @@
+# yaml_engine.yml — sbos-notifier
+# Iteración 1: Deployment con imagen SBOS nativa o fallback Python stub
+# Puertos 28200-28205 (SBOS-050 §S06)
+
+namespace: sbos-notifier
+image: "ghcr.io/skull-sistemas/sbos-notifier:1.0.0"
+image_fallback: "python:3.14-slim"
+replicas: 1
+
+database:
+  host: postgresql.sbos-data.svc.cluster.local
+  port: 5432
+  name: notifier_db
+  secret: notifier-db-credentials
+
+redis:
+  host: redis.sbos-data.svc.cluster.local
+  port: 6379
+  db: 0
+
+service:
+  api_port: 28200
+  ws_port: 28201
+  mfa_port: 28202
+  webhook_port: 28203
+  metrics_port: 28204
+  admin_port: 28205
+
+channels:
+  push_web:
+    enabled: true
+    provider: internal
+    description: "Notificaciones Web Push (PWA)"
+  push_mobile:
+    enabled: false
+    description: "Iteración 2 — FCM/APNs"
+  email:
+    enabled: false
+    description: "Iteración 2 — SMTP relay"
+  sms:
+    enabled: false
+    description: "Iteración 3 — SMS gateway"
+
+mfa:
+  totp_enabled: true
+  totp_issuer: "SBOS"
+  totp_digits: 6
+  totp_period: 30
+  step_up_rfc9470: true
+  otp_ttl_seconds: 300
+  max_attempts: 3
+
+alertmanager_webhook:
+  enabled: true
+  path: /webhook/alertmanager
+  port: 28203
+  secret: alertmanager-webhook-secret
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "500m"
+    memory: "256Mi"

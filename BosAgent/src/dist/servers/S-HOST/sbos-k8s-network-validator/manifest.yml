@@ -1,0 +1,42 @@
+identity:
+  id: sbos-k8s-network-validator
+  server: S-HOST
+  version: 1.0.0
+  category: 1
+  criticality: true
+  description: "K8s Network Validator — certifica CNI (pod-to-pod), CoreDNS (resolución interna) y StorageClass dinámica (PVC bind) antes de instalar PostgreSQL."
+
+workload:
+  type: bash
+  runtime: bash
+
+order:
+  execution_order: 50
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-platform
+    - sbos-bootstrap-storage
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "infraestructura-critica"
+
+meta:
+  backend: bash
+  idempotent: true
+  estimated_minutes: 3
+  rollback_support: true
+
+ports: []
+
+health:
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get configmap sbos-network-validated -n sbos-data --no-headers 2>/dev/null | grep -c sbos-network-validated"
+  expected_output: "1"
+  timeout_seconds: 10
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/sbos-k8s-network-validator.log

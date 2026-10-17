@@ -1,0 +1,19 @@
+# yaml_engine.yml — zabbix
+# Zabbix 7.2 LTS — monitoreo de infraestructura.
+
+components:
+  zabbix_server:
+    image: "zabbix/zabbix-server-pgsql:ubuntu-7.2-latest"
+    namespace: sbos-monitor
+    replicas: 1
+  zabbix_web:
+    image: "zabbix/zabbix-web-nginx-pgsql:ubuntu-7.2-latest"
+    port: 80
+  zabbix_agent:
+    image: "zabbix/zabbix-agent2:ubuntu-7.2-latest"
+    deploy_on_host: true
+
+database:
+  engine: postgresql
+  db_name: zabbix_db
+  schema: zabbix

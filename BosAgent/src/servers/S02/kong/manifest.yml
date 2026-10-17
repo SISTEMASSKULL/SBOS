@@ -34,7 +34,7 @@ deployment:
   max_unavailable: 0
 
 governance:
-  auto_install: false
+  auto_install: true
   backup_enabled: false
   audit_log: true
 

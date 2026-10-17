@@ -1,0 +1,42 @@
+identity:
+  id: sbos-bootstrap-storage
+  server: S-HOST
+  version: 1.0.0
+  category: 1
+  criticality: true
+  description: "Storage Bootstrap — PersistentVolumes hostPath para las 19 fichas iniciales (Retain)"
+
+workload:
+  type: bash
+  runtime: bash
+
+order:
+  execution_order: 30
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-k8s
+    - sbos-bootstrap-cni
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "infraestructura-critica"
+
+meta:
+  backend: bash
+  idempotent: true
+  estimated_minutes: 3
+  rollback_support: false
+
+ports: []
+
+health:
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get pv --no-headers 2>/dev/null | grep -c sbos"
+  expected_min: "5"
+  timeout_seconds: 10
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/sbos-bootstrap-storage.log

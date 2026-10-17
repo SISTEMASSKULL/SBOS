@@ -20,7 +20,7 @@ requirements:
     - postgresql
 
 governance:
-  auto_install: false
+  auto_install: true
   requires_approval: false
   category_label: "gestion-documental"
 

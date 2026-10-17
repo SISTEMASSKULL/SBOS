@@ -1,0 +1,55 @@
+# yaml_engine.yml — nginx (HOST S02, NGINX Ingress)
+# §8.4 Proyecto Master: DNS → Load Balancer → NGINX Ingress → Kong
+#
+# Iteración 1: nginx recibe :80 → pasa TODO a Kong → Kong resuelve dominio + ctx_id
+# Iteración 2 (futura): TLS Certbot + redirect HTTP→HTTPS + ModSecurity WAF
+# Iteración 3 (futura): rate limiting, caching, gzip, brotli
+#
+# REGLA: nginx NO rutea subdominios directamente a servicios.
+#        Todo routing, Domain Resolver y CTX Resolver es responsabilidad de Kong.
+#        nginx es un proxy dumb — su única decisión es "¿es /health? → OK. ¿El resto? → Kong"
+
+runtime: host
+package: nginx
+version: "1.28.0"
+
+paths:
+  config: /etc/nginx
+  webroot: /var/www/html
+  log: /var/log/nginx
+
+# Único upstream: Kong recibe TODO el tráfico externo
+# En K8s, MetalLB enlaza el LoadBalancer service de Kong al host :8000
+upstreams:
+  kong: "http://127.0.0.1:8000"
+
+# El routing de subdominios → servicios es configuración de KONG, no de nginx.
+# Kong configura rutas para: admin.*, api.*, monitor.*, identity.*, {tenant}.*
+# Ver: servers/S02/kong/manifest.yml y servers/S02/kong/task_catalog.sh
+
+hardening:
+  headers:
+    x_frame_options: DENY
+    x_content_type_options: nosniff
+    referrer_policy: strict-origin-when-cross-origin
+    x_xss_protection: "1; mode=block"
+    content_security_policy: "default-src 'self'"
+    hsts: "max-age=31536000; includeSubDomains"
+    permissions_policy: "geolocation=(), microphone=(), camera=()"
+  server_tokens: false
+  client_max_body_size: 50m
+
+php:
+  enabled: false
+  motivo: "El stack SBOS es Go/Rust/Python. El contenido dinámico va por Kong → daemons."
+
+systemd:
+  service: nginx
+  enabled: true
+  state: started
+
+prometheus:
+  exporter: nginx-exporter
+  port: 9113
+  stub_status_path: /nginx_status
+  allow_from: "127.0.0.1"

@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<channel name="xfce4-panel" version="1.0">
+  <property name="configver" type="int" value="2"/>
+  <property name="panels" type="array">
+    <value type="int" value="1"/>
+    <property name="panel-1" type="empty">
+      <!-- Barra en la parte inferior, centrada como Windows 11 -->
+      <property name="position" type="string" value="p=12;x=960;y=1055"/>
+      <property name="length" type="uint" value="100"/>
+      <property name="position-locked" type="bool" value="true"/>
+      <property name="size" type="uint" value="48"/>
+      <property name="plugin-ids" type="array">
+        <value type="int" value="1"/>
+        <value type="int" value="2"/>
+        <value type="int" value="3"/>
+        <value type="int" value="4"/>
+        <value type="int" value="5"/>
+        <value type="int" value="6"/>
+        <value type="int" value="7"/>
+        <value type="int" value="8"/>
+        <value type="int" value="9"/>
+        <value type="int" value="10"/>
+        <value type="int" value="11"/>
+        <value type="int" value="12"/>
+      </property>
+      <property name="background-style" type="uint" value="1"/>
+      <property name="background-color" type="string" value="#1a1a1a"/>
+      <property name="background-alpha" type="uint" value="97"/>
+      <property name="enable-struts" type="bool" value="true"/>
+    </property>
+  </property>
+  <property name="plugins" type="empty">
+    <!-- 1: Separador expansible izquierdo — empuja iconos al centro -->
+    <property name="plugin-1" type="string" value="separator">
+      <property name="expand" type="bool" value="true"/>
+      <property name="style" type="uint" value="0"/>
+    </property>
+
+    <!-- 2: Botón de inicio Windows (Whisker Menu con logo Windows) -->
+    <property name="plugin-2" type="string" value="whiskermenu">
+      <property name="show-button-title" type="bool" value="false"/>
+      <property name="button-icon" type="string" value="distributor-logo-windows"/>
+      <property name="button-single-row" type="bool" value="true"/>
+    </property>
+
+    <!-- 3: Lanzador: Firefox (navegador) -->
+    <property name="plugin-3" type="string" value="launcher">
+      <property name="items" type="array">
+        <value type="string" value="firefox-esr.desktop"/>
+      </property>
+    </property>
+
+    <!-- 4: Lanzador: Gestor de archivos -->
+    <property name="plugin-4" type="string" value="launcher">
+      <property name="items" type="array">
+        <value type="string" value="thunar.desktop"/>
+      </property>
+    </property>
+
+    <!-- 5: Lanzador: Terminal -->
+    <property name="plugin-5" type="string" value="launcher">
+      <property name="items" type="array">
+        <value type="string" value="xfce4-terminal.desktop"/>
+      </property>
+    </property>
+
+    <!-- 6: Lanzador: LibreOffice Writer -->
+    <property name="plugin-6" type="string" value="launcher">
+      <property name="items" type="array">
+        <value type="string" value="libreoffice-writer.desktop"/>
+      </property>
+    </property>
+
+    <!-- 7: Separador expansible derecho — empuja systray/reloj a la derecha -->
+    <property name="plugin-7" type="string" value="separator">
+      <property name="expand" type="bool" value="true"/>
+      <property name="style" type="uint" value="0"/>
+    </property>
+
+    <!-- 8: Lista de ventanas abiertas (entre separadores, siempre visible) -->
+    <property name="plugin-8" type="string" value="tasklist">
+      <property name="show-labels" type="bool" value="false"/>
+      <property name="show-handle" type="bool" value="false"/>
+      <property name="flat-buttons" type="bool" value="true"/>
+      <property name="grouping" type="uint" value="1"/>
+      <property name="include-all-workspaces" type="bool" value="false"/>
+      <property name="middle-click" type="uint" value="0"/>
+    </property>
+
+    <!-- 9: Bandeja del sistema -->
+    <property name="plugin-9" type="string" value="systray">
+      <property name="size-max" type="uint" value="22"/>
+      <property name="square-icons" type="bool" value="true"/>
+    </property>
+
+    <!-- 10: Notificaciones -->
+    <property name="plugin-10" type="string" value="notification-plugin"/>
+
+    <!-- 11: Separador visual pequeño -->
+    <property name="plugin-11" type="string" value="separator">
+      <property name="expand" type="bool" value="false"/>
+      <property name="style" type="uint" value="0"/>
+    </property>
+
+    <!-- 12: Reloj estilo Windows 11 (hora arriba, fecha abajo) -->
+    <property name="plugin-12" type="string" value="clock">
+      <property name="digital-format" type="string" value="%H:%M&#xA;%d/%m/%Y"/>
+      <property name="tooltip-format" type="string" value="%A, %d de %B de %Y"/>
+    </property>
+  </property>
+</channel>

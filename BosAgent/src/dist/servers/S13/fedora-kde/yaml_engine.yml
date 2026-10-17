@@ -1,0 +1,5 @@
+# yaml_engine.yml — fedora-kde
+# Configuración del motor de plantillas YAML
+version: "1.0"
+engine: "bash"
+entry_point: "task_catalog.sh"

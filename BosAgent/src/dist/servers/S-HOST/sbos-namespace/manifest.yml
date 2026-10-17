@@ -1,0 +1,44 @@
+identity:
+  id: sbos-namespace
+  server: S-HOST
+  version: 1.0.0
+  category: 1
+  criticality: true
+  description: "Namespace K8s + NetworkPolicy default-deny por tenant. Recibe TENANT_ID como variable de entorno."
+
+workload:
+  type: bash
+  runtime: bash
+
+order:
+  execution_order: 5
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-k8s
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "infraestructura-critica"
+
+meta:
+  backend: bash
+  idempotent: true
+  estimated_minutes: 2
+  rollback_support: true
+
+ports: []
+
+health:
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get namespace sbos-${TENANT_ID:-skull} --no-headers 2>/dev/null | wc -l"
+  expected_output: "1"
+  timeout_seconds: 10
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/sbos-namespace.log
+
+versions:
+  kubernetes: "1.32"

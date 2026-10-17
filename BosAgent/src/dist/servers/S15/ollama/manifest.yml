@@ -1,0 +1,50 @@
+identity:
+  id: ollama
+  server: S15
+  version: "0.6.2"
+  category: 3
+  criticality: false
+  description: "Ollama 0.6.2 — servidor de modelos LLM locales. Ejecuta modelos open-source (Llama 3.3, Mistral, Qwen) completamente en el servidor del cliente. Cero datos a la nube."
+
+workload:
+  type: deployment
+  runtime: kubernetes
+  namespace: sbos-ai
+  replicas: 1
+
+order:
+  execution_order: 500
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-platform
+
+governance:
+  auto_install: false
+  requires_approval: false
+  category_label: "ia-soberana"
+
+meta:
+  backend: k8s
+  idempotent: true
+  estimated_minutes: 10
+  rollback_support: true
+
+ports:
+  - name: http
+    port: 11434
+    protocol: TCP
+    internal_only: true
+
+health:
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get deployment ollama -n sbos-ai -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
+  expected_output: "1"
+  timeout_seconds: 60
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/ollama.log
+
+versions:
+  ollama: "0.6.2"

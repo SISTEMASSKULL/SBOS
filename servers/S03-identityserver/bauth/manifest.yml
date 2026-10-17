@@ -7,7 +7,7 @@ identity:
   category: 1
   criticality: true
   server: identityserver
-  description: "Daemon soberano de identidad — BitMask 64-bit, token unificado, sin Keycloak como PDP"
+  description: "Daemon soberano de identidad — BitMask 64-bit, token unificado"
 
 workload:
   type: SystemdService
@@ -40,7 +40,7 @@ ports:
     description: "JSON-RPC 2.0 — consumido por bos, bhnexus, kong plugin"
 
 governance:
-  auto_install: false
+  auto_install: true
   backup_enabled: false
   encryption_required: true
 

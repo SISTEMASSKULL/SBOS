@@ -1,0 +1,45 @@
+identity:
+  id: certbot
+  server: S02
+  version: 3.2.0
+  category: 2
+  criticality: true
+  description: "Certbot 3.2.0 en HOST S02 — certificados TLS Let's Encrypt. HTTP-01 challenge vía webroot de nginx. Renovación automática cada 60 días vía systemd timer. NO es pod K8s."
+
+workload:
+  type: bash
+  runtime: bash
+
+order:
+  execution_order: 180
+
+requirements:
+  os: "Ubuntu 26.04 LTS"
+  dependencies:
+    - nginx
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "seguridad-critica"
+
+meta:
+  backend: bash
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: true
+
+ports: []
+
+health:
+  type: command
+  command: "test -d /etc/letsencrypt/live && echo HEALTHY || echo DEGRADED"
+  timeout_seconds: 5
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/certbot.log
+
+versions:
+  package: "certbot=3.2.0-*"
+  namespace: null

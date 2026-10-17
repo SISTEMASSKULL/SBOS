@@ -1,0 +1,61 @@
+identity:
+  id: rabbitmq
+  server: S09
+  version: "4.0.7"
+  category: 1
+  criticality: false
+  description: "RabbitMQ 4.0.7 — broker de mensajes AMQP. Bus de eventos para comunicación asíncrona entre daemons SBOS (bKernel CDC, biedata, bNotify). Alternativa a Redis Streams para mensajes durables."
+
+workload:
+  type: statefulset
+  runtime: kubernetes
+  namespace: sbos-search
+  replicas: 1
+
+order:
+  execution_order: 405
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-platform
+
+governance:
+  auto_install: false
+  requires_approval: false
+  category_label: "mensajeria"
+
+meta:
+  backend: k8s
+  idempotent: true
+  estimated_minutes: 8
+  rollback_support: true
+
+ports:
+  - name: amqp
+    port: 5672
+    protocol: TCP
+    internal_only: true
+  - name: management
+    port: 15672
+    protocol: TCP
+    internal_only: false
+
+health:
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get statefulset rabbitmq -n sbos-search -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
+  expected_output: "1"
+  timeout_seconds: 30
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/rabbitmq.log
+
+vault:
+  secret_path: "secret/tenants/{{ tenant_id }}/rabbitmq"
+  keys:
+    - default_user
+    - default_pass
+    - erlang_cookie
+
+versions:
+  rabbitmq: "4.0.7"

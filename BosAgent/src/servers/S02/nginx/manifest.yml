@@ -33,7 +33,7 @@ deployment:
   strategy: RollingUpdate
 
 governance:
-  auto_install: false
+  auto_install: true
   backup_enabled: true
   backup_schedule: "0 3 * * 0"
 

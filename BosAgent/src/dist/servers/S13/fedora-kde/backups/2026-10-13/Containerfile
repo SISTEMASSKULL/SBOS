@@ -1,0 +1,125 @@
+FROM fedora:44
+
+LABEL maintainer="SBOS" \
+      description="SBOS VDI — Fedora 44 + KDE Plasma 6 + TigerVNC + noVNC 1.5.0" \
+      version="1.2.0"
+
+ENV LANG=es_ES.UTF-8 \
+    LC_ALL=es_ES.UTF-8 \
+    DISPLAY=:1 \
+    RESOLUTION=1280x720 \
+    DEPTH=16 \
+    LIBGL_ALWAYS_SOFTWARE=1 \
+    GALLIUM_DRIVER=llvmpipe \
+    NO_AT_BRIDGE=1 \
+    HOME=/home/vdiuser
+
+# ── Locales ───────────────────────────────────────────────────────────────────
+RUN dnf install -y glibc-langpack-es && dnf clean all
+
+# ── KDE Plasma 6 ─────────────────────────────────────────────────────────────
+RUN dnf install -y \
+    plasma-desktop \
+    plasma-workspace \
+    kwin \
+    kwin-x11 \
+    kde-settings \
+    polkit-kde \
+    plasma-breeze \
+    plasma-breeze-common \
+    breeze-gtk \
+    breeze-cursor-theme \
+    kde-gtk-config \
+    xdg-user-dirs \
+    xdg-utils \
+    dbus-x11 \
+    && dnf clean all
+
+# ── Aplicaciones corporativas ─────────────────────────────────────────────────
+RUN dnf install -y \
+    konsole \
+    dolphin \
+    kate \
+    firefox \
+    libreoffice-writer \
+    libreoffice-calc \
+    libreoffice-impress \
+    libreoffice-draw \
+    libreoffice-langpack-es \
+    && dnf clean all
+
+# ── Herramientas de escritorio básicas ────────────────────────────────────────
+RUN dnf install -y \
+    nano \
+    vim-minimal \
+    kcalc \
+    gwenview \
+    ark \
+    spectacle \
+    okular \
+    korganizer \
+    plasma-systemmonitor \
+    kvantum \
+    && dnf clean all
+
+# ── Chrome ────────────────────────────────────────────────────────────────────
+RUN printf '[google-chrome]\nname=Google Chrome\nbaseurl=https://dl.google.com/linux/chrome/rpm/stable/x86_64\nenabled=1\ngpgcheck=1\ngpgkey=https://dl.google.com/linux/linux_signing_key.pub\n' \
+        > /etc/yum.repos.d/google-chrome.repo \
+    && dnf install -y google-chrome-stable \
+    && dnf clean all \
+    && printf '#!/bin/bash\nexec /usr/bin/google-chrome-stable --no-sandbox --disable-dev-shm-usage "$@"\n' \
+        > /usr/local/bin/chrome \
+    && chmod +x /usr/local/bin/chrome
+
+# ── Portapapeles ──────────────────────────────────────────────────────────────
+RUN dnf install -y \
+    xdotool \
+    xclip \
+    && dnf clean all
+
+# ── VNC + utilidades ──────────────────────────────────────────────────────────
+RUN dnf install -y \
+    tigervnc-server \
+    python3-websockify \
+    scrot \
+    tini \
+    procps-ng \
+    && dnf clean all
+
+# ── noVNC 1.5.0 ───────────────────────────────────────────────────────────────
+RUN curl -fsSL https://github.com/novnc/noVNC/archive/refs/tags/v1.5.0.tar.gz \
+        -o /tmp/novnc.tar.gz \
+    && tar -xzf /tmp/novnc.tar.gz -C /tmp/ \
+    && mkdir -p /usr/share/novnc \
+    && cp -r /tmp/noVNC-1.5.0/core   /usr/share/novnc/ \
+    && cp -r /tmp/noVNC-1.5.0/vendor /usr/share/novnc/ \
+    && cp -r /tmp/noVNC-1.5.0/app    /usr/share/novnc/ \
+    && cp    /tmp/noVNC-1.5.0/vnc.html      /usr/share/novnc/ \
+    && cp    /tmp/noVNC-1.5.0/vnc_lite.html /usr/share/novnc/ \
+    && rm -rf /tmp/novnc.tar.gz /tmp/noVNC-1.5.0
+
+# ── Usuario VDI ───────────────────────────────────────────────────────────────
+RUN useradd -u 1001 -ms /bin/bash vdiuser \
+    && echo "vdiuser ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/vdiuser \
+    && chmod 440 /etc/sudoers.d/vdiuser
+
+# ── Configuración KDE por defecto: sin compositing (óptimo para VNC) ─────────
+RUN mkdir -p /home/vdiuser/.config \
+    && printf '[Compositing]\nEnabled=false\nAnimationSpeed=0\n[Plugins]\nblurEnabled=false\ncontrastEnabled=false\nkwin4_effect_fadeEnabled=false\nslidingpopupsEnabled=false\n' \
+       > /home/vdiuser/.config/kwinrc \
+    && printf '[General]\nShouldShow=false\n' \
+       > /home/vdiuser/.config/plasma-welcomerc \
+    && chown -R vdiuser:vdiuser /home/vdiuser/.config
+
+# ── Estructura SBOS VDI (integración futura bAuth + sbos-vdi-run) ─────────────
+RUN mkdir -p /etc/sbos-vdi/rights /usr/local/bin/sbos /var/log/sbos-vdi
+
+# ── Archivos del sistema ──────────────────────────────────────────────────────
+COPY resources/novnc-index.html /usr/share/novnc/index.html
+COPY resources/start-desktop.sh /start-desktop.sh
+RUN chmod +x /start-desktop.sh
+
+EXPOSE 6901
+
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["/start-desktop.sh"]

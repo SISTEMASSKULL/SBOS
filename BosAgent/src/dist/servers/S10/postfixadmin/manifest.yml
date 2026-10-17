@@ -1,0 +1,52 @@
+identity:
+  id: postfixadmin
+  server: S10
+  version: "3.3.15"
+  category: 2
+  criticality: false
+  description: "PostfixAdmin 3.3.15 — UI web para administrar dominios, buzones y alias del servidor de correo. Integrado con Keycloak SSO."
+
+workload:
+  type: deployment
+  runtime: kubernetes
+  namespace: sbos-comms
+  replicas: 1
+
+order:
+  execution_order: 305
+
+requirements:
+  dependencies:
+    - mailserver
+    - postgresql
+    - keycloak
+
+governance:
+  auto_install: false
+  requires_approval: false
+  category_label: "comunicaciones"
+
+meta:
+  backend: k8s
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: true
+
+ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    internal_only: false
+
+health:
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get deployment postfixadmin -n sbos-comms -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
+  expected_output: "1"
+  timeout_seconds: 30
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/postfixadmin.log
+
+versions:
+  postfixadmin: "3.3.15"

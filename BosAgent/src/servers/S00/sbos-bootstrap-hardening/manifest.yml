@@ -35,7 +35,7 @@ deployment:
   strategy: Recreate
 
 governance:
-  auto_install: false
+  auto_install: true
 
 
 health:
@@ -43,4 +43,3 @@ health:
   check_interval_seconds: 30
   check_timeout_seconds: 10
   consecutive_failures_threshold: 3
-

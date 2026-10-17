@@ -1,0 +1,39 @@
+# yaml_engine.yml — linkerd
+# Iteración 1: instalación básica linkerd + mTLS + auto-inject namespaces
+# Iteración 2 (futura): ServiceProfile por servicio, viz dashboard, jaeger tracing
+# Iteración 3 (futura): multicluster gateway, fault injection, circuit breaker tuning
+
+namespace: linkerd
+image: "cr.l5d.io/linkerd/controller:2.16.0"
+cli_image: "cr.l5d.io/linkerd/cli:2.16.0"
+
+install:
+  proxy_cpu_request: "50m"
+  proxy_memory_request: "64Mi"
+  proxy_cpu_limit: "500m"
+  proxy_memory_limit: "256Mi"
+
+mtls:
+  enabled: true
+  auto_inject: true
+
+auto_inject_namespaces:
+  - sbos-data
+  - sbos-security
+  - sbos-gateway
+  - sbos-system
+  - sbos-monitoring
+
+viz:
+  enabled: false
+
+jaeger:
+  enabled: false
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "256Mi"
+  limits:
+    cpu: "1"
+    memory: "512Mi"

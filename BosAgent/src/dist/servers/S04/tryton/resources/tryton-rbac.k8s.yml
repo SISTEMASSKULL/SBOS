@@ -1,0 +1,46 @@
+---
+# ServiceAccount para el pod de Tryton ERP.
+# Solo tiene acceso de lectura al Secret tryton-pg-secret (RBAC mínimo).
+# Generado por ficha tryton — no editar manualmente.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tryton-sa
+  namespace: sbos-erp
+  labels:
+    app: tryton
+    managed-by: bos
+    tenant: skull
+automountServiceAccountToken: false
+---
+# Role mínimo: solo leer el Secret de credenciales PG.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: tryton-role
+  namespace: sbos-erp
+  labels:
+    app: tryton
+    managed-by: bos
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get"]
+    resourceNames: ["tryton-pg-secret"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tryton-rolebinding
+  namespace: sbos-erp
+  labels:
+    app: tryton
+    managed-by: bos
+subjects:
+  - kind: ServiceAccount
+    name: tryton-sa
+    namespace: sbos-erp
+roleRef:
+  kind: Role
+  apiGroup: rbac.authorization.k8s.io
+  name: tryton-role

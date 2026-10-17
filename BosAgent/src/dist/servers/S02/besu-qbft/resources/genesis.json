@@ -1,0 +1,21 @@
+{
+  "config": {
+    "chainId": 1337,
+    "qbft": {
+      "blockperiodseconds": 2,
+      "epochlength": 30000,
+      "requesttimeoutseconds": 4
+    },
+    "londonBlock": 0,
+    "zeroBaseFee": true
+  },
+  "alloc": {
+    "0xD2Fe542a74c9A7C45d52FcBB62F6b61032F4420A": {
+      "balance": "0x3635C9ADC5DEA00000"
+    }
+  },
+  "coinbase": "0x0000000000000000000000000000000000000000",
+  "difficulty": "0x1",
+  "gasLimit": "0x1fffffffffffff",
+  "extraData": "0xf83aa00000000000000000000000000000000000000000000000000000000000000000d5943caea8b153a7e5522630ad8ab59e8194d6f3cc92c080c0"
+}

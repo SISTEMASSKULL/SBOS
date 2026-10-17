@@ -1,0 +1,55 @@
+identity:
+  id: prometheus
+  server: S12
+  version: 3.4.0
+  category: 1
+  criticality: true
+  description: "Prometheus 3.4.0 — motor de métricas. Scraping de daemons SBOS (9400-9499), K8s nodes/pods, Alertmanager integrado."
+
+workload:
+  type: Deployment
+  runtime: kubernetes
+
+order:
+  execution_order: 200
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-k8s
+    - sbos-bootstrap-cni
+    - sbos-bootstrap-storage
+    - sbos-bootstrap-monitoring
+    - vault
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "observabilidad"
+
+meta:
+  backend: helm
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: true
+
+ports:
+  - port: 9090
+    protocol: TCP
+    description: "Prometheus API + UI"
+    cluster_ip: 9090
+    internal_only: true
+
+health:
+  type: http
+  path: /-/ready
+  port: 9090
+  timeout_seconds: 10
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/prometheus.log
+
+versions:
+  image: "prom/prometheus:v3.4.0"
+  pv_name: sbos-prometheus-pv
+  namespace: sbos-monitoring

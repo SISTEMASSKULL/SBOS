@@ -1,0 +1,32 @@
+# yaml_engine.yml — certbot (HOST S02, NO pod K8s)
+# Iteración 1: certbot en host, HTTP-01 challenge, systemd timer renovación
+# Iteración 2 (futura): producción Let's Encrypt, webhook renewal notifier
+# Iteración 3 (futura): DNS-01 challenge, wildcard certs
+
+runtime: host
+package: certbot
+version: "3.2.0"
+
+paths:
+  certs: /etc/letsencrypt
+  webroot: /var/www/certbot
+  scripts: /usr/local/sbin
+  log: /var/log/letsencrypt
+
+mode: staging
+
+domains:
+  primary: "sbos.sksistemas.com"
+
+challenge:
+  type: http-01
+  webroot: /var/www/certbot
+
+renewal:
+  timer: certbot-renew.timer
+  schedule: "weekly"
+  days_before_expiry: 30
+
+email: admin@sksistemas.com
+
+nginx_reload: "systemctl reload nginx"

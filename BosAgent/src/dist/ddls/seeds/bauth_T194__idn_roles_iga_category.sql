@@ -1,0 +1,13 @@
+-- bauth_T194__idn_roles_iga_category.sql — Seed generado de VPS SBOSDB
+-- Filas: 7 · Idempotente: ON CONFLICT DO NOTHING
+SET lock_timeout = '5s';
+
+INSERT INTO bauth.idn_roles_iga_category VALUES ('52632dd0-04da-4816-b259-7f99fc147101', 'BUSINESS', '{"en": "Business", "es": "Negocio"}', '{"en": "Business process operational roles", "es": "Roles operativos del proceso de negocio"}', false, 365, 1, true, '2026-07-24 01:57:20.838796+00') ON CONFLICT DO NOTHING;
+INSERT INTO bauth.idn_roles_iga_category VALUES ('6b377435-a543-469f-a33f-cfc193f1759a', 'IT_INFRASTRUCTURE', '{"en": "IT Infrastructure", "es": "Infraestructura TI"}', '{"en": "Technical roles: sysadmin, DBA, devops", "es": "Roles técnicos: sysadmin, DBA, devops"}', true, 90, 2, true, '2026-07-24 01:57:20.838796+00') ON CONFLICT DO NOTHING;
+INSERT INTO bauth.idn_roles_iga_category VALUES ('de36979d-c8eb-433f-a150-4a8ea124ee61', 'APPLICATION', '{"en": "Application", "es": "Aplicación"}', '{"en": "Module or application specific roles", "es": "Roles específicos de un módulo o aplicación"}', false, 365, 3, true, '2026-07-24 01:57:20.838796+00') ON CONFLICT DO NOTHING;
+INSERT INTO bauth.idn_roles_iga_category VALUES ('9276cc62-d355-48a9-b609-e8e0529dc812', 'PRIVILEGED', '{"en": "Privileged", "es": "Privilegiado"}', '{"en": "Elevated privilege roles — PAM and quarterly certification", "es": "Roles con privilegio elevado — PAM y certificación trimestral"}', true, 90, 4, true, '2026-07-24 01:57:20.838796+00') ON CONFLICT DO NOTHING;
+INSERT INTO bauth.idn_roles_iga_category VALUES ('e5878d76-0918-41f5-95b2-168ba212bf99', 'EMERGENCY', '{"en": "Emergency", "es": "Emergencia"}', '{"en": "Break-glass roles — exceptional use with forced audit trail", "es": "Roles break-glass — uso excepcional con audit trail forzado"}', true, 30, 5, true, '2026-07-24 01:57:20.838796+00') ON CONFLICT DO NOTHING;
+INSERT INTO bauth.idn_roles_iga_category VALUES ('773db366-2619-4a0f-aa0c-c66c1152e280', 'SERVICE', '{"en": "Service", "es": "Servicio"}', '{"en": "Service account and non-human NHI roles", "es": "Roles de cuentas de servicio y NHI no humanos"}', true, 90, 6, true, '2026-07-24 01:57:20.838796+00') ON CONFLICT DO NOTHING;
+INSERT INTO bauth.idn_roles_iga_category VALUES ('5d954672-0dd3-45ab-8dbb-7d467a0b3d39', 'STANDARD', '{"en": "Standard", "es": "Estándar"}', '{"en": "General purpose roles without special classification", "es": "Roles de uso general sin clasificación especial"}', false, 365, 7, true, '2026-07-24 01:57:20.838796+00') ON CONFLICT DO NOTHING;
+
+SELECT 'T194__idn_roles_iga_category: ' || 7 || ' filas' AS resultado;

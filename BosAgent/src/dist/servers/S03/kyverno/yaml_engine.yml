@@ -1,0 +1,71 @@
+# yaml_engine.yml — kyverno
+# Iteración 1: install kyverno + políticas audit mode (require-probes, forbid-hostport)
+# Iteración 2 (futura): enforce mode, verify-oci-signature, require-networkpolicy
+# Iteración 3 (futura): cleanup policies, mutate policies, generate policies
+
+namespace: kyverno
+image: "ghcr.io/kyverno/kyverno:v1.13.0"
+
+mode: audit
+
+policies:
+  - name: require-probes
+    description: "Todo Deployment/StatefulSet debe tener readinessProbe y livenessProbe"
+    mode: audit
+    rule: |
+      validate:
+        message: "readinessProbe y livenessProbe son obligatorios"
+        pattern:
+          spec:
+            template:
+              spec:
+                containers:
+                  - readinessProbe: "?*"
+                    livenessProbe: "?*"
+
+  - name: forbid-hostport
+    description: "Prohíbe el uso de hostPort en los pods"
+    mode: audit
+    rule: |
+      validate:
+        message: "hostPort está prohibido por política SBOS"
+        pattern:
+          spec:
+            template:
+              spec:
+                containers:
+                  - =(ports):
+                      - X(hostPort): 0
+
+  - name: forbid-privileged
+    description: "Prohíbe contenedores privilegiados"
+    mode: audit
+    rule: |
+      validate:
+        message: "Contenedores privilegiados prohibidos"
+        pattern:
+          spec:
+            template:
+              spec:
+                containers:
+                  - securityContext:
+                      privileged: false
+
+  - name: require-networkpolicy
+    description: "Todo namespace debe tener al menos una NetworkPolicy"
+    mode: audit
+    rule: |
+      validate:
+        message: "Cada namespace debe tener NetworkPolicy(s)"
+        pattern:
+          metadata:
+            labels:
+              sbos-tier: "true"
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "1"
+    memory: "512Mi"

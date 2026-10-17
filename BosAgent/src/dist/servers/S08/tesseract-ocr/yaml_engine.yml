@@ -1,0 +1,8 @@
+# yaml_engine.yml — tesseract-ocr
+# image: "minizinc/tesseract:5.5.0-1"
+
+deployment:
+  image: "minizinc/tesseract:5.5.0-1"
+namespace: sbos-docs
+languages: [spa, eng, que]
+port: 8884

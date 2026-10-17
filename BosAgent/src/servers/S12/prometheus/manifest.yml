@@ -1,6 +1,5 @@
 # manifest.yml — Ficha prometheus (SBOS-035 Ficha 14)
 # SBOS-049 §4 · Order 200 · StatefulSet
-# Bootstrap observabilidad: scrape de métricas de todos los agentes y servicios
 identity:
   id: prometheus
   name: Prometheus
@@ -34,7 +33,7 @@ deployment:
   strategy: Recreate
 
 governance:
-  auto_install: false
+  auto_install: true
   backup_enabled: false
   backup_schedule: ""
 

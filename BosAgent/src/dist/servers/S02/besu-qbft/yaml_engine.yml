@@ -1,0 +1,110 @@
+# yaml_engine.yml — besu-qbft
+# Iteración 1: Besu QBFT 1 validador, podman/pod simple, RPC :8545 + WS :8546
+#   - Idempotente: verifica genesis_hash + chain_id + block_height antes de instalar
+#   - Contrato SettlementEngine.sol desplegado via cast (CI/CD o manual)
+#   - Datos en /tmp/besu-qbft-data (staging); PV 50Gi en producción
+# Iteración 2: StatefulSet 4 validadores QBFT (3f+1, f=1), PKI TLS, Vault PKCS#11
+# Iteración 3: HSM claves, snapshot MinIO, métricas Prometheus
+
+# ── Runtime ─────────────────────────────────────────────────────────
+runtime: podman
+container_name: besu-qbft
+image: "docker.io/hyperledger/besu:24.12.0"
+image_sha: "6cac022d679e4a256ae5ab2164a12c471f90c53636e21df2779922c09e1adb5a"
+
+# ── Consenso QBFT ───────────────────────────────────────────────────
+consensus:
+  type: qbft
+  chain_id: 1337
+  block_period_seconds: 2
+  epoch_length: 30000
+  request_timeout_seconds: 4
+  validators: 1
+  validator_address: "0x3caea8b153a7e5522630ad8ab59e8194d6f3cc92"
+  validator_enode_id: "985a62843edaae583275b49d63a92580bb11df77959d2d3a936818aeff3ac8ce5d3cacf18aa631372c05e2d79b2da8b5ddd084ede66f750b0ae40bcad5633336"
+  coinbase: "0xD2Fe542a74c9A7C45d52FcBB62F6b61032F4420A"
+
+# ── Archivos de configuración (host) ─────────────────────────────────
+host_config:
+  config_dir: /tmp/besu-qbft-config
+  genesis_file: /tmp/besu-qbft-config/genesis.json
+  keys_dir: /tmp/besu-qbft-config/keys/0x3caea8b153a7e5522630ad8ab59e8194d6f3cc92
+  data_dir: /tmp/besu-qbft-data  # dentro del contenedor: 87MB actual
+  validator_key_host: /etc/bos/besu-validator.key
+
+# ── Puertos ─────────────────────────────────────────────────────────
+service:
+  rpc_http_port: 8545
+  rpc_ws_port: 8546
+  p2p_port: 30303
+  host_bind: "0.0.0.0"
+
+# ── RPC APIs ────────────────────────────────────────────────────────
+rpc:
+  http_enabled: true
+  http_host: "0.0.0.0"
+  http_port: 8545
+  http_api: "ETH,NET,WEB3,ADMIN,DEBUG,TXPOOL,QBFT"
+  http_cors: "all"
+  ws_enabled: true
+  ws_host: "0.0.0.0"
+  ws_port: 8546
+  ws_api: "ETH,NET,WEB3,QBFT"
+  graphql_enabled: false
+  host_allowlist: "*"
+
+# ── Idempotencia (3 checks progresivos) ─────────────────────────────
+idempotency:
+  checks:
+    check1_chain_id:
+      method: eth_chainId
+      expected: "0x539"  # 1337 en hex
+      rpc_url: "http://127.0.0.1:8545"
+      description: "Si eth_chainId retorna 0x539, la red Besu ya está viva → skip total."
+    check2_block_height:
+      method: eth_blockNumber
+      min_value: 1
+      rpc_url: "http://127.0.0.1:8545"
+      description: "Si eth_blockNumber > 0, la red está produciendo bloques activamente."
+    check3_genesis_hash:
+      method: admin_nodeInfo
+      json_path: "result.protocols.eth.genesis"
+      expected: "0x38a9e927b658596494bb56cfbb81f191cd8b612e383df56741b0a672b6d5d92d"
+      description: "Hash SHA3-256 del bloque génesis. Coincidencia exacta = misma cadena."
+
+# ── Contratos ───────────────────────────────────────────────────────
+contracts:
+  settlement_engine:
+    solc_version: "0.8.26"
+    bytecode_bytes: 15771
+    gas_deploy: 1748777
+    address_staging: "0x4B89c313aad8584F9CE8825633A95e0d23bcE310"
+    deploy_tx: "cast send --rpc-url http://127.0.0.1:8545 --private-key <key> --legacy --gas-limit 3000000 --create <bytecode>"
+  audit_anchor:
+    solc_version: "0.8.26"
+    address_staging: ""
+
+# ── Recursos ────────────────────────────────────────────────────────
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+
+# ── Reconciliación ──────────────────────────────────────────────────
+reconcile:
+  interval_minutes: 15
+  onchain_to_postgres: true
+  drift_detection: true
+  auto_restart_on_stall: true
+  max_block_gap: 10
+
+# ── Health ──────────────────────────────────────────────────────────
+health:
+  liveness_endpoint: "/liveness"
+  liveness_port: 8545
+  readiness_check: "eth_blockNumber > 0"
+  restart_policy: "on-failure"
+  restart_max_retries: 5
