@@ -178,7 +178,33 @@ exec /usr/bin/google-chrome-stable \\\n\
     && printf '[Desktop Entry]\nVersion=1.0\nType=Application\nName=OnlyOffice\nGenericName=Suite ofimática\nComment=Editor de documentos colaborativo SBOS\nExec=sbos-webapp --name=OnlyOffice --url=http://onlyoffice.sbos-vdi.svc.cluster.local/\nIcon=/usr/share/icons/sbos/onlyoffice.svg\nTerminal=false\nCategories=SBOS;\nStartupWMClass=sbos-OnlyOffice\n' \
          > /usr/share/applications/sbos/onlyoffice.desktop \
     && printf '[Desktop Entry]\nVersion=1.0\nType=Application\nName=Tryton\nGenericName=Tryton\nComment=Tryton — software de gestión empresarial\nExec=sbos-webapp --name=Tryton --url=http://tryton.sbos-erp.svc.cluster.local:8000/\nIcon=/usr/share/icons/sbos/tryton.svg\nTerminal=false\nCategories=SBOS;\nStartupWMClass=sbos-Tryton\n' \
-         > /usr/share/applications/sbos/tryton.desktop \
+         > /usr/share/applications/sbos/tryton.desktop
+
+# ── Iconos adicionales: OrangeHRM, GNU Health, Keycloak, Zabbix, Trilium ──────
+RUN curl -fsSL "https://raw.githubusercontent.com/orangehrm/orangehrm/master/src/client/src/assets/images/OrangeLogo.svg" \
+         -o /usr/share/icons/sbos/orangehrm.svg 2>/dev/null \
+         || printf '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#FF6600"/><text x="50" y="60" text-anchor="middle" font-size="30" fill="white">HR</text></svg>' \
+         > /usr/share/icons/sbos/orangehrm.svg \
+    && printf '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#006400"/><text x="50" y="60" text-anchor="middle" font-size="24" fill="white">GH</text></svg>' \
+         > /usr/share/icons/sbos/gnuhealth.svg \
+    && curl -fsSL "https://raw.githubusercontent.com/keycloak/keycloak/main/themes/src/main/resources/theme/keycloak/welcome/resources/img/keycloak_logo_480x108.svg" \
+         -o /usr/share/icons/sbos/keycloak.svg 2>/dev/null \
+         || printf '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#4D4D4D"/><text x="50" y="60" text-anchor="middle" font-size="24" fill="white">KC</text></svg>' \
+         > /usr/share/icons/sbos/keycloak.svg \
+    && printf '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect x="5" y="5" width="90" height="90" rx="8" fill="#CC0000"/><text x="50" y="60" text-anchor="middle" font-size="22" fill="white">ZBX</text></svg>' \
+         > /usr/share/icons/sbos/zabbix.svg \
+    && printf '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#2D6A9F"/><text x="50" y="60" text-anchor="middle" font-size="22" fill="white">TN</text></svg>' \
+         > /usr/share/icons/sbos/trilium.svg \
+    && printf '[Desktop Entry]\nVersion=1.0\nType=Application\nName=OrangeHRM\nGenericName=Recursos Humanos\nComment=Gestión de RRHH corporativo\nExec=sbos-webapp --name=OrangeHRM --url=http://orangehrm.sbos-erp.svc.cluster.local/\nIcon=/usr/share/icons/sbos/orangehrm.svg\nTerminal=false\nCategories=SBOS;\nStartupWMClass=sbos-OrangeHRM\n' \
+         > /usr/share/applications/sbos/orangehrm.desktop \
+    && printf '[Desktop Entry]\nVersion=1.0\nType=Application\nName=GNU Health\nGenericName=Salud Corporativa\nComment=Sistema de gestión de salud SBOS\nExec=sbos-webapp --name=GNUHealth --url=http://gnu-health.sbos-erp.svc.cluster.local:8000/\nIcon=/usr/share/icons/sbos/gnuhealth.svg\nTerminal=false\nCategories=SBOS;\nStartupWMClass=sbos-GNUHealth\n' \
+         > /usr/share/applications/sbos/gnuhealth.desktop \
+    && printf '[Desktop Entry]\nVersion=1.0\nType=Application\nName=Keycloak IAM\nGenericName=Gestión de Identidad\nComment=Administración de identidades SBOS\nExec=sbos-webapp --name=Keycloak --url=http://keycloak.sbos-security.svc.cluster.local:8080/admin/skull/console/\nIcon=/usr/share/icons/sbos/keycloak.svg\nTerminal=false\nCategories=SBOS;\nStartupWMClass=sbos-Keycloak\n' \
+         > /usr/share/applications/sbos/keycloak.desktop \
+    && printf '[Desktop Entry]\nVersion=1.0\nType=Application\nName=Zabbix Monitor\nGenericName=Monitoreo\nComment=Monitoreo de infraestructura SBOS\nExec=sbos-webapp --name=Zabbix --url=http://zabbix-zabbix-web.sbos-monitor.svc.cluster.local:8080/\nIcon=/usr/share/icons/sbos/zabbix.svg\nTerminal=false\nCategories=SBOS;\nStartupWMClass=sbos-Zabbix\n' \
+         > /usr/share/applications/sbos/zabbix.desktop \
+    && printf '[Desktop Entry]\nVersion=1.0\nType=Application\nName=Trilium Notes\nGenericName=Notas Corporativas\nComment=Gestor de notas y conocimiento SBOS\nExec=sbos-webapp --name=Trilium --url=http://trilium-notes.sbos-docs.svc.cluster.local:8080/\nIcon=/usr/share/icons/sbos/trilium.svg\nTerminal=false\nCategories=SBOS;\nStartupWMClass=sbos-Trilium\n' \
+         > /usr/share/applications/sbos/trilium.desktop \
     \
     # Menú KDE: registrar la categoría SBOS
     && mkdir -p /etc/xdg/menus/applications-merged \
