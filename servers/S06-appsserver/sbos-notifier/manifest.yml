@@ -24,6 +24,10 @@ workload:
   server:     "S06"         # appserver — aplicaciones de negocio
   runtime:    podman        # OCI — Docker vetado (SBOS-004-RULES S8)
 
+order:
+  execution_order: 170
+  timeout_minutes: 15
+
 # ------------------------------------------------------------
 # Dependencias — bos garantiza orden topológico en el DAG
 # ------------------------------------------------------------
@@ -51,13 +55,13 @@ ports:
   http:       28200
   https:      28201
   metrics:    28202   # expone /metrics — Prometheus
-  governance:
-  auto_install: true
-  requires_approval: false
-
-health:     28203   # expone /health y /ready — K8s probes
+  health:     28203   # expone /health y /ready — K8s probes
   ntfy:       28204   # ntfy HTTP API interna
   ntfy_ws:    28205   # ntfy WebSocket — Vue / Flutter / CLI
+
+governance:
+  auto_install: true
+  requires_approval: false
 
 # ------------------------------------------------------------
 # Base de datos — PostgreSQL obligatorio (ADR-005)

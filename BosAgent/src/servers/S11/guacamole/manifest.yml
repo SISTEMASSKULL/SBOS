@@ -36,6 +36,8 @@ deployment:
   strategy: RollingUpdate
 
 governance:
+  auto_install: true
+  requires_approval: false
   oidc_client: guacamole        # client en realm KC del tenant
   kong_route: "vdi.{tenant}.sksistemas.com"
   backup_enabled: false         # estado en guacamole_db (respaldado por postgresql)
