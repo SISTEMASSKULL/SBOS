@@ -166,6 +166,19 @@ ficha_install() {
         -p "[{\"op\":\"replace\",\"path\":\"/data/host\",\"value\":\"${encoded_host}\"}]" \
         >> "$FICHA_LOG" 2>&1 || true
 
+    # El helm chart de zabbix 7.1.0 deja el Service con puertos duplicados
+    # en upgrades sucesivos — eliminar antes para que helm lo recree limpio.
+    if _k get svc zabbix-zabbix-web -n "$NS" &>/dev/null; then
+        local dup
+        dup=$(_k get svc zabbix-zabbix-web -n "$NS" \
+            -o jsonpath='{.spec.ports[*].name}' 2>/dev/null | \
+            tr ' ' '\n' | sort | uniq -d || echo "")
+        if [[ -n "$dup" ]]; then
+            _log "Service zabbix-zabbix-web tiene puertos duplicados ($dup) — eliminando"
+            _k delete svc zabbix-zabbix-web -n "$NS" >> "$FICHA_LOG" 2>&1 || true
+        fi
+    fi
+
     KUBECONFIG="$KUBECONFIG_DEST" helm upgrade --install zabbix zabbix-community/zabbix \
         --namespace "$NS" \
         --version "7.1.0" \

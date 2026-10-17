@@ -1,0 +1,54 @@
+identity:
+  id: oauth2-proxy
+  server: S02
+  version: 7.8.0
+  category: 1
+  criticality: true
+  description: "OAuth2-Proxy 7.8.0 — proxy de autenticación OIDC. Valida tokens contra Keycloak, inyecta headers X-Forwarded-User/Email/Groups. Protege apps internas sin lógica de auth."
+
+workload:
+  type: Deployment
+  runtime: kubernetes
+
+order:
+  execution_order: 150
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-k8s
+    - sbos-bootstrap-cni
+    - keycloak
+    - vault
+    - kong
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "seguridad-critica"
+
+meta:
+  backend: helm
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: true
+
+ports:
+  - port: 4180
+    protocol: TCP
+    description: "OAuth2-Proxy HTTP (Iteración 1: sin TLS — nginx termina TLS)"
+    cluster_ip: 8210
+    internal_only: true
+
+health:
+  type: http
+  path: /ping
+  port: 4180
+  timeout_seconds: 5
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/oauth2-proxy.log
+
+versions:
+  image: "quay.io/oauth2-proxy/oauth2-proxy:v7.8.0"
+  namespace: sbos-security

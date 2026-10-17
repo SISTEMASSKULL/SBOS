@@ -1,0 +1,22 @@
+# yaml_engine.yml — tempo
+# Grafana Tempo — trazado distribuido OTLP.
+
+deployment:
+  image: "grafana/tempo:2.7.2"
+  namespace: sbos-monitor
+  replicas: 1
+  storage:
+    pvc_size: 10Gi
+    storage_class: local-path
+
+config:
+  storage_backend: local
+  retention: 336h   # 14 días
+  receivers:
+    otlp_grpc: 4317
+    otlp_http: 4318
+
+datasource_grafana:
+  type: tempo
+  url: "http://tempo:3200"
+  name: "SBOS Tempo"

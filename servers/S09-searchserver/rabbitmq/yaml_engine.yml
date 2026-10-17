@@ -1,0 +1,9 @@
+# yaml_engine.yml — rabbitmq
+# image: "rabbitmq:4.0.7-management"
+
+deployment:
+  image: "rabbitmq:4.0.7-management"
+namespace: sbos-search
+type: statefulset
+amqp_port: 5672
+management_port: 15672

@@ -1,0 +1,21 @@
+# yaml_engine.yml — mailserver
+# docker-mailserver 14.0.0 — Postfix + Dovecot + Rspamd + ClamAV.
+
+deployment:
+  image: "ghcr.io/docker-mailserver/docker-mailserver:14.0.0"
+  namespace: sbos-comms
+  type: statefulset
+  replicas: 1
+  storage:
+    mail_data: 50Gi
+    mail_state: 2Gi
+
+config:
+  hostname: "mail"
+  domain: "{{ domain }}"
+  ssl_type: "letsencrypt"
+  enable_spamassassin: true
+  enable_clamav: true
+  enable_fail2ban: true
+  enable_postgrey: false
+  dkim_signing: true

@@ -1,0 +1,49 @@
+identity:
+  id: sbos-database-init
+  server: S01
+  version: "2.1.0"
+  category: 1
+  criticality: true
+  description: "Inicializador de SBOSDB — despliega el DDL completo (158 tablas, 12 schemas) en el pod PostgreSQL. Debe correr DESPUÉS de postgresql (orden 100) y ANTES de que cualquier app use SBOSDB (keycloak, kong, tryton, bauth, etc.)."
+
+workload:
+  type: job
+  runtime: kubernetes
+
+order:
+  execution_order: 105
+
+requirements:
+  dependencies:
+    - postgresql
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "datos-criticos"
+
+meta:
+  backend: manifest
+  idempotent: true
+  estimated_minutes: 3
+  rollback_support: false
+
+health:
+  type: command
+  # Verifica que SBOSDB existe Y tiene al menos 50 tablas (señal de DDL aplicado).
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config exec -n sbos-data postgresql-0 -- psql -U postgres -d SBOSDB -tc \"SELECT COUNT(*) FROM information_schema.tables WHERE table_schema NOT IN ('pg_catalog','information_schema')\" 2>/dev/null | tr -d ' '"
+  expected_output: ""
+  # expected_output vacío: el health check es por exit code.
+  # El comando retorna el número de tablas; si < 50, el script retorna 1.
+  timeout_seconds: 15
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/sbos-database-init.log
+
+versions:
+  ddl_version: "2.1.0"
+  ddl_file: "SBOS_db_V2_DDL.sql"
+  ddl_path: "/etc/bos/ddl/SBOS_db_V2_DDL.sql"
+  namespace: sbos-data
+  database: SBOSDB

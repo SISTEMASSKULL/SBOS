@@ -1,0 +1,49 @@
+identity:
+  id: sbos-kong-tenant
+  server: S02
+  version: 1.0.0
+  category: 1
+  criticality: true
+  description: >
+    Configura el enrutamiento Kong para el tenant inicial (tenant bootstrapping).
+    Crea rutas Kong por Host-header para el tenant activo: dominio raíz y subdominios.
+    Se ejecuta una vez en instalación y es idempotente.
+    El enrutamiento de tenants adicionales lo gestiona la saga bos.tenant.create.
+
+workload:
+  type: host
+  runtime: bash
+
+order:
+  execution_order: 165
+
+requirements:
+  dependencies:
+    - kong
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "gateway"
+
+meta:
+  backend: kong-admin-api
+  idempotent: true
+  estimated_minutes: 2
+  rollback_support: true
+
+health:
+  # BUG-41: la imagen de Kong no tiene curl/wget — kubectl exec siempre falla.
+  # La verificación real la hace ficha_health() en task_catalog.sh usando port-forward.
+  # El framework usa type:none para skip el verify step y confiar en ficha_health().
+  type: none
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/sbos-kong-tenant.log
+
+versions:
+  kong: "3.9.0"
+
+# NOTA: Esta ficha solo configura el tenant inicial (instalación day-0).
+# Para agregar tenants en producción usar: bos.tenant.create (saga bos)
