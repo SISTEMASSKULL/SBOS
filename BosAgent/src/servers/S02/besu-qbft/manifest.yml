@@ -19,8 +19,8 @@ requirements:
     - vault
 
 governance:
-  auto_install: true
-  requires_approval: false
+  auto_install: false
+  requires_approval: true
   category_label: "blockchain-critica"
 
 meta:
@@ -60,8 +60,10 @@ ports:
     internal_only: true
 
 health:
-  type: command
-  command: "podman inspect --format '{{.State.Running}}' besu-qbft 2>/dev/null | grep -q true"
+  type: http
+  endpoint: "/liveness"
+  port: 8545
+  expected_code: 200
   timeout_seconds: 15
 
 audit:

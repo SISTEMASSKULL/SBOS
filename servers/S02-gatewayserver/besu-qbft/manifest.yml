@@ -19,8 +19,8 @@ requirements:
     - vault
 
 governance:
-  auto_install: true
-  requires_approval: false
+  auto_install: false
+  requires_approval: true
   category_label: "blockchain-critica"
 
 meta:
