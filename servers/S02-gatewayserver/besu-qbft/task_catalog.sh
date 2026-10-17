@@ -56,6 +56,34 @@ _pod_ready() {
     (( r >= 1 ))
 }
 
+# Detectar si el pod está en Terminating (bloqueado por webhooks o kubelet bajo presión)
+_pod_terminating() {
+    local term
+    term=$(_k get pod "${APP}-0" -n "$NS" \
+        -o jsonpath='{.metadata.deletionTimestamp}' 2>/dev/null || echo "")
+    [[ -n "$term" ]]
+}
+
+# Forzar eliminación de pod Terminating atascado (BUG-39: kyverno webhooks)
+_limpiar_pod_terminating() {
+    if _pod_terminating; then
+        local edad
+        edad=$(_k get pod "${APP}-0" -n "$NS" \
+            -o jsonpath='{.metadata.deletionTimestamp}' 2>/dev/null || echo "")
+        _log "Pod ${APP}-0 en Terminating desde $edad — forzando eliminación (grace-period=0)"
+        _k delete pod "${APP}-0" -n "$NS" --grace-period=0 --force \
+            >> "$FICHA_LOG" 2>&1 || true
+        # Esperar que desaparezca
+        local t=0
+        while (( t < 60 )); do
+            _pod_terminating || { _log "Pod Terminating eliminado (${t}s)"; return 0; }
+            sleep 5; t=$((t+5))
+        done
+        _log "ADVERTENCIA: pod Terminating aún presente tras 60s de force-delete"
+    fi
+    return 0
+}
+
 _wait_pod_ready() {
     local t="${1:-300}" e=0
     while (( e < t )); do
@@ -83,7 +111,7 @@ ficha_install() {
     mkdir -p "$(dirname "$FICHA_LOG")"
 
     # Idempotencia: pod Ready + RPC responde chain_id correcto → skip
-    if _pod_ready; then
+    if _pod_ready && ! _pod_terminating; then
         local cid
         cid=$(_rpc_chain_id)
         if [[ "$cid" == "$CHAIN_ID" ]]; then
@@ -366,6 +394,14 @@ except:
 
 ficha_repair() {
     _log "ficha_repair: verificando estado Besu QBFT K8s"
+
+    # BUG-39: pod Terminating atascado (kyverno webhooks o kubelet bajo presión)
+    if _pod_terminating; then
+        _log "Pod Terminating detectado — limpiando antes de continuar"
+        _limpiar_pod_terminating
+        sleep 5
+    fi
+
     if _pod_ready; then
         local cid
         cid=$(_rpc_chain_id 2>/dev/null || echo "")
@@ -387,7 +423,7 @@ ficha_test() {
     local ok=0
 
     echo "${__STEP_START__} test_pod_ready"
-    if _pod_ready; then
+    if _pod_ready && ! _pod_terminating; then
         echo "${__STEP_OK__} test_pod_ready"
     else
         echo "${__STEP_FAIL__} test_pod_ready"; ok=1

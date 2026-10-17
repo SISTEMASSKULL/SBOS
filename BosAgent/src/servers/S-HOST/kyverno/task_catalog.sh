@@ -135,7 +135,7 @@ ficha_install() {
 
     # ── 3. NetworkPolicy ──────────────────────────────────────────
     echo "${__STEP_START__} networkpolicy_kyverno"
-    _apply "np-kyverno" "apiVersion: networking.k8s.io/v1
+    _apply "np-kyverno-webhook" "apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-kyverno-webhook
@@ -156,6 +156,23 @@ spec:
       ports:
         - protocol: TCP
           port: 8000" || true
+
+    # Egress al kube-apiserver (10.96.0.1:443) — sin esto kyverno no puede
+    # conectarse al apiserver y entra en CrashLoopBackOff (BUG-36 parte 2).
+    _apply "np-kyverno-apiserver-egress" "apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-kyverno-apiserver-egress
+  namespace: ${NS}
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 6443" || true
     echo "${__STEP_OK__} networkpolicy_kyverno"
 
     _log "kyverno instalado (4 políticas audit mode)"
@@ -304,11 +321,68 @@ spec:
 # ── Repair ────────────────────────────────────────────────────────
 ficha_repair() {
     echo "${__STEP_START__} reparar_politicas"
-    # Re-aplica todas las políticas desde el source (restaura namespaceSelector
-    # y patrones correctos si el cluster divergió del source).
     _aplicar_politicas_sbos
     _log "Políticas SBOS re-aplicadas desde source"
     echo "${__STEP_OK__} reparar_politicas"
+
+    # Garantizar NetworkPolicy de egress al apiserver (BUG-36 parte 2)
+    echo "${__STEP_START__} reparar_networkpolicy_egress"
+    _apply "np-kyverno-apiserver-egress" "apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-kyverno-apiserver-egress
+  namespace: ${NS}
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 6443" || true
+    echo "${__STEP_OK__} reparar_networkpolicy_egress"
+
+    # Detectar pods en CrashLoopBackOff o no Ready → recrear (BUG-39)
+    echo "${__STEP_START__} verificar_pods_saludables"
+    local pods_not_ready
+    pods_not_ready=$(_k get pods -n "$NS" \
+        --no-headers 2>/dev/null | grep -v "Running\|Completed" | grep -v "^$" || true)
+
+    local admission_ready
+    admission_ready=$(_k get pods -n "$NS" -l app.kubernetes.io/component=admission-controller \
+        -o jsonpath='{.items[*].status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "")
+
+    if [[ ! "$admission_ready" =~ True ]]; then
+        _log "Admission controller no Ready — forzando recreación de pods (BUG-39)"
+        # Eliminar pods para que los Deployments los recreen con estado limpio
+        _k delete pods --all -n "$NS" --grace-period=5 >> "$FICHA_LOG" 2>&1 || true
+        # Esperar hasta 120s a que admission-controller arranque
+        local t=0
+        while (( t < 120 )); do
+            local ready
+            ready=$(_k get pods -n "$NS" -l app.kubernetes.io/component=admission-controller \
+                -o jsonpath='{.items[*].status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "")
+            if [[ "$ready" =~ True ]]; then
+                _log "Admission controller Ready tras recreación (${t}s)"
+                break
+            fi
+            sleep 10; t=$((t+10))
+            (( t % 30 == 0 )) && _log "Esperando admission controller... ${t}/120s"
+        done
+        local final_ready
+        final_ready=$(_k get pods -n "$NS" -l app.kubernetes.io/component=admission-controller \
+            -o jsonpath='{.items[*].status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "")
+        if [[ "$final_ready" =~ True ]]; then
+            echo "${__STEP_OK__} verificar_pods_saludables: admission controller Ready"
+        else
+            _log "ADVERTENCIA: admission controller aún no Ready tras recreación — backoff activo"
+            echo "${__STEP_SKIP__} verificar_pods_saludables: pods recreados, convergencia pendiente"
+        fi
+    else
+        echo "${__STEP_OK__} verificar_pods_saludables: admission controller OK"
+    fi
+
     return 0
 }
 
