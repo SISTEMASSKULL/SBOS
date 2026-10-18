@@ -806,7 +806,11 @@ verify_ficha_health() {
         return 0
     fi
 
-    verify_pod_running "$namespace" "$label_selector"
+    # Leer timeout del manifest: order.timeout_minutes → segundos (default 300s)
+    local timeout_min
+    timeout_min=$(yq eval '.order.timeout_minutes // 5' "$manifest" 2>/dev/null || echo "5")
+    local timeout_sec=$(( timeout_min * 60 ))
+    verify_pod_running "$namespace" "$label_selector" "$timeout_sec"
 }
 
 backup_ficha_resources() {
