@@ -35,6 +35,7 @@ governance:
   auto_install: true
 
 health:
+  type: command
   check_command: "test -f /etc/systemd/system/bos.service && systemctl is-enabled --quiet bos.service"
   check_interval_seconds: 30
   check_timeout_seconds: 5

@@ -38,6 +38,7 @@ governance:
   backup_schedule: ""
 
 health:
+  type: command
   check_command: "kubectl get pods -n kube-system -l app=local-path-provisioner --field-selector=status.phase=Running --no-headers | grep -q ."
   check_interval_seconds: 30
   check_timeout_seconds: 10

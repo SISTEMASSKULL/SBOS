@@ -148,7 +148,6 @@ spec:
             - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)(\$|/)
           ports:
             - containerPort: 9100
-              hostPort: 9100
               name: metrics
           resources:
             requests:
