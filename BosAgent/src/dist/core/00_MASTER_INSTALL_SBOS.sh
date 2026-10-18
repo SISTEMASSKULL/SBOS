@@ -410,7 +410,8 @@ cmd_install() {
     # ellas mismas son las responsables de inicializar la infraestructura.
     echo "${__SBOS__STEP_START__} motor_puertos"
     local _req_k8s
-    _req_k8s=$(yq eval '.requirements.requires_k8s // "true"' "$ficha_dir/manifest.yml" 2>/dev/null || echo "true")
+    _req_k8s=$(yq eval '.requirements.requires_k8s' "$ficha_dir/manifest.yml" 2>/dev/null || echo "true")
+    [[ "$_req_k8s" == "null" || -z "$_req_k8s" ]] && _req_k8s="true"
     if [[ "$_req_k8s" != "false" ]]; then
         if ! check_host_ports "$ficha_dir"; then
             echo "${__SBOS__STEP_FAIL__} motor_puertos: puertos del host bloqueados"
