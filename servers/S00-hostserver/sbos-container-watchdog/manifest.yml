@@ -5,7 +5,7 @@ identity:
   id: container-watchdog
   name: SBOS Container Watchdog
   version: "1.0.0"
-  category: 0
+  category: 1
   criticality: true
   server: hostserver
   description: "Container-level watchdog — monitors bos daemon and core processes inside sbos-greenfield"
