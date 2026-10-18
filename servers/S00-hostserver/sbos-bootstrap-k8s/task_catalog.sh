@@ -475,9 +475,20 @@ ficha_install() {
     echo "kubeadm: $(kubeadm version -o short 2>/dev/null || echo 'available')"
     echo "kubelet: $(kubelet --version 2>/dev/null || echo 'available')"
 
-    # Reset any previous failed init
+    # ── Idempotencia P15: si K8s ya funciona, no reinstalar ──────
     if [[ -f /etc/kubernetes/admin.conf ]]; then
-        echo "Previous K8s cluster detected — resetting..."
+        export KUBECONFIG=/etc/kubernetes/admin.conf
+        if kubectl get nodes --no-headers 2>/dev/null | grep -q "Ready"; then
+            echo "K8s cluster ya instalado y saludable — omitiendo kubeadm init (P15)"
+            # Sincronizar kubeconfig para BOS si es necesario
+            mkdir -p /root/.kube /etc/bos/.kube
+            cp /etc/kubernetes/admin.conf /root/.kube/config 2>/dev/null || true
+            cp /etc/kubernetes/admin.conf /etc/bos/.kube/config 2>/dev/null || true
+            echo "${__SBOS__STEP_OK__} install"
+            return 0
+        fi
+        # Cluster presente pero no saludable — reset y reinit
+        echo "K8s instalado pero no saludable — reiniciando..."
         kubeadm reset -f 2>/dev/null || true
         rm -rf /etc/kubernetes/manifests/* 2>/dev/null || true
         rm -rf /var/lib/kubelet/* 2>/dev/null || true
@@ -496,8 +507,6 @@ ficha_install() {
     systemctl enable kubelet 2>/dev/null || true
 
     # P29: Delegate=yes for kubelet — enables cgroup subtree delegation
-    # Required in rootless containers so kubelet can manage pod cgroups.
-    # Pattern from install.sh: Delegate=yes at every level (host→podman→container→kubelet).
     mkdir -p /etc/systemd/system/kubelet.service.d
     cat > /etc/systemd/system/kubelet.service.d/delegate.conf << 'DELCONF'
 [Service]
@@ -508,9 +517,7 @@ DELCONF
     echo "Running kubeadm init (this may take several minutes)..."
     if ! kubeadm init --config "$config_file" 2>&1; then
         echo "ERROR: kubeadm init failed"
-        echo "Checking kubelet status..."
         systemctl status kubelet 2>&1 || true
-        echo "Checking kubelet logs..."
         journalctl -u kubelet --no-pager -n 20 2>&1 || true
         return 1
     fi
@@ -526,9 +533,6 @@ DELCONF
     kubectl taint nodes --all node-role.kubernetes.io/control-plane- 2>/dev/null || true
     kubectl taint nodes --all node.kubernetes.io/not-ready- 2>/dev/null || true
 
-    # ── BOS Step: fix cgroup subdirectory ownership (P20) ────────
-    # kubeadm init creates pod cgroup dirs owned by container root.
-    # In rootless podman, runc needs them owned by the mapped host UID.
     _ensure_cgroup_ownership "/sys/fs/cgroup/k8s.io"
 
     echo "Kubernetes cluster initialized successfully"
