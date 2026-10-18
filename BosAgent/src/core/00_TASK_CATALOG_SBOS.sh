@@ -305,6 +305,22 @@ sbos_health_statefulset() {
     return 0
 }
 
+sbos_health_daemonset() {
+    local name="$1" ns="${2:-${SBOS_NAMESPACE:-default}}"
+    local ready desired
+    ready=$(kubectl get daemonset "${name}" -n "${ns}" \
+        -o jsonpath='{.status.numberReady}' 2>/dev/null)
+    desired=$(kubectl get daemonset "${name}" -n "${ns}" \
+        -o jsonpath='{.status.desiredNumberScheduled}' 2>/dev/null)
+    ready="${ready:-0}"
+    desired="${desired:-0}"
+    if [[ "${desired}" -lt 1 ]] 2>/dev/null || [[ "${ready}" -lt 1 ]] 2>/dev/null; then
+        echo "FALLO: daemonset ${name} sin réplicas listas (ready=${ready:-0} desired=${desired:-0})"
+        return 1
+    fi
+    return 0
+}
+
 apply_configmap() {
     local name="$1" namespace="$2" file_path="$3"
 

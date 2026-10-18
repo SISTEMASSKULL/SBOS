@@ -12,6 +12,8 @@ export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-monitor}"
 # ── pre_install ────────────────────────────────────────────────
 ficha_pre_install() {
     echo "${__SBOS__STEP_START__} pre_install"
+    create_k8s_namespace "${SBOS_NAMESPACE}" "sbos.io/managed=true"
+    sbos_ensure_serviceaccount "kube-state-metrics-sa" "${SBOS_NAMESPACE}"
     echo "${__SBOS__STEP_OK__} pre_install"
 }
 
@@ -19,7 +21,7 @@ ficha_pre_install() {
 ficha_install() {
     echo "${__SBOS__STEP_START__} install"
     sbos_k8s_core "${SBOS_FICHA_DIR}/kube-state-metrics.k8s.yml" "${SBOS_NAMESPACE}"
-    kubectl wait --for=condition=Ready daemonset/kube-state-metrics -n "${SBOS_NAMESPACE}" --timeout=300s
+    kubectl rollout status daemonset/kube-state-metrics -n "${SBOS_NAMESPACE}" --timeout=300s
     echo "${__SBOS__STEP_OK__} install"
 }
 
@@ -33,7 +35,7 @@ ficha_post_install() {
 ficha_update() {
     echo "${__SBOS__STEP_START__} update"
     kubectl rollout restart daemonset kube-state-metrics -n "${SBOS_NAMESPACE}"
-    kubectl wait --for=condition=Ready daemonset/kube-state-metrics -n "${SBOS_NAMESPACE}" --timeout=300s
+    kubectl rollout status daemonset/kube-state-metrics -n "${SBOS_NAMESPACE}" --timeout=300s
     echo "${__SBOS__STEP_OK__} update"
 }
 
@@ -54,6 +56,6 @@ ficha_uninstall() {
 # ── health ─────────────────────────────────────────────────────
 ficha_health() {
     echo "${__SBOS__STEP_START__} health"
-    curl -sf http://localhost:8080/healthz
+    if ! sbos_health_daemonset "kube-state-metrics" "${SBOS_NAMESPACE}"; then exit 1; fi
     echo "${__SBOS__STEP_OK__} health"
 }
