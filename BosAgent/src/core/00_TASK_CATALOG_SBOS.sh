@@ -238,6 +238,73 @@ create_k8s_secret() {
         --dry-run=client -o yaml | kubectl apply -f -
 }
 
+# sbos_ensure_serviceaccount: crea un ServiceAccount si no existe (idempotente).
+# Uso: sbos_ensure_serviceaccount <name> <namespace>
+sbos_ensure_serviceaccount() {
+    local name="$1" namespace="$2"
+    kubectl create serviceaccount "${name}" -n "${namespace}" \
+        --dry-run=client -o yaml | kubectl apply -f -
+}
+
+# sbos_ensure_pg_database: crea una base de datos PostgreSQL en el pod postgresql-0
+# de sbos-data si aún no existe. Idempotente — CREATE DATABASE IF NOT EXISTS.
+# Uso: sbos_ensure_pg_database <dbname> [pg_password]
+sbos_ensure_pg_database() {
+    local dbname="$1"
+    local pg_pass="${2:-sbos_bootstrap_pass}"
+    local pg_pod
+    pg_pod=$(kubectl get pod -n sbos-data -l app=postgresql \
+        --field-selector=status.phase=Running \
+        -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+    if [ -z "${pg_pod}" ]; then
+        echo "ADVERTENCIA: pod postgresql no encontrado en sbos-data — omitiendo creación de BD ${dbname}"
+        return 0
+    fi
+    # SELECT 1 WHERE NOT EXISTS permite idempotencia sin error en duplicados
+    kubectl exec "${pg_pod}" -n sbos-data -- \
+        psql -U postgres -tc \
+        "SELECT 1 FROM pg_database WHERE datname='${dbname}'" 2>/dev/null | grep -q 1 && {
+        echo "BD ${dbname} ya existe"
+        return 0
+    }
+    kubectl exec "${pg_pod}" -n sbos-data -- \
+        psql -U postgres -c "CREATE DATABASE \"${dbname}\";" 2>/dev/null && \
+        echo "BD ${dbname} creada" || \
+        echo "ADVERTENCIA: no se pudo crear BD ${dbname}"
+}
+
+# sbos_health_deployment: verifica que un Deployment tiene al menos 1 réplica lista.
+# Retorna 0 si healthy, 1 si no. Para usar en ficha_health().
+# Uso: sbos_health_deployment <deployment-name> [namespace]
+sbos_health_deployment() {
+    local name="$1" ns="${2:-${SBOS_NAMESPACE:-default}}"
+    local ready
+    ready=$(kubectl get deployment "${name}" -n "${ns}" \
+        -o jsonpath='{.status.readyReplicas}' 2>/dev/null)
+    ready="${ready:-0}"
+    if [[ "${ready}" -lt 1 ]] 2>/dev/null; then
+        echo "FALLO: deployment ${name} sin réplicas listas (ready=${ready:-0})"
+        return 1
+    fi
+    return 0
+}
+
+# sbos_health_statefulset: verifica que un StatefulSet tiene al menos 1 réplica lista.
+# Retorna 0 si healthy, 1 si no. Para usar en ficha_health().
+# Uso: sbos_health_statefulset <statefulset-name> [namespace]
+sbos_health_statefulset() {
+    local name="$1" ns="${2:-${SBOS_NAMESPACE:-default}}"
+    local ready
+    ready=$(kubectl get statefulset "${name}" -n "${ns}" \
+        -o jsonpath='{.status.readyReplicas}' 2>/dev/null)
+    ready="${ready:-0}"
+    if [[ "${ready}" -lt 1 ]] 2>/dev/null; then
+        echo "FALLO: statefulset ${name} sin réplicas listas (ready=${ready:-0})"
+        return 1
+    fi
+    return 0
+}
+
 apply_configmap() {
     local name="$1" namespace="$2" file_path="$3"
 

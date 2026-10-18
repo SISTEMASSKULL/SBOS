@@ -11,6 +11,9 @@ export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-comms}"
 # ── pre_install ────────────────────────────────────────────────
 ficha_pre_install() {
     echo "${__SBOS__STEP_START__} pre_install"
+    create_k8s_namespace "${SBOS_NAMESPACE}" "sbos.io/managed=true"
+    sbos_ensure_serviceaccount "roundcube-sa" "${SBOS_NAMESPACE}"
+    sbos_ensure_pg_database "roundcube_db"
     echo "${__SBOS__STEP_OK__} pre_install"
 }
 
@@ -18,7 +21,7 @@ ficha_pre_install() {
 ficha_install() {
     echo "${__SBOS__STEP_START__} install"
     sbos_k8s_core "${SBOS_FICHA_DIR}/roundcube.k8s.yml" "${SBOS_NAMESPACE}"
-    kubectl wait --for=condition=Ready deployment/roundcube-0 -n "${SBOS_NAMESPACE}" --timeout=600s
+    kubectl wait --for=condition=Ready deployment/roundcube -n "${SBOS_NAMESPACE}" --timeout=600s
     echo "${__SBOS__STEP_OK__} install"
 }
 
@@ -39,6 +42,7 @@ ficha_update() {
 # ── repair ─────────────────────────────────────────────────────
 ficha_repair() {
     echo "${__SBOS__STEP_START__} repair"
+    sbos_ensure_pg_database "roundcube_db"
     kubectl rollout restart deployment roundcube -n "${SBOS_NAMESPACE}"
     echo "${__SBOS__STEP_OK__} repair"
 }
@@ -53,5 +57,6 @@ ficha_uninstall() {
 # ── health ─────────────────────────────────────────────────────
 ficha_health() {
     echo "${__SBOS__STEP_START__} health"
+    if ! sbos_health_deployment "roundcube" "${SBOS_NAMESPACE}"; then exit 1; fi
     echo "${__SBOS__STEP_OK__} health"
 }

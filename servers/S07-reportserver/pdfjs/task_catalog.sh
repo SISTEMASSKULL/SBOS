@@ -11,6 +11,8 @@ export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-apps}"
 # ── pre_install ────────────────────────────────────────────────
 ficha_pre_install() {
     echo "${__SBOS__STEP_START__} pre_install"
+    create_k8s_namespace "${SBOS_NAMESPACE}" "sbos.io/managed=true"
+    sbos_ensure_serviceaccount "pdfjs-sa" "${SBOS_NAMESPACE}"
     echo "${__SBOS__STEP_OK__} pre_install"
 }
 
@@ -18,7 +20,7 @@ ficha_pre_install() {
 ficha_install() {
     echo "${__SBOS__STEP_START__} install"
     sbos_k8s_core "${SBOS_FICHA_DIR}/pdfjs.k8s.yml" "${SBOS_NAMESPACE}"
-    kubectl wait --for=condition=Ready deployment/pdfjs-0 -n "${SBOS_NAMESPACE}" --timeout=600s
+    kubectl rollout status deployment/pdfjs -n "${SBOS_NAMESPACE}" --timeout=600s
     echo "${__SBOS__STEP_OK__} install"
 }
 
@@ -32,7 +34,7 @@ ficha_post_install() {
 ficha_update() {
     echo "${__SBOS__STEP_START__} update"
     kubectl rollout restart deployment pdfjs -n "${SBOS_NAMESPACE}"
-    kubectl wait --for=condition=Ready deployment/pdfjs-0 -n "${SBOS_NAMESPACE}" --timeout=300s
+    kubectl rollout status deployment/pdfjs -n "${SBOS_NAMESPACE}" --timeout=300s
     echo "${__SBOS__STEP_OK__} update"
 }
 
@@ -53,5 +55,6 @@ ficha_uninstall() {
 # ── health ─────────────────────────────────────────────────────
 ficha_health() {
     echo "${__SBOS__STEP_START__} health"
+    if ! sbos_health_deployment "pdfjs" "${SBOS_NAMESPACE}"; then exit 1; fi
     echo "${__SBOS__STEP_OK__} health"
 }
