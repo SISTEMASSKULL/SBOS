@@ -405,11 +405,19 @@ cmd_install() {
     fi
     echo "${__SBOS__STEP_OK__} dependencies"
 
-    # 3. Motor de puertos del host (SBOS-050) — solo fichas que declaran host_ports
+    # 3. Motor de puertos del host (SBOS-050) — fichas de aplicación (requires_k8s=true)
+    # Las fichas bootstrap (requires_k8s=false) gestionan sus propios puertos porque
+    # ellas mismas son las responsables de inicializar la infraestructura.
     echo "${__SBOS__STEP_START__} motor_puertos"
-    if ! check_host_ports "$ficha_dir"; then
-        echo "${__SBOS__STEP_FAIL__} motor_puertos: puertos del host bloqueados (ver log)"
-        exit 2
+    local _req_k8s
+    _req_k8s=$(yq eval '.requirements.requires_k8s // "true"' "$ficha_dir/manifest.yml" 2>/dev/null || echo "true")
+    if [[ "$_req_k8s" != "false" ]]; then
+        if ! check_host_ports "$ficha_dir"; then
+            echo "${__SBOS__STEP_FAIL__} motor_puertos: puertos del host bloqueados"
+            exit 2
+        fi
+    else
+        echo "motor_puertos: ficha bootstrap omite verificación — gestiona sus propios puertos"
     fi
     echo "${__SBOS__STEP_OK__} motor_puertos"
 
