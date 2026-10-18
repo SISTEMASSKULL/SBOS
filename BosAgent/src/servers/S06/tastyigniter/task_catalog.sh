@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/appsserver/tastyigniter}"
+export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S06-appsserver/tastyigniter}"
 export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-apps}"
 
 # ── pre_install ────────────────────────────────────────────────

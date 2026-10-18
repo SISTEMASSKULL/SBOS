@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/searchserver/elasticsearch}"
+export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S09-searchserver/elasticsearch}"
 export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-search}"
 
 ficha_pre_install() {

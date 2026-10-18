@@ -11,7 +11,7 @@ BAUTH_DIR="${BAUTH_DIR:-/opt/bauth}"
 BAUTH_SOCK_DIR="${BAUTH_SOCK_DIR:-/tmp/bauth}"
 BAUTH_UNIT="${BAUTH_UNIT:-/etc/systemd/system/bauth.service}"
 BAUTH_TOML="${BAUTH_TOML:-/etc/bos/bauth.toml}"
-SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/identityserver/bauth}"
+SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S03-identityserver/bauth}"
 BAUTH_USER="${BAUTH_USER:-bauth}"
 BAUTH_GROUP="${BAUTH_GROUP:-bosagent}"
 

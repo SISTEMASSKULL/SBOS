@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/hostserver/container-watchdog}"
+export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S00-hostserver/container-watchdog}"
 
 # ── pre_install ────────────────────────────────────────────────
 ficha_pre_install() {

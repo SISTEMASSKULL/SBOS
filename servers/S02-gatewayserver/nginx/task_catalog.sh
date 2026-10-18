@@ -13,7 +13,7 @@
 
 set -euo pipefail
 
-export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/gatewayserver/nginx}"
+export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S02-gatewayserver/nginx}"
 export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-gateway}"
 export CLIENT_DOMAIN="${CLIENT_DOMAIN:-sksistemas.com}"
 export LETSENCRYPT_EMAIL="${LETSENCRYPT_EMAIL:-admin@sksistemas.com}"

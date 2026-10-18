@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/webserver/weblate}"
+SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S16-webserver/weblate}"
 SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-web}"
 WEBLATE_TRANSLATIONS_PATH="${WEBLATE_TRANSLATIONS_PATH:-/etc/bos/bi18n/translations}"
 

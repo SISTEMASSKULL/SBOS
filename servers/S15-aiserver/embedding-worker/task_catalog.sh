@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/aiserver/embedding-worker}"
+export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S15-aiserver/embedding-worker}"
 export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-ai}"
 
 # ── pre_install ────────────────────────────────────────────────

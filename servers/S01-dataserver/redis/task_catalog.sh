@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/dataserver/redis}"
+export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S01-dataserver/redis}"
 export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-data}"
 
 ficha_pre_install() {

@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/docserver/tabula}"
+export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S08-docserver/tabula}"
 export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-docs}"
 
 ficha_pre_install() {

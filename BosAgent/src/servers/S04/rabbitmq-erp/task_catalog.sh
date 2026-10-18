@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/erpserver/rabbitmq-erp}"
+export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S04-erpserver/rabbitmq-erp}"
 export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-erp}"
 
 # ── pre_install ────────────────────────────────────────────────

@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/opsserver/trivy}"
+export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S14-opsserver/trivy}"
 export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-ops}"
 
 ficha_pre_install() {

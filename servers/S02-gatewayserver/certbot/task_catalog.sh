@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/gatewayserver/certbot}"
+export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S02-gatewayserver/certbot}"
 export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-gateway}"
 
 # ── pre_install ────────────────────────────────────────────────

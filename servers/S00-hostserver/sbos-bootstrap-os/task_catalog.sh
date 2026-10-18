@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/hostserver/sbos-bootstrap-os}"
+export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S00-hostserver/sbos-bootstrap-os}"
 export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-installer}"
 
 # ── pre_install ────────────────────────────────────────────────

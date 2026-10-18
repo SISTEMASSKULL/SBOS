@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/webserver/certbot}"
+SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S16-webserver/certbot}"
 SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-web}"
 SBOS_ADMIN_EMAIL="${SBOS_ADMIN_EMAIL:-admin@sbos.app}"
 

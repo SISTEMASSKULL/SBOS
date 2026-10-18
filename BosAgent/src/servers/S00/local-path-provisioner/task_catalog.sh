@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/hostserver/local-path-provisioner}"
+export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S00-hostserver/local-path-provisioner}"
 export SBOS_NAMESPACE="${SBOS_NAMESPACE:-kube-system}"
 
 # ── pre_install ────────────────────────────────────────────────

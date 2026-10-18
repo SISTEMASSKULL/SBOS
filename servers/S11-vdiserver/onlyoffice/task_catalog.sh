@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/vdiserver/onlyoffice}"
+SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S11-vdiserver/onlyoffice}"
 SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-vdi}"
 
 # ── pre_install ────────────────────────────────────────────────

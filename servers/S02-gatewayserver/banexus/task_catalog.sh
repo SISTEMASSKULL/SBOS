@@ -9,7 +9,7 @@ set -euo pipefail
 BANEXUS_BIN="${BANEXUS_BIN:-/usr/local/bin/banexus}"
 BANEXUS_CONF_DIR="${BANEXUS_CONF_DIR:-/etc/banexus}"
 BANEXUS_UNIT="${BANEXUS_UNIT:-/etc/systemd/system/banexus.service}"
-SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/gatewayserver/banexus}"
+SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S02-gatewayserver/banexus}"
 
 # ── pre_install ────────────────────────────────────────────────
 ficha_pre_install() {

@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/vdiserver/guacamole}"
+SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S11-vdiserver/guacamole}"
 SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-vdi}"
 SBOS_DOMAIN="${SBOS_DOMAIN:-sbos.app}"
 SBOS_TENANT="${SBOS_TENANT:-skull}"

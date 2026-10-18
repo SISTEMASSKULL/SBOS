@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/identityserver/oauth2-proxy}"
+export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S03-identityserver/oauth2-proxy}"
 export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-identity}"
 
 # ── pre_install ────────────────────────────────────────────────

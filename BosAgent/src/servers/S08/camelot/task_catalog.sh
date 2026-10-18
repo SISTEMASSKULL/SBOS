@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/docserver/camelot}"
+export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S08-docserver/camelot}"
 export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-docs}"
 
 # ── pre_install ────────────────────────────────────────────────

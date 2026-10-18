@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/reportserver/airflow}"
+export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S07-reportserver/airflow}"
 export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-apps}"
 
 # ── pre_install ────────────────────────────────────────────────

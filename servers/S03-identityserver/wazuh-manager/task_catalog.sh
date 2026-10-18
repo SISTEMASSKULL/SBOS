@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/identityserver/wazuh-manager}"
+export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S03-identityserver/wazuh-manager}"
 export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-identity}"
 
 # ── pre_install ────────────────────────────────────────────────

@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/commsserver/centrifugo}"
+export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S10-commsserver/centrifugo}"
 export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-comms}"
 
 # ── pre_install ────────────────────────────────────────────────

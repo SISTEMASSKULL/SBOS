@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/webserver/modsecurity}"
+SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S16-webserver/modsecurity}"
 SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-web}"
 MODSEC_PARANOIA="${MODSEC_PARANOIA:-2}"
 

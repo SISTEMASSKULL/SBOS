@@ -378,12 +378,21 @@ func buildPhaseScript(phase, fichaID, command, taskDir string) string {
 	sb.WriteString(fmt.Sprintf("export FICHA_COMMAND=\"%s\"\n", command))
 	sb.WriteString(fmt.Sprintf("export FICHA_DIR=\"%s\"\n", taskDir))
 	sb.WriteString(fmt.Sprintf("export FICHA_LOG=\"${FICHA_LOG:-/var/log/bos/fichas/%s.log}\"\n", fichaID))
-	sb.WriteString("export KUBECONFIG_DEST=\"${KUBECONFIG_DEST:-/etc/bos/.kube/config}\"\n\n")
+	sb.WriteString("export KUBECONFIG_DEST=\"${KUBECONFIG_DEST:-/etc/bos/.kube/config}\"\n")
+	// KUBECONFIG para que kubectl lo use automáticamente sin --kubeconfig explícito
+	sb.WriteString("export KUBECONFIG=\"${KUBECONFIG:-/etc/bos/.kube/config}\"\n")
+	// SBOS_FICHA_DIR apunta al directorio de la ficha (donde están los manifests YAML)
+	sb.WriteString(fmt.Sprintf("export SBOS_FICHA_DIR=\"%s\"\n\n", taskDir))
 	// Crear directorio de log antes de cualquier escritura por parte de la ficha.
 	sb.WriteString("mkdir -p \"$(dirname \"$FICHA_LOG\")\" 2>/dev/null || true\n\n")
 
-	// Sourcear helpers del core si existen
-	sb.WriteString("# Sourcear task_catalog.sh de la ficha\n")
+	// Sourcear helpers del core (sbos_health_deployment, create_k8s_namespace, sbos_ensure_serviceaccount, etc.)
+	sb.WriteString("SBOS_CORE=\"${SBOS_CORE:-/etc/bos/blibs/core}\"\n")
+	sb.WriteString("if [[ -f \"${SBOS_CORE}/00_TASK_CATALOG_SBOS.sh\" ]]; then\n")
+	sb.WriteString("    source \"${SBOS_CORE}/00_TASK_CATALOG_SBOS.sh\"\n")
+	sb.WriteString("fi\n\n")
+
+	// Sourcear task_catalog.sh de la ficha
 	sb.WriteString(fmt.Sprintf("if [[ -f \"%s\" ]]; then source \"%s\"; fi\n\n", taskCatalog, taskCatalog))
 
 	// Invocar la función de la fase

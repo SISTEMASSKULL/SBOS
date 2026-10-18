@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/monitorserver/alertmanager}"
+export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S12-monitorserver/alertmanager}"
 export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-monitor}"
 
 # ── pre_install ────────────────────────────────────────────────

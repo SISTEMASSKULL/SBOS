@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/appsserver/taiga}"
+export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S06-appsserver/taiga}"
 export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-apps}"
 
 # ── pre_install ────────────────────────────────────────────────

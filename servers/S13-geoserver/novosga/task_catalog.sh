@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/geoserver/novosga}"
+export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S13-geoserver/novosga}"
 export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-geo}"
 
 ficha_pre_install() {

@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/commsserver/clamav}"
+export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S10-commsserver/clamav}"
 export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-comms}"
 
 # ── pre_install ────────────────────────────────────────────────

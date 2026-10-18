@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/commsserver/freepbx}"
+export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S10-commsserver/freepbx}"
 export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-comms}"
 
 # ── pre_install ────────────────────────────────────────────────

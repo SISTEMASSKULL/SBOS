@@ -7,7 +7,7 @@
 
 set -euo pipefail
 
-export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/commsserver/stalwart}"
+export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S10-commsserver/stalwart}"
 export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-comms}"
 export CLIENT_DOMAIN="${CLIENT_DOMAIN:-sksistemas.com}"
 export MAIL_DOMAIN="${MAIL_DOMAIN:-mail.sksistemas.com}"

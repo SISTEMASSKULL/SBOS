@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/monitorserver/prometheus}"
+export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S12-monitorserver/prometheus}"
 export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-monitor}"
 
 # ── pre_install ────────────────────────────────────────────────

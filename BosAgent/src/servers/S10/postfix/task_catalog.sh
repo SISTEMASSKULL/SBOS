@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/commsserver/postfix}"
+export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S10-commsserver/postfix}"
 export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-comms}"
 
 # ── pre_install ────────────────────────────────────────────────

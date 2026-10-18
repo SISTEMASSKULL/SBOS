@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/hostserver/sbos-lifecycle}"
+export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S00-hostserver/sbos-lifecycle}"
 readonly UNIT_SRC="${SBOS_FICHA_DIR}/bos.service"
 readonly UNIT_DST="/etc/systemd/system/bos.service"
 

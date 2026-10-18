@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/hostserver/network-validator}"
+export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S00-hostserver/network-validator}"
 export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-installer}"
 export KUBECONFIG="${KUBECONFIG:-/etc/kubernetes/admin.conf}"
 

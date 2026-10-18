@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/appsserver/openproject}"
+export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S06-appsserver/openproject}"
 export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-apps}"
 
 # ── pre_install ────────────────────────────────────────────────

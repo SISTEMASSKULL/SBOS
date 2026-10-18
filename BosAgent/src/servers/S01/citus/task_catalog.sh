@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/dataserver/citus}"
+export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S01-dataserver/citus}"
 export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-data}"
 
 # ── pre_install ────────────────────────────────────────────────

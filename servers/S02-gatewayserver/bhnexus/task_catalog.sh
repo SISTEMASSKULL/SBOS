@@ -10,7 +10,7 @@ BHNEXUS_BIN="${BHNEXUS_BIN:-/usr/local/bin/bhnexus}"
 BHNEXUS_CONF_DIR="${BHNEXUS_CONF_DIR:-/etc/bhnexus}"
 BHNEXUS_UNIT="${BHNEXUS_UNIT:-/etc/systemd/system/bhnexus.service}"
 BHNEXUS_SOCK="${BHNEXUS_SOCK:-/run/bos/bhnexus.sock}"
-SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/gatewayserver/bhnexus}"
+SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S02-gatewayserver/bhnexus}"
 
 # ── pre_install ────────────────────────────────────────────────
 ficha_pre_install() {
