@@ -460,17 +460,23 @@ wait_pod_healthy() {
 }
 
 verify_pod_running() {
-    local namespace="$1" label_selector="$2"
+    local namespace="$1" label_selector="$2" timeout_sec="${3:-180}"
+    local deadline
+    deadline=$(($(date +%s) + timeout_sec))
 
-    local count
-    count=$(kubectl get pods -n "$namespace" -l "$label_selector" \
-        --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l)
-    if (( count == 0 )); then
-        echo "ERROR: No running pods: $label_selector in $namespace"
-        return 1
-    fi
-    echo "$count pods running"
-    return 0
+    while (( $(date +%s) < deadline )); do
+        local count
+        count=$(kubectl get pods -n "$namespace" -l "$label_selector" \
+            --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l)
+        if (( count > 0 )); then
+            echo "$count pods running"
+            return 0
+        fi
+        sleep 5
+    done
+
+    echo "ERROR: No running pods: $label_selector in $namespace after ${timeout_sec}s"
+    return 1
 }
 
 verify_service_responds() {

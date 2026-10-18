@@ -61,7 +61,7 @@ spec:
   accessModes:
     - ReadWriteOnce
   persistentVolumeReclaimPolicy: Retain
-  storageClassName: local-path
+  storageClassName: sbos-local-path
   hostPath:
     path: ${host_path}
     type: DirectoryOrCreate
@@ -90,8 +90,8 @@ ficha_pre_install() {
     echo "${__STEP_OK__} verificar_k8s"
 
     echo "${__STEP_START__} verificar_storageclass"
-    if ! _kubectl get storageclass local-path > /dev/null 2>&1; then
-        echo "${__STEP_FAIL__} verificar_storageclass: local-path no existe — ejecutar sbos-bootstrap-k8s primero"
+    if ! _kubectl get storageclass sbos-local-path > /dev/null 2>&1; then
+        echo "${__STEP_FAIL__} verificar_storageclass: sbos-local-path no existe — ejecutar sbos-bootstrap-k8s primero"
         return 1
     fi
     echo "${__STEP_OK__} verificar_storageclass"
@@ -205,10 +205,10 @@ ficha_test() {
     local ok=0
 
     echo "${__STEP_START__} test_storageclass"
-    if _kubectl get storageclass local-path > /dev/null 2>&1; then
+    if _kubectl get storageclass sbos-local-path > /dev/null 2>&1; then
         echo "${__STEP_OK__} test_storageclass"
     else
-        echo "${__STEP_FAIL__} test_storageclass: local-path no existe"
+        echo "${__STEP_FAIL__} test_storageclass: sbos-local-path no existe"
         ok=1
     fi
 
@@ -290,7 +290,7 @@ ficha_status() {
     echo "=== sbos-bootstrap-storage STATUS ==="
     echo ""
     echo "StorageClass:"
-    _kubectl get storageclass local-path 2>/dev/null \
+    _kubectl get storageclass sbos-local-path 2>/dev/null \
         | awk '{printf "  %s\n", $0}' || echo "  (no existe)"
     echo ""
     echo "PersistentVolumes SBOS:"

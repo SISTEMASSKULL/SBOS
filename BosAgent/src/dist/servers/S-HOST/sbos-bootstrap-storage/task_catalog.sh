@@ -40,24 +40,10 @@ _pv_exists() { _kubectl get pv "$1" > /dev/null 2>&1; }
 # Retorna 0 si fue creado, 1 si hubo error, skips silenciosamente si ya existe.
 # El caller distingue "ya existía" vs "recién creado" verificando antes con _pv_exists.
 _apply_pv() {
-    local name="$1" capacity="$2" host_path="$3" claim_ns="${4:-}"
+    local name="$1" capacity="$2" host_path="$3"
 
     # Asegurar que el directorio host existe (sin cambiar permisos — sbos-bootstrap-os los fijó)
     mkdir -p "$host_path"
-
-    # Derivar nombre del PVC del PV: sbos-postgres-pv → sbos-postgres-pvc
-    local pvc_name="${name%-pv}-pvc"
-
-    # claimRef hace el binding determinístico: K8s solo puede asignar este PV al PVC especificado.
-    # Esto evita colisiones cuando hay múltiples PVs del mismo tamaño (ej: postgres y minio, 100Gi).
-    local claim_ref_yaml=""
-    if [[ -n "$claim_ns" ]]; then
-        claim_ref_yaml="  claimRef:
-    apiVersion: v1
-    kind: PersistentVolumeClaim
-    namespace: ${claim_ns}
-    name: ${pvc_name}"
-    fi
 
     local tmp rc=0
     tmp=$(mktemp /tmp/sbos-storage-XXXXXX.yaml)
@@ -75,8 +61,7 @@ spec:
   accessModes:
     - ReadWriteOnce
   persistentVolumeReclaimPolicy: Retain
-  storageClassName: local-path
-${claim_ref_yaml}
+  storageClassName: sbos-local-path
   hostPath:
     path: ${host_path}
     type: DirectoryOrCreate
@@ -90,7 +75,7 @@ EOF
     _kubectl apply -f "$tmp" >> "$FICHA_LOG" 2>&1 || rc=$?
     rm -f "$tmp"
     if (( rc == 0 )); then
-        _log "PV creado: $name ($capacity → $host_path, claim=${claim_ns}/${pvc_name})"
+        _log "PV creado: $name ($capacity → $host_path)"
     fi
     return $rc
 }
@@ -105,8 +90,8 @@ ficha_pre_install() {
     echo "${__STEP_OK__} verificar_k8s"
 
     echo "${__STEP_START__} verificar_storageclass"
-    if ! _kubectl get storageclass local-path > /dev/null 2>&1; then
-        echo "${__STEP_FAIL__} verificar_storageclass: local-path no existe — ejecutar sbos-bootstrap-k8s primero"
+    if ! _kubectl get storageclass sbos-local-path > /dev/null 2>&1; then
+        echo "${__STEP_FAIL__} verificar_storageclass: sbos-local-path no existe — ejecutar sbos-bootstrap-k8s primero"
         return 1
     fi
     echo "${__STEP_OK__} verificar_storageclass"
@@ -123,7 +108,7 @@ ficha_install() {
     local created=0 skipped=0 failed=0
 
     for entry in "${PVS[@]}"; do
-        IFS='|' read -r name capacity host_path ns <<< "$entry"
+        IFS='|' read -r name capacity host_path _ <<< "$entry"
 
         if _pv_exists "$name"; then
             _log "PV $name ya existe — omitiendo"
@@ -131,7 +116,7 @@ ficha_install() {
             continue
         fi
 
-        if _apply_pv "$name" "$capacity" "$host_path" "$ns"; then
+        if _apply_pv "$name" "$capacity" "$host_path"; then
             created=$((created + 1))
         else
             failed=$((failed + 1))
@@ -164,18 +149,8 @@ ficha_install() {
             local phase
             phase=$(_kubectl get pv "$name" -o jsonpath='{.status.phase}' 2>/dev/null || echo "Unknown")
             # Available = listo para usar. Bound = PVC ya lo reclamó (también válido).
-            # Terminating+claimRef = PV en uso por un PVC activo (pod corriendo) → también válido.
             case "$phase" in
                 Available|Bound) ;;
-                Terminating)
-                    local claim
-                    claim=$(_kubectl get pv "$name" -o jsonpath='{.spec.claimRef.name}' 2>/dev/null || true)
-                    if [[ -n "$claim" ]]; then
-                        _log "PV $name Terminating con PVC activo ($claim) — en uso por pod, considerando OK"
-                    else
-                        still_pending+=("$name")
-                    fi
-                    ;;
                 *) still_pending+=("$name") ;;
             esac
         done
@@ -208,23 +183,14 @@ ficha_post_install() {
 }
 
 # ── Repair ────────────────────────────────────────────────────────
-ficha_health() {
-    if kubectl --kubeconfig="${KUBECONFIG_DEST:-/etc/bos/.kube/config}"         get storageclass local-path > /dev/null 2>&1; then
-        echo "HEALTHY"
-        return 0
-    fi
-    echo "DEGRADED: StorageClass local-path no existe"
-    return 1
-}
-
 ficha_repair() {
     echo "${__STEP_START__} reparar_pvs"
     local repaired=0
     for entry in "${PVS[@]}"; do
-        IFS='|' read -r name capacity host_path ns <<< "$entry"
+        IFS='|' read -r name capacity host_path _ <<< "$entry"
         if ! _pv_exists "$name"; then
             _log "PV $name faltante — recreando..."
-            _apply_pv "$name" "$capacity" "$host_path" "$ns" && \
+            _apply_pv "$name" "$capacity" "$host_path" && \
                 repaired=$((repaired + 1)) || \
                 _log "FALLO al recrear PV $name"
         fi
@@ -239,10 +205,10 @@ ficha_test() {
     local ok=0
 
     echo "${__STEP_START__} test_storageclass"
-    if _kubectl get storageclass local-path > /dev/null 2>&1; then
+    if _kubectl get storageclass sbos-local-path > /dev/null 2>&1; then
         echo "${__STEP_OK__} test_storageclass"
     else
-        echo "${__STEP_FAIL__} test_storageclass: local-path no existe"
+        echo "${__STEP_FAIL__} test_storageclass: sbos-local-path no existe"
         ok=1
     fi
 
@@ -271,14 +237,6 @@ ficha_test() {
             -o jsonpath='{.status.phase}' 2>/dev/null || echo "Unknown")
         case "$phase" in
             Available|Bound) ;;
-            Terminating)
-                local claim
-                claim=$(_kubectl get pv "$name" -o jsonpath='{.spec.claimRef.name}' 2>/dev/null || true)
-                if [[ -z "$claim" ]]; then
-                    _log "PV $name Terminating sin PVC — fase inesperada"
-                    bad_phase=$((bad_phase + 1))
-                fi
-                ;;
             *)
                 _log "PV $name en fase inesperada: $phase"
                 bad_phase=$((bad_phase + 1))
@@ -332,7 +290,7 @@ ficha_status() {
     echo "=== sbos-bootstrap-storage STATUS ==="
     echo ""
     echo "StorageClass:"
-    _kubectl get storageclass local-path 2>/dev/null \
+    _kubectl get storageclass sbos-local-path 2>/dev/null \
         | awk '{printf "  %s\n", $0}' || echo "  (no existe)"
     echo ""
     echo "PersistentVolumes SBOS:"
