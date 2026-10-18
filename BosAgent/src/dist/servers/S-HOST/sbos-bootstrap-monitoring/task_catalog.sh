@@ -51,8 +51,12 @@ _pods_running() {
 ficha_pre_install() {
     echo "${__STEP_START__} verificar_namespace"
     if ! _kubectl get namespace "$NAMESPACE" > /dev/null 2>&1; then
-        echo "${__STEP_FAIL__} verificar_namespace: $NAMESPACE no existe — requiere sbos-bootstrap-k8s"
-        return 1
+        _log "namespace $NAMESPACE no existe — creando..."
+        _kubectl create namespace "$NAMESPACE" >> "$FICHA_LOG" 2>&1 || {
+            echo "${__STEP_FAIL__} verificar_namespace: no se pudo crear $NAMESPACE"
+            return 1
+        }
+        _log "namespace $NAMESPACE creado"
     fi
     echo "${__STEP_OK__} verificar_namespace"
     return 0
@@ -76,49 +80,10 @@ metadata:
   name: sbos-monitoring-reader
 rules:
   - apiGroups: [\"\"]
-    resources:
-      - nodes
-      - nodes/metrics
-      - nodes/spec
-      - services
-      - endpoints
-      - pods
-      - configmaps
-      - namespaces
-      - persistentvolumes
-      - persistentvolumeclaims
-      - resourcequotas
-      - limitranges
-      - replicationcontrollers
-      - secrets
-      - serviceaccounts
+    resources: [nodes, nodes/metrics, services, endpoints, pods, configmaps, namespaces]
     verbs: [get, list, watch]
   - apiGroups: [apps]
     resources: [deployments, daemonsets, replicasets, statefulsets]
-    verbs: [get, list, watch]
-  - apiGroups: [batch]
-    resources: [jobs, cronjobs]
-    verbs: [get, list, watch]
-  - apiGroups: [autoscaling]
-    resources: [horizontalpodautoscalers]
-    verbs: [get, list, watch]
-  - apiGroups: [networking.k8s.io]
-    resources: [ingresses, networkpolicies]
-    verbs: [get, list, watch]
-  - apiGroups: [policy]
-    resources: [poddisruptionbudgets]
-    verbs: [get, list, watch]
-  - apiGroups: [storage.k8s.io]
-    resources: [storageclasses, volumeattachments]
-    verbs: [get, list, watch]
-  - apiGroups: [admissionregistration.k8s.io]
-    resources: [mutatingwebhookconfigurations, validatingwebhookconfigurations]
-    verbs: [get, list, watch]
-  - apiGroups: [coordination.k8s.io]
-    resources: [leases]
-    verbs: [get, list, watch]
-  - apiGroups: [certificates.k8s.io]
-    resources: [certificatesigningrequests]
     verbs: [get, list, watch]
   - nonResourceURLs: [/metrics, /metrics/cadvisor]
     verbs: [get]
@@ -183,7 +148,6 @@ spec:
             - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)(\$|/)
           ports:
             - containerPort: 9100
-              hostPort: 9100
               name: metrics
           resources:
             requests:
@@ -280,8 +244,6 @@ spec:
     metadata:
       labels:
         app: kube-state-metrics
-      annotations:
-        linkerd.io/inject: disabled
     spec:
       serviceAccountName: sbos-monitoring
       containers:
@@ -396,36 +358,6 @@ spec:
         - protocol: TCP
           port: 8081" || true
 
-    # allow-kube-state-metrics-apiserver: KSM necesita conectarse al API server
-    # de Kubernetes (kubernetes.default ClusterIP:443) para listar recursos.
-    # Sin este egress el proceso crashea con exit code 2 al inicio.
-    _apply "np-ksm-apiserver" "apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: allow-kube-state-metrics-apiserver
-  namespace: ${NAMESPACE}
-spec:
-  podSelector:
-    matchLabels:
-      app: kube-state-metrics
-  policyTypes:
-    - Egress
-  egress:
-    - ports:
-        - port: 443
-          protocol: TCP
-      to:
-        - ipBlock:
-            cidr: 10.96.0.1/32
-    - ports:
-        - port: 6443
-          protocol: TCP
-      to:
-        - ipBlock:
-            cidr: 10.96.0.1/32
-        - ipBlock:
-            cidr: 13.140.128.230/32" || true
-
     echo "${__STEP_OK__} networkpolicies_monitoring"
 
     _log "sbos-bootstrap-monitoring instalado"
@@ -443,15 +375,6 @@ ficha_post_install() {
 }
 
 # ── Repair ────────────────────────────────────────────────────────
-ficha_health() {
-    if kubectl --kubeconfig="${KUBECONFIG_DEST:-/etc/bos/.kube/config}"         get namespace sbos-monitoring > /dev/null 2>&1; then
-        echo "HEALTHY"
-        return 0
-    fi
-    echo "DEGRADED: namespace sbos-monitoring no existe"
-    return 1
-}
-
 ficha_repair() {
     echo "${__STEP_START__} reiniciar_componentes"
     _kubectl rollout restart daemonset/prometheus-node-exporter \
@@ -560,7 +483,6 @@ ficha_uninstall() {
     _kubectl delete service prometheus-node-exporter kube-state-metrics \
         -n "$NAMESPACE" 2>/dev/null || true
     _kubectl delete networkpolicy allow-intra-monitoring allow-monitoring-scrape \
-        allow-kube-state-metrics-apiserver \
         -n "$NAMESPACE" 2>/dev/null || true
     _kubectl delete clusterrole sbos-monitoring-reader 2>/dev/null || true
     _kubectl delete clusterrolebinding sbos-monitoring-reader 2>/dev/null || true

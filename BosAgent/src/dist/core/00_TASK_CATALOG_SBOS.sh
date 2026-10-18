@@ -719,16 +719,22 @@ verify_ficha_health() {
     local health_type
     health_type=$(yq eval '.health.type // "pods"' "$manifest" 2>/dev/null || echo "pods")
 
-    # Compatibilidad con formato legacy: check_command sin health.type → tratar como command
+    # Compatibilidad con formato legacy: check_command sin health.type
+    # Solo usar como command si el workload es host_script; fichas K8s usan pods
     if [[ "$health_type" == "pods" ]]; then
         local legacy_cmd
         legacy_cmd=$(yq eval '.health.check_command // ""' "$manifest" 2>/dev/null || echo "")
         if [[ -n "$legacy_cmd" ]]; then
-            health_type="command"
+            local wl_type
+            wl_type=$(yq eval '.workload.type // "host_script"' "$manifest" 2>/dev/null | tr '[:upper:]' '[:lower:]' || echo "host_script")
+            if [[ "$wl_type" == "host_script" || "$wl_type" == "bash" ]]; then
+                health_type="command"
+            fi
+            # Fichas K8s (Deployment, StatefulSet, DaemonSet, etc.) → usar pods, no command
         fi
     fi
 
-    # Fichas bash con health.type=command: ejecutar el comando del manifest
+    # Fichas bash con health.type=command: ejecutar el comando con retry hasta timeout
     if [[ "$health_type" == "command" ]]; then
         local health_cmd
         health_cmd=$(yq eval '.health.command // .health.check_command // ""' "$manifest" 2>/dev/null || echo "")
@@ -736,12 +742,22 @@ verify_ficha_health() {
             echo "SKIP: no health command defined — assuming healthy"
             return 0
         fi
-        if eval "$health_cmd" > /dev/null 2>&1; then
-            return 0
-        else
-            echo "ERROR: health command failed: $health_cmd"
-            return 1
-        fi
+        local timeout_min
+        timeout_min=$(yq eval '.order.timeout_minutes // 5' "$manifest" 2>/dev/null || echo "5")
+        local timeout_sec=$(( timeout_min * 60 ))
+        local deadline=$(( $(date +%s) + timeout_sec ))
+        local attempt=0
+        while (( $(date +%s) < deadline )); do
+            attempt=$(( attempt + 1 ))
+            if eval "$health_cmd" > /dev/null 2>&1; then
+                [[ $attempt -gt 1 ]] && echo "health command OK (intento $attempt)"
+                return 0
+            fi
+            echo "health command pendiente (intento $attempt, esperando servicio...)"
+            sleep 5
+        done
+        echo "ERROR: health command failed after ${timeout_sec}s: $health_cmd"
+        return 1
     fi
 
     # Fichas bash sin health.type: si tiene ficha_test() la usa, si no pasa

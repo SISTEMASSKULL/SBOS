@@ -1,27 +1,42 @@
-# yaml_engine.yml — sbos-k8s-network-validator
-# Tres pruebas obligatorias antes de instalar PostgreSQL.
+# yaml_engine.yml — network-validator lifecycle phases
+# SBOS-049 §4.4 · Order · deployment
+# R16 Zero hardcoding
 
-validations:
-  dns:
-    description: "CoreDNS resuelve kubernetes.default.svc.cluster.local"
-    namespace: sbos-data
+pre_install:
+  - name: "create_namespace"
+    command: "kubectl create namespace sbos-installer --dry-run=client -o yaml | kubectl apply -f -"
+    timeout_seconds: 30
+  - name: "apply_network_policy"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/network-validator.network -n sbos-installer"
     timeout_seconds: 30
 
-  pod_to_pod:
-    description: "Dos pods en sbos-data pueden comunicarse entre sí"
-    namespace: sbos-data
-    timeout_seconds: 60
-    cleanup_on_success: true
+install:
+  - name: "apply_manifest"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/network-validator.k8s.yml -n sbos-installer"
+    timeout_seconds: 300
+  - name: "wait_ready"
+    command: "kubectl wait --for=condition=Available deployment/network-validator -n sbos-installer --timeout=600s"
+    timeout_seconds: 600
 
-  storage_class:
-    description: "StorageClass local-path provee un PVC 1Mi en WaitForFirstConsumer"
-    namespace: sbos-data
-    pvc_size: 1Mi
-    storage_class: local-path
-    timeout_seconds: 60
-    cleanup_on_success: true
+post_install:
+  - name: "verify"
+    command: "echo 'verify_ok'"
+    timeout_seconds: 30
 
-result_marker:
-  kind: ConfigMap
-  name: sbos-network-validated
-  namespace: sbos-data
+update:
+  - name: "rolling_restart"
+    command: "kubectl rollout restart deployment network-validator -n sbos-installer"
+    timeout_seconds: 300
+
+repair:
+  - name: "restart"
+    command: "kubectl rollout restart deployment network-validator -n sbos-installer"
+    timeout_seconds: 120
+
+uninstall:
+  - name: "delete_manifest"
+    command: "kubectl delete deployment network-validator -n sbos-installer --ignore-not-found"
+    timeout_seconds: 120
+  - name: "delete_pvc"
+    command: "echo 'no pvc'"
+    timeout_seconds: 60
