@@ -51,8 +51,12 @@ _pods_running() {
 ficha_pre_install() {
     echo "${__STEP_START__} verificar_namespace"
     if ! _kubectl get namespace "$NAMESPACE" > /dev/null 2>&1; then
-        echo "${__STEP_FAIL__} verificar_namespace: $NAMESPACE no existe — requiere sbos-bootstrap-k8s"
-        return 1
+        _log "namespace $NAMESPACE no existe — creando..."
+        _kubectl create namespace "$NAMESPACE" >> "$FICHA_LOG" 2>&1 || {
+            echo "${__STEP_FAIL__} verificar_namespace: no se pudo crear $NAMESPACE"
+            return 1
+        }
+        _log "namespace $NAMESPACE creado"
     fi
     echo "${__STEP_OK__} verificar_namespace"
     return 0
