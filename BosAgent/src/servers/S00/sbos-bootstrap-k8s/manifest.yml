@@ -44,8 +44,7 @@ governance:
 
 
 health:
-  check_command: "kubectl version --client"
-  check_interval_seconds: 30
-  check_timeout_seconds: 10
-  consecutive_failures_threshold: 3
+  type: command
+  command: "KUBECONFIG=/etc/kubernetes/admin.conf kubectl get nodes --no-headers 2>/dev/null | grep -q Ready && echo HEALTHY"
+  timeout_seconds: 15
 
