@@ -14,6 +14,7 @@ order:
   execution_order: 20
 
 requirements:
+  requires_k8s: false
   os: "Ubuntu 26.04 LTS"
   dependencies:
     - sbos-bootstrap-os

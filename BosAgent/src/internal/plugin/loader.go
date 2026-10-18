@@ -36,6 +36,7 @@ type FichaManifest struct {
 	WorkloadType   string            // "bash", "Deployment", "StatefulSet", etc.
 	Files          map[string]string // relative path → SHA-256
 	Backend        string            // "apt", "pip", "helm" from meta.backend
+	RequiresK8s    bool              // false = puede instalarse antes de que K8s esté listo (fichas bootstrap SO)
 
 	// F9.1 — políticas del Operator Soberano (BOS-REPAIR-02). nil si el
 	// manifest no declara la sección correspondiente.
@@ -158,11 +159,12 @@ func (l *Loader) Scan() ([]*FichaManifest, error) {
 
 func (l *Loader) loadFicha(id, path string) (*FichaManifest, error) {
 	m := &FichaManifest{
-		ID:       id,
-		Path:     path,
-		Category: 1,
-		Version:  "0.1.0",
-		Files:    make(map[string]string),
+		ID:          id,
+		Path:        path,
+		Category:    1,
+		Version:     "0.1.0",
+		Files:       make(map[string]string),
+		RequiresK8s: true, // default: necesita K8s; fichas bootstrap SO lo sobreescriben con false
 	}
 
 	// Parse manifest.yml if it exists
@@ -291,6 +293,9 @@ func (l *Loader) parseManifest(path string, m *FichaManifest) error {
 			switch key {
 			case "dependencies":
 				inDeps = true
+			case "requires_k8s":
+				m.RequiresK8s = value != "false"
+				inDeps = false
 			case "memory_request":
 				m.MemoryRequest = value
 				inDeps = false

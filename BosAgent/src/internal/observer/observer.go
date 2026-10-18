@@ -254,10 +254,12 @@ func (l *Loop) tick(fichaIndex map[string]*plugin.FichaManifest) {
 	next := findNextAutoInstall(st, fichaIndex, excluded)
 	if next != nil {
 		// Verificación de cluster K8s ANTES de instalar.
+		// Se omite para fichas con requires_k8s: false (ej: sbos-bootstrap-k8s)
+		// que son precisamente las que instalan el cluster.
 		// Si el nodo no está Ready, diferimos sin consumir reintentos (no es un fallo
 		// de la ficha — es un fallo de infraestructura). El log limita a 1 por minuto
 		// usando tickCount para no saturar los logs.
-		if l.cfg.Maintainer != nil {
+		if l.cfg.Maintainer != nil && next.RequiresK8s {
 			if ok, reason := l.cfg.Maintainer.IsClusterReady(); !ok {
 				if l.tickCount%12 == 1 {
 					log.Warn().
