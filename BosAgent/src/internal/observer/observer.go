@@ -4,6 +4,8 @@
 package observer
 
 import (
+	"fmt"
+	"net"
 	"sort"
 	"sync"
 	"time"
@@ -297,6 +299,22 @@ func (l *Loop) tick(fichaIndex map[string]*plugin.FichaManifest) {
 			}
 		}
 
+		// Verificación de puertos del host ANTES de instalar (motor de puertos SO).
+		// Solo aplica a fichas de aplicación (requires_k8s=true). Las fichas de
+		// bootstrap (requires_k8s=false) gestionan sus propios puertos internamente
+		// porque son las responsables de inicializar la infraestructura.
+		if next.RequiresK8s && len(next.HostPortsRequired) > 0 {
+			if blocked := checkHostPorts(next.HostPortsRequired); len(blocked) > 0 {
+				if l.tickCount%12 == 1 {
+					log.Warn().
+						Str("ficha", next.ID).
+						Str("puertos_bloqueados", fmt.Sprintf("%v", blocked)).
+						Msg("observer: instalación diferida — puertos del host ocupados")
+				}
+				return
+			}
+		}
+
 		log.Info().Str("ficha", next.ID).Str("version", next.Version).Msg("observer: iniciando instalación automática")
 		audit.Log(paths.AuditLog, "OBSERVER_INSTALL",
 			"user=root",
@@ -580,4 +598,21 @@ func TopologicalSort(fichas []*plugin.FichaManifest) []*plugin.FichaManifest {
 	result = append(result, remaining...)
 
 	return result
+}
+
+// checkHostPorts verifica que los puertos del host estén disponibles.
+// Retorna la lista de puertos bloqueados (vacía = todos disponibles).
+// Usa net.Listen para verificación portátil sin depender de herramientas externas.
+func checkHostPorts(ports []int) []int {
+	var blocked []int
+	for _, p := range ports {
+		addr := fmt.Sprintf(":%d", p)
+		ln, err := net.Listen("tcp", addr)
+		if err != nil {
+			blocked = append(blocked, p)
+			continue
+		}
+		_ = ln.Close()
+	}
+	return blocked
 }

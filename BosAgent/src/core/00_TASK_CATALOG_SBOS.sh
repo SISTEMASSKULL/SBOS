@@ -148,6 +148,34 @@ check_dependencies() {
     return 0
 }
 
+check_host_ports() {
+    local ficha_dir="$1"
+    local manifest="$ficha_dir/manifest.yml"
+    [[ ! -f "$manifest" ]] && return 0
+
+    local port_count
+    port_count=$(yq eval '.ports.host_ports | length' "$manifest" 2>/dev/null || echo "0")
+    [[ "$port_count" == "0" || "$port_count" == "null" ]] && return 0
+
+    local blocked=()
+    for (( i=0; i<port_count; i++ )); do
+        local port
+        port=$(yq eval ".ports.host_ports[$i]" "$manifest" 2>/dev/null || echo "0")
+        [[ "$port" =~ ^[0-9]+$ ]] || continue
+        if ss -tlnp 2>/dev/null | grep -q ":${port}\b"; then
+            local proc
+            proc=$(ss -tlnp 2>/dev/null | grep ":${port}\b" | grep -oP 'pid=\K[0-9]+' | head -1 || echo "?")
+            blocked+=("${port}(pid=${proc})")
+        fi
+    done
+
+    if (( ${#blocked[@]} > 0 )); then
+        echo "MOTOR_PUERTOS: puertos del host ocupados: ${blocked[*]}"
+        return 1
+    fi
+    return 0
+}
+
 check_no_dependents() {
     local ficha_id="$1"
     # Check if any other ficha declares a dependency on ficha_id

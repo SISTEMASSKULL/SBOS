@@ -405,7 +405,15 @@ cmd_install() {
     fi
     echo "${__SBOS__STEP_OK__} dependencies"
 
-    # 3. Pre-install (P2: failure → ABORT)
+    # 3. Motor de puertos del host (SBOS-050) — solo fichas que declaran host_ports
+    echo "${__SBOS__STEP_START__} motor_puertos"
+    if ! check_host_ports "$ficha_dir"; then
+        echo "${__SBOS__STEP_FAIL__} motor_puertos: puertos del host bloqueados (ver log)"
+        exit 2
+    fi
+    echo "${__SBOS__STEP_OK__} motor_puertos"
+
+    # 4. Pre-install (P2: failure → ABORT)
     echo "${__SBOS__STEP_START__} pre_install"
     if declare -f ficha_pre_install > /dev/null 2>&1; then
         if ! ficha_pre_install; then
@@ -420,7 +428,7 @@ cmd_install() {
     fi
     echo "${__SBOS__STEP_OK__} pre_install"
 
-    # 4. Install (P1: sbos_k8s_core is the ONLY kubectl apply)
+    # 5. Install (P1: sbos_k8s_core is the ONLY kubectl apply)
     echo "${__SBOS__STEP_START__} install"
     if declare -f ficha_install > /dev/null 2>&1; then
         if ! ficha_install; then
@@ -437,7 +445,7 @@ cmd_install() {
     fi
     echo "${__SBOS__STEP_OK__} install"
 
-    # 5. Post-install
+    # 6. Post-install
     echo "${__SBOS__STEP_START__} post_install"
     if declare -f ficha_post_install > /dev/null 2>&1; then
         ficha_post_install || true
@@ -446,7 +454,7 @@ cmd_install() {
     fi
     echo "${__SBOS__STEP_OK__} post_install"
 
-    # 6. Verify
+    # 7. Verify
     echo "${__SBOS__STEP_START__} verify"
     if ! verify_ficha_health "$ficha_id"; then
         echo "${__SBOS__STEP_FAIL__} verify: health check failed"

@@ -32,6 +32,13 @@ requirements:
 deployment:
   strategy: Recreate
 
+ports:
+  host_ports:
+    - 6443   # kube-apiserver
+    - 2379   # etcd client
+    - 2380   # etcd peer
+    - 10250  # kubelet
+
 governance:
   auto_install: true
 

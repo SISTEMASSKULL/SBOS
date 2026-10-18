@@ -37,6 +37,7 @@ type FichaManifest struct {
 	Files          map[string]string // relative path → SHA-256
 	Backend        string            // "apt", "pip", "helm" from meta.backend
 	RequiresK8s    bool              // false = puede instalarse antes de que K8s esté listo (fichas bootstrap SO)
+	HostPortsRequired []int           // puertos del host que deben estar libres antes de instalar
 
 	// F9.1 — políticas del Operator Soberano (BOS-REPAIR-02). nil si el
 	// manifest no declara la sección correspondiente.
@@ -213,8 +214,9 @@ func (l *Loader) parseManifest(path string, m *FichaManifest) error {
 
 	// State-machine parser for real SBOS manifest.yml format.
 	// Tracks: identity{}, workload{}, order{}, requirements{}, governance{} sections.
-	var section string // "", "identity", "workload", "order", "requirements", "governance"
+	var section string // "", "identity", "workload", "order", "requirements", "governance", "ports"
 	var inDeps bool
+	var inHostPorts bool
 
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
@@ -228,10 +230,11 @@ func (l *Loader) parseManifest(path string, m *FichaManifest) error {
 		sectionDetect := strings.TrimRight(trimmed, ":")
 		switch sectionDetect {
 		case "identity", "workload", "order", "requirements", "governance", "meta",
-			"scaling", "maintenance", "slos":
+			"scaling", "maintenance", "slos", "ports":
 			if strings.HasSuffix(trimmed, ":") && !strings.HasPrefix(line, " ") && !strings.HasPrefix(line, "\t") {
 				section = sectionDetect
 				inDeps = false
+				inHostPorts = false
 				continue
 			}
 		}
@@ -246,6 +249,16 @@ func (l *Loader) parseManifest(path string, m *FichaManifest) error {
 				dep = strings.Trim(dep, `"'`)
 				if dep != "" {
 					m.Dependencies = append(m.Dependencies, dep)
+				}
+			}
+			// Check for list item "- number" inside host_ports
+			if inHostPorts && strings.HasPrefix(trimmed, "- ") {
+				portStr := strings.TrimSpace(strings.TrimPrefix(trimmed, "- "))
+				portStr = stripInlineComment(portStr)
+				var p int
+				n, _ := fmt.Sscanf(portStr, "%d", &p)
+				if n == 1 && p > 0 {
+					m.HostPortsRequired = append(m.HostPortsRequired, p)
 				}
 			}
 			// Check if this is "dependencies:" header
@@ -316,6 +329,15 @@ func (l *Loader) parseManifest(path string, m *FichaManifest) error {
 			switch key {
 			case "backend":
 				m.Backend = value
+			}
+
+		case "ports":
+			switch key {
+			case "host_ports":
+				inHostPorts = true
+				inDeps = false
+			default:
+				inHostPorts = false
 			}
 
 		// F9.1 — políticas del Operator Soberano (BOS-REPAIR-02 §schema).

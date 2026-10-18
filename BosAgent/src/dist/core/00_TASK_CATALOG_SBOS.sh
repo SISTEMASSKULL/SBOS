@@ -148,6 +148,34 @@ check_dependencies() {
     return 0
 }
 
+check_host_ports() {
+    local ficha_dir="$1"
+    local manifest="$ficha_dir/manifest.yml"
+    [[ ! -f "$manifest" ]] && return 0
+
+    local port_count
+    port_count=$(yq eval '.ports.host_ports | length' "$manifest" 2>/dev/null || echo "0")
+    [[ "$port_count" == "0" || "$port_count" == "null" ]] && return 0
+
+    local blocked=()
+    for (( i=0; i<port_count; i++ )); do
+        local port
+        port=$(yq eval ".ports.host_ports[$i]" "$manifest" 2>/dev/null || echo "0")
+        [[ "$port" =~ ^[0-9]+$ ]] || continue
+        if ss -tlnp 2>/dev/null | grep -q ":${port}\b"; then
+            local proc
+            proc=$(ss -tlnp 2>/dev/null | grep ":${port}\b" | grep -oP 'pid=\K[0-9]+' | head -1 || echo "?")
+            blocked+=("${port}(pid=${proc})")
+        fi
+    done
+
+    if (( ${#blocked[@]} > 0 )); then
+        echo "MOTOR_PUERTOS: puertos del host ocupados: ${blocked[*]}"
+        return 1
+    fi
+    return 0
+}
+
 check_no_dependents() {
     local ficha_id="$1"
     # Check if any other ficha declares a dependency on ficha_id
@@ -236,6 +264,89 @@ create_k8s_secret() {
         -n "$namespace" \
         --from-literal="$key=$value" \
         --dry-run=client -o yaml | kubectl apply -f -
+}
+
+# sbos_ensure_serviceaccount: crea un ServiceAccount si no existe (idempotente).
+# Uso: sbos_ensure_serviceaccount <name> <namespace>
+sbos_ensure_serviceaccount() {
+    local name="$1" namespace="$2"
+    kubectl create serviceaccount "${name}" -n "${namespace}" \
+        --dry-run=client -o yaml | kubectl apply -f -
+}
+
+# sbos_ensure_pg_database: crea una base de datos PostgreSQL en el pod postgresql-0
+# de sbos-data si aún no existe. Idempotente — CREATE DATABASE IF NOT EXISTS.
+# Uso: sbos_ensure_pg_database <dbname> [pg_password]
+sbos_ensure_pg_database() {
+    local dbname="$1"
+    local pg_pass="${2:-sbos_bootstrap_pass}"
+    local pg_pod
+    pg_pod=$(kubectl get pod -n sbos-data -l app=postgresql \
+        --field-selector=status.phase=Running \
+        -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+    if [ -z "${pg_pod}" ]; then
+        echo "ADVERTENCIA: pod postgresql no encontrado en sbos-data — omitiendo creación de BD ${dbname}"
+        return 0
+    fi
+    # SELECT 1 WHERE NOT EXISTS permite idempotencia sin error en duplicados
+    kubectl exec "${pg_pod}" -n sbos-data -- \
+        psql -U postgres -tc \
+        "SELECT 1 FROM pg_database WHERE datname='${dbname}'" 2>/dev/null | grep -q 1 && {
+        echo "BD ${dbname} ya existe"
+        return 0
+    }
+    kubectl exec "${pg_pod}" -n sbos-data -- \
+        psql -U postgres -c "CREATE DATABASE \"${dbname}\";" 2>/dev/null && \
+        echo "BD ${dbname} creada" || \
+        echo "ADVERTENCIA: no se pudo crear BD ${dbname}"
+}
+
+# sbos_health_deployment: verifica que un Deployment tiene al menos 1 réplica lista.
+# Retorna 0 si healthy, 1 si no. Para usar en ficha_health().
+# Uso: sbos_health_deployment <deployment-name> [namespace]
+sbos_health_deployment() {
+    local name="$1" ns="${2:-${SBOS_NAMESPACE:-default}}"
+    local ready
+    ready=$(kubectl get deployment "${name}" -n "${ns}" \
+        -o jsonpath='{.status.readyReplicas}' 2>/dev/null)
+    ready="${ready:-0}"
+    if [[ "${ready}" -lt 1 ]] 2>/dev/null; then
+        echo "FALLO: deployment ${name} sin réplicas listas (ready=${ready:-0})"
+        return 1
+    fi
+    return 0
+}
+
+# sbos_health_statefulset: verifica que un StatefulSet tiene al menos 1 réplica lista.
+# Retorna 0 si healthy, 1 si no. Para usar en ficha_health().
+# Uso: sbos_health_statefulset <statefulset-name> [namespace]
+sbos_health_statefulset() {
+    local name="$1" ns="${2:-${SBOS_NAMESPACE:-default}}"
+    local ready
+    ready=$(kubectl get statefulset "${name}" -n "${ns}" \
+        -o jsonpath='{.status.readyReplicas}' 2>/dev/null)
+    ready="${ready:-0}"
+    if [[ "${ready}" -lt 1 ]] 2>/dev/null; then
+        echo "FALLO: statefulset ${name} sin réplicas listas (ready=${ready:-0})"
+        return 1
+    fi
+    return 0
+}
+
+sbos_health_daemonset() {
+    local name="$1" ns="${2:-${SBOS_NAMESPACE:-default}}"
+    local ready desired
+    ready=$(kubectl get daemonset "${name}" -n "${ns}" \
+        -o jsonpath='{.status.numberReady}' 2>/dev/null)
+    desired=$(kubectl get daemonset "${name}" -n "${ns}" \
+        -o jsonpath='{.status.desiredNumberScheduled}' 2>/dev/null)
+    ready="${ready:-0}"
+    desired="${desired:-0}"
+    if [[ "${desired}" -lt 1 ]] 2>/dev/null || [[ "${ready}" -lt 1 ]] 2>/dev/null; then
+        echo "FALLO: daemonset ${name} sin réplicas listas (ready=${ready:-0} desired=${desired:-0})"
+        return 1
+    fi
+    return 0
 }
 
 apply_configmap() {

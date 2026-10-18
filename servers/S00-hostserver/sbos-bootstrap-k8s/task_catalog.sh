@@ -377,6 +377,36 @@ ficha_install() {
     echo "${__SBOS__STEP_START__} install"
     echo "Installing Kubernetes runtime and tools..."
 
+    # ── Idempotencia P15 + limpieza de estado corrupto ──────────────
+    # Caso 1: K8s ya funciona → saltar instalación completa
+    if [[ -f /etc/kubernetes/admin.conf ]]; then
+        if KUBECONFIG=/etc/kubernetes/admin.conf kubectl get nodes --no-headers 2>/dev/null | grep -q "Ready"; then
+            echo "K8s cluster ya instalado y saludable — omitiendo instalación completa (P15)"
+            mkdir -p /root/.kube /etc/bos/.kube
+            cp /etc/kubernetes/admin.conf /root/.kube/config 2>/dev/null || true
+            cp /etc/kubernetes/admin.conf /etc/bos/.kube/config 2>/dev/null || true
+            echo "${__SBOS__STEP_OK__} install"
+            return 0
+        fi
+        # admin.conf existe pero cluster no saludable → limpiar y reinstalar
+        echo "K8s presente pero no saludable — limpiando para reinstalar..."
+        kubeadm reset -f 2>/dev/null || true
+        rm -rf /etc/kubernetes/ /var/lib/kubelet/ /var/lib/etcd/ 2>/dev/null || true
+    fi
+
+    # Caso 2: procesos K8s huérfanos (puerto 6443 ocupado sin cluster funcional)
+    if ss -tlnp 2>/dev/null | grep -q ":6443\b"; then
+        echo "Puerto 6443 ocupado — eliminando procesos K8s huérfanos..."
+        pkill -9 kube-apiserver 2>/dev/null || true
+        pkill -9 kube-controller-manager 2>/dev/null || true
+        pkill -9 kube-scheduler 2>/dev/null || true
+        pkill -9 etcd 2>/dev/null || true
+        sleep 3
+        kubeadm reset -f 2>/dev/null || true
+        rm -rf /etc/kubernetes/ /var/lib/kubelet/ /var/lib/etcd/ 2>/dev/null || true
+        echo "Estado corrupto limpiado"
+    fi
+
     # ── Step 1: Install containerd + system deps ────────────
     echo "Installing system dependencies..."
     apt-get update -qq
@@ -474,26 +504,6 @@ ficha_install() {
 
     echo "kubeadm: $(kubeadm version -o short 2>/dev/null || echo 'available')"
     echo "kubelet: $(kubelet --version 2>/dev/null || echo 'available')"
-
-    # ── Idempotencia P15: si K8s ya funciona, no reinstalar ──────
-    if [[ -f /etc/kubernetes/admin.conf ]]; then
-        export KUBECONFIG=/etc/kubernetes/admin.conf
-        if kubectl get nodes --no-headers 2>/dev/null | grep -q "Ready"; then
-            echo "K8s cluster ya instalado y saludable — omitiendo kubeadm init (P15)"
-            # Sincronizar kubeconfig para BOS si es necesario
-            mkdir -p /root/.kube /etc/bos/.kube
-            cp /etc/kubernetes/admin.conf /root/.kube/config 2>/dev/null || true
-            cp /etc/kubernetes/admin.conf /etc/bos/.kube/config 2>/dev/null || true
-            echo "${__SBOS__STEP_OK__} install"
-            return 0
-        fi
-        # Cluster presente pero no saludable — reset y reinit
-        echo "K8s instalado pero no saludable — reiniciando..."
-        kubeadm reset -f 2>/dev/null || true
-        rm -rf /etc/kubernetes/manifests/* 2>/dev/null || true
-        rm -rf /var/lib/kubelet/* 2>/dev/null || true
-        rm -f /etc/kubernetes/*.conf 2>/dev/null || true
-    fi
 
     # ── Step 3: kubeadm init ─────────────────────────────────
     local ip
