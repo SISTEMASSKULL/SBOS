@@ -27,13 +27,13 @@ readonly BOS_INSTALL_MODE="${BOS_INSTALL_MODE:-prod}"
 _log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [bos-preflight] $*" | tee -a "$FICHA_LOG"; }
 
 # _warn_or_fail <nombre_step> <mensaje>
-# dev:  emite STEP_SKIP + advertencia — no bloquea la instalación
+# dev o BOS_SKIP_RESOURCE_CHECK=true: emite STEP_SKIP + advertencia — no bloquea
 # prod: emite STEP_FAIL + error — bloquea la instalación
 _warn_or_fail() {
     local step="$1" msg="$2"
-    if [[ "$BOS_INSTALL_MODE" == "dev" ]]; then
-        _log "ADVERTENCIA [dev]: $msg"
-        echo "${__STEP_SKIP__} ${step}: [DEV] $msg"
+    if [[ "$BOS_INSTALL_MODE" == "dev" || "${BOS_SKIP_RESOURCE_CHECK:-false}" == "true" ]]; then
+        _log "ADVERTENCIA: $msg"
+        echo "${__STEP_SKIP__} ${step}: [WARN] $msg"
         return 0
     else
         _log "FALLO [prod]: $msg"
