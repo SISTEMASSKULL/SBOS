@@ -93,5 +93,13 @@ ficha_uninstall() {
 # ── health ─────────────────────────────────────────────────────
 ficha_health() {
     echo "${__SBOS__STEP_START__} health"
+    local ready
+    ready=$(kubectl get deployment cypht -n "${SBOS_NAMESPACE}" \
+        -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    ready="${ready:-0}"
+    if [ "${ready}" -lt 1 ] 2>/dev/null; then
+        echo "FALLO: cypht sin réplicas listas (ready=${ready})"
+        exit 1
+    fi
     echo "${__SBOS__STEP_OK__} health"
 }
