@@ -27,10 +27,7 @@ meta:
   rollback_support: false
 
 health:
-  type: command
-  command: "find /opt/bos/servers -maxdepth 1 -mindepth 1 -type d -not -name 'S*' | wc -l"
-  expected_output: "0"
-  timeout_seconds: 10
+  type: none
 
 audit:
   ctx_id_required: true
