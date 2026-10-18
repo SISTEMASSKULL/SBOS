@@ -59,15 +59,25 @@ func SyncFromGit(serversPath, gitURL string, log *slog.Logger) error {
 }
 
 // runGitStep ejecuta git clone (sparse) o git pull según si el clon ya existe.
-// Sparse checkout descarga SOLO servers/ — evita clonar el monorepo completo.
+// Si git pull falla por cualquier causa (historial no relacionado, red, etc.),
+// elimina el clon y hace un clone fresco — garantiza fichas siempre actualizadas.
 func runGitStep(gitURL string, log *slog.Logger) error {
 	if _, err := os.Stat(filepath.Join(cloneDir, ".git")); err == nil {
 		log.Info("fichasync: actualizando clon existente", "dir", cloneDir)
-		cmd := exec.Command("git", "-C", cloneDir, "pull", "--depth=1", "--rebase=false")
-		if out, err := cmd.CombinedOutput(); err != nil {
-			return fmt.Errorf("git pull: %w — %s", err, out)
+		cmd := exec.Command("git", "-C", cloneDir, "fetch", "--depth=1", "origin", "main")
+		if out, err := cmd.CombinedOutput(); err == nil {
+			// Reset hard al HEAD remoto — evita problemas de "unrelated histories"
+			cmd2 := exec.Command("git", "-C", cloneDir, "reset", "--hard", "origin/main")
+			if out2, err2 := cmd2.CombinedOutput(); err2 == nil {
+				return nil
+			} else {
+				log.Warn("fichasync: reset falló — rehaciendo clone", "error", string(out2))
+			}
+		} else {
+			log.Warn("fichasync: fetch falló — rehaciendo clone", "error", string(out))
 		}
-		return nil
+		// Cualquier fallo en fetch/reset → clone fresco
+		_ = os.RemoveAll(cloneDir)
 	}
 
 	// Clon nuevo con sparse checkout — solo descarga servers/

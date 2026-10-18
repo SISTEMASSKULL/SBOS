@@ -27,19 +27,27 @@ readonly BOS_INSTALL_MODE="${BOS_INSTALL_MODE:-prod}"
 _log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [bos-preflight] $*" | tee -a "$FICHA_LOG"; }
 
 # _warn_or_fail <nombre_step> <mensaje>
-# dev o BOS_SKIP_RESOURCE_CHECK=true: emite STEP_SKIP + advertencia — no bloquea
-# prod: emite STEP_FAIL + error — bloquea la instalación
+# Los checks de recursos (RAM, CPU, disco) son siempre advertencias: el operador
+# decide si continuar con hardware por debajo del mínimo recomendado.
+# Solo los checks críticos (OS, puertos) son fatales en prod.
 _warn_or_fail() {
     local step="$1" msg="$2"
-    if [[ "$BOS_INSTALL_MODE" == "dev" || "${BOS_SKIP_RESOURCE_CHECK:-false}" == "true" ]]; then
-        _log "ADVERTENCIA: $msg"
-        echo "${__STEP_SKIP__} ${step}: [WARN] $msg"
+    _log "ADVERTENCIA: $msg"
+    echo "${__STEP_SKIP__} ${step}: [WARN] $msg"
+    return 0
+}
+
+# _fail_hard <nombre_step> <mensaje> — para checks que SÍ bloquean la instalación
+_fail_hard() {
+    local step="$1" msg="$2"
+    if [[ "$BOS_INSTALL_MODE" == "dev" ]]; then
+        _log "ADVERTENCIA [dev]: $msg"
+        echo "${__STEP_SKIP__} ${step}: [DEV] $msg"
         return 0
-    else
-        _log "FALLO [prod]: $msg"
-        echo "${__STEP_FAIL__} ${step}: $msg"
-        return 1
     fi
+    _log "FALLO: $msg"
+    echo "${__STEP_FAIL__} ${step}: $msg"
+    return 1
 }
 
 # Mínimos reales del stack SBOS completo.
@@ -99,7 +107,7 @@ _check_os_strict() {
     local version
     version=$(grep '^VERSION_ID' /etc/os-release 2>/dev/null | cut -d'"' -f2 || echo "unknown")
     if [[ "$version" != "26.04" ]]; then
-        _warn_or_fail "check_os_strict" "Ubuntu 26.04 LTS requerido — detectado: Ubuntu $version" || return 1
+        _fail_hard "check_os_strict" "Ubuntu 26.04 LTS requerido — detectado: Ubuntu $version" || return 1
     else
         echo "${__STEP_OK__} check_os_strict: Ubuntu 26.04 LTS"
     fi
