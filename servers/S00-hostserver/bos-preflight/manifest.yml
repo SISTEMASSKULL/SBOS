@@ -14,6 +14,7 @@ order:
   execution_order: 1
 
 requirements:
+  requires_k8s: false
   os: "Ubuntu 26.04 LTS"
   os_strict: true             # solo 26.04 — 22.04 y 24.04 no aceptados
   kernel_min: "6.8.0"         # kubeadm 1.32+ requiere ≥6.8

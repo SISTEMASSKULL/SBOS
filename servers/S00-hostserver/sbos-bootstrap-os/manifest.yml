@@ -20,6 +20,7 @@ order:
   timeout_minutes: 30
 
 requirements:
+  requires_k8s: false
   dependencies:
 
   cpu_request: "100m"

@@ -14,6 +14,7 @@ order:
   execution_order: 10
 
 requirements:
+  requires_k8s: false
   os: "Ubuntu 26.04 LTS"
   kernel_min: "7.0.0"
   ram_min_mb: 4096
