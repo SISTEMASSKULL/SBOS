@@ -218,6 +218,93 @@ func TestIsClusterReady_KubectlNoDisponible(t *testing.T) {
 	}
 }
 
+// ── CleanStuckTerminating ─────────────────────────────────────────────────────
+
+// fakeKubectlStuckTerminating devuelve un pod con deletionTimestamp antiguo (sin finalizers).
+func fakeKubectlStuckTerminating(t *testing.T, tsAntiguo string) (*Core, string) {
+	t.Helper()
+	dir := t.TempDir()
+	logPath := filepath.Join(dir, "args.log")
+	// tsAntiguo simula un pod con deletionTimestamp 10 minutos atrás
+	script := `#!/bin/bash
+echo "$@" >> "` + logPath + `"
+if [[ "$*" == *"get pods"* ]]; then
+  printf 'sbos-erp redis-0 ` + tsAntiguo + ` <none>\n'
+  exit 0
+fi
+if [[ "$1" == "delete" ]]; then
+  exit 0
+fi
+exit 0
+`
+	kp := filepath.Join(dir, "kubectl")
+	if err := os.WriteFile(kp, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	kc := filepath.Join(t.TempDir(), "admin.conf")
+	_ = os.WriteFile(kc, []byte("# fake"), 0600)
+	return NewCore(kc, 10*time.Second), logPath
+}
+
+func TestCleanStuckTerminating_EliminaPodAtascado(t *testing.T) {
+	// Simular un pod con deletionTimestamp 10 minutos atrás
+	ts := time.Now().UTC().Add(-10 * time.Minute).Format(time.RFC3339)
+	c, logPath := fakeKubectlStuckTerminating(t, ts)
+
+	n, err := c.CleanStuckTerminating()
+	if err != nil {
+		t.Fatalf("CleanStuckTerminating() error: %v", err)
+	}
+	if n != 1 {
+		t.Errorf("CleanStuckTerminating() = %d, quería 1 (pod atascado)", n)
+	}
+	data, _ := os.ReadFile(logPath)
+	if !strings.Contains(string(data), "redis-0") {
+		t.Error("esperaba delete de redis-0 en args.log")
+	}
+}
+
+func TestCleanStuckTerminating_IgnoraPodReciente(t *testing.T) {
+	// Pod con deletionTimestamp hace 1 minuto — dentro del umbral, no debe eliminarse
+	ts := time.Now().UTC().Add(-1 * time.Minute).Format(time.RFC3339)
+	c, logPath := fakeKubectlStuckTerminating(t, ts)
+
+	n, err := c.CleanStuckTerminating()
+	if err != nil {
+		t.Fatalf("CleanStuckTerminating() error: %v", err)
+	}
+	if n != 0 {
+		t.Errorf("CleanStuckTerminating() = %d para pod reciente, quería 0", n)
+	}
+	data, _ := os.ReadFile(logPath)
+	if strings.Contains(string(data), "delete") {
+		t.Error("no debería haber delete para pod con deletionTimestamp reciente")
+	}
+}
+
+func TestCleanStuckTerminating_IgnoraPodSinDeletionTimestamp(t *testing.T) {
+	dir := t.TempDir()
+	script := `#!/bin/bash
+if [[ "$*" == *"get pods"* ]]; then
+  printf 'sbos-erp redis-0 <none> <none>\n'
+  exit 0
+fi
+exit 0
+`
+	kp := filepath.Join(dir, "kubectl")
+	_ = os.WriteFile(kp, []byte(script), 0755)
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	kc := filepath.Join(t.TempDir(), "admin.conf")
+	_ = os.WriteFile(kc, []byte("# fake"), 0600)
+	c := NewCore(kc, 5*time.Second)
+
+	n, _ := c.CleanStuckTerminating()
+	if n != 0 {
+		t.Errorf("CleanStuckTerminating() = %d para pod sin deletionTimestamp, quería 0", n)
+	}
+}
+
 // ── splitOutput ───────────────────────────────────────────────────────────────
 
 func TestSplitOutput_LineasVacias(t *testing.T) {

@@ -121,6 +121,15 @@ func (l *Loop) Run() {
 					if n := l.cfg.Maintainer.RunMaintenance(); n > 0 {
 						log.Info().Int("n", n).Msg("observer: mantenimiento automatico completado")
 					}
+					// CleanStuckTerminating: limpieza opcional si el Maintainer la implementa
+					type stuckCleaner interface {
+						CleanStuckTerminating() (int, error)
+					}
+					if sc, ok := l.cfg.Maintainer.(stuckCleaner); ok {
+						if p, _ := sc.CleanStuckTerminating(); p > 0 {
+							log.Info().Int("n", p).Msg("observer: pods stuck-terminating eliminados")
+						}
+					}
 					resources.SignalZombieParents()
 				}
 			}
