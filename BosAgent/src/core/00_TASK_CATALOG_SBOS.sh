@@ -719,12 +719,18 @@ verify_ficha_health() {
     local health_type
     health_type=$(yq eval '.health.type // "pods"' "$manifest" 2>/dev/null || echo "pods")
 
-    # Compatibilidad con formato legacy: check_command sin health.type → tratar como command
+    # Compatibilidad con formato legacy: check_command sin health.type
+    # Solo usar como command si el workload es host_script; fichas K8s usan pods
     if [[ "$health_type" == "pods" ]]; then
         local legacy_cmd
         legacy_cmd=$(yq eval '.health.check_command // ""' "$manifest" 2>/dev/null || echo "")
         if [[ -n "$legacy_cmd" ]]; then
-            health_type="command"
+            local wl_type
+            wl_type=$(yq eval '.workload.type // "host_script"' "$manifest" 2>/dev/null | tr '[:upper:]' '[:lower:]' || echo "host_script")
+            if [[ "$wl_type" == "host_script" || "$wl_type" == "bash" ]]; then
+                health_type="command"
+            fi
+            # Fichas K8s (Deployment, StatefulSet, DaemonSet, etc.) → usar pods, no command
         fi
     fi
 

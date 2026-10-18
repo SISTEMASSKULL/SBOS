@@ -38,10 +38,8 @@ governance:
   backup_schedule: "0 3 * * 0"
 
 health:
-  check_command: "curl -sf https://localhost/health"
-  check_interval_seconds: 30
-  check_timeout_seconds: 10
-  consecutive_failures_threshold: 3
+  type: pods
+  label_selector: "app=nginx"
 
 integrations:
   certbot:
