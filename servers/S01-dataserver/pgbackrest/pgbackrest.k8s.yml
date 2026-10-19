@@ -39,8 +39,8 @@ spec:
       serviceAccountName: pgbackrest-sa
       containers:
         - name: pgbackrest
-          image: ghcr.io/pgbackrest/pgbackrest:release-2.52
-          command: ["sleep", "infinity"]
+          image: docker.io/library/alpine:3.20
+          command: ["/bin/sh", "-c", "apk add --no-cache pgbackrest && sleep infinity"]
           resources:
             requests:
               cpu: 100m
@@ -51,12 +51,12 @@ spec:
           livenessProbe:
             exec:
               command: ["pgbackrest", "version"]
-            initialDelaySeconds: 15
+            initialDelaySeconds: 60
             periodSeconds: 60
           readinessProbe:
             exec:
               command: ["pgbackrest", "version"]
-            initialDelaySeconds: 10
+            initialDelaySeconds: 30
             periodSeconds: 30
 
 
