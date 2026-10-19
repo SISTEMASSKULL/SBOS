@@ -26,7 +26,10 @@ spec:
               image: docker.io/library/postgres:18
               env:
                 - name: PGPASSWORD
-                  value: "postgres"
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgresql-secret
+                      key: password
               command:
                 - psql
                 - -h

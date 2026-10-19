@@ -25,7 +25,7 @@ BI18N_CTL_DST="${BI18N_CTL_DST:-/usr/local/bin/bi18nctl}"
 BI18N_CONF_DST="${BI18N_CONF_DST:-/etc/bos/bi18n.toml}"
 BI18N_SERVICE_DST="${BI18N_SERVICE_DST:-/etc/systemd/system/bi18nd.service}"
 
-FICHA_DIR="${FICHA_DIR:-$(dirname "$(readlink -f "$0")")}"
+FICHA_DIR="${SBOS_FICHA_DIR:-${FICHA_DIR:-$(dirname "$(readlink -f "$0")")}}"
 BI18N_STUB_SRC="${FICHA_DIR}/bin/bi18nd"
 
 _log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [sbos-bi18n] $*" | tee -a "$FICHA_LOG"; }

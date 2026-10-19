@@ -360,6 +360,9 @@ main() {
     local ficha_tasks=""
     if [[ -n "$ficha_dir" && -f "$ficha_dir/task_catalog.sh" ]]; then
         ficha_tasks="$ficha_dir/task_catalog.sh"
+        # Exportar para que task_catalog.sh resuelva FICHA_DIR correctamente
+        export SBOS_FICHA_DIR="$ficha_dir"
+        export FICHA_DIR="$ficha_dir"
         # shellcheck source=/dev/null
         source "$ficha_tasks"
     fi

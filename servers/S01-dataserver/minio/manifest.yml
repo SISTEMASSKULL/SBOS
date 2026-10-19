@@ -27,13 +27,16 @@ requirements:
   memory_request: "2Gi"
   memory_limit: "8Gi"
   pvc_size: "500Gi"
-  pvc_storage_class: "sbos-standard"
+  pvc_storage_class: "sbos-local-path"
 
 deployment:
   strategy: Recreate
 
 governance:
-  auto_install: true
+  # BLOQUEADO: docker.io/minio/minio requiere auth de Docker Hub (no disponible sin cuenta).
+  # dl.min.io eliminó URLs directas (HTTP 410). GitHub Releases devuelve 404 para linux-amd64.
+  # Activar manualmente tras configurar imagePullSecrets o un mirror de Docker Hub.
+  auto_install: false
   backup_enabled: false
   encryption_required: true
 

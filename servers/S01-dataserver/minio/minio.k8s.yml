@@ -22,6 +22,8 @@ spec:
       port: 9001
       targetPort: 9001
 ---
+# minio: StatefulSet con initContainer que descarga el binario desde dl.min.io
+# Se usa alpine:3.20 (ya disponible en el nodo) para descargar el binario oficial
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -39,12 +41,35 @@ spec:
         app: minio
     spec:
       serviceAccountName: minio-sa
-      securityContext:
-        fsGroup: 1001
+      initContainers:
+        - name: download-minio
+          image: docker.io/library/alpine:3.20
+          command:
+            - /bin/sh
+            - -c
+            - |
+              if [ -f /shared/minio ]; then
+                echo "minio ya descargado, skip"
+                exit 0
+              fi
+              apk add --no-cache wget 2>/dev/null || true
+              # GitHub Releases es la fuente canónica desde que dl.min.io eliminó las URLs directas
+              wget -qO /shared/minio \
+                "https://github.com/minio/minio/releases/download/RELEASE.2024-11-07T00-52-20Z/minio"
+              chmod +x /shared/minio
+              echo "minio descargado: $(/shared/minio --version 2>/dev/null | head -1)"
+          volumeMounts:
+            - name: shared-bin
+              mountPath: /shared
       containers:
         - name: minio
-          image: quay.io/minio/minio:RELEASE.2025-02-28T09-55-16Z
-          args: ["server", "/data", "--console-address", ":9001"]
+          image: docker.io/library/alpine:3.20
+          command:
+            - /bin/sh
+            - -c
+            - |
+              mkdir -p /data
+              exec /shared/minio server /data --console-address :9001
           ports:
             - containerPort: 9000
               name: api
@@ -64,25 +89,30 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /data
+            - name: shared-bin
+              mountPath: /shared
           resources:
             requests:
-              cpu: 1000m
-              memory: 2Gi
+              cpu: 500m
+              memory: 512Mi
             limits:
-              cpu: 4000m
-              memory: 8Gi
+              cpu: 2000m
+              memory: 4Gi
           livenessProbe:
             httpGet:
               path: /minio/health/live
               port: 9000
-            initialDelaySeconds: 30
+            initialDelaySeconds: 60
             periodSeconds: 30
           readinessProbe:
             httpGet:
               path: /minio/health/ready
               port: 9000
-            initialDelaySeconds: 10
+            initialDelaySeconds: 30
             periodSeconds: 10
+      volumes:
+        - name: shared-bin
+          emptyDir: {}
   volumeClaimTemplates:
     - metadata:
         name: data
@@ -91,4 +121,4 @@ spec:
         storageClassName: sbos-local-path
         resources:
           requests:
-            storage: 500Gi
+            storage: 50Gi

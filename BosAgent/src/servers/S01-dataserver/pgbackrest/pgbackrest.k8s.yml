@@ -5,20 +5,7 @@ metadata:
   name: pgbackrest-sa
   namespace: sbos-data
 ---
-apiVersion: v1
-kind: Service
-metadata:
-  name: pgbackrest
-  namespace: sbos-data
-spec:
-  type: ClusterIP
-  selector:
-    app: pgbackrest
-  ports:
-    - name: http
-      port: 8080
-      targetPort: 8080
----
+# pgbackrest: backup de PostgreSQL usando imagen Debian con apt install
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -37,10 +24,24 @@ spec:
         app: pgbackrest
     spec:
       serviceAccountName: pgbackrest-sa
+      initContainers:
+        - name: install-pgbackrest
+          image: docker.io/library/debian:12-slim
+          command:
+            - /bin/sh
+            - -c
+            - |
+              apt-get update -qq && apt-get install -y -qq pgbackrest && cp /usr/bin/pgbackrest /shared/pgbackrest
+          volumeMounts:
+            - name: shared-bin
+              mountPath: /shared
       containers:
         - name: pgbackrest
-          image: docker.io/library/alpine:3.20
-          command: ["/bin/sh", "-c", "apk add --no-cache pgbackrest && sleep infinity"]
+          image: docker.io/library/debian:12-slim
+          command: ["sleep", "infinity"]
+          volumeMounts:
+            - name: shared-bin
+              mountPath: /usr/local/bin
           resources:
             requests:
               cpu: 100m
@@ -50,13 +51,9 @@ spec:
               memory: 256Mi
           livenessProbe:
             exec:
-              command: ["pgbackrest", "version"]
+              command: ["test", "-f", "/usr/local/bin/pgbackrest"]
             initialDelaySeconds: 60
             periodSeconds: 60
-          readinessProbe:
-            exec:
-              command: ["pgbackrest", "version"]
-            initialDelaySeconds: 30
-            periodSeconds: 30
-
-
+      volumes:
+        - name: shared-bin
+          emptyDir: {}
