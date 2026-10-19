@@ -34,7 +34,7 @@ deployment:
   strategy: RollingUpdate
 
 governance:
-  auto_install: false
+  auto_install: true
   requires_approval: false
   backup_enabled: false
   backup_schedule: ""
