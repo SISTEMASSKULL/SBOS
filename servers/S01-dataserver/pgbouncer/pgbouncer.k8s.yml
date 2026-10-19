@@ -42,8 +42,19 @@ spec:
           image: docker.io/pgbouncer/pgbouncer:1.23.1
           ports:
             - containerPort: 6432
-              name: http
-
+              name: pgbouncer
+          env:
+            - name: DATABASES_HOST
+              value: "postgresql.sbos-data.svc.cluster.local"
+            - name: DATABASES_PORT
+              value: "5432"
+            - name: DATABASES_USER
+              value: "postgres"
+            - name: DATABASES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgresql-secret
+                  key: password
           resources:
             requests:
               cpu: 100m
@@ -52,14 +63,12 @@ spec:
               cpu: 500m
               memory: 256Mi
           livenessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: 6432
             initialDelaySeconds: 30
             periodSeconds: 30
           readinessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: 6432
             initialDelaySeconds: 10
             periodSeconds: 10

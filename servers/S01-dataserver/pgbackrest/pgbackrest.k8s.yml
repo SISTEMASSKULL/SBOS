@@ -39,11 +39,8 @@ spec:
       serviceAccountName: pgbackrest-sa
       containers:
         - name: pgbackrest
-          image: docker.io/pgbackrest/pgbackrest:2.52
-          ports:
-            - containerPort: 8080
-              name: http
-
+          image: ghcr.io/pgbackrest/pgbackrest:release-2.52
+          command: ["sleep", "infinity"]
           resources:
             requests:
               cpu: 100m
@@ -52,16 +49,14 @@ spec:
               cpu: 500m
               memory: 256Mi
           livenessProbe:
-            httpGet:
-              path: /health
-              port: 8080
-            initialDelaySeconds: 30
-            periodSeconds: 30
+            exec:
+              command: ["pgbackrest", "version"]
+            initialDelaySeconds: 15
+            periodSeconds: 60
           readinessProbe:
-            httpGet:
-              path: /health
-              port: 8080
+            exec:
+              command: ["pgbackrest", "version"]
             initialDelaySeconds: 10
-            periodSeconds: 10
+            periodSeconds: 30
 
 
