@@ -32,7 +32,9 @@ deployment:
   strategy: RollingUpdate
 
 governance:
-  auto_install: true
+  auto_install: false
+  requires_approval: true
+  category_label: "service-mesh-critica"
 
 
 health:

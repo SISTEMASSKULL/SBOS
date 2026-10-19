@@ -50,7 +50,7 @@ ficha_install() {
     chmod 644 "${BAUTH_UNIT}"
 
     # Generar bauth.toml desde template
-    local pg_dsn="${BAUTH_PG_DSN:-postgres://postgres:postgres@localhost:15432/SBOSDB}"
+    local pg_dsn="${BAUTH_PG_DSN:-postgres://postgres:postgres@10.96.127.164:6432/SBOSDB}"
     sed "s|{{PG_DSN}}|${pg_dsn}|g" \
         "${SBOS_FICHA_DIR}/resources/bauth.toml.tmpl" > "${BAUTH_TOML}"
     chmod 640 "${BAUTH_TOML}"
