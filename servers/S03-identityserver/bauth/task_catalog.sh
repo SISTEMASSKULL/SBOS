@@ -50,8 +50,11 @@ ficha_install() {
     chmod 644 "${BAUTH_UNIT}"
 
     # Generar bauth.toml desde template
-    local pg_dsn="${BAUTH_PG_DSN:-postgres://postgres:postgres@10.96.127.164:6432/SBOSDB}"
-    sed "s|{{PG_DSN}}|${pg_dsn}|g" \
+    # BAUTH_PG_DSN debe ser inyectada por BOS desde integrations.database.dsn_env del manifest
+    local pg_dsn="${BAUTH_PG_DSN:?BAUTH_PG_DSN no definida — BOS debe inyectarla antes de ejecutar install}"
+    local socket_path="${BAUTH_SOCK_DIR}/bauth.sock"
+    sed -e "s|{{PG_DSN}}|${pg_dsn}|g" \
+        -e "s|{{SOCKET_PATH}}|${socket_path}|g" \
         "${SBOS_FICHA_DIR}/resources/bauth.toml.tmpl" > "${BAUTH_TOML}"
     chmod 640 "${BAUTH_TOML}"
     chown root:"${BAUTH_GROUP}" "${BAUTH_TOML}"

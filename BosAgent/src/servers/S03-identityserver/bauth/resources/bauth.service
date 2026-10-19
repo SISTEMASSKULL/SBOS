@@ -12,7 +12,10 @@ WorkingDirectory=/opt/bauth
 ExecStart=/usr/local/bin/bauth
 Restart=always
 RestartSec=5
-LimitNOFILE=4096
+LimitNOFILE=65536
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=bauth
 
 # Socket dir — creado por pre_install
 RuntimeDirectory=bauth-sock

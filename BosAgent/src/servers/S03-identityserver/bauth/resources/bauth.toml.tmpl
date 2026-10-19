@@ -1,6 +1,5 @@
 # bauth.toml — Configuración del daemon bAuth
 # Generado por BOS en instalación — NO editar manualmente
-# Variables sustituidas: {{PG_DSN}}, {{SOCKET_PATH}}
 
 [database]
 url = "{{PG_DSN}}"
@@ -8,7 +7,7 @@ pool_size = 5
 connect_timeout_secs = 10
 
 [server]
-socket_path = "/tmp/bauth/bauth.sock"
+socket_path = "{{SOCKET_PATH}}"
 socket_perms = 438
 socket_group = "bosagent"
 max_connections = 50
