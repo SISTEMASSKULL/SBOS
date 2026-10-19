@@ -5,20 +5,8 @@ metadata:
   name: pgbackrest-sa
   namespace: sbos-data
 ---
-apiVersion: v1
-kind: Service
-metadata:
-  name: pgbackrest
-  namespace: sbos-data
-spec:
-  type: ClusterIP
-  selector:
-    app: pgbackrest
-  ports:
-    - name: http
-      port: 8080
-      targetPort: 8080
----
+# pgbackrest: herramienta de backup para PostgreSQL
+# Imagen oficial con pgbackrest pre-instalado (Ubuntu-based)
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -39,8 +27,8 @@ spec:
       serviceAccountName: pgbackrest-sa
       containers:
         - name: pgbackrest
-          image: docker.io/library/alpine:3.20
-          command: ["/bin/sh", "-c", "apk add --no-cache pgbackrest && sleep infinity"]
+          image: docker.io/pgbackrest/pgbackrest:2.52-1
+          command: ["sleep", "infinity"]
           resources:
             requests:
               cpu: 100m
@@ -51,12 +39,10 @@ spec:
           livenessProbe:
             exec:
               command: ["pgbackrest", "version"]
-            initialDelaySeconds: 60
+            initialDelaySeconds: 30
             periodSeconds: 60
           readinessProbe:
             exec:
               command: ["pgbackrest", "version"]
-            initialDelaySeconds: 30
+            initialDelaySeconds: 15
             periodSeconds: 30
-
-

@@ -5,61 +5,39 @@ metadata:
   name: pg-stat-monitor-sa
   namespace: sbos-data
 ---
-apiVersion: v1
-kind: Service
+# pg_stat_monitor es una extensión instalada en el PostgreSQL SBOS.
+# Este Job habilita la extensión si no está habilitada.
+apiVersion: batch/v1
+kind: Job
 metadata:
-  name: pg-stat-monitor
+  name: pg-stat-monitor-init
   namespace: sbos-data
 spec:
-  type: ClusterIP
-  selector:
-    app: pg-stat-monitor
-  ports:
-    - name: http
-      port: 5432
-      targetPort: 5432
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: pg-stat-monitor
-  namespace: sbos-data
-spec:
-  replicas: 1
-  strategy:
-    type: RollingUpdate
-  selector:
-    matchLabels:
-      app: pg-stat-monitor
+  ttlSecondsAfterFinished: 300
   template:
-    metadata:
-      labels:
-        app: pg-stat-monitor
     spec:
       serviceAccountName: pg-stat-monitor-sa
+      restartPolicy: OnFailure
       containers:
         - name: pg-stat-monitor
-          image: docker.io/library/postgres:17
-          ports:
-            - containerPort: 5432
-              name: http
-
+          image: docker.io/library/postgres:18
+          env:
+            - name: PGPASSWORD
+              value: "postgres"
+          command:
+            - psql
+            - -h
+            - postgresql.sbos-data.svc.cluster.local
+            - -U
+            - postgres
+            - -d
+            - SBOSDB
+            - -c
+            - "CREATE EXTENSION IF NOT EXISTS pg_stat_monitor;"
           resources:
             requests:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 50m
+              memory: 64Mi
             limits:
-              cpu: 500m
-              memory: 256Mi
-          livenessProbe:
-            tcpSocket:
-              port: 5432
-            initialDelaySeconds: 30
-            periodSeconds: 30
-          readinessProbe:
-            tcpSocket:
-              port: 5432
-            initialDelaySeconds: 10
-            periodSeconds: 10
-
-
+              cpu: 200m
+              memory: 128Mi

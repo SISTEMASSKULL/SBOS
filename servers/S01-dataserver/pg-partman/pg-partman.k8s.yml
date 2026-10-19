@@ -5,61 +5,42 @@ metadata:
   name: pg-partman-sa
   namespace: sbos-data
 ---
-apiVersion: v1
-kind: Service
+# pg_partman es una extensión instalada en el PostgreSQL SBOS.
+# Este CronJob ejecuta el mantenimiento de particiones cada hora.
+apiVersion: batch/v1
+kind: CronJob
 metadata:
   name: pg-partman
   namespace: sbos-data
 spec:
-  type: ClusterIP
-  selector:
-    app: pg-partman
-  ports:
-    - name: http
-      port: 5432
-      targetPort: 5432
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: pg-partman
-  namespace: sbos-data
-spec:
-  replicas: 1
-  strategy:
-    type: RollingUpdate
-  selector:
-    matchLabels:
-      app: pg-partman
-  template:
-    metadata:
-      labels:
-        app: pg-partman
+  schedule: "0 * * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
     spec:
-      serviceAccountName: pg-partman-sa
-      containers:
-        - name: pg-partman
-          image: docker.io/library/postgres:17
-          ports:
-            - containerPort: 5432
-              name: http
-
-          resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-            limits:
-              cpu: 500m
-              memory: 256Mi
-          livenessProbe:
-            tcpSocket:
-              port: 5432
-            initialDelaySeconds: 30
-            periodSeconds: 30
-          readinessProbe:
-            tcpSocket:
-              port: 5432
-            initialDelaySeconds: 10
-            periodSeconds: 10
-
-
+      template:
+        spec:
+          serviceAccountName: pg-partman-sa
+          restartPolicy: OnFailure
+          containers:
+            - name: pg-partman
+              image: docker.io/library/postgres:18
+              env:
+                - name: PGPASSWORD
+                  value: "postgres"
+              command:
+                - psql
+                - -h
+                - postgresql.sbos-data.svc.cluster.local
+                - -U
+                - postgres
+                - -d
+                - SBOSDB
+                - -c
+                - "SELECT partman.run_maintenance_proc();"
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi
