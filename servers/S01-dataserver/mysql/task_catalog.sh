@@ -41,7 +41,16 @@ ficha_update() {
 # ── repair ─────────────────────────────────────────────────────
 ficha_repair() {
     echo "${__SBOS__STEP_START__} repair"
-    kubectl rollout restart statefulset mysql -n "${SBOS_NAMESPACE}"
+    if kubectl get statefulset mysql -n "${SBOS_NAMESPACE}" &>/dev/null; then
+        kubectl rollout restart statefulset mysql -n "${SBOS_NAMESPACE}"
+        kubectl rollout status statefulset/mysql -n "${SBOS_NAMESPACE}" --timeout=300s
+    else
+        # StatefulSet no existe: reinstalar desde cero
+        kubectl delete pvc data-mysql-0 -n "${SBOS_NAMESPACE}" --ignore-not-found 2>/dev/null || true
+        kubectl delete secret mysql-secret -n "${SBOS_NAMESPACE}" --ignore-not-found 2>/dev/null || true
+        sbos_k8s_core "${SBOS_FICHA_DIR}/mysql.k8s.yml" "${SBOS_NAMESPACE}"
+        kubectl rollout status statefulset/mysql -n "${SBOS_NAMESPACE}" --timeout=600s
+    fi
     echo "${__SBOS__STEP_OK__} repair"
 }
 
