@@ -1,0 +1,122 @@
+# SLO Recording Rules — Observabilidad-SBOS
+# Referencia: SBOS-032-OPERATIONS §2 + manifest observabilidad-sbos.yml
+
+groups:
+  - name: slo_availability
+    interval: 30s
+    rules:
+      # ── Disponibilidad PG — SLO 99.99% mensual ──
+      - record: job:up:avg_over_time_5m
+        expr: avg_over_time(up{job="postgresql"}[5m])
+      - record: slo:pg_availability_30d
+        expr: |
+          avg_over_time(
+            (sum without(instance) (up{job="postgresql"}) / count without(instance) (up{job="postgresql"}))[30d:5m]
+          )
+      - record: slo:pg_error_budget_remaining_pct
+        expr: |
+          (1 - (1 - slo:pg_availability_30d) / (1 - 0.9999)) * 100
+
+      # ── Disponibilidad Keycloak — SLO 99.99% mensual ──
+      - record: slo:kc_availability_30d
+        expr: |
+          avg_over_time(
+            (sum without(instance) (up{job="keycloak"}) / count without(instance) (up{job="keycloak"}))[30d:5m]
+          )
+      - record: slo:kc_error_budget_remaining_pct
+        expr: |
+          (1 - (1 - slo:kc_availability_30d) / (1 - 0.9999)) * 100
+
+      # ── Disponibilidad bKernel — SLO 99.95% mensual ──
+      - record: slo:bkernel_availability_30d
+        expr: |
+          avg_over_time(
+            (sum without(instance) (up{job="bkernel"}) / count without(instance) (up{job="bkernel"}))[30d:5m]
+          )
+      - record: slo:bkernel_error_budget_remaining_pct
+        expr: |
+          (1 - (1 - slo:bkernel_availability_30d) / (1 - 0.9995)) * 100
+
+      # ── Disponibilidad del sistema completo — SLO 99.9% mensual ──
+      - record: slo:system_availability_30d
+        expr: |
+          avg_over_time(
+            (sum without(instance) (up{job=~"postgresql|keycloak|bkernel|biedata|bos-agent|bauth-agent|bintelligence-agent|bhnexus"})
+             / count without(instance) (up{job=~"postgresql|keycloak|bkernel|biedata|bos-agent|bauth-agent|bintelligence-agent|bhnexus"}))[30d:5m]
+          )
+      - record: slo:system_error_budget_remaining_pct
+        expr: |
+          (1 - (1 - slo:system_availability_30d) / (1 - 0.999)) * 100
+
+  - name: slo_performance
+    interval: 30s
+    rules:
+      # ── bKernel throughput — SLO >= 1000 ev/min ──
+      - record: rate:bkernel_events_per_minute
+        expr: rate(bkernel_events_processed_total[1m]) * 60
+      - record: slo:bkernel_throughput_ok
+        expr: |
+          rate:bkernel_events_per_minute >= 1000
+
+      # ── bKernel WAL lag P99 — SLO < 500ms ──
+      - record: slo:bkernel_wal_lag_p99_ms
+        expr: |
+          histogram_quantile(0.99, rate(bkernel_wal_lag_seconds_bucket[5m])) * 1000
+      - record: slo:bkernel_wal_lag_ok
+        expr: |
+          slo:bkernel_wal_lag_p99_ms < 500
+
+      # ── bKernel DLQ — SLO < 10 eventos ──
+      - record: slo:bkernel_dlq_count
+        expr: |
+          bkernel_dlq_size or vector(0)
+      - record: slo:bkernel_dlq_ok
+        expr: |
+          slo:bkernel_dlq_count < 10
+
+      # ── PostgreSQL WAL lag P99 — SLO < 500ms ──
+      - record: slo:pg_wal_lag_bytes
+        expr: |
+          avg_over_time(pg_stat_replication_flush_lag_bytes[5m])
+      - record: slo:pg_wal_lag_ok
+        expr: |
+          slo:pg_wal_lag_bytes < 500000
+
+      # ── Keycloak auth latency P99 — SLO < 500ms ──
+      - record: slo:kc_auth_latency_p99_ms
+        expr: |
+          histogram_quantile(0.99, rate(keycloak_request_duration_seconds_bucket{method="POST"}[5m])) * 1000
+      - record: slo:kc_auth_latency_ok
+        expr: |
+          slo:kc_auth_latency_p99_ms < 500
+
+  - name: slo_error_budget_burn
+    interval: 1m
+    rules:
+      # Burn rate: qué tan rápido se consume el error budget
+      # > 14.4x por 1h → alerta crítica (consume 2% del budget mensual en 1h)
+      - record: slo:system_burn_rate_1h
+        expr: |
+          (1 - (
+            sum without(instance) (avg_over_time(up{job=~"postgresql|keycloak|bkernel|biedata|bos-agent|bauth-agent|bintelligence-agent|bhnexus"}[1h]))
+            / count without(instance) (avg_over_time(up{job=~"postgresql|keycloak|bkernel|biedata|bos-agent|bauth-agent|bintelligence-agent|bhnexus"}[1h]))
+          )) / (1 - 0.999)
+
+      - record: slo:system_burn_rate_6h
+        expr: |
+          (1 - (
+            sum without(instance) (avg_over_time(up{job=~"postgresql|keycloak|bkernel|biedata|bos-agent|bauth-agent|bintelligence-agent|bhnexus"}[6h]))
+            / count without(instance) (avg_over_time(up{job=~"postgresql|keycloak|bkernel|biedata|bos-agent|bauth-agent|bintelligence-agent|bhnexus"}[6h]))
+          )) / (1 - 0.999)
+
+      - record: slo:pg_burn_rate_1h
+        expr: |
+          (1 - avg_over_time(up{job="postgresql"}[1h])) / (1 - 0.9999)
+
+      - record: slo:kc_burn_rate_1h
+        expr: |
+          (1 - avg_over_time(up{job="keycloak"}[1h])) / (1 - 0.9999)
+
+      - record: slo:bkernel_burn_rate_1h
+        expr: |
+          (1 - avg_over_time(up{job="bkernel"}[1h])) / (1 - 0.9995)

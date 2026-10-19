@@ -1,0 +1,22 @@
+# Grafana Alerting Contact Points — SKULL Operator
+# Fuente: SBOS-INSTALACION-FORMULARIO.md §11
+
+contact_points:
+  - name: sbos-critical
+    type: email
+    settings:
+      addresses: "grafana@sksistemas.com"
+  - name: sbos-slack
+    type: slack
+    settings:
+      url: "${SLACK_WEBHOOK_URL}"
+      channel: "#sbos-alerts-critical"
+
+notification_policies:
+  - receiver: sbos-critical
+    group_by: ["alertname", "severity"]
+    group_wait: 10s
+    group_interval: 30s
+    repeat_interval: 1h
+    matchers:
+      - severity = critical

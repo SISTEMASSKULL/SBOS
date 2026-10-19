@@ -1,0 +1,36 @@
+# resources/nginx/ssl.conf.tmpl
+# Configuración TLS compartida — incluida por todos los virtual hosts.
+# bos-agent parametriza con ${CLIENT_DOMAIN}.
+
+# Protocolos: TLS 1.2 mínimo, TLS 1.3 preferido
+ssl_protocols TLSv1.2 TLSv1.3;
+
+# Ciphers: ECDHE forward secrecy, AES-256-GCM
+ssl_ciphers ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305;
+ssl_prefer_server_ciphers on;
+
+# ECDH curve
+ssl_ecdh_curve X25519:secp384r1;
+
+# Session cache
+ssl_session_cache shared:SSL:10m;
+ssl_session_timeout 1h;
+ssl_session_tickets off;
+
+# OCSP Stapling
+ssl_stapling on;
+ssl_stapling_verify on;
+resolver 8.8.8.8 1.1.1.1 valid=300s;
+resolver_timeout 5s;
+
+# HSTS (63072000 segundos = 2 años)
+add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+
+# Seguridad adicional
+add_header X-Content-Type-Options "nosniff" always;
+add_header X-Frame-Options "DENY" always;
+add_header X-XSS-Protection "1; mode=block" always;
+
+# Certificado wildcard
+ssl_certificate     /etc/letsencrypt/live/${CLIENT_DOMAIN}/fullchain.pem;
+ssl_certificate_key /etc/letsencrypt/live/${CLIENT_DOMAIN}/privkey.pem;

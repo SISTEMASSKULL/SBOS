@@ -1,0 +1,552 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "sbos-operacional",
+    "title": "SBOS Operacional",
+    "description": "SBOS platform health: SLO compliance, agent availability, WAL lag, DLQ, disk/RAM, pods, error budgets. Referencia: SBOS-032-OPERATIONS §6.",
+    "tags": ["sbos", "operational", "slo", "platform"],
+    "timezone": "browser",
+    "schemaVersion": 39,
+    "version": 0,
+    "refresh": "15s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Semaforo SLOs",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+        "collapsed": false
+      },
+      {
+        "id": 11,
+        "title": "Sistema 99.9%",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 4, "x": 0, "y": 1},
+        "targets": [
+          {
+            "expr": "slo:system_availability_30d * 100",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 99.0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "red", "value": null},
+                {"color": "yellow", "value": 99.8},
+                {"color": "green", "value": 99.9}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 12,
+        "title": "PostgreSQL 99.99%",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 4, "x": 4, "y": 1},
+        "targets": [
+          {
+            "expr": "slo:pg_availability_30d * 100",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 99.9,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "red", "value": null},
+                {"color": "yellow", "value": 99.98},
+                {"color": "green", "value": 99.99}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 13,
+        "title": "Keycloak 99.99%",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 4, "x": 8, "y": 1},
+        "targets": [
+          {
+            "expr": "slo:kc_availability_30d * 100",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 99.9,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "red", "value": null},
+                {"color": "yellow", "value": 99.98},
+                {"color": "green", "value": 99.99}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 14,
+        "title": "bKernel 99.95%",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 4, "x": 12, "y": 1},
+        "targets": [
+          {
+            "expr": "slo:bkernel_availability_30d * 100",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 99.0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "red", "value": null},
+                {"color": "yellow", "value": 99.94},
+                {"color": "green", "value": 99.95}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 15,
+        "title": "Error Budget Restante",
+        "type": "gauge",
+        "gridPos": {"h": 4, "w": 8, "x": 16, "y": 1},
+        "targets": [
+          {
+            "expr": "slo:system_error_budget_remaining_pct",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "red", "value": null},
+                {"color": "yellow", "value": 25},
+                {"color": "green", "value": 50}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Agent Availability",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 5},
+        "collapsed": false
+      },
+      {
+        "id": 21,
+        "title": "Agent Uptime",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 16, "x": 0, "y": 6},
+        "targets": [
+          {
+            "expr": "up{job=~\"bkernel|biedata|bos-agent|bauth-agent|bintelligence-agent|bhnexus\"}",
+            "legendFormat": "{{job}} ({{daemon}})",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "bool",
+            "min": 0,
+            "max": 1,
+            "custom": {
+              "lineWidth": 2,
+              "fillOpacity": 15,
+              "spanNulls": true
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "red", "value": null},
+                {"color": "green", "value": 1}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 22,
+        "title": "Agents Down",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 4, "x": 16, "y": 6},
+        "targets": [
+          {
+            "expr": "count(up{job=~\"bkernel|biedata|bos-agent|bauth-agent|bintelligence-agent|bhnexus\"} == 0)",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 1},
+                {"color": "red", "value": 2}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 23,
+        "title": "Health Check Status Detail",
+        "type": "table",
+        "gridPos": {"h": 8, "w": 4, "x": 20, "y": 6},
+        "targets": [
+          {
+            "expr": "up{job=~\"bkernel|biedata|bos-agent|bauth-agent|bintelligence-agent|bhnexus\"}",
+            "format": "table",
+            "refId": "A"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {"__name__": true, "instance": true, "cluster": true, "environment": true, "tier": true},
+              "renameByName": {"job": "Agent", "daemon": "Daemon", "component": "Component", "up": "Status"}
+            }
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "bKernel Performance",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 14},
+        "collapsed": false
+      },
+      {
+        "id": 31,
+        "title": "bKernel Throughput (ev/min)",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 15},
+        "targets": [
+          {
+            "expr": "rate(bkernel_events_processed_total[1m]) * 60",
+            "legendFormat": "events/min",
+            "refId": "A"
+          },
+          {
+            "expr": "1000",
+            "legendFormat": "SLO threshold (1000)",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": {"lineWidth": 2, "fillOpacity": 10}
+          }
+        }
+      },
+      {
+        "id": 32,
+        "title": "bKernel WAL Lag P99 (ms)",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 15},
+        "targets": [
+          {
+            "expr": "slo:bkernel_wal_lag_p99_ms",
+            "legendFormat": "WAL lag P99",
+            "refId": "A"
+          },
+          {
+            "expr": "500",
+            "legendFormat": "SLO threshold (500ms)",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "custom": {"lineWidth": 2, "fillOpacity": 10}
+          }
+        }
+      },
+      {
+        "id": 33,
+        "title": "bKernel DLQ Size",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 8, "x": 0, "y": 23},
+        "targets": [
+          {
+            "expr": "slo:bkernel_dlq_count",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 5},
+                {"color": "orange", "value": 10},
+                {"color": "red", "value": 50}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 34,
+        "title": "bKernel WAL Lag Distribution",
+        "type": "heatmap",
+        "gridPos": {"h": 8, "w": 16, "x": 8, "y": 23},
+        "targets": [
+          {
+            "expr": "sum(rate(bkernel_wal_lag_seconds_bucket[5m])) by (le)",
+            "format": "heatmap",
+            "legendFormat": "{{le}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s"
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Infrastructure",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 31},
+        "collapsed": false
+      },
+      {
+        "id": 41,
+        "title": "Disk Usage %",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 8, "x": 0, "y": 32},
+        "targets": [
+          {
+            "expr": "(1 - node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"}) * 100",
+            "legendFormat": "{{instance}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 75},
+                {"color": "red", "value": 85}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 42,
+        "title": "RAM Usage %",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 8, "x": 8, "y": 32},
+        "targets": [
+          {
+            "expr": "(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100",
+            "legendFormat": "{{instance}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 75},
+                {"color": "red", "value": 90}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 43,
+        "title": "Pods Not Running",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 4, "x": 16, "y": 32},
+        "targets": [
+          {
+            "expr": "count(kube_pod_status_phase{phase!=\"Running\"})",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 1},
+                {"color": "red", "value": 3}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 44,
+        "title": "PostgreSQL Connections",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 40},
+        "targets": [
+          {
+            "expr": "pg_stat_database_numbackends",
+            "legendFormat": "{{datname}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {"lineWidth": 2, "fillOpacity": 10}
+          }
+        }
+      },
+      {
+        "id": 45,
+        "title": "Keycloak Auth Rate",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 40},
+        "targets": [
+          {
+            "expr": "rate(keycloak_logins_total[5m])",
+            "legendFormat": "logins/s",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(keycloak_failed_login_attempts_total[5m])",
+            "legendFormat": "failures/s",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {"lineWidth": 2, "fillOpacity": 10}
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "SLO Error Budgets",
+        "type": "row",
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 48},
+        "collapsed": false
+      },
+      {
+        "id": 51,
+        "title": "Error Budget Burn Rate (1h)",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 49},
+        "targets": [
+          {
+            "expr": "slo:system_burn_rate_1h",
+            "legendFormat": "System 99.9%",
+            "refId": "A"
+          },
+          {
+            "expr": "slo:pg_burn_rate_1h",
+            "legendFormat": "PostgreSQL 99.99%",
+            "refId": "B"
+          },
+          {
+            "expr": "slo:kc_burn_rate_1h",
+            "legendFormat": "Keycloak 99.99%",
+            "refId": "C"
+          },
+          {
+            "expr": "14.4",
+            "legendFormat": "Critical threshold",
+            "refId": "D"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {"lineWidth": 2, "fillOpacity": 5}
+          }
+        }
+      },
+      {
+        "id": 52,
+        "title": "Error Budget Remaining by Component",
+        "type": "bargauge",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 49},
+        "targets": [
+          {
+            "expr": "slo:system_error_budget_remaining_pct",
+            "legendFormat": "System",
+            "refId": "A"
+          },
+          {
+            "expr": "slo:pg_error_budget_remaining_pct",
+            "legendFormat": "PostgreSQL",
+            "refId": "B"
+          },
+          {
+            "expr": "slo:kc_error_budget_remaining_pct",
+            "legendFormat": "Keycloak",
+            "refId": "C"
+          },
+          {
+            "expr": "slo:bkernel_error_budget_remaining_pct",
+            "legendFormat": "bKernel",
+            "refId": "D"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "red", "value": null},
+                {"color": "yellow", "value": 25},
+                {"color": "green", "value": 50}
+              ]
+            }
+          }
+        }
+      }
+    ]
+  }
+}

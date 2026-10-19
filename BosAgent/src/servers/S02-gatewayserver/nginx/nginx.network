@@ -1,0 +1,50 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: nginx-netpol
+  namespace: sbos-gateway
+  labels:
+    sbos-ficha: nginx
+spec:
+  podSelector:
+    matchLabels:
+      app: nginx
+  policyTypes:
+    - Ingress
+  ingress:
+    # Tráfico externo — todos los puertos expuestos por nginx
+    - from:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        # HTTP/HTTPS
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443
+        # Correo (reverse proxy a Stalwart)
+        - protocol: TCP
+          port: 25
+        - protocol: TCP
+          port: 465
+        - protocol: TCP
+          port: 587
+        - protocol: TCP
+          port: 143
+        - protocol: TCP
+          port: 993
+        - protocol: TCP
+          port: 995
+        - protocol: TCP
+          port: 4190
+    # Tráfico interno desde otros namespaces SBOS
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              sbos-role: internal
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443
