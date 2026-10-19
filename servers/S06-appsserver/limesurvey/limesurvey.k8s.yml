@@ -16,8 +16,8 @@ spec:
     app: limesurvey
   ports:
     - name: http
-      port: 8080
-      targetPort: 8080
+      port: 80
+      targetPort: 80
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -39,9 +39,9 @@ spec:
       serviceAccountName: limesurvey-sa
       containers:
         - name: limesurvey
-          image: docker.io/limesurvey/limesurvey:6.5
+          image: docker.io/martialblog/limesurvey:6.2-apache
           ports:
-            - containerPort: 8080
+            - containerPort: 80
               name: http
 
           resources:
@@ -66,12 +66,12 @@ spec:
               value: "limesurvey_pass"
           livenessProbe:
             tcpSocket:
-              port: 8080
+              port: 80
             initialDelaySeconds: 60
             periodSeconds: 30
           readinessProbe:
             tcpSocket:
-              port: 8080
+              port: 80
             initialDelaySeconds: 30
             periodSeconds: 10
 
