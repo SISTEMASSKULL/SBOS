@@ -39,7 +39,7 @@ spec:
       serviceAccountName: pgbouncer-sa
       containers:
         - name: pgbouncer
-          image: docker.io/bitnami/pgbouncer:1.22
+          image: docker.io/pgbouncer/pgbouncer:1.23.1
           ports:
             - containerPort: 6432
               name: http
