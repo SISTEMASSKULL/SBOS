@@ -36,7 +36,7 @@ requirements:
 ports:
   - name: rpc
     protocol: unix
-    path: /tmp/bauth/bauth.sock
+    path: /run/bauth/bauth.sock
     description: "JSON-RPC 2.0 — consumido por bos, bhnexus, kong plugin"
 
 governance:
@@ -45,7 +45,7 @@ governance:
   encryption_required: true
 
 health:
-  check_command: "test -S /tmp/bauth/bauth.sock && echo OK"
+  check_command: "test -S /run/bauth/bauth.sock && echo OK"
   check_interval_seconds: 30
   check_timeout_seconds: 5
   consecutive_failures_threshold: 3

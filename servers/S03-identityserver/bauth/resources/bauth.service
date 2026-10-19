@@ -18,7 +18,7 @@ StandardError=journal
 SyslogIdentifier=bauth
 
 # Socket dir — creado por pre_install
-RuntimeDirectory=bauth-sock
+RuntimeDirectory=bauth
 RuntimeDirectoryMode=0770
 
 # Variables de entorno — valores reales inyectados por BOS en instalación
