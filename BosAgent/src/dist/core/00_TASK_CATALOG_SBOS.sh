@@ -727,7 +727,9 @@ verify_ficha_health() {
         if [[ -n "$legacy_cmd" ]]; then
             local wl_type
             wl_type=$(yq eval '.workload.type // "host_script"' "$manifest" 2>/dev/null | tr '[:upper:]' '[:lower:]' || echo "host_script")
-            if [[ "$wl_type" == "host_script" || "$wl_type" == "bash" ]]; then
+            if [[ "$wl_type" == "host_script" || "$wl_type" == "bash" || \
+                  "$wl_type" == "host" || "$wl_type" == "systemd" || \
+                  "$wl_type" == "systemdservice" || "$wl_type" == "none" ]]; then
                 health_type="command"
             fi
             # Fichas K8s (Deployment, StatefulSet, DaemonSet, etc.) → usar pods, no command
