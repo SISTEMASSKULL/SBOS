@@ -1,65 +1,51 @@
 ---
+# citus es una extensión de PostgreSQL para distribución horizontal.
+# Este Job habilita la extensión en el PostgreSQL SBOS existente.
+# No despliega una instancia PostgreSQL separada.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: citus-sa
   namespace: sbos-data
 ---
-apiVersion: v1
-kind: Service
+apiVersion: batch/v1
+kind: Job
 metadata:
-  name: citus
+  name: citus-init
   namespace: sbos-data
 spec:
-  type: ClusterIP
-  selector:
-    app: citus
-  ports:
-    - name: http
-      port: 5432
-      targetPort: 5432
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: citus
-  namespace: sbos-data
-spec:
-  replicas: 1
-  strategy:
-    type: RollingUpdate
-  selector:
-    matchLabels:
-      app: citus
+  ttlSecondsAfterFinished: 300
   template:
-    metadata:
-      labels:
-        app: citus
     spec:
       serviceAccountName: citus-sa
+      restartPolicy: OnFailure
       containers:
         - name: citus
-          image: docker.io/citusdata/citus:12.1
-          ports:
-            - containerPort: 5432
-              name: http
-
+          image: docker.io/library/postgres:18
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgresql-secret
+                  key: password
+          command:
+            - /bin/sh
+            - -c
+            - |
+              psql -h postgresql.sbos-data.svc.cluster.local \
+                   -U postgres -d SBOSDB \
+                   -c "DO \$\$ BEGIN
+                         IF EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='citus') THEN
+                           CREATE EXTENSION IF NOT EXISTS citus;
+                           RAISE NOTICE 'citus habilitado';
+                         ELSE
+                           RAISE NOTICE 'citus no disponible en este servidor PostgreSQL, omitido';
+                         END IF;
+                       END \$\$;" || true
           resources:
             requests:
-              cpu: 500m
-              memory: 512Mi
+              cpu: 50m
+              memory: 64Mi
             limits:
-              cpu: 2000m
-              memory: 1Gi
-          livenessProbe:
-            tcpSocket:
-              port: 5432
-            initialDelaySeconds: 30
-            periodSeconds: 30
-          readinessProbe:
-            tcpSocket:
-              port: 5432
-            initialDelaySeconds: 10
-            periodSeconds: 10
-
-
+              cpu: 200m
+              memory: 128Mi

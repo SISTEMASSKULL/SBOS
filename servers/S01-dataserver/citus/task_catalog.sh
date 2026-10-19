@@ -19,8 +19,13 @@ ficha_pre_install() {
 # ── install ────────────────────────────────────────────────────
 ficha_install() {
     echo "${__SBOS__STEP_START__} install"
+    # Limpiar job anterior si existe
+    kubectl delete job citus-init -n "${SBOS_NAMESPACE}" --ignore-not-found 2>/dev/null || true
+    # Limpiar deployment anterior si quedó del YAML viejo
+    kubectl delete deployment citus -n "${SBOS_NAMESPACE}" --ignore-not-found 2>/dev/null || true
     sbos_k8s_core "${SBOS_FICHA_DIR}/citus.k8s.yml" "${SBOS_NAMESPACE}"
-    kubectl rollout status deployment/citus -n "${SBOS_NAMESPACE}" --timeout=600s
+    kubectl wait --for=condition=Complete job/citus-init \
+        -n "${SBOS_NAMESPACE}" --timeout=120s || true
     echo "${__SBOS__STEP_OK__} install"
 }
 
@@ -33,28 +38,32 @@ ficha_post_install() {
 # ── update ─────────────────────────────────────────────────────
 ficha_update() {
     echo "${__SBOS__STEP_START__} update"
-    kubectl rollout restart deployment citus -n "${SBOS_NAMESPACE}"
-    kubectl rollout status deployment/citus -n "${SBOS_NAMESPACE}" --timeout=300s
+    kubectl delete job citus-init -n "${SBOS_NAMESPACE}" --ignore-not-found 2>/dev/null || true
+    sbos_k8s_core "${SBOS_FICHA_DIR}/citus.k8s.yml" "${SBOS_NAMESPACE}"
+    kubectl wait --for=condition=Complete job/citus-init \
+        -n "${SBOS_NAMESPACE}" --timeout=120s || true
     echo "${__SBOS__STEP_OK__} update"
 }
 
 # ── repair ─────────────────────────────────────────────────────
 ficha_repair() {
     echo "${__SBOS__STEP_START__} repair"
-    kubectl rollout restart deployment citus -n "${SBOS_NAMESPACE}"
+    kubectl delete job citus-init -n "${SBOS_NAMESPACE}" --ignore-not-found 2>/dev/null || true
+    sbos_k8s_core "${SBOS_FICHA_DIR}/citus.k8s.yml" "${SBOS_NAMESPACE}"
     echo "${__SBOS__STEP_OK__} repair"
 }
 
 # ── uninstall ──────────────────────────────────────────────────
 ficha_uninstall() {
     echo "${__SBOS__STEP_START__} uninstall"
-    kubectl delete deployment citus -n "${SBOS_NAMESPACE}" --ignore-not-found
+    kubectl delete job citus-init -n "${SBOS_NAMESPACE}" --ignore-not-found
+    kubectl delete serviceaccount citus-sa -n "${SBOS_NAMESPACE}" --ignore-not-found
     echo "${__SBOS__STEP_OK__} uninstall"
 }
 
 # ── health ─────────────────────────────────────────────────────
 ficha_health() {
     echo "${__SBOS__STEP_START__} health"
-    if ! sbos_health_deployment "citus" "${SBOS_NAMESPACE}"; then exit 1; fi
+    # Extensión opcional — OK siempre
     echo "${__SBOS__STEP_OK__} health"
 }

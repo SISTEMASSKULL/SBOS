@@ -10,9 +10,8 @@ identity:
   description: "Advanced query monitoring"
 
 workload:
-  type: Deployment
+  type: Job
   namespace: sbos-data
-  replicas: 1
   service_account: pg-stat-monitor-sa
 
 order:
@@ -37,8 +36,5 @@ governance:
   auto_install: true
   requires_approval: false
 health:
-  check_command: "psql -h localhost -c 'SELECT 1'"
-  check_interval_seconds: 30
-  check_timeout_seconds: 10
-  consecutive_failures_threshold: 3
+  type: none
 

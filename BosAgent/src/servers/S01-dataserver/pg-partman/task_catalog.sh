@@ -20,7 +20,8 @@ ficha_pre_install() {
 ficha_install() {
     echo "${__SBOS__STEP_START__} install"
     sbos_k8s_core "${SBOS_FICHA_DIR}/pg-partman.k8s.yml" "${SBOS_NAMESPACE}"
-    kubectl rollout status deployment/pg-partman -n "${SBOS_NAMESPACE}" --timeout=600s
+    # El YAML crea un CronJob — verificar que exista
+    kubectl get cronjob pg-partman -n "${SBOS_NAMESPACE}" >/dev/null
     echo "${__SBOS__STEP_OK__} install"
 }
 
@@ -33,28 +34,28 @@ ficha_post_install() {
 # ── update ─────────────────────────────────────────────────────
 ficha_update() {
     echo "${__SBOS__STEP_START__} update"
-    kubectl rollout restart deployment pg-partman -n "${SBOS_NAMESPACE}"
-    kubectl rollout status deployment/pg-partman -n "${SBOS_NAMESPACE}" --timeout=300s
+    sbos_k8s_core "${SBOS_FICHA_DIR}/pg-partman.k8s.yml" "${SBOS_NAMESPACE}"
     echo "${__SBOS__STEP_OK__} update"
 }
 
 # ── repair ─────────────────────────────────────────────────────
 ficha_repair() {
     echo "${__SBOS__STEP_START__} repair"
-    kubectl rollout restart deployment pg-partman -n "${SBOS_NAMESPACE}"
+    sbos_k8s_core "${SBOS_FICHA_DIR}/pg-partman.k8s.yml" "${SBOS_NAMESPACE}"
     echo "${__SBOS__STEP_OK__} repair"
 }
 
 # ── uninstall ──────────────────────────────────────────────────
 ficha_uninstall() {
     echo "${__SBOS__STEP_START__} uninstall"
-    kubectl delete deployment pg-partman -n "${SBOS_NAMESPACE}" --ignore-not-found
+    kubectl delete cronjob pg-partman -n "${SBOS_NAMESPACE}" --ignore-not-found
+    kubectl delete serviceaccount pg-partman-sa -n "${SBOS_NAMESPACE}" --ignore-not-found
     echo "${__SBOS__STEP_OK__} uninstall"
 }
 
 # ── health ─────────────────────────────────────────────────────
 ficha_health() {
     echo "${__SBOS__STEP_START__} health"
-    if ! sbos_health_deployment "pg-partman" "${SBOS_NAMESPACE}"; then exit 1; fi
+    kubectl get cronjob pg-partman -n "${SBOS_NAMESPACE}" >/dev/null
     echo "${__SBOS__STEP_OK__} health"
 }
