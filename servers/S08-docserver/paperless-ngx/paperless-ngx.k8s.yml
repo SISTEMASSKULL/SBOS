@@ -43,6 +43,21 @@ spec:
             - containerPort: 8000
               name: http
 
+          env:
+            - name: PAPERLESS_DBENGINE
+              value: "postgresql"
+            - name: PAPERLESS_DBHOST
+              value: "postgresql.sbos-data.svc.cluster.local"
+            - name: PAPERLESS_DBPORT
+              value: "5432"
+            - name: PAPERLESS_DBNAME
+              value: "paperless_db"
+            - name: PAPERLESS_DBUSER
+              value: "paperless"
+            - name: PAPERLESS_DBPASS
+              value: "paperless_pass"
+            - name: PAPERLESS_REDIS
+              value: "redis://redis.sbos-data.svc.cluster.local:6379"
           volumeMounts:
             - name: data
               mountPath: /var/lib/paperless-ngx
