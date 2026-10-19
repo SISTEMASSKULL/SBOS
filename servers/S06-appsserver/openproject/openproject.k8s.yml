@@ -43,27 +43,30 @@ spec:
             - containerPort: 8080
               name: http
 
+          env:
+            - name: DATABASE_URL
+              value: "postgresql://openproject:openproject_pass@postgresql.sbos-data.svc.cluster.local:5432/openproject_db"
+            - name: OPENPROJECT_RAILS__SERVE__STATIC__ASSETS
+              value: "true"
           volumeMounts:
             - name: data
               mountPath: /var/lib/openproject
           resources:
             requests:
               cpu: 50m
-              memory: 1Gi
+              memory: 512Mi
             limits:
               cpu: 2000m
               memory: 2Gi
           livenessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: 8080
-            initialDelaySeconds: 30
+            initialDelaySeconds: 120
             periodSeconds: 30
           readinessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: 8080
-            initialDelaySeconds: 10
+            initialDelaySeconds: 90
             periodSeconds: 10
 
   volumeClaimTemplates:

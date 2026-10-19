@@ -34,9 +34,7 @@ deployment:
   strategy: Recreate
 
 governance:
-
-
-  auto_install: true
+  auto_install: false
   requires_approval: false
 health:
   check_command: "curl -sf http://localhost:8000/health"
