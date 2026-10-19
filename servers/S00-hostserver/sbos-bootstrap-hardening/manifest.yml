@@ -35,7 +35,7 @@ deployment:
   strategy: Recreate
 
 governance:
-  auto_install: true
+  auto_install: false
 
 
 health:

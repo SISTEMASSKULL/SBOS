@@ -37,7 +37,7 @@ deployment:
   network_policy: "novu.network"
 
 governance:
-  auto_install: true
+  auto_install: false
   requires_approval: false
   category: 2
   backup_required: true
