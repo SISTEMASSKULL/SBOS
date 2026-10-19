@@ -54,15 +54,13 @@ spec:
               cpu: 1000m
               memory: 1Gi
           livenessProbe:
-            httpGet:
-              path: /health
-              port: 15672
+            tcpSocket:
+                port: 15672
             initialDelaySeconds: 30
             periodSeconds: 30
           readinessProbe:
-            httpGet:
-              path: /health
-              port: 15672
+            tcpSocket:
+                port: 15672
             initialDelaySeconds: 10
             periodSeconds: 10
 

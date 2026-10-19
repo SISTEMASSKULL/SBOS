@@ -54,15 +54,13 @@ spec:
               cpu: 2000m
               memory: 1Gi
           livenessProbe:
-            httpGet:
-              path: /health
-              port: 9101
+            tcpSocket:
+                port: 9101
             initialDelaySeconds: 30
             periodSeconds: 30
           readinessProbe:
-            httpGet:
-              path: /health
-              port: 9101
+            tcpSocket:
+                port: 9101
             initialDelaySeconds: 10
             periodSeconds: 10
 

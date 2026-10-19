@@ -15,7 +15,7 @@ metadata:
   namespace: sbos-vdi
 spec:
   accessModes: ["ReadWriteOnce"]
-  storageClassName: local-path
+  storageClassName: sbos-local-path
   resources:
     requests:
       storage: 20Gi

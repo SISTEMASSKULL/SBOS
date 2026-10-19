@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S16-webserver/nginx}"
+SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S02-gatewayserver/nginx-multitenant}"
 SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-web}"
 SBOS_DOMAIN="${SBOS_DOMAIN:-sbos.app}"
 

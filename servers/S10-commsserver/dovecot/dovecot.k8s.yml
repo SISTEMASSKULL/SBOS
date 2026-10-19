@@ -54,15 +54,13 @@ spec:
               cpu: 500m
               memory: 256Mi
           livenessProbe:
-            httpGet:
-              path: /health
-              port: 143
+            tcpSocket:
+                port: 143
             initialDelaySeconds: 30
             periodSeconds: 30
           readinessProbe:
-            httpGet:
-              path: /health
-              port: 143
+            tcpSocket:
+                port: 143
             initialDelaySeconds: 10
             periodSeconds: 10
 

@@ -15,7 +15,7 @@ spec:
   selector:
     app: postfix
   ports:
-    - name: http
+    - name: smtp
       port: 25
       targetPort: 25
 ---
@@ -39,10 +39,10 @@ spec:
       serviceAccountName: postfix-sa
       containers:
         - name: postfix
-          image: docker.io/library/postfix:3.9
+          image: docker.io/boky/postfix:latest
           ports:
             - containerPort: 25
-              name: http
+              name: smtp
 
           resources:
             requests:
@@ -52,14 +52,12 @@ spec:
               cpu: 500m
               memory: 256Mi
           livenessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: 25
             initialDelaySeconds: 30
             periodSeconds: 30
           readinessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: 25
             initialDelaySeconds: 10
             periodSeconds: 10

@@ -1,5 +1,5 @@
 # manifest.yml — Ficha network-validator (SBOS-005 §hostserver)
-# SBOS-049 §4 · Order 15 · Deployment
+# SBOS-049 §4 · Order 15 · host_script
 identity:
   id: network-validator
   name: Network Validator
@@ -10,10 +10,7 @@ identity:
   description: "Validates CNI, DNS, service mesh prerequisites"
 
 workload:
-  type: Deployment
-  namespace: sbos-installer
-  replicas: 1
-  service_account: network-validator-sa
+  type: bash
 
 order:
   execution_order: 15
@@ -27,9 +24,6 @@ requirements:
   memory_request: "128Mi"
   memory_limit: "256Mi"
 
-
-deployment:
-  strategy: Recreate
 
 governance:
   auto_install: true

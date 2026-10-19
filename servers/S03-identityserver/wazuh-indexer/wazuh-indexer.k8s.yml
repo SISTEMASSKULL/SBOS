@@ -54,15 +54,13 @@ spec:
               cpu: 4000m
               memory: 4Gi
           livenessProbe:
-            httpGet:
-              path: /health
-              port: 9200
+            tcpSocket:
+                port: 9200
             initialDelaySeconds: 30
             periodSeconds: 30
           readinessProbe:
-            httpGet:
-              path: /health
-              port: 9200
+            tcpSocket:
+                port: 9200
             initialDelaySeconds: 10
             periodSeconds: 10
 
