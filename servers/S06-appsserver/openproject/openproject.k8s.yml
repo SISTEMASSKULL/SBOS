@@ -61,13 +61,15 @@ spec:
           livenessProbe:
             tcpSocket:
               port: 8080
-            initialDelaySeconds: 120
+            initialDelaySeconds: 300
             periodSeconds: 30
+            failureThreshold: 5
           readinessProbe:
             tcpSocket:
               port: 8080
-            initialDelaySeconds: 90
-            periodSeconds: 10
+            initialDelaySeconds: 180
+            periodSeconds: 15
+            failureThreshold: 6
 
   volumeClaimTemplates:
     - metadata:
