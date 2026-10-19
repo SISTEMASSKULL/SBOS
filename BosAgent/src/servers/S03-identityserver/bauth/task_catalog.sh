@@ -56,7 +56,8 @@ ficha_install() {
     chmod 640 "${BAUTH_TOML}"
     chown root:"${BAUTH_GROUP}" "${BAUTH_TOML}"
 
-    # Limpiar socket huérfano de instancias previas (evita EADDRINUSE)
+    # Detener instancia previa si existe (evita EADDRINUSE en socket)
+    systemctl stop bauth.service 2>/dev/null || true
     rm -f "${BAUTH_SOCK_DIR}/bauth.sock"
 
     # Habilitar y arrancar
