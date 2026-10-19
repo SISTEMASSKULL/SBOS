@@ -1,5 +1,11 @@
 ---
 apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: grafana-sa
+  namespace: sbos-monitor
+---
+apiVersion: v1
 kind: Service
 metadata:
   name: grafana

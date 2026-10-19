@@ -1,5 +1,11 @@
 ---
 apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ollama-sa
+  namespace: sbos-ai
+---
+apiVersion: v1
 kind: Service
 metadata:
   name: ollama
@@ -65,7 +71,7 @@ spec:
         name: data
       spec:
         accessModes: ["ReadWriteOnce"]
-        storageClassName: sbos-fast
+        storageClassName: sbos-local-path
         resources:
           requests:
             storage: 200Gi

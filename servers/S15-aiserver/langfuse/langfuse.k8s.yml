@@ -1,5 +1,11 @@
 ---
 apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: langfuse-sa
+  namespace: sbos-ai
+---
+apiVersion: v1
 kind: Service
 metadata:
   name: langfuse
