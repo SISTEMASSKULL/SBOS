@@ -15,7 +15,6 @@ ficha_pre_install() {
 ficha_install() {
     echo "${__SBOS__STEP_START__} install"
     sbos_k8s_core "${SBOS_FICHA_DIR}/redis.k8s.yml" "${SBOS_NAMESPACE}"
-    kubectl wait --for=condition=Ready pod/redis-0 -n "${SBOS_NAMESPACE}" --timeout=120s
     echo "${__SBOS__STEP_OK__} install"
 }
 
@@ -42,7 +41,7 @@ ficha_repair() {
 ficha_uninstall() {
     echo "${__SBOS__STEP_START__} uninstall"
     kubectl delete statefulset redis -n "${SBOS_NAMESPACE}" --ignore-not-found
-    kubectl delete pvc redis-data -n "${SBOS_NAMESPACE}" --ignore-not-found
+    kubectl delete pvc data-redis-0 -n "${SBOS_NAMESPACE}" --ignore-not-found
     echo "${__SBOS__STEP_OK__} uninstall"
 }
 
