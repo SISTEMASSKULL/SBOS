@@ -1,66 +1,59 @@
-# yaml_engine.yml — postgresql
-# Iteración 1: hacer que arranque (StatefulSet + WAL logical + 10 DBs)
-# Iteración 2 (futura): TLS Vault PKI, scram-sha-256, NetworkPolicy
-# Iteración 3 (futura): Patroni HA 3 nodos, pgBackRest PITR
+# yaml_engine.yml — PostgreSQL 18 + Patroni lifecycle phases
+# SBOS-019 §9 · R16 Zero hardcoding
 
-namespace: sbos-data
-image: "postgres:18.4-alpine"
-replicas: 1
+pre_install:
+  - name: "validate_pvc"
+    command: "kubectl get pvc postgresql-data -n sbos-data --no-headers 2>/dev/null || echo 'PVC_OK'"
+    timeout_seconds: 30
+  - name: "create_namespace"
+    command: "kubectl create namespace sbos-data --dry-run=client -o yaml | kubectl apply -f -"
+    timeout_seconds: 30
+  - name: "apply_network_policy"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/postgresql.network -n sbos-data"
+    timeout_seconds: 30
 
-storage:
-  pv_name: sbos-postgres-pv
-  pvc_name: sbos-postgres-pvc
-  capacity: 100Gi
-  storage_class: local-path
+install:
+  - name: "apply_statefulset"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/postgresql.k8s.yml -n sbos-data"
+    timeout_seconds: 300
+  - name: "wait_ready"
+    command: "kubectl wait --for=condition=Ready pod/postgresql-0 -n sbos-data --timeout=600s"
+    timeout_seconds: 600
+  - name: "configure_patroni"
+    command: "kubectl exec postgresql-0 -n sbos-data -- patronictl show-config"
+    timeout_seconds: 60
+  - name: "create_databases"
+    command: |
+      for db in keycloak_db kong_db grafana_db bkernel_db bcompass_db; do
+        kubectl exec postgresql-0 -n sbos-data -- psql -U postgres -c "CREATE DATABASE ${db} ENCODING 'UTF8' OWNER ${db%%_db};" 2>/dev/null || true
+      done
+    timeout_seconds: 120
 
-service:
-  name: postgresql
-  port: 5432
-  cluster_ip_port: 8100
+post_install:
+  - name: "verify_replication"
+    command: "kubectl exec postgresql-0 -n sbos-data -- patronictl list | grep -q 'running'"
+    timeout_seconds: 30
+  - name: "create_readonly_user"
+    command: "kubectl exec postgresql-0 -n sbos-data -- psql -U postgres -c \"CREATE ROLE readonly WITH LOGIN PASSWORD '${DB_READONLY_PASSWORD}' NOSUPERUSER;\"" 2>/dev/null || true
+    timeout_seconds: 30
 
-config:
-  max_connections: 200
-  shared_buffers: "256MB"
-  wal_level: logical
-  max_wal_senders: 10
-  max_replication_slots: 10
-  wal_keep_size: "1GB"
+update:
+  - name: "pre_update_backup"
+    command: "kubectl exec postgresql-0 -n sbos-data -- pg_dumpall -U postgres > /tmp/postgresql_backup.sql"
+    timeout_seconds: 300
+  - name: "rolling_update"
+    command: "kubectl rollout restart statefulset postgresql -n sbos-data"
+    timeout_seconds: 300
 
-replication_slot:
-  name: bkernel_slot
-  plugin: pgoutput
+repair:
+  - name: "reinit_replica"
+    command: "kubectl exec postgresql-0 -n sbos-data -- patronictl reinit postgresql postgresql-1"
+    timeout_seconds: 120
 
-databases:
-  - name: keycloak_db
-    owner: keycloak
-  - name: kong_db
-    owner: kong
-  - name: vault_db
-    owner: vault
-  - name: bkernel_db
-    owner: bkernel
-  - name: biedata_db
-    owner: biedata
-  - name: bsearch_db
-    owner: bsearch
-  - name: bauth_db
-    owner: bauth
-  - name: tryton_db
-    owner: tryton
-  - name: grafana_db
-    owner: grafana
-  - name: notifier_db
-    owner: notifier
-
-extensions:
-  - uuid-ossp
-  - pg_stat_statements
-  - pgcrypto
-
-resources:
-  requests:
-    cpu: "250m"
-    memory: "512Mi"
-  limits:
-    cpu: "2"
-    memory: "2Gi"
+uninstall:
+  - name: "final_backup"
+    command: "kubectl exec postgresql-0 -n sbos-data -- pg_dumpall -U postgres > /tmp/postgresql_final_backup.sql"
+    timeout_seconds: 300
+  - name: "delete_statefulset"
+    command: "kubectl delete statefulset postgresql -n sbos-data --ignore-not-found"
+    timeout_seconds: 120

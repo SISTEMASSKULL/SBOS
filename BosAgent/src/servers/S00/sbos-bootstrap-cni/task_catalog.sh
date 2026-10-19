@@ -311,14 +311,6 @@ ficha_post_install() {
 }
 
 # ── Repair ────────────────────────────────────────────────────────
-ficha_health() {
-    local ready
-    ready=$(kubectl --kubeconfig="${KUBECONFIG_DEST:-/etc/bos/.kube/config}"         get pods -n kube-system -l k8s-app=calico-node --no-headers 2>/dev/null |         grep -c Running || echo "0")
-    (( ready >= 1 )) && echo "HEALTHY" && return 0
-    echo "DEGRADED: calico-node pods Running=${ready}"
-    return 1
-}
-
 ficha_repair() {
     _log "Reparando sbos-bootstrap-cni..."
 

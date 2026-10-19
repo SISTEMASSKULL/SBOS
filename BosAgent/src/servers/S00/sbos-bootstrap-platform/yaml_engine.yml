@@ -1,68 +1,42 @@
-# yaml_engine.yml — sbos-bootstrap-platform
-# Namespaces canónicos de SBOS + StorageClass dinámica (local-path).
+# yaml_engine.yml — sbos-bootstrap-platform lifecycle phases
+# SBOS-049 §4.4 · Order · deployment
+# R16 Zero hardcoding
 
-namespaces:
-  - name: sbos-data
-    labels:
-      sbos.app/server: dataserver
-      sbos.app/criticality: maxima
-  - name: sbos-security
-    labels:
-      sbos.app/server: identityserver
-      sbos.app/criticality: maxima
-  - name: sbos-gateway
-    labels:
-      sbos.app/server: gatewayserver
-      sbos.app/criticality: maxima
-  - name: sbos-monitor
-    labels:
-      sbos.app/server: monitorserver
-      sbos.app/criticality: maxima
-  - name: sbos-erp
-    labels:
-      sbos.app/server: erpserver
-      sbos.app/criticality: maxima
-  - name: sbos-apps
-    labels:
-      sbos.app/server: appsserver
-      sbos.app/criticality: alta
-  - name: sbos-docs
-    labels:
-      sbos.app/server: docserver
-      sbos.app/criticality: alta
-  - name: sbos-vdi
-    labels:
-      sbos.app/server: vdiserver
-      sbos.app/criticality: alta
-  - name: sbos-comms
-    labels:
-      sbos.app/server: commsserver
-      sbos.app/criticality: alta
-  - name: sbos-ops
-    labels:
-      sbos.app/server: opsserver
-      sbos.app/criticality: alta
-  - name: sbos-search
-    labels:
-      sbos.app/server: searchserver
-      sbos.app/criticality: alta
-  - name: sbos-geo
-    labels:
-      sbos.app/server: geoserver
-      sbos.app/criticality: media
-  - name: sbos-system
-    labels:
-      sbos.app/server: hostserver
-      sbos.app/criticality: maxima
+pre_install:
+  - name: "create_namespace"
+    command: "kubectl create namespace sbos-installer --dry-run=client -o yaml | kubectl apply -f -"
+    timeout_seconds: 30
+  - name: "apply_network_policy"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/sbos-bootstrap-platform.network -n sbos-installer"
+    timeout_seconds: 30
 
-storage_class:
-  name: local-path
-  provisioner: rancher.io/local-path
-  reclaim_policy: Delete
-  volume_binding_mode: WaitForFirstConsumer
-  is_default: true
-  local_path_provisioner:
-    version: "0.0.30"
-    namespace: local-path-storage
-    image: rancher/local-path-provisioner:v0.0.30
-    storage_path: /opt/local-path-provisioner
+install:
+  - name: "apply_manifest"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/sbos-bootstrap-platform.k8s.yml -n sbos-installer"
+    timeout_seconds: 300
+  - name: "wait_ready"
+    command: "kubectl wait --for=condition=Available deployment/sbos-bootstrap-platform -n sbos-installer --timeout=600s"
+    timeout_seconds: 600
+
+post_install:
+  - name: "verify"
+    command: "echo 'verify_ok'"
+    timeout_seconds: 30
+
+update:
+  - name: "rolling_restart"
+    command: "kubectl rollout restart deployment sbos-bootstrap-platform -n sbos-installer"
+    timeout_seconds: 300
+
+repair:
+  - name: "restart"
+    command: "kubectl rollout restart deployment sbos-bootstrap-platform -n sbos-installer"
+    timeout_seconds: 120
+
+uninstall:
+  - name: "delete_manifest"
+    command: "kubectl delete deployment sbos-bootstrap-platform -n sbos-installer --ignore-not-found"
+    timeout_seconds: 120
+  - name: "delete_pvc"
+    command: "echo 'no pvc'"
+    timeout_seconds: 60

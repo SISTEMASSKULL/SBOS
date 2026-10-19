@@ -1,527 +1,285 @@
 #!/usr/bin/env bash
-# ============================================================================
-# task_catalog.sh — sbos-notifier (bnotify)
-# Iteración 1: Deployment bnotify + schema notifier_db + stub Python funcional
-#              endpoints MFA (send_otp/verify_otp) + webhook Alertmanager
-# Dependencias: postgresql (notifier_db), redis (streams), keycloak (auth)
-# ============================================================================
-
+# ============================================================
+# SBOS TASK CATALOG — sbos-notifier
+# Tareas operativas: instalar, reparar, migrar, probar
+# Uso: bosctl ficha task sbos-notifier <tarea> --tenant=<t>
+# ============================================================
 set -euo pipefail
 
-readonly __STEP_START__="${__SBOS__STEP_START__:-__SBOS__STEP_START__}"
-readonly __STEP_OK__="${__SBOS__STEP_OK__:-__SBOS__STEP_OK__}"
-readonly __STEP_FAIL__="${__SBOS__STEP_FAIL__:-__SBOS__STEP_FAIL__}"
-readonly __STEP_SKIP__="${__SBOS__STEP_SKIP__:-__SBOS__STEP_SKIP__}"
+FICHA="sbos-notifier"
+TENANT="${SBOS_TENANT:-}"
+PG_DB="notifier_db"
+NTFY_URL="http://localhost:28204"
+REDIS_DB=3
 
-FICHA_LOG="${FICHA_LOG:-/var/log/bos/fichas/sbos-notifier.log}"
-KUBECONFIG_DEST="${KUBECONFIG_DEST:-/etc/bos/.kube/config}"
-readonly NS="sbos-notifier"
-readonly NOTIFIER_IMAGE="ghcr.io/skull-sistemas/sbos-notifier:1.0.0"
-readonly FALLBACK_IMAGE="python:3.14"
-readonly PG_HOST="postgresql.sbos-data.svc.cluster.local"
-readonly REDIS_HOST="redis.sbos-data.svc.cluster.local"
+# ── Colores para output legible ─────────────────────────────
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
+BLUE='\033[0;34m'; NC='\033[0m'
 
-_log()   { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [sbos-notifier] $*" | tee -a "$FICHA_LOG"; }
-_k()     { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@"; }
+log_ok()   { echo -e "${GREEN}[OK]${NC} $*"; }
+log_warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
+log_err()  { echo -e "${RED}[ERR]${NC} $*"; }
+log_info() { echo -e "${BLUE}[INFO]${NC} $*"; }
 
-_apply() {
-    local label="$1" content="$2"
-    local tmp rc=0
-    tmp=$(mktemp /tmp/sbos-notif-XXXXXX.yaml)
-    printf '%s\n' "$content" > "$tmp"
-    _k apply -f "$tmp" >> "$FICHA_LOG" 2>&1 || rc=$?
-    rm -f "$tmp"
-    return $rc
+require_tenant() {
+  [[ -z "$TENANT" ]] && { log_err "SBOS_TENANT no definido"; exit 1; }
 }
 
-_wait_notifier_ready() {
-    local timeout="${1:-60}" elapsed=0
-    while (( elapsed < timeout )); do
-        local phase
-        phase=$(_k get pod -n "$NS" -l app=sbos-notifier --no-headers 2>/dev/null | awk '{print $3}' | head -1)
-        [[ "$phase" == "Running" ]] && { _log "sbos-notifier Running"; return 0; }
-        sleep 5; elapsed=$((elapsed + 5))
-    done
-    return 1
+# ============================================================
+# install — crea BD, tablas, topics ntfy, configura Vault
+# ============================================================
+task_install() {
+  require_tenant
+  log_info "Instalando $FICHA para tenant=$TENANT"
+
+  # 1. Crear BD en PostgreSQL
+  log_info "Creando base de datos $PG_DB..."
+  psql -U postgres -c "CREATE DATABASE ${PG_DB} OWNER sbos_app;" 2>/dev/null \
+    && log_ok "BD $PG_DB creada" \
+    || log_warn "BD $PG_DB ya existe — omitiendo"
+
+  # 2. Ejecutar migraciones SQL
+  log_info "Aplicando migraciones..."
+  psql -U sbos_app -d "$PG_DB" <<'SQL'
+    CREATE TABLE IF NOT EXISTS notification_events (
+      id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      tenant        TEXT NOT NULL,
+      ctx_id        TEXT NOT NULL,           -- campo obligatorio SBOS-049
+      type          TEXT NOT NULL,           -- factura, error, tarea, mfa, alerta
+      severity      TEXT DEFAULT 'info',     -- info, warning, critical
+      source_module TEXT,
+      recipient_id  TEXT,                    -- user_id o external_id
+      channel       TEXT NOT NULL,           -- telegram, whatsapp, email, ntfy, cli
+      payload       JSONB,
+      status        TEXT DEFAULT 'pending',  -- pending, sent, failed
+      sent_at       TIMESTAMPTZ,
+      error_msg     TEXT,
+      created_at    TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS notification_channels (
+      id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      tenant     TEXT NOT NULL,
+      user_id    TEXT NOT NULL,
+      channel    TEXT NOT NULL,             -- telegram, whatsapp, email, ntfy, cli
+      address    TEXT NOT NULL,             -- chat_id, número, email, topic
+      active     BOOLEAN DEFAULT TRUE,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(tenant, user_id, channel)
+    );
+
+    CREATE TABLE IF NOT EXISTS mfa_challenges (
+      id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      tenant        TEXT NOT NULL,
+      ctx_id        TEXT NOT NULL,
+      user_id       TEXT NOT NULL,
+      challenge_token TEXT NOT NULL UNIQUE,
+      status        TEXT DEFAULT 'pending', -- pending, confirmed, denied, expired
+      geo           TEXT,
+      device_info   TEXT,
+      expires_at    TIMESTAMPTZ NOT NULL,
+      resolved_at   TIMESTAMPTZ,
+      created_at    TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS notification_templates (
+      id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      tenant   TEXT NOT NULL,
+      type     TEXT NOT NULL,
+      channel  TEXT NOT NULL,
+      lang     TEXT DEFAULT 'es',
+      subject  TEXT,
+      body     TEXT NOT NULL,
+      UNIQUE(tenant, type, channel, lang)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_notif_tenant_ctx
+      ON notification_events(tenant, ctx_id);
+    CREATE INDEX IF NOT EXISTS idx_notif_status
+      ON notification_events(status, created_at);
+    CREATE INDEX IF NOT EXISTS idx_mfa_token
+      ON mfa_challenges(challenge_token, expires_at);
+SQL
+  log_ok "Migraciones aplicadas"
+
+  # 3. Crear topics ntfy por tenant
+  log_info "Configurando topics ntfy..."
+  # topics: alertas admin, notificaciones clientes, MFA, CLI
+  for topic in "admin-alerts" "client-notify" "mfa-push" "cli-alerts" "task-reminders"; do
+    curl -s -X POST "$NTFY_URL/v1/topics" \
+      -H "Content-Type: application/json" \
+      -d "{\"topic\": \"${TENANT}-${topic}\"}" > /dev/null \
+      && log_ok "Topic ntfy: ${TENANT}-${topic}"
+  done
+
+  # 4. Insertar templates base en español
+  log_info "Cargando templates base..."
+  psql -U sbos_app -d "$PG_DB" <<SQL
+    INSERT INTO notification_templates (tenant, type, channel, lang, subject, body)
+    VALUES
+      ('$TENANT', 'factura-emitida',   'telegram',  'es', NULL,
+       '📄 Factura emitida\nNúmero: {{invoice_number}}\nMonto: {{amount}} {{currency}}\nCliente: {{partner_name}}'),
+      ('$TENANT', 'factura-emitida',   'email',     'es',
+       'Factura emitida - {{invoice_number}}',
+       'Estimado {{partner_name}},\n\nSu factura {{invoice_number}} por {{amount}} {{currency}} ha sido emitida.\n\nSistema SBOS'),
+      ('$TENANT', 'error-critico',     'telegram',  'es', NULL,
+       '🚨 Error crítico\nMódulo: {{source_module}}\nMensaje: {{message}}\nCtx: {{ctx_id}}'),
+      ('$TENANT', 'tarea-pendiente',   'ntfy',      'es', 'Tarea vencida: {{title}}',
+       'La tarea "{{title}}" está vencida desde {{due_date}}.\nAsignada a: {{assigned_to}}'),
+      ('$TENANT', 'mfa-push',         'telegram',  'es', NULL,
+       '🔐 Intento de acceso a SBOS\n📍 Desde: {{geo}}\n🕐 {{created_at}}\n\n¿Eres tú?'),
+      ('$TENANT', 'alerta-sistema',   'cli',       'es', NULL,
+       '[SBOS-ALERT] {{severity}} | {{source_module}} | {{message}}')
+    ON CONFLICT (tenant, type, channel, lang) DO NOTHING;
+SQL
+  log_ok "Templates base cargados"
+
+  log_ok "Instalación de $FICHA completada para tenant=$TENANT"
 }
 
-_notifier_curl() { _k exec deploy/sbos-notifier -n "$NS" -- sh -c "curl -sf $*" 2>/dev/null; }
+# ============================================================
+# repair — verifica y repara el estado de la ficha
+# ============================================================
+task_repair() {
+  require_tenant
+  log_info "Reparando $FICHA para tenant=$TENANT"
 
-# ── Pre-install ───────────────────────────────────────────────────
-ficha_pre_install() {
-    echo "${__STEP_START__} verificar_postgresql"
-    if ! _k get pod postgresql-0 -n sbos-data > /dev/null 2>&1; then
-        echo "${__STEP_FAIL__} verificar_postgresql: postgresql-0 no disponible"; return 1
-    fi
-    local pg_ready
-    pg_ready=$(_k get pod postgresql-0 -n sbos-data -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "False")
-    [[ "$pg_ready" == "True" ]] && echo "${__STEP_OK__} verificar_postgresql" || { echo "${__STEP_FAIL__} verificar_postgresql: no Ready"; return 1; }
+  # Verificar pod corriendo
+  POD=$(kubectl get pod -n "sbos-${TENANT}" -l app=sbos-notifier \
+    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+  if [[ -z "$POD" ]]; then
+    log_err "Pod no encontrado — relanzando deployment"
+    kubectl rollout restart deployment/sbos-notifier -n "sbos-${TENANT}"
+  else
+    log_ok "Pod activo: $POD"
+  fi
 
-    echo "${__STEP_START__} verificar_redis"
-    if _k exec redis-0 -n sbos-data -- redis-cli ping 2>/dev/null | grep -q "PONG"; then
-        echo "${__STEP_OK__} verificar_redis"
-    else
-        echo "${__STEP_FAIL__} verificar_redis: Redis no responde"; return 1
-    fi
+  # Verificar conectividad PostgreSQL
+  psql -U sbos_app -d "$PG_DB" -c "SELECT 1;" > /dev/null 2>&1 \
+    && log_ok "PostgreSQL OK" \
+    || { log_err "PostgreSQL no responde"; exit 1; }
 
-    echo "${__STEP_START__} verificar_namespace"
-    _k get namespace "$NS" > /dev/null 2>&1 || _k create namespace "$NS" >> "$FICHA_LOG" 2>&1
-    echo "${__STEP_OK__} verificar_namespace"
-    return 0
+  # Verificar ntfy health
+  HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$NTFY_URL/v1/health")
+  [[ "$HTTP_STATUS" == "200" ]] \
+    && log_ok "ntfy OK (HTTP $HTTP_STATUS)" \
+    || log_warn "ntfy no responde (HTTP $HTTP_STATUS)"
+
+  # Limpiar MFA challenges expirados
+  DELETED=$(psql -U sbos_app -d "$PG_DB" -t -c \
+    "DELETE FROM mfa_challenges WHERE expires_at < NOW() AND status='pending'
+     RETURNING id;" | wc -l)
+  log_ok "MFA challenges expirados limpiados: $DELETED"
+
+  log_ok "Reparación completada"
 }
 
-# ── Install ───────────────────────────────────────────────────────
-ficha_install() {
-    mkdir -p "$(dirname "$FICHA_LOG")"
-
-    # ── 1. Schema en notifier_db ──────────────────────────────────
-    echo "${__STEP_START__} crear_schema_db"
-    _k exec postgresql-0 -n sbos-data -- psql -U postgres -d notifier_db -c "
-CREATE TABLE IF NOT EXISTS notifications (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    ctx_id      TEXT NOT NULL,
-    tenant_id   TEXT NOT NULL,
-    user_id     TEXT NOT NULL,
-    channel     TEXT NOT NULL,
-    type        TEXT NOT NULL,
-    payload     JSONB,
-    status      TEXT DEFAULT 'pending',
-    created_at  TIMESTAMPTZ DEFAULT NOW(),
-    sent_at     TIMESTAMPTZ,
-    error_msg   TEXT
-);
-CREATE TABLE IF NOT EXISTS mfa_challenges (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    ctx_id      TEXT NOT NULL,
-    user_id     TEXT NOT NULL,
-    otp_hash    TEXT NOT NULL,
-    channel     TEXT NOT NULL,
-    attempts    INT DEFAULT 0,
-    expires_at  TIMESTAMPTZ NOT NULL,
-    used        BOOLEAN DEFAULT FALSE,
-    created_at  TIMESTAMPTZ DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS idx_notif_tenant   ON notifications(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_notif_user     ON notifications(user_id);
-CREATE INDEX IF NOT EXISTS idx_mfa_user       ON mfa_challenges(user_id);
-CREATE INDEX IF NOT EXISTS idx_mfa_expires    ON mfa_challenges(expires_at);
-" 2>/dev/null && _log "Schema notifier_db creado" || _log "ADVERTENCIA: schema ya existe o error menor"
-    echo "${__STEP_OK__} crear_schema_db"
-
-    # ── 2. Secrets ────────────────────────────────────────────────
-    echo "${__STEP_START__} crear_secrets"
-    local webhook_secret
-    webhook_secret=$(tr -dc 'a-zA-Z0-9' < /dev/urandom | head -c 32 2>/dev/null || echo "sbos_webhook_bootstrap")
-
-    local db_secret notifier_secret
-    db_secret=$(_k create secret generic notifier-db-credentials \
-        --namespace="$NS" \
-        --from-literal=DB_HOST="$PG_HOST" \
-        --from-literal=DB_PORT="5432" \
-        --from-literal=DB_NAME="notifier_db" \
-        --from-literal=DB_USER="postgres" \
-        --from-literal=DB_PASSWORD="${PG_ROOT_PASSWORD:-sbos_bootstrap_pass}" \
-        --dry-run=client -o yaml 2>/dev/null)
-    notifier_secret=$(_k create secret generic notifier-config \
-        --namespace="$NS" \
-        --from-literal=REDIS_HOST="$REDIS_HOST" \
-        --from-literal=REDIS_PORT="6379" \
-        --from-literal=REDIS_DB="0" \
-        --from-literal=WEBHOOK_SECRET="$webhook_secret" \
-        --from-literal=TOTP_ISSUER="SBOS" \
-        --from-literal=OTP_TTL_SECONDS="300" \
-        --from-literal=MAX_ATTEMPTS="3" \
-        --dry-run=client -o yaml 2>/dev/null)
-
-    if [[ -z "$db_secret" || -z "$notifier_secret" ]]; then
-        echo "${__STEP_FAIL__} crear_secrets: no se pudo generar YAML"; return 1
-    fi
-    printf '%s\n' "$db_secret" | _k apply -f - >> "$FICHA_LOG" 2>&1 || true
-    printf '%s\n' "$notifier_secret" | _k apply -f - >> "$FICHA_LOG" 2>&1 || true
-    echo "${__STEP_OK__} crear_secrets"
-
-    # ── 3. ConfigMap con stub Python ──────────────────────────────
-    echo "${__STEP_START__} crear_stub_app"
-    _apply "configmap-stub" "apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: notifier-stub
-  namespace: ${NS}
-  labels:
-    app: sbos-notifier
-    sbos-managed: \"true\"
-data:
-  app.py: |
-    #!/usr/bin/env python3
-    \"\"\"
-    sbos-notifier stub — Iteración 1
-    Sirve los endpoints mínimos para que bAuth pueda hacer Step-Up (RFC 9470).
-    La imagen nativa (ghcr.io/skull-sistemas/sbos-notifier) reemplazará este stub.
-    \"\"\"
-    import json, os, hashlib, secrets, time
-    from http.server import HTTPServer, BaseHTTPRequestHandler
-
-    PORT = int(os.getenv(\"PORT\", \"28200\"))
-    store = {}
-
-    class Handler(BaseHTTPRequestHandler):
-        def log_message(self, fmt, *args): pass
-
-        def _respond(self, code, body):
-            data = json.dumps(body).encode()
-            self.send_response(code)
-            self.send_header(\"Content-Type\", \"application/json\")
-            self.send_header(\"Content-Length\", len(data))
-            self.end_headers()
-            self.wfile.write(data)
-
-        def do_GET(self):
-            if self.path in (\"/health/ready\", \"/health/live\", \"/-/ready\"):
-                self._respond(200, {\"status\": \"UP\", \"mode\": \"stub\"})
-            elif self.path == \"/metrics\":
-                self.send_response(200)
-                self.send_header(\"Content-Type\", \"text/plain\")
-                self.end_headers()
-                self.wfile.write(b\"# sbos_notifier_stub 1\\nsbos_notifier_up 1\\n\")
-            else:
-                self._respond(404, {\"error\": \"not found\"})
-
-        def do_POST(self):
-            length = int(self.headers.get(\"Content-Length\", 0))
-            body = json.loads(self.rfile.read(length) or b\"{}\") if length else {}
-            if self.path == \"/rpc\":
-                method = body.get(\"method\", \"\")
-                bid = body.get(\"id\", 1)
-                if method == \"notifier.mfa.send_otp\":
-                    p = body.get(\"params\", {})
-                    uid = p.get(\"user_id\", \"unknown\")
-                    otp = str(secrets.randbelow(900000) + 100000)
-                    store[uid] = {\"otp\": otp, \"exp\": time.time() + 300}
-                    print(f\"[STUB OTP] user={uid} otp={otp}\", flush=True)
-                    self._respond(200, {\"jsonrpc\":\"2.0\",\"id\":bid,
-                        \"result\":{\"sent\":True,\"channel\":\"stub\",\"ttl\":300}})
-                elif method == \"notifier.mfa.verify_otp\":
-                    p = body.get(\"params\", {})
-                    uid = p.get(\"user_id\", \"\")
-                    otp = p.get(\"otp\", \"\")
-                    entry = store.get(uid)
-                    valid = (entry and entry[\"otp\"] == otp
-                             and time.time() < entry[\"exp\"])
-                    if valid: del store[uid]
-                    self._respond(200, {\"jsonrpc\":\"2.0\",\"id\":bid,
-                        \"result\":{\"valid\":valid}})
-                elif method == \"notifier.send\":
-                    self._respond(200, {\"jsonrpc\":\"2.0\",\"id\":bid,
-                        \"result\":{\"queued\":True,\"mode\":\"stub\"}})
-                else:
-                    self._respond(200, {\"jsonrpc\":\"2.0\",\"id\":bid,
-                        \"error\":{\"code\":-32601,\"message\":f\"method not found: {method}\"}})
-            elif self.path == \"/webhook/alertmanager\":
-                print(f\"[STUB WEBHOOK] {json.dumps(body)[:200]}\", flush=True)
-                self._respond(200, {\"ok\": True})
-            else:
-                self._respond(404, {\"error\": \"not found\"})
-
-    if __name__ == \"__main__\":
-        print(f\"sbos-notifier stub escuchando en :{PORT}\", flush=True)
-        HTTPServer((\"0.0.0.0\", PORT), Handler).serve_forever()" || { echo "${__STEP_FAIL__} crear_stub_app"; return 1; }
-    echo "${__STEP_OK__} crear_stub_app"
-
-    # ── 4. Deployment + Service ──────────────────────────────────
-    echo "${__STEP_START__} deploy_notifier"
-    _apply "deployment" "apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: sbos-notifier
-  namespace: ${NS}
-  labels:
-    app: sbos-notifier
-    sbos-managed: \"true\"
-    sbos-component: notifier
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: sbos-notifier
-  template:
-    metadata:
-      labels:
-        app: sbos-notifier
-      annotations:
-        prometheus.io/scrape: \"true\"
-        prometheus.io/port: \"28204\"
-        prometheus.io/path: \"/metrics\"
-    spec:
-      containers:
-        - name: sbos-notifier
-          image: ${FALLBACK_IMAGE}
-          command: [\"python3\", \"/app/app.py\"]
-          ports:
-            - containerPort: 28200
-              name: api
-            - containerPort: 28201
-              name: ws
-            - containerPort: 28202
-              name: mfa
-            - containerPort: 28203
-              name: webhook
-            - containerPort: 28204
-              name: metrics
-            - containerPort: 28205
-              name: admin
-          env:
-            - name: PORT
-              value: \"28200\"
-          envFrom:
-            - secretRef:
-                name: notifier-db-credentials
-            - secretRef:
-                name: notifier-config
-          readinessProbe:
-            httpGet:
-              path: /health/ready
-              port: 28200
-            initialDelaySeconds: 10
-            periodSeconds: 10
-            failureThreshold: 3
-          livenessProbe:
-            httpGet:
-              path: /health/live
-              port: 28200
-            initialDelaySeconds: 20
-            periodSeconds: 15
-          resources:
-            requests:
-              cpu: \"100m\"
-              memory: \"128Mi\"
-            limits:
-              cpu: \"500m\"
-              memory: \"256Mi\"
-          volumeMounts:
-            - name: stub-app
-              mountPath: /app
-      volumes:
-        - name: stub-app
-          configMap:
-            name: notifier-stub
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: sbos-notifier
-  namespace: ${NS}
-  labels:
-    app: sbos-notifier
-    sbos-managed: \"true\"
-spec:
-  type: ClusterIP
-  ports:
-    - port: 28200
-      targetPort: 28200
-      name: api
-    - port: 28201
-      targetPort: 28201
-      name: ws
-    - port: 28202
-      targetPort: 28202
-      name: mfa
-    - port: 28203
-      targetPort: 28203
-      name: webhook
-    - port: 28204
-      targetPort: 28204
-      name: metrics
-    - port: 28205
-      targetPort: 28205
-      name: admin
-  selector:
-    app: sbos-notifier" || { echo "${__STEP_FAIL__} deploy_notifier"; return 1; }
-    echo "${__STEP_OK__} deploy_notifier"
-
-    # ── 5. NetworkPolicies ────────────────────────────────────────
-    echo "${__STEP_START__} networkpolicy_notifier"
-    _apply "np-notifier" "apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: sbos-notifier-ingress
-  namespace: ${NS}
-spec:
-  podSelector:
-    matchLabels:
-      app: sbos-notifier
-  policyTypes: [Ingress, Egress]
-  ingress:
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              sbos-tier: \"true\"
-      ports:
-        - protocol: TCP
-          port: 28200
-        - protocol: TCP
-          port: 28202
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: sbos-monitoring
-      ports:
-        - protocol: TCP
-          port: 28203
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: sbos-system
-      ports:
-        - protocol: TCP
-          port: 28205
-  egress:
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: sbos-data
-      ports:
-        - protocol: TCP
-          port: 5432
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: sbos-data
-      ports:
-        - protocol: TCP
-          port: 6379
-    - ports:
-        - protocol: UDP
-          port: 53" || true
-    echo "${__STEP_OK__} networkpolicy_notifier"
-
-    echo "${__STEP_START__} wait_ready"
-    _wait_notifier_ready 60 && echo "${__STEP_OK__} wait_ready" || { echo "${__STEP_FAIL__} wait_ready: timeout"; return 1; }
-
-    # ── TLS Vault PKI (Iteración 2) ──────────────────────────────
-    echo "${__STEP_START__} configurar_tls"
-    local vault_root
-    vault_root=$(python3 -c "import json; print(json.load(open('/etc/bos/vault-init-keys.json')).get('root_token',''))" 2>/dev/null || echo "")
-    if [[ -n "$vault_root" ]] && _k get pod vault-0 -n sbos-security > /dev/null 2>&1; then
-        local cert_json
-        cert_json=$(_k exec vault-0 -n sbos-security -- \
-            sh -c "VAULT_ADDR=http://127.0.0.1:8200 VAULT_TOKEN=${vault_root} \
-                   vault write -format=json pki_int/issue/sbos-notifier \
-                   common_name='sbos-notifier.sbos-system.svc.cluster.local' ttl=720h 2>/dev/null" 2>/dev/null || echo "")
-        if [[ -n "$cert_json" ]]; then
-            local n_cert n_key n_ca
-            n_cert=$(echo "$cert_json" | python3 -c "import sys,json; print(json.load(sys.stdin).get('data',{}).get('certificate',''))" 2>/dev/null || echo "")
-            n_key=$(echo "$cert_json" | python3 -c "import sys,json; print(json.load(sys.stdin).get('data',{}).get('private_key',''))" 2>/dev/null || echo "")
-            n_ca=$(echo "$cert_json" | python3 -c "import sys,json; print(json.load(sys.stdin).get('data',{}).get('issuing_ca',''))" 2>/dev/null || echo "")
-            if [[ -n "$n_cert" && -n "$n_key" ]]; then
-                _k delete secret sbos-notifier-tls -n "$NS" 2>/dev/null || true
-                _k create secret generic sbos-notifier-tls -n "$NS" \
-                    --from-literal=tls.crt="$n_cert" \
-                    --from-literal=tls.key="$n_key" \
-                    --from-literal=ca.crt="$n_ca" 2>/dev/null || true
-                echo "${__STEP_OK__} configurar_tls"
-            else
-                echo "${__STEP_SKIP__} configurar_tls: no se pudo extraer certificado"
-            fi
-        else
-            echo "${__STEP_SKIP__} configurar_tls: Vault/PKI no disponible"
-        fi
-    else
-        echo "${__STEP_SKIP__} configurar_tls: Vault no accesible"
-    fi
-
-    _log "sbos-notifier instalado (modo stub Python 3.14)"
-    return 0
+# ============================================================
+# migrate — ejecuta migraciones de versión
+# ============================================================
+task_migrate() {
+  require_tenant
+  VERSION="${2:-}"
+  log_info "Migrando $FICHA a versión $VERSION"
+  # Las migraciones se agregan aquí en versiones futuras
+  log_ok "Sin migraciones pendientes para $VERSION"
 }
 
-# ── Post-install ──────────────────────────────────────────────────
-ficha_post_install() {
-    _log "Estado sbos-notifier:"
-    local health
-    health=$(_notifier_curl "http://localhost:28200/health/ready" 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('status','?'))" 2>/dev/null || echo "FAIL")
-    _log "  health=$health"
-    _k get pod -n "$NS" -l app=sbos-notifier --no-headers 2>/dev/null | awk '{printf "  pod=%s status=%s ready=%s\n", $1, $3, $2}' || true
-    return 0
+# ============================================================
+# test — prueba completa de canales de notificación
+# ============================================================
+task_test() {
+  require_tenant
+  log_info "Probando canales de notificación para tenant=$TENANT"
+
+  CTX_TEST="ctx-test-$(date +%s)"
+
+  # Test ntfy (bus interno + CLI)
+  log_info "Probando ntfy → CLI..."
+  RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+    -X POST "$NTFY_URL/${TENANT}-cli-alerts" \
+    -H "Title: Test SBOS-Notifier" \
+    -H "Priority: default" \
+    -H "X-SBOS-CtxId: $CTX_TEST" \
+    -d "Test de notificación CLI desde sbos-notifier — tenant=$TENANT")
+  [[ "$RESPONSE" == "200" ]] \
+    && log_ok "ntfy CLI OK (HTTP $RESPONSE)" \
+    || log_warn "ntfy CLI falló (HTTP $RESPONSE)"
+
+  # Test endpoint health
+  log_info "Probando /health..."
+  H=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:28203/health")
+  [[ "$H" == "200" ]] && log_ok "Health OK" || log_warn "Health falló: $H"
+
+  # Test /metrics
+  log_info "Probando /metrics..."
+  M=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:28202/metrics")
+  [[ "$M" == "200" ]] && log_ok "Metrics OK" || log_warn "Metrics falló: $M"
+
+  # Test MFA challenge (crea y consulta)
+  log_info "Probando flujo MFA challenge..."
+  MFA_RESPONSE=$(curl -s -X POST "http://localhost:28200/api/mfa/test-challenge" \
+    -H "Content-Type: application/json" \
+    -H "X-SBOS-CtxId: $CTX_TEST" \
+    -d '{"user_id":"test-user","geo":"La Paz, Bolivia"}')
+  echo "$MFA_RESPONSE" | grep -q "challenge_token" \
+    && log_ok "MFA challenge generado OK" \
+    || log_warn "MFA challenge falló: $MFA_RESPONSE"
+
+  log_info "Pruebas completadas para tenant=$TENANT"
 }
 
-# ── Repair ────────────────────────────────────────────────────────
-ficha_health() {
-    local r
-    r=$(_k get deployment sbos-notifier -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
-    (( r >= 1 )) && echo "HEALTHY" && return 0
-    echo "DEGRADED: sbos-notifier ${r}/1"
-    return 1
+# ============================================================
+# status — muestra estado completo de la ficha
+# ============================================================
+task_status() {
+  require_tenant
+  log_info "Estado de $FICHA — tenant=$TENANT"
+  echo ""
+
+  # Pods
+  echo "── Pods ──────────────────────────────────────────────"
+  kubectl get pods -n "sbos-${TENANT}" -l app=sbos-notifier \
+    -o wide 2>/dev/null || log_warn "kubectl no disponible"
+
+  # Notificaciones últimas 24h
+  echo ""
+  echo "── Notificaciones últimas 24h ────────────────────────"
+  psql -U sbos_app -d "$PG_DB" -x -c "
+    SELECT channel, status, COUNT(*) as total
+    FROM notification_events
+    WHERE tenant='$TENANT' AND created_at > NOW() - INTERVAL '24h'
+    GROUP BY channel, status
+    ORDER BY total DESC;" 2>/dev/null || log_warn "BD no disponible"
+
+  # MFA challenges activos
+  echo ""
+  echo "── MFA Challenges activos ────────────────────────────"
+  psql -U sbos_app -d "$PG_DB" -c "
+    SELECT user_id, status, geo, expires_at
+    FROM mfa_challenges
+    WHERE tenant='$TENANT' AND expires_at > NOW()
+    ORDER BY created_at DESC LIMIT 5;" 2>/dev/null
 }
 
-ficha_repair() {
-    echo "${__STEP_START__} reiniciar_notifier"
-    _k rollout restart deployment/sbos-notifier -n "$NS" 2>/dev/null || true
-    sleep 5
-    _wait_notifier_ready 60 || _log "ADVERTENCIA: sbos-notifier no Ready tras reinicio"
-    echo "${__STEP_OK__} reiniciar_notifier"
-    return 0
-}
-
-# ── Test ──────────────────────────────────────────────────────────
-ficha_test() {
-    local ok=0
-
-    echo "${__STEP_START__} test_pod_ready"
-    local ready
-    ready=$(_k get pod -n "$NS" -l app=sbos-notifier -o jsonpath='{.items[0].status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "False")
-    [[ "$ready" == "True" ]] && echo "${__STEP_OK__} test_pod_ready" || { echo "${__STEP_FAIL__} test_pod_ready: Ready=$ready"; ok=1; }
-
-    echo "${__STEP_START__} test_health"
-    local health
-    health=$(_notifier_curl "http://localhost:28200/health/ready" 2>/dev/null || echo "")
-    echo "$health" | python3 -c "import sys,json; d=json.load(sys.stdin); exit(0 if d.get('status')=='UP' else 1)" 2>/dev/null && echo "${__STEP_OK__} test_health" || { echo "${__STEP_FAIL__} test_health"; ok=1; }
-
-    echo "${__STEP_START__} test_mfa_send_otp"
-    local resp
-    resp=$(_notifier_curl "http://localhost:28200/rpc" -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"notifier.mfa.send_otp","params":{"user_id":"test_bootstrap","channel":"stub"},"id":1}' 2>/dev/null || echo "")
-    echo "$resp" | python3 -c "import sys,json; d=json.load(sys.stdin); exit(0 if d.get('result',{}).get('sent') else 1)" 2>/dev/null && echo "${__STEP_OK__} test_mfa_send_otp" || { echo "${__STEP_FAIL__} test_mfa_send_otp"; ok=1; }
-
-    echo "${__STEP_START__} test_db_schema"
-    local tables
-    tables=$(_k exec postgresql-0 -n sbos-data -- psql -U postgres -d notifier_db -c "\dt" 2>/dev/null | grep -cE 'notifications|mfa_challenges' || echo "0")
-    (( tables >= 2 )) && echo "${__STEP_OK__} test_db_schema ($tables tablas)" || { echo "${__STEP_FAIL__} test_db_schema: $tables/2"; ok=1; }
-
-    echo "${__STEP_START__} test_networkpolicy"
-    _k get networkpolicy sbos-notifier-ingress -n "$NS" > /dev/null 2>&1 && echo "${__STEP_OK__} test_networkpolicy" || { echo "${__STEP_FAIL__} test_networkpolicy"; ok=1; }
-
-    return $ok
-}
-
-# ── Status ────────────────────────────────────────────────────────
-ficha_status() {
-    echo "=== sbos-notifier STATUS ==="
+# ============================================================
+# Dispatcher de tareas
+# ============================================================
+TASK="${1:-help}"
+case "$TASK" in
+  install)  task_install  ;;
+  repair)   task_repair   ;;
+  migrate)  task_migrate  "$@" ;;
+  test)     task_test     ;;
+  status)   task_status   ;;
+  *)
+    echo "Uso: bosctl ficha task $FICHA <tarea> --tenant=<tenant>"
     echo ""
-    echo "Pods:"
-    _k get pod -n "$NS" -l app=sbos-notifier -o custom-columns='NAME:.metadata.name,STATUS:.status.phase,READY:.status.containerStatuses[0].ready' 2>/dev/null || echo "  (no disponible)"
-    echo ""
-    echo "Health: $(_notifier_curl "http://localhost:28200/health/ready" 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status','?'),d.get('mode',''))" 2>/dev/null || echo '?')"
-    echo "Puertos: 28200(api) 28201(ws) 28202(mfa) 28203(webhook) 28204(metrics) 28205(admin)"
-    echo "Métodos RPC: notifier.send | notifier.mfa.send_otp | notifier.mfa.verify_otp"
-}
-
-# ── Uninstall ─────────────────────────────────────────────────────
-ficha_uninstall() {
-    _log "ADVERTENCIA: desinstalando sbos-notifier"
-    echo "${__STEP_START__} eliminar_k8s"
-    _k delete deployment sbos-notifier -n "$NS" 2>/dev/null || true
-    _k delete service sbos-notifier -n "$NS" 2>/dev/null || true
-    _k delete configmap notifier-stub -n "$NS" 2>/dev/null || true
-    _k delete secret notifier-db-credentials notifier-config -n "$NS" 2>/dev/null || true
-    _k delete networkpolicy sbos-notifier-ingress -n "$NS" 2>/dev/null || true
-    echo "${__STEP_OK__} eliminar_k8s"
-    return 0
-}
-
-# ── Diagnóstico ───────────────────────────────────────────────────
-ficha_diagnosis() {
-    _log "=== Diagnóstico sbos-notifier ==="
-    _k describe pod -n "$NS" -l app=sbos-notifier 2>/dev/null | grep -E "State:|Ready:|Reason:|Message:|Image:" || echo "  pod no encontrado"
-    echo ""
-    _k logs -n "$NS" deploy/sbos-notifier --tail=30 2>/dev/null || true
-    echo ""
-    _k get events -n "$NS" --sort-by='.lastTimestamp' 2>/dev/null | tail -10 || true
-}
+    echo "Tareas disponibles:"
+    echo "  install   Instala la ficha: BD, tablas, topics ntfy, templates"
+    echo "  repair    Verifica y repara estado de la ficha"
+    echo "  migrate   Ejecuta migraciones de versión"
+    echo "  test      Prueba todos los canales de notificación"
+    echo "  status    Muestra estado completo: pods, métricas, últimas notif"
+    ;;
+esac

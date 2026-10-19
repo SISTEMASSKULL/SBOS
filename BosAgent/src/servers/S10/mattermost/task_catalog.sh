@@ -11,6 +11,9 @@ export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-comms}"
 # ── pre_install ────────────────────────────────────────────────
 ficha_pre_install() {
     echo "${__SBOS__STEP_START__} pre_install"
+    create_k8s_namespace "${SBOS_NAMESPACE}" "sbos.io/managed=true"
+    sbos_ensure_serviceaccount "mattermost-sa" "${SBOS_NAMESPACE}"
+    sbos_ensure_pg_database "mattermost_db"
     echo "${__SBOS__STEP_OK__} pre_install"
 }
 
@@ -39,6 +42,7 @@ ficha_update() {
 # ── repair ─────────────────────────────────────────────────────
 ficha_repair() {
     echo "${__SBOS__STEP_START__} repair"
+    sbos_ensure_pg_database "mattermost_db"
     kubectl rollout restart deployment mattermost -n "${SBOS_NAMESPACE}"
     echo "${__SBOS__STEP_OK__} repair"
 }
@@ -53,5 +57,6 @@ ficha_uninstall() {
 # ── health ─────────────────────────────────────────────────────
 ficha_health() {
     echo "${__SBOS__STEP_START__} health"
+    if ! sbos_health_deployment "mattermost" "${SBOS_NAMESPACE}"; then exit 1; fi
     echo "${__SBOS__STEP_OK__} health"
 }

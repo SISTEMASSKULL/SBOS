@@ -1,5 +1,11 @@
 ---
 apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: wazuh-indexer-sa
+  namespace: sbos-identity
+---
+apiVersion: v1
 kind: Service
 metadata:
   name: wazuh-indexer
@@ -65,7 +71,7 @@ spec:
         name: data
       spec:
         accessModes: ["ReadWriteOnce"]
-        storageClassName: sbos-fast
+        storageClassName: sbos-local-path
         resources:
           requests:
             storage: 200Gi

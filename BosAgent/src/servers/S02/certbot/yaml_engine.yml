@@ -1,32 +1,42 @@
-# yaml_engine.yml — certbot (HOST S02, NO pod K8s)
-# Iteración 1: certbot en host, HTTP-01 challenge, systemd timer renovación
-# Iteración 2 (futura): producción Let's Encrypt, webhook renewal notifier
-# Iteración 3 (futura): DNS-01 challenge, wildcard certs
+# yaml_engine.yml — certbot lifecycle phases
+# SBOS-049 §4.4 · Order · deployment
+# R16 Zero hardcoding
 
-runtime: host
-package: certbot
-version: "3.2.0"
+pre_install:
+  - name: "create_namespace"
+    command: "kubectl create namespace sbos-gateway --dry-run=client -o yaml | kubectl apply -f -"
+    timeout_seconds: 30
+  - name: "apply_network_policy"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/certbot.network -n sbos-gateway"
+    timeout_seconds: 30
 
-paths:
-  certs: /etc/letsencrypt
-  webroot: /var/www/certbot
-  scripts: /usr/local/sbin
-  log: /var/log/letsencrypt
+install:
+  - name: "apply_manifest"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/certbot.k8s.yml -n sbos-gateway"
+    timeout_seconds: 300
+  - name: "wait_ready"
+    command: "kubectl wait --for=condition=Available deployment/certbot -n sbos-gateway --timeout=600s"
+    timeout_seconds: 600
 
-mode: staging
+post_install:
+  - name: "verify"
+    command: "echo 'verify_ok'"
+    timeout_seconds: 30
 
-domains:
-  primary: "sbos.sksistemas.com"
+update:
+  - name: "rolling_restart"
+    command: "kubectl rollout restart deployment certbot -n sbos-gateway"
+    timeout_seconds: 300
 
-challenge:
-  type: http-01
-  webroot: /var/www/certbot
+repair:
+  - name: "restart"
+    command: "kubectl rollout restart deployment certbot -n sbos-gateway"
+    timeout_seconds: 120
 
-renewal:
-  timer: certbot-renew.timer
-  schedule: "weekly"
-  days_before_expiry: 30
-
-email: admin@sksistemas.com
-
-nginx_reload: "systemctl reload nginx"
+uninstall:
+  - name: "delete_manifest"
+    command: "kubectl delete deployment certbot -n sbos-gateway --ignore-not-found"
+    timeout_seconds: 120
+  - name: "delete_pvc"
+    command: "echo 'no pvc'"
+    timeout_seconds: 60

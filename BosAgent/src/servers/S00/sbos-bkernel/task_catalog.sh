@@ -6,8 +6,7 @@
 #
 # Variables de entorno (provistas por BOS):
 #   TENANT_ID           — ID del tenant
-#   BKERNEL_BIN_SRC     — ruta del binario MUSL real (opcional — si no se provee
-#                          se usa el stub en $FICHA_DIR/bin/bkernel-daemon)
+#   BKERNEL_BIN_SRC     — ruta del binario MUSL (default: /opt/skull/sbos/bos/blibs/bkernel/bkernel-daemon)
 #   BKERNEL_CONFIG_SRC  — ruta del config TOML
 # ============================================================================
 
@@ -16,7 +15,6 @@ set -euo pipefail
 readonly __STEP_START__="${__SBOS__STEP_START__:-__SBOS__STEP_START__}"
 readonly __STEP_OK__="${__SBOS__STEP_OK__:-__SBOS__STEP_OK__}"
 readonly __STEP_FAIL__="${__SBOS__STEP_FAIL__:-__SBOS__STEP_FAIL__}"
-readonly __STEP_SKIP__="${__SBOS__STEP_SKIP__:-__SBOS__STEP_SKIP__}"
 
 FICHA_LOG="${FICHA_LOG:-/var/log/bos/fichas/sbos-bkernel.log}"
 BKERNEL_USER="${BKERNEL_USER:-bkernel}"
@@ -25,9 +23,6 @@ BKERNEL_BIN_DST="${BKERNEL_BIN_DST:-/usr/local/bin/bkernel-daemon}"
 BKERNEL_CONFIG_DST="${BKERNEL_CONFIG_DST:-/etc/bos/blibs/bkernel/bkernel.toml}"
 BKERNEL_SERVICE="${BKERNEL_SERVICE:-bkernel.service}"
 BKERNEL_SERVICE_DST="${BKERNEL_SERVICE_DST:-/etc/systemd/system/bkernel.service}"
-
-# Stub placeholder incluido en el paquete de fichas (bin/bkernel-daemon junto a este script)
-BKERNEL_STUB_SRC="${FICHA_DIR:-$(dirname "$(readlink -f "$0")")}/bin/bkernel-daemon"
 
 _log()   { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [sbos-bkernel] $*" | tee -a "$FICHA_LOG"; }
 
@@ -60,7 +55,6 @@ ficha_install() {
     mkdir -p "$(dirname "$FICHA_LOG")"
 
     # 1. Copiar binario
-    # Prioridad: BKERNEL_BIN_SRC (binario real) → destino ya existente → stub del paquete
     echo "${__STEP_START__} copiar_binario"
     if [ -n "${BKERNEL_BIN_SRC:-}" ] && [ -f "$BKERNEL_BIN_SRC" ]; then
         cp "$BKERNEL_BIN_SRC" "$BKERNEL_BIN_DST"
@@ -69,13 +63,9 @@ ficha_install() {
         _log "binario copiado de $BKERNEL_BIN_SRC"
     elif [ -f "$BKERNEL_BIN_DST" ]; then
         _log "binario ya existe en $BKERNEL_BIN_DST"
-    elif [ -f "$BKERNEL_STUB_SRC" ]; then
-        cp "$BKERNEL_STUB_SRC" "$BKERNEL_BIN_DST"
-        chmod 755 "$BKERNEL_BIN_DST"
-        chown "$BKERNEL_USER:$BKERNEL_GROUP" "$BKERNEL_BIN_DST"
-        _log "AVISO: usando stub placeholder ($BKERNEL_STUB_SRC) — reemplazar con binario real cuando esté disponible"
     else
-        _log "AVISO: sin binario real ni stub — servicio no iniciará hasta que se provea el binario"
+        echo "${__STEP_FAIL__} copiar_binario: BKERNEL_BIN_SRC no definido y $BKERNEL_BIN_DST no existe"
+        return 1
     fi
     echo "${__STEP_OK__} copiar_binario"
 
@@ -144,24 +134,19 @@ SYSTEMD_UNIT
     systemctl enable "$BKERNEL_SERVICE" 2>/dev/null || true
     echo "${__STEP_OK__} instalar_systemd_unit"
 
-    # 4. Iniciar servicio (solo si hay binario disponible)
+    # 4. Iniciar servicio
     echo "${__STEP_START__} iniciar_servicio"
-    if [ -f "$BKERNEL_BIN_DST" ]; then
-        if systemctl is-active --quiet "$BKERNEL_SERVICE" 2>/dev/null; then
-            systemctl restart "$BKERNEL_SERVICE" 2>/dev/null || true
-            _log "servicio reiniciado"
-        else
-            systemctl start "$BKERNEL_SERVICE" 2>/dev/null || true
-            _log "servicio iniciado"
-        fi
-        sleep 3
-        echo "${__STEP_OK__} iniciar_servicio"
+    if systemctl is-active --quiet "$BKERNEL_SERVICE" 2>/dev/null; then
+        systemctl restart "$BKERNEL_SERVICE" 2>/dev/null || true
+        _log "servicio reiniciado"
     else
-        _log "AVISO: sin binario — servicio no iniciado (pendiente de binario real)"
-        echo "${__STEP_SKIP__} iniciar_servicio: sin binario disponible"
+        systemctl start "$BKERNEL_SERVICE" 2>/dev/null || true
+        _log "servicio iniciado"
     fi
+    sleep 3
+    echo "${__STEP_OK__} iniciar_servicio"
 
-    _log "bkernel instalado (user=$BKERNEL_USER, binary=${BKERNEL_BIN_DST})"
+    _log "bkernel instalado (user=$BKERNEL_USER, binary=$BKERNEL_BIN_DST)"
     return 0
 }
 
@@ -189,26 +174,12 @@ ficha_post_install() {
 }
 
 # ── Test ──────────────────────────────────────────────────────────────
-ficha_health() {
-    local svc="${BKERNEL_SERVICE:-bkernel.service}"
-    if systemctl is-active --quiet "$svc" 2>/dev/null; then
-        echo "HEALTHY"
-        return 0
-    fi
-    echo "DEGRADED: $svc no activo"
-    return 1
-}
-
 ficha_test() {
     local ok=0
 
     echo "${__STEP_START__} test_servicio"
     if systemctl is-active --quiet "$BKERNEL_SERVICE" 2>/dev/null; then
         echo "${__STEP_OK__} test_servicio (active)"
-    elif [ ! -f "$BKERNEL_BIN_DST" ]; then
-        # Sin binario: el servicio no puede iniciar — no es un fallo de instalación
-        _log "test_servicio: sin binario real — servicio inactivo (esperado)"
-        echo "${__STEP_SKIP__} test_servicio: pendiente de binario real"
     else
         echo "${__STEP_FAIL__} test_servicio: no está active"
         ok=1
@@ -227,8 +198,6 @@ ficha_test() {
     echo "${__STEP_START__} test_proceso"
     if pgrep -u "$BKERNEL_USER" bkernel-daemon > /dev/null 2>&1; then
         echo "${__STEP_OK__} test_proceso (running as $BKERNEL_USER)"
-    elif [ ! -f "$BKERNEL_BIN_DST" ]; then
-        echo "${__STEP_SKIP__} test_proceso: pendiente de binario real"
     else
         echo "${__STEP_FAIL__} test_proceso: no running"
         ok=1
@@ -252,13 +221,6 @@ ficha_status() {
     echo "=== sbos-bkernel STATUS ==="
     echo ""
     systemctl status "$BKERNEL_SERVICE" 2>/dev/null | head -15 || echo "  (no disponible)"
-    echo ""
-    echo "Binario: $BKERNEL_BIN_DST"
-    if [ -f "$BKERNEL_BIN_DST" ]; then
-        echo "  ✅ presente ($(ls -lh "$BKERNEL_BIN_DST" | awk '{print $5}'))"
-    else
-        echo "  ⚠  ausente — pendiente de binario real"
-    fi
     echo ""
     echo "Puertos TCP abiertos (deben ser 0):"
     ss -tlnp 2>/dev/null | grep bkernel || echo "  ✅ NINGUNO — bkernel CERRADO (F-02)"

@@ -11,6 +11,8 @@ export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-comms}"
 # ── pre_install ────────────────────────────────────────────────
 ficha_pre_install() {
     echo "${__SBOS__STEP_START__} pre_install"
+    create_k8s_namespace "${SBOS_NAMESPACE}" "sbos.io/managed=true"
+    sbos_ensure_serviceaccount "freepbx-sa" "${SBOS_NAMESPACE}"
     echo "${__SBOS__STEP_OK__} pre_install"
 }
 
@@ -54,5 +56,6 @@ ficha_uninstall() {
 # ── health ─────────────────────────────────────────────────────
 ficha_health() {
     echo "${__SBOS__STEP_START__} health"
+    if ! sbos_health_statefulset "freepbx" "${SBOS_NAMESPACE}"; then exit 1; fi
     echo "${__SBOS__STEP_OK__} health"
 }

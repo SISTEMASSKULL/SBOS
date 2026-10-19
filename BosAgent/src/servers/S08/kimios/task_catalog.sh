@@ -1,157 +1,54 @@
 #!/usr/bin/env bash
-# ============================================================================
-# task_catalog.sh — kimios
-# Imagen: kimios/kimios:7.1.24
-# Namespace: sbos-docs
-# ============================================================================
+# task_catalog.sh — Kimios DMS task handlers
+# Ficha · Order · SBOS-049 §4.3
 
 set -euo pipefail
 
-readonly __STEP_START__="${__SBOS__STEP_START__:-__SBOS__STEP_START__}"
-readonly __STEP_OK__="${__SBOS__STEP_OK__:-__SBOS__STEP_OK__}"
-readonly __STEP_FAIL__="${__SBOS__STEP_FAIL__:-__SBOS__STEP_FAIL__}"
-readonly __STEP_SKIP__="${__SBOS__STEP_SKIP__:-__SBOS__STEP_SKIP__}"
-
-FICHA_LOG="${FICHA_LOG:-/var/log/bos/fichas/kimios.log}"
-KUBECONFIG_DEST="${KUBECONFIG_DEST:-/etc/bos/.kube/config}"
-NS="sbos-docs"
-
-_log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [kimios] $*" | tee -a "$FICHA_LOG"; }
-_k()   { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@"; }
-
-_wait_ready() {
-    local t="${1:-180}" e=0
-    while (( e < t )); do
-        local r
-        r=$(_k get deployment kimios -n "$NS" \
-            -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
-        (( r >= 1 )) && return 0
-        sleep 5; e=$((e+5))
-        (( e % 30 == 0 )) && _log "Esperando kimios Ready... ${e}/${t}s"
-    done; return 1
-}
+export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S08-docserver/kimios}"
+export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-docs}"
 
 ficha_pre_install() {
-    echo "${__STEP_START__} verificar_namespace"
-    _k get namespace "$NS" > /dev/null 2>&1 || {
-        _k create namespace "$NS" >> "$FICHA_LOG" 2>&1
-        _log "Namespace $NS creado"
-    }
-    echo "${__STEP_OK__} verificar_namespace"
-    return 0
+    echo "${__SBOS__STEP_START__} pre_install"
+    create_k8s_namespace "${SBOS_NAMESPACE}" "sbos.io/managed=true"
+    sbos_ensure_serviceaccount "kimios-sa" "${SBOS_NAMESPACE}"
+    sbos_ensure_pg_database "kimios_db"
+    echo "${__SBOS__STEP_OK__} pre_install"
 }
 
 ficha_install() {
-    mkdir -p "$(dirname "$FICHA_LOG")"
-
-    local r
-    r=$(_k get deployment kimios -n "$NS" \
-        -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
-    if (( r >= 1 )); then
-        echo "${__STEP_SKIP__} kimios_install: ya Ready — skip"
-        return 0
-    fi
-
-    echo "${__STEP_START__} aplicar_manifest_kimios"
-    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'K8SEOF'
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: kimios
-  namespace: sbos-docs
-  labels:
-    app: kimios
-    sbos.app/managed-by: bos
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: kimios
-  template:
-    metadata:
-      labels:
-        app: kimios
-    spec:
-      containers:
-        - name: kimios
-          image: docker.io/frooodle/s-pdf:0.32.0
-          ports:
-            - containerPort: 8080
-          resources:
-            requests:
-              cpu: "100m"
-              memory: "256Mi"
-            limits:
-              cpu: "1000m"
-              memory: "1Gi"
-K8SEOF
-    _k apply -f - >> "$FICHA_LOG" 2>&1 <<'SVCINNER'
-apiVersion: v1
-kind: Service
-metadata:
-  name: kimios
-  namespace: sbos-docs
-spec:
-  selector:
-    app: kimios
-  ports:
-    - port: 8080
-      targetPort: 8080
-SVCINNER
-    echo "${__STEP_OK__} aplicar_manifest_kimios"
-
-    echo "${__STEP_START__} esperar_kimios_ready"
-    _wait_ready 180 || { echo "${__STEP_FAIL__} esperar_kimios_ready: timeout 180s"; return 1; }
-    echo "${__STEP_OK__} esperar_kimios_ready"
-    return 0
-}
-
-ficha_verify() {
-    echo "${__STEP_START__} verificar_kimios"
-    local r
-    r=$(_k get deployment kimios -n "$NS" \
-        -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
-    (( r >= 1 )) || { echo "${__STEP_FAIL__} verificar_kimios: ${r}/1"; return 1; }
-    echo "${__STEP_OK__} verificar_kimios (${r}/1)"
-    return 0
-}
-
-ficha_health() {
-    local r
-    r=$(_k get deployment kimios -n "$NS" \
-        -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
-    (( r >= 1 )) && echo "HEALTHY" && return 0
-    echo "DEGRADED: kimios ${r}/1"
-    return 1
+    echo "${__SBOS__STEP_START__} install"
+    sbos_k8s_core "${SBOS_FICHA_DIR}/kimios.k8s.yml" "${SBOS_NAMESPACE}"
+    kubectl rollout status deployment/kimios -n "${SBOS_NAMESPACE}" --timeout=600s
+    echo "${__SBOS__STEP_OK__} install"
 }
 
 ficha_post_install() {
-    # Evitar post_install_generic (usa namespace default con label errado)
-    return 0
+    echo "${__SBOS__STEP_START__} post_install"
+    echo "${__SBOS__STEP_OK__} post_install"
+}
+
+ficha_update() {
+    echo "${__SBOS__STEP_START__} update"
+    kubectl rollout restart deployment kimios -n "${SBOS_NAMESPACE}"
+    kubectl rollout status deployment/kimios -n "${SBOS_NAMESPACE}" --timeout=300s
+    echo "${__SBOS__STEP_OK__} update"
 }
 
 ficha_repair() {
-    _log "ficha_repair: re-aplicando manifests kimios (idempotente)"
-    ficha_install
+    echo "${__SBOS__STEP_START__} repair"
+    sbos_ensure_pg_database "kimios_db"
+    kubectl rollout restart deployment kimios -n "${SBOS_NAMESPACE}"
+    echo "${__SBOS__STEP_OK__} repair"
 }
 
-ficha_test() {
-    local ok=0
-    echo "${__STEP_START__} test_kimios_ready"
-    local ready
-    ready=$(_k get deployment kimios -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
-    if (( ready >= 1 )); then
-        echo "${__STEP_OK__} test_kimios_ready (${ready}/1)"
-    else
-        echo "${__STEP_FAIL__} test_kimios_ready: ${ready}/1"; ok=1
-    fi
-    return $ok
+ficha_uninstall() {
+    echo "${__SBOS__STEP_START__} uninstall"
+    kubectl delete deployment kimios -n "${SBOS_NAMESPACE}" --ignore-not-found
+    echo "${__SBOS__STEP_OK__} uninstall"
 }
 
-ficha_remove() {
-    echo "${__STEP_START__} eliminar_kimios"
-    _k delete deployment kimios -n "$NS" --ignore-not-found=true >> "$FICHA_LOG" 2>&1
-    _k delete service kimios -n "$NS" --ignore-not-found=true >> "$FICHA_LOG" 2>&1
-    echo "${__STEP_OK__} eliminar_kimios"
-    return 0
+ficha_health() {
+    echo "${__SBOS__STEP_START__} health"
+    if ! sbos_health_deployment "kimios" "${SBOS_NAMESPACE}"; then exit 1; fi
+    echo "${__SBOS__STEP_OK__} health"
 }

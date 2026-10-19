@@ -1,95 +1,51 @@
-# yaml_engine.yml — kong
-# Iteración 1: Kong 3.9.x DB-mode (PostgreSQL kong_db) + migrations + Status API :8007
-#   - IDEMPOTENTE: verifica deployment + admin API + proxy antes de reinstalar
-#   - Status API en :8007 (Kong 3.x separó health checks de Admin API :8001)
-#   - Probes SIN host (kubelet usa pod IP, no loopback)
-# Iteración 2: TLS Vault PKI, plugin Lua SBOS-Context, rate limiting por tier
-# Iteración 3: multi-réplica, Ingress Controller, observabilidad completa
+# yaml_engine.yml — Kong Gateway 3.9 lifecycle phases
+# SBOS-019 §9 · Order 145 · Deployment
+# R16 Zero hardcoding
 
-namespace: sbos-gateway
-image: "kong:3.9.0"
-replicas: 1
+pre_install:
+  - name: "create_namespace"
+    command: "kubectl create namespace sbos-gateway --dry-run=client -o yaml | kubectl apply -f -"
+    timeout_seconds: 30
+  - name: "apply_network_policy"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/kong.network -n sbos-gateway"
+    timeout_seconds: 30
+  - name: "run_migrations"
+    command: "kubectl run kong-migrations --image=kong:3.9 --restart=Never -n sbos-gateway -- kong migrations bootstrap --v 2>/dev/null || true"
+    timeout_seconds: 120
 
-database:
-  host: postgresql.sbos-data.svc.cluster.local
-  port: 5432
-  name: kong_db
-  user: kong
-  secret: kong-db-credentials
-  password_key: KONG_PG_PASSWORD
+install:
+  - name: "apply_deployment"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/kong.k8s.yml -n sbos-gateway"
+    timeout_seconds: 300
+  - name: "wait_ready"
+    command: "kubectl wait --for=condition=Available deployment/kong -n sbos-gateway --timeout=600s"
+    timeout_seconds: 600
+  - name: "verify_admin_api"
+    command: "kubectl exec deploy/kong -n sbos-gateway -- curl -sf http://localhost:8001/status"
+    timeout_seconds: 30
 
-service:
-  proxy_http: 8000
-  proxy_https: 8443
-  admin_api: 8001
-  status_api: 8007
-  cluster_ip_proxy: 8160
+post_install:
+  - name: "configure_oidc_plugin"
+    command: "kubectl exec deploy/kong -n sbos-gateway -- curl -sf -X POST http://localhost:8001/plugins -d 'name=oidc' -d 'config.client_id=kong' -d 'config.discovery=http://keycloak.sbos-identity:9000/realms/skbos/.well-known/openid-configuration'"
+    timeout_seconds: 60
+  - name: "verify_proxy_ports"
+    command: "kubectl exec deploy/kong -n sbos-gateway -- curl -sf http://localhost:8000/ 2>&1 | grep -q 'no Route' || true"
+    timeout_seconds: 30
 
-mode: traditional
+update:
+  - name: "rolling_update"
+    command: "kubectl rollout restart deployment kong -n sbos-gateway"
+    timeout_seconds: 300
 
-# Kong 3.x separó Status API de Admin API
-# Admin :8001 = gestion/CRUD (restringido)
-# Status :8007 = health checks (accesible por kubelet)
-listen:
-  proxy: "0.0.0.0:8000, 0.0.0.0:8443 ssl"
-  admin: "127.0.0.1:8001"
-  status: "0.0.0.0:8007"
+repair:
+  - name: "restart_deployment"
+    command: "kubectl rollout restart deployment kong -n sbos-gateway"
+    timeout_seconds: 120
 
-probes:
-  startup:
-    path: /status
-    port: 8007
-    initial_delay: 10
-    period: 10
-    failure_threshold: 30
-    timeout: 5
-    note: "SIN host — kubelet usa la IP del pod, NO loopback"
-  readiness:
-    path: /status/ready
-    port: 8007
-    initial_delay: 5
-    period: 10
-    failure_threshold: 3
-    timeout: 5
-    note: "SIN host — idem"
-  liveness:
-    path: /status
-    port: 8007
-    initial_delay: 5
-    period: 15
-    failure_threshold: 3
-    timeout: 5
-    note: "SIN host — idem"
-
-plugins_enabled:
-  - bundled
-  - jwt
-  - rate-limiting
-  - correlation-id
-
-env_overrides:
-  KONG_STATUS_LISTEN: "0.0.0.0:8007"
-  KONG_ADMIN_LISTEN: "127.0.0.1:8001"
-  KONG_PROXY_LISTEN: "0.0.0.0:8000, 0.0.0.0:8443 ssl"
-  KONG_LOG_LEVEL: warn
-
-resources:
-  requests:
-    cpu: "200m"
-    memory: "256Mi"
-  limits:
-    cpu: "1"
-    memory: "512Mi"
-
-# Idempotencia
-idempotency:
-  checks:
-    check1_admin_status:
-      method: kong health
-      expected: "healthy"
-      description: "kong health dentro del pod. Si responde healthy, DB conectada y workers activos."
-    check2_proxy_port:
-      method: tcp_connect
-      host: "kong.sbos-gateway.svc.cluster.local"
-      port: 8000
-      description: "Si el proxy HTTP acepta TCP, Kong está routeando tráfico."
+uninstall:
+  - name: "delete_deployment"
+    command: "kubectl delete deployment kong -n sbos-gateway --ignore-not-found"
+    timeout_seconds: 120
+  - name: "delete_service"
+    command: "kubectl delete service kong -n sbos-gateway --ignore-not-found"
+    timeout_seconds: 30

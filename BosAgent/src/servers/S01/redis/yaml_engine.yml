@@ -1,51 +1,41 @@
-# yaml_engine.yml — redis
-# Iteración 1: hacer que arranque (standalone + 3 DBs + persistencia AOF+RDB)
+# yaml_engine.yml — Redis lifecycle phases
+# SBOS-019 §9
 
-namespace: sbos-data
-image: "redis:8.6.2-alpine"
-replicas: 1
+pre_install:
+  - name: "create_namespace"
+    command: "kubectl create namespace sbos-data --dry-run=client -o yaml | kubectl apply -f -"
+    timeout_seconds: 30
+  - name: "apply_network_policy"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/redis.network -n sbos-data"
+    timeout_seconds: 30
 
-storage:
-  pv_name: sbos-redis-pv
-  pvc_name: sbos-redis-pvc
-  capacity: 10Gi
-  storage_class: local-path
+install:
+  - name: "apply_statefulset"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/redis.k8s.yml -n sbos-data"
+    timeout_seconds: 120
+  - name: "wait_ready"
+    command: "kubectl wait --for=condition=Ready pod/redis-0 -n sbos-data --timeout=120s"
+    timeout_seconds: 120
 
-service:
-  name: redis
-  port: 6379
-  cluster_ip_port: 8120
+post_install:
+  - name: "verify_ping"
+    command: "kubectl exec redis-0 -n sbos-data -- redis-cli ping | grep -q PONG"
+    timeout_seconds: 30
 
-config:
-  maxmemory: "512mb"
-  maxmemory-policy: "allkeys-lru"
-  save: "900 1 300 10 60 10000"
-  appendonly: "yes"
-  appendfilename: "appendonly.aof"
-  databases: 16
-  loglevel: "notice"
-  protected-mode: "no"
+update:
+  - name: "rolling_restart"
+    command: "kubectl rollout restart statefulset redis -n sbos-data"
+    timeout_seconds: 120
 
-databases:
-  0: "cache — caché de sesiones, tokens, respuestas frecuentes"
-  1: "ctx_id — Context Registry (SBOS-049)"
-  2: "streams — bkernel:index_queue, biedata:events, bos:audit"
+repair:
+  - name: "restart_pod"
+    command: "kubectl delete pod redis-0 -n sbos-data --ignore-not-found"
+    timeout_seconds: 60
 
-streams:
-  - name: "bkernel:index_queue"
-    description: "Cola de indexación para bSearch"
-    db: 2
-  - name: "biedata:events"
-    description: "Eventos de integración de biedata"
-    db: 2
-  - name: "bos:audit"
-    description: "Eventos de auditoría de bos"
-    db: 2
-
-resources:
-  requests:
-    cpu: "100m"
-    memory: "256Mi"
-  limits:
-    cpu: "500m"
-    memory: "512Mi"
+uninstall:
+  - name: "delete_statefulset"
+    command: "kubectl delete statefulset redis -n sbos-data --ignore-not-found"
+    timeout_seconds: 60
+  - name: "delete_pvc"
+    command: "kubectl delete pvc redis-data -n sbos-data --ignore-not-found"
+    timeout_seconds: 60

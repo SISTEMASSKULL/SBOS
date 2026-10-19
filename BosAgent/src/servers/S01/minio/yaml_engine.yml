@@ -1,44 +1,51 @@
-# yaml_engine.yml — minio
-# Iteración 1: standalone MinIO + 3 buckets base
+# yaml_engine.yml — MinIO lifecycle phases
+# SBOS-019 §9
 
-namespace: sbos-data
-image: "minio/minio:RELEASE.2025-05-24T17-08-30Z"
-mc_image: "minio/mc:RELEASE.2025-05-14T01-36-59Z"
-replicas: 1
+pre_install:
+  - name: "create_namespace"
+    command: "kubectl create namespace sbos-data --dry-run=client -o yaml | kubectl apply -f -"
+    timeout_seconds: 30
+  - name: "apply_network_policy"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/minio.network -n sbos-data"
+    timeout_seconds: 30
 
-storage:
-  pv_name: sbos-minio-pv
-  pvc_name: sbos-minio-pvc
-  capacity: 100Gi
-  storage_class: local-path
-  data_path: /data
+install:
+  - name: "apply_statefulset"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/minio.k8s.yml -n sbos-data"
+    timeout_seconds: 120
+  - name: "wait_ready"
+    command: "kubectl wait --for=condition=Ready pod/minio-0 -n sbos-data --timeout=120s"
+    timeout_seconds: 120
+  - name: "create_buckets"
+    command: |
+      mc alias set local http://localhost:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD} 2>/dev/null
+      mc mb local/backups --ignore-existing 2>/dev/null
+      mc mb local/uploads --ignore-existing 2>/dev/null
+      mc mb local/archives --ignore-existing 2>/dev/null
+      mc policy set private local/backups 2>/dev/null
+      mc policy set public-read local/uploads 2>/dev/null
+      mc policy set private local/archives 2>/dev/null
+    timeout_seconds: 60
 
-service:
-  api_port: 9000
-  console_port: 9001
-  cluster_ip_api: 8130
-  cluster_ip_console: 8131
+post_install:
+  - name: "verify_health"
+    command: "curl -sf http://localhost:9000/minio/health/live"
+    timeout_seconds: 30
 
-credentials:
-  root_user_secret: minio-credentials
-  key_access: MINIO_ROOT_USER
-  key_secret: MINIO_ROOT_PASSWORD
+update:
+  - name: "rolling_restart"
+    command: "kubectl rollout restart statefulset minio -n sbos-data"
+    timeout_seconds: 120
 
-buckets:
-  - name: sbos-backups
-    description: "Backups PostgreSQL, Redis, configuraciones"
-    versioning: true
-  - name: sbos-assets
-    description: "Assets estáticos de las aplicaciones SBOS"
-    versioning: false
-  - name: sbos-documents
-    description: "Documentos de negocio (facturas, contratos)"
-    versioning: true
+repair:
+  - name: "restart_pod"
+    command: "kubectl delete pod minio-0 -n sbos-data --ignore-not-found"
+    timeout_seconds: 60
 
-resources:
-  requests:
-    cpu: "200m"
-    memory: "512Mi"
-  limits:
-    cpu: "1"
-    memory: "1Gi"
+uninstall:
+  - name: "delete_statefulset"
+    command: "kubectl delete statefulset minio -n sbos-data --ignore-not-found"
+    timeout_seconds: 60
+  - name: "delete_pvc"
+    command: "kubectl delete pvc minio-data -n sbos-data --ignore-not-found"
+    timeout_seconds: 60

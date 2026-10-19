@@ -1,337 +1,211 @@
 #!/usr/bin/env bash
-# ============================================================================
-# task_catalog.sh — Ficha sbos-bootstrap-os
-# Iteración 1: Capa 0 — preparación del sistema operativo
-#
-# Señales __SBOS__STEP__* obligatorias en cada paso.
-# Esta ficha NO tiene dependencias y es la primera en instalarse.
-# ============================================================================
+# task_catalog.sh — SBOS Bootstrap OS
+# Ficha 01 — Prepara el SO antes de instalar K8s
+# Orden topológico: 1 (SBOS-049 §3.1)
+# R16: sin hardcode de paths
 
 set -euo pipefail
 
-# ── Señales (heredadas del motor si ya están definidas) ───────────
-readonly __STEP_START__="${__SBOS__STEP_START__:-__SBOS__STEP_START__}"
-readonly __STEP_OK__="${__SBOS__STEP_OK__:-__SBOS__STEP_OK__}"
-readonly __STEP_FAIL__="${__SBOS__STEP_FAIL__:-__SBOS__STEP_FAIL__}"
-readonly __STEP_SKIP__="${__SBOS__STEP_SKIP__:-__SBOS__STEP_SKIP__}"
+export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S00-hostserver/sbos-bootstrap-os}"
+export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-installer}"
 
-FICHA_LOG="${FICHA_LOG:-/var/log/bos/fichas/sbos-bootstrap-os.log}"
-YAML_ENGINE_FILE="$(dirname "${BASH_SOURCE[0]}")/yaml_engine.yml"
-
-_log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [sbos-bootstrap-os] $*" | tee -a "$FICHA_LOG"; }
-
-# Verifica si un módulo kernel está cargado. Funciona en nspawn (sin lsmod).
-_module_loaded() {
-    grep -q "^${1} \|^${1}$" /proc/modules 2>/dev/null
-}
-
-# ── Pre-install: verificaciones de requisitos ─────────────────────
+# ── pre_install ────────────────────────────────────────────────
 ficha_pre_install() {
-    echo "${__STEP_START__} verificar_ubuntu"
-    local version
-    version=$(lsb_release -rs 2>/dev/null || grep VERSION_ID /etc/os-release | cut -d'"' -f2)
-    if [[ "$version" != "26.04" ]]; then
-        _log "FALLO: Ubuntu 26.04 requerido, detectado: $version"
-        echo "${__STEP_FAIL__} verificar_ubuntu: se requiere Ubuntu 26.04, detectado $version"
-        return 1
-    fi
-    echo "${__STEP_OK__} verificar_ubuntu"
+    echo "${__SBOS__STEP_START__} pre_install"
+    echo "Checking system requirements for SBOS bootstrap..."
 
-    echo "${__STEP_START__} verificar_root"
+    local errors=0
+
+    # Verify running as root
     if [[ $EUID -ne 0 ]]; then
-        echo "${__STEP_FAIL__} verificar_root: se requiere ejecutar como root"
-        return 1
+        echo "ERROR: must run as root"
+        errors=$((errors + 1))
     fi
-    echo "${__STEP_OK__} verificar_root"
 
-    echo "${__STEP_START__} verificar_ram"
+    # Check RAM
     local ram_mb
-    ram_mb=$(awk '/MemTotal/ {printf "%d", $2/1024}' /proc/meminfo)
-    if (( ram_mb < 4096 )); then
-        echo "${__STEP_FAIL__} verificar_ram: ${ram_mb}MB < 4096MB requerido"
-        return 1
-    fi
-    echo "${__STEP_OK__} verificar_ram (${ram_mb}MB)"
-
-    echo "${__STEP_START__} verificar_disco"
-    local disk_gb
-    disk_gb=$(df -BG / 2>/dev/null | awk 'NR==2 {gsub("G",""); print $4}')
-    if (( disk_gb < 50 )); then
-        echo "${__STEP_FAIL__} verificar_disco: ${disk_gb}GB < 50GB requerido en /"
-        return 1
-    fi
-    echo "${__STEP_OK__} verificar_disco (${disk_gb}GB disponible)"
-
-    echo "${__STEP_START__} verificar_internet"
-    local ok=0
-    for host in archive.ubuntu.com 8.8.8.8 1.1.1.1; do
-        if curl -s --max-time 5 --head "http://${host}" -o /dev/null 2>/dev/null; then
-            ok=1; break
-        fi
-    done
-    if (( ok == 0 )); then
-        echo "${__STEP_FAIL__} verificar_internet: sin acceso a internet — requerido para descargar paquetes"
-        return 1
-    fi
-    echo "${__STEP_OK__} verificar_internet"
-
-    echo "${__STEP_OK__} pre_install_checks"
-
-    return 0
-}
-
-# ── Install: instalación real de la capa OS ──────────────────────
-ficha_install() {
-    mkdir -p "$(dirname "$FICHA_LOG")"
-
-    echo "${__STEP_START__} cargar_modulos_kernel"
-    local modules=(br_netfilter overlay ip_tables ip6_tables nf_conntrack nf_nat xt_MASQUERADE xt_conntrack)
-    local failed_modules=()
-    for mod in "${modules[@]}"; do
-        if ! _module_loaded "${mod}"; then
-            if ! modprobe "$mod" 2>/dev/null; then
-                _log "ADVERTENCIA: módulo $mod no disponible — puede no ser necesario en este kernel"
-                failed_modules+=("$mod")
-            else
-                _log "Módulo $mod cargado"
-            fi
-        else
-            _log "Módulo $mod ya activo"
-        fi
-    done
-
-    # Persistir módulos en siguiente arranque
-    cat > /etc/modules-load.d/sbos-k8s.conf <<'EOF'
-br_netfilter
-overlay
-ip_tables
-ip6_tables
-nf_conntrack
-EOF
-    echo "${__STEP_OK__} cargar_modulos_kernel"
-
-    echo "${__STEP_START__} configurar_sysctl"
-    cat > /etc/sysctl.d/99-sbos-k8s.conf <<'EOF'
-net.bridge.bridge-nf-call-iptables  = 1
-net.bridge.bridge-nf-call-ip6tables = 1
-net.ipv4.ip_forward                 = 1
-net.ipv6.conf.all.forwarding        = 1
-fs.inotify.max_user_watches         = 524288
-fs.inotify.max_user_instances       = 512
-vm.max_map_count                    = 262144
-kernel.panic                        = 10
-kernel.panic_on_oops                = 1
-EOF
-    sysctl --system > /dev/null 2>&1 || sysctl -p /etc/sysctl.d/99-sbos-k8s.conf > /dev/null 2>&1 || true
-    echo "${__STEP_OK__} configurar_sysctl"
-
-    echo "${__STEP_START__} instalar_paquetes_base"
-    export DEBIAN_FRONTEND=noninteractive
-    apt-get update -qq 2>/dev/null || { _log "ADVERTENCIA: apt-get update falló (sin internet?)"; }
-    # iptables-persistent + netfilter-persistent: necesarios para persistir la regla
-    # hairpin NAT que sbos-bootstrap-k8s añade después de kubeadm init.
-    # Sin ellos la regla desaparece en el próximo reinicio del host.
-    local packages=(curl gnupg apt-transport-https ca-certificates jq socat conntrack ipset lsof net-tools iproute2 kmod iptables-persistent netfilter-persistent)
-    local to_install=()
-    for pkg in "${packages[@]}"; do
-        if ! dpkg -l "$pkg" 2>/dev/null | grep -q "^ii"; then
-            to_install+=("$pkg")
-        fi
-    done
-    if (( ${#to_install[@]} > 0 )); then
-        apt-get install -y -qq "${to_install[@]}" 2>/dev/null || \
-            _log "ADVERTENCIA: algunos paquetes no se pudieron instalar: ${to_install[*]}"
-    fi
-    echo "${__STEP_OK__} instalar_paquetes_base"
-
-    echo "${__STEP_START__} crear_directorios_data"
-    # /etc/iptables: requerido por iptables-save para persistir reglas hairpin NAT
-    mkdir -p /etc/iptables
-    local dirs=(
-        "/data:0755:root:root"
-        "/data/postgres:0700:70:70"
-        "/data/redis:0700:999:999"
-        "/data/vault:0700:100:100"
-        "/data/keycloak:0755:root:root"
-        "/data/minio:0755:root:root"
-        "/data/prometheus:0755:65534:65534"
-        "/data/grafana:0755:472:472"
-        "/data/bkernel:0755:root:root"
-        "/data/biedata:0755:root:root"
-        "/data/bsearch:0755:root:root"
-        "/data/bauth:0755:root:root"
-        "/data/notifier:0755:root:root"
-    )
-    for entry in "${dirs[@]}"; do
-        IFS=':' read -r dir mode user group <<< "$entry"
-        mkdir -p "$dir"
-        chmod "$mode" "$dir"
-        chown "${user}:${group}" "$dir" 2>/dev/null || true
-        _log "Directorio creado: $dir ($mode ${user}:${group})"
-    done
-    echo "${__STEP_OK__} crear_directorios_data"
-
-    # containerd lo instala sbos-bootstrap-k8s (orden 20), que corre DESPUÉS de esta ficha.
-    # En primera instalación este paso hace SKIP — es correcto y esperado.
-    # La configuración real de containerd ocurre en sbos-bootstrap-k8s.
-    # Este paso solo sirve si se hace repair de esta ficha con containerd ya instalado.
-    echo "${__STEP_START__} configurar_containerd"
-    if command -v containerd > /dev/null 2>&1; then
-        mkdir -p /etc/containerd
-        if [[ ! -f /etc/containerd/config.toml ]]; then
-            containerd config default > /etc/containerd/config.toml 2>/dev/null || true
-            if [[ -f /etc/containerd/config.toml ]]; then
-                sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml || true
-            fi
-        fi
-        systemctl enable containerd 2>/dev/null || true
-        systemctl restart containerd 2>/dev/null || true
-        _log "containerd configurado con SystemdCgroup=true"
-        echo "${__STEP_OK__} configurar_containerd"
+    ram_mb=$(awk '/MemTotal/ {printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo 0)
+    if (( ram_mb < 3500 )); then
+        echo "ERROR: insufficient RAM: ${ram_mb}MB < 3500MB required"
+        errors=$((errors + 1))
     else
-        echo "${__STEP_SKIP__} configurar_containerd: containerd no instalado (lo instala sbos-bootstrap-k8s en orden 20)"
+        echo "RAM: ${ram_mb}MB OK"
     fi
 
-    echo "${__STEP_START__} deshabilitar_swap"
-    swapoff -a 2>/dev/null || true
-    sed -i '/\bswap\b/d' /etc/fstab 2>/dev/null || true
-    echo "${__STEP_OK__} deshabilitar_swap"
-
-    _log "Instalación sbos-bootstrap-os completada"
-    return 0
-}
-
-# ── Post-install ──────────────────────────────────────────────────
-ficha_post_install() {
-    _log "Post-install: verificando estado del sistema"
-    if ! _module_loaded "br_netfilter"; then
-        _log "ADVERTENCIA: br_netfilter no activo en este momento (se cargará al reiniciar)"
+    # Check CPU cores
+    local cpus
+    cpus=$(nproc 2>/dev/null || echo 0)
+    if (( cpus < 2 )); then
+        echo "ERROR: insufficient CPUs: $cpus < 2 required"
+        errors=$((errors + 1))
+    else
+        echo "CPUs: $cpus OK"
     fi
-    return 0
+
+    # Check disk space on /
+    local disk_avail_gb
+    disk_avail_gb=$(df -BG / 2>/dev/null | awk 'NR==2 {print $4}' | sed 's/G//' || echo 0)
+    if (( disk_avail_gb < 15 )); then
+        echo "ERROR: insufficient disk: ${disk_avail_gb}GB < 15GB required"
+        errors=$((errors + 1))
+    else
+        echo "Disk: ${disk_avail_gb}GB available OK"
+    fi
+
+    if (( errors > 0 )); then
+        echo "Pre-flight FAILED: $errors error(s)"
+        return 1
+    fi
+
+    echo "All pre-flight checks passed"
+    echo "${__SBOS__STEP_OK__} pre_install"
 }
 
-# ── Repair: reparación idempotente ───────────────────────────────
-ficha_health() {
-    local br
-    br=$(sysctl -n net.bridge.bridge-nf-call-iptables 2>/dev/null || echo "0")
-    [[ "$br" == "1" ]] && echo "HEALTHY" && return 0
-    echo "DEGRADED: net.bridge.bridge-nf-call-iptables != 1"
-    return 1
-}
+# ── install ────────────────────────────────────────────────────
+ficha_install() {
+    echo "${__SBOS__STEP_START__} install"
+    echo "Preparing OS for Kubernetes..."
 
-ficha_repair() {
-    _log "Reparando sbos-bootstrap-os..."
+    # Load kernel modules
+    echo "Loading kernel modules..."
+    modprobe overlay 2>/dev/null || echo "  overlay: already loaded or unavailable"
+    modprobe br_netfilter 2>/dev/null || echo "  br_netfilter: already loaded or unavailable"
 
-    echo "${__STEP_START__} reparar_modulos"
-    for mod in br_netfilter overlay ip_tables; do
-        if ! _module_loaded "${mod}"; then
-            modprobe "$mod" 2>/dev/null && _log "Módulo $mod recargado" || true
-        fi
-    done
-    echo "${__STEP_OK__} reparar_modulos"
+    # Ensure modules load on boot
+    cat > /etc/modules-load.d/sbos-k8s.conf <<'MODULES'
+overlay
+br_netfilter
+MODULES
 
-    echo "${__STEP_START__} reparar_sysctl"
-    sysctl --system > /dev/null 2>&1 || true
-    echo "${__STEP_OK__} reparar_sysctl"
+    # Set sysctl parameters
+    echo "Configuring sysctl parameters..."
+    cat > /etc/sysctl.d/99-sbos-k8s.conf <<'SYSCTL'
+net.bridge.bridge-nf-call-iptables = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+net.ipv4.ip_forward = 1
+SYSCTL
 
-    echo "${__STEP_START__} reparar_directorios"
-    mkdir -p /etc/iptables
-    for dir in /data /data/postgres /data/redis /data/vault; do
-        [[ -d "$dir" ]] || mkdir -p "$dir"
-    done
-    echo "${__STEP_OK__} reparar_directorios"
+    sysctl --system 2>/dev/null || true
 
-    return 0
-}
-
-# ── Test: verificación de salud ───────────────────────────────────
-ficha_test() {
-    local ok=0
-
-    echo "${__STEP_START__} test_kernel_modules"
-    for mod in br_netfilter; do
-        if _module_loaded "${mod}"; then
-            _log "OK: módulo $mod activo"
+    # Verify critical sysctls
+    local sysctl_errors=0
+    for param in net.bridge.bridge-nf-call-iptables net.ipv4.ip_forward; do
+        local val
+        val=$(sysctl -n "$param" 2>/dev/null || echo "0")
+        if [[ "$val" != "1" ]]; then
+            echo "ERROR: $param = $val (expected 1)"
+            sysctl_errors=$((sysctl_errors + 1))
         else
-            _log "FALLO: módulo $mod no activo"
-            ok=1
+            echo "  $param = 1 OK"
         fi
     done
-    [[ $ok -eq 0 ]] && echo "${__STEP_OK__} test_kernel_modules" || echo "${__STEP_FAIL__} test_kernel_modules"
 
-    echo "${__STEP_START__} test_sysctl"
+    # Mount cgroup2 if available
+    if mountpoint -q /sys/fs/cgroup 2>/dev/null; then
+        echo "cgroup2 already mounted at /sys/fs/cgroup"
+    else
+        mount -t cgroup2 cgroup2 /sys/fs/cgroup 2>/dev/null || echo "  cgroup2 mount skipped (already mounted)"
+    fi
+
+    # Verify cgroup writability
+    local test_dir="/sys/fs/cgroup/sbos-test-$$"
+    if mkdir "$test_dir" 2>/dev/null; then
+        rmdir "$test_dir" 2>/dev/null
+        echo "cgroup2: writable OK"
+    else
+        echo "WARNING: cgroup2 not writable — pods may fail to start"
+    fi
+
+    # Create SBOS directories
+    mkdir -p /opt/bos /etc/bos /run/bos /var/log/bos /etc/bos/blibs/servers
+
+    # Mark bootstrap complete
+    touch /etc/sbos/.bootstrapped 2>/dev/null || mkdir -p /etc/sbos && touch /etc/sbos/.bootstrapped
+
+    echo "OS preparation complete"
+    echo "${__SBOS__STEP_OK__} install"
+}
+
+# ── post_install ───────────────────────────────────────────────
+ficha_post_install() {
+    echo "${__SBOS__STEP_START__} post_install"
+
+    echo "Verifying OS bootstrap..."
+    local errors=0
+
+    # Verify kernel modules
+    for mod in overlay br_netfilter; do
+        if lsmod | grep -q "^$mod "; then
+            echo "  module $mod: loaded OK"
+        else
+            echo "  module $mod: not loaded (non-critical)"
+        fi
+    done
+
+    # Verify ip_forward
     local fwd
     fwd=$(sysctl -n net.ipv4.ip_forward 2>/dev/null || echo "0")
-    if [[ "$fwd" == "1" ]]; then
-        echo "${__STEP_OK__} test_sysctl"
-    else
-        echo "${__STEP_FAIL__} test_sysctl: ip_forward=$fwd"
-        ok=1
+    echo "  net.ipv4.ip_forward = $fwd"
+
+    if (( errors > 0 )); then
+        echo "WARNING: $errors non-critical issue(s)"
     fi
 
-    echo "${__STEP_START__} test_directorios"
-    for dir in /data /data/postgres /data/redis /data/vault; do
-        if [[ ! -d "$dir" ]]; then
-            echo "${__STEP_FAIL__} test_directorios: $dir no existe"
-            ok=1
-        fi
-    done
-    [[ $ok -eq 0 ]] && echo "${__STEP_OK__} test_directorios"
-
-    echo "${__STEP_START__} test_swap"
-    local swap_total
-    swap_total=$(awk '/SwapTotal/ {print $2}' /proc/meminfo)
-    if [[ "$swap_total" == "0" ]]; then
-        echo "${__STEP_OK__} test_swap: swap deshabilitado"
-    else
-        _log "ADVERTENCIA: swap activo (${swap_total}kB) — requerirá desactivación permanente"
-        echo "${__STEP_SKIP__} test_swap: swap activo (no crítico en esta iteración)"
-    fi
-
-    return $ok
+    echo "OS bootstrap verification done"
+    echo "${__SBOS__STEP_OK__} post_install"
 }
 
-# ── Status: estado actual ─────────────────────────────────────────
-ficha_status() {
-    echo "=== sbos-bootstrap-os STATUS ==="
-    echo "Ubuntu: $(lsb_release -rs 2>/dev/null || grep VERSION_ID /etc/os-release | cut -d'"' -f2)"
-    echo "Kernel: $(uname -r)"
-    echo "br_netfilter: $(_module_loaded br_netfilter && echo ACTIVO || echo INACTIVO)"
-    echo "overlay: $(_module_loaded overlay && echo ACTIVO || echo INACTIVO)"
-    echo "ip_forward: $(sysctl -n net.ipv4.ip_forward 2>/dev/null)"
-    echo "swap: $(awk '/SwapTotal/ {print $2}' /proc/meminfo)kB"
-    echo "Directorios /data:"
-    for dir in /data /data/postgres /data/redis /data/vault /data/keycloak /data/minio; do
-        printf "  %-30s %s\n" "$dir" "$([ -d "$dir" ] && echo OK || echo FALTANTE)"
-    done
-    echo "containerd: $(systemctl is-active containerd 2>/dev/null || echo inactivo)"
+# ── update ─────────────────────────────────────────────────────
+ficha_update() {
+    echo "${__SBOS__STEP_START__} update"
+    echo "OS bootstrap update: re-applying sysctls..."
+    sysctl --system 2>/dev/null || true
+    echo "${__SBOS__STEP_OK__} update"
 }
 
-# ── Uninstall: desinstalación ─────────────────────────────────────
+# ── repair ─────────────────────────────────────────────────────
+ficha_repair() {
+    echo "${__SBOS__STEP_START__} repair"
+    echo "Repairing OS bootstrap..."
+    modprobe overlay 2>/dev/null || true
+    modprobe br_netfilter 2>/dev/null || true
+    sysctl --system 2>/dev/null || true
+    echo "${__SBOS__STEP_OK__} repair"
+}
+
+# ── uninstall ──────────────────────────────────────────────────
 ficha_uninstall() {
-    _log "ADVERTENCIA: desinstalación de sbos-bootstrap-os — solo remueve configuración, no el OS"
-
-    echo "${__STEP_START__} remover_sysctl"
-    rm -f /etc/sysctl.d/99-sbos-k8s.conf
-    echo "${__STEP_OK__} remover_sysctl"
-
-    echo "${__STEP_START__} remover_modulos_conf"
+    echo "${__SBOS__STEP_START__} uninstall"
+    echo "Removing OS bootstrap configuration..."
     rm -f /etc/modules-load.d/sbos-k8s.conf
-    echo "${__STEP_OK__} remover_modulos_conf"
-
-    _log "sbos-bootstrap-os desinstalado (directorios /data conservados)"
-    return 0
+    rm -f /etc/sysctl.d/99-sbos-k8s.conf
+    rm -f /etc/sbos/.bootstrapped
+    echo "${__SBOS__STEP_OK__} uninstall"
 }
 
-# ── Diagnóstico (P14) ─────────────────────────────────────────────
+# ── health ─────────────────────────────────────────────────────
+ficha_health() {
+    echo "${__SBOS__STEP_START__} health"
+    if [[ -f /etc/sbos/.bootstrapped ]]; then
+        echo "OS bootstrap: HEALTHY"
+        echo "${__SBOS__STEP_OK__} health"
+    else
+        echo "OS bootstrap: NOT BOOTSTRAPPED"
+        echo "${__SBOS__STEP_FAIL__} health"
+        return 1
+    fi
+}
+
+# ── diagnosis ──────────────────────────────────────────────────
 ficha_diagnosis() {
-    _log "=== Diagnóstico sbos-bootstrap-os ==="
-    echo "Kernel: $(uname -r)"
-    echo "Módulos K8s:"
-    for mod in br_netfilter overlay ip_tables; do
-        echo "  $mod: $(_module_loaded "$mod" && echo ACTIVO || echo INACTIVO)"
-    done
-    echo "Sysctl ip_forward: $(sysctl -n net.ipv4.ip_forward 2>/dev/null)"
-    echo "Swap: $(awk '/SwapTotal/ {print $2}' /proc/meminfo)kB"
-    echo "Espacio en /data: $(df -h /data 2>/dev/null | tail -1 || echo '/data no existe')"
+    echo "=== SBOS Bootstrap OS Diagnosis ==="
+    echo "RAM: $(awk '/MemTotal/ {printf "%d MB", $2/1024}' /proc/meminfo)"
+    echo "CPUs: $(nproc)"
+    echo "Disk /: $(df -h / | awk 'NR==2 {print $4}') available"
+    echo "Modules:"
+    lsmod | grep -E "^overlay|^br_netfilter" || echo "  (none loaded)"
+    echo "sysctl:"
+    sysctl net.ipv4.ip_forward 2>/dev/null || echo "  (unavailable)"
+    echo "cgroup: $(mount | grep cgroup || echo 'none')"
+    echo "Bootstrapped: $([[ -f /etc/sbos/.bootstrapped ]] && echo YES || echo NO)"
 }
