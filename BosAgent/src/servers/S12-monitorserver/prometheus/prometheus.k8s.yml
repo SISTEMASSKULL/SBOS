@@ -53,6 +53,7 @@ spec:
       serviceAccountName: prometheus-sa
       securityContext:
         fsGroup: 65534
+        runAsUser: 0
       containers:
         - name: prometheus
           image: docker.io/prom/prometheus:v3.5.0

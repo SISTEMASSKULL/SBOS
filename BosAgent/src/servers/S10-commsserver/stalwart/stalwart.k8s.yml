@@ -86,20 +86,18 @@ spec:
               name: http-admin
           resources:
             requests:
-              cpu: 1000m
-              memory: 2048Mi
+              cpu: 200m
+              memory: 512Mi
             limits:
               cpu: 4000m
-              memory: 8192Mi
+              memory: 4096Mi
           livenessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: 8080
             initialDelaySeconds: 60
             periodSeconds: 30
           readinessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: 8080
             initialDelaySeconds: 30
             periodSeconds: 10
