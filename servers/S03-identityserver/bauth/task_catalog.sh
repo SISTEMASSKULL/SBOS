@@ -56,19 +56,22 @@ ficha_install() {
     chmod 640 "${BAUTH_TOML}"
     chown root:"${BAUTH_GROUP}" "${BAUTH_TOML}"
 
+    # Limpiar socket huérfano de instancias previas (evita EADDRINUSE)
+    rm -f "${BAUTH_SOCK_DIR}/bauth.sock"
+
     # Habilitar y arrancar
     systemctl daemon-reload
     systemctl enable bauth.service
     systemctl start bauth.service
 
-    # Esperar a que el socket aparezca (hasta 30s)
+    # Esperar a que el socket aparezca (hasta 60s)
     local waited=0
-    while [[ ! -S "${BAUTH_SOCK_DIR}/bauth.sock" ]] && [[ $waited -lt 30 ]]; do
+    while [[ ! -S "${BAUTH_SOCK_DIR}/bauth.sock" ]] && [[ $waited -lt 60 ]]; do
         sleep 1
         waited=$((waited + 1))
     done
     if [[ ! -S "${BAUTH_SOCK_DIR}/bauth.sock" ]]; then
-        echo "ERROR: bauth.sock no apareció en 30s" >&2
+        echo "ERROR: bauth.sock no apareció en 60s" >&2
         journalctl -u bauth.service --no-pager -n 20 >&2
         return 1
     fi

@@ -32,10 +32,9 @@ deployment:
   strategy: RollingUpdate
 
 governance:
-
-
-  auto_install: true
-  requires_approval: false
+  auto_install: false
+  requires_approval: true
+  category_label: "auth-proxy-oidc"
 health:
   check_command: "curl -sf http://localhost:4180/ping"
   check_interval_seconds: 30

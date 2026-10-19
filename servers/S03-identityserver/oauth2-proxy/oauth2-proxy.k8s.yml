@@ -39,7 +39,7 @@ spec:
       serviceAccountName: oauth2-proxy-sa
       containers:
         - name: oauth2-proxy
-          image: docker.io/oauth2-proxy/oauth2-proxy:v7.6
+          image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
           ports:
             - containerPort: 4180
               name: http
