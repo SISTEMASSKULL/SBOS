@@ -31,15 +31,20 @@ spec:
                       name: postgresql-secret
                       key: password
               command:
-                - psql
-                - -h
-                - postgresql.sbos-data.svc.cluster.local
-                - -U
-                - postgres
-                - -d
-                - SBOSDB
+                - /bin/sh
                 - -c
-                - "SELECT partman.run_maintenance_proc();"
+                - |
+                  psql -h postgresql.sbos-data.svc.cluster.local \
+                       -U postgres -d SBOSDB \
+                       -c "DO \$\$ BEGIN
+                             IF EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='pg_partman')
+                                AND EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name='partman') THEN
+                               PERFORM partman.run_maintenance_proc();
+                               RAISE NOTICE 'pg_partman: mantenimiento ejecutado';
+                             ELSE
+                               RAISE NOTICE 'pg_partman no disponible en este servidor, omitido';
+                             END IF;
+                           END \$\$;" || true
               resources:
                 requests:
                   cpu: 50m

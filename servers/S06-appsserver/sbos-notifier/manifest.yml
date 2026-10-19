@@ -60,7 +60,7 @@ ports:
   ntfy_ws:    28205   # ntfy WebSocket — Vue / Flutter / CLI
 
 governance:
-  auto_install: true
+  auto_install: false
   requires_approval: false
 
 # ------------------------------------------------------------

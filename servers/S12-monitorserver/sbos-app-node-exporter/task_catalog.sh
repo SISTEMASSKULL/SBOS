@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S12-monitorserver/node-exporter}"
+export SBOS_FICHA_DIR="${SBOS_FICHA_DIR:-/etc/bos/blibs/servers/S12-monitorserver/sbos-app-node-exporter}"
 export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-monitor}"
 
 # ── pre_install ────────────────────────────────────────────────

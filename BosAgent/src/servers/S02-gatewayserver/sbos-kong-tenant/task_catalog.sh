@@ -54,12 +54,12 @@ _KONG_PF_PORT=19001
 
 _kong_pf_start() {
     _kong_pf_stop  # Limpiar cualquier port-forward previo
-    _k port-forward -n "$NS_KONG" svc/kong-admin "${_KONG_PF_PORT}:${ADMIN_PORT}" \
+    _k port-forward -n "$NS_KONG" svc/kong "${_KONG_PF_PORT}:${ADMIN_PORT}" \
         >> "$FICHA_LOG" 2>&1 &
     _KONG_PF_PID=$!
-    # Esperar hasta que el port-forward esté listo (max 8s)
+    # Esperar hasta que el port-forward esté listo (max 30s)
     local i=0
-    while (( i < 16 )); do
+    while (( i < 60 )); do
         if curl -sf --connect-timeout 0.5 \
                 "http://127.0.0.1:${_KONG_PF_PORT}/" >/dev/null 2>&1; then
             return 0
@@ -67,7 +67,7 @@ _kong_pf_start() {
         sleep 0.5
         i=$((i+1))
     done
-    _log "ERROR: port-forward al Admin API de Kong no respondió en 8s"
+    _log "ERROR: port-forward al Admin API de Kong no respondió en 30s"
     _kong_pf_stop
     return 1
 }

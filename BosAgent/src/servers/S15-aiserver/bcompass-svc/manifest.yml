@@ -34,7 +34,8 @@ deployment:
   strategy: RollingUpdate
 
 governance:
-  auto_install: true
+  # BLOQUEADO: imagen skull/* privada — requiere imagePullSecrets configurados.
+  auto_install: false
   requires_approval: false
 
 health:

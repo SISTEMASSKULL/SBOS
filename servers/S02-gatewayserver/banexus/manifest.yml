@@ -38,7 +38,7 @@ ports:
     description: "Puerto local del agente — solo acceso desde localhost"
 
 governance:
-  auto_install: true
+  auto_install: false
   backup_enabled: false
   encryption_required: true
 

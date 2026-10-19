@@ -28,15 +28,19 @@ spec:
                   name: postgresql-secret
                   key: password
           command:
-            - psql
-            - -h
-            - postgresql.sbos-data.svc.cluster.local
-            - -U
-            - postgres
-            - -d
-            - SBOSDB
+            - /bin/sh
             - -c
-            - "CREATE EXTENSION IF NOT EXISTS pg_stat_monitor;"
+            - |
+              psql -h postgresql.sbos-data.svc.cluster.local \
+                   -U postgres -d SBOSDB \
+                   -c "DO \$\$ BEGIN
+                         IF EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='pg_stat_monitor') THEN
+                           CREATE EXTENSION IF NOT EXISTS pg_stat_monitor;
+                           RAISE NOTICE 'pg_stat_monitor habilitado';
+                         ELSE
+                           RAISE NOTICE 'pg_stat_monitor no disponible en este servidor, omitido';
+                         END IF;
+                       END \$\$;" || true
           resources:
             requests:
               cpu: 50m
