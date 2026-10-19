@@ -6,6 +6,16 @@ metadata:
   namespace: sbos-data
 ---
 apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-secret
+  namespace: sbos-data
+type: Opaque
+stringData:
+  MYSQL_ROOT_PASSWORD: "SbosMySQL2024!"
+  MYSQL_DATABASE: "sbos_mysql"
+---
+apiVersion: v1
 kind: Service
 metadata:
   name: mysql
@@ -15,7 +25,7 @@ spec:
   selector:
     app: mysql
   ports:
-    - name: http
+    - name: mysql
       port: 3306
       targetPort: 3306
 ---
@@ -41,8 +51,10 @@ spec:
           image: docker.io/library/mysql:8.4
           ports:
             - containerPort: 3306
-              name: http
-
+              name: mysql
+          envFrom:
+            - secretRef:
+                name: mysql-secret
           volumeMounts:
             - name: data
               mountPath: /var/lib/mysql

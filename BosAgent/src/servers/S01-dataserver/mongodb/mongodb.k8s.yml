@@ -6,6 +6,17 @@ metadata:
   namespace: sbos-data
 ---
 apiVersion: v1
+kind: Secret
+metadata:
+  name: mongodb-secret
+  namespace: sbos-data
+type: Opaque
+stringData:
+  MONGO_INITDB_ROOT_USERNAME: "sbos"
+  MONGO_INITDB_ROOT_PASSWORD: "SbosMongoDB2024!"
+  MONGO_INITDB_DATABASE: "sbos_mongo"
+---
+apiVersion: v1
 kind: Service
 metadata:
   name: mongodb
@@ -15,7 +26,7 @@ spec:
   selector:
     app: mongodb
   ports:
-    - name: http
+    - name: mongodb
       port: 27017
       targetPort: 27017
 ---
@@ -41,8 +52,10 @@ spec:
           image: docker.io/library/mongo:7.0
           ports:
             - containerPort: 27017
-              name: http
-
+              name: mongodb
+          envFrom:
+            - secretRef:
+                name: mongodb-secret
           volumeMounts:
             - name: data
               mountPath: /var/lib/mongodb
@@ -56,12 +69,12 @@ spec:
           livenessProbe:
             tcpSocket:
               port: 27017
-            initialDelaySeconds: 30
+            initialDelaySeconds: 60
             periodSeconds: 30
           readinessProbe:
             tcpSocket:
               port: 27017
-            initialDelaySeconds: 10
+            initialDelaySeconds: 30
             periodSeconds: 10
 
   volumeClaimTemplates:

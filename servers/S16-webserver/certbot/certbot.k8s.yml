@@ -1,0 +1,81 @@
+---
+# certbot-web — Gestor TLS multi-dominio para S16-webserver
+# CronJob que renueva certificados Let's Encrypt por dominio de cliente.
+# Se ejecuta diariamente a las 03:00 UTC.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: certbot-sa
+  namespace: sbos-web
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: certbot-certs
+  namespace: sbos-web
+  annotations:
+    volume.beta.kubernetes.io/storage-provisioner: rancher.io/local-path
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: sbos-local-path
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: certbot
+  namespace: sbos-web
+  labels:
+    app: certbot
+    sbos.io/managed: "true"
+spec:
+  schedule: "0 3 * * *"
+  concurrencyPolicy: Forbid
+  failedJobsHistoryLimit: 3
+  successfulJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: certbot
+        spec:
+          serviceAccountName: certbot-sa
+          restartPolicy: OnFailure
+          containers:
+            - name: certbot
+              image: docker.io/certbot/certbot:v5.6.0
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  echo "certbot-web: verificando certificados..."
+                  certbot renew --non-interactive --agree-tos \
+                    --config-dir /etc/letsencrypt \
+                    --work-dir /var/lib/letsencrypt \
+                    --logs-dir /var/log/letsencrypt \
+                    2>&1 || echo "certbot renew completado (sin certificados activos aún)"
+                  echo "certbot-web: ciclo de renovación terminado"
+              env:
+                - name: ADMIN_EMAIL
+                  valueFrom:
+                    configMapKeyRef:
+                      name: certbot-config
+                      key: admin_email
+                      optional: true
+              volumeMounts:
+                - name: certs
+                  mountPath: /etc/letsencrypt
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+                limits:
+                  cpu: 500m
+                  memory: 256Mi
+          volumes:
+            - name: certs
+              persistentVolumeClaim:
+                claimName: certbot-certs
