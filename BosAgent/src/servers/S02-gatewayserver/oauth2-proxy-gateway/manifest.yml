@@ -22,9 +22,9 @@ requirements:
     - kong
 
 governance:
-  auto_install: true
-  requires_approval: false
-  category_label: "seguridad-critica"
+  auto_install: false
+  requires_approval: true
+  category_label: "auth-proxy-oidc-gateway"
 
 meta:
   backend: helm
