@@ -1,5 +1,5 @@
 identity:
-  id: oauth2-proxy
+  id: oauth2-proxy-gateway
   server: S02
   version: 7.8.0
   category: 1

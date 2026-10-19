@@ -2,7 +2,7 @@
 # BC-13 · SBOS-049 §4 · SBOS-050 · Order 372
 # WAF como módulo de nginx (no pod separado) — OWASP CRS 4.x
 identity:
-  id: modsecurity
+  id: modsecurity-web
   name: modsecurity — WAF OWASP CRS
   version: "3.0+OWASP-CRS-4"
   category: 1

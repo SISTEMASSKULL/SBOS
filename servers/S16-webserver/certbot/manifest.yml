@@ -2,8 +2,8 @@
 # BC-13 · SBOS-049 §4 · SBOS-050 · Order 371
 # Emisión y renovación automática de certificados por dominio de cliente
 identity:
-  id: certbot
-  name: certbot — TLS por Dominio de Cliente
+  id: certbot-web
+  name: certbot-web — TLS por Dominio de Cliente (S16)
   version: "2.11"
   category: 1
   criticality: true
