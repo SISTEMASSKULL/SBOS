@@ -249,10 +249,14 @@ create_k8s_namespace() {
         return 0
     fi
 
+    kubectl create namespace "$namespace"
+
+    # kubectl create namespace no acepta --labels; aplicar labels con kubectl label
     if [[ -n "$labels" ]]; then
-        kubectl create namespace "$namespace" --labels="$labels"
-    else
-        kubectl create namespace "$namespace"
+        IFS=',' read -ra label_pairs <<< "$labels"
+        for pair in "${label_pairs[@]}"; do
+            kubectl label namespace "$namespace" "$pair" --overwrite 2>/dev/null || true
+        done
     fi
     echo "Namespace $namespace created"
 }
