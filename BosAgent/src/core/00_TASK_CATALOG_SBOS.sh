@@ -778,8 +778,8 @@ verify_ficha_health() {
         fi
 
         local namespace
-        # Prioridad: identity.namespace (canónico) > versions.namespace > identity.server (fallback)
-        namespace=$(yq eval '.identity.namespace // .versions.namespace // .identity.server // "default"' "$manifest" 2>/dev/null || echo "default")
+        # Prioridad: identity.namespace > workload.namespace > versions.namespace > identity.server (fallback)
+        namespace=$(yq eval '.identity.namespace // .workload.namespace // .versions.namespace // .identity.server // "default"' "$manifest" 2>/dev/null || echo "default")
         # Solo transformar si parece un ID de servidor (sNN o SNN), no si ya es sbos-*
         if [[ ! "$namespace" =~ ^sbos- ]]; then
             namespace=$(echo "$namespace" | tr '[:upper:]' '[:lower:]' | sed 's/^s[0-9]*/sbos-/')
@@ -814,8 +814,8 @@ verify_ficha_health() {
 
     # Fichas helm/pods sin health.type específico: verificar que el pod corre
     local namespace
-    # Prioridad: identity.namespace (canónico) > versions.namespace > ficha.namespace > "default"
-    namespace=$(yq eval '.identity.namespace // .versions.namespace // .ficha.namespace // "default"' "$manifest" 2>/dev/null || echo "default")
+    # Prioridad: identity.namespace > workload.namespace > versions.namespace > ficha.namespace > "default"
+    namespace=$(yq eval '.identity.namespace // .workload.namespace // .versions.namespace // .ficha.namespace // "default"' "$manifest" 2>/dev/null || echo "default")
     if [[ ! "$namespace" =~ ^sbos- ]] && [[ "$namespace" != "default" ]] && [[ "$namespace" != "kube-system" ]]; then
         local ns_raw="$namespace"
         if [[ "$ns_raw" =~ ^[Ss][0-9] ]]; then
