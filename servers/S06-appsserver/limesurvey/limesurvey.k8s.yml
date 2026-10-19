@@ -51,17 +51,28 @@ spec:
             limits:
               cpu: 1000m
               memory: 512Mi
+          env:
+            - name: DB_TYPE
+              value: "pgsql"
+            - name: DB_HOST
+              value: "postgresql.sbos-data.svc.cluster.local"
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              value: "limesurvey_db"
+            - name: DB_USERNAME
+              value: "limesurvey"
+            - name: DB_PASSWORD
+              value: "limesurvey_pass"
           livenessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: 8080
-            initialDelaySeconds: 30
+            initialDelaySeconds: 60
             periodSeconds: 30
           readinessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: 8080
-            initialDelaySeconds: 10
+            initialDelaySeconds: 30
             periodSeconds: 10
 
 
