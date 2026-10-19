@@ -44,6 +44,13 @@ spec:
             - containerPort: 80
               name: http
 
+          env:
+            - name: PGADMIN_DEFAULT_EMAIL
+              value: "admin@sbos.local"
+            - name: PGADMIN_DEFAULT_PASSWORD
+              value: "sbos_admin_2024"
+            - name: PGADMIN_DISABLE_POSTFIX
+              value: "true"
           resources:
             requests:
               cpu: 50m
