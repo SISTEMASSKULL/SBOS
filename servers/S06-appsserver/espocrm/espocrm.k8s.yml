@@ -44,6 +44,19 @@ spec:
             - containerPort: 8080
               name: http
 
+          env:
+            - name: ESPOCRM_DATABASE_DRIVER
+              value: "pgsql"
+            - name: ESPOCRM_DATABASE_HOST
+              value: "postgresql.sbos-data.svc.cluster.local"
+            - name: ESPOCRM_DATABASE_PORT
+              value: "5432"
+            - name: ESPOCRM_DATABASE_NAME
+              value: "espocrm_db"
+            - name: ESPOCRM_DATABASE_USER
+              value: "espocrm"
+            - name: ESPOCRM_DATABASE_PASSWORD
+              value: "espocrm_pass"
           resources:
             requests:
               cpu: 50m
@@ -52,16 +65,14 @@ spec:
               cpu: 1000m
               memory: 512Mi
           livenessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: 8080
-            initialDelaySeconds: 30
+            initialDelaySeconds: 120
             periodSeconds: 30
           readinessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: 8080
-            initialDelaySeconds: 10
+            initialDelaySeconds: 90
             periodSeconds: 10
 
 
