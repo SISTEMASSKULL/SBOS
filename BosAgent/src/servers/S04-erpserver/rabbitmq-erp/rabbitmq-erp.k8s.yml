@@ -48,7 +48,7 @@ spec:
               mountPath: /var/lib/rabbitmq-erp
           resources:
             requests:
-              cpu: 200m
+              cpu: 50m
               memory: 512Mi
             limits:
               cpu: 1000m

@@ -1,5 +1,20 @@
 ---
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wazuh-indexer-config
+  namespace: sbos-identity
+data:
+  opensearch.yml: |
+    plugins.security.disabled: true
+    discovery.type: single-node
+    network.host: 0.0.0.0
+    cluster.name: wazuh-cluster
+    node.name: wazuh-indexer-0
+    path.data: /var/lib/wazuh-indexer
+    path.logs: /var/log/wazuh-indexer
+---
+apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: wazuh-indexer-sa
@@ -58,9 +73,12 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/wazuh-indexer
+            - name: config
+              mountPath: /etc/wazuh-indexer/opensearch.yml
+              subPath: opensearch.yml
           resources:
             requests:
-              cpu: 200m
+              cpu: 50m
               memory: 512Mi
             limits:
               cpu: 2000m
@@ -76,6 +94,10 @@ spec:
             initialDelaySeconds: 60
             periodSeconds: 10
 
+      volumes:
+        - name: config
+          configMap:
+            name: wazuh-indexer-config
   volumeClaimTemplates:
     - metadata:
         name: data

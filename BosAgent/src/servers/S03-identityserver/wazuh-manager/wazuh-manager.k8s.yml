@@ -48,7 +48,7 @@ spec:
               mountPath: /var/lib/wazuh-manager
           resources:
             requests:
-              cpu: 1000m
+              cpu: 50m
               memory: 2Gi
             limits:
               cpu: 4000m

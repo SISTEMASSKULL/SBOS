@@ -86,7 +86,7 @@ spec:
               mountPath: /var/www/html
           resources:
             requests:
-              cpu: "500m"
+              cpu: "50m"
               memory: "1Gi"
             limits:
               cpu: "2000m"

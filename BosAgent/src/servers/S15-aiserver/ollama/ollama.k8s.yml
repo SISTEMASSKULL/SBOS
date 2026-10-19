@@ -48,7 +48,7 @@ spec:
               mountPath: /var/lib/ollama
           resources:
             requests:
-              cpu: 2000m
+              cpu: 50m
               memory: 4Gi
             limits:
               cpu: 8000m

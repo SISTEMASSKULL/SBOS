@@ -1,5 +1,65 @@
 ---
 apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-data
+  namespace: sbos-monitor
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: sbos-local-path
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: grafana-secret
+  namespace: sbos-monitor
+type: Opaque
+stringData:
+  db-password: "grafana_pass"
+  oidc-client-secret: "grafana-oidc-secret"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-config
+  namespace: sbos-monitor
+data:
+  grafana.ini: |
+    [server]
+    root_url = %(protocol)s://%(domain)s/
+    [database]
+    type = postgres
+    [analytics]
+    reporting_enabled = false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: sbos-monitor
+data:
+  prometheus.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus:9090
+        isDefault: true
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: sbos-monitor
+data:
+  dashboards.yaml: |
+    apiVersion: 1
+    providers: []
+---
+apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: grafana-sa
@@ -62,11 +122,11 @@ spec:
             - name: GF_AUTH_GENERIC_OAUTH_ENABLED
               value: "true"
             - name: GF_AUTH_GENERIC_OAUTH_AUTH_URL
-              value: "https://auth.${CLIENT_DOMAIN}/realms/skbos/protocol/openid-connect/auth"
+              value: "http://keycloak.sbos-identity:8080/realms/skbos/protocol/openid-connect/auth"
             - name: GF_AUTH_GENERIC_OAUTH_TOKEN_URL
-              value: "https://auth.${CLIENT_DOMAIN}/realms/skbos/protocol/openid-connect/token"
+              value: "http://keycloak.sbos-identity:8080/realms/skbos/protocol/openid-connect/token"
             - name: GF_AUTH_GENERIC_OAUTH_API_URL
-              value: "https://auth.${CLIENT_DOMAIN}/realms/skbos/protocol/openid-connect/userinfo"
+              value: "http://keycloak.sbos-identity:8080/realms/skbos/protocol/openid-connect/userinfo"
             - name: GF_AUTH_GENERIC_OAUTH_CLIENT_ID
               value: grafana
             - name: GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET
@@ -75,7 +135,7 @@ spec:
                   name: grafana-secret
                   key: oidc-client-secret
             - name: GF_SERVER_ROOT_URL
-              value: "https://status.sksistemas.com"
+              value: "http://grafana.sbos-monitor:3000"
           volumeMounts:
             - name: data
               mountPath: /var/lib/grafana
@@ -91,8 +151,8 @@ spec:
               readOnly: true
           resources:
             requests:
-              cpu: 200m
-              memory: 512Mi
+              cpu: 50m
+              memory: 256Mi
             limits:
               cpu: 1000m
               memory: 1Gi
