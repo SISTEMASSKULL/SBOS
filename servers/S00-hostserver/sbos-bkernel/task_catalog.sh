@@ -110,6 +110,8 @@ RestartSec=5s
 TimeoutStartSec=30
 TimeoutStopSec=15
 
+Environment=DAEMON_NAME=bkernel
+Environment=DAEMON_SOCKET=/run/bos/bkernel.sock
 EnvironmentFile=-/etc/bos/env.d/bkernel
 
 NoNewPrivileges=true
@@ -118,7 +120,6 @@ ProtectHome=true
 ReadWritePaths=/etc/bos/blibs/bkernel /var/lib/bkernel /run/bos
 PrivateTmp=true
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
-SystemCallFilter=@network-io @file-system @signal @process
 UMask=0077
 
 StandardOutput=journal
