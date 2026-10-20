@@ -7,6 +7,7 @@ set -euo pipefail
 
 BNOTIFY_USER="${BNOTIFY_USER:-bnotify}"
 BNOTIFY_BIN_DST="${BNOTIFY_BIN_DST:-/usr/local/bin/bnotify}"
+BNOTIFY_BIN_SRC="${BNOTIFY_BIN_SRC:-${SBOS_FICHA_DIR}/bin/bnotify}"
 BNOTIFY_CONFIG_DST="${BNOTIFY_CONFIG_DST:-/etc/bos/bnotify/bnotify.toml}"
 BNOTIFY_SOCKET="${BNOTIFY_SOCKET:-/run/bos/bnotify.sock}"
 BNOTIFY_SERVICE="bnotify.service"

@@ -7,6 +7,7 @@ set -euo pipefail
 
 BSEARCH_USER="${BSEARCH_USER:-bsearch}"
 BSEARCH_BIN_DST="${BSEARCH_BIN_DST:-/usr/local/bin/bsearch}"
+BSEARCH_BIN_SRC="${BSEARCH_BIN_SRC:-${SBOS_FICHA_DIR}/bin/bsearch}"
 BSEARCH_CONFIG_DST="${BSEARCH_CONFIG_DST:-/etc/bos/bsearch/bsearch.toml}"
 BSEARCH_SOCKET="${BSEARCH_SOCKET:-/run/bos/bsearch.sock}"
 BSEARCH_SERVICE="bsearch.service"

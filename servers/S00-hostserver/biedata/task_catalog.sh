@@ -7,6 +7,7 @@ set -euo pipefail
 
 BIEDATA_USER="${BIEDATA_USER:-biedata}"
 BIEDATA_BIN_DST="${BIEDATA_BIN_DST:-/usr/local/bin/biedata}"
+BIEDATA_BIN_SRC="${BIEDATA_BIN_SRC:-${SBOS_FICHA_DIR}/bin/biedata}"
 BIEDATA_CONFIG_DST="${BIEDATA_CONFIG_DST:-/etc/bos/biedata/biedata.toml}"
 BIEDATA_SOCKET="${BIEDATA_SOCKET:-/run/bos/biedata.sock}"
 BIEDATA_SERVICE="biedata.service"
