@@ -60,3 +60,9 @@ integrations:
     port: 8001
     accessible_from:
       - sbos-installer
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

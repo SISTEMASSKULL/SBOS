@@ -57,3 +57,9 @@ integrations:
     dmarc: true
   tls:
     certificate: "*.sksistemas.com wildcard via nginx/certbot"
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

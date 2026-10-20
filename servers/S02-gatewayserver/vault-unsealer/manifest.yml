@@ -21,6 +21,13 @@ governance:
   backup_required: false
 
 health:
-  type: command
+  type: bash
+  runtime: host
   command: "kubectl --kubeconfig=/etc/bos/.kube/config get cronjob vault-unsealer -n sbos-security --no-headers 2>/dev/null | grep -q vault-unsealer"
   timeout_seconds: 15
+
+meta:
+  backend: bash
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

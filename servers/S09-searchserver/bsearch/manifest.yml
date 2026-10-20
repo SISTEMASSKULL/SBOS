@@ -10,7 +10,8 @@ identity:
   description: "Motor de búsqueda soberano sobre PostgreSQL 18+ (full-text, vectorial, semántico). Implementa buscador de entidades SBOS sin dependencia de Elasticsearch."
 
 workload:
-  type: SystemdService
+  type: bash
+  runtime: systemd
   host: true
   binary: /usr/local/bin/bsearch
   user: bsearch

@@ -9,7 +9,8 @@ identity:
     lógico correcto. Elimina duplicados legacy en la raíz. Idempotente.
 
 workload:
-  type: host_script
+  type: bash
+  runtime: host
   runtime: bash
 
 order:

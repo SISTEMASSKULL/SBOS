@@ -10,7 +10,8 @@ identity:
   description: "Daemon soberano de identidad — BitMask 64-bit, token unificado"
 
 workload:
-  type: SystemdService
+  type: bash
+  runtime: systemd
   host: true
   binary: /usr/local/bin/bauth
   service_unit: resources/bauth.service
@@ -61,3 +62,9 @@ integrations:
   socket_dir: /tmp/bauth
   socket_perms: "0660"
   socket_group: bosagent
+
+meta:
+  backend: bash
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

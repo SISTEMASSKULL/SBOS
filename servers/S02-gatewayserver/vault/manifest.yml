@@ -56,3 +56,9 @@ integrations:
   backend:
     type: postgresql
     database: vault_db
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

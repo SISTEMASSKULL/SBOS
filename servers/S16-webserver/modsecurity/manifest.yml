@@ -11,8 +11,9 @@ identity:
   description: "WAF ModSecurity 3.x con OWASP CRS 4.x. Módulo de nginx (sin pod propio). Inspecciona tráfico web de clientes contra OWASP Top-10."
 
 workload:
-  # Módulo cargado en el proceso nginx — no es un pod independiente
-  type: ConfigBundle
+  # Módulo cargado en el proceso nginx — no es un pod independiente (ConfigMap aplicado vía kubectl)
+  type: bash
+  runtime: kubernetes
   namespace: sbos-web
   embedded_in: nginx
   delivery: ConfigMap

@@ -34,3 +34,9 @@ health:
   type: command
   command: "KUBECONFIG=/etc/kubernetes/admin.conf kubectl get pods -n kube-system -l k8s-app=kube-dns --no-headers 2>/dev/null | grep -q Running && echo HEALTHY"
   timeout_seconds: 10
+
+meta:
+  backend: bash
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

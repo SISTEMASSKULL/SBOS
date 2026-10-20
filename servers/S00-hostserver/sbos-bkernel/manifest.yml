@@ -7,8 +7,8 @@ identity:
   description: "bKernel CDC Daemon — Motor de Datos Soberano. Escucha WAL PostgreSQL, normaliza eventos, publica intenciones en Redis Streams. CERO puertos TCP (F-02)."
 
 workload:
-  type: systemd
-  runtime: rust-musl
+  type: bash
+  runtime: systemd
   binary: /usr/local/bin/bkernel-daemon
   config: /etc/bos/blibs/bkernel/bkernel.toml
 

@@ -10,7 +10,8 @@ identity:
   description: "Orquestador JSON-RPC 2.0 — aduana de datos soberana. Gateway de integración entre daemons del ecosistema SBOS."
 
 workload:
-  type: SystemdService
+  type: bash
+  runtime: systemd
   host: true
   binary: /usr/local/bin/biedata
   user: biedata

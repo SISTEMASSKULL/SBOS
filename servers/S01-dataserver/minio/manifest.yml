@@ -55,3 +55,9 @@ integrations:
       policy: public-read
     - name: archives
       policy: private
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

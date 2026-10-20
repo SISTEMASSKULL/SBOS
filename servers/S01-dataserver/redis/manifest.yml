@@ -49,3 +49,9 @@ integrations:
     - bkernel-agent
     - bnexus-agent
     - bos-agent
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

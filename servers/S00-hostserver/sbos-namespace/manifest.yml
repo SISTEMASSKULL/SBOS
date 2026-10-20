@@ -8,7 +8,7 @@ identity:
 
 workload:
   type: bash
-  runtime: bash
+  runtime: host
 
 order:
   execution_order: 5

@@ -52,3 +52,9 @@ integrations:
     slack_high: "#sbos-alerts-high"
     slack_medium: "#sbos-alerts-all"
     wazuh_cef: "syslog:wazuh-manager:514"
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

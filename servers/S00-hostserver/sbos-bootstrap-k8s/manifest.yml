@@ -49,3 +49,9 @@ health:
   command: "KUBECONFIG=/etc/kubernetes/admin.conf kubectl get nodes --no-headers 2>/dev/null | grep -q Ready && echo HEALTHY"
   timeout_seconds: 15
 
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

@@ -10,7 +10,8 @@ identity:
   description: "Proxy de hardware universal — puerta de entrada TLS mutual para clientes NFC/chapas"
 
 workload:
-  type: SystemdService
+  type: bash
+  runtime: systemd
   host: true
   binary: /usr/local/bin/bhnexus
   service_unit: resources/bhnexus.service
@@ -64,3 +65,9 @@ integrations:
     mode: mutual
     ca_cert_env: BHNEXUS_CA_CERT
     ca_key_env: BHNEXUS_CA_KEY
+
+meta:
+  backend: bash
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

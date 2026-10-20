@@ -68,3 +68,9 @@ integrations:
   monitoring:
     exporter: postgres_exporter
     port: 9187
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

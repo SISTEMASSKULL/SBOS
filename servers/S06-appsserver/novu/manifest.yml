@@ -7,7 +7,8 @@ identity:
   criticality: true
 
 workload:
-  type: "kubernetes"
+  type: Deployment
+  runtime: kubernetes
   state: "prod"
 
 order:
@@ -61,3 +62,9 @@ bsearch_config:
 
 compatibility:
   min_iam_installer_version: "1.0.0"
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

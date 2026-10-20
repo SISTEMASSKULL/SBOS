@@ -51,3 +51,9 @@ integrations:
     - name: Prometheus
       type: prometheus
       url: "http://prometheus.sbos-monitor:9090"
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

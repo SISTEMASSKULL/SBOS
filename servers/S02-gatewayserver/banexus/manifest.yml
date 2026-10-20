@@ -10,7 +10,8 @@ identity:
   description: "Daemon centinela edge — se conecta a bhnexus en modo agente, reporta estado del hardware local"
 
 workload:
-  type: SystemdService
+  type: bash
+  runtime: systemd
   host: true
   binary: /usr/local/bin/banexus
   service_unit: resources/banexus.service
@@ -58,3 +59,9 @@ integrations:
     mode: mutual_client
     cert_env: BANEXUS_CLIENT_CERT
     key_env: BANEXUS_CLIENT_KEY
+
+meta:
+  backend: bash
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

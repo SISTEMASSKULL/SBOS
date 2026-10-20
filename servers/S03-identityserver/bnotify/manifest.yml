@@ -10,7 +10,8 @@ identity:
   description: "Daemon Rust/gRPC de notificaciones soberanas. Push MFA, alertas del sistema y mensajería bChat. Cero dependencia de servicios externos."
 
 workload:
-  type: SystemdService
+  type: bash
+  runtime: systemd
   host: true
   binary: /usr/local/bin/bnotify
   user: bnotify

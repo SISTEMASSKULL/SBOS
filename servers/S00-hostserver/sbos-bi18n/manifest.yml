@@ -7,8 +7,8 @@ identity:
   description: "bi18n — Orquestador Universal de Internacionalización. Formatea, valida, enmascara y traduce datos por locale del tenant. CERO puertos TCP — Unix socket únicamente."
 
 workload:
-  type: systemd
-  runtime: rust-musl
+  type: bash
+  runtime: systemd
   binary: /usr/local/bin/bi18nd
   config: /etc/bos/bi18n.toml
 

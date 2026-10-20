@@ -41,3 +41,9 @@ health:
   command: "KUBECONFIG=/etc/kubernetes/admin.conf kubectl get ns sbos-system > /dev/null 2>&1 && echo HEALTHY"
   timeout_seconds: 10
 
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

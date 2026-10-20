@@ -55,3 +55,9 @@ integrations:
     scrape_path: "/metrics"
   exporters:
     self_metrics: true
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

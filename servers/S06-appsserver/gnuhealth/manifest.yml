@@ -47,3 +47,9 @@ health:
   check_timeout_seconds: 10
   consecutive_failures_threshold: 3
 
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

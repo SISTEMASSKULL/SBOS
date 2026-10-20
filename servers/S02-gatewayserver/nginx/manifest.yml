@@ -50,3 +50,9 @@ integrations:
   virtual_hosts:
     template_dir: "resources/nginx/"
     variables: ["CLIENT_DOMAIN", "SERVICE_IP"]
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

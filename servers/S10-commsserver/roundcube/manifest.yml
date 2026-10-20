@@ -47,3 +47,9 @@ health:
   consecutive_failures_threshold: 3
   degraded_allowed: true
   degraded_reason: "OAuth2-Proxy may be unavailable"
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

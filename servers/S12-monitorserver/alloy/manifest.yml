@@ -53,3 +53,9 @@ integrations:
     url: "http://loki.sbos-monitor:3100"
   exporters:
     self_metrics: true
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

@@ -11,7 +11,8 @@ identity:
   description: "Container-level watchdog — monitors bos daemon and core processes inside sbos-greenfield"
 
 workload:
-  type: Host
+  type: bash
+  runtime: host
   namespace: ""
   replicas: 1
   service_account: ""
@@ -51,3 +52,9 @@ health:
 integrations:
   exporters:
     self_metrics: false
+
+meta:
+  backend: bash
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false
