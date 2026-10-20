@@ -1,0 +1,39 @@
+# manifest.yml — Ficha rabbitmq-erp (SBOS-005 §erpserver)
+# SBOS-049 §4 · Order 175 · StatefulSet
+identity:
+  id: rabbitmq-erp
+  version: "3.13"
+  category: 1
+  criticality: true
+  server: S04
+  description: "AMQP broker: decoupling Tryton <-> Saleor/Airflow"
+
+workload:
+  type: StatefulSet
+
+order:
+  execution_order: 175
+
+requirements:
+  dependencies:
+    - postgresql
+
+deployment:
+  strategy: Recreate
+
+governance:
+
+
+  auto_install: true
+  requires_approval: false
+health:
+  command: "rabbitmqctl status"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

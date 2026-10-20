@@ -1,0 +1,40 @@
+# manifest.yml — Ficha timescaledb (SBOS-005 §dataserver)
+# SBOS-049 §4 · Order 112 · Deployment
+identity:
+  id: timescaledb
+  version: "2.16"
+  category: 1
+  criticality: false
+  server: S01
+  description: "Time-series extension for metrics, IoT"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 112
+
+requirements:
+  dependencies:
+    - postgresql
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+  auto_install: true
+  requires_approval: false
+health:
+  command: "pg_isready -h localhost -p 5432"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

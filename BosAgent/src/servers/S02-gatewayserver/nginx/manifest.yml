@@ -4,42 +4,30 @@
 # Sin nginx, ningún otro servicio tiene salida al exterior.
 identity:
   id: nginx
-  name: NGINX Reverse Proxy + TLS Termination
   version: "1.26"
   category: 3
   criticality: true
-  server: gatewayserver
+  server: S02
   description: "Reverse proxy, TLS termination, HTTP/2, wildcard cert via certbot, virtual hosts parametrizados"
 
 workload:
   type: Deployment
-  namespace: sbos-gateway
-  replicas: 1
-  service_account: nginx-sa
 
 order:
   execution_order: 50
-  timeout_minutes: 15
 
 requirements:
   dependencies:
     - network-validator
-  cpu_request: "500m"
-  cpu_limit: "2000m"
-  memory_request: "512Mi"
-  memory_limit: "1024Mi"
 
 deployment:
   strategy: RollingUpdate
 
 governance:
   auto_install: true
-  backup_enabled: true
-  backup_schedule: "0 3 * * 0"
 
 health:
   type: pods
-  label_selector: "app=nginx"
 
 integrations:
   certbot:
@@ -49,3 +37,9 @@ integrations:
   virtual_hosts:
     template_dir: "resources/nginx/"
     variables: ["CLIENT_DOMAIN", "SERVICE_IP"]
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

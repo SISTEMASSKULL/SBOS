@@ -403,8 +403,8 @@ func serverValidate(s string) error {
 		return fmt.Errorf("formato inválido: %q (esperado S01-S15 o S-HOST)", s)
 	}
 	num := int(s[1]-'0')*10 + int(s[2]-'0')
-	if num < 1 || num > 15 {
-		return fmt.Errorf("servidor fuera de rango: %q (S01-S15)", s)
+	if num < 1 || num > 16 {
+		return fmt.Errorf("servidor fuera de rango: %q (S01-S16)", s)
 	}
 	return nil
 }

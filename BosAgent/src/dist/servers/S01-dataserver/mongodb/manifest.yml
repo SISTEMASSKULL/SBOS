@@ -1,0 +1,39 @@
+# manifest.yml — Ficha mongodb (SBOS-005 §dataserver)
+# SBOS-049 §4 · Order 342 · StatefulSet
+identity:
+  id: mongodb
+  version: "7.0"
+  category: 1
+  criticality: false
+  server: S01
+  description: "NoSQL DB for Rocket.Chat"
+
+workload:
+  type: StatefulSet
+
+order:
+  execution_order: 342
+
+requirements:
+  dependencies:
+
+
+deployment:
+  strategy: Recreate
+
+governance:
+
+
+  auto_install: true
+  requires_approval: false
+health:
+  command: "mongosh --eval 'db.runCommand({ping: 1})'"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

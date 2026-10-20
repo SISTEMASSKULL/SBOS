@@ -1,0 +1,38 @@
+# manifest.yml — Ficha ollama (SBOS-005 §aiserver)
+# SBOS-049 §4 · Order 410 · StatefulSet
+identity:
+  id: ollama
+  version: "0.5"
+  category: 1
+  criticality: false
+  server: S15
+  description: "Local LLM runtime: llama, mistral, deepseek, qwen"
+
+workload:
+  type: StatefulSet
+
+order:
+  execution_order: 410
+
+requirements:
+  dependencies:
+
+
+deployment:
+  strategy: Recreate
+
+governance:
+  auto_install: false
+  requires_approval: false
+
+health:
+  command: "curl -sf http://localhost:11434/api/tags"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

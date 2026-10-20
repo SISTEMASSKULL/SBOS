@@ -1,0 +1,38 @@
+# manifest.yml — Ficha taiga (SBOS-005 §appsserver)
+# SBOS-049 §4 · Order 245 · Deployment
+identity:
+  id: taiga
+  version: "6.7"
+  category: 1
+  criticality: false
+  server: S06
+  description: "Agile PM: Scrum, Kanban"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 245
+
+requirements:
+  dependencies:
+    - postgresql
+    - keycloak
+
+deployment:
+  strategy: Recreate
+
+governance:
+  auto_install: false
+  requires_approval: false
+health:
+  command: "curl -sf http://localhost:8000/health"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

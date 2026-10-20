@@ -1,0 +1,45 @@
+# manifest.yml — Ficha bnotify (SBOS S03-identityserver)
+# BC-12 · SBOS-049 §4 · SBOS-050 · ADR-020 · Order 152
+identity:
+  id: bnotify
+  version: "1.0.0"
+  category: 1
+  criticality: true
+  server: S03
+  description: "Daemon Rust/gRPC de notificaciones soberanas. Push MFA, alertas del sistema y mensajería bChat. Cero dependencia de servicios externos."
+
+workload:
+  type: bash
+  runtime: systemd
+
+order:
+  execution_order: 152
+
+requirements:
+  dependencies:
+    - postgresql
+    - redis
+    - bauth
+
+ports:
+  - name: grpc
+    protocol: unix
+    path: /run/bos/bnotify.sock
+    description: "gRPC over Unix socket — interface dual (ADR-020)"
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: daemon-soberano
+
+health:
+  type: command
+  command: "systemctl is-active --quiet bnotify.service"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+meta:
+  backend: systemd
+  idempotent: true
+  estimated_minutes: 2
+  rollback_support: true

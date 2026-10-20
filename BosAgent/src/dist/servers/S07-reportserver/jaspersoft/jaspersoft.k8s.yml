@@ -1,0 +1,76 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: jaspersoft-sa
+  namespace: sbos-apps
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaspersoft
+  namespace: sbos-apps
+spec:
+  type: ClusterIP
+  selector:
+    app: jaspersoft
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaspersoft
+  namespace: sbos-apps
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: jaspersoft
+  template:
+    metadata:
+      labels:
+        app: jaspersoft
+    spec:
+      serviceAccountName: jaspersoft-sa
+      containers:
+        - name: jaspersoft
+          image: docker.io/bitnami/jasperreports:8.2
+          ports:
+            - containerPort: 8080
+              name: http
+
+          env:
+            - name: JASPERREPORTS_DATABASE_HOST
+              value: "postgresql.sbos-data.svc.cluster.local"
+            - name: JASPERREPORTS_DATABASE_PORT_NUMBER
+              value: "5432"
+            - name: JASPERREPORTS_DATABASE_NAME
+              value: "jaspersoft_db"
+            - name: JASPERREPORTS_DATABASE_USER
+              value: "jaspersoft"
+            - name: JASPERREPORTS_DATABASE_PASSWORD
+              value: "jaspersoft_pass"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 180
+            periodSeconds: 30
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 120
+            periodSeconds: 15
+
+

@@ -1,0 +1,59 @@
+# manifest.yml — Ficha 05: PostgreSQL 18 + Patroni HA
+# SBOS-019 §9 · Order 100 · StatefulSet
+identity:
+  id: postgresql
+  version: "18.0"
+  category: 1  # Infrastructure
+  criticality: true
+  server: S01
+  description: "PostgreSQL 18 con Patroni HA para todas las BD del SBOS"
+
+workload:
+  type: StatefulSet
+
+order:
+  execution_order: 100
+
+requirements:
+  dependencies:
+    - network-validator
+
+deployment:
+  strategy: RollingUpdate
+  partition: 0
+  pod_management: OrderedReady
+
+governance:
+  auto_install: true
+
+health:
+  command: "pg_isready -U postgres -h localhost -p 5432"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+integrations:
+  databases:
+    - name: keycloak_db
+      owner: keycloak
+      encoding: UTF8
+    - name: kong_db
+      owner: kong
+      encoding: UTF8
+    - name: grafana_db
+      owner: grafana
+      encoding: UTF8
+    - name: bkernel_db
+      owner: bkernel
+      encoding: UTF8
+    - name: bcompass_db
+      owner: bcompass
+      encoding: UTF8
+  monitoring:
+    exporter: postgres_exporter
+    port: 9187
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

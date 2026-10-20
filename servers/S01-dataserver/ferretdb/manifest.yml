@@ -1,16 +1,13 @@
 identity:
   id: "ferretdb"
-  name: "FerretDB 2.0"
   version: "2.0.0"
   server: "S06"
-  namespace: "sbos-notifier"
   category: 3
   criticality: true
 
 workload:
   type: Deployment
   runtime: kubernetes
-  state: "prod"
 
 order:
   execution_order: 174
@@ -19,9 +16,6 @@ parameters:
   FERRETDB_POSTGRESQL_URL: "postgres://postgres@postgresql.sbos-data:5432/notifier_db"
 
 requirements:
-  ram_mb: 512
-  cpu_cores: 1
-  disk_gb: 20
   dependencies:
     - postgresql
 
@@ -34,10 +28,7 @@ deployment:
 
 governance:
   auto_install: true
-  accion: INSTALAR
   category_label: "notificaciones"
-  backup_required: false
-  backup_schedule: ""
 
 health:
   type: command

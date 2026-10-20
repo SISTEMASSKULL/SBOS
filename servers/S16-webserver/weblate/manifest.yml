@@ -2,19 +2,14 @@
 # Order 380 · Gestión de traducciones FTL/Fluent
 identity:
   id: weblate
-  name: weblate — Gestión de Traducciones
   version: "2026"
   category: 2
   criticality: false
-  server: webserver
+  server: S16
   description: "Plataforma web self-hosted para editar archivos FTL/Fluent de bi18n."
 
 workload:
   type: Deployment
-  namespace: sbos-web
-  replicas: 1
-  service_account: weblate-sa
-  strategy: Recreate
 
 order:
   execution_order: 380
@@ -24,10 +19,6 @@ requirements:
     - postgresql
     - redis
     - nginx
-  cpu_request: "500m"
-  cpu_limit: "2000m"
-  memory_request: "1Gi"
-  memory_limit: "2Gi"
 
 ports:
   - name: http
@@ -37,17 +28,13 @@ ports:
 
 governance:
   auto_install: false
-  accion: INSTALAR
   requires_approval: false
   category_label: translation-ui
 
 health:
   type: http
-  check_path: /healthz/
-  check_port: 8080
-  check_interval_seconds: 60
-  check_timeout_seconds: 15
-  consecutive_failures_threshold: 3
+  interval_seconds: 60
+  timeout_seconds: 15
 
 meta:
   backend: kubernetes

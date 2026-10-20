@@ -1,0 +1,39 @@
+# manifest.yml — Ficha trilium (SBOS-005 §appsserver)
+# SBOS-049 §4 · Order 235 · StatefulSet
+identity:
+  id: trilium
+  version: "0.63"
+  category: 1
+  criticality: false
+  server: S06
+  description: "Hierarchical notes E2E encrypted"
+
+workload:
+  type: StatefulSet
+
+order:
+  execution_order: 235
+
+requirements:
+  dependencies:
+    - keycloak
+
+deployment:
+  strategy: Recreate
+
+governance:
+
+
+  auto_install: true
+  requires_approval: false
+health:
+  command: "curl -sf http://localhost:8080/health"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

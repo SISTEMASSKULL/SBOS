@@ -1,0 +1,72 @@
+identity:
+  id: mailserver
+  server: S10
+  version: "14.0.0"
+  category: 1
+  criticality: true
+  description: "docker-mailserver 14.0.0 — servidor de correo soberano (Postfix + Dovecot + SpamAssassin + ClamAV + Rspamd). SMTP, IMAP, DKIM, DMARC, SPF integrados."
+
+workload:
+  type: statefulset
+  runtime: kubernetes
+
+order:
+  execution_order: 300
+
+requirements:
+  dependencies:
+    - postgresql
+    - kong
+    - keycloak
+
+governance:
+  auto_install: false
+  requires_approval: true
+  category_label: "comunicaciones"
+
+meta:
+  backend: k8s
+  idempotent: true
+  estimated_minutes: 15
+  rollback_support: true
+
+ports:
+  - name: smtp
+    port: 25
+    protocol: TCP
+    internal_only: false
+  - name: smtps
+    port: 465
+    protocol: TCP
+    internal_only: false
+  - name: smtp-submission
+    port: 587
+    protocol: TCP
+    internal_only: false
+  - name: imap
+    port: 143
+    protocol: TCP
+    internal_only: false
+  - name: imaps
+    port: 993
+    protocol: TCP
+    internal_only: false
+
+health:
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get statefulset mailserver -n sbos-comms -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
+  expected_output: "1"
+  timeout_seconds: 30
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/mailserver.log
+
+vault:
+  secret_path: "secret/tenants/{{ tenant_id }}/mailserver"
+  keys:
+    - dkim_private_key
+    - postmaster_password
+
+versions:
+  docker_mailserver: "14.0.0"

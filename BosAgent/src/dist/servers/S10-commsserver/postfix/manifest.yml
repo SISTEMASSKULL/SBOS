@@ -1,0 +1,40 @@
+# manifest.yml — Ficha postfix (SBOS-005 §commsserver)
+# SBOS-049 §4 · Order 320 · Deployment
+identity:
+  id: postfix
+  version: "3.9"
+  category: 1
+  criticality: true
+  server: S10
+  description: "SMTP: SPF, DKIM, DMARC"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 161
+
+requirements:
+  dependencies:
+
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+  auto_install: true
+  requires_approval: false
+health:
+  command: "postfix status"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

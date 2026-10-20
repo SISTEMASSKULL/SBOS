@@ -2,21 +2,15 @@
 # BC-12 · SBOS-049 §4 · SBOS-050 · ADR-020 · Order 160
 identity:
   id: biedata
-  name: biedata — Orquestador de Datos JSON-RPC 2.0
   version: "1.0.0"
   category: 1
   criticality: true
-  server: hostserver
+  server: S-HOST
   description: "Orquestador JSON-RPC 2.0 — aduana de datos soberana. Gateway de integración entre daemons del ecosistema SBOS."
 
 workload:
   type: bash
   runtime: systemd
-  host: true
-  binary: /usr/local/bin/biedata
-  user: biedata
-  group: bosagent
-  working_dir: /opt/biedata
 
 order:
   execution_order: 160
@@ -36,16 +30,14 @@ ports:
 
 governance:
   auto_install: true
-  accion: INSTALAR
   requires_approval: false
   category_label: daemon-soberano
 
 health:
   type: command
-  check_command: "systemctl is-active --quiet biedata.service"
-  check_interval_seconds: 30
-  check_timeout_seconds: 10
-  consecutive_failures_threshold: 3
+  command: "systemctl is-active --quiet biedata.service"
+  interval_seconds: 30
+  timeout_seconds: 10
 
 meta:
   backend: systemd

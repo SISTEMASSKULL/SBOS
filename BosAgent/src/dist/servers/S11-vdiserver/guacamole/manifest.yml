@@ -1,0 +1,42 @@
+# manifest.yml — Ficha guacamole (BOS-REPAIR-09 §5 · SBOS-052)
+# Apache Guacamole — Gateway VDI HTML5 (Apache 2.0). Sirve el escritorio
+# Fedora Lógico al navegador sin plugins: el usuario entra por
+# vdi.{tenant}.sksistemas.com y obtiene GNOME completo.
+identity:
+  id: guacamole
+  version: "1.5.5"
+  category: 1
+  criticality: false
+  server: S11
+  description: "Gateway VDI HTML5 — escritorio Fedora al navegador"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 359          # tras nextcloud (358), antes de fedora-logico (360)
+
+requirements:
+  dependencies:
+    - postgresql                # guacamole_db
+    - keycloak                  # OIDC SSO
+    - stalwart
+    - kong                      # ruta vdi.{tenant}
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+  auto_install: true
+  requires_approval: false
+
+health:
+  command: "curl -sf http://localhost:8080/guacamole/api/languages"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

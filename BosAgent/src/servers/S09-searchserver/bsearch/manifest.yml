@@ -2,20 +2,15 @@
 # BC-12 · SBOS-049 §4 · SBOS-050 · ADR-020 · Order 180
 identity:
   id: bsearch
-  name: bsearch — Motor de Búsqueda Soberano
   version: "1.0.0"
   category: 1
   criticality: false
-  server: searchserver
+  server: S09
   description: "Motor de búsqueda soberano sobre PostgreSQL 18+ (full-text, vectorial, semántico). Implementa buscador de entidades SBOS sin dependencia de Elasticsearch."
 
 workload:
-  type: SystemdService
-  host: true
-  binary: /usr/local/bin/bsearch
-  user: bsearch
-  group: bosagent
-  working_dir: /opt/bsearch
+  type: bash
+  runtime: systemd
 
 order:
   execution_order: 180
@@ -33,16 +28,15 @@ ports:
     description: "JSON-RPC 2.0 — interface dual (ADR-020)"
 
 governance:
-  auto_install: false
+  auto_install: true
   requires_approval: true
   category_label: daemon-soberano
 
 health:
   type: command
-  check_command: "systemctl is-active --quiet bsearch.service"
-  check_interval_seconds: 60
-  check_timeout_seconds: 15
-  consecutive_failures_threshold: 3
+  command: "systemctl is-active --quiet bsearch.service"
+  interval_seconds: 60
+  timeout_seconds: 15
 
 meta:
   backend: systemd

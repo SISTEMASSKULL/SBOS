@@ -61,21 +61,25 @@ spec:
               mountPath: /var/lib/mongodb
           resources:
             requests:
-              cpu: 50m
-              memory: 512Mi
+              cpu: 10m
+              memory: 32Mi
             limits:
               cpu: 1000m
               memory: 1Gi
           livenessProbe:
-            tcpSocket:
-              port: 27017
+            exec:
+              command: ["mongosh", "--eval", "db.adminCommand('ping').ok", "--quiet"]
             initialDelaySeconds: 60
             periodSeconds: 30
+            failureThreshold: 3
+            timeoutSeconds: 15
           readinessProbe:
-            tcpSocket:
-              port: 27017
+            exec:
+              command: ["mongosh", "--eval", "db.adminCommand('ping').ok", "--quiet"]
             initialDelaySeconds: 30
             periodSeconds: 10
+            failureThreshold: 3
+            timeoutSeconds: 15
 
   volumeClaimTemplates:
     - metadata:

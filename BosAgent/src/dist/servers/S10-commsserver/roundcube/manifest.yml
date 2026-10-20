@@ -1,0 +1,42 @@
+# manifest.yml — Ficha roundcube (SBOS-005 §commsserver)
+# SBOS-049 §4 · Order 325 · Deployment
+identity:
+  id: roundcube
+  version: "1.6"
+  category: 1
+  criticality: false
+  server: S10
+  description: "Webmail with SSO via OAuth2-Proxy"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 164
+
+requirements:
+  dependencies:
+    - postfix
+    - dovecot
+    - postgresql
+    - oauth2-proxy
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+  auto_install: true
+  requires_approval: false
+health:
+  command: "curl -sf http://localhost:80"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

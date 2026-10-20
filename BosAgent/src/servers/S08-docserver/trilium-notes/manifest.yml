@@ -9,8 +9,6 @@ identity:
 workload:
   type: deployment
   runtime: kubernetes
-  namespace: sbos-collab
-  replicas: 1
 
 order:
   execution_order: 360
@@ -21,7 +19,7 @@ requirements:
     - kong
 
 governance:
-  auto_install: true
+  auto_install: false
   requires_approval: false
   category_label: "gestion-conocimiento"
 

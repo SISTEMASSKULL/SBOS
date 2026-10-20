@@ -3,19 +3,14 @@
 # Emisión y renovación automática de certificados por dominio de cliente
 identity:
   id: certbot-web
-  name: certbot-web — TLS por Dominio de Cliente (S16)
   version: "2.11"
   category: 1
   criticality: true
-  server: webserver
+  server: S16
   description: "Gestor automático de certificados Let's Encrypt por dominio personalizado de cliente (ACME v2). Un cert por tenant, renovación automática."
 
 workload:
   type: CronJob
-  namespace: sbos-web
-  schedule: "0 3 * * *"
-  service_account: certbot-sa
-  restart_policy: OnFailure
 
 order:
   execution_order: 371
@@ -23,25 +18,19 @@ order:
 requirements:
   dependencies:
     - nginx
-  cpu_request: "100m"
-  cpu_limit: "500m"
-  memory_request: "128Mi"
-  memory_limit: "256Mi"
 
 ports: []
 
 governance:
   auto_install: false
-  accion: INSTALAR
   requires_approval: false
   category_label: tls-manager
 
 health:
   type: command
-  check_command: "kubectl get cronjob certbot -n sbos-web -o jsonpath='{.spec.schedule}'"
-  check_interval_seconds: 3600
-  check_timeout_seconds: 30
-  consecutive_failures_threshold: 2
+  command: "kubectl get cronjob certbot -n sbos-web -o jsonpath='{.spec.schedule}'"
+  interval_seconds: 3600
+  timeout_seconds: 30
 
 meta:
   backend: kubernetes

@@ -1,0 +1,75 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gnuhealth-sa
+  namespace: sbos-apps
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gnuhealth
+  namespace: sbos-apps
+spec:
+  clusterIP: None
+  selector:
+    app: gnuhealth
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: gnuhealth
+  namespace: sbos-apps
+spec:
+  serviceName: gnuhealth
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gnuhealth
+  template:
+    metadata:
+      labels:
+        app: gnuhealth
+    spec:
+      serviceAccountName: gnuhealth-sa
+      containers:
+        - name: gnuhealth
+          image: docker.io/gnuhealth/gnuhealth:4.4
+          ports:
+            - containerPort: 8000
+              name: http
+
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/gnuhealth
+          resources:
+            requests:
+              cpu: 50m
+              memory: 1Gi
+            limits:
+              cpu: 2000m
+              memory: 2Gi
+          livenessProbe:
+            tcpSocket:
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            tcpSocket:
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: sbos-local-path
+        resources:
+          requests:
+            storage: 50Gi

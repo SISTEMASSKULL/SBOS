@@ -1,0 +1,39 @@
+# manifest.yml — Ficha local-path-provisioner
+# Provisionador de volúmenes locales para StorageClass sbos-local-path
+# Requerido por todas las fichas con PVC (StatefulSets)
+identity:
+  id: local-path-provisioner
+  version: "0.0.31"
+  category: 1
+  criticality: true
+  server: S-HOST
+  description: "Dynamic local volume provisioner for sbos-local-path StorageClass"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 25
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-platform
+
+deployment:
+  strategy: Recreate
+
+governance:
+  auto_install: true
+  requires_approval: false
+
+health:
+  type: command
+  command: "kubectl get pods -n kube-system -l app=local-path-provisioner --field-selector=status.phase=Running --no-headers | grep -q ."
+  interval_seconds: 30
+  timeout_seconds: 10
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

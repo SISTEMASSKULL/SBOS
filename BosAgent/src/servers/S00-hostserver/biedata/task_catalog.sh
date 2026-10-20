@@ -7,6 +7,7 @@ set -euo pipefail
 
 BIEDATA_USER="${BIEDATA_USER:-biedata}"
 BIEDATA_BIN_DST="${BIEDATA_BIN_DST:-/usr/local/bin/biedata}"
+BIEDATA_BIN_SRC="${BIEDATA_BIN_SRC:-${SBOS_FICHA_DIR}/bin/biedata}"
 BIEDATA_CONFIG_DST="${BIEDATA_CONFIG_DST:-/etc/bos/biedata/biedata.toml}"
 BIEDATA_SOCKET="${BIEDATA_SOCKET:-/run/bos/biedata.sock}"
 BIEDATA_SERVICE="biedata.service"
@@ -69,9 +70,10 @@ ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
 RestartSec=5s
 TimeoutStartSec=45
+Environment=DAEMON_NAME=biedata
+Environment=DAEMON_SOCKET=/run/bos/biedata.sock
 EnvironmentFile=-/etc/bos/biedata/biedata.env
-RuntimeDirectory=bos
-RuntimeDirectoryMode=0755
+ExecStartPre=+/bin/mkdir -p /run/bos
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true

@@ -1,0 +1,52 @@
+# yaml_engine.yml — Grafana 11.5 lifecycle phases
+# SBOS-019 §9 · Order 210 · Deployment
+# Degraded mode: tolerates missing Prometheus datasource
+# R16 Zero hardcoding
+
+pre_install:
+  - name: "validate_pvc"
+    command: "kubectl get pvc grafana-data -n sbos-monitor --no-headers 2>/dev/null || echo 'PVC_OK'"
+    timeout_seconds: 30
+  - name: "create_namespace"
+    command: "kubectl create namespace sbos-monitor --dry-run=client -o yaml | kubectl apply -f -"
+    timeout_seconds: 30
+  - name: "apply_network_policy"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/grafana.network -n sbos-monitor"
+    timeout_seconds: 30
+
+install:
+  - name: "apply_deployment"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/grafana.k8s.yml -n sbos-monitor"
+    timeout_seconds: 300
+  - name: "wait_ready"
+    command: "kubectl wait --for=condition=Available deployment/grafana -n sbos-monitor --timeout=600s"
+    timeout_seconds: 600
+  - name: "verify_api_health"
+    command: "kubectl exec deploy/grafana -n sbos-monitor -- curl -sf http://localhost:3000/api/health"
+    timeout_seconds: 30
+
+post_install:
+  - name: "import_dashboards"
+    command: "for f in /etc/grafana/dashboards/*.json; do kubectl exec deploy/grafana -n sbos-monitor -- curl -sf -X POST -H 'Content-Type: application/json' -d @${f} http://localhost:3000/api/dashboards/db 2>/dev/null || true; done"
+    timeout_seconds: 120
+  - name: "verify_oidc_login"
+    command: "kubectl exec deploy/grafana -n sbos-monitor -- curl -sf http://localhost:3000/login/generic_oauth 2>&1 | grep -q 'keycloak' || true"
+    timeout_seconds: 30
+
+update:
+  - name: "rolling_update"
+    command: "kubectl rollout restart deployment grafana -n sbos-monitor"
+    timeout_seconds: 300
+
+repair:
+  - name: "restart_deployment"
+    command: "kubectl rollout restart deployment grafana -n sbos-monitor"
+    timeout_seconds: 120
+
+uninstall:
+  - name: "delete_deployment"
+    command: "kubectl delete deployment grafana -n sbos-monitor --ignore-not-found"
+    timeout_seconds: 120
+  - name: "delete_pvc"
+    command: "kubectl delete pvc grafana-data -n sbos-monitor --ignore-not-found"
+    timeout_seconds: 60

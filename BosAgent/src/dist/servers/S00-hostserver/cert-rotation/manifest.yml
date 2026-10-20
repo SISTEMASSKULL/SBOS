@@ -1,0 +1,36 @@
+# manifest.yml — Ficha cert-rotation (SBOS-005 §hostserver)
+# SBOS-049 §4 · Order 320 · host_script
+identity:
+  id: cert-rotation
+  version: "1.0"
+  category: 1
+  criticality: true
+  server: S-HOST
+  description: "TLS cert renewal every 90 days via Let's Encrypt + Vault"
+
+workload:
+  type: bash
+
+order:
+  execution_order: 320
+
+requirements:
+  dependencies:
+    - vault
+    - certbot
+
+
+governance:
+  auto_install: false
+  requires_approval: false
+
+health:
+  command: "kubectl get certificates -A"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+meta:
+  backend: bash
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

@@ -38,11 +38,14 @@ spec:
       serviceAccountName: vaultwarden-sa
       containers:
         - name: vaultwarden
-          image: docker.io/vaultwarden/server:1.32
+          image: docker.io/vaultwarden/server:1.32.1
           ports:
             - containerPort: 8080
               name: http
 
+          env:
+            - name: ROCKET_PORT
+              value: "8080"
           volumeMounts:
             - name: data
               mountPath: /var/lib/vaultwarden
@@ -54,14 +57,12 @@ spec:
               cpu: 500m
               memory: 256Mi
           livenessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: 8080
             initialDelaySeconds: 30
             periodSeconds: 30
           readinessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: 8080
             initialDelaySeconds: 10
             periodSeconds: 10

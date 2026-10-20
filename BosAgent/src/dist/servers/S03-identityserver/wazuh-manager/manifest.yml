@@ -1,0 +1,38 @@
+# manifest.yml — Ficha wazuh-manager (SBOS-005 §identityserver)
+# SBOS-049 §4 · Order 160 · StatefulSet
+identity:
+  id: wazuh-manager
+  version: "4.10"
+  category: 1
+  criticality: true
+  server: S03
+  description: "SIEM/XDR manager: log analysis, file integrity, vulnerability detection"
+
+workload:
+  type: StatefulSet
+
+order:
+  execution_order: 160
+
+requirements:
+  dependencies:
+    - wazuh-indexer
+
+deployment:
+  strategy: Recreate
+
+governance:
+
+
+  auto_install: true
+  requires_approval: false
+health:
+  command: "curl -sf http://localhost:55000"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

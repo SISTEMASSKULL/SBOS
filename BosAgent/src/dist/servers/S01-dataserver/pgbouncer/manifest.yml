@@ -1,0 +1,40 @@
+# manifest.yml — Ficha pgbouncer (SBOS-005 §dataserver)
+# SBOS-049 §4 · Order 105 · Deployment
+identity:
+  id: pgbouncer
+  version: "1.22"
+  category: 1
+  criticality: true
+  server: S01
+  description: "Connection pooler for PostgreSQL"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 105
+
+requirements:
+  dependencies:
+    - postgresql
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+  auto_install: true
+  requires_approval: false
+health:
+  command: "pg_isready -h localhost -p 6432"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

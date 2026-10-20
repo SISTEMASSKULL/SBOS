@@ -1,0 +1,41 @@
+# manifest.yml — Ficha cypht (SBOS-005 §commsserver)
+# SBOS-049 §4 · Order 328 · Deployment
+identity:
+  id: cypht
+  version: "1.5"
+  category: 1
+  criticality: false
+  server: S10
+  description: "Multi-account webmail with OAuth2-Proxy"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 328
+
+requirements:
+  dependencies:
+    - postfix
+    - dovecot
+    - oauth2-proxy
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+  auto_install: false
+  requires_approval: false
+health:
+  command: "curl -sf http://localhost:80"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

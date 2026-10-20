@@ -2,29 +2,21 @@
 # SBOS-049 §4 · Order 118 · Deployment
 identity:
   id: citus
-  name: Citus
   version: "12.1"
   category: 1
   criticality: false
-  server: dataserver
+  server: S01
   description: "Horizontal sharding for analytics workloads"
 
 workload:
   type: Job
-  namespace: sbos-data
-  service_account: citus-sa
 
 order:
   execution_order: 118
-  timeout_minutes: 15
 
 requirements:
   dependencies:
     - postgresql
-  cpu_request: "500m"
-  cpu_limit: "2000m"
-  memory_request: "512Mi"
-  memory_limit: "1Gi"
 
 
 deployment:
@@ -38,3 +30,9 @@ governance:
 health:
   type: none
 
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

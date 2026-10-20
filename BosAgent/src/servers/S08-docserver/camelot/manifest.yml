@@ -2,30 +2,21 @@
 # SBOS-049 §4 · Order 302 · Deployment
 identity:
   id: camelot
-  name: Camelot
   version: "0.12"
   category: 1
   criticality: false
-  server: docserver
+  server: S08
   description: "Complex PDF extraction"
 
 workload:
   type: Deployment
-  namespace: sbos-docs
-  replicas: 1
-  service_account: camelot-sa
 
 order:
   execution_order: 302
-  timeout_minutes: 10
 
 requirements:
   dependencies:
     - paperless-ngx
-  cpu_request: "100m"
-  cpu_limit: "500m"
-  memory_request: "128Mi"
-  memory_limit: "256Mi"
 
 
 deployment:
@@ -34,11 +25,16 @@ deployment:
 governance:
 
 
-  auto_install: true
+  auto_install: false
   requires_approval: false
 health:
-  check_command: "python -c 'import camelot'"
-  check_interval_seconds: 30
-  check_timeout_seconds: 10
-  consecutive_failures_threshold: 3
+  command: "python -c 'import camelot'"
+  interval_seconds: 30
+  timeout_seconds: 10
 
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

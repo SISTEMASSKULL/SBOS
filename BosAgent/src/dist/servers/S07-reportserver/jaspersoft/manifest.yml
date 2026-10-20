@@ -1,0 +1,40 @@
+# manifest.yml — Ficha jaspersoft (SBOS-005 §reportserver)
+# SBOS-049 §4 · Order 280 · Deployment
+identity:
+  id: jaspersoft
+  version: "6.18"
+  category: 1
+  criticality: false
+  server: S07
+  description: "Fiscal reports Bolivia PUCT/SIN"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 280
+
+requirements:
+  dependencies:
+    - postgresql
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+  auto_install: false
+  requires_approval: false
+health:
+  command: "curl -sf http://localhost:8080/health"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

@@ -38,7 +38,7 @@ spec:
       serviceAccountName: docuseal-sa
       containers:
         - name: docuseal
-          image: docker.io/docuseal/docuseal:1.7
+          image: docker.io/docuseal/docuseal:latest
           ports:
             - containerPort: 3000
               name: http
@@ -49,19 +49,17 @@ spec:
           resources:
             requests:
               cpu: 50m
-              memory: 256Mi
+              memory: "32Mi"
             limits:
               cpu: 1000m
               memory: 512Mi
           livenessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: 3000
             initialDelaySeconds: 30
             periodSeconds: 30
           readinessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: 3000
             initialDelaySeconds: 10
             periodSeconds: 10

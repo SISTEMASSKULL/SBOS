@@ -1,0 +1,40 @@
+# manifest.yml — Ficha camelot (SBOS-005 §docserver)
+# SBOS-049 §4 · Order 302 · Deployment
+identity:
+  id: camelot
+  version: "0.12"
+  category: 1
+  criticality: false
+  server: S08
+  description: "Complex PDF extraction"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 302
+
+requirements:
+  dependencies:
+    - paperless-ngx
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+  auto_install: false
+  requires_approval: false
+health:
+  command: "python -c 'import camelot'"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

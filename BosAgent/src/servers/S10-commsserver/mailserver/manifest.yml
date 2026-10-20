@@ -9,8 +9,6 @@ identity:
 workload:
   type: statefulset
   runtime: kubernetes
-  namespace: sbos-comms
-  replicas: 1
 
 order:
   execution_order: 300
@@ -22,7 +20,7 @@ requirements:
     - keycloak
 
 governance:
-  auto_install: true
+  auto_install: false
   requires_approval: true
   category_label: "comunicaciones"
 

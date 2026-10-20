@@ -1,0 +1,88 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: wikijs-sa
+  namespace: sbos-apps
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wikijs
+  namespace: sbos-apps
+spec:
+  clusterIP: None
+  selector:
+    app: wikijs
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: wikijs
+  namespace: sbos-apps
+spec:
+  serviceName: wikijs
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wikijs
+  template:
+    metadata:
+      labels:
+        app: wikijs
+    spec:
+      serviceAccountName: wikijs-sa
+      containers:
+        - name: wikijs
+          image: docker.io/requarks/wiki:2
+          ports:
+            - containerPort: 3000
+              name: http
+
+          env:
+            - name: DB_TYPE
+              value: "postgres"
+            - name: DB_HOST
+              value: "postgresql.sbos-data.svc.cluster.local"
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              value: "wikijs_db"
+            - name: DB_USER
+              value: "wikijs"
+            - name: DB_PASS
+              value: "wikijs_pass"
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/wikijs
+          resources:
+            requests:
+              cpu: 50m
+              memory: "32Mi"
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+          livenessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: sbos-local-path
+        resources:
+          requests:
+            storage: 10Gi

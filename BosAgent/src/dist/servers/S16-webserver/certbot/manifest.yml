@@ -1,0 +1,39 @@
+# manifest.yml — Ficha certbot (SBOS S16-webserver)
+# BC-13 · SBOS-049 §4 · SBOS-050 · Order 371
+# Emisión y renovación automática de certificados por dominio de cliente
+identity:
+  id: certbot-web
+  version: "2.11"
+  category: 1
+  criticality: true
+  server: S16
+  description: "Gestor automático de certificados Let's Encrypt por dominio personalizado de cliente (ACME v2). Un cert por tenant, renovación automática."
+
+workload:
+  type: CronJob
+
+order:
+  execution_order: 371
+
+requirements:
+  dependencies:
+    - nginx
+
+ports: []
+
+governance:
+  auto_install: false
+  requires_approval: false
+  category_label: tls-manager
+
+health:
+  type: command
+  command: "kubectl get cronjob certbot -n sbos-web -o jsonpath='{.spec.schedule}'"
+  interval_seconds: 3600
+  timeout_seconds: 30
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 2
+  rollback_support: false

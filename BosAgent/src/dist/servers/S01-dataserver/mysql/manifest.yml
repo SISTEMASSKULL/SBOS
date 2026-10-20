@@ -1,0 +1,39 @@
+# manifest.yml — Ficha mysql (SBOS-005 §dataserver)
+# SBOS-049 §4 · Order 120 · StatefulSet
+identity:
+  id: mysql
+  version: "8.4"
+  category: 1
+  criticality: false
+  server: S01
+  description: "Secondary DB: FreePBX, OrangeHRM, Easy!Appointments. criticality: false"
+
+workload:
+  type: StatefulSet
+
+order:
+  execution_order: 120
+
+requirements:
+  dependencies:
+
+
+deployment:
+  strategy: Recreate
+
+governance:
+
+
+  auto_install: true
+  requires_approval: false
+health:
+  command: "mysqladmin ping -h localhost"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

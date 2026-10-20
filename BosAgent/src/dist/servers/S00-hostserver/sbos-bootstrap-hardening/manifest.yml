@@ -1,0 +1,41 @@
+# manifest.yml — Ficha sbos-bootstrap-hardening (SBOS-005 §hostserver)
+# SBOS-049 §4 · Order 300 · Deployment
+identity:
+  id: sbos-bootstrap-hardening
+  version: "1.0"
+  category: 1
+  criticality: true
+  server: S-HOST
+  description: "CIS hardening: kernel params, auditd, AppArmor, firewalld, no root SSH"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 300
+
+requirements:
+  dependencies:
+    - keycloak
+    - kong
+    - prometheus
+    - linkerd
+
+
+deployment:
+  strategy: Recreate
+
+governance:
+  auto_install: false
+
+
+health:
+  command: "kube-bench run --targets node"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

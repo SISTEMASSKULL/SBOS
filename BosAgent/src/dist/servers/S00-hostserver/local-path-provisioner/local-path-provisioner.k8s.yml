@@ -1,0 +1,145 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: local-path-provisioner-sa
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: local-path-provisioner-role
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "persistentvolumeclaims", "persistentvolumes", "endpoints", "configmaps", "pods"]
+    verbs: ["get", "list", "watch", "create", "patch", "update", "delete"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "watch", "list", "delete", "update", "create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: local-path-provisioner-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: local-path-provisioner-role
+subjects:
+  - kind: ServiceAccount
+    name: local-path-provisioner-sa
+    namespace: kube-system
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: local-path-provisioner-config
+  namespace: kube-system
+data:
+  config.json: |
+    {
+      "nodePathMap": [
+        {"node": "DEFAULT_PATH_FOR_NON_LISTED_NODES", "paths": ["/opt/local-path-provisioner"]}
+      ]
+    }
+  helperPod.yaml: |
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: helper-pod
+    spec:
+      containers:
+        - name: helper
+          image: docker.io/library/busybox:latest
+          securityContext:
+            privileged: true
+  setup: |
+    #!/bin/sh
+    while getopts "m:s:p:" opt; do
+      case $opt in
+        m) VOLUME_MODE="$OPTARG";;
+        s) VOLUME_SIZE_BYTES="$OPTARG";;
+        p) VOLUME_DIR="$OPTARG";;
+      esac
+    done
+    mkdir -p "${VOLUME_DIR}"
+    if [ "${VOLUME_MODE}" = "Block" ]; then
+      dd if=/dev/zero of="${VOLUME_DIR}/volume.img" bs=1M count=$((VOLUME_SIZE_BYTES/1024/1024)) 2>/dev/null
+      losetup -f "${VOLUME_DIR}/volume.img" 2>/dev/null || true
+    fi
+    chmod 0777 "${VOLUME_DIR}"
+  teardown: |
+    #!/bin/sh
+    while getopts "m:s:p:" opt; do
+      case $opt in
+        p) VOLUME_DIR="$OPTARG";;
+      esac
+    done
+    rm -rf "${VOLUME_DIR}"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: local-path-provisioner
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: local-path-provisioner
+  template:
+    metadata:
+      labels:
+        app: local-path-provisioner
+    spec:
+      serviceAccountName: local-path-provisioner-sa
+      containers:
+        - name: local-path-provisioner
+          image: docker.io/rancher/local-path-provisioner:v0.0.31
+          command:
+            - local-path-provisioner
+          args:
+            - start
+            - --config=/etc/config/config.json
+            - --provisioner-name=rancher.io/local-path
+            - --namespace=kube-system
+            - --service-account-name=local-path-provisioner-sa
+            - --configmap-name=local-path-provisioner-config
+            - --helper-image=docker.io/library/busybox:latest
+          env:
+            - name: PROVISIONER_NAME
+              value: rancher.io/local-path
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          ports:
+            - containerPort: 8080
+              name: metrics
+          volumeMounts:
+            - name: config
+              mountPath: /etc/config
+              readOnly: true
+            - name: local
+              mountPath: /opt/local-path-provisioner
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+      volumes:
+        - name: config
+          configMap:
+            name: local-path-provisioner-config
+        - name: local
+          hostPath:
+            path: /opt/local-path-provisioner
+            type: DirectoryOrCreate

@@ -1,0 +1,39 @@
+# manifest.yml — Ficha goss (SBOS-005 §opsserver)
+# SBOS-049 §4 · Order 398 · Deployment
+identity:
+  id: goss
+  version: "0.4"
+  category: 1
+  criticality: false
+  server: S14
+  description: "Backup integrity validation"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 398
+
+requirements:
+  dependencies:
+    - bareos
+    - velero
+
+
+deployment:
+  strategy: Recreate
+
+governance:
+  auto_install: true
+  requires_approval: false
+
+health:
+  command: "goss --version"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

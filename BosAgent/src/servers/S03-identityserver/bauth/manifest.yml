@@ -2,25 +2,18 @@
 # BC-09 · Order 148 · SystemdService · servidor: identityserver
 identity:
   id: bauth
-  name: bAuth Identity Control Plane
   version: "1.0"
   category: 1
   criticality: true
-  server: identityserver
+  server: S03
   description: "Daemon soberano de identidad — BitMask 64-bit, token unificado"
 
 workload:
-  type: SystemdService
-  host: true
-  binary: /usr/local/bin/bauth
-  service_unit: resources/bauth.service
-  user: bauth
-  group: bosagent
-  working_dir: /opt/bauth
+  type: bash
+  runtime: systemd
 
 order:
   execution_order: 148
-  timeout_minutes: 10
 
 requirements:
   dependencies:
@@ -28,10 +21,6 @@ requirements:
     - keycloak
     - vault
     - kong
-  cpu_request: "200m"
-  cpu_limit: "1000m"
-  memory_request: "64Mi"
-  memory_limit: "512Mi"
 
 ports:
   - name: rpc
@@ -41,15 +30,11 @@ ports:
 
 governance:
   auto_install: true
-  backup_enabled: false
-  encryption_required: true
 
 health:
-  check_command: "test -S /run/bauth/bauth.sock && echo OK"
-  check_interval_seconds: 30
-  check_timeout_seconds: 5
-  consecutive_failures_threshold: 3
-  initial_delay_seconds: 10
+  command: "test -S /run/bauth/bauth.sock && echo OK"
+  interval_seconds: 30
+  timeout_seconds: 5
 
 integrations:
   database:
@@ -60,3 +45,9 @@ integrations:
   socket_dir: /tmp/bauth
   socket_perms: "0660"
   socket_group: bosagent
+
+meta:
+  backend: bash
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

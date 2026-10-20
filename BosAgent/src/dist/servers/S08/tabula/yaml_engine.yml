@@ -1,7 +1,0 @@
-# yaml_engine.yml — tabula
-# image: "ghcr.io/tabulapdf/tabula-java:1.0.5"
-
-deployment:
-  image: "ghcr.io/tabulapdf/tabula-java:1.0.5"
-namespace: sbos-docs
-port: 9000

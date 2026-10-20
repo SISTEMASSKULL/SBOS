@@ -1,0 +1,37 @@
+# yaml_engine.yml — Node Exporter 1.8 lifecycle phases
+# SBOS-049 §4.4 · Order 203 · DaemonSet
+# Degraded mode: tolerates missing Prometheus
+# R16 Zero hardcoding
+
+pre_install:
+  - name: "create_namespace"
+    command: "kubectl create namespace sbos-monitor --dry-run=client -o yaml | kubectl apply -f -"
+    timeout_seconds: 30
+
+install:
+  - name: "apply_daemonset"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/node-exporter.k8s.yml -n sbos-monitor"
+    timeout_seconds: 300
+  - name: "wait_ready"
+    command: "kubectl wait --for=condition=Ready daemonset/node-exporter -n sbos-monitor --timeout=300s"
+    timeout_seconds: 300
+
+post_install:
+  - name: "verify_pods_running"
+    command: "kubectl get pods -n sbos-monitor -l app=node-exporter --no-headers | grep -q Running || true"
+    timeout_seconds: 30
+
+update:
+  - name: "rolling_restart"
+    command: "kubectl rollout restart daemonset node-exporter -n sbos-monitor"
+    timeout_seconds: 300
+
+repair:
+  - name: "restart_daemonset"
+    command: "kubectl rollout restart daemonset node-exporter -n sbos-monitor"
+    timeout_seconds: 120
+
+uninstall:
+  - name: "delete_daemonset"
+    command: "kubectl delete daemonset node-exporter -n sbos-monitor --ignore-not-found"
+    timeout_seconds: 120

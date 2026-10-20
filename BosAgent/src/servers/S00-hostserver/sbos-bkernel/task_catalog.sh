@@ -20,6 +20,7 @@ FICHA_LOG="${FICHA_LOG:-/var/log/bos/fichas/sbos-bkernel.log}"
 BKERNEL_USER="${BKERNEL_USER:-bkernel}"
 BKERNEL_GROUP="${BKERNEL_GROUP:-bkernel}"
 BKERNEL_BIN_DST="${BKERNEL_BIN_DST:-/usr/local/bin/bkernel-daemon}"
+BKERNEL_BIN_SRC="${BKERNEL_BIN_SRC:-${SBOS_FICHA_DIR}/bin/bkernel-daemon}"
 BKERNEL_CONFIG_DST="${BKERNEL_CONFIG_DST:-/etc/bos/blibs/bkernel/bkernel.toml}"
 BKERNEL_SERVICE="${BKERNEL_SERVICE:-bkernel.service}"
 BKERNEL_SERVICE_DST="${BKERNEL_SERVICE_DST:-/etc/systemd/system/bkernel.service}"
@@ -109,7 +110,10 @@ RestartSec=5s
 TimeoutStartSec=30
 TimeoutStopSec=15
 
+Environment=DAEMON_NAME=bkernel
+Environment=DAEMON_SOCKET=/run/bos/bkernel.sock
 EnvironmentFile=-/etc/bos/env.d/bkernel
+ExecStartPre=+/bin/mkdir -p /run/bos
 
 NoNewPrivileges=true
 ProtectSystem=strict
@@ -117,7 +121,6 @@ ProtectHome=true
 ReadWritePaths=/etc/bos/blibs/bkernel /var/lib/bkernel /run/bos
 PrivateTmp=true
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
-SystemCallFilter=@network-io @file-system @signal @process
 UMask=0077
 
 StandardOutput=journal

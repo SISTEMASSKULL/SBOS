@@ -2,11 +2,10 @@
 # SBOS-049 §4 · Order 15 · host_script
 identity:
   id: network-validator
-  name: Network Validator
   version: "1.0"
   category: 1
   criticality: true
-  server: hostserver
+  server: S-HOST
   description: "Validates CNI, DNS, service mesh prerequisites"
 
 workload:
@@ -14,20 +13,14 @@ workload:
 
 order:
   execution_order: 15
-  timeout_minutes: 10
 
 requirements:
   dependencies:
     - sbos-bootstrap-platform
-  cpu_request: "100m"
-  cpu_limit: "500m"
-  memory_request: "128Mi"
-  memory_limit: "256Mi"
 
 
 governance:
   auto_install: true
-  accion: INSTALAR
 
 
 health:

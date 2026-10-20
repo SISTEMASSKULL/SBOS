@@ -1,0 +1,41 @@
+# manifest.yml — Ficha limesurvey (SBOS-005 §appsserver)
+# SBOS-049 §4 · Order 265 · Deployment
+identity:
+  id: limesurvey
+  version: "6.5"
+  category: 1
+  criticality: false
+  server: S06
+  description: "NPS and research surveys"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 265
+
+requirements:
+  dependencies:
+    - postgresql
+    - keycloak
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+  auto_install: false
+  requires_approval: false
+health:
+  command: "curl -sf http://localhost:8080/health"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

@@ -1,0 +1,38 @@
+# manifest.yml — Ficha compliance-check (SBOS-005 §hostserver)
+# SBOS-049 §4 · Order 330 · Deployment
+identity:
+  id: compliance-check
+  version: "1.0"
+  category: 1
+  criticality: false
+  server: S-HOST
+  description: "Weekly kube-bench CIS + Trivy CVEs"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 330
+
+requirements:
+  dependencies:
+    - kyverno
+
+
+deployment:
+  strategy: Recreate
+
+governance:
+  auto_install: false
+  requires_approval: false
+
+health:
+  command: "kube-bench version"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

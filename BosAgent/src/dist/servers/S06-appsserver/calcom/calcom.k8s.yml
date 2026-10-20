@@ -1,0 +1,75 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: calcom-sa
+  namespace: sbos-apps
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: calcom
+  namespace: sbos-apps
+spec:
+  type: ClusterIP
+  selector:
+    app: calcom
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: calcom
+  namespace: sbos-apps
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: calcom
+  template:
+    metadata:
+      labels:
+        app: calcom
+    spec:
+      serviceAccountName: calcom-sa
+      containers:
+        - name: calcom
+          image: docker.io/calcom/cal.com:v6.2.0
+          ports:
+            - containerPort: 3000
+              name: http
+
+          env:
+            - name: DATABASE_URL
+              value: "postgresql://calcom:calcom_pass_2024@postgresql.sbos-data.svc.cluster.local:5432/calcom_db"
+            - name: NEXTAUTH_SECRET
+              value: "06d74109b0a9dacc024ad4d2f3b6608c2116b98c1766e521d4fe917007744f53"
+            - name: NEXTAUTH_URL
+              value: "http://localhost:3000"
+            - name: CALENDSO_ENCRYPTION_KEY
+              value: "cd9882a7483d04216dfe25ac3d8a086d"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+          livenessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 600
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 120
+            periodSeconds: 15
+
+

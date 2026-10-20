@@ -1,0 +1,45 @@
+# yaml_engine.yml — sbos-lifecycle lifecycle phases
+# SBOS-049 §4.4 · Order 15 · systemd deployment
+# R16 Zero hardcoding
+
+pre_install:
+  - name: "verify_systemd"
+    command: "command -v systemctl && systemctl --version"
+    timeout_seconds: 10
+
+install:
+  - name: "deploy_unit_file"
+    command: "cp ${SBOS_FICHA_DIR}/bos.service /etc/systemd/system/bos.service"
+    timeout_seconds: 10
+  - name: "daemon_reload"
+    command: "systemctl daemon-reload"
+    timeout_seconds: 10
+  - name: "enable_service"
+    command: "systemctl enable bos.service"
+    timeout_seconds: 10
+
+post_install:
+  - name: "verify_unit"
+    command: "test -f /etc/systemd/system/bos.service && grep -q 'Type=notify' /etc/systemd/system/bos.service"
+    timeout_seconds: 5
+
+update:
+  - name: "redeploy_unit"
+    command: "cp ${SBOS_FICHA_DIR}/bos.service /etc/systemd/system/bos.service && systemctl daemon-reload"
+    timeout_seconds: 15
+
+repair:
+  - name: "reinstall_unit"
+    command: "cp ${SBOS_FICHA_DIR}/bos.service /etc/systemd/system/bos.service && systemctl daemon-reload && systemctl enable bos.service"
+    timeout_seconds: 20
+
+uninstall:
+  - name: "disable_service"
+    command: "systemctl disable bos.service || true"
+    timeout_seconds: 10
+  - name: "remove_unit"
+    command: "rm -f /etc/systemd/system/bos.service"
+    timeout_seconds: 5
+  - name: "daemon_reload"
+    command: "systemctl daemon-reload"
+    timeout_seconds: 10

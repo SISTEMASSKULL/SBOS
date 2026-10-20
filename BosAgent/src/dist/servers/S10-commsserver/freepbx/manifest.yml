@@ -1,0 +1,39 @@
+# manifest.yml — Ficha freepbx (SBOS-005 §commsserver)
+# SBOS-049 §4 · Order 338 · StatefulSet
+identity:
+  id: freepbx
+  version: "17"
+  category: 1
+  criticality: false
+  server: S10
+  description: "PBX/VoIP. criticality: false"
+
+workload:
+  type: StatefulSet
+
+order:
+  execution_order: 338
+
+requirements:
+  dependencies:
+    - mysql
+    - oauth2-proxy
+
+deployment:
+  strategy: Recreate
+
+governance:
+
+
+  auto_install: false
+  requires_approval: false
+health:
+  command: "asterisk -rx 'core show version'"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

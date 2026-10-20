@@ -1,0 +1,39 @@
+# manifest.yml — Ficha openvas (SBOS-005 §identityserver)
+# SBOS-049 §4 · Order 165 · Deployment
+identity:
+  id: openvas
+  version: "23.0"
+  category: 1
+  criticality: false
+  server: S03
+  description: "Vulnerability scanner: CVE, open ports, misconfigurations"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 165
+
+requirements:
+  dependencies:
+    - postgresql
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+  auto_install: false
+  requires_approval: true
+  category_label: "scanner-seguridad"
+health:
+  command: "curl -sf http://localhost:9392"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

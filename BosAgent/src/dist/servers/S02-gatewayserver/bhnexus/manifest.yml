@@ -1,0 +1,57 @@
+# manifest.yml — Ficha bhnexus (SBOS Proxy de Hardware Universal — Host)
+# BC-10 · Order 148 · SystemdService · servidor: gatewayserver
+identity:
+  id: bhnexus
+  version: "1.0"
+  category: 1
+  criticality: true
+  server: S02
+  description: "Proxy de hardware universal — puerta de entrada TLS mutual para clientes NFC/chapas"
+
+workload:
+  type: bash
+  runtime: systemd
+
+order:
+  execution_order: 148
+
+requirements:
+  dependencies:
+    - bauth
+    - kong
+    - vault
+
+ports:
+  - name: puerta1
+    protocol: tcp
+    port: 9444
+    host: true
+    description: "Escucha TLS mutual — clientes banexus y Flutter desktop"
+  - name: rpc
+    protocol: unix
+    path: /run/bos/bhnexus.sock
+    description: "Control RPC interno — consumido por bos y bosctl"
+
+governance:
+  auto_install: true
+
+health:
+  command: "systemctl is-active bhnexus.service"
+  interval_seconds: 30
+  timeout_seconds: 5
+
+integrations:
+  bauth:
+    jwks_socket: /tmp/bauth/bauth.sock
+    jwks_method: bauth.token.jwks
+  config_file: /etc/bhnexus/bhnexus.toml
+  tls:
+    mode: mutual
+    ca_cert_env: BHNEXUS_CA_CERT
+    ca_key_env: BHNEXUS_CA_KEY
+
+meta:
+  backend: bash
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

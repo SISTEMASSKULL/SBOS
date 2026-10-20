@@ -1,0 +1,46 @@
+# manifest.yml — Ficha node-exporter (SBOS-005 §S12)
+# SBOS-049 §4 · Order 203 · DaemonSet
+# Expone métricas del nodo Ubuntu (CPU, memoria, disco, red) para Prometheus
+identity:
+  id: node-exporter
+  version: "1.8.0"
+  category: 1
+  criticality: false
+  server: S12
+  description: "Host metrics exporter — CPU/mem/disk/network → Prometheus"
+
+workload:
+  type: daemonset
+  runtime: kubernetes
+
+order:
+  execution_order: 203
+
+requirements:
+  dependencies:
+    - prometheus
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+  auto_install: false
+  requires_approval: false
+
+health:
+  command: "curl -sf http://localhost:9100/metrics"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+integrations:
+  prometheus:
+    scrape_port: 9100
+    scrape_path: "/metrics"
+  exporters:
+    self_metrics: true
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

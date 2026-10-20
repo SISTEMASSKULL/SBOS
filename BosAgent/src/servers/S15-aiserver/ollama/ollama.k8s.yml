@@ -49,19 +49,17 @@ spec:
           resources:
             requests:
               cpu: 50m
-              memory: 4Gi
+              memory: "32Mi"
             limits:
               cpu: 8000m
               memory: 16Gi
           livenessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: 11434
             initialDelaySeconds: 30
             periodSeconds: 30
           readinessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: 11434
             initialDelaySeconds: 10
             periodSeconds: 10

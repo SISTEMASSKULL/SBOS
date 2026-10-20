@@ -1,0 +1,76 @@
+# ============================================================
+# NetworkPolicies — sbos-notifier
+# Calico CNI — default-deny-all heredado del namespace
+# Solo se declaran las reglas adicionales específicas
+# ============================================================
+
+---
+# Permite tráfico WebSocket entrante de clientes Vue/Flutter
+# a través de Kong hacia el sidecar ntfy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name:      allow-ntfy-websocket-ingress
+  namespace: sbos-{tenant}
+spec:
+  podSelector:
+    matchLabels:
+      app: sbos-notifier
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              sbos.skull.io/component: "gateway"
+      ports:
+        - protocol: TCP
+          port: 28205    # ntfy WebSocket
+        - protocol: TCP
+          port: 28204    # ntfy HTTP
+  policyTypes:
+    - Ingress
+
+---
+# Permite que sbos-notifier consulte Redis DB3
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name:      allow-redis-notifier
+  namespace: sbos-{tenant}
+spec:
+  podSelector:
+    matchLabels:
+      app: sbos-notifier
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              sbos.skull.io/component: "dataserver"
+      ports:
+        - protocol: TCP
+          port: 6379
+  policyTypes:
+    - Egress
+
+---
+# Permite que el MFA challenge endpoint reciba el POST
+# del botón SÍ/NO que viene del celular del usuario
+# (pasa por Kong — Kong ya tiene allow-kong-ingress)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name:      allow-mfa-confirm-ingress
+  namespace: sbos-{tenant}
+spec:
+  podSelector:
+    matchLabels:
+      app: sbos-notifier
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              sbos.skull.io/component: "gateway"
+      ports:
+        - protocol: TCP
+          port: 28200    # app HTTP — /api/mfa/confirm
+  policyTypes:
+    - Ingress

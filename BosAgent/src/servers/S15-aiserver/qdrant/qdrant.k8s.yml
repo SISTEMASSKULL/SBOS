@@ -38,7 +38,7 @@ spec:
       serviceAccountName: qdrant-sa
       containers:
         - name: qdrant
-          image: docker.io/qdrant/qdrant:v1.11
+          image: docker.io/qdrant/qdrant:v1.12.0
           ports:
             - containerPort: 6333
               name: http
@@ -49,19 +49,17 @@ spec:
           resources:
             requests:
               cpu: 50m
-              memory: 1Gi
+              memory: "32Mi"
             limits:
               cpu: 2000m
               memory: 2Gi
           livenessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: 6333
             initialDelaySeconds: 30
             periodSeconds: 30
           readinessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: 6333
             initialDelaySeconds: 10
             periodSeconds: 10

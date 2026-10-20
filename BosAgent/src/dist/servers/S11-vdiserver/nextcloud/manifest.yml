@@ -1,0 +1,41 @@
+# manifest.yml — Ficha nextcloud (SBOS-005 §vdiserver)
+# SBOS-049 §4 · Order 358 · StatefulSet
+identity:
+  id: nextcloud
+  version: "29.0"
+  category: 1
+  criticality: false
+  server: S11
+  description: "Files + CalDAV/CardDAV"
+
+workload:
+  type: StatefulSet
+
+order:
+  execution_order: 358
+
+requirements:
+  dependencies:
+    - postgresql
+    - redis
+    - keycloak
+    - stalwart
+
+deployment:
+  strategy: Recreate
+
+governance:
+  auto_install: true
+  requires_approval: false
+
+health:
+  command: "curl -sf http://localhost:80/status.php"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

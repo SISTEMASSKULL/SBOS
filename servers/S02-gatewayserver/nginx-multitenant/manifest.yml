@@ -3,19 +3,14 @@
 # Reverse proxy + TLS termination para dominios de cliente multi-tenant
 identity:
   id: nginx-multitenant
-  name: nginx — Web Proxy Multi-tenant
   version: "1.26"
   category: 1
   criticality: true
-  server: webserver
+  server: S16
   description: "Reverse proxy + TLS termination multi-tenant. Sirve dominios personalizados de cada cliente con cert individual (certbot) y WAF (modsecurity)."
 
 workload:
   type: Deployment
-  namespace: sbos-web
-  replicas: 1
-  service_account: nginx-sa
-  strategy: RollingUpdate
 
 order:
   execution_order: 370
@@ -24,10 +19,6 @@ requirements:
   dependencies:
     - certbot
     - kong
-  cpu_request: "200m"
-  cpu_limit: "1000m"
-  memory_request: "256Mi"
-  memory_limit: "512Mi"
 
 ports:
   - name: http
@@ -41,17 +32,13 @@ ports:
 
 governance:
   auto_install: false
-  accion: INSTALAR
   requires_approval: false
   category_label: web-proxy
 
 health:
   type: http
-  check_path: /healthz
-  check_port: 80
-  check_interval_seconds: 30
-  check_timeout_seconds: 10
-  consecutive_failures_threshold: 3
+  interval_seconds: 30
+  timeout_seconds: 10
 
 meta:
   backend: kubernetes

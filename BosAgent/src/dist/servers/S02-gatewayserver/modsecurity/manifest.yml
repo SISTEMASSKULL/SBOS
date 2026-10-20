@@ -1,0 +1,40 @@
+# manifest.yml — Ficha modsecurity (SBOS-005 §gatewayserver)
+# SBOS-049 §4 · Order 144 · Deployment
+identity:
+  id: modsecurity
+  version: "3.3"
+  category: 1
+  criticality: true
+  server: S02
+  description: "WAF: SQLi, XSS, CSRF protection"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 144
+
+requirements:
+  dependencies:
+    - nginx
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+  auto_install: true
+  requires_approval: false
+health:
+  command: "curl -sf http://localhost:80"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

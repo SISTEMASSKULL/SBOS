@@ -1,0 +1,41 @@
+# manifest.yml — Ficha gitlab (SBOS-005 §opsserver)
+# SBOS-049 §4 · Order 380 · StatefulSet
+identity:
+  id: gitlab
+  version: "17.8"
+  category: 1
+  criticality: false
+  server: S14
+  description: "SCM + CI/CD + Container Registry"
+
+workload:
+  type: StatefulSet
+
+order:
+  execution_order: 380
+
+requirements:
+  dependencies:
+    - postgresql
+    - redis
+    - keycloak
+    - minio
+
+deployment:
+  strategy: Recreate
+
+governance:
+  auto_install: false
+  requires_approval: false
+
+health:
+  command: "curl -sf http://localhost:80/-/health"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

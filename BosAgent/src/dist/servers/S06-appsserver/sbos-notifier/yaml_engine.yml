@@ -1,0 +1,259 @@
+# ============================================================
+# SBOS YAML ENGINE — sbos-notifier
+# Declaración Kubernetes / Podman OCI
+# bos lee este archivo y aplica los recursos en K8s
+# ============================================================
+
+---
+# ── 1. Namespace (bos lo crea en el alta del tenant) ────────
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sbos-{tenant}
+  labels:
+    sbos.skull.io/tenant:    "{tenant}"
+    sbos.skull.io/ficha:     "sbos-notifier"
+    linkerd.io/inject:       "enabled"     # mTLS automático — no configurar
+    sbos.skull.io/version:   "1.0.0"
+
+---
+# ── 2. ServiceAccount — identidad del pod en K8s ────────────
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name:      sbos-notifier
+  namespace: sbos-{tenant}
+  annotations:
+    vault.hashicorp.com/role: "sbos-notifier-{tenant}"
+
+---
+# ── 3. ConfigMap — configuración no sensible ────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name:      sbos-notifier-config
+  namespace: sbos-{tenant}
+data:
+  NTFY_BASE_URL:        "http://localhost:28204"
+  NTFY_WS_PORT:         "28205"
+  APP_PORT:             "28200"
+  METRICS_PORT:         "28202"
+  HEALTH_PORT:          "28203"
+  REDIS_DB:             "3"
+  PG_DATABASE:          "notifier_db"
+  LOG_FORMAT:           "json"           # obligatorio — SBOS-049
+  LOG_LEVEL:            "info"
+  MFA_CHALLENGE_TTL:    "60"             # segundos
+  MFA_POLLING_INTERVAL: "500"            # ms — SPI de Keycloak
+  OTEL_EXPORTER_ENDPOINT: "http://otel-collector.monitoring:4318"
+
+---
+# ── 4. Deployment principal — sbos-notifier ─────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name:      sbos-notifier
+  namespace: sbos-{tenant}
+  labels:
+    app:                     sbos-notifier
+    sbos.skull.io/ficha:     sbos-notifier
+    sbos.skull.io/tenant:    "{tenant}"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sbos-notifier
+  template:
+    metadata:
+      labels:
+        app:                  sbos-notifier
+        sbos.skull.io/tenant: "{tenant}"
+      annotations:
+        # Vault Agent Injector — inyecta secretos al pod
+        vault.hashicorp.com/agent-inject:                        "true"
+        vault.hashicorp.com/role:                                "sbos-notifier-{tenant}"
+        vault.hashicorp.com/agent-inject-secret-telegram:        "secret/tenants/{tenant}/sbos-notifier/telegram-bot-token"
+        vault.hashicorp.com/agent-inject-secret-twilio:          "secret/tenants/{tenant}/sbos-notifier/twilio-account-sid"
+        vault.hashicorp.com/agent-inject-secret-twilio-auth:     "secret/tenants/{tenant}/sbos-notifier/twilio-auth-token"
+        vault.hashicorp.com/agent-inject-secret-smtp:            "secret/tenants/{tenant}/sbos-notifier/smtp-credentials"
+        vault.hashicorp.com/agent-inject-secret-mfa-key:         "secret/tenants/{tenant}/sbos-notifier/mfa-challenge-signing-key"
+        # Prometheus scrape
+        prometheus.io/scrape: "true"
+        prometheus.io/port:   "28202"
+        prometheus.io/path:   "/metrics"
+    spec:
+      serviceAccountName: sbos-notifier
+      # Imagen OCI firmada con Ed25519 — Docker vetado (SBOS-004 S8)
+      containers:
+        - name: sbos-notifier
+          image: registry.skull.io/sbos/sbos-notifier:1.0.0
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 28200
+            - name: metrics
+              containerPort: 28202
+            - name: health
+              containerPort: 28203
+          envFrom:
+            - configMapRef:
+                name: sbos-notifier-config
+          env:
+            - name: SBOS_TENANT
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['sbos.skull.io/tenant']
+          # K8s probes — obligatorias (Kyverno rechaza pods sin ellas)
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 28203
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 28203
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu:    "50m"
+            limits:
+              memory: "256Mi"
+              cpu:    "200m"
+          # Sin hostPort — Kyverno lo rechaza
+          securityContext:
+            runAsNonRoot:             true
+            runAsUser:                1000
+            readOnlyRootFilesystem:   true
+            allowPrivilegeEscalation: false
+
+        # ── Sidecar ntfy — bus pub/sub interno ──────────────
+        - name: ntfy
+          image: registry.skull.io/sbos/ntfy:2.11.0
+          imagePullPolicy: Always
+          ports:
+            - name: ntfy-http
+              containerPort: 28204
+            - name: ntfy-ws
+              containerPort: 28205
+          env:
+            - name: NTFY_LISTEN_HTTP
+              value: ":28204"
+            - name: NTFY_BASE_URL
+              value: "https://notify.{tenant}.sksistemas.com"
+            - name: NTFY_CACHE_FILE
+              value: "/var/cache/ntfy/cache.db"
+            - name: NTFY_AUTH_FILE
+              value: "/var/lib/ntfy/auth.db"
+            - name: NTFY_BEHIND_PROXY
+              value: "true"
+          readinessProbe:
+            httpGet:
+              path: /v1/health
+              port: 28204
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /v1/health
+              port: 28204
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu:    "25m"
+            limits:
+              memory: "128Mi"
+              cpu:    "100m"
+          volumeMounts:
+            - name: ntfy-cache
+              mountPath: /var/cache/ntfy
+            - name: ntfy-data
+              mountPath: /var/lib/ntfy
+
+      volumes:
+        - name: ntfy-cache
+          emptyDir: {}
+        - name: ntfy-data
+          emptyDir: {}
+
+---
+# ── 5. Service — expone los puertos dentro del cluster ──────
+apiVersion: v1
+kind: Service
+metadata:
+  name:      sbos-notifier
+  namespace: sbos-{tenant}
+  labels:
+    app:                  sbos-notifier
+    sbos.skull.io/tenant: "{tenant}"
+spec:
+  selector:
+    app: sbos-notifier
+  ports:
+    - name:       http
+      port:       28200
+      targetPort: 28200
+    - name:       metrics
+      port:       28202
+      targetPort: 28202
+    - name:       health
+      port:       28203
+      targetPort: 28203
+    - name:       ntfy
+      port:       28204
+      targetPort: 28204
+    - name:       ntfy-ws
+      port:       28205
+      targetPort: 28205
+  type: ClusterIP   # solo interno — Kong es el punto de entrada
+
+---
+# ── 6. Kong Route — bos registra esta ruta en Kong ──────────
+# El subproyecto declara su ruta; Kong la registra al instalar
+apiVersion: configuration.konghq.com/v1
+kind: KongIngress
+metadata:
+  name:      sbos-notifier-route
+  namespace: sbos-{tenant}
+proxy:
+  path:         /notify
+  methods:      [GET, POST]
+  strip_path:   false
+upstream:
+  host: sbos-notifier.sbos-{tenant}.svc.cluster.local
+  port: 28200
+
+---
+# ── 7. Kong Route ntfy WebSocket ────────────────────────────
+apiVersion: configuration.konghq.com/v1
+kind: KongIngress
+metadata:
+  name:      sbos-notifier-ws-route
+  namespace: sbos-{tenant}
+proxy:
+  path:         /ntfy
+  protocols:    [http, https, ws, wss]
+  strip_path:   true
+upstream:
+  host: sbos-notifier.sbos-{tenant}.svc.cluster.local
+  port: 28205
+
+---
+# ── 8. MFA Challenge endpoint — respuesta del botón SÍ/NO ───
+apiVersion: configuration.konghq.com/v1
+kind: KongIngress
+metadata:
+  name:      sbos-notifier-mfa-route
+  namespace: sbos-{tenant}
+proxy:
+  path:         /api/mfa/confirm
+  methods:      [POST]
+  strip_path:   false
+upstream:
+  host: sbos-notifier.sbos-{tenant}.svc.cluster.local
+  port: 28200

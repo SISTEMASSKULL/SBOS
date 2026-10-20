@@ -2,32 +2,21 @@
 # SBOS-019 §9 · Order 100 · StatefulSet
 identity:
   id: postgresql
-  name: PostgreSQL 18 + Patroni
   version: "18.0"
   category: 1  # Infrastructure
   criticality: true
-  server: dataserver
+  server: S01
   description: "PostgreSQL 18 con Patroni HA para todas las BD del SBOS"
 
 workload:
   type: StatefulSet
-  namespace: sbos-data
-  replicas: 3
-  service_account: postgresql-sa
 
 order:
   execution_order: 100
-  timeout_minutes: 30
 
 requirements:
   dependencies:
     - network-validator
-  cpu_request: "2000m"
-  cpu_limit: "4000m"
-  memory_request: "4Gi"
-  memory_limit: "8Gi"
-  pvc_size: "500Gi"
-  pvc_storage_class: "sbos-fast"
 
 deployment:
   strategy: RollingUpdate
@@ -36,16 +25,11 @@ deployment:
 
 governance:
   auto_install: true
-  backup_enabled: true
-  backup_schedule: "0 2 * * *"
-  encryption_required: true
-  audit_log: true
 
 health:
-  check_command: "pg_isready -U postgres -h localhost -p 5432"
-  check_interval_seconds: 30
-  check_timeout_seconds: 10
-  consecutive_failures_threshold: 3
+  command: "pg_isready -U postgres -h localhost -p 5432"
+  interval_seconds: 30
+  timeout_seconds: 10
 
 integrations:
   databases:
@@ -67,3 +51,9 @@ integrations:
   monitoring:
     exporter: postgres_exporter
     port: 9187
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

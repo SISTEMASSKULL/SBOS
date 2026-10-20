@@ -11,7 +11,8 @@ identity:
     El enrutamiento de tenants adicionales lo gestiona la saga bos.tenant.create.
 
 workload:
-  type: host
+  type: bash
+  runtime: host
   runtime: bash
 
 order:

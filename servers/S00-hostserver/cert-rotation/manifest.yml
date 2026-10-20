@@ -2,11 +2,10 @@
 # SBOS-049 §4 · Order 320 · host_script
 identity:
   id: cert-rotation
-  name: Certificate Rotation
   version: "1.0"
   category: 1
   criticality: true
-  server: hostserver
+  server: S-HOST
   description: "TLS cert renewal every 90 days via Let's Encrypt + Vault"
 
 workload:
@@ -14,28 +13,21 @@ workload:
 
 order:
   execution_order: 320
-  timeout_minutes: 30
 
 requirements:
   dependencies:
     - vault
     - certbot
-  cpu_request: "100m"
-  cpu_limit: "500m"
-  memory_request: "128Mi"
-  memory_limit: "256Mi"
 
 
 governance:
   auto_install: false
-  accion: INSTALAR
   requires_approval: false
 
 health:
-  check_command: "kubectl get certificates -A"
-  check_interval_seconds: 30
-  check_timeout_seconds: 10
-  consecutive_failures_threshold: 3
+  command: "kubectl get certificates -A"
+  interval_seconds: 30
+  timeout_seconds: 10
 
 meta:
   backend: bash

@@ -2,32 +2,21 @@
 # SBOS-049 §4 · Order 235 · StatefulSet
 identity:
   id: trilium
-  name: Trilium Notes
   version: "0.63"
   category: 1
   criticality: false
-  server: appsserver
+  server: S06
   description: "Hierarchical notes E2E encrypted"
 
 workload:
   type: StatefulSet
-  namespace: sbos-apps
-  replicas: 1
-  service_account: trilium-sa
 
 order:
   execution_order: 235
-  timeout_minutes: 10
 
 requirements:
   dependencies:
     - keycloak
-  cpu_request: "100m"
-  cpu_limit: "500m"
-  memory_request: "128Mi"
-  memory_limit: "256Mi"
-  pvc_size: "5Gi"
-  pvc_storage_class: "sbos-fast"
 
 deployment:
   strategy: Recreate
@@ -38,8 +27,13 @@ governance:
   auto_install: true
   requires_approval: false
 health:
-  check_command: "curl -sf http://localhost:8080/health"
-  check_interval_seconds: 30
-  check_timeout_seconds: 10
-  consecutive_failures_threshold: 3
+  command: "curl -sf http://localhost:8080/health"
+  interval_seconds: 30
+  timeout_seconds: 10
 
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

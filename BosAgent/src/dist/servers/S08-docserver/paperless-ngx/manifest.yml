@@ -1,0 +1,41 @@
+# manifest.yml — Ficha paperless-ngx (SBOS-005 §docserver)
+# SBOS-049 §4 · Order 295 · StatefulSet
+identity:
+  id: paperless-ngx
+  version: "2.13"
+  category: 1
+  criticality: false
+  server: S08
+  description: "DMS: OCR, ML classification, full-text search"
+
+workload:
+  type: StatefulSet
+
+order:
+  execution_order: 295
+
+requirements:
+  dependencies:
+    - postgresql
+    - redis
+    - minio
+    - keycloak
+
+deployment:
+  strategy: Recreate
+
+governance:
+  auto_install: true
+  requires_approval: false
+
+health:
+  command: "curl -sf http://localhost:8000/health"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

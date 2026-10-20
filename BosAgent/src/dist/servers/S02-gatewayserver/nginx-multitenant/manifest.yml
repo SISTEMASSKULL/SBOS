@@ -1,0 +1,47 @@
+# manifest.yml — Ficha nginx (SBOS S16-webserver)
+# BC-13 · SBOS-049 §4 · SBOS-050 · Order 370
+# Reverse proxy + TLS termination para dominios de cliente multi-tenant
+identity:
+  id: nginx-multitenant
+  version: "1.26"
+  category: 1
+  criticality: true
+  server: S16
+  description: "Reverse proxy + TLS termination multi-tenant. Sirve dominios personalizados de cada cliente con cert individual (certbot) y WAF (modsecurity)."
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 370
+
+requirements:
+  dependencies:
+    - certbot
+    - kong
+
+ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    description: "HTTP (redirect a HTTPS + ACME HTTP-01 challenge)"
+  - name: https
+    port: 443
+    protocol: TCP
+    description: "HTTPS TLS termination — dominios de cliente"
+
+governance:
+  auto_install: false
+  requires_approval: false
+  category_label: web-proxy
+
+health:
+  type: http
+  interval_seconds: 30
+  timeout_seconds: 10
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 3
+  rollback_support: true

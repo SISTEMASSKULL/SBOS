@@ -1,0 +1,103 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tryton-config
+  namespace: sbos-erp
+data:
+  trytond.conf: |
+    [database]
+    uri = postgresql://tryton:tryton_pass@postgresql.sbos-data.svc.cluster.local:5432/tryton_db
+    [web]
+    listen = *:8000
+    [session]
+    timeout = 600
+  DB_HOST: "postgresql.sbos-data.svc.cluster.local"
+  DB_PORT: "5432"
+  DB_NAME: "tryton_db"
+  DB_USER: "tryton"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tryton-pg-secret
+  namespace: sbos-erp
+type: Opaque
+stringData:
+  DB_PASSWORD: "tryton_pass"
+  TRYTOND_DATABASE_URI: "postgresql://tryton:tryton_pass@postgresql.sbos-data.svc.cluster.local:5432/tryton_db"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tryton-sa
+  namespace: sbos-erp
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tryton
+  namespace: sbos-erp
+spec:
+  clusterIP: None
+  selector:
+    app: tryton
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: tryton
+  namespace: sbos-erp
+spec:
+  serviceName: tryton
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tryton
+  template:
+    metadata:
+      labels:
+        app: tryton
+    spec:
+      serviceAccountName: tryton-sa
+      containers:
+        - name: tryton
+          image: docker.io/tryton/tryton:7.4
+          ports:
+            - containerPort: 8000
+              name: http
+
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/tryton
+          resources:
+            requests:
+              cpu: 50m
+              memory: "32Mi"
+            limits:
+              cpu: 2000m
+              memory: 2Gi
+          livenessProbe:
+            tcpSocket:
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            tcpSocket:
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: sbos-local-path
+        resources:
+          requests:
+            storage: 50Gi

@@ -1,0 +1,38 @@
+# manifest.yml — Ficha bareos (SBOS-005 §opsserver)
+# SBOS-049 §4 · Order 390 · StatefulSet
+identity:
+  id: bareos
+  version: "23.0"
+  category: 1
+  criticality: true
+  server: S14
+  description: "Backup 16 servers, AES-256 encryption"
+
+workload:
+  type: StatefulSet
+
+order:
+  execution_order: 390
+
+requirements:
+  dependencies:
+    - postgresql
+    - minio
+
+deployment:
+  strategy: Recreate
+
+governance:
+  auto_install: true
+  requires_approval: false
+
+health:
+  command: "bareos-fd -t"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

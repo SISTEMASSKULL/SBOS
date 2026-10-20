@@ -7,10 +7,8 @@ identity:
   description: "Grafana Tempo 2.7.2 — trazado distribuido (distributed tracing). Recibe spans OpenTelemetry de los daemons SBOS y los correlaciona con logs (Loki) y métricas (Prometheus)."
 
 workload:
-  type: deployment
+  type: statefulset
   runtime: kubernetes
-  namespace: sbos-monitor
-  replicas: 1
 
 order:
   execution_order: 220

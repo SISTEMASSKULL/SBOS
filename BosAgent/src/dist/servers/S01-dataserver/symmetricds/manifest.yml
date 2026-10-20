@@ -1,0 +1,41 @@
+# manifest.yml — Ficha symmetricds (SBOS-005 §dataserver)
+# SBOS-049 §4 · Order 125 · Deployment
+identity:
+  id: symmetricds
+  version: "3.15"
+  category: 1
+  criticality: false
+  server: S01
+  description: "CDC bidirectional PG <-> MySQL"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 125
+
+requirements:
+  dependencies:
+    - postgresql
+    - mysql
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+  auto_install: true
+  requires_approval: false
+health:
+  command: "curl -sf http://localhost:8080/health"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

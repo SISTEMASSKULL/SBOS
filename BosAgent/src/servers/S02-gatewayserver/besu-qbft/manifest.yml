@@ -9,7 +9,6 @@ identity:
 workload:
   type: statefulset
   runtime: kubernetes
-  namespace: sbos-chain
 
 order:
   execution_order: 135

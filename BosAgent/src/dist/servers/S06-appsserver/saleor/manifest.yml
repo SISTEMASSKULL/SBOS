@@ -1,0 +1,41 @@
+# manifest.yml — Ficha saleor (SBOS-005 §appsserver)
+# SBOS-049 §4 · Order 205 · Deployment
+identity:
+  id: saleor
+  version: "3.18"
+  category: 1
+  criticality: false
+  server: S06
+  description: "Headless GraphQL e-commerce"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 205
+
+requirements:
+  dependencies:
+    - postgresql
+    - redis
+    - keycloak
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+  auto_install: false
+  requires_approval: false
+
+health:
+  command: "curl -sf http://localhost:8000/health"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

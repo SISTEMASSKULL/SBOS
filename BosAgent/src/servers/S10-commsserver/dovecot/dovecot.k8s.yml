@@ -38,7 +38,7 @@ spec:
       serviceAccountName: dovecot-sa
       containers:
         - name: dovecot
-          image: docker.io/dovecot/dovecot:2.4
+          image: docker.io/dovecot/dovecot:latest
           ports:
             - containerPort: 143
               name: http
@@ -56,13 +56,15 @@ spec:
           livenessProbe:
             tcpSocket:
                 port: 143
-            initialDelaySeconds: 30
+            initialDelaySeconds: 120
             periodSeconds: 30
+            failureThreshold: 5
           readinessProbe:
             tcpSocket:
                 port: 143
-            initialDelaySeconds: 10
-            periodSeconds: 10
+            initialDelaySeconds: 90
+            periodSeconds: 15
+            failureThreshold: 5
 
   volumeClaimTemplates:
     - metadata:

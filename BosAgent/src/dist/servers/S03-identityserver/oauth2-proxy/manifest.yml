@@ -1,0 +1,39 @@
+# manifest.yml — Ficha oauth2-proxy (SBOS-005 §identityserver)
+# SBOS-049 §4 · Order 135 · Deployment
+identity:
+  id: oauth2-proxy
+  version: "7.6"
+  category: 1
+  criticality: true
+  server: S03
+  description: "Auth proxy for apps without native OIDC"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 135
+
+requirements:
+  dependencies:
+    - keycloak
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+  auto_install: false
+  requires_approval: true
+  category_label: "auth-proxy-oidc"
+health:
+  command: "curl -sf http://localhost:4180/ping"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

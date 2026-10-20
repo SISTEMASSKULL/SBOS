@@ -1,0 +1,41 @@
+# manifest.yml — Ficha modsecurity (SBOS S16-webserver)
+# BC-13 · SBOS-049 §4 · SBOS-050 · Order 372
+# WAF como módulo de nginx (no pod separado) — OWASP CRS 4.x
+identity:
+  id: modsecurity-web
+  version: "3.0+OWASP-CRS-4"
+  category: 1
+  criticality: true
+  server: S16
+  description: "WAF ModSecurity 3.x con OWASP CRS 4.x. Módulo de nginx (sin pod propio). Inspecciona tráfico web de clientes contra OWASP Top-10."
+
+workload:
+  # Módulo cargado en el proceso nginx — no es un pod independiente (ConfigMap aplicado vía kubectl)
+  type: bash
+  runtime: kubernetes
+
+order:
+  execution_order: 372
+
+requirements:
+  dependencies:
+    - nginx
+
+ports: []
+
+governance:
+  auto_install: false
+  requires_approval: false
+  category_label: waf
+
+health:
+  type: command
+  command: "kubectl exec -n sbos-web deployment/nginx -- nginx -T 2>&1 | grep -q 'modsecurity on'"
+  interval_seconds: 60
+  timeout_seconds: 15
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 1
+  rollback_support: true

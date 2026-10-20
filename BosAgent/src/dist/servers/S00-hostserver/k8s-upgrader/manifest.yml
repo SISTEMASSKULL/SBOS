@@ -1,0 +1,36 @@
+# manifest.yml — Ficha k8s-upgrader (SBOS-005 §hostserver)
+# SBOS-049 §4 · Order 310 · host_script
+identity:
+  id: k8s-upgrader
+  version: "1.0"
+  category: 1
+  criticality: false
+  server: S-HOST
+  description: "Rolling K8s upgrades, node drain/cordon"
+
+workload:
+  type: bash
+
+order:
+  execution_order: 310
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-hardening
+
+
+governance:
+  auto_install: true
+  requires_approval: false
+
+health:
+  command: "kubectl version"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: bash
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

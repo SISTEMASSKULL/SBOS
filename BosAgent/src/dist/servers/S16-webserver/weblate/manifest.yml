@@ -1,0 +1,43 @@
+# manifest.yml — Ficha weblate (SBOS S16-webserver)
+# Order 380 · Gestión de traducciones FTL/Fluent
+identity:
+  id: weblate
+  version: "2026"
+  category: 2
+  criticality: false
+  server: S16
+  description: "Plataforma web self-hosted para editar archivos FTL/Fluent de bi18n."
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 380
+
+requirements:
+  dependencies:
+    - postgresql
+    - redis
+    - nginx
+
+ports:
+  - name: http
+    port: 8080
+    protocol: TCP
+    description: "Weblate app web (nginx la proxifica)"
+
+governance:
+  auto_install: false
+  requires_approval: false
+  category_label: translation-ui
+
+health:
+  type: http
+  interval_seconds: 60
+  timeout_seconds: 15
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: true

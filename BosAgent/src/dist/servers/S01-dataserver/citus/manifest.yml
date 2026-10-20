@@ -1,0 +1,38 @@
+# manifest.yml — Ficha citus (SBOS-005 §dataserver)
+# SBOS-049 §4 · Order 118 · Deployment
+identity:
+  id: citus
+  version: "12.1"
+  category: 1
+  criticality: false
+  server: S01
+  description: "Horizontal sharding for analytics workloads"
+
+workload:
+  type: Job
+
+order:
+  execution_order: 118
+
+requirements:
+  dependencies:
+    - postgresql
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+  auto_install: true
+  requires_approval: false
+health:
+  type: none
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

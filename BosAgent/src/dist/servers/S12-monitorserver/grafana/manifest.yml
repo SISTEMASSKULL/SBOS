@@ -1,0 +1,54 @@
+# manifest.yml — Ficha grafana (SBOS-035 Ficha 15)
+# SBOS-019 §9 · Order 210 · Deployment
+identity:
+  id: grafana
+  version: "11.5"
+  category: 1
+  criticality: false
+  server: S12
+  description: "Observabilidad — dashboards, PostgreSQL backend, OIDC auth"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 210
+
+requirements:
+  dependencies:
+    - postgresql
+    - prometheus
+
+deployment:
+  strategy: Recreate
+
+governance:
+  auto_install: true
+
+health:
+  command: "curl -sf http://localhost:3000/api/health"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+integrations:
+  database:
+    name: grafana_db
+    host_from: postgresql
+  oidc:
+    provider: keycloak
+    realm: skbos
+  datasources:
+    - name: prometheus
+      url: "http://prometheus.sbos-monitor:9090"
+      default: true
+      optional: true
+  dashboards:
+    - kubernetes-cluster
+    - postgresql
+    - sbos-operacional
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

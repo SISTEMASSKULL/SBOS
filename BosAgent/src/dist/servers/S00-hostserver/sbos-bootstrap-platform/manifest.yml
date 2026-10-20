@@ -1,0 +1,39 @@
+# manifest.yml — Ficha sbos-bootstrap-platform (SBOS-005 §hostserver)
+# SBOS-049 §4 · Order 10 · Deployment
+identity:
+  id: sbos-bootstrap-platform
+  version: "1.0"
+  category: 1
+  criticality: true
+  server: S-HOST
+  description: "Namespaces, RBAC, StorageClasses, LimitRanges"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 10
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-k8s
+
+
+deployment:
+  strategy: Recreate
+
+governance:
+  auto_install: true
+
+
+health:
+  type: command
+  command: "KUBECONFIG=/etc/kubernetes/admin.conf kubectl get ns sbos-system > /dev/null 2>&1 && echo HEALTHY"
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

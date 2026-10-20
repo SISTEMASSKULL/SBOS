@@ -1,8 +1,0 @@
-# yaml_engine.yml — flowise
-# image: "flowiseai/flowise:2.2.6"
-
-deployment:
-  image: "flowiseai/flowise:2.2.6"
-namespace: sbos-ai
-port: 3000
-database: postgresql

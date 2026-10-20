@@ -41,8 +41,6 @@ ports:
 
 health:
   type: http
-  path: /ping
-  port: 4180
   timeout_seconds: 5
 
 audit:

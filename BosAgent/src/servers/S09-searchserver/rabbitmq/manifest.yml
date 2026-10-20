@@ -9,8 +9,6 @@ identity:
 workload:
   type: statefulset
   runtime: kubernetes
-  namespace: sbos-search
-  replicas: 1
 
 order:
   execution_order: 405
@@ -20,7 +18,7 @@ requirements:
     - sbos-bootstrap-platform
 
 governance:
-  auto_install: true
+  auto_install: false
   requires_approval: false
   category_label: "mensajeria"
 

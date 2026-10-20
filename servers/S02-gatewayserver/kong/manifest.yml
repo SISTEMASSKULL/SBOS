@@ -2,31 +2,22 @@
 # SBOS-019 §9 · Order 145 · Deployment
 identity:
   id: kong
-  name: Kong Gateway OSS
   version: "3.9"
   category: 1
   criticality: true
-  server: gatewayserver
+  server: S02
   description: "API Gateway con PostgreSQL backend y OIDC plugin"
 
 workload:
   type: Deployment
-  namespace: sbos-gateway
-  replicas: 2
-  service_account: kong-sa
 
 order:
   execution_order: 145
-  timeout_minutes: 15
 
 requirements:
   dependencies:
     - postgresql
     - keycloak
-  cpu_request: "500m"
-  cpu_limit: "2000m"
-  memory_request: "1Gi"
-  memory_limit: "2Gi"
 
 deployment:
   strategy: RollingUpdate
@@ -35,15 +26,11 @@ deployment:
 
 governance:
   auto_install: true
-  accion: INSTALAR
-  backup_enabled: false
-  audit_log: true
 
 health:
-  check_command: "curl -sf http://localhost:8001/status"
-  check_interval_seconds: 15
-  check_timeout_seconds: 5
-  consecutive_failures_threshold: 3
+  command: "curl -sf http://localhost:8001/status"
+  interval_seconds: 15
+  timeout_seconds: 5
 
 integrations:
   database:

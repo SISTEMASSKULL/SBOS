@@ -1,0 +1,54 @@
+identity:
+  id: tempo
+  server: S12
+  version: "2.7.2"
+  category: 1
+  criticality: false
+  description: "Grafana Tempo 2.7.2 — trazado distribuido (distributed tracing). Recibe spans OpenTelemetry de los daemons SBOS y los correlaciona con logs (Loki) y métricas (Prometheus)."
+
+workload:
+  type: statefulset
+  runtime: kubernetes
+
+order:
+  execution_order: 220
+
+requirements:
+  dependencies:
+    - loki
+    - prometheus
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "observabilidad"
+
+meta:
+  backend: k8s
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: true
+
+ports:
+  - name: http
+    port: 3200
+    protocol: TCP
+    internal_only: true
+  - name: otlp-grpc
+    port: 4317
+    protocol: TCP
+    internal_only: true
+
+health:
+  # BUG-50: kubectl wait es más robusto que readyReplicas tras helm upgrade
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get pods -n sbos-monitor -l app.kubernetes.io/name=tempo --no-headers 2>/dev/null | grep -c Running"
+  expected_output: "1"
+  timeout_seconds: 30
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/tempo.log
+
+versions:
+  tempo: "2.7.2"

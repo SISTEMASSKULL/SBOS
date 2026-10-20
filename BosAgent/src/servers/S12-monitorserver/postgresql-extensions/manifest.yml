@@ -9,8 +9,6 @@ identity:
 workload:
   type: job
   runtime: kubernetes
-  namespace: sbos-data
-  replicas: 1
 
 order:
   execution_order: 78

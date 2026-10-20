@@ -1,8 +1,0 @@
-# yaml_engine.yml — bareos
-# image: "barcosystems/bareos-director:23.0.1"
-
-deployment:
-  image: "barcosystems/bareos-director:23.0.1"
-namespace: sbos-ops
-catalog_db: postgresql
-web_port: 9100

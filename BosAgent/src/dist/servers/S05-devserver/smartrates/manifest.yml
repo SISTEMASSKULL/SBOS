@@ -1,0 +1,41 @@
+# manifest.yml — Ficha smartrates (SBOS-005 §devserver)
+# SBOS-049 §4 · Order 184 · Deployment
+identity:
+  id: smartrates
+  version: "1.0"
+  category: 1
+  criticality: false
+  server: S05
+  description: "Dynamic pricing engine (MIT SKULL)"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 184
+
+requirements:
+  dependencies:
+    - postgresql
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+  # BLOQUEADO: imagen skull/* privada — requiere imagePullSecrets configurados.
+  auto_install: false
+  requires_approval: false
+health:
+  command: "curl -sf http://localhost:8080/health"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

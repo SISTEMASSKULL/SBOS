@@ -1,0 +1,75 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: docuseal-sa
+  namespace: sbos-docs
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: docuseal
+  namespace: sbos-docs
+spec:
+  clusterIP: None
+  selector:
+    app: docuseal
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: docuseal
+  namespace: sbos-docs
+spec:
+  serviceName: docuseal
+  replicas: 1
+  selector:
+    matchLabels:
+      app: docuseal
+  template:
+    metadata:
+      labels:
+        app: docuseal
+    spec:
+      serviceAccountName: docuseal-sa
+      containers:
+        - name: docuseal
+          image: docker.io/docuseal/docuseal:latest
+          ports:
+            - containerPort: 3000
+              name: http
+
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/docuseal
+          resources:
+            requests:
+              cpu: 50m
+              memory: "32Mi"
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+          livenessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: sbos-local-path
+        resources:
+          requests:
+            storage: 20Gi

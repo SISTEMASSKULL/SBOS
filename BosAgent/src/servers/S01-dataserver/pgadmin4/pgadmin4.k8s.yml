@@ -44,6 +44,13 @@ spec:
             - containerPort: 80
               name: http
 
+          env:
+            - name: PGADMIN_DEFAULT_EMAIL
+              value: "admin@sbos.app"
+            - name: PGADMIN_DEFAULT_PASSWORD
+              value: "sbos_admin_2024"
+            - name: PGADMIN_DISABLE_POSTFIX
+              value: "true"
           resources:
             requests:
               cpu: 50m
@@ -52,14 +59,12 @@ spec:
               cpu: 1000m
               memory: 512Mi
           livenessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: 80
             initialDelaySeconds: 30
             periodSeconds: 30
           readinessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: 80
             initialDelaySeconds: 10
             periodSeconds: 10

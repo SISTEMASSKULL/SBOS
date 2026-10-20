@@ -1,0 +1,38 @@
+# manifest.yml — Ficha trivy (SBOS-005 §opsserver)
+# SBOS-049 §4 · Order 388 · Deployment
+identity:
+  id: trivy
+  version: "0.55"
+  category: 1
+  criticality: false
+  server: S14
+  description: "CVE security scanning for containers and K8s"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 388
+
+requirements:
+  dependencies:
+
+
+
+deployment:
+  strategy: Recreate
+
+governance:
+  auto_install: false
+  requires_approval: false
+
+health:
+  command: "trivy --version"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

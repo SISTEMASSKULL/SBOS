@@ -1,0 +1,114 @@
+# onlyoffice.k8s.yml — OnlyOffice Document Server (editor colaborativo)
+# BC-11 · BOS-REPAIR-09 §5 · SBOS-052 · Order 358
+# Imagen: onlyoffice/documentserver:8.2 · Puerto: 80 · PVC 50Gi local-path
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: onlyoffice-sa
+  namespace: sbos-vdi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: onlyoffice
+  namespace: sbos-vdi
+  labels:
+    app: onlyoffice
+spec:
+  clusterIP: None
+  selector:
+    app: onlyoffice
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: onlyoffice
+  namespace: sbos-vdi
+  labels:
+    app: onlyoffice
+    app.kubernetes.io/part-of: sbos-vdi
+spec:
+  serviceName: onlyoffice
+  replicas: 1
+  selector:
+    matchLabels:
+      app: onlyoffice
+  template:
+    metadata:
+      labels:
+        app: onlyoffice
+    spec:
+      serviceAccountName: onlyoffice-sa
+      containers:
+        - name: onlyoffice
+          image: docker.io/onlyoffice/documentserver:8.2
+          ports:
+            - containerPort: 80
+              name: http
+          env:
+            - name: DB_TYPE
+              value: "postgres"
+            - name: DB_HOST
+              value: "postgresql.sbos-data.svc.cluster.local"
+            - name: DB_NAME
+              value: "onlyoffice_db"
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: onlyoffice-secret
+                  key: db-user
+            - name: DB_PWD
+              valueFrom:
+                secretKeyRef:
+                  name: onlyoffice-secret
+                  key: db-password
+            - name: JWT_ENABLED
+              value: "true"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: onlyoffice-secret
+                  key: jwt-secret
+            - name: JWT_HEADER
+              value: "Authorization"
+            - name: REDIS_SERVER_HOST
+              value: "redis.sbos-data.svc.cluster.local"
+            - name: REDIS_SERVER_PORT
+              value: "6379"
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/onlyoffice
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "32Mi"
+            limits:
+              cpu: "2000m"
+              memory: "2Gi"
+          readinessProbe:
+            httpGet:
+              path: /healthcheck
+              port: 80
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /healthcheck
+              port: 80
+            initialDelaySeconds: 120
+            periodSeconds: 30
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: sbos-local-path
+        resources:
+          requests:
+            storage: 50Gi

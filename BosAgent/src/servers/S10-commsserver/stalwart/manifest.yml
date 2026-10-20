@@ -5,32 +5,21 @@
 # Sin relay externo — sksistemas.com en Global Hosting con PTR configurado
 identity:
   id: stalwart
-  name: Stalwart Mail Server
   version: "1.0"
   category: 2
   criticality: true
-  server: commsserver
+  server: S10
   description: "Mail server unificado (SMTP + IMAP + POP3 + anti-spam). Reemplaza postfix/dovecot/spamassassin."
 
 workload:
   type: StatefulSet
-  namespace: sbos-comms
-  replicas: 1
-  service_account: stalwart-sa
 
 order:
   execution_order: 160
-  timeout_minutes: 15
 
 requirements:
   dependencies:
     - nginx
-  cpu_request: "1000m"
-  cpu_limit: "4000m"
-  memory_request: "2048Mi"
-  memory_limit: "8192Mi"
-  pvc_size: "100Gi"
-  pvc_storage_class: "standard"
 
 deployment:
   strategy: Recreate
@@ -38,14 +27,11 @@ deployment:
 governance:
   auto_install: true
   requires_approval: false
-  backup_enabled: true
-  backup_schedule: "0 3 * * *"
 
 health:
-  check_command: "curl -sf http://localhost:8080/health"
-  check_interval_seconds: 30
-  check_timeout_seconds: 10
-  consecutive_failures_threshold: 3
+  command: "curl -sf http://localhost:8080/health"
+  interval_seconds: 30
+  timeout_seconds: 10
 
 integrations:
   dns:
@@ -56,3 +42,9 @@ integrations:
     dmarc: true
   tls:
     certificate: "*.sksistemas.com wildcard via nginx/certbot"
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

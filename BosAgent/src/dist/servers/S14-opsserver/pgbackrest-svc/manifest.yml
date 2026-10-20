@@ -1,0 +1,40 @@
+# manifest.yml — Ficha pgbackrest-svc (SBOS-005 §opsserver)
+# SBOS-049 §4 · Order 400 · Deployment
+identity:
+  id: pgbackrest-svc
+  version: "2.52"
+  category: 1
+  criticality: true
+  server: S14
+  description: "PG backup PITR to MinIO, scheduling"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 400
+
+requirements:
+  dependencies:
+    - postgresql
+    - minio
+
+
+deployment:
+  strategy: Recreate
+
+governance:
+  auto_install: false
+  requires_approval: false
+
+health:
+  command: "pgbackrest version"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

@@ -1,5 +1,33 @@
 ---
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tryton-config
+  namespace: sbos-erp
+data:
+  trytond.conf: |
+    [database]
+    uri = postgresql://tryton:tryton_pass@postgresql.sbos-data.svc.cluster.local:5432/tryton_db
+    [web]
+    listen = *:8000
+    [session]
+    timeout = 600
+  DB_HOST: "postgresql.sbos-data.svc.cluster.local"
+  DB_PORT: "5432"
+  DB_NAME: "tryton_db"
+  DB_USER: "tryton"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tryton-pg-secret
+  namespace: sbos-erp
+type: Opaque
+stringData:
+  DB_PASSWORD: "tryton_pass"
+  TRYTOND_DATABASE_URI: "postgresql://tryton:tryton_pass@postgresql.sbos-data.svc.cluster.local:5432/tryton_db"
+---
+apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: tryton-sa
@@ -49,7 +77,7 @@ spec:
           resources:
             requests:
               cpu: 50m
-              memory: 512Mi
+              memory: "32Mi"
             limits:
               cpu: 2000m
               memory: 2Gi

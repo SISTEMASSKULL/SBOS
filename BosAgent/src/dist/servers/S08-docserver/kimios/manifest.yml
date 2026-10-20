@@ -1,0 +1,41 @@
+# manifest.yml — Ficha kimios (SBOS-005 §docserver)
+# SBOS-049 §4 · Order 305 · Deployment
+identity:
+  id: kimios
+  version: "1.3"
+  category: 1
+  criticality: false
+  server: S08
+  description: "Document BPM with workflows"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 305
+
+requirements:
+  dependencies:
+    - postgresql
+    - keycloak
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+  auto_install: false
+  requires_approval: false
+health:
+  command: "curl -sf http://localhost:8080/health"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

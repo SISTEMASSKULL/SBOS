@@ -1,0 +1,4 @@
+{{/* CEF template for Wazuh SIEM — Observabilidad-SBOS */}}
+{{ define "cef.message" -}}
+CEF:0|SKULL|SBOS|1.0|{{ .CommonLabels.alertname }}|{{ .CommonLabels.alertname }}|{{ .CommonLabels.severity }}|end={{ .StartsAt }} msg={{ .CommonAnnotations.description }} runbook={{ .CommonAnnotations.runbook }} component={{ .CommonLabels.component }}
+{{- end }}

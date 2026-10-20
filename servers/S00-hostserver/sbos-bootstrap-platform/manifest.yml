@@ -2,30 +2,21 @@
 # SBOS-049 §4 · Order 10 · Deployment
 identity:
   id: sbos-bootstrap-platform
-  name: SBOS Bootstrap Platform
   version: "1.0"
   category: 1
   criticality: true
-  server: hostserver
+  server: S-HOST
   description: "Namespaces, RBAC, StorageClasses, LimitRanges"
 
 workload:
   type: Deployment
-  namespace: sbos-installer
-  replicas: 1
-  service_account: sbos-bootstrap-platform-sa
 
 order:
   execution_order: 10
-  timeout_minutes: 30
 
 requirements:
   dependencies:
     - sbos-bootstrap-k8s
-  cpu_request: "100m"
-  cpu_limit: "500m"
-  memory_request: "128Mi"
-  memory_limit: "256Mi"
 
 
 deployment:
@@ -33,7 +24,6 @@ deployment:
 
 governance:
   auto_install: true
-  accion: INSTALAR
 
 
 health:

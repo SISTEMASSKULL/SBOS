@@ -1,0 +1,55 @@
+identity:
+  id: postgresql-extensions
+  server: S12
+  version: "1.0.0"
+  category: 2
+  criticality: true
+  description: "Extensiones avanzadas para PostgreSQL 18: PostGIS 3.5 (geoespacial), pg_cron 1.6 (jobs programados), pgvector 0.8 (embeddings IA), TimescaleDB 2.17 (series temporales), plpython3u (Python en PG), pg_partman (particionamiento automático)."
+
+workload:
+  type: job
+  runtime: kubernetes
+
+order:
+  execution_order: 78
+
+requirements:
+  dependencies:
+    - postgresql
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "infraestructura-datos"
+
+meta:
+  backend: k8s
+  idempotent: true
+  estimated_minutes: 10
+  rollback_support: false
+
+health:
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config exec -n sbos-data postgresql-0 -- psql -U postgres -c 'SELECT extname FROM pg_extension WHERE extname IN ($$postgis$$,$$pg_cron$$,$$vector$$,$$timescaledb$$);' 2>/dev/null | grep -c extname"
+  expected_output: "1"
+  timeout_seconds: 30
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/postgresql-extensions.log
+
+versions:
+  postgis: "3.5"
+  pg_cron: "1.6"
+  pgvector: "0.8"
+  timescaledb: "2.17"
+
+notes: |
+  Esta ficha instala extensiones dentro del pod PostgreSQL existente.
+  Requiere que la imagen PostgreSQL tenga las extensiones disponibles.
+  Si la imagen actual (postgres:18.4) no las tiene, esta ficha
+  reemplaza el StatefulSet con una imagen que sí las incluye:
+  timescale/timescaledb-ha:pg18.
+  IMPORTANTE: La imagen timescale/timescaledb-ha incluye PostGIS, pgvector,
+  pg_cron y TimescaleDB pre-instalados. Requiere migración de datos si
+  se cambia la imagen del pod existente.

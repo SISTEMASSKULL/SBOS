@@ -1,0 +1,41 @@
+# manifest.yml — Ficha rocketchat (SBOS-005 §commsserver)
+# SBOS-049 §4 · Order 340 · Deployment
+identity:
+  id: rocketchat
+  version: "6.12"
+  category: 1
+  criticality: false
+  server: S10
+  description: "Messaging: channels, video, files"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 340
+
+requirements:
+  dependencies:
+    - mongodb
+    - keycloak
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+  auto_install: false
+  requires_approval: false
+health:
+  command: "curl -sf http://localhost:3000/health"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

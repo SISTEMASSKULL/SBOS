@@ -1,0 +1,44 @@
+# manifest.yml — Ficha prometheus (SBOS-035 Ficha 14)
+# SBOS-049 §4 · Order 200 · StatefulSet
+identity:
+  id: prometheus
+  version: "3.5.0"
+  category: 1
+  criticality: true
+  server: S12
+  description: "Métricas y alertas — retención 90d, scrape 30s, SLO recording rules"
+
+workload:
+  type: StatefulSet
+
+order:
+  execution_order: 200
+
+requirements:
+  dependencies:
+    - network-validator
+
+deployment:
+  strategy: Recreate
+
+governance:
+  auto_install: true
+
+health:
+  command: "curl -sf http://localhost:9090/-/healthy"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+integrations:
+  alertmanager:
+    url: "http://alertmanager.sbos-monitor:9093"
+  datasources:
+    - name: Prometheus
+      type: prometheus
+      url: "http://prometheus.sbos-monitor:9090"
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

@@ -2,30 +2,21 @@
 # SBOS-049 §4 · Order 105 · Deployment
 identity:
   id: pgbouncer
-  name: PgBouncer
   version: "1.22"
   category: 1
   criticality: true
-  server: dataserver
+  server: S01
   description: "Connection pooler for PostgreSQL"
 
 workload:
   type: Deployment
-  namespace: sbos-data
-  replicas: 1
-  service_account: pgbouncer-sa
 
 order:
   execution_order: 105
-  timeout_minutes: 10
 
 requirements:
   dependencies:
     - postgresql
-  cpu_request: "100m"
-  cpu_limit: "500m"
-  memory_request: "128Mi"
-  memory_limit: "256Mi"
 
 
 deployment:
@@ -37,8 +28,13 @@ governance:
   auto_install: true
   requires_approval: false
 health:
-  check_command: "pg_isready -h localhost -p 6432"
-  check_interval_seconds: 30
-  check_timeout_seconds: 10
-  consecutive_failures_threshold: 3
+  command: "pg_isready -h localhost -p 6432"
+  interval_seconds: 30
+  timeout_seconds: 10
 
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

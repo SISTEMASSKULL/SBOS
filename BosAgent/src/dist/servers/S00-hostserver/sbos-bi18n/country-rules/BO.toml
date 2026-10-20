@@ -1,0 +1,28 @@
+[country]
+code = "BO"
+name = "Bolivia"
+name_local = "Estado Plurinacional de Bolivia"
+
+[locale]
+language = "es"
+region = "BO"
+bcp47 = "es-BO"
+timezone = "America/La_Paz"
+utc_offset = "-04:00"
+
+[format]
+date = "DD/MM/YYYY"
+time = "HH:mm"
+datetime = "DD/MM/YYYY HH:mm"
+decimal_separator = ","
+thousands_separator = "."
+currency_code = "BOB"
+currency_symbol = "Bs."
+currency_decimal_digits = 2
+
+[phone]
+country_code = "+591"
+national_prefix = "0"
+
+[address]
+format = "{street}\n{city}, {department}\n{postal_code}\nBolivia"

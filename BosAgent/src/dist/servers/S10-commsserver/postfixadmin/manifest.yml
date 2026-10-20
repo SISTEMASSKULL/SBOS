@@ -1,0 +1,41 @@
+# manifest.yml — Ficha postfixadmin (SBOS-005 §commsserver)
+# SBOS-049 §4 · Order 330 · Deployment
+identity:
+  id: postfixadmin
+  version: "3.3"
+  category: 1
+  criticality: false
+  server: S10
+  description: "Admin domains/mailboxes with OAuth2-Proxy"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 163
+
+requirements:
+  dependencies:
+    - postfix
+    - postgresql
+    - oauth2-proxy
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+  auto_install: true
+  requires_approval: false
+health:
+  command: "curl -sf http://localhost:80"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

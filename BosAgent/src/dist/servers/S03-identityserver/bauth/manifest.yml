@@ -1,0 +1,53 @@
+# manifest.yml — Ficha bauth (SBOS IAM Identity Control Plane)
+# BC-09 · Order 148 · SystemdService · servidor: identityserver
+identity:
+  id: bauth
+  version: "1.0"
+  category: 1
+  criticality: true
+  server: S03
+  description: "Daemon soberano de identidad — BitMask 64-bit, token unificado"
+
+workload:
+  type: bash
+  runtime: systemd
+
+order:
+  execution_order: 148
+
+requirements:
+  dependencies:
+    - postgresql
+    - keycloak
+    - vault
+    - kong
+
+ports:
+  - name: rpc
+    protocol: unix
+    path: /run/bauth/bauth.sock
+    description: "JSON-RPC 2.0 — consumido por bos, bhnexus, kong plugin"
+
+governance:
+  auto_install: true
+
+health:
+  command: "test -S /run/bauth/bauth.sock && echo OK"
+  interval_seconds: 30
+  timeout_seconds: 5
+
+integrations:
+  database:
+    schema: bauth
+    host_from: postgresql
+    dsn_env: BAUTH_PG_DSN
+  config_file: /etc/bos/bauth.toml
+  socket_dir: /tmp/bauth
+  socket_perms: "0660"
+  socket_group: bosagent
+
+meta:
+  backend: bash
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

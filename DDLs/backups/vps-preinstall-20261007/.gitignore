@@ -1,0 +1,3 @@
+# Los dumps .dump son binarios grandes — no versionar en git.
+# Mantenerlos localmente como respaldo.
+*.dump

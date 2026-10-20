@@ -1,0 +1,41 @@
+# manifest.yml — Ficha pg-partman (SBOS-005 §dataserver)
+# SBOS-049 §4 · Order 114 · Deployment
+identity:
+  id: pg-partman
+  version: "5.1"
+  category: 1
+  criticality: false
+  server: S01
+  description: "Automatic time-based partitioning"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 114
+
+requirements:
+  dependencies:
+    - postgresql
+    - timescaledb
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+  auto_install: true
+  requires_approval: false
+health:
+  command: "psql -h localhost -c 'SELECT pg_partman_version()'"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

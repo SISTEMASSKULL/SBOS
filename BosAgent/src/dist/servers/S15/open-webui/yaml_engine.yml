@@ -1,8 +1,0 @@
-# yaml_engine.yml — open-webui
-# image: "ghcr.io/open-webui/open-webui:v0.5.20"
-
-deployment:
-  image: "ghcr.io/open-webui/open-webui:v0.5.20"
-namespace: sbos-ai
-port: 8080
-ollama_url: "http://ollama:11434"

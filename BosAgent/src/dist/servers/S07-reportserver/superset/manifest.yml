@@ -1,0 +1,41 @@
+# manifest.yml — Ficha superset (SBOS-005 §reportserver)
+# SBOS-049 §4 · Order 286 · Deployment
+identity:
+  id: superset
+  version: "4.1"
+  category: 1
+  criticality: false
+  server: S07
+  description: "BI: visualizations, KPIs, dashboards"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 286
+
+requirements:
+  dependencies:
+    - postgresql
+    - keycloak
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+  auto_install: false
+  requires_approval: false
+health:
+  command: "curl -sf http://localhost:8088/health"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

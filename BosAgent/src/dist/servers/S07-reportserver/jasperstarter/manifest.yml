@@ -1,0 +1,40 @@
+# manifest.yml — Ficha jasperstarter (SBOS-005 §reportserver)
+# SBOS-049 §4 · Order 282 · Deployment
+identity:
+  id: jasperstarter
+  version: "3.6"
+  category: 1
+  criticality: false
+  server: S07
+  description: "Batch mass report generation"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 282
+
+requirements:
+  dependencies:
+    - jaspersoft
+
+
+deployment:
+  strategy: Recreate
+
+governance:
+
+
+  auto_install: true
+  requires_approval: false
+health:
+  command: "java -jar jasperstarter.jar --version"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

@@ -1,0 +1,45 @@
+# manifest.yml — Ficha nginx (SBOS-005 §gatewayserver)
+# SBOS-049 §3.1 · Orden 05 · PRIMERA ficha de aplicación
+# ★ Nginx es la puerta de entrada a todo el SBOS.
+# Sin nginx, ningún otro servicio tiene salida al exterior.
+identity:
+  id: nginx
+  version: "1.26"
+  category: 3
+  criticality: true
+  server: S02
+  description: "Reverse proxy, TLS termination, HTTP/2, wildcard cert via certbot, virtual hosts parametrizados"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 50
+
+requirements:
+  dependencies:
+    - network-validator
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+  auto_install: true
+
+health:
+  type: pods
+
+integrations:
+  certbot:
+    challenge: dns-01
+    provider: "${DNS_PROVIDER}"
+    email: "${LETSENCRYPT_EMAIL}"
+  virtual_hosts:
+    template_dir: "resources/nginx/"
+    variables: ["CLIENT_DOMAIN", "SERVICE_IP"]
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

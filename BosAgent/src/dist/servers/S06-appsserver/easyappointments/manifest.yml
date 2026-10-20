@@ -1,0 +1,40 @@
+# manifest.yml — Ficha easyappointments (SBOS-005 §appsserver)
+# SBOS-049 §4 · Order 220 · Deployment
+identity:
+  id: easyappointments
+  version: "1.5"
+  category: 1
+  criticality: false
+  server: S06
+  description: "Scheduling with CalDAV sync"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 220
+
+requirements:
+  dependencies:
+    - mysql
+    - oauth2-proxy
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+  auto_install: false
+  requires_approval: false
+health:
+  command: "curl -sf http://localhost:8080/health"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

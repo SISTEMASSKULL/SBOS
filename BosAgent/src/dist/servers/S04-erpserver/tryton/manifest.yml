@@ -1,0 +1,40 @@
+# manifest.yml — Ficha tryton (SBOS-005 §erpserver)
+# SBOS-049 §4 · Order 170 · StatefulSet
+identity:
+  id: tryton
+  version: "7.4"
+  category: 1
+  criticality: true
+  server: S04
+  description: "Accounting, inventory, sales. MDM hub via bKernel"
+
+workload:
+  type: StatefulSet
+
+order:
+  execution_order: 170
+
+requirements:
+  dependencies:
+    - postgresql
+    - keycloak
+    - stalwart
+
+deployment:
+  strategy: Recreate
+
+governance:
+  auto_install: true
+  requires_approval: false
+
+health:
+  command: "curl -sf http://localhost:8000/health"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

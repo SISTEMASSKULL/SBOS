@@ -14,17 +14,6 @@ order:
   execution_order: 1
 
 requirements:
-  requires_k8s: false
-  os: "Ubuntu 26.04 LTS"
-  os_strict: true             # solo 26.04 — 22.04 y 24.04 no aceptados
-  kernel_min: "6.8.0"         # kubeadm 1.32+ requiere ≥6.8
-  ram_min_mb: 16384           # 16 GB — K8s+PG+Redis+KC+Vault+Kong+daemons
-  ram_recommended_mb: 32768
-  disk_min_gb: 165            # Ubuntu(15)+K8s(45)+PG(40)+logs(20)+buffer(45)
-  disk_recommended_gb: 300
-  cpu_min: 8                  # K8s(2)+PG(2)+KC(2)+Kong(2)+daemons(2)
-  cpu_recommended: 16
-  ports_required:             # verificar disponibilidad antes de instalar
     - 9440                    # BOS REST
     - 9441                    # BOS WebSocket
     - 9442                    # BOS Prometheus
@@ -54,7 +43,6 @@ system_packages:
 
 governance:
   auto_install: true
-  accion: INSTALAR
   requires_approval: false
   category_label: "infraestructura-critica"
 

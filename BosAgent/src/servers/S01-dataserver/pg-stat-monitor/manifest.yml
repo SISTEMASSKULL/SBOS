@@ -2,29 +2,21 @@
 # SBOS-049 §4 · Order 116 · Deployment
 identity:
   id: pg-stat-monitor
-  name: pg_stat_monitor
   version: "2.0"
   category: 1
   criticality: false
-  server: dataserver
+  server: S01
   description: "Advanced query monitoring"
 
 workload:
   type: Job
-  namespace: sbos-data
-  service_account: pg-stat-monitor-sa
 
 order:
   execution_order: 116
-  timeout_minutes: 10
 
 requirements:
   dependencies:
     - postgresql
-  cpu_request: "100m"
-  cpu_limit: "500m"
-  memory_request: "128Mi"
-  memory_limit: "256Mi"
 
 
 deployment:
@@ -38,3 +30,9 @@ governance:
 health:
   type: none
 
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

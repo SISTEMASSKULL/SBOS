@@ -1,0 +1,38 @@
+# manifest.yml — Ficha dovecot (SBOS-005 §commsserver)
+# SBOS-049 §4 · Order 322 · StatefulSet
+identity:
+  id: dovecot
+  version: "2.4"
+  category: 1
+  criticality: true
+  server: S10
+  description: "IMAP/POP3 mailboxes with Maildir"
+
+workload:
+  type: StatefulSet
+
+order:
+  execution_order: 162
+
+requirements:
+  dependencies:
+    - postfix
+
+deployment:
+  strategy: Recreate
+
+governance:
+  auto_install: true
+  requires_approval: false
+
+health:
+  command: "dovecot --version"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

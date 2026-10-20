@@ -1,0 +1,37 @@
+# manifest.yml — Ficha sbos-package-manager (SBOS-005 §hostserver)
+# SBOS-049 §4 · Order 19 · Unified package manager
+identity:
+  id: sbos-package-manager
+  version: "1.0"
+  category: 1
+  criticality: true
+  server: S-HOST
+  description: "Multi-backend package manager: apt (system), pip (python), helm (kubernetes). Auto-generates fichas on install."
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 19
+
+requirements:
+  dependencies:
+    - sbos-repair
+
+
+deployment:
+  strategy: Recreate
+
+governance:
+  auto_install: false
+
+health:
+  command: "bosctl install --backend=apt --help 2>/dev/null | grep -q 'backend'"
+  interval_seconds: 600
+  timeout_seconds: 20
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

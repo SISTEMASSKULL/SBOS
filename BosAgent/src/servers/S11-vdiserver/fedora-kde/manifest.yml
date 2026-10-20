@@ -1,15 +1,13 @@
 identity:
   id: "fedora-kde"
-  name: "Fedora KDE — Escritorio Virtual Corporativo (SBOS VDI)"
   version: "1.0.0"
   server: "S13"
-  namespace: "sbos-vdi"
   category: 2
   criticality: true
 
 workload:
-  type: "kubernetes"
-  state: "prod"
+  type: Deployment
+  runtime: kubernetes
 
 order:
   execution_order: 230
@@ -20,11 +18,9 @@ parameters:
   FEDORA_RESOLUTION: "1920x1080"
 
 requirements:
-  ram_mb: 4096
-  cpu_cores: 4
-  disk_gb: 30
   dependencies:
     - keycloak
+    - stalwart
     - kong
     - guacamole
 
@@ -50,3 +46,9 @@ audit:
 
 compatibility:
   min_iam_installer_version: "1.0.0"
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

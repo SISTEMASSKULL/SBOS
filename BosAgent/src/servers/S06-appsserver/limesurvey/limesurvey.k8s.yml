@@ -16,8 +16,8 @@ spec:
     app: limesurvey
   ports:
     - name: http
-      port: 8080
-      targetPort: 8080
+      port: 80
+      targetPort: 80
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -39,9 +39,9 @@ spec:
       serviceAccountName: limesurvey-sa
       containers:
         - name: limesurvey
-          image: docker.io/limesurvey/limesurvey:6.5
+          image: docker.io/martialblog/limesurvey:6.2-apache
           ports:
-            - containerPort: 8080
+            - containerPort: 80
               name: http
 
           resources:
@@ -51,17 +51,28 @@ spec:
             limits:
               cpu: 1000m
               memory: 512Mi
+          env:
+            - name: DB_TYPE
+              value: "pgsql"
+            - name: DB_HOST
+              value: "postgresql.sbos-data.svc.cluster.local"
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              value: "limesurvey_db"
+            - name: DB_USERNAME
+              value: "limesurvey"
+            - name: DB_PASSWORD
+              value: "limesurvey_pass"
           livenessProbe:
-            httpGet:
-              path: /health
-              port: 8080
-            initialDelaySeconds: 30
+            tcpSocket:
+              port: 80
+            initialDelaySeconds: 60
             periodSeconds: 30
           readinessProbe:
-            httpGet:
-              path: /health
-              port: 8080
-            initialDelaySeconds: 10
+            tcpSocket:
+              port: 80
+            initialDelaySeconds: 30
             periodSeconds: 10
 
 

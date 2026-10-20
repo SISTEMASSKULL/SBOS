@@ -9,8 +9,6 @@ identity:
 workload:
   type: deployment
   runtime: kubernetes
-  namespace: sbos-docs
-  replicas: 1
 
 order:
   execution_order: 345
@@ -20,7 +18,7 @@ requirements:
     - postgresql
 
 governance:
-  auto_install: true
+  auto_install: false
   requires_approval: false
   category_label: "gestion-documental"
 

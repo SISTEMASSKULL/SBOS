@@ -1,0 +1,39 @@
+# manifest.yml — Ficha pgbackrest (SBOS-005 §dataserver)
+# SBOS-049 §4 · Order 108 · Deployment
+identity:
+  id: pgbackrest
+  version: "2.52"
+  category: 1
+  criticality: true
+  server: S01
+  description: "PITR backup from standby replica"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 108
+
+requirements:
+  dependencies:
+    - postgresql
+
+
+deployment:
+  strategy: Recreate
+
+governance:
+  auto_install: true
+  requires_approval: false
+
+health:
+  command: "pgbackrest version"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

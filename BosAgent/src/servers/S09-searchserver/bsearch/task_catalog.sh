@@ -7,6 +7,7 @@ set -euo pipefail
 
 BSEARCH_USER="${BSEARCH_USER:-bsearch}"
 BSEARCH_BIN_DST="${BSEARCH_BIN_DST:-/usr/local/bin/bsearch}"
+BSEARCH_BIN_SRC="${BSEARCH_BIN_SRC:-${SBOS_FICHA_DIR}/bin/bsearch}"
 BSEARCH_CONFIG_DST="${BSEARCH_CONFIG_DST:-/etc/bos/bsearch/bsearch.toml}"
 BSEARCH_SOCKET="${BSEARCH_SOCKET:-/run/bos/bsearch.sock}"
 BSEARCH_SERVICE="bsearch.service"
@@ -73,9 +74,10 @@ ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
 RestartSec=10s
 TimeoutStartSec=60
+Environment=DAEMON_NAME=bsearch
+Environment=DAEMON_SOCKET=/run/bos/bsearch.sock
 EnvironmentFile=-/etc/bos/bsearch/bsearch.env
-RuntimeDirectory=bos
-RuntimeDirectoryMode=0755
+ExecStartPre=+/bin/mkdir -p /run/bos
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true

@@ -1,0 +1,42 @@
+# manifest.yml — Ficha openmetadata (SBOS-005 §reportserver)
+# SBOS-049 §4 · Order 290 · Deployment
+identity:
+  id: openmetadata
+  version: "1.6"
+  category: 1
+  criticality: false
+  server: S07
+  description: "Data catalog, lineage"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 290
+
+requirements:
+  dependencies:
+    - postgresql
+    - airflow
+    - keycloak
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+  auto_install: true
+  requires_approval: false
+health:
+  command: "curl -sf http://localhost:8585/health"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

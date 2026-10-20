@@ -1,0 +1,39 @@
+# manifest.yml — Ficha sbos-bootstrap-os (SBOS-005 §hostserver)
+# SBOS-049 §4 · Order 1 · Deployment
+identity:
+  id: sbos-bootstrap-os
+  version: "1.0"
+  category: 1
+  criticality: true
+  server: S-HOST
+  description: "Hardening Ubuntu + CRI-O + kernel tuning"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 1
+
+requirements:
+  dependencies:
+
+
+
+deployment:
+  strategy: Recreate
+
+governance:
+  auto_install: true
+
+
+health:
+  command: "test -f /etc/sbos/.bootstrapped"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

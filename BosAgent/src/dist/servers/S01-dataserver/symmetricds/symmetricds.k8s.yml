@@ -1,0 +1,65 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: symmetricds-sa
+  namespace: sbos-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: symmetricds
+  namespace: sbos-data
+spec:
+  type: ClusterIP
+  selector:
+    app: symmetricds
+  ports:
+    - name: symds
+      port: 31415
+      targetPort: 31415
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: symmetricds
+  namespace: sbos-data
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: symmetricds
+  template:
+    metadata:
+      labels:
+        app: symmetricds
+    spec:
+      serviceAccountName: symmetricds-sa
+      containers:
+        - name: symmetricds
+          image: docker.io/jumpmind/symmetricds:3.15
+          ports:
+            - containerPort: 31415
+              name: symds
+
+          resources:
+            requests:
+              cpu: 50m
+              memory: "32Mi"
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          livenessProbe:
+            tcpSocket:
+              port: 31415
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          readinessProbe:
+            tcpSocket:
+              port: 31415
+            initialDelaySeconds: 30
+            periodSeconds: 10
+
+

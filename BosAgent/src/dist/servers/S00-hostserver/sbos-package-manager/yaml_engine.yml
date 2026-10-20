@@ -1,0 +1,39 @@
+# yaml_engine.yml — sbos-package-manager
+# Unified package manager parameters (R16: parametrizable, sin hardcode)
+
+backends:
+  apt:
+    enabled: true
+    install_cmd: "apt-get install -y -q"
+    remove_cmd: "apt-get remove -y -q"
+    upgrade_cmd: "apt-get install --only-upgrade -y -q"
+    version_cmd: "dpkg-query -W -f='${Version}'"
+    check_cmd: "dpkg-query -W -f='${Status}'"
+
+  pip:
+    enabled: true
+    install_cmd: "pip3 install"
+    remove_cmd: "pip3 uninstall -y"
+    upgrade_cmd: "pip3 install --upgrade"
+    version_cmd: "pip3 show"
+    check_cmd: "pip3 show"
+
+  helm:
+    enabled: false
+    install_cmd: "helm install"
+    remove_cmd: "helm uninstall"
+    upgrade_cmd: "helm upgrade"
+    version_cmd: "helm list -o json"
+    check_cmd: "helm status"
+    namespace: "default"
+
+ficha_generation:
+  enabled: true
+  blibs_dir: "/etc/bos/blibs/servers/hostserver"
+  prefix: "sbos-app-"
+  auto_install: false
+  category: 4
+
+audit:
+  log_path: /var/log/bos/package-manager.log
+  signal_prefix: "__SBOS__"

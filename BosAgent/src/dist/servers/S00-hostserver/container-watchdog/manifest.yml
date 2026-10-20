@@ -1,0 +1,43 @@
+# manifest.yml — Ficha container-watchdog (SBOS-005 §S12)
+# SBOS-049 §4 · Order 20 · Host
+# Watchdog de contenedor que monitorea salud de procesos sbos dentro del contenedor greenfield
+identity:
+  id: container-watchdog
+  version: "1.0.0"
+  category: 1
+  criticality: true
+  server: S-HOST
+  description: "Container-level watchdog — monitors bos daemon and core processes inside sbos-greenfield"
+
+workload:
+  type: bash
+  runtime: host
+
+order:
+  execution_order: 20
+
+requirements:
+  dependencies:
+    - sbos-lifecycle
+    - sbos-bootstrap-k8s
+
+deployment:
+  strategy: ""
+
+governance:
+  auto_install: true
+
+health:
+  command: "systemctl is-active bos"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+integrations:
+  exporters:
+    self_metrics: false
+
+meta:
+  backend: bash
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

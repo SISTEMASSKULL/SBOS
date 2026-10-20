@@ -2,31 +2,21 @@
 # SBOS-049 §4 · Order 5 · Deployment
 identity:
   id: sbos-bootstrap-k8s
-  name: SBOS Bootstrap K8s
   version: "1.0"
   category: 1
   criticality: true
-  server: hostserver
+  server: S-HOST
   description: "kubeadm init + Calico CNI + CRI-O runtime"
 
 workload:
   type: Deployment
-  namespace: sbos-installer
-  replicas: 1
-  service_account: sbos-bootstrap-k8s-sa
 
 order:
   execution_order: 5
-  timeout_minutes: 30
 
 requirements:
-  requires_k8s: false
   dependencies:
     - sbos-bootstrap-os
-  cpu_request: "100m"
-  cpu_limit: "500m"
-  memory_request: "128Mi"
-  memory_limit: "256Mi"
 
 
 deployment:
@@ -41,7 +31,6 @@ ports:
 
 governance:
   auto_install: true
-  accion: INSTALAR
 
 
 health:

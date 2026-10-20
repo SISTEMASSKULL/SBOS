@@ -1,0 +1,42 @@
+# manifest.yml — Ficha 06: Redis
+# SBOS-019 §9 · Order 110 · StatefulSet
+identity:
+  id: redis
+  version: "7.4"
+  category: 1
+  criticality: false
+  server: S01
+  description: "Redis para caché, colas de tareas y sesiones"
+
+workload:
+  type: StatefulSet
+
+order:
+  execution_order: 110
+
+requirements:
+  dependencies:
+    - network-validator
+
+deployment:
+  strategy: Recreate
+
+governance:
+  auto_install: true
+
+health:
+  command: "redis-cli ping"
+  interval_seconds: 30
+  timeout_seconds: 5
+
+integrations:
+  consumers:
+    - bkernel-agent
+    - bnexus-agent
+    - bos-agent
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

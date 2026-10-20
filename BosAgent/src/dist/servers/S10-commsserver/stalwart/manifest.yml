@@ -1,0 +1,50 @@
+# manifest.yml — Ficha Stalwart Mail Server
+# SBOS-005 §S10 · Orden 160 · StatefulSet
+# Reemplaza: postfix (MTA) + dovecot (IMAP/POP3) + spamassassin (anti-spam)
+# Imagen: stalwartlabs/stalwart (AGPLv3)
+# Sin relay externo — sksistemas.com en Global Hosting con PTR configurado
+identity:
+  id: stalwart
+  version: "1.0"
+  category: 2
+  criticality: true
+  server: S10
+  description: "Mail server unificado (SMTP + IMAP + POP3 + anti-spam). Reemplaza postfix/dovecot/spamassassin."
+
+workload:
+  type: StatefulSet
+
+order:
+  execution_order: 160
+
+requirements:
+  dependencies:
+    - nginx
+
+deployment:
+  strategy: Recreate
+
+governance:
+  auto_install: true
+  requires_approval: false
+
+health:
+  command: "curl -sf http://localhost:8080/health"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+integrations:
+  dns:
+    provider: "GLOBAL HOSTING"
+    ptr_record: "configurado por Global Hosting"
+    spf: "v=spf1 ip4:144.91.76.130 -all"
+    dkim: true
+    dmarc: true
+  tls:
+    certificate: "*.sksistemas.com wildcard via nginx/certbot"
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

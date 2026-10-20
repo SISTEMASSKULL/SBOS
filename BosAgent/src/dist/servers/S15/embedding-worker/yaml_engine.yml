@@ -1,9 +1,0 @@
-# yaml_engine.yml — embedding-worker
-# image: "sbos/embedding-worker:1.0.0"
-
-deployment:
-  image: "sbos/embedding-worker:1.0.0"
-namespace: sbos-ai
-port: 8090
-ollama_url: "http://ollama:11434"
-qdrant_url: "http://qdrant:6333"

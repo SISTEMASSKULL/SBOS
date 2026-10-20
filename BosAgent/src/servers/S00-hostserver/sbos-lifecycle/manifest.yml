@@ -2,31 +2,22 @@
 # SBOS-049 §4 · Order 15 · Systemd deployment
 identity:
   id: sbos-lifecycle
-  name: SBOS Lifecycle Manager
   version: "1.0"
   category: 1
   criticality: true
-  server: hostserver
+  server: S-HOST
   description: "BOS daemon as systemd service — watchdog, shutdown saga, startup reconcile"
 
 workload:
   type: Deployment
-  namespace: sbos-installer
-  replicas: 1
-  service_account: sbos-lifecycle-sa
 
 order:
   execution_order: 15
-  timeout_minutes: 10
 
 requirements:
   dependencies:
     - sbos-bootstrap-os
 
-  cpu_request: "50m"
-  cpu_limit: "200m"
-  memory_request: "64Mi"
-  memory_limit: "128Mi"
 
 deployment:
   strategy: Recreate
@@ -36,7 +27,12 @@ governance:
 
 health:
   type: command
-  check_command: "test -f /etc/systemd/system/bos.service && systemctl is-enabled --quiet bos.service"
-  check_interval_seconds: 30
-  check_timeout_seconds: 5
-  consecutive_failures_threshold: 3
+  command: "test -f /etc/systemd/system/bos.service && systemctl is-enabled --quiet bos.service"
+  interval_seconds: 30
+  timeout_seconds: 5
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

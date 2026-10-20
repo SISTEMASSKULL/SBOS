@@ -1,0 +1,82 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: openproject-sa
+  namespace: sbos-apps
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openproject
+  namespace: sbos-apps
+spec:
+  clusterIP: None
+  selector:
+    app: openproject
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: openproject
+  namespace: sbos-apps
+spec:
+  serviceName: openproject
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openproject
+  template:
+    metadata:
+      labels:
+        app: openproject
+    spec:
+      serviceAccountName: openproject-sa
+      containers:
+        - name: openproject
+          image: docker.io/openproject/openproject:14.2
+          ports:
+            - containerPort: 8080
+              name: http
+
+          env:
+            - name: DATABASE_URL
+              value: "postgresql://openproject:openproject_pass@postgresql.sbos-data.svc.cluster.local:5432/openproject_db"
+            - name: OPENPROJECT_RAILS__SERVE__STATIC__ASSETS
+              value: "true"
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/openproject
+          resources:
+            requests:
+              cpu: 50m
+              memory: "32Mi"
+            limits:
+              cpu: 2000m
+              memory: 6Gi
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 600
+            periodSeconds: 30
+            failureThreshold: 10
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 300
+            periodSeconds: 15
+            failureThreshold: 10
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: sbos-local-path
+        resources:
+          requests:
+            storage: 50Gi

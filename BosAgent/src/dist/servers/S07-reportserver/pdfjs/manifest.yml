@@ -1,0 +1,40 @@
+# manifest.yml — Ficha pdfjs (SBOS-005 §reportserver)
+# SBOS-049 §4 · Order 284 · Deployment
+identity:
+  id: pdfjs
+  version: "4.0"
+  category: 1
+  criticality: false
+  server: S07
+  description: "Embedded PDF viewer"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 284
+
+requirements:
+  dependencies:
+
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+  auto_install: true
+  requires_approval: false
+health:
+  command: "curl -sf http://localhost:8080"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

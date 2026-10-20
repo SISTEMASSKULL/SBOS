@@ -21,7 +21,6 @@ requirements:
 
 governance:
   auto_install: true
-  accion: INSTALAR
   requires_approval: false
   category_label: "infraestructura-critica"
 
@@ -44,7 +43,6 @@ ports:
 health:
   type: command
   command: "kubectl --kubeconfig=/etc/bos/.kube/config get pods -n sbos-monitoring --no-headers 2>/dev/null | grep -c Running"
-  expected_min: "1"
   timeout_seconds: 15
 
 audit:

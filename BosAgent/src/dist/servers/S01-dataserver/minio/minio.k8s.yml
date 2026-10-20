@@ -1,0 +1,124 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: minio-sa
+  namespace: sbos-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+  namespace: sbos-data
+spec:
+  clusterIP: None
+  selector:
+    app: minio
+  ports:
+    - name: api
+      port: 9000
+      targetPort: 9000
+    - name: console
+      port: 9001
+      targetPort: 9001
+---
+# minio: StatefulSet con initContainer que descarga el binario desde dl.min.io
+# Se usa alpine:3.20 (ya disponible en el nodo) para descargar el binario oficial
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: minio
+  namespace: sbos-data
+spec:
+  serviceName: minio
+  replicas: 1
+  selector:
+    matchLabels:
+      app: minio
+  template:
+    metadata:
+      labels:
+        app: minio
+    spec:
+      serviceAccountName: minio-sa
+      initContainers:
+        - name: download-minio
+          image: docker.io/library/alpine:3.20
+          command:
+            - /bin/sh
+            - -c
+            - |
+              if [ -f /shared/minio ]; then
+                echo "minio ya descargado, skip"
+                exit 0
+              fi
+              apk add --no-cache wget 2>/dev/null || true
+              # GitHub Releases es la fuente canónica desde que dl.min.io eliminó las URLs directas
+              wget -qO /shared/minio \
+                "https://github.com/minio/minio/releases/download/RELEASE.2024-11-07T00-52-20Z/minio"
+              chmod +x /shared/minio
+              echo "minio descargado: $(/shared/minio --version 2>/dev/null | head -1)"
+          volumeMounts:
+            - name: shared-bin
+              mountPath: /shared
+      containers:
+        - name: minio
+          image: docker.io/library/alpine:3.20
+          command:
+            - /bin/sh
+            - -c
+            - |
+              mkdir -p /data
+              exec /shared/minio server /data --console-address :9001
+          ports:
+            - containerPort: 9000
+              name: api
+            - containerPort: 9001
+              name: console
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: root-user
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: root-password
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: shared-bin
+              mountPath: /shared
+          resources:
+            requests:
+              cpu: 50m
+              memory: 512Mi
+            limits:
+              cpu: 2000m
+              memory: 4Gi
+          livenessProbe:
+            httpGet:
+              path: /minio/health/live
+              port: 9000
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /minio/health/ready
+              port: 9000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+      volumes:
+        - name: shared-bin
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: sbos-local-path
+        resources:
+          requests:
+            storage: 50Gi

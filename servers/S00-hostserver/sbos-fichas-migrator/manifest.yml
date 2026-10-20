@@ -1,6 +1,5 @@
 identity:
   id: sbos-fichas-migrator
-  name: "SBOS Fichas Migrator"
   version: "1.0.0"
   server: S-HOST
   category: 1
@@ -18,7 +17,6 @@ order:
 
 governance:
   auto_install: true
-  accion: INSTALAR
   requires_approval: false
   category_label: "infraestructura"
 

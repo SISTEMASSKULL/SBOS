@@ -1,0 +1,186 @@
+// Grafana Alloy — Observabilidad-SBOS
+// Stack: S12 monitorserver · Reemplaza Promtail
+// Recolecta logs: journald (systemd daemons) + archivos de agente → Loki
+//
+// Referencia: SBOS-005-STACK.md §S12, SBOS-032-OPERATIONS.md
+
+// ─────────────────────────────────────────────
+// Log collection: journald — daemons soberanos
+// ─────────────────────────────────────────────
+
+loki.source.journald "sbos_daemons" {
+  format_as_json = false
+  max_age        = "4h"
+  relabel_rules {
+    // Keep only SBOS sovereign daemon units
+    source_labels = ["__journal__systemd_unit"]
+    regex         = "(bos|bkernel|biedata|bauth|bhnexus|banexus)\\.service"
+    action        = "keep"
+  }
+  labels = {
+    job  = "sbos-daemons",
+    tier = "sovereign",
+  }
+  forward_to = [loki.process.parse_syslog.receiver]
+}
+
+// ─────────────────────────────────────────────
+// Log collection: journald — infra crítica
+// ─────────────────────────────────────────────
+
+loki.source.journald "sbos_infra" {
+  format_as_json = false
+  max_age        = "2h"
+  relabel_rules {
+    source_labels = ["__journal__systemd_unit"]
+    regex         = "(postgresql|redis|keycloak|prometheus|alertmanager|grafana|alloy|nginx|kong)\\.service"
+    action        = "keep"
+  }
+  labels = {
+    job  = "sbos-infra",
+    tier = "infrastructure",
+  }
+  forward_to = [loki.process.parse_syslog.receiver]
+}
+
+// ─────────────────────────────────────────────
+// Log collection: archivos de agente (fallback)
+// Los logs escritos a disco por agentes que no usan journald
+// ─────────────────────────────────────────────
+
+loki.source.file "agent_logs" {
+  targets = [
+    {__path__ = "/var/log/sbos/bos/*.log",     job = "bos-agent",     daemon = "bos"},
+    {__path__ = "/var/log/sbos/bauth/*.log",   job = "bauth-agent",   daemon = "bauth"},
+    {__path__ = "/var/log/sbos/bkernel/*.log", job = "bkernel-agent", daemon = "bkernel"},
+    {__path__ = "/var/log/sbos/biedata/*.log", job = "biedata-agent", daemon = "biedata"},
+    {__path__ = "/var/log/sbos/bhnexus/*.log", job = "bhnexus-agent", daemon = "bhnexus"},
+    {__path__ = "/var/log/sbos/banexus/*.log", job = "banexus-agent", daemon = "banexus"},
+  ]
+  forward_to = [loki.process.parse_agent_logs.receiver]
+}
+
+// ─────────────────────────────────────────────
+// Process: parse syslog/journald entries
+// ─────────────────────────────────────────────
+
+loki.process "parse_syslog" {
+  // Extract severity from journald priority
+  stage.match {
+    selector = "{job=~\"sbos-daemons|sbos-infra\"}"
+    stage.static_labels {
+      values = {
+        source = "journald",
+      }
+    }
+  }
+
+  // Forward to Loki write
+  forward_to = [loki.write.loki.receiver]
+}
+
+// ─────────────────────────────────────────────
+// Process: parse agent file logs
+// ─────────────────────────────────────────────
+
+loki.process "parse_agent_logs" {
+  // Parse zerolog JSON format (used by bos-agent, bauth-agent, bintelligence-agent)
+  stage.json {
+    expressions = {
+      level      = "level",
+      message    = "message",
+      time       = "time",
+      component  = "component",
+      error      = "error",
+      request_id = "request_id",
+    }
+  }
+
+  // Set severity label from zerolog level
+  stage.labels {
+    values = {
+      level = "",       // Drop level from log line, keep as label
+    }
+  }
+
+  // Parse bkernel/biedata Rust log format (tracing/span format)
+  stage.regex {
+    expression = "^(?P<timestamp>[0-9T:+\\.-]+)\\s+(?P<level>\\w+)\\s+(?P<target>[^:]+):\\s+(?P<message>.*)$"
+  }
+
+  stage.timestamp {
+    source = "time"
+    format = "RFC3339"
+  }
+
+  stage.static_labels {
+    values = {
+      source = "file",
+    }
+  }
+
+  forward_to = [loki.write.loki.receiver]
+}
+
+// ─────────────────────────────────────────────
+// Log filtering: drop debug noise in production
+// ─────────────────────────────────────────────
+
+loki.process "filter_noise" {
+  // Drop debug-level logs from non-critical components
+  stage.drop {
+    source = ""
+    expression = ".*DEBUG.*health.*"
+    drop_counter_reason = "debug_health_poll"
+  }
+
+  forward_to = [loki.write.loki.receiver]
+}
+
+// ─────────────────────────────────────────────
+// Export: Loki
+// ─────────────────────────────────────────────
+
+loki.write "loki" {
+  endpoint {
+    url = "http://localhost:3100/loki/api/v1/push"
+
+    // Retry on transient failures
+    min_backoff = "500ms"
+    max_backoff = "5m"
+    max_retries = 5
+  }
+  external_labels = {
+    cluster     = "sbos",
+    environment = "production",
+    collector   = "alloy",
+  }
+}
+
+// ─────────────────────────────────────────────
+// Self-observability
+// ─────────────────────────────────────────────
+
+prometheus.exporter.self "alloy_self" {}
+
+prometheus.scrape "alloy_metrics" {
+  targets    = prometheus.exporter.self.alloy_self.targets
+  forward_to = [prometheus.remote_write.local.receiver]
+}
+
+prometheus.remote_write "local" {
+  endpoint {
+    url = "http://localhost:9090/api/v1/write"
+  }
+}
+
+// ─────────────────────────────────────────────
+// Live debugging (development only)
+// ─────────────────────────────────────────────
+// Descomentar para ver líneas en consola durante troubleshooting:
+//
+// loki.write "console" {
+//   endpoint {
+//     url = "loki://localhost:0"
+//   }
+// }

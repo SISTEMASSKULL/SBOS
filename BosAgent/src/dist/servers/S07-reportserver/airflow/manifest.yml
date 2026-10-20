@@ -1,0 +1,41 @@
+# manifest.yml — Ficha airflow (SBOS-005 §reportserver)
+# SBOS-049 §4 · Order 288 · Deployment
+identity:
+  id: airflow
+  version: "2.10"
+  category: 1
+  criticality: false
+  server: S07
+  description: "ETL DAGs, syncs, pipelines"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 288
+
+requirements:
+  dependencies:
+    - postgresql
+    - redis
+    - keycloak
+
+deployment:
+  strategy: Recreate
+
+governance:
+
+
+  auto_install: false
+  requires_approval: false
+health:
+  command: "curl -sf http://localhost:8080/health"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

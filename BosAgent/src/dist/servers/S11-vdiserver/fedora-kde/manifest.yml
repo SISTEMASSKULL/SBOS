@@ -1,0 +1,54 @@
+identity:
+  id: "fedora-kde"
+  version: "1.0.0"
+  server: "S13"
+  category: 2
+  criticality: true
+
+workload:
+  type: Deployment
+  runtime: kubernetes
+
+order:
+  execution_order: 230
+
+parameters:
+  FEDORA_VNC_PORT: "5900"
+  FEDORA_NOVNC_PORT: "6080"
+  FEDORA_RESOLUTION: "1920x1080"
+
+requirements:
+  dependencies:
+    - keycloak
+    - stalwart
+    - kong
+    - guacamole
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "vdi-escritorio"
+
+deployment:
+  namespace: "sbos-vdi"
+  workload_type: "Deployment"
+  k8s_manifest: "fedora-kde.k8s.yml"
+
+health:
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get pods -n sbos-vdi -l app=fedora-kde --no-headers 2>/dev/null | grep -c Running"
+  expected_output: "1"
+  timeout_seconds: 30
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/fedora-kde.log
+
+compatibility:
+  min_iam_installer_version: "1.0.0"
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

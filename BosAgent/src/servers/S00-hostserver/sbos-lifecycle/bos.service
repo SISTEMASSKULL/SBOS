@@ -9,7 +9,6 @@ StartLimitIntervalSec=300
 [Service]
 Type=notify
 NotifyAccess=all
-EnvironmentFile=-/etc/bos/bos.env
 ExecStart=/opt/bos/bin/bos --config /etc/bos/bos.toml
 Restart=on-failure
 RestartSec=10

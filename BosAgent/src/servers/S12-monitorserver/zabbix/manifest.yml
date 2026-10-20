@@ -9,8 +9,6 @@ identity:
 workload:
   type: deployment
   runtime: kubernetes
-  namespace: sbos-monitor
-  replicas: 1
 
 order:
   execution_order: 225

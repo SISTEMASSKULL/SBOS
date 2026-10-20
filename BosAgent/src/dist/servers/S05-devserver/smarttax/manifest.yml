@@ -1,0 +1,41 @@
+# manifest.yml — Ficha smarttax (SBOS-005 §devserver)
+# SBOS-049 §4 · Order 180 · Deployment
+identity:
+  id: smarttax
+  version: "1.0"
+  category: 1
+  criticality: false
+  server: S05
+  description: "Tax compliance BO/AR/MX (MIT SKULL)"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 180
+
+requirements:
+  dependencies:
+    - postgresql
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+  # BLOQUEADO: imagen skull/* privada — requiere imagePullSecrets configurados.
+  auto_install: false
+  requires_approval: false
+health:
+  command: "curl -sf http://localhost:8080/health"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

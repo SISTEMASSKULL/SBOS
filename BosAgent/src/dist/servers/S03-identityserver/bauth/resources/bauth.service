@@ -1,0 +1,28 @@
+[Unit]
+Description=bAuth Identity Control Plane
+Documentation=https://sbos.app/docs/bauth
+After=network.target postgresql.service
+Wants=network.target
+
+[Service]
+Type=simple
+User=bauth
+Group=bosagent
+WorkingDirectory=/opt/bauth
+ExecStart=/usr/local/bin/bauth
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=bauth
+
+# Socket dir — creado por pre_install
+RuntimeDirectory=bauth
+RuntimeDirectoryMode=0770
+
+# Variables de entorno — valores reales inyectados por BOS en instalación
+EnvironmentFile=-/etc/bos/bauth.env
+
+[Install]
+WantedBy=multi-user.target

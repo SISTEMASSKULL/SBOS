@@ -2,32 +2,22 @@
 # BC-10 · Order 149 · SystemdService · servidor: gatewayserver
 identity:
   id: banexus
-  name: bNexus Agent
   version: "1.0"
   category: 1
   criticality: false
-  server: gatewayserver
+  server: S02
   description: "Daemon centinela edge — se conecta a bhnexus en modo agente, reporta estado del hardware local"
 
 workload:
-  type: SystemdService
-  host: true
-  binary: /usr/local/bin/banexus
-  service_unit: resources/banexus.service
-  user: root
-  working_dir: /etc/banexus
+  type: bash
+  runtime: systemd
 
 order:
   execution_order: 149
-  timeout_minutes: 5
 
 requirements:
   dependencies:
     - bhnexus
-  cpu_request: "50m"
-  cpu_limit: "200m"
-  memory_request: "8Mi"
-  memory_limit: "64Mi"
 
 ports:
   - name: agente
@@ -39,15 +29,11 @@ ports:
 
 governance:
   auto_install: false
-  backup_enabled: false
-  encryption_required: true
 
 health:
-  check_command: "systemctl is-active banexus.service"
-  check_interval_seconds: 30
-  check_timeout_seconds: 5
-  consecutive_failures_threshold: 3
-  initial_delay_seconds: 5
+  command: "systemctl is-active banexus.service"
+  interval_seconds: 30
+  timeout_seconds: 5
 
 integrations:
   bhnexus:
@@ -57,3 +43,9 @@ integrations:
     mode: mutual_client
     cert_env: BANEXUS_CLIENT_CERT
     key_env: BANEXUS_CLIENT_KEY
+
+meta:
+  backend: bash
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

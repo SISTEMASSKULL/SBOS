@@ -17,7 +17,7 @@ spec:
   ports:
     - name: http
       port: 80
-      targetPort: 80
+      targetPort: 8080
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -39,28 +39,26 @@ spec:
       serviceAccountName: modsecurity-sa
       containers:
         - name: modsecurity
-          image: docker.io/owasp/modsecurity-crs:4.7-nginx
+          image: docker.io/owasp/modsecurity-crs:nginx-alpine
           ports:
-            - containerPort: 80
+            - containerPort: 8080
               name: http
 
           resources:
             requests:
               cpu: 50m
-              memory: 256Mi
+              memory: "32Mi"
             limits:
               cpu: 1000m
               memory: 512Mi
           livenessProbe:
-            httpGet:
-              path: /health
-              port: 80
+            tcpSocket:
+              port: 8080
             initialDelaySeconds: 30
             periodSeconds: 30
           readinessProbe:
-            httpGet:
-              path: /health
-              port: 80
+            tcpSocket:
+              port: 8080
             initialDelaySeconds: 10
             periodSeconds: 10
 

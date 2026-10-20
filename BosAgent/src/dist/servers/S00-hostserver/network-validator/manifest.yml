@@ -1,0 +1,35 @@
+# manifest.yml — Ficha network-validator (SBOS-005 §hostserver)
+# SBOS-049 §4 · Order 15 · host_script
+identity:
+  id: network-validator
+  version: "1.0"
+  category: 1
+  criticality: true
+  server: S-HOST
+  description: "Validates CNI, DNS, service mesh prerequisites"
+
+workload:
+  type: bash
+
+order:
+  execution_order: 15
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-platform
+
+
+governance:
+  auto_install: true
+
+
+health:
+  type: command
+  command: "KUBECONFIG=/etc/kubernetes/admin.conf kubectl get pods -n kube-system -l k8s-app=kube-dns --no-headers 2>/dev/null | grep -q Running && echo HEALTHY"
+  timeout_seconds: 10
+
+meta:
+  backend: bash
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

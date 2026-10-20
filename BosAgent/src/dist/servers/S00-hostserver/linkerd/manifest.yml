@@ -1,0 +1,41 @@
+# manifest.yml — Ficha linkerd (SBOS-005 §hostserver)
+# SBOS-049 §4 · Order 150 · DaemonSet
+identity:
+  id: linkerd
+  version: "2.16"
+  category: 1
+  criticality: true
+  server: S-HOST
+  description: "Automatic mTLS between pods, zero-trust inter-namespace"
+
+workload:
+  type: DaemonSet
+
+order:
+  execution_order: 150
+
+requirements:
+  dependencies:
+    - network-validator
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+  auto_install: false
+  requires_approval: true
+  category_label: "service-mesh-critica"
+
+
+health:
+  command: "linkerd check"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

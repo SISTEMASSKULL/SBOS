@@ -1,0 +1,54 @@
+identity:
+  id: loki
+  server: S12
+  version: "3.4.3"
+  category: 1
+  criticality: true
+  description: "Grafana Loki 3.4.3 — agregación de logs. Recibe logs de Alloy, los indexa y los sirve a Grafana. Stack de observabilidad soberano."
+
+workload:
+  type: statefulset
+  runtime: kubernetes
+
+order:
+  execution_order: 215
+
+requirements:
+  dependencies:
+    - prometheus
+    - grafana
+    - minio
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "observabilidad"
+
+meta:
+  backend: k8s
+  idempotent: true
+  estimated_minutes: 8
+  rollback_support: true
+
+ports:
+  - name: http
+    port: 3100
+    protocol: TCP
+    internal_only: true
+  - name: grpc
+    port: 9095
+    protocol: TCP
+    internal_only: true
+
+health:
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get statefulset loki -n sbos-monitor -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
+  expected_output: "1"
+  timeout_seconds: 30
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/loki.log
+
+versions:
+  loki: "3.4.3"

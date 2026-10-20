@@ -1,0 +1,40 @@
+# manifest.yml — Ficha vaultwarden (SBOS-005 §appsserver)
+# SBOS-049 §4 · Order 275 · StatefulSet
+identity:
+  id: vaultwarden
+  version: "1.32"
+  category: 1
+  criticality: true
+  server: S06
+  description: "Corporate password manager, Bitwarden-compatible"
+
+workload:
+  type: StatefulSet
+
+order:
+  execution_order: 275
+
+requirements:
+  dependencies:
+    - postgresql
+    - keycloak
+
+deployment:
+  strategy: Recreate
+
+governance:
+
+
+  auto_install: true
+  requires_approval: false
+health:
+  command: "curl -sf http://localhost:8080/health"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

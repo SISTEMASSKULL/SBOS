@@ -9,8 +9,6 @@ identity:
 workload:
   type: statefulset
   runtime: kubernetes
-  namespace: sbos-monitor
-  replicas: 1
 
 order:
   execution_order: 215
@@ -20,11 +18,9 @@ requirements:
     - prometheus
     - grafana
     - minio
-  memory_request: "512Mi"
 
 governance:
   auto_install: true
-  accion: INSTALAR
   requires_approval: false
   category_label: "observabilidad"
 

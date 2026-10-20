@@ -9,8 +9,6 @@ identity:
 workload:
   type: deployment
   runtime: kubernetes
-  namespace: sbos-erp
-  replicas: 2
 
 order:
   execution_order: 175
@@ -18,11 +16,9 @@ order:
 requirements:
   dependencies:
     - tryton
-  memory_request: "512Mi"
 
 governance:
   auto_install: true
-  accion: INSTALAR
   requires_approval: false
   category_label: "aplicacion-erp"
 

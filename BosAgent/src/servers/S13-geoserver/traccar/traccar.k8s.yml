@@ -47,21 +47,21 @@ spec:
           resources:
             requests:
               cpu: 50m
-              memory: 256Mi
+              memory: "32Mi"
             limits:
               cpu: 1000m
-              memory: 512Mi
+              memory: 2Gi
           livenessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
+              port: 8082
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            failureThreshold: 5
+          readinessProbe:
+            tcpSocket:
               port: 8082
             initialDelaySeconds: 30
-            periodSeconds: 30
-          readinessProbe:
-            httpGet:
-              path: /health
-              port: 8082
-            initialDelaySeconds: 10
-            periodSeconds: 10
+            periodSeconds: 15
+            failureThreshold: 5
 
 

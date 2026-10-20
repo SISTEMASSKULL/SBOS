@@ -39,7 +39,7 @@ spec:
       serviceAccountName: flowise-sa
       containers:
         - name: flowise
-          image: docker.io/flowiseai/flowise:2.1
+          image: docker.io/flowiseai/flowise:2.0.7
           ports:
             - containerPort: 3000
               name: http
@@ -47,19 +47,17 @@ spec:
           resources:
             requests:
               cpu: 50m
-              memory: 256Mi
+              memory: "32Mi"
             limits:
               cpu: 1000m
               memory: 512Mi
           livenessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: 3000
             initialDelaySeconds: 30
             periodSeconds: 30
           readinessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: 3000
             initialDelaySeconds: 10
             periodSeconds: 10

@@ -15,14 +15,11 @@ requirements:
 
 governance:
   auto_install: false
-  accion: INSTALAR
   requires_approval: false
   category_label: "seguridad-critica"
-  backup_required: false
 
 health:
   type: bash
-  runtime: host
   command: "kubectl --kubeconfig=/etc/bos/.kube/config get cronjob vault-unsealer -n sbos-security --no-headers 2>/dev/null | grep -q vault-unsealer"
   timeout_seconds: 15
 

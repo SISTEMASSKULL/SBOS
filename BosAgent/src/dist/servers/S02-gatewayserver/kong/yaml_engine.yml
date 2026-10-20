@@ -1,0 +1,51 @@
+# yaml_engine.yml — Kong Gateway 3.9 lifecycle phases
+# SBOS-019 §9 · Order 145 · Deployment
+# R16 Zero hardcoding
+
+pre_install:
+  - name: "create_namespace"
+    command: "kubectl create namespace sbos-gateway --dry-run=client -o yaml | kubectl apply -f -"
+    timeout_seconds: 30
+  - name: "apply_network_policy"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/kong.network -n sbos-gateway"
+    timeout_seconds: 30
+  - name: "run_migrations"
+    command: "kubectl run kong-migrations --image=kong:3.9 --restart=Never -n sbos-gateway -- kong migrations bootstrap --v 2>/dev/null || true"
+    timeout_seconds: 120
+
+install:
+  - name: "apply_deployment"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/kong.k8s.yml -n sbos-gateway"
+    timeout_seconds: 300
+  - name: "wait_ready"
+    command: "kubectl wait --for=condition=Available deployment/kong -n sbos-gateway --timeout=600s"
+    timeout_seconds: 600
+  - name: "verify_admin_api"
+    command: "kubectl exec deploy/kong -n sbos-gateway -- curl -sf http://localhost:8001/status"
+    timeout_seconds: 30
+
+post_install:
+  - name: "configure_oidc_plugin"
+    command: "kubectl exec deploy/kong -n sbos-gateway -- curl -sf -X POST http://localhost:8001/plugins -d 'name=oidc' -d 'config.client_id=kong' -d 'config.discovery=http://keycloak.sbos-identity:9000/realms/skbos/.well-known/openid-configuration'"
+    timeout_seconds: 60
+  - name: "verify_proxy_ports"
+    command: "kubectl exec deploy/kong -n sbos-gateway -- curl -sf http://localhost:8000/ 2>&1 | grep -q 'no Route' || true"
+    timeout_seconds: 30
+
+update:
+  - name: "rolling_update"
+    command: "kubectl rollout restart deployment kong -n sbos-gateway"
+    timeout_seconds: 300
+
+repair:
+  - name: "restart_deployment"
+    command: "kubectl rollout restart deployment kong -n sbos-gateway"
+    timeout_seconds: 120
+
+uninstall:
+  - name: "delete_deployment"
+    command: "kubectl delete deployment kong -n sbos-gateway --ignore-not-found"
+    timeout_seconds: 120
+  - name: "delete_service"
+    command: "kubectl delete service kong -n sbos-gateway --ignore-not-found"
+    timeout_seconds: 30

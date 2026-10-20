@@ -1,0 +1,40 @@
+# manifest.yml — Ficha velero (SBOS-005 §opsserver)
+# SBOS-049 §4 · Order 395 · Deployment
+identity:
+  id: velero
+  version: "1.14"
+  category: 1
+  criticality: true
+  server: S14
+  description: "K8s disaster recovery snapshots to MinIO"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 395
+
+requirements:
+  dependencies:
+    - minio
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+  auto_install: false
+  requires_approval: false
+health:
+  command: "velero version"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

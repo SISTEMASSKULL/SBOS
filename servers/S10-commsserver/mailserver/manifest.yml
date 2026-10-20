@@ -9,8 +9,6 @@ identity:
 workload:
   type: statefulset
   runtime: kubernetes
-  namespace: sbos-comms
-  replicas: 1
 
 order:
   execution_order: 300
@@ -23,7 +21,6 @@ requirements:
 
 governance:
   auto_install: false
-  accion: INSTALAR
   requires_approval: true
   category_label: "comunicaciones"
 

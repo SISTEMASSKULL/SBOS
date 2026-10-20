@@ -28,8 +28,17 @@ ficha_pre_install() {
 ficha_install() {
     echo "${__SBOS__STEP_START__} install"
 
-    [[ -x "${BANEXUS_BIN}" ]] || \
-        { echo "ERROR: binario ${BANEXUS_BIN} no encontrado — descargar via bosctl release pull" >&2; return 1; }
+    # Si el binario no está instalado, intentar desde la ficha (stub o release)
+    if [[ ! -x "${BANEXUS_BIN}" ]]; then
+        local stub_src="${SBOS_FICHA_DIR}/bin/banexus"
+        if [[ -f "${stub_src}" ]]; then
+            cp "${stub_src}" "${BANEXUS_BIN}"
+            chmod 755 "${BANEXUS_BIN}"
+        else
+            echo "ERROR: binario ${BANEXUS_BIN} no encontrado — descargar via bosctl release pull" >&2
+            return 1
+        fi
+    fi
 
     # Unit systemd
     cp "${SBOS_FICHA_DIR}/resources/banexus.service" "${BANEXUS_UNIT}"

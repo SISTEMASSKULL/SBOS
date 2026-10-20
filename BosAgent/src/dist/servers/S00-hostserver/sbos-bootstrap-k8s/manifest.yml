@@ -1,0 +1,46 @@
+# manifest.yml — Ficha sbos-bootstrap-k8s (SBOS-005 §hostserver)
+# SBOS-049 §4 · Order 5 · Deployment
+identity:
+  id: sbos-bootstrap-k8s
+  version: "1.0"
+  category: 1
+  criticality: true
+  server: S-HOST
+  description: "kubeadm init + Calico CNI + CRI-O runtime"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 5
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-os
+
+
+deployment:
+  strategy: Recreate
+
+ports:
+  host_ports:
+    - 6443   # kube-apiserver
+    - 2379   # etcd client
+    - 2380   # etcd peer
+    - 10250  # kubelet
+
+governance:
+  auto_install: true
+
+
+health:
+  type: command
+  command: "KUBECONFIG=/etc/kubernetes/admin.conf kubectl get nodes --no-headers 2>/dev/null | grep -q Ready && echo HEALTHY"
+  timeout_seconds: 15
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

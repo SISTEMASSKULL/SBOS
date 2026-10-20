@@ -1,0 +1,55 @@
+identity:
+  id: trilium-notes
+  server: S08
+  version: "0.63.7"
+  category: 2
+  criticality: false
+  description: "Trilium Notes 0.63.7 — base de conocimiento personal y corporativa con notas jerárquicas, scripting, cifrado extremo a extremo y wiki interna."
+
+workload:
+  type: deployment
+  runtime: kubernetes
+
+order:
+  execution_order: 360
+
+requirements:
+  dependencies:
+    - postgresql
+    - kong
+
+governance:
+  auto_install: false
+  requires_approval: false
+  category_label: "gestion-conocimiento"
+
+meta:
+  backend: k8s
+  idempotent: true
+  estimated_minutes: 8
+  rollback_support: true
+
+ports:
+  - name: http
+    port: 8080
+    protocol: TCP
+    internal_only: false
+
+health:
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get deployment trilium-notes -n sbos-collab -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
+  expected_output: "1"
+  timeout_seconds: 30
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/trilium-notes.log
+
+vault:
+  secret_path: "secret/tenants/{{ tenant_id }}/trilium-notes"
+  keys:
+    - db_password
+    - jwt_secret
+
+versions:
+  trilium: "0.63.7"

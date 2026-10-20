@@ -1,0 +1,26 @@
+# SLO Targets — SKULL Operator
+# Fuente: SBOS-INSTALACION-FORMULARIO.md §11
+# SLO disponibilidad objetivo: 99.9%
+
+slos:
+  system:
+    target: "99.9"
+    error_budget_monthly_minutes: 43.8
+  postgresql:
+    target: "99.99"
+    error_budget_monthly_minutes: 4.3
+  keycloak:
+    target: "99.99"
+    error_budget_monthly_minutes: 4.3
+  bkernel:
+    target: "99.95"
+    error_budget_monthly_minutes: 21.9
+
+retention:
+  metrics_days: 90
+  scrape_interval_seconds: 30
+
+alerting:
+  critical_email: "grafana@sksistemas.com"
+  slack_channel: "#sbos-alerts-critical"
+  slack_webhook: "${SLACK_WEBHOOK_URL}"

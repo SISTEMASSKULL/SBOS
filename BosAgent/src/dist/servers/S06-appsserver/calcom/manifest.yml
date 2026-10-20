@@ -1,0 +1,41 @@
+# manifest.yml — Ficha calcom (SBOS-005 §appsserver)
+# SBOS-049 §4 · Order 255 · Deployment
+identity:
+  id: calcom
+  version: "2.0"
+  category: 1
+  criticality: false
+  server: S06
+  description: "Multi-timezone scheduling"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 255
+
+requirements:
+  dependencies:
+    - postgresql
+    - keycloak
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+  auto_install: false
+  requires_approval: false
+health:
+  command: "curl -sf http://localhost:3000/health"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

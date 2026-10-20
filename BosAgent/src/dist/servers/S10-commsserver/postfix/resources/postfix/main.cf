@@ -1,0 +1,31 @@
+# Postfix main.cf — SKULL Operator
+# Fuente: SBOS-INSTALACION-FORMULARIO.md §5
+# Dominio de correo: mail.sksistemas.com
+
+myhostname = mail.sksistemas.com
+mydomain = sksistemas.com
+myorigin = $mydomain
+inet_interfaces = all
+inet_protocols = ipv4
+mydestination = $myhostname, localhost.$mydomain, localhost, $mydomain
+mynetworks = 127.0.0.0/8, 10.0.0.0/8
+
+# TLS — Let's Encrypt (DEC-I02)
+smtpd_tls_cert_file = /etc/letsencrypt/live/mail.sksistemas.com/fullchain.pem
+smtpd_tls_key_file = /etc/letsencrypt/live/mail.sksistemas.com/privkey.pem
+smtpd_use_tls = yes
+smtpd_tls_security_level = may
+smtp_tls_security_level = may
+
+# DKIM (pendiente generar claves — §5 indica SI)
+# smtpd_milters = inet:localhost:8891
+# milter_default_action = accept
+
+# Buzones
+mailbox_size_limit = 5368709120
+message_size_limit = 26214400
+
+# Relay externo (pendiente servidor relay — §5)
+# relayhost = [smtp.sendgrid.net]:587
+# smtp_sasl_auth_enable = yes
+# smtp_sasl_password_maps = hash:/etc/postfix/sasl_passwd

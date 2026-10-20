@@ -1,0 +1,39 @@
+# manifest.yml — Ficha solr (SBOS-005 §docserver)
+# SBOS-049 §4 · Order 308 · StatefulSet
+identity:
+  id: solr
+  version: "9.5"
+  category: 1
+  criticality: false
+  server: S08
+  description: "Full-text search backend for DMS"
+
+workload:
+  type: StatefulSet
+
+order:
+  execution_order: 308
+
+requirements:
+  dependencies:
+    - postgresql
+
+deployment:
+  strategy: Recreate
+
+governance:
+
+
+  auto_install: true
+  requires_approval: false
+health:
+  command: "curl -sf http://localhost:8983/solr/admin/health"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

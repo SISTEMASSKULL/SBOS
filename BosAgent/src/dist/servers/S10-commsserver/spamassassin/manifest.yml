@@ -1,0 +1,40 @@
+# manifest.yml — Ficha spamassassin (SBOS-005 §commsserver)
+# SBOS-049 §4 · Order 332 · Deployment
+identity:
+  id: spamassassin
+  version: "4.0"
+  category: 1
+  criticality: false
+  server: S10
+  description: "Bayesian anti-spam filter"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 332
+
+requirements:
+  dependencies:
+    - postfix
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+  auto_install: false
+  requires_approval: false
+health:
+  command: "spamassassin --version"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

@@ -1,0 +1,37 @@
+# manifest.yml — Ficha sbos-security (SBOS-005 §hostserver)
+# SBOS-049 §4 · Order 17 · Security scan engine
+identity:
+  id: sbos-security
+  version: "1.0"
+  category: 1
+  criticality: true
+  server: S-HOST
+  description: "CIS security scan: Ubuntu hardening, K8s hardening, bosctl RBAC verification"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 17
+
+requirements:
+  dependencies:
+    - sbos-bootstrap-hardening
+
+
+deployment:
+  strategy: Recreate
+
+governance:
+  auto_install: false
+
+health:
+  command: "bosctl security scan 2>/dev/null | grep -q '100%'"
+  interval_seconds: 300
+  timeout_seconds: 30
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

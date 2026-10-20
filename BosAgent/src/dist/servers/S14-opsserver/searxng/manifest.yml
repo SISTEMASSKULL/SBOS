@@ -1,0 +1,40 @@
+# manifest.yml — Ficha searxng (SBOS-005 §opsserver)
+# SBOS-049 §4 · Order 405 · Deployment
+identity:
+  id: searxng
+  version: "1.0"
+  category: 1
+  criticality: false
+  server: S14
+  description: "Sovereign meta search engine"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 405
+
+requirements:
+  dependencies:
+    - keycloak
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+  auto_install: true
+  requires_approval: false
+health:
+  command: "curl -sf http://localhost:8080/health"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

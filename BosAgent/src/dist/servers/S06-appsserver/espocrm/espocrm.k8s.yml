@@ -1,0 +1,78 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: espocrm-sa
+  namespace: sbos-apps
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: espocrm
+  namespace: sbos-apps
+spec:
+  type: ClusterIP
+  selector:
+    app: espocrm
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: espocrm
+  namespace: sbos-apps
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: espocrm
+  template:
+    metadata:
+      labels:
+        app: espocrm
+    spec:
+      serviceAccountName: espocrm-sa
+      containers:
+        - name: espocrm
+          image: docker.io/espocrm/espocrm:8.4
+          ports:
+            - containerPort: 8080
+              name: http
+
+          env:
+            - name: ESPOCRM_DATABASE_DRIVER
+              value: "pgsql"
+            - name: ESPOCRM_DATABASE_HOST
+              value: "postgresql.sbos-data.svc.cluster.local"
+            - name: ESPOCRM_DATABASE_PORT
+              value: "5432"
+            - name: ESPOCRM_DATABASE_NAME
+              value: "espocrm_db"
+            - name: ESPOCRM_DATABASE_USER
+              value: "espocrm"
+            - name: ESPOCRM_DATABASE_PASSWORD
+              value: "espocrm_pass"
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 300
+            periodSeconds: 30
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 90
+            periodSeconds: 10
+
+

@@ -1,0 +1,42 @@
+# yaml_engine.yml — embedding-worker lifecycle phases
+# SBOS-049 §4.4 · Order · deployment
+# R16 Zero hardcoding
+
+pre_install:
+  - name: "create_namespace"
+    command: "kubectl create namespace sbos-ai --dry-run=client -o yaml | kubectl apply -f -"
+    timeout_seconds: 30
+  - name: "apply_network_policy"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/embedding-worker.network -n sbos-ai"
+    timeout_seconds: 30
+
+install:
+  - name: "apply_manifest"
+    command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/embedding-worker.k8s.yml -n sbos-ai"
+    timeout_seconds: 300
+  - name: "wait_ready"
+    command: "kubectl wait --for=condition=Available deployment/embedding-worker -n sbos-ai --timeout=600s"
+    timeout_seconds: 600
+
+post_install:
+  - name: "verify"
+    command: "echo 'verify_ok'"
+    timeout_seconds: 30
+
+update:
+  - name: "rolling_restart"
+    command: "kubectl rollout restart deployment embedding-worker -n sbos-ai"
+    timeout_seconds: 300
+
+repair:
+  - name: "restart"
+    command: "kubectl rollout restart deployment embedding-worker -n sbos-ai"
+    timeout_seconds: 120
+
+uninstall:
+  - name: "delete_manifest"
+    command: "kubectl delete deployment embedding-worker -n sbos-ai --ignore-not-found"
+    timeout_seconds: 120
+  - name: "delete_pvc"
+    command: "echo 'no pvc'"
+    timeout_seconds: 60

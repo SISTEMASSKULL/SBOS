@@ -1,0 +1,41 @@
+# manifest.yml — Ficha fleetbase (SBOS-005 §geoserver)
+# SBOS-049 §4 · Order 368 · Deployment
+identity:
+  id: fleetbase
+  version: "0.4"
+  category: 1
+  criticality: false
+  server: S13
+  description: "Dispatch, drivers, fleet management"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 368
+
+requirements:
+  dependencies:
+    - postgresql
+    - keycloak
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+  auto_install: false
+  requires_approval: false
+health:
+  command: "curl -sf http://localhost:8080/health"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

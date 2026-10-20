@@ -2,35 +2,24 @@
 # BC-10 · Order 148 · SystemdService · servidor: gatewayserver
 identity:
   id: bhnexus
-  name: bNexus Host
   version: "1.0"
   category: 1
   criticality: true
-  server: gatewayserver
+  server: S02
   description: "Proxy de hardware universal — puerta de entrada TLS mutual para clientes NFC/chapas"
 
 workload:
   type: bash
   runtime: systemd
-  host: true
-  binary: /usr/local/bin/bhnexus
-  service_unit: resources/bhnexus.service
-  user: root
-  working_dir: /etc/bhnexus
 
 order:
   execution_order: 148
-  timeout_minutes: 5
 
 requirements:
   dependencies:
     - bauth
     - kong
     - vault
-  cpu_request: "100m"
-  cpu_limit: "500m"
-  memory_request: "32Mi"
-  memory_limit: "128Mi"
 
 ports:
   - name: puerta1
@@ -45,16 +34,11 @@ ports:
 
 governance:
   auto_install: true
-  accion: INSTALAR
-  backup_enabled: false
-  encryption_required: true
 
 health:
-  check_command: "systemctl is-active bhnexus.service"
-  check_interval_seconds: 30
-  check_timeout_seconds: 5
-  consecutive_failures_threshold: 3
-  initial_delay_seconds: 5
+  command: "systemctl is-active bhnexus.service"
+  interval_seconds: 30
+  timeout_seconds: 5
 
 integrations:
   bauth:

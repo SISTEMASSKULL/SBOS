@@ -1,0 +1,46 @@
+# manifest.yml — Ficha 08: HashiCorp Vault
+# SBOS-019 §9 · Order 120 · StatefulSet
+identity:
+  id: vault
+  version: "1.19"
+  category: 1
+  criticality: true
+  server: S02
+  description: "Secrets management con backend PostgreSQL y PKI engine"
+
+workload:
+  type: StatefulSet
+
+order:
+  execution_order: 120
+
+requirements:
+  dependencies:
+    - postgresql
+
+deployment:
+  strategy: Recreate
+
+governance:
+  auto_install: true
+
+health:
+  command: "vault status -format=json | jq -r .sealed"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+integrations:
+  engines:
+    - type: pki
+      path: pki
+    - type: kv-v2
+      path: secret
+  backend:
+    type: postgresql
+    database: vault_db
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

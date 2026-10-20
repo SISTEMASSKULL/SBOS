@@ -1,0 +1,41 @@
+# manifest.yml — Ficha centrifugo (SBOS-005 §commsserver)
+# SBOS-049 §4 · Order 350 · Deployment
+identity:
+  id: centrifugo
+  version: "6.0"
+  category: 1
+  criticality: true
+  server: S10
+  description: "WebSocket pub/sub real-time, JWT JWKS auth"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 350
+
+requirements:
+  dependencies:
+    - redis
+    - keycloak
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+  auto_install: true
+  requires_approval: false
+health:
+  command: "curl -sf http://localhost:8000/health"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

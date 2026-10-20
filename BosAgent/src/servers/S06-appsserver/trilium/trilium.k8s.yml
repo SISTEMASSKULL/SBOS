@@ -38,7 +38,7 @@ spec:
       serviceAccountName: trilium-sa
       containers:
         - name: trilium
-          image: docker.io/zadam/trilium:0.63
+          image: docker.io/zadam/trilium:0.63.7
           ports:
             - containerPort: 8080
               name: http
@@ -54,14 +54,12 @@ spec:
               cpu: 500m
               memory: 256Mi
           livenessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: 8080
             initialDelaySeconds: 30
             periodSeconds: 30
           readinessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: 8080
             initialDelaySeconds: 10
             periodSeconds: 10

@@ -1,8 +1,0 @@
-# yaml_engine.yml — langfuse
-# image: "langfuse/langfuse:3.32.0"
-
-deployment:
-  image: "langfuse/langfuse:3.32.0"
-namespace: sbos-ai
-port: 3000
-database: postgresql

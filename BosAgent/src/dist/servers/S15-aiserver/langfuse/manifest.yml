@@ -1,0 +1,41 @@
+# manifest.yml — Ficha langfuse (SBOS-005 §aiserver)
+# SBOS-049 §4 · Order 425 · Deployment
+identity:
+  id: langfuse
+  version: "2.4"
+  category: 1
+  criticality: false
+  server: S15
+  description: "LLM observability: traces, costs, evals"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 425
+
+requirements:
+  dependencies:
+    - postgresql
+    - keycloak
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+  auto_install: true
+  requires_approval: false
+health:
+  command: "curl -sf http://localhost:3000/api/public/health"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

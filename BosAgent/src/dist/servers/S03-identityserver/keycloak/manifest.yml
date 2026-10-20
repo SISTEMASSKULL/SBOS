@@ -1,0 +1,52 @@
+# manifest.yml — Ficha keycloak (SBOS-035 Ficha 09)
+# SBOS-019 §9 · Order 130 · StatefulSet
+identity:
+  id: keycloak
+  version: "26.1"
+  category: 1
+  criticality: true
+  server: S03
+  description: "IAM empresarial con PostgreSQL backend y realm skbos"
+
+workload:
+  type: StatefulSet
+
+order:
+  execution_order: 130
+
+requirements:
+  dependencies:
+    - postgresql
+    - vault
+
+deployment:
+  strategy: RollingUpdate
+  pod_management: OrderedReady
+
+governance:
+  auto_install: true
+
+health:
+  command: "curl -sf http://localhost:9000/health/live"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+integrations:
+  database:
+    name: keycloak_db
+    host_from: postgresql
+    credentials_from: vault:secret/sbos/keycloak/db
+  oidc:
+    realm: skbos
+    clients:
+      - grafana
+      - kong
+      - core-ui
+  clustering:
+    protocol: jdbc-ping
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

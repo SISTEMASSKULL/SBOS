@@ -1,0 +1,37 @@
+# manifest.yml — Ficha sbos-repair (SBOS-005 §hostserver)
+# SBOS-049 §4 · Order 18 · Unified multi-layer repair
+identity:
+  id: sbos-repair
+  version: "1.0"
+  category: 1
+  criticality: true
+  server: S-HOST
+  description: "Multi-layer repair: Ubuntu (dpkg/apt/systemd), K8s (cordon/drain/restart/uncordon), BOS (ficha reconciliation saga)"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 18
+
+requirements:
+  dependencies:
+    - sbos-security
+
+
+deployment:
+  strategy: Recreate
+
+governance:
+  auto_install: false
+
+health:
+  command: "bosctl repair --target=all --dry-run 2>/dev/null | grep -q 'Success'"
+  interval_seconds: 600
+  timeout_seconds: 30
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

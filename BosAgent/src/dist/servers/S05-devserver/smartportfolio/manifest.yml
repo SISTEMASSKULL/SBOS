@@ -1,0 +1,41 @@
+# manifest.yml — Ficha smartportfolio (SBOS-005 §devserver)
+# SBOS-049 §4 · Order 190 · Deployment
+identity:
+  id: smartportfolio
+  version: "1.0"
+  category: 1
+  criticality: false
+  server: S05
+  description: "Catalog generator (MIT SKULL)"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 190
+
+requirements:
+  dependencies:
+    - postgresql
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+  # BLOQUEADO: imagen skull/* privada — requiere imagePullSecrets configurados.
+  auto_install: false
+  requires_approval: false
+health:
+  command: "curl -sf http://localhost:8080/health"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

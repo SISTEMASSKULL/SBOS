@@ -14,19 +14,13 @@ identity:
   version:      "1.0.0"
   description:  "Sistema de notificaciones universales del SBOS. Push MFA, alertas de sistema, notificaciones a clientes finales y mensajes CLI."
   criticality:  true        # crítico — MFA depende de esta ficha
-  license:      "Apache-2.0"
-  author:       "SKULL"
-  sbos_version: ">=2.0"
 
 workload:
-  type:       kubernetes
-  namespace:  "sbos-{tenant}"
-  server:     "S06"         # appserver — aplicaciones de negocio
-  runtime:    podman        # OCI — Docker vetado (SBOS-004-RULES S8)
+  type: Deployment
+  runtime: kubernetes
 
 order:
   execution_order: 170
-  timeout_minutes: 15
 
 # ------------------------------------------------------------
 # Dependencias — bos garantiza orden topológico en el DAG
@@ -193,3 +187,9 @@ feature_flags:
   desktop_macos:       true
   cli_terminal:        true
   web_push_websocket:  true
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

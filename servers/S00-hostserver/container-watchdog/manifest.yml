@@ -3,51 +3,34 @@
 # Watchdog de contenedor que monitorea salud de procesos sbos dentro del contenedor greenfield
 identity:
   id: container-watchdog
-  name: SBOS Container Watchdog
   version: "1.0.0"
   category: 1
   criticality: true
-  server: hostserver
+  server: S-HOST
   description: "Container-level watchdog — monitors bos daemon and core processes inside sbos-greenfield"
 
 workload:
   type: bash
   runtime: host
-  namespace: ""
-  replicas: 1
-  service_account: ""
 
 order:
   execution_order: 20
-  timeout_minutes: 5
 
 requirements:
   dependencies:
     - sbos-lifecycle
     - sbos-bootstrap-k8s
-  cpu_request: ""
-  cpu_limit: ""
-  memory_request: ""
-  memory_limit: ""
-  pvc_size: ""
-  pvc_storage_class: ""
 
 deployment:
   strategy: ""
 
 governance:
-  backup_enabled: false
-  backup_schedule: ""
   auto_install: true
-  accion: INSTALAR
 
 health:
-  check_command: "systemctl is-active bos"
-  check_interval_seconds: 30
-  check_timeout_seconds: 10
-  consecutive_failures_threshold: 3
-  degraded_allowed: false
-  degraded_reason: ""
+  command: "systemctl is-active bos"
+  interval_seconds: 30
+  timeout_seconds: 10
 
 integrations:
   exporters:

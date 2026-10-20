@@ -1,0 +1,40 @@
+# manifest.yml — Ficha certbot (SBOS-005 §gatewayserver)
+# SBOS-049 §4 · Order 142 · Deployment
+identity:
+  id: certbot
+  version: "5.6.0"
+  category: 1
+  criticality: true
+  server: S02
+  description: "Let's Encrypt certificate renewal, DNS-01 challenge"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 142
+
+requirements:
+  dependencies:
+    - nginx-web
+
+
+deployment:
+  strategy: Recreate
+
+governance:
+
+
+  auto_install: true
+  requires_approval: false
+health:
+  command: "certbot --version"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

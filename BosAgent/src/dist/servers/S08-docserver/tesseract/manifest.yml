@@ -1,0 +1,40 @@
+# manifest.yml — Ficha tesseract (SBOS-005 §docserver)
+# SBOS-049 §4 · Order 298 · Deployment
+identity:
+  id: tesseract
+  version: "5.4"
+  category: 1
+  criticality: false
+  server: S08
+  description: "OCR 100+ languages"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 298
+
+requirements:
+  dependencies:
+    - paperless-ngx
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+  auto_install: false
+  requires_approval: false
+health:
+  command: "tesseract --version"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

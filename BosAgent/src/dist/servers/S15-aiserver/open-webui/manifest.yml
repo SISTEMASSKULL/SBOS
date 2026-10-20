@@ -1,0 +1,41 @@
+# manifest.yml — Ficha open-webui (SBOS-005 §aiserver)
+# SBOS-049 §4 · Order 415 · Deployment
+identity:
+  id: open-webui
+  version: "0.5"
+  category: 1
+  criticality: false
+  server: S15
+  description: "ChatGPT-like UI, multi-tenant, RAG"
+
+workload:
+  type: Deployment
+
+order:
+  execution_order: 415
+
+requirements:
+  dependencies:
+    - ollama
+    - keycloak
+
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+
+
+  auto_install: true
+  requires_approval: false
+health:
+  command: "curl -sf http://localhost:8080/health"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

@@ -27,7 +27,7 @@ metadata:
 spec:
   replicas: 1
   strategy:
-    type: RollingUpdate
+    type: Recreate
   selector:
     matchLabels:
       app: mattermost
@@ -44,24 +44,31 @@ spec:
             - containerPort: 8065
               name: http
 
+          env:
+            - name: MM_SQLSETTINGS_DRIVERNAME
+              value: "postgres"
+            - name: MM_SQLSETTINGS_DATASOURCE
+              value: "postgres://mattermost:mattermost_pass@postgresql.sbos-data.svc.cluster.local:5432/mattermost_db?sslmode=disable"
+            - name: MM_SERVICESETTINGS_SITEURL
+              value: "http://mattermost.sbos-comms.svc.cluster.local:8065"
           resources:
             requests:
-              cpu: 50m
-              memory: 512Mi
+              cpu: 10m
+              memory: 32Mi
             limits:
               cpu: 2000m
               memory: 1Gi
           livenessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: 8065
-            initialDelaySeconds: 30
+            initialDelaySeconds: 120
             periodSeconds: 30
+            failureThreshold: 5
           readinessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: 8065
-            initialDelaySeconds: 10
-            periodSeconds: 10
+            initialDelaySeconds: 90
+            periodSeconds: 15
+            failureThreshold: 5
 
 

@@ -2,32 +2,21 @@
 # SBOS-019 §9 · Order 115 · StatefulSet
 identity:
   id: minio
-  name: MinIO Object Storage
   version: "2025-02-28"
   category: 1
   criticality: false
-  server: dataserver
+  server: S01
   description: "Object storage S3-compatible para backups, uploads y archivos"
 
 workload:
   type: StatefulSet
-  namespace: sbos-data
-  replicas: 1
-  service_account: minio-sa
 
 order:
   execution_order: 115
-  timeout_minutes: 15
 
 requirements:
   dependencies:
     - network-validator
-  cpu_request: "1000m"
-  cpu_limit: "4000m"
-  memory_request: "2Gi"
-  memory_limit: "8Gi"
-  pvc_size: "500Gi"
-  pvc_storage_class: "sbos-local-path"
 
 deployment:
   strategy: Recreate
@@ -37,14 +26,11 @@ governance:
   # dl.min.io eliminó URLs directas (HTTP 410). GitHub Releases devuelve 404 para linux-amd64.
   # Activar manualmente tras configurar imagePullSecrets o un mirror de Docker Hub.
   auto_install: false
-  backup_enabled: false
-  encryption_required: true
 
 health:
-  check_command: "curl -sf http://localhost:9000/minio/health/live"
-  check_interval_seconds: 30
-  check_timeout_seconds: 10
-  consecutive_failures_threshold: 3
+  command: "curl -sf http://localhost:9000/minio/health/live"
+  interval_seconds: 30
+  timeout_seconds: 10
 
 integrations:
   buckets:
@@ -54,3 +40,9 @@ integrations:
       policy: public-read
     - name: archives
       policy: private
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

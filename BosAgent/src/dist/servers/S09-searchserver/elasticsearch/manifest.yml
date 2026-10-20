@@ -1,0 +1,39 @@
+# manifest.yml — Ficha elasticsearch (SBOS-005 §searchserver)
+# SBOS-049 §4 · Order 315 · StatefulSet
+identity:
+  id: elasticsearch
+  version: "8.16"
+  category: 1
+  criticality: true
+  server: S09
+  description: "Logs backend for Wazuh, full-text search"
+
+workload:
+  type: StatefulSet
+
+order:
+  execution_order: 315
+
+requirements:
+  dependencies:
+
+
+deployment:
+  strategy: Recreate
+
+governance:
+
+
+  auto_install: false
+  requires_approval: false
+health:
+  command: "curl -sf http://localhost:9200/_cluster/health"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

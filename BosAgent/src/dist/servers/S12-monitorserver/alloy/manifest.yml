@@ -1,0 +1,44 @@
+# manifest.yml — Ficha alloy (SBOS-005 §S12)
+# SBOS-049 §4 · Order 215 · DaemonSet
+# Recolecta logs: journald (systemd daemons) + archivos de agente → Loki
+identity:
+  id: alloy
+  version: "1.7.0"
+  category: 1
+  criticality: false
+  server: S12
+  description: "Log collector — journald + archivos → Loki, reemplaza Promtail"
+
+workload:
+  type: DaemonSet
+
+order:
+  execution_order: 215
+
+requirements:
+  dependencies:
+    - loki
+
+deployment:
+  strategy: RollingUpdate
+
+governance:
+  auto_install: true
+  requires_approval: false
+
+health:
+  command: "curl -sf http://localhost:12345/health"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+integrations:
+  loki:
+    url: "http://loki.sbos-monitor:3100"
+  exporters:
+    self_metrics: true
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

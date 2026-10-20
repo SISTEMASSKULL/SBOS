@@ -1,0 +1,40 @@
+# manifest.yml — Ficha gnuhealth (SBOS-005 §appsserver)
+# SBOS-049 §4 · Order 200 · StatefulSet
+identity:
+  id: gnuhealth
+  version: "4.4"
+  category: 1
+  criticality: false
+  server: S06
+  description: "Hospital management / EHR. criticality: false"
+
+workload:
+  type: StatefulSet
+
+order:
+  execution_order: 200
+
+requirements:
+  dependencies:
+    - postgresql
+    - keycloak
+
+deployment:
+  strategy: Recreate
+
+governance:
+  auto_install: false
+  requires_approval: true
+  category_label: "imagen-inexistente"
+
+health:
+  command: "curl -sf http://localhost:8000/health"
+  interval_seconds: 30
+  timeout_seconds: 10
+
+
+meta:
+  backend: kubernetes
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: false

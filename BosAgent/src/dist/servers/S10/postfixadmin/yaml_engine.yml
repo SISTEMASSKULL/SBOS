@@ -1,8 +1,0 @@
-# yaml_engine.yml — postfixadmin
-# image: "postfixadmin/postfixadmin:3.3.15"
-
-deployment:
-  image: "postfixadmin/postfixadmin:3.3.15"
-namespace: sbos-comms
-depends_on_configmap: mailserver-config
-port: 80
