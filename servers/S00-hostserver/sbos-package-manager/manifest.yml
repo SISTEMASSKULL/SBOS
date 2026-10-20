@@ -33,6 +33,7 @@ deployment:
 
 governance:
   auto_install: false
+  accion: INSTALAR
 
 health:
   check_command: "bosctl install --backend=apt --help 2>/dev/null | grep -q 'backend'"

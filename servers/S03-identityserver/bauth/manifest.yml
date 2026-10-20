@@ -41,6 +41,7 @@ ports:
 
 governance:
   auto_install: true
+  accion: INSTALAR
   backup_enabled: false
   encryption_required: true
 

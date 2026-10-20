@@ -37,6 +37,7 @@ governance:
   # dl.min.io eliminó URLs directas (HTTP 410). GitHub Releases devuelve 404 para linux-amd64.
   # Activar manualmente tras configurar imagePullSecrets o un mirror de Docker Hub.
   auto_install: false
+  accion: INSTALAR
   backup_enabled: false
   encryption_required: true
 

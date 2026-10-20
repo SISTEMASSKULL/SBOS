@@ -33,6 +33,7 @@ deployment:
 
 governance:
   auto_install: false
+  accion: INSTALAR
   requires_approval: true
   category_label: "scanner-seguridad"
 health:

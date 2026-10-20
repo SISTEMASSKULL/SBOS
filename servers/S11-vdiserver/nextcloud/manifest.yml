@@ -24,6 +24,7 @@ requirements:
     - postgresql
     - redis
     - keycloak
+    - stalwart
   cpu_request: "500m"
   cpu_limit: "2000m"
   memory_request: "1Gi"
@@ -36,6 +37,7 @@ deployment:
 
 governance:
   auto_install: true
+  accion: INSTALAR
   requires_approval: false
   backup_enabled: true
   backup_schedule: "0 3 * * *"

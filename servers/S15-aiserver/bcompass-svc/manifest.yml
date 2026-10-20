@@ -36,6 +36,7 @@ deployment:
 governance:
   # BLOQUEADO: imagen skull/* privada — requiere imagePullSecrets configurados.
   auto_install: false
+  accion: INSTALAR
   requires_approval: false
 
 health:

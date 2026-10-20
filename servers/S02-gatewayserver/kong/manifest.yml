@@ -35,6 +35,7 @@ deployment:
 
 governance:
   auto_install: true
+  accion: INSTALAR
   backup_enabled: false
   audit_log: true
 

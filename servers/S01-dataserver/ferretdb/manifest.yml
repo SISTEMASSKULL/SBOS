@@ -33,6 +33,7 @@ deployment:
 
 governance:
   auto_install: true
+  accion: INSTALAR
   category_label: "notificaciones"
   backup_required: false
   backup_schedule: ""

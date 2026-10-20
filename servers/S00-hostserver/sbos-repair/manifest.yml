@@ -33,6 +33,7 @@ deployment:
 
 governance:
   auto_install: false
+  accion: INSTALAR
 
 health:
   check_command: "bosctl repair --target=all --dry-run 2>/dev/null | grep -q 'Success'"

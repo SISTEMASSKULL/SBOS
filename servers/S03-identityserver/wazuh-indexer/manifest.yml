@@ -34,6 +34,7 @@ deployment:
 
 governance:
   auto_install: false
+  accion: INSTALAR
   requires_approval: true
 health:
   check_command: "curl -sf http://localhost:9200"

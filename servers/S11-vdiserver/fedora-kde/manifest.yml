@@ -25,11 +25,13 @@ requirements:
   disk_gb: 30
   dependencies:
     - keycloak
+    - stalwart
     - kong
     - guacamole
 
 governance:
   auto_install: true
+  accion: INSTALAR
   requires_approval: false
   category_label: "vdi-escritorio"
 

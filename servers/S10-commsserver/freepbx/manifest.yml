@@ -37,6 +37,7 @@ governance:
 
 
   auto_install: false
+  accion: INSTALAR
   requires_approval: false
 health:
   check_command: "asterisk -rx 'core show version'"

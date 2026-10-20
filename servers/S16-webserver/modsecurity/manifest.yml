@@ -32,6 +32,7 @@ ports: []
 
 governance:
   auto_install: false
+  accion: INSTALAR
   requires_approval: false
   category_label: waf
 

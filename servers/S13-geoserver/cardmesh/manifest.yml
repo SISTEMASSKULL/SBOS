@@ -37,6 +37,7 @@ governance:
 
   # BLOQUEADO: imagen skull/* privada — requiere imagePullSecrets configurados.
   auto_install: false
+  accion: INSTALAR
   requires_approval: false
 health:
   check_command: "curl -sf http://localhost:8080/health"

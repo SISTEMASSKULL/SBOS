@@ -36,6 +36,7 @@ deployment:
 
 governance:
   auto_install: false
+  accion: INSTALAR
   requires_approval: false
   backup_enabled: false
   backup_schedule: ""

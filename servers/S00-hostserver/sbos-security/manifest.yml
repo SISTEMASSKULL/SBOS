@@ -33,6 +33,7 @@ deployment:
 
 governance:
   auto_install: false
+  accion: INSTALAR
 
 health:
   check_command: "bosctl security scan 2>/dev/null | grep -q '100%'"

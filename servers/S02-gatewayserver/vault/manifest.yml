@@ -34,6 +34,7 @@ deployment:
 
 governance:
   auto_install: true
+  accion: INSTALAR
   backup_enabled: true
   backup_schedule: "0 1 * * *"
   encryption_required: true

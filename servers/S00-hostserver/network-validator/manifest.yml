@@ -27,6 +27,7 @@ requirements:
 
 governance:
   auto_install: true
+  accion: INSTALAR
 
 
 health:

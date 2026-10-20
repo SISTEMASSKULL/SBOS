@@ -36,6 +36,7 @@ deployment:
 
 governance:
   auto_install: false
+  accion: INSTALAR
 
 
 health:

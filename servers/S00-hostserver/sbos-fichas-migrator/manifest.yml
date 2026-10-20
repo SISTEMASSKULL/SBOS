@@ -17,6 +17,7 @@ order:
 
 governance:
   auto_install: true
+  accion: INSTALAR
   requires_approval: false
   category_label: "infraestructura"
 

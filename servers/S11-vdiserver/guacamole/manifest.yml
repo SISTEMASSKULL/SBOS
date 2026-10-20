@@ -26,6 +26,7 @@ requirements:
   dependencies:
     - postgresql                # guacamole_db
     - keycloak                  # OIDC SSO
+    - stalwart
     - kong                      # ruta vdi.{tenant}
   cpu_request: "250m"
   cpu_limit: "1000m"
@@ -37,6 +38,7 @@ deployment:
 
 governance:
   auto_install: true
+  accion: INSTALAR
   requires_approval: false
   oidc_client: guacamole        # client en realm KC del tenant
   kong_route: "vdi.{tenant}.sksistemas.com"

@@ -38,6 +38,7 @@ governance:
   backup_enabled: false
   backup_schedule: ""
   auto_install: true
+  accion: INSTALAR
 
 health:
   check_command: "systemctl is-active bos"

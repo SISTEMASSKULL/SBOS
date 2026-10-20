@@ -36,6 +36,7 @@ governance:
 
 
   auto_install: true
+  accion: INSTALAR
   requires_approval: false
 health:
   check_command: "curl -sf http://localhost:55000"
