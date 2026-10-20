@@ -52,6 +52,8 @@ integrations:
     exporter: postgres_exporter
     port: 9187
 
+license: MIT
+
 meta:
   backend: kubernetes
   idempotent: true

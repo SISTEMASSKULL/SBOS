@@ -47,6 +47,8 @@ integrations:
     - postgresql
     - sbos-operacional
 
+license: MIT
+
 meta:
   backend: kubernetes
   idempotent: true

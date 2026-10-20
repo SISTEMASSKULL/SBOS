@@ -48,6 +48,8 @@ integrations:
     accessible_from:
       - sbos-installer
 
+license: MIT
+
 meta:
   backend: kubernetes
   idempotent: true

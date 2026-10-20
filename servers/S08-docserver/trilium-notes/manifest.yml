@@ -23,6 +23,8 @@ governance:
   requires_approval: false
   category_label: "gestion-conocimiento"
 
+license: MIT
+
 meta:
   backend: k8s
   idempotent: true

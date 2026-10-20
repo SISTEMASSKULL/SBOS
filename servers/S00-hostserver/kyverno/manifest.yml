@@ -23,6 +23,8 @@ governance:
   requires_approval: false
   category_label: "infraestructura-critica"
 
+license: MIT
+
 meta:
   backend: helm
   idempotent: true

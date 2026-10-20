@@ -39,6 +39,8 @@ integrations:
   exporters:
     self_metrics: true
 
+license: MIT
+
 meta:
   backend: kubernetes
   idempotent: true

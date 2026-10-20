@@ -35,6 +35,8 @@ integrations:
     - bnexus-agent
     - bos-agent
 
+license: MIT
+
 meta:
   backend: kubernetes
   idempotent: true

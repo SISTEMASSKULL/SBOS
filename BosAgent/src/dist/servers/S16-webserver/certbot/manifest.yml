@@ -32,6 +32,8 @@ health:
   interval_seconds: 3600
   timeout_seconds: 30
 
+license: MIT
+
 meta:
   backend: kubernetes
   idempotent: true

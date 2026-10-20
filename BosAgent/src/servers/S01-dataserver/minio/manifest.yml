@@ -41,6 +41,8 @@ integrations:
     - name: archives
       policy: private
 
+license: MIT
+
 meta:
   backend: kubernetes
   idempotent: true

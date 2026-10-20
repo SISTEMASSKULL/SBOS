@@ -45,6 +45,8 @@ integrations:
   clustering:
     protocol: jdbc-ping
 
+license: MIT
+
 meta:
   backend: kubernetes
   idempotent: true

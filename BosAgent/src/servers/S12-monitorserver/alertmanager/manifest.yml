@@ -38,6 +38,8 @@ integrations:
     slack_medium: "#sbos-alerts-all"
     wazuh_cef: "syslog:wazuh-manager:514"
 
+license: MIT
+
 meta:
   backend: kubernetes
   idempotent: true

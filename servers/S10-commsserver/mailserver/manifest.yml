@@ -24,6 +24,8 @@ governance:
   requires_approval: true
   category_label: "comunicaciones"
 
+license: MIT
+
 meta:
   backend: k8s
   idempotent: true

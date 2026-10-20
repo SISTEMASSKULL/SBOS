@@ -20,6 +20,8 @@ governance:
   requires_approval: false
   category_label: "infraestructura"
 
+license: MIT
+
 meta:
   backend: host
   idempotent: true

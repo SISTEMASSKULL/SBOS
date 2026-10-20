@@ -23,6 +23,8 @@ governance:
   requires_approval: false
   category_label: "observabilidad"
 
+license: MIT
+
 meta:
   backend: k8s
   idempotent: true

@@ -39,6 +39,8 @@ health:
   interval_seconds: 30
   timeout_seconds: 10
 
+license: MIT
+
 meta:
   backend: systemd
   idempotent: true

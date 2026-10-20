@@ -44,6 +44,8 @@ integrations:
     cert_env: BANEXUS_CLIENT_CERT
     key_env: BANEXUS_CLIENT_KEY
 
+license: MIT
+
 meta:
   backend: bash
   idempotent: true

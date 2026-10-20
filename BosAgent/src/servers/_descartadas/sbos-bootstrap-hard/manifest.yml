@@ -26,6 +26,8 @@ governance:
   requires_approval: false
   category_label: "seguridad-critica"
 
+license: MIT
+
 meta:
   backend: bash
   idempotent: true

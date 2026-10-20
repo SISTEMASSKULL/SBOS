@@ -50,6 +50,8 @@ bsearch_config:
 compatibility:
   min_iam_installer_version: "1.0.0"
 
+license: MIT
+
 meta:
   backend: kubernetes
   idempotent: true

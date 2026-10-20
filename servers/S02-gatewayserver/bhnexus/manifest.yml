@@ -50,6 +50,8 @@ integrations:
     ca_cert_env: BHNEXUS_CA_CERT
     ca_key_env: BHNEXUS_CA_KEY
 
+license: MIT
+
 meta:
   backend: bash
   idempotent: true

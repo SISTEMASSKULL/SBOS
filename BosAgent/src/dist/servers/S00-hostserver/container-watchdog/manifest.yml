@@ -36,6 +36,8 @@ integrations:
   exporters:
     self_metrics: false
 
+license: MIT
+
 meta:
   backend: bash
   idempotent: true

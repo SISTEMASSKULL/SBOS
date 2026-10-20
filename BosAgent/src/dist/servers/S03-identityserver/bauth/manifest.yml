@@ -46,6 +46,8 @@ integrations:
   socket_perms: "0660"
   socket_group: bosagent
 
+license: MIT
+
 meta:
   backend: bash
   idempotent: true

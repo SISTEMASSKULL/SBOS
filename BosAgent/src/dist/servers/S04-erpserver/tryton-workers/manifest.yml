@@ -22,6 +22,8 @@ governance:
   requires_approval: false
   category_label: "aplicacion-erp"
 
+license: MIT
+
 meta:
   backend: k8s
   idempotent: true

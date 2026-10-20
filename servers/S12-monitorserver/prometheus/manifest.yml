@@ -37,6 +37,8 @@ integrations:
       type: prometheus
       url: "http://prometheus.sbos-monitor:9090"
 
+license: MIT
+
 meta:
   backend: kubernetes
   idempotent: true

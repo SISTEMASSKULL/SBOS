@@ -27,6 +27,8 @@ governance:
   requires_approval: false
   category_label: "gateway"
 
+license: MIT
+
 meta:
   backend: kong-admin-api
   idempotent: true

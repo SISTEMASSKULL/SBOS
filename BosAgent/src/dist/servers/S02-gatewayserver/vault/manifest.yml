@@ -39,6 +39,8 @@ integrations:
     type: postgresql
     database: vault_db
 
+license: MIT
+
 meta:
   backend: kubernetes
   idempotent: true

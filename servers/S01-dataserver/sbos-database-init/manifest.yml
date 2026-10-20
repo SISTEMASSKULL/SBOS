@@ -22,6 +22,8 @@ governance:
   requires_approval: false
   category_label: "datos-criticos"
 
+license: MIT
+
 meta:
   backend: manifest
   idempotent: true

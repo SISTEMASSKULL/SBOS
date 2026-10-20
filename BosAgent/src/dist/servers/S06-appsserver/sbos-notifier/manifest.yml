@@ -188,6 +188,8 @@ feature_flags:
   cli_terminal:        true
   web_push_websocket:  true
 
+license: MIT
+
 meta:
   backend: kubernetes
   idempotent: true

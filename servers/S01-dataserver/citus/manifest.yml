@@ -31,6 +31,8 @@ health:
   type: none
 
 
+license: MIT
+
 meta:
   backend: kubernetes
   idempotent: true

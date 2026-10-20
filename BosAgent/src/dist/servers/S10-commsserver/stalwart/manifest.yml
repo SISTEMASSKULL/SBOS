@@ -43,6 +43,8 @@ integrations:
   tls:
     certificate: "*.sksistemas.com wildcard via nginx/certbot"
 
+license: MIT
+
 meta:
   backend: kubernetes
   idempotent: true

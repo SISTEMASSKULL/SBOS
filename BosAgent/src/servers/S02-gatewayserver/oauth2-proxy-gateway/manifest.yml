@@ -26,6 +26,8 @@ governance:
   requires_approval: true
   category_label: "auth-proxy-oidc-gateway"
 
+license: MIT
+
 meta:
   backend: helm
   idempotent: true

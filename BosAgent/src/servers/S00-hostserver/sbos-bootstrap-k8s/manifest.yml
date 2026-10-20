@@ -39,6 +39,8 @@ health:
   timeout_seconds: 15
 
 
+license: MIT
+
 meta:
   backend: kubernetes
   idempotent: true

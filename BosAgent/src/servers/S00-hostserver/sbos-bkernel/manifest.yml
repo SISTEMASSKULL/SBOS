@@ -24,6 +24,8 @@ governance:
   requires_approval: false
   category_label: "daemon-soberano"
 
+license: MIT
+
 meta:
   backend: systemd
   idempotent: true

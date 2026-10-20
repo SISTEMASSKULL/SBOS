@@ -38,6 +38,8 @@ integrations:
     template_dir: "resources/nginx/"
     variables: ["CLIENT_DOMAIN", "SERVICE_IP"]
 
+license: MIT
+
 meta:
   backend: kubernetes
   idempotent: true
