@@ -23,6 +23,7 @@ requirements:
   dependencies:
     - postgresql
     - keycloak
+    - stalwart
   cpu_request: "200m"
   cpu_limit: "2000m"
   memory_request: "512Mi"

@@ -89,7 +89,7 @@ servidores_logicos:
   S07-reportserver:    { accion: INSTALAR, criticidad: ALTA,   namespace: sbos-apps,     apps_num: 7,  "(!)": "JasperSoft, Superset, Airflow, OpenMetadata" }
   S08-docserver:       { accion: INSTALAR, criticidad: ALTA,   namespace: sbos-docs,     apps_num: 7,  apps: "Paperless-NGX, Tesseract, Tabula, Kimios, DocuSeal" }
   S09-searchserver:    { accion: INSTALAR, criticidad: ALTA,   namespace: sbos-search,   apps_num: 2,  apps: "Elasticsearch, RabbitMQ" }
-  S10-commsserver:     { accion: INSTALAR, criticidad: ALTA,   namespace: sbos-comms,    apps_num: 10, "(!)": "Stalwart (correo soberano), FreePBX, Rocket.Chat, Mattermost, ClamAV", nota: "Antes de VDI — usuarios de correo deben sincronizarse con Keycloak antes de provisionar escritorios" }
+  S10-commsserver:     { accion: INSTALAR, criticidad: MAXIMA, namespace: sbos-comms,    apps_num: 10, "(!)": "Stalwart (correo soberano), FreePBX, Rocket.Chat, Mattermost, ClamAV", nota: "INSTALA ANTES DE S04-S09 — el email es la identidad base en Keycloak; sin correo no hay usuario. stalwart/postfix/dovecot se instalan en orders 160-164 (entre S03 y S04)" }
   S11-vdiserver:       { accion: INSTALAR, criticidad: ALTA,   namespace: sbos-vdi,      apps_num: 5,  apps: "Fedora KDE, Nextcloud, OnlyOffice, Guacamole", nota: "Depende de commsserver (stalwart) — usuarios deben existir en correo antes de activar escritorios" }
   S12-monitorserver:   { accion: INSTALAR, criticidad: MAXIMA, namespace: sbos-monitor,  apps_num: 10, "(!)": "Prometheus, Grafana, Loki, Tempo, Zabbix, Alertmanager" }
   S13-geoserver:       { accion: INSTALAR, criticidad: MEDIA,  namespace: sbos-geo,      apps_num: 5,  apps: "Traccar, Fleetbase, Xibo, Novo SGA, CardMesh" }

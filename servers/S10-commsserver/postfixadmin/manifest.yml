@@ -16,7 +16,7 @@ workload:
   service_account: postfixadmin-sa
 
 order:
-  execution_order: 330
+  execution_order: 163
   timeout_minutes: 10
 
 requirements:

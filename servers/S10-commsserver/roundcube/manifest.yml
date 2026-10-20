@@ -16,7 +16,7 @@ workload:
   service_account: roundcube-sa
 
 order:
-  execution_order: 325
+  execution_order: 164
   timeout_minutes: 10
 
 requirements:

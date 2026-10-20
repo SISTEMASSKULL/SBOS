@@ -16,7 +16,7 @@ workload:
   service_account: dovecot-sa
 
 order:
-  execution_order: 322
+  execution_order: 162
   timeout_minutes: 15
 
 requirements:
