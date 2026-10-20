@@ -39,7 +39,7 @@ spec:
       serviceAccountName: spamassassin-sa
       containers:
         - name: spamassassin
-          image: docker.io/library/spamassassin:4.0
+          image: docker.io/instantlinux/spamassassin:latest
           ports:
             - containerPort: 783
               name: http
@@ -47,7 +47,7 @@ spec:
           resources:
             requests:
               cpu: 50m
-              memory: 256Mi
+              memory: 64Mi
             limits:
               cpu: 1000m
               memory: 512Mi

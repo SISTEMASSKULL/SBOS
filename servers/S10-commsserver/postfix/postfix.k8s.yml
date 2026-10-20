@@ -44,6 +44,11 @@ spec:
             - containerPort: 25
               name: smtp
 
+          env:
+            - name: ALLOWED_SENDER_DOMAINS
+              value: "sbos.local sbos.app"
+            - name: HOSTNAME
+              value: "postfix.sbos-comms.svc.cluster.local"
           resources:
             requests:
               cpu: 50m

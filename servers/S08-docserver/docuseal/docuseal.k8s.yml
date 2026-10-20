@@ -38,7 +38,7 @@ spec:
       serviceAccountName: docuseal-sa
       containers:
         - name: docuseal
-          image: docker.io/docuseal/docuseal:1.7
+          image: docker.io/docuseal/docuseal:latest
           ports:
             - containerPort: 3000
               name: http

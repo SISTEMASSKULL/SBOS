@@ -16,8 +16,8 @@ spec:
     app: vaultwarden
   ports:
     - name: http
-      port: 80
-      targetPort: 80
+      port: 8080
+      targetPort: 8080
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -40,9 +40,12 @@ spec:
         - name: vaultwarden
           image: docker.io/vaultwarden/server:1.32.1
           ports:
-            - containerPort: 80
+            - containerPort: 8080
               name: http
 
+          env:
+            - name: ROCKET_PORT
+              value: "8080"
           volumeMounts:
             - name: data
               mountPath: /var/lib/vaultwarden
@@ -55,12 +58,12 @@ spec:
               memory: 256Mi
           livenessProbe:
             tcpSocket:
-              port: 80
+              port: 8080
             initialDelaySeconds: 30
             periodSeconds: 30
           readinessProbe:
             tcpSocket:
-              port: 80
+              port: 8080
             initialDelaySeconds: 10
             periodSeconds: 10
 

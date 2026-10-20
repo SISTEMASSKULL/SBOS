@@ -38,7 +38,7 @@ spec:
       serviceAccountName: dovecot-sa
       containers:
         - name: dovecot
-          image: docker.io/dovecot/dovecot:2.4
+          image: docker.io/dovecot/dovecot:latest
           ports:
             - containerPort: 143
               name: http
