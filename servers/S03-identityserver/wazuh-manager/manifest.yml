@@ -21,7 +21,7 @@ order:
 
 requirements:
   dependencies:
-    - elasticsearch
+    - wazuh-indexer
   cpu_request: "1000m"
   cpu_limit: "4000m"
   memory_request: "2Gi"
