@@ -72,12 +72,14 @@ spec:
             initialDelaySeconds: 60
             periodSeconds: 30
             failureThreshold: 3
+            timeoutSeconds: 15
           readinessProbe:
             exec:
               command: ["mongosh", "--eval", "db.adminCommand('ping').ok", "--quiet"]
             initialDelaySeconds: 30
             periodSeconds: 10
             failureThreshold: 3
+            timeoutSeconds: 15
 
   volumeClaimTemplates:
     - metadata:
