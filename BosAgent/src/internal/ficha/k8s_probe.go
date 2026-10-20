@@ -16,10 +16,19 @@ import (
 
 // WorkloadInfo resume la información extraída de los manifiestos de una ficha.
 type WorkloadInfo struct {
-	FichaID   string // identity.id (nombre del workload en K8s)
-	Kind      string // workload.type: StatefulSet, Deployment, DaemonSet, Job, Pod
-	Runtime   string // workload.runtime: kubernetes, host, bare-metal
-	Namespace string // namespace extraído de yaml_engine.yml
+	FichaID      string // identity.id
+	WorkloadName string // workload.workload_name (override del nombre K8s; si vacío, usar FichaID)
+	Kind         string // workload.type: StatefulSet, Deployment, DaemonSet, Job, Pod
+	Runtime      string // workload.runtime: kubernetes, host, bare-metal
+	Namespace    string // namespace extraído de yaml_engine.yml
+}
+
+// K8sName retorna el nombre real del workload en K8s (WorkloadName si definido, FichaID si no).
+func (w *WorkloadInfo) K8sName() string {
+	if w.WorkloadName != "" {
+		return w.WorkloadName
+	}
+	return w.FichaID
 }
 
 // IsKubernetes retorna true si el workload debe correr en Kubernetes.
@@ -50,6 +59,7 @@ func ParseWorkloadInfo(fichaPath string) (*WorkloadInfo, error) {
 	content := string(manifestData)
 
 	info.FichaID = extractYAMLField(content, "id")
+	info.WorkloadName = extractYAMLField(content, "workload_name")
 	info.Kind = extractYAMLField(content, "type")
 	info.Runtime = extractYAMLField(content, "runtime")
 

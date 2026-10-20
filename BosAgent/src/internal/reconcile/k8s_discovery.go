@@ -133,7 +133,7 @@ func (d *K8sDiscovery) probeOne(fichaPath string, result *K8sDiscoveryResult) {
 		return
 	}
 
-	ws, err := d.k8sCore.GetWorkloadStatus(info.Kind, info.FichaID, info.Namespace)
+	ws, err := d.k8sCore.GetWorkloadStatus(info.Kind, info.K8sName(), info.Namespace)
 	if err != nil {
 		d.logger.Debug("k8s_discovery: probe error",
 			"ficha", info.FichaID,

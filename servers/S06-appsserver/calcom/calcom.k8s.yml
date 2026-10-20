@@ -51,6 +51,8 @@ spec:
               value: "06d74109b0a9dacc024ad4d2f3b6608c2116b98c1766e521d4fe917007744f53"
             - name: NEXTAUTH_URL
               value: "http://localhost:3000"
+            - name: CALENDSO_ENCRYPTION_KEY
+              value: "cd9882a7483d04216dfe25ac3d8a086d"
           resources:
             requests:
               cpu: 50m
@@ -61,12 +63,13 @@ spec:
           livenessProbe:
             tcpSocket:
               port: 3000
-            initialDelaySeconds: 180
+            initialDelaySeconds: 600
             periodSeconds: 30
+            failureThreshold: 3
           readinessProbe:
             tcpSocket:
               port: 3000
-            initialDelaySeconds: 60
-            periodSeconds: 10
+            initialDelaySeconds: 120
+            periodSeconds: 15
 
 

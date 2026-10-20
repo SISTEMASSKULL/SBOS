@@ -8,6 +8,7 @@ identity:
 
 workload:
   type: deployment
+  workload_name: "zabbix-zabbix-server"
   runtime: kubernetes
   namespace: sbos-monitor
   replicas: 1
