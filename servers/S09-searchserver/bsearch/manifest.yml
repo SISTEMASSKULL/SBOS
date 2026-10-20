@@ -33,7 +33,7 @@ ports:
     description: "JSON-RPC 2.0 — interface dual (ADR-020)"
 
 governance:
-  auto_install: false
+  auto_install: true
   requires_approval: true
   category_label: daemon-soberano
 
