@@ -68,8 +68,7 @@ TimeoutStartSec=30
 Environment=DAEMON_NAME=bnotify
 Environment=DAEMON_SOCKET=/run/bos/bnotify.sock
 EnvironmentFile=-/etc/bos/bnotify/bnotify.env
-RuntimeDirectory=bos
-RuntimeDirectoryMode=0755
+ExecStartPre=+/bin/mkdir -p /run/bos
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true

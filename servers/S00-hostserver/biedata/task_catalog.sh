@@ -73,8 +73,7 @@ TimeoutStartSec=45
 Environment=DAEMON_NAME=biedata
 Environment=DAEMON_SOCKET=/run/bos/biedata.sock
 EnvironmentFile=-/etc/bos/biedata/biedata.env
-RuntimeDirectory=bos
-RuntimeDirectoryMode=0755
+ExecStartPre=+/bin/mkdir -p /run/bos
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true

@@ -113,6 +113,7 @@ TimeoutStopSec=15
 Environment=DAEMON_NAME=bkernel
 Environment=DAEMON_SOCKET=/run/bos/bkernel.sock
 EnvironmentFile=-/etc/bos/env.d/bkernel
+ExecStartPre=+/bin/mkdir -p /run/bos
 
 NoNewPrivileges=true
 ProtectSystem=strict

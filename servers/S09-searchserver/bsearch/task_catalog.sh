@@ -77,8 +77,7 @@ TimeoutStartSec=60
 Environment=DAEMON_NAME=bsearch
 Environment=DAEMON_SOCKET=/run/bos/bsearch.sock
 EnvironmentFile=-/etc/bos/bsearch/bsearch.env
-RuntimeDirectory=bos
-RuntimeDirectoryMode=0755
+ExecStartPre=+/bin/mkdir -p /run/bos
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
