@@ -70,6 +70,8 @@ ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
 RestartSec=5s
 TimeoutStartSec=45
+Environment=DAEMON_NAME=biedata
+Environment=DAEMON_SOCKET=/run/bos/biedata.sock
 EnvironmentFile=-/etc/bos/biedata/biedata.env
 RuntimeDirectory=bos
 RuntimeDirectoryMode=0755
