@@ -46,7 +46,7 @@ spec:
 
           env:
             - name: PGADMIN_DEFAULT_EMAIL
-              value: "admin@sbos.local"
+              value: "admin@sbos.app"
             - name: PGADMIN_DEFAULT_PASSWORD
               value: "sbos_admin_2024"
             - name: PGADMIN_DISABLE_POSTFIX

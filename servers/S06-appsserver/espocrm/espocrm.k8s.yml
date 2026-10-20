@@ -27,7 +27,7 @@ metadata:
 spec:
   replicas: 1
   strategy:
-    type: RollingUpdate
+    type: Recreate
   selector:
     matchLabels:
       app: espocrm
@@ -59,15 +59,15 @@ spec:
               value: "espocrm_pass"
           resources:
             requests:
-              cpu: 50m
-              memory: 256Mi
+              cpu: 10m
+              memory: 32Mi
             limits:
               cpu: 1000m
-              memory: 512Mi
+              memory: 1Gi
           livenessProbe:
             tcpSocket:
               port: 8080
-            initialDelaySeconds: 120
+            initialDelaySeconds: 300
             periodSeconds: 30
           readinessProbe:
             tcpSocket:

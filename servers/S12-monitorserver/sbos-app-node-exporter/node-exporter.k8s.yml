@@ -38,8 +38,6 @@ spec:
         app: node-exporter
     spec:
       serviceAccountName: node-exporter-sa
-      hostNetwork: true
-      hostPID: true
       tolerations:
         - operator: Exists
           effect: NoSchedule
