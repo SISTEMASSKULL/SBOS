@@ -9,11 +9,11 @@ pre_install:
     timeout_seconds: 30
 
 install:
-  - name: "apply_daemonset"
+  - name: "apply_deployment"
     command: "sbos_k8s_core apply -f ${SBOS_FICHA_DIR}/kube-state-metrics.k8s.yml -n sbos-monitor"
     timeout_seconds: 300
   - name: "wait_ready"
-    command: "kubectl wait --for=condition=Ready daemonset/kube-state-metrics -n sbos-monitor --timeout=300s"
+    command: "kubectl wait --for=condition=Available deployment/kube-state-metrics -n sbos-monitor --timeout=300s"
     timeout_seconds: 300
 
 post_install:
@@ -23,15 +23,15 @@ post_install:
 
 update:
   - name: "rolling_restart"
-    command: "kubectl rollout restart daemonset kube-state-metrics -n sbos-monitor"
+    command: "kubectl rollout restart deployment kube-state-metrics -n sbos-monitor"
     timeout_seconds: 300
 
 repair:
-  - name: "restart_daemonset"
-    command: "kubectl rollout restart daemonset kube-state-metrics -n sbos-monitor"
+  - name: "restart_deployment"
+    command: "kubectl rollout restart deployment kube-state-metrics -n sbos-monitor"
     timeout_seconds: 120
 
 uninstall:
-  - name: "delete_daemonset"
-    command: "kubectl delete daemonset kube-state-metrics -n sbos-monitor --ignore-not-found"
+  - name: "delete_deployment"
+    command: "kubectl delete deployment kube-state-metrics -n sbos-monitor --ignore-not-found"
     timeout_seconds: 120

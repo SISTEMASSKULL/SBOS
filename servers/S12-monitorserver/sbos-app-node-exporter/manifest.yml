@@ -11,7 +11,8 @@ identity:
   description: "Host metrics exporter — CPU/mem/disk/network → Prometheus"
 
 workload:
-  type: DaemonSet
+  type: daemonset
+  runtime: kubernetes
   namespace: sbos-monitor
   replicas: 1
   service_account: node-exporter-sa

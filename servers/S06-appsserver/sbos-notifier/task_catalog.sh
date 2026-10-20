@@ -263,23 +263,26 @@ task_status() {
 }
 
 # ============================================================
-# Dispatcher de tareas
+# Dispatcher de tareas — solo ejecuta cuando se invoca directamente
+# (no cuando se hace source desde el master script)
 # ============================================================
-TASK="${1:-help}"
-case "$TASK" in
-  install)  task_install  ;;
-  repair)   task_repair   ;;
-  migrate)  task_migrate  "$@" ;;
-  test)     task_test     ;;
-  status)   task_status   ;;
-  *)
-    echo "Uso: bosctl ficha task $FICHA <tarea> --tenant=<tenant>"
-    echo ""
-    echo "Tareas disponibles:"
-    echo "  install   Instala la ficha: BD, tablas, topics ntfy, templates"
-    echo "  repair    Verifica y repara estado de la ficha"
-    echo "  migrate   Ejecuta migraciones de versión"
-    echo "  test      Prueba todos los canales de notificación"
-    echo "  status    Muestra estado completo: pods, métricas, últimas notif"
-    ;;
-esac
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  TASK="${1:-help}"
+  case "$TASK" in
+    install)  task_install  ;;
+    repair)   task_repair   ;;
+    migrate)  task_migrate  "$@" ;;
+    test)     task_test     ;;
+    status)   task_status   ;;
+    *)
+      echo "Uso: bosctl ficha task $FICHA <tarea> --tenant=<tenant>"
+      echo ""
+      echo "Tareas disponibles:"
+      echo "  install   Instala la ficha: BD, tablas, topics ntfy, templates"
+      echo "  repair    Verifica y repara estado de la ficha"
+      echo "  migrate   Ejecuta migraciones de versión"
+      echo "  test      Prueba todos los canales de notificación"
+      echo "  status    Muestra estado completo: pods, métricas, últimas notif"
+      ;;
+  esac
+fi

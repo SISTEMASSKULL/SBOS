@@ -11,7 +11,8 @@ identity:
   description: "K8s object metrics exporter — pods/nodes/deployments → Prometheus"
 
 workload:
-  type: DaemonSet
+  type: deployment
+  runtime: kubernetes
   namespace: sbos-monitor
   replicas: 1
   service_account: kube-state-metrics-sa
