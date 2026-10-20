@@ -36,7 +36,7 @@ ports:
     description: "Weblate app web (nginx la proxifica)"
 
 governance:
-  auto_install: true
+  auto_install: false
   requires_approval: false
   category_label: translation-ui
 

@@ -22,7 +22,7 @@ requirements:
     - keycloak
 
 governance:
-  auto_install: true
+  auto_install: false
   requires_approval: true
   category_label: "comunicaciones"
 
