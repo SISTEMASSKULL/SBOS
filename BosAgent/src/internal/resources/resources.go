@@ -216,14 +216,15 @@ func CheckAndRecover(fichaID, memRequest string) (ok bool, availMiB int64) {
 	return false, availAfter
 }
 
-// CPUOverloaded retorna true si la carga del sistema es mayor que 2× el número de cores.
-// Umbral conservador que detecta saturación real sin bloquear instalaciones en carga normal.
+// CPUOverloaded retorna true si la carga del sistema es mayor que 10× el número de cores.
+// Umbral amplio para VPS con muchos workloads K8s ya instalados: las instalaciones K8s
+// solo ejecutan kubectl apply (muy liviano); la carga viene de pods ya corriendo.
 func CPUOverloaded() bool {
 	cpu, err := ReadCPUStatus()
 	if err != nil {
 		return false // en caso de duda, no bloquear
 	}
-	threshold := float64(cpu.Cores) * 2.0
+	threshold := float64(cpu.Cores) * 10.0
 	if cpu.Load1 > threshold {
 		log.Warn().
 			Float64("load1", cpu.Load1).

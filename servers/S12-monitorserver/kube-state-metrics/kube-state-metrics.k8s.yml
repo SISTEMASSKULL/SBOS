@@ -120,14 +120,16 @@ spec:
             httpGet:
               path: /healthz
               port: 8080
-            initialDelaySeconds: 5
+            initialDelaySeconds: 30
             periodSeconds: 10
+            failureThreshold: 5
           readinessProbe:
             httpGet:
               path: /
               port: 8081
-            initialDelaySeconds: 5
+            initialDelaySeconds: 30
             periodSeconds: 10
+            failureThreshold: 5
       securityContext:
         runAsUser: 65534
         fsGroup: 65534
