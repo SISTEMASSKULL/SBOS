@@ -27,7 +27,7 @@ metadata:
 spec:
   replicas: 1
   strategy:
-    type: RollingUpdate
+    type: Recreate
   selector:
     matchLabels:
       app: mattermost
@@ -53,20 +53,22 @@ spec:
               value: "http://mattermost.sbos-comms.svc.cluster.local:8065"
           resources:
             requests:
-              cpu: 50m
-              memory: 128Mi
+              cpu: 10m
+              memory: 32Mi
             limits:
               cpu: 2000m
               memory: 1Gi
           livenessProbe:
             tcpSocket:
               port: 8065
-            initialDelaySeconds: 30
+            initialDelaySeconds: 120
             periodSeconds: 30
+            failureThreshold: 5
           readinessProbe:
             tcpSocket:
               port: 8065
-            initialDelaySeconds: 10
-            periodSeconds: 10
+            initialDelaySeconds: 90
+            periodSeconds: 15
+            failureThreshold: 5
 
 

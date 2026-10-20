@@ -62,8 +62,8 @@ spec:
               name: guacd
           resources:
             requests:
-              cpu: "50m"
-              memory: "128Mi"
+              cpu: "10m"
+              memory: "32Mi"
             limits:
               cpu: "500m"
               memory: "512Mi"
@@ -115,8 +115,8 @@ spec:
                   key: redirect_uri
           resources:
             requests:
-              cpu: "50m"
-              memory: "512Mi"
+              cpu: "10m"
+              memory: "32Mi"
             limits:
               cpu: "1000m"
               memory: "1Gi"

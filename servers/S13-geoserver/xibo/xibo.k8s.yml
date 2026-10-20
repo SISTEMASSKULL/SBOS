@@ -39,7 +39,7 @@ spec:
       serviceAccountName: xibo-sa
       containers:
         - name: xibo
-          image: docker.io/xibosignage/xibo-cms:4.1
+          image: docker.io/xibosignage/xibo-cms:latest
           ports:
             - containerPort: 8080
               name: http
@@ -47,7 +47,7 @@ spec:
           resources:
             requests:
               cpu: 50m
-              memory: 128Mi
+              memory: "32Mi"
             limits:
               cpu: 1000m
               memory: 512Mi

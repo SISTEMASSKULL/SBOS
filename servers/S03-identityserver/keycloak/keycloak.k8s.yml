@@ -86,13 +86,19 @@ spec:
                 secretKeyRef:
                   name: keycloak-secret
                   key: admin-password
+            - name: KC_DB_POOL_MIN_SIZE
+              value: "1"
+            - name: KC_DB_POOL_INITIAL_SIZE
+              value: "1"
+            - name: KC_DB_POOL_MAX_SIZE
+              value: "5"
           volumeMounts:
             - name: data
               mountPath: /opt/keycloak/data
           resources:
             requests:
               cpu: 50m
-              memory: 1Gi
+              memory: "32Mi"
             limits:
               cpu: 2000m
               memory: 2Gi
