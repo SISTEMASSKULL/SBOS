@@ -102,8 +102,9 @@ spec:
             httpGet:
               path: /status.php
               port: 80
-            initialDelaySeconds: 120
+            initialDelaySeconds: 300
             periodSeconds: 30
+            failureThreshold: 5
   volumeClaimTemplates:
     - metadata:
         name: data
