@@ -23,10 +23,11 @@ deployment:
   strategy: Recreate
 
 governance:
-  auto_install: true
+  auto_install: false
   requires_approval: false
 
 health:
+  type: command
   command: "pgbackrest version"
   interval_seconds: 30
   timeout_seconds: 10
