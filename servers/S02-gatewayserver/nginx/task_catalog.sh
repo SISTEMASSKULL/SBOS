@@ -50,14 +50,18 @@ ficha_install() {
     # 2. Esperar que el pod esté listo
     kubectl wait --for=condition=Available deployment/nginx -n "${SBOS_NAMESPACE}" --timeout=300s
 
-    # 3. Emitir certificado wildcard via certbot DNS-01
-    echo "  [certbot] Emitiendo wildcard *.${CLIENT_DOMAIN}..."
-    certbot certonly --dns-route53 \
+    # 3. Emitir certificado wildcard via certbot DNS-01 (opcional — requiere Route53)
+    echo "  [certbot] Intentando wildcard *.${CLIENT_DOMAIN} via DNS-01..."
+    if timeout 90 certbot certonly --dns-route53 \
         --non-interactive --agree-tos \
         --email "${LETSENCRYPT_EMAIL}" \
         -d "*.${CLIENT_DOMAIN}" \
         --deploy-hook "kubectl rollout restart deployment/nginx -n ${SBOS_NAMESPACE}" \
-        || echo "  [certbot] WARNING: DNS-01 requires API access — usando staging self-signed"
+        2>&1; then
+        echo "  [certbot] Certificado wildcard emitido OK"
+    else
+        echo "  [certbot] WARNING: DNS-01 no disponible (sin Route53/Internet) — nginx continúa con TLS auto-firmado"
+    fi
 
     # 4. Generar virtual hosts desde templates parametrizados
     for tmpl in "${SBOS_FICHA_DIR}"/resources/nginx/*.conf.tmpl; do
@@ -83,7 +87,7 @@ ficha_post_install() {
 
     # Verificar si el pod está disponible antes de ejecutar comandos en él
     local pod_ready
-    pod_ready=$(KUBECONFIG=/etc/kubernetes/admin.conf kubectl get deployment nginx -n "${SBOS_NAMESPACE}" \
+    pod_ready=$(kubectl get deployment nginx -n "${SBOS_NAMESPACE}" \
         -o jsonpath='{.status.availableReplicas}' 2>/dev/null || echo "0")
 
     if [[ "${pod_ready:-0}" -gt 0 ]]; then
