@@ -64,7 +64,7 @@ spec:
             - start-dev
             - --db=postgres
             - --db-url=jdbc:postgresql://postgresql.sbos-data:5432/keycloak_db
-            - --db-username=postgres
+            - --db-username=keycloak
             - --db-password=$(KC_DB_PASSWORD)
             - --http-port=9000
             - --health-enabled=true
