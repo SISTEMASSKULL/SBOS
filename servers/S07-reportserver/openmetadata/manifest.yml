@@ -27,7 +27,8 @@ deployment:
 governance:
 
 
-  auto_install: true
+  # k8s.yml incompleto: sin vars MySQL + requiere Elasticsearch — pendiente configuración
+  auto_install: false
   requires_approval: false
 health:
   type: command
