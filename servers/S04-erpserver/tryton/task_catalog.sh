@@ -21,7 +21,7 @@ ficha_pre_install() {
 ficha_install() {
     echo "${__SBOS__STEP_START__} install"
     sbos_k8s_core "${SBOS_FICHA_DIR}/tryton.k8s.yml" "${SBOS_NAMESPACE}"
-    kubectl wait --for=condition=Ready statefulset/tryton-0 -n "${SBOS_NAMESPACE}" --timeout=600s
+    kubectl rollout status statefulset/tryton-0 -n "${SBOS_NAMESPACE}" --timeout=600s
     echo "${__SBOS__STEP_OK__} install"
 }
 
@@ -35,7 +35,7 @@ ficha_post_install() {
 ficha_update() {
     echo "${__SBOS__STEP_START__} update"
     kubectl rollout restart statefulset tryton -n "${SBOS_NAMESPACE}"
-    kubectl wait --for=condition=Ready statefulset/tryton-0 -n "${SBOS_NAMESPACE}" --timeout=300s
+    kubectl rollout status statefulset/tryton-0 -n "${SBOS_NAMESPACE}" --timeout=300s
     echo "${__SBOS__STEP_OK__} update"
 }
 

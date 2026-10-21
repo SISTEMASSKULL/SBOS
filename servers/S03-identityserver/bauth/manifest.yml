@@ -29,7 +29,7 @@ ports:
     description: "JSON-RPC 2.0 — consumido por bos, bhnexus, kong plugin"
 
 governance:
-  auto_install: true
+  auto_install: false
 
 health:
   type: command
