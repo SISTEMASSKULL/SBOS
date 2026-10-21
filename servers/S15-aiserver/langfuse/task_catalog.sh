@@ -56,6 +56,26 @@ ficha_update() {
 ficha_repair() {
     echo "${__SBOS__STEP_START__} repair"
     sbos_ensure_pg_database "langfuse_db"
+    local pg_pod
+    pg_pod=$(kubectl get pod -n sbos-data -l app=postgresql \
+        --field-selector=status.phase=Running \
+        -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+    if [[ -n "${pg_pod}" ]]; then
+        kubectl exec "${pg_pod}" -n sbos-data -- \
+            psql -U postgres -tc "SELECT 1 FROM pg_roles WHERE rolname='langfuse'" 2>/dev/null \
+            | grep -q 1 || \
+        kubectl exec "${pg_pod}" -n sbos-data -- \
+            psql -U postgres -c "CREATE USER langfuse WITH PASSWORD 'langfuse_pass';" 2>/dev/null || true
+        kubectl exec "${pg_pod}" -n sbos-data -- \
+            psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE langfuse_db TO langfuse;" 2>/dev/null || true
+    fi
+    # Crear/actualizar Secret con clave database-url que el k8s.yml requiere
+    kubectl create secret generic langfuse-secret \
+        -n "${SBOS_NAMESPACE}" \
+        --from-literal=nextauth-secret="$(openssl rand -base64 32)" \
+        --from-literal=salt="$(openssl rand -base64 16)" \
+        --from-literal=database-url="postgresql://langfuse:langfuse_pass@postgresql.sbos-data.svc.cluster.local:5432/langfuse_db" \
+        --dry-run=client -o yaml | kubectl apply -f -
     kubectl rollout restart deployment langfuse -n "${SBOS_NAMESPACE}"
     echo "${__SBOS__STEP_OK__} repair"
 }

@@ -1,5 +1,7 @@
 ---
-# Permite acceso a PostgreSQL (5432) y Redis (6379) desde namespaces sbos-*
+# Permite acceso a PostgreSQL (5432) y Redis (6379) desde todos los namespaces SBOS
+# Regla 1: namespaces con label sbos.io/managed=true (creados por sbos-namespace)
+# Regla 2: namespaces sin esa label que también usan la BD
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -12,14 +14,18 @@ spec:
   ingress:
   - from:
     - namespaceSelector:
+        matchLabels:
+          sbos.io/managed: "true"
+    - namespaceSelector:
         matchExpressions:
         - key: kubernetes.io/metadata.name
           operator: In
           values:
+          - sbos-comms
+          - sbos-gateway
           - sbos-identity
           - sbos-security
           - sbos-skull
-          - sbos-gateway
           - sbos-notifier
     ports:
     - protocol: TCP

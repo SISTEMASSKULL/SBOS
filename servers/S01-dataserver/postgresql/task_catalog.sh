@@ -66,6 +66,8 @@ ficha_update() {
 # ── repair ─────────────────────────────────────────────────────
 ficha_repair() {
     echo "${__SBOS__STEP_START__} repair"
+    # Re-aplica NetworkPolicies y objetos no-stateful (idempotente)
+    sbos_k8s_core "${SBOS_FICHA_DIR}/postgresql.k8s.yml" "${SBOS_NAMESPACE}"
     kubectl rollout restart statefulset postgresql -n "${SBOS_NAMESPACE}"
     echo "${__SBOS__STEP_OK__} repair"
 }
