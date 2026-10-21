@@ -26,6 +26,7 @@ governance:
   auto_install: false
 
 health:
+  type: command
   command: "bosctl repair --target=all --dry-run 2>/dev/null | grep -q 'Success'"
   interval_seconds: 600
   timeout_seconds: 30

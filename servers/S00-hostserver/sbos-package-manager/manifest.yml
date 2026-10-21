@@ -26,6 +26,7 @@ governance:
   auto_install: false
 
 health:
+  type: command
   command: "bosctl install --backend=apt --help 2>/dev/null | grep -q 'backend'"
   interval_seconds: 600
   timeout_seconds: 20

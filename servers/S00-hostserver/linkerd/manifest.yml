@@ -29,6 +29,7 @@ governance:
 
 
 health:
+  type: command
   command: "linkerd check"
   interval_seconds: 30
   timeout_seconds: 10

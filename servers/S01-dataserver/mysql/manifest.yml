@@ -27,6 +27,7 @@ governance:
   auto_install: true
   requires_approval: false
 health:
+  type: command
   command: "mysqladmin ping -h localhost"
   interval_seconds: 30
   timeout_seconds: 10

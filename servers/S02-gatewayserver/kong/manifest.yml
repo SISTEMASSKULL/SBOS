@@ -28,6 +28,7 @@ governance:
   auto_install: true
 
 health:
+  type: command
   command: "curl -sf http://localhost:8001/status"
   interval_seconds: 15
   timeout_seconds: 5

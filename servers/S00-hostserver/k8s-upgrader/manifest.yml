@@ -24,6 +24,7 @@ governance:
   requires_approval: false
 
 health:
+  type: command
   command: "kubectl version"
   interval_seconds: 30
   timeout_seconds: 10

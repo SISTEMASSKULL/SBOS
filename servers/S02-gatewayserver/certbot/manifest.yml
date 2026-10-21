@@ -28,6 +28,7 @@ governance:
   auto_install: true
   requires_approval: false
 health:
+  type: command
   command: "certbot --version"
   interval_seconds: 30
   timeout_seconds: 10

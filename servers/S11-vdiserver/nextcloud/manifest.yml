@@ -29,6 +29,7 @@ governance:
   requires_approval: false
 
 health:
+  type: command
   command: "curl -sf http://localhost:80/status.php"
   interval_seconds: 30
   timeout_seconds: 10

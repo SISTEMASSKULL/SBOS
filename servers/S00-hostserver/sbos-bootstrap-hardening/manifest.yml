@@ -30,6 +30,7 @@ governance:
 
 
 health:
+  type: command
   command: "kube-bench run --targets node"
   interval_seconds: 30
   timeout_seconds: 10

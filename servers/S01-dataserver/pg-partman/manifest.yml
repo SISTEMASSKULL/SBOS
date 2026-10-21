@@ -29,7 +29,8 @@ governance:
   auto_install: true
   requires_approval: false
 health:
-  command: "psql -h localhost -c 'SELECT pg_partman_version()'"
+  type: command
+  command: "kubectl get cronjob pg-partman -n sbos-data 2>/dev/null"
   interval_seconds: 30
   timeout_seconds: 10
 

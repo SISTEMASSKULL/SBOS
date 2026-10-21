@@ -28,6 +28,7 @@ governance:
   requires_approval: false
 
 health:
+  type: command
   command: "goss --version"
   interval_seconds: 30
   timeout_seconds: 10

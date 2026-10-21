@@ -28,6 +28,7 @@ governance:
   auto_install: true
   requires_approval: false
 health:
+  type: command
   command: "postfix status"
   interval_seconds: 30
   timeout_seconds: 10

@@ -28,6 +28,7 @@ governance:
   category_label: "imagen-inexistente"
 
 health:
+  type: command
   command: "curl -sf http://localhost:8000/health"
   interval_seconds: 30
   timeout_seconds: 10

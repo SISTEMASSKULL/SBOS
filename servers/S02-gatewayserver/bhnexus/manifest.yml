@@ -36,6 +36,7 @@ governance:
   auto_install: true
 
 health:
+  type: command
   command: "systemctl is-active bhnexus.service"
   interval_seconds: 30
   timeout_seconds: 5

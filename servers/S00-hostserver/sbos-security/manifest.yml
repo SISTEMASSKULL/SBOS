@@ -26,6 +26,7 @@ governance:
   auto_install: false
 
 health:
+  type: command
   command: "bosctl security scan 2>/dev/null | grep -q '100%'"
   interval_seconds: 300
   timeout_seconds: 30

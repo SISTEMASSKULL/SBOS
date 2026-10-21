@@ -28,6 +28,7 @@ governance:
   auto_install: true
   requires_approval: false
 health:
+  type: command
   command: "pg_isready -h localhost -p 6432"
   interval_seconds: 30
   timeout_seconds: 10

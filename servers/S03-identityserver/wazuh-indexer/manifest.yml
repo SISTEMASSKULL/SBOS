@@ -25,6 +25,7 @@ governance:
   auto_install: false
   requires_approval: true
 health:
+  type: command
   command: "curl -sf http://localhost:9200"
   interval_seconds: 30
   timeout_seconds: 10

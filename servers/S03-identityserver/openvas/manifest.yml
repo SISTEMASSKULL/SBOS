@@ -27,6 +27,7 @@ governance:
   requires_approval: true
   category_label: "scanner-seguridad"
 health:
+  type: command
   command: "curl -sf http://localhost:9392"
   interval_seconds: 30
   timeout_seconds: 10

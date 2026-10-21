@@ -36,6 +36,7 @@ governance:
   requires_approval: false
 
 health:
+  type: command
   command: "curl -sf http://localhost:28200/v1/health-check"
   interval_seconds: 30
 

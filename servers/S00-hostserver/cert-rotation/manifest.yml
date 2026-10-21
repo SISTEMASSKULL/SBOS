@@ -25,6 +25,7 @@ governance:
   requires_approval: false
 
 health:
+  type: command
   command: "kubectl get certificates -A"
   interval_seconds: 30
   timeout_seconds: 10

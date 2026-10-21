@@ -27,6 +27,7 @@ governance:
   requires_approval: true
   category_label: "auth-proxy-oidc"
 health:
+  type: command
   command: "curl -sf http://localhost:4180/ping"
   interval_seconds: 30
   timeout_seconds: 10

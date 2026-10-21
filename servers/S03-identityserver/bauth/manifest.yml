@@ -32,6 +32,7 @@ governance:
   auto_install: true
 
 health:
+  type: command
   command: "test -S /run/bauth/bauth.sock && echo OK"
   interval_seconds: 30
   timeout_seconds: 5

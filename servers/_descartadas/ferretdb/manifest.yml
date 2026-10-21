@@ -27,6 +27,7 @@ deployment:
 governance:
 
 health:
+  type: command
   command: "curl -sf http://localhost:27017/"
   interval_seconds: 30
 

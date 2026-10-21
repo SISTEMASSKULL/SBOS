@@ -30,6 +30,7 @@ governance:
   auto_install: true
   requires_approval: false
 health:
+  type: command
   command: "curl -sf http://localhost:8585/health"
   interval_seconds: 30
   timeout_seconds: 10
