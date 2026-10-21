@@ -170,7 +170,8 @@ func installCore() error {
 // ── installBlibs ──────────────────────────────────────────────────
 // Copia el directorio servers/ a /etc/bos/blibs/servers/.
 // El daemon carga las fichas declarativas desde aquí al iniciar.
-// Sin esto, bos.ficha.install no encuentra ninguna ficha.
+// P15: si los blibs ya existen (reinstalación), solo actualizar desde el paquete
+// si se encuentra servers/. Si no hay paquete pero los blibs ya existen, retornar OK.
 func installBlibs() error {
 	const dest = paths.ServersPath
 	if err := os.MkdirAll(dest, 0755); err != nil {
@@ -193,6 +194,13 @@ func installBlibs() error {
 		}
 	}
 	if serversDir == "" {
+		// P15: si no hay paquete pero los blibs ya están instalados, retornar OK.
+		// Esto ocurre en una reinstalación donde el paquete no incluye servers/
+		// pero /etc/bos/blibs/servers/ ya existe de la instalación anterior.
+		if entries, err := os.ReadDir(dest); err == nil && len(entries) > 0 {
+			fmt.Printf("    blibs: ya instalados (%d fichas) — omitiendo copia\n", len(entries))
+			return nil
+		}
 		return fmt.Errorf("directorio servers/ no encontrado — incluir en el paquete de deploy junto a los binarios bos/bosctl")
 	}
 
