@@ -475,12 +475,19 @@ func deployTenant(seedPath string) error {
 
 // installFicha ejecuta bos.ficha.install vía JSON-RPC al daemon.
 //
+// P15 — idempotencia: si la ficha ya está en estado INSTALLED en el state file,
+// retorna OK sin llamar al daemon. Esto evita reinstalar vault/keycloak/redis/postgresql
+// aunque sus pods ya estén Running 1/1 y saludables.
+//
 // Las variables de entorno (TENANT_ID, TENANT_NAME, etc.) viajan en el campo
 // "env" del JSON-RPC. El daemon las inyecta antes de ejecutar el task_catalog.sh.
-//
-// Mientras espera la respuesta, transmite en vivo las líneas del log de la ficha
-// para que el operador vea el progreso y no parezca que el sistema se colgó.
 func installFicha(name string, env map[string]string) error {
+	// P15: verificar si la ficha ya está INSTALLED antes de llamar al daemon.
+	if fichaIsInstalled(name) {
+		fmt.Printf("  ⏭  %s: ya INSTALLED — omitiendo reinstalación (P15)\n", name)
+		return nil
+	}
+
 	socket := os.Getenv("BOS_SOCKET")
 	if socket == "" {
 		socket = paths.SocketPath
@@ -494,17 +501,34 @@ func installFicha(name string, env map[string]string) error {
 	}
 
 	// Iniciar streaming del log en background.
-	// Usar paths.VarLogBos para construir la ruta sin hardcodeo (R16).
 	logPath := filepath.Join(paths.VarLogBos, "fichas", name+".log")
 	stopStream := make(chan struct{})
 	go streamLog(logPath, stopStream)
 
 	err := rpcCall(socket, "bos.ficha.install", params)
 
-	// Detener streaming
 	close(stopStream)
-
 	return err
+}
+
+// fichaIsInstalled retorna true si la ficha está en estado INSTALLED en el state file.
+// Consulta el state file directamente — no pasa por el daemon — para decidir si
+// es necesario llamar al RPC de install (P15: no reinstalar lo que ya funciona).
+func fichaIsInstalled(name string) bool {
+	data, err := os.ReadFile(paths.StatePath)
+	if err != nil {
+		return false
+	}
+	var raw struct {
+		Fichas map[string]struct {
+			State string `json:"state"`
+		} `json:"fichas"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return false
+	}
+	f, ok := raw.Fichas[name]
+	return ok && f.State == "INSTALLED"
 }
 
 // streamLog transmite líneas nuevas del archivo de log a stdout con colores.
