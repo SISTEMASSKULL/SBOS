@@ -39,7 +39,7 @@ spec:
       serviceAccountName: jaspersoft-sa
       containers:
         - name: jaspersoft
-          image: docker.io/bitnami/jasperreports:8.2
+          image: ghcr.io/bitnami/jasperreports:8.2
           ports:
             - containerPort: 8080
               name: http

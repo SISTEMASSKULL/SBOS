@@ -39,7 +39,7 @@ spec:
       serviceAccountName: postfixadmin-sa
       containers:
         - name: postfixadmin
-          image: docker.io/postfixadmin/postfixadmin:3.3
+          image: docker.io/postfixadmin/postfixadmin:3.3.13
           ports:
             - containerPort: 80
               name: http
