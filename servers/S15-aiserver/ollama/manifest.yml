@@ -22,7 +22,7 @@ deployment:
   strategy: Recreate
 
 governance:
-  auto_install: false
+  auto_install: true
   requires_approval: false
 
 health:

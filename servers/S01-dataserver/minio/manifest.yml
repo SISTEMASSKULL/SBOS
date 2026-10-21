@@ -22,10 +22,8 @@ deployment:
   strategy: Recreate
 
 governance:
-  # BLOQUEADO: docker.io/minio/minio requiere auth de Docker Hub (no disponible sin cuenta).
-  # dl.min.io eliminó URLs directas (HTTP 410). GitHub Releases devuelve 404 para linux-amd64.
-  # Activar manualmente tras configurar imagePullSecrets o un mirror de Docker Hub.
-  auto_install: false
+  # k8s.yml usa alpine:3.20 + wget → GitHub Releases (sin Docker Hub auth)
+  auto_install: true
 
 health:
   type: command
