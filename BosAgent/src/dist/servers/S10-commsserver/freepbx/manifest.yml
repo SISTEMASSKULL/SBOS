@@ -2,7 +2,7 @@
 # SBOS-049 §4 · Order 338 · StatefulSet
 identity:
   id: freepbx
-  version: "17"
+  version: "17.0"
   category: 1
   criticality: false
   server: S10

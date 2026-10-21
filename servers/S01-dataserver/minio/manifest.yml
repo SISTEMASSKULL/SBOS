@@ -2,7 +2,7 @@
 # SBOS-019 §9 · Order 115 · StatefulSet
 identity:
   id: minio
-  version: "2025-02-28"
+  version: "2025.2"
   category: 1
   criticality: false
   server: S01

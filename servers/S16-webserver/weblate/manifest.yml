@@ -2,7 +2,7 @@
 # Order 380 · Gestión de traducciones FTL/Fluent
 identity:
   id: weblate
-  version: "2026"
+  version: "2026.0"
   category: 2
   criticality: false
   server: S16
