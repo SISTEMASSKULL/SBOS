@@ -24,9 +24,8 @@ deployment:
   strategy: RollingUpdate
 
 governance:
-
-
-  auto_install: true
+  # OOMKilled: servidor con poca memoria disponible (1.2Gi libre); Java necesita >768Mi
+  auto_install: false
   requires_approval: false
 health:
   type: command

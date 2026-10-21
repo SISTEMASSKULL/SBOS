@@ -40,6 +40,9 @@ spec:
       containers:
         - name: traccar
           image: docker.io/traccar/traccar:6.5
+          env:
+            - name: JAVA_OPTS
+              value: "-Xms128m -Xmx512m"
           ports:
             - containerPort: 8082
               name: http
@@ -47,10 +50,10 @@ spec:
           resources:
             requests:
               cpu: 50m
-              memory: "32Mi"
+              memory: "256Mi"
             limits:
               cpu: 1000m
-              memory: 2Gi
+              memory: 768Mi
           livenessProbe:
             tcpSocket:
               port: 8082

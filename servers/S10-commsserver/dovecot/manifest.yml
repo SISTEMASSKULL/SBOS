@@ -22,7 +22,8 @@ deployment:
   strategy: Recreate
 
 governance:
-  auto_install: true
+  # dovecot requiere ConfigMap con listeners en 0.0.0.0:143 — sin configuración escucha solo en loopback
+  auto_install: false
   requires_approval: false
 
 health:
