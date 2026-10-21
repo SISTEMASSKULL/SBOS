@@ -28,9 +28,9 @@ governance:
 
 health:
   type: command
-  command: "kubectl get deployment nginx -n sbos-gateway --no-headers 2>/dev/null | grep -q Running || systemctl is-active nginx"
-  timeout_seconds: 15
-  interval_seconds: 30
+  command: "kubectl get pods -n sbos-gateway -l app=nginx --no-headers 2>/dev/null | grep -q Running"
+  timeout_seconds: 30
+  interval_seconds: 10
 
 integrations:
   certbot:
