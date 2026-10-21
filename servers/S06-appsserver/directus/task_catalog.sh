@@ -14,6 +14,19 @@ ficha_pre_install() {
     create_k8s_namespace "${SBOS_NAMESPACE}" "sbos.io/managed=true"
     sbos_ensure_serviceaccount "directus-sa" "${SBOS_NAMESPACE}"
     sbos_ensure_pg_database "directus_db"
+    local pg_pod
+    pg_pod=$(kubectl get pod -n sbos-data -l app=postgresql \
+        --field-selector=status.phase=Running \
+        -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+    if [[ -n "${pg_pod}" ]]; then
+        kubectl exec "${pg_pod}" -n sbos-data -- \
+            psql -U postgres -tc "SELECT 1 FROM pg_roles WHERE rolname='directus'" 2>/dev/null \
+            | grep -q 1 || \
+        kubectl exec "${pg_pod}" -n sbos-data -- \
+            psql -U postgres -c "CREATE USER directus WITH PASSWORD 'directus_pass';" 2>/dev/null || true
+        kubectl exec "${pg_pod}" -n sbos-data -- \
+            psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE directus_db TO directus;" 2>/dev/null || true
+    fi
     echo "${__SBOS__STEP_OK__} pre_install"
 }
 
