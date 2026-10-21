@@ -17,9 +17,14 @@ ficha_pre_install() {
 # ── install ────────────────────────────────────────────────────
 ficha_install() {
     echo "${__SBOS__STEP_START__} install"
-    # Ensure bos service is enabled and running
+    # Garantizar que bos arranque en el próximo boot (enable).
+    # NO hacer systemctl start: esta ficha es ejecutada POR el daemon bos —
+    # arrancarlo desde aquí lo mataría con un reinicio de systemd (P15, ADR-022).
     systemctl enable bos 2>/dev/null || true
-    systemctl start bos 2>/dev/null || true
+    # Verificar que el daemon ya está activo (es quien ejecuta este script).
+    if ! systemctl is-active bos >/dev/null 2>&1; then
+        echo "WARN: bos.service no activo — esto es anómalo si este script corre dentro de bos"
+    fi
     echo "${__SBOS__STEP_OK__} install"
 }
 

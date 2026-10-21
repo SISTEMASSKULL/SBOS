@@ -52,11 +52,14 @@ func cmdSetup(args []string) int {
 		// y el servidor rechaza las llamadas con -32600 Unauthorized.
 		os.Remove(paths.RpcTokenFile)
 
-		// Limpiar el state file — el deploy del seed restablece los estados correctos.
-		if err := os.Remove(paths.StatePath); err != nil && !os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "advertencia: no se pudo limpiar state file: %v\n", err)
+		// P15 — idempotencia: resetear SOLO las fichas fallidas a PENDING.
+		// Las fichas en estado INSTALLED se preservan — no se reinstalan si ya están operativas.
+		// Borrar el state completo viola P15: fuerza reinstalación de vault/keycloak/postgresql
+		// aunque sus pods estén Running 1/1 y saludables.
+		if err := resetFailedFichas(paths.StatePath); err != nil {
+			fmt.Fprintf(os.Stderr, "advertencia: no se pudo resetear fichas fallidas: %v\n", err)
 		}
-		fmt.Println("   Estado limpiado — procediendo con instalación limpia.")
+		fmt.Println("   Fichas fallidas reseteadas a PENDING — fichas INSTALLED preservadas (P15).")
 	}
 
 	// Verificar que el daemon RESPONDE, no solo que el socket existe como archivo.
@@ -96,6 +99,85 @@ func cmdSetup(args []string) int {
 	fmt.Printf("bosctl setup — modo declarativo\n")
 	fmt.Printf("  seed: %s\n\n", seedFile)
 	return cmdDeploy([]string{seedFile})
+}
+
+// resetFailedFichas reescribe el state file reseteando SOLO las fichas con estados problemáticos
+// a PENDING para reintentar. Las fichas en estado INSTALLED se preservan sin cambios (P15).
+// Si el state file no existe o está corrupto, lo elimina completo para empezar limpio.
+func resetFailedFichas(statePath string) error {
+	data, err := os.ReadFile(statePath)
+	if err != nil {
+		return nil // no existe — ok, instalación nueva
+	}
+
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return os.Remove(statePath) // corrupto — eliminar
+	}
+
+	fichasRaw, ok := raw["fichas"]
+	if !ok {
+		return nil
+	}
+
+	var fichas map[string]json.RawMessage
+	if err := json.Unmarshal(fichasRaw, &fichas); err != nil {
+		return os.Remove(statePath)
+	}
+
+	// Estados problemáticos que se resetean a PENDING para reintentar.
+	// INSTALLED y otros estados estables se preservan (P15: no tocar lo que funciona).
+	resetStates := map[string]bool{
+		"INSTALL_FAILED": true,
+		"UPDATE_FAILED":  true,
+		"UNRECOVERABLE":  true,
+		"INSTALLING":     true, // zombie: daemon fue interrumpido
+		"UPDATING":       true, // zombie
+		"REPAIRING":      true, // zombie
+		"ROLLBACK":       true, // zombie
+		"CLEANUP":        true, // zombie
+	}
+
+	changed := false
+	for name, fichaJSON := range fichas {
+		var ficha struct {
+			State string `json:"state"`
+		}
+		if err := json.Unmarshal(fichaJSON, &ficha); err != nil {
+			continue
+		}
+		if !resetStates[ficha.State] {
+			continue // INSTALLED, READY, PENDING, etc. — preservar sin cambios
+		}
+		var fichaMap map[string]interface{}
+		if err := json.Unmarshal(fichaJSON, &fichaMap); err != nil {
+			continue
+		}
+		fichaMap["state"] = "PENDING"
+		newJSON, err := json.Marshal(fichaMap)
+		if err != nil {
+			continue
+		}
+		fichas[name] = newJSON
+		fmt.Printf("   • %s: %s → PENDING\n", name, ficha.State)
+		changed = true
+	}
+
+	if !changed {
+		return nil
+	}
+
+	fichasJSON, err := json.Marshal(fichas)
+	if err != nil {
+		return err
+	}
+	raw["fichas"] = fichasJSON
+
+	newData, err := json.MarshalIndent(raw, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(statePath, newData, 0600)
 }
 
 // detectFailedInstall lee el state file y retorna las fichas con estados problemáticos:
