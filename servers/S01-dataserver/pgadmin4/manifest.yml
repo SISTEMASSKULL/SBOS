@@ -17,7 +17,6 @@ order:
 requirements:
   dependencies:
     - postgresql
-    - oauth2-proxy
 
 deployment:
   strategy: Recreate

@@ -19,7 +19,6 @@ requirements:
     - postfix
     - dovecot
     - postgresql
-    - oauth2-proxy
 
 
 deployment:

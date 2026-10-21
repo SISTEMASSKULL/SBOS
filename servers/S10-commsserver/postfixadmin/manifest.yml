@@ -18,7 +18,6 @@ requirements:
   dependencies:
     - postfix
     - postgresql
-    - oauth2-proxy
 
 
 deployment:
