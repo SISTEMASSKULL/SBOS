@@ -331,25 +331,29 @@ log_path = %q
 // runPreflightFicha ejecuta la ficha bos-preflight via task_catalog.sh.
 // mode: "dev" (advertencias no bloquean) | "prod" (requisitos estrictos).
 func runPreflightFicha(mode string) error {
-	// Buscar el task_catalog.sh de bos-preflight en rutas conocidas.
-	// Ruta canónica: installBlibs ya copió servers/ a paths.ServersPath = /etc/bos/blibs/servers/
-	const preflightRelPath = "S-HOST/bos-preflight/task_catalog.sh"
-	candidates := []string{
-		filepath.Join(paths.ServersPath, preflightRelPath),
-	}
-	// Fallbacks: directorio relativo y junto al ejecutable (útil en dev antes del system-install)
-	candidates = append(candidates, filepath.Join("servers", preflightRelPath))
+	// Buscar task_catalog.sh de bos-preflight recorriendo todos los subdirectorios de servers/.
+	// La carpeta del servidor puede llamarse S-HOST o S00-hostserver — se busca por nombre de ficha.
+	serversRoots := []string{paths.ServersPath, "servers"}
 	if self, err := os.Executable(); err == nil {
-		candidates = append(candidates,
-			filepath.Join(filepath.Dir(self), "servers", preflightRelPath),
-		)
+		serversRoots = append(serversRoots, filepath.Join(filepath.Dir(self), "servers"))
 	}
 
 	catalog := ""
-	for _, c := range candidates {
-		if _, err := os.Stat(c); err == nil {
-			catalog = c
-			break
+outer:
+	for _, root := range serversRoots {
+		entries, err := os.ReadDir(root)
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			if !e.IsDir() {
+				continue
+			}
+			candidate := filepath.Join(root, e.Name(), "bos-preflight", "task_catalog.sh")
+			if _, err := os.Stat(candidate); err == nil {
+				catalog = candidate
+				break outer
+			}
 		}
 	}
 	if catalog == "" {
