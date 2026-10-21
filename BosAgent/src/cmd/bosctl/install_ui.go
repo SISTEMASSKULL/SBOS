@@ -4,7 +4,6 @@ package main
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"net"
 	"os"
@@ -16,20 +15,17 @@ import (
 	"bos/internal/paths"
 )
 
-// cmdSetup es el punto de entrada de "bosctl setup" / "bos install".
-// Flujo: detectar estado previo → limpiar si hay fallos → system-install → start daemon → deploy seed.
+// cmdSetup es el punto de entrada de "bosctl setup".
+// Flujo: validar bos-install.toml → detectar estado previo → limpiar si hay fallos →
+//
+//	system-install → start daemon → deploy seed.
 func cmdSetup(args []string) int {
-	fs := flag.NewFlagSet("setup", flag.ContinueOnError)
-	// Buscar seed en orden: junto al binario → servers/ del paquete → CWD.
-	// /proc/self/exe devuelve la ruta real aunque se invoque por symlink.
-	defaultSeed := resolveSeedPath()
-	seedFile := fs.String("seed", defaultSeed, "archivo seed.yml para instalación declarativa")
-	modeFlag := fs.String("mode", "dev", "modo: dev (requisitos no bloquean) | prod (requisitos estrictos)")
-	if err := fs.Parse(args); err != nil {
-		return 2
-	}
-	if *modeFlag != "dev" && *modeFlag != "prod" {
-		fmt.Fprintf(os.Stderr, "bosctl setup: --mode debe ser 'dev' o 'prod' (recibido: %q)\n", *modeFlag)
+	// PASO 0: Validar bos-install.toml ANTES de tocar el sistema.
+	// Si la configuración es inválida o incompleta, el instalador termina aquí con
+	// mensajes descriptivos de qué corregir. Nunca arranca una instalación de ~48 min
+	// con datos que sabemos que van a fallar al final.
+	if _, err := validateInstallToml(); err != nil {
+		fmt.Fprintf(os.Stderr, "\n%v\n", err)
 		return 2
 	}
 
@@ -82,7 +78,7 @@ func cmdSetup(args []string) int {
 		exec.Command("systemctl", "mask", "--runtime", "bos-console.service").Run()
 
 		fmt.Println("Daemon no disponible — ejecutando system-install...")
-		if code := cmdSystemInstall([]string{"--mode", *modeFlag}); code != 0 {
+		if code := cmdSystemInstall(nil); code != 0 {
 			exec.Command("systemctl", "unmask", "bos-console.service").Run()
 			return code
 		}
@@ -107,10 +103,10 @@ func cmdSetup(args []string) int {
 		}
 	}
 
+	seedFile := resolveSeedPath()
 	fmt.Printf("bosctl setup — modo declarativo\n")
-	fmt.Printf("  seed: %s\n", *seedFile)
-	fmt.Printf("  mode: %s\n\n", *modeFlag)
-	result := cmdDeploy([]string{*seedFile})
+	fmt.Printf("  seed: %s\n\n", seedFile)
+	result := cmdDeploy([]string{seedFile})
 	// Desmaskear bos-console.service al finalizar el deploy (éxito o fallo).
 	// Durante el deploy estuvo maskeado para evitar que destruyera el token RPC.
 	exec.Command("systemctl", "unmask", "bos-console.service").Run()

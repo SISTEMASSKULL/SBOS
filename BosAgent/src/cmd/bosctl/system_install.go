@@ -17,7 +17,6 @@ package main
 // El instalador cubre cualquier falla o dependencia faltante.
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -30,24 +29,16 @@ import (
 
 func cmdSystemInstall(args []string) int {
 	boslog.Init("bosctl")
-	fs := flag.NewFlagSet("system-install", flag.ContinueOnError)
-	mode := fs.String("mode", "prod", "modo de instalación: dev (advertencias no bloquean) | prod (requisitos estrictos)")
-	if err := fs.Parse(args); err != nil {
-		fmt.Fprintf(os.Stderr, "bosctl system-install: %v\n", err)
-		return 8
-	}
-
-	if *mode != "dev" && *mode != "prod" {
-		fmt.Fprintf(os.Stderr, "bosctl system-install: --mode debe ser 'dev' o 'prod' (recibido: %q)\n", *mode)
-		return 8
-	}
+	// El modo dev puede activarse con la variable de entorno BOS_DEV_MODE=true
+	// para pruebas internas — no es un flag visible para el operador.
+	devMode := os.Getenv("BOS_DEV_MODE") == "true"
 
 	if os.Geteuid() != 0 {
 		fmt.Fprintln(os.Stderr, "bosctl system-install: se requiere ejecutar como root (sudo)")
 		return 8
 	}
 
-	if *mode == "dev" {
+	if devMode {
 		fmt.Println("⚠  MODO DEV — los requisitos de recursos son advertencias, no bloquean la instalación")
 	}
 
@@ -61,7 +52,13 @@ func cmdSystemInstall(args []string) int {
 		{"ddls", installDDLs},
 		{"env", installEnvTemplate},
 		{"servicios", installServices},
-		{"preflight", func() error { return runPreflightFicha(*mode) }},
+		{"preflight", func() error {
+			mode := "prod"
+			if os.Getenv("BOS_DEV_MODE") == "true" {
+				mode = "dev"
+			}
+			return runPreflightFicha(mode)
+		}},
 	}
 
 	for _, s := range steps {
@@ -287,19 +284,27 @@ func installEnvTemplate() error {
 	// Usar fmt.Sprintf con las constantes paths.* para producir TOML válido con valores reales.
 	tomlDest := paths.InstallToml
 	if _, err := os.Stat(tomlDest); os.IsNotExist(err) {
-		tomlContent := fmt.Sprintf(`org_name = "SBOS-Setup"
-client_domain = "skull.local"
-channel = "stable"
-http_port = 9443
-servers_path = %q
-kubeconfig_path = %q
-unix_socket = %q
-bos_user = "bosagent"
-bos_group = "bosagent"
-log_path = %q
-`, paths.ServersPath, paths.KubeconfigPath, paths.SocketPath, paths.VarLogBos)
 		_ = os.MkdirAll(paths.EtcBos, 0750)
-		_ = os.WriteFile(tomlDest, []byte(tomlContent), 0644)
+		// Buscar bos-install.toml en el paquete de deploy (junto al ejecutable o en core/).
+		self, _ := os.Executable()
+		selfDir := filepath.Dir(self)
+		tomlCopied := false
+		for _, src := range []string{
+			filepath.Join(selfDir, "bos-install.toml"),
+			filepath.Join(selfDir, "core", "bos-install.toml"),
+			"bos-install.toml",
+		} {
+			if data, err := os.ReadFile(src); err == nil {
+				if err2 := os.WriteFile(tomlDest, data, 0644); err2 == nil {
+					fmt.Printf("  bos-install.toml copiado desde: %s\n", src)
+					tomlCopied = true
+					break
+				}
+			}
+		}
+		if !tomlCopied {
+			fmt.Println("  ⚠  bos-install.toml no encontrado en el paquete — editar /etc/bos/bos-install.toml antes de continuar")
+		}
 	}
 
 	const dest = paths.BootstrapEnv

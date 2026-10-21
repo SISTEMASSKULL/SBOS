@@ -38,6 +38,7 @@ Cada motor tiene un manual que lo **define** (qué hace, cómo, por qué). Los m
 | Fortalece | 1.03 | [Ciclo de Vida de Tenants](1.03_MANUAL-IAM-INSTALLER-TENANTS.md) | 1.02 | ✅ 2.0.0 | — |
 | Fortalece | 1.04 | [Seguridad de Red — Zero Trust](1.04_MANUAL-IAM-INSTALLER-SEGURIDAD.md) | 1.01 | 🟡 1.3.0 | NRS-03 mTLS entre daemons · NRS-04 Wazuh SIEM · NRS-10 CI pipeline gosec/govulncheck · NIST SP 800-207 7 tenets explícitos |
 | Fortalece | 1.05 | [Estándares y Certificación IAM Enterprise](1.05_MANUAL-IAM-INSTALLER-ESTANDARES.md) | 1.04 | 🟡 1.0.0 | Tabla de evidencia por control ISO 27001:2022 (A.8.9-A.8.32) · SLOs k6 con latencias objetivo · pasos FAPI 2.0 Conformance Suite |
+| Fortalece | 1.06 | [Instalador Idempotente — `bosctl setup`](1.06_MANUAL-IAM-INSTALLER-IDEMPOTENTE.md) | 1.01, 1.02 | ✅ 1.0.0 | — |
 
 ---
 
@@ -142,13 +143,13 @@ Cada motor tiene un manual que lo **define** (qué hace, cómo, por qué). Los m
 
 | Motor | Manuales | ✅ Completo | 🟡 Actualizar | ⬜ Pendiente |
 |-------|:--------:|:-----------:|:-------------:|:-----------:|
-| ① IAM Installer | 5 | 3 | 2 (1.04 · 1.05) | — |
+| ① IAM Installer | 6 | 4 | 2 (1.04 · 1.05) | — |
 | ② SO Observable | 4 | 3 | 1 (2.02) | — |
 | ③ Server FICHAS | 9 | 5 | 3 (3.01 · 3.07 · 3.08) | 1 (3.09) |
 | ④ Context Plane | 5 | 3 | 2 (4.03 · 4.05) | — |
 | ⑤ Dashboard | 5 | 4 | 1 (5.01) | 1 (5.05) |
 | ⑥ Banco de Pruebas | 1 | — | 1 (6.01 vivo) | — |
-| **TOTAL manuales** | **29** | **18** | **9** | **2** |
+| **TOTAL manuales** | **30** | **19** | **9** | **2** |
 
 | Anexos | Total | ✅ Completo | 🟡 Actualizar | ⬜ Pendiente |
 |--------|:-----:|:-----------:|:-------------:|:-----------:|
