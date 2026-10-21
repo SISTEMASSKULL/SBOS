@@ -28,6 +28,7 @@ governance:
   auto_install: true
 
 health:
+  type: command
   command: "systemctl is-active bos"
   interval_seconds: 30
   timeout_seconds: 10
