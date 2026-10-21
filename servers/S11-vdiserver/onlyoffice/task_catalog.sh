@@ -70,8 +70,24 @@ ficha_update() {
 # ── repair ─────────────────────────────────────────────────────
 ficha_repair() {
     echo "${__SBOS__STEP_START__} repair"
-    kubectl delete pod -n "${SBOS_NAMESPACE}" -l app=onlyoffice --ignore-not-found
-    kubectl rollout status statefulset/onlyoffice -n "${SBOS_NAMESPACE}" --timeout=300s
+    local pg_pod
+    pg_pod=$(kubectl get pod -n sbos-data -l app=postgresql \
+        --field-selector=status.phase=Running \
+        -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+    if [[ -n "${pg_pod}" ]]; then
+        local db_pass
+        db_pass=$(kubectl get secret onlyoffice-secret -n "${SBOS_NAMESPACE}" \
+            -o jsonpath='{.data.db-password}' 2>/dev/null | base64 -d)
+        kubectl exec "${pg_pod}" -n sbos-data -- \
+            psql -U postgres -c "CREATE DATABASE onlyoffice_db;" 2>&1 | grep -v "already exists" || true
+        kubectl exec "${pg_pod}" -n sbos-data -- \
+            psql -U postgres -c "CREATE USER onlyoffice WITH PASSWORD '${db_pass}';" 2>&1 | grep -v "already exists" || true
+        kubectl exec "${pg_pod}" -n sbos-data -- \
+            psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE onlyoffice_db TO onlyoffice;" 2>/dev/null || true
+        kubectl exec "${pg_pod}" -n sbos-data -- \
+            psql -U postgres -c "ALTER DATABASE onlyoffice_db OWNER TO onlyoffice;" 2>/dev/null || true
+    fi
+    kubectl rollout restart statefulset/onlyoffice -n "${SBOS_NAMESPACE}"
     echo "${__SBOS__STEP_OK__} repair"
 }
 
