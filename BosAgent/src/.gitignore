@@ -5,3 +5,7 @@ _snapshots/*/_bosagent_root/
 # Binarios compilados (solo en raíz del módulo)
 /bosctl
 /bos
+
+# Configuración por empresa — contiene credenciales del cliente. NUNCA commitear.
+dist/bos-install.toml
+dist/seed-skull.yml

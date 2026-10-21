@@ -17,32 +17,24 @@ import (
 	bostoml "bos/internal/toml"
 )
 
-// installCfg refleja la estructura de bos-install.toml.
-// Solo los campos obligatorios para la validación de pre-vuelo.
+// installCfg refleja la estructura plana de bos-install.toml.
+// Los campos viven en el nivel raíz, sin secciones [section].
 type installCfg struct {
-	General  installCfgGeneral  `toml:"general"`
-	Security installCfgSecurity `toml:"security"`
-}
-
-type installCfgGeneral struct {
-	ClientDomain string `toml:"client_domain"`
-	OrgName      string `toml:"org_name"`
-	OrgShort     string `toml:"org_short"`
-	ServerIP     string `toml:"server_ip"`
-	Timezone     string `toml:"timezone"`
-	Country      string `toml:"country"`
-	Language     string `toml:"language"`
-}
-
-type installCfgSecurity struct {
+	ClientDomain  string `toml:"client_domain"`
+	OrgName       string `toml:"org_name"`
+	OrgShort      string `toml:"org_short"`
+	ServerIP      string `toml:"server_ip"`
+	Timezone      string `toml:"timezone"`
+	Country       string `toml:"country"`
+	Language      string `toml:"language"`
 	AdminPassword string `toml:"admin_password"`
+	AdminName     string `toml:"admin_name"`
 }
 
-// valores conocidos del template — cualquier campo que coincida exactamente es rechazo inmediato.
+// placeholders del template — valores claramente genéricos que nunca son datos reales de un cliente.
+// Solo incluir valores que son inequívocamente placeholders (no valores legítimos de ningún cliente real).
 var templateValues = map[string]string{
 	"client_domain":  "skull.sbos.local",
-	"org_name":       "SKULL SISTEMAS SRL",
-	"org_short":      "skull",
 	"server_ip":      "0.0.0.0",
 	"admin_password": "cambiar-esto",
 }
@@ -91,12 +83,8 @@ func validateInstallToml() (string, error) {
 
 	path := resolveInstallTomlPath()
 	if path == "" {
-		return "", fmt.Errorf(
-			"bos-install.toml no encontrado\n" +
-				"  Ejecutar bosctl setup desde el directorio del repositorio clonado:\n" +
-				"    git clone https://github.com/SISTEMASSKULL/bos-install.git\n" +
-				"    cd bos-install && nano bos-install.toml && sudo ./bosctl setup",
-		)
+		// Primera vez: lanzar el asistente interactivo para recopilar los datos del cliente.
+		return runInstallWizard()
 	}
 
 	var cfg installCfg
@@ -106,8 +94,7 @@ func validateInstallToml() (string, error) {
 
 	var errs []string
 
-	// ── [general] ──────────────────────────────────────────────────────────────
-	errs = append(errs, checkField("client_domain", cfg.General.ClientDomain,
+	errs = append(errs, checkField("client_domain", cfg.ClientDomain,
 		func(v string) string {
 			if v == "" {
 				return "vacío"
@@ -118,7 +105,7 @@ func validateInstallToml() (string, error) {
 			return ""
 		})...)
 
-	errs = append(errs, checkField("org_name", cfg.General.OrgName,
+	errs = append(errs, checkField("org_name", cfg.OrgName,
 		func(v string) string {
 			if v == "" {
 				return "vacío"
@@ -129,7 +116,7 @@ func validateInstallToml() (string, error) {
 			return ""
 		})...)
 
-	errs = append(errs, checkField("org_short", cfg.General.OrgShort,
+	errs = append(errs, checkField("org_short", cfg.OrgShort,
 		func(v string) string {
 			if v == "" {
 				return "vacío"
@@ -140,7 +127,7 @@ func validateInstallToml() (string, error) {
 			return ""
 		})...)
 
-	errs = append(errs, checkField("server_ip", cfg.General.ServerIP,
+	errs = append(errs, checkField("server_ip", cfg.ServerIP,
 		func(v string) string {
 			if v == "" {
 				return "vacío"
@@ -158,29 +145,29 @@ func validateInstallToml() (string, error) {
 			return ""
 		})...)
 
-	errs = append(errs, checkField("timezone", cfg.General.Timezone,
+	errs = append(errs, checkField("timezone", cfg.Timezone,
 		func(v string) string {
 			if v == "" {
 				return "vacío"
 			}
 			if _, err := time.LoadLocation(v); err != nil {
-				return fmt.Sprintf("zona horaria IANA inválida. Ejemplos válidos: America/La_Paz, UTC, America/Bogota")
+				return "zona horaria IANA inválida. Ejemplos válidos: America/La_Paz, UTC, America/Bogota"
 			}
 			return ""
 		})...)
 
-	errs = append(errs, checkField("country", cfg.General.Country,
+	errs = append(errs, checkField("country", cfg.Country,
 		func(v string) string {
 			if v == "" {
 				return "vacío"
 			}
-			if len(v) != 2 || strings.ToUpper(v) != strings.ToUpper(v) {
+			if len(v) < 2 {
 				return "debe ser un código ISO 3166-1 alpha-2 de 2 letras. Ejemplos: BO, CO, MX, PE, AR"
 			}
 			return ""
 		})...)
 
-	errs = append(errs, checkField("language", cfg.General.Language,
+	errs = append(errs, checkField("language", cfg.Language,
 		func(v string) string {
 			if v == "" {
 				return "vacío"
@@ -191,8 +178,7 @@ func validateInstallToml() (string, error) {
 			return ""
 		})...)
 
-	// ── [security] ─────────────────────────────────────────────────────────────
-	errs = append(errs, checkField("admin_password", cfg.Security.AdminPassword,
+	errs = append(errs, checkField("admin_password", cfg.AdminPassword,
 		func(v string) string {
 			if v == "" {
 				return "vacío"
@@ -223,11 +209,11 @@ func validateInstallToml() (string, error) {
 
 	// Todo OK — mostrar resumen de la configuración confirmada
 	fmt.Println("  ✓ bos-install.toml válido")
-	fmt.Printf("      Organización : %s (%s)\n", cfg.General.OrgName, cfg.General.OrgShort)
-	fmt.Printf("      Dominio      : %s\n", cfg.General.ClientDomain)
-	fmt.Printf("      Servidor     : %s\n", cfg.General.ServerIP)
-	fmt.Printf("      Zona horaria : %s\n", cfg.General.Timezone)
-	fmt.Printf("      País / idioma: %s / %s\n", strings.ToUpper(cfg.General.Country), cfg.General.Language)
+	fmt.Printf("      Organización : %s (%s)\n", cfg.OrgName, cfg.OrgShort)
+	fmt.Printf("      Dominio      : %s\n", cfg.ClientDomain)
+	fmt.Printf("      Servidor     : %s\n", cfg.ServerIP)
+	fmt.Printf("      Zona horaria : %s\n", cfg.Timezone)
+	fmt.Printf("      País / idioma: %s / %s\n", strings.ToUpper(cfg.Country), cfg.Language)
 	fmt.Println()
 
 	return path, nil
@@ -236,15 +222,14 @@ func validateInstallToml() (string, error) {
 // checkField aplica la regla de validación al valor v e incluye la comprobación
 // de valor-del-template. Retorna una lista de mensajes de error (vacía si OK).
 func checkField(name, v string, rule func(string) string) []string {
-	// Primero verificar si es valor del template
 	if tmpl, isTemplate := templateValues[name]; isTemplate && v == tmpl {
 		return []string{fmt.Sprintf(
-			"[general/security].%s contiene el valor del template (%q) — reemplazar con datos reales del cliente",
+			"%s contiene el valor del template (%q) — reemplazar con datos reales del cliente",
 			name, tmpl,
 		)}
 	}
 	if msg := rule(v); msg != "" {
-		return []string{fmt.Sprintf("[general/security].%s: %s (valor actual: %q)", name, msg, v)}
+		return []string{fmt.Sprintf("%s: %s (valor actual: %q)", name, msg, v)}
 	}
 	return nil
 }
