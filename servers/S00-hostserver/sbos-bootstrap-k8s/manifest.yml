@@ -15,6 +15,7 @@ order:
   execution_order: 5
 
 requirements:
+  requires_k8s: false   # esta ficha inicializa K8s — no puede requerirlo para instalarse
   dependencies:
     - sbos-bootstrap-os
 

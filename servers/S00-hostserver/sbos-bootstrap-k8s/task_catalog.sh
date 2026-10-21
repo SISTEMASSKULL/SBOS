@@ -407,6 +407,24 @@ ficha_install() {
         echo "Estado corrupto limpiado"
     fi
 
+    # ── Step 0: Kernel prerequisites (kubeadm preflight) ────
+    # Kubeadm requiere ip_forward=1 y br_netfilter cargado antes de init.
+    echo "Habilitando módulos y parámetros del kernel para Kubernetes..."
+    modprobe overlay 2>/dev/null || true
+    modprobe br_netfilter 2>/dev/null || true
+    cat > /etc/modules-load.d/k8s.conf << 'KMOD'
+overlay
+br_netfilter
+KMOD
+    cat > /etc/sysctl.d/99-kubernetes.conf << 'KSYS'
+net.ipv4.ip_forward = 1
+net.bridge.bridge-nf-call-iptables = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+KSYS
+    sysctl -p /etc/sysctl.d/99-kubernetes.conf 2>/dev/null || \
+        sysctl -w net.ipv4.ip_forward=1 net.bridge.bridge-nf-call-iptables=1 net.bridge.bridge-nf-call-ip6tables=1 2>/dev/null || true
+    echo "ip_forward=$(cat /proc/sys/net/ipv4/ip_forward 2>/dev/null)"
+
     # ── Step 1: Install containerd + system deps ────────────
     echo "Installing system dependencies..."
     apt-get update -qq

@@ -240,7 +240,10 @@ func installDDLs() error {
 	return nil
 }
 
-// installServices instala los archivos .service en systemd y los habilita.
+// installServices instala bos.service en systemd y lo habilita.
+// bos-console.service está descontinuado (TUI removido) — no se instala.
+// La ficha sbos-lifecycle sobrescribe este servicio con la versión definitiva
+// durante el deploy del seed.
 func installServices() error {
 	self, err := os.Executable()
 	if err != nil {
@@ -248,19 +251,27 @@ func installServices() error {
 	}
 	selfDir := filepath.Dir(self)
 
-	services := []string{"bos.service", "bos-console.service"}
-	for _, svc := range services {
-		src := filepath.Join(selfDir, svc)
-		if _, err := os.Stat(src); os.IsNotExist(err) {
-			// Generar servicio mínimo si no está en el directorio de deploy
-			if err2 := writeDefaultService(svc); err2 != nil {
-				return fmt.Errorf("generar %s: %w", svc, err2)
+	// Solo instalar bos.service — buscar en: junto al ejecutable, luego en fichas.
+	const svc = "bos.service"
+	installed := false
+	for _, src := range []string{
+		filepath.Join(selfDir, svc),
+		// La ficha sbos-lifecycle incluye bos.service en resources/
+		filepath.Join(selfDir, "servers", "S00-hostserver", "sbos-lifecycle", svc),
+	} {
+		if _, err := os.Stat(src); err == nil {
+			dst := "/etc/systemd/system/" + svc
+			if err := copyFile(src, dst, 0644); err != nil {
+				return fmt.Errorf("instalar %s: %w", svc, err)
 			}
-			continue
+			installed = true
+			break
 		}
-		dst := filepath.Join("/etc/systemd/system", svc)
-		if err := copyFile(src, dst, 0644); err != nil {
-			return fmt.Errorf("instalar %s: %w", svc, err)
+	}
+	if !installed {
+		// Generar servicio mínimo temporal — la ficha sbos-lifecycle lo reemplazará.
+		if err := writeDefaultService(svc); err != nil {
+			return fmt.Errorf("generar %s: %w", svc, err)
 		}
 	}
 
@@ -268,11 +279,9 @@ func installServices() error {
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("daemon-reload: %w — %s", err, out)
 	}
-	for _, svc := range services {
-		cmd = exec.Command("systemctl", "enable", svc)
-		if out, err := cmd.CombinedOutput(); err != nil {
-			return fmt.Errorf("enable %s: %w — %s", svc, err, out)
-		}
+	cmd = exec.Command("systemctl", "enable", svc)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("enable %s: %w — %s", svc, err, out)
 	}
 	return nil
 }

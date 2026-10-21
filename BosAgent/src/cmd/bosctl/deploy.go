@@ -331,14 +331,24 @@ func deployTenant(seedPath string) error {
 	fmt.Printf("  ✅ namespace sbos-%s (%s, %s)\n",
 		tenantID, cfg.Infrastructure.TenancyTrustModel, cfg.Infrastructure.IsolationMechanism)
 
-	// ── PASO 1.5: Bootstrap Storage (StorageClass + PVs) ───────────────
+	// ── PASO 1.2: Platform (StorageClass sbos-local-path + RBAC base) ──
+	// sbos-bootstrap-storage requiere que sbos-local-path exista.
+	// sbos-bootstrap-platform la crea junto con LimitRanges y RBAC base.
+	fmt.Println("[1.2/7] Configurando plataforma K8s (StorageClass + RBAC)...")
+	if err := installFicha("sbos-bootstrap-platform", nil); err != nil {
+		compensateStep1(tenantID)
+		return fmt.Errorf("PASO 1.2 (platform): %w", err)
+	}
+	fmt.Println("  ✅ StorageClass sbos-local-path + RBAC listos")
+
+	// ── PASO 1.5: Bootstrap Storage (PVs hostPath con Retain) ──────────
 	// Debe ejecutarse antes de PostgreSQL y Redis — ambos requieren PVs.
 	fmt.Println("[1.5/7] Configurando almacenamiento...")
 	if err := installFicha("sbos-bootstrap-storage", nil); err != nil {
 		compensateStep1(tenantID)
 		return fmt.Errorf("PASO 1.5 (storage): %w", err)
 	}
-	fmt.Println("  ✅ StorageClass + PVs listos")
+	fmt.Println("  ✅ PVs hostPath (Retain) listos")
 
 	// ── PASO 2: PostgreSQL + Bases de Datos ─────────────────────────────
 	fmt.Println("[2/7] Provisionando bases de datos...")
