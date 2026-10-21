@@ -236,7 +236,8 @@ func resolveSeedPath() string {
 		)
 	}
 	candidates = append(candidates,
-		"/opt/bos-install/servers/seed-skull.yml",
+		"/opt/bos-install/seed-skull.yml",         // paquete plano (seed junto al binario)
+		"/opt/bos-install/servers/seed-skull.yml", // paquete con subdirectorio servers/
 		"seed-skull.yml",
 	)
 	for _, c := range candidates {
