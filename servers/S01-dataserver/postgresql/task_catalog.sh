@@ -12,9 +12,25 @@ export SBOS_NAMESPACE="${SBOS_NAMESPACE:-sbos-data}"
 ficha_pre_install() {
     echo "${__SBOS__STEP_START__} pre_install"
     create_k8s_namespace "${SBOS_NAMESPACE}" "sbos.io/managed=true"
+
+    # Contraseña canónica: SBOS_PG_PASSWORD (bos-install.toml) > SBOS_ADMIN_PASSWORD > aleatorio
+    local canonical_pass="${SBOS_PG_PASSWORD:-${SBOS_ADMIN_PASSWORD:-$(openssl rand -hex 16)}}"
+
+    # Crear secret si no existe; si existe, actualizarlo con la contraseña canónica
     kubectl create secret generic postgresql-secret -n "${SBOS_NAMESPACE}" \
-        --from-literal=password="sbos-postgres-$(date +%s)" \
+        --from-literal=password="$canonical_pass" \
         --dry-run=client -o yaml | kubectl apply -f -
+
+    # Si el pod ya está corriendo, sincronizar la contraseña en postgresql
+    if kubectl get pod postgresql-0 -n "${SBOS_NAMESPACE}" &>/dev/null 2>&1; then
+        echo "  → pod postgresql ya existe — sincronizando contraseña"
+        kubectl exec postgresql-0 -n "${SBOS_NAMESPACE}" -- \
+            psql -U postgres -c "ALTER USER postgres WITH PASSWORD '$canonical_pass';" 2>/dev/null || true
+        # Reiniciar pod para que tome el nuevo secret
+        kubectl rollout restart statefulset postgresql -n "${SBOS_NAMESPACE}" 2>/dev/null || true
+        kubectl wait --for=condition=Ready pod/postgresql-0 -n "${SBOS_NAMESPACE}" --timeout=120s 2>/dev/null || true
+    fi
+
     echo "${__SBOS__STEP_OK__} pre_install"
 }
 
