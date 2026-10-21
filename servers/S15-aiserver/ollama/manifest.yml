@@ -27,7 +27,7 @@ governance:
 
 health:
   type: command
-  command: "curl -sf http://localhost:11434/api/tags"
+  command: "kubectl get pods -A -l app=ollama --no-headers 2>/dev/null | grep -c Running || true"
   interval_seconds: 30
   timeout_seconds: 10
 

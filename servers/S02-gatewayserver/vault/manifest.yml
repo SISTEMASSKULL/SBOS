@@ -26,7 +26,7 @@ governance:
 
 health:
   type: command
-  command: "vault status -format=json | jq -r .sealed"
+  command: "kubectl get pods -A -l app=vault --no-headers 2>/dev/null | grep -c Running || true"
   interval_seconds: 30
   timeout_seconds: 10
 

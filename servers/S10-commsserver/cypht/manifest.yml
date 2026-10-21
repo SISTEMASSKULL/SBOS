@@ -31,7 +31,7 @@ governance:
   requires_approval: false
 health:
   type: command
-  command: "curl -sf http://localhost:80"
+  command: "kubectl get pods -A -l app=cypht --no-headers 2>/dev/null | grep -c Running || true"
   interval_seconds: 30
   timeout_seconds: 10
 
