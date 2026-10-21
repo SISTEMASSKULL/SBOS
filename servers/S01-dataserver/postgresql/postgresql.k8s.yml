@@ -84,4 +84,4 @@ spec:
         storageClassName: sbos-local-path
         resources:
           requests:
-            storage: 1Gi
+            storage: 100Gi

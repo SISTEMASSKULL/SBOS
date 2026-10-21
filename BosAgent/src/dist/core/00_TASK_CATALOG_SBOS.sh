@@ -470,8 +470,13 @@ verify_pod_running() {
 
     while (( $(date +%s) < deadline )); do
         local count
-        count=$(kubectl get pods -n "$namespace" -l "$label_selector" \
-            --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l)
+        if [[ -z "$namespace" || "$namespace" == "any" ]]; then
+            count=$(kubectl get pods -A -l "$label_selector" \
+                --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l)
+        else
+            count=$(kubectl get pods -n "$namespace" -l "$label_selector" \
+                --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l)
+        fi
         if (( count > 0 )); then
             echo "$count pods running"
             return 0
@@ -479,7 +484,8 @@ verify_pod_running() {
         sleep 5
     done
 
-    echo "ERROR: No running pods: $label_selector in $namespace after ${timeout_sec}s"
+    local ns_desc="${namespace:-any-namespace}"
+    echo "ERROR: No running pods: $label_selector in $ns_desc after ${timeout_sec}s"
     return 1
 }
 
@@ -784,10 +790,10 @@ verify_ficha_health() {
         fi
 
         local namespace
-        # Prioridad: identity.namespace > workload.namespace > versions.namespace > identity.server (fallback)
-        namespace=$(yq eval '.identity.namespace // .workload.namespace // .versions.namespace // .identity.server // "default"' "$manifest" 2>/dev/null || echo "default")
+        # Prioridad: identity.namespace > workload.namespace > versions.namespace > identity.server > "" (todos)
+        namespace=$(yq eval '.identity.namespace // .workload.namespace // .versions.namespace // ""' "$manifest" 2>/dev/null || echo "")
         # Solo transformar si parece un ID de servidor (sNN o SNN), no si ya es sbos-*
-        if [[ ! "$namespace" =~ ^sbos- ]]; then
+        if [[ -n "$namespace" ]] && [[ ! "$namespace" =~ ^sbos- ]]; then
             namespace=$(echo "$namespace" | tr '[:upper:]' '[:lower:]' | sed 's/^s[0-9]*/sbos-/')
         fi
 
@@ -820,9 +826,9 @@ verify_ficha_health() {
 
     # Fichas helm/pods sin health.type específico: verificar que el pod corre
     local namespace
-    # Prioridad: identity.namespace > workload.namespace > versions.namespace > ficha.namespace > "default"
-    namespace=$(yq eval '.identity.namespace // .workload.namespace // .versions.namespace // .ficha.namespace // "default"' "$manifest" 2>/dev/null || echo "default")
-    if [[ ! "$namespace" =~ ^sbos- ]] && [[ "$namespace" != "default" ]] && [[ "$namespace" != "kube-system" ]]; then
+    # Prioridad: identity.namespace > workload.namespace > versions.namespace > ficha.namespace > "" (todos)
+    namespace=$(yq eval '.identity.namespace // .workload.namespace // .versions.namespace // .ficha.namespace // ""' "$manifest" 2>/dev/null || echo "")
+    if [[ -n "$namespace" ]] && [[ ! "$namespace" =~ ^sbos- ]] && [[ "$namespace" != "default" ]] && [[ "$namespace" != "kube-system" ]]; then
         local ns_raw="$namespace"
         if [[ "$ns_raw" =~ ^[Ss][0-9] ]]; then
             namespace=$(echo "$ns_raw" | tr '[:upper:]' '[:lower:]' | sed 's/^s[0-9]*/sbos-/')

@@ -29,6 +29,13 @@ ficha_install() {
 # ── post_install ───────────────────────────────────────────────
 ficha_post_install() {
     echo "${__SBOS__STEP_START__} post_install"
+    # Crear base de datos principal SBOSDATA
+    kubectl exec postgresql-0 -n "${SBOS_NAMESPACE}" -- \
+        psql -U postgres -c "CREATE DATABASE \"SBOSDATA\" WITH ENCODING='UTF8' LC_COLLATE='en_US.utf8' LC_CTYPE='en_US.utf8' TEMPLATE=template0;" 2>/dev/null || \
+        echo "SBOSDATA ya existe — omitiendo creación"
+    kubectl exec postgresql-0 -n "${SBOS_NAMESPACE}" -- \
+        psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE \"SBOSDATA\" TO postgres;" 2>/dev/null || true
+    echo "  → BD SBOSDATA lista"
     echo "${__SBOS__STEP_OK__} post_install"
 }
 
