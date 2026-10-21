@@ -40,10 +40,15 @@ spec:
       containers:
         - name: airflow
           image: docker.io/apache/airflow:2.10.4
+          args: ["standalone"]
           ports:
             - containerPort: 8080
               name: http
-
+          env:
+            - name: AIRFLOW__CORE__LOAD_EXAMPLES
+              value: "False"
+            - name: AIRFLOW_HOME
+              value: "/opt/airflow"
           resources:
             requests:
               cpu: 50m

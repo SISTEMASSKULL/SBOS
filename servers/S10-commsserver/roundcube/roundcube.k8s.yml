@@ -39,7 +39,7 @@ spec:
       serviceAccountName: roundcube-sa
       containers:
         - name: roundcube
-          image: docker.io/roundcube/roundcubemail:1.6.9
+          image: docker.io/roundcube/roundcubemail:1.6.x-apache
           ports:
             - containerPort: 80
               name: http

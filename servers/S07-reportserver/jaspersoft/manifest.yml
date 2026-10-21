@@ -25,7 +25,8 @@ deployment:
 governance:
 
 
-  auto_install: true
+  # ghcr.io/bitnami (403) y registry.bitnami.com (DNS) no accesibles desde VPS — requiere imagen alternativa
+  auto_install: false
   requires_approval: false
 health:
   type: command

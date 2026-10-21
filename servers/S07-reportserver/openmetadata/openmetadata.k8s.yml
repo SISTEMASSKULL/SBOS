@@ -39,7 +39,7 @@ spec:
       serviceAccountName: openmetadata-sa
       containers:
         - name: openmetadata
-          image: docker.io/openmetadata/server:1.6
+          image: docker.io/openmetadata/server:1.13.6
           ports:
             - containerPort: 8585
               name: http

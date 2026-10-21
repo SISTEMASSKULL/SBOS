@@ -26,7 +26,8 @@ deployment:
 governance:
 
 
-  auto_install: true
+  # docker.io/postfixadmin requiere auth Docker Hub — sin imagen pública alternativa disponible
+  auto_install: false
   requires_approval: false
 health:
   type: command

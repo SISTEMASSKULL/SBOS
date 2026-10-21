@@ -37,7 +37,7 @@ spec:
     spec:
       serviceAccountName: dovecot-sa
       securityContext:
-        sysctls: []
+        runAsUser: 0
       containers:
         - name: dovecot
           image: docker.io/dovecot/dovecot:latest
