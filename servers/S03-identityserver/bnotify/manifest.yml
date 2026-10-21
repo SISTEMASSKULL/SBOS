@@ -28,7 +28,7 @@ ports:
     description: "gRPC over Unix socket — interface dual (ADR-020)"
 
 governance:
-  auto_install: true
+  auto_install: false
   requires_approval: false
   category_label: daemon-soberano
 

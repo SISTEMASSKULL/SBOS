@@ -33,7 +33,7 @@ ports:
     description: "Control RPC interno — consumido por bos y bosctl"
 
 governance:
-  auto_install: true
+  auto_install: false
 
 health:
   type: command
