@@ -56,6 +56,19 @@ ficha_update() {
 ficha_repair() {
     echo "${__SBOS__STEP_START__} repair"
     sbos_ensure_pg_database "openproject_db"
+    local pg_pod
+    pg_pod=$(kubectl get pod -n sbos-data -l app=postgresql \
+        --field-selector=status.phase=Running \
+        -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+    if [[ -n "${pg_pod}" ]]; then
+        kubectl exec "${pg_pod}" -n sbos-data -- \
+            psql -U postgres -tc "SELECT 1 FROM pg_roles WHERE rolname='openproject'" 2>/dev/null \
+            | grep -q 1 || \
+        kubectl exec "${pg_pod}" -n sbos-data -- \
+            psql -U postgres -c "CREATE USER openproject WITH PASSWORD 'openproject_pass';" 2>/dev/null || true
+        kubectl exec "${pg_pod}" -n sbos-data -- \
+            psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE openproject_db TO openproject;" 2>/dev/null || true
+    fi
     kubectl rollout restart statefulset openproject -n "${SBOS_NAMESPACE}"
     echo "${__SBOS__STEP_OK__} repair"
 }
