@@ -27,6 +27,7 @@ governance:
 
 
 health:
+  type: command
   command: "test -f /etc/sbos/.bootstrapped"
   interval_seconds: 30
   timeout_seconds: 10
@@ -35,7 +36,7 @@ health:
 license: MIT
 
 meta:
-  backend: kubernetes
+  backend: bash
   idempotent: true
   estimated_minutes: 5
   rollback_support: false
