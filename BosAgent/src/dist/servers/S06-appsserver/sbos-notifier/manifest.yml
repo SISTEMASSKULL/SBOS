@@ -11,9 +11,10 @@
 
 identity:
   id:           "sbos-notifier"
+  server:       S06
   version:      "1.0.0"
   description:  "Sistema de notificaciones universales del SBOS. Push MFA, alertas de sistema, notificaciones a clientes finales y mensajes CLI."
-  criticality:  true        # crítico — MFA depende de esta ficha
+  criticality:  true
 
 workload:
   type: Deployment

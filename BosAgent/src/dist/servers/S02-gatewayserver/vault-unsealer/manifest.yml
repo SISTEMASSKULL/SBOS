@@ -6,6 +6,10 @@ identity:
   criticality: true
   description: "CronJob que desella Vault automáticamente tras cada reinicio del pod"
 
+workload:
+  type: CronJob
+  runtime: kubernetes
+
 order:
   execution_order: 131
 
@@ -19,7 +23,7 @@ governance:
   category_label: "seguridad-critica"
 
 health:
-  type: bash
+  type: command
   command: "kubectl --kubeconfig=/etc/bos/.kube/config get cronjob vault-unsealer -n sbos-security --no-headers 2>/dev/null | grep -q vault-unsealer"
   timeout_seconds: 15
 

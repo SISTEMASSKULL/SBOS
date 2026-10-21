@@ -14,17 +14,6 @@ order:
   execution_order: 1
 
 requirements:
-    - 9440                    # BOS REST
-    - 9441                    # BOS WebSocket
-    - 9442                    # BOS Prometheus
-    - 9443                    # BOS Context API (crítico — Kong)
-    - 5432                    # PostgreSQL
-    - 6379                    # Redis
-    - 8080                    # Keycloak HTTP
-    - 8200                    # Vault
-    - 8000                    # Kong proxy HTTP
-    - 8443                    # Kong proxy HTTPS
-    - 6443                    # K8s API Server (kubeadm)
   dependencies: []
 
 # Paquetes del sistema que BOS necesita para operar.

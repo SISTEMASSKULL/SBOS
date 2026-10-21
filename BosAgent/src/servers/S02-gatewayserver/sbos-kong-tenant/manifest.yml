@@ -13,7 +13,6 @@ identity:
 workload:
   type: bash
   runtime: host
-  runtime: bash
 
 order:
   execution_order: 165
