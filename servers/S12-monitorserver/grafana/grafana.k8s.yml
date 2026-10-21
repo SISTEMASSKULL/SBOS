@@ -1,4 +1,35 @@
 ---
+# NetworkPolicy: permite a grafana conectar a postgresql (sbos-data:5432)
+# y DNS. Default-deny-all aplica en sbos-monitor.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-grafana-to-data
+  namespace: sbos-monitor
+spec:
+  podSelector:
+    matchLabels:
+      app: grafana
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: sbos-data
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
