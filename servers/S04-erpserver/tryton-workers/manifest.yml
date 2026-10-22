@@ -35,7 +35,7 @@ ports: []
 health:
   type: command
   command: "kubectl --kubeconfig=/etc/bos/.kube/config get deployment tryton-workers -n sbos-erp -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
-  expected_output: "2"
+  expected_output: "1"
   timeout_seconds: 30
 
 audit:

@@ -64,8 +64,8 @@ ficha_install() {
         local ready
         ready=$(_k get deployment tryton-workers -n "$NS" \
             -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
-        if (( ready >= 2 )); then
-            echo "${__STEP_SKIP__} desplegar_tryton_workers: ya existe y Ready (${ready}/2)"
+        if (( ready >= 1 )); then
+            echo "${__STEP_SKIP__} desplegar_tryton_workers: ya existe y Ready (${ready}/1)"
             return 0
         fi
     fi
@@ -81,7 +81,7 @@ metadata:
     app.kubernetes.io/part-of: erpserver
     sbos.app/managed-by: bos
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: tryton-workers
