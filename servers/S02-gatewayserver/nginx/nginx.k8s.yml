@@ -87,9 +87,6 @@ metadata:
 spec:
   serviceName: nginx
   replicas: 1
-    rollingUpdate:
-      maxUnavailable: 0
-      maxSurge: 1
   selector:
     matchLabels:
       app: nginx
