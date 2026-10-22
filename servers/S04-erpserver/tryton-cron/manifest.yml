@@ -1,0 +1,47 @@
+identity:
+  id: tryton-cron
+  server: S04
+  version: "7.4"
+  category: 1
+  criticality: true
+  description: "Tryton Cron — proceso de tareas programadas del ERP (cierres contables, recordatorios, facturación automática). 1 proceso, apuntando a las mismas bases."
+
+workload:
+  type: deployment
+  runtime: kubernetes
+
+order:
+  execution_order: 176
+
+requirements:
+  dependencies:
+    - tryton
+    - tryton-workers
+
+governance:
+  auto_install: true
+  requires_approval: false
+  category_label: "aplicacion-erp"
+
+license: MIT
+
+meta:
+  backend: k8s
+  idempotent: true
+  estimated_minutes: 5
+  rollback_support: true
+
+ports: []
+
+health:
+  type: command
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get deployment tryton-cron -n sbos-erp -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
+  expected_output: "1"
+  timeout_seconds: 30
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/tryton-cron.log
+
+versions:
+  tryton: "7.4"

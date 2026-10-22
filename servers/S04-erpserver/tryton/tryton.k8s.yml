@@ -10,6 +10,8 @@ data:
     uri = postgresql://tryton:tryton_pass@postgresql.sbos-data.svc.cluster.local:5432/tryton_db
     [web]
     listen = *:8000
+    [queue]
+    worker = True
     [session]
     timeout = 600
   DB_HOST: "postgresql.sbos-data.svc.cluster.local"
@@ -67,11 +69,15 @@ spec:
       containers:
         - name: tryton
           image: docker.io/tryton/tryton:7.4
+          command: ["trytond"]
+          args: ["-n", "3", "-c", "/etc/tryton/trytond.conf"]
           ports:
             - containerPort: 8000
               name: http
-
           volumeMounts:
+            - name: config
+              mountPath: /etc/tryton
+              readOnly: true
             - name: data
               mountPath: /var/lib/tryton
           resources:
@@ -91,6 +97,13 @@ spec:
               port: 8000
             initialDelaySeconds: 10
             periodSeconds: 10
+      volumes:
+        - name: config
+          configMap:
+            name: tryton-config
+            items:
+              - key: trytond.conf
+                path: trytond.conf
 
   volumeClaimTemplates:
     - metadata:
