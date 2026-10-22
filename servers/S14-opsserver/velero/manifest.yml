@@ -23,9 +23,8 @@ deployment:
   strategy: RollingUpdate
 
 governance:
-
-
-  auto_install: true
+  # velero requiere ClusterRole RBAC + BackupStorageLocation (MinIO) configurado
+  auto_install: false
   requires_approval: false
 health:
   type: command
