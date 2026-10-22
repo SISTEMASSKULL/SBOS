@@ -198,13 +198,13 @@ fichas:
   k6:                           false
 
   # ── S15 — AI ───────────────────────────────────────────────────────────────
-  ollama:                       true    # LLM local — dependencia de bCompass
-  qdrant:                       true    # vector DB — dependencia de bCompass
+  ollama:                       false
+  qdrant:                       false
   flowise:                      false
   langfuse:                     false
   open-webui:                   false
-  bcompass-svc:                 true    # daemon bCompass — en desarrollo activo
-  embedding-worker:             true    # generación de embeddings — dependencia de bCompass
+  bcompass-svc:                 false
+  embedding-worker:             false
 
   # ── S16 — Web ──────────────────────────────────────────────────────────────
   certbot:                      false   # ya está en S02 activo; no duplicar en S16
