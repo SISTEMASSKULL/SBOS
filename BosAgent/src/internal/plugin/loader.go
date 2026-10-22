@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"log/slog"
+
+	"gopkg.in/yaml.v3"
 )
 
 // FichaManifest describe una ficha descubierta en disco.
@@ -44,6 +46,14 @@ type FichaManifest struct {
 	Scaling     *ScalingPolicy
 	Maintenance *MaintenancePolicy
 	SLOs        *SLOPolicy
+}
+
+// fichasPlan es la estructura del archivo fichas-plan.yml.
+// Permite activar/desactivar fichas desde un único archivo central
+// sin tocar los manifest.yml individuales.
+type fichasPlan struct {
+	Version int             `yaml:"version"`
+	Fichas  map[string]bool `yaml:"fichas"`
 }
 
 // Loader escanea servers/ en busca de fichas válidas.
@@ -155,7 +165,59 @@ func (l *Loader) Scan() ([]*FichaManifest, error) {
 	}
 
 	sort.Slice(found, func(i, j int) bool { return found[i].ID < found[j].ID })
+
+	// Aplicar overrides del plan maestro fichas-plan.yml (si existe).
+	l.applyFichasPlan(found)
+
 	return found, nil
+}
+
+// applyFichasPlan lee fichas-plan.yml desde el directorio servers/ y aplica
+// los overrides de auto_install sobre las fichas ya cargadas. Si el archivo
+// no existe, no hace nada (las fichas conservan el valor de su manifest.yml).
+//
+// La clave en fichas-plan.yml es el ID de la ficha (nombre del directorio).
+// Un valor true activa la instalación automática; false la desactiva.
+func (l *Loader) applyFichasPlan(fichas []*FichaManifest) {
+	planPath := filepath.Join(l.path, "fichas-plan.yml")
+	data, err := os.ReadFile(planPath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			l.logger.Warn("fichas-plan.yml: no se pudo leer", "path", planPath, "err", err)
+		}
+		return
+	}
+
+	var plan fichasPlan
+	if err := yaml.Unmarshal(data, &plan); err != nil {
+		l.logger.Error("fichas-plan.yml: YAML inválido — overrides ignorados", "err", err)
+		return
+	}
+
+	if len(plan.Fichas) == 0 {
+		return
+	}
+
+	overrideCount := 0
+	for _, m := range fichas {
+		val, ok := plan.Fichas[m.ID]
+		if !ok {
+			continue
+		}
+		if m.AutoInstall != val {
+			l.logger.Info("fichas-plan.yml: override auto_install",
+				"ficha", m.ID,
+				"antes", m.AutoInstall,
+				"ahora", val,
+			)
+			m.AutoInstall = val
+			overrideCount++
+		}
+	}
+
+	if overrideCount > 0 {
+		l.logger.Info("fichas-plan.yml aplicado", "overrides", overrideCount, "path", planPath)
+	}
 }
 
 func (l *Loader) loadFicha(id, path string) (*FichaManifest, error) {

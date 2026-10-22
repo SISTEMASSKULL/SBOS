@@ -1,0 +1,212 @@
+# =============================================================================
+# fichas-plan.yml — Plan maestro de instalación automática de fichas SBOS
+# =============================================================================
+# Este archivo sobreescribe el campo auto_install de cada manifest.yml.
+# BOS lo lee al arrancar y en cada Reload().
+#
+# Uso:
+#   true  → el observer instala la ficha automáticamente al detectarla como PENDING
+#   false → la ficha queda en reposo; el operador la activa manualmente con:
+#             bosctl ficha install <nombre>
+#
+# Después de editar este archivo, transferir a la VPS y reiniciar el observer:
+#   bosctl daemon reload
+#
+# Fichas no listadas aquí conservan el valor de su manifest.yml.
+# =============================================================================
+version: 1
+
+fichas:
+
+  # ── S00 — Host / Bootstrap ─────────────────────────────────────────────────
+  bos-preflight:                true
+  sbos-bootstrap-os:            true
+  sbos-bootstrap-k8s:           true
+  sbos-bootstrap-cni:           true
+  sbos-bootstrap-storage:       true
+  sbos-bootstrap-platform:      true
+  sbos-bootstrap-monitoring:    true
+  sbos-namespace:               true
+  local-path-provisioner:       true
+  kyverno:                      true
+  network-validator:            true
+  sbos-fichas-migrator:         true
+  sbos-lifecycle:               true
+  k8s-upgrader:                 false   # solo en ventanas de mantenimiento
+  container-watchdog:           true
+  nginx-web:                    true
+  sbos-bi18n:                   true
+  # daemons SBOS — desactivados hasta que estén certificados
+  sbos-bkernel:                 false
+  biedata:                      false
+  sbos-security:                false
+  sbos-package-manager:         false
+  sbos-repair:                  false
+  sbos-bootstrap-hardening:     false
+  cert-rotation:                false
+  compliance-check:             false
+  linkerd:                      false
+
+  # ── S01 — Data ─────────────────────────────────────────────────────────────
+  postgresql:                   true
+  redis:                        true
+  mysql:                        true
+  mongodb:                      true
+  pgbouncer:                    true
+  minio:                        true
+  sbos-database-init:           true
+  pg-partman:                   true
+  pg-stat-monitor:              true
+  symmetricds:                  true
+  timescaledb:                  true
+  pgadmin4:                     true
+  ferretdb:                     false   # alternativa MongoDB — no necesaria aún
+  citus:                        false   # PostgreSQL distribuido — requiere cluster
+  pgbackrest:                   false   # backup — activar cuando haya almacenamiento externo
+
+  # ── S02 — Gateway ──────────────────────────────────────────────────────────
+  kong:                         true
+  nginx:                        true
+  vault:                        true
+  sbos-kong-tenant:             true
+  certbot:                      false   # activar cuando haya dominio real con DNS
+  modsecurity:                  false   # WAF — activar en producción
+  nginx-multitenant:            false   # activar junto con multitenancy
+  besu-qbft:                    false   # blockchain — no necesaria aún
+  bhnexus:                      false   # hardware proxy — activar con hardware físico
+  banexus:                      false   # hardware proxy — activar con hardware físico
+  oauth2-proxy-gateway:         false
+  vault-unsealer:               false
+
+  # ── S03 — Identity ─────────────────────────────────────────────────────────
+  keycloak:                     true
+  wazuh-manager:                true
+  bauth:                        false   # daemon bAuth — activar cuando esté certificado
+  bnotify:                      false   # daemon bNotify — activar cuando esté certificado
+  oauth2-proxy:                 false
+  openvas:                      false   # scanner de vulnerabilidades — bajo demanda
+  wazuh-indexer:                false
+
+  # ── S04 — ERP ──────────────────────────────────────────────────────────────
+  tryton:                       true
+  tryton-workers:               true
+  tryton-cron:                  true
+  rabbitmq-erp:                 true
+
+  # ── S05 — Dev ──────────────────────────────────────────────────────────────
+  smartrates:                   false
+  smartorc:                     false
+  smartvaultflow:               false
+  smartportfolio:               false
+  smartpay:                     false
+  smartreport:                  false
+  smarttax:                     false
+
+  # ── S06 — Apps ─────────────────────────────────────────────────────────────
+  directus:                     true
+  openproject:                  true
+  trilium:                      true
+  vaultwarden:                  true
+  wikijs:                       true
+  calcom:                       false
+  easyappointments:             false
+  espocrm:                      false
+  gnuhealth:                    false
+  limesurvey:                   false
+  novu:                         false
+  orangehrm:                    false
+  saleor:                       false
+  taiga:                        false
+  tastyigniter:                 false
+  zammad:                       false
+  authelia:                     false
+  sbos-notifier:                false
+
+  # ── S07 — Report ───────────────────────────────────────────────────────────
+  airflow:                      true
+  pdfjs:                        true
+  jasperstarter:                true
+  jaspersoft:                   false   # pesado — activar bajo demanda
+  openmetadata:                 false   # pesado (~800MB) — activar bajo demanda
+  superset:                     false
+
+  # ── S08 — Docs ─────────────────────────────────────────────────────────────
+  docuseal:                     true
+  paperless-ngx:                true
+  solr:                         true
+  kimios:                       false
+  trilium-notes:                false
+  tabula:                       false
+  tesseract:                    false
+  tesseract-ocr:                false
+  camelot:                      false
+
+  # ── S09 — Search ───────────────────────────────────────────────────────────
+  rabbitmq-search:              true
+  bsearch:                      false   # daemon bSearch — activar cuando esté certificado
+  elasticsearch:                false   # pesado — activar bajo demanda
+  rabbitmq:                     false
+
+  # ── S10 — Comms ────────────────────────────────────────────────────────────
+  stalwart:                     true
+  postfix:                      true
+  roundcube:                    true
+  spamassassin:                 true
+  centrifugo:                   true
+  clamav:                       true
+  mattermost:                   true
+  postfixadmin:                 false
+  dovecot:                      false   # usar stalwart como IMAP en su lugar
+  mailserver:                   false
+  rocketchat:                   false   # sustituido por mattermost
+  cypht:                        false
+  freepbx:                      false   # VoIP — activar cuando haya hardware SIP
+
+  # ── S11 — VDI ──────────────────────────────────────────────────────────────
+  guacamole:                    true
+  fedora-kde:                   true
+  nextcloud:                    true
+  onlyoffice:                   false   # pesado (~600MB) — activar cuando se necesite edición online
+
+  # ── S12 — Monitor ──────────────────────────────────────────────────────────
+  prometheus:                   true
+  grafana:                      true
+  loki:                         true
+  alertmanager:                 true
+  tempo:                        true
+  alloy:                        true
+  zabbix:                       true
+  postgresql-extensions:        true
+  kube-state-metrics:           false
+  node-exporter:                false
+
+  # ── S13 — Geo ──────────────────────────────────────────────────────────────
+  fleetbase:                    false
+  traccar:                      false
+  cardmesh:                     false
+  novosga:                      false
+  xibo:                         false
+
+  # ── S14 — Ops ──────────────────────────────────────────────────────────────
+  searxng:                      true
+  goss:                         true
+  velero:                       false   # backup K8s — activar cuando haya almacenamiento S3
+  bareos:                       false   # backup archivos — activar cuando haya servidor dedicado
+  gitlab:                       false   # pesado — activar en servidor dedicado
+  trivy:                        false
+  pgbackrest-svc:               false
+  k6:                           false
+
+  # ── S15 — AI ───────────────────────────────────────────────────────────────
+  ollama:                       true
+  qdrant:                       true
+  flowise:                      true
+  langfuse:                     true
+  open-webui:                   true
+  bcompass-svc:                 false   # daemon bCompass — activar cuando esté certificado
+  embedding-worker:             false   # activar junto con bCompass
+
+  # ── S16 — Web ──────────────────────────────────────────────────────────────
+  certbot:                      false   # activar cuando haya dominio con DNS real
+  modsecurity:                  false
+  weblate:                      false   # localización — activar bajo demanda
