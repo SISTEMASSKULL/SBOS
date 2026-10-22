@@ -7,7 +7,7 @@ identity:
   description: "Tryton Workers — procesos de cola de tareas asíncronas del ERP (informes, importaciones, cálculos batch). Escala independiente del servidor principal."
 
 workload:
-  type: deployment
+  type: statefulset
   runtime: kubernetes
 
 order:
@@ -34,7 +34,7 @@ ports: []
 
 health:
   type: command
-  command: "kubectl --kubeconfig=/etc/bos/.kube/config get deployment tryton-workers -n sbos-erp -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get statefulset tryton-workers -n sbos-erp -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
   expected_output: "2"
   timeout_seconds: 30
 

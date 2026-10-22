@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================================
 # task_catalog.sh — tryton-cron
-# Proceso de tareas programadas de Tryton ERP (trytond-cron).
+# Proceso de tareas programadas de Tryton ERP (StatefulSet → tryton-cron-0).
 # Comparte ConfigMap y credenciales con la ficha tryton principal.
 # ============================================================================
 
@@ -20,11 +20,11 @@ TRYTON_VERSION="${TRYTON_VERSION:-7.4}"
 _log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] [tryton-cron] $*" | tee -a "$FICHA_LOG"; }
 _k()   { kubectl --kubeconfig="$KUBECONFIG_DEST" "$@"; }
 
-_wait_deploy_ready() {
-    local deploy="$1" ns="$2" timeout="${3:-120}" elapsed=0
+_wait_sts_ready() {
+    local sts="$1" ns="$2" timeout="${3:-120}" elapsed=0
     while (( elapsed < timeout )); do
         local ready
-        ready=$(_k get deployment "$deploy" -n "$ns" \
+        ready=$(_k get statefulset "$sts" -n "$ns" \
             -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
         (( ready >= 1 )) && return 0
         sleep 5; elapsed=$((elapsed + 5))
@@ -32,42 +32,64 @@ _wait_deploy_ready() {
     return 1
 }
 
-# ── install ────────────────────────────────────────────────────────────────
 ficha_install() {
     mkdir -p "$(dirname "$FICHA_LOG")"
     echo "${__STEP_START__} desplegar_tryton_cron"
 
-    local ya_existe
-    ya_existe=$(_k get deployment tryton-cron -n "$NS" --no-headers 2>/dev/null | wc -l || echo "0")
-    if (( ya_existe > 0 )); then
-        local ready
-        ready=$(_k get deployment tryton-cron -n "$NS" \
-            -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
-        if (( ready >= 1 )); then
-            echo "${__STEP_SKIP__} desplegar_tryton_cron: ya existe y Ready (${ready}/1)"
-            return 0
-        fi
+    # Migrar Deployment→StatefulSet si existe el Deployment anterior
+    if _k get deployment tryton-cron -n "$NS" >/dev/null 2>&1; then
+        _log "Migrando Deployment→StatefulSet: eliminando Deployment tryton-cron"
+        _k delete deployment tryton-cron -n "$NS" --wait=false 2>/dev/null || true
+    fi
+
+    # Verificar si ya existe y está healthy
+    local ready
+    ready=$(_k get statefulset tryton-cron -n "$NS" \
+        -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    if (( ready >= 1 )); then
+        echo "${__STEP_SKIP__} desplegar_tryton_cron: StatefulSet ya Ready (${ready}/1)"
+        return 0
     fi
 
     _k apply -f - >> "$FICHA_LOG" 2>&1 <<EOF
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: v1
+kind: Service
 metadata:
   name: tryton-cron
   namespace: ${NS}
   labels:
-    app: tryton-cron
-    app.kubernetes.io/part-of: erpserver
-    sbos.app/managed-by: bos
+    app.kubernetes.io/name: tryton-cron
+    app.kubernetes.io/component: erp-cron
+    app.kubernetes.io/part-of: sbos
+    app.kubernetes.io/managed-by: bos
 spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: tryton-cron
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: tryton-cron
+  namespace: ${NS}
+  labels:
+    app.kubernetes.io/name: tryton-cron
+    app.kubernetes.io/component: erp-cron
+    app.kubernetes.io/part-of: sbos
+    app.kubernetes.io/managed-by: bos
+spec:
+  serviceName: tryton-cron
   replicas: 1
   selector:
     matchLabels:
-      app: tryton-cron
+      app.kubernetes.io/name: tryton-cron
   template:
     metadata:
       labels:
-        app: tryton-cron
+        app.kubernetes.io/name: tryton-cron
+        app.kubernetes.io/component: erp-cron
+        app.kubernetes.io/part-of: sbos
+        app.kubernetes.io/managed-by: bos
     spec:
       serviceAccountName: tryton-sa
       containers:
@@ -100,44 +122,43 @@ spec:
                 path: trytond.conf
 EOF
 
-    rc=$?
+    local rc=$?
     if (( rc != 0 )); then
         echo "${__STEP_FAIL__} desplegar_tryton_cron: kubectl apply falló (rc=${rc})"
         return 1
     fi
 
-    _log "tryton-cron Deployment aplicado — esperando Ready"
-    if ! _wait_deploy_ready tryton-cron "$NS" 120; then
-        echo "${__STEP_FAIL__} desplegar_tryton_cron: Deployment no Ready en 120s"
+    _log "tryton-cron StatefulSet aplicado — esperando Ready"
+    if ! _wait_sts_ready tryton-cron "$NS" 120; then
+        echo "${__STEP_FAIL__} desplegar_tryton_cron: StatefulSet no Ready en 120s"
         return 1
     fi
     echo "${__STEP_OK__} desplegar_tryton_cron"
 }
 
-# ── repair ─────────────────────────────────────────────────────────────────
+ficha_health() {
+    local ready
+    ready=$(_k get statefulset tryton-cron -n "$NS" \
+        -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    if (( ready >= 1 )); then
+        echo "${__STEP_OK__} health: tryton-cron-0 Ready (${ready}/1)"
+        return 0
+    fi
+    echo "${__STEP_FAIL__} health: tryton-cron-0 no Ready"
+    return 1
+}
+
 ficha_repair() {
     echo "${__STEP_START__} reiniciar_tryton_cron"
-    _k rollout restart deployment/tryton-cron -n "$NS" 2>/dev/null || true
+    _k rollout restart statefulset/tryton-cron -n "$NS" 2>/dev/null || true
     echo "${__STEP_OK__} reiniciar_tryton_cron"
 }
 
-# ── uninstall ──────────────────────────────────────────────────────────────
 ficha_uninstall() {
     echo "${__STEP_START__} eliminar_tryton_cron"
-    _k delete deployment tryton-cron -n "$NS" --ignore-not-found 2>/dev/null || true
+    _k delete statefulset tryton-cron -n "$NS" --ignore-not-found 2>/dev/null || true
+    _k delete service tryton-cron -n "$NS" --ignore-not-found 2>/dev/null || true
     echo "${__STEP_OK__} eliminar_tryton_cron"
 }
 
-# ── health ─────────────────────────────────────────────────────────────────
-ficha_health() {
-    echo "${__STEP_START__} health"
-    local ready
-    ready=$(_k get deployment tryton-cron -n "$NS" \
-        -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
-    if (( ready >= 1 )); then
-        echo "${__STEP_OK__} health: tryton-cron Ready (${ready}/1)"
-    else
-        echo "${__STEP_FAIL__} health: tryton-cron no Ready"
-        return 1
-    fi
-}
+ficha_remove() { ficha_uninstall; }

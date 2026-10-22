@@ -7,7 +7,7 @@ identity:
   description: "Tryton Cron — proceso de tareas programadas del ERP (cierres contables, recordatorios, facturación automática). 1 proceso, apuntando a las mismas bases."
 
 workload:
-  type: deployment
+  type: statefulset
   runtime: kubernetes
 
 order:
@@ -35,7 +35,7 @@ ports: []
 
 health:
   type: command
-  command: "kubectl --kubeconfig=/etc/bos/.kube/config get deployment tryton-cron -n sbos-erp -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get statefulset tryton-cron -n sbos-erp -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
   expected_output: "1"
   timeout_seconds: 30
 
