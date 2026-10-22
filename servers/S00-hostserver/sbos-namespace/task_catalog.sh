@@ -57,7 +57,6 @@ ficha_install() {
         _log "namespace $NS ya existe — actualizando labels"
         _k label namespace "$NS" \
             tenant="${TENANT_ID}" \
-            name="${TENANT_NAME}" \
             domain-id="${DOMAIN_ID}" \
             domain-type="${DOMAIN_TYPE}" \
             managed-by="bos" \
@@ -67,7 +66,6 @@ ficha_install() {
         _k create namespace "$NS" >> "$FICHA_LOG" 2>&1
         _k label namespace "$NS" \
             tenant="${TENANT_ID}" \
-            name="${TENANT_NAME}" \
             domain-id="${DOMAIN_ID}" \
             domain-type="${DOMAIN_TYPE}" \
             managed-by="bos" \

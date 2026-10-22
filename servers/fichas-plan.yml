@@ -208,6 +208,4 @@ fichas:
   embedding-worker:             false
 
   # ── S16 — Web ──────────────────────────────────────────────────────────────
-  certbot:                      false   # ya está en S02 activo; no duplicar en S16
-  modsecurity:                  false
   weblate:                      true
