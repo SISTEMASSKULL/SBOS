@@ -153,6 +153,15 @@ ficha_repair() {
     return 0
 }
 
+# ── Health — verifica que el namespace existe y está Active ──────────
+# El master script llama ficha_health() en el paso verify. Para fichas
+# bash sin pods, verify_ficha_health() buscaría un pod inexistente y
+# siempre fallaría — esta función reemplaza ese comportamiento genérico.
+ficha_health() {
+    _k get namespace "$NS" --no-headers 2>/dev/null | grep -q Active && \
+    _k get networkpolicy default-deny-all -n "$NS" --no-headers 2>/dev/null | grep -q .
+}
+
 # ── Test ──────────────────────────────────────────────────────────────
 ficha_test() {
     local ok=0
