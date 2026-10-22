@@ -80,10 +80,30 @@ metadata:
   name: sbos-monitoring-reader
 rules:
   - apiGroups: [\"\"]
-    resources: [nodes, nodes/metrics, services, endpoints, pods, configmaps, namespaces]
+    resources: [nodes, nodes/metrics, services, endpoints, pods, configmaps, namespaces,
+                persistentvolumes, persistentvolumeclaims, replicationcontrollers,
+                resourcequotas, limitranges, secrets]
     verbs: [get, list, watch]
   - apiGroups: [apps]
     resources: [deployments, daemonsets, replicasets, statefulsets]
+    verbs: [get, list, watch]
+  - apiGroups: [batch]
+    resources: [jobs, cronjobs]
+    verbs: [get, list, watch]
+  - apiGroups: [autoscaling]
+    resources: [horizontalpodautoscalers]
+    verbs: [get, list, watch]
+  - apiGroups: [policy]
+    resources: [poddisruptionbudgets]
+    verbs: [get, list, watch]
+  - apiGroups: [storage.k8s.io]
+    resources: [storageclasses, volumeattachments]
+    verbs: [get, list, watch]
+  - apiGroups: [networking.k8s.io]
+    resources: [networkpolicies, ingresses]
+    verbs: [get, list, watch]
+  - apiGroups: [certificates.k8s.io]
+    resources: [certificatesigningrequests]
     verbs: [get, list, watch]
   - nonResourceURLs: [/metrics, /metrics/cadvisor]
     verbs: [get]
@@ -357,6 +377,23 @@ spec:
           port: 8080
         - protocol: TCP
           port: 8081" || true
+
+    # allow-egress-to-apiserver: kube-state-metrics necesita acceso al API server
+    # en 6443 para listar recursos del cluster. Sin esta política, el default-deny-all
+    # bloquea la conexión y KSM falla con exit code 2.
+    _apply "np-apiserver" "apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-to-apiserver
+  namespace: ${NAMESPACE}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - ports:
+        - protocol: TCP
+          port: 6443" || true
 
     echo "${__STEP_OK__} networkpolicies_monitoring"
 
