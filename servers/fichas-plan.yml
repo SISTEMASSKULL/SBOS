@@ -39,6 +39,7 @@ fichas:
   # daemons SBOS — desactivados hasta que estén certificados
   sbos-bkernel:                 false
   biedata:                      false
+  bcms:                         true    # daemon CMS — genera configs nginx por dominio/tenant
   sbos-security:                false
   sbos-package-manager:         false
   sbos-repair:                  false

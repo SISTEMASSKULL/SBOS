@@ -1,0 +1,55 @@
+identity:
+  id: bcms
+  server: S00
+  version: 1.0.0
+  category: 1
+  criticality: true
+  description: "bcms — Gestión de contenido del ecosistema SBOS. Genera configuraciones nginx por dominio/tenant en /etc/nginx/conf.d/domains/. Stack: PHP 8.2, CodeIgniter, bcms_db. Socket: /run/bos/bcms.sock"
+
+workload:
+  type: bash
+  runtime: systemd
+
+order:
+  execution_order: 380
+
+requirements:
+  dependencies:
+    - nginx
+    - nginx-multitenant
+    - postgresql
+    - kong
+
+governance:
+  auto_install: false
+  requires_approval: false
+  category_label: "daemon-soberano"
+
+license: MIT
+
+meta:
+  backend: systemd
+  idempotent: true
+  estimated_minutes: 3
+  rollback_support: true
+
+ports:
+  - port: 9480
+    protocol: TCP
+    description: "bcms diagnóstico (host-only)"
+    internal_only: true
+
+health:
+  type: command
+  command: "systemctl is-active bcmsd 2>/dev/null || echo inactive"
+  expected_output: "active"
+  timeout_seconds: 10
+
+audit:
+  ctx_id_required: true
+  log_path: /var/log/bos/fichas/bcms.log
+
+versions:
+  php: "8.2"
+  codeigniter: "4.x"
+  bcmsd: "1.0.0"
