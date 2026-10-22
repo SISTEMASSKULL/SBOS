@@ -43,9 +43,9 @@ fichas:
   sbos-package-manager:         false
   sbos-repair:                  false
   sbos-bootstrap-hardening:     false
-  cert-rotation:                false
-  compliance-check:             false
-  linkerd:                      false
+  cert-rotation:                false   # tarea de mantenimiento — solo en ventanas programadas
+  compliance-check:             false   # escaneo — activar bajo demanda
+  linkerd:                      false   # service mesh pesado — no necesario en dev
 
   # ── S01 — Data ─────────────────────────────────────────────────────────────
   postgresql:                   true
@@ -61,7 +61,7 @@ fichas:
   timescaledb:                  true
   pgadmin4:                     true
   ferretdb:                     false   # alternativa MongoDB — no necesaria aún
-  citus:                        false   # PostgreSQL distribuido — requiere cluster
+  citus:                        false   # PostgreSQL distribuido — requiere cluster multi-nodo; inútil en VPS único
   pgbackrest:                   false   # backup — activar cuando haya almacenamiento externo
 
   # ── S02 — Gateway ──────────────────────────────────────────────────────────
@@ -69,10 +69,10 @@ fichas:
   nginx:                        true
   vault:                        true
   sbos-kong-tenant:             true
-  certbot:                      false   # activar cuando haya dominio real con DNS
-  modsecurity:                  false   # WAF — activar en producción
-  nginx-multitenant:            false   # activar junto con multitenancy
-  besu-qbft:                    false   # blockchain — no necesaria aún
+  certbot:                      true
+  modsecurity:                  true
+  nginx-multitenant:            true
+  besu-qbft:                    true    # dependencia de bAuth — nodo validador blockchain
   bhnexus:                      false   # hardware proxy — activar con hardware físico
   banexus:                      false   # hardware proxy — activar con hardware físico
   oauth2-proxy-gateway:         false
@@ -105,16 +105,16 @@ fichas:
   # ── S06 — Apps ─────────────────────────────────────────────────────────────
   directus:                     true
   openproject:                  true
-  trilium:                      true
+  trilium:                      false   # duplicado — usar trilium-notes (S08, v0.63.7) que es más reciente
   vaultwarden:                  true
   wikijs:                       true
-  calcom:                       false
+  calcom:                       true
   easyappointments:             false
   espocrm:                      false
-  gnuhealth:                    false
+  gnuhealth:                    true
   limesurvey:                   false
-  novu:                         false
-  orangehrm:                    false
+  novu:                         true
+  orangehrm:                    true
   saleor:                       false
   taiga:                        false
   tastyigniter:                 false
@@ -131,15 +131,15 @@ fichas:
   superset:                     false
 
   # ── S08 — Docs ─────────────────────────────────────────────────────────────
-  docuseal:                     true
+  docuseal:                     false
   paperless-ngx:                true
   solr:                         true
   kimios:                       false
-  trilium-notes:                false
-  tabula:                       false
+  trilium-notes:                true
+  tabula:                       true
   tesseract:                    false
   tesseract-ocr:                false
-  camelot:                      false
+  camelot:                      false   # redundante con tabula — ambos extraen tablas de PDF; usar solo tabula
 
   # ── S09 — Search ───────────────────────────────────────────────────────────
   rabbitmq-search:              true
@@ -148,18 +148,18 @@ fichas:
   rabbitmq:                     false
 
   # ── S10 — Comms ────────────────────────────────────────────────────────────
-  stalwart:                     true
-  postfix:                      true
+  stalwart:                     false
+  postfix:                      false   # incluido dentro de mailserver all-in-one
   roundcube:                    true
-  spamassassin:                 true
+  spamassassin:                 false   # incluido dentro de mailserver all-in-one
   centrifugo:                   true
-  clamav:                       true
-  mattermost:                   true
-  postfixadmin:                 false
-  dovecot:                      false   # usar stalwart como IMAP en su lugar
-  mailserver:                   false
-  rocketchat:                   false   # sustituido por mattermost
-  cypht:                        false
+  clamav:                       false   # incluido dentro de mailserver all-in-one
+  mattermost:                   false
+  postfixadmin:                 true
+  dovecot:                      false   # incluido dentro de mailserver all-in-one
+  mailserver:                   true    # docker-mailserver 14.0 — Postfix+Dovecot+SpamAssassin+ClamAV+Rspamd all-in-one
+  rocketchat:                   true
+  cypht:                        false   # redundante con roundcube; dos clientes webmail innecesarios
   freepbx:                      false   # VoIP — activar cuando haya hardware SIP
 
   # ── S11 — VDI ──────────────────────────────────────────────────────────────
@@ -169,28 +169,28 @@ fichas:
   onlyoffice:                   false   # pesado (~600MB) — activar cuando se necesite edición online
 
   # ── S12 — Monitor ──────────────────────────────────────────────────────────
-  prometheus:                   true
-  grafana:                      true
-  loki:                         true
-  alertmanager:                 true
-  tempo:                        true
-  alloy:                        true
-  zabbix:                       true
+  prometheus:                   false
+  grafana:                      false
+  loki:                         false
+  alertmanager:                 false
+  tempo:                        false
+  alloy:                        false
+  zabbix:                       false
   postgresql-extensions:        true
   kube-state-metrics:           false
   node-exporter:                false
 
   # ── S13 — Geo ──────────────────────────────────────────────────────────────
-  fleetbase:                    false
-  traccar:                      false
+  fleetbase:                    true
+  traccar:                      true
   cardmesh:                     false
   novosga:                      false
-  xibo:                         false
+  xibo:                         true
 
   # ── S14 — Ops ──────────────────────────────────────────────────────────────
   searxng:                      true
-  goss:                         true
-  velero:                       false   # backup K8s — activar cuando haya almacenamiento S3
+  goss:                         false
+  velero:                       false   # backup K8s — necesita backend S3/MinIO configurado; no funciona solo
   bareos:                       false   # backup archivos — activar cuando haya servidor dedicado
   gitlab:                       false   # pesado — activar en servidor dedicado
   trivy:                        false
@@ -198,15 +198,15 @@ fichas:
   k6:                           false
 
   # ── S15 — AI ───────────────────────────────────────────────────────────────
-  ollama:                       true
-  qdrant:                       true
-  flowise:                      true
-  langfuse:                     true
-  open-webui:                   true
-  bcompass-svc:                 false   # daemon bCompass — activar cuando esté certificado
-  embedding-worker:             false   # activar junto con bCompass
+  ollama:                       true    # LLM local — dependencia de bCompass
+  qdrant:                       true    # vector DB — dependencia de bCompass
+  flowise:                      false
+  langfuse:                     false
+  open-webui:                   false
+  bcompass-svc:                 true    # daemon bCompass — en desarrollo activo
+  embedding-worker:             true    # generación de embeddings — dependencia de bCompass
 
   # ── S16 — Web ──────────────────────────────────────────────────────────────
-  certbot:                      false   # activar cuando haya dominio con DNS real
+  certbot:                      false   # ya está en S02 activo; no duplicar en S16
   modsecurity:                  false
-  weblate:                      false   # localización — activar bajo demanda
+  weblate:                      true
