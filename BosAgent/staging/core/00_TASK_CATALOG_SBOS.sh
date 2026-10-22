@@ -637,19 +637,44 @@ uninstall_generic() {
 verify_ficha_health() {
     local ficha_id="$1"
 
-    # Check if ficha has a registered health check command
     local ficha_dir
     ficha_dir=$(find "$SBOS_SERVERS_DIR" -maxdepth 4 -type d -name "$ficha_id" 2>/dev/null | head -1)
 
     if [[ -z "$ficha_dir" ]]; then
-        echo "ERROR: Cannot verify — ficha directory not found"
+        echo "ERROR: Cannot verify — ficha directory not found for $ficha_id"
         return 1
     fi
 
     local manifest="$ficha_dir/manifest.yml"
+    local health_type workload_type
+    health_type=$(yq eval '.health.type // ""' "$manifest" 2>/dev/null || echo "")
+    workload_type=$(yq eval '.workload.type // ""' "$manifest" 2>/dev/null || echo "")
+
+    # Fichas con health.type=command: ejecutar el comando del manifest
+    if [[ "$health_type" == "command" ]]; then
+        local health_cmd expected_output
+        health_cmd=$(yq eval '.health.command // ""' "$manifest" 2>/dev/null || echo "")
+        expected_output=$(yq eval '.health.expected_output // ""' "$manifest" 2>/dev/null || echo "")
+        [[ -z "$health_cmd" ]] && return 0
+        if [[ -n "$expected_output" ]]; then
+            local actual expected
+            actual=$(eval "$health_cmd" 2>/dev/null | tr -d '[:space:]')
+            expected=$(printf "%s" "$expected_output" | tr -d '[:space:]')
+            [[ "$actual" == "$expected" ]]
+        else
+            eval "$health_cmd" > /dev/null 2>&1
+        fi
+        return $?
+    fi
+
+    # Fichas bash sin health.command: el install correcto implica healthy
+    if [[ "$workload_type" == "bash" && -z "$health_type" ]]; then
+        return 0
+    fi
+
+    # Fichas K8s: verificar pod running
     local namespace
     namespace=$(yq eval '.workload.namespace // "default"' "$manifest")
-
     verify_pod_running "$namespace" "app=$ficha_id"
 }
 
