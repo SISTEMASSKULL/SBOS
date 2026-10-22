@@ -47,7 +47,7 @@ ficha_repair() {
 # ── uninstall ──────────────────────────────────────────────────
 ficha_uninstall() {
     echo "${__SBOS__STEP_START__} uninstall"
-    kubectl delete deployment compliance-check -n "${SBOS_NAMESPACE}" --ignore-not-found
+    kubectl delete statefulset compliance-check -n "${SBOS_NAMESPACE}" --ignore-not-found
     kubectl delete service compliance-check -n "${SBOS_NAMESPACE}" --ignore-not-found
     kubectl delete serviceaccount compliance-check-sa -n "${SBOS_NAMESPACE}" --ignore-not-found
     echo "${__SBOS__STEP_OK__} uninstall"
@@ -57,7 +57,7 @@ ficha_uninstall() {
 ficha_health() {
     echo "${__SBOS__STEP_START__} health"
     local ready
-    ready=$(kubectl get deployment compliance-check -n "${SBOS_NAMESPACE}" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    ready=$(kubectl get statefulset compliance-check -n "${SBOS_NAMESPACE}" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
     if [[ "$ready" -ge 1 ]]; then
         echo "compliance-check: HEALTHY ($ready/1 ready)"
         echo "${__SBOS__STEP_OK__} health"
@@ -71,6 +71,6 @@ ficha_health() {
 # ── diagnosis ──────────────────────────────────────────────────
 ficha_diagnosis() {
     echo "=== compliance-check Diagnosis ==="
-    kubectl get deployment compliance-check -n "${SBOS_NAMESPACE}" 2>/dev/null || echo "  No Deployment"
+    kubectl get statefulset compliance-check -n "${SBOS_NAMESPACE}" 2>/dev/null || echo "  No Deployment"
     kubectl get pods -l app=compliance-check -n "${SBOS_NAMESPACE}" 2>/dev/null || echo "  No pods"
 }

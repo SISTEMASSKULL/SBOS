@@ -22,7 +22,7 @@ ficha_install() {
     # Limpiar job anterior si existe
     kubectl delete job citus-init -n "${SBOS_NAMESPACE}" --ignore-not-found 2>/dev/null || true
     # Limpiar deployment anterior si quedó del YAML viejo
-    kubectl delete deployment citus -n "${SBOS_NAMESPACE}" --ignore-not-found 2>/dev/null || true
+    kubectl delete statefulset citus -n "${SBOS_NAMESPACE}" --ignore-not-found 2>/dev/null || true
     sbos_k8s_core "${SBOS_FICHA_DIR}/citus.k8s.yml" "${SBOS_NAMESPACE}"
     kubectl wait --for=condition=Complete job/citus-init \
         -n "${SBOS_NAMESPACE}" --timeout=120s || true

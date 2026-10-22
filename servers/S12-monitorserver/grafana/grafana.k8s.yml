@@ -104,7 +104,7 @@ metadata:
   name: grafana
   namespace: sbos-monitor
 spec:
-  type: ClusterIP
+  clusterIP: None
   selector:
     app: grafana
   ports:
@@ -113,14 +113,13 @@ spec:
       targetPort: 3000
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: grafana
   namespace: sbos-monitor
 spec:
+  serviceName: grafana
   replicas: 1
-  strategy:
-    type: Recreate
   selector:
     matchLabels:
       app: grafana

@@ -11,7 +11,7 @@ metadata:
   name: oauth2-proxy
   namespace: sbos-identity
 spec:
-  type: ClusterIP
+  clusterIP: None
   selector:
     app: oauth2-proxy
   ports:
@@ -20,14 +20,13 @@ spec:
       targetPort: 4180
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: oauth2-proxy
   namespace: sbos-identity
 spec:
+  serviceName: oauth2-proxy
   replicas: 1
-  strategy:
-    type: RollingUpdate
   selector:
     matchLabels:
       app: oauth2-proxy

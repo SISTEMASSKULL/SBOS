@@ -7,7 +7,7 @@ identity:
   description: "Trilium Notes 0.63.7 — base de conocimiento personal y corporativa con notas jerárquicas, scripting, cifrado extremo a extremo y wiki interna."
 
 workload:
-  type: deployment
+  type: statefulset
   runtime: kubernetes
 
 order:
@@ -39,7 +39,7 @@ ports:
 
 health:
   type: command
-  command: "kubectl --kubeconfig=/etc/bos/.kube/config get deployment trilium-notes -n sbos-collab -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get statefulset trilium-notes -n sbos-collab -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
   expected_output: "1"
   timeout_seconds: 30
 

@@ -33,7 +33,7 @@ metadata:
   namespace: sbos-vdi
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: guacamole
   namespace: sbos-vdi
@@ -41,12 +41,11 @@ metadata:
     app: guacamole
     app.kubernetes.io/part-of: sbos-vdi
 spec:
+  serviceName: guacamole
   replicas: 1
   selector:
     matchLabels:
       app: guacamole
-  strategy:
-    type: RollingUpdate
   template:
     metadata:
       labels:

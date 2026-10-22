@@ -21,7 +21,7 @@ metadata:
   name: langfuse
   namespace: sbos-ai
 spec:
-  type: ClusterIP
+  clusterIP: None
   selector:
     app: langfuse
   ports:
@@ -30,14 +30,13 @@ spec:
       targetPort: 3000
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: langfuse
   namespace: sbos-ai
 spec:
+  serviceName: langfuse
   replicas: 1
-  strategy:
-    type: RollingUpdate
   selector:
     matchLabels:
       app: langfuse

@@ -149,7 +149,7 @@ task_repair() {
     -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
   if [[ -z "$POD" ]]; then
     log_err "Pod no encontrado — relanzando deployment"
-    kubectl rollout restart deployment/sbos-notifier -n "sbos-${TENANT}"
+    kubectl rollout restart statefulset/sbos-notifier -n "sbos-${TENANT}"
   else
     log_ok "Pod activo: $POD"
   fi

@@ -11,7 +11,7 @@ metadata:
   name: k6
   namespace: sbos-ops
 spec:
-  type: ClusterIP
+  clusterIP: None
   selector:
     app: k6
   ports:
@@ -20,14 +20,13 @@ spec:
       targetPort: 6565
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: k6
   namespace: sbos-ops
 spec:
+  serviceName: k6
   replicas: 1
-  strategy:
-    type: RollingUpdate
   selector:
     matchLabels:
       app: k6

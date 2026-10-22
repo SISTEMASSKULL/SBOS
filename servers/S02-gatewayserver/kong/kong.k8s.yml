@@ -11,7 +11,7 @@ metadata:
   name: kong
   namespace: sbos-gateway
 spec:
-  type: ClusterIP
+  clusterIP: None
   selector:
     app: kong
   ports:
@@ -26,14 +26,13 @@ spec:
       targetPort: 8001
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: kong
   namespace: sbos-gateway
 spec:
+  serviceName: kong
   replicas: 1
-  strategy:
-    type: RollingUpdate
   selector:
     matchLabels:
       app: kong

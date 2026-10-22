@@ -47,7 +47,7 @@ ficha_repair() {
 # ── uninstall ──────────────────────────────────────────────────
 ficha_uninstall() {
     echo "${__SBOS__STEP_START__} uninstall"
-    kubectl delete deployment certbot -n "${SBOS_NAMESPACE}" --ignore-not-found
+    kubectl delete statefulset certbot -n "${SBOS_NAMESPACE}" --ignore-not-found
     kubectl delete service certbot -n "${SBOS_NAMESPACE}" --ignore-not-found
     kubectl delete serviceaccount certbot-sa -n "${SBOS_NAMESPACE}" --ignore-not-found
     echo "${__SBOS__STEP_OK__} uninstall"
@@ -56,9 +56,9 @@ ficha_uninstall() {
 # ── health ─────────────────────────────────────────────────────
 ficha_health() {
     echo "${__SBOS__STEP_START__} health"
-    if kubectl get deployment certbot -n "${SBOS_NAMESPACE}" &>/dev/null; then
+    if kubectl get statefulset certbot -n "${SBOS_NAMESPACE}" &>/dev/null; then
         local ready
-        ready=$(kubectl get deployment certbot -n "${SBOS_NAMESPACE}" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+        ready=$(kubectl get statefulset certbot -n "${SBOS_NAMESPACE}" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
         if [[ "$ready" -ge 1 ]]; then
             echo "certbot: HEALTHY ($ready/1 ready)"
             echo "${__SBOS__STEP_OK__} health"

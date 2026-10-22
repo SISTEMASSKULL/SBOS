@@ -11,7 +11,7 @@ metadata:
   name: tesseract
   namespace: sbos-docs
 spec:
-  type: ClusterIP
+  clusterIP: None
   selector:
     app: tesseract
   ports:
@@ -20,14 +20,13 @@ spec:
       targetPort: 5000
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: tesseract
   namespace: sbos-docs
 spec:
+  serviceName: tesseract
   replicas: 1
-  strategy:
-    type: RollingUpdate
   selector:
     matchLabels:
       app: tesseract

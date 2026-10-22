@@ -24,7 +24,7 @@ _wait_deploy_ready() {
     local d="$1" n="$2" t="${3:-120}" e=0
     while (( e < t )); do
         local r
-        r=$(_k get deployment "$d" -n "$n" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+        r=$(_k get statefulset "$d" -n "$n" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
         (( r >= 1 )) && return 0
         sleep 5; e=$((e+5)); (( e % 30 == 0 )) && _log "Esperando $d... ${e}/${t}s"
     done; return 1
@@ -43,7 +43,7 @@ ficha_install() {
     mkdir -p "$(dirname "$FICHA_LOG")" /data/trilium
 
     local ready
-    ready=$(_k get deployment trilium-notes -n "$NS" \
+    ready=$(_k get statefulset trilium-notes -n "$NS" \
         -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
     if (( ready >= 1 )); then
         echo "${__STEP_SKIP__} trilium_install: ya Ready — skip"
@@ -208,7 +208,7 @@ EOF
 ficha_repair() {
     _log "Repair trilium-notes: verificando deployment"
     local ready
-    ready=$(_k get deployment trilium-notes -n "$NS" \
+    ready=$(_k get statefulset trilium-notes -n "$NS" \
         -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
     if (( ready < 1 )); then
         _log "trilium-notes caído — re-ejecutando install"
@@ -220,14 +220,14 @@ ficha_repair() {
 
 ficha_status() {
     local ready
-    ready=$(_k get deployment trilium-notes -n "$NS" \
+    ready=$(_k get statefulset trilium-notes -n "$NS" \
         -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
     echo "trilium-notes ready=$ready"
 }
 
 ficha_remove() {
     _log "Eliminando trilium-notes"
-    _k delete deployment trilium-notes -n "$NS" --ignore-not-found >> "$FICHA_LOG" 2>&1
+    _k delete statefulset trilium-notes -n "$NS" --ignore-not-found >> "$FICHA_LOG" 2>&1
     _k delete service trilium-notes -n "$NS" --ignore-not-found >> "$FICHA_LOG" 2>&1
     _k delete ingress trilium-notes-ingress -n "$NS" --ignore-not-found >> "$FICHA_LOG" 2>&1
     echo "${__STEP_OK__} trilium_remove"

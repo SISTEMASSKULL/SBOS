@@ -11,7 +11,7 @@ metadata:
   name: mattermost
   namespace: sbos-comms
 spec:
-  type: ClusterIP
+  clusterIP: None
   selector:
     app: mattermost
   ports:
@@ -20,14 +20,13 @@ spec:
       targetPort: 8065
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: mattermost
   namespace: sbos-comms
 spec:
+  serviceName: mattermost
   replicas: 1
-  strategy:
-    type: Recreate
   selector:
     matchLabels:
       app: mattermost

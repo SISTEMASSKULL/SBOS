@@ -243,7 +243,7 @@ spec:
 
     # ── 3. kube-state-metrics (Deployment) ───────────────────────
     echo "${__STEP_START__} desplegar_kube_state_metrics"
-    if _kubectl get deployment kube-state-metrics -n "$NAMESPACE" > /dev/null 2>&1; then
+    if _kubectl get statefulset kube-state-metrics -n "$NAMESPACE" > /dev/null 2>&1; then
         _log "kube-state-metrics ya existe — omitiendo"
         echo "${__STEP_SKIP__} desplegar_kube_state_metrics: ya existe"
     else
@@ -416,7 +416,7 @@ ficha_repair() {
     echo "${__STEP_START__} reiniciar_componentes"
     _kubectl rollout restart daemonset/prometheus-node-exporter \
         -n "$NAMESPACE" 2>/dev/null || true
-    _kubectl rollout restart deployment/kube-state-metrics \
+    _kubectl rollout restart statefulset/kube-state-metrics \
         -n "$NAMESPACE" 2>/dev/null || true
     _wait_rollout daemonset prometheus-node-exporter "$NAMESPACE" 120 || true
     _wait_rollout deployment kube-state-metrics "$NAMESPACE" 120 || true
@@ -515,7 +515,7 @@ ficha_uninstall() {
     echo "${__STEP_START__} eliminar_componentes"
     _kubectl delete daemonset prometheus-node-exporter \
         -n "$NAMESPACE" 2>/dev/null || true
-    _kubectl delete deployment kube-state-metrics \
+    _kubectl delete statefulset kube-state-metrics \
         -n "$NAMESPACE" 2>/dev/null || true
     _kubectl delete service prometheus-node-exporter kube-state-metrics \
         -n "$NAMESPACE" 2>/dev/null || true

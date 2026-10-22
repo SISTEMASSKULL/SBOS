@@ -11,7 +11,7 @@ metadata:
   name: espocrm
   namespace: sbos-apps
 spec:
-  type: ClusterIP
+  clusterIP: None
   selector:
     app: espocrm
   ports:
@@ -20,14 +20,13 @@ spec:
       targetPort: 8080
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: espocrm
   namespace: sbos-apps
 spec:
+  serviceName: espocrm
   replicas: 1
-  strategy:
-    type: Recreate
   selector:
     matchLabels:
       app: espocrm

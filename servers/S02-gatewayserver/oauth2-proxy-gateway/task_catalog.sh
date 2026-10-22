@@ -379,7 +379,7 @@ ficha_post_install() {
 # ── Repair ────────────────────────────────────────────────────────
 ficha_health() {
     local r
-    r=$(_k get deployment oauth2-proxy -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    r=$(_k get statefulset oauth2-proxy -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
     (( r >= 1 )) && echo "HEALTHY" && return 0
     echo "DEGRADED: oauth2-proxy ${r}/1"
     return 1
@@ -387,7 +387,7 @@ ficha_health() {
 
 ficha_repair() {
     echo "${__STEP_START__} reiniciar_oauth2"
-    _k rollout restart deployment/oauth2-proxy -n "$NS" 2>/dev/null || true
+    _k rollout restart statefulset/oauth2-proxy -n "$NS" 2>/dev/null || true
     sleep 5
     if ! _wait_oauth2_ready 120; then
         _log "ADVERTENCIA: oauth2-proxy no Ready tras reinicio"
@@ -484,7 +484,7 @@ ficha_status() {
 ficha_uninstall() {
     _log "ADVERTENCIA: desinstalando oauth2-proxy"
     echo "${__STEP_START__} eliminar_k8s"
-    _k delete deployment oauth2-proxy -n "$NS" 2>/dev/null || true
+    _k delete statefulset oauth2-proxy -n "$NS" 2>/dev/null || true
     _k delete service oauth2-proxy -n "$NS" 2>/dev/null || true
     _k delete secret oauth2-proxy-config -n "$NS" 2>/dev/null || true
     _k delete networkpolicy allow-oauth2-proxy-access \

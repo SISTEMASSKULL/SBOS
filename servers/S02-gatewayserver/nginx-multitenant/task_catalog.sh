@@ -33,7 +33,7 @@ server {
 ficha_install() {
     echo "${__SBOS__STEP_START__} install"
     sbos_k8s_core "${SBOS_FICHA_DIR}/nginx.k8s.yml" "${SBOS_NAMESPACE}"
-    kubectl rollout status deployment/nginx -n "${SBOS_NAMESPACE}" --timeout=300s
+    kubectl rollout status statefulset/nginx -n "${SBOS_NAMESPACE}" --timeout=300s
     echo "${__SBOS__STEP_OK__} install"
 }
 
@@ -47,8 +47,8 @@ ficha_post_install() {
 # ── update ─────────────────────────────────────────────────────
 ficha_update() {
     echo "${__SBOS__STEP_START__} update"
-    kubectl rollout restart deployment/nginx -n "${SBOS_NAMESPACE}"
-    kubectl rollout status deployment/nginx -n "${SBOS_NAMESPACE}" --timeout=300s
+    kubectl rollout restart statefulset/nginx -n "${SBOS_NAMESPACE}"
+    kubectl rollout status statefulset/nginx -n "${SBOS_NAMESPACE}" --timeout=300s
     echo "${__SBOS__STEP_OK__} update"
 }
 
@@ -60,14 +60,14 @@ ficha_repair() {
         nginx -t && \
     kubectl exec -n "${SBOS_NAMESPACE}" deployment/nginx -- \
         nginx -s reload 2>/dev/null || \
-    kubectl rollout restart deployment/nginx -n "${SBOS_NAMESPACE}"
+    kubectl rollout restart statefulset/nginx -n "${SBOS_NAMESPACE}"
     echo "${__SBOS__STEP_OK__} repair"
 }
 
 # ── uninstall ──────────────────────────────────────────────────
 ficha_uninstall() {
     echo "${__SBOS__STEP_START__} uninstall"
-    kubectl delete deployment nginx -n "${SBOS_NAMESPACE}" --ignore-not-found
+    kubectl delete statefulset nginx -n "${SBOS_NAMESPACE}" --ignore-not-found
     kubectl delete service nginx -n "${SBOS_NAMESPACE}" --ignore-not-found
     kubectl delete configmap nginx-base-config -n "${SBOS_NAMESPACE}" --ignore-not-found
     echo "${__SBOS__STEP_OK__} uninstall"
@@ -85,7 +85,7 @@ ficha_health() {
 # ── describe ───────────────────────────────────────────────────
 ficha_describe() {
     echo "=== nginx Web Proxy Multi-tenant ==="
-    kubectl get deployment nginx -n "${SBOS_NAMESPACE}" 2>/dev/null || true
+    kubectl get statefulset nginx -n "${SBOS_NAMESPACE}" 2>/dev/null || true
     echo "Dominios activos:"
     kubectl get configmap -n "${SBOS_NAMESPACE}" -l sbos.io/vhost=true \
         -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null || true

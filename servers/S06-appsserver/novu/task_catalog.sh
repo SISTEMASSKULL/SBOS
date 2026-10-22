@@ -48,7 +48,7 @@ ficha_pre_install() {
 # ── Install ───────────────────────────────────────────────────────
 ficha_install() {
     echo "${__STEP_START__} deploy_novu_api"
-    if _k get deployment novu-api -n "$NS" > /dev/null 2>&1; then
+    if _k get statefulset novu-api -n "$NS" > /dev/null 2>&1; then
         echo "${__STEP_SKIP__} novu-api ya desplegado"
     else
         _k create deployment novu-api -n "$NS" --image="$NOVU_API_IMAGE" --replicas=1 --port=3000 \
@@ -66,7 +66,7 @@ ficha_install() {
     echo "${__STEP_OK__} deploy_novu_api"
 
     echo "${__STEP_START__} deploy_novu_ws"
-    if _k get deployment novu-ws -n "$NS" > /dev/null 2>&1; then
+    if _k get statefulset novu-ws -n "$NS" > /dev/null 2>&1; then
         echo "${__STEP_SKIP__} novu-ws ya desplegado"
     else
         _k create deployment novu-ws -n "$NS" --image="$NOVU_WS_IMAGE" --replicas=1 --port=3002 \
@@ -98,7 +98,7 @@ ficha_health_check() {
 ficha_uninstall() {
     for d in novu-api novu-ws; do
         echo "${__STEP_START__} remove_${d}"
-        _k delete deployment "$d" -n "$NS" --ignore-not-found=true
+        _k delete statefulset "$d" -n "$NS" --ignore-not-found=true
         echo "${__STEP_OK__} ${d} removido"
     done
     _k delete svc novu-api novu-ws -n "$NS" --ignore-not-found=true

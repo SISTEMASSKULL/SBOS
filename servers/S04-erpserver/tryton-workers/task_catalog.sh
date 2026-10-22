@@ -58,9 +58,9 @@ ficha_install() {
     echo "${__STEP_START__} desplegar_tryton_workers"
 
     # Migrar Deployment→StatefulSet si existe el Deployment anterior
-    if _k get deployment tryton-workers -n "$NS" >/dev/null 2>&1; then
+    if _k get statefulset tryton-workers -n "$NS" >/dev/null 2>&1; then
         _log "Migrando Deployment→StatefulSet: eliminando Deployment tryton-workers"
-        _k delete deployment tryton-workers -n "$NS" --wait=false 2>/dev/null || true
+        _k delete statefulset tryton-workers -n "$NS" --wait=false 2>/dev/null || true
     fi
 
     # Verificar si ya existe y está healthy

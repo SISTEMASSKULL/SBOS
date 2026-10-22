@@ -11,7 +11,7 @@ metadata:
   name: directus
   namespace: sbos-apps
 spec:
-  type: ClusterIP
+  clusterIP: None
   selector:
     app: directus
   ports:
@@ -20,14 +20,13 @@ spec:
       targetPort: 8055
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: directus
   namespace: sbos-apps
 spec:
+  serviceName: directus
   replicas: 1
-  strategy:
-    type: RollingUpdate
   selector:
     matchLabels:
       app: directus

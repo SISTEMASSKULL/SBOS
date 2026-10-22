@@ -197,7 +197,7 @@ ficha_test() {
 # ── Uninstall ─────────────────────────────────────────────────────
 ficha_uninstall() {
     echo "${__STEP_START__} remove_ferretdb"
-    _k delete deployment ferretdb -n "$NS" --ignore-not-found=true
+    _k delete statefulset ferretdb -n "$NS" --ignore-not-found=true
     _k delete svc ferretdb -n "$NS" --ignore-not-found=true
     echo "${__STEP_OK__} ferretdb removido"
 }

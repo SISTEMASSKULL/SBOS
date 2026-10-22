@@ -97,7 +97,7 @@ metadata:
   name: kyverno
   namespace: sbos-installer
 spec:
-  type: ClusterIP
+  clusterIP: None
   selector:
     app: kyverno
   ports:
@@ -106,14 +106,13 @@ spec:
       targetPort: 9443
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: kyverno
   namespace: sbos-installer
 spec:
+  serviceName: kyverno
   replicas: 1
-  strategy:
-    type: RollingUpdate
   selector:
     matchLabels:
       app: kyverno

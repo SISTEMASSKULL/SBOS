@@ -7,7 +7,7 @@ identity:
   description: "Tesseract OCR 5.5.0 — motor de reconocimiento óptico de caracteres. Worker sidecar de Paperless-NGX. Soporta español, inglés, quechua y 100+ idiomas."
 
 workload:
-  type: deployment
+  type: statefulset
   runtime: kubernetes
 
 order:
@@ -34,7 +34,7 @@ ports: []
 
 health:
   type: command
-  command: "kubectl --kubeconfig=/etc/bos/.kube/config get deployment tesseract-ocr -n sbos-docs -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
+  command: "kubectl --kubeconfig=/etc/bos/.kube/config get statefulset tesseract-ocr -n sbos-docs -o jsonpath='{.status.readyReplicas}' 2>/dev/null"
   expected_output: "1"
   timeout_seconds: 30
 

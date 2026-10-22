@@ -48,7 +48,7 @@ ficha_repair() {
 # ── uninstall ──────────────────────────────────────────────────
 ficha_uninstall() {
     echo "${__SBOS__STEP_START__} uninstall"
-    kubectl delete deployment local-path-provisioner -n "${SBOS_NAMESPACE}" --ignore-not-found
+    kubectl delete statefulset local-path-provisioner -n "${SBOS_NAMESPACE}" --ignore-not-found
     kubectl delete clusterrolebinding local-path-provisioner-binding --ignore-not-found
     kubectl delete clusterrole local-path-provisioner-role --ignore-not-found
     kubectl delete configmap local-path-provisioner-config -n "${SBOS_NAMESPACE}" --ignore-not-found

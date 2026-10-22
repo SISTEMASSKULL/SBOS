@@ -11,7 +11,7 @@ metadata:
   name: goss
   namespace: sbos-ops
 spec:
-  type: ClusterIP
+  clusterIP: None
   selector:
     app: goss
   ports:
@@ -20,14 +20,13 @@ spec:
       targetPort: 8080
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: goss
   namespace: sbos-ops
 spec:
+  serviceName: goss
   replicas: 1
-  strategy:
-    type: RollingUpdate
   selector:
     matchLabels:
       app: goss

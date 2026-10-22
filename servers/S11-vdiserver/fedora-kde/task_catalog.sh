@@ -29,7 +29,7 @@ ficha_pre_install() {
 ficha_install() {
     echo "${__SBOS__STEP_START__} install"
     sbos_k8s_core "${SBOS_FICHA_DIR}/fedora-kde.k8s.yml" "${SBOS_NAMESPACE}"
-    kubectl rollout status deployment/fedora-kde \
+    kubectl rollout status statefulset/fedora-kde \
         -n "${SBOS_NAMESPACE}" --timeout=600s
     echo "${__SBOS__STEP_OK__} install"
 }
@@ -44,23 +44,23 @@ ficha_post_install() {
 # ── update ─────────────────────────────────────────────────────
 ficha_update() {
     echo "${__SBOS__STEP_START__} update"
-    kubectl rollout restart deployment/fedora-kde -n "${SBOS_NAMESPACE}"
-    kubectl rollout status deployment/fedora-kde -n "${SBOS_NAMESPACE}" --timeout=300s
+    kubectl rollout restart statefulset/fedora-kde -n "${SBOS_NAMESPACE}"
+    kubectl rollout status statefulset/fedora-kde -n "${SBOS_NAMESPACE}" --timeout=300s
     echo "${__SBOS__STEP_OK__} update"
 }
 
 # ── repair ─────────────────────────────────────────────────────
 ficha_repair() {
     echo "${__SBOS__STEP_START__} repair"
-    kubectl rollout restart deployment/fedora-kde -n "${SBOS_NAMESPACE}"
-    kubectl rollout status deployment/fedora-kde -n "${SBOS_NAMESPACE}" --timeout=300s
+    kubectl rollout restart statefulset/fedora-kde -n "${SBOS_NAMESPACE}"
+    kubectl rollout status statefulset/fedora-kde -n "${SBOS_NAMESPACE}" --timeout=300s
     echo "${__SBOS__STEP_OK__} repair"
 }
 
 # ── uninstall ──────────────────────────────────────────────────
 ficha_uninstall() {
     echo "${__SBOS__STEP_START__} uninstall"
-    kubectl delete deployment fedora-kde -n "${SBOS_NAMESPACE}" --ignore-not-found
+    kubectl delete statefulset fedora-kde -n "${SBOS_NAMESPACE}" --ignore-not-found
     kubectl delete service fedora-kde -n "${SBOS_NAMESPACE}" --ignore-not-found
     kubectl delete secret fedora-kde-secret -n "${SBOS_NAMESPACE}" --ignore-not-found
     # PVC se conserva (datos del usuario — Retain)
@@ -83,6 +83,6 @@ ficha_health() {
 # ── describe ───────────────────────────────────────────────────
 ficha_describe() {
     echo "=== Fedora KDE Desktop (noVNC) ==="
-    kubectl get deployment fedora-kde -n "${SBOS_NAMESPACE}" 2>/dev/null || true
+    kubectl get statefulset fedora-kde -n "${SBOS_NAMESPACE}" 2>/dev/null || true
     kubectl get pvc fedora-kde-home -n "${SBOS_NAMESPACE}" 2>/dev/null || true
 }

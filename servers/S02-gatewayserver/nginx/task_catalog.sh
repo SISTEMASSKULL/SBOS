@@ -56,7 +56,7 @@ ficha_install() {
         --non-interactive --agree-tos \
         --email "${LETSENCRYPT_EMAIL}" \
         -d "*.${CLIENT_DOMAIN}" \
-        --deploy-hook "kubectl rollout restart deployment/nginx -n ${SBOS_NAMESPACE}" \
+        --deploy-hook "kubectl rollout restart statefulset/nginx -n ${SBOS_NAMESPACE}" \
         2>&1; then
         echo "  [certbot] Certificado wildcard emitido OK"
     else
@@ -87,7 +87,7 @@ ficha_post_install() {
 
     # Verificar si el pod está disponible antes de ejecutar comandos en él
     local pod_ready
-    pod_ready=$(kubectl get deployment nginx -n "${SBOS_NAMESPACE}" \
+    pod_ready=$(kubectl get statefulset nginx -n "${SBOS_NAMESPACE}" \
         -o jsonpath='{.status.availableReplicas}' 2>/dev/null || echo "0")
 
     if [[ "${pod_ready:-0}" -gt 0 ]]; then
@@ -135,7 +135,7 @@ ficha_repair() {
 # ── uninstall ──────────────────────────────────────────────────
 ficha_uninstall() {
     echo "${__SBOS__STEP_START__} uninstall"
-    kubectl delete deployment nginx -n "${SBOS_NAMESPACE}" --ignore-not-found
+    kubectl delete statefulset nginx -n "${SBOS_NAMESPACE}" --ignore-not-found
 
     # Limpiar certificados de staging
     if [[ -d /etc/letsencrypt/live/"${CLIENT_DOMAIN}" ]]; then

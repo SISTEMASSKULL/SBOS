@@ -11,7 +11,7 @@ metadata:
   name: postfix
   namespace: sbos-comms
 spec:
-  type: ClusterIP
+  clusterIP: None
   selector:
     app: postfix
   ports:
@@ -20,14 +20,13 @@ spec:
       targetPort: 25
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: postfix
   namespace: sbos-comms
 spec:
+  serviceName: postfix
   replicas: 1
-  strategy:
-    type: RollingUpdate
   selector:
     matchLabels:
       app: postfix

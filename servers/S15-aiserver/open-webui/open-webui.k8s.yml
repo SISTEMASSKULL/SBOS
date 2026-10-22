@@ -11,7 +11,7 @@ metadata:
   name: open-webui
   namespace: sbos-ai
 spec:
-  type: ClusterIP
+  clusterIP: None
   selector:
     app: open-webui
   ports:
@@ -20,14 +20,13 @@ spec:
       targetPort: 8080
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: open-webui
   namespace: sbos-ai
 spec:
+  serviceName: open-webui
   replicas: 1
-  strategy:
-    type: RollingUpdate
   selector:
     matchLabels:
       app: open-webui

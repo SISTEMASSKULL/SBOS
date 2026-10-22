@@ -35,7 +35,7 @@ ficha_pre_install() {
 ficha_install() {
     echo "${__SBOS__STEP_START__} install"
     sbos_k8s_core "${SBOS_FICHA_DIR}/grafana.k8s.yml" "${SBOS_NAMESPACE}"
-    kubectl rollout status deployment/grafana -n "${SBOS_NAMESPACE}" --timeout=600s
+    kubectl rollout status statefulset/grafana -n "${SBOS_NAMESPACE}" --timeout=600s
     echo "${__SBOS__STEP_OK__} install"
 }
 
@@ -49,7 +49,7 @@ ficha_post_install() {
 ficha_update() {
     echo "${__SBOS__STEP_START__} update"
     kubectl rollout restart deployment grafana -n "${SBOS_NAMESPACE}"
-    kubectl rollout status deployment/grafana -n "${SBOS_NAMESPACE}" --timeout=300s
+    kubectl rollout status statefulset/grafana -n "${SBOS_NAMESPACE}" --timeout=300s
     echo "${__SBOS__STEP_OK__} update"
 }
 
@@ -76,7 +76,7 @@ ficha_repair() {
 # ── uninstall ──────────────────────────────────────────────────
 ficha_uninstall() {
     echo "${__SBOS__STEP_START__} uninstall"
-    kubectl delete deployment grafana -n "${SBOS_NAMESPACE}" --ignore-not-found
+    kubectl delete statefulset grafana -n "${SBOS_NAMESPACE}" --ignore-not-found
     kubectl delete pvc grafana-data -n "${SBOS_NAMESPACE}" --ignore-not-found
     echo "${__SBOS__STEP_OK__} uninstall"
 }

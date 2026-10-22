@@ -316,7 +316,7 @@ ficha_repair() {
 
     echo "${__STEP_START__} reiniciar_calico"
     _kubectl rollout restart daemonset/calico-node -n kube-system 2>/dev/null || true
-    _kubectl rollout restart deployment/calico-kube-controllers -n kube-system 2>/dev/null || true
+    _kubectl rollout restart statefulset/calico-kube-controllers -n kube-system 2>/dev/null || true
     _wait_calico_ready 120 || true
     echo "${__STEP_OK__} reiniciar_calico"
 

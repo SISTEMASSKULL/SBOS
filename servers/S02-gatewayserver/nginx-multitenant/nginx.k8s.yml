@@ -28,7 +28,7 @@ spec:
       nodePort: 30443
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: nginx
   namespace: sbos-web
@@ -36,9 +36,8 @@ metadata:
     app: nginx
     sbos-ficha: nginx-multitenant
 spec:
+  serviceName: nginx
   replicas: 1
-  strategy:
-    type: RollingUpdate
     rollingUpdate:
       maxUnavailable: 0
       maxSurge: 1

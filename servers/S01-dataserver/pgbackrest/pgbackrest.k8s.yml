@@ -7,14 +7,13 @@ metadata:
 ---
 # pgbackrest: backup de PostgreSQL usando imagen Debian con apt install
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: pgbackrest
   namespace: sbos-data
 spec:
+  serviceName: pgbackrest
   replicas: 1
-  strategy:
-    type: RollingUpdate
   selector:
     matchLabels:
       app: pgbackrest

@@ -41,8 +41,8 @@ SecAction \"id:900000,phase:1,nolog,pass,t:none,setvar:tx.paranoia_level=${MODSE
 ficha_install() {
     echo "${__SBOS__STEP_START__} install"
     # modsecurity se activa recargando nginx con la nueva configuración
-    kubectl rollout restart deployment/nginx -n "${SBOS_NAMESPACE}"
-    kubectl rollout status deployment/nginx -n "${SBOS_NAMESPACE}" --timeout=120s
+    kubectl rollout restart statefulset/nginx -n "${SBOS_NAMESPACE}"
+    kubectl rollout status statefulset/nginx -n "${SBOS_NAMESPACE}" --timeout=120s
     echo "${__SBOS__STEP_OK__} install"
 }
 
@@ -58,7 +58,7 @@ ficha_update() {
     echo "${__SBOS__STEP_START__} update"
     ficha_pre_install
     kubectl exec -n "${SBOS_NAMESPACE}" deployment/nginx -- nginx -s reload 2>/dev/null || \
-        kubectl rollout restart deployment/nginx -n "${SBOS_NAMESPACE}"
+        kubectl rollout restart statefulset/nginx -n "${SBOS_NAMESPACE}"
     echo "${__SBOS__STEP_OK__} update"
 }
 
@@ -78,7 +78,7 @@ ficha_uninstall() {
     echo "${__SBOS__STEP_START__} uninstall"
     kubectl delete configmap modsecurity-config -n "${SBOS_NAMESPACE}" --ignore-not-found
     # Recargar nginx sin modsecurity
-    kubectl rollout restart deployment/nginx -n "${SBOS_NAMESPACE}" 2>/dev/null || true
+    kubectl rollout restart statefulset/nginx -n "${SBOS_NAMESPACE}" 2>/dev/null || true
     echo "${__SBOS__STEP_OK__} uninstall"
 }
 

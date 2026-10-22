@@ -11,7 +11,7 @@ metadata:
   name: clamav
   namespace: sbos-comms
 spec:
-  type: ClusterIP
+  clusterIP: None
   selector:
     app: clamav
   ports:
@@ -20,14 +20,13 @@ spec:
       targetPort: 3310
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: clamav
   namespace: sbos-comms
 spec:
+  serviceName: clamav
   replicas: 1
-  strategy:
-    type: RollingUpdate
   selector:
     matchLabels:
       app: clamav

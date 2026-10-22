@@ -65,7 +65,7 @@ ficha_repair() {
 # ── uninstall ──────────────────────────────────────────────────
 ficha_uninstall() {
     echo "${__SBOS__STEP_START__} uninstall"
-    kubectl delete deployment kong -n "${SBOS_NAMESPACE}" --ignore-not-found
+    kubectl delete statefulset kong -n "${SBOS_NAMESPACE}" --ignore-not-found
     kubectl delete service kong -n "${SBOS_NAMESPACE}" --ignore-not-found
     kubectl delete secret kong-secret -n "${SBOS_NAMESPACE}" --ignore-not-found
     echo "${__SBOS__STEP_OK__} uninstall"

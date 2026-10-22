@@ -11,7 +11,7 @@ metadata:
   name: compliance-check
   namespace: sbos-installer
 spec:
-  type: ClusterIP
+  clusterIP: None
   selector:
     app: compliance-check
   ports:
@@ -20,14 +20,13 @@ spec:
       targetPort: 80
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: compliance-check
   namespace: sbos-installer
 spec:
+  serviceName: compliance-check
   replicas: 1
-  strategy:
-    type: RollingUpdate
   selector:
     matchLabels:
       app: compliance-check

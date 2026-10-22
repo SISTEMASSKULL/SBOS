@@ -183,7 +183,7 @@ ficha_pre_install() {
     mkdir -p "$(dirname "$FICHA_LOG")"
 
     echo "${__STEP_START__} verificar_kong"
-    if ! _k get deployment kong -n "$NS_KONG" > /dev/null 2>&1; then
+    if ! _k get statefulset kong -n "$NS_KONG" > /dev/null 2>&1; then
         echo "${__STEP_FAIL__} verificar_kong: Kong Deployment no encontrado"
         return 1
     fi

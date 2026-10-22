@@ -47,7 +47,7 @@ ficha_pre_install() {
 ficha_install() {
     echo "${__SBOS__STEP_START__} install"
     sbos_k8s_core "${SBOS_FICHA_DIR}/cypht.k8s.yml" "${SBOS_NAMESPACE}"
-    kubectl rollout status deployment/cypht-0 -n "${SBOS_NAMESPACE}" --timeout=600s
+    kubectl rollout status statefulset/cypht-0 -n "${SBOS_NAMESPACE}" --timeout=600s
     echo "${__SBOS__STEP_OK__} install"
 }
 
@@ -61,7 +61,7 @@ ficha_post_install() {
 ficha_update() {
     echo "${__SBOS__STEP_START__} update"
     kubectl rollout restart deployment cypht -n "${SBOS_NAMESPACE}"
-    kubectl rollout status deployment/cypht-0 -n "${SBOS_NAMESPACE}" --timeout=300s
+    kubectl rollout status statefulset/cypht-0 -n "${SBOS_NAMESPACE}" --timeout=300s
     echo "${__SBOS__STEP_OK__} update"
 }
 
@@ -86,7 +86,7 @@ ficha_repair() {
 # ── uninstall ──────────────────────────────────────────────────
 ficha_uninstall() {
     echo "${__SBOS__STEP_START__} uninstall"
-    kubectl delete deployment cypht -n "${SBOS_NAMESPACE}" --ignore-not-found
+    kubectl delete statefulset cypht -n "${SBOS_NAMESPACE}" --ignore-not-found
     echo "${__SBOS__STEP_OK__} uninstall"
 }
 
@@ -94,7 +94,7 @@ ficha_uninstall() {
 ficha_health() {
     echo "${__SBOS__STEP_START__} health"
     local ready
-    ready=$(kubectl get deployment cypht -n "${SBOS_NAMESPACE}" \
+    ready=$(kubectl get statefulset cypht -n "${SBOS_NAMESPACE}" \
         -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
     ready="${ready:-0}"
     if [ "${ready}" -lt 1 ] 2>/dev/null; then

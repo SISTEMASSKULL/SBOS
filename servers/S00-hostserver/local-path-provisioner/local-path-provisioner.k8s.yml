@@ -84,11 +84,12 @@ data:
     rm -rf "${VOLUME_DIR}"
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: local-path-provisioner
   namespace: kube-system
 spec:
+  serviceName: local-path-provisioner
   replicas: 1
   selector:
     matchLabels:

@@ -28,7 +28,7 @@ metadata:
   labels:
     app: fedora-kde
 spec:
-  type: ClusterIP
+  clusterIP: None
   selector:
     app: fedora-kde
   ports:
@@ -37,7 +37,7 @@ spec:
       targetPort: 3000
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: fedora-kde
   namespace: sbos-vdi
@@ -45,9 +45,8 @@ metadata:
     app: fedora-kde
     app.kubernetes.io/part-of: sbos-vdi
 spec:
+  serviceName: fedora-kde
   replicas: 1
-  strategy:
-    type: Recreate
   selector:
     matchLabels:
       app: fedora-kde

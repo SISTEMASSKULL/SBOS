@@ -44,7 +44,7 @@ ficha_pre_install() {
 # ── Install ───────────────────────────────────────────────────────
 ficha_install() {
     echo "${__STEP_START__} deploy_ferretdb"
-    if _k get deployment ferretdb -n "$NS" > /dev/null 2>&1; then
+    if _k get statefulset ferretdb -n "$NS" > /dev/null 2>&1; then
         echo "${__STEP_SKIP__} ferretdb ya desplegado"
     else
         _k create deployment ferretdb -n "$NS" --image="$FERRETDB_IMAGE" \
@@ -74,7 +74,7 @@ ficha_health_check() {
 # ── Uninstall ─────────────────────────────────────────────────────
 ficha_uninstall() {
     echo "${__STEP_START__} remove_ferretdb"
-    _k delete deployment ferretdb -n "$NS" --ignore-not-found=true
+    _k delete statefulset ferretdb -n "$NS" --ignore-not-found=true
     _k delete svc ferretdb -n "$NS" --ignore-not-found=true
     echo "${__STEP_OK__} ferretdb removido"
 }

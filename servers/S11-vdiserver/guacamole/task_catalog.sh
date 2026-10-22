@@ -64,7 +64,7 @@ ficha_pre_install() {
 ficha_install() {
     echo "${__SBOS__STEP_START__} install"
     sbos_k8s_core "${SBOS_FICHA_DIR}/guacamole.k8s.yml" "${SBOS_NAMESPACE}"
-    kubectl rollout status deployment/guacamole \
+    kubectl rollout status statefulset/guacamole \
         -n "${SBOS_NAMESPACE}" --timeout=300s
     echo "${__SBOS__STEP_OK__} install"
 }
@@ -79,23 +79,23 @@ ficha_post_install() {
 # ── update ─────────────────────────────────────────────────────
 ficha_update() {
     echo "${__SBOS__STEP_START__} update"
-    kubectl rollout restart deployment/guacamole -n "${SBOS_NAMESPACE}"
-    kubectl rollout status deployment/guacamole -n "${SBOS_NAMESPACE}" --timeout=300s
+    kubectl rollout restart statefulset/guacamole -n "${SBOS_NAMESPACE}"
+    kubectl rollout status statefulset/guacamole -n "${SBOS_NAMESPACE}" --timeout=300s
     echo "${__SBOS__STEP_OK__} update"
 }
 
 # ── repair ─────────────────────────────────────────────────────
 ficha_repair() {
     echo "${__SBOS__STEP_START__} repair"
-    kubectl rollout restart deployment/guacamole -n "${SBOS_NAMESPACE}"
-    kubectl rollout status deployment/guacamole -n "${SBOS_NAMESPACE}" --timeout=300s
+    kubectl rollout restart statefulset/guacamole -n "${SBOS_NAMESPACE}"
+    kubectl rollout status statefulset/guacamole -n "${SBOS_NAMESPACE}" --timeout=300s
     echo "${__SBOS__STEP_OK__} repair"
 }
 
 # ── uninstall ──────────────────────────────────────────────────
 ficha_uninstall() {
     echo "${__SBOS__STEP_START__} uninstall"
-    kubectl delete deployment guacamole -n "${SBOS_NAMESPACE}" --ignore-not-found
+    kubectl delete statefulset guacamole -n "${SBOS_NAMESPACE}" --ignore-not-found
     kubectl delete service guacamole -n "${SBOS_NAMESPACE}" --ignore-not-found
     kubectl delete secret guacamole-db -n "${SBOS_NAMESPACE}" --ignore-not-found
     # guacamole_db NO se borra — datos de sesiones (Retain)
@@ -114,6 +114,6 @@ ficha_health() {
 # ── describe ───────────────────────────────────────────────────
 ficha_describe() {
     echo "=== Apache Guacamole VDI Gateway ==="
-    kubectl get deployment guacamole -n "${SBOS_NAMESPACE}" 2>/dev/null || true
+    kubectl get statefulset guacamole -n "${SBOS_NAMESPACE}" 2>/dev/null || true
     kubectl get configmap guacamole-oidc -n "${SBOS_NAMESPACE}" 2>/dev/null || true
 }

@@ -23,7 +23,7 @@ _wait_ready() {
     local t="${1:-180}" e=0
     while (( e < t )); do
         local r
-        r=$(_k get deployment tesseract-ocr -n "$NS" \
+        r=$(_k get statefulset tesseract-ocr -n "$NS" \
             -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
         (( r >= 1 )) && return 0
         sleep 5; e=$((e+5))
@@ -45,7 +45,7 @@ ficha_install() {
     mkdir -p "$(dirname "$FICHA_LOG")"
 
     local r
-    r=$(_k get deployment tesseract-ocr -n "$NS" \
+    r=$(_k get statefulset tesseract-ocr -n "$NS" \
         -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
     if (( r >= 1 )); then
         echo "${__STEP_SKIP__} tesseract-ocr_install: ya Ready — skip"
@@ -116,7 +116,7 @@ SVCINNER
 ficha_verify() {
     echo "${__STEP_START__} verificar_tesseract-ocr"
     local r
-    r=$(_k get deployment tesseract-ocr -n "$NS" \
+    r=$(_k get statefulset tesseract-ocr -n "$NS" \
         -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
     (( r >= 1 )) || { echo "${__STEP_FAIL__} verificar_tesseract-ocr: ${r}/1"; return 1; }
     echo "${__STEP_OK__} verificar_tesseract-ocr (${r}/1)"
@@ -125,7 +125,7 @@ ficha_verify() {
 
 ficha_health() {
     local r
-    r=$(_k get deployment tesseract-ocr -n "$NS" \
+    r=$(_k get statefulset tesseract-ocr -n "$NS" \
         -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
     (( r >= 1 )) && echo "HEALTHY" && return 0
     echo "DEGRADED: tesseract-ocr ${r}/1"
@@ -146,7 +146,7 @@ ficha_test() {
     local ok=0
     echo "${__STEP_START__} test_tesseract-ocr_ready"
     local ready
-    ready=$(_k get deployment tesseract-ocr -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    ready=$(_k get statefulset tesseract-ocr -n "$NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
     if (( ready >= 1 )); then
         echo "${__STEP_OK__} test_tesseract-ocr_ready (${ready}/1)"
     else
@@ -157,7 +157,7 @@ ficha_test() {
 
 ficha_remove() {
     echo "${__STEP_START__} eliminar_tesseract-ocr"
-    _k delete deployment tesseract-ocr -n "$NS" --ignore-not-found=true >> "$FICHA_LOG" 2>&1
+    _k delete statefulset tesseract-ocr -n "$NS" --ignore-not-found=true >> "$FICHA_LOG" 2>&1
     _k delete service tesseract-ocr -n "$NS" --ignore-not-found=true >> "$FICHA_LOG" 2>&1
     echo "${__STEP_OK__} eliminar_tesseract-ocr"
     return 0
