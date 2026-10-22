@@ -12,6 +12,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRC_DIR="$(dirname "$SCRIPT_DIR")/src"
+# servers/ canónico: raíz del proyecto (S00-hostserver, S01-dataserver, etc.)
+SERVERS_SRC="$(dirname "$(dirname "$SCRIPT_DIR")")/servers"
 ZIP="$SCRIPT_DIR/sbos-bootstrap.zip"
 
 # Detectar go
@@ -23,6 +25,12 @@ fi
 GO_VER="$($GO_BIN version)"
 echo "=== SBOS Build — $GO_VER ==="
 echo ""
+
+# Verificar zip disponible
+if ! command -v zip &>/dev/null; then
+    echo "ERROR: 'zip' no encontrado. Instalar con: sudo apt-get install zip" >&2
+    exit 1
+fi
 
 # ── 1. Compilar bos (daemon) ────────────────────────────────────────────────
 echo "── 1/3  Compilando bos (daemon)..."
@@ -70,11 +78,22 @@ for f in "${ROOT_FILES[@]}"; do
     fi
 done
 
-# core/ completo (scripts maestros + servers/)
+# core/ — scripts maestros (sin servers/ — se empaqueta por separado desde la fuente canónica)
 if [ -d core ]; then
-    zip -qr "$ZIP" core/
-    N=$(find core/ -type f | wc -l)
-    echo "        + core/  ($N archivos)"
+    zip -qr "$ZIP" core/ --exclude "core/servers/*"
+    N=$(find core/ -not -path "*/servers/*" -type f | wc -l)
+    echo "        + core/  ($N archivos, sin servers/ interno)"
+fi
+
+# servers/ canónico desde la raíz del proyecto — fuente única de verdad
+if [ -d "$SERVERS_SRC" ]; then
+    cd "$(dirname "$SERVERS_SRC")"
+    zip -qr "$ZIP" servers/
+    N=$(find "$SERVERS_SRC" -type f | wc -l)
+    echo "        + servers/  ($N archivos — desde raíz canónica)"
+    cd "$SCRIPT_DIR"
+else
+    echo "        ⚠ servers/ no encontrado en $SERVERS_SRC"
 fi
 
 SIZE=$(du -sh "$ZIP" | awk '{print $1}')

@@ -11,10 +11,10 @@
 # Si el primer número no es 0, el entorno no es rootful → ABORTAR.
 
 org_name = "SKULL SISTEMAS"
-client_domain = "skull.sksistemas.com"
-server_ip = "144.91.76.130"
+client_domain = "sksistemas.com"
+server_ip = "13.140.128.230"
 release_server_url = "https://release.skull.sistemasskull.com"
-channel = "testing"
+channel = "stable"
 http_port = 9443
 bos_path = "/opt/bos"
 core_path = "/opt/bos/core"
