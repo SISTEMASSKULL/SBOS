@@ -38,7 +38,7 @@ spec:
       serviceAccountName: ollama-sa
       containers:
         - name: ollama
-          image: docker.io/ollama/ollama:0.5
+          image: docker.io/ollama/ollama:latest
           ports:
             - containerPort: 11434
               name: http

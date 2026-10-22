@@ -39,7 +39,9 @@ spec:
       serviceAccountName: velero-sa
       containers:
         - name: velero
-          image: ghcr.io/vmware-tanzu/velero:v1.14.1
+          image: docker.io/velero/velero:v1.14.1
+          command: ["/velero"]
+          args: ["server", "--log-level=info"]
           ports:
             - containerPort: 8085
               name: http
